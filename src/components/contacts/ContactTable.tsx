@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 
 import { Badge, SearchBar, Select, Table } from "@/components/ui";
-import type { BadgeColor, TableColumn } from "@/components/ui";
+import type { BadgeColor, SortDirection, TableColumn } from "@/components/ui";
+import { useUrlState } from "@/lib/hooks/useUrlState";
 import { CONTACT_RELATIONSHIPS } from "@/lib/utils/constants";
 import { formatDate, humanizeEnum } from "@/lib/utils/formatters";
 import type { Enums, Tables } from "@/types/database";
@@ -37,17 +38,42 @@ const RELATIONSHIP_FILTER_OPTIONS = [
   })),
 ];
 
+const DEFAULT_SORT = { key: "name", direction: "asc" as SortDirection };
+
 /**
  * Sortable contact list with keyword search and a relationship filter
  * (BLUEPRINT §4.3). Filtering and sorting run client-side over the provided
- * rows. Clicking a row opens the contact detail page.
+ * rows. Clicking a row opens the contact detail page. Search, filter, and sort
+ * are persisted to the URL so they survive sidebar navigation.
  */
 export function ContactTable({ contacts, isLoading = false }: ContactTableProps) {
   const router = useRouter();
-  const [query, setQuery] = useState("");
-  const [relationship, setRelationship] = useState<
-    ContactRelationship | "all"
-  >("all");
+  const { searchParams, setParams } = useUrlState();
+
+  // State lives in the URL so it survives sidebar navigation and refresh.
+  const query = searchParams.get("q") ?? "";
+  const relationshipParam = searchParams.get("relationship");
+  const relationship: ContactRelationship | "all" =
+    relationshipParam &&
+    (CONTACT_RELATIONSHIPS as readonly string[]).includes(relationshipParam)
+      ? (relationshipParam as ContactRelationship)
+      : "all";
+  const sort = {
+    key: searchParams.get("sort") ?? DEFAULT_SORT.key,
+    direction:
+      searchParams.get("dir") === "desc"
+        ? ("desc" as SortDirection)
+        : ("asc" as SortDirection),
+  };
+
+  function handleSortChange(next: { key: string; direction: SortDirection }) {
+    const isDefault =
+      next.key === DEFAULT_SORT.key && next.direction === DEFAULT_SORT.direction;
+    setParams({
+      sort: isDefault ? null : next.key,
+      dir: isDefault ? null : next.direction,
+    });
+  }
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -143,7 +169,8 @@ export function ContactTable({ contacts, isLoading = false }: ContactTableProps)
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="sm:max-w-xs sm:flex-1">
           <SearchBar
-            onSearch={setQuery}
+            defaultValue={query}
+            onSearch={(value) => setParams({ q: value || null })}
             placeholder="Search contacts…"
             aria-label="Search contacts"
           />
@@ -154,7 +181,9 @@ export function ContactTable({ contacts, isLoading = false }: ContactTableProps)
             options={RELATIONSHIP_FILTER_OPTIONS}
             value={relationship}
             onChange={(e) =>
-              setRelationship(e.target.value as ContactRelationship | "all")
+              setParams({
+                relationship: e.target.value === "all" ? null : e.target.value,
+              })
             }
           />
         </div>
@@ -166,7 +195,8 @@ export function ContactTable({ contacts, isLoading = false }: ContactTableProps)
         rowKey={(row) => row.id}
         isLoading={isLoading}
         onRowClick={(row) => router.push(`/contacts/${row.id}`)}
-        initialSort={{ key: "name", direction: "asc" }}
+        sort={sort}
+        onSortChange={handleSortChange}
         emptyMessage="No contacts match your filters."
       />
     </div>

@@ -15,9 +15,24 @@ export interface KnowledgeSource {
   title: string;
 }
 
+/** Lifecycle of a draft through the humanization agent (mirrors the DB enum). */
+export type HumanizationStatus =
+  | "not_humanized"
+  | "pending"
+  | "humanized"
+  | "failed";
+
 export interface DraftRequest {
   opportunityId: string;
   templateType: DraftTemplateType;
+}
+
+/** Metadata for the draft_versions row auto-saved when a draft is generated. */
+export interface SavedDraftVersion {
+  id: string;
+  versionNumber: number;
+  humanizationStatus: HumanizationStatus;
+  createdAt: string;
 }
 
 export interface DraftResult {
@@ -25,6 +40,29 @@ export interface DraftResult {
   /** AI confidence 0-100. Below 70 must show a review warning. */
   confidenceScore: number;
   sources: KnowledgeSource[];
+  /**
+   * The version auto-persisted to draft_versions on generation. Null only if
+   * the (best-effort) save failed — generation itself still succeeds.
+   */
+  savedVersion?: SavedDraftVersion | null;
+}
+
+/** Result of the Humanizer pass (/api/ai/humanize). */
+export interface HumanizeResult {
+  /** The humanized draft, after the anti-detection rewrite + enforcement. */
+  content: string;
+  /**
+   * Confidence 0-100, recomputed to reflect humanization: it blends grounding
+   * (KB/proven coverage, unresolved gaps) with how human the rewrite reads.
+   */
+  confidenceScore: number;
+  /** Always "humanized" on success; the saved version carries the same status. */
+  humanizationStatus: HumanizationStatus;
+  sources: KnowledgeSource[];
+  /** The new humanized version appended to draft_versions (best-effort save). */
+  savedVersion?: SavedDraftVersion | null;
+  /** 0-100 "reads human" quality score from the humanization metrics. */
+  humanizationScore: number;
 }
 
 // ---------------------------------------------------------------------------

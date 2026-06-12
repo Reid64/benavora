@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 
 import { Badge, SearchBar, Select, Table } from "@/components/ui";
-import type { TableColumn } from "@/components/ui";
+import type { SortDirection, TableColumn } from "@/components/ui";
+import { useUrlState } from "@/lib/hooks/useUrlState";
 import { FUNDER_CATEGORIES } from "@/lib/utils/constants";
 import { formatDate, humanizeEnum } from "@/lib/utils/formatters";
 import type { Enums, Tables } from "@/types/database";
@@ -30,15 +31,41 @@ const CATEGORY_FILTER_OPTIONS = [
   })),
 ];
 
+const DEFAULT_SORT = { key: "name", direction: "asc" as SortDirection };
+
 /**
  * Sortable funder list with keyword search and a category filter
  * (BLUEPRINT §4.2). Filtering and sorting run client-side over the provided
- * rows. Clicking a row opens the funder detail page.
+ * rows. Clicking a row opens the funder detail page. Search, filter, and sort
+ * are persisted to the URL so they survive sidebar navigation.
  */
 export function FunderTable({ funders, isLoading = false }: FunderTableProps) {
   const router = useRouter();
-  const [query, setQuery] = useState("");
-  const [category, setCategory] = useState<FunderCategory | "all">("all");
+  const { searchParams, setParams } = useUrlState();
+
+  // State lives in the URL so it survives sidebar navigation and refresh.
+  const query = searchParams.get("q") ?? "";
+  const categoryParam = searchParams.get("category");
+  const category: FunderCategory | "all" =
+    categoryParam && (FUNDER_CATEGORIES as readonly string[]).includes(categoryParam)
+      ? (categoryParam as FunderCategory)
+      : "all";
+  const sort = {
+    key: searchParams.get("sort") ?? DEFAULT_SORT.key,
+    direction:
+      searchParams.get("dir") === "desc"
+        ? ("desc" as SortDirection)
+        : ("asc" as SortDirection),
+  };
+
+  function handleSortChange(next: { key: string; direction: SortDirection }) {
+    const isDefault =
+      next.key === DEFAULT_SORT.key && next.direction === DEFAULT_SORT.direction;
+    setParams({
+      sort: isDefault ? null : next.key,
+      dir: isDefault ? null : next.direction,
+    });
+  }
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -106,7 +133,8 @@ export function FunderTable({ funders, isLoading = false }: FunderTableProps) {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="sm:max-w-xs sm:flex-1">
           <SearchBar
-            onSearch={setQuery}
+            defaultValue={query}
+            onSearch={(value) => setParams({ q: value || null })}
             placeholder="Search funders…"
             aria-label="Search funders"
           />
@@ -117,7 +145,9 @@ export function FunderTable({ funders, isLoading = false }: FunderTableProps) {
             options={CATEGORY_FILTER_OPTIONS}
             value={category}
             onChange={(e) =>
-              setCategory(e.target.value as FunderCategory | "all")
+              setParams({
+                category: e.target.value === "all" ? null : e.target.value,
+              })
             }
           />
         </div>
@@ -129,7 +159,8 @@ export function FunderTable({ funders, isLoading = false }: FunderTableProps) {
         rowKey={(row) => row.id}
         isLoading={isLoading}
         onRowClick={(row) => router.push(`/funders/${row.id}`)}
-        initialSort={{ key: "name", direction: "asc" }}
+        sort={sort}
+        onSortChange={handleSortChange}
         emptyMessage="No funders match your filters."
       />
     </div>

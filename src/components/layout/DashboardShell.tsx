@@ -4,6 +4,7 @@ import { useState, type ReactNode } from "react";
 
 import { Header } from "@/components/layout/Header";
 import { Sidebar } from "@/components/layout/Sidebar";
+import { useSectionLocationTracker } from "@/lib/navigation/section-memory";
 import type { Enums } from "@/types/database";
 
 type DashboardShellProps = {
@@ -24,6 +25,10 @@ export function DashboardShell({
   children,
 }: DashboardShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Record each section's latest URL so the sidebar can restore the filters,
+  // search, sort, view toggle, or tab the user left open there.
+  useSectionLocationTracker();
 
   return (
     <div className="flex h-screen overflow-hidden bg-surface">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { AlertTriangle, BookText, Pencil, Plus, Trash2 } from "lucide-react";
 
 import {
@@ -17,6 +18,7 @@ import { NarrativeEditor } from "@/components/knowledge-base/NarrativeEditor";
 import { ProvenBadge } from "@/components/knowledge-base/ProvenBadge";
 import { createClient } from "@/lib/supabase/client";
 import { canEdit, useProfile } from "@/lib/hooks/useProfile";
+import { useUrlState } from "@/lib/hooks/useUrlState";
 import { NARRATIVE_CATEGORIES } from "@/lib/utils/constants";
 import { formatRelative, humanizeEnum } from "@/lib/utils/formatters";
 import type { Tables } from "@/types/database";
@@ -36,6 +38,7 @@ const CATEGORY_FILTER_OPTIONS = [
  */
 export default function NarrativesPage() {
   const { profile } = useProfile();
+  const { searchParams, setParams } = useUrlState();
   const editable = canEdit(profile?.role);
   const isOwner = profile?.role === "owner";
 
@@ -43,7 +46,14 @@ export default function NarrativesPage() {
   const [scores, setScores] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [categoryFilter, setCategoryFilter] = useState("");
+
+  // The category filter lives in the URL so it survives sidebar navigation.
+  const categoryParam = searchParams.get("category");
+  const categoryFilter =
+    categoryParam &&
+    (NARRATIVE_CATEGORIES as readonly string[]).includes(categoryParam)
+      ? categoryParam
+      : "";
 
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<Tables<"knowledge_base"> | null>(null);
@@ -190,7 +200,9 @@ export default function NarrativesPage() {
             <Select
               options={CATEGORY_FILTER_OPTIONS}
               value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
+              onChange={(e) =>
+                setParams({ category: e.target.value || null })
+              }
               aria-label="Filter by category"
             />
           </div>
@@ -204,7 +216,17 @@ export default function NarrativesPage() {
           ) : (
             <div className="space-y-4">
               {filtered.map((narrative) => (
-                <Card key={narrative.id}>
+                <Card
+                  key={narrative.id}
+                  className="relative transition hover:border-teal-300 hover:shadow-card-hover"
+                >
+                  {/* Whole-card click target opens the detail view. Action
+                      buttons below sit above it via z-index. */}
+                  <Link
+                    href={`/knowledge-base/narratives/${narrative.id}`}
+                    aria-label={`View ${narrative.title}`}
+                    className="absolute inset-0 z-0 rounded-xl"
+                  />
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
@@ -225,7 +247,7 @@ export default function NarrativesPage() {
                       </p>
                     </div>
                     {editable && (
-                      <div className="flex shrink-0 items-center gap-1">
+                      <div className="relative z-10 flex shrink-0 items-center gap-1">
                         <Button
                           size="sm"
                           variant="ghost"

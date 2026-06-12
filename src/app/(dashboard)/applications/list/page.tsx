@@ -7,6 +7,7 @@ import { KanbanSquare, List } from "lucide-react";
 
 import { Badge, SearchBar, Select, Table } from "@/components/ui";
 import type { TableColumn } from "@/components/ui";
+import { useUrlState } from "@/lib/hooks/useUrlState";
 import {
   STAGE_COLOR,
   STAGE_LABEL,
@@ -25,11 +26,19 @@ import { formatCurrency, formatDate, formatRelative } from "@/lib/utils/formatte
  */
 export default function ApplicationsListPage() {
   const router = useRouter();
+  const { searchParams, setParams } = useUrlState();
   const [applications, setApplications] = useState<EnrichedApplication[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [query, setQuery] = useState("");
-  const [stage, setStage] = useState<string>("all");
+
+  // Search and stage filter live in the URL so they survive navigation back to
+  // the board view and the sidebar.
+  const query = searchParams.get("q") ?? "";
+  const stageParam = searchParams.get("stage");
+  const stage =
+    stageParam && (PIPELINE_STAGES as readonly string[]).includes(stageParam)
+      ? stageParam
+      : "all";
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -167,7 +176,8 @@ export default function ApplicationsListPage() {
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <SearchBar
-          onSearch={setQuery}
+          defaultValue={query}
+          onSearch={(value) => setParams({ q: value || null })}
           placeholder="Search by opportunity or funder…"
           aria-label="Search applications"
           className="sm:max-w-sm"
@@ -175,7 +185,9 @@ export default function ApplicationsListPage() {
         <Select
           aria-label="Filter by stage"
           value={stage}
-          onChange={(e) => setStage(e.target.value)}
+          onChange={(e) =>
+            setParams({ stage: e.target.value === "all" ? null : e.target.value })
+          }
           className="sm:w-56"
           options={[
             { label: "All stages", value: "all" },

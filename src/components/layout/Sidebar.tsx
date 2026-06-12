@@ -1,11 +1,13 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { X } from "lucide-react";
 
 import { navItemsForRole } from "@/components/layout/nav-items";
 import { Logo } from "@/components/layout/Logo";
+import { rememberedHref } from "@/lib/navigation/section-memory";
 import type { Enums } from "@/types/database";
 
 type SidebarProps = {
@@ -26,6 +28,20 @@ type SidebarProps = {
 export function Sidebar({ open, onClose, role }: SidebarProps) {
   const pathname = usePathname();
   const navItems = navItemsForRole(role);
+
+  // Resolve each item's href to the section's remembered location (restoring
+  // saved filters/search/sort/view). Computed after mount — sessionStorage is
+  // unavailable during SSR, so the first render uses the plain hrefs to keep
+  // server and client markup identical (no hydration mismatch). Recomputed on
+  // navigation, by which point the section the user is leaving is recorded.
+  const [hrefs, setHrefs] = useState<Record<string, string>>({});
+  useEffect(() => {
+    const resolved: Record<string, string> = {};
+    for (const item of navItemsForRole(role)) {
+      resolved[item.href] = rememberedHref(item.href);
+    }
+    setHrefs(resolved);
+  }, [pathname, role]);
 
   function isActive(href: string): boolean {
     // Highlight on exact match or when inside a section (e.g. /funders/new).
@@ -71,7 +87,7 @@ export function Sidebar({ open, onClose, role }: SidebarProps) {
             return (
               <Link
                 key={href}
-                href={href}
+                href={hrefs[href] ?? href}
                 onClick={onClose}
                 aria-current={active ? "page" : undefined}
                 className={`group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${

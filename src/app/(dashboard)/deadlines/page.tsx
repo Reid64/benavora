@@ -31,6 +31,7 @@ import {
 import { Button, Card, EmptyState, LoadingSpinner } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 import { canEdit, useProfile } from "@/lib/hooks/useProfile";
+import { useUrlState } from "@/lib/hooks/useUrlState";
 import { cn } from "@/lib/utils/cn";
 import { formatDate, humanizeEnum } from "@/lib/utils/formatters";
 import type { Tables } from "@/types/database";
@@ -130,12 +131,32 @@ function parentHref(d: Deadline): string | null {
  */
 export default function DeadlinesPage() {
   const { profile } = useProfile();
+  const { searchParams, setParams } = useUrlState();
   const [deadlines, setDeadlines] = useState<Deadline[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [view, setView] = useState<ViewMode>("calendar");
-  const [showCompleted, setShowCompleted] = useState(false);
-  const [month, setMonth] = useState<Date>(() => startOfMonth(new Date()));
+
+  // View, completed-visibility, and the visible month live in the URL so the
+  // page restores exactly where the user left off after sidebar navigation.
+  const view: ViewMode = searchParams.get("view") === "list" ? "list" : "calendar";
+  const showCompleted = searchParams.get("completed") === "1";
+  const monthParam = searchParams.get("month");
+  const month = useMemo<Date>(() => {
+    if (monthParam && /^\d{4}-\d{2}$/.test(monthParam)) {
+      const parsed = startOfMonth(parseISO(`${monthParam}-01`));
+      if (!Number.isNaN(parsed.getTime())) return parsed;
+    }
+    return startOfMonth(new Date());
+  }, [monthParam]);
+
+  // Persist the month only when it differs from the current one, keeping the URL
+  // clean on the default view.
+  function goToMonth(next: Date) {
+    const current = format(startOfMonth(new Date()), "yyyy-MM");
+    const value = format(next, "yyyy-MM");
+    setParams({ month: value === current ? null : value });
+  }
+
   const [busyId, setBusyId] = useState<string | null>(null);
 
   // Google Calendar integration state (BLUEPRINT Phase 4 / Contracts §20).
@@ -359,7 +380,7 @@ export default function DeadlinesPage() {
           <div className="inline-flex rounded-lg border border-navy-200 bg-white p-0.5 shadow-sm">
           <button
             type="button"
-            onClick={() => setView("calendar")}
+            onClick={() => setParams({ view: null })}
             aria-pressed={view === "calendar"}
             className={cn(
               "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition",
@@ -373,7 +394,7 @@ export default function DeadlinesPage() {
           </button>
           <button
             type="button"
-            onClick={() => setView("list")}
+            onClick={() => setParams({ view: "list" })}
             aria-pressed={view === "list"}
             className={cn(
               "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition",
@@ -426,7 +447,9 @@ export default function DeadlinesPage() {
             <input
               type="checkbox"
               checked={showCompleted}
-              onChange={(e) => setShowCompleted(e.target.checked)}
+              onChange={(e) =>
+                setParams({ completed: e.target.checked ? "1" : null })
+              }
               className="h-4 w-4 rounded border-navy-300 text-teal-600 focus:ring-teal-500"
             />
             Show completed
@@ -454,9 +477,9 @@ export default function DeadlinesPage() {
         <CalendarView
           month={month}
           deadlines={visible}
-          onPrev={() => setMonth((m) => subMonths(m, 1))}
-          onNext={() => setMonth((m) => addMonths(m, 1))}
-          onToday={() => setMonth(startOfMonth(new Date()))}
+          onPrev={() => goToMonth(subMonths(month, 1))}
+          onNext={() => goToMonth(addMonths(month, 1))}
+          onToday={() => goToMonth(startOfMonth(new Date()))}
         />
       ) : (
         <ListView

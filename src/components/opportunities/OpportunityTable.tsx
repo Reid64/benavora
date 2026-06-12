@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 
 import { Badge, Table } from "@/components/ui";
@@ -11,12 +11,16 @@ import {
   RecommendationBadge,
 } from "@/components/opportunities/eligibility";
 import {
-  EMPTY_OPPORTUNITY_FILTERS,
   OpportunityFilters,
   type OpportunityFilterValue,
 } from "@/components/opportunities/OpportunityFilters";
+import { useUrlState } from "@/lib/hooks/useUrlState";
+import {
+  FUNDER_CATEGORIES,
+  OPPORTUNITY_STATUSES,
+} from "@/lib/utils/constants";
 import { formatCurrency, formatDate, humanizeEnum } from "@/lib/utils/formatters";
-import type { Tables } from "@/types/database";
+import type { Enums, Tables } from "@/types/database";
 
 /** An opportunity enriched with its keyword tags and funder name for the list. */
 export type OpportunityRow = Tables<"opportunities"> & {
@@ -44,9 +48,44 @@ export function OpportunityTable({
   isLoading = false,
 }: OpportunityTableProps) {
   const router = useRouter();
-  const [filters, setFilters] = useState<OpportunityFilterValue>(
-    EMPTY_OPPORTUNITY_FILTERS,
-  );
+  const { searchParams, setParams } = useUrlState();
+
+  // The full filter set lives in the URL so it survives sidebar navigation and
+  // refresh. Enum-typed params are validated against their allowed values so a
+  // hand-edited URL can't wedge the list into showing nothing.
+  const filters: OpportunityFilterValue = useMemo(() => {
+    const categoryParam = searchParams.get("category");
+    const statusParam = searchParams.get("status");
+    return {
+      query: searchParams.get("q") ?? "",
+      category:
+        categoryParam &&
+        (FUNDER_CATEGORIES as readonly string[]).includes(categoryParam)
+          ? (categoryParam as Enums<"funder_category">)
+          : "all",
+      status:
+        statusParam &&
+        (OPPORTUNITY_STATUSES as readonly string[]).includes(statusParam)
+          ? (statusParam as Enums<"opportunity_status">)
+          : "all",
+      deadlineFrom: searchParams.get("from") ?? "",
+      deadlineTo: searchParams.get("to") ?? "",
+      scoreMin: searchParams.get("min") ?? "",
+      scoreMax: searchParams.get("max") ?? "",
+    };
+  }, [searchParams]);
+
+  function handleFiltersChange(next: OpportunityFilterValue) {
+    setParams({
+      q: next.query || null,
+      category: next.category === "all" ? null : next.category,
+      status: next.status === "all" ? null : next.status,
+      from: next.deadlineFrom || null,
+      to: next.deadlineTo || null,
+      min: next.scoreMin || null,
+      max: next.scoreMax || null,
+    });
+  }
 
   const filtered = useMemo(() => {
     const q = filters.query.trim().toLowerCase();
@@ -178,7 +217,7 @@ export function OpportunityTable({
 
   return (
     <div className="space-y-4">
-      <OpportunityFilters value={filters} onChange={setFilters} />
+      <OpportunityFilters value={filters} onChange={handleFiltersChange} />
       <Table
         columns={columns}
         data={filtered}

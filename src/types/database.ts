@@ -1311,6 +1311,55 @@ export interface Database {
         };
         Relationships: [];
       };
+      draft_versions: {
+        Row: {
+          id: string;
+          organization_id: string;
+          opportunity_id: string;
+          application_id: string | null;
+          template_type: Database["public"]["Enums"]["draft_template_type"];
+          content: string;
+          confidence_score: number | null;
+          knowledge_sources: Json | null;
+          version_number: number;
+          humanization_status: Database["public"]["Enums"]["humanization_status"];
+          source: string;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          opportunity_id: string;
+          application_id?: string | null;
+          template_type: Database["public"]["Enums"]["draft_template_type"];
+          content: string;
+          confidence_score?: number | null;
+          knowledge_sources?: Json | null;
+          // Assigned per opportunity by a BEFORE INSERT trigger — omit on insert.
+          version_number?: number;
+          humanization_status?: Database["public"]["Enums"]["humanization_status"];
+          source?: string;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          opportunity_id?: string;
+          application_id?: string | null;
+          template_type?: Database["public"]["Enums"]["draft_template_type"];
+          content?: string;
+          confidence_score?: number | null;
+          knowledge_sources?: Json | null;
+          version_number?: number;
+          humanization_status?: Database["public"]["Enums"]["humanization_status"];
+          source?: string;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -1377,6 +1426,11 @@ export interface Database {
         | "impact_statement"
         | "letter_of_inquiry"
         | "full_proposal";
+      humanization_status:
+        | "not_humanized"
+        | "pending"
+        | "humanized"
+        | "failed";
       contact_relationship: "cold" | "warm" | "active" | "champion";
       opportunity_status: "open" | "applied" | "closed" | "expired";
       knowledge_base_category:

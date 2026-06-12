@@ -1,30 +1,30 @@
 import { NextResponse } from "next/server";
 
 import { requireRole } from "@/lib/auth/role-gate";
-
 import { createClient } from "@/lib/supabase/server";
 import { enforceLimit } from "@/lib/billing/tier-enforcer";
 import { trackUsage } from "@/lib/billing/usage-tracker";
-import {
-  callClaude,
-  DEFAULT_MAX_TOKENS,
-  DEFAULT_MODEL,
-} from "@/lib/ai/claude";
-import { buildGrantNarrativePrompt } from "@/lib/ai/prompts/grant-narrative";
-import { buildDonationRequestPrompt } from "@/lib/ai/prompts/donation-request";
+import { DEFAULT_MAX_TOKENS, DEFAULT_MODEL } from "@/lib/ai/claude";
+import { runHumanizer } from "@/lib/agents/humanizer-agent";
 import { AI_CONFIDENCE_THRESHOLD } from "@/lib/utils/constants";
 import type {
-  DraftPromptContext,
-  DraftResult,
+  DraftKnowledgeEntry,
+  DraftProvenNarrative,
   DraftTemplateType,
+  HumanizeResult,
   KnowledgeSource,
-  SavedDraftVersion,
 } from "@/types/ai";
-import type { Enums, Json } from "@/types/database";
+import type { Json } from "@/types/database";
+
+// AI Humanizer endpoint — second-pass anti-detection rewrite (BLUEPRINT §4.8).
+// Takes a generated draft and rewrites it through `runHumanizer` so it reads
+// like a human grant writer wrote it (no em dashes, no AI vocabulary, varied
+// rhythm, grounded specifics). The humanized output is appended to
+// draft_versions as a new version (history is append-only) with
+// humanization_status = 'humanized'. Logs to agent_runs with token tracking
+// (BEHAVIORAL_CONTRACTS §15) and meters the org's daily AI quota (§25).
 
 export const runtime = "nodejs";
-
-type KbCategory = Enums<"knowledge_base_category">;
 
 const VALID_TEMPLATE_TYPES: DraftTemplateType[] = [
   "grant_narrative",
@@ -35,51 +35,12 @@ const VALID_TEMPLATE_TYPES: DraftTemplateType[] = [
   "full_proposal",
 ];
 
-// Which Knowledge Base categories feed each template type (Agent 05 step 2:
-// "load relevant Knowledge Base entries by category matching template type").
-const TEMPLATE_KB_CATEGORIES: Record<DraftTemplateType, KbCategory[]> = {
-  grant_narrative: [
-    "mission",
-    "need_statement",
-    "program_description",
-    "impact",
-    "capacity",
-    "sustainability",
-    "partnerships",
-    "organizational_history",
-  ],
-  donation_request_letter: [
-    "mission",
-    "need_statement",
-    "impact",
-    "program_description",
-  ],
-  budget_narrative: [
-    "budget_justification",
-    "program_description",
-    "capacity",
-    "sustainability",
-  ],
-  impact_statement: ["impact", "mission", "program_description"],
-  letter_of_inquiry: [
-    "mission",
-    "need_statement",
-    "program_description",
-    "impact",
-  ],
-  full_proposal: [
-    "mission",
-    "vision",
-    "need_statement",
-    "program_description",
-    "impact",
-    "capacity",
-    "sustainability",
-    "partnerships",
-    "budget_justification",
-    "organizational_history",
-  ],
-};
+// How many Knowledge Base facts to supply as grounding for the rewrite. The
+// humanizer pulls concrete numbers/names/dates from anywhere in the KB (not just
+// the template's categories), so it loads the most-trusted entries broadly.
+const MAX_KB_FACTS = 12;
+/** Proven narratives supplied as authentic-voice samples (Contracts §9). */
+const MAX_VOICE_SAMPLES = 5;
 
 function jsonError(message: string, code: string, status: number) {
   // Consistent error shape across API routes (BEHAVIORAL_CONTRACTS §16).
@@ -87,9 +48,7 @@ function jsonError(message: string, code: string, status: number) {
 }
 
 // Best-effort per-organization rate limit for AI routes: 20 requests / minute
-// (BEHAVIORAL_CONTRACTS §16). This in-memory bucket only protects a single
-// server instance; a shared store (e.g. Supabase or Redis) is the production
-// fix for multi-instance deployments.
+// (BEHAVIORAL_CONTRACTS §16). In-memory; protects a single instance only.
 const RATE_LIMIT = 20;
 const RATE_WINDOW_MS = 60_000;
 const hits = new Map<string, number[]>();
@@ -107,14 +66,10 @@ function isRateLimited(orgId: string): boolean {
 }
 
 /**
- * Heuristic confidence score (BEHAVIORAL_CONTRACTS §9 / Agent 05). Reflects how
- * much of the draft is grounded in verified data versus AI-generated:
- *   - No Knowledge Base entries available  -> insufficient data (<50, blocks submit)
- *   - Unresolved [NEEDS INPUT] flags        -> each lowers the score
- *   - Sparse KB / no proven narratives      -> modest reductions
- * A fully grounded draft with no gaps lands in the 90+ band.
+ * Grounding confidence, mirroring /api/ai/draft's heuristic (BEHAVIORAL_CONTRACTS
+ * §9): how much of the draft is anchored in verified data versus AI-generated.
  */
-function computeConfidence(
+function computeGroundedConfidence(
   draftText: string,
   kbCount: number,
   provenCount: number,
@@ -122,7 +77,6 @@ function computeConfidence(
   const needsInput = (draftText.match(/\[NEEDS INPUT/gi) ?? []).length;
 
   if (kbCount === 0) {
-    // No verified narrative content to draw on — require KB updates first.
     return Math.max(55, 65 - needsInput * 3);
   }
 
@@ -134,8 +88,22 @@ function computeConfidence(
   return Math.max(0, Math.min(100, score));
 }
 
+/**
+ * Confidence for a humanized draft: blend grounding (does it still rest on
+ * verified data?) with how human the rewrite reads. The grounding term keeps
+ * the score honest — a slick-but-ungrounded draft can't score high — while the
+ * humanization term reflects this pass's purpose (the task: "update confidence
+ * score to reflect humanization status"). Grounding is weighted higher.
+ */
+function computeHumanizedConfidence(
+  grounded: number,
+  humanizationScore: number,
+): number {
+  return Math.max(0, Math.min(100, Math.round(grounded * 0.65 + humanizationScore * 0.35)));
+}
+
 export async function POST(request: Request) {
-  // Generating a draft is a write action — viewers are read-only (Contracts §16).
+  // Humanizing a draft is a write action — viewers are read-only (Contracts §16).
   const roleCheck = await requireRole("writer");
   if ("error" in roleCheck) return roleCheck.error;
 
@@ -146,9 +114,10 @@ export async function POST(request: Request) {
     return jsonError("Request body must be valid JSON.", "invalid_body", 400);
   }
 
-  const { opportunityId, templateType } = (body ?? {}) as {
+  const { opportunityId, templateType, content } = (body ?? {}) as {
     opportunityId?: unknown;
     templateType?: unknown;
+    content?: unknown;
   };
 
   if (typeof opportunityId !== "string" || opportunityId.trim() === "") {
@@ -159,6 +128,9 @@ export async function POST(request: Request) {
     !VALID_TEMPLATE_TYPES.includes(templateType as DraftTemplateType)
   ) {
     return jsonError("A valid templateType is required.", "invalid_input", 400);
+  }
+  if (typeof content !== "string" || content.trim() === "") {
+    return jsonError("There is no draft content to humanize.", "invalid_input", 400);
   }
   const template = templateType as DraftTemplateType;
 
@@ -185,7 +157,7 @@ export async function POST(request: Request) {
 
   if (isRateLimited(organizationId)) {
     return jsonError(
-      "Too many draft requests. Please wait a moment and try again.",
+      "Too many humanize requests. Please wait a moment and try again.",
       "rate_limited",
       429,
     );
@@ -195,18 +167,19 @@ export async function POST(request: Request) {
   const overLimit = await enforceLimit(supabase, organizationId, "api_calls");
   if (overLimit) return overLimit;
 
-  // Opportunity (RLS-scoped to the organization).
+  // Opportunity (RLS-scoped) — needed for the funder category that selects the
+  // proven-narrative voice samples.
   const { data: opportunity, error: oppError } = await supabase
     .from("opportunities")
-    .select("*")
+    .select("id, category")
     .eq("id", opportunityId)
     .single();
   if (oppError || !opportunity) {
     return jsonError("Opportunity not found.", "not_found", 404);
   }
 
-  // Log the agent run before starting (BEHAVIORAL_CONTRACTS §15). Best-effort:
-  // a logging failure must not block drafting.
+  // Log the agent run before starting (BEHAVIORAL_CONTRACTS §15). The humanizer
+  // is the second pass of narrative drafting, so it logs under that agent_type.
   const startedAt = Date.now();
   let runId: string | null = null;
   {
@@ -217,7 +190,7 @@ export async function POST(request: Request) {
         agent_type: "narrative_drafting",
         status: "running",
         triggered_by: profile.id,
-        input_params: { opportunityId, templateType: template },
+        input_params: { opportunityId, templateType: template, pass: "humanize" },
         started_at: new Date().toISOString(),
       })
       .select("id")
@@ -239,8 +212,9 @@ export async function POST(request: Request) {
     const threshold =
       Number(config.get("ai.confidence_threshold")) || AI_CONFIDENCE_THRESHOLD;
 
-    // Organization profile, KB entries for this template, and proven narratives.
-    const [orgRes, kbRes, provenRes, funderRes] = await Promise.all([
+    // Grounding data: org profile, the most-trusted KB facts, and proven
+    // narratives (voice) for this funder category. All RLS-scoped.
+    const [orgRes, kbRes, provenRes] = await Promise.all([
       supabase
         .from("organizations")
         .select(
@@ -251,11 +225,9 @@ export async function POST(request: Request) {
       supabase
         .from("knowledge_base")
         .select("id, title, category, content")
-        .in("category", TEMPLATE_KB_CATEGORIES[template])
         .order("is_proven", { ascending: false })
-        .order("updated_at", { ascending: false }),
-      // Proven narratives for the opportunity's funder category, best first,
-      // capped at 5 (BEHAVIORAL_CONTRACTS §9).
+        .order("updated_at", { ascending: false })
+        .limit(MAX_KB_FACTS),
       supabase
         .from("proven_narratives")
         .select(
@@ -263,32 +235,31 @@ export async function POST(request: Request) {
         )
         .eq("funder_category", opportunity.category)
         .order("effectiveness_score", { ascending: false, nullsFirst: false })
-        .limit(5),
-      opportunity.funder_id
-        ? supabase
-            .from("funders")
-            .select("name")
-            .eq("id", opportunity.funder_id)
-            .single()
-        : Promise.resolve({ data: null }),
+        .limit(MAX_VOICE_SAMPLES),
     ]);
 
     const org = orgRes.data;
-    const knowledgeEntries = (kbRes.data ?? []).map((entry) => ({
-      id: entry.id as string,
-      title: entry.title as string,
-      category: entry.category as string,
-      content: entry.content as string,
-    }));
-    const provenNarratives = (provenRes.data ?? []).map((p) => ({
-      id: p.id as string,
-      sectionType: (p.section_type as string | null) ?? null,
-      funderCategory: (p.funder_category as string | null) ?? null,
-      effectivenessScore: (p.effectiveness_score as number | null) ?? null,
-      narrativeText: p.narrative_text as string,
-    }));
+    const knowledgeEntries: DraftKnowledgeEntry[] = (kbRes.data ?? []).map(
+      (entry) => ({
+        id: entry.id as string,
+        title: entry.title as string,
+        category: entry.category as string,
+        content: entry.content as string,
+      }),
+    );
+    const provenNarratives: DraftProvenNarrative[] = (provenRes.data ?? []).map(
+      (p) => ({
+        id: p.id as string,
+        sectionType: (p.section_type as string | null) ?? null,
+        funderCategory: (p.funder_category as string | null) ?? null,
+        effectivenessScore: (p.effectiveness_score as number | null) ?? null,
+        narrativeText: p.narrative_text as string,
+      }),
+    );
 
-    const context: DraftPromptContext = {
+    const result = await runHumanizer({
+      draft: content,
+      templateType: template,
       organization: org
         ? {
             name: org.name as string,
@@ -303,45 +274,24 @@ export async function POST(request: Request) {
             annualBudget: (org.annual_budget as number | null) ?? null,
           }
         : null,
-      opportunity: {
-        name: opportunity.name as string,
-        category: opportunity.category as string,
-        description: (opportunity.description as string | null) ?? null,
-        funderName:
-          (funderRes.data?.name as string | null | undefined) ?? null,
-        eligibilityRequirements:
-          (opportunity.eligibility_requirements as string | null) ?? null,
-        amountMin: (opportunity.amount_min as number | null) ?? null,
-        amountMax: (opportunity.amount_max as number | null) ?? null,
-        requiredDocuments:
-          (opportunity.required_documents as string[] | null) ?? null,
-      },
       knowledgeEntries,
       provenNarratives,
-    };
-
-    // Build the prompt: donation letters get their own builder; everything else
-    // uses the grant-narrative builder, parameterized by template type.
-    const built =
-      template === "donation_request_letter"
-        ? buildDonationRequestPrompt(context)
-        : buildGrantNarrativePrompt(context, template);
-
-    const response = await callClaude({
-      system: built.system,
-      prompt: built.prompt,
       model,
       maxTokens,
     });
 
-    const confidenceScore = computeConfidence(
-      response.text,
+    const grounded = computeGroundedConfidence(
+      result.content,
       knowledgeEntries.length,
       provenNarratives.length,
     );
+    const confidenceScore = computeHumanizedConfidence(
+      grounded,
+      result.humanizationScore,
+    );
 
-    // Transparency panel (BEHAVIORAL_CONTRACTS §9): every KB entry and proven
-    // narrative supplied to the model informed the draft.
+    // Transparency panel (BEHAVIORAL_CONTRACTS §9): the facts/voice that informed
+    // the rewrite — same shape /api/ai/draft records, so usage history matches.
     const sources: KnowledgeSource[] = [
       ...knowledgeEntries.map((entry) => ({
         id: entry.id,
@@ -351,9 +301,7 @@ export async function POST(request: Request) {
       ...provenNarratives.map((p) => ({
         id: p.id,
         kind: "proven_narrative" as const,
-        title: p.sectionType
-          ? `Proven: ${p.sectionType}`
-          : "Proven narrative",
+        title: p.sectionType ? `Proven: ${p.sectionType}` : "Proven narrative",
       })),
     ];
 
@@ -362,10 +310,10 @@ export async function POST(request: Request) {
         .from("agent_runs")
         .update({
           status: "completed",
-          output_summary: `Drafted ${template} (confidence ${confidenceScore}, ${sources.length} sources).`,
+          output_summary: `Humanized ${template}: removed ${result.emDashesRemoved} em dash(es), replaced ${result.vocabReplaced} AI term(s); reads-human ${result.humanizationScore}/100, confidence ${confidenceScore}.`,
           items_found: sources.length,
           items_processed: 1,
-          tokens_used: response.usage.totalTokens,
+          tokens_used: result.tokensUsed,
           duration_ms: Date.now() - startedAt,
           completed_at: new Date().toISOString(),
         })
@@ -375,11 +323,9 @@ export async function POST(request: Request) {
     // Meter the AI request against the org's daily api_calls quota (§25).
     await trackUsage(supabase, organizationId, "api_calls", 1);
 
-    // Auto-save the generated draft as a version immediately (BLUEPRINT §4.8).
-    // organization_id is derived from the session profile, never the body; the
-    // version_number is assigned per opportunity by a DB trigger. This is the
-    // durable history behind the single "current" draft on applications.*.
-    let savedVersion: SavedDraftVersion | null = null;
+    // Append the humanized output as a new version (history is append-only).
+    // organization_id is derived from the session profile, never the body.
+    let savedVersion: HumanizeResult["savedVersion"] = null;
     {
       const { data: version, error: versionError } = await supabase
         .from("draft_versions")
@@ -387,43 +333,44 @@ export async function POST(request: Request) {
           organization_id: organizationId,
           opportunity_id: opportunityId,
           template_type: template,
-          content: response.text,
+          content: result.content,
           confidence_score: confidenceScore,
           knowledge_sources: sources as unknown as Json,
-          humanization_status: "not_humanized",
-          source: "generated",
+          humanization_status: "humanized",
+          source: "humanized",
           created_by: profile.id,
         })
         .select("id, version_number, humanization_status, created_at")
         .single();
       if (versionError) {
-        // Best-effort: a history-save failure must not fail generation, but it
-        // should never pass silently (BEHAVIORAL_CONTRACTS §15).
-        console.error("DRAFT VERSION SAVE ERROR:", versionError.message);
+        // Best-effort: a history-save failure must not fail the rewrite, but it
+        // must never pass silently (BEHAVIORAL_CONTRACTS §15).
+        console.error("HUMANIZE VERSION SAVE ERROR:", versionError.message);
       } else if (version) {
         savedVersion = {
           id: version.id as string,
           versionNumber: version.version_number as number,
-          humanizationStatus:
-            version.humanization_status as SavedDraftVersion["humanizationStatus"],
+          humanizationStatus: "humanized",
           createdAt: version.created_at as string,
         };
       }
     }
 
-    const result: DraftResult & { belowThreshold: boolean } = {
-      content: response.text,
+    const payload: HumanizeResult & { belowThreshold: boolean } = {
+      content: result.content,
       confidenceScore,
+      humanizationStatus: "humanized",
       sources,
       savedVersion,
+      humanizationScore: result.humanizationScore,
       belowThreshold: confidenceScore < threshold,
     };
 
-    return NextResponse.json(result);
+    return NextResponse.json(payload);
   } catch (err) {
-    console.error("DRAFT ERROR:", err);
+    console.error("HUMANIZE ERROR:", err);
     const message =
-      err instanceof Error ? err.message : "Draft generation failed.";
+      err instanceof Error ? err.message : "Humanization failed.";
     if (runId) {
       // Agents never fail silently (BEHAVIORAL_CONTRACTS §15).
       await supabase
@@ -437,10 +384,9 @@ export async function POST(request: Request) {
         .eq("id", runId);
     }
     return jsonError(
-      "The draft could not be generated. Please try again.",
-      "generation_failed",
+      "The draft could not be humanized. Please try again.",
+      "humanization_failed",
       500,
     );
   }
 }
-

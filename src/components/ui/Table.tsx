@@ -40,8 +40,15 @@ export type TableProps<T> = {
   emptyMessage?: string;
   /** Show a loading spinner in place of rows. */
   isLoading?: boolean;
-  /** Initial sort column and direction. */
+  /** Initial sort column and direction (uncontrolled mode). */
   initialSort?: { key: string; direction: SortDirection };
+  /**
+   * Controlled sort. When `onSortChange` is supplied, the table reads its sort
+   * from `sort` instead of internal state — letting a parent persist it (e.g.
+   * to the URL). `initialSort` is ignored in controlled mode.
+   */
+  sort?: { key: string; direction: SortDirection } | null;
+  onSortChange?: (sort: { key: string; direction: SortDirection }) => void;
   className?: string;
 };
 
@@ -64,14 +71,19 @@ export function Table<T>({
   emptyMessage = "No records to display.",
   isLoading = false,
   initialSort,
+  sort,
+  onSortChange,
   className,
 }: TableProps<T>) {
-  const [sortKey, setSortKey] = useState<string | null>(
+  const controlled = onSortChange != null;
+  const [internalKey, setInternalKey] = useState<string | null>(
     initialSort?.key ?? null,
   );
-  const [sortDirection, setSortDirection] = useState<SortDirection>(
+  const [internalDirection, setInternalDirection] = useState<SortDirection>(
     initialSort?.direction ?? "asc",
   );
+  const sortKey = controlled ? (sort?.key ?? null) : internalKey;
+  const sortDirection = controlled ? (sort?.direction ?? "asc") : internalDirection;
   const [page, setPage] = useState(1);
 
   const sortedData = useMemo(() => {
@@ -97,11 +109,15 @@ export function Table<T>({
 
   function handleSort(column: TableColumn<T>) {
     if (!column.sortable || !column.sortValue) return;
-    if (sortKey === column.key) {
-      setSortDirection((d) => (d === "asc" ? "desc" : "asc"));
+    // Toggle direction when re-clicking the active column; otherwise sort the
+    // new column ascending.
+    const nextDirection: SortDirection =
+      sortKey === column.key && sortDirection === "asc" ? "desc" : "asc";
+    if (controlled) {
+      onSortChange?.({ key: column.key, direction: nextDirection });
     } else {
-      setSortKey(column.key);
-      setSortDirection("asc");
+      setInternalKey(column.key);
+      setInternalDirection(nextDirection);
     }
     setPage(1);
   }
