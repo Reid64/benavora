@@ -1,0 +1,85 @@
+[
+  {
+    "test": "opportunities.create.v2",
+    "name": "Audit Opp D141602",
+    "dbRows": 1,
+    "dbRecord": {
+      "id": "e21d3eba-eec4-4c8c-88ea-8a4875075f4c",
+      "name": "Audit Opp D141602",
+      "category": "corporate_donation"
+    },
+    "url": "http://localhost:3000/opportunities/new"
+  },
+  {
+    "test": "outcomes.record",
+    "recordButtons": 0,
+    "submitted": false,
+    "outcomesBefore": 0,
+    "outcomesAfter": null,
+    "newestOutcome": null,
+    "analyticsRendered": null
+  },
+  {
+    "test": "applications.stage_change_detail",
+    "onDetail": true,
+    "stageBefore": "drafting",
+    "pickedOption": null,
+    "stageAfter": "drafting",
+    "persisted": false
+  },
+  {
+    "test": "dashboard.cards",
+    "internalLinks": [
+      {
+        "t": "Drafting1",
+        "href": "/applications"
+      },
+      {
+        "t": "Submitted1",
+        "href": "/applications"
+      },
+      {
+        "t": "Awarded1",
+        "href": "/applications"
+      },
+      {
+        "t": "Denied1",
+        "href": "/applications"
+      },
+      {
+        "t": "Reporting Required1",
+        "href": "/applications"
+      },
+      {
+        "t": "Audit Opp D141602Corporate DonationAudit",
+        "href": "/opportunities/e21d3eba-eec4-4c8c-88ea-8a4875075f4c"
+      },
+      {
+        "t": "Brightwater Capacity-Building Mini-Grant",
+        "href": "/opportunities/a397bc08-3f30-4fdf-8659-e1453d2a071c"
+      },
+      {
+        "t": "Evergreen Family Emergency Fund — Spring",
+        "href": "/opportunities/15edbda7-842c-414a-bfc0-8338322402dd"
+      },
+      {
+        "t": "State Rapid Re-Housing Block Grant (NOFA",
+        "href": "/opportunities/5cb4b465-bcaa-4580-b9fb-b9da0656f810"
+      },
+      {
+        "t": "Cornerstone Financial Empowerment Grant ",
+        "href": "/opportunities/5a595b76-fbac-4936-8159-2b7a5e5dc121"
+      },
+      {
+        "t": "Brightwater Housing Stability Initiative",
+        "href": "/opportunities/b98c13d4-919c-4e4e-9832-d0ae27731496"
+      },
+      {
+        "t": "Riverside United Way Basic Needs Grant 2",
+        "href": "/opportunities/a42efa0d-e8dc-48e4-8ae1-8ac38e83b060"
+      }
+    ],
+    "firstLinkNavTarget": "/applications",
+    "firstLinkNavOk": true
+  }
+]

@@ -1,0 +1,36 @@
+[
+  {
+    "step": "logged_out_protected_redirect",
+    "requested": "/dashboard",
+    "finalUrl": "http://localhost:3000/login",
+    "redirectedToLogin": true
+  },
+  {
+    "step": "wrong_password",
+    "finalUrl": "http://localhost:3000/login",
+    "stayedOnLogin": true,
+    "errorShown": "Email or password is incorrect."
+  },
+  {
+    "step": "correct_login",
+    "finalUrl": "http://localhost:3000/dashboard",
+    "reachedDashboard": true,
+    "h1": "Dashboard",
+    "errorShown": null
+  },
+  {
+    "step": "logout_session_destroyed",
+    "wasOnDashboard": true,
+    "logoutControlFound": true,
+    "urlAfterLogout": "http://localhost:3000/login",
+    "revisitDashboardUrl": "http://localhost:3000/login",
+    "sessionDestroyed": true
+  },
+  {
+    "step": "registration",
+    "email": "audit_test_04225@example.com",
+    "finalUrl": "http://localhost:3000/dashboard",
+    "reachedOnboardingOrDash": true,
+    "errorShown": null
+  }
+]

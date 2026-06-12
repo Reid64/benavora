@@ -1,0 +1,68 @@
+[
+  {
+    "test": "contacts.create",
+    "error": "TimeoutError: locator.fill: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByLabel('Name', { exact: true })\u001b[22m\n"
+  },
+  {
+    "test": "documents.upload",
+    "fileInputFound": true,
+    "uploadAttempted": true,
+    "docsBefore": 5,
+    "docsAfter": null,
+    "newDoc": null,
+    "storageFileExists": null
+  },
+  {
+    "test": "knowledge_base.tabs",
+    "tabResults": {
+      "Overview": {
+        "clicked": true,
+        "url": "http://localhost:3000/knowledge-base",
+        "mainTextLen": 1036
+      },
+      "Org Profile": {
+        "clicked": false,
+        "url": "http://localhost:3000/knowledge-base",
+        "mainTextLen": 1036
+      },
+      "Narratives": {
+        "clicked": true,
+        "url": "http://localhost:3000/knowledge-base",
+        "mainTextLen": 1036
+      },
+      "Standard Answers": {
+        "clicked": true,
+        "url": "http://localhost:3000/knowledge-base",
+        "mainTextLen": 1036
+      }
+    },
+    "provenNarrativesDb": 2,
+    "knowledgeBaseDb": 17
+  },
+  {
+    "test": "deadlines.toggles",
+    "toggles": {
+      "List": {
+        "found": true,
+        "clickedNoError": true
+      },
+      "Calendar": {
+        "found": true,
+        "clickedNoError": true
+      },
+      "Show completed": {
+        "found": false
+      },
+      "Completed": {
+        "found": false
+      }
+    },
+    "url": "http://localhost:3000/deadlines"
+  },
+  {
+    "test": "applications.kanban",
+    "draggableCards": 5,
+    "dragResult": "attempted",
+    "boardListToggleFound": false
+  }
+]

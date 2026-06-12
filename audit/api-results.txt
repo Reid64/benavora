@@ -1,0 +1,48 @@
+==== GET routes ====
+GET     /api/admin/audit-log                             -> 200 :: {"entries":[{"id":"431e2faa-5bb7-442f-a001-c120714d1ca8","createdAt":"2026-06-11T18:15:00.927125+00:00","userId":"f711fe01-6b4d-4449-a8e7-ac2194dbb2c4","userName":"Reid (Benavora Demo)","userEmail":"reid@benavora.com","action":"login","entityType":"session","entityId":"f711fe01-6b4d-4449-a8e7-ac2194
+GET     /api/admin/usage                                 -> 200 :: {"tier":"free","metrics":[{"metric":"agent_runs","limit":10,"today":6,"last7Days":6,"last30Days":6,"remaining":4,"exceeded":false},{"metric":"api_calls","limit":200,"today":4,"last7Days":4,"last30Days":4,"remaining":196,"exceeded":false},{"metric":"email_sends","limit":0,"today":0,"last7Days":0,"las
+GET     /api/agents/automation/00000000-0000-0000-0000-000000000000 -> 404 :: {"error":"Automation session not found.","code":"not_found"}
+GET     /api/agents/campaigns/00000000-0000-0000-0000-000000000000 -> 404 :: {"error":"Campaign not found.","code":"not_found"}
+GET     /api/agents/campaigns                            -> 200 :: {"summary":{"total":0,"active":0,"draft":0,"paused":0,"completed":0},"campaigns":[]}
+GET     /api/agents/research/status                      -> 200 :: {"runs":[{"id":"75371a7e-3079-4dbf-bc33-6ef199d8cae1","agent_type":"narrative_drafting","status":"completed","items_found":16,"items_processed":1,"duration_ms":82084,"error_message":null,"created_at":"2026-06-11T07:54:07.452651+00:00"},{"id":"ebe589c0-3e5b-4466-adaf-7b7561cbce46","agent_type":"narra
+GET     /api/billing                                     -> 200 :: {"subscription":{"tier":"free","status":"active","current_period_end":null,"cancel_at_period_end":false,"stripe_subscription_id":null},"usage":{"agent_runs":{"used":6,"limit":10},"storage_mb":{"used":2.4,"limit":100},"users":{"used":2,"limit":2},"search_profiles":{"used":0,"limit":3}},"invoices":[],
+GET     /api/cron/campaigns                              -> 401 :: {"error":"Unauthorized.","code":"unauthorized"}
+GET     /api/cron/reminders                              -> 401 :: {"error":"Unauthorized.","code":"unauthorized"}
+GET     /api/cron/research                               -> 401 :: {"error":"Unauthorized.","code":"unauthorized"}
+GET     /api/deadlines/check                             -> 200 :: {"mode":"interactive","scope":"organization","deadlinesScanned":4,"remindersTriggered":3,"failures":0,"triggered":[{"deadlineId":"65fae7fe-b982-4303-b94b-11dd44cba8c6","organizationId":"bed3e621-d93c-4e89-bfc4-a0fcea61b8fd","title":"State Rapid Re-Housing NOFA submission","dueDate":"2026-06-18","day
+GET     /api/integrations/google                         -> 200 :: {"connected":false,"email":null}
+GET     /api/integrations/google/calendar                -> 200 :: {"connected":false,"calendars":[],"syncedCount":0}
+GET     /api/users                                       -> 200 :: {"users":[{"id":"309a4669-96f4-473d-83bf-0bc94e9fe45c","email":"reid@repvg.com","full_name":"Reid Whitesides","role":"owner","last_login_at":"2026-06-11T06:47:21.388+00:00","created_at":"2026-06-09T06:51:45.597781+00:00"},{"id":"f711fe01-6b4d-4449-a8e7-ac2194dbb2c4","email":"reid@benavora.com","full
+GET     /api/auth/callback                               -> 307 :: 
+==== POST routes (minimal/empty body — exercises validation/auth, not full execution) ====
+POST    /api/agents/automation/00000000-0000-0000-0000-000000000000/approve -> 409 :: {"error":"Automation session 00000000-0000-0000-0000-000000000000 not found.","code":"not_found"}
+POST    /api/agents/automation                           -> 403 :: {"error":"Browser automation is not enabled for your organization.","code":"feature_disabled"}
+POST    /api/agents/campaigns                            -> 403 :: {"error":"Cold-outreach email is not enabled for your organization.","code":"feature_disabled"}
+POST    /api/agents/eligibility                          -> 200 :: {"opportunityId":"b98c13d4-919c-4e4e-9832-d0ae27731496","eligibilityScore":12,"recommendation":"skip","recommendationReasoning":"Mission alignment is moderate-to-strong in concept—FAITH Foundation works on affordable homeownership and housing stability for economically disadvantaged populations, w
+POST    /api/agents/learning                             -> 400 :: {"error":"outcomeId is required.","code":"invalid_input"}
+POST    /api/agents/outreach                             -> 400 :: {"error":"companyName is required.","code":"invalid_input"}
+POST    /api/agents/research                             -> 400 :: {"error":"agentType must be one of: corporate_research, foundation_research, government_research, local_sponsorship.","code":"invalid_input"}
+POST    /api/ai/draft                                    -> 400 :: {"error":"opportunityId is required.","code":"invalid_input"}
+POST    /api/ai/fit-analysis                             -> 400 :: {"error":"opportunityId is required.","code":"invalid_input"}
+POST    /api/ai/review                                   -> 400 :: {"error":"applicationId is required.","code":"invalid_input"}
+POST    /api/ai/summarize                                -> 400 :: {"error":"opportunityId is required.","code":"invalid_input"}
+POST    /api/audit                                       -> 400 :: {"error":"A valid audit action is required.","code":"invalid_input"}
+POST    /api/auth/log-event                              -> 204 :: 
+POST    /api/billing                                     -> 500 :: {"error":"Billing is not configured on this server.","code":"not_configured"}
+POST    /api/cron/campaigns                              -> 401 :: {"error":"Unauthorized.","code":"unauthorized"}
+POST    /api/cron/reminders                              -> 401 :: {"error":"Unauthorized.","code":"unauthorized"}
+POST    /api/cron/research                               -> 401 :: {"error":"Unauthorized.","code":"unauthorized"}
+POST    /api/deadlines/check                             -> 200 :: {"mode":"interactive","scope":"organization","deadlinesScanned":4,"remindersTriggered":0,"failures":0,"triggered":[]}
+POST    /api/documents/quota                             -> 400 :: {"error":"A valid fileSize is required.","code":"invalid_input"}
+POST    /api/integrations/google                         -> 500 :: {"error":"Google integration is not configured on the server.","code":"not_configured"}
+POST    /api/integrations/google/calendar                -> 400 :: {"error":"Google is not connected. Connect it from Settings first.","code":"not_connected"}
+POST    /api/integrations/google/calendar/sync           -> 400 :: {"error":"A deadlineId is required.","code":"missing_deadline_id"}
+POST    /api/integrations/google/sync                    -> 400 :: {"error":"Google is not connected. Connect it from Settings first.","code":"not_connected"}
+POST    /api/users/accept                                -> 400 :: {"error":"A valid invitation token is required.","code":"invalid_input"}
+POST    /api/users/invite                                -> 400 :: {"error":"A valid email address is required.","code":"invalid_input"}
+POST    /api/webhooks/stripe                             -> 500 :: {"error":"Billing is not configured.","code":"not_configured"}
+==== PUT / other ====
+PUT     /api/agents/automation/00000000-0000-0000-0000-000000000000 -> 400 :: {"error":"action must be one of: \"approve\", \"reject\", \"update_fields\".","code":"invalid_input"}
+PUT     /api/agents/campaigns/00000000-0000-0000-0000-000000000000 -> 400 :: {"error":"A valid status is required.","code":"invalid_input"}
+PUT     /api/users                                       -> 400 :: {"error":"A target userId is required.","code":"invalid_input"}
+DONE

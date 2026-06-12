@@ -1,0 +1,26 @@
+[
+  {
+    "test": "outcomes.record.v2",
+    "buttonsOnPage": [
+      "Log out",
+      "View analytics",
+      "Record",
+      "Record",
+      "Record"
+    ],
+    "recordControlFound": 1,
+    "submitted": true,
+    "outcomesBefore": 0,
+    "outcomesAfter": 0,
+    "newestOutcome": null
+  },
+  {
+    "test": "applications.move",
+    "moveButtonFound": true,
+    "movePicker": true,
+    "confirmed": true,
+    "stageBefore": "drafting",
+    "stageAfter": "drafting",
+    "persisted": false
+  }
+]

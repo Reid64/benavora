@@ -1,0 +1,15 @@
+-- ============================================================================
+-- Migration 005 — browser automation agent_type
+--
+-- Phase 3 introduces the Browser Automation Agent (AGENTS.md Agent 16). Like
+-- every other agent it extends BaseAgent, which logs each run to agent_runs and
+-- stamps agent_runs.agent_type. The original `agent_type` enum (migration 001)
+-- predates Phase 3 and has no value for it, so we add one here.
+--
+-- `ALTER TYPE ... ADD VALUE` is additive and idempotent (IF NOT EXISTS); it does
+-- not touch existing rows or any governance document. The new value cannot be
+-- referenced in the same transaction it is created in, but this migration only
+-- declares it — first use happens in application code on a later connection.
+-- ============================================================================
+
+ALTER TYPE agent_type ADD VALUE IF NOT EXISTS 'browser_automation';

@@ -1,0 +1,494 @@
+{
+  "tables": {
+    "organizations": {
+      "rows": 8,
+      "exists": true
+    },
+    "profiles": {
+      "rows": 5,
+      "exists": true
+    },
+    "funders": {
+      "rows": 11,
+      "exists": true
+    },
+    "contacts": {
+      "rows": 5,
+      "exists": true
+    },
+    "opportunities": {
+      "rows": 8,
+      "exists": true
+    },
+    "opportunity_keywords": {
+      "rows": 7,
+      "exists": true
+    },
+    "applications": {
+      "rows": 6,
+      "exists": true
+    },
+    "pipeline_history": {
+      "rows": 7,
+      "exists": true
+    },
+    "documents": {
+      "rows": 5,
+      "exists": true
+    },
+    "application_documents": {
+      "rows": 0,
+      "exists": true
+    },
+    "knowledge_base": {
+      "rows": 17,
+      "exists": true
+    },
+    "board_members": {
+      "rows": 5,
+      "exists": true
+    },
+    "programs": {
+      "rows": 3,
+      "exists": true
+    },
+    "outcomes": {
+      "rows": 3,
+      "exists": true
+    },
+    "proven_narratives": {
+      "rows": 2,
+      "exists": true
+    },
+    "deadlines": {
+      "rows": 5,
+      "exists": true
+    },
+    "notes": {
+      "rows": 0,
+      "exists": true
+    },
+    "search_profiles": {
+      "rows": 1,
+      "exists": true
+    },
+    "email_campaigns": {
+      "rows": 1,
+      "exists": true
+    },
+    "campaign_steps": {
+      "rows": 2,
+      "exists": true
+    },
+    "outreach_contacts": {
+      "rows": 1,
+      "exists": true
+    },
+    "campaign_sends": {
+      "rows": 1,
+      "exists": true
+    },
+    "agent_runs": {
+      "rows": 14,
+      "exists": true
+    },
+    "platform_config": {
+      "rows": 86,
+      "exists": true
+    },
+    "research_cache": {
+      "rows": 0,
+      "exists": true
+    },
+    "automation_sessions": {
+      "rows": 1,
+      "exists": true
+    },
+    "automation_steps": {
+      "rows": 3,
+      "exists": true
+    },
+    "automation_screenshots": {
+      "rows": 1,
+      "exists": true
+    },
+    "integrations": {
+      "rows": 0,
+      "exists": true
+    },
+    "synced_email_threads": {
+      "rows": 0,
+      "exists": true
+    },
+    "synced_email_messages": {
+      "rows": 0,
+      "exists": true
+    },
+    "email_thread_links": {
+      "rows": 0,
+      "exists": true
+    },
+    "subscriptions": {
+      "rows": 0,
+      "exists": true
+    },
+    "invoices": {
+      "rows": 0,
+      "exists": true
+    },
+    "usage_metrics": {
+      "rows": 3,
+      "exists": true
+    },
+    "audit_logs": {
+      "rows": 22,
+      "exists": true
+    },
+    "user_invitations": {
+      "rows": 0,
+      "exists": true
+    },
+    "onboarding_steps": {
+      "rows": 0,
+      "exists": true
+    },
+    "stripe_webhook_events": {
+      "rows": null,
+      "exists": true
+    }
+  },
+  "rls": {
+    "organizations": {
+      "anonCount": 0,
+      "anonError": null,
+      "svcCount": 8,
+      "blocksAnon": true
+    },
+    "profiles": {
+      "anonCount": 0,
+      "anonError": null,
+      "svcCount": 5,
+      "blocksAnon": true
+    },
+    "funders": {
+      "anonCount": 0,
+      "anonError": null,
+      "svcCount": 11,
+      "blocksAnon": true
+    },
+    "contacts": {
+      "anonCount": 0,
+      "anonError": null,
+      "svcCount": 5,
+      "blocksAnon": true
+    },
+    "opportunities": {
+      "anonCount": 0,
+      "anonError": null,
+      "svcCount": 8,
+      "blocksAnon": true
+    },
+    "opportunity_keywords": {
+      "anonCount": 0,
+      "anonError": null,
+      "svcCount": 7,
+      "blocksAnon": true
+    },
+    "applications": {
+      "anonCount": 0,
+      "anonError": null,
+      "svcCount": 6,
+      "blocksAnon": true
+    },
+    "pipeline_history": {
+      "anonCount": 0,
+      "anonError": null,
+      "svcCount": 7,
+      "blocksAnon": true
+    },
+    "documents": {
+      "anonCount": 0,
+      "anonError": null,
+      "svcCount": 5,
+      "blocksAnon": true
+    },
+    "application_documents": {
+      "anonCount": 0,
+      "anonError": null,
+      "svcCount": 0,
+      "blocksAnon": true
+    },
+    "knowledge_base": {
+      "anonCount": 0,
+      "anonError": null,
+      "svcCount": 17,
+      "blocksAnon": true
+    },
+    "board_members": {
+      "anonCount": 0,
+      "anonError": null,
+      "svcCount": 5,
+      "blocksAnon": true
+    },
+    "programs": {
+      "anonCount": 0,
+      "anonError": null,
+      "svcCount": 3,
+      "blocksAnon": true
+    },
+    "outcomes": {
+      "anonCount": 0,
+      "anonError": null,
+      "svcCount": 3,
+      "blocksAnon": true
+    },
+    "proven_narratives": {
+      "anonCount": 0,
+      "anonError": null,
+      "svcCount": 2,
+      "blocksAnon": true
+    },
+    "deadlines": {
+      "anonCount": 0,
+      "anonError": null,
+      "svcCount": 5,
+      "blocksAnon": true
+    },
+    "notes": {
+      "anonCount": 0,
+      "anonError": null,
+      "svcCount": 0,
+      "blocksAnon": true
+    },
+    "search_profiles": {
+      "anonCount": 0,
+      "anonError": null,
+      "svcCount": 1,
+      "blocksAnon": true
+    },
+    "email_campaigns": {
+      "anonCount": 0,
+      "anonError": null,
+      "svcCount": 1,
+      "blocksAnon": true
+    },
+    "campaign_steps": {
+      "anonCount": 0,
+      "anonError": null,
+      "svcCount": 2,
+      "blocksAnon": true
+    },
+    "outreach_contacts": {
+      "anonCount": 0,
+      "anonError": null,
+      "svcCount": 1,
+      "blocksAnon": true
+    },
+    "campaign_sends": {
+      "anonCount": 0,
+      "anonError": null,
+      "svcCount": 1,
+      "blocksAnon": true
+    },
+    "agent_runs": {
+      "anonCount": 0,
+      "anonError": null,
+      "svcCount": 14,
+      "blocksAnon": true
+    },
+    "platform_config": {
+      "anonCount": 0,
+      "anonError": null,
+      "svcCount": 86,
+      "blocksAnon": true
+    },
+    "research_cache": {
+      "anonCount": 0,
+      "anonError": null,
+      "svcCount": 0,
+      "blocksAnon": true
+    },
+    "automation_sessions": {
+      "anonCount": 0,
+      "anonError": null,
+      "svcCount": 1,
+      "blocksAnon": true
+    },
+    "automation_steps": {
+      "anonCount": 0,
+      "anonError": null,
+      "svcCount": 3,
+      "blocksAnon": true
+    },
+    "automation_screenshots": {
+      "anonCount": 0,
+      "anonError": null,
+      "svcCount": 1,
+      "blocksAnon": true
+    },
+    "integrations": {
+      "anonCount": 0,
+      "anonError": null,
+      "svcCount": 0,
+      "blocksAnon": true
+    },
+    "synced_email_threads": {
+      "anonCount": 0,
+      "anonError": null,
+      "svcCount": 0,
+      "blocksAnon": true
+    },
+    "synced_email_messages": {
+      "anonCount": 0,
+      "anonError": null,
+      "svcCount": 0,
+      "blocksAnon": true
+    },
+    "email_thread_links": {
+      "anonCount": 0,
+      "anonError": null,
+      "svcCount": 0,
+      "blocksAnon": true
+    },
+    "subscriptions": {
+      "anonCount": 0,
+      "anonError": null,
+      "svcCount": 0,
+      "blocksAnon": true
+    },
+    "invoices": {
+      "anonCount": 0,
+      "anonError": null,
+      "svcCount": 0,
+      "blocksAnon": true
+    },
+    "usage_metrics": {
+      "anonCount": 0,
+      "anonError": null,
+      "svcCount": 3,
+      "blocksAnon": true
+    },
+    "audit_logs": {
+      "anonCount": 0,
+      "anonError": null,
+      "svcCount": 22,
+      "blocksAnon": true
+    },
+    "user_invitations": {
+      "anonCount": 0,
+      "anonError": null,
+      "svcCount": 0,
+      "blocksAnon": true
+    },
+    "onboarding_steps": {
+      "anonCount": 0,
+      "anonError": null,
+      "svcCount": 0,
+      "blocksAnon": true
+    },
+    "stripe_webhook_events": {
+      "anonCount": null,
+      "anonError": null,
+      "svcCount": null,
+      "blocksAnon": false
+    }
+  },
+  "orphans": {
+    "profiles.organization_id->organizations": {
+      "childRows": 5,
+      "orphans": 0,
+      "orphanIds": []
+    },
+    "funders.organization_id->organizations": {
+      "childRows": 11,
+      "orphans": 0,
+      "orphanIds": []
+    },
+    "contacts.organization_id->organizations": {
+      "childRows": 5,
+      "orphans": 0,
+      "orphanIds": []
+    },
+    "contacts.funder_id->funders": {
+      "childRows": 5,
+      "orphans": 0,
+      "orphanIds": []
+    },
+    "opportunities.organization_id->organizations": {
+      "childRows": 8,
+      "orphans": 0,
+      "orphanIds": []
+    },
+    "opportunities.funder_id->funders": {
+      "childRows": 8,
+      "orphans": 0,
+      "orphanIds": []
+    },
+    "applications.organization_id->organizations": {
+      "childRows": 6,
+      "orphans": 0,
+      "orphanIds": []
+    },
+    "applications.opportunity_id->opportunities": {
+      "childRows": 6,
+      "orphans": 0,
+      "orphanIds": []
+    },
+    "deadlines.organization_id->organizations": {
+      "childRows": 5,
+      "orphans": 0,
+      "orphanIds": []
+    },
+    "deadlines.opportunity_id->opportunities": {
+      "childRows": 5,
+      "orphans": 0,
+      "orphanIds": []
+    },
+    "outcomes.organization_id->organizations": {
+      "childRows": 3,
+      "orphans": 0,
+      "orphanIds": []
+    },
+    "outcomes.application_id->applications": {
+      "childRows": 3,
+      "orphans": 0,
+      "orphanIds": []
+    },
+    "pipeline_history.application_id->applications": {
+      "childRows": 7,
+      "orphans": 0,
+      "orphanIds": []
+    },
+    "knowledge_base.organization_id->organizations": {
+      "childRows": 17,
+      "orphans": 0,
+      "orphanIds": []
+    },
+    "proven_narratives.organization_id->organizations": {
+      "childRows": 2,
+      "orphans": 0,
+      "orphanIds": []
+    },
+    "documents.organization_id->organizations": {
+      "childRows": 5,
+      "orphans": 0,
+      "orphanIds": []
+    },
+    "agent_runs.organization_id->organizations": {
+      "childRows": 14,
+      "orphans": 0,
+      "orphanIds": []
+    },
+    "board_members.organization_id->organizations": {
+      "childRows": 5,
+      "orphans": 0,
+      "orphanIds": []
+    },
+    "programs.organization_id->organizations": {
+      "childRows": 3,
+      "orphans": 0,
+      "orphanIds": []
+    }
+  },
+  "errors": []
+}

@@ -1,0 +1,250 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import {
+  Award,
+  BookText,
+  Building2,
+  HelpCircle,
+  type LucideIcon,
+} from "lucide-react";
+
+import { Badge, Card, EmptyState, LoadingSpinner } from "@/components/ui";
+import { KnowledgeBaseNav } from "@/components/knowledge-base/KnowledgeBaseNav";
+import { ProvenBadge } from "@/components/knowledge-base/ProvenBadge";
+import { createClient } from "@/lib/supabase/client";
+import { STANDARD_ANSWER_CATEGORY } from "@/lib/utils/constants";
+import { formatRelative, humanizeEnum } from "@/lib/utils/formatters";
+import type { Tables } from "@/types/database";
+
+type Summary = {
+  narrativeCount: number;
+  answerCount: number;
+  provenCount: number;
+  proven: Tables<"proven_narratives">[];
+};
+
+const SHORTCUTS: {
+  href: string;
+  title: string;
+  description: string;
+  icon: LucideIcon;
+}[] = [
+  {
+    href: "/knowledge-base/profile",
+    title: "Organization Profile",
+    description: "EIN, mission, programs, board, and budget.",
+    icon: Building2,
+  },
+  {
+    href: "/knowledge-base/narratives",
+    title: "Narratives",
+    description: "Reusable mission, need, impact, and capacity blocks.",
+    icon: BookText,
+  },
+  {
+    href: "/knowledge-base/answers",
+    title: "Standard Answers",
+    description: "Approved answers to recurring grant questions.",
+    icon: HelpCircle,
+  },
+];
+
+/**
+ * Knowledge Base overview (BLUEPRINT §4.7): a summary of the org's reusable
+ * content plus a window into the narratives the learning system has proven
+ * effective, with their effectiveness scores.
+ */
+export default function KnowledgeBaseOverviewPage() {
+  const [summary, setSummary] = useState<Summary | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    const supabase = createClient();
+
+    (async () => {
+      setLoading(true);
+      setError(null);
+
+      const [kbRes, provenRes] = await Promise.all([
+        supabase.from("knowledge_base").select("id, category, is_proven"),
+        supabase
+          .from("proven_narratives")
+          .select("*")
+          .order("effectiveness_score", { ascending: false, nullsFirst: false }),
+      ]);
+
+      if (!active) return;
+
+      if (kbRes.error) {
+        setError("Could not load your knowledge base.");
+        setLoading(false);
+        return;
+      }
+
+      const kb = kbRes.data ?? [];
+      setSummary({
+        narrativeCount: kb.filter(
+          (r) => r.category !== STANDARD_ANSWER_CATEGORY,
+        ).length,
+        answerCount: kb.filter(
+          (r) => r.category === STANDARD_ANSWER_CATEGORY,
+        ).length,
+        provenCount: kb.filter((r) => r.is_proven).length,
+        proven: provenRes.data ?? [],
+      });
+      setLoading(false);
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight text-navy-900">
+          Knowledge Base
+        </h1>
+        <p className="mt-1 text-sm text-navy-500">
+          The verified organizational content the AI draws from — never
+          fabricated beyond what you store here.
+        </p>
+      </div>
+
+      <KnowledgeBaseNav />
+
+      {error && (
+        <div
+          role="alert"
+          className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+        >
+          {error}
+        </div>
+      )}
+
+      {loading ? (
+        <LoadingSpinner center label="Loading knowledge base…" />
+      ) : (
+        <>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <MetricCard
+              icon={BookText}
+              label="Narratives"
+              value={summary?.narrativeCount ?? 0}
+            />
+            <MetricCard
+              icon={HelpCircle}
+              label="Standard answers"
+              value={summary?.answerCount ?? 0}
+            />
+            <MetricCard
+              icon={Award}
+              label="Proven narratives"
+              value={summary?.provenCount ?? 0}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            {SHORTCUTS.map((shortcut) => (
+              <Link key={shortcut.href} href={shortcut.href} className="group">
+                <Card className="h-full transition group-hover:border-teal-300 group-hover:shadow-md">
+                  <div className="flex items-center gap-2 text-navy-900">
+                    <shortcut.icon
+                      className="h-5 w-5 text-teal-600"
+                      aria-hidden
+                    />
+                    <h3 className="font-semibold">{shortcut.title}</h3>
+                  </div>
+                  <p className="mt-1.5 text-sm text-navy-500">
+                    {shortcut.description}
+                  </p>
+                </Card>
+              </Link>
+            ))}
+          </div>
+
+          <Card
+            title="Proven narratives"
+            description="Patterns the learning system extracted from awarded applications, ranked by effectiveness."
+          >
+            {summary && summary.proven.length > 0 ? (
+              <ul className="divide-y divide-navy-100">
+                {summary.proven.map((proven) => (
+                  <li
+                    key={proven.id}
+                    className="flex items-start justify-between gap-4 py-3 first:pt-0 last:pb-0"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {proven.section_type && (
+                          <Badge color="indigo">
+                            {humanizeEnum(proven.section_type)}
+                          </Badge>
+                        )}
+                        {proven.funder_category && (
+                          <Badge color="gray">
+                            {humanizeEnum(proven.funder_category)}
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="mt-1.5 line-clamp-2 text-sm text-navy-600">
+                        {proven.narrative_text}
+                      </p>
+                      {proven.last_used_at && (
+                        <p className="mt-1 text-xs text-navy-400">
+                          Last used {formatRelative(proven.last_used_at)}
+                        </p>
+                      )}
+                    </div>
+                    <div className="shrink-0">
+                      <ProvenBadge
+                        isProven
+                        provenCount={proven.success_count}
+                        effectivenessScore={proven.effectiveness_score}
+                      />
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <EmptyState
+                icon={Award}
+                title="No proven narratives yet"
+                description="As you record awarded outcomes, the learning system promotes the narratives that won and ranks them here."
+              />
+            )}
+          </Card>
+        </>
+      )}
+    </div>
+  );
+}
+
+function MetricCard({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: number;
+}) {
+  return (
+    <Card>
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-50">
+          <Icon className="h-5 w-5 text-teal-600" aria-hidden />
+        </div>
+        <div>
+          <p className="text-2xl font-semibold text-navy-900">{value}</p>
+          <p className="text-sm text-navy-500">{label}</p>
+        </div>
+      </div>
+    </Card>
+  );
+}

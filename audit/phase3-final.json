@@ -1,0 +1,26 @@
+[
+  {
+    "test": "outcomes.happy_path",
+    "app": "a2b21cd2-6e63-41d7-9d6d-541c4fb0ca73",
+    "recordButtons": 3,
+    "outcomesForAppBefore": 0,
+    "outcomesForAppAfter": 1,
+    "created": {
+      "id": "2922cf99-3c40-4f21-87f0-062823598512",
+      "result": "awarded",
+      "awarded_amount": 55000,
+      "organization_id": "bed3e621-d93c-4e89-bfc4-a0fcea61b8fd",
+      "application_id": "a2b21cd2-6e63-41d7-9d6d-541c4fb0ca73"
+    },
+    "createdUnderCorrectOrg": true
+  },
+  {
+    "test": "applications.move.backward_with_note",
+    "stageBefore": "drafting",
+    "stageAfter": "qualified",
+    "persisted": true,
+    "pipelineHistoryBefore": 1,
+    "pipelineHistoryAfter": 2,
+    "historyRowAdded": true
+  }
+]

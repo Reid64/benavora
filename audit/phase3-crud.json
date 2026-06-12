@@ -1,0 +1,46 @@
+[
+  {
+    "test": "funders.create",
+    "funderName": "Audit Funder A140615",
+    "categoryOptions": [
+      "Select a category…",
+      "Corporate Donation",
+      "Corporate Sponsorship",
+      "Corporate Foundation",
+      "Private Foundation",
+      "Government Grant"
+    ],
+    "appearsInTable": false,
+    "dbRows": 1,
+    "dbRecord": {
+      "id": "5f8be2aa-84d7-44a2-8e62-ac989ceac09a",
+      "name": "Audit Funder A140615",
+      "category": "corporate_donation",
+      "geographic_focus": "Audit Test Region"
+    },
+    "finalUrl": "http://localhost:3000/funders/5f8be2aa-84d7-44a2-8e62-ac989ceac09a"
+  },
+  {
+    "test": "funders.search_sort",
+    "rowsBefore": 6,
+    "rowsFiltered_Brightwater": 1,
+    "searchNarrows": true,
+    "rowsAfterSort": 6
+  },
+  {
+    "test": "funders.edit",
+    "detailUrl": "http://localhost:3000/funders/5f8be2aa-84d7-44a2-8e62-ac989ceac09a",
+    "editAttempted": false,
+    "dbGeographicFocus": "Audit Test Region",
+    "persistedEdit": false
+  },
+  {
+    "test": "settings.org_name",
+    "orgNameBefore": "FAITH Foundation",
+    "attemptedNewName": "FAITH Foundation A140615",
+    "orgNameInDbAfter": "FAITH Foundation A140615",
+    "persistedToDb": true,
+    "reloadedInputValue": "FAITH Foundation A140615",
+    "orgNameInputFound": true
+  }
+]

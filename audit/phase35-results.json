@@ -1,0 +1,86 @@
+[
+  {
+    "test": "phase5.org_isolation",
+    "asUser": "audit_test_04225@example.com (empty org)",
+    "faithFunderCount": 6,
+    "pages": {
+      "funders": {
+        "tableRows": 0,
+        "faithDataLeaked": []
+      },
+      "contacts": {
+        "tableRows": 0,
+        "faithDataLeaked": []
+      },
+      "opportunities": {
+        "tableRows": 0,
+        "faithDataLeaked": []
+      }
+    },
+    "isolationHolds": true
+  },
+  {
+    "test": "phase3.settings_flags_team",
+    "toggleControls": 0,
+    "flagBadgeCount": 5,
+    "flagBadgesSample": [
+      "Disabled",
+      "Disabled",
+      "Disabled",
+      "Disabled",
+      "Disabled"
+    ],
+    "inviteButtonPresent": true,
+    "teamRosterVisible": true
+  },
+  {
+    "test": "phase3.automation",
+    "disabledStateText": "Automation Browser-automation sessions fill funder donation portals for your applications. Each session pauses for your review and never submits without your approval. Browser automation is off Enable it to run portal automation for your applications. Enable browser automation Sessions All statuses ",
+    "enabledStateText": "Automation Browser-automation sessions fill funder donation portals for your applications. Each session pauses for your review and never submits without your approval. Sessions All statuses Pending In Progress Awaiting Approval Submitted Failed No automation sessions yet Start a session from an appl",
+    "enabledButtons": [
+      "Log out"
+    ],
+    "urlInputPresent": false,
+    "uiChangedOnEnable": true
+  },
+  {
+    "test": "phase3.outcomes_analytics",
+    "analyticsButton": true,
+    "clicked": true,
+    "svgOrCanvasCount": 23,
+    "excerpt": "Outcomes Record awards and denials. Awarded narratives train the learning system. View analytics Record an outcome Select an application that reached an eligible stage. Brightwater Housing Stability Initiative 2026 Requested $200,000 · Private Foundation Recor"
+  },
+  {
+    "test": "phase5.audit_log",
+    "http": 200,
+    "tableRows": 13,
+    "dbAuditCount": 13,
+    "recentActions": [
+      {
+        "action": "update",
+        "entity_type": "application",
+        "created_at": "2026-06-11T19:24:00.771962+00:00"
+      },
+      {
+        "action": "update",
+        "entity_type": "organization",
+        "created_at": "2026-06-11T19:06:45.646422+00:00"
+      },
+      {
+        "action": "login",
+        "entity_type": "session",
+        "created_at": "2026-06-11T18:59:57.850821+00:00"
+      },
+      {
+        "action": "logout",
+        "entity_type": "session",
+        "created_at": "2026-06-11T18:57:25.458146+00:00"
+      },
+      {
+        "action": "login",
+        "entity_type": "session",
+        "created_at": "2026-06-11T18:57:19.758837+00:00"
+      }
+    ]
+  }
+]

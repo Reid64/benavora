@@ -1,0 +1,338 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/**
+ * Benavora — premium dark theme.
+ *
+ * Logo-matched palette: deep #0a0a1a canvas, blue→teal gradient accents,
+ * purple highlights, glowing card borders, clean white text.
+ *
+ * Strategy: the centralized components (Button, Card, Sidebar, etc.) are styled
+ * directly for dark mode. The COMPATIBILITY LAYER near the bottom remaps the
+ * light-theme utility classes (text-navy-*, bg-white, border-navy-*, alert
+ * tints, …) that page files still use, so every page flips to dark without
+ * editing each one. Rules sit after @tailwind utilities so they win on equal
+ * specificity; variant selectors (hover:/divide:/opacity) are matched in full.
+ */
+
+:root {
+  --background: #0a0a1a;
+  --foreground: #eef1fb;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  color-scheme: dark;
+}
+
+body {
+  color: var(--foreground);
+  background-color: var(--background);
+  /* Ambient brand glow for depth on the deep canvas. */
+  background-image:
+    radial-gradient(48rem 32rem at 12% -10%, rgba(99, 102, 241, 0.14), transparent 60%),
+    radial-gradient(46rem 30rem at 100% 0%, rgba(45, 212, 191, 0.1), transparent 55%);
+  background-attachment: fixed;
+  font-family:
+    var(--font-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Roboto, sans-serif;
+}
+
+/* Kill the white ring-offset halo that focus styles default to on dark. */
+* {
+  --tw-ring-offset-color: #0a0a1a;
+}
+
+/* Text selection — purple accent wash, legible light text. */
+::selection {
+  background-color: rgba(139, 92, 246, 0.4); /* accent #8b5cf6 */
+  color: #f3f6ff;
+}
+::-moz-selection {
+  background-color: rgba(139, 92, 246, 0.4);
+  color: #f3f6ff;
+}
+
+/* Keyboard focus fallback — teal ring for any focusable element without one. */
+:focus-visible {
+  outline: none;
+}
+a:focus-visible,
+[tabindex]:focus-visible,
+summary:focus-visible {
+  outline: 2px solid #2dd4bf;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ---- Premium utilities ---------------------------------------------------- */
+
+/* Gradient text (brand sweep). */
+.gradient-text {
+  background-image: linear-gradient(135deg, #818cf8 0%, #60a5fa 45%, #2dd4bf 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Glassy elevated surface with a faint hairline border. */
+.glass {
+  background-color: rgba(20, 20, 46, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Glowing gradient border (used on premium cards / hero panels). */
+.glow-border {
+  position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.glow-border::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.5), rgba(45, 212, 191, 0.45));
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0.7;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+.glow-border:hover::before {
+  opacity: 1;
+}
+
+/* ---- Scrollbars (dark) ---------------------------------------------------- */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2a2a55 transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background-color: #2a2a55;
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background-color: #3a3a72;
+}
+.scrollbar-dark {
+  scrollbar-color: #2a2a55 transparent;
+}
+.scrollbar-dark::-webkit-scrollbar-thumb {
+  background-color: #2a2a55;
+}
+
+/* Native form controls render dark (date pickers, select popups, etc.). */
+input,
+select,
+textarea {
+  color-scheme: dark;
+}
+
+/* ==========================================================================
+   COMPATIBILITY LAYER — remap light-theme utilities to the dark palette.
+   Keep these after @tailwind utilities.
+   ========================================================================== */
+
+/* Surfaces ----------------------------------------------------------------- */
+.bg-white {
+  background-color: #13132e !important;
+}
+.bg-surface {
+  background-color: #0a0a1a !important;
+}
+.bg-navy-50 {
+  background-color: rgba(255, 255, 255, 0.03) !important;
+}
+.bg-navy-100 {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+}
+.bg-navy-50\/50,
+.bg-navy-50\/30 {
+  background-color: rgba(255, 255, 255, 0.03) !important;
+}
+.hover\:bg-navy-50:hover {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+}
+.hover\:bg-navy-100:hover {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+}
+/* Disabled form fields (inputs/selects/textareas) stay dark, not light. */
+.disabled\:bg-navy-50:disabled {
+  background-color: rgba(255, 255, 255, 0.02) !important;
+}
+.disabled\:text-navy-500:disabled {
+  color: #6c769b !important;
+}
+/* Placeholder text — dim but legible on the dark canvas. */
+.placeholder\:text-navy-400::placeholder,
+.placeholder\:text-navy-300::placeholder {
+  color: #5b6488 !important;
+}
+
+/* Text --------------------------------------------------------------------- */
+.text-navy-900 {
+  color: #f3f6ff !important;
+}
+.text-navy-800 {
+  color: #e6ebfa !important;
+}
+.text-navy-700 {
+  color: #ccd5ee !important;
+}
+.text-navy-600 {
+  color: #aab4d4 !important;
+}
+.text-navy-500 {
+  color: #8a93b6 !important;
+}
+.text-navy-400 {
+  color: #6c769b !important;
+}
+.text-navy-300 {
+  color: #565f80 !important;
+}
+.hover\:text-navy-900:hover,
+.hover\:text-navy-800:hover {
+  color: #f3f6ff !important;
+}
+.hover\:text-navy-700:hover,
+.hover\:text-navy-600:hover {
+  color: #ccd5ee !important;
+}
+.focus-visible\:text-navy-700:focus-visible {
+  color: #ccd5ee !important;
+}
+
+/* Borders + dividers ------------------------------------------------------- */
+.border-navy-100 {
+  border-color: rgba(255, 255, 255, 0.06) !important;
+}
+.border-navy-200 {
+  border-color: rgba(255, 255, 255, 0.09) !important;
+}
+.border-navy-300 {
+  border-color: rgba(255, 255, 255, 0.13) !important;
+}
+.hover\:border-navy-300:hover,
+.hover\:border-navy-400:hover {
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+.divide-navy-100 > :not([hidden]) ~ :not([hidden]) {
+  border-color: rgba(255, 255, 255, 0.06) !important;
+}
+.divide-navy-200 > :not([hidden]) ~ :not([hidden]) {
+  border-color: rgba(255, 255, 255, 0.09) !important;
+}
+
+/* Teal accents (links, active states, drag highlights) --------------------- */
+.text-teal-600 {
+  color: #2dd4bf !important;
+}
+.text-teal-700 {
+  color: #5eead4 !important;
+}
+.hover\:text-teal-700:hover {
+  color: #99f6e4 !important;
+}
+.bg-teal-50,
+.bg-teal-50\/60,
+.bg-teal-50\/50 {
+  background-color: rgba(45, 212, 191, 0.12) !important;
+}
+.border-teal-200 {
+  border-color: rgba(45, 212, 191, 0.4) !important;
+}
+.border-teal-300,
+.hover\:border-teal-300:hover {
+  border-color: rgba(45, 212, 191, 0.55) !important;
+}
+
+/* Plum / purple highlights ------------------------------------------------- */
+.bg-plum-50 {
+  background-color: rgba(168, 85, 247, 0.14) !important;
+}
+.border-plum-200 {
+  border-color: rgba(168, 85, 247, 0.4) !important;
+}
+.text-plum-600 {
+  color: #c084fc !important;
+}
+.text-plum-700,
+.text-plum-800,
+.text-plum-900 {
+  color: #d8b4fe !important;
+}
+
+/* Alert / status tints — translucent on dark, lightened text + borders ----- */
+.bg-red-50 {
+  background-color: rgba(248, 113, 113, 0.12) !important;
+}
+.border-red-200 {
+  border-color: rgba(248, 113, 113, 0.35) !important;
+}
+.text-red-600,
+.text-red-500 {
+  color: #f87171 !important;
+}
+.text-red-700,
+.text-red-800,
+.text-red-900 {
+  color: #fca5a5 !important;
+}
+
+.bg-yellow-50,
+.bg-amber-50 {
+  background-color: rgba(251, 191, 36, 0.12) !important;
+}
+.border-yellow-200,
+.border-yellow-300,
+.border-amber-200 {
+  border-color: rgba(251, 191, 36, 0.35) !important;
+}
+.text-yellow-700,
+.text-yellow-800,
+.text-yellow-900,
+.text-amber-700,
+.text-amber-800 {
+  color: #fcd34d !important;
+}
+
+.bg-green-50,
+.bg-emerald-50 {
+  background-color: rgba(52, 211, 153, 0.12) !important;
+}
+.border-green-200,
+.border-emerald-200 {
+  border-color: rgba(52, 211, 153, 0.35) !important;
+}
+.text-green-700,
+.text-green-800,
+.text-emerald-700 {
+  color: #6ee7b7 !important;
+}
+
+.bg-blue-50 {
+  background-color: rgba(96, 165, 250, 0.12) !important;
+}
+.border-blue-200 {
+  border-color: rgba(96, 165, 250, 0.35) !important;
+}
+.text-blue-700,
+.text-blue-800 {
+  color: #93c5fd !important;
+}

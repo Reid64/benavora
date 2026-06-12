@@ -1,0 +1,247 @@
+[
+  {
+    "name": "eligibility",
+    "path": "/api/agents/eligibility",
+    "httpStatus": 200,
+    "latencyMs": 11479,
+    "agentRunsBefore": 7,
+    "agentRunsAfter": 8,
+    "newAgentRun": true,
+    "latestRun": {
+      "agent_type": "eligibility_scoring",
+      "status": "completed",
+      "duration_ms": 8299,
+      "tokens_used": 746,
+      "error_message": null,
+      "created_at": "2026-06-11T19:05:16.1662+00:00"
+    },
+    "responseKeys": [
+      "opportunityId",
+      "eligibilityScore",
+      "recommendation",
+      "recommendationReasoning",
+      "tokensUsed"
+    ],
+    "responseExcerpt": "{\"opportunityId\":\"b98c13d4-919c-4e4e-9832-d0ae27731496\",\"eligibilityScore\":12,\"recommendation\":\"skip\",\"recommendationReasoning\":\"Mission alignment is moderate-to-strong in concept — FAITH Foundation works on housing stability and economic disadvantage, which resonates with homelessness prevention — but the funder's specific focus on 'navigation and flexible assistance' differs from FAITH's down pa"
+  },
+  {
+    "name": "draft_grant_narrative",
+    "path": "/api/ai/draft",
+    "httpStatus": 200,
+    "latencyMs": 67281,
+    "agentRunsBefore": 8,
+    "agentRunsAfter": 9,
+    "newAgentRun": true,
+    "latestRun": {
+      "agent_type": "narrative_drafting",
+      "status": "completed",
+      "duration_ms": 65619,
+      "tokens_used": 4870,
+      "error_message": null,
+      "created_at": "2026-06-11T19:05:27.16035+00:00"
+    },
+    "responseKeys": [
+      "content",
+      "confidenceScore",
+      "sources",
+      "belowThreshold"
+    ],
+    "responseExcerpt": "{\"content\":\"# FAITH Foundation\\n## Brightwater Housing Stability Initiative 2026\\n### Grant Narrative\\n\\n---\\n\\n## STATEMENT OF NEED\\n\\nSouthern California families facing housing instability confront a crisis that is simultaneously urgent and systemic. [NEEDS INPUT: Southern California-specific housing instability data for the target service area — e.g., eviction rates, cost-burden percentages, s"
+  },
+  {
+    "name": "review",
+    "path": "/api/ai/review",
+    "httpStatus": 400,
+    "latencyMs": 2799,
+    "agentRunsBefore": 9,
+    "agentRunsAfter": 10,
+    "newAgentRun": true,
+    "latestRun": {
+      "agent_type": "review",
+      "status": "failed",
+      "duration_ms": 846,
+      "tokens_used": null,
+      "error_message": "There is no draft to review on this application.",
+      "created_at": "2026-06-11T19:06:36.439562+00:00"
+    },
+    "responseKeys": [
+      "error",
+      "code"
+    ],
+    "responseExcerpt": "{\"error\":\"There is no draft to review on this application.\",\"code\":\"no_draft\"}"
+  },
+  {
+    "name": "summarize",
+    "path": "/api/ai/summarize",
+    "httpStatus": 200,
+    "latencyMs": 6804,
+    "agentRunsBefore": 10,
+    "agentRunsAfter": 11,
+    "newAgentRun": true,
+    "latestRun": {
+      "agent_type": "grant_summary",
+      "status": "completed",
+      "duration_ms": 4508,
+      "tokens_used": 675,
+      "error_message": null,
+      "created_at": "2026-06-11T19:06:40.280676+00:00"
+    },
+    "responseKeys": [
+      "opportunityId",
+      "needsManualEntry",
+      "summary",
+      "updatedFields",
+      "tokensUsed"
+    ],
+    "responseExcerpt": "{\"opportunityId\":\"b98c13d4-919c-4e4e-9832-d0ae27731496\",\"needsManualEntry\":false,\"summary\":{\"funderName\":\"Brightwater Foundation\",\"programName\":\"Brightwater Housing Stability Initiative 2026\",\"amountMin\":50000,\"amountMax\":250000,\"amountAvailable\":0,\"deadline\":null,\"eligibilityRequirements\":\"Applicants must be 501(c)(3) nonprofits operating supportive housing in the state.\",\"requiredDocuments\":null"
+  },
+  {
+    "name": "fit_analysis",
+    "path": "/api/ai/fit-analysis",
+    "httpStatus": 200,
+    "latencyMs": 21523,
+    "agentRunsBefore": 11,
+    "agentRunsAfter": 12,
+    "newAgentRun": true,
+    "latestRun": {
+      "agent_type": "fit_analysis",
+      "status": "completed",
+      "duration_ms": 19955,
+      "tokens_used": 1413,
+      "error_message": null,
+      "created_at": "2026-06-11T19:06:47.652983+00:00"
+    },
+    "responseKeys": [
+      "analysis",
+      "history",
+      "tokensUsed"
+    ],
+    "responseExcerpt": "{\"analysis\":\"# Fit Analysis: Brightwater Housing Stability Initiative 2026\\n**FAITH Foundation A140615 | The Brightwater Foundation**\\n\\n---\\n\\n## 1. Historical Success Rate with Similar Funders\\n\\nThere are no recorded outcomes in the Private Foundation category for FAITH Foundation A140615, meaning there is no track record to draw on for predictive confidence. This absence cuts both ways — there"
+  },
+  {
+    "name": "research",
+    "path": "/api/agents/research",
+    "httpStatus": 400,
+    "latencyMs": 1173,
+    "agentRunsBefore": 12,
+    "agentRunsAfter": 12,
+    "newAgentRun": false,
+    "latestRun": {
+      "agent_type": "fit_analysis",
+      "status": "completed",
+      "duration_ms": 19955,
+      "tokens_used": 1413,
+      "error_message": null,
+      "created_at": "2026-06-11T19:06:47.652983+00:00"
+    },
+    "responseKeys": [
+      "error",
+      "code"
+    ],
+    "responseExcerpt": "{\"error\":\"agentType must be one of: corporate_research, foundation_research, government_research, local_sponsorship.\",\"code\":\"invalid_input\"}"
+  },
+  {
+    "name": "learning",
+    "path": "/api/agents/learning",
+    "httpStatus": 429,
+    "latencyMs": 1346,
+    "agentRunsBefore": 12,
+    "agentRunsAfter": 12,
+    "newAgentRun": false,
+    "latestRun": {
+      "agent_type": "fit_analysis",
+      "status": "completed",
+      "duration_ms": 19955,
+      "tokens_used": 1413,
+      "error_message": null,
+      "created_at": "2026-06-11T19:06:47.652983+00:00"
+    },
+    "responseKeys": [
+      "error",
+      "code",
+      "metric",
+      "current",
+      "limit",
+      "upgrade_url"
+    ],
+    "responseExcerpt": "{\"error\":\"Usage limit exceeded for agent runs. Upgrade your plan to continue.\",\"code\":\"usage_limit_exceeded\",\"metric\":\"agent_runs\",\"current\":12,\"limit\":10,\"upgrade_url\":\"/billing\"}"
+  },
+  {
+    "name": "outreach_flagOFF",
+    "path": "/api/agents/outreach",
+    "httpStatus": 429,
+    "latencyMs": 1576,
+    "agentRunsBefore": 12,
+    "agentRunsAfter": 12,
+    "newAgentRun": false,
+    "latestRun": {
+      "agent_type": "fit_analysis",
+      "status": "completed",
+      "duration_ms": 19955,
+      "tokens_used": 1413,
+      "error_message": null,
+      "created_at": "2026-06-11T19:06:47.652983+00:00"
+    },
+    "responseKeys": [
+      "error",
+      "code",
+      "metric",
+      "current",
+      "limit",
+      "upgrade_url"
+    ],
+    "responseExcerpt": "{\"error\":\"Usage limit exceeded for agent runs. Upgrade your plan to continue.\",\"code\":\"usage_limit_exceeded\",\"metric\":\"agent_runs\",\"current\":12,\"limit\":10,\"upgrade_url\":\"/billing\"}"
+  },
+  {
+    "name": "deadline_check_POST",
+    "path": "/api/deadlines/check",
+    "httpStatus": 200,
+    "latencyMs": 3406,
+    "agentRunsBefore": 12,
+    "agentRunsAfter": 12,
+    "newAgentRun": false,
+    "latestRun": {
+      "agent_type": "fit_analysis",
+      "status": "completed",
+      "duration_ms": 19955,
+      "tokens_used": 1413,
+      "error_message": null,
+      "created_at": "2026-06-11T19:06:47.652983+00:00"
+    },
+    "responseKeys": [
+      "mode",
+      "scope",
+      "deadlinesScanned",
+      "remindersTriggered",
+      "failures",
+      "triggered"
+    ],
+    "responseExcerpt": "{\"mode\":\"interactive\",\"scope\":\"organization\",\"deadlinesScanned\":4,\"remindersTriggered\":0,\"failures\":0,\"triggered\":[]}"
+  },
+  {
+    "name": "deadline_check_GET",
+    "path": "/api/deadlines/check",
+    "httpStatus": 200,
+    "latencyMs": 551,
+    "agentRunsBefore": 12,
+    "agentRunsAfter": 12,
+    "newAgentRun": false,
+    "latestRun": {
+      "agent_type": "fit_analysis",
+      "status": "completed",
+      "duration_ms": 19955,
+      "tokens_used": 1413,
+      "error_message": null,
+      "created_at": "2026-06-11T19:06:47.652983+00:00"
+    },
+    "responseKeys": [
+      "mode",
+      "scope",
+      "deadlinesScanned",
+      "remindersTriggered",
+      "failures",
+      "triggered"
+    ],
+    "responseExcerpt": "{\"mode\":\"interactive\",\"scope\":\"organization\",\"deadlinesScanned\":4,\"remindersTriggered\":0,\"failures\":0,\"triggered\":[]}"
+  }
+]

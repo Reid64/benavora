@@ -1,0 +1,49 @@
+[
+  {
+    "test": "contacts.create",
+    "name": "Audit Contact C141409",
+    "dbRows": 1,
+    "dbRecord": {
+      "id": "d82d1faf-32d4-49c1-83cc-5d541175608a",
+      "name": "Audit Contact C141409",
+      "title": "Audit Director",
+      "email": "audit_C141409@example.com"
+    },
+    "url": "http://localhost:3000/contacts/new"
+  },
+  {
+    "test": "opportunities.create",
+    "addButtonFound": true,
+    "name": "Audit Opp C141409",
+    "dbRows": 0,
+    "urlAfter": "http://localhost:3000/opportunities/new"
+  },
+  {
+    "test": "opportunities.filters",
+    "rowsBefore": 6,
+    "rowsAfterStatusFilter": 3,
+    "statusFilterPresent": true
+  },
+  {
+    "test": "knowledge_base.subpages",
+    "profile": {
+      "http": 200,
+      "url": "http://localhost:3000/knowledge-base/profile",
+      "textLen": 1076,
+      "excerpt": "Organization Profile The verified facts about your organization that power grant drafting. Overview Organization Profile"
+    },
+    "narratives": {
+      "http": 200,
+      "url": "http://localhost:3000/knowledge-base/narratives",
+      "textLen": 8124,
+      "excerpt": "Narratives Reusable narrative blocks the AI weaves into drafts. New narrative Overview Organization Profile Narratives S"
+    },
+    "answers": {
+      "http": 200,
+      "url": "http://localhost:3000/knowledge-base/answers",
+      "textLen": 296,
+      "excerpt": "Standard Answers Approved answers to recurring grant questions, reused verbatim by the AI. New answer Overview Organizat"
+    },
+    "narrativeEntryClickable": true
+  }
+]
