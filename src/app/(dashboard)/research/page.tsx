@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import {
   ResearchDashboard,
+  type ParallelLaneStatus,
   type ResearchDiscovery,
   type ResearchRun,
 } from "@/components/research/ResearchDashboard";
@@ -15,7 +16,7 @@ import {
   ResearchSchedule,
   type FamilySchedule,
 } from "@/components/research/ResearchSchedule";
-import { RESEARCH_FAMILIES } from "@/lib/research/families";
+import { RESEARCH_AGENT_LANES, RESEARCH_FAMILIES } from "@/lib/research/families";
 import { createClient } from "@/lib/supabase/client";
 import { canEdit, useProfile } from "@/lib/hooks/useProfile";
 import type { AgentType } from "@/types/agents";
@@ -43,6 +44,37 @@ type AgentRunRow = {
   error_message: string | null;
   started_at: string | null;
 };
+
+/** One lane in the orchestrator's parallel response. */
+type LaneResult = {
+  key: string;
+  label: string;
+  sourceType: string | null;
+  status: "completed" | "failed";
+  opportunitiesFound?: number;
+  opportunitiesCreated?: number;
+  error?: string;
+};
+
+/** Response shape from POST /api/agents/research with agentType "all". */
+type ParallelResponse = {
+  error?: string;
+  lanes?: LaneResult[];
+  duplicatesRemoved?: number;
+};
+
+/** Map an orchestrator lane result to the dashboard's lane status. */
+function mapLane(l: LaneResult): ParallelLaneStatus {
+  return {
+    key: l.key,
+    label: l.label,
+    sourceType: l.sourceType,
+    status: l.status,
+    created: l.opportunitiesCreated,
+    found: l.opportunitiesFound,
+    error: l.error,
+  };
+}
 
 /** Shape returned by the discovery query, with the funder relation embedded. */
 type OpportunityRow = {
@@ -82,6 +114,10 @@ export default function ResearchPage() {
 
   const [runningProfileId, setRunningProfileId] = useState<string | null>(null);
   const [runningAll, setRunningAll] = useState(false);
+  const [parallelLanes, setParallelLanes] = useState<ParallelLaneStatus[] | null>(
+    null,
+  );
+  const [duplicatesRemoved, setDuplicatesRemoved] = useState<number | null>(null);
   const [runError, setRunError] = useState<string | null>(null);
 
   const [cronSaving, setCronSaving] = useState(false);
@@ -182,9 +218,49 @@ export default function ResearchPage() {
     await load(false);
   }
 
+  // "Run all active" runs every research lane in parallel via the orchestrator
+  // (agentType "all") and shows live per-lane status while the sweep runs.
   async function handleRunAll() {
     setRunningAll(true);
-    await trigger({ agentType: "corporate_research" });
+    setRunError(null);
+    setDuplicatesRemoved(null);
+    // Seed every lane as "running" for immediate feedback while the POST awaits.
+    setParallelLanes(
+      RESEARCH_AGENT_LANES.map((l) => ({
+        key: l.key,
+        label: l.label,
+        sourceType: l.sourceType,
+        status: "running" as const,
+      })),
+    );
+
+    try {
+      const res = await fetch("/api/agents/research", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ agentType: "all" }),
+      });
+      const payload = (await res.json().catch(() => ({}))) as ParallelResponse;
+      if (!res.ok) {
+        setRunError(payload.error ?? "The research run failed. Please try again.");
+        setParallelLanes(
+          (prev) => prev?.map((l) => ({ ...l, status: "failed" as const })) ?? null,
+        );
+      } else {
+        setParallelLanes((payload.lanes ?? []).map(mapLane));
+        setDuplicatesRemoved(
+          typeof payload.duplicatesRemoved === "number"
+            ? payload.duplicatesRemoved
+            : null,
+        );
+      }
+    } catch {
+      setRunError("Could not reach the research agent. Please try again.");
+      setParallelLanes(
+        (prev) => prev?.map((l) => ({ ...l, status: "failed" as const })) ?? null,
+      );
+    }
+
     setRunningAll(false);
     await load(false);
   }
@@ -249,6 +325,8 @@ export default function ResearchPage() {
         editable={editable}
         runningProfileId={runningProfileId}
         runningAll={runningAll}
+        parallelLanes={parallelLanes}
+        duplicatesRemoved={duplicatesRemoved}
         runError={runError}
         isLoading={loading}
         onRunProfile={handleRunProfile}

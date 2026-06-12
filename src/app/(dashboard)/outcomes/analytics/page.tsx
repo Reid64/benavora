@@ -1,31 +1,56 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
 import { Button, LoadingSpinner } from "@/components/ui";
-import { SuccessAnalytics } from "@/components/outcomes/SuccessAnalytics";
+import { AnalyticsDashboard } from "@/components/outcomes/AnalyticsDashboard";
 import { createClient } from "@/lib/supabase/client";
 import {
-  analyzeOutcomes,
-  rankNarratives,
-  type NarrativeRankInput,
-  type OutcomeInput,
-} from "@/lib/ai/learning/outcome-analyzer";
-import type { Enums } from "@/types/database";
+  SUBSCRIPTION_TIERS,
+  type SubscriptionTier,
+} from "@/lib/utils/constants";
+import type {
+  AgentRunRow,
+  ApplicationRow,
+  DeadlineRow,
+  OpportunityRow,
+  OutcomeRow,
+} from "@/lib/analytics/dashboard";
 
-type FunderCategory = Enums<"funder_category">;
+type DashboardData = {
+  outcomes: OutcomeRow[];
+  applications: ApplicationRow[];
+  opportunities: OpportunityRow[];
+  deadlines: DeadlineRow[];
+  agentRuns: AgentRunRow[];
+  subscriptionTier: SubscriptionTier;
+};
+
+const EMPTY: DashboardData = {
+  outcomes: [],
+  applications: [],
+  opportunities: [],
+  deadlines: [],
+  agentRuns: [],
+  subscriptionTier: "free",
+};
+
+function asTier(value: unknown): SubscriptionTier {
+  return SUBSCRIPTION_TIERS.includes(value as SubscriptionTier)
+    ? (value as SubscriptionTier)
+    : "free";
+}
 
 /**
- * Success-rate analytics dashboards (BLUEPRINT §4.10). Aggregates real outcome
- * rows with {@link analyzeOutcomes} and ranks proven narratives with
- * {@link rankNarratives}; both reads are RLS-scoped to the organization. All
- * computation is client-side over fetched rows — no mocks, no server roundtrip.
+ * Outcomes & Analytics dashboard (BLUEPRINT §4.10). Fetches real, RLS-scoped
+ * rows from the outcomes, applications, opportunities, deadlines, agent_runs,
+ * and organizations tables, then renders the full charting dashboard. All
+ * aggregation is client-side over fetched rows — no mocks, no server roundtrip.
  */
 export default function OutcomeAnalyticsPage() {
-  const [outcomes, setOutcomes] = useState<OutcomeInput[]>([]);
-  const [narratives, setNarratives] = useState<NarrativeRankInput[]>([]);
+  const [data, setData] = useState<DashboardData>(EMPTY);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -34,50 +59,58 @@ export default function OutcomeAnalyticsPage() {
     setError(null);
     const supabase = createClient();
 
-    const [outcomesRes, narrativesRes] = await Promise.all([
+    const [
+      outcomesRes,
+      appsRes,
+      oppsRes,
+      deadlinesRes,
+      agentRunsRes,
+      orgRes,
+    ] = await Promise.all([
       supabase
         .from("outcomes")
         .select(
-          "result, awarded_amount, requested_amount, funder_category, opportunity_category, denial_reason, recorded_at",
+          "result, awarded_amount, requested_amount, funder_category, opportunity_category, recorded_at, application_id",
         ),
       supabase
-        .from("proven_narratives")
+        .from("applications")
         .select(
-          "id, narrative_text, section_type, funder_category, success_count, effectiveness_score, last_used_at",
+          "id, stage, requested_amount, awarded_amount, created_at, submitted_at",
         ),
+      supabase.from("opportunities").select("category, source_type, deadline"),
+      supabase.from("deadlines").select("due_date, is_completed"),
+      supabase
+        .from("agent_runs")
+        .select("agent_type, status, created_at, items_found"),
+      supabase.from("organizations").select("subscription_tier"),
     ]);
 
-    if (outcomesRes.error) {
+    // Outcomes + applications power most charts — treat their failure as fatal;
+    // the rest degrade gracefully to empty datasets.
+    if (outcomesRes.error || appsRes.error) {
       setError("Could not load analytics.");
       setLoading(false);
       return;
     }
 
-    setOutcomes(outcomesRes.data ?? []);
-    setNarratives(narrativesRes.data ?? []);
+    const orgRow = (orgRes.data ?? [])[0] as
+      | { subscription_tier?: unknown }
+      | undefined;
+
+    setData({
+      outcomes: (outcomesRes.data ?? []) as OutcomeRow[],
+      applications: (appsRes.data ?? []) as ApplicationRow[],
+      opportunities: (oppsRes.data ?? []) as OpportunityRow[],
+      deadlines: (deadlinesRes.data ?? []) as DeadlineRow[],
+      agentRuns: (agentRunsRes.data ?? []) as AgentRunRow[],
+      subscriptionTier: asTier(orgRow?.subscription_tier),
+    });
     setLoading(false);
   }, []);
 
   useEffect(() => {
     void load();
   }, [load]);
-
-  const analysis = useMemo(() => analyzeOutcomes(outcomes), [outcomes]);
-
-  const topNarratives = useMemo(() => {
-    // Denied outcomes per funder category, used as the failure tally when
-    // recomputing effectiveness for ranking (Behavioral Contracts §10).
-    const failuresByCategory = new Map<FunderCategory, number>();
-    for (const o of outcomes) {
-      if (o.result === "denied" && o.funder_category) {
-        failuresByCategory.set(
-          o.funder_category,
-          (failuresByCategory.get(o.funder_category) ?? 0) + 1,
-        );
-      }
-    }
-    return rankNarratives(narratives, failuresByCategory, 5);
-  }, [narratives, outcomes]);
 
   return (
     <div className="space-y-6">
@@ -93,8 +126,9 @@ export default function OutcomeAnalyticsPage() {
           Outcomes &amp; Analytics
         </h1>
         <p className="mt-1 text-sm text-navy-500">
-          Success rates by category and over time, dollar efficiency, and your
-          top performing narratives.
+          Pipeline funnel, success rates over time, dollar efficiency, source
+          mix, deadline density, agent activity, ROI, and year-over-year trends
+          — all from your real funding data.
         </p>
       </div>
 
@@ -115,7 +149,14 @@ export default function OutcomeAnalyticsPage() {
       {loading ? (
         <LoadingSpinner center label="Loading analytics…" />
       ) : (
-        <SuccessAnalytics analysis={analysis} topNarratives={topNarratives} />
+        <AnalyticsDashboard
+          outcomes={data.outcomes}
+          applications={data.applications}
+          opportunities={data.opportunities}
+          deadlines={data.deadlines}
+          agentRuns={data.agentRuns}
+          subscriptionTier={data.subscriptionTier}
+        />
       )}
     </div>
   );

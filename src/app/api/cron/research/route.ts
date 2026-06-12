@@ -22,8 +22,9 @@ import {
   LocalSponsorshipResearchAgent,
   LOCAL_CATEGORIES,
 } from "@/lib/agents/research/local-sponsorship";
+import { parseAgentSettings } from "@/lib/research/profile-config";
 import type { AgentType } from "@/types/agents";
-import type { Enums } from "@/types/database";
+import type { Enums, Json } from "@/types/database";
 
 // Scheduled research sweep (BLUEPRINT §3.1 cron, AGENTS.md Agents 12-15,
 // BEHAVIORAL_CONTRACTS §17). Vercel Cron hits this with GET daily at 06:00 UTC
@@ -122,6 +123,10 @@ interface ProfileRow {
   categories: FunderCategory[] | null;
   is_active: boolean | null;
   last_run_at: string | null;
+  // Advanced configuration (migration 011): per-agent enable + schedule, and the
+  // negative-filter excluded categories. Drive due-ness per profile per family.
+  excluded_categories: FunderCategory[] | null;
+  agent_settings: Json | null;
 }
 
 /** A planned agent run for one org, before sequential execution. */
@@ -159,12 +164,36 @@ function isDue(lastRunAt: string | null, intervalMs: number): boolean {
   return Date.now() - t >= intervalMs;
 }
 
-/** True if the profile carries at least one of the family's categories. */
+/** The profile's categories minus its negative-filter exclusions. */
+function effectiveCategoriesOf(profile: ProfileRow): FunderCategory[] {
+  const excluded = new Set(profile.excluded_categories ?? []);
+  return (profile.categories ?? []).filter((c) => !excluded.has(c));
+}
+
+/** True if the profile carries at least one of the family's (non-excluded) categories. */
 function matchesFamily(
   profile: ProfileRow,
   categories: readonly FunderCategory[],
 ): boolean {
-  return (profile.categories ?? []).some((c) => categories.includes(c));
+  return effectiveCategoriesOf(profile).some((c) => categories.includes(c));
+}
+
+/**
+ * Whether a profile is due for a family this sweep, honoring its per-agent config
+ * (Configuration page): the family must be enabled for the profile, and its
+ * last_run_at must be past the profile's own schedule interval (falling back to
+ * the family's default cadence).
+ */
+function profileDueForFamily(profile: ProfileRow, def: AgentDef): boolean {
+  if (!matchesFamily(profile, def.categories)) return false;
+  const setting = parseAgentSettings(profile.agent_settings)[def.agentType];
+  if (setting && setting.enabled === false) return false;
+  const intervalHours = setting?.intervalHours ?? null;
+  const intervalMs =
+    intervalHours && intervalHours > 0
+      ? intervalHours * 60 * 60 * 1000
+      : def.intervalMs;
+  return isDue(profile.last_run_at, intervalMs);
 }
 
 /** Count agent_runs created for an org since the start of the current UTC day. */
@@ -263,7 +292,9 @@ async function processOrganization(
   // Active profiles for the org (org-scoped — RLS is off under service role).
   const { data: profileData } = await admin
     .from("search_profiles")
-    .select("id, name, categories, is_active, last_run_at")
+    .select(
+      "id, name, categories, is_active, last_run_at, excluded_categories, agent_settings",
+    )
     .eq("organization_id", organizationId)
     .eq("is_active", true);
   const profiles = (profileData ?? []) as ProfileRow[];
@@ -275,9 +306,7 @@ async function processOrganization(
   // Build the run queue: one job per family that has at least one due profile.
   const queue: QueuedJob[] = [];
   for (const def of AGENT_DEFS) {
-    const due = profiles.filter(
-      (p) => matchesFamily(p, def.categories) && isDue(p.last_run_at, def.intervalMs),
-    );
+    const due = profiles.filter((p) => profileDueForFamily(p, def));
     if (due.length === 0) continue;
     queue.push({
       def,

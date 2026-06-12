@@ -282,8 +282,14 @@ export interface Database {
           eligibility_score: number | null;
           recommendation: string | null;
           recommendation_reasoning: string | null;
+          match_percentage: number | null;
+          is_high_priority: boolean;
+          match_mismatch_reasons: string[] | null;
           status: Database["public"]["Enums"]["opportunity_status"] | null;
           source: string | null;
+          source_type:
+            | Database["public"]["Enums"]["opportunity_source_type"]
+            | null;
           discovered_at: string;
           created_at: string;
           updated_at: string;
@@ -308,8 +314,14 @@ export interface Database {
           eligibility_score?: number | null;
           recommendation?: string | null;
           recommendation_reasoning?: string | null;
+          match_percentage?: number | null;
+          is_high_priority?: boolean;
+          match_mismatch_reasons?: string[] | null;
           status?: Database["public"]["Enums"]["opportunity_status"] | null;
           source?: string | null;
+          source_type?:
+            | Database["public"]["Enums"]["opportunity_source_type"]
+            | null;
           discovered_at?: string;
           created_at?: string;
           updated_at?: string;
@@ -334,8 +346,14 @@ export interface Database {
           eligibility_score?: number | null;
           recommendation?: string | null;
           recommendation_reasoning?: string | null;
+          match_percentage?: number | null;
+          is_high_priority?: boolean;
+          match_mismatch_reasons?: string[] | null;
           status?: Database["public"]["Enums"]["opportunity_status"] | null;
           source?: string | null;
+          source_type?:
+            | Database["public"]["Enums"]["opportunity_source_type"]
+            | null;
           discovered_at?: string;
           created_at?: string;
           updated_at?: string;
@@ -862,6 +880,15 @@ export interface Database {
           is_active: boolean | null;
           last_run_at: string | null;
           results_count: number | null;
+          // Advanced configuration (migration 011). All non-null with defaults.
+          source_type_filters: Json;
+          focus_areas: Json;
+          geographic_scopes: string[];
+          eligibility_filters: Json;
+          populations_served: string[];
+          excluded_categories: Database["public"]["Enums"]["funder_category"][];
+          excluded_funders: string[];
+          agent_settings: Json;
           created_at: string;
           updated_at: string;
         };
@@ -878,6 +905,14 @@ export interface Database {
           is_active?: boolean | null;
           last_run_at?: string | null;
           results_count?: number | null;
+          source_type_filters?: Json;
+          focus_areas?: Json;
+          geographic_scopes?: string[];
+          eligibility_filters?: Json;
+          populations_served?: string[];
+          excluded_categories?: Database["public"]["Enums"]["funder_category"][];
+          excluded_funders?: string[];
+          agent_settings?: Json;
           created_at?: string;
           updated_at?: string;
         };
@@ -894,6 +929,14 @@ export interface Database {
           is_active?: boolean | null;
           last_run_at?: string | null;
           results_count?: number | null;
+          source_type_filters?: Json;
+          focus_areas?: Json;
+          geographic_scopes?: string[];
+          eligibility_filters?: Json;
+          populations_served?: string[];
+          excluded_categories?: Database["public"]["Enums"]["funder_category"][];
+          excluded_funders?: string[];
+          agent_settings?: Json;
           created_at?: string;
           updated_at?: string;
         };
@@ -1360,6 +1403,114 @@ export interface Database {
         };
         Relationships: [];
       };
+      alerts: {
+        Row: {
+          id: string;
+          organization_id: string;
+          type: Database["public"]["Enums"]["alert_type"];
+          severity: Database["public"]["Enums"]["alert_severity"];
+          message: string;
+          link: string | null;
+          is_read: boolean;
+          read_at: string | null;
+          is_dismissed: boolean;
+          dismissed_at: string | null;
+          snoozed_until: string | null;
+          opportunity_id: string | null;
+          application_id: string | null;
+          deadline_id: string | null;
+          dedup_key: string;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          type: Database["public"]["Enums"]["alert_type"];
+          severity?: Database["public"]["Enums"]["alert_severity"];
+          message: string;
+          link?: string | null;
+          is_read?: boolean;
+          read_at?: string | null;
+          is_dismissed?: boolean;
+          dismissed_at?: string | null;
+          snoozed_until?: string | null;
+          opportunity_id?: string | null;
+          application_id?: string | null;
+          deadline_id?: string | null;
+          dedup_key: string;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          type?: Database["public"]["Enums"]["alert_type"];
+          severity?: Database["public"]["Enums"]["alert_severity"];
+          message?: string;
+          link?: string | null;
+          is_read?: boolean;
+          read_at?: string | null;
+          is_dismissed?: boolean;
+          dismissed_at?: string | null;
+          snoozed_until?: string | null;
+          opportunity_id?: string | null;
+          application_id?: string | null;
+          deadline_id?: string | null;
+          dedup_key?: string;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      // Cross-provider validation verdicts (migration 014). One row per
+      // (opportunity_id, provider); an opportunity is "Verified" when both
+      // independent providers return a 'verified' verdict.
+      validations: {
+        Row: {
+          id: string;
+          organization_id: string;
+          opportunity_id: string;
+          provider: string;
+          model: string | null;
+          verdict: Database["public"]["Enums"]["validation_verdict"];
+          confidence: number;
+          details: Json;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          opportunity_id: string;
+          provider: string;
+          model?: string | null;
+          verdict: Database["public"]["Enums"]["validation_verdict"];
+          confidence?: number;
+          details?: Json;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          opportunity_id?: string;
+          provider?: string;
+          model?: string | null;
+          verdict?: Database["public"]["Enums"]["validation_verdict"];
+          confidence?: number;
+          details?: Json;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -1433,6 +1584,15 @@ export interface Database {
         | "failed";
       contact_relationship: "cold" | "warm" | "active" | "champion";
       opportunity_status: "open" | "applied" | "closed" | "expired";
+      opportunity_source_type:
+        | "government_federal"
+        | "government_state"
+        | "government_local"
+        | "private_foundation"
+        | "corporate_giving"
+        | "community_foundation"
+        | "faith_based"
+        | "international";
       knowledge_base_category:
         | "mission"
         | "vision"
@@ -1463,7 +1623,8 @@ export interface Database {
         | "cold_outreach"
         | "browser_automation"
         | "email_matching"
-        | "email_campaign";
+        | "email_campaign"
+        | "consensus_validation";
       agent_run_status: "pending" | "running" | "completed" | "failed";
       campaign_status: "draft" | "active" | "paused" | "completed";
       campaign_step_status:
@@ -1495,6 +1656,16 @@ export interface Database {
         | "agent_run"
         | "submission";
       invitation_status: "pending" | "accepted" | "expired" | "cancelled";
+      // Alerts / daily action list (migration 013).
+      alert_type:
+        | "deadline_due"
+        | "new_opportunity"
+        | "application_action"
+        | "draft_review"
+        | "system";
+      alert_severity: "info" | "warning" | "critical";
+      // Cross-provider validation verdict (migration 014).
+      validation_verdict: "verified" | "discrepancy" | "unverifiable";
     };
     CompositeTypes: Record<string, never>;
   };

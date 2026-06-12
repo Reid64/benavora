@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { X } from "lucide-react";
@@ -8,6 +8,7 @@ import { X } from "lucide-react";
 import { navItemsForRole } from "@/components/layout/nav-items";
 import { Logo } from "@/components/layout/Logo";
 import { rememberedHref } from "@/lib/navigation/section-memory";
+import { useAlerts } from "@/lib/hooks/useAlerts";
 import type { Enums } from "@/types/database";
 
 type SidebarProps = {
@@ -28,6 +29,28 @@ type SidebarProps = {
 export function Sidebar({ open, onClose, role }: SidebarProps) {
   const pathname = usePathname();
   const navItems = navItemsForRole(role);
+
+  // Live red badge counts (deadlines ≤7 days, new opportunities since last
+  // login, applications needing action, drafts pending review). Refresh on
+  // every navigation so acting on items elsewhere clears the badges.
+  const { counts, refresh } = useAlerts();
+  const firstRun = useRef(true);
+  useEffect(() => {
+    // useAlerts already loads on mount; only re-fetch on later navigations.
+    if (firstRun.current) {
+      firstRun.current = false;
+      return;
+    }
+    void refresh();
+  }, [pathname, refresh]);
+
+  const badgeByHref: Record<string, number> = {
+    "/alerts": counts.total,
+    "/deadlines": counts.deadline_due,
+    "/opportunities": counts.new_opportunity,
+    "/applications": counts.application_action,
+    "/draft-generator": counts.draft_review,
+  };
 
   // Resolve each item's href to the section's remembered location (restoring
   // saved filters/search/sort/view). Computed after mount — sessionStorage is
@@ -84,6 +107,7 @@ export function Sidebar({ open, onClose, role }: SidebarProps) {
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
           {navItems.map(({ label, href, icon: Icon }) => {
             const active = isActive(href);
+            const badge = badgeByHref[href] ?? 0;
             return (
               <Link
                 key={href}
@@ -111,6 +135,14 @@ export function Sidebar({ open, onClose, role }: SidebarProps) {
                   aria-hidden
                 />
                 <span className="truncate">{label}</span>
+                {badge > 0 && (
+                  <span
+                    className="ml-auto inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-xs font-semibold leading-none text-white"
+                    aria-label={`${badge} ${badge === 1 ? "item needs" : "items need"} attention`}
+                  >
+                    {badge > 99 ? "99+" : badge}
+                  </span>
+                )}
               </Link>
             );
           })}

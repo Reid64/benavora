@@ -20,6 +20,9 @@ const BAR_FILL: Record<BadgeColor, string> = {
   yellow: "bg-amber-500",
   red: "bg-red-500",
   blue: "bg-blue-500",
+  sky: "bg-sky-500",
+  orange: "bg-orange-500",
+  pink: "bg-pink-500",
 };
 
 /**
@@ -99,3 +102,4 @@ export function PipelineSummary({
     </div>
   );
 }
+

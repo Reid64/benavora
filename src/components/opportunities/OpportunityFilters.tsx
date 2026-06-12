@@ -9,6 +9,7 @@ import {
   OPPORTUNITY_STATUSES,
 } from "@/lib/utils/constants";
 import { humanizeEnum } from "@/lib/utils/formatters";
+import type { OpportunitySourceType } from "@/lib/opportunities/source-type";
 import type { Enums } from "@/types/database";
 
 type FunderCategory = Enums<"funder_category">;
@@ -20,6 +21,8 @@ export type OpportunityFilterValue = {
   query: string;
   category: FunderCategory | "all";
   status: OpportunityStatus | "all";
+  /** Funding source bucket — driven by the source-type tabs above the panel. */
+  sourceType: OpportunitySourceType | "all";
   /** Deadline range as YYYY-MM-DD date-input strings ("" = unbounded). */
   deadlineFrom: string;
   deadlineTo: string;
@@ -32,6 +35,7 @@ export const EMPTY_OPPORTUNITY_FILTERS: OpportunityFilterValue = {
   query: "",
   category: "all",
   status: "all",
+  sourceType: "all",
   deadlineFrom: "",
   deadlineTo: "",
   scoreMin: "",
@@ -61,6 +65,7 @@ function isActive(value: OpportunityFilterValue): boolean {
     value.query.trim() !== "" ||
     value.category !== "all" ||
     value.status !== "all" ||
+    value.sourceType !== "all" ||
     value.deadlineFrom !== "" ||
     value.deadlineTo !== "" ||
     value.scoreMin !== "" ||

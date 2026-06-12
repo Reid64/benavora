@@ -33,15 +33,21 @@ import {
 } from "@/lib/agents/base-agent";
 import { EligibilityScorer } from "@/lib/agents/eligibility-scorer";
 import { checkDuplicate } from "@/lib/agents/research/deduplicator";
+import { applyQuerySuffix, type ResearchFocus } from "@/lib/agents/research/focus";
 import { parseOpportunity } from "@/lib/agents/research/result-parser";
 import {
+  effectiveCategories,
   getActiveProfiles,
   getProfile,
   markProfileRun,
+  profileAgentEnabled,
+  profileExcludesFunder,
+  profileQueryTerms,
   type ResearchSearchProfile,
 } from "@/lib/agents/research/scheduler";
 import { search, type SearchSource } from "@/lib/agents/research/search-engine";
 import { fetchPage, type ResearchContext } from "@/lib/agents/research/web-fetcher";
+import { inferSourceType } from "@/lib/opportunities/source-type";
 import type { AgentType } from "@/types/agents";
 import type { Enums, TablesInsert } from "@/types/database";
 
@@ -81,6 +87,13 @@ export interface FoundationGrantsOptions extends BaseAgentOptions {
   model?: string;
   /** Max output tokens (platform_config `ai.max_tokens`). */
   maxTokens?: number;
+  /**
+   * Optional per-run specialization (parallel orchestration). When set, narrows
+   * the search sources and/or appends a query suffix so several Foundation
+   * passes (e.g. Foundation Directory vs. faith-based funders) can run side by
+   * side.
+   */
+  focus?: ResearchFocus;
 }
 
 // Run bounds — keep the synchronous pipeline within the 60s agent ceiling
@@ -110,11 +123,13 @@ export class FoundationGrantsResearchAgent extends BaseAgent<
 
   private readonly model: string;
   private readonly maxTokens: number;
+  private readonly focus?: ResearchFocus;
 
   constructor(options: FoundationGrantsOptions) {
     super(options);
     this.model = options.model ?? DEFAULT_MODEL;
     this.maxTokens = options.maxTokens ?? DEFAULT_MAX_TOKENS;
+    this.focus = options.focus;
   }
 
   protected async execute(
@@ -154,7 +169,7 @@ export class FoundationGrantsResearchAgent extends BaseAgent<
       }
       profilesRun.push(profile.name);
 
-      const queries = buildFoundationQueries(profile);
+      const queries = applyQuerySuffix(buildFoundationQueries(profile), this.focus);
       const candidates = await this.gatherCandidates(queries, seenUrls);
 
       let profileFound = 0;
@@ -198,6 +213,10 @@ export class FoundationGrantsResearchAgent extends BaseAgent<
         });
         if (nameDup.isDuplicate) continue;
 
+        // Negative filter (Configuration page "excluded funders"): never create
+        // an opportunity from a funder the profile has explicitly excluded.
+        if (profileExcludesFunder(profile, opp.funder_name)) continue;
+
         // Category is required on opportunities; fall back to the profile's first
         // foundation category when the page did not state one.
         const category =
@@ -236,6 +255,16 @@ export class FoundationGrantsResearchAgent extends BaseAgent<
             geographic_restrictions: opp.geographic_restrictions,
             status: "open",
             source: profile.name,
+            // Auto-classify the funding source from what the page stated, so
+            // discovered opportunities land in the right source-type tab/badge.
+            source_type: inferSourceType({
+              category,
+              name: opp.name,
+              description: opp.description,
+              funderName: opp.funder_name,
+              geographicScope: profile.geographicScope,
+              eligibilityRequirements: opp.eligibility_requirements,
+            }),
           } satisfies TablesInsert<"opportunities">)
           .select("id")
           .single();
@@ -280,8 +309,9 @@ export class FoundationGrantsResearchAgent extends BaseAgent<
     const truncated =
       pagesProcessed >= MAX_PAGES_PER_RUN ||
       opportunitiesCreated >= MAX_NEW_OPPS_PER_RUN;
+    const focusPrefix = this.focus?.label ? `[${this.focus.label}] ` : "";
     const summary =
-      `Foundation grant research across ${profilesRun.length} profile(s) ` +
+      `${focusPrefix}Foundation grant research across ${profilesRun.length} profile(s) ` +
       `(${profilesRun.join(", ")}): fetched ${pagesProcessed} page(s), found ` +
       `${opportunitiesFound} opportunit${opportunitiesFound === 1 ? "y" : "ies"}, ` +
       `created ${opportunitiesCreated} new and ${fundersCreated} new funder(s).` +
@@ -324,7 +354,11 @@ export class FoundationGrantsResearchAgent extends BaseAgent<
     }
 
     const active = await getActiveProfiles(ctx);
-    return active.filter(isFoundationProfile);
+    // Honor the profile's per-agent toggle (Configuration page): a profile that
+    // has foundation research disabled is skipped on an automated sweep.
+    return active.filter(
+      (p) => isFoundationProfile(p) && profileAgentEnabled(p, this.agentType),
+    );
   }
 
   // --- candidate gathering ----------------------------------------------------
@@ -335,10 +369,11 @@ export class FoundationGrantsResearchAgent extends BaseAgent<
     seenUrls: Set<string>,
   ): Promise<string[]> {
     const candidates: string[] = [];
+    const sources = this.focus?.sources ?? FOUNDATION_SOURCES;
     for (const query of queries) {
       const hits = await search({
         query,
-        sources: FOUNDATION_SOURCES,
+        sources,
         limitPerSource: MAX_HITS_PER_QUERY,
       });
       for (const hit of hits) {
@@ -424,16 +459,19 @@ export class FoundationGrantsResearchAgent extends BaseAgent<
 
 // --- helpers -----------------------------------------------------------------
 
-/** True if the profile targets at least one foundation funder category. */
+/** True if the profile targets at least one (non-excluded) foundation category. */
 function isFoundationProfile(profile: ResearchSearchProfile): boolean {
-  return profile.categories.some((c) => FOUNDATION_CATEGORIES.includes(c));
+  return effectiveCategories(profile).some((c) => FOUNDATION_CATEGORIES.includes(c));
 }
 
 /** The profile's first foundation category, used as the opportunity-category fallback. */
 function firstFoundationCategory(
   profile: ResearchSearchProfile,
 ): FunderCategory | null {
-  return profile.categories.find((c) => FOUNDATION_CATEGORIES.includes(c)) ?? null;
+  return (
+    effectiveCategories(profile).find((c) => FOUNDATION_CATEGORIES.includes(c)) ??
+    null
+  );
 }
 
 /**
@@ -445,7 +483,8 @@ export function buildFoundationQueries(profile: ResearchSearchProfile): string[]
   const geo = profile.geographicScope?.trim() ?? "";
   const queries: string[] = [];
 
-  for (const rawKeyword of profile.keywords) {
+  // Keywords plus the profile's weighted focus areas / population tags.
+  for (const rawKeyword of profileQueryTerms(profile)) {
     const keyword = rawKeyword.trim();
     if (keyword === "") continue;
     for (const template of QUERY_TEMPLATES) {

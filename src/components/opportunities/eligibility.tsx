@@ -1,3 +1,5 @@
+import { AlertTriangle, Flame, Target } from "lucide-react";
+
 import { Badge } from "@/components/ui";
 import type { BadgeColor } from "@/components/ui";
 import { cn } from "@/lib/utils/cn";
@@ -91,6 +93,98 @@ export function RecommendationBadge({ recommendation }: RecommendationBadgeProps
   if (!recommendation) return null;
   const color = RECOMMENDATION_COLOR[recommendation.toLowerCase()] ?? "gray";
   return <Badge color={color}>{humanizeEnum(recommendation)}</Badge>;
+}
+
+// --- match percentage --------------------------------------------------------
+//
+// The match percentage is the Eligibility Scoring Agent's fit score surfaced as
+// the opportunity's headline "match" (BLUEPRINT §4.4): it drives the colour-
+// coded badge, the high-priority flag, and the default list sort. Thresholds
+// mirror src/lib/agents/eligibility-scorer.ts (kept in sync intentionally; the
+// agent module is server-only so its constants are not imported here).
+
+/** Match >= this auto-flags the opportunity as high priority. */
+export const HIGH_PRIORITY_THRESHOLD = 80;
+/** Below this match the specific mismatch reasons are shown to the user. */
+export const MISMATCH_REASON_THRESHOLD = 40;
+
+export function matchColor(percentage: number): ScoreColor {
+  if (percentage >= HIGH_PRIORITY_THRESHOLD) return "green";
+  if (percentage >= MISMATCH_REASON_THRESHOLD) return "yellow";
+  return "red";
+}
+
+const MATCH_BADGE_COLOR: Record<ScoreColor, BadgeColor> = {
+  green: "green",
+  yellow: "yellow",
+  red: "red",
+};
+
+export type MatchBadgeProps = {
+  /** 0–100 match, or null when the agent has not scored it yet. */
+  percentage: number | null;
+  className?: string;
+};
+
+/** A colour-coded "NN% match" pill. Renders "Not scored" when null. */
+export function MatchBadge({ percentage, className }: MatchBadgeProps) {
+  if (percentage == null) {
+    return (
+      <Badge color="gray" className={className}>
+        <Target className="h-3 w-3" aria-hidden />
+        Not scored
+      </Badge>
+    );
+  }
+  const clamped = Math.max(0, Math.min(100, percentage));
+  return (
+    <Badge color={MATCH_BADGE_COLOR[matchColor(clamped)]} className={className}>
+      <Target className="h-3 w-3" aria-hidden />
+      <span className="tabular-nums">{clamped}%</span> match
+    </Badge>
+  );
+}
+
+/** Flag shown on the strongest opportunities (match >= 80). */
+export function HighPriorityBadge({ className }: { className?: string }) {
+  return (
+    <Badge color="orange" className={className}>
+      <Flame className="h-3 w-3" aria-hidden />
+      High priority
+    </Badge>
+  );
+}
+
+export type MismatchReasonsProps = {
+  /** "<criterion>: <reason>" lines from the scoring agent. */
+  reasons: string[] | null;
+  className?: string;
+};
+
+/**
+ * The eligibility criteria that failed, shown for poorly-matched opportunities
+ * (match below 40) so the user knows why an opportunity is a weak fit.
+ */
+export function MismatchReasons({ reasons, className }: MismatchReasonsProps) {
+  if (!reasons || reasons.length === 0) return null;
+  return (
+    <div
+      className={cn(
+        "rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800",
+        className,
+      )}
+    >
+      <p className="flex items-center gap-1.5 font-semibold">
+        <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
+        Why this is a weak match
+      </p>
+      <ul className="mt-2 list-disc space-y-1 pl-5">
+        {reasons.map((reason, i) => (
+          <li key={`${reason}-${i}`}>{reason}</li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 /** Badge colour for an opportunity_status value. Shared across views. */

@@ -126,6 +126,96 @@ export async function checkDuplicate(
   return { isDuplicate: false, matchType: "none" };
 }
 
+// --- cross-result deduplication ----------------------------------------------
+//
+// When the research agents run in PARALLEL (orchestrator), two agents can both
+// pass the per-insert checkDuplicate() above — neither sees the other's not-yet-
+// committed row — and create the same opportunity in the same sweep. This pass
+// runs AFTER all agents return, over the union of that sweep's discoveries, and
+// folds those cross-agent collisions together by URL, then by name + funder
+// (Contracts §17: dedupe before the opportunity is surfaced).
+
+/** One discovered opportunity to compare against the rest of a sweep. */
+export interface ResultCandidate {
+  /** The opportunity row id (the thing we keep or drop). */
+  id: string;
+  /** Source URL, if any — the strongest collision signal. */
+  url?: string | null;
+  /** Opportunity title/name, for fuzzy matching. */
+  name?: string | null;
+  /** Funder name, used to corroborate a name match. */
+  funderName?: string | null;
+}
+
+/** A candidate folded into an earlier one, with the reason it matched. */
+export interface ResultDuplicate {
+  /** The duplicate candidate (the row that should be removed). */
+  candidate: ResultCandidate;
+  /** The id of the canonical candidate it collided with (the row kept). */
+  duplicateOf: string;
+  matchType: Exclude<DuplicateMatchType, "none">;
+}
+
+export interface DeduplicateResultsOutcome {
+  /** The canonical, collision-free candidates (first occurrence wins). */
+  unique: ResultCandidate[];
+  /** Candidates folded into an earlier one — safe to remove. */
+  duplicates: ResultDuplicate[];
+}
+
+/**
+ * De-duplicate a set of freshly discovered opportunities against each other.
+ * Pure (no I/O): the orchestrator collects the sweep's new rows, calls this, and
+ * removes the `duplicates`. Order is preserved, so the earliest-discovered row in
+ * each collision group is the one kept. Comparison mirrors checkDuplicate():
+ * exact URL first, then fuzzy name with the funder name as corroboration.
+ */
+export function deduplicateResults(
+  candidates: ResultCandidate[],
+): DeduplicateResultsOutcome {
+  const unique: ResultCandidate[] = [];
+  const duplicates: ResultDuplicate[] = [];
+  const urlIndex = new Map<string, string>(); // normalized url → canonical id
+
+  for (const candidate of candidates) {
+    const url = (candidate.url ?? "").trim();
+    const name = (candidate.name ?? "").trim();
+    const funderName = (candidate.funderName ?? "").trim();
+
+    // Pass 1: exact URL collision.
+    if (url !== "") {
+      const existingId = urlIndex.get(url);
+      if (existingId) {
+        duplicates.push({ candidate, duplicateOf: existingId, matchType: "url" });
+        continue;
+      }
+    }
+
+    // Pass 2: fuzzy name (+ funder) collision against rows already kept.
+    if (name !== "") {
+      const match = unique.find((u) => {
+        if (!namesMatch(name, (u.name ?? "").trim())) return false;
+        const otherFunder = (u.funderName ?? "").trim();
+        // With funders on both sides, require them to agree; otherwise a strong
+        // name match alone is enough (mirrors checkDuplicate()).
+        if (funderName !== "" && otherFunder !== "") {
+          return namesMatch(funderName, otherFunder);
+        }
+        return true;
+      });
+      if (match) {
+        duplicates.push({ candidate, duplicateOf: match.id, matchType: "name" });
+        continue;
+      }
+    }
+
+    unique.push(candidate);
+    if (url !== "") urlIndex.set(url, candidate.id);
+  }
+
+  return { unique, duplicates };
+}
+
 // --- helpers -----------------------------------------------------------------
 
 /** Map funder_id → funder name for the candidate set (org-scoped). */

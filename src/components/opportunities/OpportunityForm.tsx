@@ -11,6 +11,7 @@ import { useProfile } from "@/lib/hooks/useProfile";
 import {
   FUNDER_CATEGORIES,
   OPPORTUNITY_RECURRENCES,
+  OPPORTUNITY_SOURCE_TYPES,
   OPPORTUNITY_STATUSES,
 } from "@/lib/utils/constants";
 import { humanizeEnum } from "@/lib/utils/formatters";
@@ -19,11 +20,16 @@ import type { Enums, Tables } from "@/types/database";
 
 type FunderCategory = Enums<"funder_category">;
 type OpportunityStatus = Enums<"opportunity_status">;
+type OpportunitySourceType = Enums<"opportunity_source_type">;
 
 const CATEGORY_OPTIONS: SelectOption[] = FUNDER_CATEGORIES.map((value) => ({
   value,
   label: humanizeEnum(value),
 }));
+
+const SOURCE_TYPE_OPTIONS: SelectOption[] = OPPORTUNITY_SOURCE_TYPES.map(
+  (value) => ({ value, label: humanizeEnum(value) }),
+);
 
 const STATUS_OPTIONS: SelectOption[] = OPPORTUNITY_STATUSES.map((value) => ({
   value,
@@ -91,6 +97,9 @@ export function OpportunityForm({
     opportunity?.category ?? "",
   );
   const [funderId, setFunderId] = useState(opportunity?.funder_id ?? "");
+  const [sourceType, setSourceType] = useState<OpportunitySourceType | "">(
+    opportunity?.source_type ?? "",
+  );
   const [description, setDescription] = useState(opportunity?.description ?? "");
   const [amountAvailable, setAmountAvailable] = useState(
     opportunity?.amount_available != null
@@ -232,6 +241,7 @@ export function OpportunityForm({
       recurrence: recurrence || null,
       geographic_restrictions: geographicRestrictions.trim() || null,
       status,
+      source_type: sourceType || null,
     };
 
     if (isEdit && opportunity) {
@@ -309,7 +319,7 @@ export function OpportunityForm({
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
         <Select
           label="Funder"
           placeholder="No linked funder"
@@ -317,6 +327,16 @@ export function OpportunityForm({
           value={funderId}
           onChange={(e) => setFunderId(e.target.value)}
           helperText="Optional — link to a funder in your CRM."
+        />
+        <Select
+          label="Source type"
+          placeholder="Not classified"
+          options={SOURCE_TYPE_OPTIONS}
+          value={sourceType}
+          onChange={(e) =>
+            setSourceType(e.target.value as OpportunitySourceType)
+          }
+          helperText="Where the funding comes from. Auto-set for discovered ones."
         />
         <Select
           label="Status"

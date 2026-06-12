@@ -12,7 +12,10 @@ export type BadgeColor =
   | "green"
   | "yellow"
   | "red"
-  | "blue";
+  | "blue"
+  | "sky"
+  | "orange"
+  | "pink";
 
 export type BadgeProps = {
   /** Color variant. Defaults to "gray". */
@@ -33,6 +36,9 @@ const COLOR_CLASSES: Record<BadgeColor, string> = {
   yellow: "bg-amber-400/15 text-amber-200 ring-1 ring-inset ring-amber-400/25",
   red: "bg-red-400/15 text-red-200 ring-1 ring-inset ring-red-400/25",
   blue: "bg-blue-400/15 text-blue-200 ring-1 ring-inset ring-blue-400/25",
+  sky: "bg-sky-400/15 text-sky-200 ring-1 ring-inset ring-sky-400/25",
+  orange: "bg-orange-400/15 text-orange-200 ring-1 ring-inset ring-orange-400/25",
+  pink: "bg-pink-400/15 text-pink-200 ring-1 ring-inset ring-pink-400/25",
 };
 
 const DOT_CLASSES: Record<BadgeColor, string> = {
@@ -45,10 +51,13 @@ const DOT_CLASSES: Record<BadgeColor, string> = {
   yellow: "bg-amber-500",
   red: "bg-red-500",
   blue: "bg-blue-500",
+  sky: "bg-sky-500",
+  orange: "bg-orange-500",
+  pink: "bg-pink-500",
 };
 
 /**
- * Small pill for statuses and labels, in one of six semantic colors.
+ * Small pill for statuses and labels, in one of the semantic color variants.
  */
 export function Badge({
   color = "gray",

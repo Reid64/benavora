@@ -36,7 +36,25 @@ export interface EligibilityResult {
   eligibilityScore: number;
   recommendation: EligibilityRecommendation;
   recommendationReasoning: string;
+  /**
+   * 0-100 fit score surfaced as the opportunity's "match" — currently the same
+   * assessment as {@link eligibilityScore}, persisted to its own column so the
+   * match badge, default list sort, and high-priority flag read from it.
+   */
+  matchPercentage: number;
+  /** TRUE when matchPercentage >= HIGH_PRIORITY_THRESHOLD. */
+  isHighPriority: boolean;
+  /**
+   * Human-readable "<criterion>: <reason>" lines for the eligibility criteria
+   * that limited the score. Surfaced in the UI when the match is poor.
+   */
+  mismatchReasons: string[];
 }
+
+/** Match at or above this percentage auto-flags the opportunity high priority. */
+export const HIGH_PRIORITY_THRESHOLD = 80;
+/** Below this match percentage the UI surfaces the specific mismatch reasons. */
+export const MISMATCH_REASON_THRESHOLD = 40;
 
 export interface EligibilityScorerOptions extends BaseAgentOptions {
   /** Model override (resolved from platform_config `ai.model` by the route). */
@@ -146,6 +164,15 @@ export class EligibilityScorer extends BaseAgent<
 
     const parsed = parseScoreResponse(response.text);
 
+    // The match percentage is the same fit assessment surfaced under its own
+    // column (see grants-service mapping); high priority and mismatch reasons
+    // derive from it deterministically.
+    const matchPercentage = parsed.score;
+    const isHighPriority = matchPercentage >= HIGH_PRIORITY_THRESHOLD;
+    const mismatchReasons = parsed.failedCriteria.map(
+      (c) => `${c.criterion}: ${c.reason}`,
+    );
+
     // Persist the agent-owned fields (BEHAVIORAL_CONTRACTS §5). Scoped by
     // organization_id so a service role write can never cross tenants.
     const { error: updateError } = await this.client
@@ -154,6 +181,11 @@ export class EligibilityScorer extends BaseAgent<
         eligibility_score: parsed.score,
         recommendation: parsed.recommendation,
         recommendation_reasoning: parsed.reasoning,
+        match_percentage: matchPercentage,
+        is_high_priority: isHighPriority,
+        // Store reasons only when they explain a weak match; otherwise clear
+        // any stale reasons from a prior, lower-scoring run.
+        match_mismatch_reasons: mismatchReasons.length > 0 ? mismatchReasons : null,
         updated_at: new Date().toISOString(),
       })
       .eq("id", opportunityId)
@@ -172,8 +204,11 @@ export class EligibilityScorer extends BaseAgent<
         eligibilityScore: parsed.score,
         recommendation: parsed.recommendation,
         recommendationReasoning: parsed.reasoning,
+        matchPercentage,
+        isHighPriority,
+        mismatchReasons,
       },
-      outputSummary: `Scored "${opportunity.name}" ${parsed.score}/100 → ${parsed.recommendation}.`,
+      outputSummary: `Scored "${opportunity.name}" ${matchPercentage}% match → ${parsed.recommendation}.`,
       itemsFound: 1,
       itemsProcessed: 1,
       tokensUsed: response.usage.totalTokens,
@@ -204,8 +239,9 @@ function buildEligibilityPrompt(
     "2. Where a fact needed to judge a criterion is missing, treat it as unknown and lower confidence for that criterion — do not assume it qualifies.",
     "3. Score 0-100 using this rubric: 80-100 strong match (apply); 60-79 moderate (review); 40-59 weak (skip unless strategic); 0-39 poor (skip).",
     "4. Weigh five criteria: mission alignment, geographic match, tax-status qualification, budget appropriateness, and program relevance.",
-    "5. Respond with ONLY a single JSON object, no prose, no code fences, in exactly this shape:",
-    '{"score": <integer 0-100>, "recommendation": "apply" | "review" | "skip", "reasoning": "<one paragraph covering each of the five criteria>"}',
+    "5. In `failed_criteria`, list ONLY the criteria (by name) that the organization fails or weakly meets, each with a one-sentence reason naming the specific eligibility requirement that does not fit. Use [] when the organization clearly meets every criterion.",
+    "6. Respond with ONLY a single JSON object, no prose, no code fences, in exactly this shape:",
+    '{"score": <integer 0-100>, "recommendation": "apply" | "review" | "skip", "reasoning": "<one paragraph covering each of the five criteria>", "failed_criteria": [{"criterion": "<criterion name>", "reason": "<one sentence>"}]}',
   ].join("\n");
 
   const orgLines: string[] = [];
@@ -269,10 +305,31 @@ function buildEligibilityPrompt(
 
 // --- response parsing --------------------------------------------------------
 
+interface FailedCriterion {
+  criterion: string;
+  reason: string;
+}
+
 interface ParsedScore {
   score: number;
   recommendation: EligibilityRecommendation;
   reasoning: string;
+  failedCriteria: FailedCriterion[];
+}
+
+/** Parse the model's `failed_criteria` array, tolerating omissions/bad shapes. */
+function parseFailedCriteria(value: unknown): FailedCriterion[] {
+  if (!Array.isArray(value)) return [];
+  const out: FailedCriterion[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object") continue;
+    const obj = item as { criterion?: unknown; reason?: unknown };
+    const criterion =
+      typeof obj.criterion === "string" ? obj.criterion.trim() : "";
+    const reason = typeof obj.reason === "string" ? obj.reason.trim() : "";
+    if (criterion && reason) out.push({ criterion, reason });
+  }
+  return out;
 }
 
 /** Map a score to the rubric's recommendation. Used as a fallback. */
@@ -312,6 +369,7 @@ export function parseScoreResponse(text: string): ParsedScore {
     score?: unknown;
     recommendation?: unknown;
     reasoning?: unknown;
+    failed_criteria?: unknown;
   };
 
   const scoreNum = Number(obj.score);
@@ -333,5 +391,10 @@ export function parseScoreResponse(text: string): ParsedScore {
       ? obj.reasoning.trim()
       : "No reasoning was provided by the model.";
 
-  return { score, recommendation, reasoning };
+  return {
+    score,
+    recommendation,
+    reasoning,
+    failedCriteria: parseFailedCriteria(obj.failed_criteria),
+  };
 }

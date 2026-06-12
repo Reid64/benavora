@@ -4,13 +4,16 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
+  CheckCircle2,
   ExternalLink,
   FileText,
   Gauge,
   MessageSquare,
   Pencil,
   Search,
+  ShieldCheck,
   Trash2,
+  XCircle,
 } from "lucide-react";
 
 import {
@@ -24,10 +27,24 @@ import {
 } from "@/components/ui";
 import {
   EligibilityBar,
+  HighPriorityBadge,
+  MatchBadge,
+  MISMATCH_REASON_THRESHOLD,
+  MismatchReasons,
   OPPORTUNITY_STATUS_COLOR,
   RecommendationBadge,
 } from "@/components/opportunities/eligibility";
 import { OpportunityForm } from "@/components/opportunities/OpportunityForm";
+import { SourceTypeBadge } from "@/components/opportunities/SourceTypeBadge";
+import { ValidationBadge } from "@/components/opportunities/ValidationBadge";
+import {
+  computeConsensus,
+  VALIDATION_FIELDS,
+  VALIDATION_PROVIDERS,
+  type FieldCheck,
+  type ValidationChecks,
+  type ValidationField,
+} from "@/lib/opportunities/validation";
 import { createClient } from "@/lib/supabase/client";
 import { canEdit, useProfile } from "@/lib/hooks/useProfile";
 import {
@@ -39,11 +56,17 @@ import {
 import { isNonEmpty } from "@/lib/utils/validators";
 import type { Tables } from "@/types/database";
 
-type TabKey = "overview" | "eligibility" | "applications" | "notes";
+type TabKey =
+  | "overview"
+  | "eligibility"
+  | "validation"
+  | "applications"
+  | "notes";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "overview", label: "Overview" },
   { key: "eligibility", label: "Eligibility" },
+  { key: "validation", label: "Validation" },
   { key: "applications", label: "Applications" },
   { key: "notes", label: "Notes" },
 ];
@@ -54,6 +77,7 @@ type OpportunityData = {
   keywords: string[];
   applications: Tables<"applications">[];
   notes: Tables<"notes">[];
+  validations: Tables<"validations">[];
 };
 
 export type OpportunityDetailProps = {
@@ -93,23 +117,29 @@ export function OpportunityDetail({ opportunityId }: OpportunityDetailProps) {
       return;
     }
 
-    const [keywordsRes, applicationsRes, notesRes] = await Promise.all([
-      supabase
-        .from("opportunity_keywords")
-        .select("keyword")
-        .eq("opportunity_id", opportunityId)
-        .order("keyword", { ascending: true }),
-      supabase
-        .from("applications")
-        .select("*")
-        .eq("opportunity_id", opportunityId)
-        .order("updated_at", { ascending: false }),
-      supabase
-        .from("notes")
-        .select("*")
-        .eq("opportunity_id", opportunityId)
-        .order("created_at", { ascending: false }),
-    ]);
+    const [keywordsRes, applicationsRes, notesRes, validationsRes] =
+      await Promise.all([
+        supabase
+          .from("opportunity_keywords")
+          .select("keyword")
+          .eq("opportunity_id", opportunityId)
+          .order("keyword", { ascending: true }),
+        supabase
+          .from("applications")
+          .select("*")
+          .eq("opportunity_id", opportunityId)
+          .order("updated_at", { ascending: false }),
+        supabase
+          .from("notes")
+          .select("*")
+          .eq("opportunity_id", opportunityId)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("validations")
+          .select("*")
+          .eq("opportunity_id", opportunityId)
+          .order("created_at", { ascending: true }),
+      ]);
 
     let funder: OpportunityData["funder"] = null;
     if (opportunity.funder_id) {
@@ -127,6 +157,7 @@ export function OpportunityDetail({ opportunityId }: OpportunityDetailProps) {
       keywords: (keywordsRes.data ?? []).map((k) => k.keyword),
       applications: applicationsRes.data ?? [],
       notes: notesRes.data ?? [],
+      validations: validationsRes.data ?? [],
     });
     setLoading(false);
   }, [opportunityId]);
@@ -179,7 +210,8 @@ export function OpportunityDetail({ opportunityId }: OpportunityDetailProps) {
     );
   }
 
-  const { opportunity, funder, keywords, applications, notes } = data;
+  const { opportunity, funder, keywords, applications, notes, validations } =
+    data;
   const editable = canEdit(profile?.role);
   const hasApplications = applications.length > 0;
 
@@ -192,12 +224,16 @@ export function OpportunityDetail({ opportunityId }: OpportunityDetailProps) {
             <h1 className="text-2xl font-semibold tracking-tight text-navy-900">
               {opportunity.name}
             </h1>
+            <MatchBadge percentage={opportunity.match_percentage} />
+            {opportunity.is_high_priority && <HighPriorityBadge />}
+            <SourceTypeBadge sourceType={opportunity.source_type} />
             <Badge color="indigo">{humanizeEnum(opportunity.category)}</Badge>
             {opportunity.status && (
               <Badge color={OPPORTUNITY_STATUS_COLOR[opportunity.status]}>
                 {humanizeEnum(opportunity.status)}
               </Badge>
             )}
+            <ValidationBadge rows={validations} hideUntilValidated />
           </div>
           <p className="mt-1 text-sm text-navy-500">
             {funder ? (
@@ -275,6 +311,14 @@ export function OpportunityDetail({ opportunityId }: OpportunityDetailProps) {
         <OverviewTab opportunity={opportunity} keywords={keywords} />
       )}
       {tab === "eligibility" && <EligibilityTab opportunity={opportunity} />}
+      {tab === "validation" && (
+        <ValidationTab
+          opportunityId={opportunity.id}
+          validations={validations}
+          canValidate={editable}
+          onValidated={load}
+        />
+      )}
       {tab === "applications" && (
         <ApplicationsTab applications={applications} />
       )}
@@ -407,6 +451,13 @@ function OverviewTab({
           <DetailRow label="Geographic restrictions">
             {dash(opportunity.geographic_restrictions)}
           </DetailRow>
+          <DetailRow label="Source type">
+            {opportunity.source_type ? (
+              <SourceTypeBadge sourceType={opportunity.source_type} />
+            ) : (
+              <span className="text-navy-400">Unclassified</span>
+            )}
+          </DetailRow>
           <DetailRow label="Source">
             {dash(opportunity.source && humanizeEnum(opportunity.source))}
           </DetailRow>
@@ -493,8 +544,37 @@ function EligibilityTab({
 }: {
   opportunity: Tables<"opportunities">;
 }) {
+  const showMismatch =
+    opportunity.match_percentage != null &&
+    opportunity.match_percentage < MISMATCH_REASON_THRESHOLD;
+
   return (
     <div className="space-y-6">
+      <Card title="Match">
+        {opportunity.match_percentage != null ? (
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <MatchBadge percentage={opportunity.match_percentage} />
+              {opportunity.is_high_priority && <HighPriorityBadge />}
+            </div>
+            <p className="text-sm text-navy-500">
+              {opportunity.is_high_priority
+                ? "Flagged high priority — the agent scored this a strong match (80% or higher) against your organization profile."
+                : "How well this opportunity matches your organization profile, scored by the Eligibility Scoring Agent."}
+            </p>
+            {showMismatch && (
+              <MismatchReasons reasons={opportunity.match_mismatch_reasons} />
+            )}
+          </div>
+        ) : (
+          <EmptyState
+            icon={Gauge}
+            title="Not yet scored"
+            description="The Eligibility Scoring Agent has not evaluated this opportunity's match yet."
+          />
+        )}
+      </Card>
+
       <Card title="Eligibility score">
         {opportunity.eligibility_score != null ? (
           <div className="space-y-3">
@@ -533,6 +613,236 @@ function EligibilityTab({
         )}
       </Card>
     </div>
+  );
+}
+
+/** Read the structured findings a provider stored in `validations.details`. */
+function parseDetails(details: Tables<"validations">["details"]): {
+  checks: ValidationChecks | null;
+  summary: string;
+} {
+  const obj = (details ?? {}) as {
+    checks?: Record<string, unknown>;
+    summary?: unknown;
+  };
+  const summary = typeof obj.summary === "string" ? obj.summary : "";
+  if (!obj.checks) return { checks: null, summary };
+
+  const read = (raw: unknown): FieldCheck => {
+    const c = (raw ?? {}) as { ok?: unknown; note?: unknown };
+    return {
+      ok: c.ok === true,
+      note: typeof c.note === "string" ? c.note : "",
+    };
+  };
+  return {
+    checks: {
+      existence: read(obj.checks.existence),
+      eligibility: read(obj.checks.eligibility),
+      deadline: read(obj.checks.deadline),
+      amounts: read(obj.checks.amounts),
+    },
+    summary,
+  };
+}
+
+const VERDICT_COLOR: Record<
+  Tables<"validations">["verdict"],
+  "green" | "red" | "yellow"
+> = {
+  verified: "green",
+  discrepancy: "red",
+  unverifiable: "yellow",
+};
+
+const FIELD_LABEL: Record<ValidationField, string> = {
+  existence: "Opportunity exists",
+  eligibility: "Eligibility accurate",
+  deadline: "Deadline correct",
+  amounts: "Amounts correct",
+};
+
+function providerLabel(provider: string): string {
+  return (
+    Object.values(VALIDATION_PROVIDERS).find((p) => p.id === provider)?.label ??
+    provider
+  );
+}
+
+/**
+ * Validation tab — cross-provider consensus (migration 014). Shows the overall
+ * verdict, lets a writer re-run validation against both AI providers, and breaks
+ * out each provider's per-field findings. The consensus badge is derived from
+ * the same {@link computeConsensus} the API uses.
+ */
+function ValidationTab({
+  opportunityId,
+  validations,
+  canValidate,
+  onValidated,
+}: {
+  opportunityId: string;
+  validations: Tables<"validations">[];
+  canValidate: boolean;
+  onValidated: () => Promise<void> | void;
+}) {
+  const [running, setRunning] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const consensus = computeConsensus(validations);
+
+  async function handleValidate() {
+    setError(null);
+    setRunning(true);
+    try {
+      const res = await fetch("/api/ai/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ opportunityId }),
+      });
+      if (!res.ok) {
+        const payload = (await res.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        throw new Error(payload?.error ?? "Validation failed.");
+      }
+      await onValidated();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Validation failed.");
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <Card title="Cross-provider validation">
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <ValidationBadge consensus={consensus} />
+              <span className="text-sm text-navy-500">
+                {consensus.providerCount > 0
+                  ? `${consensus.verifiedCount} of ${consensus.providerCount} provider${
+                      consensus.providerCount === 1 ? "" : "s"
+                    } verified`
+                  : "Not yet validated"}
+              </span>
+            </div>
+            {canValidate && (
+              <Button onClick={handleValidate} isLoading={running}>
+                <ShieldCheck className="h-4 w-4" aria-hidden />
+                {validations.length > 0 ? "Re-run validation" : "Validate"}
+              </Button>
+            )}
+          </div>
+
+          <p className="text-sm text-navy-500">
+            Each finding is sent to two independent AI providers (Anthropic Claude
+            and Google Gemini) that separately judge whether the opportunity
+            exists and whether its eligibility, deadline, and amounts are
+            accurate. An opportunity is marked{" "}
+            <span className="font-medium text-navy-700">Verified</span> only when
+            both providers agree. Providers reason from their own knowledge and
+            the finding&apos;s internal consistency — a verdict is a confidence
+            signal, not a guarantee.
+          </p>
+
+          {error && (
+            <div
+              role="alert"
+              className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+            >
+              {error}
+            </div>
+          )}
+        </div>
+      </Card>
+
+      {validations.length === 0 ? (
+        <EmptyState
+          icon={ShieldCheck}
+          title="Not yet validated"
+          description={
+            canValidate
+              ? "Run validation to cross-check this opportunity against two independent AI providers."
+              : "This opportunity has not been validated against the AI providers yet."
+          }
+        />
+      ) : (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          {validations.map((v) => (
+            <ProviderValidationCard key={v.id} validation={v} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProviderValidationCard({
+  validation,
+}: {
+  validation: Tables<"validations">;
+}) {
+  const { checks, summary } = parseDetails(validation.details);
+
+  return (
+    <Card title={providerLabel(validation.provider)}>
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge color={VERDICT_COLOR[validation.verdict]}>
+            {humanizeEnum(validation.verdict)}
+          </Badge>
+          <span className="text-xs text-navy-500">
+            {validation.confidence}% confidence
+          </span>
+          {validation.model && (
+            <span className="text-xs text-navy-400">{validation.model}</span>
+          )}
+        </div>
+
+        {summary && (
+          <p className="whitespace-pre-wrap text-sm text-navy-700">{summary}</p>
+        )}
+
+        {checks && (
+          <ul className="space-y-1.5">
+            {VALIDATION_FIELDS.map((field) => {
+              const check = checks[field];
+              return (
+                <li
+                  key={field}
+                  className="flex items-start gap-2 text-sm text-navy-700"
+                >
+                  {check.ok ? (
+                    <CheckCircle2
+                      className="mt-0.5 h-4 w-4 shrink-0 text-green-600"
+                      aria-hidden
+                    />
+                  ) : (
+                    <XCircle
+                      className="mt-0.5 h-4 w-4 shrink-0 text-red-500"
+                      aria-hidden
+                    />
+                  )}
+                  <span>
+                    <span className="font-medium">{FIELD_LABEL[field]}.</span>
+                    {check.note && (
+                      <span className="text-navy-500"> {check.note}</span>
+                    )}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+
+        <p className="text-xs text-navy-400">
+          Checked {formatRelative(validation.created_at)}
+        </p>
+      </div>
+    </Card>
   );
 }
 

@@ -7,7 +7,8 @@ import {
   type FormEvent,
   type KeyboardEvent,
 } from "react";
-import { Filter, Pencil, Plus, Trash2, X } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Filter, Pencil, Plus, SlidersHorizontal, Trash2, X } from "lucide-react";
 
 import {
   Badge,
@@ -59,6 +60,7 @@ const RECURRENCE_OPTIONS = [
  * profiles keep their configuration but are skipped by scheduled runs.
  */
 export default function SearchProfilesPage() {
+  const router = useRouter();
   const { profile } = useProfile();
   const editable = canEdit(profile?.role);
 
@@ -165,10 +167,19 @@ export default function SearchProfilesPage() {
           </p>
         </div>
         {editable && (
-          <Button onClick={openCreate}>
-            <Plus className="h-4 w-4" aria-hidden />
-            New profile
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="secondary"
+              onClick={() => router.push("/search-profiles/configure")}
+            >
+              <SlidersHorizontal className="h-4 w-4" aria-hidden />
+              Advanced setup
+            </Button>
+            <Button onClick={openCreate}>
+              <Plus className="h-4 w-4" aria-hidden />
+              New profile
+            </Button>
+          </div>
         )}
       </div>
 
@@ -276,6 +287,18 @@ export default function SearchProfilesPage() {
                       isLoading={togglingId === profileRow.id}
                     >
                       {profileRow.is_active ? "Pause" : "Activate"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() =>
+                        router.push(
+                          `/search-profiles/configure?id=${profileRow.id}`,
+                        )
+                      }
+                      aria-label={`Configure ${profileRow.name}`}
+                    >
+                      <SlidersHorizontal className="h-4 w-4" aria-hidden />
                     </Button>
                     <Button
                       size="sm"

@@ -13,6 +13,7 @@ import { CorporateGivingResearchAgent } from "@/lib/agents/research/corporate-gi
 import { FoundationGrantsResearchAgent } from "@/lib/agents/research/foundation-grants";
 import { GovernmentGrantsResearchAgent } from "@/lib/agents/research/government-grants";
 import { LocalSponsorshipResearchAgent } from "@/lib/agents/research/local-sponsorship";
+import { runResearchAgentsInParallel } from "@/lib/agents/research/orchestrator";
 import type { AgentType } from "@/types/agents";
 
 // Research trigger endpoint (BLUEPRINT §3.1, AGENTS.md Agents 12-15).
@@ -29,6 +30,11 @@ import type { AgentType } from "@/types/agents";
 // agent self-selects every active profile carrying one of its categories. The
 // pipeline runs synchronously and is logged as completed/failed before the
 // response returns; `status: "started"` is the response contract from the spec.
+//
+// agentType "all" is a special trigger: instead of one family, it runs EVERY
+// research lane simultaneously (Promise.allSettled) via the orchestrator, then
+// de-duplicates the union of their discoveries, and responds with per-lane
+// status so the dashboard can show parallel execution.
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -108,17 +114,18 @@ export async function POST(request: Request) {
     agentType?: unknown;
   };
 
+  // "all" runs every lane in parallel; otherwise a single research family.
+  const isParallel = agentType === "all";
   if (
     typeof agentType !== "string" ||
-    !RESEARCH_AGENT_TYPES.includes(agentType as AgentType)
+    (!isParallel && !RESEARCH_AGENT_TYPES.includes(agentType as AgentType))
   ) {
     return jsonError(
-      `agentType must be one of: ${RESEARCH_AGENT_TYPES.join(", ")}.`,
+      `agentType must be "all" or one of: ${RESEARCH_AGENT_TYPES.join(", ")}.`,
       "invalid_input",
       400,
     );
   }
-  const resolvedAgentType = agentType as AgentType;
 
   // profileId is optional for every type — an omitted id means "run all active
   // profiles carrying this agent's categories" (each agent self-selects).
@@ -186,17 +193,40 @@ export async function POST(request: Request) {
   const model = config.get("ai.model") ?? DEFAULT_MODEL;
   const maxTokens = Number(config.get("ai.max_tokens")) || DEFAULT_MAX_TOKENS;
 
+  const profileIds = resolvedProfileId ? [resolvedProfileId] : null;
+
   try {
-    const agent = createResearchAgent(resolvedAgentType, {
+    // Parallel mode: run every research lane at once and dedupe the union.
+    if (isParallel) {
+      const orchestration = await runResearchAgentsInParallel({
+        client: supabase,
+        organizationId,
+        triggeredBy,
+        model,
+        maxTokens,
+        profileIds,
+      });
+      return NextResponse.json({
+        status: "completed",
+        mode: "parallel",
+        lanes: orchestration.lanes,
+        totalFound: orchestration.totalFound,
+        totalCreated: orchestration.totalCreated,
+        duplicatesRemoved: orchestration.duplicatesRemoved,
+        opportunitiesValidated: orchestration.opportunitiesValidated,
+        opportunitiesVerified: orchestration.opportunitiesVerified,
+        durationMs: orchestration.durationMs,
+      });
+    }
+
+    const agent = createResearchAgent(agentType as AgentType, {
       client: supabase,
       organizationId,
       triggeredBy,
       model,
       maxTokens,
     });
-    const outcome = await agent.run({
-      profileIds: resolvedProfileId ? [resolvedProfileId] : null,
-    });
+    const outcome = await agent.run({ profileIds });
     return NextResponse.json({
       runId: outcome.runId,
       status: "started",

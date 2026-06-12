@@ -1,5 +1,6 @@
 import {
   BarChart3,
+  Bell,
   Bot,
   Brain,
   Building2,
@@ -38,6 +39,7 @@ export type NavItem = {
  */
 export const NAV_ITEMS: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { label: "Alerts", href: "/alerts", icon: Bell },
   { label: "Funders", href: "/funders", icon: Building2 },
   { label: "Contacts", href: "/contacts", icon: Users },
   { label: "Opportunities", href: "/opportunities", icon: Search },

@@ -41,6 +41,24 @@ export const OPPORTUNITY_STATUSES = [
   "expired",
 ] as const;
 
+// Funding-SOURCE classification (migration 010 opportunity_source_type enum). A
+// coarse "where the money comes from" bucket, distinct from the fine-grained
+// funder `category`. Powers the Opportunities source filter tabs + color-coded
+// badges and is auto-assigned by the research agents on discovery. NOT in
+// SCHEMA_REGISTRY — added by the live build (migration 010); see
+// STATE_OF_THE_BUILD.md. (Unrelated to the grants API's contract `source_type`,
+// which aliases `category`.)
+export const OPPORTUNITY_SOURCE_TYPES = [
+  "government_federal",
+  "government_state",
+  "government_local",
+  "private_foundation",
+  "corporate_giving",
+  "community_foundation",
+  "faith_based",
+  "international",
+] as const;
+
 // Recurrence patterns for opportunities (SCHEMA_REGISTRY opportunities.recurrence).
 export const OPPORTUNITY_RECURRENCES = [
   "one_time",

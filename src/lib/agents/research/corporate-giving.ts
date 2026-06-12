@@ -29,13 +29,18 @@ import { EligibilityScorer } from "@/lib/agents/eligibility-scorer";
 import { checkDuplicate } from "@/lib/agents/research/deduplicator";
 import { parseOpportunity } from "@/lib/agents/research/result-parser";
 import {
+  effectiveCategories,
   getActiveProfiles,
   getProfile,
   markProfileRun,
+  profileAgentEnabled,
+  profileExcludesFunder,
+  profileQueryTerms,
   type ResearchSearchProfile,
 } from "@/lib/agents/research/scheduler";
 import { search } from "@/lib/agents/research/search-engine";
 import { fetchPage, type ResearchContext } from "@/lib/agents/research/web-fetcher";
+import { inferSourceType } from "@/lib/opportunities/source-type";
 import type { AgentType } from "@/types/agents";
 import type { Enums, TablesInsert } from "@/types/database";
 
@@ -193,6 +198,10 @@ export class CorporateGivingResearchAgent extends BaseAgent<
         });
         if (nameDup.isDuplicate) continue;
 
+        // Negative filter (Configuration page "excluded funders"): never create
+        // an opportunity from a funder the profile has explicitly excluded.
+        if (profileExcludesFunder(profile, opp.funder_name)) continue;
+
         // Category is required on opportunities; fall back to the profile's first
         // corporate category when the page did not state one.
         const category =
@@ -226,6 +235,16 @@ export class CorporateGivingResearchAgent extends BaseAgent<
             geographic_restrictions: opp.geographic_restrictions,
             status: "open",
             source: profile.name,
+            // Corporate-giving discoveries classify as corporate giving unless
+            // the page reads as a community foundation / faith-based source.
+            source_type: inferSourceType({
+              category,
+              name: opp.name,
+              description: opp.description,
+              funderName: opp.funder_name,
+              geographicScope: profile.geographicScope,
+              eligibilityRequirements: opp.eligibility_requirements,
+            }),
           } satisfies TablesInsert<"opportunities">)
           .select("id")
           .single();
@@ -314,7 +333,11 @@ export class CorporateGivingResearchAgent extends BaseAgent<
     }
 
     const active = await getActiveProfiles(ctx);
-    return active.filter(isCorporateProfile);
+    // Honor the profile's per-agent toggle (Configuration page): a profile that
+    // has corporate research disabled is skipped on an automated sweep.
+    return active.filter(
+      (p) => isCorporateProfile(p) && profileAgentEnabled(p, this.agentType),
+    );
   }
 
   // --- candidate gathering ----------------------------------------------------
@@ -414,16 +437,19 @@ export class CorporateGivingResearchAgent extends BaseAgent<
 
 // --- helpers -----------------------------------------------------------------
 
-/** True if the profile targets at least one corporate funder category. */
+/** True if the profile targets at least one (non-excluded) corporate category. */
 function isCorporateProfile(profile: ResearchSearchProfile): boolean {
-  return profile.categories.some((c) => CORPORATE_CATEGORIES.includes(c));
+  return effectiveCategories(profile).some((c) => CORPORATE_CATEGORIES.includes(c));
 }
 
 /** The profile's first corporate category, used as the opportunity-category fallback. */
 function firstCorporateCategory(
   profile: ResearchSearchProfile,
 ): FunderCategory | null {
-  return profile.categories.find((c) => CORPORATE_CATEGORIES.includes(c)) ?? null;
+  return (
+    effectiveCategories(profile).find((c) => CORPORATE_CATEGORIES.includes(c)) ??
+    null
+  );
 }
 
 /**
@@ -435,7 +461,8 @@ export function buildCorporateQueries(profile: ResearchSearchProfile): string[] 
   const geo = profile.geographicScope?.trim() ?? "";
   const queries: string[] = [];
 
-  for (const rawKeyword of profile.keywords) {
+  // Keywords plus the profile's weighted focus areas / population tags.
+  for (const rawKeyword of profileQueryTerms(profile)) {
     const keyword = rawKeyword.trim();
     if (keyword === "") continue;
     for (const template of QUERY_TEMPLATES) {

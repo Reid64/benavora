@@ -19,6 +19,7 @@
         "@stripe/stripe-js": "^9.8.0",
         "@supabase/ssr": "^0.5.2",
         "@supabase/supabase-js": "^2.45.4",
+        "@types/recharts": "^2.0.1",
         "date-fns": "^3.6.0",
         "google-auth-library": "10.7.0",
         "googleapis": "^173.0.0",
@@ -27,6 +28,8 @@
         "playwright": "^1.60.0",
         "react": "^18.3.1",
         "react-dom": "^18.3.1",
+        "recharts": "^2.15.4",
+        "resend": "^6.12.4",
         "stripe": "^22.2.0"
     },
     "devDependencies": {

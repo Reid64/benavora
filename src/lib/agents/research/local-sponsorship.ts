@@ -37,13 +37,18 @@ import {
   type ParsedOpportunity,
 } from "@/lib/agents/research/result-parser";
 import {
+  effectiveCategories,
   getActiveProfiles,
   getProfile,
   markProfileRun,
+  profileAgentEnabled,
+  profileExcludesFunder,
+  profileQueryTerms,
   type ResearchSearchProfile,
 } from "@/lib/agents/research/scheduler";
 import { search, type SearchSource } from "@/lib/agents/research/search-engine";
 import { fetchPage, type ResearchContext } from "@/lib/agents/research/web-fetcher";
+import { inferSourceType } from "@/lib/opportunities/source-type";
 import type { AgentType } from "@/types/agents";
 import type { Enums, TablesInsert } from "@/types/database";
 
@@ -208,6 +213,10 @@ export class LocalSponsorshipResearchAgent extends BaseAgent<
         const companyName = pickCompanyName(opp, url);
         if (!companyName) continue;
 
+        // Negative filter (Configuration page "excluded funders"): skip a
+        // business the profile has explicitly excluded.
+        if (profileExcludesFunder(profile, companyName)) continue;
+
         // Assess whether the business has a giving page to apply through
         // (task spec step 5). False → cold-outreach target (step 6).
         const givingPage = assessGivingPage(page.text);
@@ -368,7 +377,11 @@ export class LocalSponsorshipResearchAgent extends BaseAgent<
     }
 
     const active = await getActiveProfiles(ctx);
-    return active.filter(isLocalProfile);
+    // Honor the profile's per-agent toggle (Configuration page): a profile that
+    // has local-sponsorship research disabled is skipped on an automated sweep.
+    return active.filter(
+      (p) => isLocalProfile(p) && profileAgentEnabled(p, this.agentType),
+    );
   }
 
   // --- candidate gathering ----------------------------------------------------
@@ -472,6 +485,16 @@ export class LocalSponsorshipResearchAgent extends BaseAgent<
         geographic_restrictions: opp.geographic_restrictions,
         status: "open",
         source: profile.name,
+        // Local sponsorships are corporate giving by default; a community
+        // foundation or local-government page is reclassified from the text.
+        source_type: inferSourceType({
+          category,
+          name: opp.name,
+          description: opp.description,
+          funderName: opp.funder_name,
+          geographicScope: profile.geographicScope,
+          eligibilityRequirements: opp.eligibility_requirements,
+        }),
       } satisfies TablesInsert<"opportunities">)
       .select("id")
       .single();
@@ -511,16 +534,16 @@ export class LocalSponsorshipResearchAgent extends BaseAgent<
 
 // --- helpers -----------------------------------------------------------------
 
-/** True if the profile targets at least one local funder category. */
+/** True if the profile targets at least one (non-excluded) local category. */
 function isLocalProfile(profile: ResearchSearchProfile): boolean {
-  return profile.categories.some((c) => LOCAL_CATEGORIES.includes(c));
+  return effectiveCategories(profile).some((c) => LOCAL_CATEGORIES.includes(c));
 }
 
 /** The profile's first local category, used as the opportunity-category fallback. */
 function firstLocalCategory(
   profile: ResearchSearchProfile,
 ): FunderCategory | null {
-  return profile.categories.find((c) => LOCAL_CATEGORIES.includes(c)) ?? null;
+  return effectiveCategories(profile).find((c) => LOCAL_CATEGORIES.includes(c)) ?? null;
 }
 
 /**
@@ -533,7 +556,8 @@ export function buildLocalQueries(profile: ResearchSearchProfile): string[] {
   const geo = profile.geographicScope?.trim() ?? "";
   const queries: string[] = [];
 
-  for (const rawKeyword of profile.keywords) {
+  // Keywords plus the profile's weighted focus areas / population tags.
+  for (const rawKeyword of profileQueryTerms(profile)) {
     const keyword = rawKeyword.trim();
     if (keyword === "") continue;
     queries.push([`${keyword} local business sponsorship`, geo].filter(Boolean).join(" "));

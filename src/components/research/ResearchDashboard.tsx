@@ -42,6 +42,20 @@ export type ResearchDiscovery = {
   funderName: string | null;
 };
 
+/** Live status of one lane in a parallel "Run all" sweep. */
+export type ParallelLaneStatus = {
+  key: string;
+  label: string;
+  /** Source-type the lane specializes in (humanized for display). */
+  sourceType: string | null;
+  status: "running" | "completed" | "failed";
+  /** New opportunities created by the lane (once it completes). */
+  created?: number;
+  /** Opportunities the lane extracted (pre-dedup). */
+  found?: number;
+  error?: string;
+};
+
 /** A recent research agent_runs row, for the activity / status feed. */
 export type ResearchRun = {
   id: string;
@@ -63,6 +77,14 @@ export type ResearchDashboardProps = {
   runningProfileId: string | null;
   /** Whether the "Run all" trigger is in flight. */
   runningAll: boolean;
+  /**
+   * Live per-lane status of the current/last parallel sweep. Null until a
+   * "Run all active" sweep is triggered; seeded as "running" then filled in
+   * from the orchestrator response.
+   */
+  parallelLanes: ParallelLaneStatus[] | null;
+  /** Cross-lane duplicate opportunities removed by the last sweep, if any. */
+  duplicatesRemoved: number | null;
   /** Error from the most recent trigger, if any. */
   runError: string | null;
   isLoading: boolean;
@@ -72,6 +94,12 @@ export type ResearchDashboardProps = {
 
 const RUN_STATUS_COLOR: Record<AgentRunStatus, BadgeColor> = {
   pending: "yellow",
+  running: "blue",
+  completed: "green",
+  failed: "red",
+};
+
+const LANE_STATUS_COLOR: Record<ParallelLaneStatus["status"], BadgeColor> = {
   running: "blue",
   completed: "green",
   failed: "red",
@@ -102,6 +130,8 @@ export function ResearchDashboard({
   editable,
   runningProfileId,
   runningAll,
+  parallelLanes,
+  duplicatesRemoved,
   runError,
   isLoading,
   onRunProfile,
@@ -250,6 +280,56 @@ export function ResearchDashboard({
         )}
       </section>
 
+      {/* Parallel execution status (Run all active) */}
+      {parallelLanes && parallelLanes.length > 0 && (
+        <section className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold text-navy-900">
+              Parallel execution
+            </h2>
+            {duplicatesRemoved != null && duplicatesRemoved > 0 && (
+              <span className="text-xs text-navy-500">
+                {duplicatesRemoved} cross-lane duplicate
+                {duplicatesRemoved === 1 ? "" : "s"} removed
+              </span>
+            )}
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {parallelLanes.map((lane) => (
+              <Card key={lane.key}>
+                <div className="flex items-start gap-3">
+                  <LaneStatusIcon status={lane.status} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="truncate text-sm font-medium text-navy-800">
+                        {lane.label}
+                      </span>
+                      <Badge color={LANE_STATUS_COLOR[lane.status]}>
+                        {lane.status === "running"
+                          ? "Running"
+                          : lane.status === "completed"
+                            ? "Done"
+                            : "Failed"}
+                      </Badge>
+                      {lane.sourceType && (
+                        <Badge color="purple">{humanizeEnum(lane.sourceType)}</Badge>
+                      )}
+                    </div>
+                    <p className="mt-1 truncate text-xs text-navy-500">
+                      {lane.status === "completed"
+                        ? `${lane.created ?? 0} created · ${lane.found ?? 0} found`
+                        : lane.status === "failed"
+                          ? (lane.error ?? "Lane failed.")
+                          : "Searching…"}
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Activity / status feed */}
       {runs.length > 0 && (
         <section className="space-y-4">
@@ -365,6 +445,26 @@ export function ResearchDashboard({
         )}
       </section>
     </div>
+  );
+}
+
+/** Status glyph for a parallel-execution lane card. */
+function LaneStatusIcon({ status }: { status: ParallelLaneStatus["status"] }) {
+  if (status === "completed") {
+    return (
+      <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-500" aria-hidden />
+    );
+  }
+  if (status === "failed") {
+    return (
+      <CircleAlert className="mt-0.5 h-5 w-5 shrink-0 text-red-500" aria-hidden />
+    );
+  }
+  return (
+    <Loader2
+      className="mt-0.5 h-5 w-5 shrink-0 animate-spin text-blue-500"
+      aria-hidden
+    />
   );
 }
 

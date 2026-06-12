@@ -35,15 +35,21 @@ import {
 } from "@/lib/agents/base-agent";
 import { EligibilityScorer } from "@/lib/agents/eligibility-scorer";
 import { checkDuplicate } from "@/lib/agents/research/deduplicator";
+import { applyQuerySuffix, type ResearchFocus } from "@/lib/agents/research/focus";
 import { parseOpportunity } from "@/lib/agents/research/result-parser";
 import {
+  effectiveCategories,
   getActiveProfiles,
   getProfile,
   markProfileRun,
+  profileAgentEnabled,
+  profileExcludesFunder,
+  profileQueryTerms,
   type ResearchSearchProfile,
 } from "@/lib/agents/research/scheduler";
 import { search, type SearchSource } from "@/lib/agents/research/search-engine";
 import { fetchPage, type ResearchContext } from "@/lib/agents/research/web-fetcher";
+import { inferSourceType } from "@/lib/opportunities/source-type";
 import type { AgentType } from "@/types/agents";
 import type { Enums, TablesInsert } from "@/types/database";
 
@@ -87,6 +93,12 @@ export interface GovernmentGrantsOptions extends BaseAgentOptions {
   model?: string;
   /** Max output tokens (platform_config `ai.max_tokens`). */
   maxTokens?: number;
+  /**
+   * Optional per-run specialization (parallel orchestration). When set, narrows
+   * the search sources and/or appends a query suffix so several Government
+   * passes (e.g. Grants.gov API vs. state agencies) can run side by side.
+   */
+  focus?: ResearchFocus;
 }
 
 // Run bounds — keep the synchronous pipeline within the 60s agent ceiling
@@ -106,11 +118,13 @@ export class GovernmentGrantsResearchAgent extends BaseAgent<
 
   private readonly model: string;
   private readonly maxTokens: number;
+  private readonly focus?: ResearchFocus;
 
   constructor(options: GovernmentGrantsOptions) {
     super(options);
     this.model = options.model ?? DEFAULT_MODEL;
     this.maxTokens = options.maxTokens ?? DEFAULT_MAX_TOKENS;
+    this.focus = options.focus;
   }
 
   protected async execute(
@@ -150,7 +164,7 @@ export class GovernmentGrantsResearchAgent extends BaseAgent<
       }
       profilesRun.push(profile.name);
 
-      const queries = buildGovernmentQueries(profile);
+      const queries = applyQuerySuffix(buildGovernmentQueries(profile), this.focus);
       const candidates = await this.gatherCandidates(queries, seenUrls);
 
       let profileFound = 0;
@@ -194,6 +208,10 @@ export class GovernmentGrantsResearchAgent extends BaseAgent<
         });
         if (nameDup.isDuplicate) continue;
 
+        // Negative filter (Configuration page "excluded funders"): never create
+        // an opportunity from an agency/funder the profile has excluded.
+        if (profileExcludesFunder(profile, opp.funder_name)) continue;
+
         // Category is required on opportunities; fall back to the profile's first
         // government category when the page did not state one.
         const category =
@@ -234,6 +252,22 @@ export class GovernmentGrantsResearchAgent extends BaseAgent<
             geographic_restrictions: opp.geographic_restrictions,
             status: "open",
             source: profile.name,
+            // Auto-classify the government tier. Extracted CFDA/NOFO numbers and
+            // a SAM.gov requirement are strong federal signals; otherwise the
+            // page text (state/county/city) decides the tier.
+            source_type: inferSourceType({
+              category,
+              name: opp.name,
+              description: opp.description,
+              funderName: opp.funder_name,
+              geographicScope:
+                profile.geographicScope ?? opp.geographic_restrictions,
+              eligibilityRequirements: opp.eligibility_requirements,
+              extraText: [
+                gov.samRequired ? "SAM.gov federal award" : "",
+                ...gov.identifiers,
+              ].join(" "),
+            }),
           } satisfies TablesInsert<"opportunities">)
           .select("id")
           .single();
@@ -283,8 +317,9 @@ export class GovernmentGrantsResearchAgent extends BaseAgent<
     const truncated =
       pagesProcessed >= MAX_PAGES_PER_RUN ||
       opportunitiesCreated >= MAX_NEW_OPPS_PER_RUN;
+    const focusPrefix = this.focus?.label ? `[${this.focus.label}] ` : "";
     const summary =
-      `Government grant research across ${profilesRun.length} profile(s) ` +
+      `${focusPrefix}Government grant research across ${profilesRun.length} profile(s) ` +
       `(${profilesRun.join(", ")}): fetched ${pagesProcessed} page(s), found ` +
       `${opportunitiesFound} opportunit${opportunitiesFound === 1 ? "y" : "ies"}, ` +
       `created ${opportunitiesCreated} new and ${fundersCreated} new agency/funder(s).` +
@@ -327,7 +362,11 @@ export class GovernmentGrantsResearchAgent extends BaseAgent<
     }
 
     const active = await getActiveProfiles(ctx);
-    return active.filter(isGovernmentProfile);
+    // Honor the profile's per-agent toggle (Configuration page): a profile that
+    // has government research disabled is skipped on an automated sweep.
+    return active.filter(
+      (p) => isGovernmentProfile(p) && profileAgentEnabled(p, this.agentType),
+    );
   }
 
   // --- candidate gathering ----------------------------------------------------
@@ -338,10 +377,11 @@ export class GovernmentGrantsResearchAgent extends BaseAgent<
     seenUrls: Set<string>,
   ): Promise<string[]> {
     const candidates: string[] = [];
+    const sources = this.focus?.sources ?? GOVERNMENT_SOURCES;
     for (const query of queries) {
       const hits = await search({
         query,
-        sources: GOVERNMENT_SOURCES,
+        sources,
         limitPerSource: MAX_HITS_PER_QUERY,
       });
       for (const hit of hits) {
@@ -427,16 +467,19 @@ export class GovernmentGrantsResearchAgent extends BaseAgent<
 
 // --- helpers -----------------------------------------------------------------
 
-/** True if the profile targets at least one government funder category. */
+/** True if the profile targets at least one (non-excluded) government category. */
 function isGovernmentProfile(profile: ResearchSearchProfile): boolean {
-  return profile.categories.some((c) => GOVERNMENT_CATEGORIES.includes(c));
+  return effectiveCategories(profile).some((c) => GOVERNMENT_CATEGORIES.includes(c));
 }
 
 /** The profile's first government category, used as the opportunity-category fallback. */
 function firstGovernmentCategory(
   profile: ResearchSearchProfile,
 ): FunderCategory | null {
-  return profile.categories.find((c) => GOVERNMENT_CATEGORIES.includes(c)) ?? null;
+  return (
+    effectiveCategories(profile).find((c) => GOVERNMENT_CATEGORIES.includes(c)) ??
+    null
+  );
 }
 
 /**
@@ -450,7 +493,8 @@ export function buildGovernmentQueries(profile: ResearchSearchProfile): string[]
   const state = geo !== "" ? geo : DEFAULT_STATE;
   const queries: string[] = [];
 
-  for (const rawKeyword of profile.keywords) {
+  // Keywords plus the profile's weighted focus areas / population tags.
+  for (const rawKeyword of profileQueryTerms(profile)) {
     const keyword = rawKeyword.trim();
     if (keyword === "") continue;
     queries.push(`${keyword} federal grant`);

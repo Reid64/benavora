@@ -1,0 +1,43 @@
+-- ============================================================================
+-- Migration 012 — opportunities match scoring
+--
+-- Adds the headline "match" surface for an opportunity, computed by the
+-- Eligibility Scoring Agent (Agent 02) at discovery time:
+--
+--   match_percentage      0–100 fit score. Mirrors the agent's eligibility
+--                         assessment but is the value the new match badge,
+--                         default list sort, and high-priority flag read from.
+--                         (The BEHAVIORAL_CONTRACTS grant vocabulary already
+--                         maps its `match_percentage` onto the agent score —
+--                         see grants-service.ts — so this promotes that concept
+--                         to a real column instead of a pure derivation.)
+--   is_high_priority      TRUE when the agent scores match_percentage >= 80,
+--                         so the list and detail views can flag the strongest
+--                         opportunities at a glance.
+--   match_mismatch_reasons  Per-criterion explanations of which eligibility
+--                         criteria limited the score, surfaced in the UI when
+--                         the match is poor (below 40).
+--
+-- All three are agent-owned alongside eligibility_score / recommendation
+-- (BEHAVIORAL_CONTRACTS §5) — never edited manually.
+--
+-- Additive and safe: new nullable columns + one boolean defaulting to FALSE,
+-- plus a sort index. Existing rows keep match_percentage = NULL ("Not scored"
+-- in the UI) until the agent re-scores them; nothing is backfilled or renamed
+-- and no governance document or RLS policy is touched. Written idempotently so
+-- a re-run via apply-migration.mjs is harmless.
+-- ============================================================================
+
+ALTER TABLE opportunities
+  ADD COLUMN IF NOT EXISTS match_percentage integer
+    CHECK (match_percentage IS NULL OR (match_percentage >= 0 AND match_percentage <= 100));
+
+ALTER TABLE opportunities
+  ADD COLUMN IF NOT EXISTS is_high_priority boolean NOT NULL DEFAULT false;
+
+ALTER TABLE opportunities
+  ADD COLUMN IF NOT EXISTS match_mismatch_reasons text[];
+
+-- Default opportunity ordering is highest match first (nulls last).
+CREATE INDEX IF NOT EXISTS idx_opportunities_match_percentage
+  ON opportunities (match_percentage DESC NULLS LAST);

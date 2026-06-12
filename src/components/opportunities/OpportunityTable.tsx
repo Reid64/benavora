@@ -2,11 +2,14 @@
 
 import { useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { LayoutGrid, List } from "lucide-react";
 
 import { Badge, Table } from "@/components/ui";
 import type { TableColumn } from "@/components/ui";
 import {
   EligibilityBar,
+  HighPriorityBadge,
+  MatchBadge,
   OPPORTUNITY_STATUS_COLOR,
   RecommendationBadge,
 } from "@/components/opportunities/eligibility";
@@ -14,11 +17,23 @@ import {
   OpportunityFilters,
   type OpportunityFilterValue,
 } from "@/components/opportunities/OpportunityFilters";
+import { OpportunityCard } from "@/components/opportunities/OpportunityCard";
+import { SourceTypeBadge } from "@/components/opportunities/SourceTypeBadge";
+import {
+  SourceTypeTabs,
+  type SourceTypeTabValue,
+} from "@/components/opportunities/SourceTypeTabs";
 import { useUrlState } from "@/lib/hooks/useUrlState";
 import {
+  isOpportunitySourceType,
+  type OpportunitySourceType,
+} from "@/lib/opportunities/source-type";
+import {
   FUNDER_CATEGORIES,
+  OPPORTUNITY_SOURCE_TYPES,
   OPPORTUNITY_STATUSES,
 } from "@/lib/utils/constants";
+import { cn } from "@/lib/utils/cn";
 import { formatCurrency, formatDate, humanizeEnum } from "@/lib/utils/formatters";
 import type { Enums, Tables } from "@/types/database";
 
@@ -33,15 +48,19 @@ export type OpportunityTableProps = {
   isLoading?: boolean;
 };
 
+type ViewMode = "table" | "cards";
+
 /** Lexicographic YYYY-MM-DD compare works because ISO dates sort that way. */
 function deadlineDay(deadline: string | null): string {
   return deadline ? deadline.slice(0, 10) : "";
 }
 
 /**
- * Opportunity list with the full filter set (BLUEPRINT §4.4): keyword search,
- * category, status, deadline range, and eligibility-score range. Filtering and
- * sorting run client-side over the provided rows; clicking a row opens detail.
+ * Opportunity list with the full filter set (BLUEPRINT §4.4): source-type tabs,
+ * keyword search, category, status, deadline range, and eligibility-score range.
+ * Renders as a sortable table or a card grid (the view toggle). Filtering and
+ * sorting run client-side over the provided rows; selecting a row/card opens
+ * detail. All filter + view state lives in the URL so it survives navigation.
  */
 export function OpportunityTable({
   opportunities,
@@ -50,12 +69,15 @@ export function OpportunityTable({
   const router = useRouter();
   const { searchParams, setParams } = useUrlState();
 
+  const view: ViewMode = searchParams.get("view") === "cards" ? "cards" : "table";
+
   // The full filter set lives in the URL so it survives sidebar navigation and
   // refresh. Enum-typed params are validated against their allowed values so a
   // hand-edited URL can't wedge the list into showing nothing.
   const filters: OpportunityFilterValue = useMemo(() => {
     const categoryParam = searchParams.get("category");
     const statusParam = searchParams.get("status");
+    const sourceParam = searchParams.get("source");
     return {
       query: searchParams.get("q") ?? "",
       category:
@@ -68,6 +90,7 @@ export function OpportunityTable({
         (OPPORTUNITY_STATUSES as readonly string[]).includes(statusParam)
           ? (statusParam as Enums<"opportunity_status">)
           : "all",
+      sourceType: isOpportunitySourceType(sourceParam) ? sourceParam : "all",
       deadlineFrom: searchParams.get("from") ?? "",
       deadlineTo: searchParams.get("to") ?? "",
       scoreMin: searchParams.get("min") ?? "",
@@ -80,12 +103,24 @@ export function OpportunityTable({
       q: next.query || null,
       category: next.category === "all" ? null : next.category,
       status: next.status === "all" ? null : next.status,
+      source: next.sourceType === "all" ? null : next.sourceType,
       from: next.deadlineFrom || null,
       to: next.deadlineTo || null,
       min: next.scoreMin || null,
       max: next.scoreMax || null,
     });
   }
+
+  // Source-type counts across the unfiltered list, for the tab badges.
+  const sourceCounts = useMemo(() => {
+    const counts = Object.fromEntries(
+      OPPORTUNITY_SOURCE_TYPES.map((type) => [type, 0]),
+    ) as Record<OpportunitySourceType, number>;
+    for (const opp of opportunities) {
+      if (opp.source_type) counts[opp.source_type] += 1;
+    }
+    return counts;
+  }, [opportunities]);
 
   const filtered = useMemo(() => {
     const q = filters.query.trim().toLowerCase();
@@ -97,6 +132,12 @@ export function OpportunityTable({
         return false;
       }
       if (filters.status !== "all" && opp.status !== filters.status) {
+        return false;
+      }
+      if (
+        filters.sourceType !== "all" &&
+        opp.source_type !== filters.sourceType
+      ) {
         return false;
       }
 
@@ -129,6 +170,16 @@ export function OpportunityTable({
     });
   }, [opportunities, filters]);
 
+  // The card grid has no per-column sort, so sort by match percentage descending
+  // (unscored last) to match the table's default order.
+  const sortedForCards = useMemo(
+    () =>
+      [...filtered].sort(
+        (a, b) => (b.match_percentage ?? -1) - (a.match_percentage ?? -1),
+      ),
+    [filtered],
+  );
+
   const columns: TableColumn<OpportunityRow>[] = [
     {
       key: "name",
@@ -145,6 +196,18 @@ export function OpportunityTable({
           )}
         </div>
       ),
+    },
+    {
+      key: "source_type",
+      header: "Source",
+      sortable: true,
+      sortValue: (row) => row.source_type ?? "",
+      render: (row) =>
+        row.source_type ? (
+          <SourceTypeBadge sourceType={row.source_type} />
+        ) : (
+          <span className="text-navy-400">—</span>
+        ),
     },
     {
       key: "category",
@@ -178,6 +241,19 @@ export function OpportunityTable({
         ) : (
           <span className="text-navy-400">—</span>
         ),
+    },
+    {
+      key: "match",
+      header: "Match",
+      sortable: true,
+      // Unscored rows sort below scored ones.
+      sortValue: (row) => row.match_percentage ?? -1,
+      render: (row) => (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <MatchBadge percentage={row.match_percentage} />
+          {row.is_high_priority && <HighPriorityBadge />}
+        </div>
+      ),
     },
     {
       key: "eligibility",
@@ -217,16 +293,117 @@ export function OpportunityTable({
 
   return (
     <div className="space-y-4">
-      <OpportunityFilters value={filters} onChange={handleFiltersChange} />
-      <Table
-        columns={columns}
-        data={filtered}
-        rowKey={(row) => row.id}
-        isLoading={isLoading}
-        onRowClick={(row) => router.push(`/opportunities/${row.id}`)}
-        initialSort={{ key: "deadline", direction: "asc" }}
-        emptyMessage="No opportunities match your filters."
+      <SourceTypeTabs
+        value={filters.sourceType}
+        counts={sourceCounts}
+        total={opportunities.length}
+        onChange={(sourceType: SourceTypeTabValue) =>
+          handleFiltersChange({ ...filters, sourceType })
+        }
       />
+
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start">
+        <div className="min-w-0 flex-1">
+          <OpportunityFilters value={filters} onChange={handleFiltersChange} />
+        </div>
+        <ViewToggle view={view} onChange={(v) => setParams({ view: v === "table" ? null : v })} />
+      </div>
+
+      {view === "cards" ? (
+        <CardGrid
+          opportunities={sortedForCards}
+          isLoading={isLoading}
+          isEmpty={!isLoading && sortedForCards.length === 0}
+        />
+      ) : (
+        <Table
+          columns={columns}
+          data={filtered}
+          rowKey={(row) => row.id}
+          isLoading={isLoading}
+          onRowClick={(row) => router.push(`/opportunities/${row.id}`)}
+          initialSort={{ key: "match", direction: "desc" }}
+          emptyMessage="No opportunities match your filters."
+        />
+      )}
+    </div>
+  );
+}
+
+function ViewToggle({
+  view,
+  onChange,
+}: {
+  view: ViewMode;
+  onChange: (view: ViewMode) => void;
+}) {
+  return (
+    <div className="inline-flex shrink-0 rounded-lg border border-navy-200 bg-white p-0.5 shadow-sm">
+      <button
+        type="button"
+        onClick={() => onChange("table")}
+        aria-pressed={view === "table"}
+        className={cn(
+          "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition",
+          view === "table"
+            ? "bg-teal-600 text-white"
+            : "text-navy-600 hover:bg-navy-50",
+        )}
+      >
+        <List className="h-4 w-4" aria-hidden />
+        Table
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange("cards")}
+        aria-pressed={view === "cards"}
+        className={cn(
+          "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition",
+          view === "cards"
+            ? "bg-teal-600 text-white"
+            : "text-navy-600 hover:bg-navy-50",
+        )}
+      >
+        <LayoutGrid className="h-4 w-4" aria-hidden />
+        Cards
+      </button>
+    </div>
+  );
+}
+
+function CardGrid({
+  opportunities,
+  isLoading,
+  isEmpty,
+}: {
+  opportunities: OpportunityRow[];
+  isLoading: boolean;
+  isEmpty: boolean;
+}) {
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div
+            key={i}
+            className="h-44 animate-pulse rounded-xl border border-navy-200 bg-navy-50"
+          />
+        ))}
+      </div>
+    );
+  }
+  if (isEmpty) {
+    return (
+      <div className="rounded-xl border border-navy-200 bg-white p-10 text-center text-sm text-navy-500">
+        No opportunities match your filters.
+      </div>
+    );
+  }
+  return (
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      {opportunities.map((opp) => (
+        <OpportunityCard key={opp.id} opportunity={opp} />
+      ))}
     </div>
   );
 }

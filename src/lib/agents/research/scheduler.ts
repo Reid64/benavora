@@ -13,8 +13,18 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import {
+  parseAgentSettings,
+  parseEligibilityFilters,
+  parseFocusAreas,
+  parseSourceTypeFilters,
+  type AgentSettings,
+  type EligibilityFilters,
+  type FocusArea,
+  type SourceTypeFilter,
+} from "@/lib/research/profile-config";
 import { humanizeEnum } from "@/lib/utils/formatters";
-import type { Enums } from "@/types/database";
+import type { Enums, Json } from "@/types/database";
 
 type FunderCategory = Enums<"funder_category">;
 
@@ -40,6 +50,23 @@ export interface ResearchSearchProfile {
   isActive: boolean;
   lastRunAt: string | null;
   resultsCount: number;
+  // Advanced configuration (migration 011), read before every run.
+  /** All geographic scopes; geographicScope mirrors the first for compatibility. */
+  geographicScopes: string[];
+  /** Source-category filters with priority ranking (1 = highest). */
+  sourceTypeFilters: SourceTypeFilter[];
+  /** Focus-area tags with weights, woven into the agents' search queries. */
+  focusAreas: FocusArea[];
+  /** Structured eligibility pre-filters (surfaced to eligibility scoring). */
+  eligibilityFilters: EligibilityFilters;
+  /** Population-served matching tags, woven into the agents' search queries. */
+  populationsServed: string[];
+  /** Negative filter: funder categories to skip. */
+  excludedCategories: FunderCategory[];
+  /** Negative filter: funder names to skip (case-insensitive). */
+  excludedFunders: string[];
+  /** Per-agent enable toggle + schedule, keyed by agent_type. */
+  agentSettings: AgentSettings;
 }
 
 interface SearchProfileRow {
@@ -54,6 +81,14 @@ interface SearchProfileRow {
   is_active: boolean | null;
   last_run_at: string | null;
   results_count: number | null;
+  geographic_scopes: string[] | null;
+  source_type_filters: Json | null;
+  focus_areas: Json | null;
+  eligibility_filters: Json | null;
+  populations_served: string[] | null;
+  excluded_categories: FunderCategory[] | null;
+  excluded_funders: string[] | null;
+  agent_settings: Json | null;
 }
 
 export interface SchedulerContext {
@@ -62,19 +97,112 @@ export interface SchedulerContext {
 }
 
 function mapRow(row: SearchProfileRow): ResearchSearchProfile {
+  const geographicScopes = (row.geographic_scopes ?? []).filter(
+    (s) => typeof s === "string" && s.trim() !== "",
+  );
   return {
     id: row.id,
     name: row.name,
     keywords: row.keywords ?? [],
     categories: row.categories ?? [],
-    geographicScope: row.geographic_scope,
+    // Prefer the legacy single scope; fall back to the first multi-scope entry.
+    geographicScope: row.geographic_scope ?? geographicScopes[0] ?? null,
     minAmount: row.min_amount,
     maxAmount: row.max_amount,
     recurrencePreference: row.recurrence_preference,
     isActive: row.is_active ?? false,
     lastRunAt: row.last_run_at,
     resultsCount: row.results_count ?? 0,
+    geographicScopes,
+    sourceTypeFilters: parseSourceTypeFilters(row.source_type_filters),
+    focusAreas: parseFocusAreas(row.focus_areas),
+    eligibilityFilters: parseEligibilityFilters(row.eligibility_filters),
+    populationsServed: (row.populations_served ?? []).filter(
+      (s) => typeof s === "string" && s.trim() !== "",
+    ),
+    excludedCategories: row.excluded_categories ?? [],
+    excludedFunders: row.excluded_funders ?? [],
+    agentSettings: parseAgentSettings(row.agent_settings),
   };
+}
+
+/**
+ * The profile's funding categories minus its negative-filter exclusions
+ * (Configuration page "excluded categories"). Agents use this — not the raw
+ * `categories` — when deciding whether a profile is in scope for their family,
+ * so an excluded category never pulls a profile into a sweep.
+ */
+export function effectiveCategories(
+  profile: ResearchSearchProfile,
+): FunderCategory[] {
+  if (profile.excludedCategories.length === 0) return profile.categories;
+  const excluded = new Set(profile.excludedCategories);
+  return profile.categories.filter((c) => !excluded.has(c));
+}
+
+/**
+ * Whether the profile enables the given research agent family (Configuration page
+ * "per-agent toggle"). Defaults to enabled when the profile carries no explicit
+ * setting for that agent_type, so existing profiles keep running.
+ */
+export function profileAgentEnabled(
+  profile: ResearchSearchProfile,
+  agentType: string,
+): boolean {
+  const setting = profile.agentSettings[agentType];
+  return setting ? setting.enabled : true;
+}
+
+/** True when a funder name is on the profile's negative filter (case-insensitive). */
+export function profileExcludesFunder(
+  profile: ResearchSearchProfile,
+  funderName: string | null | undefined,
+): boolean {
+  const name = (funderName ?? "").trim().toLowerCase();
+  if (name === "") return false;
+  return profile.excludedFunders.some((f) => {
+    const ex = f.trim().toLowerCase();
+    return ex !== "" && (name === ex || name.includes(ex) || ex.includes(name));
+  });
+}
+
+/**
+ * Extra search terms a profile contributes beyond its plain keywords: focus-area
+ * tags (highest weight first) and population-served tags. Agents fold these into
+ * their query builders so a configured profile actually steers what is searched.
+ * De-duplicated against the keywords (case-insensitive) and capped.
+ */
+export function queryAugmentTerms(
+  profile: ResearchSearchProfile,
+  cap = 4,
+): string[] {
+  const seen = new Set(profile.keywords.map((k) => k.trim().toLowerCase()));
+  const ordered = [
+    ...[...profile.focusAreas]
+      .sort((a, b) => b.weight - a.weight)
+      .map((f) => f.label),
+    ...profile.populationsServed,
+  ];
+  const out: string[] = [];
+  for (const term of ordered) {
+    const t = term.trim();
+    const norm = t.toLowerCase();
+    if (t === "" || seen.has(norm)) continue;
+    seen.add(norm);
+    out.push(t);
+    if (out.length >= cap) break;
+  }
+  return out;
+}
+
+/**
+ * The terms a profile's queries should expand: its keywords first, then its
+ * weighted focus areas and population tags. This is the list every research
+ * agent iterates instead of `profile.keywords` alone, so the Configuration
+ * page's focus areas / populations genuinely shape the searches.
+ */
+export function profileQueryTerms(profile: ResearchSearchProfile): string[] {
+  return [...profile.keywords, ...queryAugmentTerms(profile)];
 }
 
 /**
@@ -143,14 +271,17 @@ export function buildSearchQueries(profile: ResearchSearchProfile): string[] {
   const geo = profile.geographicScope?.trim() ?? "";
   const queries: string[] = [];
 
-  for (const keyword of profile.keywords) {
+  // Keywords plus the profile's weighted focus areas / population tags.
+  const terms = profileQueryTerms(profile);
+  for (const keyword of terms) {
     const kw = keyword.trim();
     if (kw === "") continue;
     queries.push([kw, "grant funding", geo].filter(Boolean).join(" "));
   }
 
-  const firstKeyword = profile.keywords.find((k) => k.trim() !== "")?.trim() ?? "";
-  for (const category of profile.categories) {
+  const firstKeyword = terms.find((k) => k.trim() !== "")?.trim() ?? "";
+  // Only the profile's effective (non-excluded) categories anchor extra queries.
+  for (const category of effectiveCategories(profile)) {
     const term = humanizeEnum(category);
     queries.push([term, firstKeyword, geo].filter(Boolean).join(" "));
   }
