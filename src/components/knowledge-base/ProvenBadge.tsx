@@ -3,12 +3,12 @@ import { Award, ShieldCheck } from "lucide-react";
 import { Badge } from "@/components/ui";
 
 export type ProvenBadgeProps = {
-  /** knowledge_base.is_proven — set ONLY by the Recursive Learning Agent. */
+  /** knowledge_base.is_proven - set ONLY by the Recursive Learning Agent. */
   isProven: boolean | null | undefined;
-  /** knowledge_base.proven_count — how many awarded apps used this entry. */
+  /** knowledge_base.proven_count - how many awarded apps used this entry. */
   provenCount?: number | null;
   /**
-   * proven_narratives.effectiveness_score (0–1), when available. Rendered as a
+   * proven_narratives.effectiveness_score (0-1), when available. Rendered as a
    * percentage alongside the proven badge.
    */
   effectivenessScore?: number | null;
@@ -21,7 +21,7 @@ export type ProvenBadgeProps = {
  * Read-only indicator of an entry's "proven" status (BLUEPRINT §4.7).
  *
  * is_proven and proven_count are set EXCLUSIVELY by the Recursive Learning Agent
- * from awarded outcomes (Behavioral Contracts §8) — this component only displays
+ * from awarded outcomes (Behavioral Contracts §8) - this component only displays
  * them and never offers a way to edit them.
  */
 export function ProvenBadge({

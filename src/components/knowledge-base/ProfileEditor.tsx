@@ -29,7 +29,7 @@ import { isNonEmpty } from "@/lib/utils/validators";
 import type { Tables, TablesUpdate } from "@/types/database";
 
 // All editable organization-profile fields are held as strings while editing;
-// numeric fields are parsed on save (Knowledge Base profile — BLUEPRINT §4.7).
+// numeric fields are parsed on save (Knowledge Base profile - BLUEPRINT §4.7).
 type OrgForm = {
   name: string;
   dba: string;
@@ -308,7 +308,7 @@ export function ProfileEditor() {
 
         <Card
           title="Mission & focus"
-          description="The story the AI draft generator draws from. Never fabricated — only what you enter here is used."
+          description="The story the AI draft generator draws from. Never fabricated - only what you enter here is used."
         >
           <div className="space-y-5">
             <Textarea
@@ -363,7 +363,7 @@ export function ProfileEditor() {
 
         <Card
           title="Capacity"
-          description="Budget and team size — used in capacity and sustainability narratives."
+          description="Budget and team size - used in capacity and sustainability narratives."
         >
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
             <Input

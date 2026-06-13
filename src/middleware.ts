@@ -4,14 +4,14 @@ import { NextResponse, type NextRequest } from "next/server";
 type CookieToSet = { name: string; value: string; options: CookieOptions };
 
 // ============================================================================
-// Auth middleware â€” FULL FILE REPLACEMENT ONLY (never patch).
+// Auth middleware - FULL FILE REPLACEMENT ONLY (never patch).
 //
 // Runs on every matched request. Responsibilities, in strict order:
 //   1. Refresh the Supabase session (getUser auto-refreshes the token cookie).
 //   2. For protected routes, confirm the caller has a valid profile row and
 //      derive organization_id + role from it.
-//   3. On ANY role-fetch failure â€” query error, missing row, or null
-//      organization_id â€” redirect to /login ONLY. Never render a default or
+//   3. On ANY role-fetch failure - query error, missing row, or null
+//      organization_id - redirect to /login ONLY. Never render a default or
 //      wrong-role page (Iron Law 4).
 //   4. On success, inject x-user-id / x-organization-id / x-user-role /
 //      x-pathname headers so downstream layouts and handlers can read the
@@ -107,7 +107,7 @@ export async function middleware(request: NextRequest) {
 
   // Resolve the caller's profile to confirm organization_id + role. The
   // profiles RLS policy lets a user read their own row (id = auth.uid()), so the
-  // session client suffices â€” no service-role key on the edge. ANY failure here
+  // session client suffices - no service-role key on the edge. ANY failure here
   // redirects to /login ONLY (Iron Law 4): a missing/broken profile must never
   // render the app with a default or wrong role.
   const { data: profile, error: profileError } = await supabase

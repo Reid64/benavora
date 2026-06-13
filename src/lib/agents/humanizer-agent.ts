@@ -1,8 +1,8 @@
-// AI Humanizer Agent — second-pass anti-detection rewrite (BLUEPRINT §4.8).
+// AI Humanizer Agent - second-pass anti-detection rewrite (BLUEPRINT §4.8).
 //
 // After the Narrative Drafting Agent (Agent 05) produces a grounded draft, the
 // Humanizer runs a SECOND, specialized Claude pass that rewrites the text to
-// read like an experienced human grant writer wrote it — not a language model.
+// read like an experienced human grant writer wrote it - not a language model.
 // It targets the statistical fingerprints AI-detection tools key on:
 //
 //   - em dashes used as connective punctuation,
@@ -47,7 +47,7 @@ import type {
 // ---------------------------------------------------------------------------
 
 /**
- * Multi-word AI tells that are removed entirely rather than swapped — they are
+ * Multi-word AI tells that are removed entirely rather than swapped - they are
  * transition scaffolding a human writer simply omits. The trailing comma/space
  * is consumed so the sentence reflows cleanly.
  */
@@ -123,9 +123,9 @@ export const BANNED_VOCABULARY: readonly string[] = [
 ];
 
 // Em dash, em quad, and horizontal bar, plus the ASCII "--" stand-in. Note: the
-// en dash (–) is deliberately excluded so numeric/date ranges (2020–2024) and
+// en dash (-) is deliberately excluded so numeric/date ranges (2020-2024) and
 // page ranges survive untouched.
-const EM_DASH_PATTERN = /\s*(?:[—―⸺⸻]|--)\s*/g;
+const EM_DASH_PATTERN = /\s*(?:[-―⸺⸻]|--)\s*/g;
 
 // ---------------------------------------------------------------------------
 // Deterministic transformations (the hard safety net).
@@ -225,7 +225,7 @@ export function enforceHumanization(text: string): EnforcementResult {
 }
 
 // ---------------------------------------------------------------------------
-// Text analysis — measure how "human" the result reads.
+// Text analysis - measure how "human" the result reads.
 // ---------------------------------------------------------------------------
 
 /** Quantitative anti-detection signals measured on a piece of text. */
@@ -235,7 +235,7 @@ export interface HumanizationMetrics {
   avgSentenceLength: number;
   /** Standard deviation of sentence length (raw burstiness). */
   sentenceLengthStdDev: number;
-  /** stdDev / mean — burstiness normalized for length. Higher = more varied. */
+  /** stdDev / mean - burstiness normalized for length. Higher = more varied. */
   burstiness: number;
   shortestSentence: number;
   longestSentence: number;
@@ -317,7 +317,7 @@ export function analyzeHumanization(text: string): HumanizationMetrics {
   for (const { pattern } of BANNED_PHRASES) bannedVocabHits += countMatches(text, pattern);
   for (const { pattern } of BANNED_WORDS) bannedVocabHits += countMatches(text, pattern);
 
-  const emDashes = countMatches(text, /[—―⸺⸻]|--/g);
+  const emDashes = countMatches(text, /[-―⸺⸻]|--/g);
 
   return {
     sentenceCount,
@@ -344,7 +344,7 @@ export function analyzeHumanization(text: string): HumanizationMetrics {
 export function computeHumanizationScore(metrics: HumanizationMetrics): number {
   let score = 100;
 
-  // Hard tells the enforcement pass should have removed — heavily penalized.
+  // Hard tells the enforcement pass should have removed - heavily penalized.
   score -= metrics.emDashes * 6;
   score -= metrics.bannedVocabHits * 5;
 
@@ -371,13 +371,13 @@ export interface HumanizerContext {
   organization: DraftOrgContext | null;
   /** Concrete facts (numbers, names, dates, places) to ground vague claims. */
   knowledgeEntries: DraftKnowledgeEntry[];
-  /** Previously funded narratives — the authentic voice to mirror. */
+  /** Previously funded narratives - the authentic voice to mirror. */
   provenNarratives: DraftProvenNarrative[];
 }
 
 function renderOrgFacts(org: DraftOrgContext | null): string {
   if (!org) {
-    return "No verified organization profile is available. Do NOT invent specifics — keep claims as written rather than fabricating numbers, names, or dates.";
+    return "No verified organization profile is available. Do NOT invent specifics - keep claims as written rather than fabricating numbers, names, or dates.";
   }
   const lines: string[] = [];
   const add = (label: string, value: string | number | null) => {
@@ -442,26 +442,26 @@ export function buildHumanizerPrompt(context: HumanizerContext): {
   const orgName = context.organization?.name ?? "this organization";
 
   const system = [
-    `You are a senior grant writer at ${orgName} with twenty years of experience. You are editing a draft so it reads exactly like you wrote it by hand — never like AI output. You rewrite for rhythm and authenticity, not to sound impressive.`,
+    `You are a senior grant writer at ${orgName} with twenty years of experience. You are editing a draft so it reads exactly like you wrote it by hand - never like AI output. You rewrite for rhythm and authenticity, not to sound impressive.`,
     "",
-    "ABSOLUTE PRESERVATION RULES — these override every stylistic instruction:",
+    "ABSOLUTE PRESERVATION RULES - these override every stylistic instruction:",
     "1. Preserve every fact, figure, name, date, and quoted requirement. Never add a fact that is not in the GROUNDING DATA below.",
     "2. Preserve every [NEEDS INPUT: …] placeholder verbatim. Never resolve, remove, or reword them.",
     "3. Preserve all section headings and the overall structure and meaning.",
     "4. Keep roughly the same length. Do not summarize or pad.",
     "",
-    "REWRITE FOR HUMAN VOICE — apply all of the following:",
-    "- EM DASHES: remove every em dash (—). Recast as a comma, a parenthetical, or two separate sentences.",
-    `- AI VOCABULARY: never use these words/phrases — ${BANNED_VOCABULARY.join(", ")}. Replace them with plain, specific language.`,
+    "REWRITE FOR HUMAN VOICE - apply all of the following:",
+    "- EM DASHES: remove every em dash (-). Recast as a comma, a parenthetical, or two separate sentences.",
+    `- AI VOCABULARY: never use these words/phrases - ${BANNED_VOCABULARY.join(", ")}. Replace them with plain, specific language.`,
     "- SENTENCE RHYTHM: create dramatic length variance. Put very short sentences (3-6 words) next to long ones (25-30+ words). Punch. Then expand. Never let three sentences in a row share a similar length.",
     "- CONTRACTIONS: use them naturally (it's, we're, don't, they've, can't) where a person would.",
     "- PARAGRAPHS: break mechanical structure. Use an occasional one-sentence paragraph for emphasis.",
-    "- SPECIFICS OVER VAGUENESS: replace vague claims (\"many families\", \"significant impact\", \"recent years\") with concrete numbers, names, dates, and locations DRAWN ONLY from the GROUNDING DATA. If a specific is not in the data, leave the claim general — do NOT invent one.",
+    "- SPECIFICS OVER VAGUENESS: replace vague claims (\"many families\", \"significant impact\", \"recent years\") with concrete numbers, names, dates, and locations DRAWN ONLY from the GROUNDING DATA. If a specific is not in the data, leave the claim general - do NOT invent one.",
     "- AUTHENTIC VOICE: mirror the tone, cadence, and word choice of the PROVEN NARRATIVES below. They were written by this organization and have won funding.",
     "- FORMALITY: let formality rise and fall within a section, the way real writing does, rather than holding one even register.",
     "- SENTENCE STARTERS: do not begin consecutive sentences the same way. Vary openings (subject, clause, transition, question).",
     "- LISTS: break perfect parallelism. Vary item structure and length; do not make every bullet the same grammatical shape.",
-    "- BURSTINESS: vary the rhythm overall — uniform pacing is the clearest AI fingerprint.",
+    "- BURSTINESS: vary the rhythm overall - uniform pacing is the clearest AI fingerprint.",
     "- COLON LISTS: eliminate \"label: a, b, and c\" inline colon lists. Weave the items into prose instead.",
     "",
     "Return ONLY the rewritten draft text. No preamble, no notes, no explanation of what you changed.",
@@ -471,7 +471,7 @@ export function buildHumanizerPrompt(context: HumanizerContext): {
     "# Draft to humanize",
     "Rewrite the draft below for an authentic human voice using the rules in your instructions. Keep every fact and placeholder intact.",
     "",
-    "## GROUNDING DATA — the ONLY source for any specific you introduce",
+    "## GROUNDING DATA - the ONLY source for any specific you introduce",
     "",
     "### Verified organization profile",
     renderOrgFacts(context.organization),
@@ -479,21 +479,21 @@ export function buildHumanizerPrompt(context: HumanizerContext): {
     "### Knowledge Base facts (numbers, names, dates, locations you may use)",
     renderKnowledgeFacts(context.knowledgeEntries),
     "",
-    "### Proven narratives — match this voice",
+    "### Proven narratives - match this voice",
     renderVoiceSamples(context.provenNarratives),
     "",
     "## DRAFT",
     context.draft.trim(),
     "",
     "## OUTPUT",
-    "Return only the rewritten draft, ready for an editor. Same facts, same placeholders, same structure — human voice.",
+    "Return only the rewritten draft, ready for an editor. Same facts, same placeholders, same structure - human voice.",
   ].join("\n");
 
   return { system, prompt };
 }
 
 // ---------------------------------------------------------------------------
-// Orchestrator — the full two-step humanization pass.
+// Orchestrator - the full two-step humanization pass.
 // ---------------------------------------------------------------------------
 
 export interface HumanizerRunInput extends HumanizerContext {
@@ -518,7 +518,7 @@ export interface HumanizerRunResult {
 /**
  * Run the humanizer end to end: the specialized Claude rewrite, then the
  * deterministic enforcement net, then measurement. Throws if the model returns
- * empty output (callers log the failure — agents never fail silently, §15).
+ * empty output (callers log the failure - agents never fail silently, §15).
  */
 export async function runHumanizer(
   input: HumanizerRunInput,

@@ -1,4 +1,4 @@
-// POST /api/ai/budget — dedicated Budget Builder endpoint (AGENTS.md Agent 06).
+// POST /api/ai/budget - dedicated Budget Builder endpoint (AGENTS.md Agent 06).
 //
 // Accepts opportunityId and programId, generates a structured line-item budget
 // and a humanized prose narrative grounded in the org's program data and
@@ -46,7 +46,7 @@ function jsonError(message: string, code: string, status: number) {
 }
 
 export async function POST(request: Request) {
-  // Generating a budget is a write action — viewers are read-only (Contracts §16).
+  // Generating a budget is a write action - viewers are read-only (Contracts §16).
   const roleCheck = await requireRole("writer");
   if ("error" in roleCheck) return roleCheck.error;
 
@@ -79,7 +79,7 @@ export async function POST(request: Request) {
     return jsonError("Authentication required.", "unauthenticated", 401);
   }
 
-  // Derive organization_id server-side — never from the body.
+  // Derive organization_id server-side - never from the body.
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("id, organization_id")

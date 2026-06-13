@@ -426,7 +426,7 @@ function DetailRow({
 }
 
 function dash(value: React.ReactNode) {
-  return value ?? <span className="text-navy-400">—</span>;
+  return value ?? <span className="text-navy-400">-</span>;
 }
 
 function OverviewTab({ application }: { application: EnrichedApplication }) {

@@ -14,7 +14,7 @@ import { isValidEmail } from "@/lib/utils/validators";
  * Registration creates a Supabase auth user, then bootstraps an organization
  * and an owner profile via the SECURITY DEFINER `register_organization()` RPC
  * (migration 002). organization name and full name are written to auth metadata
- * at sign-up and read server-side by the RPC — never from a request body
+ * at sign-up and read server-side by the RPC - never from a request body
  * (Behavioral Contracts §2). role is hard-coded to 'owner' inside the RPC.
  *
  * Two paths, depending on the project's email-confirmation setting:
@@ -92,7 +92,7 @@ export default function RegisterPage() {
       return;
     }
 
-    // Session is live — bootstrap the organization and owner profile.
+    // Session is live - bootstrap the organization and owner profile.
     const { error: rpcError } = await supabase.rpc("register_organization");
     if (rpcError) {
       setError(
@@ -108,7 +108,7 @@ export default function RegisterPage() {
 
   return (
     <main className="flex min-h-screen bg-surface">
-      {/* Brand panel — large screens only */}
+      {/* Brand panel - large screens only */}
       <aside className="relative hidden w-1/2 flex-col justify-between overflow-hidden bg-navy-900 p-12 text-white lg:flex">
         <div
           className="pointer-events-none absolute -right-24 -top-24 h-96 w-96 rounded-full bg-teal-500/30 blur-3xl"

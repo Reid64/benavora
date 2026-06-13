@@ -75,7 +75,7 @@ export const STEP_STATUS_COLOR: Record<AutomationStepStatus, BadgeColor> = {
 
 /**
  * The three states a form field can be in for the field report (task spec):
- *  - filled: auto-filled from org data (green) — has a value + source
+ *  - filled: auto-filled from org data (green) - has a value + source
  *  - needs_input: unmapped, optional field awaiting human input (yellow)
  *  - required_missing: unmapped, required field that couldn't be filled (red)
  */
@@ -84,7 +84,7 @@ export type FieldReportStatus = "filled" | "needs_input" | "required_missing";
 export const FIELD_STATUS_LABEL: Record<FieldReportStatus, string> = {
   filled: "Auto-filled",
   needs_input: "Needs input",
-  required_missing: "Required — not filled",
+  required_missing: "Required - not filled",
 };
 
 export const FIELD_STATUS_COLOR: Record<FieldReportStatus, BadgeColor> = {
@@ -93,7 +93,7 @@ export const FIELD_STATUS_COLOR: Record<FieldReportStatus, BadgeColor> = {
   required_missing: "red",
 };
 
-/** A unified row for the field report — either auto-filled or awaiting input. */
+/** A unified row for the field report - either auto-filled or awaiting input. */
 export interface FieldReportRow {
   /** Stable key for React + matching manual values to fields on the server. */
   selector: string;
@@ -106,7 +106,7 @@ export interface FieldReportRow {
   value: string | null;
   /** Provenance of the auto-filled value (e.g. "organization.name"). */
   source: string | null;
-  /** 0–1 confidence from the field-mapper; undefined when not stored. Below 0.7 = low confidence. */
+  /** 0-1 confidence from the field-mapper; undefined when not stored. Below 0.7 = low confidence. */
   confidence?: number;
   options?: string[];
 }
@@ -318,7 +318,7 @@ export function isAwaitingApproval(status: AutomationStatus): boolean {
   return status === "awaiting_approval";
 }
 
-/** Terminal statuses — no further action is possible. */
+/** Terminal statuses - no further action is possible. */
 export function isTerminal(status: AutomationStatus): boolean {
   return status === "submitted" || status === "failed" || status === "cancelled";
 }

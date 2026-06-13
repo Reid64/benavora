@@ -22,7 +22,7 @@ import {
 // unmatched }.
 //
 // Authenticates via the session and derives organization_id server-side from the
-// profile — never from the request body (Contracts §2, §16).
+// profile - never from the request body (Contracts §2, §16).
 
 export const runtime = "nodejs";
 
@@ -62,7 +62,7 @@ function buildQuery(lastSyncAt: string | null): string {
 }
 
 export async function POST() {
-  // A sync writes synced threads/messages — a create/edit action (task §6).
+  // A sync writes synced threads/messages - a create/edit action (task §6).
   const gate = await requireRole("writer");
   if ("error" in gate) return gate.error;
   const { supabase, userId, organizationId } = gate;
@@ -99,7 +99,7 @@ export async function POST() {
     const stubs = await gmail.listMessages(buildQuery(lastSyncAt), MAX_MESSAGES);
 
     // Fetch + normalize each message. A single message failure is skipped, not
-    // fatal — the rest of the sync still completes.
+    // fatal - the rest of the sync still completes.
     const settled = await Promise.all(
       stubs.map(async (stub) => {
         try {

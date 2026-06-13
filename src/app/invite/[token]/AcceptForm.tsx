@@ -8,8 +8,8 @@ import { createClient } from "@/lib/supabase/client";
 /**
  * Invitation acceptance form (BLUEPRINT US-03). The email is fixed by the
  * invitation (pre-filled, read-only); the invitee supplies their name and a
- * password. On submit it calls the public accept route — which creates the auth
- * user + profile with the invited role server-side — then signs in and lands on
+ * password. On submit it calls the public accept route - which creates the auth
+ * user + profile with the invited role server-side - then signs in and lands on
  * the dashboard.
  */
 export function AcceptForm({ token, email }: { token: string; email: string }) {
@@ -50,7 +50,7 @@ export function AcceptForm({ token, email }: { token: string; email: string }) {
       return;
     }
 
-    // Account created server-side — establish a session and enter the app.
+    // Account created server-side - establish a session and enter the app.
     const supabase = createClient();
     const { error: signInError } = await supabase.auth.signInWithPassword({
       email,

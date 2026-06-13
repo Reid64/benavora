@@ -7,7 +7,7 @@ import { getStripe, handleWebhookEvent } from "@/lib/payments/stripe";
 /**
  * Stripe webhook receiver (Behavioral Contracts §22).
  *
- * - Verifies the signature with STRIPE_WEBHOOK_SECRET BEFORE processing — an
+ * - Verifies the signature with STRIPE_WEBHOOK_SECRET BEFORE processing - an
  *   unverified payload is rejected (§22).
  * - Idempotent: each event id is recorded in stripe_webhook_events; a replayed
  *   event is acknowledged without reprocessing.
@@ -16,7 +16,7 @@ import { getStripe, handleWebhookEvent } from "@/lib/payments/stripe";
  */
 
 export const runtime = "nodejs";
-// Never cache or pre-render — every call is a live POST from Stripe.
+// Never cache or pre-render - every call is a live POST from Stripe.
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
@@ -42,7 +42,7 @@ export async function POST(request: Request) {
   try {
     event = getStripe().webhooks.constructEvent(payload, signature, secret);
   } catch {
-    // Bad signature or malformed payload — do not process.
+    // Bad signature or malformed payload - do not process.
     return NextResponse.json(
       { error: "Signature verification failed.", code: "invalid_signature" },
       { status: 400 },

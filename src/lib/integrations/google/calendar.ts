@@ -3,7 +3,7 @@
 //
 // SERVER-ONLY. Wraps the Calendar API for one organization. Construct with an
 // authorized OAuth2 client from auth.ts (`getAuthorizedClient`) plus a Supabase
-// client and the organization id â€” every read/write here is explicitly scoped by
+// client and the organization id - every read/write here is explicitly scoped by
 // organization_id, which is required for correctness under the service-role
 // client where RLS does not protect us (Contracts Â§2, Â§15).
 //
@@ -14,7 +14,7 @@
 //   - Reminder overrides at 7d / 3d / 1d before the due date, matching the
 //     in-app deadline reminder system.
 //   - Updating a deadline updates its event; deleting a deadline deletes its event.
-//     (Completing a deadline does NOT delete the event â€” that is the caller's
+//     (Completing a deadline does NOT delete the event - that is the caller's
 //     policy; this layer only creates/updates/deletes when asked.)
 
 import { google, type Auth, type calendar_v3 } from "googleapis";
@@ -24,7 +24,7 @@ import type { Enums, Tables } from "@/types/database";
 
 type DeadlineType = Enums<"deadline_type">;
 
-/** Default calendar to sync into â€” the connected account's primary calendar. */
+/** Default calendar to sync into - the connected account's primary calendar. */
 export const DEFAULT_CALENDAR_ID = "primary";
 
 /** The deadline columns this layer needs to build and reconcile an event. */
@@ -76,11 +76,11 @@ export interface CalendarSyncOptions {
   calendarId?: string;
 }
 
-// Google Calendar event color IDs (1â€“11) mapped per deadline type (BLUEPRINT
+// Google Calendar event color IDs (1-11) mapped per deadline type (BLUEPRINT
 // Â§4.9 urgency colors / Contracts Â§20). Tomato=11 (red), Blueberry=9 (blue),
 // Banana=5 (yellow), Basil=10 (green), Tangerine=6 (orange).
 const COLOR_BY_TYPE: Record<DeadlineType, string> = {
-  application_deadline: "11", // red â€” the hard submission date
+  application_deadline: "11", // red - the hard submission date
   follow_up_date: "9", // blue
   reporting_deadline: "5", // yellow
   renewal_date: "10", // green
@@ -123,7 +123,7 @@ export class CalendarSync {
 
   /**
    * Create a calendar event from a deadline. Returns the new event id. Pure API
-   * call â€” does not persist the id back to the deadline (the caller / syncDeadline
+   * call - does not persist the id back to the deadline (the caller / syncDeadline
    * owns that).
    */
   async createEvent(
@@ -187,7 +187,7 @@ export class CalendarSync {
         );
         return { action: "updated", eventId: deadline.google_calendar_event_id };
       } catch (err) {
-        // The stored event was removed on Google's side â€” fall through to create.
+        // The stored event was removed on Google's side - fall through to create.
         if (!isMissingEventError(err)) throw err;
       }
     }
@@ -199,7 +199,7 @@ export class CalendarSync {
 
   /**
    * Bulk-sync every incomplete deadline for the organization to the calendar.
-   * Per-deadline failures are counted, not fatal â€” the rest still sync (mirrors
+   * Per-deadline failures are counted, not fatal - the rest still sync (mirrors
    * the research/email sync resilience). organizationId is accepted for an
    * explicit call-site but always defaults to this instance's org scope.
    */

@@ -42,7 +42,7 @@ export async function POST(request: Request) {
     return jsonError("application_id is required.", "invalid_input", 400);
   }
 
-  // Load application — RLS keeps this org-scoped automatically.
+  // Load application - RLS keeps this org-scoped automatically.
   const { data: app, error: appError } = await supabase
     .from("applications")
     .select("id, opportunity_id")

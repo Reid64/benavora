@@ -109,7 +109,7 @@ function compactUsd(value: number): string {
 
 /**
  * Outcomes & Analytics charting dashboard (BLUEPRINT Â§4.10). Renders eleven
- * visualizations over real, RLS-scoped rows â€” pipeline funnel, success rate
+ * visualizations over real, RLS-scoped rows - pipeline funnel, success rate
  * over time, dollars requested vs. awarded, source mix, deadline density,
  * agent activity, pipeline velocity, top categories, ROI, and year-over-year.
  * All aggregation is delegated to the pure transforms in lib/analytics/dashboard.
@@ -210,7 +210,7 @@ const today = now ?? new Date();
         <StatCard
           icon={DollarSign}
           label="ROI"
-          value={roi.roiMultiple != null ? `${roi.roiMultiple}Ã—` : "â€”"}
+          value={roi.roiMultiple != null ? `${roi.roiMultiple}Ã-` : "-"}
           hint={roi.roiMultiple != null ? "Won Ã· annual cost" : "Free plan"}
         />
       </div>
@@ -471,7 +471,7 @@ const today = now ?? new Date();
               value={
                 velocity.avgDaysToSubmit != null
                   ? `${velocity.avgDaysToSubmit}d`
-                  : "â€”"
+                  : "-"
               }
               hint={`${velocity.submittedCount} submitted`}
             />
@@ -481,7 +481,7 @@ const today = now ?? new Date();
               value={
                 velocity.avgDaysToOutcome != null
                   ? `${velocity.avgDaysToOutcome}d`
-                  : "â€”"
+                  : "-"
               }
               hint={`${velocity.decidedCount} decided`}
             />
@@ -499,7 +499,7 @@ const today = now ?? new Date();
           <div className="flex flex-wrap items-center gap-3">
             <Badge color={roi.netGain >= 0 ? "green" : "red"}>
               {roi.roiMultiple != null
-                ? `${roi.roiMultiple}Ã— return`
+                ? `${roi.roiMultiple}Ã- return`
                 : "No cost basis"}
             </Badge>
             <span className="text-sm text-navy-500">
@@ -683,7 +683,7 @@ function MetricTile({
 }
 
 // GitHub-style deadline density grid (intensity by count). Not a recharts chart
-// â€” a compact custom SVG-free grid that reads well on the dark canvas.
+// - a compact custom SVG-free grid that reads well on the dark canvas.
 function DeadlineHeatmapGrid({
   heatmap,
 }: {

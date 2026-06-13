@@ -1,4 +1,4 @@
-// Cold Outreach Agent — AGENTS.md Agent 11.
+// Cold Outreach Agent - AGENTS.md Agent 11.
 //
 // Extracts contact information from companies that have no corporate giving page
 // (funders with has_giving_page = false, or an ad-hoc company scan). It fetches
@@ -8,7 +8,7 @@
 //
 // Phase note (AGENTS.md Agent 11): Phase 1 uses a plain server-side HTTP request
 // for static pages; Phase 3 adds Playwright for JavaScript-rendered sites. The
-// agent degrades gracefully — if the page can't be fetched it still records a
+// agent degrades gracefully - if the page can't be fetched it still records a
 // single company-level lead so the user can follow up manually.
 //
 // Contracts honored: outreach_contacts are scoped by organization_id and kept
@@ -28,7 +28,7 @@ import type { TablesInsert } from "@/types/database";
 export type GivingLikelihood = "high" | "medium" | "low";
 
 export interface ColdOutreachInput {
-  /** Company to scan. Required — used as the company_name on every lead. */
+  /** Company to scan. Required - used as the company_name on every lead. */
   companyName: string;
   /** Company website to extract from. Optional; without it no page is fetched. */
   websiteUrl?: string | null;
@@ -108,7 +108,7 @@ export class ColdOutreachAgent extends BaseAgent<
     }
 
     // Always leave at least one lead so a failed/empty extraction is still
-    // actionable — the user gets a company-level row to follow up on.
+    // actionable - the user gets a company-level row to follow up on.
     if (extracted.length === 0) {
       extracted = [
         {
@@ -175,7 +175,7 @@ function normalizeUrl(value: string | null | undefined): string | null {
 
 /**
  * Fetch a page and return a whitespace-collapsed, tag-stripped text excerpt.
- * Returns null on any failure (bad URL, non-OK status, timeout) — the agent
+ * Returns null on any failure (bad URL, non-OK status, timeout) - the agent
  * tolerates this and records a manual-follow-up lead instead of throwing.
  */
 async function fetchPageText(url: string): Promise<string | null> {

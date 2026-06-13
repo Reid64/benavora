@@ -81,7 +81,7 @@ export default function ReportsPage() {
         day: "numeric",
         year: "numeric",
       });
-      return `${s} – ${e}`;
+      return `${s} - ${e}`;
     } catch {
       return "";
     }
@@ -179,8 +179,8 @@ export default function ReportsPage() {
 
         {loading && (
           <p className="mt-3 text-center text-xs text-slate-400">
-            Aggregating data, generating AI narrative, and building PDF — this
-            takes 20–40 seconds.
+            Aggregating data, generating AI narrative, and building PDF - this
+            takes 20-40 seconds.
           </p>
         )}
       </div>
@@ -205,7 +205,7 @@ export default function ReportsPage() {
             <CheckCircle2 className="h-5 w-5 text-teal-600" />
             <p className="text-sm font-semibold text-teal-800">
               Report ready
-              {generatedAt ? ` — generated ${generatedAt}` : ""}
+              {generatedAt ? ` - generated ${generatedAt}` : ""}
             </p>
           </div>
           <p className="mb-4 text-xs text-teal-700">
@@ -237,11 +237,11 @@ export default function ReportsPage() {
         <ul className="space-y-1.5">
           {[
             "Executive Summary with key KPIs and highlights",
-            "Pipeline Status — applications by stage",
-            "Submission Activity — recent applications submitted",
-            "Awards and Funding — outcomes and win rate",
-            "Agent Performance — AI automation efficiency",
-            "Financial Overview — funding by category",
+            "Pipeline Status - applications by stage",
+            "Submission Activity - recent applications submitted",
+            "Awards and Funding - outcomes and win rate",
+            "Agent Performance - AI automation efficiency",
+            "Financial Overview - funding by category",
             "Strategic Recommendations from AI analysis",
           ].map((item) => (
             <li key={item} className="flex items-start gap-2 text-xs text-slate-600">

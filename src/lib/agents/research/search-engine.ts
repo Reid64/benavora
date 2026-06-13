@@ -1,17 +1,17 @@
 // Search-source layer for the research agents (AGENTS.md Agents 12-15).
 //
 // Turns a query string into candidate result URLs across several sources:
-//   - Google ("google") — fetches the public results page and extracts the
+//   - Google ("google") - fetches the public results page and extracts the
 //     organic result links.
-//   - Grants.gov ("grants_gov") — calls the public REST search API and maps the
+//   - Grants.gov ("grants_gov") - calls the public REST search API and maps the
 //     opportunity hits to their detail pages.
-//   - Foundation Directory ("foundation_directory") — Foundation Directory
+//   - Foundation Directory ("foundation_directory") - Foundation Directory
 //     Online is subscription-gated, so we approximate it with a Google query
 //     scoped to the major foundation databases and parse it the same way.
 //
 // All network access goes through web-fetcher, so timeouts, retries, the
 // per-domain rate limit, and the Benavora User-Agent apply uniformly. Native
-// fetch only — no scraping libraries (task constraint). Every function is
+// fetch only - no scraping libraries (task constraint). Every function is
 // best-effort and never throws; a dead source yields [].
 
 import { fetchRaw } from "@/lib/agents/research/web-fetcher";
@@ -35,7 +35,7 @@ export interface SearchOptions {
 
 const DEFAULT_LIMIT_PER_SOURCE = 10;
 
-/** Hosts to drop from organic results — search-engine chrome, not opportunities. */
+/** Hosts to drop from organic results - search-engine chrome, not opportunities. */
 const EXCLUDED_HOSTS = [
   "google.",
   "googleusercontent.",
@@ -204,7 +204,7 @@ async function searchGrantsGov(query: string, limit: number): Promise<SearchHit[
     hits.push({
       url: `https://www.grants.gov/search-results-detail/${id}`,
       title: h.title?.trim() || h.number?.trim() || `Grants.gov opportunity ${id}`,
-      snippet: [agency, status].filter(Boolean).join(" — "),
+      snippet: [agency, status].filter(Boolean).join(" - "),
       source: "grants_gov",
     });
     if (hits.length >= limit) break;
@@ -257,7 +257,7 @@ function titleFromUrl(url: string): string {
       ?.replace(/[-_]+/g, " ")
       .replace(/\.[a-z]+$/i, "")
       .trim();
-    return segment ? `${u.hostname} — ${segment}` : u.hostname;
+    return segment ? `${u.hostname} - ${segment}` : u.hostname;
   } catch {
     return url;
   }

@@ -202,7 +202,7 @@ export function SequenceBuilder({
             {previewing ? (
               <div className="rounded-lg border border-teal-200 bg-teal-50 px-3 py-2.5">
                 <p className="text-[11px] font-medium uppercase tracking-wide text-teal-500">
-                  Preview — resolved variables
+                  Preview - resolved variables
                 </p>
                 <p className="mt-1 font-medium text-navy-900">
                   {renderPreview(step.subject, resolvedVars ?? {}) || "(no subject)"}

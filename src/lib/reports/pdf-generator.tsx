@@ -341,7 +341,7 @@ function FinancialTable({ financial }: { financial: FinancialItem[] }) {
         <Text style={[styles.tableCellRight, { fontFamily: "Helvetica-Bold" }]}>
           {totals.requested > 0
             ? `${Math.round((totals.awarded / totals.requested) * 100)}%`
-            : "—"}
+            : "-"}
         </Text>
       </View>
     </View>
@@ -384,7 +384,7 @@ function Footer({
   return (
     <View style={styles.footer} fixed>
       <Text style={styles.footerText}>
-        {orgName} — Board Report — {generatedAt}
+        {orgName} - Board Report - {generatedAt}
       </Text>
       <Text style={styles.confidential}>Confidential</Text>
       <Text
@@ -409,11 +409,11 @@ function BoardReportDocument({
   generatedAt: string;
 }) {
   const { organization, dateRange } = data;
-  const dateLabel = `${formatDate(dateRange.start)} – ${formatDate(dateRange.end)}`;
+  const dateLabel = `${formatDate(dateRange.start)} - ${formatDate(dateRange.end)}`;
 
   return (
     <Document
-      title={`Board Report — ${organization.name}`}
+      title={`Board Report - ${organization.name}`}
       author={organization.name}
       subject="Grant Management Board Report"
     >

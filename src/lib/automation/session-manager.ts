@@ -1,4 +1,4 @@
-// Automation session manager — Phase 3 (AGENTS.md Agent 16, SCHEMA_REGISTRY
+// Automation session manager - Phase 3 (AGENTS.md Agent 16, SCHEMA_REGISTRY
 // automation_sessions / automation_steps / automation_screenshots,
 // BEHAVIORAL_CONTRACTS §18).
 //
@@ -8,7 +8,7 @@
 //
 // The Phase 2-5 tables are not in the hand-authored Database type yet, so this
 // talks to them through the untyped base SupabaseClient (the same client agents
-// already use). Every write is scoped by organization_id — under the service
+// already use). Every write is scoped by organization_id - under the service
 // role client RLS does not protect us (BEHAVIORAL_CONTRACTS §2).
 //
 // PAUSE-FOR-APPROVAL INVARIANT (BEHAVIORAL_CONTRACTS §18): the automation drives
@@ -221,7 +221,7 @@ export class AutomationSessionManager {
 
   /**
    * Record a human's approval to submit. `approvedBy` is the approving profile
-   * id and is required — approval is never anonymous or automated.
+   * id and is required - approval is never anonymous or automated.
    */
   async approve(sessionId: string, approvedBy: string): Promise<void> {
     if (!approvedBy) {
@@ -245,7 +245,7 @@ export class AutomationSessionManager {
 
   /**
    * Record that the (human-approved) submission completed. Refuses unless the
-   * session has already been approved — this is the guard that makes
+   * session has already been approved - this is the guard that makes
    * auto-submission impossible through this manager.
    */
   async markSubmitted(

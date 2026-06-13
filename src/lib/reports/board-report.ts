@@ -159,7 +159,7 @@ export async function aggregateBoardReportData(
   type AgentRunRow = { id: string; agent_type: string; status: string };
   const agentRuns = (agentRunsRes.data ?? []) as AgentRunRow[];
 
-  // Pipeline snapshot â€” all applications grouped by stage
+  // Pipeline snapshot - all applications grouped by stage
   const stageCounts = new Map<string, number>();
   for (const app of allApplications) {
     if (app.stage) {
@@ -209,7 +209,7 @@ export async function aggregateBoardReportData(
       stage: a.stage,
     }));
 
-  // Recent awards â€” enrich with opportunity name via the application join
+  // Recent awards - enrich with opportunity name via the application join
   const awardApplicationIds = (
     (recentAwardsRes.data ?? []) as Array<{
       awarded_amount: number | null;

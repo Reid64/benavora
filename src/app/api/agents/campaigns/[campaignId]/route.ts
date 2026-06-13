@@ -5,9 +5,9 @@ import type { Enums } from "@/types/database";
 
 // Per-campaign endpoint (AGENTS.md Agent 18, BLUEPRINT §4.11).
 //
-// GET  — detailed stats for one campaign (steps, per-contact status, totals,
+// GET  - detailed stats for one campaign (steps, per-contact status, totals,
 //        and derived open/reply/conversion rates).
-// PUT  — update the campaign's lifecycle status (activate / pause / complete),
+// PUT  - update the campaign's lifecycle status (activate / pause / complete),
 //        enforcing the allowed transitions (BEHAVIORAL_CONTRACTS §21).
 //
 // Both authenticate via the session; reads/writes are RLS-scoped to the org, so

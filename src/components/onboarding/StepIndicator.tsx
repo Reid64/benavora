@@ -22,7 +22,7 @@ export type StepIndicatorProps = {
  *
  * Renders a node per step with a connecting rail. Completed steps show a
  * checkmark, the current step is highlighted, and not-yet-reached steps are
- * grayed and non-interactive — you can revisit a completed/visited step but
+ * grayed and non-interactive - you can revisit a completed/visited step but
  * can't skip ahead by clicking. Labels collapse on small screens so the rail
  * stays legible; the active label always shows.
  */

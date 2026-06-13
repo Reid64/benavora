@@ -16,7 +16,7 @@ import type {
 } from "@/types/ai";
 import type { Json } from "@/types/database";
 
-// AI Humanizer endpoint — second-pass anti-detection rewrite (BLUEPRINT §4.8).
+// AI Humanizer endpoint - second-pass anti-detection rewrite (BLUEPRINT §4.8).
 // Takes a generated draft and rewrites it through `runHumanizer` so it reads
 // like a human grant writer wrote it (no em dashes, no AI vocabulary, varied
 // rhythm, grounded specifics). The humanized output is appended to
@@ -91,7 +91,7 @@ function computeGroundedConfidence(
 /**
  * Confidence for a humanized draft: blend grounding (does it still rest on
  * verified data?) with how human the rewrite reads. The grounding term keeps
- * the score honest — a slick-but-ungrounded draft can't score high — while the
+ * the score honest - a slick-but-ungrounded draft can't score high - while the
  * humanization term reflects this pass's purpose (the task: "update confidence
  * score to reflect humanization status"). Grounding is weighted higher.
  */
@@ -103,7 +103,7 @@ function computeHumanizedConfidence(
 }
 
 export async function POST(request: Request) {
-  // Humanizing a draft is a write action — viewers are read-only (Contracts §16).
+  // Humanizing a draft is a write action - viewers are read-only (Contracts §16).
   const roleCheck = await requireRole("writer");
   if ("error" in roleCheck) return roleCheck.error;
 
@@ -144,7 +144,7 @@ export async function POST(request: Request) {
     return jsonError("Authentication required.", "unauthenticated", 401);
   }
 
-  // Derive organization_id server-side from the profile — never from the body.
+  // Derive organization_id server-side from the profile - never from the body.
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("id, organization_id")
@@ -167,7 +167,7 @@ export async function POST(request: Request) {
   const overLimit = await enforceLimit(supabase, organizationId, "api_calls");
   if (overLimit) return overLimit;
 
-  // Opportunity (RLS-scoped) — needed for the funder category that selects the
+  // Opportunity (RLS-scoped) - needed for the funder category that selects the
   // proven-narrative voice samples.
   const { data: opportunity, error: oppError } = await supabase
     .from("opportunities")
@@ -291,7 +291,7 @@ export async function POST(request: Request) {
     );
 
     // Transparency panel (BEHAVIORAL_CONTRACTS §9): the facts/voice that informed
-    // the rewrite — same shape /api/ai/draft records, so usage history matches.
+    // the rewrite - same shape /api/ai/draft records, so usage history matches.
     const sources: KnowledgeSource[] = [
       ...knowledgeEntries.map((entry) => ({
         id: entry.id,

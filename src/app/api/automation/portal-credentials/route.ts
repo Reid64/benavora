@@ -1,4 +1,4 @@
-// Portal credentials API — Phase 3 browser automation.
+// Portal credentials API - Phase 3 browser automation.
 //
 // GET  ?funderId=X   → { hasCredentials: boolean, username: string | null }
 // POST body          → save credentials (writer+)

@@ -3,7 +3,7 @@
 //
 // Every research agent reaches the open web through this module so the
 // cross-cutting rules live in exactly one place:
-//   - Native `fetch` only — no external scraping libraries (task constraint).
+//   - Native `fetch` only - no external scraping libraries (task constraint).
 //   - 15s per-request timeout via AbortController.
 //   - Retry with exponential backoff (1 initial attempt + up to 3 retries) on
 //     network errors, 5xx, and 429. 4xx (other than 429) is not retried.
@@ -14,8 +14,8 @@
 //   - Never throws: every failure is logged and surfaced as a result object so
 //     a single bad URL never halts a research run (Contracts §17).
 //
-// Two entry points: `fetchRaw` (raw body, no cache — used by search-engine to
-// read result listings and JSON APIs) and `fetchPage` (cached + HTML→text —
+// Two entry points: `fetchRaw` (raw body, no cache - used by search-engine to
+// read result listings and JSON APIs) and `fetchPage` (cached + HTML→text -
 // used to read the content pages the result-parser consumes).
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -72,7 +72,7 @@ function domainOf(url: string): string {
 
 /**
  * Block until this domain is under its per-minute ceiling, then record the hit.
- * Waits at most one window (60s) — long enough to free a slot, bounded so the
+ * Waits at most one window (60s) - long enough to free a slot, bounded so the
  * limiter can never hang a run indefinitely.
  */
 async function acquireRateSlot(domain: string): Promise<void> {
@@ -172,7 +172,7 @@ export async function fetchRaw(
       }
 
       lastError = `http_${res.status}`;
-      // 4xx (except 429) is a client error — retrying will not help.
+      // 4xx (except 429) is a client error - retrying will not help.
       if (res.status >= 400 && res.status < 500 && res.status !== 429) {
         return { ok: false, url, statusCode, body: text, error: lastError };
       }
@@ -203,8 +203,8 @@ const NAMED_ENTITIES: Record<string, string> = {
   quot: '"',
   apos: "'",
   nbsp: " ",
-  mdash: "—",
-  ndash: "–",
+  mdash: "-",
+  ndash: "-",
   hellip: "…",
   rsquo: "’",
   lsquo: "‘",
@@ -233,7 +233,7 @@ function safeFromCodePoint(code: number): string {
 
 /**
  * Reduce HTML to readable text: drop script/style blocks and all tags, decode
- * entities, and collapse whitespace. Basic regex only — no parser dependency.
+ * entities, and collapse whitespace. Basic regex only - no parser dependency.
  */
 export function htmlToText(html: string): string {
   return decodeEntities(
@@ -329,7 +329,7 @@ async function writeCache(
 /**
  * Fetch a page as readable text, served from the 24h cache when available.
  * Caches the extracted text (not raw HTML) so re-runs reuse the parse-ready
- * form. Never throws — failures come back as `{ ok: false, error }`.
+ * form. Never throws - failures come back as `{ ok: false, error }`.
  */
 export async function fetchPage(
   ctx: ResearchContext,

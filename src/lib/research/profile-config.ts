@@ -1,4 +1,4 @@
-// Search-profile advanced configuration — shared, client-safe shapes + parsers.
+// Search-profile advanced configuration - shared, client-safe shapes + parsers.
 //
 // Migration 011 added several structured (jsonb / array) configuration columns to
 // search_profiles. This module is the single source of truth for their TypeScript
@@ -38,7 +38,7 @@ export interface AgentSetting {
 export type AgentSettings = Record<string, AgentSetting>;
 
 /**
- * Eligibility pre-filters — structured boolean toggles plus an optional minimum
+ * Eligibility pre-filters - structured boolean toggles plus an optional minimum
  * organization age. Unknown keys are ignored on parse; only ELIGIBILITY_PREFILTER
  * keys (+ min_organization_age_years) are recognized.
  */

@@ -1,4 +1,4 @@
-// Form filler — Phase 3 browser automation (AGENTS.md Agent 16,
+// Form filler - Phase 3 browser automation (AGENTS.md Agent 16,
 // BEHAVIORAL_CONTRACTS §18).
 //
 // Takes the mapped fields produced by form-detector and types/selects/checks
@@ -8,7 +8,7 @@
 //
 // HARD RULE: this module NEVER submits. It fills, snapshots the filled form, and
 // returns. Submission only ever happens after a human approves the session
-// (BEHAVIORAL_CONTRACTS §18 — "Automation NEVER auto-submits forms"). There is
+// (BEHAVIORAL_CONTRACTS §18 - "Automation NEVER auto-submits forms"). There is
 // deliberately no code path here that clicks a submit control.
 
 import type { Page } from "playwright";
@@ -59,7 +59,7 @@ export async function fillForm(
         });
       }
     } catch (err) {
-      // One bad field never aborts the rest of the form — record and continue.
+      // One bad field never aborts the rest of the form - record and continue.
       skippedFields.push({
         field,
         reason: `Failed to fill (${describeValue(value)}): ${errorMessage(err)}`,
@@ -128,7 +128,7 @@ async function fillOne(
 /**
  * Fill a file input: download the document from Supabase Storage (the mapping
  * value is its storage path) and hand the bytes to Playwright's setInputFiles
- * as an in-memory payload — no temp files on disk.
+ * as an in-memory payload - no temp files on disk.
  */
 async function fillFileInput(
   engine: BrowserEngine,

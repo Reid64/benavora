@@ -6,7 +6,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 /**
  * Remembers the last location (path + query) the user visited within each
  * top-level sidebar section, so returning to a section via the sidebar restores
- * exactly where they left off — the filters, search, sort, view toggle, or tab
+ * exactly where they left off - the filters, search, sort, view toggle, or tab
  * they had open, all of which live in the URL. Backed by sessionStorage so it
  * persists across refreshes within the tab but resets when the session ends.
  */
@@ -33,7 +33,7 @@ function writeStore(store: Record<string, string>): void {
   try {
     window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(store));
   } catch {
-    // sessionStorage may be unavailable (private mode, quota) — degrade silently.
+    // sessionStorage may be unavailable (private mode, quota) - degrade silently.
   }
 }
 
@@ -47,7 +47,7 @@ export function rememberLocation(url: string): void {
 
 /**
  * The remembered location for a nav item, or its plain href when nothing has
- * been recorded yet — or when the recorded entry belongs to a different
+ * been recorded yet - or when the recorded entry belongs to a different
  * sub-section (guards multi-segment items such as /admin/audit-log from
  * restoring a sibling under /admin).
  */

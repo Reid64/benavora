@@ -33,7 +33,7 @@ export type StageTransitionModalProps = {
   application: EnrichedApplication | null;
   /** Pre-selected destination (e.g. from a board drag). Null lets the user choose. */
   initialTargetStage?: PipelineStage | null;
-  /** Acting user's role — gates the "submitted" stage. */
+  /** Acting user's role - gates the "submitted" stage. */
   role: Tables<"profiles">["role"] | undefined;
   /** Acting user's profile id, recorded as pipeline_history.changed_by. */
   changedBy: string | null;
@@ -62,7 +62,7 @@ export function StageTransitionModal({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Compliance check state — populated when target === "submitted".
+  // Compliance check state - populated when target === "submitted".
   const [complianceReport, setComplianceReport] = useState<{
     passed: boolean;
     blocking_issues: string[];
@@ -297,7 +297,7 @@ export function StageTransitionModal({
             </div>
           )}
 
-        {/* Compliance check gate — real API result, not a manual checkbox. */}
+        {/* Compliance check gate - real API result, not a manual checkbox. */}
         {target === "submitted" &&
           rule?.allowed &&
           roleAllowed &&
@@ -332,7 +332,7 @@ export function StageTransitionModal({
                     )}
                     {complianceReport.passed
                       ? "Compliance check passed."
-                      : "Compliance check failed — resolve issues before submitting."}
+                      : "Compliance check failed - resolve issues before submitting."}
                   </div>
                   {complianceReport.blocking_issues.length > 0 && (
                     <ul className="space-y-0.5 pl-6 text-sm text-red-700 list-disc">

@@ -19,8 +19,8 @@ import { formatRelative } from "@/lib/utils/formatters";
 import type { Tables } from "@/types/database";
 
 /**
- * Standard answers CRUD (BLUEPRINT §4.7). FAQ-style entries — title is the
- * question pattern, content is the approved answer — stored in knowledge_base
+ * Standard answers CRUD (BLUEPRINT §4.7). FAQ-style entries - title is the
+ * question pattern, content is the approved answer - stored in knowledge_base
  * under the reserved "custom" category. These keep the AI from inventing
  * responses to recurring grant questions.
  */

@@ -1,4 +1,4 @@
-// Funder Intelligence Agent — extracts structured funding intelligence from a
+// Funder Intelligence Agent - extracts structured funding intelligence from a
 // funder's public website and upserts it into funder_intelligence.
 //
 // The agent fetches the funder's website (best-effort, falls back to any
@@ -83,7 +83,7 @@ export class FunderIntelAgent extends BaseAgent<
 
     if (rawContent.trim() === "") {
       throw new AgentError(
-        "No content available for this funder — add a website or description first.",
+        "No content available for this funder - add a website or description first.",
         "no_content",
         422,
       );
@@ -152,7 +152,7 @@ export class FunderIntelAgent extends BaseAgent<
 
 // --- prompt ------------------------------------------------------------------
 
-const SYSTEM_PROMPT = `You are a grant research analyst. Extract structured funding intelligence from a funder's website content. Return ONLY valid JSON matching this schema — no prose, no markdown fences:
+const SYSTEM_PROMPT = `You are a grant research analyst. Extract structured funding intelligence from a funder's website content. Return ONLY valid JSON matching this schema - no prose, no markdown fences:
 
 {
   "priorities": ["string", ...],

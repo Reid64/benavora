@@ -1,4 +1,4 @@
-// Eligibility Scoring Agent — AGENTS.md Agent 02.
+// Eligibility Scoring Agent - AGENTS.md Agent 02.
 //
 // Evaluates whether the organization qualifies for an opportunity by comparing
 // the verified organization profile against the opportunity's eligibility
@@ -37,7 +37,7 @@ export interface EligibilityResult {
   recommendation: EligibilityRecommendation;
   recommendationReasoning: string;
   /**
-   * 0-100 fit score surfaced as the opportunity's "match" — currently the same
+   * 0-100 fit score surfaced as the opportunity's "match" - currently the same
    * assessment as {@link eligibilityScore}, persisted to its own column so the
    * match badge, default list sort, and high-priority flag read from it.
    */
@@ -236,7 +236,7 @@ function buildEligibilityPrompt(
     "",
     "RULES:",
     "1. Judge ONLY from the organizational facts provided. Never invent facts about the organization.",
-    "2. Where a fact needed to judge a criterion is missing, treat it as unknown and lower confidence for that criterion — do not assume it qualifies.",
+    "2. Where a fact needed to judge a criterion is missing, treat it as unknown and lower confidence for that criterion - do not assume it qualifies.",
     "3. Score 0-100 using this rubric: 80-100 strong match (apply); 60-79 moderate (review); 40-59 weak (skip unless strategic); 0-39 poor (skip).",
     "4. Weigh five criteria: mission alignment, geographic match, tax-status qualification, budget appropriateness, and program relevance.",
     "5. In `failed_criteria`, list ONLY the criteria (by name) that the organization fails or weakly meets, each with a one-sentence reason naming the specific eligibility requirement that does not fit. Use [] when the organization clearly meets every criterion.",
@@ -273,7 +273,7 @@ function buildEligibilityPrompt(
   ];
   if (amountRange[0] || amountRange[1]) {
     oppLines.push(
-      `- Award range: ${amountRange[0] ?? "?"} – ${amountRange[1] ?? "?"}`,
+      `- Award range: ${amountRange[0] ?? "?"} - ${amountRange[1] ?? "?"}`,
     );
   }
   if (opportunity.description) {

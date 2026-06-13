@@ -1,4 +1,4 @@
-// Pattern analyzer — step 2b of the Recursive Learning Agent (AGENTS.md Agent 10).
+// Pattern analyzer - step 2b of the Recursive Learning Agent (AGENTS.md Agent 10).
 //
 // Compares an awarded narrative against denied narratives for the same
 // funder_category to identify effective language patterns, structural elements,
@@ -43,7 +43,7 @@ function renderDenied(narratives: string[]): string {
  * Analyze a winning narrative against denied narratives for the same funder
  * category. Returns structured winning/losing patterns and recommendations.
  *
- * Returns null when the model produces no parseable JSON — callers should treat
+ * Returns null when the model produces no parseable JSON - callers should treat
  * this as "no patterns stored" rather than a hard failure.
  */
 export async function analyzePatterns(
@@ -71,11 +71,11 @@ export async function analyzePatterns(
     "You are an expert grant-writing analyst. Compare winning and losing grant narratives to identify concrete, actionable patterns.",
     "",
     "RULES:",
-    "1. Be specific — quote short phrases directly from the provided narratives as examples.",
-    "2. Identify language patterns, structural choices, concrete data points, tone, and specificity — not generic writing advice.",
+    "1. Be specific - quote short phrases directly from the provided narratives as examples.",
+    "2. Identify language patterns, structural choices, concrete data points, tone, and specificity - not generic writing advice.",
     "3. Return ONLY valid JSON matching the schema below. No prose, no code fences, no markdown.",
     outputSchema,
-    "4. Return 3–6 winning_patterns, 2–4 losing_patterns (or fewer if only the winning narrative is available), and 3–5 recommendations.",
+    "4. Return 3-6 winning_patterns, 2-4 losing_patterns (or fewer if only the winning narrative is available), and 3-5 recommendations.",
     "5. All examples must come verbatim from the supplied text. Never invent quotes.",
   ].join("\n");
 
@@ -86,7 +86,7 @@ export async function analyzePatterns(
       : winning;
 
   const prompt = [
-    `# Pattern analysis — funder category: ${input.funderCategory}`,
+    `# Pattern analysis - funder category: ${input.funderCategory}`,
     "",
     "## Awarded (winning) narrative",
     winningExcerpt,

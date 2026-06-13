@@ -10,7 +10,7 @@ import type { Database } from "@/types/database";
  *
  * SERVER-ONLY. Use ONLY inside agent code (src/lib/agents/*), never in
  * user-facing routes. Every query made with this client MUST manually scope
- * by organization_id — RLS will NOT protect you here.
+ * by organization_id - RLS will NOT protect you here.
  *
  * The service role key is read from a server-only env var and is never
  * exposed to the client.

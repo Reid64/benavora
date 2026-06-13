@@ -6,9 +6,9 @@ import { getUsageSummary } from "@/lib/billing/usage-limiter";
 export const runtime = "nodejs";
 
 /**
- * GET /api/billing/usage — return the org's current usage vs tier limits for
+ * GET /api/billing/usage - return the org's current usage vs tier limits for
  * all resource types (powers the Settings usage dashboard).
- * Any authenticated org member can read usage (Contracts §25 — read-only).
+ * Any authenticated org member can read usage (Contracts §25 - read-only).
  */
 export async function GET() {
   const gate = await requireRole("viewer");

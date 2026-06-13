@@ -1,11 +1,11 @@
-// Cross-provider validation — shared, CLIENT-SAFE domain logic (migration 014).
+// Cross-provider validation - shared, CLIENT-SAFE domain logic (migration 014).
 //
 // This module holds the pure pieces of the validation feature that both the
 // server orchestrator (lib/agents/consensus-validator) and the browser UI
 // (OpportunityDetail, ValidationBadge) need: the verdict/consensus types, the
 // provider + field constants, and the pure {@link computeConsensus} rule. It
 // imports NO server-only code (no AI SDKs, no env, no Supabase), so it is safe
-// to bundle into a Client Component — keeping the consensus rule in exactly one
+// to bundle into a Client Component - keeping the consensus rule in exactly one
 // place that the API gate and the badge both derive from.
 
 import type { BadgeColor } from "@/components/ui";
@@ -39,7 +39,7 @@ export type ValidationChecks = Record<ValidationField, FieldCheck>;
 /** The structured verdict a provider returns and we persist into `details`. */
 export interface ParsedVerdict {
   verdict: ValidationVerdict;
-  /** Provider's self-reported confidence, 0–100. */
+  /** Provider's self-reported confidence, 0-100. */
   confidence: number;
   checks: ValidationChecks;
   summary: string;
@@ -55,7 +55,7 @@ export type ConsensusStatus =
 
 export interface ConsensusSummary {
   status: ConsensusStatus;
-  /** True only for `verified` — the gate for the "Verified" badge. */
+  /** True only for `verified` - the gate for the "Verified" badge. */
   isVerified: boolean;
   /** How many providers returned `verified`. */
   verifiedCount: number;
@@ -71,7 +71,7 @@ export interface ValidationVerdictRow {
 }
 
 /**
- * Derive the consensus badge from the stored provider verdicts. PURE — the API
+ * Derive the consensus badge from the stored provider verdicts. PURE - the API
  * route and the UI both call it so the badge logic lives in exactly one place.
  * "Verified" requires BOTH providers to independently agree; any single
  * discrepancy demotes the whole opportunity to "Needs review".

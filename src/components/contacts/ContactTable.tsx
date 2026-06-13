@@ -12,7 +12,7 @@ import type { Enums, Tables } from "@/types/database";
 
 type ContactRelationship = Enums<"contact_relationship">;
 
-/** Badge colors per relationship stage — shared with the detail view. */
+/** Badge colors per relationship stage - shared with the detail view. */
 export const RELATIONSHIP_COLOR: Record<ContactRelationship, BadgeColor> = {
   cold: "gray",
   warm: "yellow",
@@ -128,13 +128,13 @@ export function ContactTable({ contacts, isLoading = false }: ContactTableProps)
             {row.email}
           </a>
         ) : (
-          <span className="text-navy-400">—</span>
+          <span className="text-navy-400">-</span>
         ),
     },
     {
       key: "phone",
       header: "Phone",
-      render: (row) => row.phone ?? <span className="text-navy-400">—</span>,
+      render: (row) => row.phone ?? <span className="text-navy-400">-</span>,
     },
     {
       key: "relationship",
@@ -147,7 +147,7 @@ export function ContactTable({ contacts, isLoading = false }: ContactTableProps)
             {humanizeEnum(row.relationship)}
           </Badge>
         ) : (
-          <span className="text-navy-400">—</span>
+          <span className="text-navy-400">-</span>
         ),
     },
     {

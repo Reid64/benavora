@@ -11,7 +11,7 @@ export type KnowledgePreviewProps = {
 /**
  * Transparency panel (BLUEPRINT §4.8 / BEHAVIORAL_CONTRACTS §9): shows exactly
  * which Knowledge Base entries and proven narratives informed the draft. An
- * empty list is itself a signal — the draft had little verified content to draw
+ * empty list is itself a signal - the draft had little verified content to draw
  * on, which the confidence score reflects.
  */
 export function KnowledgePreview({ sources }: KnowledgePreviewProps) {
@@ -22,7 +22,7 @@ export function KnowledgePreview({ sources }: KnowledgePreviewProps) {
     return (
       <p className="text-sm text-navy-500">
         No Knowledge Base entries were available for this template. The draft was
-        generated from your organization profile alone — add narratives to raise
+        generated from your organization profile alone - add narratives to raise
         confidence and grounding.
       </p>
     );

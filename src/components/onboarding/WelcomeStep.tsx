@@ -3,7 +3,7 @@
 import { FileText, Search, Sparkles, Target, Users } from "lucide-react";
 
 /**
- * Step 1 — branded welcome screen. Purely informational; sets expectations for
+ * Step 1 - branded welcome screen. Purely informational; sets expectations for
  * the four setup steps that follow. Matches the login brand panel styling
  * (navy field, teal/plum glow, gradient "B" mark, tagline).
  */
@@ -82,7 +82,7 @@ export function WelcomeStep({ orgName }: { orgName: string }) {
       </div>
 
       <p className="text-sm text-navy-500">
-        This takes about 5 minutes. You can skip any step and finish later —
+        This takes about 5 minutes. You can skip any step and finish later -
         we&rsquo;ll save your progress as you go.
       </p>
     </div>

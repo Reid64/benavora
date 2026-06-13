@@ -184,7 +184,7 @@ export default function NarrativesPage() {
         <EmptyState
           icon={BookText}
           title="No narratives yet"
-          description="Create reusable narrative blocks — mission, need, impact, capacity — to power AI drafting."
+          description="Create reusable narrative blocks - mission, need, impact, capacity - to power AI drafting."
           action={
             editable ? (
               <Button onClick={openCreate}>

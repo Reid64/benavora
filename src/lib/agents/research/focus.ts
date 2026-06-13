@@ -1,8 +1,8 @@
 // Per-run specialization for the research agents (parallel orchestration).
 //
 // A ResearchFocus lets the orchestrator run the SAME agent class under several
-// specialized configurations at once — e.g. the Government agent once against
-// the Grants.gov API and again against state-agency web results — without
+// specialized configurations at once - e.g. the Government agent once against
+// the Grants.gov API and again against state-agency web results - without
 // forking the agent's pipeline. It only narrows WHERE and HOW an agent searches;
 // it never overrides what a page actually states, so source-type classification
 // stays page-text-driven (BEHAVIORAL_CONTRACTS §9: never fabricate).
@@ -26,7 +26,7 @@ export interface ResearchFocus {
   querySuffix?: string;
   /**
    * The source-type this specialization is biased toward. Used only for the
-   * run summary/label — classification of each discovered opportunity remains
+   * run summary/label - classification of each discovered opportunity remains
    * driven by the page text (Contracts §9).
    */
   sourceTypeHint?: OpportunitySourceType;

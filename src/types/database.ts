@@ -1,4 +1,4 @@
-// Database types for Benavora — hand-authored to mirror SCHEMA_REGISTRY.md v1.0.
+// Database types for Benavora - hand-authored to mirror SCHEMA_REGISTRY.md v1.0.
 //
 // Shape matches Supabase's generated output (public.Tables.<name>.{Row,Insert,Update},
 // public.Enums) so it can be swapped for real generated types after Migration 001:
@@ -1389,7 +1389,7 @@ export interface Database {
           content: string;
           confidence_score?: number | null;
           knowledge_sources?: Json | null;
-          // Assigned per opportunity by a BEFORE INSERT trigger — omit on insert.
+          // Assigned per opportunity by a BEFORE INSERT trigger - omit on insert.
           version_number?: number;
           humanization_status?: Database["public"]["Enums"]["humanization_status"];
           source?: string;
@@ -1635,7 +1635,7 @@ export interface Database {
         };
         Relationships: [];
       };
-      // Migration 018 — email_activity: AI-classified inbound email records.
+      // Migration 018 - email_activity: AI-classified inbound email records.
       email_activity: {
         Row: {
           id: string;
@@ -1811,7 +1811,7 @@ export interface Database {
         };
         Relationships: [];
       };
-      // Migration 024 — append-only audit trail (Behavioral Contracts §24).
+      // Migration 024 - append-only audit trail (Behavioral Contracts §24).
       audit_logs: {
         Row: {
           id: string;
@@ -1985,7 +1985,7 @@ export interface Database {
         | "email_campaign"
         | "consensus_validation"
         | "funder_intel"
-        // Migration 018 — Email Parser Agent.
+        // Migration 018 - Email Parser Agent.
         | "email_parser";
       agent_run_status: "pending" | "running" | "completed" | "failed";
       campaign_status: "draft" | "active" | "paused" | "completed";
@@ -2028,7 +2028,7 @@ export interface Database {
       alert_severity: "info" | "warning" | "critical";
       // Cross-provider validation verdict (migration 014).
       validation_verdict: "verified" | "discrepancy" | "unverifiable";
-      // Migration 020 — automation session classification.
+      // Migration 020 - automation session classification.
       session_type: "form_fill" | "document_upload" | "portal_login";
     };
     CompositeTypes: Record<string, never>;

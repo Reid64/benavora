@@ -15,10 +15,10 @@ export type DocumentsStepProps = {
 };
 
 /**
- * Step 3 — stage the documents grant applications ask for most. Reuses the same
+ * Step 3 - stage the documents grant applications ask for most. Reuses the same
  * DocumentUploader as the Documents page (BLUEPRINT §4.6), so files land in the
  * org's Storage bucket through the session-bound client with Storage RLS
- * enforcing tenant isolation. The step is optional — users can upload later.
+ * enforcing tenant isolation. The step is optional - users can upload later.
  */
 export function DocumentsStep({
   organizationId,
@@ -65,7 +65,7 @@ export function DocumentsStep({
           <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden />
           <span>
             {count} document{count === 1 ? "" : "s"} on file. Add more or
-            continue — you can always upload the rest later.
+            continue - you can always upload the rest later.
           </span>
         </div>
       )}

@@ -1,7 +1,7 @@
-// Narrative effectiveness scorer — supports the Recursive Learning Agent
+// Narrative effectiveness scorer - supports the Recursive Learning Agent
 // (AGENTS.md Agent 10) and the analytics dashboards (BLUEPRINT §4.10).
 //
-// Pure, deterministic functions — no AI, no I/O — so they are trivially testable
+// Pure, deterministic functions - no AI, no I/O - so they are trivially testable
 // and can run on either the client (analytics display) or the server (Agent 10).
 //
 // Effectiveness is `wins / total_uses` (AGENTS.md Agent 10, Behavioral
@@ -54,7 +54,7 @@ export function qualifiesAsProven(provenCount: number | null | undefined): boole
  * {@link MIN_USES_FOR_RETIREMENT} total uses (Behavioral Contracts §10).
  *
  * Note: retirement is a review flag only. There is no is_retired column in the
- * schema, so this never deletes or hides data — it surfaces candidates.
+ * schema, so this never deletes or hides data - it surfaces candidates.
  */
 export function shouldFlagForRetirement(
   successCount: number,

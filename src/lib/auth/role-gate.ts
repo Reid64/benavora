@@ -7,11 +7,11 @@
 // into the browser bundle.
 //
 // Two layers:
-//   - checkPermission(userId, requiredRole) — the primitive asked for in the
+//   - checkPermission(userId, requiredRole) - the primitive asked for in the
 //     build task: looks up a user's role and reports whether it suffices.
-//   - requireRole(requiredRole) — the convenience used by route handlers:
+//   - requireRole(requiredRole) - the convenience used by route handlers:
 //     authenticates the session, derives organization_id from the profile
-//     (never the request body — Contracts §2), and enforces the role in one call.
+//     (never the request body - Contracts §2), and enforces the role in one call.
 
 import { NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -33,7 +33,7 @@ export interface PermissionResult {
 /**
  * Verify a user holds at least `requiredRole`. Reads the user's role from their
  * profile row. Pass a client to reuse an existing one; otherwise a session
- * server client is created. Returns `{ allowed, userRole }` — `userRole` is null
+ * server client is created. Returns `{ allowed, userRole }` - `userRole` is null
  * when the profile cannot be resolved (treated as not allowed).
  */
 export async function checkPermission(
@@ -72,7 +72,7 @@ function jsonError(message: string, code: string, status: number) {
  * Route guard. Authenticates the session, loads the caller's profile, and
  * enforces `requiredRole`. On success returns the session client plus the
  * caller's id, role, and organization_id (derived server-side, never trusted
- * from the body — Contracts §2). On failure returns a ready-to-send error
+ * from the body - Contracts §2). On failure returns a ready-to-send error
  * response, so handlers can do:
  *
  *   const gate = await requireRole("admin");

@@ -14,7 +14,7 @@ export type FunderStepProps = {
 };
 
 /**
- * Step 4 — add the first funder. Reuses the full FunderForm (BLUEPRINT §4.2),
+ * Step 4 - add the first funder. Reuses the full FunderForm (BLUEPRINT §4.2),
  * which derives organization_id from the session and handles duplicate warnings.
  * We intercept onSaved so creation advances the wizard instead of navigating to
  * the funder detail page.

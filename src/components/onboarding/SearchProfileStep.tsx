@@ -25,9 +25,9 @@ export type SearchProfileStepProps = {
 };
 
 /**
- * Step 5 — first keyword search profile. A streamlined version of the full
+ * Step 5 - first keyword search profile. A streamlined version of the full
  * Search Profiles form (BLUEPRINT §4.12): just enough to seed the research
- * agents — a name, at least one keyword, and optional category focus. The new
+ * agents - a name, at least one keyword, and optional category focus. The new
  * profile is created active so it's picked up by scheduled runs. organization_id
  * is derived from the session, never the form (Behavioral Contracts §2).
  */

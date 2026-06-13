@@ -1,4 +1,4 @@
-// Document uploader — Phase 3 browser automation (AGENTS.md Agent 16).
+// Document uploader - Phase 3 browser automation (AGENTS.md Agent 16).
 //
 // Downloads application documents from Supabase Storage to a temp directory,
 // matches each document to the best-fitting file-input field on the page by

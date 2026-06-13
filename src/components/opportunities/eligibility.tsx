@@ -10,7 +10,7 @@ import type { Enums } from "@/types/database";
  * Shared display helpers for an opportunity's eligibility score and the
  * Eligibility Scoring Agent's recommendation (BLUEPRINT §4.4). Used by both
  * OpportunityTable and OpportunityDetail so the colour thresholds stay in one
- * place: green 80+, yellow 60–79, red below 60.
+ * place: green 80+, yellow 60-79, red below 60.
  */
 
 type ScoreColor = "green" | "yellow" | "red";
@@ -34,7 +34,7 @@ const SCORE_TEXT: Record<ScoreColor, string> = {
 };
 
 export type EligibilityBarProps = {
-  /** 0–100 score, or null when the agent has not scored it yet. */
+  /** 0-100 score, or null when the agent has not scored it yet. */
   score: number | null;
   /** Width of the bar track. Defaults to a compact 6rem for table rows. */
   width?: "sm" | "lg";
@@ -121,7 +121,7 @@ const MATCH_BADGE_COLOR: Record<ScoreColor, BadgeColor> = {
 };
 
 export type MatchBadgeProps = {
-  /** 0–100 match, or null when the agent has not scored it yet. */
+  /** 0-100 match, or null when the agent has not scored it yet. */
   percentage: number | null;
   className?: string;
 };

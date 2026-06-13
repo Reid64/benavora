@@ -38,7 +38,7 @@ export type ContactFormProps = {
  * Create/edit form for a contact (BLUEPRINT §4.3, Behavioral Contracts §4).
  *
  * Every contact must be linked to exactly one funder (funder_id required).
- * organization_id is derived from the session profile — never from a form field
+ * organization_id is derived from the session profile - never from a form field
  * (Behavioral Contracts §2). The funder dropdown is RLS-scoped, so it only ever
  * lists funders in the current organization.
  */

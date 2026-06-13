@@ -1,4 +1,4 @@
-// BrowserAgent — base class for Phase 3 browser automation agents.
+// BrowserAgent - base class for Phase 3 browser automation agents.
 // (AGENTS.md Agent 16, BEHAVIORAL_CONTRACTS §18)
 //
 // Wraps BrowserEngine with retry logic for flaky selectors, an auto-incrementing
@@ -7,7 +7,7 @@
 // fixed delay before propagating the error to the caller.
 //
 // Extend this class for specific automation tasks (form filling, portal login,
-// document upload). Do not call start()/stop() concurrently — one session per
+// document upload). Do not call start()/stop() concurrently - one session per
 // instance.
 //
 // Cookie persistence: pass sessionState (from a prior exportSessionState()) to
@@ -45,9 +45,9 @@ export const DEFAULT_ACTION_TIMEOUT_MS = 30_000;
 export interface BrowserAgentOptions {
   /** Supabase service-role client for storage + DB writes. */
   client: SupabaseClient;
-  /** Tenant scope — determines the storage bucket and RLS scoping. */
+  /** Tenant scope - determines the storage bucket and RLS scoping. */
   organizationId: string;
-  /** Automation session this agent is executing — namespaces screenshot paths. */
+  /** Automation session this agent is executing - namespaces screenshot paths. */
   sessionId: string;
   /** Run headless. Defaults to true; set false for visual debugging. */
   headless?: boolean;
@@ -113,7 +113,7 @@ export class BrowserAgent {
   /**
    * Navigate to `url`, waiting for DOM-ready, then scan for challenges.
    * Throws {@link ChallengeDetectedError} if a CAPTCHA, MFA, login, or
-   * account-creation prompt is detected after navigation — the automation MUST
+   * account-creation prompt is detected after navigation - the automation MUST
    * stop and wait for a human operator (BEHAVIORAL_CONTRACTS §18).
    */
   async navigate(url: string): Promise<void> {
@@ -166,7 +166,7 @@ export class BrowserAgent {
 
   /**
    * Upload a file into the file-input matching `selector`. `filePath` is a
-   * Supabase Storage path inside the org bucket — the file is downloaded and
+   * Supabase Storage path inside the org bucket - the file is downloaded and
    * attached via Playwright's setInputFiles.
    */
   async uploadFile(selector: string, filePath: string): Promise<void> {
@@ -256,7 +256,7 @@ export class BrowserAgent {
    * found: capture a screenshot, write a `detect_challenge` step to the DB,
    * and pause the session at `awaiting_approval` so a human must intervene.
    * Then throw {@link ChallengeDetectedError} to halt the automation.
-   * Best-effort — DB failures are swallowed so the throw still propagates.
+   * Best-effort - DB failures are swallowed so the throw still propagates.
    */
   private async runChallengeCheck(): Promise<void> {
     let result: ChallengeResult;

@@ -94,7 +94,7 @@ export function ContactDetail({ contactId }: ContactDetailProps) {
   }, [load]);
 
   // Relationship update (Behavioral Contracts §4). This control is a manual
-  // override, so any transition is permitted — not just forward progression.
+  // override, so any transition is permitted - not just forward progression.
   async function handleRelationshipChange(next: ContactRelationship) {
     if (!data || next === data.contact.relationship) return;
     setUpdatingRelationship(true);
@@ -228,7 +228,7 @@ export function ContactDetail({ contactId }: ContactDetailProps) {
                   {contact.email}
                 </a>
               ) : (
-                <span className="text-navy-400">—</span>
+                <span className="text-navy-400">-</span>
               )}
             </DetailRow>
             <DetailRow label="Phone">
@@ -241,14 +241,14 @@ export function ContactDetail({ contactId }: ContactDetailProps) {
                   {contact.phone}
                 </a>
               ) : (
-                <span className="text-navy-400">—</span>
+                <span className="text-navy-400">-</span>
               )}
             </DetailRow>
             <DetailRow label="Preferred contact method">
               {contact.preferred_contact_method ? (
                 humanizeEnum(contact.preferred_contact_method)
               ) : (
-                <span className="text-navy-400">—</span>
+                <span className="text-navy-400">-</span>
               )}
             </DetailRow>
             <DetailRow label="Last contacted">

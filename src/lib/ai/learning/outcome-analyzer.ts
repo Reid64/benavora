@@ -1,8 +1,8 @@
-// Outcome pattern analyzer — powers the Outcomes & Analytics dashboards
+// Outcome pattern analyzer - powers the Outcomes & Analytics dashboards
 // (BLUEPRINT §4.10) and feeds the Recursive Learning Agent's analytics step
 // (AGENTS.md Agent 10).
 //
-// Pure, deterministic aggregation over outcome rows — no AI, no I/O. The agent
+// Pure, deterministic aggregation over outcome rows - no AI, no I/O. The agent
 // does the AI work (narrative extraction); the patterns here are arithmetic over
 // recorded results so they are exact and reproducible.
 //

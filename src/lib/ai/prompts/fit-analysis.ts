@@ -1,9 +1,9 @@
-// Fit Analysis prompt template — AGENTS.md Agent 04.
+// Fit Analysis prompt template - AGENTS.md Agent 04.
 //
 // Builds the system + user prompt for a deep "should we apply?" analysis. Unlike
 // the Eligibility Scoring Agent (a quick qualify/disqualify pass), fit analysis
 // weighs effort vs. reward, alignment with current programs, competitive
-// landscape, and strategic value beyond the dollars — informed by the
+// landscape, and strategic value beyond the dollars - informed by the
 // organization's historical success rate with this funder category when enough
 // outcomes exist to be meaningful (BEHAVIORAL_CONTRACTS §10).
 //
@@ -36,7 +36,7 @@ export interface FitAnalysisOpportunityContext {
 
 /**
  * Historical track record with this funder category. `sufficient` is false when
- * the sample is below the analytics minimum — the prompt then tells the model to
+ * the sample is below the analytics minimum - the prompt then tells the model to
  * treat history as unavailable rather than read a rate off a tiny sample.
  */
 export interface FitAnalysisHistory {
@@ -70,10 +70,10 @@ function formatCurrency(amount: number | null): string | null {
 function renderHistory(history: FitAnalysisHistory): string {
   if (!history.sufficient || history.successRate == null) {
     return history.totalOutcomes > 0
-      ? `Only ${history.totalOutcomes} recorded outcome(s) in this category — too few to compute a reliable success rate. Do not infer a rate; weigh strategic factors more heavily instead.`
+      ? `Only ${history.totalOutcomes} recorded outcome(s) in this category - too few to compute a reliable success rate. Do not infer a rate; weigh strategic factors more heavily instead.`
       : "No recorded outcomes in this category yet. There is no track record to lean on; weigh strategic factors more heavily instead.";
   }
-  return `Across ${history.totalOutcomes} recorded outcomes in this funder category, ${history.awardedCount} were awarded — a historical success rate of ${history.successRate}%.`;
+  return `Across ${history.totalOutcomes} recorded outcomes in this funder category, ${history.awardedCount} were awarded - a historical success rate of ${history.successRate}%.`;
 }
 
 function renderOrganization(org: FitAnalysisOrgContext | null): string {
@@ -101,7 +101,7 @@ function renderOrganization(org: FitAnalysisOrgContext | null): string {
 
 /**
  * Build the fit-analysis prompt. The model returns prose (a structured written
- * analysis), not JSON — the route stores it verbatim and surfaces it to the user.
+ * analysis), not JSON - the route stores it verbatim and surfaces it to the user.
  */
 export function buildFitAnalysisPrompt(
   context: FitAnalysisContext,
@@ -129,7 +129,7 @@ export function buildFitAnalysisPrompt(
   ];
   if (amountRange[0] || amountRange[1]) {
     oppLines.push(
-      `- Award range: ${amountRange[0] ?? "?"} – ${amountRange[1] ?? "?"}`,
+      `- Award range: ${amountRange[0] ?? "?"} - ${amountRange[1] ?? "?"}`,
     );
   }
   if (context.opportunity.eligibilityScore != null) {
@@ -169,7 +169,7 @@ export function buildFitAnalysisPrompt(
     renderOrganization(context.organization),
     "",
     "## Output",
-    "Write a structured analysis with a short paragraph per factor above, then end with a line beginning 'Recommendation:' followed by exactly one of: strong apply, apply, conditional apply (state the conditions), or pass — with a one-sentence justification.",
+    "Write a structured analysis with a short paragraph per factor above, then end with a line beginning 'Recommendation:' followed by exactly one of: strong apply, apply, conditional apply (state the conditions), or pass - with a one-sentence justification.",
   ].join("\n");
 
   return { system, prompt };

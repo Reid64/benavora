@@ -33,7 +33,7 @@ export type OrgProfileStepProps = {
 };
 
 /**
- * Step 2 — organization profile (BLUEPRINT onboarding Steps 1-2: basics +
+ * Step 2 - organization profile (BLUEPRINT onboarding Steps 1-2: basics +
  * mission). Captures legal identity, contact/address, mission and vision in one
  * pass and writes them straight to the organizations row via the session-bound
  * browser client; RLS limits the update to the user's own org, and

@@ -63,7 +63,7 @@ function confidenceColor(score: number | null): "gray" | "green" | "teal" | "yel
 function formatTimestamp(iso: string): string {
   const date = new Date(iso);
   return Number.isNaN(date.getTime())
-    ? "—"
+    ? "-"
     : format(date, "MMM d, yyyy · h:mm a");
 }
 
@@ -71,7 +71,7 @@ function formatTimestamp(iso: string): string {
  * Drafts history panel (BLUEPRINT §4.8). Lists every saved version for the
  * selected opportunity with its timestamp and confidence score, and lets the
  * writer view a previous draft, compare any two versions side by side, or
- * revert to one. History is append-only — reverting creates a new version
+ * revert to one. History is append-only - reverting creates a new version
  * rather than destroying past ones.
  */
 export function DraftsHistoryPanel({

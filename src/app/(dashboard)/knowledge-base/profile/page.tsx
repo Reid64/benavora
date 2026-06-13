@@ -3,7 +3,7 @@ import { ProfileEditor } from "@/components/knowledge-base/ProfileEditor";
 
 /**
  * Organization profile editor (BLUEPRINT §4.7). The profile is the primary
- * source the AI draft generator draws from — nothing is fabricated beyond what
+ * source the AI draft generator draws from - nothing is fabricated beyond what
  * is entered here. Board members and programs are managed inline as sub-tables.
  */
 export default function KnowledgeBaseProfilePage() {

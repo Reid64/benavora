@@ -12,7 +12,7 @@ import {
   type OpportunityRow,
 } from "@/lib/grants/grants-service";
 
-// GET /api/grants — list grants for the authenticated organization with optional
+// GET /api/grants - list grants for the authenticated organization with optional
 // filters (source_type, eligibility_flag, status, deadline range) and pagination
 // (BEHAVIORAL_CONTRACTS "GET /api/grants").
 //
@@ -38,7 +38,7 @@ function parsePositiveInt(value: string | null, fallback: number): number {
 }
 
 export async function GET(request: Request) {
-  // Read access — any authenticated member of the org (Contracts: grants_manager,
+  // Read access - any authenticated member of the org (Contracts: grants_manager,
   // executive_director, grant_researcher all map to ≥ viewer in the live model).
   const gate = await requireRole("viewer");
   if ("error" in gate) {
@@ -138,7 +138,7 @@ export async function GET(request: Request) {
 
   const { data, error, count } = await query
     // Default sort: best match first (unscored last), then newest (Match
-    // Percentage feature — opportunity lists sort by match by default).
+    // Percentage feature - opportunity lists sort by match by default).
     .order("match_percentage", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);

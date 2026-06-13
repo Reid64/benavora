@@ -1,4 +1,4 @@
-// Deadline Extraction Agent — AGENTS.md Agent 03.
+// Deadline Extraction Agent - AGENTS.md Agent 03.
 //
 // Deterministic, NO AI. Reads an opportunity's dates and recurrence and creates
 // the corresponding deadline records:
@@ -73,10 +73,10 @@ export class DeadlineExtractor extends BaseAgent<
     const deadlineDate = deadlineRaw ? new Date(deadlineRaw) : null;
 
     if (!deadlineDate || Number.isNaN(deadlineDate.getTime())) {
-      // Nothing to anchor deadlines to — no AI, no guessing.
+      // Nothing to anchor deadlines to - no AI, no guessing.
       return {
         data: { opportunityId, created: [], noDeadline: true },
-        outputSummary: `"${name}" has no deadline — no deadline records created.`,
+        outputSummary: `"${name}" has no deadline - no deadline records created.`,
         itemsFound: 0,
         itemsProcessed: 0,
         tokensUsed: 0,
@@ -107,7 +107,7 @@ export class DeadlineExtractor extends BaseAgent<
           deadline_type: "follow_up_date",
           due_date: toDateOnly(date),
           title: `${offset}-day check: ${name}`,
-          description: `Preparation checkpoint — ${offset} days before the deadline.`,
+          description: `Preparation checkpoint - ${offset} days before the deadline.`,
         });
       }
     }
@@ -121,7 +121,7 @@ export class DeadlineExtractor extends BaseAgent<
         due_date: toDateOnly(addDays(deadlineDate, REPORTING_OFFSET_DAYS)),
         title: `Reporting due (estimated): ${name}`,
         description:
-          "Estimated reporting deadline derived from a reporting requirement in the opportunity — confirm the actual date.",
+          "Estimated reporting deadline derived from a reporting requirement in the opportunity - confirm the actual date.",
       });
     }
 

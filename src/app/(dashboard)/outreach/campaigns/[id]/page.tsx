@@ -579,7 +579,7 @@ function AddContactsForm({
                       {c.contact_name ? ` · ${c.contact_name}` : ""}
                     </span>
                     <span className="block truncate text-xs text-navy-500">
-                      {c.email ?? "No email — cannot be sent to"}
+                      {c.email ?? "No email - cannot be sent to"}
                     </span>
                   </span>
                 </label>

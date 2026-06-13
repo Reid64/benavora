@@ -14,14 +14,14 @@ import {
   type OpportunityRow,
 } from "@/lib/grants/grants-service";
 
-// GET  /api/grants/[id]   — full detail for one org-owned grant
-// PATCH /api/grants/[id]  — update mutable fields on one org-owned grant
+// GET  /api/grants/[id]   - full detail for one org-owned grant
+// PATCH /api/grants/[id]  - update mutable fields on one org-owned grant
 // (BEHAVIORAL_CONTRACTS "GET/PATCH /api/grants/[id]").
 //
 // "Grant" maps to the live `opportunities` table; organization_id is derived from
 // the session (Six Laws Law 2), never the request body. Ownership is resolved so
 // the contract's 403 (exists, other org) and 404 (no such grant) can be
-// distinguished — see resolveGrantOwnership. Reads/writes touch ONLY the real
+// distinguished - see resolveGrantOwnership. Reads/writes touch ONLY the real
 // `opportunities` table.
 
 export const runtime = "nodejs";
@@ -55,7 +55,7 @@ export async function GET(_request: Request, { params }: RouteContext) {
   }
 
   if (!data) {
-    // Not visible to this org — is it another org's grant (403) or absent (404)?
+    // Not visible to this org - is it another org's grant (403) or absent (404)?
     const ownership = await resolveGrantOwnership(createAdminClient(), id, organizationId);
     if (ownership.status === "forbidden") {
       return jsonError(
@@ -74,7 +74,7 @@ export async function GET(_request: Request, { params }: RouteContext) {
 }
 
 export async function PATCH(request: Request, { params }: RouteContext) {
-  // Mutating a grant is a write action — viewers are read-only (Contracts).
+  // Mutating a grant is a write action - viewers are read-only (Contracts).
   const gate = await requireRole("writer");
   if ("error" in gate) return gate.error;
   const { supabase, organizationId, userId } = gate;
@@ -96,7 +96,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
   const input = body as Record<string, unknown>;
 
   // Build the partial update from the contract's mutable fields, mapped to real
-  // `opportunities` columns. Omitted fields are not modified — no implicit
+  // `opportunities` columns. Omitted fields are not modified - no implicit
   // nulling (Contracts conventions). `update` is intentionally `Record<…>`: the
   // 2.108 typed-query inference computes the payload as `never` (see
   // supabase/server.ts), so the row shape is asserted at the .update() call.

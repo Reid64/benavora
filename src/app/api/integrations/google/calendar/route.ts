@@ -13,13 +13,13 @@ import {
 // Calendar sync status + bulk sync (BLUEPRINT Phase 4, Contracts §20).
 //
 //   GET  → { connected, calendars, syncedCount } for the caller's org (any
-//          authenticated role — read access).
+//          authenticated role - read access).
 //   POST → run a full sync of all incomplete deadlines to the calendar,
 //          returning { synced, created, updated, errors }. A sync writes calendar
-//          links — a create/edit action, so writer+ (task §6).
+//          links - a create/edit action, so writer+ (task §6).
 //
 // Both authenticate via the session and derive organization_id server-side from
-// the profile — never from the request body (Contracts §2, §16).
+// the profile - never from the request body (Contracts §2, §16).
 
 export const runtime = "nodejs";
 // A full sync touches every incomplete deadline; give it room beyond the default.
@@ -86,7 +86,7 @@ export async function GET() {
 }
 
 export async function POST() {
-  // A sync writes calendar links to deadlines — a create/edit action (task §6).
+  // A sync writes calendar links to deadlines - a create/edit action (task §6).
   const gate = await requireRole("writer");
   if ("error" in gate) return gate.error;
   const { supabase, organizationId } = gate;

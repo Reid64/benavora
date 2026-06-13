@@ -16,10 +16,10 @@ import type { FormField } from "@/types/automation";
 // Automation session detail + control endpoint (AGENTS.md Agent 16,
 // BEHAVIORAL_CONTRACTS §18).
 //
-//   GET  — full session with its steps and screenshots (org-scoped).
-//   PUT  — control the session: "reject" cancels it, "update_fields" records
+//   GET  - full session with its steps and screenshots (org-scoped).
+//   PUT  - control the session: "reject" cancels it, "update_fields" records
 //          human-entered values for unmapped fields, and "approve" runs the
-//          human-approved submission (owner/admin only — Contracts §6).
+//          human-approved submission (owner/admin only - Contracts §6).
 //
 // Both verbs authenticate via the session and derive organization_id from the
 // caller's profile; every read/write is re-scoped by organization_id.
@@ -85,7 +85,7 @@ export async function GET(
   // Steps and screenshots key off session_id; the session has already been
   // confirmed to belong to this organization above (manager.getSession is
   // org-scoped under RLS). automation_steps / automation_screenshots have no
-  // organization_id of their own and — unlike every sibling child table — carry
+  // organization_id of their own and - unlike every sibling child table - carry
   // no org-isolation RLS policy, so a session-bound (RLS) read returns zero rows
   // and the detail page renders empty "No steps / No screenshots" states. Read
   // them with the service-role client, still strictly scoped to the already

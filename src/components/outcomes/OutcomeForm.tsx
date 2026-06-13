@@ -16,7 +16,7 @@ type FunderCategory = Enums<"funder_category">;
 /** Everything the form needs about the application an outcome is recorded for. */
 export type OutcomeApplicationContext = {
   id: string;
-  /** Display label — the opportunity name. */
+  /** Display label - the opportunity name. */
   label: string;
   /** requested_amount snapshot for the outcome (Contracts §10). */
   requestedAmount: number | null;
@@ -42,7 +42,7 @@ export type OutcomeFormProps = {
 };
 
 /**
- * Record an application outcome — awarded, denied, or partial — with optional
+ * Record an application outcome - awarded, denied, or partial - with optional
  * funder feedback (BLUEPRINT §4.10, Behavioral Contracts §10).
  *
  * organization_id and recorded_by come from the session profile, never the form
@@ -147,12 +147,12 @@ export function OutcomeForm({ application, onSaved, onCancel }: OutcomeFormProps
       });
       if (!res.ok) {
         setLearningNote(
-          "Outcome saved. The learning step could not run automatically — it can be retried later.",
+          "Outcome saved. The learning step could not run automatically - it can be retried later.",
         );
       }
     } catch {
       setLearningNote(
-        "Outcome saved. The learning step could not run automatically — it can be retried later.",
+        "Outcome saved. The learning step could not run automatically - it can be retried later.",
       );
     }
 
@@ -217,7 +217,7 @@ export function OutcomeForm({ application, onSaved, onCancel }: OutcomeFormProps
           value={denialReason}
           onChange={(e) => setDenialReason(e.target.value)}
           placeholder="e.g. Out of geographic scope, budget exhausted"
-          helperText="Categorized reason — surfaced in denial-pattern analytics."
+          helperText="Categorized reason - surfaced in denial-pattern analytics."
         />
       )}
 

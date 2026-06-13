@@ -45,7 +45,7 @@ export const OPPORTUNITY_STATUSES = [
 // coarse "where the money comes from" bucket, distinct from the fine-grained
 // funder `category`. Powers the Opportunities source filter tabs + color-coded
 // badges and is auto-assigned by the research agents on discovery. NOT in
-// SCHEMA_REGISTRY — added by the live build (migration 010); see
+// SCHEMA_REGISTRY - added by the live build (migration 010); see
 // STATE_OF_THE_BUILD.md. (Unrelated to the grants API's contract `source_type`,
 // which aliases `category`.)
 export const OPPORTUNITY_SOURCE_TYPES = [
@@ -204,7 +204,7 @@ export const MAX_OUTREACH_EMAILS_PER_DAY = 50;
 // Recursive learning thresholds. Mirror the per-organization platform_config
 // flags seeded in SCHEMA_REGISTRY (learning.* keys) and Behavioral Contracts §10.
 //
-// Minimum outcomes in a category before a success-rate percentage is shown —
+// Minimum outcomes in a category before a success-rate percentage is shown -
 // below this we display "Insufficient data" rather than a misleading rate
 // (learning.min_outcomes_for_scoring, Contracts §10).
 export const MIN_OUTCOMES_FOR_RATE = 5;
@@ -217,7 +217,7 @@ export const RETIREMENT_EFFECTIVENESS_THRESHOLD = 0.3;
 export const MIN_USES_FOR_RETIREMENT = 5;
 
 // ---------------------------------------------------------------------------
-// Billing — Stripe subscription tiers (BLUEPRINT Phase 5 / SCHEMA_REGISTRY
+// Billing - Stripe subscription tiers (BLUEPRINT Phase 5 / SCHEMA_REGISTRY
 // subscription_tier enum). Mirrors the "Tier Limits" table in BLUEPRINT exactly.
 // ---------------------------------------------------------------------------
 
@@ -238,7 +238,7 @@ export type SubscriptionTier = (typeof SUBSCRIPTION_TIERS)[number];
  *
  * `email_sends_per_day` comes straight from BLUEPRINT (Free 0 / Starter 25 /
  * Professional 50 / Enterprise 200). `api_calls_per_day` is NOT specified by
- * BLUEPRINT — it's a derived daily ceiling for the AI endpoints, scaled per
+ * BLUEPRINT - it's a derived daily ceiling for the AI endpoints, scaled per
  * tier. The per-minute burst guard (AI_RATE_LIMIT_PER_MINUTE, Contracts §16)
  * remains the primary protection; this daily cap is the metered usage limit.
  */
@@ -315,7 +315,7 @@ export const AI_RATE_LIMIT_PER_MINUTE = 20;
 /**
  * Display metadata for each tier (BLUEPRINT Phase 5 pricing). `priceEnvVar` is
  * the server env var holding that tier's Stripe Price ID; the free tier has no
- * Stripe price (no billing — Contracts §22). Prices are monthly USD.
+ * Stripe price (no billing - Contracts §22). Prices are monthly USD.
  */
 export const TIER_PLANS: Record<
   SubscriptionTier,

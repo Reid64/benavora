@@ -13,7 +13,7 @@ import { isValidEmail } from "@/lib/utils/validators";
  * redirects back to /reset-password.
  *
  * The confirmation message is intentionally neutral and shown regardless of
- * whether the email maps to an account — we never reveal which addresses are
+ * whether the email maps to an account - we never reveal which addresses are
  * registered (anti-enumeration). Only a hard transport/config failure surfaces
  * an error.
  */

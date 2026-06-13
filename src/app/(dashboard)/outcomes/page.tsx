@@ -43,7 +43,7 @@ type RecordedOutcome = Tables<"outcomes"> & { applicationLabel: string };
 /**
  * Outcomes recording + history (BLUEPRINT §4.10). Lists recorded outcomes and
  * lets editors record a new one for any application that reached an eligible
- * stage and doesn't already have an outcome (one outcome per application —
+ * stage and doesn't already have an outcome (one outcome per application -
  * Contracts §10). Recording an awarded/partial outcome triggers the Recursive
  * Learning Agent. Reads are RLS-scoped to the organization.
  */
@@ -288,7 +288,7 @@ export default function OutcomesPage() {
                     <div className="text-right text-sm">
                       <div className="font-medium text-navy-900">
                         {o.result === "denied"
-                          ? "—"
+                          ? "-"
                           : formatCurrency(o.awarded_amount)}
                       </div>
                       <div className="text-xs text-navy-400">

@@ -4,7 +4,7 @@
 // pure and React-free so the research agents (server) and the UI can both use
 // it.
 //
-// `source_type` answers "where does the money come from?" — a coarser axis than
+// `source_type` answers "where does the money come from?" - a coarser axis than
 // the funder `category`. The research agents call inferSourceType() at discovery
 // time so every auto-discovered opportunity is tagged; the manual entry form
 // lets a user pick it directly. Inference is deterministic: it reads only the
@@ -29,7 +29,7 @@ export function isOpportunitySourceType(
 
 /**
  * Default bucket for each funder category, used when the text gives no stronger
- * signal. These are best-fit defaults — government tiers and foundation flavors
+ * signal. These are best-fit defaults - government tiers and foundation flavors
  * are refined by inferSourceType() from the page text when possible.
  */
 const CATEGORY_DEFAULT: Record<FunderCategory, OpportunitySourceType> = {
@@ -56,7 +56,7 @@ const GOVERNMENT_CATEGORIES: readonly FunderCategory[] = [
 
 /** Signals an agent (or the form) can offer about an opportunity to classify it. */
 export interface SourceTypeSignals {
-  /** The funder category — the strongest fallback when text is inconclusive. */
+  /** The funder category - the strongest fallback when text is inconclusive. */
   category?: FunderCategory | null;
   name?: string | null;
   description?: string | null;
@@ -70,8 +70,8 @@ export interface SourceTypeSignals {
 /**
  * Classify an opportunity's funding source. Specific textual signals win over
  * the category default; government opportunities are further split into
- * federal / state / local. Returns null only when nothing — not even a category
- * — is known, in which case the row stays "Unclassified".
+ * federal / state / local. Returns null only when nothing - not even a category
+ * - is known, in which case the row stays "Unclassified".
  */
 export function inferSourceType(
   signals: SourceTypeSignals,
@@ -109,7 +109,7 @@ export function inferSourceType(
     return "community_foundation";
   }
 
-  // Government opportunities — split into tiers. Only applied when the category
+  // Government opportunities - split into tiers. Only applied when the category
   // is governmental or the text clearly reads as a public-sector source, so a
   // foundation that merely mentions a "county" in its address isn't miscast.
   const looksGovernment =
@@ -140,10 +140,10 @@ export function inferSourceType(
     ) {
       return "government_state";
     }
-    // Government, but no tier stated — use the category default.
+    // Government, but no tier stated - use the category default.
     return category ? CATEGORY_DEFAULT[category] : "government_federal";
   }
 
-  // No decisive text signal — fall back to the category's default bucket.
+  // No decisive text signal - fall back to the category's default bucket.
   return category ? CATEGORY_DEFAULT[category] : null;
 }

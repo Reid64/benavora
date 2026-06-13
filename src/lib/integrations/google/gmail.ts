@@ -2,7 +2,7 @@
 //
 // SERVER-ONLY. Wraps the Gmail API for one organization. Construct with an
 // authorized OAuth2 client from auth.ts (`getAuthorizedClient`), which already
-// loads, decrypts, and auto-refreshes the org's stored tokens â€” so every method
+// loads, decrypts, and auto-refreshes the org's stored tokens - so every method
 // here operates under that single organization's mailbox.
 //
 // Contracts honored (Â§19): email bodies are stored as both plain text and HTML;
@@ -40,7 +40,7 @@ export interface SendEmailParams {
   body: string;
   cc?: string | string[];
   bcc?: string | string[];
-  /** Gmail message id being replied to â€” threads the reply correctly. */
+  /** Gmail message id being replied to - threads the reply correctly. */
   replyToMessageId?: string;
   /** Set true to send `body` as HTML; defaults to plain text. */
   html?: boolean;
@@ -57,7 +57,7 @@ export class GmailSync {
 
   /**
    * List message ids matching a Gmail search query (e.g. "in:inbox newer_than:30d").
-   * Returns the lightweight {id, threadId} stubs â€” call getMessage for full content.
+   * Returns the lightweight {id, threadId} stubs - call getMessage for full content.
    */
   async listMessages(
     query: string,
@@ -277,7 +277,7 @@ function collectPart(
   return null;
 }
 
-/** Collect filenames of all attachment parts (names only â€” never the bytes). */
+/** Collect filenames of all attachment parts (names only - never the bytes). */
 function collectAttachmentNames(
   part: gmail_v1.Schema$MessagePart | undefined,
   acc: string[] = [],

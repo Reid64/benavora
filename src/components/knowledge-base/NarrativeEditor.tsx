@@ -52,7 +52,7 @@ export type NarrativeEditorProps = {
  * title, category, and content of at least 50 characters (Behavioral Contracts
  * §8). The version number increments on every edit (optimistic concurrency).
  *
- * is_proven and proven_count are READ-ONLY here — they are set exclusively by
+ * is_proven and proven_count are READ-ONLY here - they are set exclusively by
  * the Recursive Learning Agent (Contracts §8) and surfaced via ProvenBadge.
  */
 export function NarrativeEditor({
@@ -111,7 +111,7 @@ export function NarrativeEditor({
     setSaving(true);
     const supabase = createClient();
 
-    // is_proven / proven_count are intentionally omitted — agent-owned fields.
+    // is_proven / proven_count are intentionally omitted - agent-owned fields.
     const base = {
       category: category as NarrativeCategory,
       title: title.trim(),
@@ -228,7 +228,7 @@ export function NarrativeEditor({
           Effective for funder types
         </span>
         <p className="mb-2 text-xs text-navy-500">
-          Tag the funder categories this narrative is written for — drafting
+          Tag the funder categories this narrative is written for - drafting
           weights matching narratives more heavily.
         </p>
         <div className="flex flex-wrap gap-2">

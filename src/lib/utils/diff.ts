@@ -1,5 +1,5 @@
 // Minimal line-level diff (LCS) used to compare two draft versions in the
-// Draft Generator history panel. No external dependency — the locked stack
+// Draft Generator history panel. No external dependency - the locked stack
 // ships no diff library, and drafts are plain text (applications.draft_content).
 
 export type DiffOpType = "equal" | "add" | "remove";
@@ -22,7 +22,7 @@ export function diffLines(before: string, after: string): DiffOp[] {
 
   // dp[i][j] = LCS length of a[i:] and b[j:]. The matrix is sized
   // (n+1) x (m+1) and pre-filled with 0, so every access below is in-bounds
-  // and defined — the non-null assertions just tell the compiler that.
+  // and defined - the non-null assertions just tell the compiler that.
   const dp: number[][] = Array.from({ length: n + 1 }, () =>
     new Array<number>(m + 1).fill(0),
   );

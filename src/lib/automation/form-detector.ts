@@ -1,4 +1,4 @@
-﻿// Form detector â€” Phase 3 browser automation (AGENTS.md Agent 16).
+﻿// Form detector - Phase 3 browser automation (AGENTS.md Agent 16).
 //
 // Two responsibilities:
 //   1. detectFields(page): read a page's form controls into structured
@@ -8,7 +8,7 @@
 //   2. mapFields(fields, context): match each detected field against the
 //      organization profile / acting user / application, returning the fields we
 //      can auto-fill (mappedFields) and those that still need human input
-//      (unmappedFields) â€” exactly the split persisted to
+//      (unmappedFields) - exactly the split persisted to
 //      automation_sessions.mapped_fields / unmapped_fields.
 //
 // No value is ever fabricated: a field maps only when the context actually holds
@@ -179,7 +179,7 @@ export async function detectFields(page: Page): Promise<FormField[]> {
 
 /**
  * One mapping rule: if any keyword appears in the field's label or name, resolve
- * a value from the autofill context. A null/empty resolution means "no data" â€”
+ * a value from the autofill context. A null/empty resolution means "no data" -
  * the field stays unmapped rather than being filled with a blank.
  */
 interface MappingRule {
@@ -189,7 +189,7 @@ interface MappingRule {
 }
 
 /**
- * Rules in priority order â€” the FIRST rule whose keyword matches wins, so more
+ * Rules in priority order - the FIRST rule whose keyword matches wins, so more
  * specific phrases must precede generic ones (e.g. "amount requested" before a
  * bare "amount", "organization name" before "name"). Mirrors the field map in
  * the task spec.
@@ -260,7 +260,7 @@ const MAPPING_RULES: MappingRule[] = [
 
 /**
  * Split detected fields into ones we can auto-fill from the org's data and ones
- * needing human input. File inputs are always left unmapped â€” documents are
+ * needing human input. File inputs are always left unmapped - documents are
  * attached deliberately, not auto-resolved from the profile.
  */
 export function mapFields(
@@ -344,7 +344,7 @@ export async function detectFormSchema(
   page: Page,
   url: string,
 ): Promise<FormSchema> {
-  // Wait for JS-rendered content â€” many grant portals hydrate after DOMContentLoaded.
+  // Wait for JS-rendered content - many grant portals hydrate after DOMContentLoaded.
   try {
     await page.waitForLoadState("networkidle", { timeout: 10_000 });
   } catch {
@@ -359,7 +359,7 @@ export async function detectFormSchema(
     return { url, title: await page.title(), sections: [], isMultiStep: false, stepCount: 1, stepIndicators: [] };
   }
 
-  // Single in-browser pass â€” returns only serializable plain objects.
+  // Single in-browser pass - returns only serializable plain objects.
   const raw = await page.evaluate(() => {
     const IGNORE_TYPES = new Set([
       "hidden", "submit", "button", "image", "reset", "search",
@@ -466,7 +466,7 @@ export async function detectFormSchema(
       });
     }
 
-    // Multi-step detection â€” look for navigation buttons and step indicators.
+    // Multi-step detection - look for navigation buttons and step indicators.
     const allButtons = Array.from(document.querySelectorAll("button, input[type='button'], input[type='submit']"));
     const hasNextBtn = allButtons.some((b) => {
       const text = ((b.textContent ?? "") + " " + (b.getAttribute("value") ?? "")).toLowerCase();
@@ -577,7 +577,7 @@ const SECTION_DEFS: Array<{ name: string; keywords: string[] }> = [
 ];
 
 function assignSectionName(field: FormSchemaField, raw: RawFieldData): string {
-  // Fieldset legend takes priority â€” it's the author's own grouping.
+  // Fieldset legend takes priority - it's the author's own grouping.
   if (raw.fieldsetLegend) return raw.fieldsetLegend;
 
   const haystack = `${field.label} ${field.id}`.toLowerCase();

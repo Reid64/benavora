@@ -425,7 +425,7 @@ export function ResearchDashboard({
                         <Badge color="teal">{humanizeEnum(d.category)}</Badge>
                         {(d.amountMin != null || d.amountMax != null) && (
                           <span className="text-xs text-navy-500">
-                            {formatCurrency(d.amountMin)} –{" "}
+                            {formatCurrency(d.amountMin)} -{" "}
                             {formatCurrency(d.amountMax)}
                           </span>
                         )}

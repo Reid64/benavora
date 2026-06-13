@@ -99,7 +99,7 @@ function renewalToItems(r: RenewalRow): DeadlineItem[] {
   if (r.reporting_deadline) {
     items.push({
       id: `renewal-${r.id}-report`,
-      title: `${base} – Report Due`,
+      title: `${base} - Report Due`,
       description: null,
       deadline_type: "reporting_deadline",
       due_date: r.reporting_deadline,
@@ -112,7 +112,7 @@ function renewalToItems(r: RenewalRow): DeadlineItem[] {
   if (r.renewal_window_start) {
     items.push({
       id: `renewal-${r.id}-start`,
-      title: `${base} – Renewal Window Opens`,
+      title: `${base} - Renewal Window Opens`,
       description: null,
       deadline_type: "renewal_date",
       due_date: r.renewal_window_start,
@@ -125,7 +125,7 @@ function renewalToItems(r: RenewalRow): DeadlineItem[] {
   if (r.renewal_window_end) {
     items.push({
       id: `renewal-${r.id}-end`,
-      title: `${base} – Renewal Deadline`,
+      title: `${base} - Renewal Deadline`,
       description: null,
       deadline_type: "renewal_date",
       due_date: r.renewal_window_end,

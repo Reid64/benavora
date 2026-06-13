@@ -9,13 +9,13 @@ import { EmailCampaignAgent } from "@/lib/agents/email-campaign";
 // This is a SYSTEM job: it sweeps EVERY organization that has cold-outreach email
 // enabled, via the service-role admin client, and is gated solely by the
 // server-only CRON_SECRET. It is never user-reachable (Contracts §2: service role
-// is for system jobs, never user-facing routes — the interactive trigger is
+// is for system jobs, never user-facing routes - the interactive trigger is
 // POST /api/agents/campaigns).
 //
 // Each org's EmailCampaignAgent runs with force=false, so the agent itself
 // enforces business hours, the 50/day cap, and the inter-step gap. A failure on
 // one org never aborts the sweep. Every query inside the agent is
-// organization_id-scoped — correct under the service-role client where RLS does
+// organization_id-scoped - correct under the service-role client where RLS does
 // not protect us (Contracts §2, §15).
 
 export const runtime = "nodejs";

@@ -1,9 +1,9 @@
-// Auto-filler — Phase 3 browser automation (AGENTS.md Agent 16).
+// Auto-filler - Phase 3 browser automation (AGENTS.md Agent 16).
 //
 // Takes a Playwright Page, a FormSchema, and a FieldMapping produced by
 // field-mapper and fills every auto-fillable field on the page. Handles text,
 // email, phone, number, date, textarea, select, checkbox, and radio inputs.
-// File inputs are intentionally skipped — those are handled by document-uploader.
+// File inputs are intentionally skipped - those are handled by document-uploader.
 //
 // After filling each section a screenshot is captured and uploaded to the org
 // bucket. Every action (fill, skip, screenshot) is logged to automation_steps so
@@ -307,7 +307,7 @@ async function resolveSelector(
 
 /**
  * Read the current value of `field` from the DOM to verify the fill succeeded.
- * Returns null on any error — validation is best-effort.
+ * Returns null on any error - validation is best-effort.
  */
 async function readFieldValue(
   page: Page,

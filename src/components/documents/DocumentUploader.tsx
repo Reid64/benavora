@@ -15,7 +15,7 @@ import type { Enums, TablesInsert } from "@/types/database";
 type DocumentCategory = Enums<"document_category">;
 
 export type DocumentUploaderProps = {
-  /** Tenant scope — bucket is `org-{organizationId}` (Behavioral Contracts §7). */
+  /** Tenant scope - bucket is `org-{organizationId}` (Behavioral Contracts §7). */
   organizationId: string;
   /** Authenticated user id, recorded as documents.uploaded_by. */
   uploadedBy: string;
@@ -41,7 +41,7 @@ function sanitizeFileName(name: string): string {
  *
  * Uploads go to the org's Storage bucket `org-{organizationId}` at
  * `{category}/{timestamp}_{filename}` using the session-bound browser client,
- * so Storage RLS enforces tenant isolation — the service-role client is never
+ * so Storage RLS enforces tenant isolation - the service-role client is never
  * used from a user-facing path. File type and size are validated client-side
  * before any network call.
  */
@@ -263,7 +263,7 @@ export function DocumentUploader({
           type="date"
           value={expirationDate}
           onChange={(e) => setExpirationDate(e.target.value)}
-          helperText="Optional — for docs that expire (tax letters, insurance)."
+          helperText="Optional - for docs that expire (tax letters, insurance)."
         />
       </div>
 

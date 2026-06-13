@@ -66,7 +66,7 @@ export async function GET() {
   const subscription = await getSubscription(organizationId);
   const limits = TIER_LIMITS[subscription.tier];
 
-  // Live usage from real tables (no mocks — Six Laws #4). All RLS-scoped to org.
+  // Live usage from real tables (no mocks - Six Laws #4). All RLS-scoped to org.
   const [
     usersRes,
     profilesRes,

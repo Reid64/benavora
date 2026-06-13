@@ -41,7 +41,7 @@ function jsonError(message: string, code: string, status: number) {
 }
 
 export async function POST(request: Request) {
-  // Parsing emails is a write action — viewers are read-only (Contracts §16).
+  // Parsing emails is a write action - viewers are read-only (Contracts §16).
   const roleCheck = await requireRole("writer");
   if ("error" in roleCheck) return roleCheck.error;
 

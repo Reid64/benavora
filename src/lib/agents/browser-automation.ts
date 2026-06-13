@@ -1,18 +1,18 @@
-// Browser Automation Agent — AGENTS.md Agent 16 (Phase 3),
+// Browser Automation Agent - AGENTS.md Agent 16 (Phase 3),
 // BEHAVIORAL_CONTRACTS §18.
 //
 // Drives a headless browser to pre-fill a funder's online donation/grant
 // application form, then STOPS at `awaiting_approval`. It never submits on its
-// own — a human must approve, after which `submitApproved()` resumes, clicks
+// own - a human must approve, after which `submitApproved()` resumes, clicks
 // submit, and captures the confirmation (BEHAVIORAL_CONTRACTS §18: "Automation
 // NEVER auto-submits forms").
 //
 // Division of labour (BLUEPRINT §Phase 3):
-//   - BrowserEngine       — Playwright transport: launch, navigate, screenshot,
+//   - BrowserEngine       - Playwright transport: launch, navigate, screenshot,
 //                           file download/upload, clean shutdown.
-//   - form-detector        — read the page's controls, map them to org data.
-//   - form-filler          — type/select/check/upload the mapped values.
-//   - AutomationSessionManager — all DB bookkeeping (session/steps/screenshots)
+//   - form-detector        - read the page's controls, map them to org data.
+//   - form-filler          - type/select/check/upload the mapped values.
+//   - AutomationSessionManager - all DB bookkeeping (session/steps/screenshots)
 //                           and the status lifecycle, including the
 //                           approve→submit guard.
 // This file orchestrates them and adds the safety detections the spec calls for
@@ -22,7 +22,7 @@
 // 60s ceiling (AGENTS.md §15) is the right bound for "fill what we can and
 // pause". The §18 5-minute session budget governs the WHOLE lifecycle through
 // human approval; the submit phase therefore runs via submitApproved(), called
-// directly by the approve route — NOT through run() — so it is not killed by the
+// directly by the approve route - NOT through run() - so it is not killed by the
 // per-run timeout.
 
 import type { Page } from "playwright";
@@ -148,7 +148,7 @@ export class BrowserAutomationAgent extends BaseAgent<
     const context = await this.loadContext(applicationId);
 
     // Create the session row up front so the run is inspectable even if the
-    // browser work fails (BEHAVIORAL_CONTRACTS §15 — never silently fail).
+    // browser work fails (BEHAVIORAL_CONTRACTS §15 - never silently fail).
     const session = await this.sessions.createSession({
       applicationId: context.applicationId,
       opportunityId: context.opportunityId,
@@ -187,7 +187,7 @@ export class BrowserAutomationAgent extends BaseAgent<
         return await this.pause(
           sessionId,
           "login_required",
-          "Portal requires login — a human must sign in before this application can be filled. Portal credentials are never stored.",
+          "Portal requires login - a human must sign in before this application can be filled. Portal credentials are never stored.",
           context.targetUrl,
           0,
           [],
@@ -201,7 +201,7 @@ export class BrowserAutomationAgent extends BaseAgent<
         return await this.pause(
           sessionId,
           "captcha_detected",
-          `CAPTCHA detected (${captcha}) — requires human intervention. The automation will not attempt to solve it.`,
+          `CAPTCHA detected (${captcha}) - requires human intervention. The automation will not attempt to solve it.`,
           context.targetUrl,
           0,
           [],
@@ -225,7 +225,7 @@ export class BrowserAutomationAgent extends BaseAgent<
         return await this.pause(
           sessionId,
           "no_form",
-          "No application form detected — may require manual navigation to the application page.",
+          "No application form detected - may require manual navigation to the application page.",
           context.targetUrl,
           0,
           [],
@@ -233,7 +233,7 @@ export class BrowserAutomationAgent extends BaseAgent<
         );
       }
 
-      // Split out file inputs — these are filled from the application's
+      // Split out file inputs - these are filled from the application's
       // documents, not the org profile.
       const fileFields = unmappedFields.filter((f) => f.fieldType === "file");
       const humanFields = unmappedFields.filter((f) => f.fieldType !== "file");
@@ -355,7 +355,7 @@ export class BrowserAutomationAgent extends BaseAgent<
   /**
    * Resume an approved session, submit the form, and capture the confirmation.
    * The session MUST already be in `approved` status (a human approved it via
-   * AutomationSessionManager.approve) — markSubmitted enforces this, so this
+   * AutomationSessionManager.approve) - markSubmitted enforces this, so this
    * method can never effect an unapproved submission.
    *
    * Because browsers do not survive across serverless requests, this re-launches
@@ -395,7 +395,7 @@ export class BrowserAutomationAgent extends BaseAgent<
       await engine.launch();
       await engine.navigate(session.target_url);
 
-      // A login wall or CAPTCHA appearing at submit time blocks us — fail
+      // A login wall or CAPTCHA appearing at submit time blocks us - fail
       // loudly rather than half-submit.
       if (await detectLoginRequired(engine.page)) {
         throw new AgentError(
@@ -655,7 +655,7 @@ export class BrowserAutomationAgent extends BaseAgent<
     // The PostgREST select-string parser infers the embedded `documents`
     // relation as an array (it can't see the to-one FK under the untyped
     // client), so a direct cast to the single-row shape is rejected as a
-    // non-overlapping conversion. Route it through `unknown` — the runtime shape
+    // non-overlapping conversion. Route it through `unknown` - the runtime shape
     // is one document row (or null) per application_documents row.
     const rows = (data ?? []) as unknown as Array<{
       documents:
@@ -725,7 +725,7 @@ export class BrowserAutomationAgent extends BaseAgent<
   /**
    * Move the application to `submitted`, stamp submitted_at, append the
    * confirmation to its notes, and log the pipeline transition
-   * (BEHAVIORAL_CONTRACTS §6 — every stage change creates a pipeline_history
+   * (BEHAVIORAL_CONTRACTS §6 - every stage change creates a pipeline_history
    * row). Returns false if there is no application linked to the session.
    */
   private async advanceApplicationToSubmitted(
@@ -793,7 +793,7 @@ export interface ApproveAndSubmitParams {
  * The single approved-submission path, shared by the PUT and approve routes:
  * record the human approval (awaiting_approval → approved), then resume the
  * browser and submit. There is intentionally no way to do one without the other
- * out of order — AutomationSessionManager.approve refuses a non-pending session
+ * out of order - AutomationSessionManager.approve refuses a non-pending session
  * and submitApproved refuses a non-approved one.
  */
 export async function approveAndSubmit(

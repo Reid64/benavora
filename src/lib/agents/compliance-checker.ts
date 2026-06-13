@@ -1,15 +1,15 @@
-// Compliance Check Agent — AGENTS.md Agent 07.
+// Compliance Check Agent - AGENTS.md Agent 07.
 //
 // Verifies an application package is complete before submission. Combines
 // deterministic checks with an optional AI content review:
 //   - Required documents (opportunity.required_documents) are matched against the
-//     documents actually attached via application_documents — the core check.
+//     documents actually attached via application_documents - the core check.
 //   - The draft is scanned for unresolved [NEEDS INPUT: ...] flags.
 //   - The organization profile is checked for the essentials (EIN, tax status).
 //   - When a draft exists, Claude analyzes it for completeness, length, and
 //     prohibited content; these are advisory findings, not blockers.
 //
-// readyToSubmit reflects the deterministic completeness checks only — those are
+// readyToSubmit reflects the deterministic completeness checks only - those are
 // the gate for ready_for_review -> submitted (BEHAVIORAL_CONTRACTS §6). The AI
 // findings inform the reviewer without silently blocking submission.
 
@@ -240,7 +240,7 @@ function significantTokens(name: string): string[] {
  * A required document counts as attached when an attached document's name,
  * description, or category contains the full required string or any significant
  * word from it. Heuristic by necessity (free-text names), and deliberately
- * lenient — a false "present" is caught at human review, a false "missing" is
+ * lenient - a false "present" is caught at human review, a false "missing" is
  * just a prompt to double-check.
  */
 function isDocumentAttached(required: string, haystacks: string[]): boolean {

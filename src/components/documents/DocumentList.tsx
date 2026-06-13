@@ -24,7 +24,7 @@ export type ApplicationOption = {
 
 export type DocumentListProps = {
   documents: Tables<"documents">[];
-  /** Tenant scope — Storage bucket is `org-{organizationId}`. */
+  /** Tenant scope - Storage bucket is `org-{organizationId}`. */
   organizationId: string;
   /** Applications available to link a document to (BLUEPRINT §4.6). */
   applications: ApplicationOption[];
@@ -47,7 +47,7 @@ const CATEGORY_FILTER_OPTIONS = [
 
 /** Format a byte count as a human-readable size. */
 function formatBytes(bytes: number | null): string {
-  if (bytes === null || Number.isNaN(bytes)) return "—";
+  if (bytes === null || Number.isNaN(bytes)) return "-";
   if (bytes < 1024) return `${bytes} B`;
   const kb = bytes / 1024;
   if (kb < 1024) return `${Math.round(kb)} KB`;
@@ -198,7 +198,7 @@ export function DocumentList({
       sortValue: (row) => row.expiration_date ?? "",
       render: (row) => {
         if (!row.expiration_date)
-          return <span className="text-navy-400">—</span>;
+          return <span className="text-navy-400">-</span>;
         if (isExpired(row.expiration_date)) {
           return (
             <Badge color="red" withDot>

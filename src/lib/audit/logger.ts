@@ -5,7 +5,7 @@
 // module only ever inserts.
 //
 // Callers pass their own Supabase client (session client in routes, admin client
-// where there is no session — e.g. the Stripe webhook), and may pass the inbound
+// where there is no session - e.g. the Stripe webhook), and may pass the inbound
 // Request so the client IP and user agent are captured from its headers. Writes
 // are best-effort: an audit failure must never block or mask the operation it
 // records.
@@ -25,7 +25,7 @@ export interface LogAuditParams {
   entityType?: string | null;
   /** The acted-on row's id, when applicable. */
   entityId?: string | null;
-  /** Extra structured context (no secrets — this table is broadly readable). */
+  /** Extra structured context (no secrets - this table is broadly readable). */
   details?: Record<string, unknown> | null;
   /** Inbound request, used to capture IP + user agent from its headers. */
   request?: Request | null;
@@ -43,7 +43,7 @@ function clientIpFrom(headers: Headers): string | null {
 }
 
 /**
- * Insert an audit log row (Contracts §24). Best-effort — never throws; a logging
+ * Insert an audit log row (Contracts §24). Best-effort - never throws; a logging
  * failure is swallowed so it can't break the audited operation.
  *
  *   await logAudit(supabase, {

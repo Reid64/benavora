@@ -38,11 +38,11 @@ function emptyRow(): ProgramRow {
 }
 
 /**
- * Step 3 — programs (BLUEPRINT §4.7 "Knowledge Base → programs", SCHEMA
+ * Step 3 - programs (BLUEPRINT §4.7 "Knowledge Base → programs", SCHEMA
  * programs table). The user adds one or more initiatives with a budget and
  * beneficiary count; each becomes a programs row the AI drafting agents pull
  * from. organization_id is derived from the session, never the form
- * (Behavioral Contracts §2). Optional — skippable like the other later steps.
+ * (Behavioral Contracts §2). Optional - skippable like the other later steps.
  */
 export function ProgramsStep({
   organizationId,

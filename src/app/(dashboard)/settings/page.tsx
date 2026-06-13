@@ -955,7 +955,7 @@ function UsageDashboardSection() {
 // ---------------------------------------------------------------------------
 
 // Human labels for the feature.* flags seeded per organization (SCHEMA_REGISTRY
-// platform_config). Display-only in the MVP â€” the underlying phases ship later.
+// platform_config). Display-only in the MVP - the underlying phases ship later.
 const FEATURE_FLAG_LABELS: Record<string, { label: string; phase: string }> = {
   "feature.research_agents": {
     label: "Automated research agents",

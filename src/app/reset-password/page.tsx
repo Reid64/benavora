@@ -75,7 +75,7 @@ export default function ResetPasswordPage() {
     }
 
     setDone(true);
-    // Session is now authenticated with the new password — enter the app.
+    // Session is now authenticated with the new password - enter the app.
     router.replace("/dashboard");
     router.refresh();
   }

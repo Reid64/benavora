@@ -11,7 +11,7 @@ export const runtime = "nodejs";
  * for a session, then bootstraps the organization + owner profile via the
  * idempotent `register_organization()` RPC (migration 002). The RPC reads org
  * name / full name from auth metadata set at sign-up and acts only on auth.uid()
- * — organization_id is never taken from the request (Behavioral Contracts §2).
+ * - organization_id is never taken from the request (Behavioral Contracts §2).
  *
  * On any failure the only action is a redirect to /login (Behavioral Contracts
  * §1: failed auth → /login, no exceptions).

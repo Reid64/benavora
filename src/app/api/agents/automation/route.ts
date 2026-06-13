@@ -11,7 +11,7 @@ import { withUsageCheck } from "@/lib/billing/usage-middleware";
 // from their profile (never the body), confirms the application exists and has a
 // portal URL, then runs the agent's initial pass: navigate → screenshot →
 // detect/fill form → upload documents → pause at `awaiting_approval`. It NEVER
-// submits — submission happens only after a human approves.
+// submits - submission happens only after a human approves.
 
 export const runtime = "nodejs";
 // Phase 3 sessions may run up to ~5 minutes (BEHAVIORAL_CONTRACTS §18); the
@@ -41,7 +41,7 @@ function isRateLimited(orgId: string): boolean {
 }
 
 export async function POST(request: Request) {
-  // Starting an automation session is a write action — viewers are read-only
+  // Starting an automation session is a write action - viewers are read-only
   // (Contracts §16). Final submission additionally requires approval (§18).
   const roleCheck = await requireRole("writer");
   if ("error" in roleCheck) return roleCheck.error;
@@ -68,7 +68,7 @@ export async function POST(request: Request) {
     return jsonError("Authentication required.", "unauthenticated", 401);
   }
 
-  // Derive organization_id server-side from the profile — never from the body.
+  // Derive organization_id server-side from the profile - never from the body.
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("id, organization_id")

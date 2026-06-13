@@ -132,7 +132,7 @@ export default async function DashboardPage() {
     .single();
 
   if (!profile?.organization_id) {
-    // No resolvable organization — surface rather than guess (Contracts §1/§2).
+    // No resolvable organization - surface rather than guess (Contracts §1/§2).
     return (
       <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
         We couldn&rsquo;t resolve your organization. Please sign in again.
@@ -217,7 +217,7 @@ export default async function DashboardPage() {
   const analysis = analyzeOutcomes(outcomes);
   const { summary } = analysis;
   const successRateValue =
-    summary.successRate != null ? `${summary.successRate}%` : "—";
+    summary.successRate != null ? `${summary.successRate}%` : "-";
 
   // --- pipeline counts -------------------------------------------------------
   const pipelineCounts = PIPELINE_STAGES.reduce(
@@ -287,7 +287,7 @@ export default async function DashboardPage() {
           <p className="mt-1 text-sm text-teal-700">
             You don&rsquo;t have any data yet. Start by adding a funding
             opportunity or completing your organization profile in the Knowledge
-            Base — the metrics and charts below fill in as you work.
+            Base - the metrics and charts below fill in as you work.
           </p>
         </div>
       )}

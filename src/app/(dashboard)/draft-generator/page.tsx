@@ -92,10 +92,10 @@ function mapVersion(row: Tables<"draft_versions">): DraftVersionItem {
 }
 
 /**
- * Draft Generator — template selection + generation flow (BLUEPRINT §4.8).
+ * Draft Generator - template selection + generation flow (BLUEPRINT §4.8).
  * Pick an opportunity and template, generate a draft grounded in the Knowledge
  * Base, review the confidence and sources, then save it onto an application
- * record and open the editor. organization_id is never sent from the client —
+ * record and open the editor. organization_id is never sent from the client -
  * reads are RLS-scoped and writes derive it from the session profile.
  *
  * Every generated draft is auto-saved to draft_versions by /api/ai/draft, so
@@ -153,7 +153,7 @@ export default function DraftGeneratorPage() {
   }, []);
 
   // Fetch all versions for an opportunity (newest first). Optionally load the
-  // latest into the editor — used when switching opportunities / on restore.
+  // latest into the editor - used when switching opportunities / on restore.
   const loadVersions = useCallback(
     async (oppId: string, loadLatest: boolean) => {
       setVersionsLoading(true);
@@ -515,7 +515,7 @@ export default function DraftGeneratorPage() {
         </h1>
         <p className="mt-1 text-sm text-navy-500">
           Generate an application draft from your Knowledge Base. The AI never
-          invents organizational facts — gaps are flagged for your input.
+          invents organizational facts - gaps are flagged for your input.
         </p>
       </div>
 

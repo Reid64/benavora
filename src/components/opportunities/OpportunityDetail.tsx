@@ -412,7 +412,7 @@ function DetailRow({
 }
 
 function dash(value: React.ReactNode) {
-  return value ?? <span className="text-navy-400">—</span>;
+  return value ?? <span className="text-navy-400">-</span>;
 }
 
 function OverviewTab({
@@ -424,7 +424,7 @@ function OverviewTab({
 }) {
   const amountRange =
     opportunity.amount_min != null || opportunity.amount_max != null
-      ? `${formatCurrency(opportunity.amount_min)} – ${formatCurrency(opportunity.amount_max)}`
+      ? `${formatCurrency(opportunity.amount_min)} - ${formatCurrency(opportunity.amount_max)}`
       : null;
 
   return (
@@ -438,14 +438,14 @@ function OverviewTab({
             {opportunity.deadline ? (
               formatDate(opportunity.deadline)
             ) : (
-              <span className="text-navy-400">—</span>
+              <span className="text-navy-400">-</span>
             )}
           </DetailRow>
           <DetailRow label="Recurrence">
             {opportunity.recurrence ? (
               humanizeEnum(opportunity.recurrence)
             ) : (
-              <span className="text-navy-400">—</span>
+              <span className="text-navy-400">-</span>
             )}
           </DetailRow>
           <DetailRow label="Geographic restrictions">
@@ -476,7 +476,7 @@ function OverviewTab({
             {opportunity.application_method ? (
               humanizeEnum(opportunity.application_method)
             ) : (
-              <span className="text-navy-400">—</span>
+              <span className="text-navy-400">-</span>
             )}
           </DetailRow>
           <DetailRow label="URL">
@@ -491,7 +491,7 @@ function OverviewTab({
                 <ExternalLink className="h-3.5 w-3.5" aria-hidden />
               </a>
             ) : (
-              <span className="text-navy-400">—</span>
+              <span className="text-navy-400">-</span>
             )}
           </DetailRow>
         </dl>
@@ -559,7 +559,7 @@ function EligibilityTab({
             </div>
             <p className="text-sm text-navy-500">
               {opportunity.is_high_priority
-                ? "Flagged high priority — the agent scored this a strong match (80% or higher) against your organization profile."
+                ? "Flagged high priority - the agent scored this a strong match (80% or higher) against your organization profile."
                 : "How well this opportunity matches your organization profile, scored by the Eligibility Scoring Agent."}
             </p>
             {showMismatch && (
@@ -583,7 +583,7 @@ function EligibilityTab({
               width="lg"
             />
             <p className="text-sm text-navy-500">
-              Scored 0–100 by the Eligibility Scoring Agent based on mission,
+              Scored 0-100 by the Eligibility Scoring Agent based on mission,
               geographic, tax-status, and program alignment.
             </p>
           </div>
@@ -670,7 +670,7 @@ function providerLabel(provider: string): string {
 }
 
 /**
- * Validation tab — cross-provider consensus (migration 014). Shows the overall
+ * Validation tab - cross-provider consensus (migration 014). Shows the overall
  * verdict, lets a writer re-run validation against both AI providers, and breaks
  * out each provider's per-field findings. The consensus badge is derived from
  * the same {@link computeConsensus} the API uses.
@@ -744,7 +744,7 @@ function ValidationTab({
             accurate. An opportunity is marked{" "}
             <span className="font-medium text-navy-700">Verified</span> only when
             both providers agree. Providers reason from their own knowledge and
-            the finding&apos;s internal consistency — a verdict is a confidence
+            the finding&apos;s internal consistency - a verdict is a confidence
             signal, not a guarantee.
           </p>
 

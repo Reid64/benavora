@@ -1,9 +1,9 @@
-// ChallengeDetector — Phase 3 browser automation (BEHAVIORAL_CONTRACTS §18).
+// ChallengeDetector - Phase 3 browser automation (BEHAVIORAL_CONTRACTS §18).
 //
 // Scans the current Playwright page for CAPTCHA, MFA/2FA, account-creation, and
 // login-required patterns. All detection runs inside page.evaluate() so it works
 // across any page origin. Returns a ChallengeResult with enough context for the
-// operator to act. Never throws — any scan failure returns type "none".
+// operator to act. Never throws - any scan failure returns type "none".
 //
 // Philosophy: NEVER attempt to solve challenges automatically. Pause and defer to
 // the human operator (BEHAVIORAL_CONTRACTS §18).
@@ -73,7 +73,7 @@ interface PageScan {
 export class ChallengeDetector {
   /**
    * Scan the current page for challenge patterns and classify the result.
-   * Always returns a ChallengeResult — type "none" when nothing is found.
+   * Always returns a ChallengeResult - type "none" when nothing is found.
    */
   async detect(page: Page): Promise<ChallengeResult> {
     let scan: PageScan;
@@ -139,7 +139,7 @@ export class ChallengeDetector {
 function classify(scan: PageScan): ChallengeResult {
   const t = scan.bodyText;
 
-  // 1. CAPTCHA — explicit widget or phrase match.
+  // 1. CAPTCHA - explicit widget or phrase match.
   const hasCaptchaWidget =
     scan.hasCaptchaIframe ||
     scan.hasHcaptchaIframe ||
@@ -156,7 +156,7 @@ function classify(scan: PageScan): ChallengeResult {
     );
   }
 
-  // 2. MFA / 2FA — short numeric input or phrase match.
+  // 2. MFA / 2FA - short numeric input or phrase match.
   if (scan.hasMfaInput || anyPhrase(t, MFA_PHRASES)) {
     return challenge(
       "mfa",
@@ -166,7 +166,7 @@ function classify(scan: PageScan): ChallengeResult {
     );
   }
 
-  // 3. Account creation required — registration form with password field.
+  // 3. Account creation required - registration form with password field.
   if (
     anyPhrase(t, ACCOUNT_CREATION_PHRASES) &&
     scan.hasPasswordField &&
@@ -179,7 +179,7 @@ function classify(scan: PageScan): ChallengeResult {
     );
   }
 
-  // 4. Login required — login form without account-creation signals.
+  // 4. Login required - login form without account-creation signals.
   if (
     anyPhrase(t, LOGIN_PHRASES) &&
     scan.hasPasswordField &&

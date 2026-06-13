@@ -152,7 +152,7 @@ function computeConfidence(
   const needsInput = (draftText.match(/\[NEEDS INPUT/gi) ?? []).length;
 
   if (kbCount === 0) {
-    // No verified narrative content to draw on — require KB updates first.
+    // No verified narrative content to draw on - require KB updates first.
     return Math.max(55, 65 - needsInput * 3);
   }
 
@@ -165,7 +165,7 @@ function computeConfidence(
 }
 
 export async function POST(request: Request) {
-  // Generating a draft is a write action — viewers are read-only (Contracts §16).
+  // Generating a draft is a write action - viewers are read-only (Contracts §16).
   const roleCheck = await requireRole("writer");
   if ("error" in roleCheck) return roleCheck.error;
 
@@ -202,7 +202,7 @@ export async function POST(request: Request) {
     return jsonError("Authentication required.", "unauthenticated", 401);
   }
 
-  // Derive organization_id server-side from the profile — never from the body.
+  // Derive organization_id server-side from the profile - never from the body.
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("id, organization_id")

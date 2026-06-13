@@ -21,12 +21,12 @@ export type OpportunityFilterValue = {
   query: string;
   category: FunderCategory | "all";
   status: OpportunityStatus | "all";
-  /** Funding source bucket — driven by the source-type tabs above the panel. */
+  /** Funding source bucket - driven by the source-type tabs above the panel. */
   sourceType: OpportunitySourceType | "all";
   /** Deadline range as YYYY-MM-DD date-input strings ("" = unbounded). */
   deadlineFrom: string;
   deadlineTo: string;
-  /** Eligibility score range as 0–100 strings ("" = unbounded). */
+  /** Eligibility score range as 0-100 strings ("" = unbounded). */
   scoreMin: string;
   scoreMax: string;
 };
@@ -75,7 +75,7 @@ function isActive(value: OpportunityFilterValue): boolean {
 
 /**
  * Filter controls for the opportunities list: keyword search, category, status,
- * a deadline range, and an eligibility-score range. Fully controlled — the
+ * a deadline range, and an eligibility-score range. Fully controlled - the
  * parent owns the filter state and applies it (OpportunityTable).
  */
 export function OpportunityFilters({ value, onChange }: OpportunityFiltersProps) {

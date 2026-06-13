@@ -35,7 +35,7 @@ export type NavItem = {
 };
 
 /**
- * Dashboard sidebar navigation — mirrors BLUEPRINT.md section 3.3.
+ * Dashboard sidebar navigation - mirrors BLUEPRINT.md section 3.3.
  * Order and labels are intentional; routes match the App Router structure
  * under src/app/(dashboard)/.
  */
@@ -60,7 +60,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Settings", href: "/settings", icon: Settings },
   // Billing is owner-only (BLUEPRINT §3.2 / updated §3.3 navigation).
   { label: "Billing", href: "/billing", icon: CreditCard, roles: ["owner"] },
-  // Admin — Audit Log is owner/admin only (BLUEPRINT updated §3.3 navigation).
+  // Admin - Audit Log is owner/admin only (BLUEPRINT updated §3.3 navigation).
   {
     label: "Audit Log",
     href: "/admin/audit-log",

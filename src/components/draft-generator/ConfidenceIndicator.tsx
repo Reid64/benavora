@@ -50,7 +50,7 @@ function bandFor(score: number): Band {
   }
   return {
     label: "Insufficient data",
-    hint: "Not enough verified content — update your Knowledge Base before submitting.",
+    hint: "Not enough verified content - update your Knowledge Base before submitting.",
     bar: "bg-red-500",
     text: "text-red-700",
     icon: ShieldAlert,

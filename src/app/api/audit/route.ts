@@ -9,7 +9,7 @@ import { logAudit, type AuditAction } from "@/lib/audit/logger";
 // directly (document upload/delete, application stage transitions, settings
 // edits). Those can't write an audit row server-side on their own, so they POST
 // here afterward. This endpoint derives organization_id and the acting user from
-// the SESSION (never the body — Contracts §2) and stamps the real client IP and
+// the SESSION (never the body - Contracts §2) and stamps the real client IP and
 // user agent from the request headers.
 //
 // Trust model: the action/entity are reported by the client, but the actor and

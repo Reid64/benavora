@@ -1,4 +1,4 @@
-// Government Grant Research Agent — AGENTS.md Agent 14.
+// Government Grant Research Agent - AGENTS.md Agent 14.
 //
 // Discovers federal, state, county, and city grant opportunities and turns them
 // into opportunity (and funder) records. It drives off the organization's active
@@ -24,7 +24,7 @@
 // eligibility scoring runs on each new one (§17); de-duplication (URL, then
 // fuzzy name+funder) runs before any insert (§17); the run logs to agent_runs
 // with token usage via BaseAgent (§15). Work is bounded so the run stays within
-// the 60s agent ceiling — any truncation is recorded in the run summary so a cap
+// the 60s agent ceiling - any truncation is recorded in the run summary so a cap
 // is never silent.
 
 import { DEFAULT_MAX_TOKENS, DEFAULT_MODEL } from "@/lib/ai/claude";
@@ -101,7 +101,7 @@ export interface GovernmentGrantsOptions extends BaseAgentOptions {
   focus?: ResearchFocus;
 }
 
-// Run bounds — keep the synchronous pipeline within the 60s agent ceiling
+// Run bounds - keep the synchronous pipeline within the 60s agent ceiling
 // (AGENTS.md §15). These are whole-run caps, applied across every profile.
 const MAX_QUERIES_PER_PROFILE = 4;
 const MAX_HITS_PER_QUERY = 5;
@@ -148,7 +148,7 @@ export class GovernmentGrantsResearchAgent extends BaseAgent<
       organizationId: this.organizationId,
     };
 
-    // URLs seen anywhere in this run (across profiles) — never fetch twice.
+    // URLs seen anywhere in this run (across profiles) - never fetch twice.
     const seenUrls = new Set<string>();
     const newOpportunityIds: string[] = [];
     let opportunitiesFound = 0;
@@ -338,7 +338,7 @@ export class GovernmentGrantsResearchAgent extends BaseAgent<
 
   /**
    * The profiles this run will process. Two modes:
-   *   - Caller-supplied ids (a single "Run Now"): honor the explicit choice —
+   *   - Caller-supplied ids (a single "Run Now"): honor the explicit choice -
    *     any active profile, even one not tagged government. Missing or paused
    *     profiles are silently skipped.
    *   - No ids ("Run all"): every active profile carrying a government category,
@@ -531,7 +531,7 @@ export interface GovIdentifiers {
  * Extract CFDA / NOFO numbers and the SAM.gov registration requirement from page
  * text. Conservative: a CFDA number is only taken when the "CFDA" / "Assistance
  * Listing" label appears nearby, so stray "12.345"-shaped strings are not
- * mistaken for identifiers. Returns empty results when the page states none —
+ * mistaken for identifiers. Returns empty results when the page states none -
  * nothing is fabricated (Contracts §9).
  */
 export function extractGovIdentifiers(pageText: string): GovIdentifiers {

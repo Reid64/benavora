@@ -95,7 +95,7 @@ type OpportunityRow = {
  * full agent-run history, and a feed of recently discovered opportunities.
  *
  * Triggering a run POSTs to /api/agents/research; the history comes from
- * /api/agents/research/status — both authenticate and derive organization_id
+ * /api/agents/research/status - both authenticate and derive organization_id
  * server-side, so this client never sends an organization id (Contracts §2,
  * §16). Reads are RLS-scoped to the organization.
  */
@@ -371,7 +371,7 @@ function computeSchedules(
     for (const p of inScope) {
       const last = p.last_run_at ? Date.parse(p.last_run_at) : NaN;
       if (!Number.isFinite(last)) {
-        due = true; // never run (or unparseable) — due now
+        due = true; // never run (or unparseable) - due now
         continue;
       }
       const next = last + family.intervalMs;

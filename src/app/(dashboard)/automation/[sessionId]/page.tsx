@@ -46,7 +46,7 @@ const POLL_INTERVAL_MS = 4000;
 /**
  * Automation session detail (BLUEPRINT §Phase 3). Shows the step-by-step
  * timeline, the screenshot gallery, the form-field report (with editable inputs
- * for unmapped fields), and — while the session awaits approval — the human
+ * for unmapped fields), and - while the session awaits approval - the human
  * approval workflow that gates submission (BEHAVIORAL_CONTRACTS §18). After
  * submission it shows the confirmation number and screenshots.
  *
@@ -533,7 +533,7 @@ export default function AutomationSessionPage({
               <p className="mt-0.5 text-sm text-navy-600">
                 Confirmation number:{" "}
                 <span className="font-mono font-medium text-navy-900">
-                  {session.confirmation_number ?? "—"}
+                  {session.confirmation_number ?? "-"}
                 </span>
               </p>
             </div>
@@ -541,7 +541,7 @@ export default function AutomationSessionPage({
         </Card>
       )}
 
-      {/* Approval workflow — hidden when paused for a challenge; the challenge
+      {/* Approval workflow - hidden when paused for a challenge; the challenge
           banner above shows the Resume button instead. */}
       {!isPausedForChallenge &&
         (awaiting || session.status === "approved" || isSubmitted) && (

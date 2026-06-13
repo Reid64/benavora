@@ -6,7 +6,7 @@ import { Search, X } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
 export type SearchBarProps = {
-  /** Debounced change handler — fires `delay` ms after typing stops. */
+  /** Debounced change handler - fires `delay` ms after typing stops. */
   onSearch: (value: string) => void;
   /** Placeholder text. */
   placeholder?: string;

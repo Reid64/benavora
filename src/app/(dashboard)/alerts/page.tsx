@@ -61,8 +61,8 @@ const SNOOZE_OPTIONS: { label: string; ms: number }[] = [
 
 /**
  * Alerts (daily action list). Surfaces every active alert generated from live
- * data — deadlines within 7 days, opportunities new since last login,
- * applications needing action, and drafts pending review — grouped by category
+ * data - deadlines within 7 days, opportunities new since last login,
+ * applications needing action, and drafts pending review - grouped by category
  * and ordered by urgency. Each alert links to the record it concerns; every
  * alert can be dismissed or snoozed. Reads/writes are RLS-scoped to the org.
  */
@@ -139,7 +139,7 @@ export default function AlertsPage() {
             Alerts
           </h1>
           <p className="mt-1 text-sm text-navy-500">
-            Your daily action list — deadlines, new opportunities, applications
+            Your daily action list - deadlines, new opportunities, applications
             needing action, and drafts pending review. Click any alert to jump
             to it; dismiss or snooze the ones you have handled.
           </p>

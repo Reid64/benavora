@@ -1,4 +1,4 @@
-// Grant narrative prompt template (Agent 05 — Narrative Drafting).
+// Grant narrative prompt template (Agent 05 - Narrative Drafting).
 //
 // Builds the system + user prompt for grant-style drafts (grant narrative,
 // budget narrative, impact statement, letter of inquiry, full proposal). The
@@ -39,7 +39,7 @@ function formatCurrencyRange(
       currency: "USD",
       maximumFractionDigits: 0,
     }).format(n);
-  if (min != null && max != null) return `${fmt(min)} – ${fmt(max)}`;
+  if (min != null && max != null) return `${fmt(min)} - ${fmt(max)}`;
   if (max != null) return `up to ${fmt(max)}`;
   if (min != null) return `from ${fmt(min)}`;
   return null;
@@ -103,7 +103,7 @@ function renderSuccessPatterns(
   }
   return patterns
     .map((p, i) => {
-      const example = p.example ? ` — e.g. "${p.example}"` : "";
+      const example = p.example ? ` - e.g. "${p.example}"` : "";
       return `${i + 1}. ${p.description}${example}`;
     })
     .join("\n");
@@ -122,7 +122,7 @@ function renderProvenNarratives(
           ? ` (effectiveness ${Math.round(narrative.effectivenessScore * 100)}%)`
           : "";
       const section = narrative.sectionType
-        ? `${humanizeEnum(narrative.sectionType)} — ` //
+        ? `${humanizeEnum(narrative.sectionType)} - ` //
         : "";
       return `${index + 1}. ${section}previously funded${score}:\n${narrative.narrativeText.trim()}`;
     })
@@ -148,12 +148,12 @@ export function buildGrantNarrativePrompt(
   const system = [
     `You are an expert grant writer for ${orgName}.`,
     "",
-    "ABSOLUTE RULES — these override every other instruction:",
+    "ABSOLUTE RULES - these override every other instruction:",
     "1. Use ONLY the organizational data provided below. Never invent facts.",
     "2. Never fabricate statistics, metrics, dollar figures, dates, certifications, accreditations, partnerships, or program outcomes that are not present in the provided data.",
     "3. If a required section needs information you were not given, insert a placeholder exactly in this form: [NEEDS INPUT: a short description of what is missing]. Do not guess.",
     "4. Do not promise future programs or outcomes that are not described in the provided program data.",
-    "5. Write in a confident, specific, funder-aligned voice. Mirror the structure and language of any 'previously funded' narratives you are given — they have won before.",
+    "5. Write in a confident, specific, funder-aligned voice. Mirror the structure and language of any 'previously funded' narratives you are given - they have won before.",
   ].join("\n");
 
   const opportunityLines: string[] = [
@@ -179,7 +179,7 @@ export function buildGrantNarrativePrompt(
     "",
     `What the funder is looking for: ${
       context.opportunity.description?.trim() ||
-      "Not stated explicitly — infer from the category and requirements below, and flag anything you cannot ground with [NEEDS INPUT: ...]."
+      "Not stated explicitly - infer from the category and requirements below, and flag anything you cannot ground with [NEEDS INPUT: ...]."
     }`,
     "",
     "## Opportunity details",
@@ -191,7 +191,7 @@ export function buildGrantNarrativePrompt(
     "## Reusable narrative blocks (verified Knowledge Base content)",
     renderKnowledgeEntries(context.knowledgeEntries),
     "",
-    "## Previously funded narratives — weight their patterns, structure, and language heavily",
+    "## Previously funded narratives - weight their patterns, structure, and language heavily",
     renderProvenNarratives(context.provenNarratives),
     "",
     "## Winning language patterns for this funder type (apply these throughout)",

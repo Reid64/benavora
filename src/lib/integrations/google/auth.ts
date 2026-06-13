@@ -1,4 +1,4 @@
-﻿// Google OAuth â€” token issuance, storage, and refresh (BLUEPRINT Phase 4,
+﻿// Google OAuth - token issuance, storage, and refresh (BLUEPRINT Phase 4,
 // BEHAVIORAL_CONTRACTS Â§19 "Email Integration").
 //
 // SERVER-ONLY. Reads GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / GOOGLE_REDIRECT_URI
@@ -8,10 +8,10 @@
 // access token is encrypted the same way for defense in depth.
 //
 // Tenant scope: every read/write here is explicitly filtered by organization_id.
-// Token persistence uses the service-role admin client â€” writing OAuth secrets is
+// Token persistence uses the service-role admin client - writing OAuth secrets is
 // a privileged server operation analogous to agent writes, and it sidesteps RLS
 // edge cases on upsert. The organization is always supplied by the caller (the
-// route derives it from the session, never from a request body â€” Contracts Â§2).
+// route derives it from the session, never from a request body - Contracts Â§2).
 //
 // PREREQUISITES (manual, Google Cloud Console):
 //   - Project with Gmail API + Google Calendar API enabled
@@ -31,7 +31,7 @@ export const GOOGLE_PROVIDER = "google";
 
 /**
  * OAuth scopes requested for Phase 4 (Gmail sync/send + Calendar events).
- * Note: no `userinfo.email` scope â€” the connected address is read from Gmail's
+ * Note: no `userinfo.email` scope - the connected address is read from Gmail's
  * users.getProfile after consent instead (works under gmail.readonly).
  */
 export const GOOGLE_SCOPES = [

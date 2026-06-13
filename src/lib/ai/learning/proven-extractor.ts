@@ -1,16 +1,16 @@
-// Proven-narrative extractor — the AI half of the Recursive Learning Agent
-// (AGENTS.md Agent 10, steps 2a–2c).
+// Proven-narrative extractor - the AI half of the Recursive Learning Agent
+// (AGENTS.md Agent 10, steps 2a-2c).
 //
 // Given the narrative that was actually submitted on an AWARDED (or PARTIAL)
 // application, it splits the draft into reusable sections, labels each with a
-// Knowledge Base category, and — when a section clearly derives from one of the
-// organization's existing KB entries — links it back to that entry's id. The
+// Knowledge Base category, and - when a section clearly derives from one of the
+// organization's existing KB entries - links it back to that entry's id. The
 // agent then upserts proven_narratives and flags the matched KB entries.
 //
 // This module owns prompt construction and response parsing only; the agent
 // calls Claude (callClaude) and persists the results. Per Behavioral Contracts
 // §9/§10 the model must quote the submitted draft verbatim and never invent
-// content — sections that don't map to a real, reusable passage are dropped.
+// content - sections that don't map to a real, reusable passage are dropped.
 
 import { humanizeEnum } from "@/lib/utils/formatters";
 import {
@@ -21,7 +21,7 @@ import type { Enums } from "@/types/database";
 
 type KnowledgeBaseCategory = Enums<"knowledge_base_category">;
 
-/** Section types the extractor may assign — narrative KB categories only. */
+/** Section types the extractor may assign - narrative KB categories only. */
 const SECTION_TYPES: readonly KnowledgeBaseCategory[] =
   KNOWLEDGE_BASE_CATEGORIES.filter((c) => c !== STANDARD_ANSWER_CATEGORY);
 
@@ -36,7 +36,7 @@ export interface KnowledgeCandidate {
 export interface ProvenExtractionContext {
   /** The frozen draft submitted on the awarded application. */
   narrativeSnapshot: string;
-  /** Funder category the award came from — recorded on each proven narrative. */
+  /** Funder category the award came from - recorded on each proven narrative. */
   funderCategory: string;
   /** Existing KB entries a section may be linked back to (optional). */
   knowledgeCandidates: KnowledgeCandidate[];
@@ -87,7 +87,7 @@ export function buildProvenExtractionPrompt(
     "2. Extract only substantive, self-contained passages worth reusing (a mission statement, need statement, impact paragraph, capacity description, etc.). Skip salutations, addresses, dates, and funder-specific filler.",
     `3. Label each section with exactly one category from this list: ${SECTION_TYPES.join(", ")}.`,
     "4. If a section clearly derives from one of the provided Knowledge Base entries, set knowledgeBaseId to that entry's id. Otherwise set knowledgeBaseId to null.",
-    "5. Return AT MOST 8 sections — the strongest ones.",
+    "5. Return AT MOST 8 sections - the strongest ones.",
     "6. Respond with ONLY a single JSON object, no prose and no code fences, in exactly this shape:",
     JSON.stringify({
       sections: [

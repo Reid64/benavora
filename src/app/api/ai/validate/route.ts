@@ -45,7 +45,7 @@ function isRateLimited(orgId: string): boolean {
 }
 
 export async function POST(request: Request) {
-  // Running an agent is a write action — viewers are read-only (Contracts §16).
+  // Running an agent is a write action - viewers are read-only (Contracts §16).
   const gate = await requireRole("writer");
   if ("error" in gate) return gate.error;
   const { supabase, userId, organizationId } = gate;
@@ -152,7 +152,7 @@ export async function POST(request: Request) {
       createdBy: userId,
       claudeModel: model,
       geminiModel: undefined,
-      // A verdict is small structured JSON — a tight ceiling keeps cost down.
+      // A verdict is small structured JSON - a tight ceiling keeps cost down.
       maxTokens: Math.min(maxTokens, 1024),
     });
 

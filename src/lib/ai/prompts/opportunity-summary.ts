@@ -1,4 +1,4 @@
-// Opportunity Summary prompt template — AGENTS.md Agent 01 (Grant Summary).
+// Opportunity Summary prompt template - AGENTS.md Agent 01 (Grant Summary).
 //
 // Builds the system + user prompt that turns a raw opportunity page (or pasted
 // description) into structured, actionable fields: funder/program name, funding
@@ -7,7 +7,7 @@
 //
 // The model returns ONLY a single JSON object so the agent can parse it and
 // patch the opportunity record. As with every extraction prompt the model must
-// report what the source actually says and use null where a fact is absent —
+// report what the source actually says and use null where a fact is absent -
 // it never invents figures, dates, or requirements (BEHAVIORAL_CONTRACTS §9).
 
 export interface OpportunitySummaryPromptInput {

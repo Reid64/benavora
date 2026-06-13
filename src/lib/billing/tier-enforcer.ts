@@ -5,14 +5,14 @@
 // them (Contracts §25). Exceeding a limit yields a 429 with an upgrade prompt.
 //
 // Two guards:
-//   - enforceLimit() — the metered daily/cumulative caps (agent_runs, api_calls,
+//   - enforceLimit() - the metered daily/cumulative caps (agent_runs, api_calls,
 //     email_sends, storage_bytes) from TIER_LIMITS, via the usage tracker.
-//   - enforceAiRateLimit() — the per-minute burst guard on AI endpoints
+//   - enforceAiRateLimit() - the per-minute burst guard on AI endpoints
 //     (Contracts §16: 20 req/min/org), an in-process complement to the daily
 //     api_calls cap.
 //
 // Callers pass their own Supabase client (session client in routes, admin client
-// in agents) — the same convention as the usage tracker.
+// in agents) - the same convention as the usage tracker.
 
 import { NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";

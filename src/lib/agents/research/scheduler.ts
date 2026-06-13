@@ -128,8 +128,8 @@ function mapRow(row: SearchProfileRow): ResearchSearchProfile {
 
 /**
  * The profile's funding categories minus its negative-filter exclusions
- * (Configuration page "excluded categories"). Agents use this — not the raw
- * `categories` — when deciding whether a profile is in scope for their family,
+ * (Configuration page "excluded categories"). Agents use this - not the raw
+ * `categories` - when deciding whether a profile is in scope for their family,
  * so an excluded category never pulls a profile into a sweep.
  */
 export function effectiveCategories(
@@ -301,7 +301,7 @@ export function buildSearchQueries(profile: ResearchSearchProfile): string[] {
 
 /**
  * Record a completed run: stamp last_run_at and add `resultsFound` to the
- * lifetime results_count. Best-effort — a logging failure never fails the run.
+ * lifetime results_count. Best-effort - a logging failure never fails the run.
  */
 export async function markProfileRun(
   ctx: SchedulerContext,

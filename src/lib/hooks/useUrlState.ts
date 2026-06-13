@@ -12,7 +12,7 @@ export type UrlStateUpdates = Record<string, string | null | undefined>;
  * the back button (and become shareable links).
  *
  * Returns the live `searchParams` plus a `setParams` setter that merges updates
- * into the current query and performs a shallow URL change — no scroll reset and
+ * into the current query and performs a shallow URL change - no scroll reset and
  * no server round-trip, since every consumer here is a client component reading
  * its own state from the URL. Keys whose value is "" / null / undefined are
  * removed so the URL only ever carries non-default state.

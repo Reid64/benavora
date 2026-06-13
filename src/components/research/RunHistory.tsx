@@ -31,14 +31,14 @@ const STATUS_COLOR: Record<AgentRunStatus, BadgeColor> = {
 
 /** Format a duration in ms as a compact label. */
 function formatDuration(ms: number | null): string {
-  if (ms == null) return "—";
+  if (ms == null) return "-";
   if (ms < 1000) return `${ms}ms`;
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
 /**
  * Agent run history (AGENTS.md §15). Shows the organization's recent research
- * agent runs — status, items found/processed, duration, and any error — in a
+ * agent runs - status, items found/processed, duration, and any error - in a
  * sortable, paginated table. Presentational: the page fetches the rows from the
  * status endpoint (organization_id derived server-side, never sent here).
  */
@@ -107,7 +107,7 @@ export function RunHistory({ runs, isLoading }: RunHistoryProps) {
             {r.error_message}
           </span>
         ) : (
-          <span className="text-navy-300">—</span>
+          <span className="text-navy-300">-</span>
         ),
     },
   ];

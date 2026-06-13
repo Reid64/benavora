@@ -20,7 +20,7 @@ import { humanizeEnum } from "@/lib/utils/formatters";
 
 // Audit Log viewer (BLUEPRINT updated §3.3 / Behavioral Contracts §24).
 //
-// Owner/admin only — the sidebar hides it for others and this page re-checks the
+// Owner/admin only - the sidebar hides it for others and this page re-checks the
 // session role as a second barrier (the API route is the real gate). Lists the
 // org's audit trail with filtering by user, action, entity type, and date range,
 // and exports the filtered view as CSV (itself an audited 'export' action, §24).
@@ -40,7 +40,7 @@ type AuditEntry = {
 
 type Actor = { id: string; name: string | null; email: string | null };
 
-// The audit_action enum (SCHEMA_REGISTRY) — drives the action filter.
+// The audit_action enum (SCHEMA_REGISTRY) - drives the action filter.
 const AUDIT_ACTIONS = [
   "create",
   "update",
@@ -81,7 +81,7 @@ function formatTimestamp(iso: string): string {
 }
 
 function entityLabel(entry: AuditEntry): string {
-  if (!entry.entityType) return "—";
+  if (!entry.entityType) return "-";
   return humanizeEnum(entry.entityType);
 }
 
@@ -94,7 +94,7 @@ function detailsSummary(details: Record<string, unknown>): string {
 }
 
 function formatDetailValue(value: unknown): string {
-  if (value === null || value === undefined) return "—";
+  if (value === null || value === undefined) return "-";
   if (typeof value === "object") return JSON.stringify(value);
   return String(value);
 }
@@ -268,7 +268,7 @@ export default function AuditLogPage() {
         const summary = detailsSummary(r.details);
         return (
           <span className="block max-w-md truncate text-sm text-navy-500">
-            {summary || "—"}
+            {summary || "-"}
           </span>
         );
       },

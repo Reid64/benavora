@@ -1,4 +1,4 @@
-// Grant Summary Agent — AGENTS.md Agent 01.
+// Grant Summary Agent - AGENTS.md Agent 01.
 //
 // Turns a raw opportunity (a URL and/or pasted description) into structured,
 // actionable fields. It optionally fetches the source page server-side, sends
@@ -115,7 +115,7 @@ export class GrantSummaryAgent extends BaseAgent<
           summary: null,
           updatedFields: [],
         },
-        outputSummary: `No source text for "${opp.name}" — flagged for manual entry.`,
+        outputSummary: `No source text for "${opp.name}" - flagged for manual entry.`,
         itemsFound: 0,
         itemsProcessed: 0,
         tokensUsed: 0,

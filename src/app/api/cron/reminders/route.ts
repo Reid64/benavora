@@ -19,7 +19,7 @@ import type { Enums, TablesInsert } from "@/types/database";
 //
 // For each incomplete deadline, it checks the 30/14/7/3/1-day reminder windows.
 // When a window is reached and its reminder flag is still false (Contracts §11:
-// "Reminder flags are one-way — once sent, never reset"), the sweep:
+// "Reminder flags are one-way - once sent, never reset"), the sweep:
 //   a. Sets the reminder flag(s) to true.
 //   b. If the org has Google connected, emails a reminder via Gmail (Contracts §19).
 //   c. Logs the reminder on the deadline's parent record as a note (when one exists).
@@ -129,7 +129,7 @@ async function runSweep(request: Request) {
     if (unsent.length === 0) continue;
 
     // Flip every reached-but-unsent flag (older, looser windows that were never
-    // fired are caught up silently — flags are one-way, Contracts §11).
+    // fired are caught up silently - flags are one-way, Contracts §11).
     const patch: Record<string, boolean> = {};
     for (const r of unsent) patch[r.column] = true;
 
@@ -216,7 +216,7 @@ async function resolveGmail(
     entry = null;
   }
 
-  // Cache null too — don't retry a failed/absent connection for every deadline.
+  // Cache null too - don't retry a failed/absent connection for every deadline.
   cache.set(organizationId, entry as GmailSyncEntry);
   return entry;
 }

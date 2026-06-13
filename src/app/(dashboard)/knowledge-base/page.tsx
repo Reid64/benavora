@@ -111,7 +111,7 @@ export default function KnowledgeBaseOverviewPage() {
           Knowledge Base
         </h1>
         <p className="mt-1 text-sm text-navy-500">
-          The verified organizational content the AI draws from — never
+          The verified organizational content the AI draws from - never
           fabricated beyond what you store here.
         </p>
       </div>

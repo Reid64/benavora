@@ -44,7 +44,7 @@ export interface ClaudeRequest {
   model?: string;
   /** Max output tokens. Defaults to {@link DEFAULT_MAX_TOKENS}. */
   maxTokens?: number;
-  /** Sampling temperature (0–1). */
+  /** Sampling temperature (0-1). */
   temperature?: number;
 }
 
@@ -59,7 +59,7 @@ export interface ClaudeResponse {
 
 /**
  * Send a single-turn message to Claude and return the text plus token usage.
- * Throws if ANTHROPIC_API_KEY is missing or the API call fails — callers are
+ * Throws if ANTHROPIC_API_KEY is missing or the API call fails - callers are
  * responsible for logging the failure to agent_runs (agents never fail silently).
  */
 export async function callClaude(req: ClaudeRequest): Promise<ClaudeResponse> {

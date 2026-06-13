@@ -20,7 +20,7 @@ import { PIPELINE_STAGES } from "@/lib/utils/constants";
 import { formatCurrency, formatDate, formatRelative } from "@/lib/utils/formatters";
 
 /**
- * Applications list view (BLUEPRINT §4.5) — the table alternative to the kanban
+ * Applications list view (BLUEPRINT §4.5) - the table alternative to the kanban
  * board. Supports keyword search and a stage filter; clicking a row opens the
  * application detail. Reads are RLS-scoped to the organization.
  */
@@ -107,7 +107,7 @@ export default function ApplicationsListPage() {
         row.requested_amount != null ? (
           formatCurrency(row.requested_amount)
         ) : (
-          <span className="text-navy-400">—</span>
+          <span className="text-navy-400">-</span>
         ),
     },
     {
@@ -119,7 +119,7 @@ export default function ApplicationsListPage() {
         row.deadline ? (
           formatDate(row.deadline)
         ) : (
-          <span className="text-navy-400">—</span>
+          <span className="text-navy-400">-</span>
         ),
     },
     {

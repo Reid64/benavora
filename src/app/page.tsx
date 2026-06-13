@@ -14,7 +14,7 @@ export default function LandingPage() {
           <span className="text-plum-400">Change More.</span>
         </h1>
         <p className="max-w-xl text-lg text-navy-200">
-          Nonprofit funding automation — AI-powered grant research, drafting, and lifecycle tracking, so a single operator can run hundreds of opportunities without anything slipping through.
+          Nonprofit funding automation - AI-powered grant research, drafting, and lifecycle tracking, so a single operator can run hundreds of opportunities without anything slipping through.
         </p>
         <div className="mt-2 flex flex-wrap items-center justify-center gap-3">
           <Link href="/register" className="rounded-lg bg-teal-500 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-teal-900/40 transition hover:bg-teal-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900">

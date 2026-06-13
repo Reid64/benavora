@@ -1,24 +1,24 @@
 // Cross-provider consensus validation (api/ai/validate, migration 014).
 //
 // After the research agents discover an opportunity, each finding is sent to two
-// INDEPENDENT AI providers — Anthropic Claude and the free-tier Google Gemini —
+// INDEPENDENT AI providers - Anthropic Claude and the free-tier Google Gemini -
 // which each judge, on their own, whether the opportunity holds up:
-//   1. existence    — does this opportunity / funding program plausibly exist?
-//   2. eligibility  — are the stated eligibility requirements coherent & sane?
-//   3. deadline     — is the deadline plausible (not past, not absurd)?
-//   4. amounts      — are the dollar figures internally consistent & realistic?
+//   1. existence    - does this opportunity / funding program plausibly exist?
+//   2. eligibility  - are the stated eligibility requirements coherent & sane?
+//   3. deadline     - is the deadline plausible (not past, not absurd)?
+//   4. amounts      - are the dollar figures internally consistent & realistic?
 //
 // HONESTY (BEHAVIORAL_CONTRACTS §9): these providers reason from their training
-// knowledge and the finding's own internal consistency — they do NOT browse the
+// knowledge and the finding's own internal consistency - they do NOT browse the
 // live web here. The prompt is explicit about this: a provider that cannot
 // confidently judge a field returns `unverifiable` rather than inventing a fact.
-// The value is the CONSENSUS — two independently-built models agreeing is a far
+// The value is the CONSENSUS - two independently-built models agreeing is a far
 // stronger signal than either alone, and disagreement flags a finding for human
 // review.
 //
 // Each provider's verdict is upserted to `validations` (one row per provider).
 // An opportunity earns the "Verified" badge only when BOTH providers return
-// `verified` — see {@link computeConsensus}, which is pure so the UI can derive
+// `verified` - see {@link computeConsensus}, which is pure so the UI can derive
 // the same badge from the stored rows.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -91,12 +91,12 @@ export interface ValidationRunResult {
 
 // --- prompt ------------------------------------------------------------------
 
-const SYSTEM_PROMPT = `You are a grant-research fact-checker validating an opportunity that an automated research agent discovered. Judge ONLY from your own knowledge and the internal consistency of the data you are given — you do NOT have live web access in this task. If you cannot confidently judge a field, mark it not-ok and say why; never invent a fact, a URL, or a deadline to fill a gap (fabrication is worse than admitting uncertainty).
+const SYSTEM_PROMPT = `You are a grant-research fact-checker validating an opportunity that an automated research agent discovered. Judge ONLY from your own knowledge and the internal consistency of the data you are given - you do NOT have live web access in this task. If you cannot confidently judge a field, mark it not-ok and say why; never invent a fact, a URL, or a deadline to fill a gap (fabrication is worse than admitting uncertainty).
 
 Assess four things:
 - existence: Does a funding opportunity / program like this plausibly exist? Does the funder name, category, and URL look real and mutually consistent?
 - eligibility: Are the eligibility requirements coherent and internally consistent (not contradictory, not impossible)?
-- deadline: Is the deadline plausible — a real future or recent date, not absurd or contradictory?
+- deadline: Is the deadline plausible - a real future or recent date, not absurd or contradictory?
 - amounts: Are the dollar figures realistic and internally consistent (min <= max, available covers the range, sane magnitude for this funder type)?
 
 Respond with ONLY a JSON object, no prose, no code fence:
@@ -273,7 +273,7 @@ export interface ValidateOptions {
 /**
  * Validate one opportunity across both providers and upsert each verdict to
  * `validations`. The two provider calls run concurrently and independently
- * (Promise.allSettled) — one provider failing or being unconfigured never
+ * (Promise.allSettled) - one provider failing or being unconfigured never
  * aborts the other; that provider is recorded as unavailable and consensus
  * stays "pending". Returns every provider result plus the computed consensus.
  */

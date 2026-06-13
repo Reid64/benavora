@@ -148,7 +148,7 @@ export function AssemblyPanel({ applicationId }: AssemblyPanelProps) {
                     All required documents attached
                   </p>
                   <p className="mt-0.5 text-xs text-navy-500">
-                    Submission package ready — link expires in 1 hour.
+                    Submission package ready - link expires in 1 hour.
                   </p>
                 </div>
                 <a

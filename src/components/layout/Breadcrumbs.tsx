@@ -22,7 +22,7 @@ const SEGMENT_LABELS: Record<string, string> = {
 
 function labelForSegment(segment: string): string {
   if (SEGMENT_LABELS[segment]) return SEGMENT_LABELS[segment];
-  // Dynamic route params (uuids) — show a generic, non-leaky label.
+  // Dynamic route params (uuids) - show a generic, non-leaky label.
   if (/^[0-9a-f-]{12,}$/i.test(segment)) return "Detail";
   // Fallback: title-case the raw segment.
   return segment

@@ -1,4 +1,4 @@
-// Review prompt template — AGENTS.md Agent 08 (Review).
+// Review prompt template - AGENTS.md Agent 08 (Review).
 //
 // Builds the system + user prompt for a critical quality review of a drafted
 // application before submission. The reviewer checks for claims not supported by
@@ -23,7 +23,7 @@ export interface ReviewContext {
   draftContent: string;
   /**
    * Verified organizational facts the draft's claims should be checkable
-   * against. Kept short — titles + content of the relevant KB entries.
+   * against. Kept short - titles + content of the relevant KB entries.
    */
   knowledgeFacts: string[];
 }
@@ -52,7 +52,7 @@ export function buildReviewPrompt(context: ReviewContext): ReviewPrompt {
     "1. Be rigorous and specific. Flag factual claims not supported by the verified organizational data provided.",
     "2. Call out overly optimistic projections, vague language where specifics are needed, grammar and tone issues, missing sections, weak arguments, and risky claims that could harm credibility.",
     "3. Judge alignment with the funder's stated priorities.",
-    "4. Scores are integers 0-100. Be honest — a low score with clear fixes is more useful than false reassurance.",
+    "4. Scores are integers 0-100. Be honest - a low score with clear fixes is more useful than false reassurance.",
     "5. Respond with ONLY a single JSON object, no prose and no code fences, in exactly this shape:",
     JSON.stringify({
       overallReadiness: "<integer 0-100>",

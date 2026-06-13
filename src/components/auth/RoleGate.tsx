@@ -17,7 +17,7 @@ export type RoleGateProps = {
 
 /**
  * Conditionally renders UI based on the signed-in user's role (BLUEPRINT §3.2).
- * Hides actions a user cannot perform — e.g. wrap a "Delete" button in
+ * Hides actions a user cannot perform - e.g. wrap a "Delete" button in
  * <RoleGate requiredRole="admin">. This is a UX convenience only; the server
  * (role-gate.ts / RLS) is the real enforcement boundary.
  *

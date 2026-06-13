@@ -98,7 +98,7 @@ function jsonError(message: string, code: string, status: number) {
 }
 
 export async function POST(request: Request) {
-  // Running an agent is a write action — viewers are read-only (Contracts §16).
+  // Running an agent is a write action - viewers are read-only (Contracts §16).
   const roleCheck = await requireRole("writer");
   if ("error" in roleCheck) return roleCheck.error;
 
@@ -127,7 +127,7 @@ export async function POST(request: Request) {
     );
   }
 
-  // profileId is optional for every type — an omitted id means "run all active
+  // profileId is optional for every type - an omitted id means "run all active
   // profiles carrying this agent's categories" (each agent self-selects).
   const hasProfileId = typeof profileId === "string" && profileId.trim() !== "";
   const resolvedProfileId = hasProfileId ? (profileId as string).trim() : null;
@@ -142,7 +142,7 @@ export async function POST(request: Request) {
     return jsonError("Authentication required.", "unauthenticated", 401);
   }
 
-  // Derive organization_id server-side from the profile — never from the body.
+  // Derive organization_id server-side from the profile - never from the body.
   const { data: profileRow, error: profileError } = await supabase
     .from("profiles")
     .select("id, organization_id")

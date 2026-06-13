@@ -76,7 +76,7 @@ function urgencyClasses(days: number | null): {
 }
 
 function formatDate(dateStr: string | null): string {
-  if (!dateStr) return "—";
+  if (!dateStr) return "-";
   return new Date(dateStr).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
@@ -213,8 +213,8 @@ export default function RenewalsPage() {
               {renewals.map((renewal) => {
                 const days = daysUntil(renewal.reporting_deadline);
                 const urgency = urgencyClasses(days);
-                const funderName = renewal.funders?.name ?? "—";
-                const oppName = renewal.opportunities?.name ?? "—";
+                const funderName = renewal.funders?.name ?? "-";
+                const oppName = renewal.opportunities?.name ?? "-";
                 const oppId = renewal.opportunity_id;
                 const appId = renewal.application_id;
                 const complianceLabel =
@@ -242,11 +242,11 @@ export default function RenewalsPage() {
                       {renewal.renewal_window_start || renewal.renewal_window_end ? (
                         <>
                           {formatDate(renewal.renewal_window_start)}
-                          {" – "}
+                          {" - "}
                           {formatDate(renewal.renewal_window_end)}
                         </>
                       ) : (
-                        "—"
+                        "-"
                       )}
                     </td>
                     <td className="whitespace-nowrap px-4 py-3">

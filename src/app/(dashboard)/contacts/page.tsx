@@ -14,7 +14,7 @@ import { canEdit, useProfile } from "@/lib/hooks/useProfile";
 
 /**
  * Contact list (BLUEPRINT §4.3). Reads are RLS-scoped to the organization, so
- * no organization_id filter is needed client-side — the policy enforces it.
+ * no organization_id filter is needed client-side - the policy enforces it.
  * Each contact is joined to its funder's name for display and search.
  */
 export default function ContactsPage() {

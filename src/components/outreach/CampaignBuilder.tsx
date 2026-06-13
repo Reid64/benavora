@@ -32,12 +32,12 @@ const PREVIEW_SAMPLE: Record<string, string> = {
 const INTRO_SEQUENCE: Array<{ subject: string; body: string; delayDays: number }> = [
   {
     delayDays: 0,
-    subject: "Introducing {foundation_name} — a potential partnership with {company_name}",
+    subject: "Introducing {foundation_name} - a potential partnership with {company_name}",
     body: `Hi {contact_name},
 
 I lead {foundation_name}, a nonprofit focused on {mission_snippet}.
 
-I'm reaching out because {company_name}'s work aligns closely with our {program_name}. We've made real progress — {impact_stat} — and we're looking for community partners who share our commitment.
+I'm reaching out because {company_name}'s work aligns closely with our {program_name}. We've made real progress - {impact_stat} - and we're looking for community partners who share our commitment.
 
 Would you be open to a brief conversation?
 
@@ -46,7 +46,7 @@ Warm regards,
   },
   {
     delayDays: 5,
-    subject: "Following up — {foundation_name} × {company_name}",
+    subject: "Following up - {foundation_name} × {company_name}",
     body: `Hi {contact_name},
 
 I wanted to follow up on my note from last week. I know your inbox is busy, so I'll keep this short.
@@ -67,7 +67,7 @@ I've reached out a couple of times about a potential partnership between {founda
 
 I want to be direct: we're looking for a {program_name} partner who shares our values. {impact_stat}.
 
-If that resonates, I'd love 20 minutes together. If not, no worries — I appreciate your time either way.
+If that resonates, I'd love 20 minutes together. If not, no worries - I appreciate your time either way.
 
 Thank you,
 {foundation_name}`,
@@ -126,7 +126,7 @@ export type CampaignBuilderProps = {
  * email_campaigns row, its ordered campaign_steps, and enrolls the chosen
  * outreach_contacts. Enforces the contract rules (Behavioral Contracts §13/§21):
  * at least one step and one contact, a minimum 1-day gap between steps, and only
- * the supported template variables. New campaigns save as 'draft' — activation
+ * the supported template variables. New campaigns save as 'draft' - activation
  * happens from the manager or the detail page.
  */
 export function CampaignBuilder({
@@ -506,7 +506,7 @@ export function CampaignBuilder({
                     Preview (sample data)
                   </p>
                   <p className="mt-1 text-sm font-medium text-navy-800">
-                    {renderPreview(step.subject) || "—"}
+                    {renderPreview(step.subject) || "-"}
                   </p>
                   <p className="mt-1 whitespace-pre-wrap text-sm text-navy-600">
                     {renderPreview(step.body)}
@@ -557,7 +557,7 @@ export function CampaignBuilder({
                         {c.contact_name ? ` · ${c.contact_name}` : ""}
                       </span>
                       <span className="block truncate text-xs text-navy-500">
-                        {c.email ?? "No email — cannot be sent to"}
+                        {c.email ?? "No email - cannot be sent to"}
                       </span>
                     </span>
                   </label>

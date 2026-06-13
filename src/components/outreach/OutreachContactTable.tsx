@@ -101,7 +101,7 @@ export function OutreachContactTable({
       header: "Contact",
       render: (row) => (
         <div className="min-w-0">
-          <p className="text-navy-800">{row.contact_name ?? "—"}</p>
+          <p className="text-navy-800">{row.contact_name ?? "-"}</p>
           {row.email && (
             <a
               href={`mailto:${row.email}`}
@@ -124,7 +124,7 @@ export function OutreachContactTable({
         row.company_type ? (
           humanizeEnum(row.company_type)
         ) : (
-          <span className="text-navy-400">—</span>
+          <span className="text-navy-400">-</span>
         ),
     },
     {
@@ -138,7 +138,7 @@ export function OutreachContactTable({
             {humanizeEnum(row.giving_likelihood)}
           </Badge>
         ) : (
-          <span className="text-navy-400">—</span>
+          <span className="text-navy-400">-</span>
         ),
     },
     {

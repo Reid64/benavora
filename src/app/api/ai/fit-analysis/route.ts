@@ -51,7 +51,7 @@ function isRateLimited(orgId: string): boolean {
 }
 
 export async function POST(request: Request) {
-  // Running an agent is a write action — viewers are read-only (Contracts §16).
+  // Running an agent is a write action - viewers are read-only (Contracts §16).
   const roleCheck = await requireRole("writer");
   if ("error" in roleCheck) return roleCheck.error;
 
@@ -77,7 +77,7 @@ export async function POST(request: Request) {
     return jsonError("Authentication required.", "unauthenticated", 401);
   }
 
-  // Derive organization_id server-side from the profile — never from the body.
+  // Derive organization_id server-side from the profile - never from the body.
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("id, organization_id")
@@ -218,7 +218,7 @@ export async function POST(request: Request) {
     const response = await callClaude({ system, prompt, model, maxTokens });
 
     // Persist the analysis as a note on the opportunity (Agent 04: "Store
-    // analysis in notes"). Best-effort — a notes failure must not fail the run.
+    // analysis in notes"). Best-effort - a notes failure must not fail the run.
     await supabase.from("notes").insert({
       organization_id: organizationId,
       opportunity_id: opportunity.id,

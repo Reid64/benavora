@@ -20,7 +20,7 @@ type UseProfileResult = {
  * Resolves the authenticated user's profile (id, organization_id, role).
  *
  * organization_id is ALWAYS read from the session-bound profile row here and
- * passed to writes — never accepted from a form field or request body
+ * passed to writes - never accepted from a form field or request body
  * (Behavioral Contracts §2). RLS is the second barrier on every query.
  */
 export function useProfile(): UseProfileResult {

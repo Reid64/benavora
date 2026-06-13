@@ -36,7 +36,7 @@ export type ResearchScheduleProps = {
  * Research schedule + automation control (BLUEPRINT §3.1, AGENTS.md Agents
  * 12-15). Shows when each agent family will next run under the daily cron sweep
  * (06:00 UTC) and lets an owner/admin enable or disable the sweep, which writes
- * platform_config feature.research_agents. Presentational — the page owns the
+ * platform_config feature.research_agents. Presentational - the page owns the
  * data and the write.
  */
 export function ResearchSchedule({
@@ -102,7 +102,7 @@ export function ResearchSchedule({
               </p>
               <p className="mt-1 text-sm text-navy-600">
                 {s.profileCount === 0
-                  ? "—"
+                  ? "-"
                   : !cronEnabled
                     ? "Paused (automation off)"
                     : s.due

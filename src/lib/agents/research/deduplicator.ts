@@ -3,9 +3,9 @@
 // match, then fuzzy name+funder").
 //
 // Two passes, in priority order:
-//   1. Exact URL match — the strongest signal that we have already discovered
+//   1. Exact URL match - the strongest signal that we have already discovered
 //      this opportunity.
-//   2. Fuzzy name match, optionally gated on the funder also matching — catches
+//   2. Fuzzy name match, optionally gated on the funder also matching - catches
 //      the same opportunity surfaced from a different URL (e.g. a listing page
 //      vs. the funder's own page).
 //
@@ -50,7 +50,7 @@ interface FunderRow {
 
 /**
  * Determine whether an opportunity already exists for this organization. Never
- * throws — a query failure resolves to "not a duplicate" so a transient error
+ * throws - a query failure resolves to "not a duplicate" so a transient error
  * never silently blocks discovery (the caller still gets a usable answer).
  */
 export async function checkDuplicate(
@@ -129,8 +129,8 @@ export async function checkDuplicate(
 // --- cross-result deduplication ----------------------------------------------
 //
 // When the research agents run in PARALLEL (orchestrator), two agents can both
-// pass the per-insert checkDuplicate() above — neither sees the other's not-yet-
-// committed row — and create the same opportunity in the same sweep. This pass
+// pass the per-insert checkDuplicate() above - neither sees the other's not-yet-
+// committed row - and create the same opportunity in the same sweep. This pass
 // runs AFTER all agents return, over the union of that sweep's discoveries, and
 // folds those cross-agent collisions together by URL, then by name + funder
 // (Contracts §17: dedupe before the opportunity is surfaced).
@@ -139,7 +139,7 @@ export async function checkDuplicate(
 export interface ResultCandidate {
   /** The opportunity row id (the thing we keep or drop). */
   id: string;
-  /** Source URL, if any — the strongest collision signal. */
+  /** Source URL, if any - the strongest collision signal. */
   url?: string | null;
   /** Opportunity title/name, for fuzzy matching. */
   name?: string | null;
@@ -159,7 +159,7 @@ export interface ResultDuplicate {
 export interface DeduplicateResultsOutcome {
   /** The canonical, collision-free candidates (first occurrence wins). */
   unique: ResultCandidate[];
-  /** Candidates folded into an earlier one — safe to remove. */
+  /** Candidates folded into an earlier one - safe to remove. */
   duplicates: ResultDuplicate[];
 }
 
@@ -242,7 +242,7 @@ async function loadFunderNames(
   return map;
 }
 
-/** Lowercase, strip punctuation, collapse whitespace — for stable comparison. */
+/** Lowercase, strip punctuation, collapse whitespace - for stable comparison. */
 function normalize(value: string): string {
   return value
     .toLowerCase()

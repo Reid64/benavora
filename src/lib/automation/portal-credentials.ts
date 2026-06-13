@@ -1,11 +1,11 @@
-// Portal credential manager — Phase 3 browser automation.
+// Portal credential manager - Phase 3 browser automation.
 //
 // Stores encrypted portal login credentials per funder in the platform_config
 // table under key `portal.{funder_id}.credentials`. Uses AES-256-GCM with a
 // per-org key derived from PORTAL_ENCRYPT_SECRET (env) + organizationId via
 // PBKDF2-SHA256 so every org's ciphertext is unique and independently keyed.
 //
-// SERVER-ONLY — depends on Node.js `crypto`. Never import from client components.
+// SERVER-ONLY - depends on Node.js `crypto`. Never import from client components.
 
 import crypto from "crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";

@@ -40,7 +40,7 @@ export async function POST(request: Request) {
   // campaign_sends doesn't store the Resend email id directly. A future migration
   // can add a resend_email_id column; for now we match by the closest sent_at
   // timestamp via a best-effort lookup. Until that column exists this handler
-  // records the event in the logs only — the opened_at / replied_at path is a
+  // records the event in the logs only - the opened_at / replied_at path is a
   // no-op that won't cause errors.
 
   if (event.type === "email.opened" || event.type === "email.clicked") {

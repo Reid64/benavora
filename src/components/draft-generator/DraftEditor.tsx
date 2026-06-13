@@ -22,7 +22,7 @@ export type DraftEditorProps = {
 
 /**
  * Draft editor (BLUEPRINT §4.8 step 5). A plain-text editor over the generated
- * draft — the locked stack ships no rich-text dependency, and drafts are stored
+ * draft - the locked stack ships no rich-text dependency, and drafts are stored
  * and rendered as text (applications.draft_content). It surfaces a live word
  * count and a count of unresolved [NEEDS INPUT] gaps so the writer can resolve
  * every placeholder before submission (BEHAVIORAL_CONTRACTS §9).

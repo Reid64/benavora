@@ -6,12 +6,12 @@ import { getAuthUrl, getConnection } from "@/lib/integrations/google/auth";
 // Google integration status + connect (BLUEPRINT Phase 4, Contracts §19).
 //
 //   GET  → { connected: boolean, email: string | null } for the caller's org
-//          (any authenticated role — read access).
+//          (any authenticated role - read access).
 //   POST → { authUrl } to start the OAuth consent flow. Connecting an
 //          integration is a settings-level action, so owner/admin only (task §6).
 //
 // Both authenticate via the session and derive organization_id server-side from
-// the profile — never from the request body (Contracts §2, §16).
+// the profile - never from the request body (Contracts §2, §16).
 
 export const runtime = "nodejs";
 
@@ -36,7 +36,7 @@ export async function GET() {
 }
 
 export async function POST() {
-  // Connecting Google is a settings action — owner/admin only (task §6).
+  // Connecting Google is a settings action - owner/admin only (task §6).
   const gate = await requireRole("admin");
   if ("error" in gate) return gate.error;
 

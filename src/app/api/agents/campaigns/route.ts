@@ -10,7 +10,7 @@ import { EmailCampaignAgent } from "@/lib/agents/email-campaign";
 // POST runs the org's active campaigns now (a user-initiated run, so it bypasses
 // the business-hours guard); GET returns a campaign status summary for the
 // outreach UI. Both authenticate via the session and derive organization_id from
-// the profile — never from the request body (BEHAVIORAL_CONTRACTS §2, §16). The
+// the profile - never from the request body (BEHAVIORAL_CONTRACTS §2, §16). The
 // engine is gated by the per-org feature.cold_outreach_email flag (§21).
 
 export const runtime = "nodejs";
@@ -73,7 +73,7 @@ async function emailEnabled(
 }
 
 export async function POST(request: Request) {
-  // Running campaigns is a write action — viewers are read-only (Contracts §16).
+  // Running campaigns is a write action - viewers are read-only (Contracts §16).
   const roleCheck = await requireRole("writer");
   if ("error" in roleCheck) return roleCheck.error;
 

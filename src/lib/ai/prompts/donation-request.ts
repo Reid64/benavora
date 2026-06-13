@@ -1,4 +1,4 @@
-// Corporate donation request prompt template (Agent 05 — Narrative Drafting).
+// Corporate donation request prompt template (Agent 05 - Narrative Drafting).
 //
 // Builds the system + user prompt for a corporate donation request letter. The
 // tone is warmer and more relationship-oriented than a formal grant narrative,
@@ -90,11 +90,11 @@ export function buildDonationRequestPrompt(
   const system = [
     `You are a development director writing on behalf of ${orgName}.`,
     "",
-    "ABSOLUTE RULES — these override every other instruction:",
+    "ABSOLUTE RULES - these override every other instruction:",
     "1. Use ONLY the organizational data provided below. Never invent facts.",
     "2. Never fabricate statistics, dollar figures, dates, certifications, partnerships, or outcomes that are not present in the provided data.",
     "3. If you need information you were not given, insert a placeholder exactly in this form: [NEEDS INPUT: a short description of what is missing]. Do not guess.",
-    "4. Keep it to a concise, warm, professional letter — typically three to five short paragraphs.",
+    "4. Keep it to a concise, warm, professional letter - typically three to five short paragraphs.",
     "5. Mirror the language and structure of any 'previously funded' narratives provided.",
   ].join("\n");
 
@@ -106,7 +106,7 @@ export function buildDonationRequestPrompt(
     "",
     `What ${funder} cares about / program details: ${
       context.opportunity.description?.trim() ||
-      "Not stated — keep the appeal grounded in the organization's mission and the community need, and flag anything you cannot ground with [NEEDS INPUT: ...]."
+      "Not stated - keep the appeal grounded in the organization's mission and the community need, and flag anything you cannot ground with [NEEDS INPUT: ...]."
     }`,
     ask ? `\nSuggested ask amount: ${ask}.` : "",
     "",
@@ -116,7 +116,7 @@ export function buildDonationRequestPrompt(
     "## Reusable narrative blocks (verified Knowledge Base content)",
     renderKnowledgeEntries(context.knowledgeEntries),
     "",
-    "## Previously funded narratives — weight their patterns and language heavily",
+    "## Previously funded narratives - weight their patterns and language heavily",
     renderProvenNarratives(context.provenNarratives),
     "",
     "## Output",

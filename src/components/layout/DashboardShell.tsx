@@ -9,7 +9,7 @@ import type { Enums } from "@/types/database";
 
 type DashboardShellProps = {
   userEmail: string;
-  /** Session role — gates role-restricted nav items (e.g. owner-only Billing). */
+  /** Session role - gates role-restricted nav items (e.g. owner-only Billing). */
   role: Enums<"user_role"> | undefined;
   children: ReactNode;
 };

@@ -43,13 +43,13 @@ function appUrl(request: Request): string {
  *
  *   - Authenticated via the session; organization_id is derived from the caller's
  *     profile, never the body (Contracts §2, §16).
- *   - Only owners/admins may invite; admins cannot invite an owner — they may not
+ *   - Only owners/admins may invite; admins cannot invite an owner - they may not
  *     grant a role higher than their own (Contracts §23 / BLUEPRINT §3.2).
  *   - One invitation per email per organization: a re-invite refreshes the
  *     existing pending row (new token + expiry) rather than duplicating it.
  */
 export async function POST(request: Request) {
-  // Owner or admin (admin >= owner in rank? no — requireRole("admin") allows
+  // Owner or admin (admin >= owner in rank? no - requireRole("admin") allows
   // owner and admin). Role-specific limits are enforced below.
   const gate = await requireRole("admin");
   if ("error" in gate) return gate.error;
@@ -76,7 +76,7 @@ export async function POST(request: Request) {
   const invitedRole = role as UserRole;
   const invitedEmail = email.trim().toLowerCase();
 
-  // Admins cannot invite owners (a role higher than their own) — Contracts §23.
+  // Admins cannot invite owners (a role higher than their own) - Contracts §23.
   if (invitedRole === "owner" && userRole !== "owner") {
     return jsonError(
       "Only an owner can invite another owner.",
@@ -85,7 +85,7 @@ export async function POST(request: Request) {
     );
   }
 
-  // Users (team size) quota — check before creating the invitation (Contracts §25).
+  // Users (team size) quota - check before creating the invitation (Contracts §25).
   const userLimitBlocked = await withUsageCheck(supabase, organizationId, "users");
   if (userLimitBlocked) return userLimitBlocked;
 

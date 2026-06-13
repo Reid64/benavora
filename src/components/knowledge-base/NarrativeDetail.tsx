@@ -462,7 +462,7 @@ export function NarrativeDetail({ narrativeId }: NarrativeDetailProps) {
         </div>
       </div>
 
-      {/* Edit modal — reuses the shared editor (saves to Supabase, bumps version). */}
+      {/* Edit modal - reuses the shared editor (saves to Supabase, bumps version). */}
       <Modal
         isOpen={editorOpen}
         onClose={() => setEditorOpen(false)}

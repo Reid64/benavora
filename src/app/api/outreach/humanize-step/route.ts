@@ -7,7 +7,7 @@ import { runHumanizer } from "@/lib/agents/humanizer-agent";
 // POST /api/outreach/humanize-step
 // Lightweight humanizer pass for a single campaign email step body.
 // Shares the same runHumanizer pipeline as /api/ai/humanize but does not
-// require an opportunityId — it loads org context from the session profile.
+// require an opportunityId - it loads org context from the session profile.
 // Returns { content: string } on success.
 
 export const runtime = "nodejs";

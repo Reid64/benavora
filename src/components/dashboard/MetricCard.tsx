@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils/cn";
 export type MetricTrendDirection = "up" | "down" | "neutral";
 
 export type MetricTrend = {
-  /** Direction of movement — drives the icon and color. */
+  /** Direction of movement - drives the icon and color. */
   direction: MetricTrendDirection;
   /** Short label, e.g. "+12% vs last month" or "3 due this week". */
   label: string;
@@ -37,7 +37,7 @@ const TREND_STYLES: Record<
 
 /**
  * A single dashboard metric (BLUEPRINT §4.1): a label, a prominent value, and
- * an optional trend or hint. Pure presentational — values are computed and
+ * an optional trend or hint. Pure presentational - values are computed and
  * formatted server-side and passed in, so this renders in a Server Component.
  */
 export function MetricCard({

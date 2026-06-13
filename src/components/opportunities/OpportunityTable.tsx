@@ -206,7 +206,7 @@ export function OpportunityTable({
         row.source_type ? (
           <SourceTypeBadge sourceType={row.source_type} />
         ) : (
-          <span className="text-navy-400">—</span>
+          <span className="text-navy-400">-</span>
         ),
     },
     {
@@ -226,7 +226,7 @@ export function OpportunityTable({
         row.deadline ? (
           formatDate(row.deadline)
         ) : (
-          <span className="text-navy-400">—</span>
+          <span className="text-navy-400">-</span>
         ),
     },
     {
@@ -239,7 +239,7 @@ export function OpportunityTable({
         row.amount_max != null || row.amount_available != null ? (
           formatCurrency(row.amount_max ?? row.amount_available)
         ) : (
-          <span className="text-navy-400">—</span>
+          <span className="text-navy-400">-</span>
         ),
     },
     {
@@ -272,7 +272,7 @@ export function OpportunityTable({
         row.recommendation ? (
           <RecommendationBadge recommendation={row.recommendation} />
         ) : (
-          <span className="text-navy-400">—</span>
+          <span className="text-navy-400">-</span>
         ),
     },
     {
@@ -286,7 +286,7 @@ export function OpportunityTable({
             {humanizeEnum(row.status)}
           </Badge>
         ) : (
-          <span className="text-navy-400">—</span>
+          <span className="text-navy-400">-</span>
         ),
     },
   ];

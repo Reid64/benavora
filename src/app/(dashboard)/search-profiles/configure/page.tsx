@@ -450,7 +450,7 @@ export default function ConfigureSearchProfilePage() {
       {/* Source-category filters with priority ranking */}
       <SectionCard
         title="Source categories & priority"
-        description="Bias the agents toward specific funding sources. Order sets priority — top = highest."
+        description="Bias the agents toward specific funding sources. Order sets priority - top = highest."
       >
         <SourcePriorityField
           value={sourceFilters}
@@ -944,7 +944,7 @@ function SourcePriorityField({
     <div className="space-y-3">
       {value.length === 0 ? (
         <p className="text-sm text-navy-400">
-          No source priority set — the agents weigh every source equally.
+          No source priority set - the agents weigh every source equally.
         </p>
       ) : (
         <ul className="space-y-2">

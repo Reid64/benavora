@@ -1,9 +1,9 @@
-// Email Campaign Agent — AGENTS.md Agent 18 (BLUEPRINT Phase 4 / §4.11).
+// Email Campaign Agent - AGENTS.md Agent 18 (BLUEPRINT Phase 4 / §4.11).
 //
 // Executes drip email campaigns for cold outreach. One run sweeps the
 // organization's active campaigns and, for each enrolled outreach contact,
 // figures out which step they're due for, renders the templated email with the
-// contact's variables, and sends it via the org's Gmail mailbox — then records a
+// contact's variables, and sends it via the org's Gmail mailbox - then records a
 // campaign_sends row. It also detects replies (surfaced by the Email Matching
 // Agent into synced_email_messages) and advances each contact's status.
 //
@@ -11,9 +11,9 @@
 //   - Max 50 emails per day per organization (MAX_OUTREACH_EMAILS_PER_DAY).
 //   - Minimum 24h gap between steps to the same contact, and never sooner than
 //     the step's own delay_days.
-//   - Template variables validated before send — an unresolvable variable blocks
+//   - Template variables validated before send - an unresolvable variable blocks
 //     that contact's send (never sends a half-rendered email).
-//   - Sends respect organization business hours (default 9AM–5PM CT, weekdays);
+//   - Sends respect organization business hours (default 9AM-5PM CT, weekdays);
 //     a user-initiated run may bypass this with `force`.
 //   - A reply containing "unsubscribe" sets the contact to 'unresponsive'.
 //   - Campaign status transitions draft → active → paused/completed; a campaign
@@ -205,7 +205,7 @@ export class EmailCampaignAgent extends BaseAgent<
 
       const sends = sendsByContact.get(contact.id) ?? [];
 
-      // Reply detection (Contracts §21) — surfaced by the Email Matching Agent.
+      // Reply detection (Contracts §21) - surfaced by the Email Matching Agent.
       const reply = await this.detectReply(contact, sends);
       if (reply) {
         await this.markContact(
@@ -256,7 +256,7 @@ export class EmailCampaignAgent extends BaseAgent<
 
       const gmail = await this.resolveGmail();
       if (!gmail) {
-        // Org can't send (Google not connected) — nothing more to do here.
+        // Org can't send (Google not connected) - nothing more to do here.
         result.skipped += 1;
         continue;
       }
@@ -279,7 +279,7 @@ export class EmailCampaignAgent extends BaseAgent<
         remaining -= 1;
         if (status === "new") await this.markContact(contact.id, "contacted");
       } catch {
-        // Delivery failed — record a bounce so we don't hot-loop on it.
+        // Delivery failed - record a bounce so we don't hot-loop on it.
         await this.recordSend(nextStep.id, contact.id, "bounced");
         result.bounces += 1;
       }
@@ -381,7 +381,7 @@ export class EmailCampaignAgent extends BaseAgent<
     await this.client.from("campaign_sends").insert(row);
 
     // Meter delivered emails against the org's daily email_sends quota (§25).
-    // Bounces don't count — only mail that actually went out.
+    // Bounces don't count - only mail that actually went out.
     if (status === "sent") {
       await trackUsage(this.client, this.organizationId, "email_sends", 1);
     }
@@ -534,7 +534,7 @@ function snippet(value: string | null, max: number): string {
 /**
  * Substitute {variable} tokens. Returns null if any RECOGNIZED variable resolves
  * to an empty value (blocks the send, Contracts §21). Unknown {tokens} are left
- * untouched — the builder restricts authoring to the known set.
+ * untouched - the builder restricts authoring to the known set.
  */
 export function renderTemplate(
   template: string,
@@ -556,7 +556,7 @@ export function renderTemplate(
   return blocked ? null : out;
 }
 
-/** True if now falls inside business hours: Mon–Fri, 9AM–5PM Central. */
+/** True if now falls inside business hours: Mon-Fri, 9AM-5PM Central. */
 export function withinBusinessHours(date: Date = new Date()): boolean {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Chicago",

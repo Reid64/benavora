@@ -1,4 +1,4 @@
-// Foundation Grant Research Agent — AGENTS.md Agent 13.
+// Foundation Grant Research Agent - AGENTS.md Agent 13.
 //
 // Discovers private- and corporate-foundation grant opportunities and turns them
 // into opportunity (and funder) records. It drives off the organization's active
@@ -14,7 +14,7 @@
 //
 // Foundation-specific handling: when a page states a Letter-of-Inquiry (LOI)
 // requirement or a named application cycle, that fact is folded into the
-// opportunity's eligibility_requirements so it is not lost — only when the page
+// opportunity's eligibility_requirements so it is not lost - only when the page
 // actually states it (BEHAVIORAL_CONTRACTS §9/§17: never fabricate).
 //
 // Contracts honored: every query is organization_id-scoped (§2); discovered
@@ -22,7 +22,7 @@
 // eligibility scoring runs on each new one (§17); de-duplication (URL, then
 // fuzzy name+funder) runs before any insert (§17); the run logs to agent_runs
 // with token usage via BaseAgent (§15). Work is bounded so the run stays within
-// the 60s agent ceiling — any truncation is recorded in the run summary so a cap
+// the 60s agent ceiling - any truncation is recorded in the run summary so a cap
 // is never silent.
 
 import { DEFAULT_MAX_TOKENS, DEFAULT_MODEL } from "@/lib/ai/claude";
@@ -96,7 +96,7 @@ export interface FoundationGrantsOptions extends BaseAgentOptions {
   focus?: ResearchFocus;
 }
 
-// Run bounds — keep the synchronous pipeline within the 60s agent ceiling
+// Run bounds - keep the synchronous pipeline within the 60s agent ceiling
 // (AGENTS.md §15). These are whole-run caps, applied across every profile.
 const MAX_QUERIES_PER_PROFILE = 4;
 const MAX_HITS_PER_QUERY = 5;
@@ -153,7 +153,7 @@ export class FoundationGrantsResearchAgent extends BaseAgent<
       organizationId: this.organizationId,
     };
 
-    // URLs seen anywhere in this run (across profiles) — never fetch twice.
+    // URLs seen anywhere in this run (across profiles) - never fetch twice.
     const seenUrls = new Set<string>();
     const newOpportunityIds: string[] = [];
     let opportunitiesFound = 0;
@@ -330,7 +330,7 @@ export class FoundationGrantsResearchAgent extends BaseAgent<
 
   /**
    * The profiles this run will process. Two modes:
-   *   - Caller-supplied ids (a single "Run Now"): honor the explicit choice —
+   *   - Caller-supplied ids (a single "Run Now"): honor the explicit choice -
    *     any active profile, even one not tagged foundation. Missing or paused
    *     profiles are silently skipped.
    *   - No ids ("Run all"): every active profile carrying a foundation category,
@@ -506,7 +506,7 @@ export function buildFoundationQueries(profile: ResearchSearchProfile): string[]
 
 /**
  * Append foundation-specific gates (LOI requirement, named application cycle) to
- * the extracted eligibility text — but ONLY when the page actually states them
+ * the extracted eligibility text - but ONLY when the page actually states them
  * (Contracts §9: never fabricate). Returns the original text unchanged when the
  * page mentions neither, so nothing is invented.
  */

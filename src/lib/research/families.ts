@@ -1,4 +1,4 @@
-// Research agent families — client-safe schedule metadata for the Research UI.
+// Research agent families - client-safe schedule metadata for the Research UI.
 //
 // Pure data only (no imports), so it is safe to use in client components. The
 // category lists MIRROR the authoritative `*_CATEGORIES` constants exported by

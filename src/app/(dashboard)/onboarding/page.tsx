@@ -116,10 +116,10 @@ const STEPS = [
 const TOTAL_STEPS = STEPS.length;
 
 const TAX_STATUS_OPTIONS = [
-  { value: "501c3", label: "501(c)(3) â€” Charitable Organization" },
-  { value: "501c4", label: "501(c)(4) â€” Social Welfare Organization" },
-  { value: "501c6", label: "501(c)(6) â€” Business League / Chamber" },
-  { value: "501c7", label: "501(c)(7) â€” Social Club" },
+  { value: "501c3", label: "501(c)(3) - Charitable Organization" },
+  { value: "501c4", label: "501(c)(4) - Social Welfare Organization" },
+  { value: "501c6", label: "501(c)(6) - Business League / Chamber" },
+  { value: "501c7", label: "501(c)(7) - Social Club" },
   { value: "other", label: "Other" },
 ];
 
@@ -182,7 +182,7 @@ function ProgressBar({ step }: { step: number }) {
 }
 
 // ---------------------------------------------------------------------------
-// Step 1 â€” Organization Profile
+// Step 1 - Organization Profile
 // ---------------------------------------------------------------------------
 
 function Step1({
@@ -271,7 +271,7 @@ function Step1({
 }
 
 // ---------------------------------------------------------------------------
-// Step 2 â€” Programs
+// Step 2 - Programs
 // ---------------------------------------------------------------------------
 
 function Step2({
@@ -392,7 +392,7 @@ function Step2({
 }
 
 // ---------------------------------------------------------------------------
-// Step 3 â€” Knowledge Base Quick Start
+// Step 3 - Knowledge Base Quick Start
 // ---------------------------------------------------------------------------
 
 function Step3({ kb, onChange }: { kb: KBState; onChange: (kb: KBState) => void }) {
@@ -401,7 +401,7 @@ function Step3({ kb, onChange }: { kb: KBState; onChange: (kb: KBState) => void 
       <div>
         <h2 className="text-xl font-semibold text-navy-900">Knowledge Base Quick Start</h2>
         <p className="mt-1 text-sm text-navy-500">
-          These become the seed entries in your Knowledge Base â€” the library the AI draws
+          These become the seed entries in your Knowledge Base - the library the AI draws
           from when drafting grant narratives. The more detail you provide now, the stronger
           your first drafts will be.
         </p>
@@ -459,7 +459,7 @@ function Step3({ kb, onChange }: { kb: KBState; onChange: (kb: KBState) => void 
 }
 
 // ---------------------------------------------------------------------------
-// Step 4 â€” Board Members
+// Step 4 - Board Members
 // ---------------------------------------------------------------------------
 
 function Step4({
@@ -575,7 +575,7 @@ function Step4({
 }
 
 // ---------------------------------------------------------------------------
-// Step 5 â€” Document Upload
+// Step 5 - Document Upload
 // ---------------------------------------------------------------------------
 
 function Step5({
@@ -649,7 +649,7 @@ function Step5({
                   <Upload className="h-4 w-4" />
                   Choose file
                 </span>
-                <span className="text-xs text-navy-400">PDF, Word, Excel â€” max 10 MB</span>
+                <span className="text-xs text-navy-400">PDF, Word, Excel - max 10 MB</span>
               </label>
             )}
           </div>
@@ -665,7 +665,7 @@ function Step5({
 }
 
 // ---------------------------------------------------------------------------
-// Step 6 â€” First Search Profile
+// Step 6 - First Search Profile
 // ---------------------------------------------------------------------------
 
 function Step6({
@@ -701,7 +701,7 @@ function Step6({
         <h2 className="text-xl font-semibold text-navy-900">First Search Profile</h2>
         <p className="mt-1 text-sm text-navy-500">
           Search profiles tell the AI what types of funding to look for. Set up your
-          primary profile here â€” you can create more and fine-tune them from Search
+          primary profile here - you can create more and fine-tune them from Search
           Profiles later.
         </p>
       </div>
@@ -828,7 +828,7 @@ function Step6({
 }
 
 // ---------------------------------------------------------------------------
-// Step 7 â€” Plan Selection
+// Step 7 - Plan Selection
 // ---------------------------------------------------------------------------
 
 function Step7({
@@ -871,7 +871,7 @@ function Step7({
           disabled={busy}
           className="text-sm text-navy-500 hover:text-navy-700 underline underline-offset-2 disabled:opacity-50"
         >
-          Skip for now â€” continue with Free plan
+          Skip for now - continue with Free plan
         </button>
       </div>
     </div>

@@ -274,7 +274,7 @@ export function EmailParserWidget() {
             {/* Outcome flag */}
             {parsed.flaggedForOutcomeRecording && (
               <div className="rounded-md bg-teal-50 border border-teal-200 px-3 py-2 text-sm text-teal-800">
-                Flagged for outcome recording — record the result in the
+                Flagged for outcome recording - record the result in the
                 Outcomes section.
               </div>
             )}

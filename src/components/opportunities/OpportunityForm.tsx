@@ -71,7 +71,7 @@ export type OpportunityFormProps = {
 /**
  * Create/edit form for an opportunity (BLUEPRINT §4.4). Covers every editable
  * field plus keyword tags, which are stored in the opportunity_keywords
- * many-to-many table — never as a column array (Behavioral Contracts §5).
+ * many-to-many table - never as a column array (Behavioral Contracts §5).
  *
  * eligibility_score, recommendation, and recommendation_reasoning are set only
  * by the Eligibility Scoring Agent and are intentionally absent here
@@ -140,7 +140,7 @@ export function OpportunityForm({
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // Funder select options (optional link — Contracts §5).
+  // Funder select options (optional link - Contracts §5).
   useEffect(() => {
     let active = true;
     const supabase = createClient();
@@ -326,7 +326,7 @@ export function OpportunityForm({
           options={funders.map((f) => ({ value: f.id, label: f.name }))}
           value={funderId}
           onChange={(e) => setFunderId(e.target.value)}
-          helperText="Optional — link to a funder in your CRM."
+          helperText="Optional - link to a funder in your CRM."
         />
         <Select
           label="Source type"

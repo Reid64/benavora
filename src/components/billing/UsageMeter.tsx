@@ -14,7 +14,7 @@ export type UsageMeterProps = {
 /**
  * A labelled usage bar (BLUEPRINT Phase 5). The fill colour reflects how close
  * the org is to its tier limit (Contracts §25: warn at 80%):
- *   green  < 50%, yellow 50–80%, red > 80%.
+ *   green  < 50%, yellow 50-80%, red > 80%.
  */
 export function UsageMeter({ label, used, limit, unit }: UsageMeterProps) {
   const pct =

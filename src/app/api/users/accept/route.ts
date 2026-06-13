@@ -68,7 +68,7 @@ async function loadPendingInvitation(
 /**
  * Accept an invitation (BLUEPRINT US-03, Behavioral Contracts §23).
  *
- * Public route — the visitor has no session, so the service-role admin client
+ * Public route - the visitor has no session, so the service-role admin client
  * creates the auth user and profile. Both the org and the role come from the
  * server-side invitation row keyed by the bearer token, never from the request
  * body (Contracts §2): the client only supplies the password and display name.
@@ -164,7 +164,7 @@ export async function POST(request: Request) {
     );
   }
 
-  // Mark the invitation accepted (best-effort — the account already exists).
+  // Mark the invitation accepted (best-effort - the account already exists).
   await admin
     .from("user_invitations")
     .update({

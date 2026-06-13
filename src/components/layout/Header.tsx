@@ -16,7 +16,7 @@ type HeaderProps = {
 };
 
 /**
- * Top bar — dark navy brand surface: mobile menu toggle, breadcrumbs,
+ * Top bar - dark navy brand surface: mobile menu toggle, breadcrumbs,
  * user avatar/email, and logout.
  */
 export function Header({ userEmail, onMenuClick }: HeaderProps) {

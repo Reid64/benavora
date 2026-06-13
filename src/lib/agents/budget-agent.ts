@@ -1,9 +1,9 @@
-// Budget Agent — dedicated agent for /api/ai/budget (AGENTS.md Agent 06).
+// Budget Agent - dedicated agent for /api/ai/budget (AGENTS.md Agent 06).
 //
 // Enhanced successor to BudgetBuilderAgent that:
 //   - Targets one specific program by programId rather than all org programs.
 //   - Incorporates Knowledge Base budget_justification entries for grounding
-//     (BEHAVIORAL_CONTRACTS §9 — never invent figures; flag gaps with
+//     (BEHAVIORAL_CONTRACTS §9 - never invent figures; flag gaps with
 //     [NEEDS INPUT: ...]).
 //   - Returns budget_table (structured line items) and budget_narrative (prose)
 //     as separate fields so the API can surface both independently.
@@ -12,7 +12,7 @@
 //   - Saves to draft_versions with template_type "budget_narrative" so the
 //     version history panel in the Draft Generator tracks budget runs.
 //
-// Agent_runs logging is handled by BaseAgent.run() — this agent only
+// Agent_runs logging is handled by BaseAgent.run() - this agent only
 // implements execute() (BEHAVIORAL_CONTRACTS §15: agents never fail silently).
 
 import {
@@ -84,7 +84,7 @@ export class BudgetAgent extends BaseAgent<BudgetAgentInput, BudgetAgentResult> 
   ): Promise<AgentExecution<BudgetAgentResult>> {
     const { opportunityId, programId } = input;
 
-    // 1. Fetch opportunity (scoped to org — never trust the input alone).
+    // 1. Fetch opportunity (scoped to org - never trust the input alone).
     const { data: opp, error: oppError } = await this.client
       .from("opportunities")
       .select(
@@ -109,7 +109,7 @@ export class BudgetAgent extends BaseAgent<BudgetAgentInput, BudgetAgentResult> 
     }
 
     // 3. Org profile, KB budget_justification entries, funder, and proven
-    //    narratives (voice samples for the humanizer) — all in parallel.
+    //    narratives (voice samples for the humanizer) - all in parallel.
     const [orgRes, kbRes, funderRes, provenRes] = await Promise.all([
       this.client
         .from("organizations")
@@ -202,7 +202,7 @@ export class BudgetAgent extends BaseAgent<BudgetAgentInput, BudgetAgentResult> 
     const parsed = parseBudgetDetailResponse(budgetResponse.text);
 
     // 6. Run the narrative through the AI Humanizer (second Claude call).
-    //    Failure is non-fatal — fall back to the raw narrative so the budget
+    //    Failure is non-fatal - fall back to the raw narrative so the budget
     //    table is never lost over a humanizer error.
     const knowledgeEntriesForHumanizer: DraftKnowledgeEntry[] = kbEntries.map(
       (e) => ({
@@ -244,7 +244,7 @@ export class BudgetAgent extends BaseAgent<BudgetAgentInput, BudgetAgentResult> 
       budgetNarrative = humanized.content;
       tokensUsed += humanized.tokensUsed;
     } catch (humanizeErr) {
-      // Log but do not fail the run — the raw narrative is still useful.
+      // Log but do not fail the run - the raw narrative is still useful.
       console.error("BUDGET HUMANIZER ERROR:", humanizeErr);
     }
 
@@ -271,7 +271,7 @@ export class BudgetAgent extends BaseAgent<BudgetAgentInput, BudgetAgentResult> 
       })),
     ];
 
-    // 9. Persist to draft_versions for history (best-effort — a save failure
+    // 9. Persist to draft_versions for history (best-effort - a save failure
     //    must never fail the run, BEHAVIORAL_CONTRACTS §15).
     let savedVersion: SavedDraftVersion | null = null;
     {
@@ -325,7 +325,7 @@ export class BudgetAgent extends BaseAgent<BudgetAgentInput, BudgetAgentResult> 
         sources,
         savedVersion,
       },
-      outputSummary: `Built detailed budget for "${opp.name}" — ${parsed.budgetTable.length} line items, confidence ${confidenceScore}.`,
+      outputSummary: `Built detailed budget for "${opp.name}" - ${parsed.budgetTable.length} line items, confidence ${confidenceScore}.`,
       itemsFound: parsed.budgetTable.length,
       itemsProcessed: parsed.budgetTable.length,
       tokensUsed,
@@ -373,7 +373,7 @@ function formatBudgetNote(
 ): string {
   const lines = budgetTable.map(
     (li) =>
-      `- ${li.category}: ${formatCurrency(li.amount)}${li.percentage != null ? ` (${li.percentage.toFixed(1)}%)` : ""} — ${li.justification}`,
+      `- ${li.category}: ${formatCurrency(li.amount)}${li.percentage != null ? ` (${li.percentage.toFixed(1)}%)` : ""} - ${li.justification}`,
   );
   return [
     "**Detailed Budget**",

@@ -1,5 +1,5 @@
 /**
- * Google Gemini API wrapper — the free-tier second opinion for cross-provider
+ * Google Gemini API wrapper - the free-tier second opinion for cross-provider
  * validation (api/ai/validate). Gemini's API has a no-cost tier, which is why it
  * is the independent provider paired against Claude for consensus.
  *
@@ -44,7 +44,7 @@ export interface GeminiRequest {
   model?: string;
   /** Max output tokens. Defaults to {@link DEFAULT_GEMINI_MAX_TOKENS}. */
   maxTokens?: number;
-  /** Sampling temperature (0–1). */
+  /** Sampling temperature (0-1). */
   temperature?: number;
   /** Ask Gemini to emit `application/json` (used for structured verdicts). */
   json?: boolean;
@@ -70,7 +70,7 @@ interface GeminiApiResponse {
 
 /**
  * Send a single-turn message to Gemini and return the text plus token usage.
- * Throws if the key is missing or the API call fails — the validator catches
+ * Throws if the key is missing or the API call fails - the validator catches
  * this and records the provider as unavailable rather than failing the run.
  */
 export async function callGemini(req: GeminiRequest): Promise<GeminiResponse> {

@@ -48,7 +48,7 @@ export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
     id: "profile",
     title: "Organization",
     description:
-      "Your legal name, EIN, mission, and contact details — the backbone of every draft.",
+      "Your legal name, EIN, mission, and contact details - the backbone of every draft.",
     optional: false,
   },
   {
@@ -61,7 +61,7 @@ export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
   {
     id: "board",
     title: "Board",
-    description: "Your governing board — many grant applications ask for it.",
+    description: "Your governing board - many grant applications ask for it.",
     optional: true,
   },
   {

@@ -7,7 +7,7 @@ import type { AgentRunStatus, AgentType } from "@/types/agents";
 //
 // GET returns the organization's most recent agent_runs for the run-history
 // table on the Research page. Authenticates via the session and derives
-// organization_id server-side from the profile — never from the request
+// organization_id server-side from the profile - never from the request
 // (Contracts §2, §16); RLS is the second barrier on the query.
 //
 // Query params (all optional):

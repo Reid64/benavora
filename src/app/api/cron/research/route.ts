@@ -35,7 +35,7 @@ import type { Enums, Json } from "@/types/database";
 // This is a SYSTEM job: it sweeps EVERY organization via the service-role admin
 // client and is gated solely by the server-only CRON_SECRET. It is never
 // user-reachable (Contracts §2: service role is for system jobs, never
-// user-facing routes — the interactive trigger is POST /api/agents/research).
+// user-facing routes - the interactive trigger is POST /api/agents/research).
 //
 // Per organization (Contracts §17):
 //   a. Enforce the daily agent-run quota (research.daily_quota, default 100).
@@ -44,7 +44,7 @@ import type { Enums, Json } from "@/types/database";
 //   c. Build the run queue, then execute the agents SEQUENTIALLY (not parallel)
 //      so a single org never floods its sources or blows the quota mid-sweep.
 //   d. Each agent self-logs to agent_runs and stamps search_profile.last_run_at
-//      + results_count via the shared scheduler (markProfileRun) — this route
+//      + results_count via the shared scheduler (markProfileRun) - this route
 //      does not double-write those.
 //
 // Every query is organization_id-scoped manually: under the service-role client
@@ -222,7 +222,7 @@ async function runSweep(request: Request) {
 
   const admin = createAdminClient();
 
-  // Organizations with research agents enabled (Contracts §17 — gated per org).
+  // Organizations with research agents enabled (Contracts §17 - gated per org).
   const { data: flagRows, error: flagError } = await admin
     .from("platform_config")
     .select("organization_id")
@@ -284,12 +284,12 @@ async function processOrganization(
     jobs: [],
   };
 
-  // Already at the daily cap — nothing to do (Contracts §17).
+  // Already at the daily cap - nothing to do (Contracts §17).
   if (runsAtStart >= quota) {
     return { ...base, skipped: "daily_quota_reached" };
   }
 
-  // Active profiles for the org (org-scoped — RLS is off under service role).
+  // Active profiles for the org (org-scoped - RLS is off under service role).
   const { data: profileData } = await admin
     .from("search_profiles")
     .select(

@@ -1,4 +1,4 @@
-﻿// Submission verification â€” Phase 3 browser automation.
+﻿// Submission verification - Phase 3 browser automation.
 //
 // After a form is submitted and approved, monitors the page for up to 60 s
 // watching for success or failure indicators. Captures a full-page screenshot,
@@ -172,7 +172,7 @@ export async function verifySubmission(
         break;
       }
     } catch {
-      // Page is mid-navigation â€” wait and retry.
+      // Page is mid-navigation - wait and retry.
     }
 
     const remaining = deadline - Date.now();
@@ -303,7 +303,7 @@ async function updateApplication(
 
     await client.from("applications").update(update).eq("id", applicationId);
   } catch {
-    // Non-fatal â€” submission result is still returned to the caller.
+    // Non-fatal - submission result is still returned to the caller.
   }
 }
 

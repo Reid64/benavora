@@ -55,7 +55,7 @@ function asTier(value: unknown): SubscriptionTier {
  * Outcomes & Analytics dashboard (BLUEPRINT §4.10). Fetches real, RLS-scoped
  * rows from the outcomes, applications, opportunities, deadlines, agent_runs,
  * and organizations tables, then renders the full charting dashboard. All
- * aggregation is client-side over fetched rows — no mocks, no server roundtrip.
+ * aggregation is client-side over fetched rows - no mocks, no server roundtrip.
  */
 export default function OutcomeAnalyticsPage() {
   const [data, setData] = useState<DashboardData>(EMPTY);
@@ -100,7 +100,7 @@ export default function OutcomeAnalyticsPage() {
         .not("success_patterns", "is", null),
     ]);
 
-    // Outcomes + applications power most charts — treat their failure as fatal;
+    // Outcomes + applications power most charts - treat their failure as fatal;
     // the rest degrade gracefully to empty datasets.
     if (outcomesRes.error || appsRes.error) {
       setError("Could not load analytics.");
@@ -121,7 +121,7 @@ export default function OutcomeAnalyticsPage() {
       subscriptionTier: asTier(orgRow?.subscription_tier),
     });
 
-    // Group success_patterns by funder_category — one analysis per category
+    // Group success_patterns by funder_category - one analysis per category
     // (take the first row that has patterns for each category).
     const categoryMap = new Map<string, SuccessPatternAnalysis>();
     for (const row of narrativesRes.data ?? []) {
@@ -171,7 +171,7 @@ export default function OutcomeAnalyticsPage() {
         <p className="mt-1 text-sm text-navy-500">
           Pipeline funnel, success rates over time, dollar efficiency, source
           mix, deadline density, agent activity, ROI, and year-over-year trends
-          — all from your real funding data.
+          - all from your real funding data.
         </p>
       </div>
 
@@ -209,7 +209,7 @@ export default function OutcomeAnalyticsPage() {
 }
 
 // ---------------------------------------------------------------------------
-// Pattern insights — discovered language patterns grouped by funder category
+// Pattern insights - discovered language patterns grouped by funder category
 // ---------------------------------------------------------------------------
 
 function PatternInsightsSection({ groups }: { groups: CategoryPatterns[] }) {

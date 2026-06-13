@@ -7,10 +7,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 // Deadline reminder check (BLUEPRINT §4.9). Scans incomplete deadlines and marks
 // reminder flags as they cross the 30/14/7/3/1-day thresholds. Reminder flags are
-// one-way — once sent they are never reset (Contracts §11), so this route is
+// one-way - once sent they are never reset (Contracts §11), so this route is
 // idempotent: re-running it never re-fires a reminder that already went out.
 //
-// This is a deterministic processor — no AI (AGENTS.md Agent 03). Actual email
+// This is a deterministic processor - no AI (AGENTS.md Agent 03). Actual email
 // delivery is Phase 4 (gated behind the per-org `feature.email_integration`
 // flag); until then the route records which reminders are *due* and marks their
 // flags, so the work isn't repeated once delivery is wired up.
@@ -18,7 +18,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 // Two invocation modes:
 //   1. Scheduled (cron): a system caller presents `Authorization: Bearer
 //      ${CRON_SECRET}`. Processes EVERY organization via the service-role admin
-//      client. This path is never user-reachable — it is gated entirely by a
+//      client. This path is never user-reachable - it is gated entirely by a
 //      server-only secret (Contracts §2: service role is for system jobs, never
 //      user-facing routes).
 //   2. Interactive: an authenticated user with no secret. Processes ONLY their

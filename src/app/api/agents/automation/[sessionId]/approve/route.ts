@@ -13,7 +13,7 @@ import { logAudit } from "@/lib/audit/logger";
 // store the confirmation in the application's notes.
 //
 // This is the ONLY automated path to a submission, and it requires an explicit
-// owner/admin caller — applications may move to `submitted` only by owner/admin
+// owner/admin caller - applications may move to `submitted` only by owner/admin
 // (BEHAVIORAL_CONTRACTS §6), and submission is never anonymous or automated
 // (§18). organization_id is derived from the caller's profile, never the body.
 

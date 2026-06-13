@@ -421,7 +421,7 @@ export async function POST(request: Request) {
         .from("agent_runs")
         .update({
           status: "completed",
-          output_summary: `Board report generated for ${startDate}–${endDate}. PDF: ${storagePath}`,
+          output_summary: `Board report generated for ${startDate}-${endDate}. PDF: ${storagePath}`,
           items_processed: 1,
           tokens_used: totalTokens,
           duration_ms: Date.now() - startedAt,

@@ -4,15 +4,15 @@
 // (`/api/grants`, `/api/grants/[id]`, `/api/grants/[id]/rescore`).
 //
 // ─────────────────────────────────────────────────────────────────────────────
-// Governance ⇄ schema mapping (authoritative: the live schema — Iron Law 8).
+// Governance ⇄ schema mapping (authoritative: the live schema - Iron Law 8).
 //
 // BEHAVIORAL_CONTRACTS names a `grants` table with columns `source_type`,
 // `eligibility_flag`, `amount_requested`, `amount_awarded`, `match_percentage`,
 // `eligibility_notes`, and `eligibility_scored_at`. NONE of those exist in the
-// live database (`src/types/database.ts`, migrations 001–009). The implemented,
+// live database (`src/types/database.ts`, migrations 001-009). The implemented,
 // internally-consistent entity is the `opportunities` table. Renaming it to
 // `grants` would break migration-001 RLS (`current_org_id()`), `database.ts`,
-// the research/eligibility agents, and every page — the same posture already
+// the research/eligibility agents, and every page - the same posture already
 // recorded for the auth-model and `is_proven` divergences (see STATE files).
 //
 // So "grant" == an `opportunities` row, and the contract's grant vocabulary maps
@@ -26,7 +26,7 @@
 //   amount_requested        → amount_min          (funder award floor)
 //   amount_awarded          → amount_available    (funder pool available)
 //   deadline                → deadline
-//   match_percentage        → match_percentage    (0–100, agent-owned; falls
+//   match_percentage        → match_percentage    (0-100, agent-owned; falls
 //                                                  back to eligibility_score for
 //                                                  rows scored before migration 012)
 //   eligibility_flag        → derived from the match percentage (see below)
@@ -50,8 +50,8 @@ export const ELIGIBILITY_FLAGS = [
 export type EligibilityFlag = (typeof ELIGIBILITY_FLAGS)[number];
 
 /**
- * Bucket an agent-owned eligibility score (0–100) into the contract's flag.
- * Mirrors the EligibilityScorer rubric: 80+ apply, 60–79 review, <60 skip.
+ * Bucket an agent-owned eligibility score (0-100) into the contract's flag.
+ * Mirrors the EligibilityScorer rubric: 80+ apply, 60-79 review, <60 skip.
  */
 export function deriveEligibilityFlag(
   score: number | null | undefined,
@@ -219,7 +219,7 @@ export type OwnershipResult =
  * Distinguish the contract's 403 (grant exists, other org) from 404 (no such
  * grant). RLS hides cross-tenant rows from the session client, so it cannot tell
  * the two apart on its own. A minimal service-role probe reads ONLY the owning
- * `organization_id` for the id and compares it to the caller's org — it never
+ * `organization_id` for the id and compares it to the caller's org - it never
  * returns cross-tenant data, it only reveals existence (which the contract's 403
  * already implies). All grant DATA returned to the caller still comes from the
  * RLS-scoped session client.

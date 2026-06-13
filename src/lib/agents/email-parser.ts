@@ -1,4 +1,4 @@
-﻿// Email Parser Agent â€” classifies inbound emails, extracts structured
+﻿// Email Parser Agent - classifies inbound emails, extracts structured
 // metadata, matches funders, and logs to email_activity.
 //
 // Phase 3: processes email data passed to it directly. Phase 4 will wire in
@@ -240,7 +240,7 @@ export class EmailParserAgent extends BaseAgent<
       .single();
 
     const timestamp = new Date().toISOString().slice(0, 10);
-    const noteEntry = `[${timestamp}] Email from ${email.from} â€” "${email.subject}": ${summary}`;
+    const noteEntry = `[${timestamp}] Email from ${email.from} - "${email.subject}": ${summary}`;
     const existing = (funder?.notes as string | null) ?? "";
     const updated = existing
       ? `${existing}\n\n${noteEntry}`

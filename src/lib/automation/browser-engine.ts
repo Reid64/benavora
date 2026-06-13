@@ -1,4 +1,4 @@
-// BrowserEngine — Playwright lifecycle manager for Phase 3 browser automation
+// BrowserEngine - Playwright lifecycle manager for Phase 3 browser automation
 // (AGENTS.md Agent 16, BEHAVIORAL_CONTRACTS §18).
 //
 // One BrowserEngine drives one automation session: it launches Chromium, owns a
@@ -11,7 +11,7 @@
 // per organization, `org-{organization_id}`; automation screenshots live under
 // `automation/{session_id}/{label}.png` inside it.
 //
-// This class does NOT submit forms and has no knowledge of form structure — it
+// This class does NOT submit forms and has no knowledge of form structure - it
 // is the transport layer. Detection lives in form-detector.ts, filling in
 // form-filler.ts, and DB bookkeeping in session-manager.ts.
 
@@ -46,9 +46,9 @@ export type SessionState = unknown;
 export interface BrowserEngineOptions {
   /** Supabase client used to upload/download files. Service role for agents. */
   client: SupabaseClient;
-  /** Tenant scope — determines the storage bucket and path prefix. */
+  /** Tenant scope - determines the storage bucket and path prefix. */
   organizationId: string;
-  /** Session this engine serves — namespaces screenshot paths. */
+  /** Session this engine serves - namespaces screenshot paths. */
   sessionId: string;
   /** Run headless. Defaults to true; set false for debugging/visible runs. */
   headless?: boolean;
@@ -152,7 +152,7 @@ export class BrowserEngine {
       });
     } catch (err) {
       await this.captureErrorScreenshot("navigate-error").catch(() => {
-        /* best-effort — never mask the navigation failure */
+        /* best-effort - never mask the navigation failure */
       });
       throw new BrowserEngineError(
         `Navigation to ${url} failed: ${errorMessage(err)}`,
@@ -268,7 +268,7 @@ export class BrowserEngine {
 
   /**
    * Close the page, context, and browser. Safe to call multiple times and from
-   * a `finally` even if launch partially failed. Swallows close errors — a
+   * a `finally` even if launch partially failed. Swallows close errors - a
    * shutdown problem must never mask the real outcome of the run.
    */
   async close(): Promise<void> {

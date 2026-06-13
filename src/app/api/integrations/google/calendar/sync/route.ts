@@ -17,7 +17,7 @@ import {
 //   Writing a calendar link is a create/edit action, so writer+ (task §6).
 //
 // Authenticates via the session and derives organization_id server-side from the
-// profile — never from the request body. The deadlineId is validated to belong
+// profile - never from the request body. The deadlineId is validated to belong
 // to the caller's org before any Google call (Contracts §2, §16).
 
 export const runtime = "nodejs";

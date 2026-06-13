@@ -1,7 +1,7 @@
 // AI request/response types for Claude-backed routes and drafting.
 
 // ---------------------------------------------------------------------------
-// Pattern analysis types (Recursive Learning Agent — AGENTS.md Agent 10).
+// Pattern analysis types (Recursive Learning Agent - AGENTS.md Agent 10).
 // Stored in proven_narratives.success_patterns (migration 017).
 // ---------------------------------------------------------------------------
 
@@ -11,7 +11,7 @@ export interface SuccessPatternEntry {
   example: string;
 }
 
-/** Structured output from the pattern analyzer — stored as JSONB. */
+/** Structured output from the pattern analyzer - stored as JSONB. */
 export interface SuccessPatternAnalysis {
   winning_patterns: SuccessPatternEntry[];
   losing_patterns: SuccessPatternEntry[];
@@ -60,7 +60,7 @@ export interface DraftResult {
   sources: KnowledgeSource[];
   /**
    * The version auto-persisted to draft_versions on generation. Null only if
-   * the (best-effort) save failed — generation itself still succeeds.
+   * the (best-effort) save failed - generation itself still succeeds.
    */
   savedVersion?: SavedDraftVersion | null;
 }
@@ -84,10 +84,10 @@ export interface HumanizeResult {
 }
 
 // ---------------------------------------------------------------------------
-// Prompt construction context (Agent 05 — Narrative Drafting).
+// Prompt construction context (Agent 05 - Narrative Drafting).
 // These shapes carry the verified, organization-scoped data the prompt
 // builders weave into a draft. Per BEHAVIORAL_CONTRACTS §9 the AI uses ONLY
-// this data — it never fabricates organizational facts.
+// this data - it never fabricates organizational facts.
 // ---------------------------------------------------------------------------
 
 /** Verified organization profile facts (from the organizations row). */
@@ -124,7 +124,7 @@ export interface DraftKnowledgeEntry {
   content: string;
 }
 
-/** A proven narrative — previously funded content, weighted heavily. */
+/** A proven narrative - previously funded content, weighted heavily. */
 export interface DraftProvenNarrative {
   id: string;
   sectionType: string | null;
@@ -150,7 +150,7 @@ export interface DraftPrompt {
 }
 
 // ---------------------------------------------------------------------------
-// Budget Builder types (Agent 06 — /api/ai/budget).
+// Budget Builder types (Agent 06 - /api/ai/budget).
 // ---------------------------------------------------------------------------
 
 /** One line item in a structured grant budget. */

@@ -31,11 +31,11 @@ function emptyRow(): BoardRow {
 }
 
 /**
- * Step 4 — board members (BLUEPRINT §4.7, SCHEMA board_members table). Grant
+ * Step 4 - board members (BLUEPRINT §4.7, SCHEMA board_members table). Grant
  * applications routinely ask for governing-board composition, so we capture it
  * up front. Each named row becomes a board_members record (is_active defaults
  * true at the DB). organization_id is derived from the session, never the form
- * (Behavioral Contracts §2). Optional — skippable.
+ * (Behavioral Contracts §2). Optional - skippable.
  */
 export function BoardMembersStep({
   organizationId,

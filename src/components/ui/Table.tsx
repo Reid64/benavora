@@ -44,7 +44,7 @@ export type TableProps<T> = {
   initialSort?: { key: string; direction: SortDirection };
   /**
    * Controlled sort. When `onSortChange` is supplied, the table reads its sort
-   * from `sort` instead of internal state — letting a parent persist it (e.g.
+   * from `sort` instead of internal state - letting a parent persist it (e.g.
    * to the URL). `initialSort` is ignored in controlled mode.
    */
   sort?: { key: string; direction: SortDirection } | null;
@@ -230,7 +230,7 @@ export function Table<T>({
             <span className="font-medium text-navy-700">
               {(currentPage - 1) * pageSize + 1}
             </span>
-            –
+            -
             <span className="font-medium text-navy-700">
               {Math.min(currentPage * pageSize, sortedData.length)}
             </span>{" "}

@@ -6,7 +6,7 @@ import { TIER_PLANS, type SubscriptionTier } from "@/lib/utils/constants";
 
 export type PlanCardProps = {
   tier: SubscriptionTier;
-  /** The org's current tier — highlights this card and disables its CTA. */
+  /** The org's current tier - highlights this card and disables its CTA. */
   currentTier: SubscriptionTier;
   /** Triggered when the user selects this plan (upgrade/downgrade). */
   onSelect: (tier: SubscriptionTier) => void;

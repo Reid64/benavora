@@ -20,7 +20,7 @@ export type OpportunityCardProps = {
 };
 
 /**
- * Card view of an opportunity (task spec) — the grid alternative to the table on
+ * Card view of an opportunity (task spec) - the grid alternative to the table on
  * the Opportunities list. Leads with the funding source_type badge, then the
  * category and status, and shows the funder, amount, deadline, and the agent's
  * eligibility score + recommendation. The whole card links to the detail view.
@@ -60,7 +60,7 @@ export function OpportunityCard({ opportunity }: OpportunityCardProps) {
       <div className="mt-auto space-y-2.5">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-navy-600">
           <span className="font-medium text-navy-800">
-            {amount != null ? formatCurrency(amount) : "Amount —"}
+            {amount != null ? formatCurrency(amount) : "Amount -"}
           </span>
           <span className="flex items-center gap-1 text-xs text-navy-500">
             <CalendarClock className="h-3.5 w-3.5" aria-hidden />

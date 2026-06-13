@@ -3,7 +3,7 @@
 //
 // Takes the raw text of a candidate funding page and asks Claude to pull out a
 // single structured opportunity. Per BEHAVIORAL_CONTRACTS §9/§17 the model
-// extracts only what the page states and returns null for anything absent — it
+// extracts only what the page states and returns null for anything absent - it
 // never fabricates. This module then validates the result (deadline must be in
 // the future, amounts must be positive) and computes a confidence score from
 // how completely the core fields were filled, so the caller can decide whether
@@ -50,7 +50,7 @@ export interface ParseResult {
 }
 
 export interface ParseOptions {
-  /** Raw page text (or HTML — it is treated as opaque source text). */
+  /** Raw page text (or HTML - it is treated as opaque source text). */
   rawContent: string;
   /** The page URL; carried through onto the parsed opportunity. */
   sourceUrl: string;
@@ -62,7 +62,7 @@ export interface ParseOptions {
 const MAX_CONTENT_CHARS = 14_000;
 
 /**
- * Extract a structured opportunity from raw page content. Never throws —
+ * Extract a structured opportunity from raw page content. Never throws -
  * unreadable model output yields `{ opportunity: null, confidence: 0 }` so a
  * single bad page never halts a research run (Contracts §17).
  */

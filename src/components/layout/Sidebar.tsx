@@ -17,12 +17,12 @@ type SidebarProps = {
   open: boolean;
   /** Close the mobile drawer (backdrop tap, link click, or close button). */
   onClose: () => void;
-  /** Caller's role — gates role-restricted items (e.g. Billing is owner-only). */
+  /** Caller's role - gates role-restricted items (e.g. Billing is owner-only). */
   role: Enums<"user_role"> | undefined;
 };
 
 /**
- * Dashboard sidebar navigation — dark navy brand rail.
+ * Dashboard sidebar navigation - dark navy brand rail.
  * - Static rail on lg+ screens.
  * - Slide-in drawer with backdrop on mobile, controlled by `open`.
  * - The nav item whose route matches the current path is highlighted in teal.
@@ -66,7 +66,7 @@ export function Sidebar({ open, onClose, role }: SidebarProps) {
   };
 
   // Resolve each item's href to the section's remembered location (restoring
-  // saved filters/search/sort/view). Computed after mount — sessionStorage is
+  // saved filters/search/sort/view). Computed after mount - sessionStorage is
   // unavailable during SSR, so the first render uses the plain hrefs to keep
   // server and client markup identical (no hydration mismatch). Recomputed on
   // navigation, by which point the section the user is leaving is recorded.
@@ -103,7 +103,7 @@ export function Sidebar({ open, onClose, role }: SidebarProps) {
       >
         {/* Brand + mobile close */}
         <div className="flex h-16 items-center justify-between border-b border-white/10 px-5">
-          <Link href="/dashboard" aria-label="Benavora — go to dashboard">
+          <Link href="/dashboard" aria-label="Benavora - go to dashboard">
             <Logo size={32} />
           </Link>
           <button

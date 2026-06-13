@@ -35,10 +35,10 @@ export type ApprovalWorkflowProps = {
 };
 
 /**
- * Approval workflow (BLUEPRINT §Phase 3 components — ApprovalWorkflow). A
+ * Approval workflow (BLUEPRINT §Phase 3 components - ApprovalWorkflow). A
  * four-step indicator (Review → Approve → Submitting → Confirmed) plus a
  * two-item checklist. Both boxes must be ticked before the Approve & Submit
- * button enables — the human gate that BEHAVIORAL_CONTRACTS §18 requires before
+ * button enables - the human gate that BEHAVIORAL_CONTRACTS §18 requires before
  * any automated submission.
  */
 export function ApprovalWorkflow({

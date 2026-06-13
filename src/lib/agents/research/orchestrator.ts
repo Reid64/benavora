@@ -1,13 +1,13 @@
 // Parallel research orchestration (BLUEPRINT §3.1, BEHAVIORAL_CONTRACTS §17).
 //
 // "Run all active" launches every research lane in RESEARCH_AGENT_CONFIGS AT ONCE
-// via Promise.allSettled — the four base families plus the four specialized
-// source-type passes — instead of running them sequentially. allSettled (not
+// via Promise.allSettled - the four base families plus the four specialized
+// source-type passes - instead of running them sequentially. allSettled (not
 // Promise.all) is deliberate: one family failing or timing out must never abort
 // the others, and every lane's status is reported back for the dashboard.
 //
 // Because the lanes run concurrently, two of them can each pass the per-insert
-// checkDuplicate() — neither sees the other's just-committed row — and create the
+// checkDuplicate() - neither sees the other's just-committed row - and create the
 // same opportunity in one sweep. So AFTER all lanes settle, a cross-result dedup
 // pass (deduplicator.deduplicateResults) runs over the union of this sweep's new
 // opportunities and removes the collisions, keeping the earliest-created row.
@@ -96,7 +96,7 @@ export async function runResearchAgentsInParallel(
   options: OrchestrationOptions,
 ): Promise<OrchestrationResult> {
   const startedAt = Date.now();
-  // Marker for "created during this sweep" — set before any lane runs so the
+  // Marker for "created during this sweep" - set before any lane runs so the
   // dedup pass sees every row the lanes insert.
   const sweepStartIso = new Date(startedAt).toISOString();
 
@@ -111,7 +111,7 @@ export async function runResearchAgentsInParallel(
   const profileIds = options.profileIds ?? null;
 
   // Launch all lanes simultaneously; runLane never throws, so allSettled here is
-  // belt-and-suspenders — a settled rejection still maps to a failed lane.
+  // belt-and-suspenders - a settled rejection still maps to a failed lane.
   const settled = await Promise.allSettled(
     configs.map((cfg) => runLane(cfg, agentOptions, profileIds)),
   );
@@ -237,7 +237,7 @@ interface SweepRow {
  * Fold cross-lane duplicate opportunities created during this sweep. Compares by
  * URL, then name + funder (deduplicator.deduplicateResults), keeps the earliest-
  * created row of each collision, and best-effort removes the rest (its keywords
- * first, then the row). Never throws — a cleanup failure leaves the duplicate in
+ * first, then the row). Never throws - a cleanup failure leaves the duplicate in
  * place rather than breaking the sweep. Returns the number of rows removed.
  */
 async function dedupeSweep(
@@ -336,7 +336,7 @@ interface ValidatableRow {
 /**
  * Cross-provider validation pass over this sweep's new opportunities (migration
  * 014). Validates up to `limit` of them concurrently; each finding goes to both
- * AI providers and the verdicts are upserted to `validations`. Never throws — a
+ * AI providers and the verdicts are upserted to `validations`. Never throws - a
  * validation failure leaves the opportunity unvalidated rather than breaking the
  * sweep. Returns how many were validated and how many reached "Verified".
  */

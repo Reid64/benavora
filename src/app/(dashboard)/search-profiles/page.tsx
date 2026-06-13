@@ -260,7 +260,7 @@ export default function SearchProfilesPage() {
                     {(profileRow.min_amount != null ||
                       profileRow.max_amount != null) && (
                       <span>
-                        {formatCurrency(profileRow.min_amount)} –{" "}
+                        {formatCurrency(profileRow.min_amount)} -{" "}
                         {formatCurrency(profileRow.max_amount)}
                       </span>
                     )}

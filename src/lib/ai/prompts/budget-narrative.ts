@@ -1,4 +1,4 @@
-// Budget Narrative prompt template — AGENTS.md Agent 06 (Budget Builder).
+// Budget Narrative prompt template - AGENTS.md Agent 06 (Budget Builder).
 //
 // Builds the system + user prompt that produces both a structured project budget
 // (line items by standard grant category) and a prose budget narrative
@@ -119,7 +119,7 @@ export function buildBudgetNarrativePrompt(
   const requested = formatCurrency(context.requestedAmount);
   if (requested) oppLines.push(`- Amount being requested: ${requested}`);
   if (amountRange[0] || amountRange[1]) {
-    oppLines.push(`- Award range: ${amountRange[0] ?? "?"} – ${amountRange[1] ?? "?"}`);
+    oppLines.push(`- Award range: ${amountRange[0] ?? "?"} - ${amountRange[1] ?? "?"}`);
   }
   const annual = formatCurrency(context.annualBudget);
   if (annual) oppLines.push(`- Organization annual budget: ${annual}`);

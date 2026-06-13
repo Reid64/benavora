@@ -32,7 +32,7 @@ const TIER_COLOR: Record<EffectivenessTier, BadgeColor> = {
  *
  * All figures come from real outcome rows aggregated by {@link analyzeOutcomes}.
  * Percentages are suppressed until a bucket reaches {@link MIN_OUTCOMES_FOR_RATE}
- * outcomes (Behavioral Contracts §10) — those buckets show "Insufficient data".
+ * outcomes (Behavioral Contracts §10) - those buckets show "Insufficient data".
  */
 export function SuccessAnalytics({
   analysis,
@@ -74,7 +74,7 @@ export function SuccessAnalytics({
           value={
             summary.dollarEfficiency != null
               ? `${summary.dollarEfficiency}%`
-              : "—"
+              : "-"
           }
           hint="Awarded ÷ requested"
         />
@@ -129,7 +129,7 @@ export function SuccessAnalytics({
 // --- summary -----------------------------------------------------------------
 
 function formatRate(rate: number | null): string {
-  return rate != null ? `${rate}%` : "—";
+  return rate != null ? `${rate}%` : "-";
 }
 
 function StatCard({
@@ -226,7 +226,7 @@ function TrendChart({ points }: { points: MonthlyPoint[] }) {
               />
             </div>
             <div className="text-center text-[11px] leading-tight text-navy-500">
-              {p.successRate != null ? `${p.successRate}%` : "—"}
+              {p.successRate != null ? `${p.successRate}%` : "-"}
             </div>
             <div className="whitespace-nowrap text-[11px] text-navy-400">
               {p.label}
@@ -352,7 +352,7 @@ function DenialPatterns({
   if (patterns.length === 0) {
     return (
       <p className="text-sm text-navy-500">
-        No denials recorded — or none with a stated reason.
+        No denials recorded - or none with a stated reason.
       </p>
     );
   }

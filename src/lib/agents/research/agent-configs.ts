@@ -1,4 +1,4 @@
-// Research agent configs — the runnable registry behind parallel orchestration.
+// Research agent configs - the runnable registry behind parallel orchestration.
 //
 // Each config is one "lane" the orchestrator (orchestrator.ts) launches at once:
 // it names the underlying agent class, the search specialization (ResearchFocus)
@@ -8,8 +8,8 @@
 // passes (e.g. Grants.gov API vs. state agencies) run side by side and are then
 // folded together by the cross-result dedup pass.
 //
-// Server-only (imports the agent classes). The CLIENT-SAFE mirror of this list —
-// keys, labels, source types — lives in src/lib/research/families.ts
+// Server-only (imports the agent classes). The CLIENT-SAFE mirror of this list -
+// keys, labels, source types - lives in src/lib/research/families.ts
 // (RESEARCH_AGENT_LANES) for the dashboard. Keep `key` in sync between the two.
 
 import type { AgentRunOutcome, BaseAgentOptions } from "@/lib/agents/base-agent";

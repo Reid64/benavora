@@ -1,4 +1,4 @@
-// Email Matching Agent — AGENTS.md Agent 17 (BLUEPRINT Phase 4).
+// Email Matching Agent - AGENTS.md Agent 17 (BLUEPRINT Phase 4).
 //
 // Persists synced Gmail threads/messages and links each to a CRM record by its
 // sender. Matching priority (BEHAVIORAL_CONTRACTS §19): exact email on a CRM
@@ -8,7 +8,7 @@
 //
 // Extends BaseAgent: one sync run logs a single agent_runs row (agent_type
 // 'email_matching', migration 006) with item counts. Every query is explicitly
-// scoped by organization_id — correct under the service-role client too (§2,§15).
+// scoped by organization_id - correct under the service-role client too (§2,§15).
 
 import {
   AgentError,

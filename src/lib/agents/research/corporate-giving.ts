@@ -1,4 +1,4 @@
-// Corporate Giving Research Agent — AGENTS.md Agent 12.
+// Corporate Giving Research Agent - AGENTS.md Agent 12.
 //
 // Discovers companies with active donation / community-giving programs and turns
 // them into opportunity (and funder) records the rest of Benavora can work. It
@@ -16,7 +16,7 @@
 // eligibility scoring runs on each new one (§17); de-duplication (URL, then
 // fuzzy name+funder) runs before any insert (§17); the run logs to agent_runs
 // with token usage via BaseAgent (§15). Work is bounded so the run stays within
-// the 60s agent ceiling — any truncation is recorded in the run summary so a cap
+// the 60s agent ceiling - any truncation is recorded in the run summary so a cap
 // is never silent.
 
 import { DEFAULT_MAX_TOKENS, DEFAULT_MODEL } from "@/lib/ai/claude";
@@ -82,7 +82,7 @@ export interface CorporateGivingOptions extends BaseAgentOptions {
   maxTokens?: number;
 }
 
-// Run bounds — keep the synchronous pipeline within the 60s agent ceiling
+// Run bounds - keep the synchronous pipeline within the 60s agent ceiling
 // (AGENTS.md §15). These are whole-run caps, applied across every profile.
 const MAX_QUERIES_PER_PROFILE = 4;
 const MAX_HITS_PER_QUERY = 5;
@@ -138,7 +138,7 @@ export class CorporateGivingResearchAgent extends BaseAgent<
       organizationId: this.organizationId,
     };
 
-    // URLs seen anywhere in this run (across profiles) — never fetch twice.
+    // URLs seen anywhere in this run (across profiles) - never fetch twice.
     const seenUrls = new Set<string>();
     const newOpportunityIds: string[] = [];
     let opportunitiesFound = 0;
@@ -309,7 +309,7 @@ export class CorporateGivingResearchAgent extends BaseAgent<
 
   /**
    * The profiles this run will process. Two modes:
-   *   - Caller-supplied ids (a single "Run Now"): honor the explicit choice —
+   *   - Caller-supplied ids (a single "Run Now"): honor the explicit choice -
    *     any active profile, even one not tagged corporate. Missing or paused
    *     profiles are silently skipped.
    *   - No ids ("Run all"): every active profile carrying a corporate category,

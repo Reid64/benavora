@@ -1,4 +1,4 @@
-// Review Agent — AGENTS.md Agent 08.
+// Review Agent - AGENTS.md Agent 08.
 //
 // Performs a critical quality review of an application's draft before submission:
 // section-by-section scores, specific issues, suggested improvements, and an
@@ -152,7 +152,7 @@ export class ReviewAgent extends BaseAgent<ReviewInput, ReviewResult> {
 
     return {
       data: { applicationId, ...parsed },
-      outputSummary: `Reviewed "${opp.name}" — readiness ${parsed.overallReadiness}/100, ${parsed.sections.length} section(s).`,
+      outputSummary: `Reviewed "${opp.name}" - readiness ${parsed.overallReadiness}/100, ${parsed.sections.length} section(s).`,
       itemsFound: parsed.sections.length,
       itemsProcessed: parsed.sections.length,
       tokensUsed: response.usage.totalTokens,
@@ -164,7 +164,7 @@ export class ReviewAgent extends BaseAgent<ReviewInput, ReviewResult> {
 
 function formatReviewNote(review: Omit<ReviewResult, "applicationId">): string {
   const lines: string[] = [
-    `**Review** — overall readiness ${review.overallReadiness}/100`,
+    `**Review** - overall readiness ${review.overallReadiness}/100`,
     "",
     review.summary,
   ];

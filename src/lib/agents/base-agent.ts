@@ -1,4 +1,4 @@
-// BaseAgent — shared infrastructure for every Benavora agent (AGENTS.md
+// BaseAgent - shared infrastructure for every Benavora agent (AGENTS.md
 // "Agent Architecture").
 //
 // Provides, once, the cross-cutting concerns every agent must honor:
@@ -100,7 +100,7 @@ export abstract class BaseAgent<TInput, TResult> {
   /**
    * Run the agent end-to-end: log the run as `running`, execute under the
    * timeout, then update the row to `completed` or `failed`. Logging is
-   * best-effort — a logging failure never masks or blocks the real result.
+   * best-effort - a logging failure never masks or blocks the real result.
    */
   async run(input: TInput): Promise<AgentRunOutcome<TResult>> {
     const startedAt = Date.now();
@@ -159,7 +159,7 @@ export abstract class BaseAgent<TInput, TResult> {
       .single();
 
     // Meter this run against the org's daily agent_runs quota (Contracts §25).
-    // Best-effort and decoupled from the run itself — a tracking failure must
+    // Best-effort and decoupled from the run itself - a tracking failure must
     // never block the agent. The entry route enforces the limit before we get
     // here; this keeps the usage_metrics history complete for the dashboards.
     await trackUsage(this.client, this.organizationId, "agent_runs", 1);

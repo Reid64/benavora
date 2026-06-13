@@ -1,10 +1,10 @@
-// Final Assembly Agent — AGENTS.md Agent 09.
+// Final Assembly Agent - AGENTS.md Agent 09.
 //
 // Assembles the complete application package. It orders the attached documents to
 // match the opportunity's stated requirements, builds a submission checklist,
 // compiles a package summary (applicant + contact info, amount requested,
 // document list), and optionally drafts a cover letter with Claude. Documents
-// themselves stay in Supabase Storage — this agent organizes references, not
+// themselves stay in Supabase Storage - this agent organizes references, not
 // files (AGENTS.md Agent 09).
 
 import { callClaude, DEFAULT_MAX_TOKENS, DEFAULT_MODEL } from "@/lib/ai/claude";
@@ -296,7 +296,7 @@ function buildPackageSummary(args: {
     lines.push("- (none attached)");
   } else {
     args.orderedDocuments.forEach((d, i) => {
-      const tag = d.fulfills ? ` — fulfills "${d.fulfills}"` : " — supplemental";
+      const tag = d.fulfills ? ` - fulfills "${d.fulfills}"` : " - supplemental";
       lines.push(`${i + 1}. ${d.fileName} [${d.category}]${tag}`);
     });
   }

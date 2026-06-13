@@ -1,4 +1,4 @@
-// Budget Builder Agent — AGENTS.md Agent 06.
+// Budget Builder Agent - AGENTS.md Agent 06.
 //
 // Creates a project budget (structured line items by standard grant category)
 // and a budget narrative for a grant application, using ONLY the organization's
@@ -124,7 +124,7 @@ export class BudgetBuilderAgent extends BaseAgent<
 
     const parsed = parseBudgetResponse(response.text);
 
-    // Persist the narrative as a note (best effort — a notes failure must not
+    // Persist the narrative as a note (best effort - a notes failure must not
     // fail the run). Exactly one parent FK, per the notes CHECK constraint.
     const noteContent = formatBudgetNote(parsed);
     if (input.applicationId) {
@@ -175,7 +175,7 @@ function formatBudgetNote(result: {
   narrative: string;
 }): string {
   const lines = result.lineItems.map(
-    (li) => `- ${li.category}: ${formatCurrency(li.amount)} — ${li.justification}`,
+    (li) => `- ${li.category}: ${formatCurrency(li.amount)} - ${li.justification}`,
   );
   return [
     "**Budget**",

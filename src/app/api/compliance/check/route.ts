@@ -7,7 +7,7 @@ import { requireRole } from "@/lib/auth/role-gate";
 import { enforceLimit } from "@/lib/billing/tier-enforcer";
 import { trackUsage } from "@/lib/billing/usage-tracker";
 
-// POST /api/compliance/check — run the ComplianceChecker agent for an application.
+// POST /api/compliance/check - run the ComplianceChecker agent for an application.
 // Derives organization_id from the session (BEHAVIORAL_CONTRACTS §2, §6). Returns
 // a compliance_report with a passed boolean, checks array, blocking_issues, and
 // warnings. A failed report prevents stage transition to "submitted" (§6).

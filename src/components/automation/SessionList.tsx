@@ -30,7 +30,7 @@ export type SessionListProps = {
 };
 
 /**
- * Table of automation sessions (BLUEPRINT §Phase 3 components — SessionList).
+ * Table of automation sessions (BLUEPRINT §Phase 3 components - SessionList).
  * Columns: Application, Funder, Status, Steps, Created, Actions. Status badges
  * use the colors mapped from the automation_status enum.
  */
@@ -73,7 +73,7 @@ export function SessionList({
         row.funderName ? (
           <span className="text-navy-700">{row.funderName}</span>
         ) : (
-          <span className="text-navy-400">—</span>
+          <span className="text-navy-400">-</span>
         ),
     },
     {

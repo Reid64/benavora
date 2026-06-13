@@ -15,7 +15,7 @@ import {
 } from "@/lib/alerts/alerts-service";
 import type { Tables, TablesInsert } from "@/types/database";
 
-// GET /api/alerts — regenerate the organization's alerts from live data, then
+// GET /api/alerts - regenerate the organization's alerts from live data, then
 // return the active list plus the per-category badge counts.
 //
 // "Active" = not dismissed and not currently snoozed. Generation is idempotent:
@@ -104,7 +104,7 @@ export async function GET() {
   }
 
   // Resolve opportunity names for the application alerts in one extra query
-  // (the codebase joins in JS rather than embedding — see outcomes page).
+  // (the codebase joins in JS rather than embedding - see outcomes page).
   const oppIds = new Set<string>();
   for (const a of actionAppsRes.data ?? []) oppIds.add(a.opportunity_id);
   for (const a of draftAppsRes.data ?? []) oppIds.add(a.opportunity_id);

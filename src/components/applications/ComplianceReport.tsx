@@ -115,7 +115,7 @@ export function ComplianceReport({ applicationId }: ComplianceReportProps) {
               <XCircle className="h-4 w-4 shrink-0 text-red-600" aria-hidden />
             )}
             {data.passed
-              ? "All required checks passed — this application is ready to submit."
+              ? "All required checks passed - this application is ready to submit."
               : `${data.blocking_issues.length} blocking issue${
                   data.blocking_issues.length === 1 ? "" : "s"
                 } must be resolved before submission.`}
@@ -141,7 +141,7 @@ export function ComplianceReport({ applicationId }: ComplianceReportProps) {
           {data.warnings.length > 0 && (
             <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3">
               <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-yellow-800">
-                AI Review Notes (advisory — do not block submission)
+                AI Review Notes (advisory - do not block submission)
               </p>
               <ul className="space-y-1">
                 {data.warnings.map((w, i) => (

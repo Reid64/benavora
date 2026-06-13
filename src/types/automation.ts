@@ -1,4 +1,4 @@
-// Browser-automation types — Phase 3 (BLUEPRINT §Phase 3, AGENTS.md Agent 16,
+// Browser-automation types - Phase 3 (BLUEPRINT §Phase 3, AGENTS.md Agent 16,
 // BEHAVIORAL_CONTRACTS §18).
 //
 // These mirror the automation_sessions / automation_steps /
@@ -17,7 +17,7 @@ import type { Json } from "@/types/database";
 
 /**
  * Lifecycle of one browser-automation session. Mirrors the `automation_status`
- * enum. The automation NEVER advances past `awaiting_approval` on its own — a
+ * enum. The automation NEVER advances past `awaiting_approval` on its own - a
  * human must approve before `approved` → `submitted` (BEHAVIORAL_CONTRACTS §18).
  */
 export type AutomationStatus =
@@ -132,7 +132,7 @@ export type FormFieldType =
 export interface FormField {
   /** Coarse control type the filler dispatches on. */
   fieldType: FormFieldType;
-  /** Best machine identifier — the element's name, falling back to its id. */
+  /** Best machine identifier - the element's name, falling back to its id. */
   fieldName: string;
   /** Human-readable label resolved from <label>, aria-label, or placeholder. */
   fieldLabel: string;
@@ -189,7 +189,7 @@ export interface FillResult {
 /**
  * Organizational data the form detector maps fields against. Pulled from the
  * organization profile, the acting user's profile, and the application being
- * submitted. All optional — missing values simply leave fields unmapped.
+ * submitted. All optional - missing values simply leave fields unmapped.
  */
 export interface AutofillContext {
   organization: {
@@ -230,7 +230,7 @@ export type FormSchemaFieldType =
 
 /** A single form control in the structured schema returned by detectFormSchema. */
 export interface FormSchemaField {
-  /** Stable identifier — HTML id, then name, then label slug. */
+  /** Stable identifier - HTML id, then name, then label slug. */
   id: string;
   /** Human-readable label resolved from <label>, aria-label, or placeholder. */
   label: string;
@@ -269,11 +269,11 @@ export interface FieldMappingEntry {
   value: string;
   /** Dotted path of the data source, e.g. "organization.name". */
   source: string;
-  /** 0–1 confidence score. Below 0.7 → requiresReview. */
+  /** 0-1 confidence score. Below 0.7 → requiresReview. */
   confidence: number;
 }
 
-/** Result of mapFormFields — split into auto-fillable and review-required. */
+/** Result of mapFormFields - split into auto-fillable and review-required. */
 export interface FieldMapping {
   /** Mappings with confidence ≥ 0.7; safe to auto-fill. */
   mappings: FieldMappingEntry[];

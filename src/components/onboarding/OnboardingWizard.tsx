@@ -36,7 +36,7 @@ import { StepIndicator } from "./StepIndicator";
 import { WelcomeStep } from "./WelcomeStep";
 
 export type OnboardingWizardProps = {
-  /** Authenticated user id — recorded as documents.uploaded_by. */
+  /** Authenticated user id - recorded as documents.uploaded_by. */
   userId: string;
   snapshot: OnboardingSnapshot;
 };
@@ -125,7 +125,7 @@ export function OnboardingWizard({ userId, snapshot }: OnboardingWizardProps) {
   }, [current, orgId]);
 
   function goNext() {
-    // Welcome is informational — advancing past it counts as done.
+    // Welcome is informational - advancing past it counts as done.
     if (step.id === "welcome") markComplete("welcome");
     setCurrent((c) => Math.min(c + 1, ONBOARDING_STEPS.length - 1));
   }

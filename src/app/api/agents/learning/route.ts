@@ -41,7 +41,7 @@ function isRateLimited(orgId: string): boolean {
 }
 
 export async function POST(request: Request) {
-  // Running an agent is a write action — viewers are read-only (Contracts §16).
+  // Running an agent is a write action - viewers are read-only (Contracts §16).
   const roleCheck = await requireRole("writer");
   if ("error" in roleCheck) return roleCheck.error;
 
@@ -67,7 +67,7 @@ export async function POST(request: Request) {
     return jsonError("Authentication required.", "unauthenticated", 401);
   }
 
-  // Derive organization_id server-side from the profile — never from the body.
+  // Derive organization_id server-side from the profile - never from the body.
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("id, organization_id")

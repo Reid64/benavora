@@ -12,7 +12,7 @@ import {
  *
  * SERVER-ONLY. The secret key never reaches the client. Like agent code, this
  * module uses the service-role Supabase client (createAdminClient) because the
- * webhook handler runs with no user session — there is no cookie to derive RLS
+ * webhook handler runs with no user session - there is no cookie to derive RLS
  * from. Every query is therefore MANUALLY scoped by organization_id, and the
  * org id is always resolved server-side (from the session in the billing route,
  * or from Stripe metadata in webhooks), never trusted from a request body
@@ -44,7 +44,7 @@ export function isStripeConfigured(): boolean {
 
 /**
  * Map a Stripe Price ID to one of our subscription tiers using the per-tier
- * price env vars. Returns null for unknown prices (defensive — never guess).
+ * price env vars. Returns null for unknown prices (defensive - never guess).
  */
 export function tierForPriceId(priceId: string | null | undefined): SubscriptionTier | null {
   if (!priceId) return null;
@@ -188,7 +188,7 @@ export type OrgSubscription = {
 
 /**
  * Fetch the current subscription for an org from our mirror table. Returns a
- * synthetic free-tier record when no row exists (every org is at least free —
+ * synthetic free-tier record when no row exists (every org is at least free -
  * Contracts §22).
  */
 export async function getSubscription(orgId: string): Promise<OrgSubscription> {
@@ -241,7 +241,7 @@ async function syncSubscription(
       orgId = (customer.metadata?.organization_id as string | undefined) ?? null;
     }
   }
-  if (!orgId) return; // Cannot resolve tenant — never guess.
+  if (!orgId) return; // Cannot resolve tenant - never guess.
 
   // Stripe API 2025+ moved the billing period onto each subscription item.
   const firstItem = subscription.items.data[0];

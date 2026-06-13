@@ -1,4 +1,4 @@
-// Budget Detail prompt — enhanced for /api/ai/budget (AGENTS.md Agent 06).
+// Budget Detail prompt - enhanced for /api/ai/budget (AGENTS.md Agent 06).
 //
 // Produces a structured budget table (line items with category, amount,
 // justification, percentage) AND a separate prose budget narrative. Unlike
@@ -38,7 +38,7 @@ export interface BudgetDetailContext {
   /** Funder budget requirements / restrictions, if any. */
   budgetRequirements: string | null;
   program: BudgetDetailProgramContext;
-  /** budget_justification KB entries — additional grounding for line items. */
+  /** budget_justification KB entries - additional grounding for line items. */
   kbJustificationEntries: BudgetDetailKbEntry[];
 }
 
@@ -107,7 +107,7 @@ export function buildBudgetDetailPrompt(
         amount: "<integer USD or null>",
         justification:
           "<one sentence tying this cost to the program's activities>",
-        percentage: "<float — amount / total_requested * 100, or null>",
+        percentage: "<float - amount / total_requested * 100, or null>",
       },
     ],
     total_requested: "<integer USD or null>",
@@ -123,7 +123,7 @@ export function buildBudgetDetailPrompt(
     "2. Where a line item needs a figure you were not given, set its amount to null and add [NEEDS INPUT: <what is missing>] in its justification. Do not guess.",
     `3. Use these exact budget categories: ${BUDGET_CATEGORIES.join(", ")}. Omit a category only when it genuinely does not apply.`,
     "4. Amounts are plain integers in US dollars (no symbols, no commas). Percentages are floats rounded to one decimal place.",
-    "5. budget_narrative is 3–5 paragraphs of polished prose justifying the full budget against the program's activities and the funder's priorities. Tie each major cost category to a programmatic need.",
+    "5. budget_narrative is 3-5 paragraphs of polished prose justifying the full budget against the program's activities and the funder's priorities. Tie each major cost category to a programmatic need.",
     "6. Do NOT repeat line-item justifications verbatim in the narrative. The narrative synthesizes and expands; the table itemizes.",
     "7. Respond with ONLY a single JSON object in exactly this shape (no prose, no code fences):",
     outputShape,
@@ -139,7 +139,7 @@ export function buildBudgetDetailPrompt(
   const amountMin = formatCurrency(context.amountMin);
   const amountMax = formatCurrency(context.amountMax);
   if (amountMin || amountMax) {
-    oppLines.push(`- Award range: ${amountMin ?? "?"} – ${amountMax ?? "?"}`);
+    oppLines.push(`- Award range: ${amountMin ?? "?"} - ${amountMax ?? "?"}`);
   }
   const annual = formatCurrency(context.annualBudget);
   if (annual) oppLines.push(`- Organization annual budget: ${annual}`);
@@ -164,7 +164,7 @@ export function buildBudgetDetailPrompt(
     "## Program data (the only financial figures you may use for line items)",
     renderProgram(context.program),
     "",
-    "## Knowledge Base — budget justification entries (additional grounding)",
+    "## Knowledge Base - budget justification entries (additional grounding)",
     renderKbEntries(context.kbJustificationEntries),
     "",
     "## Output",

@@ -456,11 +456,11 @@ function OverviewTab({
       <Card title="Details">
         <dl className="divide-y divide-navy-100">
           <DetailRow label="Description">
-            {funder.description ?? <span className="text-navy-400">—</span>}
+            {funder.description ?? <span className="text-navy-400">-</span>}
           </DetailRow>
           <DetailRow label="Geographic focus">
             {funder.geographic_focus ?? (
-              <span className="text-navy-400">—</span>
+              <span className="text-navy-400">-</span>
             )}
           </DetailRow>
           <DetailRow label="Annual giving budget">
@@ -470,7 +470,7 @@ function OverviewTab({
             {funder.preferred_application_method ? (
               humanizeEnum(funder.preferred_application_method)
             ) : (
-              <span className="text-navy-400">—</span>
+              <span className="text-navy-400">-</span>
             )}
           </DetailRow>
         </dl>
@@ -490,7 +490,7 @@ function OverviewTab({
                 <ExternalLink className="h-3.5 w-3.5" aria-hidden />
               </a>
             ) : (
-              <span className="text-navy-400">—</span>
+              <span className="text-navy-400">-</span>
             )}
           </DetailRow>
           <DetailRow label="Giving portal">
@@ -505,19 +505,19 @@ function OverviewTab({
                 <ExternalLink className="h-3.5 w-3.5" aria-hidden />
               </a>
             ) : (
-              <span className="text-navy-400">—</span>
+              <span className="text-navy-400">-</span>
             )}
           </DetailRow>
           <DetailRow label="Portal login status">
             {funder.portal_login_status ? (
               humanizeEnum(funder.portal_login_status)
             ) : (
-              <span className="text-navy-400">—</span>
+              <span className="text-navy-400">-</span>
             )}
           </DetailRow>
           <DetailRow label="Has giving page">
             {funder.has_giving_page === false ? (
-              <Badge color="yellow">No — cold outreach target</Badge>
+              <Badge color="yellow">No - cold outreach target</Badge>
             ) : (
               <Badge color="green">Yes</Badge>
             )}
@@ -759,7 +759,7 @@ function IntelligenceTab({
             </DetailRow>
             <DetailRow label="Funding cycles">
               {intelligence.funding_cycles ?? (
-                <span className="text-navy-400">—</span>
+                <span className="text-navy-400">-</span>
               )}
             </DetailRow>
           </dl>

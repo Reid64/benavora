@@ -46,7 +46,7 @@ export type FunderFormProps = {
 /**
  * Create/edit form for a funder. Covers every BLUEPRINT §4.2 field.
  *
- * organization_id is derived from the session profile (useProfile) — never from
+ * organization_id is derived from the session profile (useProfile) - never from
  * a form field (Behavioral Contracts §2). Duplicate name+category matches warn
  * but do not block (Contracts §3).
  */
@@ -306,7 +306,7 @@ export function FunderForm({ funder, onSaved, onCancel }: FunderFormProps) {
         <span className="text-sm">
           <span className="font-medium text-navy-800">Has a giving page</span>
           <span className="mt-0.5 block text-navy-500">
-            Uncheck if this funder has no online giving page — it becomes a cold
+            Uncheck if this funder has no online giving page - it becomes a cold
             outreach target.
           </span>
         </span>

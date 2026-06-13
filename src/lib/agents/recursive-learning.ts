@@ -1,4 +1,4 @@
-// Recursive Learning Agent — AGENTS.md Agent 10.
+// Recursive Learning Agent - AGENTS.md Agent 10.
 //
 // Triggered when an outcome is recorded. It closes the learning loop: from an
 // AWARDED (or PARTIAL) application it extracts the reusable narrative sections
@@ -173,7 +173,7 @@ export class RecursiveLearningAgent extends BaseAgent<
     const patternNote = patternsAnalyzed ? ", patterns analyzed" : "";
     const summary =
       result === "denied"
-        ? `Denied outcome processed — rescored ${narrativesRescored} narrative(s).`
+        ? `Denied outcome processed - rescored ${narrativesRescored} narrative(s).`
         : `${result} outcome: extracted ${sectionsExtracted} section(s), ${provenCreated} new / ${provenUpdated} updated proven narrative(s), flagged ${knowledgeBaseFlagged.length} KB entr${knowledgeBaseFlagged.length === 1 ? "y" : "ies"}${patternNote}.`;
 
     return {
@@ -225,7 +225,7 @@ export class RecursiveLearningAgent extends BaseAgent<
     updated: number;
     flagged: string[];
     tokensUsed: number;
-    /** proven_narratives ids created or updated this run — used for pattern storage. */
+    /** proven_narratives ids created or updated this run - used for pattern storage. */
     provenNarrativeIds: string[];
   }> {
     // Candidate KB entries the extractor can attribute sections to.

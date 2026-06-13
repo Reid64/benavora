@@ -13,7 +13,7 @@ import {
   resolveGrantOwnership,
 } from "@/lib/grants/grants-service";
 
-// POST /api/grants/[id]/rescore — manual eligibility re-score for one grant using
+// POST /api/grants/[id]/rescore - manual eligibility re-score for one grant using
 // the organization's current search profile
 // (BEHAVIORAL_CONTRACTS "POST /api/grants/[id]/rescore").
 //
@@ -21,7 +21,7 @@ import {
 // the session (Six Laws Law 2). The contract requires an organization search
 // profile to be configured (422 NO_SEARCH_PROFILE otherwise); we verify one
 // exists in `search_profiles` before scoring. Scoring reuses the real
-// EligibilityScorer agent (no mocks — Iron Law 8), which compares the verified
+// EligibilityScorer agent (no mocks - Iron Law 8), which compares the verified
 // org profile against the opportunity, writes eligibility_score / recommendation /
 // recommendation_reasoning back onto the row, and logs to agent_runs.
 
@@ -36,7 +36,7 @@ function jsonError(message: string, code: string, status: number) {
 type RouteContext = { params: { id: string } };
 
 export async function POST(request: Request, { params }: RouteContext) {
-  // Re-scoring is a write action (it overwrites AI-owned fields) — viewers are
+  // Re-scoring is a write action (it overwrites AI-owned fields) - viewers are
   // read-only (Contracts: grants_manager, grant_researcher → ≥ writer).
   const gate = await requireRole("writer");
   if ("error" in gate) return gate.error;
@@ -91,7 +91,7 @@ export async function POST(request: Request, { params }: RouteContext) {
   const overLimit = await enforceLimit(supabase, organizationId, "agent_runs");
   if (overLimit) return overLimit;
 
-  // Resolve AI config (platform_config overrides, then defaults) — same posture
+  // Resolve AI config (platform_config overrides, then defaults) - same posture
   // as the eligibility route.
   const { data: configRows } = await supabase
     .from("platform_config")

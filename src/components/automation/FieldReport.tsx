@@ -32,7 +32,7 @@ const STATUS_ICON: Record<FieldReportStatus, typeof Check> = {
 };
 
 /**
- * Form-field report (BLUEPRINT §Phase 3 components — FieldReport). One row per
+ * Form-field report (BLUEPRINT §Phase 3 components - FieldReport). One row per
  * detected field showing label, detected type, the auto-filled value (or an
  * editable input for fields needing human input), and a colour-coded status:
  * green = auto-filled, yellow = needs input, red = required and unfilled.
@@ -162,7 +162,7 @@ export function FieldReport({
                       {row.source ? (
                         <span className="font-mono text-[11px]">{row.source}</span>
                       ) : (
-                        <span className="text-navy-400">—</span>
+                        <span className="text-navy-400">-</span>
                       )}
                     </td>
                     <td className="px-4 py-3 align-top text-sm">
@@ -177,7 +177,7 @@ export function FieldReport({
                           {Math.round(row.confidence * 100)}%
                         </span>
                       ) : (
-                        <span className="text-navy-400">—</span>
+                        <span className="text-navy-400">-</span>
                       )}
                     </td>
                     <td className="px-4 py-3 align-top">

@@ -1,4 +1,4 @@
-// Field mapper — Phase 3 browser automation (AGENTS.md Agent 16).
+// Field mapper - Phase 3 browser automation (AGENTS.md Agent 16).
 //
 // Takes a FormSchema produced by detectFormSchema and an organization's profile
 // data, calls the Claude API to intelligently map each field to the best
@@ -7,7 +7,7 @@
 //
 // No value is ever fabricated: Claude is explicitly instructed to omit fields
 // it cannot confidently match. Only concrete, non-empty values from the context
-// are submitted back (mirrors BEHAVIORAL_CONTRACTS §16 — no hallucinated data).
+// are submitted back (mirrors BEHAVIORAL_CONTRACTS §16 - no hallucinated data).
 
 import { callClaude } from "@/lib/ai/claude";
 import type {
@@ -120,14 +120,14 @@ ${JSON.stringify(orgData, null, 2)}
 
 Return a JSON array where each element has exactly these keys:
 - "field_id": the field's id string (must match one of the ids above)
-- "value": the string value to fill (must be a non-empty string from the organization data above — do NOT invent values)
+- "value": the string value to fill (must be a non-empty string from the organization data above - do NOT invent values)
 - "source": dotted path describing the data origin, e.g. "organization.name" or "contact.email"
 - "confidence": a float from 0.0 to 1.0 (1.0 = certain exact match, 0.5 = plausible but uncertain)
 
 Rules:
 - Only include fields you can match to real data from the organization data above.
 - Omit fields where no relevant data exists in the organization data.
-- Never invent or guess a value — only use data explicitly present above.
+- Never invent or guess a value - only use data explicitly present above.
 - For select/radio fields, match the value to the closest available option label.
 - Return ONLY the JSON array, no prose, no markdown fences.`;
 
@@ -151,7 +151,7 @@ function parseClaudeResponse(
 ): FieldMappingEntry[] {
   const validIds = new Set(fields.map((f) => f.id));
 
-  // Extract the JSON array — Claude may include surrounding whitespace.
+  // Extract the JSON array - Claude may include surrounding whitespace.
   const jsonText = extractJsonArray(text);
   if (!jsonText) return [];
 

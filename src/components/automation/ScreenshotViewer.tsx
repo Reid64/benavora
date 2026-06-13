@@ -16,7 +16,7 @@ import type { ScreenshotRecord } from "@/types/automation";
 
 export type ScreenshotViewerProps = {
   screenshots: ScreenshotRecord[];
-  /** Tenant scope — Storage bucket is `org-{organizationId}`. */
+  /** Tenant scope - Storage bucket is `org-{organizationId}`. */
   organizationId: string;
 };
 
@@ -32,11 +32,11 @@ function downloadName(shot: ScreenshotRecord, index: number): string {
 
 /**
  * Thumbnail grid of a session's captured screenshots with a full-size lightbox
- * (BLUEPRINT §Phase 3 components — ScreenshotViewer). Click a thumbnail to
+ * (BLUEPRINT §Phase 3 components - ScreenshotViewer). Click a thumbnail to
  * expand it; navigate with prev/next; download any screenshot individually.
  *
  * Screenshots live in the org's private Storage bucket, so previews use
- * short-lived signed URLs minted by the session-bound client — Storage RLS
+ * short-lived signed URLs minted by the session-bound client - Storage RLS
  * still gates access (mirrors DocumentList downloads).
  */
 export function ScreenshotViewer({

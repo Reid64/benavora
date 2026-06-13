@@ -9,9 +9,9 @@
 //     RLS, so every query here is ALSO scoped explicitly by organization_id.
 //
 // Counter model (Contracts §25):
-//   - agent_runs / api_calls / email_sends — daily counters, reset at midnight
+//   - agent_runs / api_calls / email_sends - daily counters, reset at midnight
 //     UTC, stored as one usage_metrics row per (org, metric_date, metric_name).
-//   - storage_bytes — CUMULATIVE, not a daily reset. It's computed live from the
+//   - storage_bytes - CUMULATIVE, not a daily reset. It's computed live from the
 //     real documents.file_size sum (the authoritative source, matching the
 //     billing route) rather than a stored counter, so it never drifts.
 
@@ -32,7 +32,7 @@ export interface UsageCheck {
   limit: number;
   /** limit − current, floored at 0. */
   remaining: number;
-  /** True once current >= limit (further use must be blocked — Contracts §25). */
+  /** True once current >= limit (further use must be blocked - Contracts §25). */
   exceeded: boolean;
 }
 
@@ -41,7 +41,7 @@ function todayUtc(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-/** Start of today (UTC) as ISO — for "since midnight" live counts. */
+/** Start of today (UTC) as ISO - for "since midnight" live counts. */
 function startOfTodayIso(): string {
   const now = new Date();
   return new Date(
@@ -52,7 +52,7 @@ function startOfTodayIso(): string {
 /**
  * Resolve an org's subscription tier from the denormalized
  * organizations.subscription_tier column (kept in sync by the Stripe webhook).
- * Defaults to 'free' when unset or unreadable — every org is at least free
+ * Defaults to 'free' when unset or unreadable - every org is at least free
  * (Contracts §22).
  */
 export async function resolveTier(
@@ -94,7 +94,7 @@ export function limitForMetric(
  * `count` may be negative (e.g. a document delete crediting storage back).
  *
  * storage_bytes is computed live elsewhere, so tracking it here is optional and
- * only feeds the historical trend view — never the limit check.
+ * only feeds the historical trend view - never the limit check.
  */
 export async function trackUsage(
   client: SupabaseClient,
@@ -198,8 +198,8 @@ export async function getCurrentUsage(
 
 /**
  * Check a metric against the org's tier limit (Contracts §25). `additional` is
- * the size of the operation about to happen — e.g. the incoming file's bytes for
- * an upload — so the caller can pre-flight whether it would push usage over.
+ * the size of the operation about to happen - e.g. the incoming file's bytes for
+ * an upload - so the caller can pre-flight whether it would push usage over.
  * `exceeded` is true when current + additional would meet or exceed the limit.
  */
 export async function checkLimit(
@@ -290,7 +290,7 @@ export async function getUsageSummary(
     const limit = limitForMetric(tier, metric);
 
     if (metric === "storage_bytes") {
-      // Cumulative — the same live value across every window.
+      // Cumulative - the same live value across every window.
       return {
         metric,
         limit,

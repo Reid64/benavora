@@ -1,9 +1,9 @@
-// Outcomes analytics aggregation — pure, deterministic transforms that turn raw
+// Outcomes analytics aggregation - pure, deterministic transforms that turn raw
 // rows from the outcomes / applications / opportunities / deadlines / agent_runs
 // tables into the chart-ready datasets rendered by the Outcomes Analytics
 // dashboard (BLUEPRINT §4.10).
 //
-// No AI, no I/O, no mocks — every figure is arithmetic over rows the caller has
+// No AI, no I/O, no mocks - every figure is arithmetic over rows the caller has
 // already fetched (RLS-scoped to the organization). Kept separate from the
 // presentational component so the math is reproducible and unit-testable, the
 // same split used by {@link analyzeOutcomes} in ai/learning/outcome-analyzer.ts.
@@ -102,7 +102,7 @@ export interface FunnelStage {
   count: number;
 }
 
-/** Funnel milestones — a readable subset of the 12-stage pipeline. */
+/** Funnel milestones - a readable subset of the 12-stage pipeline. */
 const FUNNEL_MILESTONES = [
   "discovered",
   "qualified",
@@ -116,7 +116,7 @@ export function buildFunnel(apps: ApplicationRow[]): FunnelStage[] {
     PIPELINE_STAGES.map((s, i) => [s, i]),
   );
   // "denied" sits past "awarded" in the enum but is a terminal sibling, not a
-  // deeper funnel step — treat reaching it as having reached "submitted".
+  // deeper funnel step - treat reaching it as having reached "submitted".
   const reachedIndex = (stage: string): number => {
     if (stage === "denied") return stageIndex.get("submitted") ?? 0;
     return stageIndex.get(stage) ?? 0;

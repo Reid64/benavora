@@ -4,7 +4,7 @@
 // actions they perform directly against Supabase (document upload/delete,
 // stage transitions, settings edits) and authentication events. The server
 // endpoints derive the actor + tenant from the session and stamp IP/user agent,
-// so these only carry the action context. Failures are swallowed — auditing must
+// so these only carry the action context. Failures are swallowed - auditing must
 // never disrupt the user's action.
 
 export type ClientAuditAction =

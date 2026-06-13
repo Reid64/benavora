@@ -1,7 +1,7 @@
-// Local Business Sponsorship Research Agent — AGENTS.md Agent 15.
+// Local Business Sponsorship Research Agent - AGENTS.md Agent 15.
 //
 // Finds local businesses likely to sponsor community initiatives and turns them
-// into funder records — plus sponsorship opportunities when a page advertises a
+// into funder records - plus sponsorship opportunities when a page advertises a
 // program, and outreach_contacts when a business has no giving page to apply
 // through. It drives off the organization's active local-flavored
 // search_profiles and runs the shared research pipeline for each:
@@ -20,7 +20,7 @@
 // eligibility scoring runs on each new one (§17); de-duplication runs before any
 // insert (§17); outreach_contacts stay separate from CRM contacts (§13); the run
 // logs to agent_runs with token usage via BaseAgent (§15). Work is bounded so the
-// run stays within the 60s agent ceiling — any truncation is recorded in the run
+// run stays within the 60s agent ceiling - any truncation is recorded in the run
 // summary so a cap is never silent.
 
 import { DEFAULT_MAX_TOKENS, DEFAULT_MODEL } from "@/lib/ai/claude";
@@ -92,7 +92,7 @@ export interface LocalSponsorshipOptions extends BaseAgentOptions {
   maxTokens?: number;
 }
 
-// Run bounds — keep the synchronous pipeline within the 60s agent ceiling
+// Run bounds - keep the synchronous pipeline within the 60s agent ceiling
 // (AGENTS.md §15). Outreach extraction adds extra Claude calls, so the page cap
 // is a touch lower than the other research agents.
 const MAX_QUERIES_PER_PROFILE = 4;
@@ -152,7 +152,7 @@ export class LocalSponsorshipResearchAgent extends BaseAgent<
       organizationId: this.organizationId,
     };
 
-    // URLs seen anywhere in this run (across profiles) — never fetch twice.
+    // URLs seen anywhere in this run (across profiles) - never fetch twice.
     const seenUrls = new Set<string>();
     const newOpportunityIds: string[] = [];
     // Companies without a giving page, deduped by name, for post-loop outreach.
@@ -206,7 +206,7 @@ export class LocalSponsorshipResearchAgent extends BaseAgent<
 
         // A page is worth tracking as a sponsor only if it yielded an
         // opportunity OR shows a clear sponsorship/community signal. Otherwise
-        // it is likely a directory or unrelated page — skip it.
+        // it is likely a directory or unrelated page - skip it.
         const signal = hasSponsorshipSignal(page.text);
         if (!opp && !signal) continue;
 
@@ -277,7 +277,7 @@ export class LocalSponsorshipResearchAgent extends BaseAgent<
 
     // Cold-outreach extraction for businesses without a giving page (task spec
     // step 6). The Cold Outreach Agent (Agent 11) fetches the site, extracts
-    // contacts, and scores giving_likelihood — reused so that scoring lives in
+    // contacts, and scores giving_likelihood - reused so that scoring lives in
     // one place (task spec step 7). Each run logs its own agent_runs row.
     let outreachContactsCreated = 0;
     for (const target of outreachTargets.values()) {
@@ -353,7 +353,7 @@ export class LocalSponsorshipResearchAgent extends BaseAgent<
 
   /**
    * The profiles this run will process. Two modes:
-   *   - Caller-supplied ids (a single "Run Now"): honor the explicit choice —
+   *   - Caller-supplied ids (a single "Run Now"): honor the explicit choice -
    *     any active profile, even one not tagged local. Missing or paused
    *     profiles are silently skipped.
    *   - No ids ("Run all"): every active profile carrying a local category, so

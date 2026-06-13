@@ -37,7 +37,7 @@ const DOT_BG: Record<BadgeColor, string> = {
 /**
  * Source-type filter tabs for the Opportunities list (task spec). "All" plus one
  * tab per opportunity_source_type, each showing how many opportunities it holds.
- * Fully controlled — the parent owns the selected value and applies the filter.
+ * Fully controlled - the parent owns the selected value and applies the filter.
  * Source types with zero opportunities are hidden to keep the strip focused.
  */
 export function SourceTypeTabs({
