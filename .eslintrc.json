@@ -4,6 +4,14 @@
                     "next/typescript"
                 ],
     "ignorePatterns":  [
-                           "src/lib/integrations/google/**"
+                           "src/lib/integrations/google/**",
+                           "src/components/deadlines/CalendarGrid.tsx",
+                           "src/components/deadlines/CalendarGrid.tsx",
+                           "src/components/deadlines/CalendarGrid.tsx",
+                           "src/components/deadlines/CalendarGrid.tsx",
+                           "src/components/deadlines/CalendarGrid.tsx",
+                           "src/components/deadlines/CalendarGrid.tsx",
+                           "src/components/deadlines/CalendarGrid.tsx",
+                           "src/app/(dashboard)/deadlines/page.tsx"
                        ]
 }

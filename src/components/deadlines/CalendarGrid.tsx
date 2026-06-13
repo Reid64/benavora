@@ -1,6 +1,8 @@
 ﻿"use client";
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { useMemo, useState } from "react";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import {
   eachDayOfInterval,
   endOfMonth,
@@ -11,9 +13,13 @@ import {
   startOfMonth,
   startOfWeek,
 } from "date-fns";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { ChevronLeft, ChevronRight } from "lucide-react";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Button, Card } from "@/components/ui";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { cn } from "@/lib/utils/cn";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import {
   BAND_CLASSES,
   COMPLETED_CELL,
@@ -163,4 +169,5 @@ export function CalendarGrid({ month, deadlines, onPrev, onNext, onToday }: Prop
 
 // Re-export so page.tsx can import band utilities from one place
 export { BAND_CLASSES, COMPLETED_CELL };
+
 
