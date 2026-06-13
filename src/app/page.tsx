@@ -7,7 +7,7 @@ export default function LandingPage() {
       <div className="pointer-events-none absolute -right-32 -top-32 h-[28rem] w-[28rem] rounded-full bg-teal-500/25 blur-3xl" aria-hidden />
       <div className="pointer-events-none absolute -bottom-40 -left-24 h-[28rem] w-[28rem] rounded-full bg-plum-600/25 blur-3xl" aria-hidden />
       <div className="relative z-10 flex flex-col items-center gap-6">
-        <Image src="/benavora_logo.jpeg" alt="Benavora" width={600} height={180} priority className="drop-shadow-2xl mb-4" />
+        <Image src="/benavora_logo.png" alt="Benavora" width={600} height={180} priority className="drop-shadow-2xl mb-4" />
         <h1 className="max-w-3xl text-4xl font-bold leading-tight tracking-tight sm:text-5xl">
           Fund More.{" "}
           <span className="text-teal-400">Do More.</span>{" "}
@@ -29,3 +29,4 @@ export default function LandingPage() {
     </main>
   );
 }
+

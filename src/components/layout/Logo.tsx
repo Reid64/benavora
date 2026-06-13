@@ -18,7 +18,7 @@ export type LogoProps = {
  * `public/logo.png` and change `LOGO_SRC` to "/logo.png" to use it; the bundled
  * `/logo.svg` is a theme-matched placeholder so the UI is never broken.
  */
-const LOGO_SRC = "/benavora_logo.jpeg";
+const LOGO_SRC = "/benavora_logo.png";
 
 export function Logo({ size = 36, showWordmark = true, className }: LogoProps) {
   return (
@@ -39,4 +39,5 @@ export function Logo({ size = 36, showWordmark = true, className }: LogoProps) {
     </span>
   );
 }
+
 
