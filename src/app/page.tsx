@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 
 export default function LandingPage() {
   return (
@@ -14,12 +14,7 @@ export default function LandingPage() {
       />
 
       <div className="relative z-10 flex flex-col items-center gap-6">
-        <div className="flex items-center gap-3">
-          <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-400 to-teal-600 text-xl font-bold shadow-lg shadow-teal-900/50">
-            B
-          </span>
-          <span className="text-2xl font-semibold tracking-tight">Benavora</span>
-        </div>
+        <img src="/benavora_logo.jpeg" alt="Benavora" style="width:600px;height:auto" class="drop-shadow-2xl mb-4" />
 
         <h1 className="max-w-3xl text-4xl font-bold leading-tight tracking-tight sm:text-5xl">
           Fund More.{" "}
@@ -28,7 +23,7 @@ export default function LandingPage() {
         </h1>
 
         <p className="max-w-xl text-lg text-navy-200">
-          Nonprofit funding automation — AI-powered grant research, drafting,
+          Nonprofit funding automation â€” AI-powered grant research, drafting,
           and lifecycle tracking, so a single operator can run hundreds of
           opportunities without anything slipping through.
         </p>
@@ -55,3 +50,4 @@ export default function LandingPage() {
     </main>
   );
 }
+
