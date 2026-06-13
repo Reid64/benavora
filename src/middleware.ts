@@ -1,17 +1,17 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
+﻿import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 type CookieToSet = { name: string; value: string; options: CookieOptions };
 
 // ============================================================================
-// Auth middleware — FULL FILE REPLACEMENT ONLY (never patch).
+// Auth middleware â€” FULL FILE REPLACEMENT ONLY (never patch).
 //
 // Runs on every matched request. Responsibilities, in strict order:
 //   1. Refresh the Supabase session (getUser auto-refreshes the token cookie).
 //   2. For protected routes, confirm the caller has a valid profile row and
 //      derive organization_id + role from it.
-//   3. On ANY role-fetch failure — query error, missing row, or null
-//      organization_id — redirect to /login ONLY. Never render a default or
+//   3. On ANY role-fetch failure â€” query error, missing row, or null
+//      organization_id â€” redirect to /login ONLY. Never render a default or
 //      wrong-role page (Iron Law 4).
 //   4. On success, inject x-user-id / x-organization-id / x-user-role /
 //      x-pathname headers so downstream layouts and handlers can read the
@@ -100,14 +100,14 @@ export async function middleware(request: NextRequest) {
   // Public routes never block, even for signed-in users.
   if (isPublic) return response;
 
-  // Protected route with no (refreshable) session → /login.
+  // Protected route with no (refreshable) session â†’ /login.
   if (!user) {
     return redirectToLogin(request);
   }
 
   // Resolve the caller's profile to confirm organization_id + role. The
   // profiles RLS policy lets a user read their own row (id = auth.uid()), so the
-  // session client suffices — no service-role key on the edge. ANY failure here
+  // session client suffices â€” no service-role key on the edge. ANY failure here
   // redirects to /login ONLY (Iron Law 4): a missing/broken profile must never
   // render the app with a default or wrong role.
   const { data: profile, error: profileError } = await supabase
@@ -134,6 +134,20 @@ export async function middleware(request: NextRequest) {
   requestHeaders.set("x-user-role", profile.role as string);
   requestHeaders.set("x-pathname", request.nextUrl.pathname);
 
+    // Onboarding gate: redirect to /onboarding if not completed
+  if (profile.organization_id && !request.nextUrl.pathname.includes("onboarding")) {
+    const { data: org } = await supabase
+      .from("organizations")
+      .select("onboarding_completed")
+      .eq("id", profile.organization_id)
+      .single();
+    if (org && org.onboarding_completed === false) {
+      const onboardingUrl = request.nextUrl.clone();
+      onboardingUrl.pathname = "/onboarding";
+      return NextResponse.redirect(onboardingUrl);
+    }
+  }
+
   const authedResponse = NextResponse.next({
     request: { headers: requestHeaders },
   });
@@ -155,3 +169,4 @@ export const config = {
     "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|.*\\.).*)",
   ],
 };
+
