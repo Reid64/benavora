@@ -1,4 +1,4 @@
-import type { Metadata, Viewport } from "next";
+﻿import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -16,9 +16,15 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Benavora — Fund More. Do More. Change More.",
-  description:
-    "Nonprofit funding automation — grant research, drafting, and tracking.",
+  title: "Benavora - Fund More. Do More. Change More.",
+  description: "Nonprofit funding automation - grant research, drafting, and tracking.",
+  icons: {
+    icon: [
+      { url: "/benavora_favicon.png", sizes: "192x192", type: "image/png" },
+      { url: "/benavora_favicon.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: { url: "/benavora_favicon.png", sizes: "180x180", type: "image/png" },
+  },
 };
 
 export const viewport: Viewport = {
@@ -39,3 +45,4 @@ export default function RootLayout({
     </html>
   );
 }
+
