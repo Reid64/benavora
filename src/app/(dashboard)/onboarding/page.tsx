@@ -116,10 +116,15 @@ const STEPS = [
 const TOTAL_STEPS = STEPS.length;
 
 const TAX_STATUS_OPTIONS = [
-  { value: "501c3", label: "501(c)(3) - Charitable Organization" },
-  { value: "501c4", label: "501(c)(4) - Social Welfare Organization" },
-  { value: "501c6", label: "501(c)(6) - Business League / Chamber" },
-  { value: "501c7", label: "501(c)(7) - Social Club" },
+  { value: "501c3_public", label: "501(c)(3) Public Charity" },
+  { value: "501c3_private", label: "501(c)(3) Private Foundation" },
+  { value: "508c1a", label: "508(c)(1)(A) Church" },
+  { value: "association_churches", label: "Association of Churches" },
+  { value: "community_foundation", label: "Community Foundation" },
+  { value: "509a3", label: "509(a)(3) Supporting Organization" },
+  { value: "501c4", label: "501(c)(4) Social Welfare Organization" },
+  { value: "501c6", label: "501(c)(6) Business League / Chamber" },
+  { value: "501c7", label: "501(c)(7) Social Club" },
   { value: "other", label: "Other" },
 ];
 
@@ -1294,6 +1299,7 @@ export default function OnboardingPage() {
     </div>
   );
 }
+
 
 
 
