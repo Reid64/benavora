@@ -50,7 +50,7 @@ export default async function DashboardLayout({
   // profile/org can't be read, fall through â€” never trap the user in a loop.
   // Skip the redirect when already on the onboarding route (x-pathname is
   // injected by middleware) to prevent an infinite redirect cycle.
-  const pathname = headers().get("x-pathname") ?? request?.nextUrl?.pathname ?? "";
+  const pathname = headers().get("x-pathname") ?? "";
   if (profile && onboardingCompleted === false && !pathname.includes("onboarding")) {
     redirect("/onboarding");
   }
@@ -63,6 +63,7 @@ export default async function DashboardLayout({
     </DashboardShell>
   );
 }
+
 
 
 
