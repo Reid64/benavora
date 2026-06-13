@@ -85,7 +85,7 @@ export function ComplianceReport({ applicationId }: ComplianceReportProps) {
       {loading && !data && (
         <div className="flex items-center gap-2 text-sm text-navy-500">
           <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-          Running compliance check…
+          Running compliance check...
         </div>
       )}
 

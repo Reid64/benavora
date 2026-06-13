@@ -235,7 +235,7 @@ export function StageTransitionModal({
 
         <Select
           label="Move to stage"
-          placeholder="Select a stage…"
+          placeholder="Select a stage..."
           value={target}
           onChange={(e) => setTarget(e.target.value as PipelineStage)}
           options={targetOptions}
@@ -309,7 +309,7 @@ export function StageTransitionModal({
                     className="h-4 w-4 animate-spin"
                     aria-hidden
                   />
-                  Running compliance check…
+                  Running compliance check...
                 </div>
               )}
               {complianceCheckError && !complianceChecking && (

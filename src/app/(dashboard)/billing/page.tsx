@@ -172,7 +172,7 @@ export default function BillingPage() {
       </div>
 
       {profileLoading ? (
-        <LoadingSpinner center label="Loading billing…" />
+        <LoadingSpinner center label="Loading billing..." />
       ) : !isOwner ? (
         <Card>
           <EmptyState
@@ -182,7 +182,7 @@ export default function BillingPage() {
           />
         </Card>
       ) : loading ? (
-        <LoadingSpinner center label="Loading billing…" />
+        <LoadingSpinner center label="Loading billing..." />
       ) : loadError || !data ? (
         <Card>
           <EmptyState

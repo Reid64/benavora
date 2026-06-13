@@ -24,7 +24,7 @@ export type SearchBarProps = {
  */
 export function SearchBar({
   onSearch,
-  placeholder = "Search…",
+  placeholder = "Search...",
   defaultValue = "",
   delay = 300,
   "aria-label": ariaLabel = "Search",

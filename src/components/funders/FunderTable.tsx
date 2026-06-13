@@ -135,7 +135,7 @@ export function FunderTable({ funders, isLoading = false }: FunderTableProps) {
           <SearchBar
             defaultValue={query}
             onSearch={(value) => setParams({ q: value || null })}
-            placeholder="Search funders…"
+            placeholder="Search funders..."
             aria-label="Search funders"
           />
         </div>

@@ -189,7 +189,7 @@ export default function OutcomesPage() {
       )}
 
       {loading ? (
-        <LoadingSpinner center label="Loading outcomes…" />
+        <LoadingSpinner center label="Loading outcomes..." />
       ) : showEmpty ? (
         <EmptyState
           icon={Trophy}

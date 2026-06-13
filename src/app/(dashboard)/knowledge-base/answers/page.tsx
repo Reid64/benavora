@@ -127,7 +127,7 @@ export default function AnswersPage() {
       )}
 
       {loading ? (
-        <LoadingSpinner center label="Loading standard answers…" />
+        <LoadingSpinner center label="Loading standard answers..." />
       ) : showEmpty ? (
         <EmptyState
           icon={HelpCircle}

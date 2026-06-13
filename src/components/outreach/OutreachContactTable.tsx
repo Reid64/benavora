@@ -187,7 +187,7 @@ export function OutreachContactTable({
         <div className="sm:max-w-xs sm:flex-1">
           <SearchBar
             onSearch={setQuery}
-            placeholder="Search companies…"
+            placeholder="Search companies..."
             aria-label="Search outreach contacts"
           />
         </div>

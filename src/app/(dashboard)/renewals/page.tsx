@@ -173,7 +173,7 @@ export default function RenewalsPage() {
       )}
 
       {loading ? (
-        <LoadingSpinner center label="Loading renewals…" />
+        <LoadingSpinner center label="Loading renewals..." />
       ) : showEmpty ? (
         <EmptyState
           icon={RefreshCw}

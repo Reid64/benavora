@@ -171,7 +171,7 @@ export function ContactTable({ contacts, isLoading = false }: ContactTableProps)
           <SearchBar
             defaultValue={query}
             onSearch={(value) => setParams({ q: value || null })}
-            placeholder="Search contacts…"
+            placeholder="Search contacts..."
             aria-label="Search contacts"
           />
         </div>

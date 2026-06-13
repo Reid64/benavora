@@ -128,7 +128,7 @@ export default function KnowledgeBaseOverviewPage() {
       )}
 
       {loading ? (
-        <LoadingSpinner center label="Loading knowledge base…" />
+        <LoadingSpinner center label="Loading knowledge base..." />
       ) : (
         <>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">

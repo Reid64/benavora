@@ -557,7 +557,7 @@ function AddContactsForm({
       )}
       <div className="max-h-72 overflow-y-auto rounded-lg border border-navy-200">
         {loading ? (
-          <p className="px-3 py-4 text-sm text-navy-500">Loading…</p>
+          <p className="px-3 py-4 text-sm text-navy-500">Loading...</p>
         ) : contacts.length === 0 ? (
           <p className="px-3 py-4 text-sm text-navy-500">
             No unassigned outreach contacts available.

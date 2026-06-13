@@ -190,7 +190,7 @@ export default function OutcomeAnalyticsPage() {
       )}
 
       {loading ? (
-        <LoadingSpinner center label="Loading analytics…" />
+        <LoadingSpinner center label="Loading analytics..." />
       ) : (
         <>
           <AnalyticsDashboard

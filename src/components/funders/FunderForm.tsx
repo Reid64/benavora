@@ -227,7 +227,7 @@ export function FunderForm({ funder, onSaved, onCancel }: FunderFormProps) {
         <Select
           label="Category"
           required
-          placeholder="Select a category…"
+          placeholder="Select a category..."
           options={CATEGORY_OPTIONS}
           value={category}
           onChange={(e) => setCategory(e.target.value as FunderCategory)}
@@ -249,14 +249,14 @@ export function FunderForm({ funder, onSaved, onCancel }: FunderFormProps) {
           type="url"
           value={website}
           onChange={(e) => setWebsite(e.target.value)}
-          placeholder="https://…"
+          placeholder="https://..."
         />
         <Input
           label="Giving portal URL"
           type="url"
           value={givingPortalUrl}
           onChange={(e) => setGivingPortalUrl(e.target.value)}
-          placeholder="https://…"
+          placeholder="https://..."
         />
       </div>
 

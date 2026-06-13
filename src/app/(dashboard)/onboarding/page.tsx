@@ -228,7 +228,7 @@ function Step1({
           <Select
             value={org.tax_status}
             onChange={(e) => onChange("tax_status", e.target.value)}
-            options={[{ value: "", label: "Select tax statusâ€¦" }, ...TAX_STATUS_OPTIONS]}
+            options={[{ value: "", label: "Select tax status..." }, ...TAX_STATUS_OPTIONS]}
           />
         </div>
 
@@ -418,7 +418,7 @@ function Step3({ kb, onChange }: { kb: KBState; onChange: (kb: KBState) => void 
           <Textarea
             value={kb.mission}
             onChange={(e) => onChange({ ...kb, mission: e.target.value })}
-            placeholder="Our mission is toâ€¦"
+            placeholder="Our mission is to..."
             rows={4}
           />
         </div>
@@ -434,7 +434,7 @@ function Step3({ kb, onChange }: { kb: KBState; onChange: (kb: KBState) => void 
           <Textarea
             value={kb.need_statement}
             onChange={(e) => onChange({ ...kb, need_statement: e.target.value })}
-            placeholder="According to [source], X% ofâ€¦"
+            placeholder="According to [source], X% of..."
             rows={4}
           />
         </div>
@@ -449,7 +449,7 @@ function Step3({ kb, onChange }: { kb: KBState; onChange: (kb: KBState) => void 
           <Textarea
             value={kb.impact}
             onChange={(e) => onChange({ ...kb, impact: e.target.value })}
-            placeholder="In the past year, we served X individuals and achievedâ€¦"
+            placeholder="In the past year, we served X individuals and achieved..."
             rows={4}
           />
         </div>
@@ -534,7 +534,7 @@ function Step4({
                 <Input
                   value={m.title}
                   onChange={(e) => update(m.key, "title", e.target.value)}
-                  placeholder="Chair, Secretary, Treasurerâ€¦"
+                  placeholder="Chair, Secretary, Treasurer..."
                   className="text-sm"
                 />
               </div>
@@ -557,7 +557,7 @@ function Step4({
                 <Input
                   value={m.bio}
                   onChange={(e) => update(m.key, "bio", e.target.value)}
-                  placeholder="Background, expertiseâ€¦"
+                  placeholder="Background, expertise..."
                   className="text-sm"
                 />
               </div>
@@ -735,7 +735,7 @@ function Step6({
                   addKeyword();
                 }
               }}
-              placeholder="youth, workforce, housingâ€¦"
+              placeholder="youth, workforce, housing..."
             />
             <Button type="button" variant="secondary" onClick={addKeyword}>
               Add
@@ -1209,7 +1209,7 @@ export default function OnboardingPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <LoadingSpinner center label="Loading your setup wizardâ€¦" />
+        <LoadingSpinner center label="Loading your setup wizard..." />
       </div>
     );
   }

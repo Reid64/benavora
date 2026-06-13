@@ -279,7 +279,7 @@ export interface RankedNarrative {
 /** Single-line excerpt of a narrative for compact list display. */
 function excerpt(text: string, max = 160): string {
   const collapsed = text.replace(/\s+/g, " ").trim();
-  return collapsed.length > max ? `${collapsed.slice(0, max - 1)}…` : collapsed;
+  return collapsed.length > max ? `${collapsed.slice(0, max - 1)}...` : collapsed;
 }
 
 /**

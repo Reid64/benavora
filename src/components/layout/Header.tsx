@@ -72,7 +72,7 @@ export function Header({ userEmail, onMenuClick }: HeaderProps) {
         >
           <LogOut className="h-4 w-4" aria-hidden />
           <span className="hidden sm:inline">
-            {signingOut ? "Signing out…" : "Log out"}
+            {signingOut ? "Signing out..." : "Log out"}
           </span>
         </button>
       </div>

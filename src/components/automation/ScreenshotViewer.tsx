@@ -137,7 +137,7 @@ export function ScreenshotViewer({
     return (
       <div className="flex items-center justify-center py-10 text-sm text-navy-500">
         <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
-        Loading screenshots…
+        Loading screenshots...
       </div>
     );
   }

@@ -132,7 +132,7 @@ export function ContactDetail({ contactId }: ContactDetailProps) {
   }
 
   if (loading) {
-    return <LoadingSpinner center label="Loading contact…" />;
+    return <LoadingSpinner center label="Loading contact..." />;
   }
 
   if (error && !data) {

@@ -206,7 +206,7 @@ export function ContactForm({
         <Select
           label="Funder"
           required
-          placeholder={fundersLoading ? "Loading funders…" : "Select a funder…"}
+          placeholder={fundersLoading ? "Loading funders..." : "Select a funder..."}
           options={funderOptions}
           value={funderId}
           onChange={(e) => setFunderId(e.target.value)}

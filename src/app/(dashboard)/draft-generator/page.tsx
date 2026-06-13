@@ -52,7 +52,7 @@ const HUMANIZATION_BADGE: Record<
   { label: string; color: "gray" | "green" | "yellow" | "red" }
 > = {
   not_humanized: { label: "Not humanized", color: "gray" },
-  pending: { label: "Humanizing…", color: "yellow" },
+  pending: { label: "Humanizing...", color: "yellow" },
   humanized: { label: "Humanized", color: "green" },
   failed: { label: "Humanize failed", color: "red" },
 };
@@ -529,7 +529,7 @@ export default function DraftGeneratorPage() {
       )}
 
       {loading ? (
-        <LoadingSpinner center label="Loading opportunities…" />
+        <LoadingSpinner center label="Loading opportunities..." />
       ) : opportunities.length === 0 ? (
         <EmptyState
           icon={Wand2}
@@ -559,7 +559,7 @@ export default function DraftGeneratorPage() {
                 options={opportunityOptions}
                 value={opportunityId}
                 onChange={(e) => setOpportunityId(e.target.value)}
-                placeholder="Select an opportunity…"
+                placeholder="Select an opportunity..."
                 disabled={!editable || generating}
                 aria-label="Opportunity"
               />
@@ -584,7 +584,7 @@ export default function DraftGeneratorPage() {
                   options={programOptions}
                   value={programId}
                   onChange={(e) => setProgramId(e.target.value)}
-                  placeholder="Select a program…"
+                  placeholder="Select a program..."
                   disabled={!editable || generating}
                   aria-label="Program"
                 />
@@ -606,7 +606,7 @@ export default function DraftGeneratorPage() {
             >
               <Sparkles className="h-4 w-4" aria-hidden />
               {generating
-                ? "Generating…"
+                ? "Generating..."
                 : hasDraft
                   ? "Generate new version"
                   : "Generate draft"}
@@ -642,7 +642,7 @@ export default function DraftGeneratorPage() {
                         title="Rewrite this draft to read like a human wrote it"
                       >
                         <Wand2 className="h-4 w-4" aria-hidden />
-                        {humanizing ? "Humanizing…" : "Humanize"}
+                        {humanizing ? "Humanizing..." : "Humanize"}
                       </Button>
                     ) : undefined
                   }

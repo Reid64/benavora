@@ -600,7 +600,7 @@ export default function DeadlinesPage() {
 
       {/* Content */}
       {loading ? (
-        <LoadingSpinner center label="Loading deadlines…" />
+        <LoadingSpinner center label="Loading deadlines..." />
       ) : allItems.length === 0 ? (
         <EmptyState
           icon={CalendarDays}

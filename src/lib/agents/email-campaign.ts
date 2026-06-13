@@ -70,7 +70,7 @@ export interface EmailCampaignResult {
   emailsSent: number;
   replies: number;
   bounces: number;
-  /** Sends skipped this run (limit reached, not due, unresolved variables, …). */
+  /** Sends skipped this run (limit reached, not due, unresolved variables, ...). */
   skipped: number;
   campaignsProcessed: number;
 }
@@ -528,7 +528,7 @@ function lastSendTime(
 function snippet(value: string | null, max: number): string {
   if (!value) return "";
   const text = value.replace(/\s+/g, " ").trim();
-  return text.length <= max ? text : `${text.slice(0, max - 1).trimEnd()}…`;
+  return text.length <= max ? text : `${text.slice(0, max - 1).trimEnd()}...`;
 }
 
 /**

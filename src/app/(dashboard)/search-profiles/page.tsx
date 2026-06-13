@@ -202,7 +202,7 @@ export default function SearchProfilesPage() {
       )}
 
       {loading ? (
-        <LoadingSpinner center label="Loading search profiles…" />
+        <LoadingSpinner center label="Loading search profiles..." />
       ) : showEmpty ? (
         <EmptyState
           icon={Filter}

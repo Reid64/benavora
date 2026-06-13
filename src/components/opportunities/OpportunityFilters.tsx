@@ -100,7 +100,7 @@ export function OpportunityFilters({ value, onChange }: OpportunityFiltersProps)
             key={searchKey}
             defaultValue={value.query}
             onSearch={(query) => patch({ query })}
-            placeholder="Search name, description, keywords…"
+            placeholder="Search name, description, keywords..."
             aria-label="Search opportunities"
           />
         </div>

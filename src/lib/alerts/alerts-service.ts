@@ -19,7 +19,7 @@ export const DEADLINE_WINDOW_DAYS = 7;
 
 // Pipeline stages where the application is waiting on the organization to do
 // something - these drive the "Applications needing action" badge. Kept
-// deliberately narrow: in-progress stages (drafting, submitted, awarded…) are
+// deliberately narrow: in-progress stages (drafting, submitted, awarded...) are
 // not "needs action". `ready_for_review` is excluded here because it is its own
 // category (drafts pending review → DRAFT_REVIEW_STAGE below).
 export const ACTION_STAGES: readonly PipelineStage[] = [

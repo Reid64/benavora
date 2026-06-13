@@ -178,7 +178,7 @@ export default function ApplicationsListPage() {
         <SearchBar
           defaultValue={query}
           onSearch={(value) => setParams({ q: value || null })}
-          placeholder="Search by opportunity or funder…"
+          placeholder="Search by opportunity or funder..."
           aria-label="Search applications"
           className="sm:max-w-sm"
         />

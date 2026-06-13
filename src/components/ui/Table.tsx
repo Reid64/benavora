@@ -182,7 +182,7 @@ export function Table<T>({
             {isLoading ? (
               <tr>
                 <td colSpan={colSpan} className="px-4 py-12">
-                  <LoadingSpinner center label="Loading…" />
+                  <LoadingSpinner center label="Loading..." />
                 </td>
               </tr>
             ) : pageRows.length === 0 ? (

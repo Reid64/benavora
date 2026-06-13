@@ -179,7 +179,7 @@ export default function NarrativesPage() {
       )}
 
       {loading ? (
-        <LoadingSpinner center label="Loading narratives…" />
+        <LoadingSpinner center label="Loading narratives..." />
       ) : showEmpty ? (
         <EmptyState
           icon={BookText}

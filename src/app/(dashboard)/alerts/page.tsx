@@ -162,7 +162,7 @@ export default function AlertsPage() {
       )}
 
       {loading ? (
-        <LoadingSpinner center label="Loading alerts…" />
+        <LoadingSpinner center label="Loading alerts..." />
       ) : items.length === 0 ? (
         <EmptyState
           icon={BellOff}

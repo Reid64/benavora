@@ -238,7 +238,7 @@ export function ApplicationDetail({ applicationId }: ApplicationDetailProps) {
   }
 
   if (loading) {
-    return <LoadingSpinner center label="Loading application…" />;
+    return <LoadingSpinner center label="Loading application..." />;
   }
 
   if (error || !data) {

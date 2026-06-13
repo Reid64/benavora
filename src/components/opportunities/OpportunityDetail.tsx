@@ -189,7 +189,7 @@ export function OpportunityDetail({ opportunityId }: OpportunityDetailProps) {
   }
 
   if (loading) {
-    return <LoadingSpinner center label="Loading opportunity…" />;
+    return <LoadingSpinner center label="Loading opportunity..." />;
   }
 
   if (error || !data) {

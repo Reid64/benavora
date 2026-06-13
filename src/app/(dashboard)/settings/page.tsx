@@ -80,7 +80,7 @@ export default function SettingsPage() {
       </div>
 
       {profileLoading ? (
-        <LoadingSpinner center label="Loading settingsâ€¦" />
+        <LoadingSpinner center label="Loading settings..." />
       ) : (
         <>
           <OrganizationSection canManage={manage} />
@@ -182,7 +182,7 @@ function OrganizationSection({ canManage }: { canManage: boolean }) {
       description="Your organization's display name, used across the app and on applications."
     >
       {loading ? (
-        <LoadingSpinner center label="Loading organizationâ€¦" />
+        <LoadingSpinner center label="Loading organization..." />
       ) : loadError || !org ? (
         <EmptyState
           icon={ShieldCheck}
@@ -380,7 +380,7 @@ function TeamSection({
         )}
 
         {loading ? (
-          <LoadingSpinner center label="Loading teamâ€¦" />
+          <LoadingSpinner center label="Loading team..." />
         ) : loadError ? (
           <div
             role="alert"
@@ -869,7 +869,7 @@ function UsageDashboardSection() {
       description="Your organization's current usage against tier limits. Resets monthly for drafts, applications, and opportunities; daily for agent runs."
     >
       {loading ? (
-        <LoadingSpinner center label="Loading usageâ€¦" />
+        <LoadingSpinner center label="Loading usage..." />
       ) : loadError ? (
         <div
           role="alert"
@@ -1017,7 +1017,7 @@ function FeatureFlagsSection() {
       description="Capabilities enabled for your organization. These roll out by phase and are managed by Benavora."
     >
       {loading ? (
-        <LoadingSpinner center label="Loading feature flagsâ€¦" />
+        <LoadingSpinner center label="Loading feature flags..." />
       ) : loadError ? (
         <div
           role="alert"

@@ -189,7 +189,7 @@ export default function DraftEditorPage({
   }
 
   if (loading) {
-    return <LoadingSpinner center label="Loading draft…" />;
+    return <LoadingSpinner center label="Loading draft..." />;
   }
 
   if (error && !data) {

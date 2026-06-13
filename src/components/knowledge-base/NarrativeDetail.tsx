@@ -208,7 +208,7 @@ export function NarrativeDetail({ narrativeId }: NarrativeDetailProps) {
   }, [usage]);
 
   if (loading) {
-    return <LoadingSpinner center label="Loading narrative…" />;
+    return <LoadingSpinner center label="Loading narrative..." />;
   }
 
   if (error && !narrative) {

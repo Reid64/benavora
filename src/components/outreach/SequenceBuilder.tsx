@@ -232,7 +232,7 @@ export function SequenceBuilder({
                   }}
                   onChange={(e) => update(step.key, { body: e.target.value })}
                   rows={5}
-                  placeholder="Hi {contact_name}, I lead {foundation_name}…"
+                  placeholder="Hi {contact_name}, I lead {foundation_name}..."
                 />
                 {index > 0 && (
                   <Input

@@ -182,7 +182,7 @@ export function ResearchDashboard({
   }, [discoveries, sourceFilter, categoryFilter, dateFilter]);
 
   if (isLoading) {
-    return <LoadingSpinner center label="Loading research dashboard…" />;
+    return <LoadingSpinner center label="Loading research dashboard..." />;
   }
 
   const activeCount = profiles.filter((p) => p.is_active).length;
@@ -320,7 +320,7 @@ export function ResearchDashboard({
                         ? `${lane.created ?? 0} created · ${lane.found ?? 0} found`
                         : lane.status === "failed"
                           ? (lane.error ?? "Lane failed.")
-                          : "Searching…"}
+                          : "Searching..."}
                     </p>
                   </div>
                 </div>
@@ -354,7 +354,7 @@ export function ResearchDashboard({
                     <p className="mt-0.5 truncate text-sm text-navy-500">
                       {run.error_message ??
                         run.output_summary ??
-                        "Run in progress…"}
+                        "Run in progress..."}
                     </p>
                   </div>
                 </div>

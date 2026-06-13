@@ -97,7 +97,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
 
   // Build the partial update from the contract's mutable fields, mapped to real
   // `opportunities` columns. Omitted fields are not modified - no implicit
-  // nulling (Contracts conventions). `update` is intentionally `Record<…>`: the
+  // nulling (Contracts conventions). `update` is intentionally `Record<...>`: the
   // 2.108 typed-query inference computes the payload as `never` (see
   // supabase/server.ts), so the row shape is asserted at the .update() call.
   const update: Record<string, unknown> = {};

@@ -270,7 +270,7 @@ export function DocumentList({
         <div className="sm:max-w-xs sm:flex-1">
           <SearchBar
             onSearch={setQuery}
-            placeholder="Search documents…"
+            placeholder="Search documents..."
             aria-label="Search documents"
           />
         </div>

@@ -311,7 +311,7 @@ export default function AuditLogPage() {
       </div>
 
       {profileLoading || loading ? (
-        <LoadingSpinner center label="Loading audit log…" />
+        <LoadingSpinner center label="Loading audit log..." />
       ) : !canView ? (
         <Card>
           <EmptyState

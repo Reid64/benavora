@@ -205,7 +205,7 @@ const NAMED_ENTITIES: Record<string, string> = {
   nbsp: " ",
   mdash: "-",
   ndash: "-",
-  hellip: "…",
+  hellip: "...",
   rsquo: "’",
   lsquo: "‘",
   rdquo: "”",

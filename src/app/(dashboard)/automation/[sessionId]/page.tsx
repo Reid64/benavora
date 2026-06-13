@@ -311,7 +311,7 @@ export default function AutomationSessionPage({
   if (loading) {
     return (
       <div className="py-20">
-        <LoadingSpinner center label="Loading session…" />
+        <LoadingSpinner center label="Loading session..." />
       </div>
     );
   }
@@ -435,7 +435,7 @@ export default function AutomationSessionPage({
               label="Reason (optional)"
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
-              placeholder="Explain why this session is being rejected…"
+              placeholder="Explain why this session is being rejected..."
               rows={3}
             />
             <div className="flex items-center gap-2">

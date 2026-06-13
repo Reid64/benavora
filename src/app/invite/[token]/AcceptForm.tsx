@@ -154,7 +154,7 @@ export function AcceptForm({ token, email }: { token: string; email: string }) {
         disabled={submitting}
         className="flex w-full items-center justify-center rounded-lg bg-gradient-accent bg-[length:200%_100%] bg-left px-4 py-2.5 text-sm font-semibold text-white shadow-glow-blue transition hover:bg-right hover:shadow-glow focus:outline-none focus:ring-2 focus:ring-teal-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {submitting ? "Setting up your account…" : "Accept invitation"}
+        {submitting ? "Setting up your account..." : "Accept invitation"}
       </button>
     </form>
   );

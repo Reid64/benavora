@@ -89,7 +89,7 @@ export default function ResetPasswordPage() {
 
         {checking ? (
           <p className="text-center text-sm text-navy-500">
-            Validating your reset link…
+            Validating your reset link...
           </p>
         ) : linkError ? (
           <div
@@ -174,7 +174,7 @@ export default function ResetPasswordPage() {
                 disabled={submitting || done}
                 className="flex w-full items-center justify-center rounded-lg bg-gradient-accent bg-[length:200%_100%] bg-left px-4 py-2.5 text-sm font-semibold text-white shadow-glow-blue transition hover:bg-right hover:shadow-glow focus:outline-none focus:ring-2 focus:ring-teal-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {submitting || done ? "Updating…" : "Update password"}
+                {submitting || done ? "Updating..." : "Update password"}
               </button>
             </form>
 

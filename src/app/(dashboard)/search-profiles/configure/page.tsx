@@ -355,7 +355,7 @@ export default function ConfigureSearchProfilePage() {
   );
 
   if (loading) {
-    return <LoadingSpinner center label="Loading configuration…" />;
+    return <LoadingSpinner center label="Loading configuration..." />;
   }
 
   return (
@@ -1002,7 +1002,7 @@ function SourcePriorityField({
         <div className="max-w-xs">
           <Select
             aria-label="Add a source category"
-            placeholder="Add a source category…"
+            placeholder="Add a source category..."
             value=""
             onChange={(e) => add(e.target.value)}
             options={available.map((s) => ({

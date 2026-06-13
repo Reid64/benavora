@@ -81,7 +81,7 @@ export default function ApplicationsPage() {
       )}
 
       {loading ? (
-        <LoadingSpinner center label="Loading pipeline…" />
+        <LoadingSpinner center label="Loading pipeline..." />
       ) : showEmpty ? (
         <EmptyState
           icon={KanbanSquare}

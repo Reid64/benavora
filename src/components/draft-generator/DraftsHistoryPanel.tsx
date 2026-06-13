@@ -47,7 +47,7 @@ const HUMANIZATION_BADGE: Record<
   { label: string; color: "gray" | "green" | "yellow" | "red" }
 > = {
   not_humanized: { label: "Not humanized", color: "gray" },
-  pending: { label: "Humanizing…", color: "yellow" },
+  pending: { label: "Humanizing...", color: "yellow" },
   humanized: { label: "Humanized", color: "green" },
   failed: { label: "Humanize failed", color: "red" },
 };
@@ -119,7 +119,7 @@ export function DraftsHistoryPanel({
 
   if (loading) {
     return (
-      <p className="text-sm text-navy-500">Loading version history…</p>
+      <p className="text-sm text-navy-500">Loading version history...</p>
     );
   }
 
@@ -267,7 +267,7 @@ export function DraftsHistoryPanel({
                 <span className="select-none text-navy-400">
                   {op.type === "add" ? "+ " : op.type === "remove" ? "− " : "  "}
                 </span>
-                {op.line || " "}
+                {op.line || " "}
               </div>
             ))}
           </pre>

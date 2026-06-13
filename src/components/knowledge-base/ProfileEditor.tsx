@@ -238,7 +238,7 @@ export function ProfileEditor() {
   }
 
   if (loading) {
-    return <LoadingSpinner center label="Loading organization profile…" />;
+    return <LoadingSpinner center label="Loading organization profile..." />;
   }
 
   if (loadError || !org || !form) {
@@ -402,7 +402,7 @@ export function ProfileEditor() {
                 type="url"
                 value={form.website}
                 onChange={(e) => update("website", e.target.value)}
-                placeholder="https://…"
+                placeholder="https://..."
                 disabled={!editable}
               />
               <Input

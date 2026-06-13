@@ -93,7 +93,7 @@ export function AssemblyPanel({ applicationId }: AssemblyPanelProps) {
         )}
       </Card>
 
-      {loading && <LoadingSpinner center label="Checking documents…" />}
+      {loading && <LoadingSpinner center label="Checking documents..." />}
 
       {!loading && result && (
         <>

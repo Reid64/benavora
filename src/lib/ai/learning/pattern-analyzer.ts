@@ -32,7 +32,7 @@ function renderDenied(narratives: string[]): string {
       const body = text.replace(/\s+/g, " ").trim();
       const excerpt =
         body.length > DENIED_EXCERPT_CHARS
-          ? `${body.slice(0, DENIED_EXCERPT_CHARS)}…`
+          ? `${body.slice(0, DENIED_EXCERPT_CHARS)}...`
           : body;
       return `### Denied narrative ${i + 1}\n${excerpt}`;
     })
@@ -82,7 +82,7 @@ export async function analyzePatterns(
   const winning = input.winningNarrative.replace(/\s+/g, " ").trim();
   const winningExcerpt =
     winning.length > WINNING_EXCERPT_CHARS
-      ? `${winning.slice(0, WINNING_EXCERPT_CHARS)}…`
+      ? `${winning.slice(0, WINNING_EXCERPT_CHARS)}...`
       : winning;
 
   const prompt = [

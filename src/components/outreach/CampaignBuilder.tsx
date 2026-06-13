@@ -476,7 +476,7 @@ export function CampaignBuilder({
                 }}
                 onChange={(e) => updateStep(step.key, { body: e.target.value })}
                 rows={4}
-                placeholder="Hi {contact_name}, I lead {foundation_name}…"
+                placeholder="Hi {contact_name}, I lead {foundation_name}..."
               />
               {index === 0 ? (
                 <p className="text-xs text-navy-500">
@@ -534,7 +534,7 @@ export function CampaignBuilder({
         </div>
         <div className="max-h-56 overflow-y-auto rounded-lg border border-navy-200">
           {contactsLoading ? (
-            <p className="px-3 py-4 text-sm text-navy-500">Loading contacts…</p>
+            <p className="px-3 py-4 text-sm text-navy-500">Loading contacts...</p>
           ) : contacts.length === 0 ? (
             <p className="px-3 py-4 text-sm text-navy-500">
               No unassigned outreach contacts. Scan a company or free up
@@ -578,7 +578,7 @@ export function CampaignBuilder({
           Cancel
         </Button>
         <Button type="button" onClick={handleSave} isLoading={submitting}>
-          {humanizing ? "Humanizing…" : "Save campaign"}
+          {humanizing ? "Humanizing..." : "Save campaign"}
         </Button>
       </div>
     </div>

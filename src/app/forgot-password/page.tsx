@@ -130,7 +130,7 @@ export default function ForgotPasswordPage() {
                 disabled={submitting}
                 className="flex w-full items-center justify-center rounded-lg bg-gradient-accent bg-[length:200%_100%] bg-left px-4 py-2.5 text-sm font-semibold text-white shadow-glow-blue transition hover:bg-right hover:shadow-glow focus:outline-none focus:ring-2 focus:ring-teal-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {submitting ? "Sending link…" : "Send reset link"}
+                {submitting ? "Sending link..." : "Send reset link"}
               </button>
             </form>
 

@@ -73,7 +73,7 @@ export function DraftEditor({
         <p className="text-xs text-navy-500">
           Replace each{" "}
           <code className="rounded bg-navy-100 px-1 py-0.5 text-navy-600">
-            [NEEDS INPUT: …]
+            [NEEDS INPUT: ...]
           </code>{" "}
           marker with verified information before submitting.
         </p>

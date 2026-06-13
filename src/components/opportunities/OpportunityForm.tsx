@@ -311,7 +311,7 @@ export function OpportunityForm({
         <Select
           label="Category"
           required
-          placeholder="Select a category…"
+          placeholder="Select a category..."
           options={CATEGORY_OPTIONS}
           value={category}
           onChange={(e) => setCategory(e.target.value as FunderCategory)}
@@ -400,7 +400,7 @@ export function OpportunityForm({
           type="url"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
-          placeholder="https://…"
+          placeholder="https://..."
         />
       </div>
 
@@ -432,7 +432,7 @@ export function OpportunityForm({
         label="Eligibility requirements"
         value={eligibilityRequirements}
         onChange={(e) => setEligibilityRequirements(e.target.value)}
-        placeholder="Who qualifies, tax-status requirements, restrictions…"
+        placeholder="Who qualifies, tax-status requirements, restrictions..."
         rows={3}
       />
 

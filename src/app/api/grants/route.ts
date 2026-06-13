@@ -18,7 +18,7 @@ import {
 //
 // "Grant" maps to the live `opportunities` table; organization_id is derived from
 // the session (Six Laws Law 2), never the request. RLS scopes every row to the
-// org as a second barrier; the explicit `.eq("organization_id", …)` is the first.
+// org as a second barrier; the explicit `.eq("organization_id", ...)` is the first.
 // See `@/lib/grants/grants-service` for the full contract⇄schema mapping.
 
 export const runtime = "nodejs";
@@ -125,7 +125,7 @@ export async function GET(request: Request) {
   }
 
   // eligibility_flag is derived from the numeric eligibility_score, so translate
-  // the requested bucket into score predicates (a `.lt(…)` excludes NULLs in PG).
+  // the requested bucket into score predicates (a `.lt(...)` excludes NULLs in PG).
   if (eligibilityFlag === "high_match") {
     query = query.gte("eligibility_score", 80);
   } else if (eligibilityFlag === "moderate_match") {

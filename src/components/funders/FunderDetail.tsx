@@ -220,7 +220,7 @@ export function FunderDetail({ funderId }: FunderDetailProps) {
   }
 
   if (loading) {
-    return <LoadingSpinner center label="Loading funder…" />;
+    return <LoadingSpinner center label="Loading funder..." />;
   }
 
   if (error || !data) {
@@ -1057,7 +1057,7 @@ function PortalLoginSection({
   if (credState.status === "loading") {
     return (
       <Card title="Portal login">
-        <LoadingSpinner label="Loading…" />
+        <LoadingSpinner label="Loading..." />
       </Card>
     );
   }

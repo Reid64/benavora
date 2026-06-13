@@ -6,7 +6,7 @@
 // It targets the statistical fingerprints AI-detection tools key on:
 //
 //   - em dashes used as connective punctuation,
-//   - a fixed register of "AI vocabulary" (furthermore, leverage, robust, …),
+//   - a fixed register of "AI vocabulary" (furthermore, leverage, robust, ...),
 //   - uniform sentence length / low burstiness,
 //   - absence of contractions,
 //   - mechanically perfect paragraph and list parallelism,
@@ -17,7 +17,7 @@
 // The rewrite is grounded EXACTLY like the first pass (BEHAVIORAL_CONTRACTS §9):
 // it may only swap a vague claim for a specific fact that is present in the
 // supplied organization profile / Knowledge Base, never invent one, and must
-// preserve every [NEEDS INPUT: …] placeholder and every section heading.
+// preserve every [NEEDS INPUT: ...] placeholder and every section heading.
 //
 // Two layers run in sequence:
 //   1. The Claude pass does the semantic work (rhythm, voice, contractions,
@@ -245,7 +245,7 @@ export interface HumanizationMetrics {
   repeatedStarters: number;
   /** Inline "label: a, b, and c" colon-led list patterns. */
   colonListPatterns: number;
-  /** Count of contractions (it's, we're, don't, …). */
+  /** Count of contractions (it's, we're, don't, ...). */
   contractions: number;
   /** Banned AI-vocabulary occurrences still present. */
   bannedVocabHits: number;
@@ -446,7 +446,7 @@ export function buildHumanizerPrompt(context: HumanizerContext): {
     "",
     "ABSOLUTE PRESERVATION RULES - these override every stylistic instruction:",
     "1. Preserve every fact, figure, name, date, and quoted requirement. Never add a fact that is not in the GROUNDING DATA below.",
-    "2. Preserve every [NEEDS INPUT: …] placeholder verbatim. Never resolve, remove, or reword them.",
+    "2. Preserve every [NEEDS INPUT: ...] placeholder verbatim. Never resolve, remove, or reword them.",
     "3. Preserve all section headings and the overall structure and meaning.",
     "4. Keep roughly the same length. Do not summarize or pad.",
     "",

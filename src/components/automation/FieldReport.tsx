@@ -148,7 +148,7 @@ export function FieldReport({
                           placeholder={
                             row.options && row.options.length > 0
                               ? `e.g. ${row.options[0]}`
-                              : "Enter value…"
+                              : "Enter value..."
                           }
                           aria-label={`Value for ${row.fieldLabel}`}
                         />

@@ -203,7 +203,7 @@ export function NarrativeEditor({
         <Select
           label="Category"
           required
-          placeholder="Select a category…"
+          placeholder="Select a category..."
           options={CATEGORY_OPTIONS}
           value={category}
           onChange={(e) => setCategory(e.target.value as NarrativeCategory)}
