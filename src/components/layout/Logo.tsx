@@ -1,4 +1,4 @@
-import Image from "next/image";
+﻿import Image from "next/image";
 
 import { cn } from "@/lib/utils/cn";
 
@@ -12,13 +12,13 @@ export type LogoProps = {
 };
 
 /**
- * Benavora brand lockup — the logo mark plus an optional wordmark.
+ * Benavora brand lockup â€” the logo mark plus an optional wordmark.
  *
  * The mark is served from `public/`. Drop a real brand file at
  * `public/logo.png` and change `LOGO_SRC` to "/logo.png" to use it; the bundled
  * `/logo.svg` is a theme-matched placeholder so the UI is never broken.
  */
-const LOGO_SRC = "/logo.svg";
+const LOGO_SRC = "/benavora_logo.jpeg";
 
 export function Logo({ size = 36, showWordmark = true, className }: LogoProps) {
   return (
@@ -39,3 +39,4 @@ export function Logo({ size = 36, showWordmark = true, className }: LogoProps) {
     </span>
   );
 }
+
