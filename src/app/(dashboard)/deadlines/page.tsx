@@ -4,17 +4,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   addMonths,
-  differenceInCalendarDays,
-  eachDayOfInterval,
-  endOfMonth,
-  endOfWeek,
+  addWeeks,
   format,
-  isSameMonth,
-  isToday,
   parseISO,
   startOfMonth,
   startOfWeek,
   subMonths,
+  subWeeks,
 } from "date-fns";
 import {
   CalendarCheck,
@@ -34,9 +30,37 @@ import { canEdit, useProfile } from "@/lib/hooks/useProfile";
 import { useUrlState } from "@/lib/hooks/useUrlState";
 import { cn } from "@/lib/utils/cn";
 import { formatDate, humanizeEnum } from "@/lib/utils/formatters";
+import {
+  BAND_CLASSES,
+  COMPLETED_CELL,
+  urgency,
+  parentHref,
+} from "@/components/deadlines/DeadlinePill";
+import type { DeadlineItem } from "@/components/deadlines/DeadlinePill";
+import { CalendarGrid } from "@/components/deadlines/CalendarGrid";
+import { WeekView } from "@/components/deadlines/WeekView";
 import type { Tables } from "@/types/database";
 
-type Deadline = Pick<
+type ViewMode = "calendar" | "week" | "list";
+type UrgencyBand = "overdue" | "orange" | "yellow" | "green";
+
+const DEADLINE_TYPES = [
+  "application_deadline",
+  "follow_up_date",
+  "reporting_deadline",
+  "renewal_date",
+  "document_expiration",
+] as const;
+
+const TYPE_SHORT: Record<string, string> = {
+  application_deadline: "Application",
+  follow_up_date: "Follow-up",
+  reporting_deadline: "Reporting",
+  renewal_date: "Renewal",
+  document_expiration: "Document",
+};
+
+type DbDeadline = Pick<
   Tables<"deadlines">,
   | "id"
   | "title"
@@ -50,96 +74,109 @@ type Deadline = Pick<
   | "google_calendar_event_id"
 >;
 
-type ViewMode = "calendar" | "list";
-
-type UrgencyBand = "overdue" | "orange" | "yellow" | "green";
-
-// Four urgency bands (BLUEPRINT §4.9): Red (overdue), Orange (≤3 days),
-// Yellow (≤7 days), Green (7+ days). Mirrors DeadlineWidget; the Badge component
-// has no "orange", so urgency styling uses explicit color classes.
-const BAND_CLASSES: Record<
-  UrgencyBand,
-  { pill: string; dot: string; cell: string }
-> = {
-  overdue: {
-    pill: "bg-red-100 text-red-700",
-    dot: "bg-red-500",
-    cell: "bg-red-50 text-red-700 hover:bg-red-100",
-  },
-  orange: {
-    pill: "bg-orange-100 text-orange-700",
-    dot: "bg-orange-500",
-    cell: "bg-orange-50 text-orange-700 hover:bg-orange-100",
-  },
-  yellow: {
-    pill: "bg-yellow-100 text-yellow-800",
-    dot: "bg-yellow-500",
-    cell: "bg-yellow-50 text-yellow-800 hover:bg-yellow-100",
-  },
-  green: {
-    pill: "bg-green-100 text-green-700",
-    dot: "bg-green-500",
-    cell: "bg-green-50 text-green-700 hover:bg-green-100",
-  },
+type RenewalRow = {
+  id: string;
+  application_id: string;
+  opportunity_id: string | null;
+  reporting_deadline: string | null;
+  renewal_window_start: string | null;
+  renewal_window_end: string | null;
+  opportunities: { title: string } | null;
 };
 
-const COMPLETED_CELL =
-  "bg-navy-100 text-navy-400 line-through hover:bg-navy-200";
-
-/**
- * Parse a `date`-typed column value ("yyyy-MM-dd") into a local-midnight Date so
- * day comparisons don't drift across the UTC boundary. Falls back to the native
- * parser for full timestamps.
- */
-function toLocalDate(value: string): Date {
-  return value.length === 10 ? parseISO(value) : new Date(value);
+function dbDeadlineToItem(d: DbDeadline): DeadlineItem {
+  return {
+    ...d,
+    deadline_type: d.deadline_type as string,
+    is_completed: Boolean(d.is_completed),
+    source: "deadline",
+  };
 }
 
-/**
- * Urgency band + label for a deadline (BLUEPRINT §4.9). Overdue, incomplete
- * deadlines are always red (Contracts §11). Based on whole calendar days.
- */
-function urgency(dueDate: string): { band: UrgencyBand; label: string } {
-  const days = differenceInCalendarDays(toLocalDate(dueDate), new Date());
-  if (days < 0) {
-    const overdue = Math.abs(days);
-    return {
-      band: "overdue",
-      label: `Overdue by ${overdue} day${overdue === 1 ? "" : "s"}`,
-    };
+function renewalToItems(r: RenewalRow): DeadlineItem[] {
+  const base = r.opportunities?.title ?? "Grant";
+  const items: DeadlineItem[] = [];
+  if (r.reporting_deadline) {
+    items.push({
+      id: `renewal-${r.id}-report`,
+      title: `${base} – Report Due`,
+      description: null,
+      deadline_type: "reporting_deadline",
+      due_date: r.reporting_deadline,
+      is_completed: false,
+      application_id: r.application_id,
+      opportunity_id: r.opportunity_id ?? null,
+      source: "renewal",
+    });
   }
-  if (days === 0) return { band: "orange", label: "Due today" };
-  const label = `In ${days} day${days === 1 ? "" : "s"}`;
-  if (days <= 3) return { band: "orange", label };
-  if (days <= 7) return { band: "yellow", label };
-  return { band: "green", label };
+  if (r.renewal_window_start) {
+    items.push({
+      id: `renewal-${r.id}-start`,
+      title: `${base} – Renewal Window Opens`,
+      description: null,
+      deadline_type: "renewal_date",
+      due_date: r.renewal_window_start,
+      is_completed: false,
+      application_id: r.application_id,
+      opportunity_id: r.opportunity_id ?? null,
+      source: "renewal",
+    });
+  }
+  if (r.renewal_window_end) {
+    items.push({
+      id: `renewal-${r.id}-end`,
+      title: `${base} – Renewal Deadline`,
+      description: null,
+      deadline_type: "renewal_date",
+      due_date: r.renewal_window_end,
+      is_completed: false,
+      application_id: r.application_id,
+      opportunity_id: r.opportunity_id ?? null,
+      source: "renewal",
+    });
+  }
+  return items;
 }
 
-/** Link to a deadline's parent record (application or opportunity), if any. */
-function parentHref(d: Deadline): string | null {
-  if (d.application_id) return `/applications/${d.application_id}`;
-  if (d.opportunity_id) return `/opportunities/${d.opportunity_id}`;
-  return null;
-}
-
-/**
- * Deadlines (BLUEPRINT §4.9 / Contracts §11). Calendar (monthly grid) and list
- * views with a toggle. Color-coded by urgency: red (overdue), orange (≤3 days),
- * yellow (≤7 days), green (7+ days). Completed deadlines are hidden by default
- * (toggle to show). Marking complete sets is_completed=true and completed_at=now;
- * un-completing clears both. All reads/writes are RLS-scoped to the organization.
- */
 export default function DeadlinesPage() {
   const { profile } = useProfile();
   const { searchParams, setParams } = useUrlState();
-  const [deadlines, setDeadlines] = useState<Deadline[]>([]);
+
+  const [dbDeadlines, setDbDeadlines] = useState<DbDeadline[]>([]);
+  const [renewalItems, setRenewalItems] = useState<DeadlineItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
 
-  // View, completed-visibility, and the visible month live in the URL so the
-  // page restores exactly where the user left off after sidebar navigation.
-  const view: ViewMode = searchParams.get("view") === "list" ? "list" : "calendar";
+  // Google Calendar integration state
+  const [calendarConnected, setCalendarConnected] = useState(false);
+  const [syncingId, setSyncingId] = useState<string | null>(null);
+  const [syncingAll, setSyncingAll] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const [autoSync, setAutoSync] = useState(false);
+  const [autoSyncSaving, setAutoSyncSaving] = useState(false);
+
+  // Detect mobile on client so we can default to list view
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    setIsMobile(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
+  // --- URL state ---
+  const viewParam = searchParams.get("view");
+  const view: ViewMode = useMemo(() => {
+    if (viewParam === "list") return "list";
+    if (viewParam === "week") return "week";
+    if (viewParam === "calendar") return "calendar";
+    return isMobile ? "list" : "calendar";
+  }, [viewParam, isMobile]);
+
   const showCompleted = searchParams.get("completed") === "1";
+
   const monthParam = searchParams.get("month");
   const month = useMemo<Date>(() => {
     if (monthParam && /^\d{4}-\d{2}$/.test(monthParam)) {
@@ -149,41 +186,80 @@ export default function DeadlinesPage() {
     return startOfMonth(new Date());
   }, [monthParam]);
 
-  // Persist the month only when it differs from the current one, keeping the URL
-  // clean on the default view.
+  const weekParam = searchParams.get("week");
+  const weekStart = useMemo<Date>(() => {
+    if (weekParam && /^\d{4}-\d{2}-\d{2}$/.test(weekParam)) {
+      const parsed = parseISO(weekParam);
+      if (!Number.isNaN(parsed.getTime())) return startOfWeek(parsed);
+    }
+    return startOfWeek(new Date());
+  }, [weekParam]);
+
+  const typesParam = searchParams.get("types");
+  const activeTypes = useMemo<Set<string>>(() => {
+    if (!typesParam) return new Set(DEADLINE_TYPES);
+    return new Set(typesParam.split(",").filter(Boolean));
+  }, [typesParam]);
+
+  // --- Navigation ---
   function goToMonth(next: Date) {
     const current = format(startOfMonth(new Date()), "yyyy-MM");
     const value = format(next, "yyyy-MM");
     setParams({ month: value === current ? null : value });
   }
 
-  const [busyId, setBusyId] = useState<string | null>(null);
+  function goToWeek(next: Date) {
+    const ws = startOfWeek(next);
+    const currentWs = startOfWeek(new Date());
+    const isCurrent =
+      format(ws, "yyyy-MM-dd") === format(currentWs, "yyyy-MM-dd");
+    setParams({ week: isCurrent ? null : format(ws, "yyyy-MM-dd") });
+  }
 
-  // Google Calendar integration state (BLUEPRINT Phase 4 / Contracts §20).
-  const [calendarConnected, setCalendarConnected] = useState(false);
-  const [syncingId, setSyncingId] = useState<string | null>(null);
-  const [syncingAll, setSyncingAll] = useState(false);
-  const [syncMessage, setSyncMessage] = useState<string | null>(null);
-  const [autoSync, setAutoSync] = useState(false);
-  const [autoSyncSaving, setAutoSyncSaving] = useState(false);
+  function toggleType(type: string) {
+    const next = new Set(activeTypes);
+    if (next.has(type)) {
+      if (next.size === 1) return;
+      next.delete(type);
+    } else {
+      next.add(type);
+    }
+    const isAll = next.size === DEADLINE_TYPES.length;
+    setParams({ types: isAll ? null : [...next].join(",") });
+  }
 
+  // --- Data loading ---
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     const supabase = createClient();
-    const { data, error: loadError } = await supabase
-      .from("deadlines")
-      .select(
-        "id, title, description, deadline_type, due_date, is_completed, completed_at, application_id, opportunity_id, google_calendar_event_id",
-      )
-      .order("due_date", { ascending: true });
 
-    if (loadError) {
+    const [deadlinesResult, renewalsResult] = await Promise.all([
+      supabase
+        .from("deadlines")
+        .select(
+          "id, title, description, deadline_type, due_date, is_completed, completed_at, application_id, opportunity_id, google_calendar_event_id",
+        )
+        .order("due_date", { ascending: true }),
+      supabase
+        .from("renewals")
+        .select(
+          "id, application_id, opportunity_id, reporting_deadline, renewal_window_start, renewal_window_end, opportunities(title)",
+        ),
+    ]);
+
+    if (deadlinesResult.error) {
       setError("Could not load deadlines.");
       setLoading(false);
       return;
     }
-    setDeadlines((data ?? []) as Deadline[]);
+    setDbDeadlines((deadlinesResult.data ?? []) as DbDeadline[]);
+
+    if (!renewalsResult.error && renewalsResult.data) {
+      const rows = renewalsResult.data as unknown as RenewalRow[];
+      setRenewalItems(rows.flatMap(renewalToItems));
+    }
+
     setLoading(false);
   }, []);
 
@@ -191,11 +267,6 @@ export default function DeadlinesPage() {
     void load();
   }, [load]);
 
-  const editable = canEdit(profile?.role);
-
-  // Load the Google Calendar connection status and the auto-sync preference. The
-  // status comes from the calendar integration route; the preference lives in
-  // platform_config (key calendar.auto_sync), RLS-scoped to the org.
   useEffect(() => {
     let active = true;
     (async () => {
@@ -206,9 +277,8 @@ export default function DeadlinesPage() {
           setCalendarConnected(Boolean(data.connected));
         }
       } catch {
-        // Leave disconnected on failure — the sync controls simply stay hidden.
+        // Leave disconnected on failure
       }
-
       const supabase = createClient();
       const { data: config } = await supabase
         .from("platform_config")
@@ -222,9 +292,34 @@ export default function DeadlinesPage() {
     };
   }, []);
 
-  // Sync a single deadline to Google Calendar, then reflect the linked event id.
-  async function syncOne(d: Deadline) {
-    if (!editable || syncingId || syncingAll) return;
+  const editable = canEdit(profile?.role);
+
+  // --- Derived data ---
+  const allItems = useMemo<DeadlineItem[]>(() => {
+    const deadlineItems = dbDeadlines.map(dbDeadlineToItem);
+    return [...deadlineItems, ...renewalItems].sort((a, b) =>
+      a.due_date.localeCompare(b.due_date),
+    );
+  }, [dbDeadlines, renewalItems]);
+
+  const visibleItems = useMemo(
+    () =>
+      allItems.filter((d) => {
+        if (!showCompleted && d.is_completed) return false;
+        if (!activeTypes.has(d.deadline_type)) return false;
+        return true;
+      }),
+    [allItems, showCompleted, activeTypes],
+  );
+
+  const completedCount = useMemo(
+    () => dbDeadlines.filter((d) => d.is_completed).length,
+    [dbDeadlines],
+  );
+
+  // --- Actions ---
+  async function syncOne(d: DeadlineItem) {
+    if (!editable || syncingId || syncingAll || d.source === "renewal") return;
     setSyncingId(d.id);
     setSyncMessage(null);
     try {
@@ -233,21 +328,26 @@ export default function DeadlinesPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ deadlineId: d.id }),
       });
-      const data = (await res.json().catch(() => null)) as
-        | { eventId?: string; error?: string }
-        | null;
+      const data = (await res.json().catch(() => null)) as {
+        eventId?: string;
+        error?: string;
+      } | null;
       if (!res.ok || !data?.eventId) {
         setSyncMessage(data?.error ?? "Could not add this deadline to your calendar.");
         return;
       }
-      setDeadlines((prev) =>
+      setDbDeadlines((prev) =>
         prev.map((row) =>
           row.id === d.id
-            ? { ...row, google_calendar_event_id: data.eventId ?? row.google_calendar_event_id }
+            ? {
+                ...row,
+                google_calendar_event_id:
+                  data.eventId ?? row.google_calendar_event_id,
+              }
             : row,
         ),
       );
-      setSyncMessage(`Added “${d.title}” to your calendar.`);
+      setSyncMessage(`Added "${d.title}" to your calendar.`);
     } catch {
       setSyncMessage("Could not reach the server. Please try again.");
     } finally {
@@ -255,7 +355,6 @@ export default function DeadlinesPage() {
     }
   }
 
-  // Sync every incomplete deadline to Google Calendar in one pass.
   async function syncAll() {
     if (!editable || syncingAll) return;
     setSyncingAll(true);
@@ -264,9 +363,12 @@ export default function DeadlinesPage() {
       const res = await fetch("/api/integrations/google/calendar", {
         method: "POST",
       });
-      const data = (await res.json().catch(() => null)) as
-        | { synced?: number; created?: number; updated?: number; errors?: number; error?: string }
-        | null;
+      const data = (await res.json().catch(() => null)) as {
+        created?: number;
+        updated?: number;
+        errors?: number;
+        error?: string;
+      } | null;
       if (!res.ok || !data) {
         setSyncMessage(data?.error ?? "Could not sync deadlines to your calendar.");
         return;
@@ -277,7 +379,6 @@ export default function DeadlinesPage() {
           errors ? `, ${errors} failed` : ""
         }.`,
       );
-      // Re-load so the synced indicators reflect newly linked events.
       await load();
     } catch {
       setSyncMessage("Could not reach the server. Please try again.");
@@ -286,45 +387,34 @@ export default function DeadlinesPage() {
     }
   }
 
-  // Persist the auto-sync preference to platform_config (org-scoped upsert).
   async function toggleAutoSync(next: boolean) {
     if (!profile?.organization_id || autoSyncSaving) return;
     setAutoSync(next);
     setAutoSyncSaving(true);
     const supabase = createClient();
-    const { error: upsertError } = await supabase.from("platform_config").upsert(
-      {
-        organization_id: profile.organization_id,
-        key: "calendar.auto_sync",
-        value: next ? "true" : "false",
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "organization_id,key" },
-    );
+    const { error: upsertError } = await supabase
+      .from("platform_config")
+      .upsert(
+        {
+          organization_id: profile.organization_id,
+          key: "calendar.auto_sync",
+          value: next ? "true" : "false",
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "organization_id,key" },
+      );
     if (upsertError) {
-      setAutoSync(!next); // revert on failure
+      setAutoSync(!next);
       setSyncMessage("Could not save the auto-sync setting.");
     }
     setAutoSyncSaving(false);
   }
 
-  // Completed deadlines are excluded by default in both views (Contracts §11).
-  const visible = useMemo(
-    () => (showCompleted ? deadlines : deadlines.filter((d) => !d.is_completed)),
-    [deadlines, showCompleted],
-  );
-
-  const completedCount = useMemo(
-    () => deadlines.filter((d) => d.is_completed).length,
-    [deadlines],
-  );
-
-  async function toggleComplete(d: Deadline) {
-    if (!editable || busyId) return;
+  async function toggleComplete(d: DeadlineItem) {
+    if (!editable || busyId || d.source === "renewal") return;
     setBusyId(d.id);
     const nextCompleted = !d.is_completed;
     const supabase = createClient();
-    // Completion toggles is_completed and sets completed_at (Contracts §11).
     const { error: updateError } = await supabase
       .from("deadlines")
       .update({
@@ -332,13 +422,12 @@ export default function DeadlinesPage() {
         completed_at: nextCompleted ? new Date().toISOString() : null,
       })
       .eq("id", d.id);
-
     if (updateError) {
       setError("Could not update the deadline. Please try again.");
       setBusyId(null);
       return;
     }
-    setDeadlines((prev) =>
+    setDbDeadlines((prev) =>
       prev.map((row) =>
         row.id === d.id
           ? {
@@ -352,8 +441,10 @@ export default function DeadlinesPage() {
     setBusyId(null);
   }
 
+  // --- Render ---
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-navy-900">
@@ -378,34 +469,48 @@ export default function DeadlinesPage() {
             </Button>
           )}
           <div className="inline-flex rounded-lg border border-navy-200 bg-white p-0.5 shadow-sm">
-          <button
-            type="button"
-            onClick={() => setParams({ view: null })}
-            aria-pressed={view === "calendar"}
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition",
-              view === "calendar"
-                ? "bg-teal-600 text-white"
-                : "text-navy-600 hover:bg-navy-50",
-            )}
-          >
-            <CalendarDays className="h-4 w-4" aria-hidden />
-            Calendar
-          </button>
-          <button
-            type="button"
-            onClick={() => setParams({ view: "list" })}
-            aria-pressed={view === "list"}
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition",
-              view === "list"
-                ? "bg-teal-600 text-white"
-                : "text-navy-600 hover:bg-navy-50",
-            )}
-          >
-            <List className="h-4 w-4" aria-hidden />
-            List
-          </button>
+            <button
+              type="button"
+              onClick={() => setParams({ view: null })}
+              aria-pressed={view === "calendar"}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition",
+                view === "calendar"
+                  ? "bg-teal-600 text-white"
+                  : "text-navy-600 hover:bg-navy-50",
+              )}
+            >
+              <CalendarDays className="h-4 w-4" aria-hidden />
+              Month
+            </button>
+            <button
+              type="button"
+              onClick={() => setParams({ view: "week" })}
+              aria-pressed={view === "week"}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition",
+                view === "week"
+                  ? "bg-teal-600 text-white"
+                  : "text-navy-600 hover:bg-navy-50",
+              )}
+            >
+              <ChevronRight className="h-4 w-4" aria-hidden />
+              Week
+            </button>
+            <button
+              type="button"
+              onClick={() => setParams({ view: "list" })}
+              aria-pressed={view === "list"}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition",
+                view === "list"
+                  ? "bg-teal-600 text-white"
+                  : "text-navy-600 hover:bg-navy-50",
+              )}
+            >
+              <List className="h-4 w-4" aria-hidden />
+              List
+            </button>
           </div>
         </div>
       </div>
@@ -428,6 +533,7 @@ export default function DeadlinesPage() {
         </div>
       )}
 
+      {/* Urgency legend + toggles */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <UrgencyLegend />
         <div className="flex flex-wrap items-center gap-4">
@@ -440,7 +546,7 @@ export default function DeadlinesPage() {
                 onChange={(e) => void toggleAutoSync(e.target.checked)}
                 className="h-4 w-4 rounded border-navy-300 text-teal-600 focus:ring-teal-500"
               />
-              Auto-sync new deadlines to calendar
+              Auto-sync new deadlines
             </label>
           )}
           <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-navy-600">
@@ -460,13 +566,46 @@ export default function DeadlinesPage() {
         </div>
       </div>
 
+      {/* Type filter */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs font-medium text-navy-500">Filter:</span>
+        <button
+          type="button"
+          onClick={() => setParams({ types: null })}
+          className={cn(
+            "rounded-full px-3 py-1 text-xs font-medium transition",
+            activeTypes.size === DEADLINE_TYPES.length
+              ? "bg-navy-800 text-white"
+              : "border border-navy-200 text-navy-500 hover:border-navy-400 hover:text-navy-700",
+          )}
+        >
+          All
+        </button>
+        {DEADLINE_TYPES.map((type) => (
+          <button
+            key={type}
+            type="button"
+            onClick={() => toggleType(type)}
+            className={cn(
+              "rounded-full px-3 py-1 text-xs font-medium transition",
+              activeTypes.has(type)
+                ? "bg-teal-600 text-white"
+                : "border border-navy-200 text-navy-500 hover:border-navy-400 hover:text-navy-700",
+            )}
+          >
+            {TYPE_SHORT[type]}
+          </button>
+        ))}
+      </div>
+
+      {/* Content */}
       {loading ? (
         <LoadingSpinner center label="Loading deadlines…" />
-      ) : deadlines.length === 0 ? (
+      ) : allItems.length === 0 ? (
         <EmptyState
-          icon={CalendarCheck}
+          icon={CalendarDays}
           title="No deadlines yet"
-          description="Deadlines are created automatically when you add opportunities with dates. They’ll appear here on the calendar and in the list."
+          description="Deadlines are created automatically when you add opportunities with dates. They'll appear here on the calendar and in the list."
           action={
             <Link href="/opportunities/new">
               <Button variant="secondary">Add an opportunity</Button>
@@ -474,16 +613,24 @@ export default function DeadlinesPage() {
           }
         />
       ) : view === "calendar" ? (
-        <CalendarView
+        <CalendarGrid
           month={month}
-          deadlines={visible}
+          deadlines={visibleItems}
           onPrev={() => goToMonth(subMonths(month, 1))}
           onNext={() => goToMonth(addMonths(month, 1))}
           onToday={() => goToMonth(startOfMonth(new Date()))}
         />
+      ) : view === "week" ? (
+        <WeekView
+          weekStart={weekStart}
+          deadlines={visibleItems}
+          onPrevWeek={() => goToWeek(subWeeks(weekStart, 1))}
+          onNextWeek={() => goToWeek(addWeeks(weekStart, 1))}
+          onToday={() => goToWeek(new Date())}
+        />
       ) : (
         <ListView
-          deadlines={visible}
+          deadlines={visibleItems}
           editable={editable}
           busyId={busyId}
           onToggle={toggleComplete}
@@ -521,149 +668,6 @@ function UrgencyLegend() {
   );
 }
 
-const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-function CalendarView({
-  month,
-  deadlines,
-  onPrev,
-  onNext,
-  onToday,
-}: {
-  month: Date;
-  deadlines: Deadline[];
-  onPrev: () => void;
-  onNext: () => void;
-  onToday: () => void;
-}) {
-  // Six-week grid covering the visible month, padded to full weeks.
-  const gridStart = startOfWeek(startOfMonth(month));
-  const gridEnd = endOfWeek(endOfMonth(month));
-  const days = eachDayOfInterval({ start: gridStart, end: gridEnd });
-
-  // Bucket deadlines by their due day for O(1) per-cell lookup.
-  const byDay = useMemo(() => {
-    const map = new Map<string, Deadline[]>();
-    for (const d of deadlines) {
-      const key = format(toLocalDate(d.due_date), "yyyy-MM-dd");
-      const list = map.get(key) ?? [];
-      list.push(d);
-      map.set(key, list);
-    }
-    return map;
-  }, [deadlines]);
-
-  return (
-    <Card noPadding>
-      <div className="flex items-center justify-between border-b border-navy-200 px-5 py-4">
-        <h2 className="text-base font-semibold text-navy-900">
-          {format(month, "MMMM yyyy")}
-        </h2>
-        <div className="flex items-center gap-1.5">
-          <Button variant="ghost" size="sm" onClick={onToday}>
-            Today
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onPrev}
-            aria-label="Previous month"
-          >
-            <ChevronLeft className="h-4 w-4" aria-hidden />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onNext}
-            aria-label="Next month"
-          >
-            <ChevronRight className="h-4 w-4" aria-hidden />
-          </Button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-7 border-b border-navy-200 bg-navy-50 text-center text-xs font-medium text-navy-500">
-        {WEEKDAYS.map((day) => (
-          <div key={day} className="px-2 py-2">
-            {day}
-          </div>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-7">
-        {days.map((day) => {
-          const key = format(day, "yyyy-MM-dd");
-          const inMonth = isSameMonth(day, month);
-          const dayDeadlines = byDay.get(key) ?? [];
-          return (
-            <div
-              key={key}
-              className={cn(
-                "min-h-[6.5rem] border-b border-r border-navy-100 p-1.5",
-                !inMonth && "bg-navy-50/60",
-              )}
-            >
-              <div
-                className={cn(
-                  "mb-1 flex h-6 w-6 items-center justify-center rounded-full text-xs",
-                  isToday(day)
-                    ? "bg-teal-600 font-semibold text-white"
-                    : inMonth
-                      ? "text-navy-600"
-                      : "text-navy-400",
-                )}
-              >
-                {format(day, "d")}
-              </div>
-              <div className="space-y-1">
-                {dayDeadlines.map((d) => (
-                  <CalendarEntry key={d.id} deadline={d} />
-                ))}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </Card>
-  );
-}
-
-function CalendarEntry({ deadline }: { deadline: Deadline }) {
-  const href = parentHref(deadline);
-  const completed = Boolean(deadline.is_completed);
-  const synced = Boolean(deadline.google_calendar_event_id);
-  const band = completed ? null : urgency(deadline.due_date).band;
-  const className = cn(
-    "flex items-center gap-1 truncate rounded px-1.5 py-0.5 text-left text-xs font-medium transition",
-    completed ? COMPLETED_CELL : BAND_CLASSES[band as UrgencyBand].cell,
-  );
-  const title = `${deadline.title} · ${humanizeEnum(deadline.deadline_type)}${
-    synced ? " · on calendar" : ""
-  }`;
-
-  const content = (
-    <>
-      {synced && (
-        <CalendarCheck className="h-3 w-3 shrink-0 opacity-70" aria-hidden />
-      )}
-      <span className="truncate">{deadline.title}</span>
-    </>
-  );
-
-  if (href) {
-    return (
-      <Link href={href} className={className} title={title}>
-        {content}
-      </Link>
-    );
-  }
-  return (
-    <div className={className} title={title}>
-      {content}
-    </div>
-  );
-}
-
 function ListView({
   deadlines,
   editable,
@@ -673,20 +677,20 @@ function ListView({
   syncingId,
   onSync,
 }: {
-  deadlines: Deadline[];
+  deadlines: DeadlineItem[];
   editable: boolean;
   busyId: string | null;
-  onToggle: (d: Deadline) => void;
+  onToggle: (d: DeadlineItem) => void;
   calendarConnected: boolean;
   syncingId: string | null;
-  onSync: (d: Deadline) => void;
+  onSync: (d: DeadlineItem) => void;
 }) {
-  // Already loaded sorted by due_date ascending; keep that order here.
   if (deadlines.length === 0) {
     return (
       <Card>
         <p className="py-4 text-center text-sm text-navy-500">
-          No deadlines to show. Toggle “Show completed” to include finished ones.
+          No deadlines to show. Toggle &quot;Show completed&quot; to include
+          finished ones, or adjust the type filter.
         </p>
       </Card>
     );
@@ -696,11 +700,12 @@ function ListView({
     <Card noPadding>
       <ul className="divide-y divide-navy-100">
         {deadlines.map((d) => {
-          const completed = Boolean(d.is_completed);
+          const completed = d.is_completed;
           const synced = Boolean(d.google_calendar_event_id);
           const { band, label } = urgency(d.due_date);
           const styles = BAND_CLASSES[band];
           const href = parentHref(d);
+          const isRenewal = d.source === "renewal";
           return (
             <li
               key={d.id}
@@ -720,9 +725,7 @@ function ListView({
                   <div
                     className={cn(
                       "truncate text-sm font-medium",
-                      completed
-                        ? "text-navy-400 line-through"
-                        : "text-navy-900",
+                      completed ? "text-navy-400 line-through" : "text-navy-900",
                     )}
                   >
                     {href ? (
@@ -733,8 +736,15 @@ function ListView({
                       d.title
                     )}
                   </div>
-                  <div className="mt-0.5 text-xs text-navy-500">
-                    {humanizeEnum(d.deadline_type)} · {formatDate(d.due_date)}
+                  <div className="mt-0.5 flex items-center gap-2 text-xs text-navy-500">
+                    <span>{humanizeEnum(d.deadline_type)}</span>
+                    <span>·</span>
+                    <span>{formatDate(d.due_date)}</span>
+                    {isRenewal && (
+                      <span className="rounded-full bg-teal-50 px-1.5 py-0.5 text-teal-600">
+                        Renewal
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -753,6 +763,7 @@ function ListView({
                   </span>
                 )}
                 {calendarConnected &&
+                  !isRenewal &&
                   (synced ? (
                     <span
                       className="inline-flex items-center gap-1 text-xs text-teal-600"
@@ -775,7 +786,7 @@ function ListView({
                       </Button>
                     )
                   ))}
-                {editable && (
+                {editable && !isRenewal && (
                   <Button
                     variant="ghost"
                     size="sm"

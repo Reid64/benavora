@@ -28,6 +28,7 @@ import {
   Textarea,
 } from "@/components/ui";
 import { AssemblyPanel } from "@/components/documents/AssemblyPanel";
+import { ComplianceReport } from "@/components/applications/ComplianceReport";
 import { StageTransitionModal } from "@/components/applications/StageTransitionModal";
 import {
   STAGE_COLOR,
@@ -382,6 +383,10 @@ function dash(value: React.ReactNode) {
 function OverviewTab({ application }: { application: EnrichedApplication }) {
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      {application.stage === "ready_for_review" && (
+        <ComplianceReport applicationId={application.id} />
+      )}
+
       <Card title="Application">
         <dl className="divide-y divide-navy-100">
           <DetailRow label="Opportunity">

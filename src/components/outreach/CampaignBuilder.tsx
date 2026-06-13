@@ -8,12 +8,14 @@ import { createClient } from "@/lib/supabase/client";
 import { MIN_CAMPAIGN_STEP_GAP_DAYS } from "@/lib/utils/constants";
 import type { Tables } from "@/types/database";
 
-/** Template variables the drip sequence supports (BLUEPRINT §4.11). */
+/** Template variables the drip sequence supports (Contracts §13). */
 export const CAMPAIGN_TEMPLATE_VARIABLES = [
   "{company_name}",
   "{contact_name}",
   "{foundation_name}",
   "{mission_snippet}",
+  "{program_name}",
+  "{impact_stat}",
 ] as const;
 
 /** Sample values used to render the live preview (illustrative only). */
@@ -22,7 +24,55 @@ const PREVIEW_SAMPLE: Record<string, string> = {
   contact_name: "Jordan Lee",
   foundation_name: "Your Foundation",
   mission_snippet: "providing emergency and transitional housing in rural Texas",
+  program_name: "Emergency Housing Initiative",
+  impact_stat: "served 150 families last year",
 };
+
+/** Pre-built 3-step intro sequence (Contracts §13). */
+const INTRO_SEQUENCE: Array<{ subject: string; body: string; delayDays: number }> = [
+  {
+    delayDays: 0,
+    subject: "Introducing {foundation_name} — a potential partnership with {company_name}",
+    body: `Hi {contact_name},
+
+I lead {foundation_name}, a nonprofit focused on {mission_snippet}.
+
+I'm reaching out because {company_name}'s work aligns closely with our {program_name}. We've made real progress — {impact_stat} — and we're looking for community partners who share our commitment.
+
+Would you be open to a brief conversation?
+
+Warm regards,
+{foundation_name}`,
+  },
+  {
+    delayDays: 5,
+    subject: "Following up — {foundation_name} × {company_name}",
+    body: `Hi {contact_name},
+
+I wanted to follow up on my note from last week. I know your inbox is busy, so I'll keep this short.
+
+{foundation_name} is seeking partners for {program_name}. Our work has {impact_stat}, and we believe {company_name} could play a meaningful role.
+
+I'd love 15 minutes to share more. Does anything on your calendar this week work?
+
+Best,
+{foundation_name}`,
+  },
+  {
+    delayDays: 5,
+    subject: "One quick question, {contact_name}",
+    body: `Hi {contact_name},
+
+I've reached out a couple of times about a potential partnership between {foundation_name} and {company_name}.
+
+I want to be direct: we're looking for a {program_name} partner who shares our values. {impact_stat}.
+
+If that resonates, I'd love 20 minutes together. If not, no worries — I appreciate your time either way.
+
+Thank you,
+{foundation_name}`,
+  },
+];
 
 type StepDraft = {
   /** Stable key for React list rendering only; not persisted. */
@@ -91,6 +141,7 @@ export function CampaignBuilder({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [contactsLoading, setContactsLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [humanizing, setHumanizing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const activeField = useRef<ActiveField>(null);
@@ -153,6 +204,30 @@ export function CampaignBuilder({
     });
   }
 
+  /** Load whether the org has KB entries to resolve program_name / impact_stat. */
+  async function resolveKbVariables(): Promise<{
+    hasProgramName: boolean;
+    hasImpactStat: boolean;
+  }> {
+    const supabase = createClient();
+    const [programRes, impactRes] = await Promise.all([
+      supabase
+        .from("knowledge_base")
+        .select("id", { count: "exact", head: true })
+        .eq("category", "program_description")
+        .limit(1),
+      supabase
+        .from("knowledge_base")
+        .select("id", { count: "exact", head: true })
+        .eq("category", "impact_statement")
+        .limit(1),
+    ]);
+    return {
+      hasProgramName: (programRes.count ?? 0) > 0,
+      hasImpactStat: (impactRes.count ?? 0) > 0,
+    };
+  }
+
   function validate(): string | null {
     if (name.trim() === "") return "Give the campaign a name.";
     if (steps.length === 0) return "Add at least one step.";
@@ -177,6 +252,22 @@ export function CampaignBuilder({
     return null;
   }
 
+  /** Humanize a single step body via the API. Returns original on failure. */
+  async function humanizeBody(body: string): Promise<string> {
+    try {
+      const res = await fetch("/api/outreach/humanize-step", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: body }),
+      });
+      if (!res.ok) return body;
+      const json = (await res.json()) as { content?: string };
+      return json.content?.trim() || body;
+    } catch {
+      return body;
+    }
+  }
+
   async function handleSave() {
     const validationError = validate();
     if (validationError) {
@@ -188,8 +279,39 @@ export function CampaignBuilder({
       return;
     }
 
+    // Validate that all variables used in steps can be resolved (Contracts §13).
+    const allText = steps.map((s) => `${s.subject} ${s.body}`).join(" ");
+    const usesProgramName = /\{program_name\}/i.test(allText);
+    const usesImpactStat = /\{impact_stat\}/i.test(allText);
+    if (usesProgramName || usesImpactStat) {
+      const kb = await resolveKbVariables();
+      if (usesProgramName && !kb.hasProgramName) {
+        setError(
+          "Template uses {program_name} but your Knowledge Base has no program description. Add one under Knowledge Base → Program Description before saving.",
+        );
+        return;
+      }
+      if (usesImpactStat && !kb.hasImpactStat) {
+        setError(
+          "Template uses {impact_stat} but your Knowledge Base has no impact statement. Add one under Knowledge Base → Impact Statement before saving.",
+        );
+        return;
+      }
+    }
+
     setSubmitting(true);
     setError(null);
+
+    // Run each step body through the AI Humanizer before saving (Contracts §13).
+    setHumanizing(true);
+    const humanizedSteps = await Promise.all(
+      steps.map(async (step) => ({
+        ...step,
+        body: await humanizeBody(step.body),
+      })),
+    );
+    setHumanizing(false);
+
     const supabase = createClient();
 
     const contactIds = [...selected];
@@ -213,7 +335,7 @@ export function CampaignBuilder({
       return;
     }
 
-    const stepRows = steps.map((step, index) => ({
+    const stepRows = humanizedSteps.map((step, index) => ({
       campaign_id: campaign.id,
       step_number: index + 1,
       subject_template: step.subject.trim(),
@@ -265,6 +387,29 @@ export function CampaignBuilder({
           {error}
         </div>
       )}
+
+      {/* Pre-built template picker (Contracts §13). */}
+      <div className="rounded-lg border border-teal-200 bg-teal-50 px-3 py-2.5">
+        <p className="mb-1.5 text-xs font-medium text-teal-700">
+          Quick start with a pre-built sequence
+        </p>
+        <button
+          type="button"
+          onClick={() => {
+            setSteps(
+              INTRO_SEQUENCE.map((t, i) => ({
+                ...newStep(t.delayDays),
+                subject: t.subject,
+                body: t.body,
+                delayDays: i === 0 ? 0 : t.delayDays,
+              })),
+            );
+          }}
+          className="rounded bg-white px-3 py-1.5 text-xs font-medium text-teal-700 ring-1 ring-teal-300 transition hover:bg-teal-100"
+        >
+          Use 3-step intro sequence (intro → 5-day follow-up → meeting request)
+        </button>
+      </div>
 
       <Input
         label="Campaign name"
@@ -433,7 +578,7 @@ export function CampaignBuilder({
           Cancel
         </Button>
         <Button type="button" onClick={handleSave} isLoading={submitting}>
-          Save campaign
+          {humanizing ? "Humanizing…" : "Save campaign"}
         </Button>
       </div>
     </div>

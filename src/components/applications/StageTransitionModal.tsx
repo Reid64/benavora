@@ -1,7 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, ArrowRight, Lock } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowRight,
+  CheckCircle,
+  Loader2,
+  Lock,
+  XCircle,
+} from "lucide-react";
 
 import { Badge, Button, Modal, Select, Textarea } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
@@ -55,6 +62,17 @@ export function StageTransitionModal({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Compliance check state — populated when target === "submitted".
+  const [complianceReport, setComplianceReport] = useState<{
+    passed: boolean;
+    blocking_issues: string[];
+    warnings: string[];
+  } | null>(null);
+  const [complianceChecking, setComplianceChecking] = useState(false);
+  const [complianceCheckError, setComplianceCheckError] = useState<
+    string | null
+  >(null);
+
   // Reset transient state whenever the modal opens or its subject changes.
   useEffect(() => {
     if (isOpen) {
@@ -63,8 +81,50 @@ export function StageTransitionModal({
       setManualConfirmed(false);
       setError(null);
       setSubmitting(false);
+      setComplianceReport(null);
+      setComplianceChecking(false);
+      setComplianceCheckError(null);
     }
   }, [isOpen, initialTargetStage, application?.id]);
+
+  // Auto-run compliance check when target becomes "submitted".
+  // The compliance_check condition is always set on the ready_for_review ->
+  // submitted edge, so checking target === "submitted" is sufficient.
+  useEffect(() => {
+    setComplianceReport(null);
+    setComplianceCheckError(null);
+
+    if (!isOpen || target !== "submitted" || !application) {
+      setComplianceChecking(false);
+      return;
+    }
+
+    setComplianceChecking(true);
+    fetch("/api/compliance/check", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ application_id: application.id }),
+    })
+      .then((res) => res.json())
+      .then(
+        (json: {
+          data?: { passed: boolean; blocking_issues: string[]; warnings: string[] };
+          error?: string;
+        }) => {
+          setComplianceReport(json.data ?? null);
+          if (!json.data) {
+            setComplianceCheckError(
+              json.error ?? "Compliance check failed.",
+            );
+          }
+        },
+      )
+      .catch(() =>
+        setComplianceCheckError("Could not run compliance check."),
+      )
+      .finally(() => setComplianceChecking(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, target, application?.id]);
 
   const from = application?.stage ?? null;
 
@@ -96,12 +156,16 @@ export function StageTransitionModal({
   const requiresNote = rule?.requiresNote ?? false;
   const noteOk = !requiresNote || note.trim().length > 0;
 
-  // A data-backed condition must be met; a manual one must be confirmed.
-  const conditionOk = conditionResult
-    ? conditionResult.manual
-      ? manualConfirmed
-      : conditionResult.met
-    : true;
+  // compliance_check is enforced by the real API result; all other conditions
+  // use the local evaluateCondition result (data-backed or manual checkbox).
+  const conditionOk =
+    condition === "compliance_check"
+      ? complianceReport?.passed === true
+      : conditionResult
+        ? conditionResult.manual
+          ? manualConfirmed
+          : conditionResult.met
+        : true;
 
   const canConfirm =
     !!target &&
@@ -109,7 +173,8 @@ export function StageTransitionModal({
     roleAllowed &&
     conditionOk &&
     noteOk &&
-    !submitting;
+    !submitting &&
+    !complianceChecking;
 
   async function handleConfirm() {
     if (!target || !rule?.allowed || !application) return;
@@ -232,11 +297,68 @@ export function StageTransitionModal({
             </div>
           )}
 
-        {/* Manual condition: explicit confirmation. */}
+        {/* Compliance check gate — real API result, not a manual checkbox. */}
+        {target === "submitted" &&
+          rule?.allowed &&
+          roleAllowed &&
+          condition === "compliance_check" && (
+            <div className="space-y-2 rounded-lg border border-navy-200 bg-navy-50 px-3 py-3">
+              {complianceChecking && (
+                <div className="flex items-center gap-2 text-sm text-navy-600">
+                  <Loader2
+                    className="h-4 w-4 animate-spin"
+                    aria-hidden
+                  />
+                  Running compliance check…
+                </div>
+              )}
+              {complianceCheckError && !complianceChecking && (
+                <p className="text-sm text-red-600">{complianceCheckError}</p>
+              )}
+              {complianceReport && !complianceChecking && (
+                <>
+                  <div
+                    className={
+                      "flex items-center gap-2 text-sm font-medium " +
+                      (complianceReport.passed
+                        ? "text-green-700"
+                        : "text-red-700")
+                    }
+                  >
+                    {complianceReport.passed ? (
+                      <CheckCircle className="h-4 w-4 shrink-0" aria-hidden />
+                    ) : (
+                      <XCircle className="h-4 w-4 shrink-0" aria-hidden />
+                    )}
+                    {complianceReport.passed
+                      ? "Compliance check passed."
+                      : "Compliance check failed — resolve issues before submitting."}
+                  </div>
+                  {complianceReport.blocking_issues.length > 0 && (
+                    <ul className="space-y-0.5 pl-6 text-sm text-red-700 list-disc">
+                      {complianceReport.blocking_issues.map((issue, i) => (
+                        <li key={i}>{issue}</li>
+                      ))}
+                    </ul>
+                  )}
+                  {complianceReport.warnings.length > 0 && (
+                    <ul className="space-y-0.5 pl-6 text-sm text-yellow-700 list-disc">
+                      {complianceReport.warnings.map((w, i) => (
+                        <li key={i}>{w}</li>
+                      ))}
+                    </ul>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+        {/* Manual condition: explicit confirmation (report_submitted etc.). */}
         {target &&
           rule?.allowed &&
           roleAllowed &&
-          conditionResult?.manual && (
+          conditionResult?.manual &&
+          condition !== "compliance_check" && (
             <label className="flex items-start gap-2.5 rounded-lg border border-navy-200 bg-navy-50 px-3 py-2.5 text-sm text-navy-700">
               <input
                 type="checkbox"
