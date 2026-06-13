@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useMemo, type ReactElement } from "react";
 import {
@@ -108,8 +108,8 @@ function compactUsd(value: number): string {
 }
 
 /**
- * Outcomes & Analytics charting dashboard (BLUEPRINT §4.10). Renders eleven
- * visualizations over real, RLS-scoped rows — pipeline funnel, success rate
+ * Outcomes & Analytics charting dashboard (BLUEPRINT Â§4.10). Renders eleven
+ * visualizations over real, RLS-scoped rows â€” pipeline funnel, success rate
  * over time, dollars requested vs. awarded, source mix, deadline density,
  * agent activity, pipeline velocity, top categories, ROI, and year-over-year.
  * All aggregation is delegated to the pure transforms in lib/analytics/dashboard.
@@ -123,7 +123,8 @@ export function AnalyticsDashboard({
   subscriptionTier,
   now,
 }: AnalyticsDashboardProps) {
-  const today = now ?? new Date();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+const today = now ?? new Date();
 
   const kpis = useMemo(
     () => computeKpis(outcomes, applications),
@@ -199,7 +200,7 @@ export function AnalyticsDashboard({
           icon={Gauge}
           label="$ efficiency"
           value={`${kpis.dollarEfficiency}%`}
-          hint="Awarded ÷ requested"
+          hint="Awarded Ã· requested"
         />
         <StatCard
           icon={Layers}
@@ -209,8 +210,8 @@ export function AnalyticsDashboard({
         <StatCard
           icon={DollarSign}
           label="ROI"
-          value={roi.roiMultiple != null ? `${roi.roiMultiple}×` : "—"}
-          hint={roi.roiMultiple != null ? "Won ÷ annual cost" : "Free plan"}
+          value={roi.roiMultiple != null ? `${roi.roiMultiple}Ã—` : "â€”"}
+          hint={roi.roiMultiple != null ? "Won Ã· annual cost" : "Free plan"}
         />
       </div>
 
@@ -288,7 +289,7 @@ export function AnalyticsDashboard({
       {/* Success rate over time ------------------------------------------ */}
       <Card
         title="Success rate over time"
-        description="Awarded ÷ total outcomes, by month."
+        description="Awarded Ã· total outcomes, by month."
       >
         <ChartFrame empty={monthly.length === 0}>
           <LineChart
@@ -470,7 +471,7 @@ export function AnalyticsDashboard({
               value={
                 velocity.avgDaysToSubmit != null
                   ? `${velocity.avgDaysToSubmit}d`
-                  : "—"
+                  : "â€”"
               }
               hint={`${velocity.submittedCount} submitted`}
             />
@@ -480,7 +481,7 @@ export function AnalyticsDashboard({
               value={
                 velocity.avgDaysToOutcome != null
                   ? `${velocity.avgDaysToOutcome}d`
-                  : "—"
+                  : "â€”"
               }
               hint={`${velocity.decidedCount} decided`}
             />
@@ -498,7 +499,7 @@ export function AnalyticsDashboard({
           <div className="flex flex-wrap items-center gap-3">
             <Badge color={roi.netGain >= 0 ? "green" : "red"}>
               {roi.roiMultiple != null
-                ? `${roi.roiMultiple}× return`
+                ? `${roi.roiMultiple}Ã— return`
                 : "No cost basis"}
             </Badge>
             <span className="text-sm text-navy-500">
@@ -682,7 +683,7 @@ function MetricTile({
 }
 
 // GitHub-style deadline density grid (intensity by count). Not a recharts chart
-// — a compact custom SVG-free grid that reads well on the dark canvas.
+// â€” a compact custom SVG-free grid that reads well on the dark canvas.
 function DeadlineHeatmapGrid({
   heatmap,
 }: {
@@ -699,7 +700,7 @@ function DeadlineHeatmapGrid({
   const shade = (count: number): string => {
     if (count <= 0) return "rgba(255,255,255,0.04)";
     const ratio = heatmap.maxCount > 0 ? count / heatmap.maxCount : 0;
-    // Teal ramp: low → high opacity.
+    // Teal ramp: low â†’ high opacity.
     const alpha = 0.2 + ratio * 0.65;
     return `rgba(45,212,191,${alpha.toFixed(2)})`;
   };
@@ -760,3 +761,4 @@ function DeadlineHeatmapGrid({
     </div>
   );
 }
+

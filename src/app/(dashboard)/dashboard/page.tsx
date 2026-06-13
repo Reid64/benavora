@@ -11,6 +11,7 @@ import {
 import { addDays, differenceInCalendarDays, format, isValid } from "date-fns";
 
 import { Card } from "@/components/ui";
+import { EmailParserWidget } from "@/components/dashboard/EmailParserWidget";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import {
   OpportunityFeed,
@@ -363,6 +364,13 @@ export default async function DashboardPage() {
         description="Monthly grant success rate over the last 12 months."
       >
         <SuccessRateChart points={successSeries} />
+      </Card>
+
+      <Card
+        title="Email Parser"
+        description="Paste an inbound funder email to classify it, extract opportunity references, and log it to your activity feed."
+      >
+        <EmailParserWidget />
       </Card>
     </div>
   );

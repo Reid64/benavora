@@ -1629,6 +1629,64 @@ export interface Database {
         };
         Relationships: [];
       };
+      // Migration 018 — email_activity: AI-classified inbound email records.
+      email_activity: {
+        Row: {
+          id: string;
+          organization_id: string;
+          funder_id: string | null;
+          opportunity_id: string | null;
+          application_id: string | null;
+          email_type: string;
+          subject: string | null;
+          sender: string | null;
+          received_at: string | null;
+          summary: string | null;
+          action_required: boolean;
+          action_description: string | null;
+          urgency: string;
+          thread_id: string | null;
+          processed_at: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          funder_id?: string | null;
+          opportunity_id?: string | null;
+          application_id?: string | null;
+          email_type: string;
+          subject?: string | null;
+          sender?: string | null;
+          received_at?: string | null;
+          summary?: string | null;
+          action_required?: boolean;
+          action_description?: string | null;
+          urgency?: string;
+          thread_id?: string | null;
+          processed_at?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          funder_id?: string | null;
+          opportunity_id?: string | null;
+          application_id?: string | null;
+          email_type?: string;
+          subject?: string | null;
+          sender?: string | null;
+          received_at?: string | null;
+          summary?: string | null;
+          action_required?: boolean;
+          action_description?: string | null;
+          urgency?: string;
+          thread_id?: string | null;
+          processed_at?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -1743,7 +1801,9 @@ export interface Database {
         | "email_matching"
         | "email_campaign"
         | "consensus_validation"
-        | "funder_intel";
+        | "funder_intel"
+        // Migration 018 — Email Parser Agent.
+        | "email_parser";
       agent_run_status: "pending" | "running" | "completed" | "failed";
       campaign_status: "draft" | "active" | "paused" | "completed";
       campaign_step_status:

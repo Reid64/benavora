@@ -60,7 +60,7 @@ export function WeekView({
     return map;
   }, [deadlines]);
 
-  const weekLabel = `${format(days[0]!, "MMM d")} â€“ ${format(days[6]!, "MMM d, yyyy")}`;
+  const weekLabel = `${format(days[0]!, "MMM d")} - ${format(days[6]!, "MMM d, yyyy")}`;
 
   return (
     <>
@@ -178,4 +178,5 @@ export function WeekView({
     </>
   );
 }
+
 

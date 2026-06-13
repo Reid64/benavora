@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useMemo, useState } from "react";
 import {
@@ -163,3 +163,4 @@ export function CalendarGrid({ month, deadlines, onPrev, onNext, onToday }: Prop
 
 // Re-export so page.tsx can import band utilities from one place
 export { BAND_CLASSES, COMPLETED_CELL };
+
