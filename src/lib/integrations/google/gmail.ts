@@ -1,11 +1,11 @@
-// Gmail sync + send (BLUEPRINT Phase 4, BEHAVIORAL_CONTRACTS §19).
+﻿// Gmail sync + send (BLUEPRINT Phase 4, BEHAVIORAL_CONTRACTS Â§19).
 //
 // SERVER-ONLY. Wraps the Gmail API for one organization. Construct with an
 // authorized OAuth2 client from auth.ts (`getAuthorizedClient`), which already
-// loads, decrypts, and auto-refreshes the org's stored tokens — so every method
+// loads, decrypts, and auto-refreshes the org's stored tokens â€” so every method
 // here operates under that single organization's mailbox.
 //
-// Contracts honored (§19): email bodies are stored as both plain text and HTML;
+// Contracts honored (Â§19): email bodies are stored as both plain text and HTML;
 // attachment NAMES are extracted but attachment FILES are never downloaded.
 
 import { google, type Auth, type gmail_v1 } from "googleapis";
@@ -40,7 +40,7 @@ export interface SendEmailParams {
   body: string;
   cc?: string | string[];
   bcc?: string | string[];
-  /** Gmail message id being replied to — threads the reply correctly. */
+  /** Gmail message id being replied to â€” threads the reply correctly. */
   replyToMessageId?: string;
   /** Set true to send `body` as HTML; defaults to plain text. */
   html?: boolean;
@@ -50,12 +50,14 @@ export class GmailSync {
   private readonly gmail: gmail_v1.Gmail;
 
   constructor(auth: Auth.OAuth2Client) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     this.gmail = google.gmail({ version: "v1" as const, auth: auth as any });
   }
 
   /**
    * List message ids matching a Gmail search query (e.g. "in:inbox newer_than:30d").
-   * Returns the lightweight {id, threadId} stubs — call getMessage for full content.
+   * Returns the lightweight {id, threadId} stubs â€” call getMessage for full content.
    */
   async listMessages(
     query: string,
@@ -252,7 +254,7 @@ function parseSingleAddress(part: string): GmailContact | null {
 
 // --- body / attachment extraction --------------------------------------------
 
-/** Base64url → utf8 (Gmail encodes part bodies as base64url). */
+/** Base64url â†’ utf8 (Gmail encodes part bodies as base64url). */
 function decodeBody(data: string | null | undefined): string {
   if (!data) return "";
   return Buffer.from(data, "base64").toString("utf8");
@@ -275,7 +277,7 @@ function collectPart(
   return null;
 }
 
-/** Collect filenames of all attachment parts (names only — never the bytes). */
+/** Collect filenames of all attachment parts (names only â€” never the bytes). */
 function collectAttachmentNames(
   part: gmail_v1.Schema$MessagePart | undefined,
   acc: string[] = [],
@@ -346,3 +348,4 @@ function encodeHeaderWord(value: string): string {
   if (/^[\x00-\x7F]*$/.test(value)) return value;
   return `=?UTF-8?B?${Buffer.from(value, "utf8").toString("base64")}?=`;
 }
+

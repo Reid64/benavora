@@ -7,6 +7,12 @@
 // scores. From a DENIED outcome it recomputes effectiveness so narratives that
 // were used but lost are weighted down.
 //
+// For AWARDED outcomes the agent also runs a pattern analysis (migration 017):
+// the winning narrative is compared against denied narratives in the same
+// funder_category by Claude, producing winning_patterns, losing_patterns, and
+// recommendations stored in proven_narratives.success_patterns. The draft
+// generator reads these patterns to strengthen future drafts.
+//
 // Contracts honored (BEHAVIORAL_CONTRACTS §8, §10): is_proven / proven_count are
 // written ONLY here; a KB entry earns is_proven after PROVEN_NARRATIVE_THRESHOLD
 // awarded uses; effectiveness is wins / (wins + failures), recalculated on every
@@ -19,6 +25,7 @@ import {
   type ExtractedSection,
   type KnowledgeCandidate,
 } from "@/lib/ai/learning/proven-extractor";
+import { analyzePatterns } from "@/lib/ai/learning/pattern-analyzer";
 import { computeEffectiveness } from "@/lib/ai/learning/narrative-scorer";
 import { PROVEN_NARRATIVE_THRESHOLD } from "@/lib/utils/constants";
 import {
@@ -28,7 +35,7 @@ import {
   type BaseAgentOptions,
 } from "@/lib/agents/base-agent";
 import type { AgentType } from "@/types/agents";
-import type { Enums } from "@/types/database";
+import type { Enums, Json } from "@/types/database";
 
 type FunderCategory = Enums<"funder_category">;
 
@@ -46,6 +53,9 @@ const NARRATIVE_KB_CATEGORIES: Enums<"knowledge_base_category">[] = [
   "organizational_history",
 ];
 
+/** Max denied narratives loaded for pattern comparison. */
+const MAX_DENIED_SAMPLES = 3;
+
 export interface RecursiveLearningInput {
   /** outcomes.id that was just recorded. */
   outcomeId: string;
@@ -61,6 +71,8 @@ export interface RecursiveLearningResult {
   knowledgeBaseFlagged: string[];
   /** Number of proven_narratives whose effectiveness was recalculated. */
   narrativesRescored: number;
+  /** Whether a pattern analysis was stored on this run's proven_narratives. */
+  patternsAnalyzed: boolean;
 }
 
 export interface RecursiveLearningOptions extends BaseAgentOptions {
@@ -108,6 +120,8 @@ export class RecursiveLearningAgent extends BaseAgent<
     let provenUpdated = 0;
     const knowledgeBaseFlagged: string[] = [];
     let tokensUsed = 0;
+    let patternsAnalyzed = false;
+    let snapshotForAnalysis = "";
 
     if (result === "awarded" || result === "partial") {
       // A snapshot is required to extract from; fall back to the live draft if
@@ -116,6 +130,7 @@ export class RecursiveLearningAgent extends BaseAgent<
         outcome.narrative_snapshot as string | null,
         outcome.application_id as string,
       );
+      snapshotForAnalysis = snapshot;
 
       if (snapshot.trim() !== "" && funderCategory) {
         const extraction = await this.extractAndStore(
@@ -130,7 +145,22 @@ export class RecursiveLearningAgent extends BaseAgent<
         provenCreated = extraction.created;
         provenUpdated = extraction.updated;
         knowledgeBaseFlagged.push(...extraction.flagged);
-        tokensUsed = extraction.tokensUsed;
+        tokensUsed += extraction.tokensUsed;
+
+        // Pattern analysis runs only for awarded outcomes (Contracts §10): compare
+        // the winning narrative against denied narratives in the same category to
+        // surface effective language patterns stored in success_patterns (migration 017).
+        if (result === "awarded" && extraction.provenNarrativeIds.length > 0) {
+          const patternResult = await this.runPatternAnalysis(
+            snapshotForAnalysis,
+            funderCategory,
+            extraction.provenNarrativeIds,
+          );
+          if (patternResult) {
+            patternsAnalyzed = true;
+            tokensUsed += patternResult.tokensUsed;
+          }
+        }
       }
     }
 
@@ -140,10 +170,11 @@ export class RecursiveLearningAgent extends BaseAgent<
       ? await this.rescoreCategory(funderCategory)
       : 0;
 
+    const patternNote = patternsAnalyzed ? ", patterns analyzed" : "";
     const summary =
       result === "denied"
         ? `Denied outcome processed — rescored ${narrativesRescored} narrative(s).`
-        : `${result} outcome: extracted ${sectionsExtracted} section(s), ${provenCreated} new / ${provenUpdated} updated proven narrative(s), flagged ${knowledgeBaseFlagged.length} KB entr${knowledgeBaseFlagged.length === 1 ? "y" : "ies"}.`;
+        : `${result} outcome: extracted ${sectionsExtracted} section(s), ${provenCreated} new / ${provenUpdated} updated proven narrative(s), flagged ${knowledgeBaseFlagged.length} KB entr${knowledgeBaseFlagged.length === 1 ? "y" : "ies"}${patternNote}.`;
 
     return {
       data: {
@@ -154,6 +185,7 @@ export class RecursiveLearningAgent extends BaseAgent<
         provenUpdated,
         knowledgeBaseFlagged,
         narrativesRescored,
+        patternsAnalyzed,
       },
       outputSummary: summary,
       itemsFound: sectionsExtracted,
@@ -193,6 +225,8 @@ export class RecursiveLearningAgent extends BaseAgent<
     updated: number;
     flagged: string[];
     tokensUsed: number;
+    /** proven_narratives ids created or updated this run — used for pattern storage. */
+    provenNarrativeIds: string[];
   }> {
     // Candidate KB entries the extractor can attribute sections to.
     const { data: kbRows } = await this.client
@@ -226,14 +260,16 @@ export class RecursiveLearningAgent extends BaseAgent<
 
     let created = 0;
     let updated = 0;
+    const provenNarrativeIds: string[] = [];
     for (const section of sections) {
-      const wasUpdate = await this.upsertProvenNarrative(
+      const upsertResult = await this.upsertProvenNarrative(
         outcomeId,
         funderCategory,
         section,
       );
-      if (wasUpdate) updated += 1;
+      if (upsertResult.wasUpdate) updated += 1;
       else created += 1;
+      if (upsertResult.id) provenNarrativeIds.push(upsertResult.id);
     }
 
     const flagged: string[] = [];
@@ -257,19 +293,20 @@ export class RecursiveLearningAgent extends BaseAgent<
       updated,
       flagged,
       tokensUsed: response.usage.totalTokens,
+      provenNarrativeIds,
     };
   }
 
   /**
    * Create or update the proven_narrative for a section. Matches an existing row
    * by (funder_category, section_type) and knowledge_base_id when present.
-   * Returns true if an existing row was updated, false if a new row was created.
+   * Returns the row id and whether an existing row was updated.
    */
   private async upsertProvenNarrative(
     outcomeId: string,
     funderCategory: FunderCategory,
     section: ExtractedSection,
-  ): Promise<boolean> {
+  ): Promise<{ wasUpdate: boolean; id: string | null }> {
     let query = this.client
       .from("proven_narratives")
       .select("id, success_count")
@@ -293,21 +330,66 @@ export class RecursiveLearningAgent extends BaseAgent<
         })
         .eq("id", existing.id as string)
         .eq("organization_id", this.organizationId);
-      return true;
+      return { wasUpdate: true, id: existing.id as string };
     }
 
-    await this.client.from("proven_narratives").insert({
-      organization_id: this.organizationId,
-      outcome_id: outcomeId,
-      knowledge_base_id: section.knowledgeBaseId,
-      narrative_text: section.text,
-      section_type: section.sectionType,
-      funder_category: funderCategory,
-      success_count: 1,
-      effectiveness_score: 1, // provisional; rescored below against denials
-      last_used_at: nowIso,
-    });
-    return false;
+    const { data: inserted } = await this.client
+      .from("proven_narratives")
+      .insert({
+        organization_id: this.organizationId,
+        outcome_id: outcomeId,
+        knowledge_base_id: section.knowledgeBaseId,
+        narrative_text: section.text,
+        section_type: section.sectionType,
+        funder_category: funderCategory,
+        success_count: 1,
+        effectiveness_score: 1, // provisional; rescored below against denials
+        last_used_at: nowIso,
+      })
+      .select("id")
+      .single();
+
+    return { wasUpdate: false, id: (inserted?.id as string | null) ?? null };
+  }
+
+  /**
+   * Run pattern analysis comparing the winning narrative against denied narratives
+   * for the same funder_category. Stores the resulting SuccessPatternAnalysis on
+   * all proven_narrative rows created or updated in this run (migration 017).
+   */
+  private async runPatternAnalysis(
+    winningSnapshot: string,
+    funderCategory: FunderCategory,
+    provenNarrativeIds: string[],
+  ): Promise<{ tokensUsed: number } | null> {
+    const { data: deniedOutcomes } = await this.client
+      .from("outcomes")
+      .select("narrative_snapshot")
+      .eq("organization_id", this.organizationId)
+      .eq("funder_category", funderCategory)
+      .eq("result", "denied")
+      .not("narrative_snapshot", "is", null)
+      .limit(MAX_DENIED_SAMPLES);
+
+    const deniedNarratives = (deniedOutcomes ?? [])
+      .map((o) => (o.narrative_snapshot as string | null) ?? "")
+      .filter((s) => s.trim() !== "");
+
+    const result = await analyzePatterns(
+      { funderCategory, winningNarrative: winningSnapshot, deniedNarratives },
+      this.model,
+      this.maxTokens,
+    );
+
+    if (!result) return null;
+
+    await this.client
+      .from("proven_narratives")
+      .update({ success_patterns: result.analysis as unknown as Json })
+      .in("id", provenNarrativeIds)
+      .eq("organization_id", this.organizationId);
+
+    return { tokensUsed: result.tokensUsed };
   }
 
   /**

@@ -735,6 +735,8 @@ export interface Database {
           success_count: number | null;
           effectiveness_score: number | null;
           last_used_at: string | null;
+          /** Winning/losing language patterns from migration 017 pattern analysis. */
+          success_patterns: Json | null;
           created_at: string;
         };
         Insert: {
@@ -748,6 +750,7 @@ export interface Database {
           success_count?: number | null;
           effectiveness_score?: number | null;
           last_used_at?: string | null;
+          success_patterns?: Json | null;
           created_at?: string;
         };
         Update: {
@@ -761,6 +764,7 @@ export interface Database {
           success_count?: number | null;
           effectiveness_score?: number | null;
           last_used_at?: string | null;
+          success_patterns?: Json | null;
           created_at?: string;
         };
         Relationships: [];
@@ -1511,6 +1515,120 @@ export interface Database {
         };
         Relationships: [];
       };
+      funder_intelligence: {
+        Row: {
+          id: string;
+          organization_id: string;
+          funder_id: string;
+          priorities: string[] | null;
+          recent_grants: Json | null;
+          board_members: Json | null;
+          review_criteria: string | null;
+          funding_cycles: string | null;
+          average_grant_size: number | null;
+          total_annual_giving: number | null;
+          application_tips: string | null;
+          last_scraped_at: string | null;
+          raw_data: Json | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          funder_id: string;
+          priorities?: string[] | null;
+          recent_grants?: Json | null;
+          board_members?: Json | null;
+          review_criteria?: string | null;
+          funding_cycles?: string | null;
+          average_grant_size?: number | null;
+          total_annual_giving?: number | null;
+          application_tips?: string | null;
+          last_scraped_at?: string | null;
+          raw_data?: Json | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          funder_id?: string;
+          priorities?: string[] | null;
+          recent_grants?: Json | null;
+          board_members?: Json | null;
+          review_criteria?: string | null;
+          funding_cycles?: string | null;
+          average_grant_size?: number | null;
+          total_annual_giving?: number | null;
+          application_tips?: string | null;
+          last_scraped_at?: string | null;
+          raw_data?: Json | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      renewals: {
+        Row: {
+          id: string;
+          organization_id: string;
+          application_id: string;
+          opportunity_id: string;
+          funder_id: string | null;
+          renewal_type: string;
+          reporting_deadline: string | null;
+          renewal_window_start: string | null;
+          renewal_window_end: string | null;
+          compliance_status: string;
+          compliance_notes: string | null;
+          auto_narrative_draft: string | null;
+          alert_sent_60d: boolean;
+          alert_sent_30d: boolean;
+          alert_sent_14d: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          application_id: string;
+          opportunity_id: string;
+          funder_id?: string | null;
+          renewal_type?: string;
+          reporting_deadline?: string | null;
+          renewal_window_start?: string | null;
+          renewal_window_end?: string | null;
+          compliance_status?: string;
+          compliance_notes?: string | null;
+          auto_narrative_draft?: string | null;
+          alert_sent_60d?: boolean;
+          alert_sent_30d?: boolean;
+          alert_sent_14d?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          application_id?: string;
+          opportunity_id?: string;
+          funder_id?: string | null;
+          renewal_type?: string;
+          reporting_deadline?: string | null;
+          renewal_window_start?: string | null;
+          renewal_window_end?: string | null;
+          compliance_status?: string;
+          compliance_notes?: string | null;
+          auto_narrative_draft?: string | null;
+          alert_sent_60d?: boolean;
+          alert_sent_30d?: boolean;
+          alert_sent_14d?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -1624,7 +1742,8 @@ export interface Database {
         | "browser_automation"
         | "email_matching"
         | "email_campaign"
-        | "consensus_validation";
+        | "consensus_validation"
+        | "funder_intel";
       agent_run_status: "pending" | "running" | "completed" | "failed";
       campaign_status: "draft" | "active" | "paused" | "completed";
       campaign_step_status:

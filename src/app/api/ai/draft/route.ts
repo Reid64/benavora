@@ -19,6 +19,8 @@ import type {
   DraftTemplateType,
   KnowledgeSource,
   SavedDraftVersion,
+  SuccessPatternAnalysis,
+  SuccessPatternEntry,
 } from "@/types/ai";
 import type { Enums, Json } from "@/types/database";
 
@@ -80,6 +82,32 @@ const TEMPLATE_KB_CATEGORIES: Record<DraftTemplateType, KbCategory[]> = {
     "organizational_history",
   ],
 };
+
+/**
+ * Pull the winning_patterns from the first proven_narrative row that has a
+ * non-null success_patterns JSONB. All rows in a given funder_category batch
+ * share the same analysis, so the first hit is sufficient.
+ */
+function extractTopPatterns(
+  rawPatterns: unknown[],
+): SuccessPatternEntry[] {
+  for (const raw of rawPatterns) {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) continue;
+    const obj = raw as Record<string, unknown>;
+    const analysis = obj as Partial<SuccessPatternAnalysis>;
+    if (Array.isArray(analysis.winning_patterns) && analysis.winning_patterns.length > 0) {
+      return analysis.winning_patterns
+        .filter(
+          (p): p is SuccessPatternEntry =>
+            typeof p === "object" &&
+            p !== null &&
+            typeof (p as SuccessPatternEntry).description === "string",
+        )
+        .slice(0, 5);
+    }
+  }
+  return [];
+}
 
 function jsonError(message: string, code: string, status: number) {
   // Consistent error shape across API routes (BEHAVIORAL_CONTRACTS §16).
@@ -255,11 +283,12 @@ export async function POST(request: Request) {
         .order("is_proven", { ascending: false })
         .order("updated_at", { ascending: false }),
       // Proven narratives for the opportunity's funder category, best first,
-      // capped at 5 (BEHAVIORAL_CONTRACTS §9).
+      // capped at 5 (BEHAVIORAL_CONTRACTS §9). Also fetch success_patterns so
+      // the draft prompt includes discovered winning language patterns.
       supabase
         .from("proven_narratives")
         .select(
-          "id, narrative_text, section_type, funder_category, effectiveness_score",
+          "id, narrative_text, section_type, funder_category, effectiveness_score, success_patterns",
         )
         .eq("funder_category", opportunity.category)
         .order("effectiveness_score", { ascending: false, nullsFirst: false })
@@ -287,6 +316,13 @@ export async function POST(request: Request) {
       effectivenessScore: (p.effectiveness_score as number | null) ?? null,
       narrativeText: p.narrative_text as string,
     }));
+
+    // Extract the top winning patterns from the first proven narrative that
+    // has a success_patterns analysis stored (migration 017). All rows in this
+    // batch share the same funder_category analysis so the first hit is enough.
+    const successPatterns = extractTopPatterns(
+      (provenRes.data ?? []).map((p) => p.success_patterns),
+    );
 
     const context: DraftPromptContext = {
       organization: org
@@ -318,6 +354,7 @@ export async function POST(request: Request) {
       },
       knowledgeEntries,
       provenNarratives,
+      successPatterns: successPatterns.length > 0 ? successPatterns : undefined,
     };
 
     // Build the prompt: donation letters get their own builder; everything else

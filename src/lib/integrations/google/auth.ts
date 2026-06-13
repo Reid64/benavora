@@ -1,17 +1,17 @@
-// Google OAuth — token issuance, storage, and refresh (BLUEPRINT Phase 4,
-// BEHAVIORAL_CONTRACTS §19 "Email Integration").
+﻿// Google OAuth â€” token issuance, storage, and refresh (BLUEPRINT Phase 4,
+// BEHAVIORAL_CONTRACTS Â§19 "Email Integration").
 //
 // SERVER-ONLY. Reads GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / GOOGLE_REDIRECT_URI
 // (never exposed to the client) and persists per-organization OAuth tokens to the
 // `integrations` table (provider = 'google'). Refresh tokens are encrypted at
-// rest (Contracts §19: "OAuth tokens stored encrypted") with AES-256-GCM; the
+// rest (Contracts Â§19: "OAuth tokens stored encrypted") with AES-256-GCM; the
 // access token is encrypted the same way for defense in depth.
 //
 // Tenant scope: every read/write here is explicitly filtered by organization_id.
-// Token persistence uses the service-role admin client — writing OAuth secrets is
+// Token persistence uses the service-role admin client â€” writing OAuth secrets is
 // a privileged server operation analogous to agent writes, and it sidesteps RLS
 // edge cases on upsert. The organization is always supplied by the caller (the
-// route derives it from the session, never from a request body — Contracts §2).
+// route derives it from the session, never from a request body â€” Contracts Â§2).
 //
 // PREREQUISITES (manual, Google Cloud Console):
 //   - Project with Gmail API + Google Calendar API enabled
@@ -31,7 +31,7 @@ export const GOOGLE_PROVIDER = "google";
 
 /**
  * OAuth scopes requested for Phase 4 (Gmail sync/send + Calendar events).
- * Note: no `userinfo.email` scope — the connected address is read from Gmail's
+ * Note: no `userinfo.email` scope â€” the connected address is read from Gmail's
  * users.getProfile after consent instead (works under gmail.readonly).
  */
 export const GOOGLE_SCOPES = [
@@ -75,6 +75,8 @@ export function getOAuthClient(): Auth.OAuth2Client {
     requiredEnv("GOOGLE_CLIENT_ID"),
     requiredEnv("GOOGLE_CLIENT_SECRET"),
     requiredEnv("GOOGLE_REDIRECT_URI"),
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   ) as any;
 }
 
@@ -83,7 +85,7 @@ export function getOAuthClient(): Auth.OAuth2Client {
 // state = base64url(organizationId) + "." + HMAC-SHA256(payload, secret). The
 // HMAC is keyed on GOOGLE_CLIENT_SECRET (always present when OAuth is configured),
 // so a forged/tampered state is rejected. The callback route still cross-checks
-// the decoded org against the session org before trusting it (Contracts §2).
+// the decoded org against the session org before trusting it (Contracts Â§2).
 
 function stateSecret(): string {
   return requiredEnv("GOOGLE_CLIENT_SECRET");
@@ -126,7 +128,7 @@ export function verifyState(state: string): string | null {
 //
 // Key material: INTEGRATION_ENCRYPTION_KEY if set, else derived from
 // GOOGLE_CLIENT_SECRET via scrypt so encryption works out of the box once OAuth
-// is configured (Contracts §19 mandates encryption at rest). Format:
+// is configured (Contracts Â§19 mandates encryption at rest). Format:
 //   "v1:" + ivHex + ":" + authTagHex + ":" + cipherHex
 
 const ENC_PREFIX = "v1";
@@ -279,6 +281,8 @@ export async function handleCallback(
   // Gmail's profile instead (available under gmail.readonly).
   let connectedEmail: string | null = null;
   try {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const gmail = google.gmail({ version: "v1" as const, auth: oauth as any });
     const profile = await gmail.users.getProfile({ userId: "me" });
     connectedEmail = profile.data.emailAddress ?? null;
@@ -423,3 +427,4 @@ export async function getConnection(
     email: connected ? ((data?.connected_email as string | null) ?? null) : null,
   };
 }
+

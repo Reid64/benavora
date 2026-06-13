@@ -2,15 +2,16 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Lightbulb, TrendingUp, TrendingDown } from "lucide-react";
 
-import { Button, LoadingSpinner } from "@/components/ui";
+import { Badge, Button, Card, EmptyState, LoadingSpinner } from "@/components/ui";
 import { AnalyticsDashboard } from "@/components/outcomes/AnalyticsDashboard";
 import { createClient } from "@/lib/supabase/client";
 import {
   SUBSCRIPTION_TIERS,
   type SubscriptionTier,
 } from "@/lib/utils/constants";
+import { humanizeEnum } from "@/lib/utils/formatters";
 import type {
   AgentRunRow,
   ApplicationRow,
@@ -18,6 +19,7 @@ import type {
   OpportunityRow,
   OutcomeRow,
 } from "@/lib/analytics/dashboard";
+import type { SuccessPatternAnalysis, SuccessPatternEntry } from "@/types/ai";
 
 type DashboardData = {
   outcomes: OutcomeRow[];
@@ -26,6 +28,12 @@ type DashboardData = {
   deadlines: DeadlineRow[];
   agentRuns: AgentRunRow[];
   subscriptionTier: SubscriptionTier;
+};
+
+/** One funder-category bucket of discovered language patterns. */
+type CategoryPatterns = {
+  funderCategory: string;
+  analysis: SuccessPatternAnalysis;
 };
 
 const EMPTY: DashboardData = {
@@ -51,6 +59,7 @@ function asTier(value: unknown): SubscriptionTier {
  */
 export default function OutcomeAnalyticsPage() {
   const [data, setData] = useState<DashboardData>(EMPTY);
+  const [patternGroups, setPatternGroups] = useState<CategoryPatterns[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -66,6 +75,7 @@ export default function OutcomeAnalyticsPage() {
       deadlinesRes,
       agentRunsRes,
       orgRes,
+      narrativesRes,
     ] = await Promise.all([
       supabase
         .from("outcomes")
@@ -83,6 +93,11 @@ export default function OutcomeAnalyticsPage() {
         .from("agent_runs")
         .select("agent_type, status, created_at, items_found"),
       supabase.from("organizations").select("subscription_tier"),
+      // Load proven_narratives with success_patterns for the pattern panel.
+      supabase
+        .from("proven_narratives")
+        .select("funder_category, success_patterns")
+        .not("success_patterns", "is", null),
     ]);
 
     // Outcomes + applications power most charts — treat their failure as fatal;
@@ -105,6 +120,34 @@ export default function OutcomeAnalyticsPage() {
       agentRuns: (agentRunsRes.data ?? []) as AgentRunRow[],
       subscriptionTier: asTier(orgRow?.subscription_tier),
     });
+
+    // Group success_patterns by funder_category — one analysis per category
+    // (take the first row that has patterns for each category).
+    const categoryMap = new Map<string, SuccessPatternAnalysis>();
+    for (const row of narrativesRes.data ?? []) {
+      const category = row.funder_category as string | null;
+      if (!category || categoryMap.has(category)) continue;
+      const raw = row.success_patterns;
+      if (!raw || typeof raw !== "object" || Array.isArray(raw)) continue;
+      const analysis = raw as Partial<SuccessPatternAnalysis>;
+      if (
+        Array.isArray(analysis.winning_patterns) &&
+        analysis.winning_patterns.length > 0
+      ) {
+        categoryMap.set(category, {
+          winning_patterns: analysis.winning_patterns as SuccessPatternEntry[],
+          losing_patterns: (analysis.losing_patterns ?? []) as SuccessPatternEntry[],
+          recommendations: (analysis.recommendations ?? []) as string[],
+        });
+      }
+    }
+    setPatternGroups(
+      Array.from(categoryMap.entries()).map(([funderCategory, analysis]) => ({
+        funderCategory,
+        analysis,
+      })),
+    );
+
     setLoading(false);
   }, []);
 
@@ -149,15 +192,117 @@ export default function OutcomeAnalyticsPage() {
       {loading ? (
         <LoadingSpinner center label="Loading analytics…" />
       ) : (
-        <AnalyticsDashboard
-          outcomes={data.outcomes}
-          applications={data.applications}
-          opportunities={data.opportunities}
-          deadlines={data.deadlines}
-          agentRuns={data.agentRuns}
-          subscriptionTier={data.subscriptionTier}
-        />
+        <>
+          <AnalyticsDashboard
+            outcomes={data.outcomes}
+            applications={data.applications}
+            opportunities={data.opportunities}
+            deadlines={data.deadlines}
+            agentRuns={data.agentRuns}
+            subscriptionTier={data.subscriptionTier}
+          />
+          <PatternInsightsSection groups={patternGroups} />
+        </>
       )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Pattern insights — discovered language patterns grouped by funder category
+// ---------------------------------------------------------------------------
+
+function PatternInsightsSection({ groups }: { groups: CategoryPatterns[] }) {
+  if (groups.length === 0) {
+    return (
+      <EmptyState
+        icon={Lightbulb}
+        title="No language patterns discovered yet"
+        description="Pattern analysis runs automatically when an awarded outcome is recorded. Awarded narratives are compared against denials to surface winning language patterns."
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-lg font-semibold tracking-tight text-navy-900">
+          Discovered language patterns
+        </h2>
+        <p className="mt-1 text-sm text-navy-500">
+          Winning and losing language patterns identified by the recursive learning
+          system, grouped by funder category. Applied automatically when generating
+          future drafts.
+        </p>
+      </div>
+      {groups.map(({ funderCategory, analysis }) => (
+        <Card
+          key={funderCategory}
+          title={humanizeEnum(funderCategory)}
+          description={`${analysis.winning_patterns.length} winning pattern${analysis.winning_patterns.length === 1 ? "" : "s"} · ${analysis.recommendations.length} recommendation${analysis.recommendations.length === 1 ? "" : "s"}`}
+        >
+          <div className="space-y-5">
+            {analysis.winning_patterns.length > 0 && (
+              <div>
+                <div className="mb-2 flex items-center gap-1.5 text-sm font-medium text-green-700">
+                  <TrendingUp className="h-4 w-4" aria-hidden />
+                  Winning patterns
+                </div>
+                <ul className="space-y-2">
+                  {analysis.winning_patterns.map((p, i) => (
+                    <li key={i} className="rounded-lg border border-green-100 bg-green-50 p-3">
+                      <p className="text-sm font-medium text-green-900">{p.description}</p>
+                      {p.example && (
+                        <p className="mt-1 text-xs italic text-green-700">
+                          &ldquo;{p.example}&rdquo;
+                        </p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {analysis.losing_patterns.length > 0 && (
+              <div>
+                <div className="mb-2 flex items-center gap-1.5 text-sm font-medium text-red-700">
+                  <TrendingDown className="h-4 w-4" aria-hidden />
+                  Patterns to avoid
+                </div>
+                <ul className="space-y-2">
+                  {analysis.losing_patterns.map((p, i) => (
+                    <li key={i} className="rounded-lg border border-red-100 bg-red-50 p-3">
+                      <p className="text-sm font-medium text-red-900">{p.description}</p>
+                      {p.example && (
+                        <p className="mt-1 text-xs italic text-red-700">
+                          &ldquo;{p.example}&rdquo;
+                        </p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {analysis.recommendations.length > 0 && (
+              <div>
+                <div className="mb-2 flex items-center gap-1.5 text-sm font-medium text-navy-700">
+                  <Lightbulb className="h-4 w-4" aria-hidden />
+                  Recommendations
+                </div>
+                <ul className="space-y-1.5">
+                  {analysis.recommendations.map((rec, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm text-navy-600">
+                      <Badge color="indigo">{i + 1}</Badge>
+                      {rec}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        </Card>
+      ))}
     </div>
   );
 }

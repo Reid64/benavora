@@ -1,5 +1,23 @@
 // AI request/response types for Claude-backed routes and drafting.
 
+// ---------------------------------------------------------------------------
+// Pattern analysis types (Recursive Learning Agent — AGENTS.md Agent 10).
+// Stored in proven_narratives.success_patterns (migration 017).
+// ---------------------------------------------------------------------------
+
+/** A single effective or ineffective language pattern identified by analysis. */
+export interface SuccessPatternEntry {
+  description: string;
+  example: string;
+}
+
+/** Structured output from the pattern analyzer — stored as JSONB. */
+export interface SuccessPatternAnalysis {
+  winning_patterns: SuccessPatternEntry[];
+  losing_patterns: SuccessPatternEntry[];
+  recommendations: string[];
+}
+
 export type DraftTemplateType =
   | "grant_narrative"
   | "donation_request_letter"
@@ -121,10 +139,39 @@ export interface DraftPromptContext {
   opportunity: DraftOpportunityContext;
   knowledgeEntries: DraftKnowledgeEntry[];
   provenNarratives: DraftProvenNarrative[];
+  /** Top winning language patterns for this funder category (from success_patterns). */
+  successPatterns?: SuccessPatternEntry[];
 }
 
 /** A built prompt: system persona + rules, and the user-turn task. */
 export interface DraftPrompt {
   system: string;
   prompt: string;
+}
+
+// ---------------------------------------------------------------------------
+// Budget Builder types (Agent 06 — /api/ai/budget).
+// ---------------------------------------------------------------------------
+
+/** One line item in a structured grant budget. */
+export interface BudgetTableItem {
+  category: string;
+  amount: number | null;
+  /** One-sentence tie of this cost to program activities. */
+  justification: string;
+  /** amount / total_requested * 100, or null when total is unknown. */
+  percentage: number | null;
+}
+
+/** Response shape from POST /api/ai/budget. */
+export interface BudgetApiResult {
+  budget_table: BudgetTableItem[];
+  total_requested: number | null;
+  /** Prose narrative justifying the budget as a whole, humanized. */
+  budget_narrative: string;
+  /** AI confidence 0-100 (BEHAVIORAL_CONTRACTS §9). */
+  confidence_score: number;
+  sources: KnowledgeSource[];
+  savedVersion: SavedDraftVersion | null;
+  belowThreshold: boolean;
 }

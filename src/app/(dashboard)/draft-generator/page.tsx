@@ -25,6 +25,8 @@ import { canEdit, useProfile } from "@/lib/hooks/useProfile";
 import { AI_CONFIDENCE_THRESHOLD } from "@/lib/utils/constants";
 import { humanizeEnum } from "@/lib/utils/formatters";
 import type {
+  BudgetApiResult,
+  BudgetTableItem,
   DraftResult,
   DraftTemplateType,
   HumanizationStatus,
@@ -34,6 +36,15 @@ import type {
 import type { Json, Tables } from "@/types/database";
 
 type OpportunityOption = { id: string; name: string; category: string };
+type ProgramOption = { id: string; name: string };
+
+function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
 
 /** Badge styling for the active draft's humanization status (mirrors history). */
 const HUMANIZATION_BADGE: Record<
@@ -102,9 +113,11 @@ export default function DraftGeneratorPage() {
   const requestedOpportunityId = searchParams.get("opportunity");
 
   const [opportunities, setOpportunities] = useState<OpportunityOption[]>([]);
+  const [programs, setPrograms] = useState<ProgramOption[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [opportunityId, setOpportunityId] = useState("");
+  const [programId, setProgramId] = useState("");
   const [templateType, setTemplateType] = useState<DraftTemplateType | null>(
     null,
   );
@@ -118,6 +131,9 @@ export default function DraftGeneratorPage() {
     useState<HumanizationStatus>("not_humanized");
   const [activeVersionId, setActiveVersionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const [budgetTable, setBudgetTable] = useState<BudgetTableItem[]>([]);
+  const [totalRequested, setTotalRequested] = useState<number | null>(null);
 
   const [saving, setSaving] = useState(false);
   const [reverting, setReverting] = useState(false);
@@ -161,23 +177,27 @@ export default function DraftGeneratorPage() {
     [loadVersion],
   );
 
-  // Initial load: opportunities + restore the user's most recent draft.
+  // Initial load: opportunities + programs + restore the user's most recent draft.
   useEffect(() => {
     let active = true;
     const supabase = createClient();
     (async () => {
-      const { data, error: oppError } = await supabase
-        .from("opportunities")
-        .select("id, name, category")
-        .order("created_at", { ascending: false });
+      const [oppResult, programResult] = await Promise.all([
+        supabase
+          .from("opportunities")
+          .select("id, name, category")
+          .order("created_at", { ascending: false }),
+        supabase.from("programs").select("id, name").order("name"),
+      ]);
       if (!active) return;
-      if (oppError) {
+      if (oppResult.error) {
         setError("Could not load opportunities.");
         setLoading(false);
         return;
       }
-      const loaded = (data ?? []) as OpportunityOption[];
+      const loaded = (oppResult.data ?? []) as OpportunityOption[];
       setOpportunities(loaded);
+      setPrograms((programResult.data ?? []) as ProgramOption[]);
 
       // A deep link (?opportunity=) wins over restore: jump straight to that
       // opportunity's latest draft if it exists and belongs to this org.
@@ -209,12 +229,17 @@ export default function DraftGeneratorPage() {
     };
   }, [requestedOpportunityId]);
 
-  // When the opportunity changes, load its history and latest draft.
+  // When the opportunity changes, load its history and latest draft, and reset
+  // any budget-specific state from the previous opportunity.
   useEffect(() => {
     if (!opportunityId) {
       setVersions([]);
+      setBudgetTable([]);
+      setTotalRequested(null);
       return;
     }
+    setBudgetTable([]);
+    setTotalRequested(null);
     void loadVersions(opportunityId, true);
   }, [opportunityId, loadVersions]);
 
@@ -227,15 +252,62 @@ export default function DraftGeneratorPage() {
     [opportunities],
   );
 
-  const canGenerate = Boolean(opportunityId && templateType) && editable;
+  const programOptions = useMemo(
+    () => programs.map((p) => ({ value: p.id, label: p.name })),
+    [programs],
+  );
+
+  const canGenerate =
+    Boolean(
+      opportunityId &&
+        templateType &&
+        (templateType !== "budget_narrative" || programId),
+    ) && editable;
   const hasDraft = draftText.trim() !== "" || confidence != null;
 
   async function handleGenerate() {
     if (!opportunityId || !templateType) return;
+    if (templateType === "budget_narrative" && !programId) return;
     setGenerating(true);
     setError(null);
 
     try {
+      if (templateType === "budget_narrative") {
+        // Budget Narrative calls /api/ai/budget for structured line-item output
+        // and a humanized prose narrative (AGENTS.md Agent 06).
+        const res = await fetch("/api/ai/budget", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ opportunityId, programId }),
+        });
+        const payload = (await res.json()) as
+          | BudgetApiResult
+          | { error: string; code: string };
+
+        if (!res.ok) {
+          setError(
+            "error" in payload
+              ? (payload as { error: string }).error
+              : "The budget could not be generated.",
+          );
+          return;
+        }
+
+        const budget = payload as BudgetApiResult;
+        setDraftText(budget.budget_narrative);
+        setConfidence(budget.confidence_score);
+        setSources(budget.sources);
+        setBudgetTable(budget.budget_table);
+        setTotalRequested(budget.total_requested);
+        setHumanizationStatus(
+          budget.savedVersion?.humanizationStatus ?? "humanized",
+        );
+        setActiveVersionId(budget.savedVersion?.id ?? null);
+        await loadVersions(opportunityId, false);
+        return;
+      }
+
+      // All other template types use the generic draft endpoint.
       const res = await fetch("/api/ai/draft", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -258,12 +330,16 @@ export default function DraftGeneratorPage() {
       setDraftText(payload.content);
       setConfidence(payload.confidenceScore);
       setSources(payload.sources);
-      setHumanizationStatus(payload.savedVersion?.humanizationStatus ?? "not_humanized");
+      setBudgetTable([]);
+      setTotalRequested(null);
+      setHumanizationStatus(
+        payload.savedVersion?.humanizationStatus ?? "not_humanized",
+      );
       setActiveVersionId(payload.savedVersion?.id ?? null);
       // Refresh the history panel to include the just-saved version.
       await loadVersions(opportunityId, false);
     } catch {
-      setError("Network error while generating the draft. Please try again.");
+      setError("Network error while generating. Please try again.");
     } finally {
       setGenerating(false);
     }
@@ -498,6 +574,30 @@ export default function DraftGeneratorPage() {
             />
           </Card>
 
+          {templateType === "budget_narrative" && (
+            <Card
+              title="3. Choose a program"
+              description="The budget will be scoped to this program's financial data and your Knowledge Base budget justification entries."
+            >
+              <div className="max-w-xl space-y-2">
+                <Select
+                  options={programOptions}
+                  value={programId}
+                  onChange={(e) => setProgramId(e.target.value)}
+                  placeholder="Select a program…"
+                  disabled={!editable || generating}
+                  aria-label="Program"
+                />
+                {programs.length === 0 && !loading && (
+                  <p className="text-sm text-navy-500">
+                    No programs found. Add programs in organization settings
+                    first.
+                  </p>
+                )}
+              </div>
+            </Card>
+          )}
+
           <div className="flex justify-end">
             <Button
               onClick={handleGenerate}
@@ -585,6 +685,49 @@ export default function DraftGeneratorPage() {
                 <Card title="Sources used">
                   <KnowledgePreview sources={sources} />
                 </Card>
+                {budgetTable.length > 0 && (
+                  <Card title="Budget line items">
+                    <div className="space-y-2">
+                      {budgetTable.map((item, i) => (
+                        <div
+                          key={i}
+                          className="flex items-start justify-between gap-3 border-b border-navy-100 pb-2 last:border-0 last:pb-0"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium capitalize text-navy-900">
+                              {item.category}
+                            </p>
+                            <p className="mt-0.5 text-xs leading-snug text-navy-500">
+                              {item.justification}
+                            </p>
+                          </div>
+                          <div className="shrink-0 text-right">
+                            <p className="font-mono text-sm text-navy-900">
+                              {item.amount != null
+                                ? formatCurrency(item.amount)
+                                : "[NEEDS INPUT]"}
+                            </p>
+                            {item.percentage != null && (
+                              <p className="text-xs text-navy-500">
+                                {item.percentage.toFixed(1)}%
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                      {totalRequested != null && (
+                        <div className="mt-1 flex items-center justify-between border-t-2 border-navy-200 pt-2">
+                          <p className="text-sm font-semibold text-navy-900">
+                            Total requested
+                          </p>
+                          <p className="font-mono text-sm font-semibold text-navy-900">
+                            {formatCurrency(totalRequested)}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </Card>
+                )}
               </div>
             </div>
           )}

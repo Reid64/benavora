@@ -27,6 +27,7 @@ import {
   Modal,
   Textarea,
 } from "@/components/ui";
+import { AssemblyPanel } from "@/components/documents/AssemblyPanel";
 import { StageTransitionModal } from "@/components/applications/StageTransitionModal";
 import {
   STAGE_COLOR,
@@ -45,12 +46,13 @@ import {
 import { isNonEmpty } from "@/lib/utils/validators";
 import type { Tables } from "@/types/database";
 
-type TabKey = "overview" | "timeline" | "notes";
+type TabKey = "overview" | "timeline" | "notes" | "assembly";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "overview", label: "Overview" },
   { key: "timeline", label: "Timeline" },
   { key: "notes", label: "Notes" },
+  { key: "assembly", label: "Assembly" },
 ];
 
 type HistoryEntry = Tables<"pipeline_history"> & { actorName: string | null };
@@ -312,6 +314,9 @@ export function ApplicationDetail({ applicationId }: ApplicationDetailProps) {
           authorId={profile?.id ?? null}
           onAdded={load}
         />
+      )}
+      {tab === "assembly" && (
+        <AssemblyPanel applicationId={application.id} />
       )}
 
       {/* Move modal */}

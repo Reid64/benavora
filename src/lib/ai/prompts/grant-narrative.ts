@@ -95,6 +95,20 @@ function renderKnowledgeEntries(
     .join("\n\n");
 }
 
+function renderSuccessPatterns(
+  patterns: DraftPromptContext["successPatterns"],
+): string {
+  if (!patterns?.length) {
+    return "None recorded yet for this funder type.";
+  }
+  return patterns
+    .map((p, i) => {
+      const example = p.example ? ` — e.g. "${p.example}"` : "";
+      return `${i + 1}. ${p.description}${example}`;
+    })
+    .join("\n");
+}
+
 function renderProvenNarratives(
   narratives: DraftPromptContext["provenNarratives"],
 ): string {
@@ -179,6 +193,9 @@ export function buildGrantNarrativePrompt(
     "",
     "## Previously funded narratives — weight their patterns, structure, and language heavily",
     renderProvenNarratives(context.provenNarratives),
+    "",
+    "## Winning language patterns for this funder type (apply these throughout)",
+    renderSuccessPatterns(context.successPatterns),
     "",
     "## Output",
     "Return only the finished draft text, ready for an editor to review. Use clear section headings where appropriate. Remember: every organizational fact must come from the data above, and every gap must be marked with [NEEDS INPUT: ...].",

@@ -27,7 +27,12 @@ export type AgentType =
   // Phase 4 — Email Campaign Agent (AGENTS.md Agent 18). Added to the DB
   // `agent_type` enum by migration 007 so EmailCampaignAgent can log to
   // agent_runs via BaseAgent like every other agent.
-  | "email_campaign";
+  | "email_campaign"
+  // Migration 014 — Cross-provider consensus validation (Gemini + Claude).
+  | "consensus_validation"
+  // Migration 015 — Funder Intelligence Agent. Scrapes a funder's website and
+  // extracts structured priorities, recent grants, board members, and tips.
+  | "funder_intel";
 
 export type AgentRunStatus = "pending" | "running" | "completed" | "failed";
 

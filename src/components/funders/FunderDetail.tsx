@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
+  Brain,
   Building2,
   ExternalLink,
   FileText,
@@ -40,7 +41,8 @@ type TabKey =
   | "contacts"
   | "opportunities"
   | "applications"
-  | "notes";
+  | "notes"
+  | "intelligence";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "overview", label: "Overview" },
@@ -48,6 +50,7 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "opportunities", label: "Opportunities" },
   { key: "applications", label: "Applications" },
   { key: "notes", label: "Notes" },
+  { key: "intelligence", label: "Intelligence" },
 ];
 
 const RELATIONSHIP_COLOR: Record<
@@ -73,6 +76,7 @@ type FunderData = {
   opportunities: Tables<"opportunities">[];
   applications: Tables<"applications">[];
   notes: Tables<"notes">[];
+  intelligence: Tables<"funder_intelligence"> | null;
 };
 
 export type FunderDetailProps = {
@@ -94,6 +98,8 @@ export function FunderDetail({ funderId }: FunderDetailProps) {
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [researching, setResearching] = useState(false);
+  const [researchError, setResearchError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const supabase = createClient();
@@ -112,23 +118,29 @@ export function FunderDetail({ funderId }: FunderDetailProps) {
       return;
     }
 
-    const [contactsRes, opportunitiesRes, notesRes] = await Promise.all([
-      supabase
-        .from("contacts")
-        .select("*")
-        .eq("funder_id", funderId)
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("opportunities")
-        .select("*")
-        .eq("funder_id", funderId)
-        .order("deadline", { ascending: true, nullsFirst: false }),
-      supabase
-        .from("notes")
-        .select("*")
-        .eq("funder_id", funderId)
-        .order("created_at", { ascending: false }),
-    ]);
+    const [contactsRes, opportunitiesRes, notesRes, intelRes] =
+      await Promise.all([
+        supabase
+          .from("contacts")
+          .select("*")
+          .eq("funder_id", funderId)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("opportunities")
+          .select("*")
+          .eq("funder_id", funderId)
+          .order("deadline", { ascending: true, nullsFirst: false }),
+        supabase
+          .from("notes")
+          .select("*")
+          .eq("funder_id", funderId)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("funder_intelligence")
+          .select("*")
+          .eq("funder_id", funderId)
+          .maybeSingle(),
+      ]);
 
     const opportunities = opportunitiesRes.data ?? [];
     const opportunityIds = opportunities.map((o) => o.id);
@@ -149,6 +161,7 @@ export function FunderDetail({ funderId }: FunderDetailProps) {
       opportunities,
       applications,
       notes: notesRes.data ?? [],
+      intelligence: intelRes.data ?? null,
     });
     setLoading(false);
   }, [funderId]);
@@ -156,6 +169,30 @@ export function FunderDetail({ funderId }: FunderDetailProps) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  async function handleResearch() {
+    if (!data) return;
+    setResearching(true);
+    setResearchError(null);
+    try {
+      const res = await fetch("/api/agents/funder-intel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ funderId }),
+      });
+      const json = (await res.json()) as { error?: string };
+      if (!res.ok) {
+        setResearchError(json.error ?? "Research failed.");
+        return;
+      }
+      await load();
+      setTab("intelligence");
+    } catch {
+      setResearchError("Network error. Please try again.");
+    } finally {
+      setResearching(false);
+    }
+  }
 
   async function handleDelete() {
     if (!data) return;
@@ -221,8 +258,19 @@ export function FunderDetail({ funderId }: FunderDetailProps) {
             </p>
           )}
         </div>
-        {(editable || deletable) && (
-          <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 flex-col items-end gap-2">
+          <div className="flex items-center gap-2">
+            {editable && (
+              <Button
+                variant="secondary"
+                onClick={() => void handleResearch()}
+                isLoading={researching}
+                disabled={researching}
+              >
+                <Brain className="h-4 w-4" aria-hidden />
+                Research funder
+              </Button>
+            )}
             {editable && (
               <Button variant="secondary" onClick={() => setEditing(true)}>
                 <Pencil className="h-4 w-4" aria-hidden />
@@ -236,7 +284,10 @@ export function FunderDetail({ funderId }: FunderDetailProps) {
               </Button>
             )}
           </div>
-        )}
+          {researchError && (
+            <p className="text-sm text-red-600">{researchError}</p>
+          )}
+        </div>
       </div>
 
       {/* Tabs */}
@@ -306,6 +357,13 @@ export function FunderDetail({ funderId }: FunderDetailProps) {
           organizationId={profile?.organization_id ?? null}
           authorId={profile?.id ?? null}
           onAdded={load}
+        />
+      )}
+      {tab === "intelligence" && (
+        <IntelligenceTab
+          intelligence={data.intelligence}
+          onResearch={editable ? () => void handleResearch() : undefined}
+          researching={researching}
         />
       )}
 
@@ -599,6 +657,161 @@ function ApplicationsTab({
           </div>
         </Card>
       ))}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Intelligence tab
+// ---------------------------------------------------------------------------
+
+type RecentGrant = {
+  recipient?: string;
+  amount?: number | null;
+  year?: number | null;
+  purpose?: string;
+};
+type BoardMember = { name?: string; title?: string | null };
+
+function IntelligenceTab({
+  intelligence,
+  onResearch,
+  researching,
+}: {
+  intelligence: Tables<"funder_intelligence"> | null;
+  onResearch?: () => void;
+  researching?: boolean;
+}) {
+  if (!intelligence) {
+    return (
+      <EmptyState
+        icon={Brain}
+        title="No intelligence yet"
+        description="Click Research funder to extract structured intelligence from this funder's website."
+        action={
+          onResearch ? (
+            <Button onClick={onResearch} isLoading={researching}>
+              <Brain className="h-4 w-4" aria-hidden />
+              Research funder
+            </Button>
+          ) : undefined
+        }
+      />
+    );
+  }
+
+  const recentGrants = Array.isArray(intelligence.recent_grants)
+    ? (intelligence.recent_grants as unknown as RecentGrant[])
+    : [];
+  const boardMembers = Array.isArray(intelligence.board_members)
+    ? (intelligence.board_members as unknown as BoardMember[])
+    : [];
+
+  return (
+    <div className="space-y-6">
+      {intelligence.last_scraped_at && (
+        <p className="text-xs text-navy-400">
+          Last researched {formatRelative(intelligence.last_scraped_at)}
+        </p>
+      )}
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {/* Priorities */}
+        <Card title="Funding priorities">
+          {intelligence.priorities && intelligence.priorities.length > 0 ? (
+            <ul className="space-y-1">
+              {intelligence.priorities.map((p, i) => (
+                <li key={i} className="flex items-start gap-2 text-sm text-navy-700">
+                  <span className="mt-0.5 text-teal-500">•</span>
+                  {p}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-navy-400">Not identified.</p>
+          )}
+        </Card>
+
+        {/* Key stats */}
+        <Card title="Giving stats">
+          <dl className="divide-y divide-navy-100">
+            <DetailRow label="Average grant size">
+              {formatCurrency(intelligence.average_grant_size)}
+            </DetailRow>
+            <DetailRow label="Total annual giving">
+              {formatCurrency(intelligence.total_annual_giving)}
+            </DetailRow>
+            <DetailRow label="Funding cycles">
+              {intelligence.funding_cycles ?? (
+                <span className="text-navy-400">—</span>
+              )}
+            </DetailRow>
+          </dl>
+        </Card>
+
+        {/* Review criteria */}
+        {intelligence.review_criteria && (
+          <Card title="Review criteria">
+            <p className="whitespace-pre-wrap text-sm text-navy-700">
+              {intelligence.review_criteria}
+            </p>
+          </Card>
+        )}
+
+        {/* Application tips */}
+        {intelligence.application_tips && (
+          <Card title="Application tips">
+            <p className="whitespace-pre-wrap text-sm text-navy-700">
+              {intelligence.application_tips}
+            </p>
+          </Card>
+        )}
+      </div>
+
+      {/* Recent grants */}
+      {recentGrants.length > 0 && (
+        <Card title="Recent grants">
+          <div className="space-y-2">
+            {recentGrants.map((g, i) => (
+              <div
+                key={i}
+                className="flex flex-wrap items-start justify-between gap-2 border-b border-navy-100 py-2 last:border-0"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-navy-800">
+                    {g.recipient ?? "Unknown recipient"}
+                  </p>
+                  {g.purpose && (
+                    <p className="text-xs text-navy-500">{g.purpose}</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-3 text-sm text-navy-600">
+                  {g.amount != null && (
+                    <span className="font-medium">{formatCurrency(g.amount)}</span>
+                  )}
+                  {g.year != null && (
+                    <span className="text-navy-400">{g.year}</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* Board members */}
+      {boardMembers.length > 0 && (
+        <Card title="Board members">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {boardMembers.map((m, i) => (
+              <div key={i} className="text-sm">
+                <p className="font-medium text-navy-800">{m.name}</p>
+                {m.title && <p className="text-navy-500">{m.title}</p>}
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
     </div>
   );
 }
