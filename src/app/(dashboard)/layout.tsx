@@ -1,5 +1,4 @@
-﻿import { headers } from "next/headers";
-import { redirect } from "next/navigation";
+﻿import { redirect } from "next/navigation";
 import { DashboardShell } from "@/components/layout/DashboardShell";
 import { createClient } from "@/lib/supabase/server";
 import type { Enums } from "@/types/database";
@@ -28,3 +27,4 @@ export default async function DashboardLayout({
     </DashboardShell>
   );
 }
+
