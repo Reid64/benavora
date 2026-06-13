@@ -18,6 +18,7 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "Benavora - Fund More. Do More. Change More.",
   description: "Nonprofit funding automation - grant research, drafting, and tracking.",
+  manifest: "/manifest.json",
   icons: {
     icon: [
       { url: "/benavora_favicon.png", sizes: "192x192", type: "image/png" },
@@ -45,4 +46,5 @@ export default function RootLayout({
     </html>
   );
 }
+
 
