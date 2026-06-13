@@ -19,6 +19,7 @@ const ORDER: Record<SubscriptionTier, number> = {
   starter: 1,
   professional: 2,
   enterprise: 3,
+  consultant: 4,
 };
 
 /**

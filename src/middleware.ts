@@ -13,9 +13,10 @@ type CookieToSet = { name: string; value: string; options: CookieOptions };
 //   3. On ANY role-fetch failure — query error, missing row, or null
 //      organization_id — redirect to /login ONLY. Never render a default or
 //      wrong-role page (Iron Law 4).
-//   4. On success, inject x-user-id / x-organization-id / x-user-role headers
-//      so downstream handlers can read the authoritative identity without
-//      re-trusting anything from the request body (Six Laws Law 2).
+//   4. On success, inject x-user-id / x-organization-id / x-user-role /
+//      x-pathname headers so downstream layouts and handlers can read the
+//      authoritative identity and current path without re-trusting anything
+//      from the request body (Six Laws Law 2).
 //
 // Identity is re-read from the database on every request; role data is never
 // cached in cookies or local state, so a revoked or downgraded role takes
@@ -124,13 +125,14 @@ export async function middleware(request: NextRequest) {
     return redirectToLogin(request);
   }
 
-  // Inject the authoritative identity for downstream pages / route handlers.
-  // Cloned from the (cookie-refreshed) request; the refreshed auth cookies set
-  // on `response` are carried over below.
+  // Inject the authoritative identity and current path for downstream pages /
+  // route handlers. Cloned from the (cookie-refreshed) request; the refreshed
+  // auth cookies set on `response` are carried over below.
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-user-id", user.id);
   requestHeaders.set("x-organization-id", profile.organization_id as string);
   requestHeaders.set("x-user-role", profile.role as string);
+  requestHeaders.set("x-pathname", request.nextUrl.pathname);
 
   const authedResponse = NextResponse.next({
     request: { headers: requestHeaders },

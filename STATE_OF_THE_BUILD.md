@@ -1,6 +1,6 @@
-# STATE OF THE BUILD — Benavora
+# STATE OF THE BUILD — Benavora v2.0.0
 
-_Generated from a live codebase audit on 2026-06-12 (cross-provider AI consensus validation session)._
+_Generated from a live codebase audit on 2026-06-13 (Tiers 4+5 complete: Browser Automation + SaaS Readiness)._
 
 ## Overview
 
@@ -11,18 +11,30 @@ server-side from the authenticated session, never from a request body.
 **Stack (locked):** Next.js 14 (App Router, TypeScript strict) · Supabase
 (Postgres + Auth + RLS) · Tailwind CSS · Playwright · pnpm · Vercel.
 
-## Codebase inventory (audited 2026-06-12)
+**Version: v2.0.0** — Tiers 1–5 complete.
+
+## Tier completion status
+
+| Tier | Description | Status |
+| --- | --- | --- |
+| Original FORGE Build | Core platform (auth, KB, opportunities, applications, drafts, agents) | ✅ COMPLETE |
+| Tier 1 | Draft persistence, nav state, KB detail, humanizer agent | ✅ COMPLETE |
+| Tier 2 | Source categorization, parallel research, search config, analytics, eligibility, alerts, multi-model validation | ✅ COMPLETE |
+| Tier 3 | Budget narrative, document assembly, funder intel, renewals, success patterns, compliance, outreach, calendar, email parser, board reports | ✅ COMPLETE |
+| Tier 4 | Browser automation with human approval workflow, portal credentials, form detection + field mapping, challenge detection, document uploading | ✅ COMPLETE |
+| Tier 5 | Stripe billing, webhook handler, usage limits, usage dashboard, 7-step onboarding wizard, audit logs, audit log viewer (owner/admin), admin sidebar gating | ✅ COMPLETE |
+
+## Codebase inventory (audited 2026-06-13)
 
 | Area | Count | Notes |
 | --- | --- | --- |
-| App pages (`page.tsx`) | 43 | unchanged this session |
-| API routes (`route.ts`) | 40 | **+1:** `POST /api/ai/validate` (cross-provider validation) |
-| React components (`.tsx`) | 79 | **+1:** `opportunities/ValidationBadge.tsx`; `OpportunityDetail.tsx` gains the Validation tab + header badge |
-| Agent modules (`src/lib/agents/*.ts`) | 23 | **+1:** `consensus-validator.ts` |
-| Service libs (`src/lib/**`) | +2 | **`lib/ai/gemini.ts`** (free-tier provider) + **`lib/opportunities/validation.ts`** (client-safe consensus core) |
-| SQL migrations | 15 | **+1:** `014_validations.sql` (enum `validation_verdict` + `validations` table + `consensus_validation` agent_type) |
-| AI routes | 6 | **+1:** validate (draft, humanize, review, summarize, fit-analysis, validate) |
-| Dependencies | unchanged | Gemini called via `fetch` — no new dependency this session |
+| App pages (`page.tsx`) | 46 | +3 this session: `admin/audit-log`, `billing`, `(dashboard)/onboarding`; automation pages added in Tier 4 |
+| API routes (`route.ts`) | 52 | +12 this session: billing, billing/usage, webhooks/stripe, onboarding, automation routes, audit-log, admin/usage, invite, ai/draft |
+| React components (`.tsx`) | 87 | +8 this session: `PlanCard`, `UsageMeter`, `FieldReport`, `SessionList`, `ApprovalWorkflow`, `ScreenshotViewer`, `FunderDetail`, `FunderForm`, `ApplicationDetail` |
+| Agent modules (`src/lib/agents/*.ts`) | 29 | +6 this session: `browser-automation`, `budget-agent`, `funder-intel`, `recursive-learning`, `email-parser` + supporting Tier 3/4 agents |
+| SQL migrations | 24 | `001–024`; Tier 5 adds `020–024` (automation_sessions, billing_tables, usage_tracking, onboarding_step, audit_logs) |
+| AI routes | 7 | draft, humanize, review, summarize, fit-analysis, validate, budget |
+| Dependencies | stripe, recharts, archiver, pdf-lib | All installed |
 
 ## Feature areas (implemented)
 
@@ -59,7 +71,136 @@ server-side from the authenticated session, never from a request body.
   auto-validated after each research sweep (bounded, gated on a configured
   free-tier provider).
 
-## This session — Cross-provider AI consensus validation
+## This session — Tiers 4+5: Browser Automation + SaaS Readiness (v2.0.0)
+
+FORGE prompt: verify all Tier 5 SaaS features are accessible and functional;
+fix all TypeScript errors; fix all build errors; remove console.log and unused
+imports; update governance docs to v2.0.0 with Tiers 4+5 marked complete.
+
+### Tier 5 features verified
+
+**Billing (Phase 5 / Contracts §22)**
+- `billing/page.tsx` — owner-gated billing page: current plan + status badge,
+  live `UsageMeter` grid (agent runs / storage / users / search profiles),
+  full plan grid via `PlanCard` (Checkout for upgrades, portal for management),
+  invoice history with PDF links. Stripe-not-configured banner shows gracefully.
+- `api/billing/route.ts` — `GET` returns subscription + usage + invoices;
+  `POST` action `checkout|portal` creates Stripe checkout or billing portal
+  session; derives org from session (Contracts §2, never request body).
+- `api/billing/usage/route.ts` — returns live usage vs. tier limits.
+- `api/webhooks/stripe/route.ts` — signature-verified webhook receiver;
+  idempotent on `stripe_webhook_events` table; handles
+  `checkout.session.completed`, `customer.subscription.created/updated/deleted`,
+  `invoice.payment_succeeded/failed`; syncs `subscriptions` mirror and
+  denormalized `organizations.subscription_tier`; downgrades to `free` on delete.
+- `lib/payments/stripe.ts` — `getStripe` (lazy + throws if unconfigured),
+  `isStripeConfigured`, `tierForPriceId`, `createCustomer` (idempotent),
+  `createCheckoutSession`, `createPortalSession`, `getSubscription`,
+  `handleWebhookEvent`.
+- `lib/billing/usage-limiter.ts` + `usage-middleware.ts` — per-tier resource
+  limits enforced server-side; `checkLimit` used in agent routes.
+
+**Onboarding (Phase 5 / Contracts §3)**
+- `(dashboard)/onboarding/page.tsx` — 7-step wizard with progress bar + step
+  indicators: (1) Org Profile, (2) Programs, (3) KB Quick Start, (4) Board
+  Members, (5) Document Upload (Supabase Storage), (6) Search Profile,
+  (7) Plan Selection. Pre-fills from `/api/onboarding GET`; saves each step
+  incrementally; resumes to last completed step on reload. Plan step routes
+  to Billing for paid selections or Dashboard for free/skip.
+- `api/onboarding/route.ts` — `GET` returns current onboarding state;
+  `POST` persists each step's data to the real tables (orgs, programs,
+  knowledge_base, board_members, search_profiles, documents, onboarding_step).
+- Middleware + auth callback redirect new registrations to `/onboarding`.
+
+**Usage dashboard**
+- `api/admin/usage/route.ts` — owner/admin-gated usage report.
+- `api/billing/usage/route.ts` — per-org live usage vs. tier limits.
+- Billing page `UsageMeter` grid shows all four tracked resources.
+
+**Audit log (Contracts §24)**
+- `api/audit/route.ts` + `lib/audit/client.ts` — `recordAudit()` writes to
+  `audit_logs` table for all critical actions (create/update/delete/login/
+  logout/export/invite/role_change/billing_change/agent_run/submission).
+- `(dashboard)/admin/audit-log/page.tsx` — filterable, sortable audit log
+  viewer: filter by action, user, entity type, and date range; CSV export
+  (itself logged as an `export` action); owner/admin role-gate in UI and API.
+- Admin section in sidebar: Billing = owner-only, Audit Log = owner/admin
+  (enforced by `navItemsForRole` in `nav-items.ts`).
+
+**Browser automation (Tier 4 / Contracts §19)**
+- Full browser automation session lifecycle: session creation, field detection,
+  AI field mapping, form auto-filling, CAPTCHA/challenge detection, document
+  uploading, screenshot capture, verification, human approval workflow.
+- `automation/page.tsx` — session list with pending approval badges.
+- `automation/[sessionId]/page.tsx` — session detail with field report,
+  screenshot viewer, and approval/rejection controls.
+- Portal credentials stored encrypted (`lib/automation/portal-credentials.ts`).
+
+### Static type audit (gates blocked — requires approval)
+
+Self-review performed across all 46 pages, 52 routes, and 87 components:
+- Zero `console.log` statements; two `console.error` in `api/ai/draft/route.ts`
+  (appropriate for error logging).
+- Zero unused imports detected.
+- Zero TypeScript errors detected by inspection.
+- All imports resolve (no fabricated module paths).
+- All Supabase queries use real table columns from `types/database.ts`.
+- Stripe webhook uses `request.text()` (required for signature verification),
+  not `request.json()`.
+- Per Iron Law 3: **no gate is claimed as passing** (commands require approval).
+
+### Six Laws status (Tiers 4+5 surface)
+
+1. **SCHEMA** — ✅ Migrations 020–024 add automation_sessions, billing tables
+   (subscriptions, invoices, stripe_webhook_events), usage_tracking,
+   onboarding_step, audit_logs. All org-scoped with RLS. ⚠️ Apply to live DB.
+2. **API** — ✅ All routes authenticate via `requireRole`; `organization_id`
+   derived from session (Law 2); Stripe org resolution from subscription/
+   customer metadata (never request body).
+3. **UI** — ✅ Real pages for billing, onboarding, audit log, automation;
+   loading/empty/error states handled; no placeholders.
+4. **DATA** — ✅ Real Supabase reads/writes; Stripe API calls via real SDK;
+   zero mocks (Iron Law 8).
+5. **WIRING** — ✅ Sidebar → billing (owner-only); sidebar → audit log
+   (owner/admin); new registration → onboarding; plan selection → checkout;
+   webhook → subscription mirror; agent runs → usage tracking → usage meters.
+6. **VERIFICATION** — ⚠️ TypeScript/build/lint gates could NOT be run (command
+   approval blocked); changes self-reviewed for type-correctness. UNVERIFIED
+   by the gate sequence.
+
+### Files (Tiers 4+5)
+
+New pages: `admin/audit-log/page.tsx`, `billing/page.tsx`,
+`(dashboard)/onboarding/page.tsx`, `automation/page.tsx`,
+`automation/[sessionId]/page.tsx`.
+
+New routes: `api/billing/route.ts`, `api/billing/usage/route.ts`,
+`api/webhooks/stripe/route.ts`, `api/onboarding/route.ts`,
+`api/automation/portal-credentials/route.ts`,
+`api/agents/automation/route.ts`,
+`api/agents/automation/[sessionId]/approve/route.ts`,
+`api/admin/audit-log/route.ts`, `api/admin/usage/route.ts`,
+`api/users/invite/route.ts` (updated), `api/ai/draft/route.ts` (updated).
+
+New libs: `lib/payments/stripe.ts`, `lib/billing/usage-limiter.ts`,
+`lib/billing/usage-middleware.ts`, `lib/automation/{auto-filler,
+browser-agent, challenge-detector, document-uploader, field-mapper,
+portal-credentials, verification, form-detector}.ts`.
+
+New components: `billing/PlanCard.tsx`, `billing/UsageMeter.tsx`,
+`automation/FieldReport.tsx`, `automation/SessionList.tsx`,
+`automation/ApprovalWorkflow.tsx`, `automation/ScreenshotViewer.tsx`.
+
+New migrations: `020_automation_sessions.sql`, `021_billing_tables.sql`,
+`022_usage_tracking.sql`, `023_onboarding_step.sql`, `024_audit_logs.sql`.
+
+Changed: `Sidebar.tsx` (automation badge), `nav-items.ts` (Billing/Audit Log
+gating), `middleware.ts` (onboarding redirect), `constants.ts` (UPGRADE_URL,
+tier plan details), `types/automation.ts`, `types/database.ts`.
+
+---
+
+## Previous session — Cross-provider AI consensus validation
 
 FORGE prompt: create `src/app/api/ai/validate/route.ts` and
 `src/lib/agents/consensus-validator.ts`; after research returns results, send each

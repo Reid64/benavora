@@ -1,4 +1,4 @@
-// Form detector — Phase 3 browser automation (AGENTS.md Agent 16).
+﻿// Form detector â€” Phase 3 browser automation (AGENTS.md Agent 16).
 //
 // Two responsibilities:
 //   1. detectFields(page): read a page's form controls into structured
@@ -8,7 +8,7 @@
 //   2. mapFields(fields, context): match each detected field against the
 //      organization profile / acting user / application, returning the fields we
 //      can auto-fill (mappedFields) and those that still need human input
-//      (unmappedFields) — exactly the split persisted to
+//      (unmappedFields) â€” exactly the split persisted to
 //      automation_sessions.mapped_fields / unmapped_fields.
 //
 // No value is ever fabricated: a field maps only when the context actually holds
@@ -22,6 +22,10 @@ import type {
   FormFieldType,
   FormMapping,
   FormMappingResult,
+  FormSchema,
+  FormSchemaField,
+  FormSchemaFieldType,
+  FormSection,
 } from "@/types/automation";
 
 // --- detection ---------------------------------------------------------------
@@ -175,7 +179,7 @@ export async function detectFields(page: Page): Promise<FormField[]> {
 
 /**
  * One mapping rule: if any keyword appears in the field's label or name, resolve
- * a value from the autofill context. A null/empty resolution means "no data" —
+ * a value from the autofill context. A null/empty resolution means "no data" â€”
  * the field stays unmapped rather than being filled with a blank.
  */
 interface MappingRule {
@@ -185,7 +189,7 @@ interface MappingRule {
 }
 
 /**
- * Rules in priority order — the FIRST rule whose keyword matches wins, so more
+ * Rules in priority order â€” the FIRST rule whose keyword matches wins, so more
  * specific phrases must precede generic ones (e.g. "amount requested" before a
  * bare "amount", "organization name" before "name"). Mirrors the field map in
  * the task spec.
@@ -256,7 +260,7 @@ const MAPPING_RULES: MappingRule[] = [
 
 /**
  * Split detected fields into ones we can auto-fill from the org's data and ones
- * needing human input. File inputs are always left unmapped — documents are
+ * needing human input. File inputs are always left unmapped â€” documents are
  * attached deliberately, not auto-resolved from the profile.
  */
 export function mapFields(
@@ -325,3 +329,299 @@ export function isFillableType(type: string): type is FormFieldType {
     type === "file"
   );
 }
+
+// --- structured FormSchema detection -----------------------------------------
+
+/**
+ * Richer form detection that returns a FormSchema with logical sections,
+ * multi-step indicators, and the full field vocabulary (email, phone, date,
+ * number, etc.). Handles JS-rendered portals by waiting for networkidle and
+ * a form element to appear before scanning the DOM.
+ *
+ * Existing detectFields / mapFields exports are unchanged; this is additive.
+ */
+export async function detectFormSchema(
+  page: Page,
+  url: string,
+): Promise<FormSchema> {
+  // Wait for JS-rendered content â€” many grant portals hydrate after DOMContentLoaded.
+  try {
+    await page.waitForLoadState("networkidle", { timeout: 10_000 });
+  } catch {
+    // networkidle may never fire on pages with long-polling; fall through.
+  }
+
+  // Ensure at least one form control is visible before scanning.
+  try {
+    await page.waitForSelector("input, textarea, select", { timeout: 5_000 });
+  } catch {
+    // Return empty schema if the page has no detectable form controls.
+    return { url, title: await page.title(), sections: [], isMultiStep: false, stepCount: 1, stepIndicators: [] };
+  }
+
+  // Single in-browser pass â€” returns only serializable plain objects.
+  const raw = await page.evaluate(() => {
+    const IGNORE_TYPES = new Set([
+      "hidden", "submit", "button", "image", "reset", "search",
+    ]);
+
+    function resolveLabel(el: Element): string {
+      const inp = el as HTMLInputElement;
+      if (inp.labels && inp.labels.length > 0) {
+        const text = Array.from(inp.labels)
+          .map((l) => (l.textContent ?? "").trim())
+          .filter(Boolean)
+          .join(" ");
+        if (text) return text;
+      }
+      const aria = el.getAttribute("aria-label");
+      if (aria?.trim()) return aria.trim();
+      const labelledBy = el.getAttribute("aria-labelledby");
+      if (labelledBy) {
+        const parts = labelledBy
+          .split(/\s+/)
+          .map((id) => document.getElementById(id)?.textContent?.trim() ?? "")
+          .filter(Boolean)
+          .join(" ");
+        if (parts) return parts;
+      }
+      const placeholder = el.getAttribute("placeholder");
+      if (placeholder?.trim()) return placeholder.trim();
+      const title = el.getAttribute("title");
+      if (title?.trim()) return title.trim();
+      return el.getAttribute("name") ?? "";
+    }
+
+    function nearestFieldsetLegend(el: Element): string {
+      let parent = el.parentElement;
+      while (parent) {
+        if (parent.tagName === "FIELDSET") {
+          const legend = parent.querySelector("legend");
+          if (legend) return (legend.textContent ?? "").trim();
+        }
+        parent = parent.parentElement;
+      }
+      return "";
+    }
+
+    const tagCounts: Record<string, number> = {};
+    const rawFields: Array<{
+      fieldId: string;
+      label: string;
+      htmlType: string;
+      required: boolean;
+      placeholder: string;
+      pattern: string;
+      options: string[];
+      fieldsetLegend: string;
+    }> = [];
+
+    for (const el of Array.from(document.querySelectorAll("input, textarea, select"))) {
+      const tag = el.tagName.toLowerCase();
+      const htmlType = (el.getAttribute("type") ?? "").toLowerCase();
+
+      if (tag === "input" && IGNORE_TYPES.has(htmlType)) continue;
+
+      const id = el.id ?? "";
+      const name = el.getAttribute("name") ?? "";
+      const label = resolveLabel(el);
+      const idx = (tagCounts[tag] = (tagCounts[tag] ?? 0) + 1);
+
+      // Prefer id, then name, then a slug derived from the label, then positional fallback.
+      let fieldId: string;
+      if (id) {
+        fieldId = id;
+      } else if (name) {
+        fieldId = name;
+      } else if (label) {
+        fieldId = label.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 50);
+      } else {
+        fieldId = `${tag}_${idx}`;
+      }
+
+      const required =
+        (el as HTMLInputElement).required ||
+        el.getAttribute("aria-required") === "true";
+
+      const options: string[] = [];
+      if (tag === "select") {
+        for (const opt of Array.from((el as HTMLSelectElement).options)) {
+          const text = (opt.textContent ?? "").trim();
+          if (text) options.push(text);
+        }
+      } else if (htmlType === "radio") {
+        const val = (el as HTMLInputElement).value;
+        if (val) options.push(val);
+      }
+
+      rawFields.push({
+        fieldId,
+        label,
+        htmlType: tag === "textarea" ? "textarea" : tag === "select" ? "select" : htmlType || "text",
+        required,
+        placeholder: el.getAttribute("placeholder") ?? "",
+        pattern: el.getAttribute("pattern") ?? "",
+        options,
+        fieldsetLegend: nearestFieldsetLegend(el),
+      });
+    }
+
+    // Multi-step detection â€” look for navigation buttons and step indicators.
+    const allButtons = Array.from(document.querySelectorAll("button, input[type='button'], input[type='submit']"));
+    const hasNextBtn = allButtons.some((b) => {
+      const text = ((b.textContent ?? "") + " " + (b.getAttribute("value") ?? "")).toLowerCase();
+      return /\b(next|continue|proceed|next step)\b/.test(text);
+    });
+
+    const stepEls = Array.from(document.querySelectorAll(
+      "[class*='step'], [role='progressbar'], [aria-current='step'], [class*='wizard'], [class*='progress-step']",
+    ));
+    const stepLabels = stepEls
+      .map((el) => (el.textContent ?? "").trim())
+      .filter(Boolean)
+      .slice(0, 10);
+
+    return {
+      pageTitle: document.title,
+      rawFields,
+      multiStep: {
+        detected: hasNextBtn || stepEls.length > 1,
+        stepLabels,
+        stepCount: stepEls.length > 1 ? stepEls.length : hasNextBtn ? 2 : 1,
+      },
+    };
+  });
+
+  const fields = raw.rawFields.map((rf) => schemaFieldFromRaw(rf));
+  const sections = groupIntoSections(fields, raw.rawFields);
+
+  return {
+    url,
+    title: raw.pageTitle || (await page.title()),
+    sections,
+    isMultiStep: raw.multiStep.detected,
+    stepCount: raw.multiStep.stepCount,
+    stepIndicators: raw.multiStep.stepLabels,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Internal helpers for detectFormSchema
+// ---------------------------------------------------------------------------
+
+interface RawFieldData {
+  fieldId: string;
+  label: string;
+  htmlType: string;
+  required: boolean;
+  placeholder: string;
+  pattern: string;
+  options: string[];
+  fieldsetLegend: string;
+}
+
+function toFormSchemaFieldType(htmlType: string): FormSchemaFieldType {
+  switch (htmlType) {
+    case "email": return "email";
+    case "tel": return "phone";
+    case "number":
+    case "range": return "number";
+    case "date":
+    case "datetime-local":
+    case "time":
+    case "month":
+    case "week": return "date";
+    case "file": return "file";
+    case "checkbox": return "checkbox";
+    case "radio": return "radio";
+    case "textarea": return "textarea";
+    case "select": return "select";
+    default: return "text";
+  }
+}
+
+function schemaFieldFromRaw(rf: RawFieldData): FormSchemaField {
+  const field: FormSchemaField = {
+    id: rf.fieldId,
+    label: rf.label,
+    type: toFormSchemaFieldType(rf.htmlType),
+    required: rf.required,
+  };
+  if (rf.options.length > 0) field.options = rf.options;
+  if (rf.placeholder) field.placeholder = rf.placeholder;
+  if (rf.pattern) field.pattern = rf.pattern;
+  return field;
+}
+
+const SECTION_DEFS: Array<{ name: string; keywords: string[] }> = [
+  {
+    name: "Contact Info",
+    keywords: ["name", "email", "phone", "contact", "address", "city", "state", "zip", "postal", "title", "first", "last", "director", "position", "role", "street", "mobile", "tel"],
+  },
+  {
+    name: "Organization Info",
+    keywords: ["organization", "org", "ein", "tax", "mission", "vision", "founding", "founded", "website", "nonprofit", "501c", "staff", "volunteer", "service area", "annual budget", "legal name"],
+  },
+  {
+    name: "Project Details",
+    keywords: ["project", "program", "description", "purpose", "activities", "goals", "objective", "outcome", "impact", "narrative", "overview", "plan", "timeline", "implementation", "summary", "scope"],
+  },
+  {
+    name: "Budget",
+    keywords: ["amount", "budget", "cost", "funding", "requested", "award", "grant", "match", "expense", "financial", "dollar", "total project"],
+  },
+  {
+    name: "Attachments",
+    keywords: ["upload", "file", "attach", "document", "letter", "exempt", "audit", "report", "pdf", "501c3", "irs", "financial statement", "resume"],
+  },
+];
+
+function assignSectionName(field: FormSchemaField, raw: RawFieldData): string {
+  // Fieldset legend takes priority â€” it's the author's own grouping.
+  if (raw.fieldsetLegend) return raw.fieldsetLegend;
+
+  const haystack = `${field.label} ${field.id}`.toLowerCase();
+  let best = "Other";
+  let bestScore = 0;
+
+  for (const def of SECTION_DEFS) {
+    const score = def.keywords.filter((kw) => haystack.includes(kw)).length;
+    if (score > bestScore) {
+      bestScore = score;
+      best = def.name;
+    }
+  }
+
+  return best;
+}
+
+function groupIntoSections(fields: FormSchemaField[], raws: RawFieldData[]): FormSection[] {
+  const map = new Map<string, FormSchemaField[]>();
+
+  for (let i = 0; i < fields.length; i++) {
+    const sectionName = assignSectionName(fields[i]!, raws[i]!);
+    const existing = map.get(sectionName);
+    if (existing) {
+      existing.push(fields[i]!);
+    } else {
+      map.set(sectionName, [fields[i]!]);
+    }
+  }
+
+  // Preserve insertion order; "Other" goes last.
+  const sections: FormSection[] = [];
+  let otherSection: FormSection | undefined;
+
+  for (const [name, sectionFields] of map.entries()) {
+    const section = { name, fields: sectionFields };
+    if (name === "Other") {
+      otherSection = section;
+    } else {
+      sections.push(section);
+    }
+  }
+
+  if (otherSection) sections.push(otherSection);
+  return sections;
+}
+

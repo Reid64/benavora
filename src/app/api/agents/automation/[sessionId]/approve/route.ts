@@ -4,6 +4,7 @@ import { requireRole } from "@/lib/auth/role-gate";
 import { AgentError } from "@/lib/agents/base-agent";
 import { approveAndSubmit } from "@/lib/agents/browser-automation";
 import { AutomationSessionError } from "@/lib/automation/session-manager";
+import { logAudit } from "@/lib/audit/logger";
 
 // Human approval + submission endpoint (AGENTS.md Agent 16,
 // BEHAVIORAL_CONTRACTS §18). POST records the approval and runs the submission:
@@ -41,6 +42,17 @@ export async function POST(
       organizationId,
       sessionId: params.sessionId,
       approvedBy: userId,
+    });
+    await logAudit(supabase, {
+      organizationId,
+      userId,
+      action: "submission",
+      entityType: "automation_session",
+      entityId: params.sessionId,
+      details: {
+        confirmationNumber: result.confirmationNumber ?? null,
+        applicationStageUpdated: result.applicationStageUpdated,
+      },
     });
     return NextResponse.json({
       sessionId: result.sessionId,

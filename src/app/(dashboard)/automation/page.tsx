@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bot } from "lucide-react";
+import { Bot, CheckCircle2, Clock, XCircle } from "lucide-react";
 
 import { Button, Card, EmptyState, Select } from "@/components/ui";
+import { MetricCard } from "@/components/dashboard/MetricCard";
 import { SessionList } from "@/components/automation/SessionList";
 import {
   STATUS_FILTERS,
@@ -19,39 +20,32 @@ import type { AutomationStatus } from "@/types/automation";
 /** Re-poll while any session is still mid-run, so status updates appear live. */
 const POLL_INTERVAL_MS = 4000;
 
-const FILTER_OPTIONS = [
+const STATUS_FILTER_OPTIONS = [
   { value: "all", label: "All statuses" },
   ...STATUS_FILTERS.map((value) => ({ value, label: STATUS_LABEL[value] })),
 ];
 
 /**
- * Browser-automation session list (BLUEPRINT §Phase 3). Shows every automation
- * session for the organization with a status filter, opens a session's detail
- * view on click, and offers a re-run for sessions tied to an application.
- *
- * Browser automation is a Phase 3 feature gated by the per-organization
- * `feature.browser_automation` flag (SCHEMA platform_config). When it is off,
- * an owner/admin can enable it here (mirrors the Research page's cron toggle).
- * Reads are RLS-scoped to the organization, so this client never sends an
- * organization id (Contracts §2).
+ * Browser-automation session list (BLUEPRINT §Phase 3). Shows summary stats,
+ * filterable session list, and quick actions per session.
  */
 export default function AutomationPage() {
   const router = useRouter();
   const { profile } = useProfile();
   const canRerun = canEdit(profile?.role);
-  const canToggle = profile?.role === "owner" || profile?.role === "admin";
+  const canApprove = profile?.role === "owner" || profile?.role === "admin";
+  const canToggle = canApprove;
 
   const [sessions, setSessions] = useState<AutomationSessionListItem[]>([]);
-  const [statusFilter, setStatusFilter] = useState<"all" | AutomationStatus>(
-    "all",
-  );
+  const [statusFilter, setStatusFilter] = useState<"all" | AutomationStatus>("all");
+  const [funderFilter, setFunderFilter] = useState("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [featureEnabled, setFeatureEnabled] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [rerunningApplicationId, setRerunningApplicationId] = useState<
-    string | null
-  >(null);
+  const [rerunningApplicationId, setRerunningApplicationId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [enabling, setEnabling] = useState(false);
 
@@ -81,8 +75,6 @@ export default function AutomationPage() {
     void load(true);
   }, [load]);
 
-  // Poll quietly while any session is still running, so the list reflects
-  // status changes without a manual refresh.
   const hasLiveSession = sessions.some(
     (s) => s.status === "pending" || s.status === "in_progress",
   );
@@ -92,13 +84,32 @@ export default function AutomationPage() {
     return () => clearInterval(timer);
   }, [hasLiveSession, load]);
 
-  const filtered = useMemo(
-    () =>
-      statusFilter === "all"
-        ? sessions
-        : sessions.filter((s) => s.status === statusFilter),
-    [sessions, statusFilter],
-  );
+  // Summary stats (across all sessions, ignoring active filters)
+  const stats = useMemo(() => ({
+    total: sessions.length,
+    submitted: sessions.filter((s) => s.status === "submitted").length,
+    awaitingApproval: sessions.filter((s) => s.status === "awaiting_approval").length,
+    failed: sessions.filter((s) => s.status === "failed").length,
+  }), [sessions]);
+
+  // Funder options derived from loaded sessions
+  const funderOptions = useMemo(() => {
+    const names = new Set<string>();
+    sessions.forEach((s) => { if (s.funderName) names.add(s.funderName); });
+    return [
+      { value: "all", label: "All funders" },
+      ...Array.from(names).sort().map((n) => ({ value: n, label: n })),
+    ];
+  }, [sessions]);
+
+  const filtered = useMemo(() => {
+    let result = sessions;
+    if (statusFilter !== "all") result = result.filter((s) => s.status === statusFilter);
+    if (funderFilter !== "all") result = result.filter((s) => s.funderName === funderFilter);
+    if (dateFrom) result = result.filter((s) => s.createdAt >= dateFrom);
+    if (dateTo) result = result.filter((s) => s.createdAt <= `${dateTo}T23:59:59.999Z`);
+    return result;
+  }, [sessions, statusFilter, funderFilter, dateFrom, dateTo]);
 
   function openSession(sessionId: string) {
     router.push(`/automation/${sessionId}`);
@@ -129,6 +140,10 @@ export default function AutomationPage() {
     } finally {
       setRerunningApplicationId(null);
     }
+  }
+
+  function handleApprove(session: AutomationSessionListItem) {
+    router.push(`/automation/${session.id}`);
   }
 
   async function handleEnableFeature() {
@@ -205,18 +220,91 @@ export default function AutomationPage() {
         </Card>
       )}
 
+      {/* Summary stats */}
+      {!loading && sessions.length > 0 && (
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <MetricCard
+            label="Total sessions"
+            value={String(stats.total)}
+            icon={Bot}
+          />
+          <MetricCard
+            label="Submitted"
+            value={String(stats.submitted)}
+            icon={CheckCircle2}
+          />
+          <MetricCard
+            label="Pending approval"
+            value={String(stats.awaitingApproval)}
+            icon={Clock}
+          />
+          <MetricCard
+            label="Failed"
+            value={String(stats.failed)}
+            icon={XCircle}
+          />
+        </div>
+      )}
+
       <Card
         title="Sessions"
         actions={
-          <div className="w-48">
-            <Select
-              aria-label="Filter by status"
-              options={FILTER_OPTIONS}
-              value={statusFilter}
-              onChange={(e) =>
-                setStatusFilter(e.target.value as "all" | AutomationStatus)
-              }
-            />
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Date range */}
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-navy-500 whitespace-nowrap">From</label>
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="rounded-lg border border-navy-300 bg-white px-2 py-1.5 text-sm text-navy-900 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                aria-label="From date"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-navy-500 whitespace-nowrap">To</label>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="rounded-lg border border-navy-300 bg-white px-2 py-1.5 text-sm text-navy-900 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                aria-label="To date"
+              />
+            </div>
+            {/* Funder filter */}
+            <div className="w-40">
+              <Select
+                aria-label="Filter by funder"
+                options={funderOptions}
+                value={funderFilter}
+                onChange={(e) => setFunderFilter(e.target.value)}
+              />
+            </div>
+            {/* Status filter */}
+            <div className="w-44">
+              <Select
+                aria-label="Filter by status"
+                options={STATUS_FILTER_OPTIONS}
+                value={statusFilter}
+                onChange={(e) =>
+                  setStatusFilter(e.target.value as "all" | AutomationStatus)
+                }
+              />
+            </div>
+            {(dateFrom || dateTo || funderFilter !== "all" || statusFilter !== "all") && (
+              <button
+                type="button"
+                onClick={() => {
+                  setDateFrom("");
+                  setDateTo("");
+                  setFunderFilter("all");
+                  setStatusFilter("all");
+                }}
+                className="text-xs text-navy-500 underline hover:text-navy-700"
+              >
+                Clear filters
+              </button>
+            )}
           </div>
         }
         noPadding
@@ -234,9 +322,11 @@ export default function AutomationPage() {
               isLoading={loading}
               onOpen={openSession}
               onRerun={handleRerun}
+              onApprove={handleApprove}
               rerunningApplicationId={rerunningApplicationId}
               canRerun={canRerun && featureEnabled !== false}
-              emptyMessage="No sessions match this status."
+              canApprove={canApprove && featureEnabled !== false}
+              emptyMessage="No sessions match these filters."
             />
           )}
         </div>

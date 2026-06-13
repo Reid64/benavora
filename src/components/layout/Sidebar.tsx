@@ -9,6 +9,7 @@ import { navItemsForRole } from "@/components/layout/nav-items";
 import { Logo } from "@/components/layout/Logo";
 import { rememberedHref } from "@/lib/navigation/section-memory";
 import { useAlerts } from "@/lib/hooks/useAlerts";
+import { createClient } from "@/lib/supabase/client";
 import type { Enums } from "@/types/database";
 
 type SidebarProps = {
@@ -44,12 +45,24 @@ export function Sidebar({ open, onClose, role }: SidebarProps) {
     void refresh();
   }, [pathname, refresh]);
 
+  // Automation sessions awaiting human approval.
+  const [automationPending, setAutomationPending] = useState(0);
+  useEffect(() => {
+    const supabase = createClient();
+    void supabase
+      .from("automation_sessions")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "awaiting_approval")
+      .then(({ count }) => setAutomationPending(count ?? 0));
+  }, [pathname]);
+
   const badgeByHref: Record<string, number> = {
     "/alerts": counts.total,
     "/deadlines": counts.deadline_due,
     "/opportunities": counts.new_opportunity,
     "/applications": counts.application_action,
     "/draft-generator": counts.draft_review,
+    "/automation": automationPending,
   };
 
   // Resolve each item's href to the section's remembered location (restoring

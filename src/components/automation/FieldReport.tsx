@@ -80,7 +80,13 @@ export function FieldReport({
                 Detected type
               </th>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-navy-500">
-                Auto-filled value
+                Mapped value
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-navy-500">
+                Source
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-navy-500">
+                Confidence
               </th>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-navy-500">
                 Status
@@ -91,7 +97,7 @@ export function FieldReport({
             {rows.length === 0 ? (
               <tr>
                 <td
-                  colSpan={4}
+                  colSpan={6}
                   className="px-4 py-12 text-center text-sm text-navy-500"
                 >
                   No form fields were detected for this session.
@@ -100,8 +106,13 @@ export function FieldReport({
             ) : (
               rows.map((row) => {
                 const Icon = STATUS_ICON[row.status];
+                const isLowConfidence =
+                  row.confidence !== undefined && row.confidence < 0.7;
                 return (
-                  <tr key={row.selector}>
+                  <tr
+                    key={row.selector}
+                    className={isLowConfidence ? "bg-amber-50" : undefined}
+                  >
                     <td className="px-4 py-3 align-top text-sm">
                       <span className="font-medium text-navy-900">
                         {row.fieldLabel}
@@ -123,20 +134,11 @@ export function FieldReport({
                     </td>
                     <td className="px-4 py-3 align-top text-sm">
                       {row.status === "filled" ? (
-                        <div>
-                          <span className="text-navy-800">
-                            {row.value || (
-                              <span className="text-navy-400">
-                                (empty value)
-                              </span>
-                            )}
-                          </span>
-                          {row.source && (
-                            <span className="mt-0.5 block text-[11px] text-navy-400">
-                              from {row.source}
-                            </span>
+                        <span className="text-navy-800">
+                          {row.value || (
+                            <span className="text-navy-400">(empty value)</span>
                           )}
-                        </div>
+                        </span>
                       ) : editable ? (
                         <Input
                           value={manualValues[row.selector] ?? ""}
@@ -154,6 +156,28 @@ export function FieldReport({
                         <span className="text-navy-400">
                           Awaiting human input
                         </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 align-top text-sm text-navy-500">
+                      {row.source ? (
+                        <span className="font-mono text-[11px]">{row.source}</span>
+                      ) : (
+                        <span className="text-navy-400">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 align-top text-sm">
+                      {row.confidence !== undefined ? (
+                        <span
+                          className={
+                            row.confidence < 0.7
+                              ? "font-medium text-amber-700"
+                              : "text-navy-700"
+                          }
+                        >
+                          {Math.round(row.confidence * 100)}%
+                        </span>
+                      ) : (
+                        <span className="text-navy-400">—</span>
                       )}
                     </td>
                     <td className="px-4 py-3 align-top">

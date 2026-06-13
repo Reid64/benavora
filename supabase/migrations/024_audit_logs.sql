@@ -1,0 +1,67 @@
+-- Migration 024 — audit_logs table (BLUEPRINT Phase 5 / Behavioral Contracts §24).
+--
+-- Append-only activity trail. Rows are NEVER updated or deleted — RLS enforces
+-- this at the database level. organization_id scopes every query to the tenant.
+
+-- ---------------------------------------------------------------------------
+-- Table
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS public.audit_logs (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid        NOT NULL,
+  user_id         uuid,
+  action          text        NOT NULL,
+  entity_type     text,
+  entity_id       text,
+  details         jsonb,
+  ip_address      text,
+  user_agent      text,
+  created_at      timestamptz NOT NULL DEFAULT now()
+);
+
+-- ---------------------------------------------------------------------------
+-- Indexes
+-- ---------------------------------------------------------------------------
+
+CREATE INDEX IF NOT EXISTS audit_logs_organization_id_idx
+  ON public.audit_logs (organization_id);
+
+CREATE INDEX IF NOT EXISTS audit_logs_user_id_idx
+  ON public.audit_logs (user_id);
+
+CREATE INDEX IF NOT EXISTS audit_logs_action_idx
+  ON public.audit_logs (action);
+
+CREATE INDEX IF NOT EXISTS audit_logs_created_at_idx
+  ON public.audit_logs (created_at DESC);
+
+-- ---------------------------------------------------------------------------
+-- RLS
+-- ---------------------------------------------------------------------------
+
+ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
+
+-- Only owner/admin may read audit logs (Behavioral Contracts §24).
+CREATE POLICY "audit_logs: owner/admin can select"
+  ON public.audit_logs FOR SELECT
+  TO authenticated
+  USING (
+    organization_id = current_org_id()
+    AND EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE profiles.id = auth.uid()
+        AND profiles.organization_id = current_org_id()
+        AND profiles.role IN ('owner', 'admin')
+    )
+  );
+
+-- Any authenticated member of the organization may insert (they log their own
+-- actions). organization_id is derived server-side and validated here.
+CREATE POLICY "audit_logs: members can insert"
+  ON public.audit_logs FOR INSERT
+  TO authenticated
+  WITH CHECK (organization_id = current_org_id());
+
+-- No UPDATE — audit logs are append-only.
+-- No DELETE — audit logs are immutable.

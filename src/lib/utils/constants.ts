@@ -227,6 +227,7 @@ export const SUBSCRIPTION_TIERS = [
   "starter",
   "professional",
   "enterprise",
+  "consultant",
 ] as const;
 
 export type SubscriptionTier = (typeof SUBSCRIPTION_TIERS)[number];
@@ -284,6 +285,14 @@ export const TIER_LIMITS: Record<
     email_sends_per_day: 200,
     api_calls_per_day: 20000,
   },
+  consultant: {
+    agent_runs_per_day: 5000,
+    storage_mb: 50000,
+    users: 200,
+    search_profiles: 500,
+    email_sends_per_day: 500,
+    api_calls_per_day: 100000,
+  },
 };
 
 // Metered usage counters (SCHEMA_REGISTRY usage_metrics.metric_name / Contracts
@@ -332,8 +341,8 @@ export const TIER_PLANS: Record<
   },
   starter: {
     name: "Starter",
-    monthlyPrice: 29,
-    priceEnvVar: "STRIPE_STARTER_PRICE_ID",
+    monthlyPrice: 149,
+    priceEnvVar: "STRIPE_PRICE_STARTER",
     tagline: "For small teams getting going",
     features: [
       "50 agent runs/day",
@@ -346,8 +355,8 @@ export const TIER_PLANS: Record<
   },
   professional: {
     name: "Professional",
-    monthlyPrice: 79,
-    priceEnvVar: "STRIPE_PROFESSIONAL_PRICE_ID",
+    monthlyPrice: 299,
+    priceEnvVar: "STRIPE_PRICE_PROFESSIONAL",
     tagline: "For growing organizations",
     features: [
       "200 agent runs/day",
@@ -361,8 +370,8 @@ export const TIER_PLANS: Record<
   },
   enterprise: {
     name: "Enterprise",
-    monthlyPrice: 199,
-    priceEnvVar: "STRIPE_ENTERPRISE_PRICE_ID",
+    monthlyPrice: 499,
+    priceEnvVar: "STRIPE_PRICE_ENTERPRISE",
     tagline: "For established nonprofits at scale",
     features: [
       "1,000 agent runs/day",
@@ -372,6 +381,22 @@ export const TIER_PLANS: Record<
       "Browser automation",
       "200 outreach emails/day",
       "Priority support",
+    ],
+  },
+  consultant: {
+    name: "Consultant",
+    monthlyPrice: 799,
+    priceEnvVar: "STRIPE_PRICE_CONSULTANT",
+    tagline: "For consultants managing multiple nonprofits",
+    features: [
+      "5,000 agent runs/day",
+      "50 GB storage",
+      "200 users",
+      "500 search profiles",
+      "White-label reports",
+      "500 outreach emails/day",
+      "Dedicated account manager",
+      "API access",
     ],
   },
 };

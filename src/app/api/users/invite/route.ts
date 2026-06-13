@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 
 import { requireRole } from "@/lib/auth/role-gate";
 import { logAudit } from "@/lib/audit/logger";
+import { withUsageCheck } from "@/lib/billing/usage-middleware";
 import { getAuthorizedClient, isConnected } from "@/lib/integrations/google/auth";
 import { GmailSync } from "@/lib/integrations/google/gmail";
 import { USER_ROLES } from "@/lib/utils/constants";
@@ -83,6 +84,10 @@ export async function POST(request: Request) {
       403,
     );
   }
+
+  // Users (team size) quota — check before creating the invitation (Contracts §25).
+  const userLimitBlocked = await withUsageCheck(supabase, organizationId, "users");
+  if (userLimitBlocked) return userLimitBlocked;
 
   // Refuse to invite someone who is already on the team.
   const { data: existingMember } = await supabase

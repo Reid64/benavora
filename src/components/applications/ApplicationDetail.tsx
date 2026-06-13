@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowRight,
+  Bot,
   FileText,
   History,
   MessageSquare,
@@ -36,6 +37,7 @@ import {
   daysInStage,
   type EnrichedApplication,
 } from "@/components/applications/pipeline";
+import { recordAudit } from "@/lib/audit/client";
 import { createClient } from "@/lib/supabase/client";
 import { canEdit, useProfile } from "@/lib/hooks/useProfile";
 import {
@@ -84,6 +86,8 @@ export function ApplicationDetail({ applicationId }: ApplicationDetailProps) {
   const [moving, setMoving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [startingAutomation, setStartingAutomation] = useState(false);
+  const [automationError, setAutomationError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const supabase = createClient();
@@ -184,6 +188,33 @@ export function ApplicationDetail({ applicationId }: ApplicationDetailProps) {
     void load();
   }, [load]);
 
+  async function handleStartAutomation() {
+    setAutomationError(null);
+    setStartingAutomation(true);
+    try {
+      const res = await fetch("/api/agents/automation", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ applicationId }),
+      });
+      const payload = (await res.json().catch(() => ({}))) as {
+        sessionId?: string;
+        error?: string;
+      };
+      if (!res.ok) {
+        setAutomationError(payload.error ?? "Could not start automation.");
+        return;
+      }
+      if (payload.sessionId) {
+        router.push(`/automation/${payload.sessionId}`);
+      }
+    } catch {
+      setAutomationError("Could not reach the automation agent. Please try again.");
+    } finally {
+      setStartingAutomation(false);
+    }
+  }
+
   async function handleDelete() {
     if (!data) return;
     setDeleting(true);
@@ -201,6 +232,7 @@ export function ApplicationDetail({ applicationId }: ApplicationDetailProps) {
       setConfirmDelete(false);
       return;
     }
+    void recordAudit({ action: "delete", entityType: "application", entityId: data.application.id });
     router.push("/applications");
     router.refresh();
   }
@@ -248,7 +280,15 @@ export function ApplicationDetail({ applicationId }: ApplicationDetailProps) {
           </p>
         </div>
         {editable && (
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <Button
+              variant="secondary"
+              onClick={handleStartAutomation}
+              isLoading={startingAutomation}
+            >
+              <Bot className="h-4 w-4" aria-hidden />
+              Start Automation
+            </Button>
             <Button onClick={() => setMoving(true)}>
               <Move className="h-4 w-4" aria-hidden />
               Move application
@@ -260,6 +300,15 @@ export function ApplicationDetail({ applicationId }: ApplicationDetailProps) {
           </div>
         )}
       </div>
+
+      {automationError && (
+        <div
+          role="alert"
+          className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+        >
+          {automationError}
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="border-b border-navy-200">

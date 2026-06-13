@@ -4,14 +4,16 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
+  Camera,
   CircleCheck,
   ExternalLink,
   RotateCw,
+  ShieldAlert,
   TriangleAlert,
   XCircle,
 } from "lucide-react";
 
-import { Badge, Button, Card, LoadingSpinner } from "@/components/ui";
+import { Badge, Button, Card, LoadingSpinner, Textarea } from "@/components/ui";
 import { ApprovalWorkflow } from "@/components/automation/ApprovalWorkflow";
 import type { ApprovalPhase } from "@/components/automation/ApprovalWorkflow";
 import { FieldReport } from "@/components/automation/FieldReport";
@@ -28,6 +30,15 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { canEdit, useProfile } from "@/lib/hooks/useProfile";
 import { formatRelative, humanizeEnum } from "@/lib/utils/formatters";
+import type { ChallengeType } from "@/types/automation";
+
+const CHALLENGE_LABEL: Record<ChallengeType, string> = {
+  captcha: "CAPTCHA",
+  mfa: "Multi-Factor Authentication",
+  account_creation: "Account Creation Required",
+  login_required: "Login Required",
+  none: "",
+};
 
 /** Poll while the session is still mid-run so steps/screenshots stream in. */
 const POLL_INTERVAL_MS = 4000;
@@ -69,7 +80,10 @@ export default function AutomationSessionPage({
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const [rejecting, setRejecting] = useState(false);
+  const [showRejectForm, setShowRejectForm] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
   const [rerunning, setRerunning] = useState(false);
+  const [resuming, setResuming] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const loadNames = useCallback(
@@ -212,7 +226,7 @@ export default function AutomationSessionPage({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           action: "reject",
-          notes: "Rejected by reviewer.",
+          notes: rejectReason.trim() || "Rejected by reviewer.",
         }),
       });
       const payload = (await res.json().catch(() => ({}))) as {
@@ -222,11 +236,46 @@ export default function AutomationSessionPage({
         setActionError(payload.error ?? "Could not cancel the session.");
         return;
       }
+      setShowRejectForm(false);
+      setRejectReason("");
       await load(false);
     } catch {
       setActionError("Could not reach the server. Please try again.");
     } finally {
       setRejecting(false);
+    }
+  }
+
+  async function handleResume() {
+    setActionError(null);
+    if (!session?.application_id) {
+      setActionError(
+        "This session is not linked to an application. Start a new automation run manually.",
+      );
+      return;
+    }
+    setResuming(true);
+    try {
+      const res = await fetch("/api/agents/automation", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ applicationId: session.application_id }),
+      });
+      const payload = (await res.json().catch(() => ({}))) as {
+        sessionId?: string;
+        error?: string;
+      };
+      if (!res.ok) {
+        setActionError(
+          payload.error ?? "Could not start a new automation run.",
+        );
+        return;
+      }
+      if (payload.sessionId) router.push(`/automation/${payload.sessionId}`);
+    } catch {
+      setActionError("Could not reach the automation agent. Please try again.");
+    } finally {
+      setResuming(false);
     }
   }
 
@@ -299,6 +348,20 @@ export default function AutomationSessionPage({
   const isSubmitted = session.status === "submitted";
   const awaiting = isAwaitingApproval(session.status);
 
+  // Detect whether the session is paused for a challenge (CAPTCHA, MFA, etc.)
+  // by looking for a completed detect_challenge step in the step list.
+  const challengeStep = detail?.steps.find(
+    (s) =>
+      s.action === "detect_challenge" &&
+      s.status === "completed" &&
+      (s.output_data as Record<string, unknown> | null)?.is_challenge === true,
+  );
+  const challengeData = challengeStep?.output_data as
+    | { challenge_type: ChallengeType; instructions: string; screenshot: string }
+    | null
+    | undefined;
+  const isPausedForChallenge = awaiting && challengeData != null;
+
   return (
     <div className="space-y-6">
       <BackLink onClick={() => router.push("/automation")} />
@@ -341,8 +404,11 @@ export default function AutomationSessionPage({
               Re-run
             </Button>
           )}
-          {editable && awaiting && (
-            <Button variant="danger" onClick={handleReject} isLoading={rejecting}>
+          {editable && awaiting && !isPausedForChallenge && (
+            <Button
+              variant="danger"
+              onClick={() => setShowRejectForm((v) => !v)}
+            >
               <XCircle className="h-4 w-4" aria-hidden />
               Reject &amp; Cancel
             </Button>
@@ -359,6 +425,43 @@ export default function AutomationSessionPage({
         </div>
       )}
 
+      {showRejectForm && awaiting && (
+        <Card>
+          <div className="space-y-3">
+            <h2 className="text-sm font-semibold text-navy-900">
+              Reject &amp; cancel session
+            </h2>
+            <Textarea
+              label="Reason (optional)"
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="Explain why this session is being rejected…"
+              rows={3}
+            />
+            <div className="flex items-center gap-2">
+              <Button
+                variant="danger"
+                onClick={handleReject}
+                isLoading={rejecting}
+              >
+                <XCircle className="h-4 w-4" aria-hidden />
+                Confirm rejection
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setShowRejectForm(false);
+                  setRejectReason("");
+                }}
+                disabled={rejecting}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </Card>
+      )}
+
       {session.error_message && session.status === "failed" && (
         <div
           role="alert"
@@ -369,14 +472,50 @@ export default function AutomationSessionPage({
         </div>
       )}
 
-      {awaiting && (
-        <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0" aria-hidden />
-          <span>
-            Review all filled fields carefully before approving submission. The
-            automation will not submit until you approve.
-          </span>
+      {isPausedForChallenge && challengeData ? (
+        <div className="rounded-lg border border-red-300 bg-red-50 px-4 py-4 text-sm text-red-800">
+          <div className="flex items-start gap-2">
+            <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-red-600" aria-hidden />
+            <div className="flex-1 space-y-2">
+              <p className="font-semibold">
+                Automation paused &mdash;{" "}
+                {CHALLENGE_LABEL[challengeData.challenge_type] ??
+                  challengeData.challenge_type}
+              </p>
+              <p>{challengeData.instructions}</p>
+              {editable && (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <Button
+                    variant="primary"
+                    onClick={handleResume}
+                    isLoading={resuming}
+                  >
+                    <RotateCw className="h-4 w-4" aria-hidden />
+                    Resume After Manual Completion
+                  </Button>
+                  <Button
+                    variant="danger"
+                    onClick={handleReject}
+                    isLoading={rejecting}
+                  >
+                    <XCircle className="h-4 w-4" aria-hidden />
+                    Cancel Session
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
+      ) : (
+        awaiting && (
+          <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0" aria-hidden />
+            <span>
+              Review all filled fields carefully before approving submission. The
+              automation will not submit until you approve.
+            </span>
+          </div>
+        )
       )}
 
       {/* Confirmation after submission */}
@@ -402,18 +541,20 @@ export default function AutomationSessionPage({
         </Card>
       )}
 
-      {/* Approval workflow (only while awaiting approval / submitting / done) */}
-      {(awaiting || session.status === "approved" || isSubmitted) && (
-        <Card title="Approval">
-          <ApprovalWorkflow
-            phase={phase}
-            canApprove={canApprove}
-            onApprove={handleApprove}
-            submitting={submitting}
-            error={submitError}
-          />
-        </Card>
-      )}
+      {/* Approval workflow — hidden when paused for a challenge; the challenge
+          banner above shows the Resume button instead. */}
+      {!isPausedForChallenge &&
+        (awaiting || session.status === "approved" || isSubmitted) && (
+          <Card title="Approval">
+            <ApprovalWorkflow
+              phase={phase}
+              canApprove={canApprove}
+              onApprove={handleApprove}
+              submitting={submitting}
+              error={submitError}
+            />
+          </Card>
+        )}
 
       {/* Field report */}
       <Card
@@ -443,7 +584,10 @@ export default function AutomationSessionPage({
 
       {/* Step timeline */}
       <Card title="Timeline">
-        <Timeline steps={detail?.steps ?? []} />
+        <Timeline
+          steps={detail?.steps ?? []}
+          screenshots={detail?.screenshots ?? []}
+        />
       </Card>
     </div>
   );
@@ -475,9 +619,17 @@ function BackLink({ onClick }: { onClick: () => void }) {
 /** Vertical step-by-step timeline of the session's automation_steps. */
 function Timeline({
   steps,
+  screenshots,
 }: {
   steps: SessionDetailResponse["steps"];
+  screenshots: SessionDetailResponse["screenshots"];
 }) {
+  const screenshotByStepId = new Map(
+    screenshots
+      .filter((s) => s.step_id !== null)
+      .map((s) => [s.step_id as string, s]),
+  );
+
   if (steps.length === 0) {
     return (
       <p className="text-sm text-navy-500">No steps recorded for this session.</p>
@@ -485,42 +637,51 @@ function Timeline({
   }
   return (
     <ol className="space-y-4">
-      {steps.map((step, i) => (
-        <li key={step.id} className="flex gap-3">
-          <div className="flex flex-col items-center">
-            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-navy-100 text-xs font-semibold text-navy-600">
-              {step.step_number || i + 1}
-            </span>
-            {i < steps.length - 1 && (
-              <span className="mt-1 w-px flex-1 bg-navy-200" aria-hidden />
-            )}
-          </div>
-          <div className="flex-1 pb-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm font-medium text-navy-900">
-                {humanizeEnum(step.action)}
+      {steps.map((step, i) => {
+        const shot = screenshotByStepId.get(step.id);
+        return (
+          <li key={step.id} className="flex gap-3">
+            <div className="flex flex-col items-center">
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-navy-100 text-xs font-semibold text-navy-600">
+                {step.step_number || i + 1}
               </span>
-              <Badge color={STEP_STATUS_COLOR[step.status]}>
-                {STEP_STATUS_LABEL[step.status]}
-              </Badge>
-              {step.duration_ms != null && (
-                <span className="text-xs text-navy-400">
-                  {step.duration_ms} ms
-                </span>
+              {i < steps.length - 1 && (
+                <span className="mt-1 w-px flex-1 bg-navy-200" aria-hidden />
               )}
             </div>
-            {step.description && (
-              <p className="mt-0.5 text-sm text-navy-600">{step.description}</p>
-            )}
-            {step.error_message && (
-              <p className="mt-0.5 text-sm text-red-600">{step.error_message}</p>
-            )}
-            <p className="mt-0.5 text-xs text-navy-400">
-              {formatRelative(step.created_at)}
-            </p>
-          </div>
-        </li>
-      ))}
+            <div className="flex-1 pb-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm font-medium text-navy-900">
+                  {humanizeEnum(step.action)}
+                </span>
+                <Badge color={STEP_STATUS_COLOR[step.status]}>
+                  {STEP_STATUS_LABEL[step.status]}
+                </Badge>
+                {step.duration_ms != null && (
+                  <span className="text-xs text-navy-400">
+                    {step.duration_ms} ms
+                  </span>
+                )}
+                {shot && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-teal-50 px-2 py-0.5 text-[11px] font-medium text-teal-700 ring-1 ring-inset ring-teal-200">
+                    <Camera className="h-3 w-3" aria-hidden />
+                    {shot.description ?? "Screenshot captured"}
+                  </span>
+                )}
+              </div>
+              {step.description && (
+                <p className="mt-0.5 text-sm text-navy-600">{step.description}</p>
+              )}
+              {step.error_message && (
+                <p className="mt-0.5 text-sm text-red-600">{step.error_message}</p>
+              )}
+              <p className="mt-0.5 text-xs text-navy-400">
+                {formatRelative(step.created_at)}
+              </p>
+            </div>
+          </li>
+        );
+      })}
     </ol>
   );
 }

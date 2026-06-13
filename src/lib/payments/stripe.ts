@@ -382,12 +382,20 @@ export async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
     case "invoice.payment_failed": {
       const invoice = event.data.object as Stripe.Invoice;
       const orgId = await recordInvoice(invoice, admin);
-      // Flag the org's subscription past_due so the UI can warn (Contracts §22).
       if (orgId) {
-        await admin
-          .from("subscriptions")
-          .update({ status: "past_due", updated_at: new Date().toISOString() })
-          .eq("organization_id", orgId);
+        await Promise.all([
+          admin
+            .from("subscriptions")
+            .update({ status: "past_due", updated_at: new Date().toISOString() })
+            .eq("organization_id", orgId),
+          // Suspend the org's tier so the app can block access until payment
+          // is recovered. Webhook customer.subscription.updated will restore
+          // the tier once Stripe retries successfully.
+          admin
+            .from("organizations")
+            .update({ subscription_tier: "suspended", updated_at: new Date().toISOString() })
+            .eq("id", orgId),
+        ]);
       }
       break;
     }

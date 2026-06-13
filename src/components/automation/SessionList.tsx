@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, RotateCw } from "lucide-react";
+import { ArrowRight, CheckCircle, RotateCw } from "lucide-react";
 
 import { Badge, Button, Table } from "@/components/ui";
 import type { TableColumn } from "@/components/ui";
@@ -18,10 +18,14 @@ export type SessionListProps = {
   onOpen: (sessionId: string) => void;
   /** Re-run automation for a session's application (creates a new session). */
   onRerun?: (session: AutomationSessionListItem) => void;
+  /** Navigate to approve a session (awaiting_approval only). */
+  onApprove?: (session: AutomationSessionListItem) => void;
   /** id of the session currently being re-run, for the button spinner. */
   rerunningApplicationId?: string | null;
   /** Whether the current role may trigger a re-run (viewer is read-only). */
   canRerun?: boolean;
+  /** Whether the current role may approve sessions (owner/admin only). */
+  canApprove?: boolean;
   emptyMessage?: string;
 };
 
@@ -35,8 +39,10 @@ export function SessionList({
   isLoading = false,
   onOpen,
   onRerun,
+  onApprove,
   rerunningApplicationId = null,
   canRerun = false,
+  canApprove = false,
   emptyMessage = "No automation sessions yet.",
 }: SessionListProps) {
   const columns: TableColumn<AutomationSessionListItem>[] = [
@@ -104,7 +110,34 @@ export function SessionList({
       align: "right",
       render: (row) => (
         <div className="flex items-center justify-end gap-2">
-          {canRerun && onRerun && row.applicationId && (
+          {canApprove && onApprove && row.status === "awaiting_approval" && (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                onApprove(row);
+              }}
+            >
+              <CheckCircle className="h-4 w-4" aria-hidden />
+              Approve
+            </Button>
+          )}
+          {canRerun && onRerun && row.applicationId && row.status === "failed" && (
+            <Button
+              variant="ghost"
+              size="sm"
+              isLoading={rerunningApplicationId === row.applicationId}
+              onClick={(e) => {
+                e.stopPropagation();
+                onRerun(row);
+              }}
+            >
+              <RotateCw className="h-4 w-4" aria-hidden />
+              Retry
+            </Button>
+          )}
+          {canRerun && onRerun && row.applicationId && row.status !== "failed" && (
             <Button
               variant="ghost"
               size="sm"

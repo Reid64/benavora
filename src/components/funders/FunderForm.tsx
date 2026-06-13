@@ -5,6 +5,7 @@ import { useState, type FormEvent } from "react";
 import { AlertTriangle } from "lucide-react";
 
 import { Button, Input, Select, Textarea } from "@/components/ui";
+import { recordAudit } from "@/lib/audit/client";
 import { createClient } from "@/lib/supabase/client";
 import { useProfile } from "@/lib/hooks/useProfile";
 import { FUNDER_CATEGORIES } from "@/lib/utils/constants";
@@ -169,6 +170,7 @@ export function FunderForm({ funder, onSaved, onCancel }: FunderFormProps) {
         setFormError(error?.message ?? "Could not save the funder.");
         return;
       }
+      void recordAudit({ action: "update", entityType: "funder", entityId: data.id as string, details: { name: data.name } });
       if (onSaved) onSaved(data);
       else router.push(`/funders/${data.id}`);
       router.refresh();
@@ -186,6 +188,7 @@ export function FunderForm({ funder, onSaved, onCancel }: FunderFormProps) {
       setFormError(error?.message ?? "Could not create the funder.");
       return;
     }
+    void recordAudit({ action: "create", entityType: "funder", entityId: data.id as string, details: { name: data.name } });
     if (onSaved) onSaved(data);
     else router.push(`/funders/${data.id}`);
     router.refresh();

@@ -4,6 +4,7 @@ import { requireRole } from "@/lib/auth/role-gate";
 import { createClient } from "@/lib/supabase/server";
 import { AgentError } from "@/lib/agents/base-agent";
 import { BrowserAutomationAgent } from "@/lib/agents/browser-automation";
+import { withUsageCheck } from "@/lib/billing/usage-middleware";
 
 // Browser Automation start endpoint (AGENTS.md Agent 16, BEHAVIORAL_CONTRACTS
 // §18). POST { applicationId } authenticates the user, derives organization_id
@@ -85,6 +86,10 @@ export async function POST(request: Request) {
       429,
     );
   }
+
+  // Daily agent_runs quota (usage-limiter tier limits).
+  const runLimitBlocked = await withUsageCheck(supabase, organizationId, "agent_runs");
+  if (runLimitBlocked) return runLimitBlocked;
 
   // Browser automation is a Phase 3 feature, gated per organization (SCHEMA
   // platform_config feature.browser_automation; tier limits restrict it to paid

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   useCallback,
@@ -14,6 +14,7 @@ import {
   RotateCcw,
   ShieldCheck,
   Trash2,
+  TrendingUp,
   UserPlus,
   Users,
   X,
@@ -52,13 +53,13 @@ const ROLE_BADGE: Record<UserRole, BadgeColor> = {
   viewer: "gray",
 };
 
-/** Owners and admins manage org settings; writers/viewers cannot (BLUEPRINT §3.2). */
+/** Owners and admins manage org settings; writers/viewers cannot (BLUEPRINT Â§3.2). */
 function canManageOrg(role: UserRole | undefined): boolean {
   return role === "owner" || role === "admin";
 }
 
 /**
- * Organization settings (BLUEPRINT §3.2 / PRD US-03). Owners and admins can edit
+ * Organization settings (BLUEPRINT Â§3.2 / PRD US-03). Owners and admins can edit
  * the organization name, invite users, and review the team roster. Feature flags
  * (seeded per organization in platform_config) are surfaced read-only so the
  * operator can see which phases are enabled.
@@ -79,7 +80,7 @@ export default function SettingsPage() {
       </div>
 
       {profileLoading ? (
-        <LoadingSpinner center label="Loading settings…" />
+        <LoadingSpinner center label="Loading settingsâ€¦" />
       ) : (
         <>
           <OrganizationSection canManage={manage} />
@@ -88,6 +89,7 @@ export default function SettingsPage() {
             currentUserRole={profile?.role}
             currentUserId={profile?.id ?? null}
           />
+          <UsageDashboardSection />
           <FeatureFlagsSection />
         </>
       )}
@@ -165,7 +167,7 @@ function OrganizationSection({ canManage }: { canManage: boolean }) {
     setName((data as Tables<"organizations">).name ?? "");
     setSaved(true);
 
-    // Audit the settings change (Behavioral Contracts §24).
+    // Audit the settings change (Behavioral Contracts Â§24).
     void recordAudit({
       action: "update",
       entityType: "organization",
@@ -180,7 +182,7 @@ function OrganizationSection({ canManage }: { canManage: boolean }) {
       description="Your organization's display name, used across the app and on applications."
     >
       {loading ? (
-        <LoadingSpinner center label="Loading organization…" />
+        <LoadingSpinner center label="Loading organizationâ€¦" />
       ) : loadError || !org ? (
         <EmptyState
           icon={ShieldCheck}
@@ -245,15 +247,15 @@ type PendingInvite = {
   created_at: string;
 };
 
-/** Roles an editor may ASSIGN when changing a member's role (BLUEPRINT §3.2). */
+/** Roles an editor may ASSIGN when changing a member's role (BLUEPRINT Â§3.2). */
 function assignableEditRoles(editorRole: UserRole | undefined): UserRole[] {
-  // Owners can set any role; admins are limited to writer/viewer (task §4).
+  // Owners can set any role; admins are limited to writer/viewer (task Â§4).
   if (editorRole === "owner") return [...USER_ROLES];
   if (editorRole === "admin") return ["writer", "viewer"];
   return [];
 }
 
-/** Roles an inviter may grant. Admins cannot mint owners (Contracts §23). */
+/** Roles an inviter may grant. Admins cannot mint owners (Contracts Â§23). */
 function assignableInviteRoles(inviterRole: UserRole | undefined): UserRole[] {
   if (inviterRole === "owner") return [...USER_ROLES];
   if (inviterRole === "admin") return ["admin", "writer", "viewer"];
@@ -378,7 +380,7 @@ function TeamSection({
         )}
 
         {loading ? (
-          <LoadingSpinner center label="Loading team…" />
+          <LoadingSpinner center label="Loading teamâ€¦" />
         ) : loadError ? (
           <div
             role="alert"
@@ -411,8 +413,8 @@ function TeamSection({
                   <p className="mt-0.5 text-sm text-navy-500">
                     {member.email}
                     {member.last_login_at
-                      ? ` · last active ${formatRelative(member.last_login_at)}`
-                      : " · invite pending"}
+                      ? ` Â· last active ${formatRelative(member.last_login_at)}`
+                      : " Â· invite pending"}
                   </p>
                 </div>
 
@@ -544,7 +546,7 @@ function PendingInvites({
   async function cancel(invite: PendingInvite) {
     setError(null);
     setBusyId(invite.id);
-    // Cancelled invitations can no longer be accepted (Contracts §23).
+    // Cancelled invitations can no longer be accepted (Contracts Â§23).
     const supabase = createClient();
     const { error: cancelError } = await supabase
       .from("user_invitations")
@@ -598,7 +600,7 @@ function PendingInvites({
                   {expired && <Badge color="yellow">Expired</Badge>}
                 </div>
                 <p className="mt-0.5 text-sm text-navy-500">
-                  Invited {formatRelative(invite.created_at)} · expires{" "}
+                  Invited {formatRelative(invite.created_at)} Â· expires{" "}
                   {formatDate(invite.expires_at)}
                 </p>
               </div>
@@ -777,11 +779,183 @@ function InviteModal({
 }
 
 // ---------------------------------------------------------------------------
+// Usage dashboard (Behavioral Contracts Â§25 / BLUEPRINT Phase 5)
+// ---------------------------------------------------------------------------
+
+interface UsageResource {
+  resource: string;
+  current: number;
+  limit: number;
+  allowed: boolean;
+  period: string;
+}
+
+interface UsageSummary {
+  tier: string;
+  resources: Record<string, UsageResource>;
+}
+
+const RESOURCE_DISPLAY: Record<string, { label: string; unit?: string }> = {
+  opportunities: { label: "Opportunities" },
+  applications:  { label: "Applications" },
+  ai_drafts:     { label: "AI Drafts" },
+  agent_runs:    { label: "Agent Runs" },
+  storage_mb:    { label: "Storage", unit: "MB" },
+  users:         { label: "Team Members" },
+};
+
+const RESOURCE_ORDER = [
+  "opportunities",
+  "applications",
+  "ai_drafts",
+  "agent_runs",
+  "storage_mb",
+  "users",
+] as const;
+
+function usagePercent(current: number, limit: number): number {
+  if (limit === -1) return 0;
+  return Math.min(100, Math.round((current / limit) * 100));
+}
+
+function barColor(pct: number): string {
+  if (pct >= 90) return "bg-red-500";
+  if (pct >= 75) return "bg-yellow-400";
+  return "bg-teal-500";
+}
+
+function formatValue(current: number, limit: number, unit?: string): string {
+  const u = unit ? ` ${unit}` : "";
+  const cur = unit === "MB" ? current.toFixed(1) : String(Math.floor(current));
+  if (limit === -1) return `${cur}${u} / Unlimited`;
+  const lim = unit === "MB" ? String(limit) : String(limit);
+  return `${cur}${u} / ${lim}${u}`;
+}
+
+function UsageDashboardSection() {
+  const [summary, setSummary] = useState<UsageSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const res = await fetch("/api/billing/usage");
+        if (!active) return;
+        if (!res.ok) {
+          setLoadError("Could not load usage data.");
+          setLoading(false);
+          return;
+        }
+        const data = (await res.json()) as UsageSummary;
+        if (!active) return;
+        setSummary(data);
+      } catch {
+        if (!active) return;
+        setLoadError("Could not load usage data.");
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  return (
+    <Card
+      title="Plan Usage"
+      description="Your organization's current usage against tier limits. Resets monthly for drafts, applications, and opportunities; daily for agent runs."
+    >
+      {loading ? (
+        <LoadingSpinner center label="Loading usageâ€¦" />
+      ) : loadError ? (
+        <div
+          role="alert"
+          className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+        >
+          {loadError}
+        </div>
+      ) : summary ? (
+        <div className="space-y-5">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="h-4 w-4 text-navy-500" aria-hidden />
+            <span className="text-sm font-medium text-navy-700 capitalize">
+              {summary.tier} plan
+            </span>
+          </div>
+
+          <ul className="space-y-4">
+            {RESOURCE_ORDER.map((key) => {
+              const resource = summary.resources[key];
+              if (!resource) return null;
+              const meta = RESOURCE_DISPLAY[key]!;
+              const pct = usagePercent(resource.current, resource.limit);
+              const unlimited = resource.limit === -1;
+
+              return (
+                <li key={key}>
+                  <div className="mb-1.5 flex items-center justify-between gap-2">
+                    <span className="text-sm font-medium text-navy-800">
+                      {meta.label}
+                      <span className="ml-1.5 text-xs font-normal text-navy-400">
+                        ({resource.period})
+                      </span>
+                    </span>
+                    <span
+                      className={`text-xs font-medium ${
+                        !unlimited && pct >= 90
+                          ? "text-red-600"
+                          : "text-navy-500"
+                      }`}
+                    >
+                      {formatValue(resource.current, resource.limit, meta.unit)}
+                    </span>
+                  </div>
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-navy-100">
+                    {unlimited ? (
+                      <div className="h-full w-full rounded-full bg-navy-100" />
+                    ) : (
+                      <div
+                        className={`h-full rounded-full transition-all ${barColor(pct)}`}
+                        style={{ width: `${pct}%` }}
+                        role="progressbar"
+                        aria-valuenow={pct}
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        aria-label={`${meta.label} usage: ${pct}%`}
+                      />
+                    )}
+                  </div>
+                  {!unlimited && !resource.allowed && (
+                    <p className="mt-1 text-xs text-red-600">
+                      Limit reached.{" "}
+                      <a
+                        href="/billing"
+                        className="underline underline-offset-2 hover:text-red-700"
+                      >
+                        Upgrade your plan
+                      </a>{" "}
+                      to continue.
+                    </p>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ) : null}
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Feature flags (read-only)
 // ---------------------------------------------------------------------------
 
 // Human labels for the feature.* flags seeded per organization (SCHEMA_REGISTRY
-// platform_config). Display-only in the MVP — the underlying phases ship later.
+// platform_config). Display-only in the MVP â€” the underlying phases ship later.
 const FEATURE_FLAG_LABELS: Record<string, { label: string; phase: string }> = {
   "feature.research_agents": {
     label: "Automated research agents",
@@ -843,7 +1017,7 @@ function FeatureFlagsSection() {
       description="Capabilities enabled for your organization. These roll out by phase and are managed by Benavora."
     >
       {loading ? (
-        <LoadingSpinner center label="Loading feature flags…" />
+        <LoadingSpinner center label="Loading feature flagsâ€¦" />
       ) : loadError ? (
         <div
           role="alert"
@@ -883,3 +1057,4 @@ function FeatureFlagsSection() {
     </Card>
   );
 }
+

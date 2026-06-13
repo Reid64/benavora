@@ -106,6 +106,8 @@ export interface FieldReportRow {
   value: string | null;
   /** Provenance of the auto-filled value (e.g. "organization.name"). */
   source: string | null;
+  /** 0–1 confidence from the field-mapper; undefined when not stored. Below 0.7 = low confidence. */
+  confidence?: number;
   options?: string[];
 }
 
@@ -115,8 +117,22 @@ export interface FieldReportRow {
  * field is required, otherwise "needs_input".
  */
 export function buildFieldReport(session: AutomationSession): FieldReportRow[] {
-  const mapped = parseMappings(session.mapped_fields).map<FieldReportRow>(
-    (m) => ({
+  const rawMapped = Array.isArray(session.mapped_fields)
+    ? (session.mapped_fields as unknown[])
+    : [];
+
+  const mapped = parseMappings(session.mapped_fields).map<FieldReportRow>((m) => {
+    const rawItem = rawMapped.find((r): r is Record<string, unknown> => {
+      if (!r || typeof r !== "object") return false;
+      const obj = r as Record<string, unknown>;
+      const field = obj.field as Record<string, unknown> | undefined;
+      return field?.selector === m.field.selector;
+    });
+    const confidence =
+      rawItem && typeof rawItem.confidence === "number"
+        ? rawItem.confidence
+        : undefined;
+    return {
       selector: m.field.selector,
       fieldName: m.field.fieldName,
       fieldLabel: m.field.fieldLabel || m.field.fieldName || m.field.selector,
@@ -125,9 +141,10 @@ export function buildFieldReport(session: AutomationSession): FieldReportRow[] {
       status: "filled",
       value: m.value,
       source: m.source,
+      confidence,
       options: m.field.options,
-    }),
-  );
+    };
+  });
 
   const unmapped = parseFields(session.unmapped_fields).map<FieldReportRow>(
     (f) => ({

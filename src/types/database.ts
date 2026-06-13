@@ -53,6 +53,8 @@ export interface Database {
           stripe_customer_id: string | null;
           subscription_tier: string | null;
           onboarding_completed: boolean;
+          onboarding_completed_at: string | null;
+          onboarding_step: number;
           created_at: string;
           updated_at: string;
         };
@@ -84,6 +86,8 @@ export interface Database {
           stripe_customer_id?: string | null;
           subscription_tier?: string | null;
           onboarding_completed?: boolean;
+          onboarding_completed_at?: string | null;
+          onboarding_step?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -115,6 +119,8 @@ export interface Database {
           stripe_customer_id?: string | null;
           subscription_tier?: string | null;
           onboarding_completed?: boolean;
+          onboarding_completed_at?: string | null;
+          onboarding_step?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -1687,6 +1693,183 @@ export interface Database {
         };
         Relationships: [];
       };
+      // --- Phase 3: Browser Automation (migration 002 + 020) -----------------
+      automation_sessions: {
+        Row: {
+          id: string;
+          organization_id: string;
+          application_id: string | null;
+          opportunity_id: string | null;
+          funder_id: string | null;
+          status: Database["public"]["Enums"]["automation_status"];
+          session_type: Database["public"]["Enums"]["session_type"] | null;
+          target_url: string | null;
+          mapped_fields: Json;
+          unmapped_fields: Json;
+          steps: Json;
+          screenshots: string[];
+          confirmation_number: string | null;
+          error_message: string | null;
+          notes: string | null;
+          started_by: string | null;
+          approved_by: string | null;
+          approval_required_at: string | null;
+          started_at: string | null;
+          completed_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          application_id?: string | null;
+          opportunity_id?: string | null;
+          funder_id?: string | null;
+          status?: Database["public"]["Enums"]["automation_status"];
+          session_type?: Database["public"]["Enums"]["session_type"] | null;
+          target_url?: string | null;
+          mapped_fields?: Json;
+          unmapped_fields?: Json;
+          steps?: Json;
+          screenshots?: string[];
+          confirmation_number?: string | null;
+          error_message?: string | null;
+          notes?: string | null;
+          started_by?: string | null;
+          approved_by?: string | null;
+          approval_required_at?: string | null;
+          started_at?: string | null;
+          completed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          application_id?: string | null;
+          opportunity_id?: string | null;
+          funder_id?: string | null;
+          status?: Database["public"]["Enums"]["automation_status"];
+          session_type?: Database["public"]["Enums"]["session_type"] | null;
+          target_url?: string | null;
+          mapped_fields?: Json;
+          unmapped_fields?: Json;
+          steps?: Json;
+          screenshots?: string[];
+          confirmation_number?: string | null;
+          error_message?: string | null;
+          notes?: string | null;
+          started_by?: string | null;
+          approved_by?: string | null;
+          approval_required_at?: string | null;
+          started_at?: string | null;
+          completed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      automation_steps: {
+        Row: {
+          id: string;
+          session_id: string;
+          step_number: number;
+          action: string;
+          description: string | null;
+          status: string;
+          input_data: Json | null;
+          output_data: Json | null;
+          error_message: string | null;
+          duration_ms: number | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          session_id: string;
+          step_number: number;
+          action: string;
+          description?: string | null;
+          status?: string;
+          input_data?: Json | null;
+          output_data?: Json | null;
+          error_message?: string | null;
+          duration_ms?: number | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          session_id?: string;
+          step_number?: number;
+          action?: string;
+          description?: string | null;
+          status?: string;
+          input_data?: Json | null;
+          output_data?: Json | null;
+          error_message?: string | null;
+          duration_ms?: number | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      // Migration 024 — append-only audit trail (Behavioral Contracts §24).
+      audit_logs: {
+        Row: {
+          id: string;
+          organization_id: string;
+          user_id: string | null;
+          action: string;
+          entity_type: string | null;
+          entity_id: string | null;
+          details: Json | null;
+          ip_address: string | null;
+          user_agent: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          user_id?: string | null;
+          action: string;
+          entity_type?: string | null;
+          entity_id?: string | null;
+          details?: Json | null;
+          ip_address?: string | null;
+          user_agent?: string | null;
+          created_at?: string;
+        };
+        Update: Record<string, never>;
+        Relationships: [];
+      };
+      automation_screenshots: {
+        Row: {
+          id: string;
+          session_id: string;
+          step_id: string | null;
+          storage_path: string;
+          description: string | null;
+          page_url: string | null;
+          captured_at: string;
+        };
+        Insert: {
+          id?: string;
+          session_id: string;
+          step_id?: string | null;
+          storage_path: string;
+          description?: string | null;
+          page_url?: string | null;
+          captured_at?: string;
+        };
+        Update: {
+          id?: string;
+          session_id?: string;
+          step_id?: string | null;
+          storage_path?: string;
+          description?: string | null;
+          page_url?: string | null;
+          captured_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -1821,7 +2004,7 @@ export interface Database {
         | "submitted"
         | "failed"
         | "cancelled";
-      subscription_tier: "free" | "starter" | "professional" | "enterprise";
+      subscription_tier: "free" | "starter" | "professional" | "enterprise" | "consultant";
       audit_action:
         | "create"
         | "update"
@@ -1845,6 +2028,8 @@ export interface Database {
       alert_severity: "info" | "warning" | "critical";
       // Cross-provider validation verdict (migration 014).
       validation_verdict: "verified" | "discrepancy" | "unverifiable";
+      // Migration 020 — automation session classification.
+      session_type: "form_fill" | "document_upload" | "portal_login";
     };
     CompositeTypes: Record<string, never>;
   };

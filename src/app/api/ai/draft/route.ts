@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 
 import { requireRole } from "@/lib/auth/role-gate";
-
+import { logAudit } from "@/lib/audit/logger";
 import { createClient } from "@/lib/supabase/server";
 import { enforceLimit } from "@/lib/billing/tier-enforcer";
 import { trackUsage } from "@/lib/billing/usage-tracker";
+import { withUsageCheck } from "@/lib/billing/usage-middleware";
+import { incrementUsage } from "@/lib/billing/usage-limiter";
 import {
   callClaude,
   DEFAULT_MAX_TOKENS,
@@ -223,6 +225,10 @@ export async function POST(request: Request) {
   const overLimit = await enforceLimit(supabase, organizationId, "api_calls");
   if (overLimit) return overLimit;
 
+  // Monthly AI-drafts quota (usage-limiter tier limits).
+  const draftLimitBlocked = await withUsageCheck(supabase, organizationId, "ai_drafts");
+  if (draftLimitBlocked) return draftLimitBlocked;
+
   // Opportunity (RLS-scoped to the organization).
   const { data: opportunity, error: oppError } = await supabase
     .from("opportunities")
@@ -411,6 +417,18 @@ export async function POST(request: Request) {
 
     // Meter the AI request against the org's daily api_calls quota (§25).
     await trackUsage(supabase, organizationId, "api_calls", 1);
+    // Meter the monthly ai_drafts quota (usage-limiter).
+    await incrementUsage(supabase, organizationId, "ai_drafts");
+
+    // Audit the AI draft generation (Behavioral Contracts §24).
+    await logAudit(supabase, {
+      organizationId,
+      userId: profile.id,
+      action: "agent_run",
+      entityType: "opportunity",
+      entityId: opportunityId,
+      details: { templateType: template, confidenceScore, sourcesCount: sources.length },
+    });
 
     // Auto-save the generated draft as a version immediately (BLUEPRINT §4.8).
     // organization_id is derived from the session profile, never the body; the

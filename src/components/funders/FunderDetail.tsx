@@ -8,6 +8,7 @@ import {
   ExternalLink,
   FileText,
   Inbox,
+  KeyRound,
   MessageSquare,
   Pencil,
   Trash2,
@@ -19,12 +20,14 @@ import {
   Button,
   Card,
   EmptyState,
+  Input,
   LoadingSpinner,
   Modal,
   Textarea,
 } from "@/components/ui";
 import type { BadgeColor } from "@/components/ui";
 import { FunderForm } from "@/components/funders/FunderForm";
+import { recordAudit } from "@/lib/audit/client";
 import { createClient } from "@/lib/supabase/client";
 import { canDeleteFunder, canEdit, useProfile } from "@/lib/hooks/useProfile";
 import {
@@ -211,6 +214,7 @@ export function FunderDetail({ funderId }: FunderDetailProps) {
       setConfirmDelete(false);
       return;
     }
+    void recordAudit({ action: "delete", entityType: "funder", entityId: data.funder.id, details: { name: data.funder.name } });
     router.push("/funders");
     router.refresh();
   }
@@ -338,7 +342,9 @@ export function FunderDetail({ funderId }: FunderDetailProps) {
       </div>
 
       {/* Tab panels */}
-      {tab === "overview" && <OverviewTab funder={funder} />}
+      {tab === "overview" && (
+        <OverviewTab funder={funder} canEdit={editable} />
+      )}
       {tab === "contacts" && <ContactsTab contacts={data.contacts} />}
       {tab === "opportunities" && (
         <OpportunitiesTab opportunities={data.opportunities} />
@@ -438,7 +444,13 @@ function DetailRow({
   );
 }
 
-function OverviewTab({ funder }: { funder: Tables<"funders"> }) {
+function OverviewTab({
+  funder,
+  canEdit,
+}: {
+  funder: Tables<"funders">;
+  canEdit?: boolean;
+}) {
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
       <Card title="Details">
@@ -527,6 +539,10 @@ function OverviewTab({ funder }: { funder: Tables<"funders"> }) {
           </p>
         </Card>
       )}
+
+      <div className="lg:col-span-2">
+        <PortalLoginSection funderId={funder.id} canEdit={canEdit ?? false} />
+      </div>
     </div>
   );
 }
@@ -933,5 +949,216 @@ function NotesTab({
         </ul>
       )}
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Portal Login section
+// ---------------------------------------------------------------------------
+
+type CredentialState =
+  | { status: "loading" }
+  | { status: "none" }
+  | { status: "saved"; username: string }
+  | { status: "error"; message: string };
+
+function PortalLoginSection({
+  funderId,
+  canEdit,
+}: {
+  funderId: string;
+  canEdit: boolean;
+}) {
+  const [credState, setCredState] = useState<CredentialState>({
+    status: "loading",
+  });
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const loadCredentials = useCallback(async () => {
+    setCredState({ status: "loading" });
+    try {
+      const res = await fetch(
+        `/api/automation/portal-credentials?funderId=${encodeURIComponent(funderId)}`,
+      );
+      if (!res.ok) {
+        setCredState({ status: "error", message: "Failed to load credentials." });
+        return;
+      }
+      const json = (await res.json()) as {
+        hasCredentials: boolean;
+        username: string | null;
+      };
+      setCredState(
+        json.hasCredentials
+          ? { status: "saved", username: json.username ?? "" }
+          : { status: "none" },
+      );
+    } catch {
+      setCredState({ status: "error", message: "Network error." });
+    }
+  }, [funderId]);
+
+  useEffect(() => {
+    void loadCredentials();
+  }, [loadCredentials]);
+
+  async function handleSave(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setFormError(null);
+    if (!username.trim() || !password) {
+      setFormError("Username and password are required.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await fetch("/api/automation/portal-credentials", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ funderId, username: username.trim(), password }),
+      });
+      if (!res.ok) {
+        const json = (await res.json()) as { error?: string };
+        setFormError(json.error ?? "Failed to save credentials.");
+        return;
+      }
+      setPassword("");
+      setEditing(false);
+      await loadCredentials();
+    } catch {
+      setFormError("Network error. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    setDeleting(true);
+    try {
+      await fetch(
+        `/api/automation/portal-credentials?funderId=${encodeURIComponent(funderId)}`,
+        { method: "DELETE" },
+      );
+      setEditing(false);
+      setUsername("");
+      setPassword("");
+      await loadCredentials();
+    } catch {
+      // ignore
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  if (credState.status === "loading") {
+    return (
+      <Card title="Portal login">
+        <LoadingSpinner label="Loading…" />
+      </Card>
+    );
+  }
+
+  const showForm =
+    canEdit && (credState.status === "none" || editing);
+
+  return (
+    <Card title="Portal login">
+      {credState.status === "saved" && !editing && (
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2 text-sm text-navy-700">
+            <KeyRound className="h-4 w-4 text-teal-600" aria-hidden />
+            <span>
+              Credentials saved for{" "}
+              <span className="font-medium">{credState.username}</span>
+            </span>
+          </div>
+          {canEdit && (
+            <div className="flex items-center gap-2">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setUsername(credState.username);
+                  setPassword("");
+                  setFormError(null);
+                  setEditing(true);
+                }}
+              >
+                Update
+              </Button>
+              <Button
+                variant="danger"
+                onClick={handleDelete}
+                isLoading={deleting}
+                disabled={deleting}
+              >
+                Remove
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {credState.status === "error" && (
+        <p className="text-sm text-red-600">{credState.message}</p>
+      )}
+
+      {showForm && (
+        <form onSubmit={handleSave} className="space-y-4" noValidate>
+          {formError && (
+            <div
+              role="alert"
+              className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+            >
+              {formError}
+            </div>
+          )}
+          <p className="text-sm text-navy-500">
+            Credentials are encrypted and used only for automated portal login.
+          </p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Input
+              label="Username / email"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="portal@example.com"
+              autoComplete="username"
+            />
+            <Input
+              label="Password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              autoComplete="current-password"
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            {editing && (
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  setEditing(false);
+                  setFormError(null);
+                }}
+              >
+                Cancel
+              </Button>
+            )}
+            <Button type="submit" isLoading={saving} disabled={saving}>
+              Save credentials
+            </Button>
+          </div>
+        </form>
+      )}
+
+      {!canEdit && credState.status === "none" && (
+        <p className="text-sm text-navy-400">No portal credentials saved.</p>
+      )}
+    </Card>
   );
 }

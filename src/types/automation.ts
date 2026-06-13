@@ -43,7 +43,26 @@ export type AutomationStepAction =
   | "fill_field"
   | "upload_file"
   | "screenshot"
-  | "submit";
+  | "submit"
+  | "detect_challenge";
+
+/** The kind of challenge the detector found on the page. */
+export type ChallengeType =
+  | "captcha"
+  | "mfa"
+  | "account_creation"
+  | "login_required"
+  | "none";
+
+/** Result returned by ChallengeDetector.detect() and stored in step output_data. */
+export interface ChallengeResult {
+  detected: boolean;
+  type: ChallengeType;
+  /** Storage path of the challenge screenshot within the org bucket. */
+  screenshot: string;
+  /** Human-readable operator instructions. */
+  instructions: string;
+}
 
 // --- database row shapes -----------------------------------------------------
 
@@ -191,5 +210,112 @@ export interface AutofillContext {
   };
   application?: {
     requested_amount?: number | null;
+  };
+}
+
+// --- FormSchema (detectFormSchema / field-mapper) ----------------------------
+
+/** Richer input-type vocabulary used by detectFormSchema and field-mapper. */
+export type FormSchemaFieldType =
+  | "text"
+  | "email"
+  | "phone"
+  | "number"
+  | "date"
+  | "file"
+  | "select"
+  | "textarea"
+  | "checkbox"
+  | "radio";
+
+/** A single form control in the structured schema returned by detectFormSchema. */
+export interface FormSchemaField {
+  /** Stable identifier — HTML id, then name, then label slug. */
+  id: string;
+  /** Human-readable label resolved from <label>, aria-label, or placeholder. */
+  label: string;
+  type: FormSchemaFieldType;
+  required: boolean;
+  /** Visible option labels for select / radio. */
+  options?: string[];
+  placeholder?: string;
+  /** HTML pattern attribute, if present. */
+  pattern?: string;
+}
+
+/** A logical group of fields (e.g. "Contact Info", "Budget"). */
+export interface FormSection {
+  name: string;
+  fields: FormSchemaField[];
+}
+
+/** Full structured representation of a giving portal's form. */
+export interface FormSchema {
+  url: string;
+  title: string;
+  sections: FormSection[];
+  isMultiStep: boolean;
+  /** Number of visible steps (1 when not multi-step). */
+  stepCount: number;
+  /** Visible step labels, e.g. ["Organization", "Project", "Budget"]. */
+  stepIndicators: string[];
+}
+
+// --- FieldMapping (field-mapper) ---------------------------------------------
+
+/** One field→value pairing produced by the AI mapper. */
+export interface FieldMappingEntry {
+  field_id: string;
+  value: string;
+  /** Dotted path of the data source, e.g. "organization.name". */
+  source: string;
+  /** 0–1 confidence score. Below 0.7 → requiresReview. */
+  confidence: number;
+}
+
+/** Result of mapFormFields — split into auto-fillable and review-required. */
+export interface FieldMapping {
+  /** Mappings with confidence ≥ 0.7; safe to auto-fill. */
+  mappings: FieldMappingEntry[];
+  /** Mappings with confidence < 0.7; need human review before filling. */
+  requiresReview: FieldMappingEntry[];
+}
+
+/** Full organizational context passed to field-mapper. Superset of AutofillContext. */
+export interface FieldMapperContext {
+  organization: {
+    name?: string | null;
+    dba?: string | null;
+    ein?: string | null;
+    tax_status?: string | null;
+    mission_statement?: string | null;
+    vision_statement?: string | null;
+    founding_date?: string | null;
+    service_area?: string | null;
+    target_population?: string | null;
+    annual_budget?: number | null;
+    total_staff?: number | null;
+    address_line1?: string | null;
+    address_line2?: string | null;
+    city?: string | null;
+    state?: string | null;
+    zip?: string | null;
+    phone?: string | null;
+    email?: string | null;
+    website?: string | null;
+  };
+  profile: {
+    full_name?: string | null;
+    email?: string | null;
+  };
+  application?: {
+    requested_amount?: number | null;
+    notes?: string | null;
+  };
+  opportunity?: {
+    name?: string | null;
+    description?: string | null;
+    amount_min?: number | null;
+    amount_max?: number | null;
   };
 }

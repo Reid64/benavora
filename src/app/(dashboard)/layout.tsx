@@ -1,3 +1,4 @@
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { DashboardShell } from "@/components/layout/DashboardShell";
@@ -47,7 +48,10 @@ export default async function DashboardLayout({
 
   // Only redirect when we positively know onboarding is incomplete. If the
   // profile/org can't be read, fall through — never trap the user in a loop.
-  if (profile && onboardingCompleted === false) {
+  // Skip the redirect when already on the onboarding route (x-pathname is
+  // injected by middleware) to prevent an infinite redirect cycle.
+  const pathname = headers().get("x-pathname") ?? "";
+  if (profile && onboardingCompleted === false && !pathname.startsWith("/onboarding")) {
     redirect("/onboarding");
   }
 
