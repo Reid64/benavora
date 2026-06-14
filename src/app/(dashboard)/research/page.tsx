@@ -24,12 +24,23 @@ import type { Enums, Tables } from "@/types/database";
 
 type FunderCategory = Enums<"funder_category">;
 
-/** Research agent types surfaced in the activity feed (AGENTS.md Agents 12-15). */
+/**
+ * Research agent types surfaced in the activity feed. Includes both the four
+ * base families (AGENTS.md Agents 12-15) and the Tier 6 API/scraping agents
+ * (AGENTS.md Agents 15-20) so their runs appear in the live status panel.
+ */
 const RESEARCH_AGENT_TYPES: AgentType[] = [
+  // Base research families
   "corporate_research",
   "foundation_research",
   "government_research",
   "local_sponsorship",
+  // Tier 6 data-source agents (BEHAVIORAL_CONTRACTS §17-21)
+  "grants_gov_research",
+  "sam_gov_research",
+  "propublica_mining",
+  "state_portal",
+  "custom_api_research",
 ];
 
 /** How often to re-poll agent_runs while a run is live (Contracts §17). */
