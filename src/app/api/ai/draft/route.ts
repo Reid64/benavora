@@ -377,8 +377,17 @@ export async function POST(request: Request) {
       maxTokens,
     });
 
+    let draftText = response.text;
+    if (response.stopReason === "max_tokens") {
+      console.warn(
+        `[DRAFT] Output truncated at ${maxTokens} tokens for org=${organizationId} opp=${opportunityId}`,
+      );
+      draftText +=
+        "\n\n[Draft truncated — regenerate with a more specific template type for complete output]";
+    }
+
     const confidenceScore = computeConfidence(
-      response.text,
+      draftText,
       knowledgeEntries.length,
       provenNarratives.length,
     );
@@ -442,7 +451,7 @@ export async function POST(request: Request) {
           organization_id: organizationId,
           opportunity_id: opportunityId,
           template_type: template,
-          content: response.text,
+          content: draftText,
           confidence_score: confidenceScore,
           knowledge_sources: sources as unknown as Json,
           humanization_status: "not_humanized",
@@ -467,7 +476,7 @@ export async function POST(request: Request) {
     }
 
     const result: DraftResult & { belowThreshold: boolean } = {
-      content: response.text,
+      content: draftText,
       confidenceScore,
       sources,
       savedVersion,

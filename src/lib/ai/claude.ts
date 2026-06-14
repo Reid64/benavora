@@ -13,7 +13,7 @@ import Anthropic from "@anthropic-ai/sdk";
 export const DEFAULT_MODEL = "claude-sonnet-4-6";
 
 /** Default output ceiling. Mirrors the `ai.max_tokens` platform_config flag. */
-export const DEFAULT_MAX_TOKENS = 4096;
+export const DEFAULT_MAX_TOKENS = 8192;
 
 let client: Anthropic | null = null;
 
