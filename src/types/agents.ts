@@ -59,7 +59,11 @@ export type AgentType =
   // Tier 6 Phase A - SAM.gov Research Agent (AGENTS.md Agent 16, BEHAVIORAL_CONTRACTS §18).
   // Polls the SAM.gov federal opportunities API for grant-type records matching search profile keywords.
   // Requires client-supplied SAM.gov API key stored in integration_keys.
-  | "sam_gov_research";
+  | "sam_gov_research"
+  // Tier 6 Phase A - ProPublica 990 Mining Agent (AGENTS.md Agent 17, BEHAVIORAL_CONTRACTS §19).
+  // Queries ProPublica Nonprofit Explorer API for IRS 990/990-PF filing data.
+  // No API key required; extracts revenue, expenses, assets, grants paid per fiscal year.
+  | "propublica_mining";
 
 export type AgentRunStatus = "pending" | "running" | "completed" | "failed";
 
