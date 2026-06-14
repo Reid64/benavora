@@ -73,10 +73,18 @@ type DocSlot = {
   storagePath: string;
 };
 
-type KBState = {
-  mission: string;
-  need_statement: string;
-  impact: string;
+type NarrativeDraft = {
+  category: string;
+  title: string;
+  content: string;
+};
+
+type NarrativesState = {
+  drafts: NarrativeDraft[];
+  keywords: string[];
+  generating: boolean;
+  generated: boolean;
+  genError: string | null;
 };
 
 type SearchProfileState = {
@@ -94,7 +102,7 @@ type OnboardingData = {
   completed: boolean;
   org: Omit<OrgState, "subscription_tier"> & { subscription_tier: string };
   programs: { name: string; description: string; budget: number | null; beneficiaries_served: number | null }[];
-  knowledge_base: { category: string; content: string }[];
+  knowledge_base: { category: string; title: string; content: string; keywords: string[] | null }[];
   board_members: { name: string; title: string | null; bio: string | null; email: string | null }[];
   search_profiles: { name: string; keywords: string[] }[];
   documents: { id: string; file_name: string; category: string }[];
@@ -398,68 +406,114 @@ function Step2({
 }
 
 // ---------------------------------------------------------------------------
-// Step 3 - Knowledge Base Quick Start
+// Step 3 - Knowledge Base AI Draft
 // ---------------------------------------------------------------------------
 
-function Step3({ kb, onChange }: { kb: KBState; onChange: (kb: KBState) => void }) {
+function Step3({
+  state,
+  onUpdateDraft,
+  onRemoveKeyword,
+  onRetry,
+}: {
+  state: NarrativesState;
+  onUpdateDraft: (index: number, content: string) => void;
+  onRemoveKeyword: (kw: string) => void;
+  onRetry: () => void;
+}) {
+  if (state.generating) {
+    return (
+      <div className="space-y-5">
+        <div>
+          <h2 className="text-xl font-semibold text-navy-900">Knowledge Base — AI Draft</h2>
+          <p className="mt-1 text-sm text-navy-500">
+            Generating 7 grant-ready narrative drafts from your organization profile…
+          </p>
+        </div>
+        <div className="flex flex-col items-center justify-center py-12 gap-4">
+          <LoadingSpinner />
+          <p className="text-sm text-navy-500">This takes about 10–15 seconds…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!state.generated && state.genError) {
+    return (
+      <div className="space-y-5">
+        <div>
+          <h2 className="text-xl font-semibold text-navy-900">Knowledge Base — AI Draft</h2>
+          <p className="mt-1 text-sm text-navy-500">
+            We&apos;ll generate grant-ready narrative drafts from your profile data.
+          </p>
+        </div>
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+          <p className="text-sm text-amber-800">{state.genError}</p>
+          <p className="text-xs text-amber-600 mt-1">
+            You can retry, or skip this step and add narratives manually from the Knowledge Base page.
+          </p>
+        </div>
+        <Button type="button" variant="secondary" onClick={onRetry}>
+          Retry Generation
+        </Button>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-semibold text-navy-900">Knowledge Base Quick Start</h2>
+        <h2 className="text-xl font-semibold text-navy-900">Knowledge Base — AI Draft</h2>
         <p className="mt-1 text-sm text-navy-500">
-          These become the seed entries in your Knowledge Base - the library the AI draws
-          from when drafting grant narratives. The more detail you provide now, the stronger
-          your first drafts will be.
+          Review and edit these AI-generated narratives. They will be saved to your Knowledge
+          Base and used to draft future grant applications. Replace any{" "}
+          <span className="font-mono text-xs bg-navy-100 px-1 py-0.5 rounded">[PLACEHOLDER]</span>{" "}
+          markers with your real data before submitting applications.
         </p>
       </div>
 
       <div className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-navy-700 mb-1">
-            Mission Statement
-          </label>
-          <p className="text-xs text-navy-400 mb-2">
-            Why does your organization exist? What problem are you solving?
-          </p>
-          <Textarea
-            value={kb.mission}
-            onChange={(e) => onChange({ ...kb, mission: e.target.value })}
-            placeholder="Our mission is to..."
-            rows={4}
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-navy-700 mb-1">
-            Need Statement
-          </label>
-          <p className="text-xs text-navy-400 mb-2">
-            What evidence demonstrates the problem you are solving? Include data and
-            statistics where possible.
-          </p>
-          <Textarea
-            value={kb.need_statement}
-            onChange={(e) => onChange({ ...kb, need_statement: e.target.value })}
-            placeholder="According to [source], X% of..."
-            rows={4}
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-navy-700 mb-1">
-            Impact Statement
-          </label>
-          <p className="text-xs text-navy-400 mb-2">
-            What outcomes have you achieved? How do you measure success?
-          </p>
-          <Textarea
-            value={kb.impact}
-            onChange={(e) => onChange({ ...kb, impact: e.target.value })}
-            placeholder="In the past year, we served X individuals and achieved..."
-            rows={4}
-          />
-        </div>
+        {state.drafts.map((draft, idx) => (
+          <div key={draft.category} className="rounded-lg border border-navy-200 p-4">
+            <label className="block text-sm font-semibold text-navy-800 mb-2">
+              {draft.title}
+            </label>
+            <Textarea
+              value={draft.content}
+              onChange={(e) => onUpdateDraft(idx, e.target.value)}
+              rows={5}
+              className="text-sm"
+            />
+          </div>
+        ))}
       </div>
+
+      {state.keywords.length > 0 && (
+        <div>
+          <p className="text-sm font-semibold text-navy-800 mb-1">Suggested Keywords</p>
+          <p className="text-xs text-navy-400 mb-2">
+            These tags will be attached to your narratives to improve AI grant matching. Click × to
+            remove any that don&apos;t apply.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {state.keywords.map((kw) => (
+              <span
+                key={kw}
+                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-teal-50 text-teal-700 border border-teal-200"
+              >
+                {kw}
+                <button
+                  type="button"
+                  onClick={() => onRemoveKeyword(kw)}
+                  className="hover:text-teal-900 ml-0.5"
+                  aria-label={`Remove keyword ${kw}`}
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -935,7 +989,13 @@ export default function OnboardingPage() {
   ]);
 
   // Step 3
-  const [kb, setKb] = useState<KBState>({ mission: "", need_statement: "", impact: "" });
+  const [narrativesState, setNarrativesState] = useState<NarrativesState>({
+    drafts: [],
+    keywords: [],
+    generating: false,
+    generated: false,
+    genError: null,
+  });
 
   // Step 4
   const [members, setMembers] = useState<BoardMemberRow[]>([
@@ -1000,11 +1060,34 @@ export default function OnboardingPage() {
         );
       }
 
-      // Pre-fill KB
-      const mission = data.knowledge_base.find((e) => e.category === "mission")?.content ?? "";
-      const need = data.knowledge_base.find((e) => e.category === "need_statement")?.content ?? "";
-      const impact = data.knowledge_base.find((e) => e.category === "impact")?.content ?? "";
-      setKb({ mission, need_statement: need, impact });
+      // Pre-fill KB narratives from existing entries (marks as generated to skip re-generation)
+      if (data.knowledge_base.length > 0) {
+        const TITLE_MAP: Record<string, string> = {
+          mission: "Mission Statement",
+          need_statement: "Need Statement",
+          program_description: "Program Description",
+          capacity: "Organizational Capacity",
+          sustainability: "Sustainability Plan",
+          partnerships: "Partnerships & Collaborations",
+          organizational_history: "Organizational History",
+          impact: "Impact Statement",
+        };
+        const prefillDrafts: NarrativeDraft[] = data.knowledge_base
+          .filter((e) => e.content.trim())
+          .map((e) => ({
+            category: e.category,
+            title: e.title || (TITLE_MAP[e.category] ?? e.category),
+            content: e.content,
+          }));
+        const prefillKeywords = data.knowledge_base[0]?.keywords ?? [];
+        setNarrativesState({
+          drafts: prefillDrafts,
+          keywords: prefillKeywords ?? [],
+          generating: false,
+          generated: true,
+          genError: null,
+        });
+      }
 
       // Pre-fill board members if any
       if (data.board_members.length > 0) {
@@ -1048,6 +1131,45 @@ export default function OnboardingPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const generateNarratives = useCallback(async () => {
+    setNarrativesState((s) => ({ ...s, generating: true, genError: null }));
+    try {
+      const res = await fetch("/api/onboarding/generate-narratives", { method: "POST" });
+      const json = (await res.json()) as {
+        narratives?: NarrativeDraft[];
+        keywords?: string[];
+        error?: string;
+      };
+      if (Array.isArray(json.narratives) && Array.isArray(json.keywords)) {
+        setNarrativesState((s) => ({
+          ...s,
+          drafts: json.narratives as NarrativeDraft[],
+          keywords: json.keywords as string[],
+          generating: false,
+          generated: true,
+        }));
+      } else {
+        setNarrativesState((s) => ({
+          ...s,
+          generating: false,
+          genError: json.error ?? "Generation failed. You can skip and add narratives manually.",
+        }));
+      }
+    } catch {
+      setNarrativesState((s) => ({
+        ...s,
+        generating: false,
+        genError: "Could not reach the AI service. You can skip and add narratives manually.",
+      }));
+    }
+  }, []);
+
+  useEffect(() => {
+    if (currentStep === 3 && !narrativesState.generated && !narrativesState.generating) {
+      void generateNarratives();
+    }
+  }, [currentStep, narrativesState.generated, narrativesState.generating, generateNarratives]);
 
   // Upload a single file to Supabase Storage and return its path
   async function uploadFile(slot: DocSlot): Promise<string | null> {
@@ -1113,17 +1235,19 @@ export default function OnboardingPage() {
           break;
         }
 
-        case 3:
-          if (!kb.mission.trim() && !kb.need_statement.trim() && !kb.impact.trim()) {
-            throw new Error("Enter at least one Knowledge Base entry.");
-          }
+        case 3: {
+          const validDrafts = narrativesState.drafts.filter((d) => d.content.trim());
           await saveStep(3, {
-            mission: kb.mission,
-            need_statement: kb.need_statement,
-            impact: kb.impact,
+            narratives: validDrafts.map((d) => ({
+              category: d.category,
+              title: d.title,
+              content: d.content,
+            })),
+            keywords: narrativesState.keywords,
           });
           advanceStep = true;
           break;
+        }
 
         case 4: {
           const validMembers = members.filter((m) => m.name.trim());
@@ -1276,7 +1400,26 @@ export default function OnboardingPage() {
           {currentStep === 2 && (
             <Step2 programs={programs} onChange={setPrograms} />
           )}
-          {currentStep === 3 && <Step3 kb={kb} onChange={setKb} />}
+          {currentStep === 3 && (
+            <Step3
+              state={narrativesState}
+              onUpdateDraft={(idx, content) =>
+                setNarrativesState((s) => ({
+                  ...s,
+                  drafts: s.drafts.map((d, i) => (i === idx ? { ...d, content } : d)),
+                }))
+              }
+              onRemoveKeyword={(kw) =>
+                setNarrativesState((s) => ({
+                  ...s,
+                  keywords: s.keywords.filter((k) => k !== kw),
+                }))
+              }
+              onRetry={() =>
+                setNarrativesState((s) => ({ ...s, generated: false, genError: null }))
+              }
+            />
+          )}
           {currentStep === 4 && (
             <Step4 members={members} onChange={setMembers} />
           )}

@@ -42,10 +42,19 @@ export async function GET() {
       .limit(20),
     supabase
       .from("knowledge_base")
-      .select("id, category, title, content")
+      .select("id, category, title, content, keywords")
       .eq("organization_id", orgId)
-      .in("category", ["mission", "need_statement", "impact"])
-      .limit(10),
+      .in("category", [
+        "mission",
+        "need_statement",
+        "impact",
+        "program_description",
+        "capacity",
+        "sustainability",
+        "partnerships",
+        "organizational_history",
+      ])
+      .limit(15),
     supabase
       .from("board_members")
       .select("id, name, title, bio, email")
@@ -172,11 +181,29 @@ export async function POST(request: NextRequest) {
 
     case 3: {
       type KBCat = Enums<"knowledge_base_category">;
-      const entries: { category: KBCat; title: string; content: string }[] = [
-        { category: "mission", title: "Mission Statement", content: String(data.mission ?? "") },
-        { category: "need_statement", title: "Need Statement", content: String(data.need_statement ?? "") },
-        { category: "impact", title: "Impact Statement", content: String(data.impact ?? "") },
-      ].filter((e): e is { category: KBCat; title: string; content: string } => e.content.trim().length > 0);
+      const keywords = (data.keywords ?? []) as string[];
+
+      let entries: { category: KBCat; title: string; content: string }[];
+
+      if (Array.isArray(data.narratives)) {
+        // AI-generated format: { narratives: [{category, title, content}], keywords: [] }
+        entries = (
+          data.narratives as Array<{ category: string; title: string; content: string }>
+        )
+          .filter((n) => n.category && n.title && n.content?.trim())
+          .map((n) => ({
+            category: n.category as KBCat,
+            title: n.title,
+            content: n.content,
+          }));
+      } else {
+        // Legacy manual format: { mission, need_statement, impact }
+        entries = [
+          { category: "mission" as KBCat, title: "Mission Statement", content: String(data.mission ?? "") },
+          { category: "need_statement" as KBCat, title: "Need Statement", content: String(data.need_statement ?? "") },
+          { category: "impact" as KBCat, title: "Impact Statement", content: String(data.impact ?? "") },
+        ].filter((e): e is { category: KBCat; title: string; content: string } => e.content.trim().length > 0);
+      }
 
       if (entries.length > 0) {
         const rows = entries.map((e) => ({
@@ -184,6 +211,7 @@ export async function POST(request: NextRequest) {
           category: e.category,
           title: e.title,
           content: e.content,
+          keywords: keywords.length > 0 ? keywords : null,
           created_by: userId,
         }));
         const { error } = await supabase.from("knowledge_base").insert(rows);
