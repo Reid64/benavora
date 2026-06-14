@@ -27,6 +27,11 @@ import type { Enums } from "@/types/database";
 
 type UserRole = Enums<"user_role">;
 
+export type NavChild = {
+  label: string;
+  href: string;
+};
+
 export type NavItem = {
   label: string;
   href: string;
@@ -35,6 +40,8 @@ export type NavItem = {
   roles?: UserRole[];
   /** When true, only shown after onboarding is complete. */
   requiresOnboarding?: boolean;
+  /** Sub-links shown indented below the parent when parent is active. */
+  children?: NavChild[];
 };
 
 export type NavOptions = {
@@ -65,7 +72,12 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Search Profiles", href: "/search-profiles", icon: Filter },
   { label: "Research", href: "/research", icon: Radar },
   { label: "Onboarding", href: "/onboarding", icon: ClipboardList, requiresOnboarding: true },
-  { label: "Settings", href: "/settings", icon: Settings },
+  {
+    label: "Settings",
+    href: "/settings",
+    icon: Settings,
+    children: [{ label: "Integrations", href: "/settings/integrations" }],
+  },
   // Billing is owner-only (BLUEPRINT §3.2 / updated §3.3 navigation).
   { label: "Billing", href: "/billing", icon: CreditCard, roles: ["owner"] },
   // Admin - Audit Log is owner/admin only (BLUEPRINT updated §3.3 navigation).

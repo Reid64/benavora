@@ -1870,6 +1870,43 @@ export interface Database {
         };
         Relationships: [];
       };
+      // Migration 033 — encrypted API key storage per SCHEMA_REGISTRY v2.0 §2.47.
+      integration_keys: {
+        Row: {
+          id: string;
+          organization_id: string;
+          service_name: Database["public"]["Enums"]["integration_service"];
+          encrypted_key: string;
+          is_active: boolean;
+          last_validated_at: string | null;
+          validation_status: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          service_name: Database["public"]["Enums"]["integration_service"];
+          encrypted_key: string;
+          is_active?: boolean;
+          last_validated_at?: string | null;
+          validation_status?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          service_name?: Database["public"]["Enums"]["integration_service"];
+          encrypted_key?: string;
+          is_active?: boolean;
+          last_validated_at?: string | null;
+          validation_status?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -1986,7 +2023,26 @@ export interface Database {
         | "consensus_validation"
         | "funder_intel"
         // Migration 018 - Email Parser Agent.
-        | "email_parser";
+        | "email_parser"
+        // Migration 033 - Tier 6 research/intelligence agents.
+        | "grants_gov_research"
+        | "sam_gov_research"
+        | "propublica_mining"
+        | "state_portal"
+        | "custom_api_research"
+        | "custom_scrape_research"
+        | "giving_history_extractor"
+        | "success_probability"
+        | "funder_relationship"
+        | "competitor_intelligence"
+        | "deadline_prediction"
+        | "application_cloning"
+        | "semantic_matching"
+        | "follow_up_generator"
+        | "automation_worker"
+        | "csv_import"
+        | "notification_dispatcher"
+        | "financial_reconciliation";
       agent_run_status: "pending" | "running" | "completed" | "failed";
       campaign_status: "draft" | "active" | "paused" | "completed";
       campaign_step_status:
@@ -2030,6 +2086,15 @@ export interface Database {
       validation_verdict: "verified" | "discrepancy" | "unverifiable";
       // Migration 020 - automation session classification.
       session_type: "form_fill" | "document_upload" | "portal_login";
+      // Migration 033 - integration service identifier for integration_keys table.
+      integration_service:
+        | "sam_gov"
+        | "two_captcha"
+        | "candid"
+        | "gmail"
+        | "gcal"
+        | "resend"
+        | "custom_api";
     };
     CompositeTypes: Record<string, never>;
   };
