@@ -76,7 +76,11 @@ export type AgentType =
   // Predicts future deadlines from historical opportunity deadline patterns.
   // Identifies annual, quarterly, or irregular cycles; auto-creates opportunity
   // rows for high-confidence predictions.
-  | "deadline_prediction";
+  | "deadline_prediction"
+  // Application Cloning Agent (AGENTS.md Agent 26, BEHAVIORAL_CONTRACTS §26).
+  // Clones an existing application to a new target opportunity, adapts the draft
+  // via Claude, copies linked documents, and creates a pipeline_history entry.
+  | "application_cloning";
 
 export type AgentRunStatus = "pending" | "running" | "completed" | "failed";
 

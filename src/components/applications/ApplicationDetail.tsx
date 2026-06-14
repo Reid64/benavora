@@ -11,6 +11,7 @@ import Link from "next/link";
 import {
   ArrowRight,
   Bot,
+  Copy,
   FileText,
   History,
   MessageSquare,
@@ -88,6 +89,13 @@ export function ApplicationDetail({ applicationId }: ApplicationDetailProps) {
   const [deleting, setDeleting] = useState(false);
   const [startingAutomation, setStartingAutomation] = useState(false);
   const [automationError, setAutomationError] = useState<string | null>(null);
+  const [cloneOpen, setCloneOpen] = useState(false);
+  const [cloning, setCloning] = useState(false);
+  const [cloneError, setCloneError] = useState<string | null>(null);
+  const [targetOpportunityId, setTargetOpportunityId] = useState("");
+  const [opportunities, setOpportunities] = useState<
+    { id: string; name: string }[]
+  >([]);
 
   const load = useCallback(async () => {
     const supabase = createClient();
@@ -245,6 +253,57 @@ export function ApplicationDetail({ applicationId }: ApplicationDetailProps) {
     router.refresh();
   }
 
+  async function openCloneModal() {
+    setCloneError(null);
+    setTargetOpportunityId("");
+    setCloneOpen(true);
+    if (opportunities.length === 0) {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("opportunities")
+        .select("id, name")
+        .order("name", { ascending: true });
+      setOpportunities(
+        (data ?? []).map((o) => ({
+          id: o.id as string,
+          name: o.name as string,
+        })),
+      );
+    }
+  }
+
+  async function handleClone() {
+    if (!targetOpportunityId || !data) return;
+    setCloneError(null);
+    setCloning(true);
+    try {
+      const res = await fetch("/api/agents/application-cloner", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          sourceApplicationId: applicationId,
+          targetOpportunityId,
+        }),
+      });
+      const payload = (await res.json().catch(() => ({}))) as {
+        newApplicationId?: string;
+        error?: string;
+      };
+      if (!res.ok) {
+        setCloneError(payload.error ?? "Could not clone application.");
+        return;
+      }
+      setCloneOpen(false);
+      if (payload.newApplicationId) {
+        router.push(`/applications/${payload.newApplicationId}`);
+      }
+    } catch {
+      setCloneError("Could not reach the server. Please try again.");
+    } finally {
+      setCloning(false);
+    }
+  }
+
   if (loading) {
     return <LoadingSpinner center label="Loading application..." />;
   }
@@ -296,6 +355,10 @@ export function ApplicationDetail({ applicationId }: ApplicationDetailProps) {
             >
               <Bot className="h-4 w-4" aria-hidden />
               Start Automation
+            </Button>
+            <Button variant="secondary" onClick={openCloneModal}>
+              <Copy className="h-4 w-4" aria-hidden />
+              Clone Application
             </Button>
             <Button onClick={() => setMoving(true)}>
               <Move className="h-4 w-4" aria-hidden />
@@ -411,6 +474,67 @@ export function ApplicationDetail({ applicationId }: ApplicationDetailProps) {
           Deleting this application removes its stage history and notes. The
           opportunity is preserved.
         </p>
+      </Modal>
+
+      {/* Clone application */}
+      <Modal
+        isOpen={cloneOpen}
+        onClose={() => {
+          if (!cloning) setCloneOpen(false);
+        }}
+        title="Clone application"
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              onClick={() => setCloneOpen(false)}
+              disabled={cloning}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleClone}
+              isLoading={cloning}
+              disabled={!targetOpportunityId}
+            >
+              Clone
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-navy-600">
+            Select a target opportunity. The draft and linked documents from
+            this application will be copied and the draft will be adapted for
+            the new funder.
+          </p>
+          <div>
+            <label
+              htmlFor="clone-opportunity"
+              className="block text-sm font-medium text-navy-700"
+            >
+              Target opportunity
+            </label>
+            <select
+              id="clone-opportunity"
+              value={targetOpportunityId}
+              onChange={(e) => setTargetOpportunityId(e.target.value)}
+              className="mt-1 block w-full rounded-lg border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+            >
+              <option value="">Select an opportunity…</option>
+              {opportunities.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          {cloneError && (
+            <p role="alert" className="text-sm text-red-600">
+              {cloneError}
+            </p>
+          )}
+        </div>
       </Modal>
     </div>
   );
