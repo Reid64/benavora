@@ -104,9 +104,17 @@ export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarPro
         aria-label="Primary navigation"
       >
         {/* Brand + mobile close */}
-        <div className="flex h-16 items-center justify-between border-b border-white/10 px-5">
+        <div className="flex items-center justify-between border-b border-white/10 px-5 py-3">
           <Link href="/dashboard" aria-label="Benavora - go to dashboard">
-            <Logo size={32} />
+            {/* Desktop: full wordmark + tagline */}
+            <div className="hidden flex-col lg:flex">
+              <Logo />
+              <span className="mt-1 text-[10px] leading-tight tracking-wide text-navy-400">
+                Fund More. Do More. Change More.
+              </span>
+            </div>
+            {/* Mobile drawer: icon only, no tagline */}
+            <Logo size={32} showWordmark={false} className="lg:hidden" />
           </Link>
           <button
             type="button"
@@ -164,12 +172,7 @@ export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarPro
         </nav>
 
         <div className="border-t border-white/10 px-5 py-4">
-          <p className="text-sm font-semibold leading-tight text-white">
-            Fund More.
-            <br />
-            Do More. Change More.
-          </p>
-          <p className="mt-1.5 text-xs text-navy-400">
+          <p className="text-xs text-navy-400">
             Nonprofit funding automation
           </p>
         </div>
