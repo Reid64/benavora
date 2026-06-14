@@ -72,7 +72,11 @@ export type AgentType =
   // Queries ProPublica Nonprofit Explorer for IRS 990-PF filing data by EIN.
   // Extracts per-year grants paid, revenue, assets; calculates giving trend.
   // No API key required; stores results in funder_intelligence.recent_grants.
-  | "giving_history_extractor";
+  | "giving_history_extractor"
+  // Predicts future deadlines from historical opportunity deadline patterns.
+  // Identifies annual, quarterly, or irregular cycles; auto-creates opportunity
+  // rows for high-confidence predictions.
+  | "deadline_prediction";
 
 export type AgentRunStatus = "pending" | "running" | "completed" | "failed";
 
