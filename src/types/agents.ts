@@ -35,7 +35,10 @@ export type AgentType =
   | "funder_intel"
   // Migration 018 - Email Parser Agent. Classifies inbound emails, extracts
   // funder/opportunity references, and logs to email_activity.
-  | "email_parser";
+  | "email_parser"
+  // Migration 033/034 - Custom API Research Agent (AGENTS.md Agent 19).
+  // Polls client-configured REST API connections for grant opportunities.
+  | "custom_api_research";
 
 export type AgentRunStatus = "pending" | "running" | "completed" | "failed";
 

@@ -1,0 +1,82 @@
+-- ============================================================================
+-- Migration 034 — custom_api_connections + scraping_targets
+--
+-- SCHEMA_REGISTRY v2.0 Table 48: client-configured REST API integrations for
+-- opportunity discovery (AGENTS.md Agent 19, BEHAVIORAL_CONTRACTS §20).
+-- Table 49: client-assigned URLs for scheduled AI-powered web scraping
+-- (AGENTS.md Agent 20, BEHAVIORAL_CONTRACTS §21).
+--
+-- New enums scrape_schedule and api_auth_type are created idempotently.
+-- Both tables use the RLS master pattern: org scoped via profiles.
+-- ============================================================================
+
+DO $$ BEGIN
+  CREATE TYPE scrape_schedule AS ENUM ('hourly', 'daily', 'weekly', 'monthly');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE TYPE api_auth_type AS ENUM ('none', 'api_key', 'bearer', 'oauth');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+-- Table 48: custom_api_connections — client-configured REST API integrations.
+-- auth_config holds connection-specific credentials (API keys, bearer tokens).
+-- Secrets in auth_config are masked in the UI after initial save
+-- (BEHAVIORAL_CONTRACTS §20: NEVER expose keys in UI after save).
+CREATE TABLE IF NOT EXISTS custom_api_connections (
+  id                uuid            PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id   uuid            NOT NULL REFERENCES organizations(id),
+  name              text            NOT NULL,
+  base_url          text            NOT NULL,
+  auth_type         api_auth_type   NOT NULL DEFAULT 'none',
+  auth_config       jsonb           DEFAULT '{}',
+  field_mapping     jsonb           NOT NULL DEFAULT '{}',
+  poll_schedule     scrape_schedule NOT NULL DEFAULT 'daily',
+  is_active         boolean         DEFAULT true,
+  last_polled_at    timestamptz,
+  last_success_at   timestamptz,
+  error_count       integer         DEFAULT 0,
+  created_at        timestamptz     DEFAULT now(),
+  updated_at        timestamptz     DEFAULT now()
+);
+
+ALTER TABLE custom_api_connections ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "custom_api_org" ON custom_api_connections
+  USING (
+    organization_id = (
+      SELECT organization_id FROM profiles WHERE id = auth.uid()
+    )
+  );
+
+CREATE INDEX IF NOT EXISTS idx_custom_api_org
+  ON custom_api_connections(organization_id);
+
+-- Table 49: scraping_targets — client-assigned URLs for scheduled AI-powered
+-- web scraping per SCHEMA_REGISTRY v2.0.
+CREATE TABLE IF NOT EXISTS scraping_targets (
+  id                uuid            PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id   uuid            NOT NULL REFERENCES organizations(id),
+  url               text            NOT NULL,
+  description       text,
+  scrape_schedule   scrape_schedule NOT NULL DEFAULT 'weekly',
+  last_scraped_at   timestamptz,
+  last_success_at   timestamptz,
+  failure_count     integer         DEFAULT 0,
+  is_active         boolean         DEFAULT true,
+  created_at        timestamptz     DEFAULT now(),
+  updated_at        timestamptz     DEFAULT now()
+);
+
+ALTER TABLE scraping_targets ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "scraping_targets_org" ON scraping_targets
+  USING (
+    organization_id = (
+      SELECT organization_id FROM profiles WHERE id = auth.uid()
+    )
+  );
+
+CREATE INDEX IF NOT EXISTS idx_scrape_targets_org
+  ON scraping_targets(organization_id);
