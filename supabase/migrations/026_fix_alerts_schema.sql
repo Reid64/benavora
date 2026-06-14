@@ -1,0 +1,118 @@
+-- ============================================================================
+-- BENAVORA — Migration 026: Fix /api/alerts returning 500 — missing schema
+-- Apply AFTER 025_fix_alerts.sql
+--
+-- GET /api/alerts fails with "failed to assemble alerts" because one of the
+-- four assemble queries returns a database error. The culprit is:
+--
+--   SELECT id, name, match_percentage, created_at FROM opportunities ...
+--
+-- If migration 012 (match_percentage) was never applied to this database,
+-- PostgREST returns PGRST204 ("column does not exist"), making
+-- opportunitiesRes.error truthy and the route returns 500.
+--
+-- Additionally, the route upserts into and reads from the `alerts` table.
+-- If migration 013 was never applied, the upsert step would also fail.
+--
+-- This migration is a definitive, idempotent guard that ensures all schema
+-- elements required by /api/alerts exist regardless of which earlier
+-- migrations were applied. Every statement uses IF NOT EXISTS or an
+-- EXCEPTION guard so running it twice is harmless.
+--
+-- No governance document or existing RLS policy is touched.
+-- ============================================================================
+
+-- ----------------------------------------------------------------------------
+-- 1. opportunities.match_percentage — queried by the assemble step
+--    (SELECT id, name, match_percentage, created_at FROM opportunities)
+-- ----------------------------------------------------------------------------
+
+ALTER TABLE opportunities
+  ADD COLUMN IF NOT EXISTS match_percentage integer
+    CHECK (match_percentage IS NULL OR (match_percentage >= 0 AND match_percentage <= 100));
+
+ALTER TABLE opportunities
+  ADD COLUMN IF NOT EXISTS is_high_priority boolean NOT NULL DEFAULT false;
+
+ALTER TABLE opportunities
+  ADD COLUMN IF NOT EXISTS match_mismatch_reasons text[];
+
+CREATE INDEX IF NOT EXISTS idx_opportunities_match_percentage
+  ON opportunities (match_percentage DESC NULLS LAST);
+
+-- ----------------------------------------------------------------------------
+-- 2. alert_type / alert_severity enums — required by the alerts table
+-- ----------------------------------------------------------------------------
+
+DO $$ BEGIN
+  CREATE TYPE alert_type AS ENUM (
+    'deadline_due',
+    'new_opportunity',
+    'application_action',
+    'draft_review',
+    'system'
+  );
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+
+DO $$ BEGIN
+  CREATE TYPE alert_severity AS ENUM ('info', 'warning', 'critical');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+
+-- ----------------------------------------------------------------------------
+-- 3. alerts table — upserted and read back by the route
+--
+-- One row per actionable item, org-scoped. Idempotent regeneration is driven
+-- by dedup_key (unique per organization). read/dismiss/snooze state is
+-- preserved across regeneration via the upsert in GET /api/alerts.
+-- ----------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS alerts (
+  id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id  uuid NOT NULL REFERENCES organizations(id),
+  type             alert_type NOT NULL,
+  severity         alert_severity NOT NULL DEFAULT 'info',
+  message          text NOT NULL,
+  link             text,
+  is_read          boolean NOT NULL DEFAULT false,
+  read_at          timestamptz,
+  is_dismissed     boolean NOT NULL DEFAULT false,
+  dismissed_at     timestamptz,
+  snoozed_until    timestamptz,
+  opportunity_id   uuid REFERENCES opportunities(id) ON DELETE CASCADE,
+  application_id   uuid REFERENCES applications(id) ON DELETE CASCADE,
+  deadline_id      uuid REFERENCES deadlines(id) ON DELETE CASCADE,
+  dedup_key        text NOT NULL,
+  created_by       uuid REFERENCES profiles(id),
+  created_at       timestamptz DEFAULT now(),
+  updated_at       timestamptz DEFAULT now()
+);
+
+-- Unique index drives the upsert onConflict: "organization_id,dedup_key"
+CREATE UNIQUE INDEX IF NOT EXISTS uq_alerts_org_dedup
+  ON alerts (organization_id, dedup_key);
+
+CREATE INDEX IF NOT EXISTS idx_alerts_org
+  ON alerts (organization_id);
+
+CREATE INDEX IF NOT EXISTS idx_alerts_type
+  ON alerts (type);
+
+-- Drives the active-list query: org + not dismissed + snooze check
+CREATE INDEX IF NOT EXISTS idx_alerts_active
+  ON alerts (organization_id, is_dismissed, snoozed_until);
+
+-- ----------------------------------------------------------------------------
+-- 4. RLS — organization isolation (master pattern, Migration 001)
+--    USING also governs INSERT so a row can only be written with the
+--    caller's own organization_id.
+-- ----------------------------------------------------------------------------
+
+ALTER TABLE alerts ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "alerts_org_isolation" ON alerts;
+CREATE POLICY "alerts_org_isolation" ON alerts
+  USING (organization_id = public.current_org_id());
+
+-- ============================================================================
+-- END Migration 026
+-- ============================================================================
