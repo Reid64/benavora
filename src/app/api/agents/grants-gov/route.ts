@@ -1,12 +1,16 @@
-import { NextResponse } from "next/server";
+// Grants.gov Research Agent trigger — AGENTS.md Agent 15.
+//
+// POST — authenticates the caller, derives organization_id, instantiates the
+// GrantsGovResearchAgent, and runs a live Grants.gov search. Returns the full
+// list of discovered opportunities plus the agent run ID for audit.
+//
+// Body: { keywords: string[], categories?: string[], dateRange?: { from?: string, to?: string } }
+// Response: { opportunities: [...], count: number, agent_run_id: string | null }
 
+import { NextRequest, NextResponse } from "next/server";
+
+import { GrantsGovResearchAgent } from "@/lib/agents/grants-gov";
 import { requireRole } from "@/lib/auth/role-gate";
-
-// Grants.gov Research Agent trigger (AGENTS.md Agent 15).
-// POST — queues a Grants.gov polling cycle for the caller's org.
-// No API key required; Grants.gov search endpoint is public.
-// Full implementation lands in Tier 6 Phase A. This endpoint records
-// the run request and returns the run ID for polling.
 
 export const runtime = "nodejs";
 
@@ -14,30 +18,69 @@ function jsonError(message: string, code: string, status: number) {
   return NextResponse.json({ error: message, code }, { status });
 }
 
-export async function POST() {
+export async function POST(req: NextRequest) {
   const gate = await requireRole("writer");
   if ("error" in gate) return gate.error;
   const { supabase, organizationId, userId } = gate;
 
-  // Create a pending agent_run record so the worker can pick it up and the
-  // caller gets a run ID to poll. Status stays 'pending' until the worker
-  // processes it; completed_at will be set on finish.
-  const { data: run, error } = await supabase
-    .from("agent_runs")
-    .insert({
-      organization_id: organizationId,
-      agent_type: "grants_gov_research",
-      status: "pending",
-      triggered_by: userId,
-      input_params: { source: "manual_trigger", integration: "grants_gov" },
-      started_at: new Date().toISOString(),
-    })
-    .select("id")
-    .single();
-
-  if (error) {
-    return jsonError(error.message, "db_error", 500);
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return jsonError("Invalid JSON body.", "bad_request", 400);
   }
 
-  return NextResponse.json({ status: "queued", runId: run.id });
+  const parsed = body as {
+    keywords?: unknown;
+    categories?: unknown;
+    dateRange?: unknown;
+  };
+
+  const keywords = Array.isArray(parsed.keywords)
+    ? (parsed.keywords as unknown[]).map(String).filter(Boolean)
+    : typeof parsed.keywords === "string" && parsed.keywords.trim()
+      ? [parsed.keywords.trim()]
+      : [];
+
+  if (keywords.length === 0) {
+    return jsonError(
+      "At least one keyword is required.",
+      "no_keywords",
+      400,
+    );
+  }
+
+  const categories = Array.isArray(parsed.categories)
+    ? (parsed.categories as unknown[]).map(String).filter(Boolean)
+    : undefined;
+
+  const rawRange =
+    parsed.dateRange && typeof parsed.dateRange === "object"
+      ? (parsed.dateRange as Record<string, unknown>)
+      : {};
+
+  const dateRange = {
+    from: typeof rawRange.from === "string" ? rawRange.from : undefined,
+    to: typeof rawRange.to === "string" ? rawRange.to : undefined,
+  };
+
+  const agent = new GrantsGovResearchAgent({
+    client: supabase,
+    organizationId,
+    triggeredBy: userId,
+  });
+
+  try {
+    const outcome = await agent.run({ keywords, categories, dateRange });
+    return NextResponse.json({
+      opportunities: outcome.data.opportunities,
+      count: outcome.data.count,
+      opportunitiesCreated: outcome.data.opportunitiesCreated,
+      agent_run_id: outcome.runId,
+    });
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : "Grants.gov agent failed.";
+    return jsonError(message, "agent_failed", 500);
+  }
 }

@@ -51,7 +51,11 @@ export type AgentType =
   // Migration 040 - Competitor Intelligence Agent (AGENTS.md Agent 24, BEHAVIORAL_CONTRACTS §27).
   // Identifies competitor organizations from 990-PF giving history; stores in competitor_tracking.
   // Enterprise and Consultant tiers only.
-  | "competitor_intelligence";
+  | "competitor_intelligence"
+  // Tier 6 Phase A - Grants.gov Research Agent (AGENTS.md Agent 15, BEHAVIORAL_CONTRACTS §17).
+  // Polls the public Grants.gov search API for federal opportunities matching search profile keywords.
+  // No API key required; Grants.gov search endpoint is public.
+  | "grants_gov_research";
 
 export type AgentRunStatus = "pending" | "running" | "completed" | "failed";
 
