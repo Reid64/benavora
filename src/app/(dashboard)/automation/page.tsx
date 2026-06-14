@@ -2,7 +2,17 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bot, CheckCircle2, Clock, Lock, Play, XCircle } from "lucide-react";
+import {
+  AlertCircle,
+  Bot,
+  CheckCircle2,
+  Clock,
+  Image,
+  Lock,
+  Play,
+  RefreshCw,
+  XCircle,
+} from "lucide-react";
 
 import { Button, Card, EmptyState, Select } from "@/components/ui";
 import { MetricCard } from "@/components/dashboard/MetricCard";
@@ -39,6 +49,43 @@ const LEVEL_DESCRIPTIONS: Record<AutomationLevel, string> = {
   autonomous: "Submits automatically without pause. Captures confirmation.",
 };
 
+/** Maps raw error text from error_log to a user-facing category. */
+type FailureCategory =
+  | "form_not_found"
+  | "captcha_failed"
+  | "timeout"
+  | "field_mismatch"
+  | "other";
+
+const FAILURE_CATEGORY_LABEL: Record<FailureCategory, string> = {
+  form_not_found: "Form not found",
+  captcha_failed: "CAPTCHA failed",
+  timeout: "Timeout",
+  field_mismatch: "Field mismatch",
+  other: "Other error",
+};
+
+const FAILURE_CATEGORY_COLOR: Record<FailureCategory, string> = {
+  form_not_found: "bg-orange-100 text-orange-700",
+  captcha_failed: "bg-purple-100 text-purple-700",
+  timeout: "bg-amber-100 text-amber-700",
+  field_mismatch: "bg-rose-100 text-rose-700",
+  other: "bg-red-100 text-red-700",
+};
+
+function categorizeFailure(errorLog: unknown[]): FailureCategory {
+  const lastError = errorLog.at(-1);
+  if (!lastError || typeof lastError !== "object") return "other";
+  const msg = String((lastError as Record<string, unknown>).error ?? "").toLowerCase();
+  if (msg.includes("timeout")) return "timeout";
+  if (msg.includes("captcha")) return "captcha_failed";
+  if (msg.includes("form") || msg.includes("not found") || msg.includes("detect"))
+    return "form_not_found";
+  if (msg.includes("field") || msg.includes("mapping") || msg.includes("fill"))
+    return "field_mismatch";
+  return "other";
+}
+
 interface QueueItem {
   id: string;
   priority: number;
@@ -57,6 +104,20 @@ interface QueueItem {
   } | null;
 }
 
+interface QueueStats {
+  queued: number;
+  processing: number;
+  paused: number;
+  completed: number;
+  failed: number;
+}
+
+interface DailyStats {
+  used: number;
+  limit: number; // -1 = unlimited
+  tier: string;
+}
+
 const QUEUE_STATUS_LABEL: Record<string, string> = {
   queued: "Queued",
   processing: "Processing",
@@ -72,6 +133,15 @@ const QUEUE_STATUS_COLOR: Record<string, string> = {
   completed: "bg-green-100 text-green-700",
   failed: "bg-red-100 text-red-700",
 };
+
+function formatDuration(startedAt: string | null, completedAt: string | null): string {
+  if (!startedAt || !completedAt) return "—";
+  const ms = new Date(completedAt).getTime() - new Date(startedAt).getTime();
+  if (ms < 1000) return "<1s";
+  const secs = Math.round(ms / 1000);
+  if (secs < 60) return `${secs}s`;
+  return `${Math.floor(secs / 60)}m ${secs % 60}s`;
+}
 
 /**
  * Browser-automation session list and queue dashboard (BLUEPRINT §Phase 3 + Tier 6).
@@ -104,6 +174,12 @@ export default function AutomationPage() {
   const [queueError, setQueueError] = useState<string | null>(null);
   const [processingQueueId, setProcessingQueueId] = useState<string | null>(null);
   const [updatingLevelId, setUpdatingLevelId] = useState<string | null>(null);
+  const [retryingId, setRetryingId] = useState<string | null>(null);
+  const [retryingAll, setRetryingAll] = useState(false);
+
+  // Stats
+  const [queueStats, setQueueStats] = useState<QueueStats | null>(null);
+  const [dailyStats, setDailyStats] = useState<DailyStats | null>(null);
 
   // Feature flags
   const [hasSemiAuto, setHasSemiAuto] = useState(false);
@@ -112,6 +188,21 @@ export default function AutomationPage() {
   // Global default level (platform_config: automation.default_level)
   const [defaultLevel, setDefaultLevel] = useState<AutomationLevel>("supervised");
   const [savingDefault, setSavingDefault] = useState(false);
+
+  const loadStats = useCallback(async () => {
+    try {
+      const res = await fetch("/api/automation/stats");
+      if (!res.ok) return;
+      const payload = (await res.json()) as {
+        stats: QueueStats;
+        daily: DailyStats;
+      };
+      setQueueStats(payload.stats ?? null);
+      setDailyStats(payload.daily ?? null);
+    } catch {
+      // non-fatal: stats are supplemental
+    }
+  }, []);
 
   const loadQueue = useCallback(async () => {
     setQueueLoading(true);
@@ -174,7 +265,8 @@ export default function AutomationPage() {
   useEffect(() => {
     void load(true);
     void loadQueue();
-  }, [load, loadQueue]);
+    void loadStats();
+  }, [load, loadQueue, loadStats]);
 
   const hasLiveSession = sessions.some(
     (s) => s.status === "pending" || s.status === "in_progress",
@@ -211,6 +303,33 @@ export default function AutomationPage() {
     if (dateTo) result = result.filter((s) => s.createdAt <= `${dateTo}T23:59:59.999Z`);
     return result;
   }, [sessions, statusFilter, funderFilter, dateFrom, dateTo]);
+
+  // Active (processing) and history (completed/failed last 50)
+  const activeItems = useMemo(
+    () => queueItems.filter((q) => q.status === "processing"),
+    [queueItems],
+  );
+  const pendingItems = useMemo(
+    () => queueItems.filter((q) => q.status === "queued" || q.status === "paused"),
+    [queueItems],
+  );
+  const historyItems = useMemo(
+    () =>
+      queueItems
+        .filter((q) => q.status === "completed" || q.status === "failed")
+        .sort((a, b) => {
+          const ta = a.completed_at ?? a.created_at;
+          const tb = b.completed_at ?? b.created_at;
+          return new Date(tb).getTime() - new Date(ta).getTime();
+        })
+        .slice(0, 50),
+    [queueItems],
+  );
+
+  const failedCount = useMemo(
+    () => queueItems.filter((q) => q.status === "failed").length,
+    [queueItems],
+  );
 
   function openSession(sessionId: string) {
     router.push(`/automation/${sessionId}`);
@@ -324,10 +443,57 @@ export default function AutomationPage() {
         return;
       }
       await loadQueue();
+      await loadStats();
     } catch {
       setActionError("Could not reach the automation worker.");
     } finally {
       setProcessingQueueId(null);
+    }
+  }
+
+  async function handleRetrySingle(itemId: string) {
+    setRetryingId(itemId);
+    setActionError(null);
+    try {
+      const res = await fetch("/api/automation/queue", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ id: itemId }),
+      });
+      if (!res.ok) {
+        const err = (await res.json().catch(() => ({}))) as { error?: string };
+        setActionError(err.error ?? "Could not retry queue item.");
+        return;
+      }
+      await loadQueue();
+      await loadStats();
+    } catch {
+      setActionError("Failed to retry queue item.");
+    } finally {
+      setRetryingId(null);
+    }
+  }
+
+  async function handleRetryAll() {
+    setRetryingAll(true);
+    setActionError(null);
+    try {
+      const res = await fetch("/api/automation/queue", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ retryAll: true }),
+      });
+      if (!res.ok) {
+        const err = (await res.json().catch(() => ({}))) as { error?: string };
+        setActionError(err.error ?? "Could not retry failed items.");
+        return;
+      }
+      await loadQueue();
+      await loadStats();
+    } catch {
+      setActionError("Failed to retry all failed items.");
+    } finally {
+      setRetryingAll(false);
     }
   }
 
@@ -399,7 +565,74 @@ export default function AutomationPage() {
         </Card>
       )}
 
-      {/* Summary stats */}
+      {/* Queue status counts + daily submission counter */}
+      {queueStats && (
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-6">
+          <MetricCard
+            label="Queued"
+            value={String(queueStats.queued)}
+            icon={Clock}
+          />
+          <MetricCard
+            label="Processing"
+            value={String(queueStats.processing)}
+            icon={Bot}
+          />
+          <MetricCard
+            label="Completed"
+            value={String(queueStats.completed)}
+            icon={CheckCircle2}
+          />
+          <MetricCard
+            label="Failed"
+            value={String(queueStats.failed)}
+            icon={XCircle}
+          />
+          <MetricCard
+            label="Paused"
+            value={String(queueStats.paused)}
+            icon={AlertCircle}
+          />
+          {dailyStats && (
+            <div className="col-span-1">
+              <Card>
+                <div className="text-center">
+                  <p className="text-xs font-medium uppercase tracking-wide text-navy-500">
+                    Today&apos;s Submissions
+                  </p>
+                  <p className="mt-1 text-2xl font-bold text-navy-900">
+                    {dailyStats.used}
+                    <span className="text-sm font-normal text-navy-400">
+                      /{dailyStats.limit === -1 ? "∞" : dailyStats.limit}
+                    </span>
+                  </p>
+                  <p className="mt-0.5 text-xs text-navy-400 capitalize">
+                    {dailyStats.tier} plan
+                  </p>
+                  {dailyStats.limit !== -1 && (
+                    <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-navy-100">
+                      <div
+                        className={`h-full rounded-full transition-all ${
+                          dailyStats.used >= dailyStats.limit
+                            ? "bg-red-500"
+                            : dailyStats.used / dailyStats.limit > 0.8
+                            ? "bg-amber-500"
+                            : "bg-teal-500"
+                        }`}
+                        style={{
+                          width: `${Math.min(100, (dailyStats.used / dailyStats.limit) * 100)}%`,
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+              </Card>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Summary stats for browser sessions */}
       {!loading && sessions.length > 0 && (
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <MetricCard
@@ -423,6 +656,40 @@ export default function AutomationPage() {
             icon={XCircle}
           />
         </div>
+      )}
+
+      {/* Active session(s) with progress indicator */}
+      {activeItems.length > 0 && (
+        <Card title="Active Sessions" noPadding>
+          <div className="divide-y divide-navy-100 px-5">
+            {activeItems.map((item) => {
+              const name = item.applications?.opportunities?.name ?? "Processing…";
+              return (
+                <div key={item.id} className="flex items-center gap-4 py-4">
+                  <div className="relative flex h-8 w-8 shrink-0 items-center justify-center">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-yellow-400 opacity-60" />
+                    <span className="relative inline-flex h-4 w-4 rounded-full bg-yellow-500" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="truncate text-sm font-medium text-navy-900">{name}</p>
+                    <p className="text-xs text-navy-400">
+                      Started{" "}
+                      {item.started_at
+                        ? new Date(item.started_at).toLocaleTimeString()
+                        : "just now"}
+                      {" · "}
+                      {LEVEL_LABELS[item.automation_level as AutomationLevel] ??
+                        item.automation_level}
+                    </p>
+                  </div>
+                  <span className="inline-flex items-center rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700">
+                    Processing
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
       )}
 
       {/* Automation Queue */}
@@ -509,7 +776,7 @@ export default function AutomationPage() {
             <p className="text-sm text-navy-400">Loading queue…</p>
           ) : queueError ? (
             <p className="text-sm text-red-600">{queueError}</p>
-          ) : queueItems.length === 0 ? (
+          ) : pendingItems.length === 0 ? (
             <EmptyState
               icon={Play}
               title="Queue is empty"
@@ -517,7 +784,7 @@ export default function AutomationPage() {
             />
           ) : (
             <div className="divide-y divide-navy-100">
-              {queueItems.map((item) => {
+              {pendingItems.map((item) => {
                 const opportunityName =
                   item.applications?.opportunities?.name ?? "Unknown application";
                 const statusLabel =
@@ -619,6 +886,137 @@ export default function AutomationPage() {
           )}
         </div>
       </Card>
+
+      {/* History: last 50 completed/failed items */}
+      {historyItems.length > 0 && (
+        <Card
+          title="History"
+          noPadding
+          actions={
+            failedCount > 0 && canRerun ? (
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => void handleRetryAll()}
+                isLoading={retryingAll}
+                disabled={retryingAll}
+              >
+                <RefreshCw className="mr-1 h-3.5 w-3.5" />
+                Retry all failed ({failedCount})
+              </Button>
+            ) : undefined
+          }
+        >
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-navy-100 text-sm">
+              <thead>
+                <tr className="bg-navy-50">
+                  <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                    Application
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                    Result
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                    Error type
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                    Duration
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                    Completed
+                  </th>
+                  <th className="px-4 py-3" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-navy-100 bg-white">
+                {historyItems.map((item) => {
+                  const name =
+                    item.applications?.opportunities?.name ?? "Unknown";
+                  const isRetrying = retryingId === item.id;
+                  const errorLog = Array.isArray(item.error_log)
+                    ? item.error_log
+                    : [];
+                  const failCat =
+                    item.status === "failed"
+                      ? categorizeFailure(errorLog)
+                      : null;
+
+                  return (
+                    <tr key={item.id} className="hover:bg-navy-50">
+                      <td className="max-w-xs truncate px-5 py-3 font-medium text-navy-900">
+                        {name}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                            QUEUE_STATUS_COLOR[item.status] ?? "bg-gray-100 text-gray-600"
+                          }`}
+                        >
+                          {QUEUE_STATUS_LABEL[item.status] ?? item.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        {failCat ? (
+                          <span
+                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${FAILURE_CATEGORY_COLOR[failCat]}`}
+                          >
+                            {FAILURE_CATEGORY_LABEL[failCat]}
+                          </span>
+                        ) : (
+                          <span className="text-navy-300">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-navy-500">
+                        {formatDuration(item.started_at, item.completed_at)}
+                      </td>
+                      <td className="px-4 py-3 text-navy-400 whitespace-nowrap">
+                        {item.completed_at
+                          ? new Date(item.completed_at).toLocaleString()
+                          : "—"}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          {/* Screenshot link via session detail — if applicationId exists */}
+                          {item.applications?.id && (
+                            <button
+                              type="button"
+                              title="View session screenshots"
+                              onClick={() => {
+                                // Navigate to the latest session for this application.
+                                // Sessions list is filtered by applicationId on the session detail route.
+                                router.push(
+                                  `/automation?applicationId=${item.applications!.id}`,
+                                );
+                              }}
+                              className="text-navy-400 hover:text-navy-700"
+                            >
+                              <Image className="h-4 w-4" />
+                            </button>
+                          )}
+                          {/* Retry button for failed items */}
+                          {item.status === "failed" && canRerun && (
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => void handleRetrySingle(item.id)}
+                              isLoading={isRetrying}
+                              disabled={isRetrying}
+                            >
+                              <RefreshCw className="mr-1 h-3 w-3" />
+                              Retry
+                            </Button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
 
       <Card
         title="Sessions"

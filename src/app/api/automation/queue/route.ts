@@ -275,3 +275,86 @@ export async function PATCH(request: Request) {
 
   return NextResponse.json({ item: updated });
 }
+
+// ---------------------------------------------------------------------------
+// PUT — retry failed item(s): reset to queued with fresh retry count
+//   body: { id } — retry single item
+//   body: { retryAll: true } — retry all permanently-failed items
+// ---------------------------------------------------------------------------
+
+export async function PUT(request: Request) {
+  const roleCheck = await requireRole("writer");
+  if ("error" in roleCheck) return roleCheck.error;
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return jsonError("Request body must be valid JSON.", "invalid_body", 400);
+  }
+
+  const { id, retryAll } = (body ?? {}) as {
+    id?: unknown;
+    retryAll?: unknown;
+  };
+
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return jsonError("Authentication required.", "unauthenticated", 401);
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("organization_id")
+    .eq("id", user.id)
+    .single();
+  if (!profile) return jsonError("Profile not found.", "no_profile", 403);
+  const organizationId = profile.organization_id as string;
+
+  if (retryAll === true) {
+    const { error: updateError } = await supabase
+      .from("automation_queue")
+      .update({
+        status: "queued",
+        retry_count: 0,
+        started_at: null,
+        completed_at: null,
+      })
+      .eq("organization_id", organizationId)
+      .eq("status", "failed");
+
+    if (updateError) {
+      return jsonError("Failed to reset queue items.", "db_error", 500);
+    }
+    return NextResponse.json({ retried: "all" });
+  }
+
+  if (typeof id !== "string" || !id.trim()) {
+    return jsonError("id or retryAll is required.", "invalid_input", 400);
+  }
+
+  const { data: retried, error: retryError } = await supabase
+    .from("automation_queue")
+    .update({
+      status: "queued",
+      retry_count: 0,
+      started_at: null,
+      completed_at: null,
+    })
+    .eq("id", id.trim())
+    .eq("organization_id", organizationId)
+    .eq("status", "failed")
+    .select("id, status, retry_count")
+    .single();
+
+  if (retryError || !retried) {
+    return jsonError(
+      "Queue item not found or not in a failed state.",
+      "not_found",
+      404,
+    );
+  }
+
+  return NextResponse.json({ item: retried });
+}
