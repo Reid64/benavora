@@ -128,6 +128,70 @@ export const BANNED_VOCABULARY: readonly string[] = [
 const EM_DASH_PATTERN = /\s*(?:[-―⸺⸻]|--)\s*/g;
 
 // ---------------------------------------------------------------------------
+// Markdown artifact stripping (deterministic post-AI cleanup).
+// ---------------------------------------------------------------------------
+
+/**
+ * Remove all markdown formatting artifacts left by the AI rewrite.
+ * Runs before the vocabulary/em-dash enforcement so the downstream patterns
+ * operate on clean prose.
+ *
+ *   - ATX headings (## Heading)  → plain text, line breaks preserved
+ *   - Bold markers (**text**, __text__) → inner text only
+ *   - Bullet lists (* item, - item) → flowing prose paragraph (items joined
+ *     as sentences; a period is appended when the item lacks terminal punct)
+ *   - Italic markers (*text*, _text_) → inner text only (after bullet pass)
+ *   - Horizontal rules (---, ***) → removed
+ *   - Blockquotes (> text) → inner text only
+ *   - Inline code (`code`) → inner text only
+ */
+export function stripMarkdown(text: string): { text: string; markdownArtifactsRemoved: number } {
+  let count = 0;
+  let out = text;
+
+  // ATX headings: ## Heading → Heading
+  out = out.replace(/^#{1,6}[ \t]+(.+?)[ \t]*#*$/gm, (_m, heading: string) => {
+    count++;
+    return heading.trim();
+  });
+
+  // Bold: **text** and __text__
+  out = out.replace(/\*\*([^*]+)\*\*/g, (_m, inner: string) => { count++; return inner; });
+  out = out.replace(/__([^_]+)__/g, (_m, inner: string) => { count++; return inner; });
+
+  // Bullet lists → prose paragraphs (before remaining * are treated as italic)
+  out = out.replace(/((?:^[ \t]*[*-][ \t]+.+(?:\n|$))+)/gm, (listBlock: string) => {
+    count++;
+    const items = listBlock
+      .split("\n")
+      .map((line) => line.replace(/^[ \t]*[*-][ \t]+/, "").trim())
+      .filter((line) => line.length > 0);
+    const prose = items
+      .map((item) => (/[.!?]$/.test(item) ? item : `${item}.`))
+      .join(" ");
+    return `${prose}\n`;
+  });
+
+  // Italic: *text* and _text_ (inline only, after bullets are converted)
+  out = out.replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, (_m, inner: string) => { count++; return inner; });
+  out = out.replace(/(?<!_)_([^_\n]+)_(?!_)/g, (_m, inner: string) => { count++; return inner; });
+
+  // Horizontal rules (--- / *** / ___)
+  out = out.replace(/^[ \t]*(?:[*\-_][ \t]*){3,}[ \t]*$/gm, () => { count++; return ""; });
+
+  // Blockquotes: > text → text
+  out = out.replace(/^[ \t]*>[ \t]?(.*)$/gm, (_m, inner: string) => { count++; return inner; });
+
+  // Inline code: `code` → code
+  out = out.replace(/`([^`\n]+)`/g, (_m, inner: string) => { count++; return inner; });
+
+  // Collapse 3+ blank lines to 2
+  out = out.replace(/\n{3,}/g, "\n\n");
+
+  return { text: out.trim(), markdownArtifactsRemoved: count };
+}
+
+// ---------------------------------------------------------------------------
 // Deterministic transformations (the hard safety net).
 // ---------------------------------------------------------------------------
 
@@ -208,19 +272,23 @@ export interface EnforcementResult {
   text: string;
   emDashesRemoved: number;
   vocabReplaced: number;
+  markdownArtifactsRemoved: number;
 }
 
 /**
- * Run the guaranteed transformations over model output: zero em dashes and zero
- * banned vocabulary survive this, no matter what the model returned.
+ * Run the guaranteed transformations over model output: zero markdown artifacts,
+ * zero em dashes, and zero banned vocabulary survive this, no matter what the
+ * model returned.
  */
 export function enforceHumanization(text: string): EnforcementResult {
-  const vocab = replaceAiVocabulary(text);
+  const markdown = stripMarkdown(text);
+  const vocab = replaceAiVocabulary(markdown.text);
   const dashes = stripEmDashes(vocab.text);
   return {
     text: dashes.text,
     emDashesRemoved: dashes.count,
     vocabReplaced: vocab.count,
+    markdownArtifactsRemoved: markdown.markdownArtifactsRemoved,
   };
 }
 
@@ -447,8 +515,13 @@ export function buildHumanizerPrompt(context: HumanizerContext): {
     "ABSOLUTE PRESERVATION RULES - these override every stylistic instruction:",
     "1. Preserve every fact, figure, name, date, and quoted requirement. Never add a fact that is not in the GROUNDING DATA below.",
     "2. Preserve every [NEEDS INPUT: ...] placeholder verbatim. Never resolve, remove, or reword them.",
-    "3. Preserve all section headings and the overall structure and meaning.",
+    "3. Preserve all section headings as plain text labels (no # or ## markers). Keep the overall structure and meaning.",
     "4. Keep roughly the same length. Do not summarize or pad.",
+    "",
+    "OUTPUT FORMAT - non-negotiable:",
+    "- Do not use markdown formatting of any kind: no # heading markers, no **bold**, no *italic*, no __underline__, no bullet lists (* or -), no numbered lists, no horizontal rules, no blockquotes.",
+    "- Do not use em-dashes (—). Replace with a comma, a parenthetical, or two separate sentences.",
+    "- Write in plain prose paragraphs only. If the draft has bullet lists, convert them to flowing prose.",
     "",
     "REWRITE FOR HUMAN VOICE - apply all of the following:",
     "- EM DASHES: remove every em dash (-). Recast as a comma, a parenthetical, or two separate sentences.",
@@ -511,6 +584,7 @@ export interface HumanizerRunResult {
   humanizationScore: number;
   emDashesRemoved: number;
   vocabReplaced: number;
+  markdownArtifactsRemoved: number;
   tokensUsed: number;
   model: string;
 }
@@ -549,6 +623,7 @@ export async function runHumanizer(
     humanizationScore: computeHumanizationScore(metrics),
     emDashesRemoved: enforced.emDashesRemoved,
     vocabReplaced: enforced.vocabReplaced,
+    markdownArtifactsRemoved: enforced.markdownArtifactsRemoved,
     tokensUsed: response.usage.totalTokens,
     model: response.model,
   };
