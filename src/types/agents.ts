@@ -55,7 +55,11 @@ export type AgentType =
   // Tier 6 Phase A - Grants.gov Research Agent (AGENTS.md Agent 15, BEHAVIORAL_CONTRACTS §17).
   // Polls the public Grants.gov search API for federal opportunities matching search profile keywords.
   // No API key required; Grants.gov search endpoint is public.
-  | "grants_gov_research";
+  | "grants_gov_research"
+  // Tier 6 Phase A - SAM.gov Research Agent (AGENTS.md Agent 16, BEHAVIORAL_CONTRACTS §18).
+  // Polls the SAM.gov federal opportunities API for grant-type records matching search profile keywords.
+  // Requires client-supplied SAM.gov API key stored in integration_keys.
+  | "sam_gov_research";
 
 export type AgentRunStatus = "pending" | "running" | "completed" | "failed";
 
