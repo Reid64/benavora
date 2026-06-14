@@ -296,6 +296,8 @@ export type EnrichedApplication = Tables<"applications"> & {
   attachedDocumentCount: number;
   /** When the application entered its current stage (last history row, else created_at). */
   stageEnteredAt: string;
+  /** Latest success probability score from Agent 22, or null if not yet calculated. */
+  probabilityScore: number | null;
 };
 
 /**
@@ -308,7 +310,7 @@ export type EnrichedApplication = Tables<"applications"> & {
 export async function loadPipelineApplications(
   supabase: SupabaseClient,
 ): Promise<EnrichedApplication[]> {
-  const [appsRes, oppsRes, fundersRes, historyRes, appDocsRes] =
+  const [appsRes, oppsRes, fundersRes, historyRes, appDocsRes, probRes] =
     await Promise.all([
       supabase
         .from("applications")
@@ -326,6 +328,9 @@ export async function loadPipelineApplications(
         .select("application_id, created_at")
         .order("created_at", { ascending: false }),
       supabase.from("application_documents").select("application_id"),
+      supabase
+        .from("success_probability_scores")
+        .select("application_id, probability_score"),
     ]);
 
   if (appsRes.error) {
@@ -374,6 +379,14 @@ export async function loadPipelineApplications(
     );
   }
 
+  const probabilityScores = new Map<string, number>();
+  for (const row of (probRes.data ?? []) as {
+    application_id: string;
+    probability_score: number;
+  }[]) {
+    probabilityScores.set(row.application_id, row.probability_score);
+  }
+
   return ((appsRes.data ?? []) as Tables<"applications">[]).map((app) => {
     const opp = app.opportunity_id ? opps.get(app.opportunity_id) : undefined;
     return {
@@ -388,6 +401,7 @@ export async function loadPipelineApplications(
       requiredDocumentCount: opp?.required_documents?.length ?? 0,
       attachedDocumentCount: attachedCounts.get(app.id) ?? 0,
       stageEnteredAt: stageEnteredAt.get(app.id) ?? app.created_at,
+      probabilityScore: probabilityScores.get(app.id) ?? null,
     };
   });
 }

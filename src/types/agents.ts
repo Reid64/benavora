@@ -41,7 +41,10 @@ export type AgentType =
   | "custom_api_research"
   // Migration 035 - Automation Worker Agent (AGENTS.md Agent 29, BEHAVIORAL_CONTRACTS §23).
   // Processes the next queued item from automation_queue via browser automation pipeline.
-  | "automation_worker";
+  | "automation_worker"
+  // Migration 038 - Success Probability Agent (AGENTS.md Agent 22, BEHAVIORAL_CONTRACTS §25).
+  // Calculates per-application funding probability from 6 factors; stores in success_probability_scores.
+  | "success_probability";
 
 export type AgentRunStatus = "pending" | "running" | "completed" | "failed";
 

@@ -79,12 +79,34 @@ export function ApplicationCard({
         )}
       </div>
 
-      <p className="mt-2 flex items-center gap-1 text-xs text-navy-400">
-        <Clock className="h-3.5 w-3.5" aria-hidden />
-        {days === 0
-          ? "In stage today"
-          : `${days} day${days === 1 ? "" : "s"} in stage`}
-      </p>
+      <div className="mt-2 flex items-center justify-between">
+        <p className="flex items-center gap-1 text-xs text-navy-400">
+          <Clock className="h-3.5 w-3.5" aria-hidden />
+          {days === 0
+            ? "In stage today"
+            : `${days} day${days === 1 ? "" : "s"} in stage`}
+        </p>
+        {application.probabilityScore != null && (
+          <ProbabilityBadge score={application.probabilityScore} />
+        )}
+      </div>
     </div>
+  );
+}
+
+function ProbabilityBadge({ score }: { score: number }) {
+  const color =
+    score >= 70
+      ? "bg-green-100 text-green-700"
+      : score >= 40
+        ? "bg-yellow-100 text-yellow-700"
+        : "bg-red-100 text-red-700";
+  return (
+    <span
+      className={`rounded-full px-2 py-0.5 text-xs font-medium ${color}`}
+      title="Success probability"
+    >
+      {score}%
+    </span>
   );
 }

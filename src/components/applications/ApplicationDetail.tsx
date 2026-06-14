@@ -106,7 +106,7 @@ export function ApplicationDetail({ applicationId }: ApplicationDetailProps) {
       return;
     }
 
-    const [opportunityRes, historyRes, notesRes, appDocsRes] =
+    const [opportunityRes, historyRes, notesRes, appDocsRes, probRes] =
       await Promise.all([
         supabase
           .from("opportunities")
@@ -129,6 +129,11 @@ export function ApplicationDetail({ applicationId }: ApplicationDetailProps) {
           .from("application_documents")
           .select("id")
           .eq("application_id", applicationId),
+        supabase
+          .from("success_probability_scores")
+          .select("probability_score")
+          .eq("application_id", applicationId)
+          .maybeSingle(),
       ]);
 
     const opportunity = opportunityRes.data ?? null;
@@ -171,6 +176,9 @@ export function ApplicationDetail({ applicationId }: ApplicationDetailProps) {
       attachedDocumentCount: appDocsRes.data?.length ?? 0,
       // The most recent history row marks when the current stage began.
       stageEnteredAt: history[0]?.created_at ?? application.created_at,
+      probabilityScore:
+        (probRes.data as { probability_score?: number } | null)
+          ?.probability_score ?? null,
     };
 
     setData({
@@ -460,6 +468,24 @@ function OverviewTab({ application }: { application: EnrichedApplication }) {
             {application.submitted_at
               ? formatDate(application.submitted_at)
               : dash(null)}
+          </DetailRow>
+          <DetailRow label="Success probability">
+            {application.probabilityScore != null ? (
+              <span
+                className={
+                  "inline-flex items-center rounded-full px-2.5 py-0.5 text-sm font-semibold " +
+                  (application.probabilityScore >= 70
+                    ? "bg-green-100 text-green-700"
+                    : application.probabilityScore >= 40
+                      ? "bg-yellow-100 text-yellow-700"
+                      : "bg-red-100 text-red-700")
+                }
+              >
+                {application.probabilityScore}%
+              </span>
+            ) : (
+              dash(null)
+            )}
           </DetailRow>
         </dl>
       </Card>
