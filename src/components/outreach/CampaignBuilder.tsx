@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { GripVertical, Plus, Trash2, Users } from "lucide-react";
+import { FileText, GripVertical, Linkedin, Mail, Phone, Plus, Trash2, Users } from "lucide-react";
 
 import { Button, Card, Input, Textarea } from "@/components/ui";
+import { cn } from "@/lib/utils/cn";
 import { createClient } from "@/lib/supabase/client";
 import { MIN_CAMPAIGN_STEP_GAP_DAYS } from "@/lib/utils/constants";
 import type { Tables } from "@/types/database";
@@ -74,12 +75,27 @@ Thank you,
   },
 ];
 
+type OutreachChannel = "email" | "phone" | "mail" | "linkedin";
+
+const CHANNEL_OPTIONS: OutreachChannel[] = ["email", "phone", "mail", "linkedin"];
+
+const CHANNEL_CONFIG: Record<
+  OutreachChannel,
+  { label: string; Icon: typeof Mail; subjectLabel: string; bodyLabel: string }
+> = {
+  email: { label: "Email", Icon: Mail, subjectLabel: "Subject", bodyLabel: "Body" },
+  phone: { label: "Phone", Icon: Phone, subjectLabel: "Call Title", bodyLabel: "Script" },
+  mail: { label: "Physical Mail", Icon: FileText, subjectLabel: "Letter Title", bodyLabel: "Letter Body" },
+  linkedin: { label: "LinkedIn", Icon: Linkedin, subjectLabel: "Message Title", bodyLabel: "Message" },
+};
+
 type StepDraft = {
   /** Stable key for React list rendering only; not persisted. */
   key: string;
   subject: string;
   body: string;
   delayDays: number;
+  channel: OutreachChannel;
 };
 
 /** Which field last held focus, so the variable picker can target it. */
@@ -88,7 +104,7 @@ type ActiveField = { key: string; field: "subject" | "body" } | null;
 let stepKeySeq = 0;
 function newStep(delayDays: number): StepDraft {
   stepKeySeq += 1;
-  return { key: `step-${stepKeySeq}`, subject: "", body: "", delayDays };
+  return { key: `step-${stepKeySeq}`, subject: "", body: "", delayDays, channel: "email" };
 }
 
 /** Substitute {variable} tokens with sample data for the preview. */
@@ -233,7 +249,8 @@ export function CampaignBuilder({
     if (steps.length === 0) return "Add at least one step.";
     for (const [i, step] of steps.entries()) {
       if (step.subject.trim() === "" || step.body.trim() === "") {
-        return `Step ${i + 1} needs both a subject and a body.`;
+        const ch = CHANNEL_CONFIG[step.channel];
+        return `Step ${i + 1} needs both a ${ch.subjectLabel.toLowerCase()} and a ${ch.bodyLabel.toLowerCase()}.`;
       }
       const unknown = [
         ...unknownVariables(step.subject),
@@ -338,7 +355,7 @@ export function CampaignBuilder({
     const stepRows = humanizedSteps.map((step, index) => ({
       campaign_id: campaign.id,
       step_number: index + 1,
-      subject_template: step.subject.trim(),
+      subject_template: `[${step.channel}] ${step.subject.trim()}`,
       body_template: step.body.trim(),
       delay_days: index === 0 ? 0 : step.delayDays,
     }));
@@ -438,84 +455,115 @@ export function CampaignBuilder({
       </div>
 
       <div className="space-y-4">
-        {steps.map((step, index) => (
-          <Card key={step.key} className="relative">
-            <div className="mb-3 flex items-center justify-between">
-              <div className="flex items-center gap-2 text-sm font-medium text-navy-700">
-                <GripVertical className="h-4 w-4 text-navy-400" aria-hidden />
-                Step {index + 1}
-              </div>
-              {steps.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => removeStep(step.key)}
-                  className="inline-flex items-center gap-1 text-xs text-red-600 transition hover:text-red-700"
-                >
-                  <Trash2 className="h-3.5 w-3.5" aria-hidden />
-                  Remove
-                </button>
-              )}
-            </div>
-            <div className="space-y-3">
-              <Input
-                label="Subject"
-                value={step.subject}
-                onFocus={() => {
-                  activeField.current = { key: step.key, field: "subject" };
-                }}
-                onChange={(e) =>
-                  updateStep(step.key, { subject: e.target.value })
-                }
-                placeholder="Partnering with {company_name} on housing"
-              />
-              <Textarea
-                label="Body"
-                value={step.body}
-                onFocus={() => {
-                  activeField.current = { key: step.key, field: "body" };
-                }}
-                onChange={(e) => updateStep(step.key, { body: e.target.value })}
-                rows={4}
-                placeholder="Hi {contact_name}, I lead {foundation_name}..."
-              />
-              {index === 0 ? (
-                <p className="text-xs text-navy-500">
-                  The first email sends immediately when the campaign starts.
-                </p>
-              ) : (
-                <Input
-                  label="Send this many days after the previous step"
-                  type="number"
-                  min={MIN_CAMPAIGN_STEP_GAP_DAYS}
-                  value={String(step.delayDays)}
-                  onChange={(e) =>
-                    updateStep(step.key, {
-                      delayDays: Math.max(
-                        MIN_CAMPAIGN_STEP_GAP_DAYS,
-                        Number(e.target.value) || MIN_CAMPAIGN_STEP_GAP_DAYS,
-                      ),
-                    })
-                  }
-                  className="sm:max-w-xs"
-                />
-              )}
-
-              {(step.subject.trim() !== "" || step.body.trim() !== "") && (
-                <div className="rounded-lg border border-navy-200 bg-white px-3 py-2">
-                  <p className="text-[11px] font-medium uppercase tracking-wide text-navy-400">
-                    Preview (sample data)
-                  </p>
-                  <p className="mt-1 text-sm font-medium text-navy-800">
-                    {renderPreview(step.subject) || "-"}
-                  </p>
-                  <p className="mt-1 whitespace-pre-wrap text-sm text-navy-600">
-                    {renderPreview(step.body)}
-                  </p>
+        {steps.map((step, index) => {
+          const { Icon: ChIcon, label: chLabel, subjectLabel, bodyLabel } =
+            CHANNEL_CONFIG[step.channel];
+          return (
+            <Card key={step.key} className="relative">
+              <div className="mb-3 flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm font-medium text-navy-700">
+                  <GripVertical className="h-4 w-4 text-navy-400" aria-hidden />
+                  Step {index + 1}
+                  <ChIcon className="h-3.5 w-3.5 text-navy-500" aria-hidden />
+                  <span className="text-xs font-normal text-navy-400">{chLabel}</span>
                 </div>
-              )}
-            </div>
-          </Card>
-        ))}
+                {steps.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeStep(step.key)}
+                    className="inline-flex items-center gap-1 text-xs text-red-600 transition hover:text-red-700"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                    Remove
+                  </button>
+                )}
+              </div>
+
+              {/* Channel selector */}
+              <div className="mb-3 flex flex-wrap gap-1">
+                {CHANNEL_OPTIONS.map((ch) => {
+                  const cfg = CHANNEL_CONFIG[ch];
+                  const CfgIcon = cfg.Icon;
+                  return (
+                    <button
+                      key={ch}
+                      type="button"
+                      onClick={() => updateStep(step.key, { channel: ch })}
+                      className={cn(
+                        "inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition",
+                        step.channel === ch
+                          ? "bg-teal-600 text-white"
+                          : "bg-navy-100 text-navy-600 hover:bg-navy-200",
+                      )}
+                    >
+                      <CfgIcon className="h-3 w-3" aria-hidden />
+                      {cfg.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="space-y-3">
+                <Input
+                  label={subjectLabel}
+                  value={step.subject}
+                  onFocus={() => {
+                    activeField.current = { key: step.key, field: "subject" };
+                  }}
+                  onChange={(e) =>
+                    updateStep(step.key, { subject: e.target.value })
+                  }
+                  placeholder="Partnering with {company_name} on housing"
+                />
+                <Textarea
+                  label={bodyLabel}
+                  value={step.body}
+                  onFocus={() => {
+                    activeField.current = { key: step.key, field: "body" };
+                  }}
+                  onChange={(e) => updateStep(step.key, { body: e.target.value })}
+                  rows={4}
+                  placeholder="Hi {contact_name}, I lead {foundation_name}..."
+                />
+                {index === 0 ? (
+                  <p className="text-xs text-navy-500">
+                    Step 1 executes immediately when the campaign starts.
+                  </p>
+                ) : (
+                  <Input
+                    label="Send this many days after the previous step"
+                    type="number"
+                    min={MIN_CAMPAIGN_STEP_GAP_DAYS}
+                    value={String(step.delayDays)}
+                    onChange={(e) =>
+                      updateStep(step.key, {
+                        delayDays: Math.max(
+                          MIN_CAMPAIGN_STEP_GAP_DAYS,
+                          Number(e.target.value) || MIN_CAMPAIGN_STEP_GAP_DAYS,
+                        ),
+                      })
+                    }
+                    className="sm:max-w-xs"
+                  />
+                )}
+
+                {(step.subject.trim() !== "" || step.body.trim() !== "") && (
+                  <div className="rounded-lg border border-navy-200 bg-white px-3 py-2">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-navy-400">
+                      Preview · {chLabel} (sample data)
+                    </p>
+                    <p className="mt-1 text-sm font-medium text-navy-800">
+                      {renderPreview(step.subject) || "-"}
+                    </p>
+                    <p className="mt-1 whitespace-pre-wrap text-sm text-navy-600">
+                      {renderPreview(step.body)}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </Card>
+          );
+        })}
       </div>
 
       <Button type="button" variant="secondary" onClick={addStep}>

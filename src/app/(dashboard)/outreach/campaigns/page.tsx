@@ -5,8 +5,12 @@ import Link from "next/link";
 import {
   ArrowLeft,
   ChevronRight,
+  FileText,
   Layers,
+  Linkedin,
+  Mail,
   Pause,
+  Phone,
   Play,
   Plus,
   Send,
@@ -21,6 +25,21 @@ import { formatRelative, humanizeEnum } from "@/lib/utils/formatters";
 import type { Enums, Tables } from "@/types/database";
 
 type CampaignStatus = Enums<"campaign_status">;
+type OutreachChannel = "email" | "phone" | "mail" | "linkedin";
+
+const CHANNEL_ICONS: Record<OutreachChannel, typeof Mail> = {
+  email: Mail,
+  phone: Phone,
+  mail: FileText,
+  linkedin: Linkedin,
+};
+
+const CHANNEL_PREFIX_RE = /^\[(email|phone|mail|linkedin)\] /;
+
+function decodeStepChannel(subjectTemplate: string): OutreachChannel {
+  const m = CHANNEL_PREFIX_RE.exec(subjectTemplate);
+  return (m?.[1] ?? "email") as OutreachChannel;
+}
 
 const STATUS_COLOR: Record<CampaignStatus, BadgeColor> = {
   draft: "gray",
@@ -42,6 +61,10 @@ export default function CampaignsPage() {
   const [sentByCampaign, setSentByCampaign] = useState<Record<string, number>>(
     {},
   );
+  /** campaign id → per-channel step counts. */
+  const [channelsByCampaign, setChannelsByCampaign] = useState<
+    Record<string, Partial<Record<OutreachChannel, number>>>
+  >({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [building, setBuilding] = useState(false);
@@ -65,14 +88,23 @@ export default function CampaignsPage() {
     const rows = data ?? [];
     setCampaigns(rows);
 
-    // Aggregate sent counts per campaign: steps → sends (RLS-scoped).
+    // Aggregate sent counts per campaign and channel breakdown: steps → sends (RLS-scoped).
     const { data: steps } = await supabase
       .from("campaign_steps")
-      .select("id, campaign_id");
+      .select("id, campaign_id, subject_template");
     const stepToCampaign = new Map(
       (steps ?? []).map((s) => [s.id as string, s.campaign_id as string]),
     );
     const stepIds = [...stepToCampaign.keys()];
+
+    const channelCounts: Record<string, Partial<Record<OutreachChannel, number>>> = {};
+    for (const s of steps ?? []) {
+      const ch = decodeStepChannel(s.subject_template ?? "");
+      const cid = s.campaign_id as string;
+      if (!channelCounts[cid]) channelCounts[cid] = {};
+      channelCounts[cid][ch] = (channelCounts[cid][ch] ?? 0) + 1;
+    }
+    setChannelsByCampaign(channelCounts);
 
     const counts: Record<string, number> = {};
     if (stepIds.length > 0) {
@@ -128,7 +160,7 @@ export default function CampaignsPage() {
             Campaigns
           </h1>
           <p className="mt-1 text-sm text-navy-500">
-            Drip email sequences for cold outreach contacts.
+            Multi-channel drip sequences for cold outreach contacts.
           </p>
         </div>
         {editable && (
@@ -198,6 +230,17 @@ export default function CampaignsPage() {
                         <Layers className="h-3.5 w-3.5" aria-hidden />
                         {steps} step{steps === 1 ? "" : "s"}
                       </span>
+                      {(["email", "phone", "mail", "linkedin"] as OutreachChannel[])
+                        .filter((ch) => (channelsByCampaign[campaign.id]?.[ch] ?? 0) > 0)
+                        .map((ch) => {
+                          const Icon = CHANNEL_ICONS[ch];
+                          return (
+                            <span key={ch} className="inline-flex items-center gap-0.5">
+                              <Icon className="h-3 w-3" aria-hidden />
+                              {channelsByCampaign[campaign.id]?.[ch]}
+                            </span>
+                          );
+                        })}
                       <span>·</span>
                       <span>{contacts} contacts</span>
                       <span>·</span>
