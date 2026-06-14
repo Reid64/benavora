@@ -108,7 +108,7 @@ function compactUsd(value: number): string {
 }
 
 /**
- * Outcomes & Analytics charting dashboard (BLUEPRINT Â§4.10). Renders eleven
+ * Outcomes & Analytics charting dashboard (BLUEPRINT §4.10). Renders eleven
  * visualizations over real, RLS-scoped rows - pipeline funnel, success rate
  * over time, dollars requested vs. awarded, source mix, deadline density,
  * agent activity, pipeline velocity, top categories, ROI, and year-over-year.
@@ -124,7 +124,7 @@ export function AnalyticsDashboard({
   now,
 }: AnalyticsDashboardProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
-const today = now ?? new Date();
+  const today = now ?? new Date();
 
   const kpis = useMemo(
     () => computeKpis(outcomes, applications),
@@ -200,7 +200,7 @@ const today = now ?? new Date();
           icon={Gauge}
           label="$ efficiency"
           value={`${kpis.dollarEfficiency}%`}
-          hint="Awarded Ã· requested"
+          hint="Awarded ÷ requested"
         />
         <StatCard
           icon={Layers}
@@ -210,8 +210,8 @@ const today = now ?? new Date();
         <StatCard
           icon={DollarSign}
           label="ROI"
-          value={roi.roiMultiple != null ? `${roi.roiMultiple}Ã-` : "-"}
-          hint={roi.roiMultiple != null ? "Won Ã· annual cost" : "Free plan"}
+          value={roi.roiMultiple != null ? `${roi.roiMultiple}×` : "-"}
+          hint={roi.roiMultiple != null ? "Won ÷ annual cost" : "Free plan"}
         />
       </div>
 
@@ -289,7 +289,7 @@ const today = now ?? new Date();
       {/* Success rate over time ------------------------------------------ */}
       <Card
         title="Success rate over time"
-        description="Awarded Ã· total outcomes, by month."
+        description="Awarded ÷ total outcomes, by month."
       >
         <ChartFrame empty={monthly.length === 0}>
           <LineChart
@@ -499,7 +499,7 @@ const today = now ?? new Date();
           <div className="flex flex-wrap items-center gap-3">
             <Badge color={roi.netGain >= 0 ? "green" : "red"}>
               {roi.roiMultiple != null
-                ? `${roi.roiMultiple}Ã- return`
+                ? `${roi.roiMultiple}× return`
                 : "No cost basis"}
             </Badge>
             <span className="text-sm text-navy-500">
@@ -700,7 +700,7 @@ function DeadlineHeatmapGrid({
   const shade = (count: number): string => {
     if (count <= 0) return "rgba(255,255,255,0.04)";
     const ratio = heatmap.maxCount > 0 ? count / heatmap.maxCount : 0;
-    // Teal ramp: low â†’ high opacity.
+    // Teal ramp: low → high opacity.
     const alpha = 0.2 + ratio * 0.65;
     return `rgba(45,212,191,${alpha.toFixed(2)})`;
   };

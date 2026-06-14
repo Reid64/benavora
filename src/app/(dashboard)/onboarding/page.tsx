@@ -1174,8 +1174,6 @@ export default function OnboardingPage() {
   // Upload a single file to Supabase Storage and return its path
   async function uploadFile(slot: DocSlot): Promise<string | null> {
     if (!slot.file) return null;
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const ext = slot.file.name.split(".").pop() ?? "bin";
     const path = `${org.id}/${slot.category}/${Date.now()}-${slot.file.name.replace(/\s+/g, "_")}`;
     const { error } = await supabase.storage
       .from(STORAGE_BUCKET)

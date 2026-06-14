@@ -45,7 +45,8 @@ ALTER TABLE automation_steps ENABLE ROW LEVEL SECURITY;
 ALTER TABLE automation_screenshots ENABLE ROW LEVEL SECURITY;
 
 -- Allow any authenticated org member to read their own session's steps.
-CREATE POLICY IF NOT EXISTS "Users can read own session steps"
+DROP POLICY IF EXISTS "Users can read own session steps" ON automation_steps;
+CREATE POLICY "Users can read own session steps"
   ON automation_steps FOR SELECT
   USING (
     EXISTS (
@@ -58,7 +59,8 @@ CREATE POLICY IF NOT EXISTS "Users can read own session steps"
   );
 
 -- Allow insert for session's org (used by session-manager.ts recordStep).
-CREATE POLICY IF NOT EXISTS "Users can insert own session steps"
+DROP POLICY IF EXISTS "Users can insert own session steps" ON automation_steps;
+CREATE POLICY "Users can insert own session steps"
   ON automation_steps FOR INSERT
   WITH CHECK (
     EXISTS (
@@ -71,7 +73,8 @@ CREATE POLICY IF NOT EXISTS "Users can insert own session steps"
   );
 
 -- Allow any authenticated org member to read their own session's screenshots.
-CREATE POLICY IF NOT EXISTS "Users can read own session screenshots"
+DROP POLICY IF EXISTS "Users can read own session screenshots" ON automation_screenshots;
+CREATE POLICY "Users can read own session screenshots"
   ON automation_screenshots FOR SELECT
   USING (
     EXISTS (
@@ -84,7 +87,8 @@ CREATE POLICY IF NOT EXISTS "Users can read own session screenshots"
   );
 
 -- Allow insert for session's org (used by session-manager.ts recordScreenshot).
-CREATE POLICY IF NOT EXISTS "Users can insert own session screenshots"
+DROP POLICY IF EXISTS "Users can insert own session screenshots" ON automation_screenshots;
+CREATE POLICY "Users can insert own session screenshots"
   ON automation_screenshots FOR INSERT
   WITH CHECK (
     EXISTS (
