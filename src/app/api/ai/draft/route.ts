@@ -7,6 +7,7 @@ import { enforceLimit } from "@/lib/billing/tier-enforcer";
 import { trackUsage } from "@/lib/billing/usage-tracker";
 import { withUsageCheck } from "@/lib/billing/usage-middleware";
 import { incrementUsage } from "@/lib/billing/usage-limiter";
+import { checkTierGate } from "@/lib/services/tier-gate";
 import {
   callClaude,
   DEFAULT_MAX_TOKENS,
@@ -218,6 +219,21 @@ export async function POST(request: Request) {
       "Too many draft requests. Please wait a moment and try again.",
       "rate_limited",
       429,
+    );
+  }
+
+  // Feature-level tier gate: draft_generation cap per tier (Contracts §25).
+  const draftGate = await checkTierGate(organizationId, "draft_generation");
+  if (!draftGate.allowed) {
+    return NextResponse.json(
+      {
+        error: `Your plan allows ${draftGate.limit} AI drafts per month. Upgrade to continue.`,
+        code: "tier_limit_exceeded",
+        allowed: false,
+        remaining: draftGate.remaining,
+        limit: draftGate.limit,
+      },
+      { status: 429 },
     );
   }
 

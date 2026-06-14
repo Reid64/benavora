@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { requireRole } from "@/lib/auth/role-gate";
 import { createClient } from "@/lib/supabase/server";
 import { enforceLimit } from "@/lib/billing/tier-enforcer";
+import { checkTierGate } from "@/lib/services/tier-gate";
 import { DEFAULT_MAX_TOKENS, DEFAULT_MODEL } from "@/lib/ai/claude";
 import {
   AgentError,
@@ -158,6 +159,16 @@ export async function POST(request: Request) {
     return jsonError(
       "Too many research runs. Please wait a moment and try again.",
       "rate_limited",
+      429,
+    );
+  }
+
+  // Feature-level tier gate: agent_run cap per tier (Contracts §25).
+  const agentGate = await checkTierGate(organizationId, "agent_run");
+  if (!agentGate.allowed) {
+    return jsonError(
+      `Your plan allows ${agentGate.limit} agent runs per day. Upgrade to continue.`,
+      "tier_limit_exceeded",
       429,
     );
   }
