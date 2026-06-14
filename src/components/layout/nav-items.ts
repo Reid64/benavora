@@ -18,6 +18,7 @@ import {
   Search,
   Settings,
   Shield,
+  Target,
   Users,
   Wand2,
   type LucideIcon,
@@ -71,6 +72,12 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Outreach", href: "/outreach", icon: Mail },
   { label: "Search Profiles", href: "/search-profiles", icon: Filter },
   { label: "Research", href: "/research", icon: Radar },
+  {
+    label: "Intelligence",
+    href: "/intelligence",
+    icon: Target,
+    children: [{ label: "Competitors", href: "/intelligence/competitors" }],
+  },
   { label: "Onboarding", href: "/onboarding", icon: ClipboardList, requiresOnboarding: true },
   {
     label: "Settings",

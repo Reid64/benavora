@@ -47,7 +47,11 @@ export type AgentType =
   | "success_probability"
   // Migration 039 - Funder Relationship Agent (AGENTS.md Agent 23).
   // Deterministic score updates from interaction events; stores in funder_relationship_scores.
-  | "funder_relationship";
+  | "funder_relationship"
+  // Migration 040 - Competitor Intelligence Agent (AGENTS.md Agent 24, BEHAVIORAL_CONTRACTS §27).
+  // Identifies competitor organizations from 990-PF giving history; stores in competitor_tracking.
+  // Enterprise and Consultant tiers only.
+  | "competitor_intelligence";
 
 export type AgentRunStatus = "pending" | "running" | "completed" | "failed";
 
