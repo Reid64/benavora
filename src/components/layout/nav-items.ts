@@ -85,7 +85,10 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Settings",
     href: "/settings",
     icon: Settings,
-    children: [{ label: "Integrations", href: "/settings/integrations" }],
+    children: [
+      { label: "Integrations", href: "/settings/integrations" },
+      { label: "Branding", href: "/settings/branding" },
+    ],
   },
   // Billing is owner-only (BLUEPRINT §3.2 / updated §3.3 navigation).
   { label: "Billing", href: "/billing", icon: CreditCard, roles: ["owner"] },
