@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { AlertTriangle, Sparkles, Wand2 } from "lucide-react";
+import { AlertTriangle, RefreshCw, Sparkles, Wand2 } from "lucide-react";
 
 import {
   Badge,
@@ -37,6 +37,21 @@ import type { Json, Tables } from "@/types/database";
 
 type OpportunityOption = { id: string; name: string; category: string };
 type ProgramOption = { id: string; name: string };
+
+/** Client-side confidence re-score — same algorithm as /api/ai/draft's computeConfidence. */
+function computeRescoreConfidence(
+  text: string,
+  kbCount: number,
+  provenCount: number,
+): number {
+  const needsInput = (text.match(/\[NEEDS INPUT/gi) ?? []).length;
+  if (kbCount === 0) return Math.max(55, 65 - needsInput * 3);
+  let score = 92;
+  if (provenCount === 0) score -= 4;
+  if (kbCount < 3) score -= 12;
+  score -= needsInput * 3;
+  return Math.max(0, Math.min(100, score));
+}
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -131,6 +146,7 @@ export default function DraftGeneratorPage() {
     useState<HumanizationStatus>("not_humanized");
   const [activeVersionId, setActiveVersionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [rescoreMessage, setRescoreMessage] = useState<string | null>(null);
 
   const [budgetTable, setBudgetTable] = useState<BudgetTableItem[]>([]);
   const [totalRequested, setTotalRequested] = useState<number | null>(null);
@@ -376,10 +392,10 @@ export default function DraftGeneratorPage() {
         return;
       }
 
-      // Replace the editor content with the humanized draft and reflect its
-      // humanized status + updated confidence.
+      // Replace the editor content with the humanized draft. The humanizer
+      // changes style, not content sources, so the confidence score is preserved
+      // from the original generation — only setRescoreMessage can update it.
       setDraftText(payload.content);
-      setConfidence(payload.confidenceScore);
       setSources(payload.sources);
       setHumanizationStatus(payload.humanizationStatus);
       setActiveVersionId(payload.savedVersion?.id ?? null);
@@ -389,6 +405,23 @@ export default function DraftGeneratorPage() {
     } finally {
       setHumanizing(false);
     }
+  }
+
+  // Re-score the current draft text client-side using the same algorithm as
+  // the draft API. Called after manual edits to reflect filled-in gaps.
+  function handleRescore() {
+    if (!draftText.trim()) return;
+    const kbCount = sources.filter((s) => s.kind === "knowledge_base").length;
+    const provenCount = sources.filter((s) => s.kind === "proven_narrative").length;
+    const needsInput = (draftText.match(/\[NEEDS INPUT/gi) ?? []).length;
+    const newScore = computeRescoreConfidence(draftText, kbCount, provenCount);
+    setConfidence(newScore);
+    const msg =
+      needsInput > 0
+        ? `Score updated: ${newScore}/100 · ${needsInput} gap${needsInput !== 1 ? "s" : ""} remaining`
+        : `Score updated: ${newScore}/100 · No gaps remaining`;
+    setRescoreMessage(msg);
+    setTimeout(() => setRescoreMessage(null), 4000);
   }
 
   // Revert to a previous version: append it as a new version (history is never
@@ -662,9 +695,22 @@ export default function DraftGeneratorPage() {
                 <Card
                   title="Confidence"
                   actions={
-                    <Badge color={HUMANIZATION_BADGE[humanizationStatus].color}>
-                      {HUMANIZATION_BADGE[humanizationStatus].label}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      {editable && draftText.trim() && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleRescore}
+                          title="Recalculate score from current draft text"
+                        >
+                          <RefreshCw className="h-3.5 w-3.5" aria-hidden />
+                          Rescore
+                        </Button>
+                      )}
+                      <Badge color={HUMANIZATION_BADGE[humanizationStatus].color}>
+                        {HUMANIZATION_BADGE[humanizationStatus].label}
+                      </Badge>
+                    </div>
                   }
                 >
                   {confidence != null ? (
@@ -674,11 +720,15 @@ export default function DraftGeneratorPage() {
                       No confidence score recorded for this draft.
                     </p>
                   )}
+                  {rescoreMessage && (
+                    <p className="mt-2 text-xs font-medium text-teal-600">
+                      {rescoreMessage}
+                    </p>
+                  )}
                   {humanizationStatus === "humanized" && (
                     <p className="mt-2 text-xs text-navy-500">
-                      This draft has been humanized. The score reflects both how
-                      well it&rsquo;s grounded in your data and how natural it
-                      reads.
+                      This draft has been humanized. The score reflects how
+                      well it&rsquo;s grounded in your data.
                     </p>
                   )}
                 </Card>
