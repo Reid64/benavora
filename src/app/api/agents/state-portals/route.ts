@@ -1,10 +1,17 @@
-import { NextResponse } from "next/server";
+// State Portal Research Agent trigger — AGENTS.md Agent 18.
+//
+// POST — authenticates the caller, derives organization_id, instantiates the
+// StatePortalResearchAgent, and runs a live portal scrape + Claude extraction.
+// Returns discovered opportunities and the agent run ID for audit.
+//
+// Body: { state: string, keywords: string[], category?: string }
+// Response: { opportunities: [...], count: number, opportunitiesCreated: number,
+//             state: string, agent_run_id: string | null }
 
+import { NextRequest, NextResponse } from "next/server";
+
+import { StatePortalResearchAgent } from "@/lib/agents/state-portal";
 import { requireRole } from "@/lib/auth/role-gate";
-
-// State Portal Research Agent trigger (AGENTS.md Agent 18).
-// POST — queues a state portal scraping cycle for the caller's org.
-// Full implementation lands in Tier 6 Phase A.
 
 export const runtime = "nodejs";
 
@@ -12,41 +19,74 @@ function jsonError(message: string, code: string, status: number) {
   return NextResponse.json({ error: message, code }, { status });
 }
 
-export async function POST() {
+export async function POST(req: NextRequest) {
   const gate = await requireRole("writer");
   if ("error" in gate) return gate.error;
   const { supabase, organizationId, userId } = gate;
 
-  // Verify at least one state portal is active before queuing.
-  const { count } = await supabase
-    .from("state_portals")
-    .select("id", { count: "exact", head: true })
-    .eq("is_active", true);
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return jsonError("Invalid JSON body.", "bad_request", 400);
+  }
 
-  if (!count || count === 0) {
+  const parsed = body as {
+    state?: unknown;
+    keywords?: unknown;
+    category?: unknown;
+  };
+
+  const state =
+    typeof parsed.state === "string" && parsed.state.trim()
+      ? parsed.state.trim()
+      : "";
+
+  if (!state) {
     return jsonError(
-      "No active state portals configured. An admin must enable portals in state_portals.",
-      "no_portals",
+      "state is required (e.g. \"TX\" or \"Texas\").",
+      "no_state",
       400,
     );
   }
 
-  const { data: run, error } = await supabase
-    .from("agent_runs")
-    .insert({
-      organization_id: organizationId,
-      agent_type: "state_portal",
-      status: "pending",
-      triggered_by: userId,
-      input_params: { source: "manual_trigger", integration: "state_portals" },
-      started_at: new Date().toISOString(),
-    })
-    .select("id")
-    .single();
+  const keywords = Array.isArray(parsed.keywords)
+    ? (parsed.keywords as unknown[]).map(String).filter(Boolean)
+    : typeof parsed.keywords === "string" && parsed.keywords.trim()
+      ? [parsed.keywords.trim()]
+      : [];
 
-  if (error) {
-    return jsonError(error.message, "db_error", 500);
+  if (keywords.length === 0) {
+    return jsonError(
+      "At least one keyword is required.",
+      "no_keywords",
+      400,
+    );
   }
 
-  return NextResponse.json({ status: "queued", runId: run.id });
+  const category =
+    typeof parsed.category === "string" && parsed.category.trim()
+      ? parsed.category.trim()
+      : undefined;
+
+  const agent = new StatePortalResearchAgent({
+    client: supabase,
+    organizationId,
+    triggeredBy: userId,
+  });
+
+  try {
+    const outcome = await agent.run({ state, keywords, category });
+    return NextResponse.json({
+      opportunities: outcome.data.opportunities,
+      count: outcome.data.count,
+      opportunitiesCreated: outcome.data.opportunitiesCreated,
+      state: outcome.data.state,
+      agent_run_id: outcome.runId,
+    });
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : "State portal agent failed.";
+    return jsonError(message, "agent_failed", 500);
+  }
 }

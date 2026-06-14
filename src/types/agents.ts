@@ -63,7 +63,11 @@ export type AgentType =
   // Tier 6 Phase A - ProPublica 990 Mining Agent (AGENTS.md Agent 17, BEHAVIORAL_CONTRACTS §19).
   // Queries ProPublica Nonprofit Explorer API for IRS 990/990-PF filing data.
   // No API key required; extracts revenue, expenses, assets, grants paid per fiscal year.
-  | "propublica_mining";
+  | "propublica_mining"
+  // Tier 6 Phase A - State Portal Research Agent (AGENTS.md Agent 18, BEHAVIORAL_CONTRACTS §21).
+  // Fetches HTML from state grant portals and uses Claude to extract structured opportunity data.
+  // Tier-gated: Starter=1 state, Pro=5 states, Enterprise/Consultant=all states.
+  | "state_portal";
 
 export type AgentRunStatus = "pending" | "running" | "completed" | "failed";
 
