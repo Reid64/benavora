@@ -80,7 +80,10 @@ export type AgentType =
   // Application Cloning Agent (AGENTS.md Agent 26, BEHAVIORAL_CONTRACTS §26).
   // Clones an existing application to a new target opportunity, adapts the draft
   // via Claude, copies linked documents, and creates a pipeline_history entry.
-  | "application_cloning";
+  | "application_cloning"
+  // Semantic Matching Agent - uses Claude to score semantic alignment between
+  // the org profile and each funder, returning a ranked list with reasoning.
+  | "semantic_matching";
 
 export type AgentRunStatus = "pending" | "running" | "completed" | "failed";
 
