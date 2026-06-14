@@ -2042,7 +2042,11 @@ export interface Database {
         | "automation_worker"
         | "csv_import"
         | "notification_dispatcher"
-        | "financial_reconciliation";
+        | "financial_reconciliation"
+        // Aliases / additional values required by Tier 6 task definitions.
+        | "giving_history"
+        | "competitor_intel"
+        | "compliance_calendar";
       agent_run_status: "pending" | "running" | "completed" | "failed";
       campaign_status: "draft" | "active" | "paused" | "completed";
       campaign_step_status:
