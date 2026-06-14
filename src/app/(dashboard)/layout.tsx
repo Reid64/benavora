@@ -21,8 +21,19 @@ export default async function DashboardLayout({
     .eq("id", user.id)
     .single();
   const role = profile?.role as Enums<"user_role"> | undefined;
+
+  let onboardingCompleted = false;
+  if (profile?.organization_id) {
+    const { data: org } = await supabase
+      .from("organizations")
+      .select("onboarding_completed")
+      .eq("id", profile.organization_id)
+      .single();
+    onboardingCompleted = org?.onboarding_completed ?? false;
+  }
+
   return (
-    <DashboardShell userEmail={user.email ?? ""} role={role}>
+    <DashboardShell userEmail={user.email ?? ""} role={role} onboardingCompleted={onboardingCompleted}>
       {children}
     </DashboardShell>
   );

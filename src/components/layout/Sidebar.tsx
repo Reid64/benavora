@@ -19,6 +19,8 @@ type SidebarProps = {
   onClose: () => void;
   /** Caller's role - gates role-restricted items (e.g. Billing is owner-only). */
   role: Enums<"user_role"> | undefined;
+  /** Whether onboarding is complete - shows the Onboarding return link when true. */
+  onboardingCompleted: boolean;
 };
 
 /**
@@ -27,9 +29,9 @@ type SidebarProps = {
  * - Slide-in drawer with backdrop on mobile, controlled by `open`.
  * - The nav item whose route matches the current path is highlighted in teal.
  */
-export function Sidebar({ open, onClose, role }: SidebarProps) {
+export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarProps) {
   const pathname = usePathname();
-  const navItems = navItemsForRole(role);
+  const navItems = navItemsForRole(role, { onboardingCompleted });
 
   // Live red badge counts (deadlines ≤7 days, new opportunities since last
   // login, applications needing action, drafts pending review). Refresh on
@@ -73,11 +75,11 @@ export function Sidebar({ open, onClose, role }: SidebarProps) {
   const [hrefs, setHrefs] = useState<Record<string, string>>({});
   useEffect(() => {
     const resolved: Record<string, string> = {};
-    for (const item of navItemsForRole(role)) {
+    for (const item of navItemsForRole(role, { onboardingCompleted })) {
       resolved[item.href] = rememberedHref(item.href);
     }
     setHrefs(resolved);
-  }, [pathname, role]);
+  }, [pathname, role, onboardingCompleted]);
 
   function isActive(href: string): boolean {
     // Highlight on exact match or when inside a section (e.g. /funders/new).

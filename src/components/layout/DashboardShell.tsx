@@ -11,6 +11,8 @@ type DashboardShellProps = {
   userEmail: string;
   /** Session role - gates role-restricted nav items (e.g. owner-only Billing). */
   role: Enums<"user_role"> | undefined;
+  /** Whether onboarding is complete — shows the Onboarding return link in the sidebar. */
+  onboardingCompleted: boolean;
   children: ReactNode;
 };
 
@@ -22,6 +24,7 @@ type DashboardShellProps = {
 export function DashboardShell({
   userEmail,
   role,
+  onboardingCompleted,
   children,
 }: DashboardShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -36,6 +39,7 @@ export function DashboardShell({
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         role={role}
+        onboardingCompleted={onboardingCompleted}
       />
 
       <div className="flex min-w-0 flex-1 flex-col">

@@ -5,6 +5,7 @@ import {
   Brain,
   Building2,
   Calendar,
+  ClipboardList,
   CreditCard,
   FileBarChart2,
   Filter,
@@ -32,6 +33,12 @@ export type NavItem = {
   icon: LucideIcon;
   /** When set, only these roles see the item. Omitted = visible to everyone. */
   roles?: UserRole[];
+  /** When true, only shown after onboarding is complete. */
+  requiresOnboarding?: boolean;
+};
+
+export type NavOptions = {
+  onboardingCompleted?: boolean;
 };
 
 /**
@@ -57,6 +64,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Outreach", href: "/outreach", icon: Mail },
   { label: "Search Profiles", href: "/search-profiles", icon: Filter },
   { label: "Research", href: "/research", icon: Radar },
+  { label: "Onboarding", href: "/onboarding", icon: ClipboardList, requiresOnboarding: true },
   { label: "Settings", href: "/settings", icon: Settings },
   // Billing is owner-only (BLUEPRINT §3.2 / updated §3.3 navigation).
   { label: "Billing", href: "/billing", icon: CreditCard, roles: ["owner"] },
@@ -69,9 +77,12 @@ export const NAV_ITEMS: NavItem[] = [
   },
 ];
 
-/** Nav items visible to the given role. Items without `roles` are always shown. */
-export function navItemsForRole(role: UserRole | undefined): NavItem[] {
-  return NAV_ITEMS.filter(
-    (item) => !item.roles || (role !== undefined && item.roles.includes(role)),
-  );
+/** Nav items visible to the given role and onboarding state. */
+export function navItemsForRole(role: UserRole | undefined, options?: NavOptions): NavItem[] {
+  const onboardingCompleted = options?.onboardingCompleted ?? false;
+  return NAV_ITEMS.filter((item) => {
+    if (item.roles && (role === undefined || !item.roles.includes(role))) return false;
+    if (item.requiresOnboarding && !onboardingCompleted) return false;
+    return true;
+  });
 }

@@ -25,7 +25,7 @@ export async function GET() {
   const { data: org, error: orgError } = await supabase
     .from("organizations")
     .select(
-      "id, name, ein, tax_status, mission_statement, service_area, target_population, onboarding_step, subscription_tier",
+      "id, name, ein, tax_status, mission_statement, service_area, target_population, onboarding_step, onboarding_completed, subscription_tier",
     )
     .eq("id", orgId)
     .single();
@@ -66,6 +66,7 @@ export async function GET() {
 
   return NextResponse.json({
     step: org.onboarding_step ?? 0,
+    completed: org.onboarding_completed ?? false,
     org: {
       id: org.id,
       name: org.name ?? "",

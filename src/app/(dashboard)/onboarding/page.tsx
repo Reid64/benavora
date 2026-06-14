@@ -91,6 +91,7 @@ type SearchProfileState = {
 
 type OnboardingData = {
   step: number;
+  completed: boolean;
   org: Omit<OrgState, "subscription_tier"> & { subscription_tier: string };
   programs: { name: string; description: string; budget: number | null; beneficiaries_served: number | null }[];
   knowledge_base: { category: string; content: string }[];
@@ -840,11 +841,13 @@ function Step7({
   currentTier,
   onChoose,
   onSkip,
+  onBack,
   busy,
 }: {
   currentTier: SubscriptionTier;
   onChoose: (tier: SubscriptionTier) => void;
   onSkip: () => void;
+  onBack: () => void;
   busy: boolean;
 }) {
   return (
@@ -869,7 +872,16 @@ function Step7({
         ))}
       </div>
 
-      <div className="flex items-center justify-center pt-2">
+      <div className="flex items-center justify-between pt-2 border-t border-navy-100 mt-6">
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={onBack}
+          disabled={busy}
+        >
+          <ChevronLeft className="h-4 w-4" />
+          Back
+        </Button>
         <button
           type="button"
           onClick={onSkip}
@@ -966,9 +978,14 @@ export default function OnboardingPage() {
         subscription_tier: (data.org.subscription_tier as SubscriptionTier) ?? "free",
       });
 
-      // Resume to saved step (minimum 1)
-      const savedStep = Math.max(1, Math.min(data.step + 1, TOTAL_STEPS));
-      setCurrentStep(data.step > 0 ? savedStep : 1);
+      // Resume to saved step. `data.step` is already the next step to execute
+      // (e.g. after step 1 saves, data.step = 2). When completed = true, start
+      // at step 1 so users can review and update their information.
+      if (data.completed) {
+        setCurrentStep(1);
+      } else if (data.step > 0) {
+        setCurrentStep(Math.min(data.step, TOTAL_STEPS));
+      }
 
       // Pre-fill programs if any already saved
       if (data.programs.length > 0) {
@@ -1062,6 +1079,10 @@ export default function OnboardingPage() {
     setSaveError(null);
     setSaving(true);
 
+    // advanceStep is only set true after the save succeeds. Any throw (validation
+    // or network/DB error) leaves it false and the user stays on the current step.
+    let advanceStep = false;
+
     try {
       switch (currentStep) {
         case 1:
@@ -1074,6 +1095,7 @@ export default function OnboardingPage() {
             service_area: org.service_area,
             target_population: org.target_population,
           });
+          advanceStep = true;
           break;
 
         case 2: {
@@ -1087,6 +1109,7 @@ export default function OnboardingPage() {
               beneficiaries_served: p.beneficiaries_served ? Number(p.beneficiaries_served) : null,
             })),
           });
+          advanceStep = true;
           break;
         }
 
@@ -1099,6 +1122,7 @@ export default function OnboardingPage() {
             need_statement: kb.need_statement,
             impact: kb.impact,
           });
+          advanceStep = true;
           break;
 
         case 4: {
@@ -1112,6 +1136,7 @@ export default function OnboardingPage() {
               email: m.email,
             })),
           });
+          advanceStep = true;
           break;
         }
 
@@ -1141,6 +1166,7 @@ export default function OnboardingPage() {
           uploadedDocsRef.current = [...uploadedDocsRef.current, ...newDocs];
 
           await saveStep(5, { documents: uploadedDocsRef.current });
+          advanceStep = true;
           break;
         }
 
@@ -1156,19 +1182,21 @@ export default function OnboardingPage() {
             min_amount: searchProfile.min_amount ? Number(searchProfile.min_amount) : null,
             max_amount: searchProfile.max_amount ? Number(searchProfile.max_amount) : null,
           });
+          advanceStep = true;
           break;
 
         default:
           break;
       }
-
-      if (currentStep < TOTAL_STEPS) {
-        setCurrentStep((s) => s + 1);
-      }
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : "An error occurred. Please try again.");
     } finally {
       setSaving(false);
+    }
+
+    // Only advance after a confirmed save — never on error.
+    if (advanceStep && currentStep < TOTAL_STEPS) {
+      setCurrentStep((s) => s + 1);
     }
   }
 
@@ -1263,6 +1291,7 @@ export default function OnboardingPage() {
               currentTier={org.subscription_tier}
               onChoose={(t) => void handleChoosePlan(t)}
               onSkip={() => void handleSkip()}
+              onBack={handleBack}
               busy={saving}
             />
           )}
