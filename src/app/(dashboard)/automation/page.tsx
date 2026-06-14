@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bot, CheckCircle2, Clock, XCircle } from "lucide-react";
+import { Bot, CheckCircle2, Clock, Lock, Play, XCircle } from "lucide-react";
 
 import { Button, Card, EmptyState, Select } from "@/components/ui";
 import { MetricCard } from "@/components/dashboard/MetricCard";
@@ -25,9 +25,58 @@ const STATUS_FILTER_OPTIONS = [
   ...STATUS_FILTERS.map((value) => ({ value, label: STATUS_LABEL[value] })),
 ];
 
+type AutomationLevel = "supervised" | "semi_autonomous" | "autonomous";
+
+const LEVEL_LABELS: Record<AutomationLevel, string> = {
+  supervised: "Supervised",
+  semi_autonomous: "Semi-Autonomous",
+  autonomous: "Autonomous",
+};
+
+const LEVEL_DESCRIPTIONS: Record<AutomationLevel, string> = {
+  supervised: "Pauses before every submission for your approval.",
+  semi_autonomous: "Auto-submits when all fields have ≥90% confidence. Pauses otherwise.",
+  autonomous: "Submits automatically without pause. Captures confirmation.",
+};
+
+interface QueueItem {
+  id: string;
+  priority: number;
+  status: string;
+  automation_level: string;
+  retry_count: number;
+  max_retries: number;
+  error_log: unknown[];
+  created_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+  applications: {
+    id: string;
+    stage: string;
+    opportunities: { name: string } | null;
+  } | null;
+}
+
+const QUEUE_STATUS_LABEL: Record<string, string> = {
+  queued: "Queued",
+  processing: "Processing",
+  paused: "Paused",
+  completed: "Completed",
+  failed: "Failed",
+};
+
+const QUEUE_STATUS_COLOR: Record<string, string> = {
+  queued: "bg-blue-100 text-blue-700",
+  processing: "bg-yellow-100 text-yellow-700",
+  paused: "bg-gray-100 text-gray-600",
+  completed: "bg-green-100 text-green-700",
+  failed: "bg-red-100 text-red-700",
+};
+
 /**
- * Browser-automation session list (BLUEPRINT §Phase 3). Shows summary stats,
- * filterable session list, and quick actions per session.
+ * Browser-automation session list and queue dashboard (BLUEPRINT §Phase 3 + Tier 6).
+ * Shows summary stats, filterable session list, and the automation queue with
+ * per-item level selectors gated by feature flags.
  */
 export default function AutomationPage() {
   const router = useRouter();
@@ -49,20 +98,71 @@ export default function AutomationPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [enabling, setEnabling] = useState(false);
 
+  // Queue state
+  const [queueItems, setQueueItems] = useState<QueueItem[]>([]);
+  const [queueLoading, setQueueLoading] = useState(false);
+  const [queueError, setQueueError] = useState<string | null>(null);
+  const [processingQueueId, setProcessingQueueId] = useState<string | null>(null);
+  const [updatingLevelId, setUpdatingLevelId] = useState<string | null>(null);
+
+  // Feature flags
+  const [hasSemiAuto, setHasSemiAuto] = useState(false);
+  const [hasAutonomous, setHasAutonomous] = useState(false);
+
+  // Global default level (platform_config: automation.default_level)
+  const [defaultLevel, setDefaultLevel] = useState<AutomationLevel>("supervised");
+  const [savingDefault, setSavingDefault] = useState(false);
+
+  const loadQueue = useCallback(async () => {
+    setQueueLoading(true);
+    try {
+      const res = await fetch("/api/automation/queue");
+      if (!res.ok) throw new Error("Failed to fetch queue");
+      const payload = (await res.json()) as { items: QueueItem[] };
+      setQueueItems(payload.items ?? []);
+      setQueueError(null);
+    } catch {
+      setQueueError("Could not load the automation queue.");
+    } finally {
+      setQueueLoading(false);
+    }
+  }, []);
+
   const load = useCallback(async (initial: boolean) => {
     if (initial) setLoading(true);
     const supabase = createClient();
     try {
-      const [items, flagRes] = await Promise.all([
+      const [items, flagRes, semiAutoRes, autonomousRes, defaultRes] = await Promise.all([
         loadAutomationSessions(supabase),
         supabase
           .from("platform_config")
           .select("value")
           .eq("key", "feature.browser_automation")
           .maybeSingle(),
+        supabase
+          .from("platform_config")
+          .select("value")
+          .eq("key", "feature.semi_autonomous")
+          .maybeSingle(),
+        supabase
+          .from("platform_config")
+          .select("value")
+          .eq("key", "feature.autonomous_mode")
+          .maybeSingle(),
+        supabase
+          .from("platform_config")
+          .select("value")
+          .eq("key", "automation.default_level")
+          .maybeSingle(),
       ]);
       setSessions(items);
       setFeatureEnabled((flagRes.data?.value as string | undefined) === "true");
+      setHasSemiAuto((semiAutoRes.data?.value as string | undefined) === "true");
+      setHasAutonomous((autonomousRes.data?.value as string | undefined) === "true");
+      const storedDefault = defaultRes.data?.value as string | undefined;
+      if (storedDefault === "semi_autonomous" || storedDefault === "autonomous") {
+        setDefaultLevel(storedDefault as AutomationLevel);
+      }
       setError(null);
     } catch {
       setError("Could not load automation sessions.");
@@ -73,7 +173,8 @@ export default function AutomationPage() {
 
   useEffect(() => {
     void load(true);
-  }, [load]);
+    void loadQueue();
+  }, [load, loadQueue]);
 
   const hasLiveSession = sessions.some(
     (s) => s.status === "pending" || s.status === "in_progress",
@@ -167,6 +268,85 @@ export default function AutomationPage() {
     setFeatureEnabled(true);
   }
 
+  async function handleSaveDefaultLevel(level: AutomationLevel) {
+    if (!profile) return;
+    setSavingDefault(true);
+    const supabase = createClient();
+    await supabase.from("platform_config").upsert(
+      {
+        organization_id: profile.organization_id,
+        key: "automation.default_level",
+        value: level,
+      },
+      { onConflict: "organization_id,key" },
+    );
+    setDefaultLevel(level);
+    setSavingDefault(false);
+  }
+
+  async function handleUpdateQueueLevel(itemId: string, level: AutomationLevel) {
+    setUpdatingLevelId(itemId);
+    try {
+      const res = await fetch("/api/automation/queue", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ id: itemId, automationLevel: level }),
+      });
+      if (!res.ok) {
+        const err = (await res.json().catch(() => ({}))) as { error?: string };
+        setActionError(err.error ?? "Could not update automation level.");
+        return;
+      }
+      setQueueItems((prev) =>
+        prev.map((q) =>
+          q.id === itemId ? { ...q, automation_level: level } : q,
+        ),
+      );
+    } catch {
+      setActionError("Failed to update queue item.");
+    } finally {
+      setUpdatingLevelId(null);
+    }
+  }
+
+  async function handleProcessItem(itemId: string) {
+    setProcessingQueueId(itemId);
+    setActionError(null);
+    try {
+      const res = await fetch("/api/automation/process", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ queueItemId: itemId }),
+      });
+      if (!res.ok) {
+        const err = (await res.json().catch(() => ({}))) as { error?: string };
+        setActionError(err.error ?? "Could not process queue item.");
+        return;
+      }
+      await loadQueue();
+    } catch {
+      setActionError("Could not reach the automation worker.");
+    } finally {
+      setProcessingQueueId(null);
+    }
+  }
+
+  function levelAllowed(level: AutomationLevel): boolean {
+    if (level === "autonomous") return hasAutonomous;
+    if (level === "semi_autonomous") return hasSemiAuto;
+    return true;
+  }
+
+  function levelUpgradeMessage(level: AutomationLevel): string | null {
+    if (level === "autonomous" && !hasAutonomous) {
+      return "Requires Enterprise or Consultant plan";
+    }
+    if (level === "semi_autonomous" && !hasSemiAuto) {
+      return "Requires Professional plan or higher";
+    }
+    return null;
+  }
+
   return (
     <div className="space-y-8">
       <div>
@@ -175,8 +355,7 @@ export default function AutomationPage() {
         </h1>
         <p className="mt-1 text-sm text-navy-500">
           Browser-automation sessions fill funder donation portals for your
-          applications. Each session pauses for your review and never submits
-          without your approval.
+          applications. Choose your automation level per item or set a global default.
         </p>
       </div>
 
@@ -245,6 +424,201 @@ export default function AutomationPage() {
           />
         </div>
       )}
+
+      {/* Automation Queue */}
+      <Card title="Automation Queue" noPadding>
+        <div className="p-5 space-y-5">
+          {/* Global default level */}
+          <div className="flex flex-wrap items-start gap-6 border-b border-navy-200 pb-5">
+            <div className="flex-1 min-w-48">
+              <label className="block text-sm font-medium text-navy-700 mb-1">
+                Default automation level
+              </label>
+              <p className="text-xs text-navy-500 mb-2">
+                Applied when queuing new items. Can be overridden per item.
+              </p>
+              <div className="flex items-center gap-3">
+                <div className="w-52">
+                  <Select
+                    aria-label="Default automation level"
+                    value={defaultLevel}
+                    onChange={(e) =>
+                      void handleSaveDefaultLevel(e.target.value as AutomationLevel)
+                    }
+                    disabled={savingDefault || !canToggle}
+                    options={[
+                      { value: "supervised", label: "Supervised" },
+                      {
+                        value: "semi_autonomous",
+                        label: hasSemiAuto
+                          ? "Semi-Autonomous"
+                          : "Semi-Autonomous (upgrade required)",
+                      },
+                      {
+                        value: "autonomous",
+                        label: hasAutonomous
+                          ? "Autonomous"
+                          : "Autonomous (upgrade required)",
+                      },
+                    ]}
+                  />
+                </div>
+                {savingDefault && (
+                  <span className="text-xs text-navy-400">Saving…</span>
+                )}
+              </div>
+              <p className="mt-1.5 text-xs text-navy-500">
+                {LEVEL_DESCRIPTIONS[defaultLevel]}
+              </p>
+            </div>
+
+            {/* Level legend */}
+            <div className="space-y-2 min-w-72">
+              {(["supervised", "semi_autonomous", "autonomous"] as AutomationLevel[]).map(
+                (lvl) => {
+                  const upgrade = levelUpgradeMessage(lvl);
+                  return (
+                    <div key={lvl} className="flex items-start gap-2">
+                      {upgrade ? (
+                        <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-navy-400" />
+                      ) : (
+                        <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-teal-500" />
+                      )}
+                      <div>
+                        <span className="text-xs font-medium text-navy-700">
+                          {LEVEL_LABELS[lvl]}
+                        </span>
+                        {upgrade && (
+                          <span className="ml-1.5 text-xs text-amber-600">
+                            — {upgrade}
+                          </span>
+                        )}
+                        <p className="text-xs text-navy-400">
+                          {LEVEL_DESCRIPTIONS[lvl]}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                },
+              )}
+            </div>
+          </div>
+
+          {/* Queue items */}
+          {queueLoading ? (
+            <p className="text-sm text-navy-400">Loading queue…</p>
+          ) : queueError ? (
+            <p className="text-sm text-red-600">{queueError}</p>
+          ) : queueItems.length === 0 ? (
+            <EmptyState
+              icon={Play}
+              title="Queue is empty"
+              description="Add applications to the queue from their detail page to process them here."
+            />
+          ) : (
+            <div className="divide-y divide-navy-100">
+              {queueItems.map((item) => {
+                const opportunityName =
+                  item.applications?.opportunities?.name ?? "Unknown application";
+                const statusLabel =
+                  QUEUE_STATUS_LABEL[item.status] ?? item.status;
+                const statusColor =
+                  QUEUE_STATUS_COLOR[item.status] ?? "bg-gray-100 text-gray-600";
+                const canUpdate =
+                  item.status === "queued" || item.status === "paused";
+                const isProcessing = processingQueueId === item.id;
+                const isUpdatingLevel = updatingLevelId === item.id;
+                const currentLevel =
+                  (item.automation_level as AutomationLevel) ?? "supervised";
+
+                return (
+                  <div
+                    key={item.id}
+                    className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:gap-4"
+                  >
+                    {/* Name + priority */}
+                    <div className="flex-1 min-w-0">
+                      <p className="truncate text-sm font-medium text-navy-900">
+                        {opportunityName}
+                      </p>
+                      <p className="text-xs text-navy-400">
+                        Priority {item.priority} ·{" "}
+                        {item.retry_count > 0
+                          ? `Retry ${item.retry_count}/${item.max_retries}`
+                          : "First attempt"}
+                      </p>
+                    </div>
+
+                    {/* Status badge */}
+                    <span
+                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${statusColor}`}
+                    >
+                      {statusLabel}
+                    </span>
+
+                    {/* Automation level selector */}
+                    <div className="w-48">
+                      {canUpdate ? (
+                        <div>
+                          <Select
+                            aria-label={`Automation level for ${opportunityName}`}
+                            value={currentLevel}
+                            onChange={(e) => {
+                              const newLevel = e.target.value as AutomationLevel;
+                              if (!levelAllowed(newLevel)) return;
+                              void handleUpdateQueueLevel(item.id, newLevel);
+                            }}
+                            disabled={isUpdatingLevel || !canRerun}
+                            options={[
+                              { value: "supervised", label: "Supervised" },
+                              {
+                                value: "semi_autonomous",
+                                label: hasSemiAuto
+                                  ? "Semi-Autonomous"
+                                  : "Semi-Auto (locked)",
+                              },
+                              {
+                                value: "autonomous",
+                                label: hasAutonomous
+                                  ? "Autonomous"
+                                  : "Autonomous (locked)",
+                              },
+                            ]}
+                          />
+                          {levelUpgradeMessage(currentLevel) && (
+                            <p className="mt-0.5 text-xs text-amber-600 flex items-center gap-1">
+                              <Lock className="h-3 w-3" />
+                              {levelUpgradeMessage(currentLevel)}
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-sm text-navy-500">
+                          {LEVEL_LABELS[currentLevel] ?? currentLevel}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Process button */}
+                    {canUpdate && canRerun && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => void handleProcessItem(item.id)}
+                        isLoading={isProcessing}
+                        disabled={isProcessing || !featureEnabled}
+                      >
+                        <Play className="mr-1 h-3.5 w-3.5" />
+                        Process
+                      </Button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </Card>
 
       <Card
         title="Sessions"

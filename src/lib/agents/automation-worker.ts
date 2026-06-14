@@ -222,7 +222,16 @@ export class AutomationWorkerAgent {
         triggeredBy: this.triggeredBy,
       });
 
-      await browserAgent.run({ applicationId: queueItem.application_id });
+      const rawLevel = queueItem.automation_level as string;
+      const automationLevel: "supervised" | "semi_autonomous" | "autonomous" =
+        rawLevel === "semi_autonomous" || rawLevel === "autonomous"
+          ? rawLevel
+          : "supervised";
+
+      await browserAgent.run({
+        applicationId: queueItem.application_id,
+        automationLevel,
+      });
 
       // Success: mark completed.
       await this.client

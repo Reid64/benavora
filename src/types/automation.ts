@@ -154,6 +154,9 @@ export interface FormMapping {
   value: string;
   /** Dotted path describing where `value` came from, for the transparency UI. */
   source: string;
+  /** 0-1 mapping confidence. Keyword-matched fields default to 0.95. Below 0.9
+   *  triggers a pause in semi_autonomous mode (BEHAVIORAL_CONTRACTS §24). */
+  confidence?: number;
 }
 
 /**

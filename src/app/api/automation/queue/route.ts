@@ -108,6 +108,25 @@ export async function POST(request: Request) {
   if (!profile) return jsonError("Profile not found.", "no_profile", 403);
   const organizationId = profile.organization_id as string;
 
+  // Tier gate — semi_autonomous and autonomous require feature flags.
+  if (level === "autonomous" || level === "semi_autonomous") {
+    const flagKey =
+      level === "autonomous" ? "feature.autonomous_mode" : "feature.semi_autonomous";
+    const { data: flag } = await supabase
+      .from("platform_config")
+      .select("value")
+      .eq("organization_id", organizationId)
+      .eq("key", flagKey)
+      .maybeSingle();
+    if ((flag?.value as string | undefined) !== "true") {
+      const msg =
+        level === "autonomous"
+          ? "Autonomous mode requires an Enterprise or Consultant plan."
+          : "Semi-autonomous mode requires a Professional plan or higher.";
+      return jsonError(msg, "feature_not_enabled", 403);
+    }
+  }
+
   // Verify the application belongs to this org.
   const { data: app } = await supabase
     .from("applications")
@@ -166,4 +185,93 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({ item: queued }, { status: 201 });
+}
+
+// ---------------------------------------------------------------------------
+// PATCH — update automation_level on a queued or paused item
+// ---------------------------------------------------------------------------
+
+export async function PATCH(request: Request) {
+  const roleCheck = await requireRole("writer");
+  if ("error" in roleCheck) return roleCheck.error;
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return jsonError("Request body must be valid JSON.", "invalid_body", 400);
+  }
+
+  const { id, automationLevel } = (body ?? {}) as {
+    id?: unknown;
+    automationLevel?: unknown;
+  };
+
+  if (typeof id !== "string" || !id.trim()) {
+    return jsonError("id is required.", "invalid_input", 400);
+  }
+
+  const validLevels = ["supervised", "semi_autonomous", "autonomous"];
+  if (typeof automationLevel !== "string" || !validLevels.includes(automationLevel)) {
+    return jsonError(
+      "automationLevel must be supervised, semi_autonomous, or autonomous.",
+      "invalid_input",
+      400,
+    );
+  }
+
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return jsonError("Authentication required.", "unauthenticated", 401);
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("organization_id")
+    .eq("id", user.id)
+    .single();
+  if (!profile) return jsonError("Profile not found.", "no_profile", 403);
+  const organizationId = profile.organization_id as string;
+
+  // Tier gate.
+  if (automationLevel === "autonomous" || automationLevel === "semi_autonomous") {
+    const flagKey =
+      automationLevel === "autonomous"
+        ? "feature.autonomous_mode"
+        : "feature.semi_autonomous";
+    const { data: flag } = await supabase
+      .from("platform_config")
+      .select("value")
+      .eq("organization_id", organizationId)
+      .eq("key", flagKey)
+      .maybeSingle();
+    if ((flag?.value as string | undefined) !== "true") {
+      const msg =
+        automationLevel === "autonomous"
+          ? "Autonomous mode requires an Enterprise or Consultant plan."
+          : "Semi-autonomous mode requires a Professional plan or higher.";
+      return jsonError(msg, "feature_not_enabled", 403);
+    }
+  }
+
+  // Only allow updating items that are still pending (not mid-flight).
+  const { data: updated, error: updateError } = await supabase
+    .from("automation_queue")
+    .update({ automation_level: automationLevel })
+    .eq("id", id.trim())
+    .eq("organization_id", organizationId)
+    .in("status", ["queued", "paused"])
+    .select("id, automation_level, status")
+    .single();
+
+  if (updateError || !updated) {
+    return jsonError(
+      "Queue item not found or not in a modifiable state.",
+      "not_found",
+      404,
+    );
+  }
+
+  return NextResponse.json({ item: updated });
 }

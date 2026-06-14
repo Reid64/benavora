@@ -283,7 +283,7 @@ export function mapFields(
     const value = rule ? rule.resolve(context) : null;
 
     if (rule && value !== null) {
-      mappedFields.push({ field, value, source: rule.source });
+      mappedFields.push({ field, value, source: rule.source, confidence: 0.95 });
     } else {
       unmappedFields.push(field);
     }

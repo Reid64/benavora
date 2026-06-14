@@ -56,6 +56,15 @@ import type {
 export interface BrowserAutomationInput {
   /** Application whose opportunity portal we are filling. Required. */
   applicationId: string;
+  /**
+   * How the worker should behave after filling:
+   *   supervised        — pause for human approval (default, all tiers).
+   *   semi_autonomous   — auto-submit when all mapped fields have confidence ≥ 0.9
+   *                       and no required fields are unmapped; else pause.
+   *   autonomous        — always auto-submit without pause.
+   * BEHAVIORAL_CONTRACTS §23-§24; tier gates enforced at the queue API.
+   */
+  automationLevel?: "supervised" | "semi_autonomous" | "autonomous";
 }
 
 /** Why the automation paused for a human. */
@@ -277,7 +286,7 @@ export class BrowserAutomationAgent extends BaseAgent<
         await this.recordCaptures(sessionId, upload.screenshots, screenshots);
       }
 
-      // --- persist the field split + pause for approval --------------------
+      // --- persist the field split -----------------------------------------
       // mapped_fields carries everything we auto-handled (text + uploads) so the
       // approval replay can re-apply it; unmapped_fields carries what a human
       // still has to provide.
@@ -294,10 +303,95 @@ export class BrowserAutomationAgent extends BaseAgent<
         unmappedRequired,
       );
 
+      // --- decide: pause for approval, or auto-submit ----------------------
+      const level = input.automationLevel ?? "supervised";
+
+      const lowConfidenceFields = savedMapped.filter(
+        (m) => (m.confidence ?? 0.95) < 0.9,
+      );
+      const allHighConfidence = lowConfidenceFields.length === 0;
+
+      const shouldAutoSubmit =
+        level === "autonomous" ||
+        (level === "semi_autonomous" &&
+          allHighConfidence &&
+          unmappedRequired.length === 0);
+
+      if (shouldAutoSubmit) {
+        const submitResult = await this.submitCurrentPage(
+          engine,
+          sessionId,
+          ++step,
+          level,
+        );
+
+        if (submitResult.submitted) {
+          if (submitResult.screenshot) screenshots.push(submitResult.screenshot);
+
+          const autoNote = submitResult.confirmationNumber
+            ? `Auto-submitted (${level}). Confirmation: ${submitResult.confirmationNumber}`
+            : `Auto-submitted (${level}). No confirmation number captured.`;
+
+          const fieldScoreLog = savedMapped
+            .map(
+              (m) =>
+                `${m.field.fieldLabel || m.field.fieldName}=${(m.confidence ?? 0.95).toFixed(2)}`,
+            )
+            .join(", ");
+
+          await this.sessions.markAutoSubmitted(
+            sessionId,
+            level,
+            submitResult.confirmationNumber,
+          );
+          await this.advanceApplicationToSubmitted(
+            context.applicationId,
+            this.triggeredBy ?? "system",
+            submitResult.confirmationNumber,
+          );
+
+          return {
+            data: {
+              sessionId,
+              status: "submitted",
+              pause: null,
+              targetUrl: context.targetUrl,
+              mappedFieldCount: mappedFields.length,
+              unmappedRequiredFields: unmappedRequired,
+              screenshots,
+              notes: autoNote,
+            },
+            outputSummary: `${autoNote} | field_scores: ${fieldScoreLog}`,
+            itemsFound: mappedFields.length,
+            itemsProcessed: mappedFields.length,
+          };
+        }
+        // No submit button found — fall through to supervised pause below.
+      }
+
+      // Annotate pause note for semi_autonomous when we couldn't auto-submit.
+      let pauseNote = note;
+      if (level === "semi_autonomous") {
+        const reasons: string[] = [];
+        if (!allHighConfidence) {
+          reasons.push(
+            `${lowConfidenceFields.length} field(s) below 90% confidence: ${lowConfidenceFields.map((m) => m.field.fieldLabel || m.field.fieldName).join(", ")}`,
+          );
+        }
+        if (unmappedRequired.length > 0) {
+          reasons.push(
+            `${unmappedRequired.length} required field(s) need input: ${unmappedRequired.join(", ")}`,
+          );
+        }
+        if (reasons.length > 0) {
+          pauseNote = `Semi-autonomous paused — ${reasons.join("; ")}. ${note}`;
+        }
+      }
+
       return await this.pause(
         sessionId,
         "form_filled",
-        note,
+        pauseNote,
         context.targetUrl,
         mappedFields.length,
         unmappedRequired,
@@ -510,6 +604,57 @@ export class BrowserAutomationAgent extends BaseAgent<
       });
       sink.push(shot.storagePath);
     }
+  }
+
+  /**
+   * Submit the form from the CURRENT live page (no re-navigation).
+   * Used by autonomous / semi_autonomous modes immediately after form fill.
+   * Returns whether a submit button was found, plus the confirmation number
+   * and screenshot path when submission succeeded.
+   */
+  private async submitCurrentPage(
+    engine: BrowserEngine,
+    sessionId: string,
+    stepNumber: number,
+    automationLevel: string,
+  ): Promise<{
+    submitted: boolean;
+    confirmationNumber: string | null;
+    screenshot: string | null;
+  }> {
+    await this.sessions.recordStep(sessionId, {
+      stepNumber,
+      action: "submit",
+      description: `Auto-submit (${automationLevel})`,
+      status: "pending",
+    });
+
+    const clicked = await clickSubmit(engine.page);
+    if (!clicked) {
+      await this.sessions.recordStep(sessionId, {
+        stepNumber: stepNumber + 1,
+        action: "submit",
+        description: "Auto-submit: no submit button found",
+        status: "failed",
+      });
+      return { submitted: false, confirmationNumber: null, screenshot: null };
+    }
+
+    await waitForSettle(engine.page);
+
+    const shot = await engine.screenshot("confirmation");
+    await this.sessions.recordScreenshot(sessionId, shot, {
+      description: "Confirmation page (auto-submitted)",
+    });
+
+    const pageText = await safePageText(engine.page);
+    const confirmationNumber = extractConfirmationNumber(pageText);
+
+    return {
+      submitted: true,
+      confirmationNumber,
+      screenshot: shot.storagePath,
+    };
   }
 
   /** Drive the session to awaiting_approval and shape the result. */

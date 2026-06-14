@@ -266,6 +266,25 @@ export class AutomationSessionManager {
     });
   }
 
+  /**
+   * Auto-submit for semi_autonomous / autonomous modes. Bypasses the human
+   * approval requirement; `automationLevel` is recorded as `approved_by` for
+   * audit trail (BEHAVIORAL_CONTRACTS §24 / §29). The tier gate is enforced
+   * upstream at the queue API — this method trusts the caller.
+   */
+  async markAutoSubmitted(
+    sessionId: string,
+    automationLevel: string,
+    confirmationNumber?: string | null,
+  ): Promise<void> {
+    await this.update(sessionId, {
+      status: "submitted",
+      confirmation_number: confirmationNumber ?? null,
+      approved_by: `system:${automationLevel}`,
+      completed_at: new Date().toISOString(),
+    });
+  }
+
   /** Mark the session failed with a reason. Terminal. */
   async markFailed(sessionId: string, errorMessage: string): Promise<void> {
     await this.update(sessionId, {
