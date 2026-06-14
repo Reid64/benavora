@@ -54,7 +54,7 @@ BEGIN
     (NEW.id, 'feature.email_integration',        'false'),
     (NEW.id, 'feature.cold_outreach_email',      'false'),
     (NEW.id, 'feature.stripe_billing',           'false'),
-    (NEW.id, 'ai.model',                         'claude-sonnet-4-6-20250514'),
+    (NEW.id, 'ai.model',                         'claude-sonnet-4-6'),
     (NEW.id, 'ai.max_tokens',                    '4096'),
     (NEW.id, 'ai.confidence_threshold',          '70'),
     (NEW.id, 'learning.min_outcomes_for_scoring','5'),
