@@ -1907,6 +1907,49 @@ export interface Database {
         };
         Relationships: [];
       };
+      // Migration 041 — scraping targets for AI-powered web scraping (SCHEMA_REGISTRY v2.0 §2.49).
+      scraping_targets: {
+        Row: {
+          id: string;
+          organization_id: string;
+          url: string;
+          description: string | null;
+          scrape_schedule: string;
+          last_scraped_at: string | null;
+          last_success_at: string | null;
+          failure_count: number;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          url: string;
+          description?: string | null;
+          scrape_schedule?: string;
+          last_scraped_at?: string | null;
+          last_success_at?: string | null;
+          failure_count?: number;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          url?: string;
+          description?: string | null;
+          scrape_schedule?: string;
+          last_scraped_at?: string | null;
+          last_success_at?: string | null;
+          failure_count?: number;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
