@@ -83,7 +83,11 @@ export type AgentType =
   | "application_cloning"
   // Semantic Matching Agent - uses Claude to score semantic alignment between
   // the org profile and each funder, returning a ranked list with reasoning.
-  | "semantic_matching";
+  | "semantic_matching"
+  // Follow-Up Generator Agent (AGENTS.md Agent 28, BEHAVIORAL_CONTRACTS §28).
+  // Generates a 3-step humanized follow-up email sequence after a grant
+  // application is submitted; stores results as a note on the application.
+  | "follow_up_generator";
 
 export type AgentRunStatus = "pending" | "running" | "completed" | "failed";
 
