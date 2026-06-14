@@ -113,6 +113,8 @@ export function FunderDetail({ funderId }: FunderDetailProps) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [researching, setResearching] = useState(false);
   const [researchError, setResearchError] = useState<string | null>(null);
+  const [extractingHistory, setExtractingHistory] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const supabase = createClient();
@@ -219,6 +221,29 @@ export function FunderDetail({ funderId }: FunderDetailProps) {
       setResearchError("Network error. Please try again.");
     } finally {
       setResearching(false);
+    }
+  }
+
+  async function handleGivingHistory(ein: string) {
+    setExtractingHistory(true);
+    setHistoryError(null);
+    try {
+      const res = await fetch("/api/agents/giving-history", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ funderId, ein }),
+      });
+      const json = (await res.json()) as { error?: string };
+      if (!res.ok) {
+        setHistoryError(json.error ?? "Extraction failed.");
+        return;
+      }
+      await load();
+      setTab("intelligence");
+    } catch {
+      setHistoryError("Network error. Please try again.");
+    } finally {
+      setExtractingHistory(false);
     }
   }
 
@@ -398,6 +423,9 @@ export function FunderDetail({ funderId }: FunderDetailProps) {
           intelligence={data.intelligence}
           onResearch={editable ? () => void handleResearch() : undefined}
           researching={researching}
+          onExtractHistory={editable ? handleGivingHistory : undefined}
+          extractingHistory={extractingHistory}
+          historyError={historyError}
         />
       )}
 
@@ -717,30 +745,57 @@ type RecentGrant = {
 };
 type BoardMember = { name?: string; title?: string | null };
 
+type GivingHistoryFiling = {
+  year: number;
+  totalRevenue: number;
+  totalAssets: number;
+  grantsPaid: number;
+};
+type GivingHistoryData = {
+  source: "propublica";
+  ein: string;
+  trend: "increasing" | "decreasing" | "stable" | "insufficient_data";
+  filings: GivingHistoryFiling[];
+};
+
 function IntelligenceTab({
   intelligence,
   onResearch,
   researching,
+  onExtractHistory,
+  extractingHistory,
+  historyError,
 }: {
   intelligence: Tables<"funder_intelligence"> | null;
   onResearch?: () => void;
   researching?: boolean;
+  onExtractHistory?: (ein: string) => Promise<void>;
+  extractingHistory?: boolean;
+  historyError?: string | null;
 }) {
   if (!intelligence) {
     return (
-      <EmptyState
-        icon={Brain}
-        title="No intelligence yet"
-        description="Click Research funder to extract structured intelligence from this funder's website."
-        action={
-          onResearch ? (
-            <Button onClick={onResearch} isLoading={researching}>
-              <Brain className="h-4 w-4" aria-hidden />
-              Research funder
-            </Button>
-          ) : undefined
-        }
-      />
+      <div className="space-y-6">
+        <EmptyState
+          icon={Brain}
+          title="No intelligence yet"
+          description="Click Research funder to extract structured intelligence from this funder's website."
+          action={
+            onResearch ? (
+              <Button onClick={onResearch} isLoading={researching}>
+                <Brain className="h-4 w-4" aria-hidden />
+                Research funder
+              </Button>
+            ) : undefined
+          }
+        />
+        <GivingHistorySection
+          givingHistory={null}
+          onExtractHistory={onExtractHistory}
+          extractingHistory={extractingHistory}
+          historyError={historyError}
+        />
+      </div>
     );
   }
 
@@ -750,6 +805,16 @@ function IntelligenceTab({
   const boardMembers = Array.isArray(intelligence.board_members)
     ? (intelligence.board_members as unknown as BoardMember[])
     : [];
+
+  const rawGh = intelligence.recent_grants;
+  const givingHistory: GivingHistoryData | null =
+    rawGh !== null &&
+    rawGh !== undefined &&
+    typeof rawGh === "object" &&
+    !Array.isArray(rawGh) &&
+    (rawGh as Record<string, unknown>).source === "propublica"
+      ? (rawGh as unknown as GivingHistoryData)
+      : null;
 
   return (
     <div className="space-y-6">
@@ -856,7 +921,198 @@ function IntelligenceTab({
           </div>
         </Card>
       )}
+
+      {/* Giving History (ProPublica 990-PF) */}
+      <GivingHistorySection
+        givingHistory={givingHistory}
+        onExtractHistory={onExtractHistory}
+        extractingHistory={extractingHistory}
+        historyError={historyError}
+      />
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Giving History section (IRS 990-PF via ProPublica)
+// ---------------------------------------------------------------------------
+
+const TREND_LABEL: Record<GivingHistoryData["trend"], string> = {
+  increasing: "Increasing",
+  decreasing: "Decreasing",
+  stable: "Stable",
+  insufficient_data: "Insufficient data",
+};
+
+const TREND_COLOR: Record<GivingHistoryData["trend"], string> = {
+  increasing: "text-green-600",
+  decreasing: "text-red-600",
+  stable: "text-navy-500",
+  insufficient_data: "text-navy-400",
+};
+
+const TREND_ICON: Record<
+  GivingHistoryData["trend"],
+  typeof ArrowUp
+> = {
+  increasing: ArrowUp,
+  decreasing: ArrowDown,
+  stable: ArrowRight,
+  insufficient_data: ArrowRight,
+};
+
+function GivingHistorySection({
+  givingHistory,
+  onExtractHistory,
+  extractingHistory,
+  historyError,
+}: {
+  givingHistory: GivingHistoryData | null;
+  onExtractHistory?: (ein: string) => Promise<void>;
+  extractingHistory?: boolean;
+  historyError?: string | null;
+}) {
+  const [ein, setEin] = useState("");
+  const [showForm, setShowForm] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
+
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setLocalError(null);
+    const cleaned = ein.replace(/\D/g, "");
+    if (cleaned.length !== 9) {
+      setLocalError("Enter the 9-digit EIN (e.g. 12-3456789).");
+      return;
+    }
+    if (onExtractHistory) {
+      await onExtractHistory(ein.trim());
+      setShowForm(false);
+    }
+  }
+
+  const einForm = onExtractHistory && (
+    <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-3">
+      <div className="flex-1" style={{ minWidth: "200px" }}>
+        <Input
+          label="EIN"
+          value={ein}
+          onChange={(e) => setEin(e.target.value)}
+          placeholder="12-3456789"
+        />
+      </div>
+      <Button
+        type="submit"
+        isLoading={extractingHistory}
+        disabled={extractingHistory || ein.trim() === ""}
+      >
+        Extract
+      </Button>
+      {givingHistory && (
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() => setShowForm(false)}
+          disabled={extractingHistory}
+        >
+          Cancel
+        </Button>
+      )}
+    </form>
+  );
+
+  if (givingHistory) {
+    const TrendIcon = TREND_ICON[givingHistory.trend];
+    const trendColor = TREND_COLOR[givingHistory.trend];
+    const filings = givingHistory.filings ?? [];
+
+    return (
+      <Card title="Giving History (IRS 990-PF)">
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <div className={`flex items-center gap-1 text-sm font-medium ${trendColor}`}>
+            <TrendIcon className="h-4 w-4" aria-hidden />
+            {TREND_LABEL[givingHistory.trend]}
+          </div>
+          <span className="text-xs text-navy-400">
+            EIN {givingHistory.ein.replace(/^(\d{2})(\d{7})$/, "$1-$2")}
+          </span>
+          {onExtractHistory && !showForm && (
+            <button
+              type="button"
+              className="ml-auto text-xs text-teal-600 underline hover:text-teal-700"
+              onClick={() => { setEin(""); setShowForm(true); }}
+            >
+              Re-extract
+            </button>
+          )}
+        </div>
+
+        {filings.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-navy-100 text-left text-xs font-semibold uppercase tracking-wide text-navy-500">
+                  <th className="py-2 pr-4">Year</th>
+                  <th className="py-2 pr-4">Grants Paid</th>
+                  <th className="py-2 pr-4">Total Revenue</th>
+                  <th className="py-2">Total Assets</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-navy-50">
+                {filings.map((f) => (
+                  <tr key={f.year}>
+                    <td className="py-2 pr-4 font-medium text-navy-800">
+                      {f.year}
+                    </td>
+                    <td className="py-2 pr-4 text-navy-700">
+                      {formatCurrency(f.grantsPaid)}
+                    </td>
+                    <td className="py-2 pr-4 text-navy-600">
+                      {formatCurrency(f.totalRevenue)}
+                    </td>
+                    <td className="py-2 text-navy-600">
+                      {formatCurrency(f.totalAssets)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-sm text-navy-400">No filing data available.</p>
+        )}
+
+        {showForm && <div className="mt-4 border-t border-navy-100 pt-4">{einForm}</div>}
+
+        {(localError ?? historyError) && (
+          <p className="mt-2 text-sm text-red-600">{localError ?? historyError}</p>
+        )}
+
+        <p className="mt-3 text-xs text-navy-400">
+          Source: ProPublica Nonprofit Explorer (IRS 990-PF)
+        </p>
+      </Card>
+    );
+  }
+
+  return (
+    <Card title="Giving History (IRS 990-PF)">
+      <p className="mb-4 text-sm text-navy-500">
+        Extract annual giving stats from IRS 990-PF filings via ProPublica.
+        Enter the organization&apos;s EIN to retrieve up to 3 years of data.
+      </p>
+
+      {einForm}
+
+      {(localError ?? historyError) && (
+        <p className="mt-2 text-sm text-red-600">
+          {localError ?? historyError}
+        </p>
+      )}
+
+      {!onExtractHistory && (
+        <p className="text-sm text-navy-400">No giving history extracted yet.</p>
+      )}
+    </Card>
   );
 }
 

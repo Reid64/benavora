@@ -67,7 +67,12 @@ export type AgentType =
   // Tier 6 Phase A - State Portal Research Agent (AGENTS.md Agent 18, BEHAVIORAL_CONTRACTS §21).
   // Fetches HTML from state grant portals and uses Claude to extract structured opportunity data.
   // Tier-gated: Starter=1 state, Pro=5 states, Enterprise/Consultant=all states.
-  | "state_portal";
+  | "state_portal"
+  // Tier 6 Phase C - Giving History Extractor (AGENTS.md Agent 21, BEHAVIORAL_CONTRACTS §19).
+  // Queries ProPublica Nonprofit Explorer for IRS 990-PF filing data by EIN.
+  // Extracts per-year grants paid, revenue, assets; calculates giving trend.
+  // No API key required; stores results in funder_intelligence.recent_grants.
+  | "giving_history_extractor";
 
 export type AgentRunStatus = "pending" | "running" | "completed" | "failed";
 
