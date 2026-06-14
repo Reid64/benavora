@@ -18,10 +18,10 @@ import {
   CalendarDays,
   CalendarPlus,
   Check,
-  ChevronLeft,
   ChevronRight,
   List,
   RotateCcw,
+  ShieldCheck,
 } from "lucide-react";
 
 import { Button, Card, EmptyState, LoadingSpinner } from "@/components/ui";
@@ -32,7 +32,6 @@ import { cn } from "@/lib/utils/cn";
 import { formatDate, humanizeEnum } from "@/lib/utils/formatters";
 import {
   BAND_CLASSES,
-  COMPLETED_CELL,
   urgency,
   parentHref,
 } from "@/components/deadlines/DeadlinePill";
@@ -40,9 +39,11 @@ import type { DeadlineItem } from "@/components/deadlines/DeadlinePill";
 import { CalendarGrid } from "@/components/deadlines/CalendarGrid";
 import { WeekView } from "@/components/deadlines/WeekView";
 import type { Tables } from "@/types/database";
+import type { ComplianceItem } from "@/app/api/compliance/route";
 
 type ViewMode = "calendar" | "week" | "list";
 type UrgencyBand = "overdue" | "orange" | "yellow" | "green";
+type PageTab = "deadlines" | "compliance";
 
 const DEADLINE_TYPES = [
   "application_deadline",
@@ -142,8 +143,11 @@ export default function DeadlinesPage() {
   const { profile } = useProfile();
   const { searchParams, setParams } = useUrlState();
 
+  const [tab, setTab] = useState<PageTab>("deadlines");
   const [dbDeadlines, setDbDeadlines] = useState<DbDeadline[]>([]);
   const [renewalItems, setRenewalItems] = useState<DeadlineItem[]>([]);
+  const [complianceItems, setComplianceItems] = useState<ComplianceItem[]>([]);
+  const [complianceLoading, setComplianceLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -266,6 +270,20 @@ export default function DeadlinesPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (tab !== "compliance") return;
+    setComplianceLoading(true);
+    fetch("/api/compliance")
+      .then((r) => r.json())
+      .then((body: { data?: ComplianceItem[] }) => {
+        setComplianceItems(body.data ?? []);
+      })
+      .catch(() => {
+        // Leave items empty on failure
+      })
+      .finally(() => setComplianceLoading(false));
+  }, [tab]);
 
   useEffect(() => {
     let active = true;
@@ -515,6 +533,38 @@ export default function DeadlinesPage() {
         </div>
       </div>
 
+      {/* Page tab switcher */}
+      <div className="inline-flex rounded-lg border border-navy-200 bg-white p-0.5 shadow-sm">
+        <button
+          type="button"
+          onClick={() => setTab("deadlines")}
+          aria-pressed={tab === "deadlines"}
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition",
+            tab === "deadlines"
+              ? "bg-teal-600 text-white"
+              : "text-navy-600 hover:bg-navy-50",
+          )}
+        >
+          <CalendarDays className="h-4 w-4" aria-hidden />
+          Deadlines
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab("compliance")}
+          aria-pressed={tab === "compliance"}
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition",
+            tab === "compliance"
+              ? "bg-teal-600 text-white"
+              : "text-navy-600 hover:bg-navy-50",
+          )}
+        >
+          <ShieldCheck className="h-4 w-4" aria-hidden />
+          Compliance
+        </button>
+      </div>
+
       {error && (
         <div
           role="alert"
@@ -533,112 +583,215 @@ export default function DeadlinesPage() {
         </div>
       )}
 
-      {/* Urgency legend + toggles */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <UrgencyLegend />
-        <div className="flex flex-wrap items-center gap-4">
-          {calendarConnected && editable && (
-            <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-navy-600">
-              <input
-                type="checkbox"
-                checked={autoSync}
-                disabled={autoSyncSaving}
-                onChange={(e) => void toggleAutoSync(e.target.checked)}
-                className="h-4 w-4 rounded border-navy-300 text-teal-600 focus:ring-teal-500"
-              />
-              Auto-sync new deadlines
-            </label>
-          )}
-          <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-navy-600">
-            <input
-              type="checkbox"
-              checked={showCompleted}
-              onChange={(e) =>
-                setParams({ completed: e.target.checked ? "1" : null })
-              }
-              className="h-4 w-4 rounded border-navy-300 text-teal-600 focus:ring-teal-500"
-            />
-            Show completed
-            {completedCount > 0 && (
-              <span className="text-navy-400">({completedCount})</span>
-            )}
-          </label>
-        </div>
-      </div>
-
-      {/* Type filter */}
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-medium text-navy-500">Filter:</span>
-        <button
-          type="button"
-          onClick={() => setParams({ types: null })}
-          className={cn(
-            "rounded-full px-3 py-1 text-xs font-medium transition",
-            activeTypes.size === DEADLINE_TYPES.length
-              ? "bg-navy-800 text-white"
-              : "border border-navy-200 text-navy-500 hover:border-navy-400 hover:text-navy-700",
-          )}
-        >
-          All
-        </button>
-        {DEADLINE_TYPES.map((type) => (
-          <button
-            key={type}
-            type="button"
-            onClick={() => toggleType(type)}
-            className={cn(
-              "rounded-full px-3 py-1 text-xs font-medium transition",
-              activeTypes.has(type)
-                ? "bg-teal-600 text-white"
-                : "border border-navy-200 text-navy-500 hover:border-navy-400 hover:text-navy-700",
-            )}
-          >
-            {TYPE_SHORT[type]}
-          </button>
-        ))}
-      </div>
-
-      {/* Content */}
-      {loading ? (
-        <LoadingSpinner center label="Loading deadlines..." />
-      ) : allItems.length === 0 ? (
-        <EmptyState
-          icon={CalendarDays}
-          title="No deadlines yet"
-          description="Deadlines are created automatically when you add opportunities with dates. They'll appear here on the calendar and in the list."
-          action={
-            <Link href="/opportunities/new">
-              <Button variant="secondary">Add an opportunity</Button>
-            </Link>
-          }
-        />
-      ) : view === "calendar" ? (
-        <CalendarGrid
-          month={month}
-          deadlines={visibleItems}
-          onPrev={() => goToMonth(subMonths(month, 1))}
-          onNext={() => goToMonth(addMonths(month, 1))}
-          onToday={() => goToMonth(startOfMonth(new Date()))}
-        />
-      ) : view === "week" ? (
-        <WeekView
-          weekStart={weekStart}
-          deadlines={visibleItems}
-          onPrevWeek={() => goToWeek(subWeeks(weekStart, 1))}
-          onNextWeek={() => goToWeek(addWeeks(weekStart, 1))}
-          onToday={() => goToWeek(new Date())}
-        />
+      {tab === "compliance" ? (
+        complianceLoading ? (
+          <LoadingSpinner center label="Loading compliance obligations..." />
+        ) : (
+          <ComplianceList items={complianceItems} />
+        )
       ) : (
-        <ListView
-          deadlines={visibleItems}
-          editable={editable}
-          busyId={busyId}
-          onToggle={toggleComplete}
-          calendarConnected={calendarConnected}
-          syncingId={syncingId}
-          onSync={syncOne}
-        />
+        <>
+          {/* Urgency legend + toggles */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <UrgencyLegend />
+            <div className="flex flex-wrap items-center gap-4">
+              {calendarConnected && editable && (
+                <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-navy-600">
+                  <input
+                    type="checkbox"
+                    checked={autoSync}
+                    disabled={autoSyncSaving}
+                    onChange={(e) => void toggleAutoSync(e.target.checked)}
+                    className="h-4 w-4 rounded border-navy-300 text-teal-600 focus:ring-teal-500"
+                  />
+                  Auto-sync new deadlines
+                </label>
+              )}
+              <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-navy-600">
+                <input
+                  type="checkbox"
+                  checked={showCompleted}
+                  onChange={(e) =>
+                    setParams({ completed: e.target.checked ? "1" : null })
+                  }
+                  className="h-4 w-4 rounded border-navy-300 text-teal-600 focus:ring-teal-500"
+                />
+                Show completed
+                {completedCount > 0 && (
+                  <span className="text-navy-400">({completedCount})</span>
+                )}
+              </label>
+            </div>
+          </div>
+
+          {/* Type filter */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-medium text-navy-500">Filter:</span>
+            <button
+              type="button"
+              onClick={() => setParams({ types: null })}
+              className={cn(
+                "rounded-full px-3 py-1 text-xs font-medium transition",
+                activeTypes.size === DEADLINE_TYPES.length
+                  ? "bg-navy-800 text-white"
+                  : "border border-navy-200 text-navy-500 hover:border-navy-400 hover:text-navy-700",
+              )}
+            >
+              All
+            </button>
+            {DEADLINE_TYPES.map((type) => (
+              <button
+                key={type}
+                type="button"
+                onClick={() => toggleType(type)}
+                className={cn(
+                  "rounded-full px-3 py-1 text-xs font-medium transition",
+                  activeTypes.has(type)
+                    ? "bg-teal-600 text-white"
+                    : "border border-navy-200 text-navy-500 hover:border-navy-400 hover:text-navy-700",
+                )}
+              >
+                {TYPE_SHORT[type]}
+              </button>
+            ))}
+          </div>
+
+          {/* Content */}
+          {loading ? (
+            <LoadingSpinner center label="Loading deadlines..." />
+          ) : allItems.length === 0 ? (
+            <EmptyState
+              icon={CalendarDays}
+              title="No deadlines yet"
+              description="Deadlines are created automatically when you add opportunities with dates. They'll appear here on the calendar and in the list."
+              action={
+                <Link href="/opportunities/new">
+                  <Button variant="secondary">Add an opportunity</Button>
+                </Link>
+              }
+            />
+          ) : view === "calendar" ? (
+            <CalendarGrid
+              month={month}
+              deadlines={visibleItems}
+              onPrev={() => goToMonth(subMonths(month, 1))}
+              onNext={() => goToMonth(addMonths(month, 1))}
+              onToday={() => goToMonth(startOfMonth(new Date()))}
+            />
+          ) : view === "week" ? (
+            <WeekView
+              weekStart={weekStart}
+              deadlines={visibleItems}
+              onPrevWeek={() => goToWeek(subWeeks(weekStart, 1))}
+              onNextWeek={() => goToWeek(addWeeks(weekStart, 1))}
+              onToday={() => goToWeek(new Date())}
+            />
+          ) : (
+            <ListView
+              deadlines={visibleItems}
+              editable={editable}
+              busyId={busyId}
+              onToggle={toggleComplete}
+              calendarConnected={calendarConnected}
+              syncingId={syncingId}
+              onSync={syncOne}
+            />
+          )}
+        </>
       )}
+    </div>
+  );
+}
+
+const COMPLIANCE_TYPE_LABEL: Record<string, string> = {
+  reporting_deadline: "Reporting",
+  renewal_reporting: "Renewal Report",
+  document_expiration: "Document Expiry",
+};
+
+function ComplianceList({ items }: { items: ComplianceItem[] }) {
+  if (items.length === 0) {
+    return (
+      <EmptyState
+        icon={ShieldCheck}
+        title="No compliance obligations"
+        description="Reporting deadlines, renewal compliance reports, and expiring documents will appear here."
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-3 pb-1 text-xs text-navy-500">
+        <UrgencyLegend />
+      </div>
+      <Card noPadding>
+        <ul className="divide-y divide-navy-100">
+          {items.map((item) => {
+            const { band, label } = urgency(item.due_date);
+            const styles = BAND_CLASSES[band];
+            const isCompleted =
+              item.status === "completed" || item.status === "complete";
+            return (
+              <li
+                key={item.id}
+                className="flex flex-wrap items-center justify-between gap-3 px-5 py-3"
+              >
+                <div className="flex min-w-0 items-start gap-3">
+                  {!isCompleted && (
+                    <span
+                      className={cn(
+                        "mt-1.5 h-2 w-2 shrink-0 rounded-full",
+                        styles.dot,
+                      )}
+                      aria-hidden
+                    />
+                  )}
+                  <div className="min-w-0">
+                    <div
+                      className={cn(
+                        "truncate text-sm font-medium",
+                        isCompleted
+                          ? "text-navy-400 line-through"
+                          : "text-navy-900",
+                      )}
+                    >
+                      {item.title}
+                    </div>
+                    <div className="mt-0.5 flex items-center gap-2 text-xs text-navy-500">
+                      <span>
+                        {COMPLIANCE_TYPE_LABEL[item.type] ?? item.type}
+                      </span>
+                      <span>·</span>
+                      <span>{formatDate(item.due_date)}</span>
+                      {item.status && item.status !== "pending" && (
+                        <>
+                          <span>·</span>
+                          <span className="capitalize">{humanizeEnum(item.status)}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  {isCompleted ? (
+                    <span className="text-xs text-navy-400">Completed</span>
+                  ) : (
+                    <span
+                      className={cn(
+                        "inline-flex shrink-0 items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
+                        styles.pill,
+                      )}
+                    >
+                      {label}
+                    </span>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </Card>
     </div>
   );
 }
