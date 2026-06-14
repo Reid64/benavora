@@ -44,7 +44,10 @@ export type AgentType =
   | "automation_worker"
   // Migration 038 - Success Probability Agent (AGENTS.md Agent 22, BEHAVIORAL_CONTRACTS §25).
   // Calculates per-application funding probability from 6 factors; stores in success_probability_scores.
-  | "success_probability";
+  | "success_probability"
+  // Migration 039 - Funder Relationship Agent (AGENTS.md Agent 23).
+  // Deterministic score updates from interaction events; stores in funder_relationship_scores.
+  | "funder_relationship";
 
 export type AgentRunStatus = "pending" | "running" | "completed" | "failed";
 

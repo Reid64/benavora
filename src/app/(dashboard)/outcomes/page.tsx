@@ -116,6 +116,7 @@ export default function OutcomesPage() {
         funderCategory,
         opportunityCategory,
         keywords: keywordsByOpp.get(app.opportunity_id) ?? [],
+        funderId: opp?.funder_id ?? null,
       });
     }
 

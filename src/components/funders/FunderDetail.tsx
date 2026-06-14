@@ -3,6 +3,9 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
+  ArrowDown,
+  ArrowRight,
+  ArrowUp,
   Brain,
   Building2,
   ExternalLink,
@@ -73,11 +76,18 @@ const STATUS_COLOR: Record<Enums<"opportunity_status">, BadgeColor> = {
   expired: "red",
 };
 
+type RelationshipScore = {
+  relationship_score: number;
+  trend: "rising" | "falling" | "neutral";
+  is_stale: boolean;
+} | null;
+
 type FunderData = {
   funder: Tables<"funders">;
   contacts: Tables<"contacts">[];
   opportunities: Tables<"opportunities">[];
   applications: Tables<"applications">[];
+  relationshipScore: RelationshipScore;
   notes: Tables<"notes">[];
   intelligence: Tables<"funder_intelligence"> | null;
 };
@@ -121,7 +131,7 @@ export function FunderDetail({ funderId }: FunderDetailProps) {
       return;
     }
 
-    const [contactsRes, opportunitiesRes, notesRes, intelRes] =
+    const [contactsRes, opportunitiesRes, notesRes, intelRes, scoreRes] =
       await Promise.all([
         supabase
           .from("contacts")
@@ -143,6 +153,11 @@ export function FunderDetail({ funderId }: FunderDetailProps) {
           .select("*")
           .eq("funder_id", funderId)
           .maybeSingle(),
+        supabase
+          .from("funder_relationship_scores")
+          .select("relationship_score, trend, is_stale")
+          .eq("funder_id", funderId)
+          .maybeSingle(),
       ]);
 
     const opportunities = opportunitiesRes.data ?? [];
@@ -158,6 +173,15 @@ export function FunderDetail({ funderId }: FunderDetailProps) {
       applications = apps ?? [];
     }
 
+    const rs = scoreRes.data;
+    const relationshipScore: RelationshipScore = rs
+      ? {
+          relationship_score: rs.relationship_score as number,
+          trend: (rs.trend as "rising" | "falling" | "neutral") ?? "neutral",
+          is_stale: (rs.is_stale as boolean) ?? false,
+        }
+      : null;
+
     setData({
       funder,
       contacts: contactsRes.data ?? [],
@@ -165,6 +189,7 @@ export function FunderDetail({ funderId }: FunderDetailProps) {
       applications,
       notes: notesRes.data ?? [],
       intelligence: intelRes.data ?? null,
+      relationshipScore,
     });
     setLoading(false);
   }, [funderId]);
@@ -254,6 +279,9 @@ export function FunderDetail({ funderId }: FunderDetailProps) {
             <Badge color="indigo">{humanizeEnum(funder.category)}</Badge>
             {funder.has_giving_page === false && (
               <Badge color="yellow">Cold outreach</Badge>
+            )}
+            {data.relationshipScore && (
+              <RelationshipScoreBadge score={data.relationshipScore} />
             )}
           </div>
           {funder.geographic_focus && (
@@ -883,6 +911,13 @@ function NotesTab({
       .update({ last_contacted_at: nowIso })
       .eq("id", funderId);
 
+    // Best-effort: fire note_added relationship event (Agent 23).
+    void fetch("/api/agents/funder-relationship", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ funderId, event: "note_added" }),
+    }).catch(() => undefined);
+
     setContent("");
     setSubmitting(false);
     await onAdded();
@@ -1160,5 +1195,42 @@ function PortalLoginSection({
         <p className="text-sm text-navy-400">No portal credentials saved.</p>
       )}
     </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Relationship score badge (Agent 23)
+// ---------------------------------------------------------------------------
+
+function RelationshipScoreBadge({ score }: { score: RelationshipScore }) {
+  if (!score) return null;
+
+  const { relationship_score, trend, is_stale } = score;
+
+  const TrendIcon =
+    trend === "rising"
+      ? ArrowUp
+      : trend === "falling"
+        ? ArrowDown
+        : ArrowRight;
+
+  const trendColor =
+    trend === "rising"
+      ? "text-green-600"
+      : trend === "falling"
+        ? "text-red-600"
+        : "text-navy-400";
+
+  return (
+    <div className="flex items-center gap-1.5 rounded-full border border-navy-200 bg-white px-3 py-1 text-sm">
+      <span className="font-semibold text-navy-800">{relationship_score}</span>
+      <span className="text-navy-400">/100</span>
+      <TrendIcon className={`h-3.5 w-3.5 ${trendColor}`} aria-hidden />
+      {is_stale && (
+        <span className="ml-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-700">
+          stale
+        </span>
+      )}
+    </div>
   );
 }

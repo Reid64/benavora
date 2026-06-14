@@ -27,6 +27,8 @@ export type OutcomeApplicationContext = {
   opportunityCategory: FunderCategory | null;
   /** Opportunity keywords, snapshotted for learning. */
   keywords: string[];
+  /** Funder id — used to trigger Agent 23 relationship scoring on outcome. */
+  funderId?: string | null;
 };
 
 const RESULT_OPTIONS: SelectOption[] = OUTCOME_RESULTS.map((value) => ({
@@ -154,6 +156,22 @@ export function OutcomeForm({ application, onSaved, onCancel }: OutcomeFormProps
       setLearningNote(
         "Outcome saved. The learning step could not run automatically - it can be retried later.",
       );
+    }
+
+    // Trigger Agent 23 (Funder Relationship). Best-effort: a scoring failure
+    // must not block the user from recording the outcome.
+    if (application.funderId) {
+      const relEvent =
+        result === "awarded" || result === "partial"
+          ? "awarded"
+          : funderFeedback.trim()
+            ? "denied_with_feedback"
+            : "denied_no_feedback";
+      void fetch("/api/agents/funder-relationship", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ funderId: application.funderId, event: relEvent }),
+      }).catch(() => undefined);
     }
 
     setSubmitting(false);

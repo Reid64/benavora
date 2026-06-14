@@ -3,6 +3,7 @@ import { Resend } from "resend";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { FunderRelationshipAgent } from "@/lib/agents/funder-relationship";
 import {
   MAX_OUTREACH_EMAILS_PER_DAY,
   MIN_CAMPAIGN_STEP_GAP_DAYS,
@@ -99,7 +100,7 @@ export async function POST(request: Request) {
   // Verify contact belongs to this org and is enrolled in this campaign.
   const { data: contact, error: contactError } = await admin
     .from("outreach_contacts")
-    .select("id, email, company_name, contact_name, campaign_id, status")
+    .select("id, email, company_name, contact_name, campaign_id, status, converted_to_funder_id")
     .eq("id", outreach_contact_id)
     .eq("organization_id", organizationId)
     .single();
@@ -311,12 +312,25 @@ export async function POST(request: Request) {
     console.error("OUTREACH SEND RECORD ERROR:", sendRecordError.message);
   }
 
-  // Advance contact status from 'new' â†’ 'contacted'.
+  // Advance contact status from ‘new’ → ‘contacted’.
   if (contact.status === "new") {
     await admin
       .from("outreach_contacts")
       .update({ status: "contacted", updated_at: new Date().toISOString() })
       .eq("id", outreach_contact_id);
+  }
+
+  // Trigger Agent 23 (Funder Relationship) if this contact has been converted
+  // to a funder. Best-effort: a scoring failure must not block email delivery.
+  const convertedFunderId = contact.converted_to_funder_id as string | null;
+  if (convertedFunderId) {
+    void new FunderRelationshipAgent({
+      client: admin,
+      organizationId,
+      triggeredBy: profile.id as string,
+    })
+      .run({ funderId: convertedFunderId, event: "cold_outreach_sent" })
+      .catch(() => undefined);
   }
 
   return NextResponse.json({

@@ -531,4 +531,25 @@ export async function executeTransition({
     entityId: application.id,
     details: { from: application.stage, to: target },
   });
+
+  // Trigger Agent 23 (Funder Relationship) on submission. Best-effort.
+  if (target === "submitted") {
+    void (async () => {
+      const { data: opp } = await supabase
+        .from("opportunities")
+        .select("funder_id")
+        .eq("id", application.opportunity_id)
+        .maybeSingle();
+      if (opp?.funder_id) {
+        void fetch("/api/agents/funder-relationship", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            funderId: opp.funder_id,
+            event: "application_submitted",
+          }),
+        }).catch(() => undefined);
+      }
+    })();
+  }
 }

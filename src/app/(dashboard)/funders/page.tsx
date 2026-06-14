@@ -28,7 +28,7 @@ export default function FundersPage() {
       setLoading(true);
       setError(null);
 
-      const [fundersRes, contactsRes, openOppsRes] = await Promise.all([
+      const [fundersRes, contactsRes, openOppsRes, scoresRes] = await Promise.all([
         supabase
           .from("funders")
           .select("*")
@@ -38,6 +38,9 @@ export default function FundersPage() {
           .from("opportunities")
           .select("funder_id")
           .eq("status", "open"),
+        supabase
+          .from("funder_relationship_scores")
+          .select("funder_id, relationship_score, is_stale"),
       ]);
 
       if (!active) return;
@@ -66,10 +69,20 @@ export default function FundersPage() {
         );
       }
 
+      const staleMap = new Map<string, boolean>();
+      const scoreMap = new Map<string, number>();
+      for (const row of scoresRes.data ?? []) {
+        if (!row.funder_id) continue;
+        staleMap.set(row.funder_id, (row.is_stale as boolean) ?? false);
+        scoreMap.set(row.funder_id, (row.relationship_score as number) ?? 0);
+      }
+
       const rows: FunderRow[] = (fundersRes.data ?? []).map((funder) => ({
         ...funder,
         contactCount: contactCounts.get(funder.id) ?? 0,
         openOpportunityCount: openOppCounts.get(funder.id) ?? 0,
+        relationshipScore: scoreMap.get(funder.id) ?? null,
+        isStale: staleMap.get(funder.id) ?? false,
       }));
 
       setFunders(rows);

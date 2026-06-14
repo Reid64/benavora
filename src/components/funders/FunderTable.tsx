@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 
 import { Badge, SearchBar, Select, Table } from "@/components/ui";
+import { AlertTriangle } from "lucide-react";
 import type { SortDirection, TableColumn } from "@/components/ui";
 import { useUrlState } from "@/lib/hooks/useUrlState";
 import { FUNDER_CATEGORIES } from "@/lib/utils/constants";
@@ -16,6 +17,8 @@ type FunderCategory = Enums<"funder_category">;
 export type FunderRow = Tables<"funders"> & {
   contactCount: number;
   openOpportunityCount: number;
+  relationshipScore: number | null;
+  isStale: boolean;
 };
 
 export type FunderTableProps = {
@@ -86,7 +89,18 @@ export function FunderTable({ funders, isLoading = false }: FunderTableProps) {
       sortable: true,
       sortValue: (row) => row.name.toLowerCase(),
       render: (row) => (
-        <span className="font-medium text-navy-900">{row.name}</span>
+        <div className="flex items-center gap-2">
+          <span className="font-medium text-navy-900">{row.name}</span>
+          {row.isStale && (
+            <span
+              title="No interaction in 180+ days with score of 0"
+              className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700"
+            >
+              <AlertTriangle className="h-3 w-3" aria-hidden />
+              Stale
+            </span>
+          )}
+        </div>
       ),
     },
     {
