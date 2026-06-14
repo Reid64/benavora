@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
+
+import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 import { AlertTriangle } from "lucide-react";
 
 import { Button, Input, Select, Textarea } from "@/components/ui";
@@ -92,6 +94,9 @@ export function FunderForm({ funder, onSaved, onCancel }: FunderFormProps) {
   const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  const [isDirty, setIsDirty] = useState(false);
+  const { markClean } = useUnsavedChanges(isDirty);
+
   function validate(): boolean {
     const errors: { name?: string; category?: string } = {};
     if (!isNonEmpty(name)) errors.name = "Funder name is required.";
@@ -171,6 +176,7 @@ export function FunderForm({ funder, onSaved, onCancel }: FunderFormProps) {
         return;
       }
       void recordAudit({ action: "update", entityType: "funder", entityId: data.id as string, details: { name: data.name } });
+      markClean();
       if (onSaved) onSaved(data);
       else router.push(`/funders/${data.id}`);
       router.refresh();
@@ -189,13 +195,14 @@ export function FunderForm({ funder, onSaved, onCancel }: FunderFormProps) {
       return;
     }
     void recordAudit({ action: "create", entityType: "funder", entityId: data.id as string, details: { name: data.name } });
+    markClean();
     if (onSaved) onSaved(data);
     else router.push(`/funders/${data.id}`);
     router.refresh();
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6" noValidate>
+    <form onSubmit={handleSubmit} onChange={() => setIsDirty(true)} className="space-y-6" noValidate>
       {formError && (
         <div
           role="alert"

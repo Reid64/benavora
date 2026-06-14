@@ -4,6 +4,8 @@ import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 
 import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 
+import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
+
 import { Button, Input, Select, Textarea } from "@/components/ui";
 import type { SelectOption } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
@@ -140,6 +142,9 @@ export function OpportunityForm({
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  const [isDirty, setIsDirty] = useState(false);
+  const { markClean } = useUnsavedChanges(isDirty);
+
   // Funder select options (optional link - Contracts §5).
   useEffect(() => {
     let active = true;
@@ -259,6 +264,7 @@ export function OpportunityForm({
       }
       await syncKeywords(supabase, data.id, profile.organization_id);
       setSubmitting(false);
+      markClean();
       if (onSaved) onSaved(data);
       else router.push(`/opportunities/${data.id}`);
       router.refresh();
@@ -283,13 +289,14 @@ export function OpportunityForm({
     }
     await syncKeywords(supabase, data.id, profile.organization_id);
     setSubmitting(false);
+    markClean();
     if (onSaved) onSaved(data);
     else router.push(`/opportunities/${data.id}`);
     router.refresh();
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6" noValidate>
+    <form onSubmit={handleSubmit} onChange={() => setIsDirty(true)} className="space-y-6" noValidate>
       {formError && (
         <div
           role="alert"

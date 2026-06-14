@@ -2,6 +2,8 @@
 
 import { useState, type FormEvent } from "react";
 
+import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
+
 import { Button, Input, Textarea } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 import { STANDARD_ANSWER_CATEGORY } from "@/lib/utils/constants";
@@ -47,6 +49,9 @@ export function AnswerEditor({
   }>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  const [isDirty, setIsDirty] = useState(false);
+  useUnsavedChanges(isDirty);
 
   function validate(): boolean {
     const errors: typeof fieldError = {};
@@ -117,7 +122,7 @@ export function AnswerEditor({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+    <form onSubmit={handleSubmit} onChange={() => setIsDirty(true)} className="space-y-5" noValidate>
       {formError && (
         <div
           role="alert"

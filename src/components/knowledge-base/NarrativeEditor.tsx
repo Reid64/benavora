@@ -6,6 +6,8 @@ import {
   type FormEvent,
   type ReactNode,
 } from "react";
+
+import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 import {
   Bold,
   Italic,
@@ -83,6 +85,9 @@ export function NarrativeEditor({
   }>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  const [isDirty, setIsDirty] = useState(false);
+  useUnsavedChanges(isDirty);
 
   function toggleFunderCategory(value: FunderCategory) {
     setFunderCategories((prev) =>
@@ -167,7 +172,7 @@ export function NarrativeEditor({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+    <form onSubmit={handleSubmit} onChange={() => setIsDirty(true)} className="space-y-5" noValidate>
       {formError && (
         <div
           role="alert"

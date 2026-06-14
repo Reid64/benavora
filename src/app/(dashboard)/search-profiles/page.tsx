@@ -8,6 +8,8 @@ import {
   type KeyboardEvent,
 } from "react";
 import { useRouter } from "next/navigation";
+
+import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 import { Filter, Pencil, Plus, SlidersHorizontal, Trash2, X } from "lucide-react";
 
 import {
@@ -423,6 +425,9 @@ function SearchProfileForm({
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const [isDirty, setIsDirty] = useState(false);
+  useUnsavedChanges(isDirty);
+
   function addKeyword() {
     const value = keywordDraft.trim();
     if (!value) return;
@@ -549,7 +554,7 @@ function SearchProfileForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6" noValidate>
+    <form onSubmit={handleSubmit} onChange={() => setIsDirty(true)} className="space-y-6" noValidate>
       {formError && (
         <div
           role="alert"

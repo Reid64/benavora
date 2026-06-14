@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 
+import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
+
 import { Button, Input, Select, Textarea } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 import { useProfile } from "@/lib/hooks/useProfile";
@@ -85,6 +87,9 @@ export function ContactForm({
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  const [isDirty, setIsDirty] = useState(false);
+  const { markClean } = useUnsavedChanges(isDirty);
+
   // Load the organization's funders for the (required) funder dropdown. RLS
   // scopes this to the current org automatically.
   useEffect(() => {
@@ -156,6 +161,7 @@ export function ContactForm({
         setFormError(error?.message ?? "Could not save the contact.");
         return;
       }
+      markClean();
       if (onSaved) onSaved(data);
       else router.push(`/contacts/${data.id}`);
       router.refresh();
@@ -173,6 +179,7 @@ export function ContactForm({
       setFormError(error?.message ?? "Could not create the contact.");
       return;
     }
+    markClean();
     if (onSaved) onSaved(data);
     else router.push(`/contacts/${data.id}`);
     router.refresh();
@@ -182,7 +189,7 @@ export function ContactForm({
   const noFunders = !fundersLoading && funders.length === 0;
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6" noValidate>
+    <form onSubmit={handleSubmit} onChange={() => setIsDirty(true)} className="space-y-6" noValidate>
       {formError && (
         <div
           role="alert"

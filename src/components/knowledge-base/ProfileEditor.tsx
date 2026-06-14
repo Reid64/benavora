@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+
+import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 import {
   Briefcase,
   Check,
@@ -103,6 +105,9 @@ export function ProfileEditor() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
+
+  const [isDirty, setIsDirty] = useState(false);
+  const { markClean } = useUnsavedChanges(isDirty);
 
   const [boardMembers, setBoardMembers] = useState<Tables<"board_members">[]>(
     [],
@@ -235,6 +240,8 @@ export function ProfileEditor() {
     setOrg(data);
     setForm(toForm(data));
     setSavedAt(true);
+    markClean();
+    setIsDirty(false);
   }
 
   if (loading) {
@@ -253,7 +260,7 @@ export function ProfileEditor() {
 
   return (
     <div className="space-y-6">
-      <form onSubmit={handleSave} className="space-y-6" noValidate>
+      <form onSubmit={handleSave} onChange={() => setIsDirty(true)} className="space-y-6" noValidate>
         {saveError && (
           <div
             role="alert"
