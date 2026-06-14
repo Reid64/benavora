@@ -38,7 +38,10 @@ export type AgentType =
   | "email_parser"
   // Migration 033/034 - Custom API Research Agent (AGENTS.md Agent 19).
   // Polls client-configured REST API connections for grant opportunities.
-  | "custom_api_research";
+  | "custom_api_research"
+  // Migration 035 - Automation Worker Agent (AGENTS.md Agent 29, BEHAVIORAL_CONTRACTS §23).
+  // Processes the next queued item from automation_queue via browser automation pipeline.
+  | "automation_worker";
 
 export type AgentRunStatus = "pending" | "running" | "completed" | "failed";
 

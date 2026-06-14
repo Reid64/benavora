@@ -1,0 +1,62 @@
+-- ============================================================================
+-- Migration 035 — automation_queue
+--
+-- SCHEMA_REGISTRY v2.0 Table 44: batch processing queue for browser automation
+-- submissions (AGENTS.md Agent 29, BEHAVIORAL_CONTRACTS §23).
+--
+-- New enums automation_level and automation_status are created idempotently.
+-- The automation_worker agent type is added to the existing agent_type enum.
+-- Processing order: priority DESC, created_at ASC (BEHAVIORAL_CONTRACTS §23).
+-- ============================================================================
+
+DO $$ BEGIN
+  CREATE TYPE automation_level AS ENUM ('supervised', 'semi_autonomous', 'autonomous');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE TYPE automation_status AS ENUM ('queued', 'processing', 'paused', 'completed', 'failed');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+-- Extend agent_type enum with automation_worker (AGENTS.md Agent 29).
+ALTER TYPE agent_type ADD VALUE IF NOT EXISTS 'automation_worker';
+
+-- Table 44: automation_queue — batch processing queue for browser automation.
+-- error_log is a jsonb array of { error, attempt, at } objects appended on each
+-- failure (BEHAVIORAL_CONTRACTS §23: retry_count < max_retries → re-queue;
+-- retry_count >= max_retries → status='failed' permanently).
+CREATE TABLE IF NOT EXISTS automation_queue (
+  id               uuid              PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id  uuid              NOT NULL REFERENCES organizations(id),
+  application_id   uuid              NOT NULL REFERENCES applications(id) ON DELETE CASCADE,
+  priority         integer           NOT NULL DEFAULT 3 CHECK (priority >= 1 AND priority <= 5),
+  status           automation_status NOT NULL DEFAULT 'queued',
+  automation_level automation_level  NOT NULL DEFAULT 'supervised',
+  retry_count      integer           DEFAULT 0,
+  max_retries      integer           DEFAULT 3,
+  error_log        jsonb             DEFAULT '[]',
+  worker_id        text,
+  created_at       timestamptz       DEFAULT now(),
+  started_at       timestamptz,
+  completed_at     timestamptz
+);
+
+ALTER TABLE automation_queue ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "automation_queue_org" ON automation_queue
+  USING (
+    organization_id = (
+      SELECT organization_id FROM profiles WHERE id = auth.uid()
+    )
+  );
+
+CREATE INDEX IF NOT EXISTS idx_auto_queue_org
+  ON automation_queue(organization_id);
+
+CREATE INDEX IF NOT EXISTS idx_auto_queue_status
+  ON automation_queue(status);
+
+-- Composite index for the worker's claim query (§23: priority DESC, FIFO within priority).
+CREATE INDEX IF NOT EXISTS idx_auto_queue_priority
+  ON automation_queue(priority DESC, created_at ASC);
