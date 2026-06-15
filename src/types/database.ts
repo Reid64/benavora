@@ -1950,6 +1950,313 @@ export interface Database {
         };
         Relationships: [];
       };
+      // Migration 044 — automation_notifications (SCHEMA_REGISTRY v2.0 §2.58).
+      automation_notifications: {
+        Row: {
+          id: string;
+          organization_id: string;
+          event_type: string;
+          title: string;
+          message: string | null;
+          is_read: boolean;
+          sent_via: string;
+          related_entity_type: string | null;
+          related_entity_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          event_type: string;
+          title: string;
+          message?: string | null;
+          is_read?: boolean;
+          sent_via?: string;
+          related_entity_type?: string | null;
+          related_entity_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          event_type?: string;
+          title?: string;
+          message?: string | null;
+          is_read?: boolean;
+          sent_via?: string;
+          related_entity_type?: string | null;
+          related_entity_id?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      // Migration 045 — custom_api_connections (SCHEMA_REGISTRY v2.0 §2.48).
+      custom_api_connections: {
+        Row: {
+          id: string;
+          organization_id: string;
+          name: string;
+          base_url: string;
+          auth_type: string;
+          auth_config: Json;
+          field_mapping: Json;
+          poll_schedule: string;
+          is_active: boolean;
+          last_polled_at: string | null;
+          last_success_at: string | null;
+          error_count: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          name: string;
+          base_url: string;
+          auth_type?: string;
+          auth_config?: Json;
+          field_mapping?: Json;
+          poll_schedule?: string;
+          is_active?: boolean;
+          last_polled_at?: string | null;
+          last_success_at?: string | null;
+          error_count?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          name?: string;
+          base_url?: string;
+          auth_type?: string;
+          auth_config?: Json;
+          field_mapping?: Json;
+          poll_schedule?: string;
+          is_active?: boolean;
+          last_polled_at?: string | null;
+          last_success_at?: string | null;
+          error_count?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      // Migration 046 — automation_queue (SCHEMA_REGISTRY v2.0 §2.44).
+      automation_queue: {
+        Row: {
+          id: string;
+          organization_id: string;
+          application_id: string;
+          priority: number;
+          status: string;
+          automation_level: string;
+          retry_count: number;
+          max_retries: number;
+          error_log: Json;
+          worker_id: string | null;
+          created_at: string;
+          started_at: string | null;
+          completed_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          application_id: string;
+          priority?: number;
+          status?: string;
+          automation_level?: string;
+          retry_count?: number;
+          max_retries?: number;
+          error_log?: Json;
+          worker_id?: string | null;
+          created_at?: string;
+          started_at?: string | null;
+          completed_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          application_id?: string;
+          priority?: number;
+          status?: string;
+          automation_level?: string;
+          retry_count?: number;
+          max_retries?: number;
+          error_log?: Json;
+          worker_id?: string | null;
+          created_at?: string;
+          started_at?: string | null;
+          completed_at?: string | null;
+        };
+        Relationships: [];
+      };
+      // Migration 048 — competitor_tracking (SCHEMA_REGISTRY v2.0 §2.52).
+      competitor_tracking: {
+        Row: {
+          id: string;
+          organization_id: string;
+          competitor_name: string | null;
+          competitor_ein: string | null;
+          funder_id: string | null;
+          grant_amount: number | null;
+          grant_purpose: string | null;
+          fiscal_year: number | null;
+          source: string | null;
+          competition_level: string | null;
+          estimated_applicants: number | null;
+          observed_at: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          competitor_name?: string | null;
+          competitor_ein?: string | null;
+          funder_id?: string | null;
+          grant_amount?: number | null;
+          grant_purpose?: string | null;
+          fiscal_year?: number | null;
+          source?: string | null;
+          competition_level?: string | null;
+          estimated_applicants?: number | null;
+          observed_at?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          competitor_name?: string | null;
+          competitor_ein?: string | null;
+          funder_id?: string | null;
+          grant_amount?: number | null;
+          grant_purpose?: string | null;
+          fiscal_year?: number | null;
+          source?: string | null;
+          competition_level?: string | null;
+          estimated_applicants?: number | null;
+          observed_at?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      // Migration 049 — success_probability_scores (SCHEMA_REGISTRY v2.0 §2.51).
+      success_probability_scores: {
+        Row: {
+          id: string;
+          organization_id: string;
+          application_id: string;
+          probability_score: number;
+          factors: Json;
+          data_quality: string | null;
+          calculated_at: string;
+          updated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          application_id: string;
+          probability_score: number;
+          factors?: Json;
+          data_quality?: string | null;
+          calculated_at?: string;
+          updated_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          application_id?: string;
+          probability_score?: number;
+          factors?: Json;
+          data_quality?: string | null;
+          calculated_at?: string;
+          updated_at?: string | null;
+        };
+        Relationships: [];
+      };
+      // Migration 050 — user_invitations (used by settings/invite flow).
+      user_invitations: {
+        Row: {
+          id: string;
+          organization_id: string;
+          email: string;
+          role: string;
+          token: string;
+          status: string;
+          invited_by: string | null;
+          accepted_by: string | null;
+          expires_at: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          email: string;
+          role: string;
+          token: string;
+          status?: string;
+          invited_by?: string | null;
+          accepted_by?: string | null;
+          expires_at: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          email?: string;
+          role?: string;
+          token?: string;
+          status?: string;
+          invited_by?: string | null;
+          accepted_by?: string | null;
+          expires_at?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      // Migration 047 — funder_giving_history (SCHEMA_REGISTRY v2.0 §2.46).
+      funder_giving_history: {
+        Row: {
+          id: string;
+          organization_id: string;
+          funder_id: string;
+          recipient_name: string;
+          recipient_ein: string | null;
+          amount: number | null;
+          purpose: string | null;
+          fiscal_year: number;
+          source_filing_url: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          funder_id: string;
+          recipient_name: string;
+          recipient_ein?: string | null;
+          amount?: number | null;
+          purpose?: string | null;
+          fiscal_year: number;
+          source_filing_url?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          funder_id?: string;
+          recipient_name?: string;
+          recipient_ein?: string | null;
+          amount?: number | null;
+          purpose?: string | null;
+          fiscal_year?: number;
+          source_filing_url?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {

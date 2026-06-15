@@ -78,8 +78,13 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Intelligence",
     href: "/intelligence",
     icon: Target,
-    children: [{ label: "Competitors", href: "/intelligence/competitors" }],
+    children: [
+      { label: "Competitors", href: "/intelligence/competitors" },
+      { label: "Semantic Matches", href: "/intelligence/matches" },
+    ],
   },
+  { label: "Follow-Ups", href: "/follow-ups", icon: Mail },
+  { label: "Notifications", href: "/notifications", icon: Bell },
   { label: "Onboarding", href: "/onboarding", icon: ClipboardList, requiresOnboarding: true },
   {
     label: "Settings",
@@ -87,6 +92,8 @@ export const NAV_ITEMS: NavItem[] = [
     icon: Settings,
     children: [
       { label: "Integrations", href: "/settings/integrations" },
+      { label: "Custom APIs", href: "/settings/custom-apis" },
+      { label: "Scraping Targets", href: "/settings/scraping" },
       { label: "Branding", href: "/settings/branding" },
     ],
   },
