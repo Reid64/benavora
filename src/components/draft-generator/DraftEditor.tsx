@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState, useCallback, type ReactElement } from "react";
-import { AlertTriangle, Save } from "lucide-react";
+import { AlertTriangle, RefreshCw, Save } from "lucide-react";
 
 import { Button } from "@/components/ui";
 
@@ -18,6 +18,12 @@ export type DraftEditorProps = {
   readOnly?: boolean;
   /** Label shown above the editor. */
   label?: string;
+  /** True when content has been manually edited since the last rescore. */
+  isDirty?: boolean;
+  /** Called when the user clicks Rescore. Visible only when isDirty is true. */
+  onRescore?: () => void;
+  /** Rescore in progress. */
+  rescoring?: boolean;
 };
 
 type Gap = { description: string; index: number; length: number };
@@ -116,6 +122,9 @@ export function DraftEditor({
   saving = false,
   readOnly = false,
   label = "Draft",
+  isDirty = false,
+  onRescore,
+  rescoring = false,
 }: DraftEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const backdropInnerRef = useRef<HTMLDivElement>(null);
@@ -190,6 +199,19 @@ export function DraftEditor({
 
         <div className="flex items-center gap-3 text-xs text-navy-500">
           <span>{words.toLocaleString()} words</span>
+
+          {isDirty && onRescore && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={onRescore}
+              isLoading={rescoring}
+              disabled={rescoring}
+            >
+              <RefreshCw className="h-3.5 w-3.5" aria-hidden />
+              Rescore
+            </Button>
+          )}
 
           {gaps.length > 0 && (
             <div className="flex items-center gap-2">

@@ -72,6 +72,8 @@ export default function DraftEditorPage({
 
   const [saving, setSaving] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
+  const [rescoring, setRescoring] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -180,11 +182,51 @@ export default function DraftEditorPage({
       setDraftText(payload.content);
       setConfidence(payload.confidenceScore);
       setSources(payload.sources);
+      setIsDirty(false);
       setNotice("Regenerated. Review and save to keep these changes.");
     } catch {
       setError("Network error while regenerating. Please try again.");
     } finally {
       setRegenerating(false);
+    }
+  }
+
+  async function handleRescore() {
+    if (!data) return;
+    const templateType = data.application.draft_template_type;
+    if (!templateType) return;
+    setRescoring(true);
+    setError(null);
+    setNotice(null);
+
+    try {
+      const res = await fetch("/api/ai/draft/rescore", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: draftText,
+          opportunityId: data.application.opportunity_id,
+          templateType,
+        }),
+      });
+      const payload = (await res.json()) as
+        | { confidenceScore: number; needsInputCount: number; belowThreshold: boolean }
+        | { error: string; code: string };
+
+      if (!res.ok || !("confidenceScore" in payload)) {
+        setError(
+          "error" in payload ? payload.error : "Could not rescore the draft.",
+        );
+        return;
+      }
+
+      setConfidence(payload.confidenceScore);
+      setIsDirty(false);
+      setNotice("Confidence score updated.");
+    } catch {
+      setError("Network error while rescoring. Please try again.");
+    } finally {
+      setRescoring(false);
     }
   }
 
@@ -287,11 +329,14 @@ export default function DraftEditorPage({
           <Card>
             <DraftEditor
               value={draftText}
-              onChange={setDraftText}
+              onChange={(v) => { setDraftText(v); setIsDirty(true); }}
               onSave={editable ? handleSave : undefined}
               saving={saving}
               readOnly={!editable}
               label="Draft content"
+              isDirty={isDirty}
+              onRescore={editable ? handleRescore : undefined}
+              rescoring={rescoring}
             />
           </Card>
         </div>
