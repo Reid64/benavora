@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AlertTriangle, RefreshCw, Sparkles, Wand2 } from "lucide-react";
 
@@ -157,6 +157,9 @@ export default function DraftGeneratorPage() {
   const [versions, setVersions] = useState<DraftVersionItem[]>([]);
   const [versionsLoading, setVersionsLoading] = useState(false);
 
+  const generatingRef = useRef(false);
+  const humanizingRef = useRef(false);
+
   // Load a saved version into the editor + review sidebar.
   const loadVersion = useCallback((version: DraftVersionItem) => {
     setDraftText(version.content);
@@ -281,9 +284,11 @@ export default function DraftGeneratorPage() {
     ) && editable;
   const hasDraft = draftText.trim() !== "" || confidence != null;
 
-  async function handleGenerate() {
+  const handleGenerate = useCallback(async () => {
     if (!opportunityId || !templateType) return;
     if (templateType === "budget_narrative" && !programId) return;
+    if (generatingRef.current) return;
+    generatingRef.current = true;
     setGenerating(true);
     setError(null);
 
@@ -357,15 +362,18 @@ export default function DraftGeneratorPage() {
     } catch {
       setError("Network error while generating. Please try again.");
     } finally {
+      generatingRef.current = false;
       setGenerating(false);
     }
-  }
+  }, [opportunityId, templateType, programId, loadVersions]);
 
   // Second pass: rewrite the current draft for an authentic human voice
   // (anti-detection). The endpoint appends a new humanized version and returns
   // a confidence score that reflects the humanization (BLUEPRINT §4.8).
-  async function handleHumanize() {
+  const handleHumanize = useCallback(async () => {
     if (!opportunityId || !templateType || !draftText.trim()) return;
+    if (humanizingRef.current) return;
+    humanizingRef.current = true;
     setHumanizing(true);
     setError(null);
 
@@ -403,9 +411,10 @@ export default function DraftGeneratorPage() {
     } catch {
       setError("Network error while humanizing the draft. Please try again.");
     } finally {
+      humanizingRef.current = false;
       setHumanizing(false);
     }
-  }
+  }, [opportunityId, templateType, draftText, loadVersions]);
 
   // Re-score the current draft text client-side using the same algorithm as
   // the draft API. Called after manual edits to reflect filled-in gaps.

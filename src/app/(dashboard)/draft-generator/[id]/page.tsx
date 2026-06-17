@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { AlertTriangle, ArrowLeft, ExternalLink, Sparkles } from "lucide-react";
@@ -76,6 +76,8 @@ export default function DraftEditorPage({
   const [isDirty, setIsDirty] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
+  const regeneratingRef = useRef(false);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -144,7 +146,7 @@ export default function DraftEditorPage({
     setNotice("Draft saved.");
   }
 
-  async function handleRegenerate() {
+  const handleRegenerate = useCallback(async () => {
     if (!data) return;
     const templateType = data.application.draft_template_type;
     if (!templateType) {
@@ -153,6 +155,8 @@ export default function DraftEditorPage({
       );
       return;
     }
+    if (regeneratingRef.current) return;
+    regeneratingRef.current = true;
     setRegenerating(true);
     setError(null);
     setNotice(null);
@@ -187,9 +191,10 @@ export default function DraftEditorPage({
     } catch {
       setError("Network error while regenerating. Please try again.");
     } finally {
+      regeneratingRef.current = false;
       setRegenerating(false);
     }
-  }
+  }, [data]);
 
   async function handleRescore() {
     if (!data) return;

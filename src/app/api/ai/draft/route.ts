@@ -290,7 +290,9 @@ export async function POST(request: Request) {
       Number(config.get("ai.confidence_threshold")) || AI_CONFIDENCE_THRESHOLD;
 
     // Organization profile, KB entries for this template, and proven narratives.
-    const [orgRes, kbRes, provenRes, funderRes] = await Promise.all([
+    // Two parallel KB queries: template-specific categories + org "custom" entries
+    // that may hold the bulk of the organization's content.
+    const [orgRes, kbResA, kbResB, provenRes, funderRes] = await Promise.all([
       supabase
         .from("organizations")
         .select(
@@ -300,8 +302,14 @@ export async function POST(request: Request) {
         .single(),
       supabase
         .from("knowledge_base")
-        .select("id, title, category, content")
+        .select("id, title, category, content, is_proven, updated_at")
         .in("category", TEMPLATE_KB_CATEGORIES[template])
+        .order("is_proven", { ascending: false })
+        .order("updated_at", { ascending: false }),
+      supabase
+        .from("knowledge_base")
+        .select("id, title, category, content, is_proven, updated_at")
+        .eq("category", "custom")
         .order("is_proven", { ascending: false })
         .order("updated_at", { ascending: false }),
       // Proven narratives for the opportunity's funder category, best first,
@@ -325,7 +333,25 @@ export async function POST(request: Request) {
     ]);
 
     const org = orgRes.data;
-    const knowledgeEntries = (kbRes.data ?? []).map((entry) => ({
+    // Merge template-category entries with "custom" entries, deduplicate by id,
+    // then re-apply is_proven DESC, updated_at DESC ordering.
+    const kbMerged = [...(kbResA.data ?? []), ...(kbResB.data ?? [])];
+    const kbSeen = new Set<string>();
+    const kbDeduped = kbMerged.filter((entry) => {
+      const id = entry.id as string;
+      if (kbSeen.has(id)) return false;
+      kbSeen.add(id);
+      return true;
+    });
+    kbDeduped.sort((a, b) => {
+      const aProven = Boolean(a.is_proven);
+      const bProven = Boolean(b.is_proven);
+      if (aProven !== bProven) return bProven ? 1 : -1;
+      const aDate = (a.updated_at as string) ?? "";
+      const bDate = (b.updated_at as string) ?? "";
+      return bDate.localeCompare(aDate);
+    });
+    const knowledgeEntries = kbDeduped.map((entry) => ({
       id: entry.id as string,
       title: entry.title as string,
       category: entry.category as string,
