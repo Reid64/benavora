@@ -524,6 +524,45 @@ export async function POST(request: Request) {
       }
     }
 
+    // Persist the freshly generated draft onto the opportunity's current
+    // application so it survives a page refresh (the [id] editor and the
+    // generator both read applications.draft_content). draft_versions is the
+    // durable history; applications.* is the single "current" draft. Without
+    // this, regenerating only updated local state and history - reloading the
+    // page showed the previously saved draft. Mirror handleSave's column set
+    // and "most recent application for this opportunity" selection. We only
+    // update an existing row; first-time creation (with pipeline_history) stays
+    // in the generator's Save flow.
+    {
+      const { data: existingApp } = await supabase
+        .from("applications")
+        .select("id")
+        .eq("opportunity_id", opportunityId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (existingApp?.id) {
+        const { error: appUpdateError } = await supabase
+          .from("applications")
+          .update({
+            draft_content: draftText,
+            draft_template_type: template,
+            draft_confidence_score: confidenceScore,
+            draft_knowledge_sources: sources as unknown as Json,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existingApp.id as string);
+        if (appUpdateError) {
+          // Non-fatal: history was already saved, and the client still gets the
+          // draft in the response - but it must never pass silently (§15).
+          console.error(
+            "DRAFT APPLICATION SYNC ERROR:",
+            appUpdateError.message,
+          );
+        }
+      }
+    }
+
     const result: DraftResult & { belowThreshold: boolean } = {
       content: draftText,
       confidenceScore,

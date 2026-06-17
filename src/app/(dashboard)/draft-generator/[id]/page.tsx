@@ -187,7 +187,7 @@ export default function DraftEditorPage({
       setConfidence(payload.confidenceScore);
       setSources(payload.sources);
       setIsDirty(false);
-      setNotice("Regenerated. Review and save to keep these changes.");
+      setNotice("Regenerated and saved. Further edits still need a manual save.");
     } catch {
       setError("Network error while regenerating. Please try again.");
     } finally {
