@@ -28,6 +28,13 @@ import type {
 import type { Enums, Json } from "@/types/database";
 
 export const runtime = "nodejs";
+// A full grant narrative can use the entire ai.max_tokens budget (8192), and a
+// non-streaming Claude completion only returns once the whole draft is written -
+// measured at ~180s for a max-length proposal. The previous 60s function limit
+// (vercel.json) killed the function mid-callClaude before it could save the
+// draft_version or mark the agent_run completed/failed, leaving the run stuck
+// "running" and the client showing the last saved draft. Give generation room.
+export const maxDuration = 300;
 
 type KbCategory = Enums<"knowledge_base_category">;
 

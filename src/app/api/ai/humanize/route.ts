@@ -25,6 +25,10 @@ import type { Json } from "@/types/database";
 // (BEHAVIORAL_CONTRACTS §15) and meters the org's daily AI quota (§25).
 
 export const runtime = "nodejs";
+// Humanizing rewrites a full-length draft through Claude (non-streaming), which
+// can run well past the default 60s function limit. Without this the function
+// was killed mid-call, orphaning the agent_run and saving no humanized version.
+export const maxDuration = 300;
 
 const VALID_TEMPLATE_TYPES: DraftTemplateType[] = [
   "grant_narrative",

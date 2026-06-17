@@ -4,7 +4,7 @@
       "maxDuration": 60
     },
     "src/app/api/ai/**/*.ts": {
-      "maxDuration": 60
+      "maxDuration": 300
     },
     "src/app/api/cron/**/*.ts": {
       "maxDuration": 60

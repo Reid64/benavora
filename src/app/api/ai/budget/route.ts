@@ -21,6 +21,9 @@ import { AI_CONFIDENCE_THRESHOLD } from "@/lib/utils/constants";
 import type { BudgetApiResult } from "@/types/ai";
 
 export const runtime = "nodejs";
+// The budget narrative is a non-streaming Claude generation that can exceed the
+// default 60s function limit; without the extension Vercel kills it mid-call.
+export const maxDuration = 300;
 
 // Best-effort per-organization rate limit: 20 requests / minute
 // (BEHAVIORAL_CONTRACTS §16). In-memory; protects a single instance only.
