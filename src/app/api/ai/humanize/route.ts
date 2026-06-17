@@ -88,19 +88,6 @@ function computeGroundedConfidence(
   return Math.max(0, Math.min(100, score));
 }
 
-/**
- * Confidence for a humanized draft: blend grounding (does it still rest on
- * verified data?) with how human the rewrite reads. The grounding term keeps
- * the score honest - a slick-but-ungrounded draft can't score high - while the
- * humanization term reflects this pass's purpose (the task: "update confidence
- * score to reflect humanization status"). Grounding is weighted higher.
- */
-function computeHumanizedConfidence(
-  grounded: number,
-  humanizationScore: number,
-): number {
-  return Math.max(0, Math.min(100, Math.round(grounded * 0.65 + humanizationScore * 0.35)));
-}
 
 export async function POST(request: Request) {
   // Humanizing a draft is a write action - viewers are read-only (Contracts §16).
@@ -257,6 +244,9 @@ export async function POST(request: Request) {
       }),
     );
 
+    const preHumanizeGaps = (content.match(/\[NEEDS INPUT/gi) ?? []).length;
+    const preScore = computeGroundedConfidence(content, knowledgeEntries.length, provenNarratives.length);
+
     const result = await runHumanizer({
       draft: content,
       templateType: template,
@@ -285,10 +275,11 @@ export async function POST(request: Request) {
       knowledgeEntries.length,
       provenNarratives.length,
     );
-    const confidenceScore = computeHumanizedConfidence(
-      grounded,
-      result.humanizationScore,
-    );
+    const postGaps = (result.content.match(/\[NEEDS INPUT/gi) ?? []).length;
+    const resolvedGaps = Math.max(0, preHumanizeGaps - postGaps);
+    const gapBonus = resolvedGaps * 3;
+    const humanizationBonus = Math.max(0, Math.round((result.humanizationScore - 50) * 0.2));
+    const confidenceScore = Math.min(100, Math.max(preScore, grounded) + gapBonus + humanizationBonus);
 
     // Transparency panel (BEHAVIORAL_CONTRACTS §9): the facts/voice that informed
     // the rewrite - same shape /api/ai/draft records, so usage history matches.
@@ -310,7 +301,7 @@ export async function POST(request: Request) {
         .from("agent_runs")
         .update({
           status: "completed",
-          output_summary: `Humanized ${template}: removed ${result.emDashesRemoved} em dash(es), replaced ${result.vocabReplaced} AI term(s); reads-human ${result.humanizationScore}/100, confidence ${confidenceScore}.`,
+          output_summary: `Humanized ${template}: removed ${result.emDashesRemoved} em dash(es), replaced ${result.vocabReplaced} AI term(s); reads-human ${result.humanizationScore}/100, resolved ${resolvedGaps} gap(s) (pre-score ${preScore}), confidence ${confidenceScore}.`,
           items_found: sources.length,
           items_processed: 1,
           tokens_used: result.tokensUsed,

@@ -1,4 +1,15 @@
 {
+  "functions": {
+    "src/app/api/agents/**/*.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/ai/**/*.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/cron/**/*.ts": {
+      "maxDuration": 60
+    }
+  },
   "crons": [
     { "path": "/api/cron/research", "schedule": "0 6 * * *" },
     { "path": "/api/cron/reminders", "schedule": "0 8 * * *" },
