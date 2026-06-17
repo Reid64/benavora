@@ -270,12 +270,20 @@ export async function POST(request: Request) {
       maxTokens,
     });
 
+    const humanizedContent = result.content
+      .replace(/\*\*([^*]+)\*\*/g, '$1')
+      .replace(/\*([^*]+)\*/g, '$1')
+      .replace(/^#{1,6}\s+/gm, '')
+      .replace(/—/g, '-')
+      .replace(/\r\n/g, '\n')
+      .trim();
+
     const grounded = computeGroundedConfidence(
-      result.content,
+      humanizedContent,
       knowledgeEntries.length,
       provenNarratives.length,
     );
-    const postGaps = (result.content.match(/\[NEEDS INPUT/gi) ?? []).length;
+    const postGaps = (humanizedContent.match(/\[NEEDS INPUT/gi) ?? []).length;
     const resolvedGaps = Math.max(0, preHumanizeGaps - postGaps);
     const gapBonus = resolvedGaps * 3;
     const humanizationBonus = Math.max(0, Math.round((result.humanizationScore - 50) * 0.2));
@@ -324,7 +332,7 @@ export async function POST(request: Request) {
           organization_id: organizationId,
           opportunity_id: opportunityId,
           template_type: template,
-          content: result.content,
+          content: humanizedContent,
           confidence_score: confidenceScore,
           knowledge_sources: sources as unknown as Json,
           humanization_status: "humanized",
@@ -348,7 +356,7 @@ export async function POST(request: Request) {
     }
 
     const payload: HumanizeResult & { belowThreshold: boolean } = {
-      content: result.content,
+      content: humanizedContent,
       confidenceScore,
       humanizationStatus: "humanized",
       sources,
