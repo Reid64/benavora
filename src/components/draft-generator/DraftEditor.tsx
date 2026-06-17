@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState, useCallback, type ReactElement } from "react";
-import { AlertTriangle, ChevronDown, Save } from "lucide-react";
+import { AlertTriangle, Save } from "lucide-react";
 
 import { Button } from "@/components/ui";
 
@@ -69,12 +69,45 @@ function buildNodes(text: string, gaps: Gap[], withTextColor: boolean) {
 }
 
 /**
+ * Read-only variant: renders each [NEEDS INPUT] marker as a clickable amber
+ * span with a sequential DOM id (gap-0, gap-1, …) so the badge and Next Gap
+ * button can scroll to them via scrollIntoView.
+ */
+function buildInteractiveNodes(text: string, gaps: Gap[]) {
+  if (gaps.length === 0) return [text];
+  const nodes: (string | ReactElement)[] = [];
+  let cursor = 0;
+  gaps.forEach((gap, seqIndex) => {
+    if (gap.index > cursor) nodes.push(text.slice(cursor, gap.index));
+    const i = seqIndex;
+    nodes.push(
+      <span
+        key={gap.index}
+        id={`gap-${i}`}
+        className="bg-amber-100 border border-amber-400 text-amber-800 rounded px-1 py-0.5 cursor-pointer font-medium text-sm inline-block my-0.5"
+        onClick={() =>
+          document
+            .getElementById(`gap-${i}`)
+            ?.scrollIntoView({ behavior: "smooth", block: "center" })
+        }
+        title="Click to highlight — fill in this section"
+      >
+        {text.slice(gap.index, gap.index + gap.length)}
+      </span>,
+    );
+    cursor = gap.index + gap.length;
+  });
+  if (cursor < text.length) nodes.push(text.slice(cursor));
+  return nodes;
+}
+
+/**
  * Draft editor (BLUEPRINT §4.8 step 5). A plain-text editor over the generated
  * draft — the locked stack ships no rich-text dependency, and drafts are stored
  * and rendered as text (applications.draft_content). Surfaces a live word count
  * and a clickable gap list for every [NEEDS INPUT] placeholder
  * (BEHAVIORAL_CONTRACTS §9). Highlights are rendered via a positioned backdrop
- * in edit mode and via inline <mark> elements in read-only mode.
+ * in edit mode and via inline clickable amber spans in read-only mode.
  */
 export function DraftEditor({
   value,
@@ -86,7 +119,7 @@ export function DraftEditor({
 }: DraftEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const backdropInnerRef = useRef<HTMLDivElement>(null);
-  const [gapsOpen, setGapsOpen] = useState(false);
+  const [currentGapIndex, setCurrentGapIndex] = useState(0);
 
   const { words, gaps } = useMemo(() => {
     const trimmed = value.trim();
@@ -96,8 +129,11 @@ export function DraftEditor({
     };
   }, [value]);
 
-  // Nodes for read-only view (purple text + background on marks).
-  const readOnlyNodes = useMemo(() => buildNodes(value, gaps, true), [value, gaps]);
+  // Nodes for read-only view: clickable amber spans with sequential DOM ids.
+  const readOnlyNodes = useMemo(
+    () => buildInteractiveNodes(value, gaps),
+    [value, gaps],
+  );
 
   // Nodes for the edit-mode backdrop (background only; text stays transparent).
   const backdropNodes = useMemo(() => buildNodes(value, gaps, false), [value, gaps]);
@@ -111,13 +147,40 @@ export function DraftEditor({
     }
   }, []);
 
-  const scrollToGap = useCallback((gap: Gap) => {
+  // In edit mode: focus the textarea and select the gap text.
+  const scrollToGapInTextarea = useCallback((gap: Gap) => {
     const ta = textareaRef.current;
     if (!ta) return;
     ta.focus();
     ta.setSelectionRange(gap.index, gap.index + gap.length);
-    setGapsOpen(false);
   }, []);
+
+  // Badge click: jump to the first gap.
+  const handleGapBadgeClick = useCallback(() => {
+    if (readOnly) {
+      document
+        .getElementById("gap-0")
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    } else {
+      const firstGap = gaps[0];
+      if (firstGap) scrollToGapInTextarea(firstGap);
+    }
+    setCurrentGapIndex(0);
+  }, [readOnly, gaps, scrollToGapInTextarea]);
+
+  // Next Gap button: cycle through each gap in order.
+  const handleNextGap = useCallback(() => {
+    const idx = currentGapIndex % Math.max(1, gaps.length);
+    if (readOnly) {
+      document
+        .getElementById(`gap-${idx}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    } else {
+      const gap = gaps[idx];
+      if (gap) scrollToGapInTextarea(gap);
+    }
+    setCurrentGapIndex((i) => (i + 1) % Math.max(1, gaps.length));
+  }, [currentGapIndex, readOnly, gaps, scrollToGapInTextarea]);
 
   return (
     <div className="space-y-3">
@@ -129,41 +192,25 @@ export function DraftEditor({
           <span>{words.toLocaleString()} words</span>
 
           {gaps.length > 0 && (
-            <div className="relative">
+            <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => setGapsOpen((o) => !o)}
+                onClick={handleGapBadgeClick}
                 className="inline-flex items-center gap-1 font-medium text-purple-500 transition-colors hover:text-purple-400"
+                title="Jump to first gap"
               >
                 <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
                 {gaps.length} unresolved {gaps.length === 1 ? "gap" : "gaps"}
-                <ChevronDown
-                  className={`h-3 w-3 transition-transform duration-150 ${gapsOpen ? "rotate-180" : ""}`}
-                  aria-hidden
-                />
               </button>
 
-              {gapsOpen && (
-                <div className="absolute right-0 top-full z-20 mt-1 w-72 rounded-lg border border-purple-800/40 bg-[#0f0f1f] shadow-xl ring-1 ring-black/20">
-                  <p className="border-b border-purple-800/30 px-3 py-2 text-xs font-semibold text-purple-400">
-                    Unresolved gaps — click to jump
-                  </p>
-                  <ul className="max-h-56 overflow-y-auto py-1">
-                    {gaps.map((gap, i) => (
-                      <li key={gap.index}>
-                        <button
-                          type="button"
-                          onClick={() => scrollToGap(gap)}
-                          className="w-full px-3 py-1.5 text-left text-xs text-purple-300 transition-colors hover:bg-purple-900/30"
-                        >
-                          <span className="mr-2 text-purple-500">#{i + 1}</span>
-                          {gap.description}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+              <button
+                type="button"
+                onClick={handleNextGap}
+                className="inline-flex items-center gap-1 rounded border border-amber-400 bg-amber-50 px-2 py-0.5 font-medium text-amber-700 transition-colors hover:bg-amber-100"
+                title="Scroll to next gap"
+              >
+                Next gap →
+              </button>
             </div>
           )}
         </div>
@@ -171,7 +218,7 @@ export function DraftEditor({
 
       {/* ── Draft display ── */}
       {readOnly ? (
-        // Read-only: plain div with inline <mark> highlights.
+        // Read-only: plain div with inline clickable amber spans.
         <div
           className="block w-full rounded-lg border border-navy-300 bg-navy-50 px-3 py-2 font-mono text-sm leading-relaxed text-navy-600 shadow-sm"
           style={{ whiteSpace: "pre-wrap", minHeight: "20rem" }}
