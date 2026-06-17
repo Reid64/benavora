@@ -52,6 +52,7 @@ const VALID_TEMPLATE_TYPES: DraftTemplateType[] = [
 const TEMPLATE_KB_CATEGORIES: Record<DraftTemplateType, KbCategory[]> = {
   grant_narrative: [
     "mission",
+    "vision",
     "need_statement",
     "program_description",
     "impact",
@@ -59,6 +60,7 @@ const TEMPLATE_KB_CATEGORIES: Record<DraftTemplateType, KbCategory[]> = {
     "sustainability",
     "partnerships",
     "organizational_history",
+    "budget_justification",
   ],
   donation_request_letter: [
     "mission",

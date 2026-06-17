@@ -85,13 +85,31 @@ function renderKnowledgeEntries(
   entries: DraftPromptContext["knowledgeEntries"],
 ): string {
   if (entries.length === 0) {
-    return "No reusable narrative blocks are available for this template. Build only from the organization profile above, and flag any gap with [NEEDS INPUT: ...].";
+    return "No reusable narrative blocks are available for this template. Build only from the organization profile and Organizational Q&A, and flag any genuine gap with [NEEDS INPUT: ...].";
   }
   return entries
     .map(
       (entry) =>
         `### ${entry.title} (${humanizeEnum(entry.category)})\n${entry.content.trim()}`,
     )
+    .join("\n\n");
+}
+
+/**
+ * Render "custom" Knowledge Base entries, which the app stores as Q&A pairs
+ * (the question is the title, the answer is the content). These hold the bulk
+ * of an organization's verified facts, so they are presented as direct answers
+ * to extract from - not as background reference - and the model is told to fill
+ * narrative sections from them before flagging anything as [NEEDS INPUT].
+ */
+function renderCustomQA(
+  entries: DraftPromptContext["knowledgeEntries"],
+): string {
+  if (entries.length === 0) {
+    return "None provided.";
+  }
+  return entries
+    .map((entry) => `Q: ${entry.title}\nA: ${entry.content.trim()}`)
     .join("\n\n");
 }
 
@@ -145,6 +163,16 @@ export function buildGrantNarrativePrompt(
     context.opportunity.amountMax,
   );
 
+  // "custom" entries are stored as Q&A pairs and carry most of an org's facts;
+  // split them out so the prompt can instruct the model to extract answers from
+  // them directly rather than treat them as reference like the typed blocks.
+  const typedEntries = context.knowledgeEntries.filter(
+    (entry) => entry.category !== "custom",
+  );
+  const customEntries = context.knowledgeEntries.filter(
+    (entry) => entry.category === "custom",
+  );
+
   const system = [
     `You are an expert grant writer for ${orgName}.`,
     "",
@@ -154,6 +182,7 @@ export function buildGrantNarrativePrompt(
     "3. If a required section needs information you were not given, insert a placeholder exactly in this form: [NEEDS INPUT: a short description of what is missing]. Do not guess.",
     "4. Do not promise future programs or outcomes that are not described in the provided program data.",
     "5. Write in a confident, specific, funder-aligned voice. Mirror the structure and language of any 'previously funded' narratives you are given - they have won before.",
+    "6. Before flagging ANY section as [NEEDS INPUT], check all Q&A entries. If an answer exists there, use it.",
   ].join("\n");
 
   const opportunityLines: string[] = [
@@ -189,7 +218,10 @@ export function buildGrantNarrativePrompt(
     renderOrganization(context.organization),
     "",
     "## Reusable narrative blocks (verified Knowledge Base content)",
-    renderKnowledgeEntries(context.knowledgeEntries),
+    renderKnowledgeEntries(typedEntries),
+    "",
+    "## ORGANIZATIONAL Q&A - extract and use these answers directly to fill narrative sections. Do not flag a section as [NEEDS INPUT] if the answer exists in any Q&A entry below.",
+    renderCustomQA(customEntries),
     "",
     "## Previously funded narratives - weight their patterns, structure, and language heavily",
     renderProvenNarratives(context.provenNarratives),
