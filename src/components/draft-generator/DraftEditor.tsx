@@ -45,36 +45,6 @@ function extractGaps(text: string): Gap[] {
 }
 
 /**
- * Splits text around [NEEDS INPUT] markers and wraps them in highlighted <mark>
- * elements. withTextColor=true for read-only display; false for the edit
- * backdrop (where the parent sets color:transparent so only the bg shows).
- */
-function buildNodes(text: string, gaps: Gap[], withTextColor: boolean) {
-  if (gaps.length === 0) return [text];
-  const nodes: (string | ReactElement)[] = [];
-  let cursor = 0;
-  for (const gap of gaps) {
-    if (gap.index > cursor) nodes.push(text.slice(cursor, gap.index));
-    const markStyle: { background: string; color?: string } = {
-      background: "rgba(147,51,234,0.20)",
-    };
-    if (withTextColor) markStyle.color = "#9333ea";
-    nodes.push(
-      <mark
-        key={gap.index}
-        className="animate-pulse rounded px-0.5 font-bold"
-        style={markStyle}
-      >
-        {text.slice(gap.index, gap.index + gap.length)}
-      </mark>,
-    );
-    cursor = gap.index + gap.length;
-  }
-  if (cursor < text.length) nodes.push(text.slice(cursor));
-  return nodes;
-}
-
-/**
  * Read-only variant: renders each [NEEDS INPUT] marker as a clickable amber
  * span with a sequential DOM id (gap-0, gap-1, …) so the badge and Next Gap
  * button can scroll to them via scrollIntoView.
@@ -143,9 +113,6 @@ export function DraftEditor({
     () => buildInteractiveNodes(value, gaps),
     [value, gaps],
   );
-
-  // Nodes for the edit-mode backdrop (background only; text stays transparent).
-  const backdropNodes = useMemo(() => buildNodes(value, gaps, false), [value, gaps]);
 
   // Keep backdrop scroll in sync with the textarea via CSS transform.
   const syncScroll = useCallback(() => {
@@ -264,7 +231,7 @@ export function DraftEditor({
                 color: "transparent",
               }}
             >
-              {backdropNodes}
+              {readOnlyNodes}
             </div>
           </div>
 
