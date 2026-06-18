@@ -5,8 +5,6 @@ import {
   Brain,
   Building2,
   Calendar,
-  ClipboardList,
-  CreditCard,
   DollarSign,
   FileBarChart2,
   FolderOpen,
@@ -14,8 +12,6 @@ import {
   LayoutDashboard,
   Radar,
   Search,
-  Settings,
-  Shield,
   Target,
   Wand2,
   type LucideIcon,
@@ -75,27 +71,8 @@ export const NAV_ITEMS: NavItem[] = [
       { label: "Semantic Matches", href: "/intelligence/matches" },
     ],
   },
-  { label: "Onboarding", href: "/onboarding", icon: ClipboardList, requiresOnboarding: true },
-  {
-    label: "Settings",
-    href: "/settings",
-    icon: Settings,
-    children: [
-      { label: "Integrations", href: "/settings/integrations" },
-      { label: "Custom APIs", href: "/settings/custom-apis" },
-      { label: "Scraping Targets", href: "/settings/scraping" },
-      { label: "Branding", href: "/settings/branding" },
-    ],
-  },
-  // Billing is owner-only (BLUEPRINT §3.2 / updated §3.3 navigation).
-  { label: "Billing", href: "/billing", icon: CreditCard, roles: ["owner"] },
-  // Admin - Audit Log is owner/admin only (BLUEPRINT updated §3.3 navigation).
-  {
-    label: "Audit Log",
-    href: "/admin/audit-log",
-    icon: Shield,
-    roles: ["owner", "admin"],
-  },
+  // Settings, Billing, Onboarding, and Audit Log live in the header avatar
+  // dropdown now, so they are intentionally absent from the sidebar.
 ];
 
 /** Nav items visible to the given role and onboarding state. */
