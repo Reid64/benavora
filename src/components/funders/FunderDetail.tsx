@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   ArrowDown,
   ArrowRight,
@@ -12,6 +13,7 @@ import {
   FileText,
   Inbox,
   KeyRound,
+  Mail,
   MessageSquare,
   Pencil,
   Trash2,
@@ -30,6 +32,8 @@ import {
 } from "@/components/ui";
 import type { BadgeColor } from "@/components/ui";
 import { FunderForm } from "@/components/funders/FunderForm";
+import { ContactForm } from "@/components/contacts/ContactForm";
+import { OutreachContactTable } from "@/components/outreach/OutreachContactTable";
 import { recordAudit } from "@/lib/audit/client";
 import { createClient } from "@/lib/supabase/client";
 import { canDeleteFunder, canEdit, useProfile } from "@/lib/hooks/useProfile";
@@ -45,6 +49,7 @@ import type { Enums, Tables } from "@/types/database";
 type TabKey =
   | "overview"
   | "contacts"
+  | "outreach"
   | "opportunities"
   | "applications"
   | "notes"
@@ -53,6 +58,7 @@ type TabKey =
 const TABS: { key: TabKey; label: string }[] = [
   { key: "overview", label: "Overview" },
   { key: "contacts", label: "Contacts" },
+  { key: "outreach", label: "Outreach" },
   { key: "opportunities", label: "Opportunities" },
   { key: "applications", label: "Applications" },
   { key: "notes", label: "Notes" },
@@ -398,7 +404,20 @@ export function FunderDetail({ funderId }: FunderDetailProps) {
       {tab === "overview" && (
         <OverviewTab funder={funder} canEdit={editable} />
       )}
-      {tab === "contacts" && <ContactsTab contacts={data.contacts} />}
+      {tab === "contacts" && (
+        <ContactsTab
+          funderId={funder.id}
+          contacts={data.contacts}
+          canAdd={editable}
+          onChanged={load}
+        />
+      )}
+      {tab === "outreach" && (
+        <OutreachTab
+          funderId={funder.id}
+          organizationId={profile?.organization_id ?? null}
+        />
+      )}
       {tab === "opportunities" && (
         <OpportunitiesTab opportunities={data.opportunities} />
       )}
@@ -603,48 +622,157 @@ function OverviewTab({
   );
 }
 
-function ContactsTab({ contacts }: { contacts: Tables<"contacts">[] }) {
+function ContactsTab({
+  funderId,
+  contacts,
+  canAdd,
+  onChanged,
+}: {
+  funderId: string;
+  contacts: Tables<"contacts">[];
+  canAdd: boolean;
+  onChanged: () => Promise<void> | void;
+}) {
+  const [adding, setAdding] = useState(false);
+
+  return (
+    <div className="space-y-4">
+      {canAdd && (
+        <div className="flex justify-end">
+          <Button onClick={() => setAdding(true)}>
+            <Users className="h-4 w-4" aria-hidden />
+            Add contact
+          </Button>
+        </div>
+      )}
+
+      {contacts.length === 0 ? (
+        <EmptyState
+          icon={Users}
+          title="No contacts yet"
+          description="People you add at this funder will appear here."
+          action={
+            canAdd ? (
+              <Button onClick={() => setAdding(true)}>Add contact</Button>
+            ) : undefined
+          }
+        />
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {contacts.map((contact) => (
+            <Card key={contact.id}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-medium text-navy-900">{contact.name}</p>
+                  {contact.title && (
+                    <p className="text-sm text-navy-500">{contact.title}</p>
+                  )}
+                </div>
+                {contact.relationship && (
+                  <Badge color={RELATIONSHIP_COLOR[contact.relationship]}>
+                    {humanizeEnum(contact.relationship)}
+                  </Badge>
+                )}
+              </div>
+              <dl className="mt-3 space-y-1 text-sm text-navy-600">
+                {contact.email && (
+                  <div className="truncate">
+                    <a
+                      href={`mailto:${contact.email}`}
+                      className="text-teal-600 hover:text-teal-700"
+                    >
+                      {contact.email}
+                    </a>
+                  </div>
+                )}
+                {contact.phone && <div>{contact.phone}</div>}
+              </dl>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      <Modal
+        isOpen={adding}
+        onClose={() => setAdding(false)}
+        title="Add contact"
+        size="xl"
+      >
+        <ContactForm
+          defaultFunderId={funderId}
+          onCancel={() => setAdding(false)}
+          onSaved={async () => {
+            setAdding(false);
+            await onChanged();
+          }}
+        />
+      </Modal>
+    </div>
+  );
+}
+
+function OutreachTab({
+  funderId,
+  organizationId,
+}: {
+  funderId: string;
+  organizationId: string | null;
+}) {
+  const [contacts, setContacts] = useState<Tables<"outreach_contacts">[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const loadOutreach = useCallback(async () => {
+    setLoading(true);
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("outreach_contacts")
+      .select("*")
+      .eq("converted_to_funder_id", funderId)
+      .order("created_at", { ascending: false });
+    setContacts(data ?? []);
+    setLoading(false);
+  }, [funderId]);
+
+  useEffect(() => {
+    void loadOutreach();
+  }, [loadOutreach]);
+
+  if (loading) {
+    return <LoadingSpinner center label="Loading outreach..." />;
+  }
+
   if (contacts.length === 0) {
     return (
       <EmptyState
-        icon={Users}
-        title="No contacts yet"
-        description="People you add at this funder will appear here."
+        icon={Mail}
+        title="No outreach for this funder"
+        description="Outreach prospects that were converted into this funder appear here. Scan companies on the Outreach page to extract new prospects."
+        action={
+          <Link href="/outreach">
+            <Button variant="secondary">Open Outreach</Button>
+          </Link>
+        }
       />
     );
   }
+
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-      {contacts.map((contact) => (
-        <Card key={contact.id}>
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="font-medium text-navy-900">{contact.name}</p>
-              {contact.title && (
-                <p className="text-sm text-navy-500">{contact.title}</p>
-              )}
-            </div>
-            {contact.relationship && (
-              <Badge color={RELATIONSHIP_COLOR[contact.relationship]}>
-                {humanizeEnum(contact.relationship)}
-              </Badge>
-            )}
-          </div>
-          <dl className="mt-3 space-y-1 text-sm text-navy-600">
-            {contact.email && (
-              <div className="truncate">
-                <a
-                  href={`mailto:${contact.email}`}
-                  className="text-teal-600 hover:text-teal-700"
-                >
-                  {contact.email}
-                </a>
-              </div>
-            )}
-            {contact.phone && <div>{contact.phone}</div>}
-          </dl>
-        </Card>
-      ))}
+    <div className="space-y-4">
+      <OutreachContactTable
+        contacts={contacts}
+        isLoading={false}
+        canConvert={false}
+        organizationId={organizationId}
+        onChanged={loadOutreach}
+      />
+      <div className="text-right">
+        <Link
+          href="/outreach"
+          className="text-sm font-medium text-teal-600 hover:text-teal-700"
+        >
+          Open full Outreach →
+        </Link>
+      </div>
     </div>
   );
 }
