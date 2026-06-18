@@ -64,7 +64,7 @@ export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarPro
     "/opportunities": counts.new_opportunity,
     "/applications": counts.application_action,
     "/draft-generator": counts.draft_review,
-    "/automation": automationPending,
+    "/autoapply": automationPending,
   };
 
   // Resolve each item's href to the section's remembered location (restoring

@@ -7,7 +7,7 @@ const nextConfig = {
   // Next.js 14.x uses experimental.serverComponentsExternalPackages (the stable
   // serverExternalPackages key is Next.js 15+ only).
   experimental: {
-    serverComponentsExternalPackages: ["archiver", "playwright"],
+    serverComponentsExternalPackages: ["archiver", "playwright", "pdf-parse"],
   },
   // Supabase Storage / external images are configured here as features are built.
   images: {

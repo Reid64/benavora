@@ -12,6 +12,7 @@ import {
   Pencil,
   Search,
   ShieldCheck,
+  Sparkles,
   Trash2,
   XCircle,
 } from "lucide-react";
@@ -99,6 +100,8 @@ export function OpportunityDetail({ opportunityId }: OpportunityDetailProps) {
   const [editing, setEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [parseLoading, setParseLoading] = useState(false);
+  const [parseError, setParseError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const supabase = createClient();
@@ -188,6 +191,29 @@ export function OpportunityDetail({ opportunityId }: OpportunityDetailProps) {
     router.refresh();
   }
 
+  async function handleParseNofa() {
+    setParseError(null);
+    setParseLoading(true);
+    try {
+      const res = await fetch("/api/agents/nofa-parser", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ opportunityId }),
+      });
+      if (!res.ok) {
+        const payload = (await res.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        throw new Error(payload?.error ?? "NOFA parsing failed.");
+      }
+      await load();
+    } catch (err) {
+      setParseError(err instanceof Error ? err.message : "NOFA parsing failed.");
+    } finally {
+      setParseLoading(false);
+    }
+  }
+
   if (loading) {
     return <LoadingSpinner center label="Loading opportunity..." />;
   }
@@ -250,15 +276,33 @@ export function OpportunityDetail({ opportunityId }: OpportunityDetailProps) {
           </p>
         </div>
         {editable && (
-          <div className="flex shrink-0 items-center gap-2">
-            <Button variant="secondary" onClick={() => setEditing(true)}>
-              <Pencil className="h-4 w-4" aria-hidden />
-              Edit
-            </Button>
-            <Button variant="danger" onClick={() => setConfirmDelete(true)}>
-              <Trash2 className="h-4 w-4" aria-hidden />
-              Delete
-            </Button>
+          <div className="flex shrink-0 flex-col items-end gap-2">
+            <div className="flex items-center gap-2">
+              <Button
+                variant="secondary"
+                onClick={handleParseNofa}
+                isLoading={parseLoading}
+              >
+                <Sparkles className="h-4 w-4" aria-hidden />
+                Parse NOFA
+              </Button>
+              <Button variant="secondary" onClick={() => setEditing(true)}>
+                <Pencil className="h-4 w-4" aria-hidden />
+                Edit
+              </Button>
+              <Button variant="danger" onClick={() => setConfirmDelete(true)}>
+                <Trash2 className="h-4 w-4" aria-hidden />
+                Delete
+              </Button>
+            </div>
+            {parseError && (
+              <div
+                role="alert"
+                className="max-w-sm rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+              >
+                {parseError}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -411,8 +455,15 @@ function DetailRow({
   );
 }
 
-function dash(value: React.ReactNode) {
-  return value ?? <span className="text-navy-400">-</span>;
+function getFilenameFromUrl(url: string): string {
+  try {
+    const pathname = new URL(url).pathname;
+    const segments = pathname.split("/").filter(Boolean);
+    const last = segments[segments.length - 1];
+    return last ? decodeURIComponent(last) : "NOFA Document";
+  } catch {
+    return "NOFA Document";
+  }
 }
 
 function OverviewTab({
@@ -424,15 +475,31 @@ function OverviewTab({
 }) {
   const amountRange =
     opportunity.amount_min != null || opportunity.amount_max != null
-      ? `${formatCurrency(opportunity.amount_min)} - ${formatCurrency(opportunity.amount_max)}`
+      ? `${formatCurrency(opportunity.amount_min)} – ${formatCurrency(opportunity.amount_max)}`
       : null;
+
+  const rawDocs = opportunity.opportunity_documents;
+  const documents: Array<{ title?: string; url: string }> = Array.isArray(
+    rawDocs,
+  )
+    ? (rawDocs as Array<unknown>).filter(
+        (item): item is { url: string; title?: string } =>
+          typeof item === "object" &&
+          item !== null &&
+          typeof (item as Record<string, unknown>).url === "string",
+      )
+    : [];
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
       <Card title="Details">
         <dl className="divide-y divide-navy-100">
           <DetailRow label="Description">
-            {dash(opportunity.description)}
+            {opportunity.description ? (
+              <p className="whitespace-pre-wrap">{opportunity.description}</p>
+            ) : (
+              <span className="text-navy-400">-</span>
+            )}
           </DetailRow>
           <DetailRow label="Deadline">
             {opportunity.deadline ? (
@@ -449,17 +516,38 @@ function OverviewTab({
             )}
           </DetailRow>
           <DetailRow label="Geographic restrictions">
-            {dash(opportunity.geographic_restrictions)}
-          </DetailRow>
-          <DetailRow label="Source type">
-            {opportunity.source_type ? (
-              <SourceTypeBadge sourceType={opportunity.source_type} />
+            {opportunity.geographic_restrictions ? (
+              opportunity.geographic_restrictions
             ) : (
-              <span className="text-navy-400">Unclassified</span>
+              <span className="text-navy-400">-</span>
             )}
           </DetailRow>
-          <DetailRow label="Source">
-            {dash(opportunity.source && humanizeEnum(opportunity.source))}
+          <DetailRow label="Eligibility requirements">
+            {opportunity.eligibility_requirements ? (
+              <div className="max-h-48 overflow-y-auto whitespace-pre-wrap">
+                {opportunity.eligibility_requirements}
+              </div>
+            ) : (
+              <span className="text-navy-400">-</span>
+            )}
+          </DetailRow>
+          <DetailRow label="Required documents">
+            {opportunity.required_documents &&
+            opportunity.required_documents.length > 0 ? (
+              <ul className="space-y-1.5">
+                {opportunity.required_documents.map((doc, i) => (
+                  <li key={`${doc}-${i}`} className="flex items-center gap-2">
+                    <FileText
+                      className="h-4 w-4 shrink-0 text-navy-400"
+                      aria-hidden
+                    />
+                    {doc}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <span className="text-navy-400">-</span>
+            )}
           </DetailRow>
         </dl>
       </Card>
@@ -467,10 +555,18 @@ function OverviewTab({
       <Card title="Funding & application">
         <dl className="divide-y divide-navy-100">
           <DetailRow label="Amount available">
-            {formatCurrency(opportunity.amount_available)}
+            {opportunity.amount_available != null ? (
+              formatCurrency(opportunity.amount_available)
+            ) : (
+              <span className="text-navy-400">-</span>
+            )}
           </DetailRow>
           <DetailRow label="Request range">
-            {dash(amountRange)}
+            {amountRange ? (
+              amountRange
+            ) : (
+              <span className="text-navy-400">-</span>
+            )}
           </DetailRow>
           <DetailRow label="Application method">
             {opportunity.application_method ? (
@@ -485,10 +581,10 @@ function OverviewTab({
                 href={opportunity.url}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-1 text-teal-600 hover:text-teal-700"
+                className="inline-flex items-center gap-1 break-all text-teal-600 hover:text-teal-700"
               >
                 {opportunity.url}
-                <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+                <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden />
               </a>
             ) : (
               <span className="text-navy-400">-</span>
@@ -497,32 +593,7 @@ function OverviewTab({
         </dl>
       </Card>
 
-      {opportunity.eligibility_requirements && (
-        <Card title="Eligibility requirements" className="lg:col-span-2">
-          <p className="whitespace-pre-wrap text-sm text-navy-700">
-            {opportunity.eligibility_requirements}
-          </p>
-        </Card>
-      )}
-
-      {opportunity.required_documents &&
-        opportunity.required_documents.length > 0 && (
-          <Card title="Required documents">
-            <ul className="space-y-1.5 text-sm text-navy-700">
-              {opportunity.required_documents.map((doc, i) => (
-                <li key={`${doc}-${i}`} className="flex items-center gap-2">
-                  <FileText
-                    className="h-4 w-4 shrink-0 text-navy-400"
-                    aria-hidden
-                  />
-                  {doc}
-                </li>
-              ))}
-            </ul>
-          </Card>
-        )}
-
-      <Card title="Keywords">
+      <Card title="Keywords" className="lg:col-span-2">
         {keywords.length > 0 ? (
           <div className="flex flex-wrap gap-2">
             {keywords.map((keyword) => (
@@ -533,6 +604,35 @@ function OverviewTab({
           </div>
         ) : (
           <p className="text-sm text-navy-400">No keywords tagged.</p>
+        )}
+      </Card>
+
+      <Card title="NOFA Documents" className="lg:col-span-2">
+        {documents.length > 0 ? (
+          <ul className="space-y-2">
+            {documents.map((doc, i) => {
+              const label = doc.title ?? getFilenameFromUrl(doc.url);
+              return (
+                <li key={`${doc.url}-${i}`}>
+                  <a
+                    href={doc.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 text-sm text-teal-600 hover:text-teal-700"
+                  >
+                    <FileText
+                      className="h-4 w-4 shrink-0 text-navy-400"
+                      aria-hidden
+                    />
+                    <span className="break-all">{label}</span>
+                    <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                  </a>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <p className="text-sm text-navy-400">No NOFA documents available.</p>
         )}
       </Card>
     </div>

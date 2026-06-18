@@ -225,7 +225,7 @@ export function ApplicationDetail({ applicationId }: ApplicationDetailProps) {
         return;
       }
       if (payload.sessionId) {
-        router.push(`/automation/${payload.sessionId}`);
+        router.push(`/autoapply/${payload.sessionId}`);
       }
     } catch {
       setAutomationError("Could not reach the automation agent. Please try again.");

@@ -332,7 +332,7 @@ export default function AutomationPage() {
   );
 
   function openSession(sessionId: string) {
-    router.push(`/automation/${sessionId}`);
+    router.push(`/autoapply/${sessionId}`);
   }
 
   async function handleRerun(session: AutomationSessionListItem) {
@@ -354,7 +354,7 @@ export default function AutomationPage() {
         return;
       }
       await load(false);
-      if (payload.sessionId) router.push(`/automation/${payload.sessionId}`);
+      if (payload.sessionId) router.push(`/autoapply/${payload.sessionId}`);
     } catch {
       setActionError("Could not reach the automation agent. Please try again.");
     } finally {
@@ -363,7 +363,7 @@ export default function AutomationPage() {
   }
 
   function handleApprove(session: AutomationSessionListItem) {
-    router.push(`/automation/${session.id}`);
+    router.push(`/autoapply/${session.id}`);
   }
 
   async function handleEnableFeature() {
@@ -517,7 +517,7 @@ export default function AutomationPage() {
     <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight text-navy-900">
-          Automation
+          AutoApply
         </h1>
         <p className="mt-1 text-sm text-navy-500">
           Browser-automation sessions fill funder donation portals for your
@@ -986,7 +986,7 @@ export default function AutomationPage() {
                                 // Navigate to the latest session for this application.
                                 // Sessions list is filtered by applicationId on the session detail route.
                                 router.push(
-                                  `/automation?applicationId=${item.applications!.id}`,
+                                  `/autoapply?applicationId=${item.applications!.id}`,
                                 );
                               }}
                               className="text-navy-400 hover:text-navy-700"

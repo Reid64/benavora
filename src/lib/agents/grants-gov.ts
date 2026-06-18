@@ -46,15 +46,21 @@ const DISCOVERY_BUDGET_MS = 120_000;
 const BACKFILL_BUDGET_MS = 220_000;
 const MAX_BACKFILL = 50;
 
-// Six housing-focused keyword phrases run as separate searches to maximise
-// coverage. Each returns up to 25 hits, giving ~150 candidates before dedup.
+// Focused keyword phrases for Faith Foundation: emergency/transitional housing
+// in rural Texas, reentry, addiction recovery, and federal housing programs.
 const HOUSING_KEYWORD_QUERIES = [
-  "affordable housing rural Texas",
-  "transitional housing reentry recovery",
-  "homelessness prevention emergency shelter",
-  "community development block grant housing",
-  "veterans housing rural",
-  "down payment assistance first time homebuyer",
+  "homeless housing",
+  "transitional housing",
+  "emergency shelter",
+  "reentry housing",
+  "recovery housing",
+  "rural housing",
+  "community development block grant",
+  "HOME Investment Partnership",
+  "Emergency Solutions Grant",
+  "Continuum of Care",
+  "faith-based community",
+  "substance abuse recovery housing",
 ];
 
 export interface GrantsGovInput {
@@ -259,6 +265,61 @@ function extractOppNumber(url: string | null): string {
   return m && m[1] ? decodeURIComponent(m[1]) : "";
 }
 
+// Keywords that increase relevance score for Faith Foundation's mission.
+const RELEVANCE_KEYWORDS = [
+  "housing",
+  "homeless",
+  "shelter",
+  "reentry",
+  "recovery",
+  "rural",
+  "community development",
+  "faith",
+  "texas",
+  "nonprofit",
+];
+
+// Titles/descriptions matching any of these terms are immediately rejected.
+const REJECT_LIST = [
+  "disability",
+  "veteran education",
+  "criminal alien",
+  "stem",
+  "defense",
+  "agriculture",
+  "farmers",
+  "fisheries",
+  "nih",
+  "cdc",
+  "nasa",
+  "dod research",
+  "clinical trial",
+];
+
+/**
+ * Score an opportunity 0–100 based on keyword overlap with Faith Foundation's
+ * mission. Returns { score, rejected } — rejected is the first REJECT_LIST term
+ * found in the text (non-null means the opportunity must be discarded).
+ */
+function scoreRelevance(
+  title: string,
+  description: string | null,
+): { score: number; rejected: string | null } {
+  const text = `${title} ${description ?? ""}`.toLowerCase();
+
+  for (const term of REJECT_LIST) {
+    if (text.includes(term)) {
+      return { score: 0, rejected: term };
+    }
+  }
+
+  let score = 0;
+  for (const kw of RELEVANCE_KEYWORDS) {
+    if (text.includes(kw)) score += 10;
+  }
+  return { score: Math.min(score, 100), rejected: null };
+}
+
 export class GrantsGovResearchAgent extends BaseAgent<
   GrantsGovInput,
   GrantsGovResult
@@ -420,6 +481,21 @@ export class GrantsGovResearchAgent extends BaseAgent<
 
     for (const opp of opportunities) {
       if (!opp.title) continue;
+
+      // Relevance filter: skip irrelevant grants before any DB queries.
+      const { score, rejected } = scoreRelevance(opp.title, opp.description);
+      if (rejected !== null) {
+        console.log(
+          `[grants-gov] REJECTED "${opp.title}" — reject-list match: "${rejected}"`,
+        );
+        continue;
+      }
+      if (score < 40) {
+        console.log(
+          `[grants-gov] REJECTED "${opp.title}" — relevance score ${score}/100 below threshold`,
+        );
+        continue;
+      }
 
       // Dedup by name
       const { data: byName } = await this.client

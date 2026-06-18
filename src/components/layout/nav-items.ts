@@ -53,7 +53,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Funders", href: "/funders", icon: Building2 },
   { label: "Opportunities", href: "/opportunities", icon: Search },
   { label: "Applications", href: "/applications", icon: KanbanSquare },
-  { label: "Automation", href: "/automation", icon: Bot },
+  { label: "AutoApply", href: "/autoapply", icon: Bot },
   { label: "Draft Generator", href: "/draft-generator", icon: Wand2 },
   { label: "Documents", href: "/documents", icon: FolderOpen },
   { label: "Knowledge Base", href: "/knowledge-base", icon: Brain },

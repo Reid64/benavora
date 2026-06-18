@@ -271,7 +271,7 @@ export default function AutomationSessionPage({
         );
         return;
       }
-      if (payload.sessionId) router.push(`/automation/${payload.sessionId}`);
+      if (payload.sessionId) router.push(`/autoapply/${payload.sessionId}`);
     } catch {
       setActionError("Could not reach the automation agent. Please try again.");
     } finally {
@@ -300,7 +300,7 @@ export default function AutomationSessionPage({
         setActionError(payload.error ?? "Could not start a new session.");
         return;
       }
-      if (payload.sessionId) router.push(`/automation/${payload.sessionId}`);
+      if (payload.sessionId) router.push(`/autoapply/${payload.sessionId}`);
     } catch {
       setActionError("Could not reach the automation agent. Please try again.");
     } finally {
@@ -319,7 +319,7 @@ export default function AutomationSessionPage({
   if (notFound) {
     return (
       <div className="space-y-6">
-        <BackLink onClick={() => router.push("/automation")} />
+        <BackLink onClick={() => router.push("/autoapply")} />
         <Card>
           <p className="text-sm text-navy-600">
             This automation session could not be found, or it belongs to another
@@ -333,7 +333,7 @@ export default function AutomationSessionPage({
   if (error || !session) {
     return (
       <div className="space-y-6">
-        <BackLink onClick={() => router.push("/automation")} />
+        <BackLink onClick={() => router.push("/autoapply")} />
         <div
           role="alert"
           className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
@@ -364,7 +364,7 @@ export default function AutomationSessionPage({
 
   return (
     <div className="space-y-6">
-      <BackLink onClick={() => router.push("/automation")} />
+      <BackLink onClick={() => router.push("/autoapply")} />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
@@ -611,7 +611,7 @@ function BackLink({ onClick }: { onClick: () => void }) {
       className="inline-flex items-center gap-1.5 text-sm font-medium text-navy-500 transition hover:text-navy-800 focus:outline-none focus-visible:text-navy-800"
     >
       <ArrowLeft className="h-4 w-4" aria-hidden />
-      Back to automation
+      Back to AutoApply
     </button>
   );
 }
