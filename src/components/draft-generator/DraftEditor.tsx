@@ -45,32 +45,52 @@ function extractGaps(text: string): Gap[] {
 }
 
 /**
- * Read-only variant: renders each [NEEDS INPUT] marker as a clickable amber
- * span with a sequential DOM id (gap-0, gap-1, …) so the badge and Next Gap
- * button can scroll to them via scrollIntoView.
+ * Render [NEEDS INPUT] markers as highlighted spans.
+ *
+ * Read-only mode (backdrop=false): each marker is a clickable amber span with
+ * dark, readable text and a sequential DOM id (gap-0, gap-1, …) so the badge
+ * and Next Gap button can scroll to them via scrollIntoView.
+ *
+ * Edit-mode backdrop (backdrop=true): the span renders the amber highlight
+ * rectangle only, with TRANSPARENT text. The backdrop sits behind a transparent
+ * textarea, so the textarea's real navy text layer reads on top of the amber
+ * background — the backdrop must not paint its own (offset, conflicting) text.
  */
-function buildInteractiveNodes(text: string, gaps: Gap[]) {
+function buildInteractiveNodes(text: string, gaps: Gap[], backdrop = false) {
   if (gaps.length === 0) return [text];
   const nodes: (string | ReactElement)[] = [];
   let cursor = 0;
   gaps.forEach((gap, seqIndex) => {
     if (gap.index > cursor) nodes.push(text.slice(cursor, gap.index));
     const i = seqIndex;
-    nodes.push(
-      <span
-        key={gap.index}
-        id={`gap-${i}`}
-        className="bg-amber-100 border border-amber-400 text-amber-800 rounded px-1 py-0.5 cursor-pointer font-medium text-sm inline-block my-0.5"
-        onClick={() =>
-          document
-            .getElementById(`gap-${i}`)
-            ?.scrollIntoView({ behavior: "smooth", block: "center" })
-        }
-        title="Click to highlight — fill in this section"
-      >
-        {text.slice(gap.index, gap.index + gap.length)}
-      </span>,
-    );
+    const slice = text.slice(gap.index, gap.index + gap.length);
+    if (backdrop) {
+      nodes.push(
+        <span
+          key={gap.index}
+          className="border border-amber-400 rounded px-1 py-0.5 text-sm inline-block my-0.5"
+          style={{ backgroundColor: "rgb(254 243 199)", color: "transparent" }}
+        >
+          {slice}
+        </span>,
+      );
+    } else {
+      nodes.push(
+        <span
+          key={gap.index}
+          id={`gap-${i}`}
+          className="bg-amber-100 border border-amber-400 text-amber-900 rounded px-1 py-0.5 cursor-pointer font-semibold text-sm inline-block my-0.5"
+          onClick={() =>
+            document
+              .getElementById(`gap-${i}`)
+              ?.scrollIntoView({ behavior: "smooth", block: "center" })
+          }
+          title="Click to highlight — fill in this section"
+        >
+          {slice}
+        </span>,
+      );
+    }
     cursor = gap.index + gap.length;
   });
   if (cursor < text.length) nodes.push(text.slice(cursor));
@@ -111,6 +131,13 @@ export function DraftEditor({
   // Nodes for read-only view: clickable amber spans with sequential DOM ids.
   const readOnlyNodes = useMemo(
     () => buildInteractiveNodes(value, gaps),
+    [value, gaps],
+  );
+
+  // Nodes for the edit-mode backdrop: amber highlight rectangles with
+  // transparent text, so only the highlight shows behind the textarea.
+  const backdropNodes = useMemo(
+    () => buildInteractiveNodes(value, gaps, true),
     [value, gaps],
   );
 
@@ -168,16 +195,19 @@ export function DraftEditor({
           <span>{words.toLocaleString()} words</span>
 
           {isDirty && onRescore && (
-            <Button
-              variant="secondary"
-              size="sm"
+            <button
+              type="button"
               onClick={onRescore}
-              isLoading={rescoring}
               disabled={rescoring}
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-100 px-3 text-xs font-medium text-amber-800 transition hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-60"
+              title="Recalculate the confidence score from the current draft text"
             >
-              <RefreshCw className="h-3.5 w-3.5" aria-hidden />
-              Rescore
-            </Button>
+              <RefreshCw
+                className={`h-3.5 w-3.5 ${rescoring ? "animate-spin" : ""}`}
+                aria-hidden
+              />
+              {rescoring ? "Rescoring…" : "Rescore"}
+            </button>
           )}
 
           {gaps.length > 0 && (
@@ -231,7 +261,7 @@ export function DraftEditor({
                 color: "transparent",
               }}
             >
-              {readOnlyNodes}
+              {backdropNodes}
             </div>
           </div>
 
