@@ -1,12 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { KanbanSquare, List } from "lucide-react";
 
 import { Badge, SearchBar, Select, Table } from "@/components/ui";
 import type { TableColumn } from "@/components/ui";
+import { ApplicationsViewToggle } from "@/components/applications/ApplicationsViewToggle";
 import { useUrlState } from "@/lib/hooks/useUrlState";
 import {
   STAGE_COLOR,
@@ -150,19 +149,7 @@ export default function ApplicationsListPage() {
             Every application in your pipeline, as a sortable list.
           </p>
         </div>
-        <div className="inline-flex items-center gap-1 rounded-lg border border-navy-200 bg-white p-1 shadow-sm">
-          <Link
-            href="/applications"
-            className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-navy-600 transition hover:bg-navy-50"
-          >
-            <KanbanSquare className="h-4 w-4" aria-hidden />
-            Board
-          </Link>
-          <span className="inline-flex items-center gap-1.5 rounded-md bg-teal-50 px-3 py-1.5 text-sm font-medium text-teal-700">
-            <List className="h-4 w-4" aria-hidden />
-            List
-          </span>
-        </div>
+        <ApplicationsViewToggle active="list" />
       </div>
 
       {error && (

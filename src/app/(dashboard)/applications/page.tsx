@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { KanbanSquare, List } from "lucide-react";
+import { KanbanSquare } from "lucide-react";
 
 import { Button, EmptyState, LoadingSpinner } from "@/components/ui";
 import { PipelineBoard } from "@/components/applications/PipelineBoard";
+import { ApplicationsViewToggle } from "@/components/applications/ApplicationsViewToggle";
 import {
   loadPipelineApplications,
   type EnrichedApplication,
@@ -56,19 +57,7 @@ export default function ApplicationsPage() {
             Your funding pipeline. Drag a card to move it between stages.
           </p>
         </div>
-        <div className="inline-flex items-center gap-1 rounded-lg border border-navy-200 bg-white p-1 shadow-sm">
-          <span className="inline-flex items-center gap-1.5 rounded-md bg-teal-50 px-3 py-1.5 text-sm font-medium text-teal-700">
-            <KanbanSquare className="h-4 w-4" aria-hidden />
-            Board
-          </span>
-          <Link
-            href="/applications/list"
-            className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-navy-600 transition hover:bg-navy-50"
-          >
-            <List className="h-4 w-4" aria-hidden />
-            List
-          </Link>
-        </div>
+        <ApplicationsViewToggle active="board" />
       </div>
 
       {error && (

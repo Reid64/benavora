@@ -5,6 +5,7 @@ import Link from "next/link";
 import { RefreshCw, Wand2 } from "lucide-react";
 
 import { Button, EmptyState, LoadingSpinner } from "@/components/ui";
+import { ApplicationsViewToggle } from "@/components/applications/ApplicationsViewToggle";
 
 type RenewalOpportunity = { id: string; name: string; recurrence: string | null };
 type RenewalFunder = { id: string; name: string };
@@ -132,16 +133,19 @@ export default function RenewalsPage() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-navy-900">
-            Renewals
+            Applications
           </h1>
           <p className="mt-1 text-sm text-navy-500">
             Active renewal obligations sorted by nearest reporting deadline.
           </p>
         </div>
-        <Button variant="secondary" onClick={load} disabled={loading}>
-          <RefreshCw className="mr-2 h-4 w-4" aria-hidden />
-          Refresh
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <ApplicationsViewToggle active="renewals" />
+          <Button variant="secondary" onClick={load} disabled={loading}>
+            <RefreshCw className="mr-2 h-4 w-4" aria-hidden />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {/* Urgency legend */}
