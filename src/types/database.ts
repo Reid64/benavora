@@ -285,6 +285,7 @@ export interface Database {
           application_method: string | null;
           recurrence: string | null;
           geographic_restrictions: string | null;
+          opportunity_documents: Json | null;
           eligibility_score: number | null;
           recommendation: string | null;
           recommendation_reasoning: string | null;
@@ -317,6 +318,7 @@ export interface Database {
           application_method?: string | null;
           recurrence?: string | null;
           geographic_restrictions?: string | null;
+          opportunity_documents?: Json | null;
           eligibility_score?: number | null;
           recommendation?: string | null;
           recommendation_reasoning?: string | null;
@@ -349,6 +351,7 @@ export interface Database {
           application_method?: string | null;
           recurrence?: string | null;
           geographic_restrictions?: string | null;
+          opportunity_documents?: Json | null;
           eligibility_score?: number | null;
           recommendation?: string | null;
           recommendation_reasoning?: string | null;

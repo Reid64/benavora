@@ -29,6 +29,16 @@ import type { AgentType } from "@/types/agents";
 const GRANTS_GOV_URL =
   "https://apply07.grants.gov/grantsws/rest/opportunities/search/";
 
+// Second pass: the per-opportunity detail endpoint returns a fuller object than
+// the listing (full description, eligibility, geographic scope, documents).
+const GRANTS_GOV_DETAIL_URL =
+  "https://apply07.grants.gov/grantsws/rest/opportunity/details";
+// Cap detail fetches per run. A wall-clock budget also stops the pass early so
+// the agent stays within BaseAgent's hard run timeout even if a fetch is slow.
+const MAX_DETAIL_FETCHES = 50;
+const DETAIL_DELAY_MS = 500;
+const DETAIL_TIME_BUDGET_MS = 40_000;
+
 // Six housing-focused keyword phrases run as separate searches to maximise
 // coverage. Each returns up to 25 hits, giving ~150 candidates before dedup.
 const HOUSING_KEYWORD_QUERIES = [
@@ -46,6 +56,11 @@ export interface GrantsGovInput {
   dateRange?: { from?: string; to?: string };
 }
 
+export interface OpportunityDocument {
+  title: string;
+  url: string;
+}
+
 export interface GrantsGovOpportunity {
   title: string;
   agency: string;
@@ -54,6 +69,9 @@ export interface GrantsGovOpportunity {
   award_ceiling: number | null;
   award_floor: number | null;
   description: string | null;
+  eligibility_requirements: string | null;
+  geographic_restrictions: string | null;
+  opportunity_documents: OpportunityDocument[];
   url: string | null;
   source: "grants.gov";
 }
@@ -89,6 +107,49 @@ interface GrantsGovResponse {
   oppHits?: RawHit[];
   opportunities?: RawHit[];
   items?: RawHit[];
+}
+
+// Shape of the per-opportunity detail response (parsed defensively).
+interface RawDetailSynopsis {
+  description?: unknown;
+  eligibilityDesc?: unknown;
+  applicantTypes?: unknown;
+  awardCeiling?: unknown;
+  awardFloor?: unknown;
+  closeDate?: unknown;
+  postDate?: unknown;
+  archiveDate?: unknown;
+  cfda?: unknown;
+  costSharing?: unknown;
+}
+
+interface RawDetailDocument {
+  title?: unknown;
+  fileName?: unknown;
+  url?: unknown;
+  link?: unknown;
+}
+
+interface RawDetail {
+  synopsis?: RawDetailSynopsis;
+  geographicScope?: unknown;
+  documents?: RawDetailDocument[];
+  opportunityDocuments?: RawDetailDocument[];
+}
+
+/** Merged values from the detail endpoint, used to enrich the listing data. */
+interface DetailData {
+  description: string | null;
+  eligibility: string | null;
+  geographic: string | null;
+  awardCeiling: number | null;
+  awardFloor: number | null;
+  closeDate: string | null;
+  documents: OpportunityDocument[];
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 // Parse "MM/DD/YYYY" or compact "MMDDYYYY" dates to ISO-8601 (YYYY-MM-DD).
@@ -244,28 +305,77 @@ export class GrantsGovResearchAgent extends BaseAgent<
       }
     }
 
-    // Map deduplicated hits to structured opportunities.
-    const opportunities: GrantsGovOpportunity[] = Array.from(
-      allHitsMap.values(),
-    ).map((hit) => {
+    // Second pass: enrich each unique hit with the fuller detail object before
+    // inserting. Rate-limited (500ms between fetches), capped at 50 fetches and
+    // a wall-clock budget so the agent stays within its run timeout.
+    const uniqueHits = Array.from(allHitsMap.values());
+    const opportunities: GrantsGovOpportunity[] = [];
+    let detailFetches = 0;
+    const detailStart = Date.now();
+
+    for (const hit of uniqueHits) {
       const synopsis: RawSynopsis = hit.synopsis ?? {};
       const oppNum = toStr(hit.oppNumber ?? hit.number);
       const hitId = toStr(hit.id);
       const urlId = oppNum || hitId;
-      return {
+
+      // Listing-derived values (the fallback when no detail is fetched).
+      let description = truncate(synopsis.description ?? hit.description, 2000);
+      let awardCeiling = toPositiveNumber(synopsis.awardCeiling);
+      let awardFloor = toPositiveNumber(synopsis.awardFloor);
+      let closeDate = normaliseCloseDate(synopsis.closeDate);
+      let eligibility: string | null = null;
+      let geographic: string | null = null;
+      let documents: OpportunityDocument[] = [];
+
+      const withinBudget =
+        detailFetches < MAX_DETAIL_FETCHES &&
+        Date.now() - detailStart < DETAIL_TIME_BUDGET_MS;
+
+      if (hitId && withinBudget) {
+        const detail = await this.fetchDetail(hitId);
+        detailFetches++;
+        if (detail) {
+          // Use the detail description if it is longer than the listing one.
+          if (
+            detail.description &&
+            (!description || detail.description.length > description.length)
+          ) {
+            description = truncate(detail.description, 4000);
+          }
+          // Use detail amounts when the listing did not specify them (0/null).
+          if (awardCeiling === null && detail.awardCeiling !== null) {
+            awardCeiling = detail.awardCeiling;
+          }
+          if (awardFloor === null && detail.awardFloor !== null) {
+            awardFloor = detail.awardFloor;
+          }
+          if (!closeDate && detail.closeDate) closeDate = detail.closeDate;
+          if (detail.eligibility) eligibility = detail.eligibility;
+          if (detail.geographic) geographic = detail.geographic;
+          if (detail.documents.length > 0) documents = detail.documents;
+        }
+        // 500ms between detail fetches to avoid rate limiting.
+        await delay(DETAIL_DELAY_MS);
+      }
+
+      opportunities.push({
         title: toStr(hit.title),
         agency: toStr(hit.agencyName ?? hit.agency),
         opportunity_number: oppNum,
-        close_date: normaliseCloseDate(synopsis.closeDate),
-        award_ceiling: toPositiveNumber(synopsis.awardCeiling),
-        award_floor: toPositiveNumber(synopsis.awardFloor),
-        description: truncate(synopsis.description ?? hit.description, 2000),
+        close_date: closeDate,
+        award_ceiling: awardCeiling,
+        award_floor: awardFloor,
+        description,
+        eligibility_requirements: eligibility,
+        geographic_restrictions: geographic,
+        opportunity_documents: documents,
         url: urlId
           ? `https://www.grants.gov/search-grants?opp=${urlId}`
           : null,
         source: "grants.gov" as const,
-      };
-    });
+      });
+    }
 
     let opportunitiesCreated = 0;
 
@@ -310,6 +420,15 @@ export class GrantsGovResearchAgent extends BaseAgent<
       if (opp.award_ceiling !== null) row.amount_max = opp.award_ceiling;
       if (opp.award_floor !== null) row.amount_min = opp.award_floor;
       if (opp.url) row.url = opp.url;
+      if (opp.eligibility_requirements) {
+        row.eligibility_requirements = opp.eligibility_requirements;
+      }
+      if (opp.geographic_restrictions) {
+        row.geographic_restrictions = opp.geographic_restrictions;
+      }
+      if (opp.opportunity_documents.length > 0) {
+        row.opportunity_documents = opp.opportunity_documents;
+      }
 
       const { error } = await this.client
         .from("opportunities")
@@ -330,5 +449,49 @@ export class GrantsGovResearchAgent extends BaseAgent<
       itemsProcessed: opportunitiesCreated,
       tokensUsed: 0,
     };
+  }
+
+  /**
+   * Fetch the per-opportunity detail object and extract the fuller fields.
+   * Returns null on any failure (non-fatal - the listing data is used instead).
+   */
+  private async fetchDetail(oppId: string): Promise<DetailData | null> {
+    try {
+      const response = await fetch(
+        `${GRANTS_GOV_DETAIL_URL}?oppId=${encodeURIComponent(oppId)}`,
+        {
+          method: "GET",
+          headers: { Accept: "application/json" },
+          signal: AbortSignal.timeout(15_000),
+        },
+      );
+      if (!response.ok) return null;
+
+      const body = (await response.json()) as RawDetail;
+      const synopsis: RawDetailSynopsis = body.synopsis ?? {};
+      const rawDocs = Array.isArray(body.documents)
+        ? body.documents
+        : Array.isArray(body.opportunityDocuments)
+          ? body.opportunityDocuments
+          : [];
+      const documents: OpportunityDocument[] = rawDocs
+        .map((d) => ({
+          title: toStr(d?.title ?? d?.fileName),
+          url: toStr(d?.url ?? d?.link),
+        }))
+        .filter((d) => d.url !== "");
+
+      return {
+        description: toStr(synopsis.description) || null,
+        eligibility: toStr(synopsis.eligibilityDesc) || null,
+        geographic: toStr(body.geographicScope) || null,
+        awardCeiling: toPositiveNumber(synopsis.awardCeiling),
+        awardFloor: toPositiveNumber(synopsis.awardFloor),
+        closeDate: normaliseCloseDate(synopsis.closeDate),
+        documents,
+      };
+    } catch {
+      return null;
+    }
   }
 }
