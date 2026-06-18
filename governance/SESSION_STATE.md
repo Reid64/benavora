@@ -16,12 +16,58 @@ none — no build is executing yet
 ## Notes
 Initialized empty by Phase 2 (Governance Generator). Phase 3 updates this after every prompt.
 
-## Last session — 2026-06-18 (Claude Code, extended overnight)
-Shipped: research badge contrast + ASCII ellipsis, cross-provider validation fix (applied migration 014 to prod), applied-status on Research + Opportunities (+ new /applications/new page), USAspending historical awards (migration 042 + agent + route + UI), Foundation Finder + Housing-specific scrapers (agents + routes + Research source cards), recursive-learning top-3 patterns. Docs updated.
+# ===========================================================================
+# HANDOFF SUMMARY — 2026-06-18 (Claude Code)
+# Live prod: benavora.vercel.app | Supabase project ref: vbjplpquqxxfbpazyalt
+# Primary test org: b1ab7402-dfc2-4712-869f-70ea3566cc1d (FAITH Foundation)
+# ===========================================================================
 
-## Next build priorities
-1. **Migration reconciliation** — audit which repo migrations are NOT applied to the live prod DB (`vbjplpquqxxfbpazyalt`); 011 and 014 were found missing this session. Apply the rest via the Management API and regenerate `src/types/database.ts` from prod.
-2. **Validate live scraper quality** — foundation-finder, housing-specific, and TDHCA scrapers depend on live site HTML; run each against prod and confirm extraction (some sites may block bots or render via JS).
-3. **USAspending keyword tuning** — currently uses the org's `research_config.primary_keywords`; tune award_type_codes/keywords per org mission and consider pagination beyond 25 results.
-4. **historical_awards UI depth** — link awards to recipient intelligence (ProPublica 990) and surface "funders who funded orgs like you."
-5. **Tenant-specific Research Command Center** (BLUEPRINT Phase 6) — drive source visibility, keywords, and APIs entirely from per-org config generated at onboarding.
+## Current state
+
+### Working (shipped + verified in prod)
+- **Consolidated nav + header**: header tabs (Dashboard/Research/Opportunities/Draft Generator) + org-avatar dropdown (Settings/Billing/Onboarding/Audit Log/Log Out). Sidebar trimmed. NOTE: FORGE renamed Automation -> "AutoApply" (`/autoapply`) in `nav-items.ts` + `ApplicationDetail.tsx` (commit a16fe48).
+- **Cross-provider validation**: FIXED — migration 014 (the `validations` table) was never applied to prod; applied via Management API. Validate button now renders results. Still only 2 providers (Claude + Gemini) actually run; see open items.
+- **Research Command Center**: source-card filtering, applied-status column (Apply -> `/applications/new?opportunityId=`), Historical Awards section (USAspending), Search Configuration tab. New source cards: Foundation Finder, Housing Funders.
+- **Opportunities list**: Application status column (Not Applied / In Progress / Submitted / Awarded / Denied).
+- **Funder detail**: addable Contacts tab + funder-scoped Outreach tab.
+- **Applications**: Board/List/Renewals view toggle; "Generate Follow-up Email" button when stage=follow_up_due.
+- **Grants.gov agent**: two-pass fetch (search listing -> POST detail API). Detail API contract VERIFIED & corrected — endpoint is POST form-encoded `oppId=`; real fields are `synopsis.synopsisDesc`, `synopsis.applicantEligibilityDesc`, `synopsis.responseDateStr`, docs in `synopsisAttachmentFolders[].synopsisAttachments[]`. There is NO geographicScope field. Agent run timeout is now configurable (270s) for grants-gov/sam-gov/tdhca/state-scrapers.
+- **USAspending**: `historical_awards` table (migration 042, in prod) + agent + route + UI.
+- **Recursive learning**: awarded->pattern analysis vs denied, stored in `proven_narratives.success_patterns`, injected (top 3) into draft prompt; Learning Insights panel on outcomes analytics. (Pre-existing; only verified + top-5->3 tweak.)
+
+### In progress
+- **Grants.gov backfill of 80 sparse rows** (the central in-flight item). Existing grants.gov opportunities were inserted sparse (listing has no synopsis). The agent's new `backfillSparse()` enriches rows where `eligibility_requirements IS NULL` by: extract opp-number from `url` (`?opp=...`) -> resolve to numeric `oppId` via search -> POST detail -> UPDATE (eligibility, documents, deadline-if-null, amount-if-0/null, longer description, inferred geographic). Cap 50/run, 220s budget; runs automatically each grants.gov run.
+  - Manual backfill run so far (3 passes) raised coverage for the test org: eligibility 5->32, documents 5->37, deadline 12->36, amount>0 5->29, geographic 0->19, amount=0.00 36->0 (cleared via UPDATE).
+  - REMAINING ~53 rows have null eligibility because they are FORECAST opportunities — the detail API has no synopsis data until they post. They re-appear in the null-eligibility query each pass (wasted budget); a "last-attempted" marker would stop re-scanning them.
+
+### Broken / known gaps
+- **Migration drift**: repo migrations are NOT reliably applied to the live prod DB. Confirmed missing this session: 011 (search_profiles config cols) and 014 (validations). Applied 014 + 042 + the `opportunity_documents` column manually via the Management API. `src/types/database.ts` is hand-patched, not regenerated from prod — drift is unaudited.
+- **Three-model consensus validator**: only Claude + Gemini run; OpenAI is not wired (no key). Spec calls for 3-model consensus.
+- **geographic_restrictions**: Claude-inferred from eligibility text (not authoritative); null for forecast rows and when no restriction is stated.
+- **UI contrast**: multiple ad-hoc contrast fixes done piecemeal (research badges, gap markers, rescore button); no systematic pass — contrast issues remain elsewhere.
+- **DNS**: benavora.com not pointed at the Vercel deployment (GoDaddy DNS not configured).
+
+## Open items
+1. **geographic_restrictions inference** — currently best-effort via Claude on backfill; decide whether to keep, make authoritative, or drop. Add to new-insert path too (only on backfill today).
+2. **Three-model consensus validator needs OpenAI key** — add `OPENAI_API_KEY`, wire a third provider into `consensus-validator.ts` / `validateOpportunity`, update the UI "X of N providers verified".
+3. **GoDaddy DNS for benavora.com** — point apex + www at Vercel; add domain in Vercel project.
+4. **UI contrast fixes throughout app** — systematic accessibility/contrast audit, not the piecemeal fixes done so far.
+5. **Migration drift audit** — diff repo `supabase/migrations/*` against live prod schema; apply missing ones via Management API; regenerate `database.ts`.
+
+## Last commits and status
+- `a16fe48` FORGE: nav rename (Automation->AutoApply), opportunity detail fix, grants-gov filter, NOFA parser pipeline, documents UI — committed by FORGE automation (not yet independently verified by me).
+- `6136af0` [FORGE-SNAPSHOT] Before overnight-001 — snapshot.
+- `e738bf3` Fix: backfill sparse grants.gov rows + clear 0.00 amounts — DEPLOYED (gfl5yrqf0), backfill run 3x against prod.
+- `0c9c744` Fix: Grants.gov detail API POST form + correct field names — DEPLOYED, verified against live API.
+- `8cd87b2` Configurable agent timeout (270s) — DEPLOYED.
+- `4b24221` Grants.gov two-pass detail fetch — DEPLOYED (superseded by 0c9c744's field fixes).
+- `00566c5` [Claude Code] Extended overnight (USAspending, scrapers, applied status, validation fix, badge contrast) — DEPLOYED.
+
+## Next priority actions (in order)
+1. **Finish the grants.gov backfill** — run `backfillSparse` until only forecast rows remain; add a `last_detail_attempt_at` (or skip-forecast) guard so forecast rows stop consuming budget. Re-run once they post.
+2. **Migration drift audit** (unblocks correctness everywhere) — reconcile repo migrations vs prod, regenerate `database.ts`.
+3. **Wire the 3rd validator (OpenAI)** — add the key + provider so consensus is genuinely 3-model.
+4. **DNS: benavora.com -> Vercel** (GoDaddy) + add domain in Vercel.
+5. **Systematic UI contrast pass.**
+6. **Verify FORGE's a16fe48 changes** (AutoApply rename, NOFA parser, documents UI) build + behave correctly in prod.
+7. **Validate live scraper quality** — foundation-finder / housing-specific / TDHCA against prod (sites may block bots or render via JS).
