@@ -19,6 +19,7 @@
 // Error handling: per-query HTTP failures are skipped (non-fatal). A total
 // fetch failure wraps in AgentError so BaseAgent can log status="failed".
 
+import { callClaude } from "@/lib/ai/claude";
 import {
   AgentError,
   BaseAgent,
@@ -38,9 +39,12 @@ const GRANTS_GOV_DETAIL_URL =
 // the agent stays within BaseAgent's hard run timeout even if a fetch is slow.
 const MAX_DETAIL_FETCHES = 50;
 const DETAIL_DELAY_MS = 500;
-// With the agent's 270s timeout, 50 fetches (~1s each incl. delay) finish well
-// inside this budget; it remains a safety net against unusually slow responses.
-const DETAIL_TIME_BUDGET_MS = 220_000;
+// Wall-clock budgets measured from run start, kept under the agent's 270s
+// timeout: discovery detail fetching first, then a backfill pass that enriches
+// existing sparse rows (resolve opp-number -> numeric id -> detail).
+const DISCOVERY_BUDGET_MS = 120_000;
+const BACKFILL_BUDGET_MS = 220_000;
+const MAX_BACKFILL = 50;
 
 // Six housing-focused keyword phrases run as separate searches to maximise
 // coverage. Each returns up to 25 hits, giving ~150 candidates before dedup.
@@ -83,6 +87,8 @@ export interface GrantsGovResult {
   opportunities: GrantsGovOpportunity[];
   count: number;
   opportunitiesCreated: number;
+  /** Existing sparse rows enriched by the backfill pass this run. */
+  backfilledRows: number;
 }
 
 // The API nests financial and date fields inside synopsis.
@@ -246,6 +252,13 @@ function hitKey(hit: RawHit): string {
   return title ? `title:${title}` : "";
 }
 
+/** Pull the opportunity number out of a stored search-grants url (?opp=...). */
+function extractOppNumber(url: string | null): string {
+  if (!url) return "";
+  const m = /[?&]opp=([^&]+)/.exec(url);
+  return m && m[1] ? decodeURIComponent(m[1]) : "";
+}
+
 export class GrantsGovResearchAgent extends BaseAgent<
   GrantsGovInput,
   GrantsGovResult
@@ -261,6 +274,8 @@ export class GrantsGovResearchAgent extends BaseAgent<
   protected async execute(
     input: GrantsGovInput,
   ): Promise<AgentExecution<GrantsGovResult>> {
+    const runStart = Date.now();
+
     // Build query list: always run all housing-focused phrases; append the
     // caller's keywords as one extra search if they differ from the defaults.
     const userQuery = input.keywords.filter(Boolean).join(" ").trim();
@@ -333,7 +348,6 @@ export class GrantsGovResearchAgent extends BaseAgent<
     const uniqueHits = Array.from(allHitsMap.values());
     const opportunities: GrantsGovOpportunity[] = [];
     let detailFetches = 0;
-    const detailStart = Date.now();
 
     for (const hit of uniqueHits) {
       const synopsis: RawSynopsis = hit.synopsis ?? {};
@@ -355,7 +369,7 @@ export class GrantsGovResearchAgent extends BaseAgent<
 
       const withinBudget =
         detailFetches < MAX_DETAIL_FETCHES &&
-        Date.now() - detailStart < DETAIL_TIME_BUDGET_MS;
+        Date.now() - runStart < DISCOVERY_BUDGET_MS;
 
       if (hitId && withinBudget) {
         const detail = await this.fetchDetail(hitId);
@@ -462,17 +476,26 @@ export class GrantsGovResearchAgent extends BaseAgent<
       if (!error) opportunitiesCreated++;
     }
 
+    // Backfill pass: enrich existing sparse rows (missing eligibility) with the
+    // detail API, resolving their numeric oppId from the stored opp-number first.
+    const backfill = await this.backfillSparse(runStart);
+
     const queryLabel =
       effectiveQueries.length === 1
         ? `"${effectiveQueries[0]}"`
         : `${effectiveQueries.length} keyword queries`;
 
     return {
-      data: { opportunities, count: opportunities.length, opportunitiesCreated },
-      outputSummary: `Grants.gov search across ${queryLabel} found ${opportunities.length} unique opportunity(ies); ${opportunitiesCreated} new record(s) created.`,
+      data: {
+        opportunities,
+        count: opportunities.length,
+        opportunitiesCreated,
+        backfilledRows: backfill.updated,
+      },
+      outputSummary: `Grants.gov ${queryLabel}: ${opportunities.length} unique, ${opportunitiesCreated} new record(s); ${backfill.updated} existing row(s) backfilled.`,
       itemsFound: opportunities.length,
-      itemsProcessed: opportunitiesCreated,
-      tokensUsed: 0,
+      itemsProcessed: opportunitiesCreated + backfill.updated,
+      tokensUsed: backfill.tokens,
     };
   }
 
@@ -528,5 +551,142 @@ export class GrantsGovResearchAgent extends BaseAgent<
     } catch {
       return null;
     }
+  }
+
+  /**
+   * Resolve an opportunity number (e.g. "HRSA-26-105") to the numeric oppId the
+   * detail endpoint requires, by searching for the exact number. Null on miss.
+   */
+  private async resolveOppId(oppNumber: string): Promise<string | null> {
+    try {
+      const res = await fetch(GRANTS_GOV_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          keyword: oppNumber,
+          oppStatuses: "forecasted|posted|closed|archived",
+          rows: 1,
+          startRecordNum: 0,
+        }),
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (!res.ok) return null;
+      const body = (await res.json()) as GrantsGovResponse;
+      const id = toStr(extractHits(body)[0]?.id);
+      return id || null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Infer a brief geographic restriction from eligibility text via Claude (the
+   * detail API has no geographic field). Returns null when none is mentioned.
+   */
+  private async inferGeographic(
+    eligibility: string,
+  ): Promise<{ geo: string | null; tokens: number }> {
+    try {
+      const res = await callClaude({
+        prompt:
+          "Extract any geographic restrictions from this grant eligibility text. Return only the geographic restriction as a brief string (e.g. 'Rural areas only', 'Texas residents', 'Nationwide') or null if none mentioned. Return ONLY the string or the word null.\n\nEligibility text:\n" +
+          eligibility.slice(0, 2000),
+        maxTokens: 40,
+        temperature: 0,
+      });
+      const raw = res.text.trim();
+      const geo =
+        !raw || raw.toLowerCase() === "null"
+          ? null
+          : raw.replace(/^["']|["']$/g, "").slice(0, 200);
+      return { geo, tokens: res.usage.totalTokens };
+    } catch {
+      return { geo: null, tokens: 0 };
+    }
+  }
+
+  /**
+   * Enrich existing grants.gov rows that are missing eligibility: resolve the
+   * numeric oppId from the stored number, fetch detail, and UPDATE the row
+   * (eligibility, documents, deadline-if-null, amount-if-zero/null, longer
+   * description, inferred geographic). Capped + wall-clock budgeted.
+   */
+  private async backfillSparse(
+    runStart: number,
+  ): Promise<{ updated: number; tokens: number }> {
+    let updated = 0;
+    let tokens = 0;
+
+    const { data: rows } = await this.client
+      .from("opportunities")
+      .select("id, url, deadline, amount_max, description")
+      .eq("organization_id", this.organizationId)
+      .eq("source", "grants.gov")
+      .is("eligibility_requirements", null)
+      .limit(MAX_BACKFILL);
+
+    const sparse = (rows ?? []) as Array<{
+      id: string;
+      url: string | null;
+      deadline: string | null;
+      amount_max: number | null;
+      description: string | null;
+    }>;
+
+    for (const row of sparse) {
+      if (Date.now() - runStart > BACKFILL_BUDGET_MS) break;
+
+      const oppNumber = extractOppNumber(row.url);
+      if (!oppNumber) continue;
+
+      const numericId = await this.resolveOppId(oppNumber);
+      if (!numericId) {
+        await delay(DETAIL_DELAY_MS);
+        continue;
+      }
+
+      const detail = await this.fetchDetail(numericId);
+      if (detail) {
+        const patch: Record<string, unknown> = {};
+        if (detail.eligibility) patch.eligibility_requirements = detail.eligibility;
+        if (detail.documents.length > 0) {
+          patch.opportunity_documents = detail.documents;
+        }
+        if (row.deadline == null && detail.closeDate) {
+          patch.deadline = detail.closeDate;
+        }
+        if (
+          (row.amount_max == null || row.amount_max === 0) &&
+          detail.awardCeiling != null
+        ) {
+          patch.amount_max = detail.awardCeiling;
+        }
+        if (
+          detail.description &&
+          (row.description == null ||
+            detail.description.length > row.description.length)
+        ) {
+          patch.description = detail.description.slice(0, 4000);
+        }
+        if (detail.eligibility && Date.now() - runStart < BACKFILL_BUDGET_MS) {
+          const inferred = await this.inferGeographic(detail.eligibility);
+          tokens += inferred.tokens;
+          if (inferred.geo) patch.geographic_restrictions = inferred.geo;
+        }
+
+        if (Object.keys(patch).length > 0) {
+          const { error } = await this.client
+            .from("opportunities")
+            .update(patch)
+            .eq("id", row.id)
+            .eq("organization_id", this.organizationId);
+          if (!error) updated++;
+        }
+      }
+
+      await delay(DETAIL_DELAY_MS);
+    }
+
+    return { updated, tokens };
   }
 }
