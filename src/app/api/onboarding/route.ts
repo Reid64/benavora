@@ -6,6 +6,34 @@ import type { Enums } from "@/types/database";
 
 export const runtime = "nodejs";
 
+/**
+ * Normalize the wizard's optional partner input into { name, description }.
+ * Accepts an array of plain names or of { name, description } objects so the
+ * client can evolve without breaking the write.
+ */
+function normalizePartners(
+  raw: unknown,
+): Array<{ name: string; description: string }> {
+  if (!Array.isArray(raw)) return [];
+  const out: Array<{ name: string; description: string }> = [];
+  for (const item of raw) {
+    if (typeof item === "string" && item.trim()) {
+      out.push({ name: item.trim(), description: "" });
+    } else if (item && typeof item === "object") {
+      const o = item as Record<string, unknown>;
+      const name = typeof o.name === "string" ? o.name.trim() : "";
+      if (name) {
+        out.push({
+          name,
+          description:
+            typeof o.description === "string" ? o.description.trim() : "",
+        });
+      }
+    }
+  }
+  return out;
+}
+
 // ============================================================================
 // GET /api/onboarding
 //
@@ -160,16 +188,28 @@ export async function POST(request: NextRequest) {
         beneficiaries_served: number | null;
       }>;
       if (programs.length > 0) {
-        const rows = programs.map((p) => ({
-          organization_id: orgId,
-          name: String(p.name),
-          description: p.description ? String(p.description) : null,
-          budget: p.budget != null ? Number(p.budget) : null,
-          beneficiaries_served: p.beneficiaries_served != null ? Number(p.beneficiaries_served) : null,
-          status: "active",
-        }));
-        const { error } = await supabase.from("programs").insert(rows);
-        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+        // Idempotent: skip programs whose name already exists for this org, so
+        // re-running onboarding never stacks duplicates and never churns ids
+        // that budgets/applications may reference.
+        const { data: existing } = await supabase
+          .from("programs")
+          .select("name")
+          .eq("organization_id", orgId);
+        const seen = new Set((existing ?? []).map((r) => r.name));
+        const rows = programs
+          .filter((p) => p.name && !seen.has(String(p.name)))
+          .map((p) => ({
+            organization_id: orgId,
+            name: String(p.name),
+            description: p.description ? String(p.description) : null,
+            budget: p.budget != null ? Number(p.budget) : null,
+            beneficiaries_served: p.beneficiaries_served != null ? Number(p.beneficiaries_served) : null,
+            status: "active",
+          }));
+        if (rows.length > 0) {
+          const { error } = await supabase.from("programs").insert(rows);
+          if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+        }
       }
       const { error } = await supabase
         .from("organizations")
@@ -182,38 +222,69 @@ export async function POST(request: NextRequest) {
     case 3: {
       type KBCat = Enums<"knowledge_base_category">;
       const keywords = (data.keywords ?? []) as string[];
+      const kw = keywords.length > 0 ? keywords : null;
 
-      let entries: { category: KBCat; title: string; content: string }[];
+      const rows: Array<{
+        organization_id: string;
+        category: KBCat;
+        title: string;
+        content: string;
+        keywords: string[] | null;
+        created_by: string;
+      }> = [];
+      const push = (category: KBCat, title: string, content: string) => {
+        const trimmed = content.trim();
+        if (trimmed.length > 0) {
+          rows.push({ organization_id: orgId, category, title, content: trimmed, keywords: kw, created_by: userId });
+        }
+      };
 
       if (Array.isArray(data.narratives)) {
         // AI-generated format: { narratives: [{category, title, content}], keywords: [] }
-        entries = (
-          data.narratives as Array<{ category: string; title: string; content: string }>
-        )
-          .filter((n) => n.category && n.title && n.content?.trim())
-          .map((n) => ({
-            category: n.category as KBCat,
-            title: n.title,
-            content: n.content,
-          }));
+        for (const n of data.narratives as Array<{ category: string; title: string; content: string }>) {
+          if (n.category && n.title && n.content?.trim()) push(n.category as KBCat, n.title, n.content);
+        }
       } else {
         // Legacy manual format: { mission, need_statement, impact }
-        entries = [
-          { category: "mission" as KBCat, title: "Mission Statement", content: String(data.mission ?? "") },
-          { category: "need_statement" as KBCat, title: "Need Statement", content: String(data.need_statement ?? "") },
-          { category: "impact" as KBCat, title: "Impact Statement", content: String(data.impact ?? "") },
-        ].filter((e): e is { category: KBCat; title: string; content: string } => e.content.trim().length > 0);
+        push("mission" as KBCat, "Mission Statement", String(data.mission ?? ""));
+        push("need_statement" as KBCat, "Need Statement", String(data.need_statement ?? ""));
+        push("impact" as KBCat, "Impact Statement", String(data.impact ?? ""));
       }
 
-      if (entries.length > 0) {
-        const rows = entries.map((e) => ({
-          organization_id: orgId,
-          category: e.category,
-          title: e.title,
-          content: e.content,
-          keywords: keywords.length > 0 ? keywords : null,
-          created_by: userId,
-        }));
+      // Partner organizations -> partnerships KB. Only add a partner not already
+      // named in an existing partnerships entry, so the draft prompt sees the
+      // named relationships (not just generic partner types).
+      const partners = normalizePartners(data.partners);
+      if (partners.length > 0) {
+        const { data: existingPart } = await supabase
+          .from("knowledge_base")
+          .select("content")
+          .eq("organization_id", orgId)
+          .eq("category", "partnerships");
+        const existingText = (existingPart ?? [])
+          .map((r) => String(r.content ?? "").toLowerCase())
+          .join("\n");
+        for (const p of partners) {
+          if (!existingText.includes(p.name.toLowerCase())) {
+            push(
+              "partnerships" as KBCat,
+              `Strategic Partner: ${p.name}`,
+              p.description || `${p.name} is a strategic partner of the organization.`,
+            );
+          }
+        }
+      }
+
+      // Accounting software -> custom Q&A KB (the answer to a common funder
+      // capacity question). Written only when the wizard supplies it.
+      const accounting = data.accounting_software ? String(data.accounting_software).trim() : "";
+      if (accounting) push("custom" as KBCat, "What accounting software do you use?", accounting);
+
+      if (rows.length > 0) {
+        // Idempotent: replace any existing entries with the same titles so a
+        // re-run updates content in place instead of stacking duplicates.
+        const titles = rows.map((r) => r.title);
+        await supabase.from("knowledge_base").delete().eq("organization_id", orgId).in("title", titles);
         const { error } = await supabase.from("knowledge_base").insert(rows);
         if (error) return NextResponse.json({ error: error.message }, { status: 500 });
       }
@@ -233,17 +304,54 @@ export async function POST(request: NextRequest) {
         email: string;
       }>;
       if (members.length > 0) {
-        const rows = members.map((m) => ({
-          organization_id: orgId,
-          name: String(m.name),
-          title: m.title ? String(m.title) : null,
-          bio: m.bio ? String(m.bio) : null,
-          email: m.email ? String(m.email) : null,
-          is_active: true,
-        }));
-        const { error } = await supabase.from("board_members").insert(rows);
-        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+        // Idempotent: skip members whose name already exists for this org.
+        const { data: existing } = await supabase
+          .from("board_members")
+          .select("name")
+          .eq("organization_id", orgId);
+        const seen = new Set((existing ?? []).map((r) => r.name));
+        const rows = members
+          .filter((m) => m.name && !seen.has(String(m.name)))
+          .map((m) => ({
+            organization_id: orgId,
+            name: String(m.name),
+            title: m.title ? String(m.title) : null,
+            bio: m.bio ? String(m.bio) : null,
+            email: m.email ? String(m.email) : null,
+            is_active: true,
+          }));
+        if (rows.length > 0) {
+          const { error } = await supabase.from("board_members").insert(rows);
+          if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+        }
       }
+
+      // Project board bios into a single capacity KB entry. The draft pipeline
+      // reads knowledge_base, not board_members, so without this the board's
+      // qualifications never reach a draft. Idempotent by title.
+      const { data: board } = await supabase
+        .from("board_members")
+        .select("name, title, bio")
+        .eq("organization_id", orgId)
+        .eq("is_active", true);
+      const withBio = (board ?? []).filter((b) => b.bio && String(b.bio).trim());
+      if (withBio.length > 0) {
+        const content = withBio
+          .map((b) => `${b.name}${b.title ? `, ${b.title}` : ""}: ${String(b.bio).trim()}`)
+          .join("\n\n");
+        const title = "Board Leadership & Governance";
+        await supabase.from("knowledge_base").delete().eq("organization_id", orgId).eq("title", title);
+        const { error: kbError } = await supabase.from("knowledge_base").insert({
+          organization_id: orgId,
+          category: "capacity",
+          title,
+          content,
+          keywords: null,
+          created_by: userId,
+        });
+        if (kbError) return NextResponse.json({ error: kbError.message }, { status: 500 });
+      }
+
       const { error } = await supabase
         .from("organizations")
         .update({ onboarding_step: 5 })
@@ -287,27 +395,34 @@ export async function POST(request: NextRequest) {
     case 6: {
       const keywords = (data.keywords ?? []) as string[];
       if (keywords.length > 0) {
-        const { error } = await supabase.from("search_profiles").insert({
-          organization_id: orgId,
-          name: String(data.name ?? "Primary Search Profile"),
-          keywords,
-          categories: ((data.categories ?? []) as string[]).length > 0
-            ? (data.categories as Enums<"funder_category">[])
-            : null,
-          geographic_scope: data.geographic_scope ? String(data.geographic_scope) : null,
-          min_amount: data.min_amount != null ? Number(data.min_amount) : null,
-          max_amount: data.max_amount != null ? Number(data.max_amount) : null,
-          is_active: true,
-          source_type_filters: {},
-          focus_areas: {},
-          geographic_scopes: [],
-          eligibility_filters: {},
-          populations_served: [],
-          excluded_categories: [],
-          excluded_funders: [],
-          agent_settings: {},
-        });
-        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+        const name = String(data.name ?? "Primary Search Profile");
+        // Idempotent: don't create a second profile with the same name on re-run.
+        const { data: existing } = await supabase
+          .from("search_profiles")
+          .select("id")
+          .eq("organization_id", orgId)
+          .eq("name", name)
+          .maybeSingle();
+        if (!existing) {
+          // The advanced-config columns (source_type_filters, focus_areas,
+          // eligibility_filters, populations_served, excluded_*, agent_settings)
+          // are defaulted by the table (migration 011) - onboarding only sets
+          // the fields the wizard actually collects. Setting the others here was
+          // both redundant and a hard error wherever 011 isn't applied.
+          const { error } = await supabase.from("search_profiles").insert({
+            organization_id: orgId,
+            name,
+            keywords,
+            categories: ((data.categories ?? []) as string[]).length > 0
+              ? (data.categories as Enums<"funder_category">[])
+              : null,
+            geographic_scope: data.geographic_scope ? String(data.geographic_scope) : null,
+            min_amount: data.min_amount != null ? Number(data.min_amount) : null,
+            max_amount: data.max_amount != null ? Number(data.max_amount) : null,
+            is_active: true,
+          });
+          if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+        }
       }
       const { error } = await supabase
         .from("organizations")
