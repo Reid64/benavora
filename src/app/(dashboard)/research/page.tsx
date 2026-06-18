@@ -1,188 +1,249 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-
-import {
-  ResearchDashboard,
-  type ParallelLaneStatus,
-  type ResearchDiscovery,
-  type ResearchRun,
-} from "@/components/research/ResearchDashboard";
-import {
-  RunHistory,
-  type AgentRunRecord,
-} from "@/components/research/RunHistory";
-import {
-  ResearchSchedule,
-  type FamilySchedule,
-} from "@/components/research/ResearchSchedule";
-import { RESEARCH_AGENT_LANES, RESEARCH_FAMILIES } from "@/lib/research/families";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { canEdit, useProfile } from "@/lib/hooks/useProfile";
 import type { AgentType } from "@/types/agents";
-import type { Enums, Tables } from "@/types/database";
+import type { Enums } from "@/types/database";
 
 type FunderCategory = Enums<"funder_category">;
+type OppSourceType = Enums<"opportunity_source_type">;
+type RunStatus = Enums<"agent_run_status">;
 
-/**
- * Research agent types surfaced in the activity feed. Includes both the four
- * base families (AGENTS.md Agents 12-15) and the Tier 6 API/scraping agents
- * (AGENTS.md Agents 15-20) so their runs appear in the live status panel.
- */
-const RESEARCH_AGENT_TYPES: AgentType[] = [
-  // Base research families
-  "corporate_research",
-  "foundation_research",
-  "government_research",
-  "local_sponsorship",
-  // Tier 6 data-source agents (BEHAVIORAL_CONTRACTS §17-21)
-  "grants_gov_research",
-  "sam_gov_research",
-  "propublica_mining",
-  "state_portal",
-  "custom_api_research",
-];
-
-/** How often to re-poll agent_runs while a run is live (Contracts §17). */
-const POLL_INTERVAL_MS = 4000;
-
-/** Shape returned by the agent_runs query (status is nullable in the schema). */
-type AgentRunRow = {
-  id: string;
-  agent_type: AgentType;
-  status: ResearchRun["status"] | null;
-  output_summary: string | null;
-  error_message: string | null;
-  started_at: string | null;
-};
-
-/** One lane in the orchestrator's parallel response. */
-type LaneResult = {
+interface SourceConfig {
   key: string;
   label: string;
-  sourceType: string | null;
-  status: "completed" | "failed";
-  opportunitiesFound?: number;
-  opportunitiesCreated?: number;
-  error?: string;
-};
-
-/** Response shape from POST /api/agents/research with agentType "all". */
-type ParallelResponse = {
-  error?: string;
-  lanes?: LaneResult[];
-  duplicatesRemoved?: number;
-};
-
-/** Map an orchestrator lane result to the dashboard's lane status. */
-function mapLane(l: LaneResult): ParallelLaneStatus {
-  return {
-    key: l.key,
-    label: l.label,
-    sourceType: l.sourceType,
-    status: l.status,
-    created: l.opportunitiesCreated,
-    found: l.opportunitiesFound,
-    error: l.error,
-  };
+  agentType: AgentType;
 }
 
-/** Shape returned by the discovery query, with the funder relation embedded. */
-type OpportunityRow = {
+interface SourceStats {
+  lastRunAt: string | null;
+  itemsFound: number | null;
+}
+
+interface AgentRunRow {
+  id: string;
+  agent_type: AgentType;
+  status: RunStatus | null;
+  started_at: string | null;
+  completed_at: string | null;
+  duration_ms: number | null;
+  items_found: number | null;
+  error_message: string | null;
+}
+
+interface OpportunityRow {
   id: string;
   name: string;
+  source: string | null;
+  source_type: OppSourceType | null;
   category: FunderCategory;
   amount_min: number | null;
   amount_max: number | null;
-  source: string | null;
-  discovered_at: string | null;
-  funders: { name: string } | { name: string }[] | null;
-};
+  deadline: string | null;
+  eligibility_score: number | null;
+  created_at: string;
+}
 
-/**
- * Research dashboard page (BLUEPRINT §3.1 "Research"). Lists the organization's
- * search profiles with run controls, shows live agent-run status, the scheduled
- * sweep with per-family next-run projections and an enable/disable control, a
- * full agent-run history, and a feed of recently discovered opportunities.
- *
- * Triggering a run POSTs to /api/agents/research; the history comes from
- * /api/agents/research/status - both authenticate and derive organization_id
- * server-side, so this client never sends an organization id (Contracts §2,
- * §16). Reads are RLS-scoped to the organization.
- */
-export default function ResearchPage() {
-  const { profile } = useProfile();
-  const editable = canEdit(profile?.role);
-  const canToggle = profile?.role === "owner" || profile?.role === "admin";
+const SOURCES: SourceConfig[] = [
+  { key: "grants_gov", label: "Grants.gov", agentType: "grants_gov_research" },
+  { key: "sam_gov", label: "SAM.gov", agentType: "sam_gov_research" },
+  { key: "simpler_grants", label: "Simpler Grants", agentType: "government_research" },
+  { key: "hud", label: "HUD", agentType: "government_research" },
+  { key: "tdhca", label: "TDHCA", agentType: "state_portal" },
+  { key: "corporate", label: "Corporate", agentType: "corporate_research" },
+];
 
-  const [profiles, setProfiles] = useState<Tables<"search_profiles">[]>([]);
-  const [discoveries, setDiscoveries] = useState<ResearchDiscovery[]>([]);
-  const [runs, setRuns] = useState<ResearchRun[]>([]);
-  const [history, setHistory] = useState<AgentRunRecord[]>([]);
-  const [cronEnabled, setCronEnabled] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+const RESEARCH_AGENT_TYPES: AgentType[] = [
+  "grants_gov_research",
+  "sam_gov_research",
+  "government_research",
+  "state_portal",
+  "corporate_research",
+  "foundation_research",
+  "local_sponsorship",
+  "propublica_mining",
+  "custom_api_research",
+];
 
-  const [runningProfileId, setRunningProfileId] = useState<string | null>(null);
-  const [runningAll, setRunningAll] = useState(false);
-  const [parallelLanes, setParallelLanes] = useState<ParallelLaneStatus[] | null>(
-    null,
+const POLL_INTERVAL_MS = 30_000;
+
+function sourceBadgeProps(source: string | null, sourceType: OppSourceType | null): { label: string; cls: string } {
+  let label = "Unknown";
+  if (source) {
+    try {
+      label = new URL(source).hostname.replace(/^www\./, "");
+    } catch {
+      label = source.length > 18 ? source.slice(0, 18) + "…" : source;
+    }
+  } else if (sourceType) {
+    label = sourceType.replace(/_/g, " ");
+  }
+
+  let cls = "bg-gray-100 text-gray-600";
+  if (sourceType === "government_federal") cls = "bg-blue-100 text-blue-700";
+  else if (sourceType === "government_state" || sourceType === "government_local") cls = "bg-green-100 text-green-700";
+  else if (sourceType === "corporate_giving") cls = "bg-purple-100 text-purple-700";
+
+  return { label, cls };
+}
+
+function formatAmount(min: number | null, max: number | null): string {
+  const fmt = (n: number) =>
+    n >= 1_000_000
+      ? `$${(n / 1_000_000).toFixed(1)}M`
+      : n >= 1_000
+        ? `$${Math.round(n / 1_000)}K`
+        : `$${n.toLocaleString()}`;
+  if (min !== null && max !== null) return `${fmt(min)} – ${fmt(max)}`;
+  if (max !== null) return `Up to ${fmt(max)}`;
+  if (min !== null) return `From ${fmt(min)}`;
+  return "—";
+}
+
+function formatDate(iso: string | null): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function formatDuration(
+  durationMs: number | null,
+  startedAt: string | null,
+  completedAt: string | null,
+): string {
+  const ms =
+    durationMs ??
+    (startedAt && completedAt
+      ? new Date(completedAt).getTime() - new Date(startedAt).getTime()
+      : null);
+  if (ms === null) return "—";
+  const secs = Math.round(ms / 1000);
+  if (secs < 60) return `${secs}s`;
+  return `${Math.floor(secs / 60)}m ${secs % 60}s`;
+}
+
+function agentLabel(agentType: AgentType): string {
+  const labels: Partial<Record<AgentType, string>> = {
+    grants_gov_research: "Grants.gov",
+    sam_gov_research: "SAM.gov",
+    government_research: "Government",
+    state_portal: "State Portal",
+    corporate_research: "Corporate",
+    foundation_research: "Foundation",
+    local_sponsorship: "Local",
+    propublica_mining: "ProPublica",
+    custom_api_research: "Custom API",
+  };
+  return labels[agentType] ?? agentType;
+}
+
+function categoryLabel(cat: FunderCategory): string {
+  return cat
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function Spinner({ className = "" }: { className?: string }) {
+  return (
+    <svg
+      className={`animate-spin ${className}`}
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+    >
+      <circle
+        className="opacity-25"
+        cx="12"
+        cy="12"
+        r="10"
+        stroke="currentColor"
+        strokeWidth="4"
+      />
+      <path
+        className="opacity-75"
+        fill="currentColor"
+        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+      />
+    </svg>
   );
-  const [duplicatesRemoved, setDuplicatesRemoved] = useState<number | null>(null);
+}
+
+function RunStatusBadge({ status }: { status: RunStatus | null }) {
+  const s = status ?? "pending";
+  const cls =
+    s === "completed"
+      ? "bg-green-100 text-green-700"
+      : s === "running"
+        ? "bg-blue-100 text-blue-700"
+        : s === "failed"
+          ? "bg-red-100 text-red-700"
+          : "bg-gray-100 text-gray-600";
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium ${cls}`}
+    >
+      {s === "running" && <Spinner className="h-3 w-3" />}
+      {s}
+    </span>
+  );
+}
+
+export default function ResearchPage() {
+  const router = useRouter();
+  const [sourceStats, setSourceStats] = useState<Record<string, SourceStats>>({});
+  const [opportunities, setOpportunities] = useState<OpportunityRow[]>([]);
+  const [agentRuns, setAgentRuns] = useState<AgentRunRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [runningAll, setRunningAll] = useState(false);
+  const [runningSources, setRunningSources] = useState<Set<string>>(new Set());
   const [runError, setRunError] = useState<string | null>(null);
 
-  const [cronSaving, setCronSaving] = useState(false);
-  const [cronError, setCronError] = useState<string | null>(null);
-
-  const load = useCallback(async (initial: boolean) => {
+  const load = useCallback(async (initial = false) => {
     if (initial) setLoading(true);
     const supabase = createClient();
 
-    const [profilesRes, oppsRes, runsRes, flagRes, historyRes] =
-      await Promise.all([
-        supabase
-          .from("search_profiles")
-          .select("*")
-          .order("created_at", { ascending: false }),
-        supabase
-          .from("opportunities")
-          .select(
-            "id, name, category, amount_min, amount_max, source, discovered_at, funders(name)",
-          )
-          .not("source", "is", null)
-          .neq("source", "manual")
-          .order("discovered_at", { ascending: false })
-          .limit(30),
-        supabase
-          .from("agent_runs")
-          .select("id, agent_type, status, output_summary, error_message, started_at")
-          .in("agent_type", RESEARCH_AGENT_TYPES)
-          .order("started_at", { ascending: false, nullsFirst: false })
-          .limit(8),
-        supabase
-          .from("platform_config")
-          .select("value")
-          .eq("key", "feature.research_agents")
-          .maybeSingle(),
-        fetch("/api/agents/research/status?limit=50")
-          .then((r) => (r.ok ? r.json() : { runs: [] }))
-          .catch(() => ({ runs: [] })),
-      ]);
+    const [runsRes, oppsRes] = await Promise.all([
+      supabase
+        .from("agent_runs")
+        .select(
+          "id, agent_type, status, started_at, completed_at, duration_ms, items_found, error_message",
+        )
+        .in("agent_type", RESEARCH_AGENT_TYPES)
+        .order("started_at", { ascending: false, nullsFirst: false })
+        .limit(50),
+      supabase
+        .from("opportunities")
+        .select(
+          "id, name, source, source_type, category, amount_min, amount_max, deadline, eligibility_score, created_at",
+        )
+        .not("source", "is", null)
+        .neq("source", "manual")
+        .order("created_at", { ascending: false })
+        .limit(100),
+    ]);
 
-    if (profilesRes.error || oppsRes.error || runsRes.error) {
-      setError("Could not load the research dashboard.");
-      if (initial) setLoading(false);
-      return;
+    if (!runsRes.error && runsRes.data) {
+      const rows = runsRes.data as AgentRunRow[];
+      const stats: Record<string, SourceStats> = {};
+      for (const src of SOURCES) {
+        const latest = rows.find((r) => r.agent_type === src.agentType);
+        stats[src.key] = {
+          lastRunAt: latest?.started_at ?? null,
+          itemsFound: latest?.items_found ?? null,
+        };
+      }
+      setSourceStats(stats);
+      setAgentRuns(rows.slice(0, 10));
     }
 
-    setError(null);
-    setProfiles((profilesRes.data ?? []) as Tables<"search_profiles">[]);
-    setDiscoveries(
-      ((oppsRes.data ?? []) as unknown as OpportunityRow[]).map(mapDiscovery),
-    );
-    setRuns(((runsRes.data ?? []) as AgentRunRow[]).map(mapRun));
-    setCronEnabled((flagRes.data?.value as string | undefined) === "true");
-    setHistory(((historyRes as { runs?: AgentRunRecord[] }).runs ?? []));
+    if (!oppsRes.error && oppsRes.data) {
+      setOpportunities(oppsRes.data as OpportunityRow[]);
+    }
+
     if (initial) setLoading(false);
   }, []);
 
@@ -190,243 +251,308 @@ export default function ResearchPage() {
     void load(true);
   }, [load]);
 
-  // Poll quietly while any research run is still live, so status indicators and
-  // freshly discovered opportunities appear without a manual refresh.
-  const hasLiveRun = runs.some(
+  const hasLiveRun = agentRuns.some(
     (r) => r.status === "running" || r.status === "pending",
   );
+
   useEffect(() => {
     if (!hasLiveRun) return;
-    const timer = setInterval(() => {
-      void load(false);
-    }, POLL_INTERVAL_MS);
+    const timer = setInterval(() => void load(), POLL_INTERVAL_MS);
     return () => clearInterval(timer);
   }, [hasLiveRun, load]);
 
-  async function trigger(body: { profileId?: string; agentType: AgentType }) {
-    setRunError(null);
-    try {
-      const res = await fetch("/api/agents/research", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const payload = (await res.json().catch(() => ({}))) as {
-        error?: string;
-      };
-      if (!res.ok) {
-        setRunError(payload.error ?? "The research run failed. Please try again.");
-      }
-    } catch {
-      setRunError("Could not reach the research agent. Please try again.");
-    }
-  }
-
-  async function handleRunProfile(profileId: string) {
-    setRunningProfileId(profileId);
-    await trigger({ profileId, agentType: "corporate_research" });
-    setRunningProfileId(null);
-    await load(false);
-  }
-
-  // "Run all active" runs every research lane in parallel via the orchestrator
-  // (agentType "all") and shows live per-lane status while the sweep runs.
   async function handleRunAll() {
     setRunningAll(true);
     setRunError(null);
-    setDuplicatesRemoved(null);
-    // Seed every lane as "running" for immediate feedback while the POST awaits.
-    setParallelLanes(
-      RESEARCH_AGENT_LANES.map((l) => ({
-        key: l.key,
-        label: l.label,
-        sourceType: l.sourceType,
-        status: "running" as const,
-      })),
-    );
-
     try {
       const res = await fetch("/api/agents/research", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ agentType: "all" }),
       });
-      const payload = (await res.json().catch(() => ({}))) as ParallelResponse;
+      const payload = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) {
-        setRunError(payload.error ?? "The research run failed. Please try again.");
-        setParallelLanes(
-          (prev) => prev?.map((l) => ({ ...l, status: "failed" as const })) ?? null,
-        );
-      } else {
-        setParallelLanes((payload.lanes ?? []).map(mapLane));
-        setDuplicatesRemoved(
-          typeof payload.duplicatesRemoved === "number"
-            ? payload.duplicatesRemoved
-            : null,
-        );
+        setRunError(payload.error ?? "Research run failed. Please try again.");
       }
     } catch {
       setRunError("Could not reach the research agent. Please try again.");
-      setParallelLanes(
-        (prev) => prev?.map((l) => ({ ...l, status: "failed" as const })) ?? null,
-      );
     }
-
     setRunningAll(false);
-    await load(false);
+    await load();
   }
 
-  async function handleToggleCron(next: boolean) {
-    if (!profile) return;
-    setCronSaving(true);
-    setCronError(null);
-    const supabase = createClient();
-    const { error: upsertError } = await supabase.from("platform_config").upsert(
-      {
-        organization_id: profile.organization_id,
-        key: "feature.research_agents",
-        value: next ? "true" : "false",
-      },
-      { onConflict: "organization_id,key" },
-    );
-    if (upsertError) {
-      setCronError("Could not update the automation setting. Please try again.");
-    } else {
-      setCronEnabled(next);
+  async function handleRunSource(src: SourceConfig) {
+    setRunningSources((prev) => {
+      const next = new Set(prev);
+      next.add(src.key);
+      return next;
+    });
+    setRunError(null);
+    try {
+      const res = await fetch("/api/agents/research", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ agentType: src.agentType }),
+      });
+      const payload = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        setRunError(payload.error ?? `${src.label} run failed. Please try again.`);
+      }
+    } catch {
+      setRunError(`Could not reach the ${src.label} agent. Please try again.`);
     }
-    setCronSaving(false);
+    setRunningSources((prev) => {
+      const next = new Set(prev);
+      next.delete(src.key);
+      return next;
+    });
+    await load();
   }
-
-  const schedules = computeSchedules(profiles);
 
   return (
     <div className="space-y-8">
+      {/* Header */}
       <div>
         <h1 className="text-2xl font-semibold tracking-tight text-navy-900">
-          Research
+          Research Command Center
         </h1>
         <p className="mt-1 text-sm text-navy-500">
-          Run your search profiles to discover corporate giving opportunities.
-          New finds are scored for eligibility and added to your opportunities.
+          Run research agents to discover funding opportunities from government,
+          corporate, and foundation sources.
         </p>
       </div>
 
-      {error && (
+      {runError && (
         <div
           role="alert"
           className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
         >
-          {error}
+          {runError}
         </div>
       )}
 
-      <ResearchSchedule
-        schedules={schedules}
-        cronEnabled={cronEnabled}
-        canToggle={canToggle}
-        saving={cronSaving}
-        toggleError={cronError}
-        onToggle={handleToggleCron}
-      />
-
-      <ResearchDashboard
-        profiles={profiles}
-        discoveries={discoveries}
-        runs={runs}
-        editable={editable}
-        runningProfileId={runningProfileId}
-        runningAll={runningAll}
-        parallelLanes={parallelLanes}
-        duplicatesRemoved={duplicatesRemoved}
-        runError={runError}
-        isLoading={loading}
-        onRunProfile={handleRunProfile}
-        onRunAll={handleRunAll}
-      />
-
+      {/* CONTROL PANEL */}
       <section className="space-y-4">
-        <h2 className="text-lg font-semibold text-navy-900">Run history</h2>
-        <RunHistory runs={history} isLoading={loading} />
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-navy-900">Control Panel</h2>
+          <button
+            onClick={handleRunAll}
+            disabled={runningAll}
+            className="inline-flex items-center gap-2 rounded-lg bg-navy-900 px-4 py-2 text-sm font-medium text-white hover:bg-navy-800 disabled:opacity-60 transition-colors"
+          >
+            {runningAll && <Spinner className="h-4 w-4" />}
+            {runningAll ? "Running…" : "Run All Research Agents"}
+          </button>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+          {SOURCES.map((src) => {
+            const stats = sourceStats[src.key];
+            const isRunning = runningSources.has(src.key);
+            return (
+              <div
+                key={src.key}
+                className="flex flex-col rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+              >
+                <div className="flex items-start justify-between gap-1">
+                  <span className="text-sm font-semibold text-navy-900 leading-tight">
+                    {src.label}
+                  </span>
+                  {isRunning && <Spinner className="h-4 w-4 shrink-0 text-blue-500" />}
+                </div>
+
+                <div className="mt-2 flex-1 space-y-1">
+                  <p className="text-xs text-navy-500">
+                    Last run:{" "}
+                    <span className="font-medium">
+                      {stats?.lastRunAt ? formatDate(stats.lastRunAt) : "Never"}
+                    </span>
+                  </p>
+                  <p className="text-xs text-navy-500">
+                    Found:{" "}
+                    <span className="font-medium">
+                      {stats?.itemsFound != null
+                        ? stats.itemsFound.toLocaleString()
+                        : "—"}
+                    </span>
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => void handleRunSource(src)}
+                  disabled={isRunning || runningAll}
+                  className="mt-3 w-full rounded-md border border-gray-300 px-2 py-1.5 text-xs font-medium text-navy-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                >
+                  {isRunning ? "Running…" : "Run"}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* DISCOVERED OPPORTUNITIES */}
+      <section className="space-y-4">
+        <h2 className="text-lg font-semibold text-navy-900">
+          Discovered Opportunities
+          {!loading && (
+            <span className="ml-2 text-sm font-normal text-navy-500">
+              ({opportunities.length})
+            </span>
+          )}
+        </h2>
+
+        {loading ? (
+          <div className="flex items-center justify-center rounded-xl border border-gray-200 bg-white p-10 text-sm text-navy-500">
+            <Spinner className="mr-2 h-4 w-4 text-navy-400" />
+            Loading opportunities…
+          </div>
+        ) : opportunities.length === 0 ? (
+          <div className="rounded-xl border border-gray-200 bg-white p-10 text-center text-sm text-navy-500">
+            No discovered opportunities yet. Run a research agent above to find
+            funding sources.
+          </div>
+        ) : (
+          <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead>
+                <tr className="bg-gray-50">
+                  {[
+                    "Name",
+                    "Source",
+                    "Category",
+                    "Amount Range",
+                    "Deadline",
+                    "Eligibility",
+                    "Discovered",
+                  ].map((col) => (
+                    <th
+                      key={col}
+                      className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500"
+                    >
+                      {col}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {opportunities.map((opp) => {
+                  const badge = sourceBadgeProps(opp.source, opp.source_type);
+                  return (
+                    <tr
+                      key={opp.id}
+                      onClick={() => router.push(`/opportunities/${opp.id}`)}
+                      className="cursor-pointer hover:bg-gray-50 transition-colors"
+                    >
+                      <td className="max-w-[200px] truncate px-4 py-3 text-sm font-medium text-navy-900">
+                        {opp.name}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${badge.cls}`}
+                        >
+                          {badge.label}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-navy-600">
+                        {categoryLabel(opp.category)}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3 text-xs text-navy-600">
+                        {formatAmount(opp.amount_min, opp.amount_max)}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3 text-xs text-navy-600">
+                        {formatDate(opp.deadline)}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-navy-600">
+                        {opp.eligibility_score != null
+                          ? `${opp.eligibility_score}%`
+                          : "—"}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3 text-xs text-navy-500">
+                        {formatDate(opp.created_at)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {/* AGENT RUN LOG */}
+      <section className="space-y-4">
+        <div className="flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-navy-900">Agent Run Log</h2>
+          {hasLiveRun && (
+            <span className="inline-flex items-center gap-1 text-xs text-blue-600">
+              <Spinner className="h-3 w-3" />
+              Auto-refreshing every 30s
+            </span>
+          )}
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center rounded-xl border border-gray-200 bg-white p-10 text-sm text-navy-500">
+            <Spinner className="mr-2 h-4 w-4 text-navy-400" />
+            Loading run log…
+          </div>
+        ) : agentRuns.length === 0 ? (
+          <div className="rounded-xl border border-gray-200 bg-white p-10 text-center text-sm text-navy-500">
+            No agent runs yet.
+          </div>
+        ) : (
+          <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead>
+                <tr className="bg-gray-50">
+                  {[
+                    "Agent",
+                    "Status",
+                    "Started",
+                    "Duration",
+                    "Items Found",
+                    "Error",
+                  ].map((col) => (
+                    <th
+                      key={col}
+                      className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500"
+                    >
+                      {col}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {agentRuns.map((run) => (
+                  <tr key={run.id}>
+                    <td className="px-4 py-3 text-sm font-medium text-navy-900">
+                      {agentLabel(run.agent_type)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <RunStatusBadge status={run.status} />
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3 text-xs text-navy-600">
+                      {formatDate(run.started_at)}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3 text-xs text-navy-600">
+                      {formatDuration(run.duration_ms, run.started_at, run.completed_at)}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-navy-600">
+                      {run.items_found != null
+                        ? run.items_found.toLocaleString()
+                        : "—"}
+                    </td>
+                    <td className="max-w-[200px] truncate px-4 py-3 text-xs text-red-600">
+                      {run.error_message ?? "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
     </div>
   );
-}
-
-/** Project the next scheduled run for each research family from its profiles. */
-function computeSchedules(
-  profiles: Tables<"search_profiles">[],
-): FamilySchedule[] {
-  const now = Date.now();
-  return RESEARCH_FAMILIES.map((family) => {
-    const inScope = profiles.filter(
-      (p) =>
-        p.is_active &&
-        (p.categories ?? []).some((c) =>
-          family.categories.includes(c as FunderCategory),
-        ),
-    );
-
-    if (inScope.length === 0) {
-      return {
-        agentType: family.agentType,
-        label: family.label,
-        cadence: family.cadence,
-        profileCount: 0,
-        nextRunAt: null,
-        due: false,
-      };
-    }
-
-    let due = false;
-    let earliestNext = Number.POSITIVE_INFINITY;
-    for (const p of inScope) {
-      const last = p.last_run_at ? Date.parse(p.last_run_at) : NaN;
-      if (!Number.isFinite(last)) {
-        due = true; // never run (or unparseable) - due now
-        continue;
-      }
-      const next = last + family.intervalMs;
-      if (next <= now) due = true;
-      else earliestNext = Math.min(earliestNext, next);
-    }
-
-    return {
-      agentType: family.agentType,
-      label: family.label,
-      cadence: family.cadence,
-      profileCount: inScope.length,
-      nextRunAt:
-        due || !Number.isFinite(earliestNext)
-          ? null
-          : new Date(earliestNext).toISOString(),
-      due,
-    };
-  });
-}
-
-/** Normalize an agent_runs row, defaulting a null status to "pending". */
-function mapRun(row: AgentRunRow): ResearchRun {
-  return {
-    id: row.id,
-    agent_type: row.agent_type,
-    status: row.status ?? "pending",
-    output_summary: row.output_summary,
-    error_message: row.error_message,
-    started_at: row.started_at,
-  };
-}
-
-/** Flatten an opportunity row (funder relation may arrive as object or array). */
-function mapDiscovery(row: OpportunityRow): ResearchDiscovery {
-  const funder = Array.isArray(row.funders) ? row.funders[0] : row.funders;
-  return {
-    id: row.id,
-    name: row.name,
-    category: row.category,
-    amountMin: row.amount_min,
-    amountMax: row.amount_max,
-    source: row.source,
-    discoveredAt: row.discovered_at,
-    funderName: funder?.name ?? null,
-  };
 }
