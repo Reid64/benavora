@@ -1,4 +1,4 @@
-// TDHCA Scraper Agent — fetches Texas Department of Housing and Community
+﻿// TDHCA Scraper Agent â€” fetches Texas Department of Housing and Community
 // Affairs grant pages and extracts housing grant opportunities via Claude.
 //
 // Scrapes two TDHCA pages with User-Agent "Benavora Grant Research Bot",
@@ -47,7 +47,7 @@ export class TdhcaScraperAgent extends BaseAgent<
   readonly agentType: AgentType = "state_portal";
 
   protected async execute(
-    _input: TdhcaScraperInput,
+    // unused
   ): Promise<AgentExecution<TdhcaScraperResult>> {
     let opportunitiesCreated = 0;
     let totalTokens = 0;
@@ -183,3 +183,4 @@ function toStr(val: unknown): string {
 function isIsoDate(s: string): boolean {
   return /^\d{4}-\d{2}-\d{2}/.test(s);
 }
+

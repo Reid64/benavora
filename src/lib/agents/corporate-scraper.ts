@@ -1,4 +1,4 @@
-// Corporate Scraper Agent — scrapes major corporate foundation and giving pages,
+﻿// Corporate Scraper Agent â€” scrapes major corporate foundation and giving pages,
 // extracts structured grant opportunity data via Claude, and inserts new records.
 //
 // Fetches 5 corporate URLs with a 1-second delay between each, sends each page's
@@ -76,7 +76,7 @@ export class CorporateScraperAgent extends BaseAgent<
   readonly agentType: AgentType = "corporate_research";
 
   protected async execute(
-    _input: CorporateScraperInput,
+    // unused
   ): Promise<AgentExecution<CorporateScraperResult>> {
     let opportunitiesCreated = 0;
     let totalTokens = 0;
@@ -225,3 +225,4 @@ function toStr(val: unknown): string {
 function isIsoDate(s: string): boolean {
   return /^\d{4}-\d{2}-\d{2}/.test(s);
 }
+
