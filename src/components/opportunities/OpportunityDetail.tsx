@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
+  ArrowRight,
   CheckCircle2,
   ExternalLink,
   FileText,
@@ -250,6 +251,8 @@ export function OpportunityDetail({ opportunityId }: OpportunityDetailProps) {
     data;
   const editable = canEdit(profile?.role);
   const hasApplications = applications.length > 0;
+  // Most-recent application for this opportunity (load() orders by updated_at).
+  const applicationId = applications[0]?.id ?? null;
 
   return (
     <div className="space-y-6">
@@ -288,6 +291,7 @@ export function OpportunityDetail({ opportunityId }: OpportunityDetailProps) {
         {editable && (
           <div className="flex shrink-0 flex-col items-end gap-2">
             <div className="flex items-center gap-2">
+              <ApplyAction opportunity={opportunity} applicationId={applicationId} />
               <Button
                 variant="secondary"
                 onClick={handleParseNofa}
@@ -368,6 +372,7 @@ export function OpportunityDetail({ opportunityId }: OpportunityDetailProps) {
           onParseNofa={handleParseNofa}
           parsing={parseLoading}
           parseError={parseError}
+          applicationId={applicationId}
         />
       )}
       {tab === "eligibility" && <EligibilityTab opportunity={opportunity} />}
@@ -454,6 +459,78 @@ export function OpportunityDetail({ opportunityId }: OpportunityDetailProps) {
   );
 }
 
+// Orange accent so the primary CTA stands out from the secondary/danger buttons.
+// Inline styles because cn() has no tailwind-merge and the Button variants target
+// the dark theme; orange-on-white reads cleanly regardless.
+const APPLY_CTA_STYLE = { backgroundColor: "#f97316", color: "#ffffff" } as const;
+
+/**
+ * Primary "Apply Now" CTA with lifecycle states. Precedence:
+ *   1. status 'applied'         -> muted "Applied" badge (terminal state).
+ *   2. an application exists     -> "View Application" -> /applications/{id}.
+ *   3. status 'closed'/'expired' -> disabled, "Closed"/"Expired".
+ *   4. otherwise                 -> "Apply Now" -> /draft-generator?opportunity={id}.
+ * Note the draft generator's deep-link param is "opportunity", not "opportunityId".
+ */
+function ApplyAction({
+  opportunity,
+  applicationId,
+  size = "md",
+}: {
+  opportunity: Tables<"opportunities">;
+  applicationId: string | null;
+  size?: "sm" | "md";
+}) {
+  const status = opportunity.status;
+
+  if (status === "applied") {
+    return <Badge color="gray">Applied</Badge>;
+  }
+
+  if (applicationId) {
+    return (
+      <Link href={`/applications/${applicationId}`}>
+        <Button
+          variant="ghost"
+          size={size}
+          className="hover:brightness-110"
+          style={APPLY_CTA_STYLE}
+        >
+          <ArrowRight className="h-4 w-4" aria-hidden />
+          View Application
+        </Button>
+      </Link>
+    );
+  }
+
+  if (status === "closed" || status === "expired") {
+    return (
+      <Button
+        variant="ghost"
+        size={size}
+        disabled
+        style={{ backgroundColor: "#e5e7eb", color: "#6b7280" }}
+      >
+        {status === "closed" ? "Closed" : "Expired"}
+      </Button>
+    );
+  }
+
+  return (
+    <Link href={`/draft-generator?opportunity=${opportunity.id}`}>
+      <Button
+        variant="ghost"
+        size={size}
+        className="hover:brightness-110"
+        style={APPLY_CTA_STYLE}
+      >
+        <ArrowRight className="h-4 w-4" aria-hidden />
+        Apply Now
+      </Button>
+    </Link>
+  );
+}
+
 function DetailRow({
   label,
   children,
@@ -496,12 +573,14 @@ function OverviewTab({
   onParseNofa,
   parsing,
   parseError,
+  applicationId,
 }: {
   opportunity: Tables<"opportunities">;
   keywords: string[];
   onParseNofa: () => void;
   parsing: boolean;
   parseError: string | null;
+  applicationId: string | null;
 }) {
   const amountRange =
     opportunity.amount_min != null || opportunity.amount_max != null
@@ -581,7 +660,16 @@ function OverviewTab({
         </dl>
       </Card>
 
-      <Card title="Funding & application">
+      <Card
+        title="Funding & application"
+        actions={
+          <ApplyAction
+            opportunity={opportunity}
+            applicationId={applicationId}
+            size="sm"
+          />
+        }
+      >
         <dl className="divide-y divide-navy-100">
           <DetailRow label="Amount available">
             {opportunity.amount_available != null ? (
