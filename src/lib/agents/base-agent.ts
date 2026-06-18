@@ -23,7 +23,7 @@ import { trackUsage } from "@/lib/billing/usage-tracker";
 import type { AgentType } from "@/types/agents";
 import type { Json } from "@/types/database";
 
-/** Hard ceiling on a single agent run (AGENTS.md §15). */
+/** Default hard ceiling on a single agent run (AGENTS.md §15). */
 export const AGENT_TIMEOUT_MS = 60_000;
 
 export interface BaseAgentOptions {
@@ -33,6 +33,12 @@ export interface BaseAgentOptions {
   organizationId: string;
   /** Profile id that triggered the run; null for automated/scheduled runs. */
   triggeredBy?: string | null;
+  /**
+   * Per-run hard timeout in ms. Defaults to {@link AGENT_TIMEOUT_MS} (60s).
+   * Long-running agents (e.g. multi-pass scrapers) raise this toward the
+   * deploy platform's function limit (Vercel 300s).
+   */
+  timeoutMs?: number;
 }
 
 /** What a subclass's {@link BaseAgent.execute} returns for one run. */
@@ -82,11 +88,14 @@ export abstract class BaseAgent<TInput, TResult> {
   protected readonly client: SupabaseClient;
   protected readonly organizationId: string;
   protected readonly triggeredBy: string | null;
+  /** This agent's hard run timeout (ms). Overridable via constructor options. */
+  protected readonly timeoutMs: number;
 
   constructor(options: BaseAgentOptions) {
     this.client = options.client;
     this.organizationId = options.organizationId;
     this.triggeredBy = options.triggeredBy ?? null;
+    this.timeoutMs = options.timeoutMs ?? AGENT_TIMEOUT_MS;
   }
 
   /**
@@ -178,19 +187,19 @@ export abstract class BaseAgent<TInput, TResult> {
 
   // --- timeout ---------------------------------------------------------------
 
-  /** Reject with an AgentError if `work` exceeds {@link AGENT_TIMEOUT_MS}. */
+  /** Reject with an AgentError if `work` exceeds this agent's `timeoutMs`. */
   private withTimeout<T>(work: Promise<T>): Promise<T> {
     let timer: ReturnType<typeof setTimeout> | undefined = undefined;
     const timeout = new Promise<never>((_, reject) => {
       timer = setTimeout(() => {
         reject(
           new AgentError(
-            `Agent timed out after ${AGENT_TIMEOUT_MS / 1000}s.`,
+            `Agent timed out after ${this.timeoutMs / 1000}s.`,
             "timeout",
             504,
           ),
         );
-      }, AGENT_TIMEOUT_MS);
+      }, this.timeoutMs);
     });
     return Promise.race([work, timeout]).finally(() => {
       if (timer) clearTimeout(timer);

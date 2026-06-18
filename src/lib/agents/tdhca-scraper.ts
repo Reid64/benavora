@@ -10,6 +10,7 @@ import {
   AgentError,
   BaseAgent,
   type AgentExecution,
+  type BaseAgentOptions,
 } from "@/lib/agents/base-agent";
 import type { AgentType } from "@/types/agents";
 
@@ -45,6 +46,12 @@ export class TdhcaScraperAgent extends BaseAgent<
   TdhcaScraperResult
 > {
   readonly agentType: AgentType = "state_portal";
+
+  constructor(options: BaseAgentOptions) {
+    // Multi-page HTML scrape + Claude extraction needs more than 60s; cap at
+    // 270s to leave a 30s buffer under the 300s Vercel function limit.
+    super({ ...options, timeoutMs: options.timeoutMs ?? 270_000 });
+  }
 
   protected async execute(
     // unused

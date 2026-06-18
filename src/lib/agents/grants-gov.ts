@@ -23,6 +23,7 @@ import {
   AgentError,
   BaseAgent,
   type AgentExecution,
+  type BaseAgentOptions,
 } from "@/lib/agents/base-agent";
 import type { AgentType } from "@/types/agents";
 
@@ -37,7 +38,9 @@ const GRANTS_GOV_DETAIL_URL =
 // the agent stays within BaseAgent's hard run timeout even if a fetch is slow.
 const MAX_DETAIL_FETCHES = 50;
 const DETAIL_DELAY_MS = 500;
-const DETAIL_TIME_BUDGET_MS = 40_000;
+// With the agent's 270s timeout, 50 fetches (~1s each incl. delay) finish well
+// inside this budget; it remains a safety net against unusually slow responses.
+const DETAIL_TIME_BUDGET_MS = 220_000;
 
 // Six housing-focused keyword phrases run as separate searches to maximise
 // coverage. Each returns up to 25 hits, giving ~150 candidates before dedup.
@@ -235,6 +238,12 @@ export class GrantsGovResearchAgent extends BaseAgent<
   GrantsGovResult
 > {
   readonly agentType: AgentType = "grants_gov_research";
+
+  constructor(options: BaseAgentOptions) {
+    // The two-pass detail fetch needs far more than the 60s default. Cap at 270s
+    // to leave a 30s buffer under the 300s Vercel function limit.
+    super({ ...options, timeoutMs: options.timeoutMs ?? 270_000 });
+  }
 
   protected async execute(
     input: GrantsGovInput,
