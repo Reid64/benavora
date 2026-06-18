@@ -45,52 +45,36 @@ function extractGaps(text: string): Gap[] {
 }
 
 /**
- * Render [NEEDS INPUT] markers as highlighted spans.
+ * Read-only view: render each [NEEDS INPUT] marker as clickable, colored,
+ * underlined text — no background, no border — with a sequential DOM id
+ * (gap-0, gap-1, …) so the badge and Next Gap button can scroll to them.
  *
- * Read-only mode (backdrop=false): each marker is a clickable amber span with
- * dark, readable text and a sequential DOM id (gap-0, gap-1, …) so the badge
- * and Next Gap button can scroll to them via scrollIntoView.
- *
- * Edit-mode backdrop (backdrop=true): the span renders the amber highlight
- * rectangle only, with TRANSPARENT text. The backdrop sits behind a transparent
- * textarea, so the textarea's real navy text layer reads on top of the amber
- * background — the backdrop must not paint its own (offset, conflicting) text.
+ * Edit mode does NOT use this: the textarea is a single text layer, so gaps are
+ * simply visible as their literal "[NEEDS INPUT: …]" text and navigated via
+ * textarea selection (the backdrop renders plain, un-highlighted text).
  */
-function buildInteractiveNodes(text: string, gaps: Gap[], backdrop = false) {
+function buildInteractiveNodes(text: string, gaps: Gap[]) {
   if (gaps.length === 0) return [text];
   const nodes: (string | ReactElement)[] = [];
   let cursor = 0;
   gaps.forEach((gap, seqIndex) => {
     if (gap.index > cursor) nodes.push(text.slice(cursor, gap.index));
     const i = seqIndex;
-    const slice = text.slice(gap.index, gap.index + gap.length);
-    if (backdrop) {
-      nodes.push(
-        <span
-          key={gap.index}
-          className="border border-amber-400 rounded px-1 py-0.5 text-sm inline-block my-0.5"
-          style={{ backgroundColor: "rgb(254 243 199)", color: "transparent" }}
-        >
-          {slice}
-        </span>,
-      );
-    } else {
-      nodes.push(
-        <span
-          key={gap.index}
-          id={`gap-${i}`}
-          className="bg-amber-100 border border-amber-400 text-amber-900 rounded px-1 py-0.5 cursor-pointer font-semibold text-sm inline-block my-0.5"
-          onClick={() =>
-            document
-              .getElementById(`gap-${i}`)
-              ?.scrollIntoView({ behavior: "smooth", block: "center" })
-          }
-          title="Click to highlight — fill in this section"
-        >
-          {slice}
-        </span>,
-      );
-    }
+    nodes.push(
+      <span
+        key={gap.index}
+        id={`gap-${i}`}
+        className="text-amber-400 font-semibold cursor-pointer underline decoration-amber-400"
+        onClick={() =>
+          document
+            .getElementById(`gap-${i}`)
+            ?.scrollIntoView({ behavior: "smooth", block: "center" })
+        }
+        title="Click to highlight — fill in this section"
+      >
+        {text.slice(gap.index, gap.index + gap.length)}
+      </span>,
+    );
     cursor = gap.index + gap.length;
   });
   if (cursor < text.length) nodes.push(text.slice(cursor));
@@ -128,16 +112,9 @@ export function DraftEditor({
     };
   }, [value]);
 
-  // Nodes for read-only view: clickable amber spans with sequential DOM ids.
+  // Nodes for read-only view: clickable colored-underline spans with DOM ids.
   const readOnlyNodes = useMemo(
     () => buildInteractiveNodes(value, gaps),
-    [value, gaps],
-  );
-
-  // Nodes for the edit-mode backdrop: amber highlight rectangles with
-  // transparent text, so only the highlight shows behind the textarea.
-  const backdropNodes = useMemo(
-    () => buildInteractiveNodes(value, gaps, true),
     [value, gaps],
   );
 
@@ -150,13 +127,22 @@ export function DraftEditor({
     }
   }, []);
 
-  // In edit mode: focus the textarea and select the gap text.
-  const scrollToGapInTextarea = useCallback((gap: Gap) => {
-    const ta = textareaRef.current;
-    if (!ta) return;
-    ta.focus();
-    ta.setSelectionRange(gap.index, gap.index + gap.length);
-  }, []);
+  // In edit mode: focus the textarea, select the gap text, and scroll it into
+  // view. setSelectionRange alone doesn't reliably move the viewport, so we
+  // approximate the gap's line and center it (keeps the backdrop in sync).
+  const scrollToGapInTextarea = useCallback(
+    (gap: Gap) => {
+      const ta = textareaRef.current;
+      if (!ta) return;
+      ta.focus();
+      ta.setSelectionRange(gap.index, gap.index + gap.length);
+      const line = ta.value.slice(0, gap.index).split("\n").length - 1;
+      const lineHeight = parseFloat(getComputedStyle(ta).lineHeight) || 20;
+      ta.scrollTop = Math.max(0, line * lineHeight - ta.clientHeight / 2);
+      syncScroll();
+    },
+    [syncScroll],
+  );
 
   // Badge click: jump to the first gap.
   const handleGapBadgeClick = useCallback(() => {
@@ -199,7 +185,7 @@ export function DraftEditor({
               type="button"
               onClick={onRescore}
               disabled={rescoring}
-              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-100 px-3 text-xs font-medium text-amber-800 transition hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-amber-500 bg-amber-400 px-3 text-xs font-medium text-black transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60"
               title="Recalculate the confidence score from the current draft text"
             >
               <RefreshCw
@@ -247,7 +233,8 @@ export function DraftEditor({
       ) : (
         // Edit mode: textarea floated over a highlight backdrop.
         <div className="relative rounded-lg border border-navy-300 bg-white shadow-sm transition focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-500">
-          {/* Backdrop — clipped, pointer-events off, scrolled via transform */}
+          {/* Backdrop — plain transparent text, no gap highlighting. Gaps are
+              visible as literal "[NEEDS INPUT: …]" text in the textarea layer. */}
           <div
             className="pointer-events-none absolute inset-0 overflow-hidden rounded-lg"
             aria-hidden
@@ -261,11 +248,11 @@ export function DraftEditor({
                 color: "transparent",
               }}
             >
-              {backdropNodes}
+              {value}
             </div>
           </div>
 
-          {/* Textarea — transparent bg so backdrop highlights show through */}
+          {/* Textarea — single text layer; gap markers read as literal text */}
           <textarea
             ref={textareaRef}
             value={value}

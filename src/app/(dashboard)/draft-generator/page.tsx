@@ -291,6 +291,15 @@ export default function DraftGeneratorPage() {
     generatingRef.current = true;
     setGenerating(true);
     setError(null);
+    // Clear stale state so the prior draft, score, sources, and the Humanized
+    // badge don't linger on screen while the new version generates.
+    setDraftText("");
+    setConfidence(null);
+    setSources([]);
+    setBudgetTable([]);
+    setTotalRequested(null);
+    setHumanizationStatus("not_humanized");
+    setActiveVersionId(null);
 
     try {
       if (templateType === "budget_narrative") {

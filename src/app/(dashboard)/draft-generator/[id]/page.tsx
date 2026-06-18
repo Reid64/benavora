@@ -160,6 +160,12 @@ export default function DraftEditorPage({
     setRegenerating(true);
     setError(null);
     setNotice(null);
+    // Clear stale draft state immediately so the previous draft/score/sources
+    // don't linger on screen during the (slow) regeneration.
+    setDraftText("");
+    setConfidence(null);
+    setSources([]);
+    setIsDirty(false);
 
     try {
       const res = await fetch("/api/ai/draft", {
