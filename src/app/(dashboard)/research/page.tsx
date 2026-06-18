@@ -48,6 +48,23 @@ interface OpportunityRow {
   created_at: string;
 }
 
+/** Applied-status info for a discovered opportunity (TASK 4). */
+interface AppliedInfo {
+  id: string;
+  stage: string;
+  created_at: string;
+}
+
+/** Historical federal award row from historical_awards (USAspending.gov). */
+interface HistoricalAwardRow {
+  id: string;
+  recipient_name: string | null;
+  award_amount: number | null;
+  award_date: string | null;
+  awarding_agency: string | null;
+  description: string | null;
+}
+
 const SOURCES: SourceConfig[] = [
   { key: "grants_gov", label: "Grants.gov", agentType: "grants_gov_research" },
   { key: "sam_gov", label: "SAM.gov", agentType: "sam_gov_research" },
@@ -56,7 +73,28 @@ const SOURCES: SourceConfig[] = [
   { key: "tdhca", label: "TDHCA", agentType: "state_portal" },
   { key: "state_scrapers", label: "State Scrapers", agentType: "state_portal" },
   { key: "corporate", label: "Corporate", agentType: "corporate_research" },
+  { key: "foundation_finder", label: "Foundation Finder", agentType: "foundation_research" },
+  { key: "housing_specific", label: "Housing Funders", agentType: "government_research" },
 ];
+
+// Sources whose visibility is driven by the org's research_config. Sources NOT
+// in this set (e.g. the foundation/housing scrapers) are always shown.
+const CONFIG_MANAGED_SOURCES = new Set<string>([
+  "grants_gov",
+  "sam_gov",
+  "simpler_grants",
+  "hud",
+  "tdhca",
+  "state_scrapers",
+  "corporate",
+]);
+
+// Source key -> dedicated agent route. Anything not listed uses /api/agents/research.
+const SOURCE_ROUTE_MAP: Record<string, string> = {
+  state_scrapers: "/api/agents/state-scrapers",
+  foundation_finder: "/api/agents/foundation-finder",
+  housing_specific: "/api/agents/housing-specific",
+};
 
 const RESEARCH_AGENT_TYPES: AgentType[] = [
   "grants_gov_research",
@@ -78,16 +116,17 @@ function sourceBadgeProps(source: string | null, sourceType: OppSourceType | nul
     try {
       label = new URL(source).hostname.replace(/^www\./, "");
     } catch {
-      label = source.length > 18 ? source.slice(0, 18) + "…" : source;
+      label = source.length > 18 ? source.slice(0, 18) + "..." : source;
     }
   } else if (sourceType) {
     label = sourceType.replace(/_/g, " ");
   }
 
-  let cls = "bg-gray-100 text-gray-600";
-  if (sourceType === "government_federal") cls = "bg-blue-100 text-blue-700";
-  else if (sourceType === "government_state" || sourceType === "government_local") cls = "bg-green-100 text-green-700";
-  else if (sourceType === "corporate_giving") cls = "bg-purple-100 text-purple-700";
+  // Solid backgrounds with white text — readable, no same-color-on-same-color.
+  let cls = "bg-gray-600 text-white";
+  if (sourceType === "government_federal") cls = "bg-blue-600 text-white";
+  else if (sourceType === "government_state" || sourceType === "government_local") cls = "bg-green-600 text-white";
+  else if (sourceType === "corporate_giving") cls = "bg-purple-600 text-white";
 
   return { label, cls };
 }
@@ -188,6 +227,12 @@ export default function ResearchPage() {
   // Clicking a source card filters Discovered Opportunities to that source.
   const [activeSource, setActiveSource] = useState<string | null>(null);
 
+  // Applied-status (TASK 4) and historical awards (TASK 5).
+  const [appsByOpp, setAppsByOpp] = useState<Record<string, AppliedInfo>>({});
+  const [historicalAwards, setHistoricalAwards] = useState<HistoricalAwardRow[]>([]);
+  const [pullingAwards, setPullingAwards] = useState(false);
+  const [awardsError, setAwardsError] = useState<string | null>(null);
+
   // Org-specific research configuration from platform_config.
   const [researchConfig, setResearchConfig] = useState<ResearchConfig | null>(null);
   const [configFetched, setConfigFetched] = useState(false);
@@ -209,7 +254,10 @@ export default function ResearchPage() {
   const displayedSources = useMemo(() => {
     if (!configFetched || !researchConfig) return SOURCES;
     const recommended = new Set(researchConfig.recommended_sources as string[]);
-    return SOURCES.filter((s) => recommended.has(s.key));
+    // Filter only the config-managed federal/state set; always show the others.
+    return SOURCES.filter(
+      (s) => !CONFIG_MANAGED_SOURCES.has(s.key) || recommended.has(s.key),
+    );
   }, [configFetched, researchConfig]);
 
   const loadConfig = useCallback(async () => {
@@ -236,7 +284,7 @@ export default function ResearchPage() {
     if (initial) setLoading(true);
     const supabase = createClient();
 
-    const [runsRes, oppsRes] = await Promise.all([
+    const [runsRes, oppsRes, appsRes, awardsRes] = await Promise.all([
       supabase
         .from("agent_runs")
         .select(
@@ -254,6 +302,18 @@ export default function ResearchPage() {
         .neq("source", "manual")
         .order("created_at", { ascending: false })
         .limit(100),
+      // Applications for the org (RLS-scoped) - drives the Applied status column.
+      supabase
+        .from("applications")
+        .select("id, opportunity_id, stage, created_at"),
+      // Historical federal awards (USAspending.gov) - competitive intelligence.
+      supabase
+        .from("historical_awards")
+        .select(
+          "id, recipient_name, award_amount, award_date, awarding_agency, description",
+        )
+        .order("award_amount", { ascending: false, nullsFirst: false })
+        .limit(25),
     ]);
 
     if (!runsRes.error && runsRes.data) {
@@ -272,6 +332,27 @@ export default function ResearchPage() {
 
     if (!oppsRes.error && oppsRes.data) {
       setOpportunities(oppsRes.data as OpportunityRow[]);
+    }
+
+    if (!appsRes.error && appsRes.data) {
+      const map: Record<string, AppliedInfo> = {};
+      for (const a of appsRes.data as Array<{
+        id: string;
+        opportunity_id: string;
+        stage: string;
+        created_at: string;
+      }>) {
+        const prev = map[a.opportunity_id];
+        // Keep the most recent application per opportunity.
+        if (!prev || a.created_at > prev.created_at) {
+          map[a.opportunity_id] = { id: a.id, stage: a.stage, created_at: a.created_at };
+        }
+      }
+      setAppsByOpp(map);
+    }
+
+    if (!awardsRes.error && awardsRes.data) {
+      setHistoricalAwards(awardsRes.data as HistoricalAwardRow[]);
     }
 
     if (initial) setLoading(false);
@@ -320,11 +401,9 @@ export default function ResearchPage() {
     });
     setRunError(null);
     try {
-      const isStateScraper = src.key === "state_scrapers";
-      const url = isStateScraper
-        ? "/api/agents/state-scrapers"
-        : "/api/agents/research";
-      const body = isStateScraper ? {} : { sources: [src.key] };
+      const customUrl = SOURCE_ROUTE_MAP[src.key];
+      const url = customUrl ?? "/api/agents/research";
+      const body = customUrl ? {} : { sources: [src.key] };
       const res = await fetch(url, {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -368,6 +447,22 @@ export default function ResearchPage() {
       setConfigureError("Could not reach the configuration service. Please try again.");
     }
     setConfiguringResearch(false);
+  }
+
+  async function handlePullAwards() {
+    setPullingAwards(true);
+    setAwardsError(null);
+    try {
+      const res = await fetch("/api/agents/usaspending", { method: "POST" });
+      const payload = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        setAwardsError(payload.error ?? "Could not pull historical awards.");
+      }
+    } catch {
+      setAwardsError("Could not reach the USAspending agent. Please try again.");
+    }
+    setPullingAwards(false);
+    await load();
   }
 
   return (
@@ -447,7 +542,7 @@ export default function ResearchPage() {
               className="shrink-0 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-60 transition-colors"
             >
               {configuringResearch && <Spinner className="h-3 w-3" />}
-              {configuringResearch ? "Analyzing…" : "Configure Research Sources"}
+              {configuringResearch ? "Analyzing..." : "Configure Research Sources"}
             </button>
           </div>
         </div>
@@ -464,7 +559,7 @@ export default function ResearchPage() {
                 disabled={configuringResearch}
                 className="text-xs font-medium text-blue-600 hover:underline disabled:opacity-60"
               >
-                {configuringResearch ? "Analyzing…" : "Reconfigure Sources"}
+                {configuringResearch ? "Analyzing..." : "Reconfigure Sources"}
               </button>
             )}
           </div>
@@ -474,7 +569,7 @@ export default function ResearchPage() {
             className="inline-flex items-center gap-2 rounded-lg bg-navy-900 px-4 py-2 text-sm font-medium text-white hover:bg-navy-800 disabled:opacity-60 transition-colors"
           >
             {runningAll && <Spinner className="h-4 w-4" />}
-            {runningAll ? "Running…" : "Run All Research Agents"}
+            {runningAll ? "Running..." : "Run All Research Agents"}
           </button>
         </div>
 
@@ -543,7 +638,7 @@ export default function ResearchPage() {
                   disabled={isRunning || runningAll}
                   className="mt-3 w-full rounded-md border border-gray-300 px-2 py-1.5 text-xs font-medium text-navy-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
                 >
-                  {isRunning ? "Running…" : "Run"}
+                  {isRunning ? "Running..." : "Run"}
                 </button>
               </div>
             );
@@ -580,7 +675,7 @@ export default function ResearchPage() {
         {loading ? (
           <div className="flex items-center justify-center rounded-xl border border-gray-200 bg-white p-10 text-sm text-navy-500">
             <Spinner className="mr-2 h-4 w-4 text-navy-400" />
-            Loading opportunities…
+            Loading opportunities...
           </div>
         ) : opportunities.length === 0 ? (
           <div className="rounded-xl border border-gray-200 bg-white p-10 text-center text-sm text-navy-500">
@@ -610,6 +705,7 @@ export default function ResearchPage() {
                     "Deadline",
                     "Eligibility",
                     "Discovered",
+                    "Status",
                   ].map((col) => (
                     <th
                       key={col}
@@ -623,6 +719,7 @@ export default function ResearchPage() {
               <tbody className="divide-y divide-gray-100">
                 {visibleOpportunities.map((opp) => {
                   const badge = sourceBadgeProps(opp.source, opp.source_type);
+                  const applied = appsByOpp[opp.id];
                   return (
                     <tr
                       key={opp.id}
@@ -656,9 +753,116 @@ export default function ResearchPage() {
                       <td className="whitespace-nowrap px-4 py-3 text-xs text-navy-500">
                         {formatDate(opp.created_at)}
                       </td>
+                      <td
+                        className="whitespace-nowrap px-4 py-3 text-xs"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {applied ? (
+                          <div className="flex flex-col">
+                            <span className="inline-flex w-fit items-center rounded-full bg-blue-600 px-2 py-0.5 font-medium text-white">
+                              {applied.stage
+                                .replace(/_/g, " ")
+                                .replace(/\b\w/g, (c) => c.toUpperCase())}
+                            </span>
+                            <span className="mt-1 text-navy-400">
+                              Applied {formatDate(applied.created_at)}
+                            </span>
+                          </div>
+                        ) : (
+                          <Link
+                            href={`/applications/new?opportunityId=${opp.id}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="inline-flex items-center rounded-md bg-navy-900 px-2.5 py-1 font-medium text-white hover:bg-navy-800"
+                          >
+                            Apply
+                          </Link>
+                        )}
+                      </td>
                     </tr>
                   );
                 })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {/* HISTORICAL AWARDS (USAspending.gov competitive intelligence) */}
+      <section className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-navy-900">
+              Historical Awards
+            </h2>
+            <p className="text-xs text-navy-500">
+              Who actually received similar federal grants - competitive
+              intelligence from USAspending.gov (what funders funded, not just
+              what they say they fund).
+            </p>
+          </div>
+          <button
+            onClick={() => void handlePullAwards()}
+            disabled={pullingAwards}
+            className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-navy-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-navy-800 disabled:opacity-60 transition-colors"
+          >
+            {pullingAwards && <Spinner className="h-4 w-4" />}
+            {pullingAwards ? "Pulling..." : "Pull Historical Awards"}
+          </button>
+        </div>
+
+        {awardsError && (
+          <div
+            role="alert"
+            className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+          >
+            {awardsError}
+          </div>
+        )}
+
+        {historicalAwards.length === 0 ? (
+          <div className="rounded-xl border border-gray-200 bg-white p-8 text-center text-sm text-navy-500">
+            No historical awards yet. Pull awards to see who actually received
+            grants like the ones you pursue.
+          </div>
+        ) : (
+          <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead>
+                <tr className="bg-gray-50">
+                  {["Recipient", "Amount", "Agency", "Date", "Description"].map(
+                    (col) => (
+                      <th
+                        key={col}
+                        className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500"
+                      >
+                        {col}
+                      </th>
+                    ),
+                  )}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {historicalAwards.map((award) => (
+                  <tr key={award.id}>
+                    <td className="max-w-[200px] truncate px-4 py-3 text-sm font-medium text-navy-900">
+                      {award.recipient_name ?? "Unknown recipient"}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3 text-xs font-medium text-navy-700">
+                      {award.award_amount != null
+                        ? `$${Math.round(award.award_amount).toLocaleString("en-US")}`
+                        : "-"}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-navy-600">
+                      {award.awarding_agency ?? "-"}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3 text-xs text-navy-600">
+                      {formatDate(award.award_date)}
+                    </td>
+                    <td className="max-w-[280px] truncate px-4 py-3 text-xs text-navy-500">
+                      {award.description ?? "-"}
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

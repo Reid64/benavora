@@ -15,3 +15,13 @@ none — no build is executing yet
 
 ## Notes
 Initialized empty by Phase 2 (Governance Generator). Phase 3 updates this after every prompt.
+
+## Last session — 2026-06-18 (Claude Code, extended overnight)
+Shipped: research badge contrast + ASCII ellipsis, cross-provider validation fix (applied migration 014 to prod), applied-status on Research + Opportunities (+ new /applications/new page), USAspending historical awards (migration 042 + agent + route + UI), Foundation Finder + Housing-specific scrapers (agents + routes + Research source cards), recursive-learning top-3 patterns. Docs updated.
+
+## Next build priorities
+1. **Migration reconciliation** — audit which repo migrations are NOT applied to the live prod DB (`vbjplpquqxxfbpazyalt`); 011 and 014 were found missing this session. Apply the rest via the Management API and regenerate `src/types/database.ts` from prod.
+2. **Validate live scraper quality** — foundation-finder, housing-specific, and TDHCA scrapers depend on live site HTML; run each against prod and confirm extraction (some sites may block bots or render via JS).
+3. **USAspending keyword tuning** — currently uses the org's `research_config.primary_keywords`; tune award_type_codes/keywords per org mission and consider pagination beyond 25 results.
+4. **historical_awards UI depth** — link awards to recipient intelligence (ProPublica 990) and surface "funders who funded orgs like you."
+5. **Tenant-specific Research Command Center** (BLUEPRINT Phase 6) — drive source visibility, keywords, and APIs entirely from per-org config generated at onboarding.

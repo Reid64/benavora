@@ -115,7 +115,8 @@ function extractTopPatterns(
             p !== null &&
             typeof (p as SuccessPatternEntry).description === "string",
         )
-        .slice(0, 5);
+        // Top 3 success patterns for the matching funder_category (TASK 8 part 4).
+        .slice(0, 3);
     }
   }
   return [];

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { LayoutGrid, List } from "lucide-react";
 
 import { Badge, Table } from "@/components/ui";
-import type { TableColumn } from "@/components/ui";
+import type { BadgeColor, TableColumn } from "@/components/ui";
 import {
   EligibilityBar,
   HighPriorityBadge,
@@ -41,7 +41,21 @@ import type { Enums, Tables } from "@/types/database";
 export type OpportunityRow = Tables<"opportunities"> & {
   keywords: string[];
   funderName: string | null;
+  /** Stage of the most recent application for this opportunity, if any. */
+  applicationStage?: string | null;
 };
+
+/** Map an application stage to a coarse application-status label + color. */
+function applicationStatusLabel(stage: string | null | undefined): {
+  label: string;
+  color: BadgeColor;
+} {
+  if (!stage) return { label: "Not Applied", color: "gray" };
+  if (stage === "submitted") return { label: "Submitted", color: "blue" };
+  if (stage === "awarded") return { label: "Awarded", color: "green" };
+  if (stage === "denied") return { label: "Denied", color: "red" };
+  return { label: `In Progress: ${humanizeEnum(stage)}`, color: "yellow" };
+}
 
 export type OpportunityTableProps = {
   opportunities: OpportunityRow[];
@@ -288,6 +302,16 @@ export function OpportunityTable({
         ) : (
           <span className="text-navy-400">-</span>
         ),
+    },
+    {
+      key: "application",
+      header: "Application",
+      sortable: true,
+      sortValue: (row) => row.applicationStage ?? "",
+      render: (row) => {
+        const s = applicationStatusLabel(row.applicationStage);
+        return <Badge color={s.color}>{s.label}</Badge>;
+      },
     },
   ];
 

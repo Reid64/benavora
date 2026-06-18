@@ -1521,6 +1521,45 @@ export interface Database {
         };
         Relationships: [];
       };
+      historical_awards: {
+        Row: {
+          id: string;
+          organization_id: string;
+          recipient_name: string | null;
+          award_amount: number | null;
+          award_date: string | null;
+          awarding_agency: string | null;
+          description: string | null;
+          award_id: string | null;
+          source: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          recipient_name?: string | null;
+          award_amount?: number | null;
+          award_date?: string | null;
+          awarding_agency?: string | null;
+          description?: string | null;
+          award_id?: string | null;
+          source?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          recipient_name?: string | null;
+          award_amount?: number | null;
+          award_date?: string | null;
+          awarding_agency?: string | null;
+          description?: string | null;
+          award_id?: string | null;
+          source?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       funder_intelligence: {
         Row: {
           id: string;

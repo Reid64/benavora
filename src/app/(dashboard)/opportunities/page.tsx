@@ -32,7 +32,7 @@ export default function OpportunitiesPage() {
       setLoading(true);
       setError(null);
 
-      const [oppsRes, fundersRes, keywordsRes] = await Promise.all([
+      const [oppsRes, fundersRes, keywordsRes, appsRes] = await Promise.all([
         supabase
           .from("opportunities")
           .select("*")
@@ -41,6 +41,9 @@ export default function OpportunitiesPage() {
         supabase
           .from("opportunity_keywords")
           .select("opportunity_id, keyword"),
+        supabase
+          .from("applications")
+          .select("opportunity_id, stage, created_at"),
       ]);
 
       if (!active) return;
@@ -63,12 +66,22 @@ export default function OpportunitiesPage() {
         keywordsByOpp.set(row.opportunity_id, list);
       }
 
+      // Most-recent application stage per opportunity (TASK 9).
+      const stageByOpp = new Map<string, { stage: string; created_at: string }>();
+      for (const a of appsRes.data ?? []) {
+        const prev = stageByOpp.get(a.opportunity_id);
+        if (!prev || a.created_at > prev.created_at) {
+          stageByOpp.set(a.opportunity_id, { stage: a.stage, created_at: a.created_at });
+        }
+      }
+
       const rows: OpportunityRow[] = (oppsRes.data ?? []).map((opp) => ({
         ...opp,
         keywords: keywordsByOpp.get(opp.id) ?? [],
         funderName: opp.funder_id
           ? (funderNames.get(opp.funder_id) ?? null)
           : null,
+        applicationStage: stageByOpp.get(opp.id)?.stage ?? null,
       }));
 
       setOpportunities(rows);

@@ -103,3 +103,17 @@ Phase 2 complete. The build HALTS here for **Gate 3** (human governance approval
 > 2026-06-12T19:09:00.654Z [FORGE Phase 3] prompt 27 'deploy' (deploy): COMPLETED — Sentinel PASS, decomposed into 1 sub-prompt(s).
 
 > 2026-06-12T19:09:33.557Z [FORGE Phase 3] prompt 28 'verify-six-laws' (test): COMPLETED — Sentinel PASS.
+
+## Extended Overnight Session — 2026-06-18 (Claude Code)
+
+Completed work this session (Phase 6 data-infrastructure + fixes):
+
+- **Research badge contrast** — source badges now solid (federal blue-600 / state green-600 / corporate purple-600) with white text; replaced unicode ellipsis with ASCII.
+- **Cross-provider validation fix** — root cause: the `validations` table (migration 014) was never applied to production, so verdicts failed to persist silently. Applied migration 014 to prod via the Management API; the Validate button now renders results end to end.
+- **Applied status** — Research "Discovered Opportunities" rows show a stage badge + applied date, or an "Apply" button linking to `/applications/new?opportunityId=...` (new page created). Opportunities list adds an Application column (Not Applied / In Progress(stage) / Submitted / Awarded / Denied).
+- **USAspending.gov integration** — new `historical_awards` table (migration 042, applied to prod), `usaspending.ts` agent + `/api/agents/usaspending` route, and a "Historical Awards" competitive-intelligence section on the Research page.
+- **Foundation Finder** — free Candid alternative: `foundation-finder.ts` agent + route, added as a Research source card (category=private_foundation).
+- **Housing-specific scrapers** — NeighborWorks + Federal Home Loan Banks: `housing-specific-scrapers.ts` agent + route, Research source card (category=housing_grant; source_type mapped to the valid `private_foundation` enum).
+- **Recursive learning** — verified parts 1–4 already implemented (awarded→pattern analysis vs denied, stored in `proven_narratives.success_patterns`, injected into the draft prompt — now top 3) and the "Learning Insights" panel already present on outcomes analytics.
+
+DB note: migrations are NOT reliably applied to the live project (`vbjplpquqxxfbpazyalt`). This session confirmed 011 and 014 were missing in prod and applied 014 + 042 via the Management API. A full migration-vs-prod reconciliation audit is recommended.
