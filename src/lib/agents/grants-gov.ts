@@ -104,6 +104,8 @@ interface RawHit {
   oppNumber?: unknown;
   synopsis?: RawSynopsis;
   description?: unknown;
+  // Search listings carry the close date at the top level (no synopsis object).
+  closeDate?: unknown;
 }
 
 interface GrantsGovResponse {
@@ -112,32 +114,43 @@ interface GrantsGovResponse {
   items?: RawHit[];
 }
 
-// Shape of the per-opportunity detail response (parsed defensively).
+// Shape of the per-opportunity detail response (verified against the live API).
+// The fuller fields live under `synopsis`; the listing has none of these.
 interface RawDetailSynopsis {
-  description?: unknown;
-  eligibilityDesc?: unknown;
-  applicantTypes?: unknown;
+  synopsisDesc?: unknown;
+  applicantEligibilityDesc?: unknown;
   awardCeiling?: unknown;
   awardFloor?: unknown;
-  closeDate?: unknown;
-  postDate?: unknown;
-  archiveDate?: unknown;
-  cfda?: unknown;
+  responseDate?: unknown;
+  responseDateStr?: unknown;
   costSharing?: unknown;
 }
 
-interface RawDetailDocument {
-  title?: unknown;
+interface RawDetailAttachment {
+  id?: unknown;
   fileName?: unknown;
-  url?: unknown;
-  link?: unknown;
+  fileDescription?: unknown;
+}
+
+interface RawDetailFolder {
+  synopsisAttachments?: RawDetailAttachment[];
 }
 
 interface RawDetail {
   synopsis?: RawDetailSynopsis;
-  geographicScope?: unknown;
-  documents?: RawDetailDocument[];
-  opportunityDocuments?: RawDetailDocument[];
+  // PDFs live in nested attachment folders, not a flat documents[] array.
+  synopsisAttachmentFolders?: RawDetailFolder[];
+}
+
+/** Parse the detail responseDateStr ("YYYY-MM-DD-HH-MM-SS") or responseDate. */
+function normaliseDetailDate(val: unknown): string | null {
+  const raw = toStr(val);
+  if (!raw) return null;
+  const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(raw);
+  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+  const parsed = new Date(raw);
+  if (!Number.isNaN(parsed.getTime())) return parsed.toISOString().slice(0, 10);
+  return null;
 }
 
 /** Merged values from the detail endpoint, used to enrich the listing data. */
@@ -332,7 +345,10 @@ export class GrantsGovResearchAgent extends BaseAgent<
       let description = truncate(synopsis.description ?? hit.description, 2000);
       let awardCeiling = toPositiveNumber(synopsis.awardCeiling);
       let awardFloor = toPositiveNumber(synopsis.awardFloor);
-      let closeDate = normaliseCloseDate(synopsis.closeDate);
+      // Listings have no synopsis; the close date is a top-level field.
+      let closeDate =
+        normaliseCloseDate(synopsis.closeDate) ??
+        normaliseDetailDate(hit.closeDate);
       let eligibility: string | null = null;
       let geographic: string | null = null;
       let documents: OpportunityDocument[] = [];
@@ -466,37 +482,47 @@ export class GrantsGovResearchAgent extends BaseAgent<
    */
   private async fetchDetail(oppId: string): Promise<DetailData | null> {
     try {
-      const response = await fetch(
-        `${GRANTS_GOV_DETAIL_URL}?oppId=${encodeURIComponent(oppId)}`,
-        {
-          method: "GET",
-          headers: { Accept: "application/json" },
-          signal: AbortSignal.timeout(15_000),
+      // The detail endpoint requires POST with a form-encoded oppId (GET 405s,
+      // JSON 415s) - verified against the live API.
+      const response = await fetch(GRANTS_GOV_DETAIL_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Accept: "application/json",
         },
-      );
+        body: `oppId=${encodeURIComponent(oppId)}`,
+        signal: AbortSignal.timeout(15_000),
+      });
       if (!response.ok) return null;
 
       const body = (await response.json()) as RawDetail;
       const synopsis: RawDetailSynopsis = body.synopsis ?? {};
-      const rawDocs = Array.isArray(body.documents)
-        ? body.documents
-        : Array.isArray(body.opportunityDocuments)
-          ? body.opportunityDocuments
-          : [];
-      const documents: OpportunityDocument[] = rawDocs
-        .map((d) => ({
-          title: toStr(d?.title ?? d?.fileName),
-          url: toStr(d?.url ?? d?.link),
-        }))
-        .filter((d) => d.url !== "");
+
+      // PDFs are nested in synopsisAttachmentFolders[].synopsisAttachments[];
+      // build their public download URLs from the attachment id.
+      const documents: OpportunityDocument[] = [];
+      for (const folder of body.synopsisAttachmentFolders ?? []) {
+        for (const att of folder?.synopsisAttachments ?? []) {
+          const id = toStr(att?.id);
+          if (!id) continue;
+          const title = toStr(att?.fileName ?? att?.fileDescription);
+          documents.push({
+            title: title || `Attachment ${id}`,
+            url: `https://apply07.grants.gov/grantsws/rest/opportunity/att/download/${id}`,
+          });
+        }
+      }
 
       return {
-        description: toStr(synopsis.description) || null,
-        eligibility: toStr(synopsis.eligibilityDesc) || null,
-        geographic: toStr(body.geographicScope) || null,
+        description: toStr(synopsis.synopsisDesc) || null,
+        eligibility: toStr(synopsis.applicantEligibilityDesc) || null,
+        // The details API does not return a geographic scope.
+        geographic: null,
         awardCeiling: toPositiveNumber(synopsis.awardCeiling),
         awardFloor: toPositiveNumber(synopsis.awardFloor),
-        closeDate: normaliseCloseDate(synopsis.closeDate),
+        closeDate: normaliseDetailDate(
+          synopsis.responseDateStr ?? synopsis.responseDate,
+        ),
         documents,
       };
     } catch {
