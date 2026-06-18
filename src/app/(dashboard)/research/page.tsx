@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -78,7 +78,7 @@ function sourceBadgeProps(source: string | null, sourceType: OppSourceType | nul
     try {
       label = new URL(source).hostname.replace(/^www\./, "");
     } catch {
-      label = source.length > 18 ? source.slice(0, 18) + "â€¦" : source;
+      label = source.length > 18 ? source.slice(0, 18) + "…" : source;
     }
   } else if (sourceType) {
     label = sourceType.replace(/_/g, " ");
@@ -99,14 +99,14 @@ function formatAmount(min: number | null, max: number | null): string {
       : n >= 1_000
         ? `$${Math.round(n / 1_000)}K`
         : `$${n.toLocaleString()}`;
-  if (min !== null && max !== null) return `${fmt(min)} â€“ ${fmt(max)}`;
+  if (min !== null && max !== null) return `${fmt(min)} – ${fmt(max)}`;
   if (max !== null) return `Up to ${fmt(max)}`;
   if (min !== null) return `From ${fmt(min)}`;
-  return "â€”";
+  return "—";
 }
 
 function formatDate(iso: string | null): string {
-  if (!iso) return "â€”";
+  if (!iso) return "—";
   return new Date(iso).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
@@ -447,7 +447,7 @@ export default function ResearchPage() {
               className="shrink-0 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-60 transition-colors"
             >
               {configuringResearch && <Spinner className="h-3 w-3" />}
-              {configuringResearch ? "Analyzingâ€¦" : "Configure Research Sources"}
+              {configuringResearch ? "Analyzing…" : "Configure Research Sources"}
             </button>
           </div>
         </div>
@@ -464,7 +464,7 @@ export default function ResearchPage() {
                 disabled={configuringResearch}
                 className="text-xs font-medium text-blue-600 hover:underline disabled:opacity-60"
               >
-                {configuringResearch ? "Analyzingâ€¦" : "Reconfigure Sources"}
+                {configuringResearch ? "Analyzing…" : "Reconfigure Sources"}
               </button>
             )}
           </div>
@@ -474,7 +474,7 @@ export default function ResearchPage() {
             className="inline-flex items-center gap-2 rounded-lg bg-navy-900 px-4 py-2 text-sm font-medium text-white hover:bg-navy-800 disabled:opacity-60 transition-colors"
           >
             {runningAll && <Spinner className="h-4 w-4" />}
-            {runningAll ? "Runningâ€¦" : "Run All Research Agents"}
+            {runningAll ? "Running…" : "Run All Research Agents"}
           </button>
         </div>
 
@@ -530,7 +530,7 @@ export default function ResearchPage() {
                     <span className="font-medium">
                       {stats?.itemsFound != null
                         ? stats.itemsFound.toLocaleString()
-                        : "â€”"}
+                        : "—"}
                     </span>
                   </p>
                 </div>
@@ -543,7 +543,7 @@ export default function ResearchPage() {
                   disabled={isRunning || runningAll}
                   className="mt-3 w-full rounded-md border border-gray-300 px-2 py-1.5 text-xs font-medium text-navy-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
                 >
-                  {isRunning ? "Runningâ€¦" : "Run"}
+                  {isRunning ? "Running…" : "Run"}
                 </button>
               </div>
             );
@@ -580,7 +580,7 @@ export default function ResearchPage() {
         {loading ? (
           <div className="flex items-center justify-center rounded-xl border border-gray-200 bg-white p-10 text-sm text-navy-500">
             <Spinner className="mr-2 h-4 w-4 text-navy-400" />
-            Loading opportunitiesâ€¦
+            Loading opportunities…
           </div>
         ) : opportunities.length === 0 ? (
           <div className="rounded-xl border border-gray-200 bg-white p-10 text-center text-sm text-navy-500">
@@ -651,7 +651,7 @@ export default function ResearchPage() {
                       <td className="px-4 py-3 text-xs text-navy-600">
                         {opp.eligibility_score != null
                           ? `${opp.eligibility_score}%`
-                          : "â€”"}
+                          : "—"}
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 text-xs text-navy-500">
                         {formatDate(opp.created_at)}
@@ -685,4 +685,3 @@ export default function ResearchPage() {
     </div>
   );
 }
-
