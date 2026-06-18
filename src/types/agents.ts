@@ -93,7 +93,15 @@ export type AgentType =
   | "simpler_grants_research"
   // HUD Monitor Agent — fetches HUD funding opportunities page and uses Claude
   // to extract structured opportunity data; maps to housing_grant category.
-  | "hud_monitor";
+  | "hud_monitor"
+  // AutoApply Form Analysis Engine — visits a funder's giving portal URL via
+  // Playwright, extracts form structure via Claude, stores field mapping in
+  // form_templates for use by the AutoApply worker.
+  | "form_analyzer"
+  // AutoApply Form Fill Engine — fills and submits a corporate giving form using
+  // a stored form_template via Playwright. Creates autoapply_submissions records
+  // with screenshots and confirmation numbers.
+  | "form_filler";
 
 export type AgentRunStatus = "pending" | "running" | "completed" | "failed";
 

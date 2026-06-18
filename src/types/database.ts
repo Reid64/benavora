@@ -2299,6 +2299,165 @@ export interface Database {
         };
         Relationships: [];
       };
+      // Migration 045 — form_templates (AutoApply form structure cache).
+      form_templates: {
+        Row: {
+          id: string;
+          organization_id: string;
+          funder_id: string | null;
+          portal_url: string;
+          form_structure: Json | null;
+          field_mapping: Json | null;
+          is_multi_step: boolean;
+          step_navigation: Json | null;
+          requires_login: boolean;
+          requires_file_upload: boolean;
+          file_upload_fields: Json | null;
+          last_verified_at: string | null;
+          last_used_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          funder_id?: string | null;
+          portal_url: string;
+          form_structure?: Json | null;
+          field_mapping?: Json | null;
+          is_multi_step?: boolean;
+          step_navigation?: Json | null;
+          requires_login?: boolean;
+          requires_file_upload?: boolean;
+          file_upload_fields?: Json | null;
+          last_verified_at?: string | null;
+          last_used_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          funder_id?: string | null;
+          portal_url?: string;
+          form_structure?: Json | null;
+          field_mapping?: Json | null;
+          is_multi_step?: boolean;
+          step_navigation?: Json | null;
+          requires_login?: boolean;
+          requires_file_upload?: boolean;
+          file_upload_fields?: Json | null;
+          last_verified_at?: string | null;
+          last_used_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      // Migration 045 — autoapply_submissions (submission attempt log).
+      autoapply_submissions: {
+        Row: {
+          id: string;
+          organization_id: string;
+          funder_id: string | null;
+          form_template_id: string | null;
+          status: string;
+          request_description: string | null;
+          request_type: string | null;
+          request_amount: number | null;
+          pre_submit_screenshot_url: string | null;
+          confirmation_screenshot_url: string | null;
+          confirmation_number: string | null;
+          error_message: string | null;
+          error_screenshot_url: string | null;
+          retry_count: number;
+          next_retry_at: string | null;
+          submitted_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          funder_id?: string | null;
+          form_template_id?: string | null;
+          status?: string;
+          request_description?: string | null;
+          request_type?: string | null;
+          request_amount?: number | null;
+          pre_submit_screenshot_url?: string | null;
+          confirmation_screenshot_url?: string | null;
+          confirmation_number?: string | null;
+          error_message?: string | null;
+          error_screenshot_url?: string | null;
+          retry_count?: number;
+          next_retry_at?: string | null;
+          submitted_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          funder_id?: string | null;
+          form_template_id?: string | null;
+          status?: string;
+          request_description?: string | null;
+          request_type?: string | null;
+          request_amount?: number | null;
+          pre_submit_screenshot_url?: string | null;
+          confirmation_screenshot_url?: string | null;
+          confirmation_number?: string | null;
+          error_message?: string | null;
+          error_screenshot_url?: string | null;
+          retry_count?: number;
+          next_retry_at?: string | null;
+          submitted_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      // Migration 045 — submission_queue (AutoApply worker queue).
+      submission_queue: {
+        Row: {
+          id: string;
+          organization_id: string;
+          funder_id: string | null;
+          priority: number;
+          status: string;
+          automation_mode: string;
+          scheduled_for: string | null;
+          started_at: string | null;
+          completed_at: string | null;
+          submission_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          funder_id?: string | null;
+          priority?: number;
+          status?: string;
+          automation_mode?: string;
+          scheduled_for?: string | null;
+          started_at?: string | null;
+          completed_at?: string | null;
+          submission_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          funder_id?: string | null;
+          priority?: number;
+          status?: string;
+          automation_mode?: string;
+          scheduled_for?: string | null;
+          started_at?: string | null;
+          completed_at?: string | null;
+          submission_id?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -2438,7 +2597,11 @@ export interface Database {
         // Aliases / additional values required by Tier 6 task definitions.
         | "giving_history"
         | "competitor_intel"
-        | "compliance_calendar";
+        | "compliance_calendar"
+        // AutoApply Form Analysis Engine.
+        | "form_analyzer"
+        // AutoApply Form Fill Engine.
+        | "form_filler";
       agent_run_status: "pending" | "running" | "completed" | "failed";
       campaign_status: "draft" | "active" | "paused" | "completed";
       campaign_step_status:
