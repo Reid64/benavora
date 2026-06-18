@@ -58,10 +58,16 @@ const NOFA_BUCKET = "nofa-pdfs";
 // Grants.gov documents are usually PDFs but some are HTML announcements
 // (e.g. PAR-25-310-Full-Announcement.html). Detect HTML by Content-Type or file
 // extension so we extract text via strip-tags rather than pdf-parse.
-function isHtmlDocument(url: string, contentType: string): boolean {
+function isHtmlDocument(
+  url: string,
+  title: string,
+  contentType: string,
+): boolean {
   if (/text\/html/i.test(contentType)) return true;
-  const path = (url.split(/[?#]/)[0] ?? url).toLowerCase();
-  return path.endsWith(".html") || path.endsWith(".htm");
+  // Grants.gov download URLs are opaque (.../att/download/344872), so the
+  // .html extension usually lives in the title, not the url - check both.
+  const hasHtmlExt = (s: string) => /\.html?$/i.test(s.split(/[?#]/)[0] ?? s);
+  return hasHtmlExt(url) || hasHtmlExt(title);
 }
 
 function sanitizeFilename(name: string, ext: "pdf" | "html"): string {
@@ -325,7 +331,7 @@ export class NofaParserAgent extends BaseAgent<NofaParserInput, NofaParserResult
       const downloaded = await downloadDocument(doc.url);
       if (downloaded) {
         const { buffer, contentType } = downloaded;
-        const isHtml = isHtmlDocument(doc.url, contentType);
+        const isHtml = isHtmlDocument(doc.url, doc.title ?? "", contentType);
         const filename = sanitizeFilename(
           doc.title ?? `nofa-${i + 1}`,
           isHtml ? "html" : "pdf",
