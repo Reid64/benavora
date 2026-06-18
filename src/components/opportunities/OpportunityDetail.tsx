@@ -208,6 +208,8 @@ export function OpportunityDetail({ opportunityId }: OpportunityDetailProps) {
       }
       await load();
     } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("NOFA parse failed:", err);
       setParseError(err instanceof Error ? err.message : "NOFA parsing failed.");
     } finally {
       setParseLoading(false);
@@ -635,7 +637,7 @@ function OverviewTab({
                   <a
                     href={doc.url}
                     target="_blank"
-                    rel="noreferrer"
+                    rel="noopener noreferrer"
                     className="inline-flex items-center gap-2 text-sm text-teal-600 hover:text-teal-700"
                   >
                     <FileText

@@ -13,8 +13,6 @@
 // The exported runNofaBatch() function processes all opportunities where
 // opportunity_documents is not null AND description is null.
 
-import pdfParse from "pdf-parse";
-
 import { callClaude } from "@/lib/ai/claude";
 import {
   AgentError,
@@ -108,7 +106,44 @@ function parseDocuments(raw: unknown): OpportunityDocument[] {
   );
 }
 
+type PdfParseFn = (buf: Buffer) => Promise<{ text?: string }>;
+let pdfParserPromise: Promise<PdfParseFn> | null = null;
+
+/**
+ * Lazily load pdf-parse. The package's index.js runs debug code at import that
+ * reads a bundled test PDF (`./test/data/05-versions-space.pdf`) and crashes in
+ * serverless bundles, so we import the INNER module (`pdf-parse/lib/pdf-parse.js`)
+ * which has no such side effect, wrapped in try/catch so any failure surfaces as
+ * a clear AgentError instead of a silent route crash. Memoized per cold start.
+ */
+async function getPdfParser(): Promise<PdfParseFn> {
+  if (!pdfParserPromise) {
+    pdfParserPromise = (async () => {
+      try {
+        // @ts-expect-error - no type declarations for the inner module path
+        const mod = await import("pdf-parse/lib/pdf-parse.js");
+        const fn = (mod.default ?? mod) as PdfParseFn;
+        if (typeof fn !== "function") {
+          throw new Error("pdf-parse export is not callable");
+        }
+        return fn;
+      } catch (err) {
+        pdfParserPromise = null; // allow a later retry
+        throw new AgentError(
+          "PDF parsing is unavailable on the server (pdf-parse failed to load): " +
+            (err instanceof Error ? err.message : String(err)),
+          "pdf_parse_unavailable",
+        );
+      }
+    })();
+  }
+  return pdfParserPromise;
+}
+
 async function downloadAndParsePdf(url: string): Promise<string | null> {
+  // Loader failure throws AgentError -> propagates to the route as a clear error.
+  // Per-file download/parse errors stay non-fatal (return null).
+  const pdfParse = await getPdfParser();
   try {
     const response = await fetch(url, {
       signal: AbortSignal.timeout(30_000),
