@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -74,7 +74,7 @@ function sourceBadgeProps(source: string | null, sourceType: OppSourceType | nul
     try {
       label = new URL(source).hostname.replace(/^www\./, "");
     } catch {
-      label = source.length > 18 ? source.slice(0, 18) + "…" : source;
+      label = source.length > 18 ? source.slice(0, 18) + "â€¦" : source;
     }
   } else if (sourceType) {
     label = sourceType.replace(/_/g, " ");
@@ -95,14 +95,14 @@ function formatAmount(min: number | null, max: number | null): string {
       : n >= 1_000
         ? `$${Math.round(n / 1_000)}K`
         : `$${n.toLocaleString()}`;
-  if (min !== null && max !== null) return `${fmt(min)} – ${fmt(max)}`;
+  if (min !== null && max !== null) return `${fmt(min)} â€“ ${fmt(max)}`;
   if (max !== null) return `Up to ${fmt(max)}`;
   if (min !== null) return `From ${fmt(min)}`;
-  return "—";
+  return "â€”";
 }
 
 function formatDate(iso: string | null): string {
-  if (!iso) return "—";
+  if (!iso) return "â€”";
   return new Date(iso).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
@@ -120,7 +120,7 @@ function formatDuration(
     (startedAt && completedAt
       ? new Date(completedAt).getTime() - new Date(startedAt).getTime()
       : null);
-  if (ms === null) return "—";
+  if (ms === null) return "â€”";
   const secs = Math.round(ms / 1000);
   if (secs < 60) return `${secs}s`;
   return `${Math.floor(secs / 60)}m ${secs % 60}s`;
@@ -268,7 +268,7 @@ export default function ResearchPage() {
       const res = await fetch("/api/agents/research", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ agentType: "all" }),
+        body: JSON.stringify({ sources: ["all"] }),
       });
       const payload = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) {
@@ -292,7 +292,7 @@ export default function ResearchPage() {
       const res = await fetch("/api/agents/research", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ agentType: src.agentType }),
+        body: JSON.stringify({ sources: [src.key] }),
       });
       const payload = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) {
@@ -341,7 +341,7 @@ export default function ResearchPage() {
             className="inline-flex items-center gap-2 rounded-lg bg-navy-900 px-4 py-2 text-sm font-medium text-white hover:bg-navy-800 disabled:opacity-60 transition-colors"
           >
             {runningAll && <Spinner className="h-4 w-4" />}
-            {runningAll ? "Running…" : "Run All Research Agents"}
+            {runningAll ? "Runningâ€¦" : "Run All Research Agents"}
           </button>
         </div>
 
@@ -373,7 +373,7 @@ export default function ResearchPage() {
                     <span className="font-medium">
                       {stats?.itemsFound != null
                         ? stats.itemsFound.toLocaleString()
-                        : "—"}
+                        : "â€”"}
                     </span>
                   </p>
                 </div>
@@ -383,7 +383,7 @@ export default function ResearchPage() {
                   disabled={isRunning || runningAll}
                   className="mt-3 w-full rounded-md border border-gray-300 px-2 py-1.5 text-xs font-medium text-navy-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
                 >
-                  {isRunning ? "Running…" : "Run"}
+                  {isRunning ? "Runningâ€¦" : "Run"}
                 </button>
               </div>
             );
@@ -405,7 +405,7 @@ export default function ResearchPage() {
         {loading ? (
           <div className="flex items-center justify-center rounded-xl border border-gray-200 bg-white p-10 text-sm text-navy-500">
             <Spinner className="mr-2 h-4 w-4 text-navy-400" />
-            Loading opportunities…
+            Loading opportunitiesâ€¦
           </div>
         ) : opportunities.length === 0 ? (
           <div className="rounded-xl border border-gray-200 bg-white p-10 text-center text-sm text-navy-500">
@@ -466,7 +466,7 @@ export default function ResearchPage() {
                       <td className="px-4 py-3 text-xs text-navy-600">
                         {opp.eligibility_score != null
                           ? `${opp.eligibility_score}%`
-                          : "—"}
+                          : "â€”"}
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 text-xs text-navy-500">
                         {formatDate(opp.created_at)}
@@ -495,7 +495,7 @@ export default function ResearchPage() {
         {loading ? (
           <div className="flex items-center justify-center rounded-xl border border-gray-200 bg-white p-10 text-sm text-navy-500">
             <Spinner className="mr-2 h-4 w-4 text-navy-400" />
-            Loading run log…
+            Loading run logâ€¦
           </div>
         ) : agentRuns.length === 0 ? (
           <div className="rounded-xl border border-gray-200 bg-white p-10 text-center text-sm text-navy-500">
@@ -541,10 +541,10 @@ export default function ResearchPage() {
                     <td className="px-4 py-3 text-xs text-navy-600">
                       {run.items_found != null
                         ? run.items_found.toLocaleString()
-                        : "—"}
+                        : "â€”"}
                     </td>
                     <td className="max-w-[200px] truncate px-4 py-3 text-xs text-red-600">
-                      {run.error_message ?? "—"}
+                      {run.error_message ?? "â€”"}
                     </td>
                   </tr>
                 ))}
@@ -556,3 +556,4 @@ export default function ResearchPage() {
     </div>
   );
 }
+
