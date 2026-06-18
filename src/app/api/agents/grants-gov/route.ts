@@ -13,6 +13,7 @@ import { GrantsGovResearchAgent } from "@/lib/agents/grants-gov";
 import { requireRole } from "@/lib/auth/role-gate";
 
 export const runtime = "nodejs";
+export const maxDuration = 300;
 
 function jsonError(message: string, code: string, status: number) {
   return NextResponse.json({ error: message, code }, { status });

@@ -4,17 +4,20 @@
 // opportunities matching search profile keywords (BEHAVIORAL_CONTRACTS §17).
 //
 // Per-run behaviour:
-//   1. Builds a POST request to the Grants.gov search endpoint with keyword,
-//      optional funding categories, and an optional posted-date range.
-//   2. Parses the response array of hits into structured GrantsGovOpportunity
-//      objects, normalising the MM/DD/YYYY close dates to ISO-8601.
-//   3. Deduplicates against existing opportunities by name OR url before
+//   1. Runs multiple keyword searches (housing-focused phrases + any caller-
+//      supplied keywords) to maximise coverage — typically 150+ results vs
+//      the old single-query 25.
+//   2. Deduplicates by oppNumber in memory across all searches before touching
+//      the database.
+//   3. Parses synopsis.awardCeiling/Floor and synopsis.closeDate (MMDDYYYY)
+//      from the nested synopsis object where the API actually puts them.
+//   4. Deduplicates against existing opportunities by name OR url before
 //      inserting new records into the opportunities table.
-//   4. Returns the full list of discovered opportunities and a count of newly
+//   5. Returns the full list of discovered opportunities and a count of newly
 //      created rows so callers can poll without fetching the whole table.
 //
-// Error handling: HTTP failures and fetch timeouts are wrapped in AgentError so
-// BaseAgent can log status="failed" and surface a typed error to route handlers.
+// Error handling: per-query HTTP failures are skipped (non-fatal). A total
+// fetch failure wraps in AgentError so BaseAgent can log status="failed".
 
 import {
   AgentError,
@@ -25,6 +28,17 @@ import type { AgentType } from "@/types/agents";
 
 const GRANTS_GOV_URL =
   "https://apply07.grants.gov/grantsws/rest/opportunities/search/";
+
+// Six housing-focused keyword phrases run as separate searches to maximise
+// coverage. Each returns up to 25 hits, giving ~150 candidates before dedup.
+const HOUSING_KEYWORD_QUERIES = [
+  "affordable housing rural Texas",
+  "transitional housing reentry recovery",
+  "homelessness prevention emergency shelter",
+  "community development block grant housing",
+  "veterans housing rural",
+  "down payment assistance first time homebuyer",
+];
 
 export interface GrantsGovInput {
   keywords: string[];
@@ -50,17 +64,24 @@ export interface GrantsGovResult {
   opportunitiesCreated: number;
 }
 
+// The API nests financial and date fields inside synopsis.
+interface RawSynopsis {
+  awardCeiling?: unknown;
+  awardFloor?: unknown;
+  closeDate?: unknown;
+  postDate?: unknown;
+  archiveDate?: unknown;
+  description?: unknown;
+}
+
 interface RawHit {
   title?: unknown;
+  id?: unknown;
   agency?: unknown;
   agencyName?: unknown;
   number?: unknown;
   oppNumber?: unknown;
-  closeDate?: unknown;
-  closeDateStr?: unknown;
-  awardCeiling?: unknown;
-  awardFloor?: unknown;
-  synopsis?: unknown;
+  synopsis?: RawSynopsis;
   description?: unknown;
 }
 
@@ -70,15 +91,36 @@ interface GrantsGovResponse {
   items?: RawHit[];
 }
 
-// Parse "MM/DD/YYYY" dates from the Grants.gov API to ISO-8601 (YYYY-MM-DD).
-// Explicitly defaults match groups to prevent passing undefined to string ops.
+// Parse "MM/DD/YYYY" or compact "MMDDYYYY" dates to ISO-8601 (YYYY-MM-DD).
+// The Grants.gov synopsis.closeDate field uses the compact 8-digit form.
 function parseMDYDate(raw: string): string | null {
-  const match = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(raw.trim());
-  if (!match) return null;
-  const month = match[1] ?? "01";
-  const day = match[2] ?? "01";
-  const year = match[3] ?? "1970";
-  return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+  const trimmed = raw.trim();
+
+  // "MM/DD/YYYY" with slashes
+  const slash = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(trimmed);
+  if (slash) {
+    const month = slash[1] ?? "01";
+    const day = slash[2] ?? "01";
+    const year = slash[3] ?? "1970";
+    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+  }
+
+  // "MMDDYYYY" compact (Grants.gov synopsis.closeDate)
+  const compact = /^(\d{2})(\d{2})(\d{4})$/.exec(trimmed);
+  if (compact) {
+    const month = compact[1] ?? "01";
+    const day = compact[2] ?? "01";
+    const year = compact[3] ?? "1970";
+    return `${year}-${month}-${day}`;
+  }
+
+  return null;
+}
+
+function toStr(val: unknown): string {
+  if (typeof val === "string") return val.trim();
+  if (val === null || val === undefined) return "";
+  return String(val).trim();
 }
 
 function toNumber(val: unknown): number | null {
@@ -87,10 +129,10 @@ function toNumber(val: unknown): number | null {
   return isFinite(n) ? n : null;
 }
 
-function toStr(val: unknown): string {
-  if (typeof val === "string") return val.trim();
-  if (val === null || val === undefined) return "";
-  return String(val).trim();
+// Convert 0 or non-positive amounts to null (0 means "not specified").
+function toPositiveNumber(val: unknown): number | null {
+  const n = toNumber(val);
+  return n !== null && n > 0 ? n : null;
 }
 
 function truncate(val: unknown, maxLen: number): string | null {
@@ -115,10 +157,16 @@ function extractHits(body: GrantsGovResponse): RawHit[] {
   return [];
 }
 
-// HUD typically appears as "Department of Housing and Urban Development" or "HUD"
 function isHudAgency(agencyName: string): boolean {
   const lower = agencyName.toLowerCase();
   return lower.includes("hud") || lower.includes("housing and urban development");
+}
+
+function hitKey(hit: RawHit): string {
+  const oppNum = toStr(hit.oppNumber ?? hit.number);
+  if (oppNum) return `num:${oppNum}`;
+  const title = toStr(hit.title);
+  return title ? `title:${title}` : "";
 }
 
 export class GrantsGovResearchAgent extends BaseAgent<
@@ -130,8 +178,22 @@ export class GrantsGovResearchAgent extends BaseAgent<
   protected async execute(
     input: GrantsGovInput,
   ): Promise<AgentExecution<GrantsGovResult>> {
-    const keyword = input.keywords.filter(Boolean).join(" ").trim();
-    if (!keyword) {
+    // Build query list: always run all housing-focused phrases; append the
+    // caller's keywords as one extra search if they differ from the defaults.
+    const userQuery = input.keywords.filter(Boolean).join(" ").trim();
+    const queries: string[] = [...HOUSING_KEYWORD_QUERIES];
+    if (
+      userQuery &&
+      !HOUSING_KEYWORD_QUERIES.some((q) =>
+        q.toLowerCase().includes(userQuery.toLowerCase()),
+      )
+    ) {
+      queries.push(userQuery);
+    }
+
+    // Require at least one query.
+    const effectiveQueries = queries.filter(Boolean);
+    if (effectiveQueries.length === 0) {
       throw new AgentError(
         "At least one keyword is required.",
         "no_keywords",
@@ -139,65 +201,67 @@ export class GrantsGovResearchAgent extends BaseAgent<
       );
     }
 
-    const requestBody: Record<string, unknown> = {
-      keyword,
-      oppStatuses: "forecasted|posted",
-      rows: 25,
-      startRecordNum: 0,
-    };
+    // Run each query and collect hits, deduplicating by oppNumber in memory.
+    const allHitsMap = new Map<string, RawHit>();
 
-    if (input.categories?.length) {
-      requestBody.fundingCategories = input.categories.join("|");
-    }
-    if (input.dateRange?.from) {
-      requestBody.postDateFrom = input.dateRange.from;
-    }
-    if (input.dateRange?.to) {
-      requestBody.postDateTo = input.dateRange.to;
-    }
+    for (const keyword of effectiveQueries) {
+      const requestBody: Record<string, unknown> = {
+        keyword,
+        oppStatuses: "forecasted|posted",
+        rows: 25,
+        startRecordNum: 0,
+      };
 
-    let rawBody: GrantsGovResponse;
-    try {
-      const response = await fetch(GRANTS_GOV_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody),
-        signal: AbortSignal.timeout(30_000),
-      });
-
-      if (!response.ok) {
-        throw new AgentError(
-          `Grants.gov API returned HTTP ${response.status}.`,
-          "api_error",
-          502,
-        );
+      if (input.categories?.length) {
+        requestBody.fundingCategories = input.categories.join("|");
+      }
+      if (input.dateRange?.from) {
+        requestBody.postDateFrom = input.dateRange.from;
+      }
+      if (input.dateRange?.to) {
+        requestBody.postDateTo = input.dateRange.to;
       }
 
-      rawBody = (await response.json()) as GrantsGovResponse;
-    } catch (err) {
-      if (err instanceof AgentError) throw err;
-      throw new AgentError(
-        `Grants.gov request failed: ${err instanceof Error ? err.message : "network error"}`,
-        "fetch_failed",
-        502,
-      );
+      try {
+        const response = await fetch(GRANTS_GOV_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(requestBody),
+          signal: AbortSignal.timeout(30_000),
+        });
+
+        if (!response.ok) continue;
+
+        const rawBody = (await response.json()) as GrantsGovResponse;
+        for (const hit of extractHits(rawBody)) {
+          const key = hitKey(hit);
+          if (key && !allHitsMap.has(key)) {
+            allHitsMap.set(key, hit);
+          }
+        }
+      } catch {
+        // Non-fatal: skip this keyword on network/parse errors.
+      }
     }
 
-    const hits = extractHits(rawBody);
-
-    const opportunities: GrantsGovOpportunity[] = hits.map((hit) => {
+    // Map deduplicated hits to structured opportunities.
+    const opportunities: GrantsGovOpportunity[] = Array.from(
+      allHitsMap.values(),
+    ).map((hit) => {
+      const synopsis: RawSynopsis = hit.synopsis ?? {};
       const oppNum = toStr(hit.oppNumber ?? hit.number);
-      const agency = toStr(hit.agencyName ?? hit.agency);
+      const hitId = toStr(hit.id);
+      const urlId = oppNum || hitId;
       return {
         title: toStr(hit.title),
-        agency,
+        agency: toStr(hit.agencyName ?? hit.agency),
         opportunity_number: oppNum,
-        close_date: normaliseCloseDate(hit.closeDate ?? hit.closeDateStr),
-        award_ceiling: toNumber(hit.awardCeiling),
-        award_floor: toNumber(hit.awardFloor),
-        description: truncate(hit.synopsis ?? hit.description, 2000),
-        url: oppNum
-          ? `https://www.grants.gov/search-grants?opp=${oppNum}`
+        close_date: normaliseCloseDate(synopsis.closeDate),
+        award_ceiling: toPositiveNumber(synopsis.awardCeiling),
+        award_floor: toPositiveNumber(synopsis.awardFloor),
+        description: truncate(synopsis.description ?? hit.description, 2000),
+        url: urlId
+          ? `https://www.grants.gov/search-grants?opp=${urlId}`
           : null,
         source: "grants.gov" as const,
       };
@@ -254,9 +318,14 @@ export class GrantsGovResearchAgent extends BaseAgent<
       if (!error) opportunitiesCreated++;
     }
 
+    const queryLabel =
+      effectiveQueries.length === 1
+        ? `"${effectiveQueries[0]}"`
+        : `${effectiveQueries.length} keyword queries`;
+
     return {
       data: { opportunities, count: opportunities.length, opportunitiesCreated },
-      outputSummary: `Grants.gov search for "${keyword}" found ${opportunities.length} opportunity(ies); ${opportunitiesCreated} new record(s) created.`,
+      outputSummary: `Grants.gov search across ${queryLabel} found ${opportunities.length} unique opportunity(ies); ${opportunitiesCreated} new record(s) created.`,
       itemsFound: opportunities.length,
       itemsProcessed: opportunitiesCreated,
       tokensUsed: 0,
