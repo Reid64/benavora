@@ -352,7 +352,12 @@ export function OpportunityDetail({ opportunityId }: OpportunityDetailProps) {
 
       {/* Tab panels */}
       {tab === "overview" && (
-        <OverviewTab opportunity={opportunity} keywords={keywords} />
+        <OverviewTab
+          opportunity={opportunity}
+          keywords={keywords}
+          onParseNofa={handleParseNofa}
+          parsing={parseLoading}
+        />
       )}
       {tab === "eligibility" && <EligibilityTab opportunity={opportunity} />}
       {tab === "validation" && (
@@ -469,9 +474,13 @@ function getFilenameFromUrl(url: string): string {
 function OverviewTab({
   opportunity,
   keywords,
+  onParseNofa,
+  parsing,
 }: {
   opportunity: Tables<"opportunities">;
   keywords: string[];
+  onParseNofa: () => void;
+  parsing: boolean;
 }) {
   const amountRange =
     opportunity.amount_min != null || opportunity.amount_max != null
@@ -524,7 +533,7 @@ function OverviewTab({
           </DetailRow>
           <DetailRow label="Eligibility requirements">
             {opportunity.eligibility_requirements ? (
-              <div className="max-h-48 overflow-y-auto whitespace-pre-wrap">
+              <div className="max-h-[300px] overflow-y-auto whitespace-pre-wrap">
                 {opportunity.eligibility_requirements}
               </div>
             ) : (
@@ -607,7 +616,16 @@ function OverviewTab({
         )}
       </Card>
 
-      <Card title="NOFA Documents" className="lg:col-span-2">
+      <Card
+        title="NOFA Documents"
+        className="lg:col-span-2"
+        actions={
+          <Button variant="secondary" size="sm" onClick={onParseNofa} isLoading={parsing}>
+            <Sparkles className="h-4 w-4" aria-hidden />
+            Parse NOFA
+          </Button>
+        }
+      >
         {documents.length > 0 ? (
           <ul className="space-y-2">
             {documents.map((doc, i) => {
@@ -632,7 +650,7 @@ function OverviewTab({
             })}
           </ul>
         ) : (
-          <p className="text-sm text-navy-400">No NOFA documents available.</p>
+          <p className="text-sm text-navy-400">No NOFA documents linked</p>
         )}
       </Card>
     </div>
