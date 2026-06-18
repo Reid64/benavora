@@ -87,7 +87,13 @@ export type AgentType =
   // Follow-Up Generator Agent (AGENTS.md Agent 28, BEHAVIORAL_CONTRACTS §28).
   // Generates a 3-step humanized follow-up email sequence after a grant
   // application is submitted; stores results as a note on the application.
-  | "follow_up_generator";
+  | "follow_up_generator"
+  // Simpler Grants Research Agent — polls the public Simpler.Grants.gov v1
+  // search API (no auth required) for federal opportunities matching keywords.
+  | "simpler_grants_research"
+  // HUD Monitor Agent — fetches HUD funding opportunities page and uses Claude
+  // to extract structured opportunity data; maps to housing_grant category.
+  | "hud_monitor";
 
 export type AgentRunStatus = "pending" | "running" | "completed" | "failed";
 
