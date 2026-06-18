@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { SearchConfiguration } from "@/app/(dashboard)/search-profiles/configure/SearchConfiguration";
 import type { AgentType } from "@/types/agents";
 import type { Enums } from "@/types/database";
 
@@ -169,6 +170,7 @@ function Spinner({ className = "" }: { className?: string }) {
 
 export default function ResearchPage() {
   const router = useRouter();
+  const [view, setView] = useState<"research" | "config">("research");
   const [sourceStats, setSourceStats] = useState<Record<string, SourceStats>>({});
   const [opportunities, setOpportunities] = useState<OpportunityRow[]>([]);
   const [agentRuns, setAgentRuns] = useState<AgentRunRow[]>([]);
@@ -312,6 +314,37 @@ export default function ResearchPage() {
         </p>
       </div>
 
+      {/* Research / Search Configuration tabs */}
+      <div className="border-b border-gray-200">
+        <nav className="-mb-px flex gap-6" aria-label="Research tabs">
+          {(
+            [
+              { key: "research", label: "Research" },
+              { key: "config", label: "Search Configuration" },
+            ] as const
+          ).map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setView(t.key)}
+              aria-current={view === t.key ? "page" : undefined}
+              className={
+                "whitespace-nowrap border-b-2 px-1 py-3 text-sm font-medium transition " +
+                (view === t.key
+                  ? "border-navy-900 text-navy-900"
+                  : "border-transparent text-navy-500 hover:border-navy-300 hover:text-navy-700")
+              }
+            >
+              {t.label}
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {view === "config" && <SearchConfiguration />}
+
+      {view === "research" && (
+        <>
       {runError && (
         <div
           role="alert"
@@ -530,6 +563,8 @@ export default function ResearchPage() {
           </span>
         )}
       </div>
+        </>
+      )}
     </div>
   );
 }
