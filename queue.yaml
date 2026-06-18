@@ -1,419 +1,90 @@
-project: benavora
-
-settings:
-  max_retries_per_prompt: 3
-  build_model: claude-sonnet-4-6
-  review_model: claude-sonnet-4-6
-  report_model: claude-haiku-4-5-20251001
-  permission_mode: acceptEdits
-  allowed_tools: "*"
-  review_frequency: 5
-  governance_check_frequency: 10
-
 prompts:
-
-  # ============================================================
-  # TIER 3 — ADVANCED FEATURES
-  # ============================================================
-
-  - id: s3-p01
-    phase: build
-    description: "Budget Narrative Generator"
+  - id: nav-rename-autoapply
+    category: ui
     prompt: |
-      Read AGENTS.md Agent 06 (Budget Builder) and BEHAVIORAL_CONTRACTS.md section 9.
-      Create src/app/api/ai/budget/route.ts — API route that:
-      1. Accepts opportunity_id and program_id
-      2. Loads program data, KB budget_justification entries, and opportunity amount constraints
-      3. Generates line-item budget breakdown (personnel, supplies, equipment, travel, contractual, other, indirect costs)
-      4. Generates budget narrative justifying each line item
-      5. Processes output through the AI Humanizer agent before returning
-      6. Returns JSON with budget_table (structured) and budget_narrative (prose) and confidence_score
-      Create src/lib/agents/budget-agent.ts extending BaseAgent with full agent_runs logging.
-      Create src/lib/ai/prompts/budget-detail.ts with the budget generation prompt template.
-      Update the draft generator page to include "Budget Narrative" as a template option that calls this route.
-      All data scoped by organization_id derived from session. Track tokens.
-    expected_outputs:
-      - src/app/api/ai/budget/route.ts
-      - src/lib/agents/budget-agent.ts
-      - src/lib/ai/prompts/budget-detail.ts
-    gates:
-      - type: compile
-      - type: build
-    max_retries: 3
-    on_fail: continue
+      CODEBASE: C:\Users\manag\Documents\benavora
+      TASK: Rename "Automation" to "AutoApply" everywhere in the application.
+      STEPS:
+      1. Read the sidebar nav component (likely src/components/layout/Sidebar.tsx or similar). Find the nav item labeled "Automation" and rename it to "AutoApply".
+      2. Search the entire src/ directory for any other references to "Automation" as a nav label, page title, or breadcrumb. Rename all to "AutoApply".
+      3. If there is a route folder at src/app/(dashboard)/automation, rename it to autoapply and update all internal links and imports.
+      4. Verify build compiles: cd C:\Users\manag\Documents\benavora && pnpm build
+      DO NOT change any functionality. Only rename the label and route references.
+      AFTER COMPLETION: Append to C:\Users\manag\Documents\benavora\STATE_OF_THE_BUILD.md a line noting nav-rename-autoapply completed.
 
-  - id: s3-p02
-    phase: build
-    description: "Document Assembly Engine"
+  - id: fix-opportunity-detail-display
+    category: ui
     prompt: |
-      Read BLUEPRINT.md section 4.6 and BEHAVIORAL_CONTRACTS.md section 7.
-      Create src/app/api/documents/assemble/route.ts that:
-      1. Accepts application_id
-      2. Loads the opportunity's required_documents array
-      3. Loads all linked documents from application_documents junction table
-      4. Compares required vs attached — identifies missing documents
-      5. Generates a submission checklist (JSON array of {document_name, status: 'attached'|'missing', file_path})
-      6. If all documents present, creates a ZIP archive using the archiver package
-      7. Stores the ZIP in Supabase Storage at {org_bucket}/assembled/{application_id}_{timestamp}.zip
-      8. Returns download URL + checklist
-      Create src/components/documents/AssemblyPanel.tsx — UI component showing checklist with green/red indicators and a "Download Package" button.
-      Add the AssemblyPanel to the application detail page ([id]/page.tsx) as a new tab or section.
-      Handle edge cases: no documents linked, opportunity has no required_documents defined.
-    expected_outputs:
-      - src/app/api/documents/assemble/route.ts
-      - src/components/documents/AssemblyPanel.tsx
-    gates:
-      - type: compile
-      - type: build
-    max_retries: 3
-    on_fail: continue
+      CODEBASE: C:\Users\manag\Documents\benavora
+      PROBLEM: The opportunity detail page at /opportunities/[id] shows dashes (-) for all fields in the Overview tab even though the database has populated values for description, eligibility_requirements, amount_max, amount_min, amount_available, deadline, recurrence, geographic_restrictions, application_method, and required_documents. The list page at /opportunities correctly shows amounts and deadlines, proving data exists in Supabase. The detail page is either not querying those columns or not rendering them.
+      STEPS:
+      1. Read src/app/(dashboard)/opportunities/[id]/page.tsx
+      2. Find the Supabase query that loads the opportunity record. Check the select() clause. It must include ALL columns: name, description, category, status, source, amount_available, amount_min, amount_max, deadline, recurrence, eligibility_requirements, required_documents, geographic_restrictions, application_method, url, eligibility_score, recommendation, recommendation_reasoning, discovered_at, created_at, updated_at, and opportunity_documents.
+      3. Find the Overview tab rendering section. For each field, ensure there is a display element that renders the value when non-null. Currently all show "-" even when data exists.
+      4. Details card (left): render DESCRIPTION (full text not truncated), DEADLINE (formatted date), RECURRENCE, GEOGRAPHIC RESTRICTIONS, ELIGIBILITY REQUIREMENTS (full text block scrollable if long), REQUIRED DOCUMENTS (render as list if text[] array).
+      5. Funding card (right): render AMOUNT AVAILABLE, REQUEST RANGE (amount_min to amount_max), APPLICATION METHOD, URL (clickable link).
+      6. Match the existing dark theme styling already in the codebase. Do not reference DESIGN_SYSTEM.md.
+      7. Verify build: cd C:\Users\manag\Documents\benavora && pnpm build
+      CRITICAL: Do not modify any data or queries on the list page. Only fix the detail page.
+      AFTER COMPLETION: Append to C:\Users\manag\Documents\benavora\STATE_OF_THE_BUILD.md a line noting fix-opportunity-detail-display completed.
 
-  - id: s3-p03
-    phase: build
-    description: "Funder Intelligence Agent"
+  - id: tighten-grants-gov-keywords
+    category: agent
     prompt: |
-      Create a new migration file supabase/migrations/010_funder_intelligence.sql with:
-      CREATE TABLE funder_intelligence (
-        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-        organization_id uuid NOT NULL REFERENCES organizations(id),
-        funder_id uuid NOT NULL REFERENCES funders(id) ON DELETE CASCADE,
-        priorities text[],
-        recent_grants jsonb,
-        board_members jsonb,
-        review_criteria text,
-        funding_cycles text,
-        average_grant_size numeric(12,2),
-        total_annual_giving numeric(12,2),
-        application_tips text,
-        last_scraped_at timestamptz,
-        raw_data jsonb,
-        created_at timestamptz DEFAULT now(),
-        updated_at timestamptz DEFAULT now()
-      );
-      ALTER TABLE funder_intelligence ENABLE ROW LEVEL SECURITY;
-      CREATE POLICY "funder_intelligence_org_isolation" ON funder_intelligence
-        USING (organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
-      CREATE INDEX idx_funder_intel_org ON funder_intelligence(organization_id);
-      CREATE INDEX idx_funder_intel_funder ON funder_intelligence(funder_id);
-      UNIQUE(organization_id, funder_id);
+      CODEBASE: C:\Users\manag\Documents\benavora
+      PROBLEM: The Grants.gov research agent returns irrelevant federal grants. Bad examples in the DB: "Clinical Trials Phased Awards for Down syndrome Research", "State Criminal Alien Assistance Program (SCAAP)", "Assistive Technology Program for Farmers with Disabilities", "Centers of Excellence for Veteran Student Success", "National Defense Education Program (NDEP) STEM".
+      Faith Foundation is a 508(c)(1)(a) serving emergency/transitional housing in rural Texas. Only relevant grants: housing, homelessness, reentry, addiction recovery, rural community development, CDBG, HOME program, ESG, CoC, faith-based initiatives, Texas programs.
+      STEPS:
+      1. Find the Grants.gov agent. Search for grants-gov, grants_gov, or grantsGov in src/lib/agents/. Read the file.
+      2. Find the keyword/query parameters sent to the Grants.gov API. Replace the keyword list with ONLY these terms: "homeless housing", "transitional housing", "emergency shelter", "reentry housing", "recovery housing", "rural housing", "community development block grant", "HOME Investment Partnership", "Emergency Solutions Grant", "Continuum of Care", "faith-based community", "substance abuse recovery housing".
+      3. If the API supports geographic filtering, add Texas or filter for grants available nationally or in Texas.
+      4. ADD a post-fetch relevance scoring function BEFORE inserting any opportunity into the database:
+         a. Score each result 0-100 based on keyword overlap with: housing, homeless, shelter, reentry, recovery, rural, community development, faith, Texas, nonprofit
+         b. Check title and description against REJECT list: ["disability", "veteran education", "criminal alien", "STEM", "defense", "agriculture", "farmers", "fisheries", "NIH", "CDC", "NASA", "DOD research", "clinical trial"]
+         c. Only insert opportunities with relevance score >= 40 AND no reject-list matches
+         d. Log rejected grants to console with reason
+      5. Do NOT delete existing irrelevant grants from the database.
+      6. Verify build: cd C:\Users\manag\Documents\benavora && pnpm build
+      AFTER COMPLETION: Append to C:\Users\manag\Documents\benavora\STATE_OF_THE_BUILD.md a line noting tighten-grants-gov-keywords completed with relevance filter details.
 
-      Add the TypeScript type for funder_intelligence to src/types/database.ts.
-      Create src/app/api/agents/funder-intel/route.ts that:
-      1. Accepts funder_id
-      2. Loads the funder record (website, giving_portal_url)
-      3. Fetches the funder website via server-side HTTP request
-      4. Sends page content to Claude API: "Extract from this funder's website: funding priorities, recent grants awarded, board/committee members, review criteria, funding cycles/deadlines, average grant size, application tips. Return as structured JSON."
-      5. Upserts into funder_intelligence table
-      6. Logs to agent_runs
-      Create src/lib/agents/funder-intel.ts extending BaseAgent.
-      Add a "Research Funder" button to the funder detail page that triggers this agent.
-      Display funder intelligence data on the funder detail page in a new "Intelligence" tab.
-    expected_outputs:
-      - supabase/migrations/010_funder_intelligence.sql
-      - src/app/api/agents/funder-intel/route.ts
-      - src/lib/agents/funder-intel.ts
-    gates:
-      - type: compile
-      - type: build
-    max_retries: 3
-    on_fail: continue
-
-  - id: s3-p04
-    phase: build
-    description: "Renewal Tracker"
+  - id: nofa-pdf-parsing-pipeline
+    category: agent
     prompt: |
-      Create supabase/migrations/011_renewals.sql with:
-      CREATE TABLE renewals (
-        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-        organization_id uuid NOT NULL REFERENCES organizations(id),
-        application_id uuid NOT NULL REFERENCES applications(id) ON DELETE CASCADE,
-        opportunity_id uuid NOT NULL REFERENCES opportunities(id),
-        funder_id uuid REFERENCES funders(id),
-        renewal_type text NOT NULL DEFAULT 'annual',
-        reporting_deadline date,
-        renewal_window_start date,
-        renewal_window_end date,
-        compliance_status text DEFAULT 'pending',
-        compliance_notes text,
-        auto_narrative_draft text,
-        alert_sent_60d boolean DEFAULT false,
-        alert_sent_30d boolean DEFAULT false,
-        alert_sent_14d boolean DEFAULT false,
-        created_at timestamptz DEFAULT now(),
-        updated_at timestamptz DEFAULT now()
-      );
-      ALTER TABLE renewals ENABLE ROW LEVEL SECURITY;
-      CREATE POLICY "renewals_org_isolation" ON renewals
-        USING (organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
-      CREATE INDEX idx_renewals_org ON renewals(organization_id);
-      CREATE INDEX idx_renewals_app ON renewals(application_id);
-      CREATE INDEX idx_renewals_deadline ON renewals(reporting_deadline);
+      CODEBASE: C:\Users\manag\Documents\benavora
+      TASK: Build a PDF NOFA parsing pipeline that downloads federal grant PDFs and extracts structured data to enrich opportunity records.
+      CONTEXT: A column called opportunity_documents (jsonb) stores PDF URLs from Grants.gov. These PDFs are the authoritative source for federal grants containing full eligibility, exact deadlines, funding amounts, geographic restrictions, and requirements. Currently stored but never parsed.
+      STEPS:
+      1. Find the opportunity_documents column. Search supabase/migrations/ for any migration adding opportunity_documents. If it does not exist in prod, create it: ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS opportunity_documents jsonb DEFAULT '[]'.
+      2. Install pdf-parse: cd C:\Users\manag\Documents\benavora && pnpm add pdf-parse && pnpm add -D @types/pdf-parse
+      3. Create src/lib/agents/nofa-parser.ts:
+         a. Accept an opportunity ID as input
+         b. Query the opportunity record for opportunity_documents URLs
+         c. For each PDF URL: download via fetch (30s timeout), parse text with pdf-parse, send to Claude API with prompt: "Extract from this NOFA: description (2-3 sentences), eligibility_requirements, amount_available, amount_min, amount_max, deadline (ISO date), geographic_restrictions, application_method, required_documents (string array), recurrence, key_priorities (string array). Return JSON only."
+         d. Parse Claude response. UPDATE opportunity: only overwrite fields where current DB value is null or empty. Never overwrite populated data.
+         e. Log to agent_runs table with agent_type government_research.
+      4. Create API route at src/app/api/agents/nofa-parser/route.ts: POST handler accepting opportunityId, requires auth, calls nofa-parser agent, returns success and enrichedFields array. Set maxDuration = 300.
+      5. Create a batch function that processes all opportunities where opportunity_documents is not null AND description is null.
+      6. Verify build: cd C:\Users\manag\Documents\benavora && pnpm build
+      DO NOT build any UI in this prompt.
+      AFTER COMPLETION: Append to C:\Users\manag\Documents\benavora\STATE_OF_THE_BUILD.md a line noting nofa-pdf-parsing-pipeline completed.
 
-      Add TypeScript type to src/types/database.ts.
-      Create src/app/(dashboard)/renewals/page.tsx — list of active renewals sorted by nearest deadline.
-      Display: funder name, opportunity name, reporting deadline, renewal window, compliance status, days remaining.
-      Color code by urgency (same pattern as deadlines: red/orange/yellow/green).
-      When an outcome is recorded as 'awarded' on a recurring opportunity, auto-create a renewal record.
-      Add a "Generate Renewal Narrative" button that calls the draft generator pre-loaded with the original awarded narrative as context.
-      Add renewals link to the sidebar navigation.
-      Alert logic: flag renewals at 60/30/14 days before reporting_deadline.
-    expected_outputs:
-      - supabase/migrations/011_renewals.sql
-      - src/app/(dashboard)/renewals/page.tsx
-    gates:
-      - type: compile
-      - type: build
-    max_retries: 3
-    on_fail: continue
-
-  - id: s3-p05
-    phase: build
-    description: "Success Pattern Learning"
+  - id: opportunity-documents-ui
+    category: ui
     prompt: |
-      Read AGENTS.md Agent 10 and BEHAVIORAL_CONTRACTS.md section 10.
-      Enhance src/lib/agents/recursive-learning.ts to add pattern analysis:
-      When an outcome is marked 'awarded':
-      1. Load the winning draft (narrative_snapshot from outcome)
-      2. Load any denied drafts for the same funder_category
-      3. Send both to Claude API: "Compare this winning grant narrative against these rejected narratives for the same funder category. Identify: effective language patterns, structural elements that won, specific data points that strengthened the case, tone differences, and areas where the rejected versions were weak. Return structured JSON with: winning_patterns (array of {pattern, description, example}), losing_patterns (array of {pattern, description, example}), recommendations (array of strings)."
-      4. Store analysis in a new success_patterns JSONB column on the proven_narratives table (add via migration 012_success_patterns.sql: ALTER TABLE proven_narratives ADD COLUMN success_patterns jsonb)
-      5. When the draft generator runs, include top success patterns for the matching funder_category in the prompt context
-      Create src/lib/ai/learning/pattern-analyzer.ts with the analysis logic.
-      Update the outcomes analytics page to display discovered patterns grouped by funder category.
-      Log the analysis run to agent_runs.
-    expected_outputs:
-      - supabase/migrations/012_success_patterns.sql
-      - src/lib/ai/learning/pattern-analyzer.ts
-    gates:
-      - type: compile
-      - type: build
-    max_retries: 3
-    on_fail: continue
-
-  - id: s3-p06
-    phase: build
-    description: "Compliance Pre-Check"
-    prompt: |
-      Read AGENTS.md Agent 07 and BEHAVIORAL_CONTRACTS.md section 6.
-      Create src/app/api/compliance/check/route.ts that:
-      1. Accepts application_id
-      2. Loads application, opportunity, linked documents, and draft content
-      3. Runs deterministic checks:
-         a. All required_documents from opportunity are attached via application_documents
-         b. Draft content is not empty
-         c. Draft has no [NEEDS INPUT] flags remaining
-         d. If opportunity specifies word/page limits, verify draft is within bounds
-         e. Organization profile has EIN, mission_statement, and tax_status populated
-         f. Budget totals match requested_amount (if budget narrative exists)
-      4. Runs AI check via Claude: "Review this application for compliance issues: missing information, inconsistent data, claims not supported by the knowledge base, prohibited content for this grant type."
-      5. Returns compliance_report: {passed: boolean, checks: [{name, status: 'pass'|'fail'|'warn', details}], blocking_issues: [], warnings: []}
-      6. If any blocking issue exists, prevent stage transition to 'submitted'
-      Create src/components/applications/ComplianceReport.tsx — visual checklist with pass/fail/warn indicators.
-      Add ComplianceReport to application detail page. Show it automatically when application reaches 'ready_for_review' stage.
-      Enforce: application CANNOT move to 'submitted' unless compliance check passes (zero blocking issues).
-      Update StageTransitionModal to run compliance check before allowing transition to submitted.
-    expected_outputs:
-      - src/app/api/compliance/check/route.ts
-      - src/components/applications/ComplianceReport.tsx
-    gates:
-      - type: compile
-      - type: build
-    max_retries: 3
-    on_fail: continue
-
-  - id: s3-p07
-    phase: build
-    description: "Cold Outreach Sequences"
-    prompt: |
-      Read BEHAVIORAL_CONTRACTS.md section 13.
-      Enhance the cold outreach system at src/app/(dashboard)/outreach/campaigns/page.tsx:
-      1. Pre-built sequence templates: 3-step intro sequence (intro email → 5-day followup → meeting request)
-      2. Each email in the sequence is processed through the AI Humanizer agent before saving
-      3. Template variables supported: {company_name}, {contact_name}, {foundation_name}, {mission_snippet}, {program_name}, {impact_stat}
-      4. Variable validation: scan template for {variables}, check that all can be resolved from org profile + outreach_contact data, block save if unresolvable variables found
-      Create src/app/api/outreach/send/route.ts that:
-      1. Accepts campaign_id and outreach_contact_id
-      2. Resolves all template variables
-      3. Sends email via Resend API (read RESEND_API_KEY from env)
-      4. Creates campaign_sends record with status='sent'
-      5. Enforces: 24-hour minimum gap between steps, max 50 emails/day/org
-      Create src/components/outreach/SequenceBuilder.tsx — visual step editor showing email preview with resolved variables.
-      Update CampaignStatus.tsx to show per-contact send history with timestamps.
-      Add webhook handler at src/app/api/webhooks/resend/route.ts to receive open/reply events and update campaign_sends status.
-    expected_outputs:
-      - src/app/api/outreach/send/route.ts
-      - src/components/outreach/SequenceBuilder.tsx
-      - src/app/api/webhooks/resend/route.ts
-    gates:
-      - type: compile
-      - type: build
-    max_retries: 3
-    on_fail: continue
-
-  - id: s3-p08
-    phase: build
-    description: "Grant Calendar View"
-    prompt: |
-      Read BLUEPRINT.md section 4.9.
-      Replace or significantly enhance src/app/(dashboard)/deadlines/page.tsx:
-      1. Build a proper calendar component using date-fns (already installed)
-      2. Monthly view: grid of days with color-coded deadline pills
-      3. Weekly view: expanded day rows with full deadline details
-      4. Color coding per BLUEPRINT: Red (overdue), Orange (3 days), Yellow (7 days), Green (7+ days)
-      5. Click a deadline pill to expand details inline or open a modal
-      6. Toggle between calendar view and list view (preserve existing list view)
-      7. Filter by deadline_type (application_deadline, follow_up_date, reporting_deadline, renewal_date, document_expiration)
-      8. Show renewal deadlines from the renewals table alongside standard deadlines
-      Create src/components/deadlines/CalendarGrid.tsx — the monthly calendar grid component.
-      Create src/components/deadlines/WeekView.tsx — the weekly expanded view.
-      Create src/components/deadlines/DeadlinePill.tsx — individual deadline indicator with color and tooltip.
-      Navigation: prev/next month buttons, today button, month/year header.
-      Responsive: on mobile, default to list view.
-    expected_outputs:
-      - src/components/deadlines/CalendarGrid.tsx
-      - src/components/deadlines/WeekView.tsx
-      - src/components/deadlines/DeadlinePill.tsx
-    gates:
-      - type: compile
-      - type: build
-    max_retries: 3
-    on_fail: continue
-
-  - id: s3-p09
-    phase: build
-    description: "Email Parsing Agent"
-    prompt: |
-      Create src/app/api/agents/email-parser/route.ts that:
-      1. Accepts an array of email objects: [{from, to, subject, body, date, thread_id}]
-      2. For each email, sends to Claude API: "Classify this email related to grant funding. Determine: type (acknowledgment, information_request, award_notification, rejection, follow_up, general), funder_name (extracted), opportunity_reference (if mentioned), action_required (boolean), action_description, urgency (high/medium/low), sentiment (positive/neutral/negative). Return structured JSON."
-      3. Attempts to match funder_name against existing funders table
-      4. If matched, creates a note on the funder with the email summary
-      5. If email type is award_notification or rejection, flags for outcome recording
-      6. Logs to agent_runs
-      Create src/lib/agents/email-parser.ts extending BaseAgent.
-      Create supabase/migrations/013_email_activity.sql with:
-      CREATE TABLE email_activity (
-        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-        organization_id uuid NOT NULL REFERENCES organizations(id),
-        funder_id uuid REFERENCES funders(id),
-        opportunity_id uuid REFERENCES opportunities(id),
-        application_id uuid REFERENCES applications(id),
-        email_type text NOT NULL,
-        subject text,
-        sender text,
-        received_at timestamptz,
-        summary text,
-        action_required boolean DEFAULT false,
-        action_description text,
-        urgency text DEFAULT 'low',
-        thread_id text,
-        processed_at timestamptz DEFAULT now(),
-        created_at timestamptz DEFAULT now()
-      );
-      RLS + indexes on organization_id, funder_id, email_type.
-      Add TypeScript type to database.ts.
-      NOTE: This agent processes email data passed to it — actual Gmail API integration is Phase 4.
-      For now, create a manual "Parse Email" form on the dashboard where users can paste email content for processing.
-      Create src/components/dashboard/EmailParserWidget.tsx with a textarea and "Parse" button.
-    expected_outputs:
-      - src/app/api/agents/email-parser/route.ts
-      - src/lib/agents/email-parser.ts
-      - supabase/migrations/013_email_activity.sql
-      - src/components/dashboard/EmailParserWidget.tsx
-    gates:
-      - type: compile
-      - type: build
-    max_retries: 3
-    on_fail: continue
-
-  - id: s3-p10
-    phase: build
-    description: "Board Report Generator"
-    prompt: |
-      Create src/app/api/reports/board/route.ts that:
-      1. Accepts optional date_range (start, end) defaulting to last 30 days
-      2. Queries all relevant data scoped by organization_id:
-         a. Executive summary stats: total opportunities, applications submitted, awards, denials, total requested, total awarded
-         b. Pipeline snapshot: count per stage
-         c. Recent submissions with status
-         d. Recent awards with amounts
-         e. Agent activity summary from agent_runs (runs by type, success rate)
-         f. Financial summary: dollars requested vs awarded, by category
-         g. Trend data: month-over-month comparison
-      3. Sends aggregated data to Claude API: "Generate a professional board report for a nonprofit organization. Include: Executive Summary, Pipeline Status, Submission Activity, Awards & Funding, Agent Performance, Financial Overview, and Recommendations. Tone: professional, concise, data-driven. Format sections with clear headers."
-      4. Processes through AI Humanizer
-      5. Generates a PDF using @react-pdf/renderer with:
-         - Organization name and logo as header
-         - Report date range
-         - Formatted sections from Claude output
-         - Data tables for pipeline and financials
-         - Footer with page numbers
-      6. Stores PDF in Supabase Storage at {org_bucket}/reports/board_{timestamp}.pdf
-      7. Returns download URL
-      Create src/app/(dashboard)/reports/page.tsx — report generation page with date range picker and "Generate Report" button.
-      Create src/lib/reports/board-report.ts — report data aggregation logic.
-      Create src/lib/reports/pdf-generator.ts — PDF rendering with @react-pdf/renderer.
-      Add "Reports" to sidebar navigation (chart-bar icon) between Outcomes and Outreach.
-    expected_outputs:
-      - src/app/api/reports/board/route.ts
-      - src/app/(dashboard)/reports/page.tsx
-      - src/lib/reports/board-report.ts
-      - src/lib/reports/pdf-generator.ts
-    gates:
-      - type: compile
-      - type: build
-    max_retries: 3
-    on_fail: continue
-
-  # ============================================================
-  # INTEGRATION + VERIFICATION
-  # ============================================================
-
-  - id: s3-int01
-    phase: integration
-    description: "Wire Tier 3 modules and resolve all issues"
-    prompt: |
-      Verify ALL Tier 3 features are accessible and functional:
-      1. Budget Narrative Generator callable from draft generator page
-      2. Document Assembly accessible from application detail
-      3. Funder Intelligence tab shows on funder detail pages
-      4. Renewals page accessible from sidebar, auto-creates on awarded recurring opportunities
-      5. Success patterns display on outcomes analytics page
-      6. Compliance check runs before submission transition
-      7. Cold outreach sequence builder works, sends preview correctly
-      8. Calendar view renders with deadline pills, month/week toggle works
-      9. Email parser widget on dashboard processes pasted emails
-      10. Board report generates and downloads as PDF
-      11. Reports link in sidebar navigation works
-      Fix ALL TypeScript errors: pnpm tsc --noEmit
-      Fix ALL build errors: pnpm run build
-      Remove console.log statements. Remove unused imports.
-      Verify all new migrations have correct RLS policies.
-      Verify all new API routes authenticate and scope by organization_id.
-    gates:
-      - type: compile
-      - type: build
-    max_retries: 3
-    on_fail: halt
-
-  - id: s3-int02
-    phase: integration
-    description: "Update governance and state files"
-    prompt: |
-      Update STATE_OF_THE_BUILD.md:
-      - Set current version to v1.3.0
-      - Mark Tier 3 as COMPLETE with all 10 feature prompts passed
-      - Add new agents to agent status table
-      - Add new tables to schema count (funder_intelligence, renewals, email_activity + columns on proven_narratives)
-      - Update total counts: tables, agents, API routes, pages
-      Update SESSION_STATE.md:
-      - Set last completed tier to Tier 3
-      - Set next build to Tier 4
-      - Clear Tier 3 checklist items
-      Git commit: git add -A && git commit -m "[FORGE] Benavora Tier 3 Complete — Budget, Assembly, Intel, Renewals, Patterns, Compliance, Outreach, Calendar, Email, Reports"
-      Git push: git push origin main
-    gates:
-      - type: compile
-      - type: build
-    max_retries: 3
-    on_fail: halt
+      CODEBASE: C:\Users\manag\Documents\benavora
+      TASK: Add a Documents section to the opportunity detail page and a Parse NOFA button that triggers the PDF parsing pipeline.
+      STEPS:
+      1. Read src/app/(dashboard)/opportunities/[id]/page.tsx
+      2. Find opportunity_documents in the loaded data (jsonb with PDF URLs from Grants.gov)
+      3. Add a Documents section below existing Overview content:
+         a. List all PDF URLs from opportunity_documents as clickable links with a PDF icon, opening in new tab
+         b. Show filename extracted from URL or label "NOFA Document"
+      4. Add a "Parse NOFA" button matching existing Edit/Delete button styling:
+         a. On click: POST to /api/agents/nofa-parser with the opportunity ID
+         b. Show loading spinner while processing (30-120 seconds expected)
+         c. On success: refresh page data to show newly enriched Overview fields
+         d. On failure: show error toast or alert
+      5. If opportunity_documents is null or empty, show "No NOFA documents available"
+      6. Match existing dark theme styling in the codebase.
+      7. Verify build: cd C:\Users\manag\Documents\benavora && pnpm build
+      AFTER COMPLETION: Append to C:\Users\manag\Documents\benavora\STATE_OF_THE_BUILD.md a line noting opportunity-documents-ui completed. Also update SESSION_STATE.md with current session status.
