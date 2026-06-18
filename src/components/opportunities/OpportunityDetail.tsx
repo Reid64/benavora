@@ -482,10 +482,12 @@ function getFilenameFromUrl(url: string): string {
   }
 }
 
-// HTML announcements render natively in an iframe; PDFs get the dark viewer chrome.
-function isHtmlDoc(url: string): boolean {
-  const path = (url.split(/[?#]/)[0] ?? url).toLowerCase();
-  return path.endsWith(".html") || path.endsWith(".htm");
+// HTML announcements can't be shown inline (the grants.gov download is a
+// redirect stub and the real page blocks framing), so they link out instead of
+// using the iframe. Detect via the title, since grants.gov urls are extensionless.
+function isHtmlDoc(title: string): boolean {
+  const t = (title.split(/[?#]/)[0] ?? title).toLowerCase();
+  return t.endsWith(".html") || t.endsWith(".htm");
 }
 
 function OverviewTab({
@@ -667,6 +669,7 @@ function OverviewTab({
           <div className="space-y-5">
             {documents.map((doc, i) => {
               const label = doc.title ?? getFilenameFromUrl(doc.url);
+              const htmlDoc = isHtmlDoc(doc.title ?? doc.url);
               return (
                 <div key={`${doc.url}-${i}`}>
                   <div className="flex flex-wrap items-center justify-between gap-2">
@@ -684,7 +687,7 @@ function OverviewTab({
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1.5 text-sm text-teal-600 hover:text-teal-700"
                       >
-                        Download from Grants.gov
+                        {htmlDoc ? "View full announcement" : "Download from Grants.gov"}
                         <ExternalLink
                           className="h-3.5 w-3.5 shrink-0"
                           aria-hidden
@@ -694,20 +697,20 @@ function OverviewTab({
                   </div>
 
                   {doc.storedUrl ? (
+                    // Only PDFs are mirrored to storage and shown inline; HTML
+                    // can't be rendered from storage, so it falls through to the
+                    // link above.
                     <iframe
                       src={doc.storedUrl}
                       title={label}
-                      className={`mt-2 w-full rounded-lg border border-navy-300 shadow-inner ${
-                        isHtmlDoc(doc.storedUrl ?? doc.url)
-                          ? "bg-white"
-                          : "bg-navy-900"
-                      }`}
+                      className="mt-2 w-full rounded-lg border border-navy-300 bg-navy-900 shadow-inner"
                       style={{ height: "600px" }}
                     />
                   ) : (
                     <p className="mt-1 text-xs text-navy-400">
-                      Not stored yet — click &ldquo;Parse NOFA&rdquo; to download
-                      it for in-app viewing.
+                      {htmlDoc
+                        ? "HTML announcement — opens on the funder's site in a new tab."
+                        : "Not stored yet — click “Parse NOFA” to download it for in-app viewing."}
                     </p>
                   )}
                 </div>

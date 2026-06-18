@@ -3,8 +3,11 @@
 //
 // Per-run behaviour:
 //   1. Loads the target opportunity and its PDF document URLs.
-//   2. Downloads each document (30s timeout), mirrors it to Supabase Storage,
-//      and extracts text: pdf-parse for PDFs, strip-tags for HTML announcements.
+//   2. Downloads each document (30s timeout). PDFs are mirrored to Supabase
+//      Storage for inline viewing and parsed with pdf-parse; HTML announcements
+//      (grants.gov serves a meta-refresh stub) are followed to the real page and
+//      stripped to text - they are NOT mirrored (Supabase serves stored HTML as
+//      text/plain) so the detail view links to the original instead.
 //   3. Sends parsed text to Claude with a structured extraction prompt.
 //   4. Merges extracted fields across all PDFs (first non-empty wins).
 //   5. UPDATEs the opportunity with extracted values, but ONLY for fields that
@@ -96,6 +99,17 @@ function stripHtml(html: string): string {
     .replace(/&#39;|&apos;/gi, "'")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+// grants.gov serves HTML attachments as a tiny <meta http-equiv="refresh"> stub
+// that points at the real announcement (e.g. grants.nih.gov). Extract that target
+// so we can follow one hop to the actual content.
+function extractMetaRefreshUrl(html: string): string | null {
+  const m =
+    /http-equiv=["']?refresh["']?[^>]*content=["'][^"']*?url=\s*['"]?([^'"\s>]+)/i.exec(
+      html,
+    );
+  return m && m[1] ? m[1] : null;
 }
 
 interface OpportunityRow {
@@ -330,24 +344,43 @@ export class NofaParserAgent extends BaseAgent<NofaParserInput, NofaParserResult
 
       const downloaded = await downloadDocument(doc.url);
       if (downloaded) {
-        const { buffer, contentType } = downloaded;
-        const isHtml = isHtmlDocument(doc.url, doc.title ?? "", contentType);
-        const filename = sanitizeFilename(
-          doc.title ?? `nofa-${i + 1}`,
-          isHtml ? "html" : "pdf",
+        const isHtml = isHtmlDocument(
+          doc.url,
+          doc.title ?? "",
+          downloaded.contentType,
         );
-        const uploaded = await this.uploadDocument(
-          buffer,
-          opportunityId,
-          filename,
-          isHtml ? "text/html" : "application/pdf",
-        );
-        if (uploaded) {
-          storedUrl = uploaded;
-          storedCount++;
+
+        let contentBuffer = downloaded.buffer;
+
+        if (isHtml) {
+          // grants.gov serves HTML as a meta-refresh stub pointing at the real
+          // announcement; follow one hop to get the actual content. We do NOT
+          // mirror HTML to storage - Supabase serves stored HTML as text/plain
+          // (anti-XSS) so it can't render in an iframe; the detail view links to
+          // the original instead. We still extract its text to enrich fields.
+          const target = extractMetaRefreshUrl(
+            downloaded.buffer.toString("utf8"),
+          );
+          if (target) {
+            const real = await downloadDocument(target);
+            if (real) contentBuffer = real.buffer;
+          }
+        } else {
+          // PDF: mirror to storage so the detail page can show it inline.
+          const filename = sanitizeFilename(doc.title ?? `nofa-${i + 1}`, "pdf");
+          const uploaded = await this.uploadDocument(
+            contentBuffer,
+            opportunityId,
+            filename,
+            "application/pdf",
+          );
+          if (uploaded) {
+            storedUrl = uploaded;
+            storedCount++;
+          }
         }
 
-        const text = await extractDocumentText(buffer, isHtml);
+        const text = await extractDocumentText(contentBuffer, isHtml);
         if (text && text.trim().length >= 100) {
           pdfsProcessed++;
           const { extraction, tokensUsed } = await extractWithClaude(text);
