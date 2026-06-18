@@ -13,6 +13,10 @@ type DashboardShellProps = {
   role: Enums<"user_role"> | undefined;
   /** Whether onboarding is complete — shows the Onboarding return link in the sidebar. */
   onboardingCompleted: boolean;
+  /** Organization name — drives the header avatar initials fallback. */
+  orgName: string;
+  /** Organization logo URL — shown in the header avatar when present. */
+  orgLogoUrl: string | null;
   children: ReactNode;
 };
 
@@ -25,6 +29,8 @@ export function DashboardShell({
   userEmail,
   role,
   onboardingCompleted,
+  orgName,
+  orgLogoUrl,
   children,
 }: DashboardShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -45,6 +51,8 @@ export function DashboardShell({
       <div className="flex min-w-0 flex-1 flex-col">
         <Header
           userEmail={userEmail}
+          orgName={orgName}
+          orgLogoUrl={orgLogoUrl}
           onMenuClick={() => setSidebarOpen(true)}
         />
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
