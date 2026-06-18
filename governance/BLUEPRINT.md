@@ -729,6 +729,28 @@ Table: funder_registry
 
 This registry is shared infrastructure — all tenants benefit, one maintenance burden.
 
+## Tenant-Specific Research Command Center
+
+The Research Command Center must be dynamically configured per organization, not generic.
+
+During onboarding, AI analyzes the org's mission, programs, target population, geographic scope, and categories to determine:
+- Which federal API sources are relevant to this org's mission
+- Which state agencies to monitor based on their operating state
+- Which corporate funders align with their category and geography
+- Which foundation databases to prioritize
+- Which keywords to use for all automated searches
+
+The Command Center displays only sources relevant to that org. A youth sports org never sees housing grants. A food bank never sees technology grants.
+
+Implementation:
+- Onboarding step: AI categorizes org and recommends research sources
+- search_profiles table drives what sources the Command Center shows and queries
+- Shared funder_registry (Phase 6) filtered at query time by org keywords and category
+- Sources, keywords, and APIs are all org-specific stored in search_profiles and platform_config per org
+- Admin can override or add sources manually after onboarding
+
+This is the core SaaS differentiator: every org gets a custom-configured grant discovery engine, not a generic search.
+
 # __15\. Risk Assessment__
 
 ## __Technical__
