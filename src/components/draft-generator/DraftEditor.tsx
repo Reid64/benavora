@@ -144,32 +144,39 @@ export function DraftEditor({
     [syncScroll],
   );
 
+  // Read-only mode: the draft box is full-height and the page scrolls, so we
+  // scroll the window to the gap's on-page position rather than relying on
+  // scrollIntoView (which targets the wrong scroll context here).
+  const scrollWindowToGap = useCallback((idx: number) => {
+    const el = document.getElementById(`gap-${idx}`);
+    if (el) {
+      const rect = el.getBoundingClientRect();
+      window.scrollTo({ top: window.scrollY + rect.top - 150, behavior: "smooth" });
+    }
+  }, []);
+
   // Badge click: jump to the first gap.
   const handleGapBadgeClick = useCallback(() => {
     if (readOnly) {
-      document
-        .getElementById("gap-0")
-        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+      scrollWindowToGap(0);
     } else {
       const firstGap = gaps[0];
       if (firstGap) scrollToGapInTextarea(firstGap);
     }
     setCurrentGapIndex(0);
-  }, [readOnly, gaps, scrollToGapInTextarea]);
+  }, [readOnly, gaps, scrollToGapInTextarea, scrollWindowToGap]);
 
   // Next Gap button: cycle through each gap in order.
   const handleNextGap = useCallback(() => {
     const idx = currentGapIndex % Math.max(1, gaps.length);
     if (readOnly) {
-      document
-        .getElementById(`gap-${idx}`)
-        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+      scrollWindowToGap(idx);
     } else {
       const gap = gaps[idx];
       if (gap) scrollToGapInTextarea(gap);
     }
     setCurrentGapIndex((i) => (i + 1) % Math.max(1, gaps.length));
-  }, [currentGapIndex, readOnly, gaps, scrollToGapInTextarea]);
+  }, [currentGapIndex, readOnly, gaps, scrollToGapInTextarea, scrollWindowToGap]);
 
   return (
     <div className="space-y-3">
@@ -185,7 +192,8 @@ export function DraftEditor({
               type="button"
               onClick={onRescore}
               disabled={rescoring}
-              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-amber-500 bg-amber-400 px-3 text-xs font-medium text-black transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-xs transition disabled:cursor-not-allowed disabled:opacity-60"
+              style={{ backgroundColor: "#f59e0b", color: "#000000", border: "1px solid #d97706", fontWeight: "500" }}
               title="Recalculate the confidence score from the current draft text"
             >
               <RefreshCw
