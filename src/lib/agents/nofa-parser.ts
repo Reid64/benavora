@@ -3,7 +3,8 @@
 //
 // Per-run behaviour:
 //   1. Loads the target opportunity and its PDF document URLs.
-//   2. Downloads each PDF (30s timeout per file), parses text with pdf-parse.
+//   2. Downloads each document (30s timeout), mirrors it to Supabase Storage,
+//      and extracts text: pdf-parse for PDFs, strip-tags for HTML announcements.
 //   3. Sends parsed text to Claude with a structured extraction prompt.
 //   4. Merges extracted fields across all PDFs (first non-empty wins).
 //   5. UPDATEs the opportunity with extracted values, but ONLY for fields that
@@ -46,22 +47,49 @@ type DbField = (typeof DB_FIELDS)[number];
 interface OpportunityDocument {
   title?: string;
   url: string;
-  /** Public Supabase Storage URL once the PDF is mirrored for in-app viewing. */
+  /** Public Supabase Storage URL once the document is mirrored for in-app viewing. */
   storedUrl?: string;
 }
 
-// Public bucket holding mirrored NOFA PDFs (federal public documents), so the
-// detail page can show them inline via an iframe with a persistent URL.
+// Public bucket holding mirrored NOFA documents (PDF or HTML federal public
+// docs), so the detail page can show them inline via a persistent iframe URL.
 const NOFA_BUCKET = "nofa-pdfs";
 
-function sanitizeFilename(name: string): string {
-  const base =
+// Grants.gov documents are usually PDFs but some are HTML announcements
+// (e.g. PAR-25-310-Full-Announcement.html). Detect HTML by Content-Type or file
+// extension so we extract text via strip-tags rather than pdf-parse.
+function isHtmlDocument(url: string, contentType: string): boolean {
+  if (/text\/html/i.test(contentType)) return true;
+  const path = (url.split(/[?#]/)[0] ?? url).toLowerCase();
+  return path.endsWith(".html") || path.endsWith(".htm");
+}
+
+function sanitizeFilename(name: string, ext: "pdf" | "html"): string {
+  const stem =
     name
+      .replace(/\.(pdf|html?|htm)$/i, "")
       .replace(/[^a-zA-Z0-9._-]+/g, "_")
       .replace(/_+/g, "_")
-      .replace(/^_|_$/g, "")
+      .replace(/^[._]+|[._]+$/g, "")
       .slice(0, 120) || "nofa";
-  return base.toLowerCase().endsWith(".pdf") ? base : `${base}.pdf`;
+  return `${stem}.${ext}`;
+}
+
+// Dependency-free HTML -> text: drop script/style blocks, strip tags, decode the
+// common entities, and collapse whitespace.
+function stripHtml(html: string): string {
+  return html
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, " ")
+    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 interface OpportunityRow {
@@ -158,25 +186,38 @@ async function getPdfParser(): Promise<PdfParseFn> {
   return pdfParserPromise;
 }
 
-async function downloadPdf(url: string): Promise<Buffer | null> {
+async function downloadDocument(
+  url: string,
+): Promise<{ buffer: Buffer; contentType: string } | null> {
   try {
     const response = await fetch(url, {
       signal: AbortSignal.timeout(30_000),
-      headers: { Accept: "application/pdf,*/*" },
+      headers: { Accept: "application/pdf,text/html,*/*" },
     });
     if (!response.ok) return null;
-    return Buffer.from(await response.arrayBuffer());
+    const contentType = response.headers.get("content-type") ?? "";
+    return { buffer: Buffer.from(await response.arrayBuffer()), contentType };
   } catch {
     return null;
   }
 }
 
 /**
- * Extract text from a PDF buffer. Non-fatal: if pdf-parse can't load or the PDF
- * can't be parsed, returns null - the stored PDF is still viewable in-app, so we
- * never abort the whole run just because text extraction failed.
+ * Extract text from a downloaded document: HTML is stripped to text directly,
+ * PDFs go through pdf-parse. Non-fatal: returns null on any failure - the stored
+ * document is still viewable in-app, so we never abort the run over extraction.
  */
-async function parsePdfText(buffer: Buffer): Promise<string | null> {
+async function extractDocumentText(
+  buffer: Buffer,
+  isHtml: boolean,
+): Promise<string | null> {
+  if (isHtml) {
+    try {
+      return stripHtml(buffer.toString("utf8")) || null;
+    } catch {
+      return null;
+    }
+  }
   try {
     const pdfParse = await getPdfParser();
     const parsed = await pdfParse(buffer);
@@ -281,16 +322,26 @@ export class NofaParserAgent extends BaseAgent<NofaParserInput, NofaParserResult
       const doc = documents[i]!;
       let storedUrl = doc.storedUrl;
 
-      const buffer = await downloadPdf(doc.url);
-      if (buffer) {
-        const filename = sanitizeFilename(doc.title ?? `nofa-${i + 1}.pdf`);
-        const uploaded = await this.uploadPdf(buffer, opportunityId, filename);
+      const downloaded = await downloadDocument(doc.url);
+      if (downloaded) {
+        const { buffer, contentType } = downloaded;
+        const isHtml = isHtmlDocument(doc.url, contentType);
+        const filename = sanitizeFilename(
+          doc.title ?? `nofa-${i + 1}`,
+          isHtml ? "html" : "pdf",
+        );
+        const uploaded = await this.uploadDocument(
+          buffer,
+          opportunityId,
+          filename,
+          isHtml ? "text/html" : "application/pdf",
+        );
         if (uploaded) {
           storedUrl = uploaded;
           storedCount++;
         }
 
-        const text = await parsePdfText(buffer);
+        const text = await extractDocumentText(buffer, isHtml);
         if (text && text.trim().length >= 100) {
           pdfsProcessed++;
           const { extraction, tokensUsed } = await extractWithClaude(text);
@@ -373,19 +424,20 @@ export class NofaParserAgent extends BaseAgent<NofaParserInput, NofaParserResult
   }
 
   /**
-   * Mirror a PDF buffer into the public nofa-pdfs bucket and return its public
-   * URL. Idempotent (upsert). Returns null on any failure (non-fatal).
+   * Mirror a document buffer into the public nofa-pdfs bucket and return its
+   * public URL. Idempotent (upsert). Returns null on any failure (non-fatal).
    */
-  private async uploadPdf(
+  private async uploadDocument(
     buffer: Buffer,
     opportunityId: string,
     filename: string,
+    contentType: string,
   ): Promise<string | null> {
     try {
       const path = `${this.organizationId}/nofa/${opportunityId}/${filename}`;
       const { error } = await this.client.storage
         .from(NOFA_BUCKET)
-        .upload(path, buffer, { contentType: "application/pdf", upsert: true });
+        .upload(path, buffer, { contentType, upsert: true });
       if (error) return null;
       const { data } = this.client.storage.from(NOFA_BUCKET).getPublicUrl(path);
       return data.publicUrl ?? null;

@@ -482,6 +482,12 @@ function getFilenameFromUrl(url: string): string {
   }
 }
 
+// HTML announcements render natively in an iframe; PDFs get the dark viewer chrome.
+function isHtmlDoc(url: string): boolean {
+  const path = (url.split(/[?#]/)[0] ?? url).toLowerCase();
+  return path.endsWith(".html") || path.endsWith(".htm");
+}
+
 function OverviewTab({
   opportunity,
   keywords,
@@ -691,7 +697,11 @@ function OverviewTab({
                     <iframe
                       src={doc.storedUrl}
                       title={label}
-                      className="mt-2 w-full rounded-lg border border-navy-300 bg-navy-900 shadow-inner"
+                      className={`mt-2 w-full rounded-lg border border-navy-300 shadow-inner ${
+                        isHtmlDoc(doc.storedUrl ?? doc.url)
+                          ? "bg-white"
+                          : "bg-navy-900"
+                      }`}
                       style={{ height: "600px" }}
                     />
                   ) : (
