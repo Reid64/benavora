@@ -637,19 +637,97 @@ Draft Persistence, Nav State, KB Details, Humanizer, Categorization, Parallel Re
 
 Browser Automation \(form detection, auto\-fill, challenge detection, approval checkpoint, portal credentials, verification, dashboard\)\. Stripe Billing\. Usage Limits\. Onboarding Wizard\. Audit Logs\. 13/13 prompts\.
 
-## __Tier 6 \- Full Autonomous Operation \(NEXT BUILD\)__
+## Phase 6 — SaaS Data Infrastructure & Grant Intelligence
 
-Phase A \- Data Source Integrations \(8 prompts\): Grants\.gov client, SAM\.gov client, ProPublica 990 mining, State portal framework, Integration settings UI, CSV import wizard, Custom API connector, Custom scraping targets\.
+### Layer 1: Federal APIs (Free, build first)
+- Grants.gov API — federal opportunities, agency data, application metadata
+- Simpler.Grants.gov API — modern REST replacement, bulk extracts
+- SAM.gov Assistance Listings — federal assistance programs, award history
+- USAspending.gov — historical awards, recipient intelligence, federal spending records
+- EPA Grants API — environment/housing crossover funding
+- NIH Reporter — health/recovery program funding data
+- NSF Award Search — STEM/community development crossover
+- USDA Award Database — rural development, directly relevant to rural Texas mission
 
-Phase B \- Batch Automation \(5 prompts\): Automation queue and worker, Semi\-autonomous and autonomous modes, 2Captcha integration, Automation monitor dashboard, Notification system\.
+### Layer 2: Commercial APIs (Budget required, highest ROI)
+- Candid Developer Platform — the most important commercial integration
+  Provides: nonprofits, foundations, grants, recipients, funding transactions, IRS 990 data, funder intelligence
+  Estimated cost: contact Candid for licensing
+  Priority: HIGH — schedule integration for first 10 paying customers milestone
+- Foundation Directory Online (Candid) — millions of grants, historical giving, foundation profiles
+- GrantWatch — housing, community development, state, foundation, corporate grants
 
-Phase C \- Intelligence Features \(6 prompts\): 990\-PF giving history extraction, Foundation giving profile builder, Enhanced eligibility with giving history, Success probability scoring, Funder relationship scoring, Competitor intelligence and deadline prediction\.
+### Layer 3: State Scrapers (Competitive moat, no API alternative)
+Build individual collectors for all 50 states. Priority order:
+1. Texas — TDHCA, Texas Veterans Commission, Texas Health & Human Services
+2. Adjacent states — New Mexico, Oklahoma, Louisiana, Arkansas
+3. Large state housing agencies — California HCD, Florida Housing, NY Homes & Community Renewal
+4. All remaining 50 state housing finance authorities
+Architecture: daily change detection, PDF extraction, deadline extraction, eligibility extraction
 
-Phase D \- Post\-Submission Automation \(4 prompts\): Auto\-generated follow\-up sequences, Financial reconciliation, Compliance calendar, Application cloning and adaptation\.
+### Layer 4: Community Foundation Scrapers (900+ targets)
+Over 900 community foundations in the US. None have public APIs.
+Build a foundation registry with daily monitoring of:
+- Grant calendars
+- Grant guidelines
+- Award announcements
+- Deadline changes
+Scraper architecture: rotating user agents, respectful crawl delays, change detection vs prior version
 
-Phase E \- Advanced Features \(4 prompts\): AI\-powered semantic funder matching, Multi\-channel outreach orchestration, White\-label client portal, Integration \+ verification \+ governance updates\.
+### Layer 5: Corporate Giving Monitors
+Target list (priority order):
+- Walmart Spark Good
+- Home Depot Foundation
+- Lowe's Foundation
+- Bank of America Charitable Foundation
+- JPMorgan Chase Community Programs
+- Wells Fargo Foundation
+- Truist Foundation
+- US Bank Foundation
+- Target Foundation
+- Microsoft Philanthropies
+- Google.org
+All require scraping and monitoring — no public APIs exist.
 
-Total Tier 6: 27 prompts\.
+### Layer 6: Intelligence Database (Historical awards, IRS 990)
+- USAspending historical award data — who got funded, how much, for what
+- IRS 990 analysis — foundation giving patterns, board members, restrictions
+- Prior recipient intelligence — if a foundation funded 20 housing nonprofits last year,
+  that reveals actual priorities vs stated mission
+- Foundation board member tracking — relationship mapping for warm introductions
+- Funding trend analysis — which categories are growing, which are declining
+
+### Grant Intelligence Library (Training corpus for recursive learning agent)
+Collect and tag funded applications from:
+- NIH Sample Applications and Documents (openly published)
+- NIAID Sample Applications Library
+- University grant proposal libraries (Alaska, UCSB, others)
+- FOIA requests for funded HUD, SAMHSA, HHS, DOJ reentry applications
+Tag each by: executive summary, need statement, program design, logic model,
+outcomes, evaluation, sustainability, partnerships, budget narrative, staffing
+Target: 500+ funded applications as training corpus
+
+### FOIA Pipeline
+Automated FOIA request tracking for previously funded applications from:
+- HUD Continuum of Care
+- HUD CDBG
+- SAMHSA Recovery programs
+- HHS Homelessness Prevention
+- DOJ Reentry programs
+These reveal exact winning language for the programs Faith Foundation pursues.
+
+### Shared Funder Registry Schema (multi-tenant, not per-org)
+Table: funder_registry
+- id, funder_name, type (federal/state/foundation/corporate/community)
+- website, giving_portal_url, application_method
+- geographic_focus, typical_award_range_min, typical_award_range_max
+- annual_deadline_pattern, categories[], populations_served[]
+- last_verified_at, data_source, is_active
+- avg_award_amount (from historical data)
+- acceptance_rate (from historical data where available)
+- prior_recipients[] (jsonb)
+
+This registry is shared infrastructure — all tenants benefit, one maintenance burden.
 
 # __15\. Risk Assessment__
 
