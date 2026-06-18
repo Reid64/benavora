@@ -103,10 +103,13 @@ export function OpportunityDetail({ opportunityId }: OpportunityDetailProps) {
   const [parseLoading, setParseLoading] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent ?? false;
     const supabase = createClient();
-    setLoading(true);
-    setError(null);
+    if (!silent) {
+      setLoading(true);
+      setError(null);
+    }
 
     const { data: opportunity, error: oppError } = await supabase
       .from("opportunities")
@@ -115,8 +118,12 @@ export function OpportunityDetail({ opportunityId }: OpportunityDetailProps) {
       .single();
 
     if (oppError || !opportunity) {
-      setError("This opportunity could not be found.");
-      setLoading(false);
+      // A silent refresh (e.g. after Parse NOFA) must never blank the page or
+      // flip into the error state - leave the existing view intact.
+      if (!silent) {
+        setError("This opportunity could not be found.");
+        setLoading(false);
+      }
       return;
     }
 
@@ -162,7 +169,7 @@ export function OpportunityDetail({ opportunityId }: OpportunityDetailProps) {
       notes: notesRes.data ?? [],
       validations: validationsRes.data ?? [],
     });
-    setLoading(false);
+    if (!silent) setLoading(false);
   }, [opportunityId]);
 
   useEffect(() => {
@@ -206,7 +213,8 @@ export function OpportunityDetail({ opportunityId }: OpportunityDetailProps) {
         } | null;
         throw new Error(payload?.error ?? "NOFA parsing failed.");
       }
-      await load();
+      // Silent refresh so the stored-PDF viewer appears without blanking the page.
+      await load({ silent: true });
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error("NOFA parse failed:", err);
@@ -359,6 +367,7 @@ export function OpportunityDetail({ opportunityId }: OpportunityDetailProps) {
           keywords={keywords}
           onParseNofa={handleParseNofa}
           parsing={parseLoading}
+          parseError={parseError}
         />
       )}
       {tab === "eligibility" && <EligibilityTab opportunity={opportunity} />}
@@ -478,11 +487,13 @@ function OverviewTab({
   keywords,
   onParseNofa,
   parsing,
+  parseError,
 }: {
   opportunity: Tables<"opportunities">;
   keywords: string[];
   onParseNofa: () => void;
   parsing: boolean;
+  parseError: string | null;
 }) {
   const amountRange =
     opportunity.amount_min != null || opportunity.amount_max != null
@@ -490,16 +501,15 @@ function OverviewTab({
       : null;
 
   const rawDocs = opportunity.opportunity_documents;
-  const documents: Array<{ title?: string; url: string }> = Array.isArray(
-    rawDocs,
-  )
-    ? (rawDocs as Array<unknown>).filter(
-        (item): item is { url: string; title?: string } =>
-          typeof item === "object" &&
-          item !== null &&
-          typeof (item as Record<string, unknown>).url === "string",
-      )
-    : [];
+  const documents: Array<{ title?: string; url: string; storedUrl?: string }> =
+    Array.isArray(rawDocs)
+      ? (rawDocs as Array<unknown>).filter(
+          (item): item is { url: string; title?: string; storedUrl?: string } =>
+            typeof item === "object" &&
+            item !== null &&
+            typeof (item as Record<string, unknown>).url === "string",
+        )
+      : [];
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -628,29 +638,72 @@ function OverviewTab({
           </Button>
         }
       >
+        {parsing && (
+          <div className="mb-4 flex items-center gap-2 rounded-lg border border-navy-200 bg-navy-50 px-3 py-2 text-sm text-navy-600">
+            <LoadingSpinner />
+            <span>
+              Downloading and parsing NOFA document... (this may take 1-2
+              minutes)
+            </span>
+          </div>
+        )}
+
+        {parseError && (
+          <div
+            role="alert"
+            className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+          >
+            {parseError}
+          </div>
+        )}
+
         {documents.length > 0 ? (
-          <ul className="space-y-2">
+          <div className="space-y-5">
             {documents.map((doc, i) => {
               const label = doc.title ?? getFilenameFromUrl(doc.url);
               return (
-                <li key={`${doc.url}-${i}`}>
-                  <a
-                    href={doc.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 text-sm text-teal-600 hover:text-teal-700"
-                  >
-                    <FileText
-                      className="h-4 w-4 shrink-0 text-navy-400"
-                      aria-hidden
+                <div key={`${doc.url}-${i}`}>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="inline-flex items-center gap-2 text-sm font-medium text-navy-800">
+                      <FileText
+                        className="h-4 w-4 shrink-0 text-navy-400"
+                        aria-hidden
+                      />
+                      <span className="break-all">{label}</span>
+                    </span>
+                    {!doc.storedUrl && (
+                      <a
+                        href={doc.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-sm text-teal-600 hover:text-teal-700"
+                      >
+                        Download from Grants.gov
+                        <ExternalLink
+                          className="h-3.5 w-3.5 shrink-0"
+                          aria-hidden
+                        />
+                      </a>
+                    )}
+                  </div>
+
+                  {doc.storedUrl ? (
+                    <iframe
+                      src={doc.storedUrl}
+                      title={label}
+                      className="mt-2 w-full rounded-lg border border-navy-300 bg-navy-900 shadow-inner"
+                      style={{ height: "600px" }}
                     />
-                    <span className="break-all">{label}</span>
-                    <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                  </a>
-                </li>
+                  ) : (
+                    <p className="mt-1 text-xs text-navy-400">
+                      Not stored yet — click &ldquo;Parse NOFA&rdquo; to download
+                      it for in-app viewing.
+                    </p>
+                  )}
+                </div>
               );
             })}
-          </ul>
+          </div>
         ) : (
           <p className="text-sm text-navy-400">No NOFA documents linked</p>
         )}

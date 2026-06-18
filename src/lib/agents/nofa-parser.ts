@@ -46,6 +46,22 @@ type DbField = (typeof DB_FIELDS)[number];
 interface OpportunityDocument {
   title?: string;
   url: string;
+  /** Public Supabase Storage URL once the PDF is mirrored for in-app viewing. */
+  storedUrl?: string;
+}
+
+// Public bucket holding mirrored NOFA PDFs (federal public documents), so the
+// detail page can show them inline via an iframe with a persistent URL.
+const NOFA_BUCKET = "nofa-pdfs";
+
+function sanitizeFilename(name: string): string {
+  const base =
+    name
+      .replace(/[^a-zA-Z0-9._-]+/g, "_")
+      .replace(/_+/g, "_")
+      .replace(/^_|_$/g, "")
+      .slice(0, 120) || "nofa";
+  return base.toLowerCase().endsWith(".pdf") ? base : `${base}.pdf`;
 }
 
 interface OpportunityRow {
@@ -86,6 +102,8 @@ export interface NofaParserResult {
   opportunityId: string;
   enrichedFields: string[];
   pdfsProcessed: number;
+  /** PDFs successfully mirrored to Supabase Storage. */
+  storedCount: number;
   tokensUsed: number;
 }
 
@@ -140,18 +158,27 @@ async function getPdfParser(): Promise<PdfParseFn> {
   return pdfParserPromise;
 }
 
-async function downloadAndParsePdf(url: string): Promise<string | null> {
-  // Loader failure throws AgentError -> propagates to the route as a clear error.
-  // Per-file download/parse errors stay non-fatal (return null).
-  const pdfParse = await getPdfParser();
+async function downloadPdf(url: string): Promise<Buffer | null> {
   try {
     const response = await fetch(url, {
       signal: AbortSignal.timeout(30_000),
       headers: { Accept: "application/pdf,*/*" },
     });
     if (!response.ok) return null;
-    const arrayBuffer = await response.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    return Buffer.from(await response.arrayBuffer());
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Extract text from a PDF buffer. Non-fatal: if pdf-parse can't load or the PDF
+ * can't be parsed, returns null - the stored PDF is still viewable in-app, so we
+ * never abort the whole run just because text extraction failed.
+ */
+async function parsePdfText(buffer: Buffer): Promise<string | null> {
+  try {
+    const pdfParse = await getPdfParser();
     const parsed = await pdfParse(buffer);
     return parsed.text ?? null;
   } catch {
@@ -230,6 +257,7 @@ export class NofaParserAgent extends BaseAgent<NofaParserInput, NofaParserResult
           opportunityId,
           enrichedFields: [],
           pdfsProcessed: 0,
+          storedCount: 0,
           tokensUsed: 0,
         },
         outputSummary: `NOFA parser: no PDF documents for opportunity ${opportunityId}.`,
@@ -239,29 +267,52 @@ export class NofaParserAgent extends BaseAgent<NofaParserInput, NofaParserResult
       };
     }
 
-    // 2. Download each PDF, parse text, extract structured fields via Claude.
-    // First non-empty value wins across multiple PDFs.
+    // 2. For each PDF: download -> mirror to Supabase Storage (for in-app
+    // viewing) -> parse text -> extract structured fields via Claude. First
+    // non-empty value wins across multiple PDFs. PDF parsing failures are
+    // non-fatal so the stored (viewable) PDFs are always saved.
     let totalTokens = 0;
     let pdfsProcessed = 0;
+    let storedCount = 0;
     const merged: Record<string, unknown> = {};
+    const updatedDocs: OpportunityDocument[] = [];
 
-    for (const doc of documents) {
-      const text = await downloadAndParsePdf(doc.url);
-      if (!text || text.trim().length < 100) continue;
-      pdfsProcessed++;
+    for (let i = 0; i < documents.length; i++) {
+      const doc = documents[i]!;
+      let storedUrl = doc.storedUrl;
 
-      const { extraction, tokensUsed } = await extractWithClaude(text);
-      totalTokens += tokensUsed;
+      const buffer = await downloadPdf(doc.url);
+      if (buffer) {
+        const filename = sanitizeFilename(doc.title ?? `nofa-${i + 1}.pdf`);
+        const uploaded = await this.uploadPdf(buffer, opportunityId, filename);
+        if (uploaded) {
+          storedUrl = uploaded;
+          storedCount++;
+        }
 
-      const allKeys: (keyof ClaudeExtraction)[] = [
-        ...DB_FIELDS,
-        "key_priorities",
-      ];
-      for (const key of allKeys) {
-        if (isEmptyValue(merged[key]) && !isEmptyValue(extraction[key])) {
-          merged[key] = extraction[key];
+        const text = await parsePdfText(buffer);
+        if (text && text.trim().length >= 100) {
+          pdfsProcessed++;
+          const { extraction, tokensUsed } = await extractWithClaude(text);
+          totalTokens += tokensUsed;
+
+          const allKeys: (keyof ClaudeExtraction)[] = [
+            ...DB_FIELDS,
+            "key_priorities",
+          ];
+          for (const key of allKeys) {
+            if (isEmptyValue(merged[key]) && !isEmptyValue(extraction[key])) {
+              merged[key] = extraction[key];
+            }
+          }
         }
       }
+
+      updatedDocs.push({
+        title: doc.title,
+        url: doc.url,
+        ...(storedUrl ? { storedUrl } : {}),
+      });
     }
 
     // 3. Build the UPDATE patch: only fields where the DB value is null/empty.
@@ -288,6 +339,12 @@ export class NofaParserAgent extends BaseAgent<NofaParserInput, NofaParserResult
       }
     }
 
+    // Persist the stored PDF URLs onto opportunity_documents (preserving the
+    // original grants.gov url) so the detail view can render the inline viewer.
+    if (storedCount > 0) {
+      patch.opportunity_documents = updatedDocs;
+    }
+
     // 4. Apply the patch only if there is something new to write.
     if (Object.keys(patch).length > 0) {
       const { error: updateErr } = await this.client
@@ -305,14 +362,36 @@ export class NofaParserAgent extends BaseAgent<NofaParserInput, NofaParserResult
     }
 
     return {
-      data: { opportunityId, enrichedFields, pdfsProcessed, tokensUsed: totalTokens },
+      data: { opportunityId, enrichedFields, pdfsProcessed, storedCount, tokensUsed: totalTokens },
       outputSummary:
-        `NOFA parser: processed ${pdfsProcessed} PDF(s) for opportunity ${opportunityId}; ` +
+        `NOFA parser: stored ${storedCount} PDF(s), parsed ${pdfsProcessed} for opportunity ${opportunityId}; ` +
         `enriched fields: ${enrichedFields.length > 0 ? enrichedFields.join(", ") : "none"}.`,
       itemsFound: pdfsProcessed,
       itemsProcessed: enrichedFields.length,
       tokensUsed: totalTokens,
     };
+  }
+
+  /**
+   * Mirror a PDF buffer into the public nofa-pdfs bucket and return its public
+   * URL. Idempotent (upsert). Returns null on any failure (non-fatal).
+   */
+  private async uploadPdf(
+    buffer: Buffer,
+    opportunityId: string,
+    filename: string,
+  ): Promise<string | null> {
+    try {
+      const path = `${this.organizationId}/nofa/${opportunityId}/${filename}`;
+      const { error } = await this.client.storage
+        .from(NOFA_BUCKET)
+        .upload(path, buffer, { contentType: "application/pdf", upsert: true });
+      if (error) return null;
+      const { data } = this.client.storage.from(NOFA_BUCKET).getPublicUrl(path);
+      return data.publicUrl ?? null;
+    } catch {
+      return null;
+    }
   }
 }
 

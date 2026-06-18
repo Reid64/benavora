@@ -19,39 +19,41 @@ function jsonError(message: string, code: string, status: number) {
 }
 
 export async function POST(req: NextRequest) {
-  const gate = await requireRole("writer");
-  if ("error" in gate) return gate.error;
-  const { supabase, organizationId, userId } = gate;
-
-  let body: unknown;
+  // Outer guard: the route must never crash without returning a JSON response.
   try {
-    body = await req.json();
-  } catch {
-    return jsonError("Invalid JSON body.", "bad_request", 400);
-  }
+    const gate = await requireRole("writer");
+    if ("error" in gate) return gate.error;
+    const { supabase, organizationId, userId } = gate;
 
-  const parsed = body as { opportunityId?: unknown };
-  const opportunityId =
-    typeof parsed.opportunityId === "string" && parsed.opportunityId.trim()
-      ? parsed.opportunityId.trim()
-      : null;
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return jsonError("Invalid JSON body.", "bad_request", 400);
+    }
 
-  if (!opportunityId) {
-    return jsonError("opportunityId is required.", "missing_opportunity_id", 400);
-  }
+    const parsed = body as { opportunityId?: unknown };
+    const opportunityId =
+      typeof parsed.opportunityId === "string" && parsed.opportunityId.trim()
+        ? parsed.opportunityId.trim()
+        : null;
 
-  const agent = new NofaParserAgent({
-    client: supabase,
-    organizationId,
-    triggeredBy: userId,
-  });
+    if (!opportunityId) {
+      return jsonError("opportunityId is required.", "missing_opportunity_id", 400);
+    }
 
-  try {
+    const agent = new NofaParserAgent({
+      client: supabase,
+      organizationId,
+      triggeredBy: userId,
+    });
+
     const outcome = await agent.run({ opportunityId });
     return NextResponse.json({
       success: true,
       enrichedFields: outcome.data.enrichedFields,
       pdfsProcessed: outcome.data.pdfsProcessed,
+      storedCount: outcome.data.storedCount,
       agent_run_id: outcome.runId,
     });
   } catch (err) {
