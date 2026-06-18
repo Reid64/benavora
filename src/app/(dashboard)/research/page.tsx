@@ -53,6 +53,7 @@ const SOURCES: SourceConfig[] = [
   { key: "simpler_grants", label: "Simpler Grants", agentType: "government_research" },
   { key: "hud", label: "HUD", agentType: "government_research" },
   { key: "tdhca", label: "TDHCA", agentType: "state_portal" },
+  { key: "state_scrapers", label: "State Scrapers", agentType: "state_portal" },
   { key: "corporate", label: "Corporate", agentType: "corporate_research" },
 ];
 
@@ -136,6 +137,11 @@ function opportunityMatchesSource(opp: OpportunityRow, sourceKey: string): boole
       return src.includes("hud");
     case "tdhca":
       return src.includes("tdhca");
+    case "state_scrapers":
+      return (
+        opp.source_type === "government_state" &&
+        !src.includes("tdhca")
+      );
     case "corporate":
       return opp.source_type === "corporate_giving" || src.includes("corporate");
     default:
@@ -279,10 +285,15 @@ export default function ResearchPage() {
     });
     setRunError(null);
     try {
-      const res = await fetch("/api/agents/research", {
+      const isStateScraper = src.key === "state_scrapers";
+      const url = isStateScraper
+        ? "/api/agents/state-scrapers"
+        : "/api/agents/research";
+      const body = isStateScraper ? {} : { sources: [src.key] };
+      const res = await fetch(url, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ sources: [src.key] }),
+        body: JSON.stringify(body),
       });
       const payload = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) {
@@ -368,7 +379,7 @@ export default function ResearchPage() {
           </button>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-7">
           {SOURCES.map((src) => {
             const stats = sourceStats[src.key];
             const isRunning = runningSources.has(src.key);
