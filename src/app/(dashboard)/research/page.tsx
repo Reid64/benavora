@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { SearchConfiguration } from "@/app/(dashboard)/search-profiles/configure/SearchConfiguration";
 import type { AgentType } from "@/types/agents";
 import type { Enums } from "@/types/database";
+import type { ResearchConfig } from "@/lib/research/org-research-config";
 
 type FunderCategory = Enums<"funder_category">;
 type OppSourceType = Enums<"opportunity_source_type">;
@@ -187,6 +188,12 @@ export default function ResearchPage() {
   // Clicking a source card filters Discovered Opportunities to that source.
   const [activeSource, setActiveSource] = useState<string | null>(null);
 
+  // Org-specific research configuration from platform_config.
+  const [researchConfig, setResearchConfig] = useState<ResearchConfig | null>(null);
+  const [configFetched, setConfigFetched] = useState(false);
+  const [configuringResearch, setConfiguringResearch] = useState(false);
+  const [configureError, setConfigureError] = useState<string | null>(null);
+
   const visibleOpportunities = useMemo(
     () =>
       activeSource
@@ -197,6 +204,33 @@ export default function ResearchPage() {
   const activeSourceLabel = activeSource
     ? (SOURCES.find((s) => s.key === activeSource)?.label ?? activeSource)
     : null;
+
+  // Sources filtered to the org's recommended list once config is loaded.
+  const displayedSources = useMemo(() => {
+    if (!configFetched || !researchConfig) return SOURCES;
+    const recommended = new Set(researchConfig.recommended_sources as string[]);
+    return SOURCES.filter((s) => recommended.has(s.key));
+  }, [configFetched, researchConfig]);
+
+  const loadConfig = useCallback(async () => {
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("platform_config")
+      .select("value")
+      .eq("key", "research_config")
+      .maybeSingle();
+    const row = data as { value: string } | null;
+    if (row?.value) {
+      try {
+        setResearchConfig(JSON.parse(row.value) as ResearchConfig);
+      } catch {
+        setResearchConfig(null);
+      }
+    } else {
+      setResearchConfig(null);
+    }
+    setConfigFetched(true);
+  }, []);
 
   const load = useCallback(async (initial = false) => {
     if (initial) setLoading(true);
@@ -245,7 +279,8 @@ export default function ResearchPage() {
 
   useEffect(() => {
     void load(true);
-  }, [load]);
+    void loadConfig();
+  }, [load, loadConfig]);
 
   const hasLiveRun = agentRuns.some(
     (r) => r.status === "running" || r.status === "pending",
@@ -312,6 +347,29 @@ export default function ResearchPage() {
     setActiveSource(src.key);
   }
 
+  async function handleConfigureResearch() {
+    setConfiguringResearch(true);
+    setConfigureError(null);
+    try {
+      const res = await fetch("/api/agents/research-config", { method: "POST" });
+      const payload = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        config?: ResearchConfig;
+      };
+      if (!res.ok) {
+        setConfigureError(
+          payload.error ?? "Configuration failed. Please try again.",
+        );
+      } else if (payload.config) {
+        setResearchConfig(payload.config);
+        setConfigFetched(true);
+      }
+    } catch {
+      setConfigureError("Could not reach the configuration service. Please try again.");
+    }
+    setConfiguringResearch(false);
+  }
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -365,10 +423,51 @@ export default function ResearchPage() {
         </div>
       )}
 
+      {configureError && (
+        <div
+          role="alert"
+          className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+        >
+          {configureError}
+        </div>
+      )}
+
+      {/* Banner shown when no org-specific config exists yet */}
+      {configFetched && !researchConfig && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <p className="text-sm text-blue-700">
+              <strong>Showing all research sources.</strong> Run source
+              configuration to customize which sources are most relevant for
+              your organization.
+            </p>
+            <button
+              onClick={() => void handleConfigureResearch()}
+              disabled={configuringResearch}
+              className="shrink-0 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-60 transition-colors"
+            >
+              {configuringResearch && <Spinner className="h-3 w-3" />}
+              {configuringResearch ? "Analyzingâ€¦" : "Configure Research Sources"}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* CONTROL PANEL */}
       <section className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-navy-900">Control Panel</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg font-semibold text-navy-900">Control Panel</h2>
+            {configFetched && researchConfig && (
+              <button
+                onClick={() => void handleConfigureResearch()}
+                disabled={configuringResearch}
+                className="text-xs font-medium text-blue-600 hover:underline disabled:opacity-60"
+              >
+                {configuringResearch ? "Analyzingâ€¦" : "Reconfigure Sources"}
+              </button>
+            )}
+          </div>
           <button
             onClick={handleRunAll}
             disabled={runningAll}
@@ -379,8 +478,15 @@ export default function ResearchPage() {
           </button>
         </div>
 
+        {configFetched && researchConfig && (
+          <p className="text-xs text-navy-500">
+            Showing {displayedSources.length} of {SOURCES.length} recommended
+            sources for your organization
+          </p>
+        )}
+
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-7">
-          {SOURCES.map((src) => {
+          {displayedSources.map((src) => {
             const stats = sourceStats[src.key];
             const isRunning = runningSources.has(src.key);
             const isActive = activeSource === src.key;
