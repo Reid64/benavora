@@ -1,19 +1,19 @@
 // SAM.gov Research Agent — AGENTS.md Agent 16.
 //
-// Polls the SAM.gov federal opportunities API for grant-type records matching
-// search profile keywords (BEHAVIORAL_CONTRACTS §18).
+// Polls the SAM.gov federal opportunities API for records matching search
+// profile keywords (BEHAVIORAL_CONTRACTS §18).
 //
 // Per-run behaviour:
-//   1. Builds a GET request to the SAM.gov v2/search endpoint using the
-//      caller-supplied API key (retrieved from integration_keys by the route).
-//   2. Filters results to grant-type opportunities (ptype=g) and post-filters
-//      the response to drop pure contract records.
-//   3. Deduplicates against existing opportunities by name + source before
+//   1. Reads SAM_GOV_API_KEY from process.env and builds a GET request to the
+//      SAM.gov v2/search endpoint.
+//   2. Parses the response into structured SamGovOpportunity objects and builds
+//      a direct URL for each notice (https://sam.gov/opp/{noticeId}/view).
+//   3. Deduplicates against existing opportunities by name OR url before
 //      inserting new records into the opportunities table.
 //   4. Returns the full list of discovered opportunities plus creation counts.
 //
-// Key contract (BEHAVIORAL_CONTRACTS §18): missing or invalid API key skips
-// the run with a log message rather than surfacing an error to end users.
+// Key contract (BEHAVIORAL_CONTRACTS §18): missing or invalid API key causes
+// the run to fail with a typed AgentError surfaced to the route handler.
 
 import {
   AgentError,
@@ -23,10 +23,7 @@ import {
 import type { AgentType } from "@/types/agents";
 
 const SAM_GOV_URL =
-  "https://api.sam.gov/prod/opportunities/v2/search";
-
-// Opportunity types that are grant-related (not pure contracts).
-const GRANT_TYPES = new Set(["g", "k", "s", "i"]);
+  "https://api.sam.gov/opportunities/v2/search";
 
 export interface SamGovInput {
   /** Plaintext (already-decrypted) SAM.gov API key. */
@@ -43,8 +40,8 @@ export interface SamGovOpportunity {
   type: string;
   posted_date: string | null;
   response_deadline: string | null;
-  description_url: string | null;
-  source: "sam_gov";
+  url: string | null;
+  source: "sam.gov";
 }
 
 export interface SamGovResult {
@@ -133,9 +130,9 @@ export class SamGovResearchAgent extends BaseAgent<SamGovInput, SamGovResult> {
 
     const params = new URLSearchParams({
       api_key: input.apiKey,
-      keyword,
+      q: keyword,
       limit: "25",
-      ptype: "g", // grant opportunities only (server-side filter)
+      ptype: "o",
     });
     if (input.postedFrom) params.set("postedFrom", input.postedFrom);
     if (input.postedTo) params.set("postedTo", input.postedTo);
@@ -176,51 +173,56 @@ export class SamGovResearchAgent extends BaseAgent<SamGovInput, SamGovResult> {
 
     const hits = extractHits(rawBody);
 
-    // Post-filter: keep only grant-type entries in case ptype param is ignored.
-    const grantHits = hits.filter((h) => {
-      const t = toStr(h.type ?? h.baseType).toLowerCase();
-      return !t || GRANT_TYPES.has(t);
+    const opportunities: SamGovOpportunity[] = hits.map((hit) => {
+      const noticeId = toStr(hit.noticeId ?? hit.solicitationNumber);
+      return {
+        title: toStr(hit.title),
+        agency: extractAgency(hit),
+        solicitation_number: toStr(hit.solicitationNumber ?? hit.noticeId),
+        type: toStr(hit.type ?? hit.baseType),
+        posted_date: normaliseDate(hit.postedDate),
+        response_deadline: normaliseDate(hit.responseDeadLine),
+        url: noticeId ? `https://sam.gov/opp/${noticeId}/view` : null,
+        source: "sam.gov" as const,
+      };
     });
-
-    const opportunities: SamGovOpportunity[] = grantHits.map((hit) => ({
-      title: toStr(hit.title),
-      agency: extractAgency(hit),
-      solicitation_number: toStr(hit.solicitationNumber ?? hit.noticeId),
-      type: toStr(hit.type ?? hit.baseType),
-      posted_date: normaliseDate(hit.postedDate),
-      response_deadline: normaliseDate(hit.responseDeadLine),
-      description_url: toStr(hit.description) || null,
-      source: "sam_gov" as const,
-    }));
 
     let opportunitiesCreated = 0;
 
     for (const opp of opportunities) {
       if (!opp.title) continue;
 
-      // Dedup: skip if this org already has an opportunity with the same name
-      // from sam_gov (AGENTS.md Agent 16 deduplication rule).
-      const { data: existing } = await this.client
+      // Dedup by name
+      const { data: byName } = await this.client
         .from("opportunities")
         .select("id")
         .eq("organization_id", this.organizationId)
         .eq("name", opp.title)
-        .eq("source", "sam_gov")
         .maybeSingle();
+      if (byName) continue;
 
-      if (existing) continue;
+      // Dedup by url
+      if (opp.url) {
+        const { data: byUrl } = await this.client
+          .from("opportunities")
+          .select("id")
+          .eq("organization_id", this.organizationId)
+          .eq("url", opp.url)
+          .maybeSingle();
+        if (byUrl) continue;
+      }
 
       const row: Record<string, unknown> = {
         organization_id: this.organizationId,
         name: opp.title,
         category: "government_grant",
-        source: "sam_gov",
+        source: "sam.gov",
         source_type: "government_federal",
         status: "open",
       };
 
       if (opp.response_deadline) row.deadline = opp.response_deadline;
-      if (opp.description_url) row.description = opp.description_url;
+      if (opp.url) row.url = opp.url;
 
       const { error } = await this.client.from("opportunities").insert(row);
 
@@ -229,7 +231,7 @@ export class SamGovResearchAgent extends BaseAgent<SamGovInput, SamGovResult> {
 
     return {
       data: { opportunities, count: opportunities.length, opportunitiesCreated },
-      outputSummary: `SAM.gov search for "${keyword}" found ${opportunities.length} grant opportunity(ies); ${opportunitiesCreated} new record(s) created.`,
+      outputSummary: `SAM.gov search for "${keyword}" found ${opportunities.length} opportunity(ies); ${opportunitiesCreated} new record(s) created.`,
       itemsFound: opportunities.length,
       itemsProcessed: opportunitiesCreated,
       tokensUsed: 0,

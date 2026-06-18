@@ -8,7 +8,7 @@
 //      optional funding categories, and an optional posted-date range.
 //   2. Parses the response array of hits into structured GrantsGovOpportunity
 //      objects, normalising the MM/DD/YYYY close dates to ISO-8601.
-//   3. Deduplicates against existing opportunities by name + source before
+//   3. Deduplicates against existing opportunities by name OR url before
 //      inserting new records into the opportunities table.
 //   4. Returns the full list of discovered opportunities and a count of newly
 //      created rows so callers can poll without fetching the whole table.
@@ -24,7 +24,7 @@ import {
 import type { AgentType } from "@/types/agents";
 
 const GRANTS_GOV_URL =
-  "https://www.grants.gov/grantsws/rest/opportunities/search/";
+  "https://apply07.grants.gov/grantsws/rest/opportunities/search/";
 
 export interface GrantsGovInput {
   keywords: string[];
@@ -40,7 +40,8 @@ export interface GrantsGovOpportunity {
   award_ceiling: number | null;
   award_floor: number | null;
   description: string | null;
-  source: "grants_gov";
+  url: string | null;
+  source: "grants.gov";
 }
 
 export interface GrantsGovResult {
@@ -92,6 +93,12 @@ function toStr(val: unknown): string {
   return String(val).trim();
 }
 
+function truncate(val: unknown, maxLen: number): string | null {
+  const s = toStr(val);
+  if (!s) return null;
+  return s.length > maxLen ? s.slice(0, maxLen) : s;
+}
+
 function normaliseCloseDate(val: unknown): string | null {
   const raw = toStr(val);
   if (!raw) return null;
@@ -106,6 +113,12 @@ function extractHits(body: GrantsGovResponse): RawHit[] {
   if (Array.isArray(body.opportunities)) return body.opportunities;
   if (Array.isArray(body.items)) return body.items;
   return [];
+}
+
+// HUD typically appears as "Department of Housing and Urban Development" or "HUD"
+function isHudAgency(agencyName: string): boolean {
+  const lower = agencyName.toLowerCase();
+  return lower.includes("hud") || lower.includes("housing and urban development");
 }
 
 export class GrantsGovResearchAgent extends BaseAgent<
@@ -130,8 +143,7 @@ export class GrantsGovResearchAgent extends BaseAgent<
       keyword,
       oppStatuses: "forecasted|posted",
       rows: 25,
-      startRecord: 0,
-      sortBy: "openDate|desc",
+      startRecordNum: 0,
     };
 
     if (input.categories?.length) {
@@ -173,39 +185,58 @@ export class GrantsGovResearchAgent extends BaseAgent<
 
     const hits = extractHits(rawBody);
 
-    const opportunities: GrantsGovOpportunity[] = hits.map((hit) => ({
-      title: toStr(hit.title),
-      agency: toStr(hit.agencyName ?? hit.agency),
-      opportunity_number: toStr(hit.number ?? hit.oppNumber),
-      close_date: normaliseCloseDate(hit.closeDate ?? hit.closeDateStr),
-      award_ceiling: toNumber(hit.awardCeiling),
-      award_floor: toNumber(hit.awardFloor),
-      description: toStr(hit.synopsis ?? hit.description) || null,
-      source: "grants_gov" as const,
-    }));
+    const opportunities: GrantsGovOpportunity[] = hits.map((hit) => {
+      const oppNum = toStr(hit.oppNumber ?? hit.number);
+      const agency = toStr(hit.agencyName ?? hit.agency);
+      return {
+        title: toStr(hit.title),
+        agency,
+        opportunity_number: oppNum,
+        close_date: normaliseCloseDate(hit.closeDate ?? hit.closeDateStr),
+        award_ceiling: toNumber(hit.awardCeiling),
+        award_floor: toNumber(hit.awardFloor),
+        description: truncate(hit.synopsis ?? hit.description, 2000),
+        url: oppNum
+          ? `https://www.grants.gov/search-grants?opp=${oppNum}`
+          : null,
+        source: "grants.gov" as const,
+      };
+    });
 
     let opportunitiesCreated = 0;
 
     for (const opp of opportunities) {
       if (!opp.title) continue;
 
-      // Dedup: skip if this org already has an opportunity with the same name
-      // from grants_gov (AGENTS.md Agent 15 deduplication rule).
-      const { data: existing } = await this.client
+      // Dedup by name
+      const { data: byName } = await this.client
         .from("opportunities")
         .select("id")
         .eq("organization_id", this.organizationId)
         .eq("name", opp.title)
-        .eq("source", "grants_gov")
         .maybeSingle();
+      if (byName) continue;
 
-      if (existing) continue;
+      // Dedup by url
+      if (opp.url) {
+        const { data: byUrl } = await this.client
+          .from("opportunities")
+          .select("id")
+          .eq("organization_id", this.organizationId)
+          .eq("url", opp.url)
+          .maybeSingle();
+        if (byUrl) continue;
+      }
+
+      const category = isHudAgency(opp.agency)
+        ? ("housing_grant" as const)
+        : ("government_grant" as const);
 
       const row: Record<string, unknown> = {
         organization_id: this.organizationId,
         name: opp.title,
-        category: "government_grant",
-        source: "grants_gov",
+        category,
+        source: "grants.gov",
         source_type: "government_federal",
         status: "open",
       };
@@ -214,6 +245,7 @@ export class GrantsGovResearchAgent extends BaseAgent<
       if (opp.close_date) row.deadline = opp.close_date;
       if (opp.award_ceiling !== null) row.amount_max = opp.award_ceiling;
       if (opp.award_floor !== null) row.amount_min = opp.award_floor;
+      if (opp.url) row.url = opp.url;
 
       const { error } = await this.client
         .from("opportunities")

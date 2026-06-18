@@ -1,7 +1,7 @@
 // SAM.gov Research Agent trigger — AGENTS.md Agent 16.
 //
-// POST — authenticates the caller, validates the SAM.gov API key stored in
-// integration_keys, instantiates SamGovResearchAgent, and runs a live search.
+// POST — authenticates the caller, reads SAM_GOV_API_KEY from process.env,
+// instantiates SamGovResearchAgent, and runs a live search.
 // Returns the full list of discovered opportunities plus the agent run ID.
 //
 // Body: { keywords: string[], postedFrom?: string, postedTo?: string }
@@ -11,7 +11,6 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { SamGovResearchAgent } from "@/lib/agents/sam-gov";
 import { requireRole } from "@/lib/auth/role-gate";
-import { decryptKey } from "@/lib/crypto/key-encrypt";
 import { AgentError } from "@/lib/agents/base-agent";
 
 export const runtime = "nodejs";
@@ -25,34 +24,12 @@ export async function POST(req: NextRequest) {
   if ("error" in gate) return gate.error;
   const { supabase, organizationId, userId } = gate;
 
-  // Verify that an active SAM.gov API key is configured (BEHAVIORAL_CONTRACTS §18).
-  const { data: keyRow, error: keyErr } = await supabase
-    .from("integration_keys")
-    .select("encrypted_key, is_active")
-    .eq("organization_id", organizationId)
-    .eq("service_name", "sam_gov")
-    .eq("is_active", true)
-    .maybeSingle();
-
-  if (keyErr) {
-    return jsonError(keyErr.message, "db_error", 500);
-  }
-  if (!keyRow) {
+  const apiKey = process.env.SAM_GOV_API_KEY;
+  if (!apiKey) {
     return jsonError(
-      "SAM.gov API key not configured. Add your key in Settings > Integrations.",
+      "SAM_GOV_API_KEY environment variable is not configured.",
       "key_missing",
-      400,
-    );
-  }
-
-  let apiKey: string;
-  try {
-    apiKey = decryptKey(keyRow.encrypted_key);
-  } catch {
-    return jsonError(
-      "SAM.gov API key could not be read. Please re-enter it.",
-      "key_unreadable",
-      400,
+      500,
     );
   }
 
