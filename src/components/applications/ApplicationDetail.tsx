@@ -14,6 +14,7 @@ import {
   Copy,
   FileText,
   History,
+  Mail,
   MessageSquare,
   Move,
   Search,
@@ -89,6 +90,8 @@ export function ApplicationDetail({ applicationId }: ApplicationDetailProps) {
   const [deleting, setDeleting] = useState(false);
   const [startingAutomation, setStartingAutomation] = useState(false);
   const [automationError, setAutomationError] = useState<string | null>(null);
+  const [generatingFollowUp, setGeneratingFollowUp] = useState(false);
+  const [followUpError, setFollowUpError] = useState<string | null>(null);
   const [cloneOpen, setCloneOpen] = useState(false);
   const [cloning, setCloning] = useState(false);
   const [cloneError, setCloneError] = useState<string | null>(null);
@@ -231,6 +234,31 @@ export function ApplicationDetail({ applicationId }: ApplicationDetailProps) {
     }
   }
 
+  async function handleGenerateFollowUp() {
+    setFollowUpError(null);
+    setGeneratingFollowUp(true);
+    try {
+      const res = await fetch("/api/agents/follow-up", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ application_id: applicationId }),
+      });
+      const payload = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        setFollowUpError(
+          payload.error ?? "Could not generate the follow-up email.",
+        );
+        return;
+      }
+      // The generated sequence is stored as a follow-up note; show it.
+      router.push("/follow-ups");
+    } catch {
+      setFollowUpError("Could not reach the follow-up agent. Please try again.");
+    } finally {
+      setGeneratingFollowUp(false);
+    }
+  }
+
   async function handleDelete() {
     if (!data) return;
     setDeleting(true);
@@ -348,6 +376,16 @@ export function ApplicationDetail({ applicationId }: ApplicationDetailProps) {
         </div>
         {editable && (
           <div className="flex shrink-0 flex-wrap items-center gap-2">
+            {application.stage === "follow_up_due" && (
+              <Button
+                variant="secondary"
+                onClick={handleGenerateFollowUp}
+                isLoading={generatingFollowUp}
+              >
+                <Mail className="h-4 w-4" aria-hidden />
+                Generate Follow-up Email
+              </Button>
+            )}
             <Button
               variant="secondary"
               onClick={handleStartAutomation}
@@ -378,6 +416,15 @@ export function ApplicationDetail({ applicationId }: ApplicationDetailProps) {
           className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
         >
           {automationError}
+        </div>
+      )}
+
+      {followUpError && (
+        <div
+          role="alert"
+          className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+        >
+          {followUpError}
         </div>
       )}
 
