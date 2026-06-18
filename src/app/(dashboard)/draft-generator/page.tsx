@@ -715,15 +715,16 @@ export default function DraftGeneratorPage() {
                   actions={
                     <div className="flex items-center gap-2">
                       {editable && draftText.trim() && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
+                        <button
+                          type="button"
                           onClick={handleRescore}
                           title="Recalculate score from current draft text"
+                          className="inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-xs transition disabled:cursor-not-allowed disabled:opacity-60"
+                          style={{ backgroundColor: "#f59e0b", color: "#000000", border: "1px solid #d97706", fontWeight: "500" }}
                         >
                           <RefreshCw className="h-3.5 w-3.5" aria-hidden />
                           Rescore
-                        </Button>
+                        </button>
                       )}
                       <Badge color={HUMANIZATION_BADGE[humanizationStatus].color}>
                         {HUMANIZATION_BADGE[humanizationStatus].label}

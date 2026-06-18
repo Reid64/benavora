@@ -82,6 +82,43 @@ function buildInteractiveNodes(text: string, gaps: Gap[]) {
 }
 
 /**
+ * Pixel offset of a character index within a textarea's scrollable content,
+ * measured with a hidden mirror element that mimics the textarea's box and font.
+ * Counting "\n" alone undercounts wrapped lines (a long paragraph is one logical
+ * line but many visual rows), which made gap navigation under-scroll badly.
+ */
+function measureCaretTop(ta: HTMLTextAreaElement, index: number): number {
+  const cs = getComputedStyle(ta);
+  const mirror = document.createElement("div");
+  const m = mirror.style as unknown as Record<string, string>;
+  const r = cs as unknown as Record<string, string>;
+  const props = [
+    "width", "paddingTop", "paddingRight", "paddingBottom", "paddingLeft",
+    "borderTopWidth", "borderRightWidth", "borderBottomWidth", "borderLeftWidth",
+    "fontFamily", "fontSize", "fontWeight", "fontStyle", "letterSpacing",
+    "lineHeight", "textTransform",
+  ];
+  for (const p of props) m[p] = r[p] ?? "";
+  m.boxSizing = "content-box";
+  m.position = "absolute";
+  m.top = "0";
+  m.left = "-9999px";
+  m.visibility = "hidden";
+  m.height = "auto";
+  m.whiteSpace = "pre-wrap";
+  m.wordBreak = "break-word";
+  m.overflowWrap = "break-word";
+  mirror.textContent = ta.value.slice(0, index);
+  const marker = document.createElement("span");
+  marker.textContent = "​";
+  mirror.appendChild(marker);
+  document.body.appendChild(mirror);
+  const top = marker.offsetTop;
+  document.body.removeChild(mirror);
+  return top;
+}
+
+/**
  * Draft editor (BLUEPRINT §4.8 step 5). A plain-text editor over the generated
  * draft — the locked stack ships no rich-text dependency, and drafts are stored
  * and rendered as text (applications.draft_content). Surfaces a live word count
@@ -136,9 +173,8 @@ export function DraftEditor({
       if (!ta) return;
       ta.focus();
       ta.setSelectionRange(gap.index, gap.index + gap.length);
-      const line = ta.value.slice(0, gap.index).split("\n").length - 1;
-      const lineHeight = parseFloat(getComputedStyle(ta).lineHeight) || 20;
-      ta.scrollTop = Math.max(0, line * lineHeight - ta.clientHeight / 2);
+      const top = measureCaretTop(ta, gap.index);
+      ta.scrollTop = Math.max(0, top - ta.clientHeight / 2);
       syncScroll();
     },
     [syncScroll],
