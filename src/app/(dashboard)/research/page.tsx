@@ -1,7 +1,8 @@
 ﻿"use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import type { AgentType } from "@/types/agents";
 import type { Enums } from "@/types/database";
@@ -110,41 +111,35 @@ function formatDate(iso: string | null): string {
   });
 }
 
-function formatDuration(
-  durationMs: number | null,
-  startedAt: string | null,
-  completedAt: string | null,
-): string {
-  const ms =
-    durationMs ??
-    (startedAt && completedAt
-      ? new Date(completedAt).getTime() - new Date(startedAt).getTime()
-      : null);
-  if (ms === null) return "â€”";
-  const secs = Math.round(ms / 1000);
-  if (secs < 60) return `${secs}s`;
-  return `${Math.floor(secs / 60)}m ${secs % 60}s`;
-}
-
-function agentLabel(agentType: AgentType): string {
-  const labels: Partial<Record<AgentType, string>> = {
-    grants_gov_research: "Grants.gov",
-    sam_gov_research: "SAM.gov",
-    government_research: "Government",
-    state_portal: "State Portal",
-    corporate_research: "Corporate",
-    foundation_research: "Foundation",
-    local_sponsorship: "Local",
-    propublica_mining: "ProPublica",
-    custom_api_research: "Custom API",
-  };
-  return labels[agentType] ?? agentType;
-}
-
 function categoryLabel(cat: FunderCategory): string {
   return cat
     .replace(/_/g, " ")
     .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/**
+ * Does a discovered opportunity belong to the given source card? Opportunities
+ * carry a free-text `source` (usually a URL) and a `source_type` enum, so we
+ * match on the source host/text, with corporate falling back to source_type.
+ */
+function opportunityMatchesSource(opp: OpportunityRow, sourceKey: string): boolean {
+  const src = (opp.source ?? "").toLowerCase();
+  switch (sourceKey) {
+    case "grants_gov":
+      return src.includes("grants.gov") || src.includes("grants_gov");
+    case "sam_gov":
+      return src.includes("sam.gov") || src.includes("sam_gov");
+    case "simpler_grants":
+      return src.includes("simpler");
+    case "hud":
+      return src.includes("hud");
+    case "tdhca":
+      return src.includes("tdhca");
+    case "corporate":
+      return opp.source_type === "corporate_giving" || src.includes("corporate");
+    default:
+      return false;
+  }
 }
 
 function Spinner({ className = "" }: { className?: string }) {
@@ -172,26 +167,6 @@ function Spinner({ className = "" }: { className?: string }) {
   );
 }
 
-function RunStatusBadge({ status }: { status: RunStatus | null }) {
-  const s = status ?? "pending";
-  const cls =
-    s === "completed"
-      ? "bg-green-100 text-green-700"
-      : s === "running"
-        ? "bg-blue-100 text-blue-700"
-        : s === "failed"
-          ? "bg-red-100 text-red-700"
-          : "bg-gray-100 text-gray-600";
-  return (
-    <span
-      className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium ${cls}`}
-    >
-      {s === "running" && <Spinner className="h-3 w-3" />}
-      {s}
-    </span>
-  );
-}
-
 export default function ResearchPage() {
   const router = useRouter();
   const [sourceStats, setSourceStats] = useState<Record<string, SourceStats>>({});
@@ -201,6 +176,19 @@ export default function ResearchPage() {
   const [runningAll, setRunningAll] = useState(false);
   const [runningSources, setRunningSources] = useState<Set<string>>(new Set());
   const [runError, setRunError] = useState<string | null>(null);
+  // Clicking a source card filters Discovered Opportunities to that source.
+  const [activeSource, setActiveSource] = useState<string | null>(null);
+
+  const visibleOpportunities = useMemo(
+    () =>
+      activeSource
+        ? opportunities.filter((o) => opportunityMatchesSource(o, activeSource))
+        : opportunities,
+    [opportunities, activeSource],
+  );
+  const activeSourceLabel = activeSource
+    ? (SOURCES.find((s) => s.key === activeSource)?.label ?? activeSource)
+    : null;
 
   const load = useCallback(async (initial = false) => {
     if (initial) setLoading(true);
@@ -307,6 +295,8 @@ export default function ResearchPage() {
       return next;
     });
     await load();
+    // Running a single source auto-focuses its results (requirement 4).
+    setActiveSource(src.key);
   }
 
   return (
@@ -349,10 +339,27 @@ export default function ResearchPage() {
           {SOURCES.map((src) => {
             const stats = sourceStats[src.key];
             const isRunning = runningSources.has(src.key);
+            const isActive = activeSource === src.key;
             return (
               <div
                 key={src.key}
-                className="flex flex-col rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+                role="button"
+                tabIndex={0}
+                aria-pressed={isActive}
+                onClick={() =>
+                  setActiveSource((cur) => (cur === src.key ? null : src.key))
+                }
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setActiveSource((cur) => (cur === src.key ? null : src.key));
+                  }
+                }}
+                className={`flex cursor-pointer flex-col rounded-xl bg-white p-4 shadow-sm transition-colors ${
+                  isActive
+                    ? "border-2 border-blue-400 ring-1 ring-blue-200"
+                    : "border border-gray-200 hover:border-gray-300"
+                }`}
               >
                 <div className="flex items-start justify-between gap-1">
                   <span className="text-sm font-semibold text-navy-900 leading-tight">
@@ -379,7 +386,10 @@ export default function ResearchPage() {
                 </div>
 
                 <button
-                  onClick={() => void handleRunSource(src)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void handleRunSource(src);
+                  }}
                   disabled={isRunning || runningAll}
                   className="mt-3 w-full rounded-md border border-gray-300 px-2 py-1.5 text-xs font-medium text-navy-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
                 >
@@ -393,14 +403,29 @@ export default function ResearchPage() {
 
       {/* DISCOVERED OPPORTUNITIES */}
       <section className="space-y-4">
-        <h2 className="text-lg font-semibold text-navy-900">
-          Discovered Opportunities
-          {!loading && (
-            <span className="ml-2 text-sm font-normal text-navy-500">
-              ({opportunities.length})
-            </span>
+        <div className="flex flex-wrap items-center gap-3">
+          <h2 className="text-lg font-semibold text-navy-900">
+            Discovered Opportunities
+            {!loading && (
+              <span className="ml-2 text-sm font-normal text-navy-500">
+                ({visibleOpportunities.length})
+              </span>
+            )}
+          </h2>
+          {activeSource && (
+            <>
+              <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700">
+                Filtered by {activeSourceLabel}
+              </span>
+              <button
+                onClick={() => setActiveSource(null)}
+                className="text-xs font-medium text-blue-600 underline-offset-2 hover:underline"
+              >
+                Show All
+              </button>
+            </>
           )}
-        </h2>
+        </div>
 
         {loading ? (
           <div className="flex items-center justify-center rounded-xl border border-gray-200 bg-white p-10 text-sm text-navy-500">
@@ -411,6 +436,16 @@ export default function ResearchPage() {
           <div className="rounded-xl border border-gray-200 bg-white p-10 text-center text-sm text-navy-500">
             No discovered opportunities yet. Run a research agent above to find
             funding sources.
+          </div>
+        ) : visibleOpportunities.length === 0 ? (
+          <div className="rounded-xl border border-gray-200 bg-white p-10 text-center text-sm text-navy-500">
+            No discovered opportunities from {activeSourceLabel} yet.{" "}
+            <button
+              onClick={() => setActiveSource(null)}
+              className="font-medium text-blue-600 hover:underline"
+            >
+              Show all sources
+            </button>
           </div>
         ) : (
           <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
@@ -436,7 +471,7 @@ export default function ResearchPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {opportunities.map((opp) => {
+                {visibleOpportunities.map((opp) => {
                   const badge = sourceBadgeProps(opp.source, opp.source_type);
                   return (
                     <tr
@@ -480,79 +515,21 @@ export default function ResearchPage() {
         )}
       </section>
 
-      {/* AGENT RUN LOG */}
-      <section className="space-y-4">
-        <div className="flex items-center gap-2">
-          <h2 className="text-lg font-semibold text-navy-900">Agent Run Log</h2>
-          {hasLiveRun && (
-            <span className="inline-flex items-center gap-1 text-xs text-blue-600">
-              <Spinner className="h-3 w-3" />
-              Auto-refreshing every 30s
-            </span>
-          )}
-        </div>
-
-        {loading ? (
-          <div className="flex items-center justify-center rounded-xl border border-gray-200 bg-white p-10 text-sm text-navy-500">
-            <Spinner className="mr-2 h-4 w-4 text-navy-400" />
-            Loading run logâ€¦
-          </div>
-        ) : agentRuns.length === 0 ? (
-          <div className="rounded-xl border border-gray-200 bg-white p-10 text-center text-sm text-navy-500">
-            No agent runs yet.
-          </div>
-        ) : (
-          <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead>
-                <tr className="bg-gray-50">
-                  {[
-                    "Agent",
-                    "Status",
-                    "Started",
-                    "Duration",
-                    "Items Found",
-                    "Error",
-                  ].map((col) => (
-                    <th
-                      key={col}
-                      className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500"
-                    >
-                      {col}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {agentRuns.map((run) => (
-                  <tr key={run.id}>
-                    <td className="px-4 py-3 text-sm font-medium text-navy-900">
-                      {agentLabel(run.agent_type)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <RunStatusBadge status={run.status} />
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-xs text-navy-600">
-                      {formatDate(run.started_at)}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-xs text-navy-600">
-                      {formatDuration(run.duration_ms, run.started_at, run.completed_at)}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-navy-600">
-                      {run.items_found != null
-                        ? run.items_found.toLocaleString()
-                        : "â€”"}
-                    </td>
-                    <td className="max-w-[200px] truncate px-4 py-3 text-xs text-red-600">
-                      {run.error_message ?? "â€”"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+      {/* AGENT RUN HISTORY LINK (replaces the inline Agent Run Log) */}
+      <div className="flex items-center justify-between border-t border-gray-200 pt-4">
+        <Link
+          href="/admin/audit-log"
+          className="text-sm font-medium text-blue-600 hover:underline"
+        >
+          View agent run history →
+        </Link>
+        {hasLiveRun && (
+          <span className="inline-flex items-center gap-1 text-xs text-blue-600">
+            <Spinner className="h-3 w-3" />
+            Auto-refreshing every 30s
+          </span>
         )}
-      </section>
+      </div>
     </div>
   );
 }
