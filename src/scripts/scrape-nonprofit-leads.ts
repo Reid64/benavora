@@ -4,6 +4,7 @@ import { chromium } from 'playwright';
 import type { Page } from 'playwright';
 import Anthropic from '@anthropic-ai/sdk';
 import { createClient } from '@supabase/supabase-js';
+import ws from 'ws';
 
 // ---------------------------------------------------------------------------
 // Nonprofit Lead Scraper
@@ -292,6 +293,9 @@ async function main(): Promise<void> {
   const anthropic = new Anthropic({ apiKey });
   const supabase = createClient(supabaseUrl, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
+    // ws's constructor type is broader than Supabase's WebSocketLikeConstructor;
+    // cast bridges the known @types/ws vs @supabase/supabase-js mismatch.
+    realtime: { transport: ws as never },
   });
 
   const outputDir = path.resolve(process.cwd(), 'exports');

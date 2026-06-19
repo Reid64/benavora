@@ -4,6 +4,7 @@ import readline from 'readline';
 import * as fs from 'fs';
 import * as path from 'path';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import ws from 'ws';
 import type { Database } from '../types/database';
 
 // ---------------------------------------------------------------------------
@@ -286,6 +287,9 @@ async function main(): Promise<void> {
 
   const supabase = createClient<Database>(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false },
+    // ws's constructor type is broader than Supabase's WebSocketLikeConstructor;
+    // cast bridges the known @types/ws vs @supabase/supabase-js mismatch.
+    realtime: { transport: ws as never },
   });
 
   // Single-file override for debugging
