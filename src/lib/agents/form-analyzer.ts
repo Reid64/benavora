@@ -7,9 +7,7 @@
 // will not run in Vercel serverless (no binary). The /api/agents/form-analyzer
 // route is for development and worker-proxied use only.
 
-import { chromium } from "playwright-extra";
-import StealthPlugin from "puppeteer-extra-plugin-stealth";
-
+import { StealthBrowser } from "@/lib/autoapply/stealth-browser";
 import { callClaude, DEFAULT_MAX_TOKENS, DEFAULT_MODEL } from "@/lib/ai/claude";
 import {
   AgentError,
@@ -19,10 +17,6 @@ import {
 } from "@/lib/agents/base-agent";
 import type { AgentType } from "@/types/agents";
 import type { Json } from "@/types/database";
-
-// Anti-fingerprinting: spoofs navigator.webdriver, adds fake plugins, hides
-// automation flags, and passes common bot detection on every launched browser.
-chromium.use(StealthPlugin());
 
 const MAX_HTML_CHARS = 80_000;
 const PLAYWRIGHT_TIMEOUT_MS = 30_000;
@@ -302,9 +296,11 @@ function buildFieldMapping(fields: FormField[]): FieldMappingEntry[] {
 // --- browser -----------------------------------------------------------------
 
 async function fetchPageHtml(url: string): Promise<string> {
-  // chromium is imported at module level but the binary must be installed
-  // separately via: npx playwright install chromium
-  const browser = await chromium.launch({ headless: true }).catch(
+  // StealthBrowser handles the user-agent, fingerprint randomization, and
+  // anti-bot hardening. The Chromium binary must be installed on the host:
+  // npx playwright install chromium.
+  const stealth = new StealthBrowser({ headless: true });
+  const { browser, page } = await stealth.launch().catch(
     (launchErr: unknown) => {
       const msg =
         launchErr instanceof Error ? launchErr.message : "launch failed";
@@ -317,12 +313,6 @@ async function fetchPageHtml(url: string): Promise<string> {
   );
 
   try {
-    const page = await browser.newPage();
-    await page.setExtraHTTPHeaders({
-      "user-agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    });
-
     await page.goto(url, {
       timeout: PLAYWRIGHT_TIMEOUT_MS,
       waitUntil: "domcontentloaded",

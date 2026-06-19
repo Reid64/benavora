@@ -10,9 +10,7 @@
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import { chromium } from "playwright-extra";
-import StealthPlugin from "puppeteer-extra-plugin-stealth";
-
+import { StealthBrowser } from "@/lib/autoapply/stealth-browser";
 import { callClaude, DEFAULT_MAX_TOKENS, DEFAULT_MODEL } from "@/lib/ai/claude";
 import {
   AgentError,
@@ -22,10 +20,6 @@ import {
 } from "@/lib/agents/base-agent";
 import type { FieldMappingEntry } from "@/lib/agents/form-analyzer";
 import type { AgentType } from "@/types/agents";
-
-// Anti-fingerprinting: spoofs navigator.webdriver, adds fake plugins, hides
-// automation flags, and passes common bot detection on every launched browser.
-chromium.use(StealthPlugin());
 
 const PLAYWRIGHT_TIMEOUT_MS = 30_000;
 const AUTOAPPLY_BUCKET = "autoapply-screenshots";
@@ -210,7 +204,11 @@ export class FormFillerAgent extends BaseAgent<FormFillerInput, FormFillerResult
     let postScreenshotUrl: string | null = null;
     let confirmationNumber: string | null = null;
 
-    const browser = await chromium.launch({ headless: false, slowMo: 300 }).catch(
+    // StealthBrowser applies fingerprint randomization, UA rotation, US
+    // timezone/locale, and human-behavior helpers. AutoApply runs headful
+    // (less detectable than headless) on the worker.
+    const stealth = new StealthBrowser({ headless: false });
+    const { browser, page } = await stealth.launch().catch(
       (launchErr: unknown) => {
         const msg =
           launchErr instanceof Error ? launchErr.message : "launch failed";
@@ -223,12 +221,6 @@ export class FormFillerAgent extends BaseAgent<FormFillerInput, FormFillerResult
     );
 
     try {
-      const page = await browser.newPage();
-      await page.setExtraHTTPHeaders({
-        "user-agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-      });
-
       await page.goto(portalUrl, {
         timeout: PLAYWRIGHT_TIMEOUT_MS,
         waitUntil: "domcontentloaded",
@@ -290,7 +282,10 @@ export class FormFillerAgent extends BaseAgent<FormFillerInput, FormFillerResult
               requestData,
             );
             if (value) {
-              await page.fill(combinedSelector, value).catch(() => undefined);
+              // Human-like typing instead of an instant fill.
+              await stealth
+                .humanType(page, combinedSelector, value)
+                .catch(() => undefined);
             }
           }
         }
@@ -311,14 +306,15 @@ export class FormFillerAgent extends BaseAgent<FormFillerInput, FormFillerResult
           preScreenshotUrl = preUrlData.publicUrl ?? null;
         }
 
-        // Click submit — try typed button first, then text fallback
-        const submitted = await page
-          .click('button[type="submit"], input[type="submit"]')
+        // Human-like click on submit — try typed button first, then text fallback
+        const submitted = await stealth
+          .humanClick(page, 'button[type="submit"], input[type="submit"]')
           .then(() => true)
           .catch(() => false);
         if (!submitted) {
-          await page
-            .click(
+          await stealth
+            .humanClick(
+              page,
               'button:has-text("Submit"), button:has-text("Apply"), button:has-text("Send"), button:has-text("Donate")',
             )
             .catch(() => undefined);
