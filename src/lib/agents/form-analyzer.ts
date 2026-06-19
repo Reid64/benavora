@@ -330,15 +330,31 @@ async function fetchPageHtml(url: string): Promise<string> {
 
     // Some portals gate the real page behind a JS bot-challenge interstitial
     // that reloads into the actual content after a moment, and WordPress form
-    // plugins inject the <form> late. networkidle can settle on the challenge
-    // screen (0 forms), so poll for a real <form> to appear instead - we
-    // re-evaluate each tick so it survives the challenge's page navigation.
+    // plugins inject forms incrementally (trivial search forms first, the real
+    // donation form later). networkidle can settle on the challenge screen, and
+    // breaking on the first <form> grabs only the search forms. So poll the
+    // total form markup length and wait for it to STABILIZE - re-evaluating each
+    // tick so it survives the challenge's navigation - before extracting.
     const deadline = Date.now() + PLAYWRIGHT_TIMEOUT_MS;
+    let prevLen = -1;
+    let stableTicks = 0;
     while (Date.now() < deadline) {
-      const count = await page
-        .evaluate(() => document.querySelectorAll("form").length)
+      const len = await page
+        .evaluate(() => {
+          let total = 0;
+          document.querySelectorAll("form").forEach((form) => {
+            total += form.outerHTML.length;
+          });
+          return total;
+        })
         .catch(() => 0);
-      if (count > 0) break;
+      if (len > 0 && len === prevLen) {
+        // ~2s of no change => forms have finished injecting.
+        if (++stableTicks >= 2) break;
+      } else {
+        stableTicks = 0;
+      }
+      prevLen = len;
       await page.waitForTimeout(1000);
     }
 
