@@ -1,16 +1,22 @@
-import Link from "next/link";
+"use client";
 
-// Marketing route-group layout (BLUEPRINT §10). Nests inside the root layout's
-// <html class="dark"><body>, so it only supplies the dark page chrome: a top
-// nav and a footer. No dashboard sidebar. The "/" landing page lives outside
-// this group; section links target its anchors (/#features, etc.).
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+
+// Marketing route-group layout. Provides the shared dark nav + footer for the
+// secondary marketing pages (/privacy, /terms, /for-consultants).
+//
+// The landing page ("/") is the converted v15 marketing page — it is fully
+// self-contained (its own nav, footer, and GLOBAL CSS, including a `nav {}`
+// rule). Wrapping it in this chrome would duplicate the nav and let the v15
+// global styles collide with it, so we render the landing without chrome.
 
 const NAV_LINKS: { label: string; href: string }[] = [
-  { label: "How It Works", href: "/#how-it-works" },
+  { label: "How It Works", href: "/#how" },
   { label: "Features", href: "/#features" },
   { label: "Pricing", href: "/#pricing" },
   { label: "FAQ", href: "/#faq" },
-  { label: "For Agencies", href: "/#for-agencies" },
+  { label: "For Agencies", href: "/for-consultants" },
 ];
 
 export default function MarketingLayout({
@@ -18,16 +24,25 @@ export default function MarketingLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const pathname = usePathname();
+
+  // Landing page renders standalone (it brings its own nav + footer).
+  if (pathname === "/") {
+    return <>{children}</>;
+  }
+
   return (
     <div className="flex min-h-screen flex-col bg-[#0a0a1a] text-gray-200">
       {/* Top nav */}
       <header className="sticky top-0 z-40 border-b border-white/10 bg-[#0a0a1a]/90 backdrop-blur">
-        <nav className="mx-auto flex max-w-6xl items-center justify-between gap-6 px-6 py-4">
-          <Link
-            href="/"
-            className="text-xl font-bold tracking-tight text-white transition hover:opacity-90"
-          >
-            Benavora
+        <nav className="mx-auto flex max-w-6xl items-center justify-between gap-6 px-6 py-3">
+          <Link href="/" className="flex items-center" aria-label="Benavora home">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/benavora-logo.png"
+              alt="Benavora"
+              style={{ height: "80px", width: "auto" }}
+            />
           </Link>
 
           <div className="hidden items-center gap-7 lg:flex">
