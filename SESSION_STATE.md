@@ -20,5 +20,16 @@
   - Templates: field count from `field_mapping` JSON; per-row "Re-analyze" button; fetches `form_templates` joined with `funders`
   - "Add to Queue" modal: lists funders where `giving_portal_url` is not null, bulk insert into `submission_queue`
 
+- **lead-scraper-nonprofits**: Created `src/scripts/scrape-nonprofit-leads.ts`.
+  - Queries `foundation_directory` via Supabase admin client (service role, bypasses RLS): NTEE prefix filter (L/P/K/F/J/S/X), revenue $100K–$10M, limit 500
+  - For each org: Google search → first non-aggregator URL → Playwright page visit → Claude Haiku contact extraction (email, phone, executiveDirector, grantStaff, website)
+  - Updates `foundation_directory` rows with discovered website/email/phone (non-destructive: only fills null fields)
+  - Exports enriched results to `exports/nonprofit-leads.csv` (ein, name, city, state, ntee_code, revenue_amount, website, email, phone, executive_director, grant_staff)
+  - Progress logged every 50 records; results appended incrementally (crash-safe)
+  - 3s delay between Google searches, 2s delay between page visits
+  - Run overnight: `npx tsx src/scripts/scrape-nonprofit-leads.ts`
+
 ### Next Steps
-- Run `pnpm tsc --noEmit && pnpm run build` to confirm zero TypeScript errors and clean build.
+- Run `pnpm tsc --noEmit` to confirm zero TypeScript errors (gate was pending user approval of pnpm commands in this session)
+- Run `pnpm run build` to verify clean Next.js build
+- Execute `npx tsx src/scripts/scrape-nonprofit-leads.ts` overnight — expected 3-4 hours for 500 records
