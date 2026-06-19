@@ -323,8 +323,26 @@ async function fetchPageHtml(url: string): Promise<string> {
       waitUntil: "domcontentloaded",
     });
 
+    // A portal's <form> can sit far down a 400K+ char page; sending the whole
+    // page truncates at MAX_HTML_CHARS and misses late forms entirely. Extract
+    // just the form elements' outerHTML instead - concentrated and small enough
+    // to survive truncation. (Manual meadetractor.com test: form outerHTML found
+    // all 10 fields; full-page HTML found 0.) Fall back to truncated page content
+    // only when the page has no <form> elements at all.
+    const formsHtml = await page.evaluate(() => {
+      const out: string[] = [];
+      document.querySelectorAll("form").forEach((form) => {
+        out.push(form.outerHTML);
+      });
+      return out.join("\n\n<!-- FORM SEPARATOR -->\n\n");
+    });
+
+    if (formsHtml.trim() !== "") {
+      return formsHtml;
+    }
+
     const html = await page.content();
-    return html;
+    return html.slice(0, MAX_HTML_CHARS);
   } finally {
     await browser.close();
   }
