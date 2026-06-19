@@ -466,7 +466,7 @@ const BODY = `
   <a href="/login" class="btn-primary" style="padding:16px 48px;font-size:17px;display:inline-block;text-decoration:none">Start Your Free Trial</a>
 </section>
 
-<footer>&copy; 2026 Benavora. All rights reserved. &nbsp;|&nbsp; <a href="/privacy" style="color:#64748b">Privacy</a> &nbsp;|&nbsp; <a href="/terms" style="color:#64748b">Terms</a> &nbsp;|&nbsp; <a href="/for-consultants" style="color:#64748b">For Consultants</a> &nbsp;|&nbsp; <a href="mailto:support@benavora.com" style="color:#64748b">support@benavora.com</a></footer>
+<footer>&copy; 2026 Benavora. All rights reserved. &nbsp;|&nbsp; <a href="/privacy" style="color:#64748b">Privacy Policy</a> &nbsp;|&nbsp; <a href="/terms" style="color:#64748b">Terms of Service</a> &nbsp;|&nbsp; <a href="/for-consultants" style="color:#64748b">For Agencies</a> &nbsp;|&nbsp; <a href="mailto:support@benavora.com" style="color:#64748b">support@benavora.com</a></footer>
 `;
 
 const SCRIPT = `/* Billing toggle & pricing */
