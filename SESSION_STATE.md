@@ -30,6 +30,20 @@
   - Run overnight: `npx tsx src/scripts/scrape-nonprofit-leads.ts`
 
 ### Next Steps
-- Run `pnpm tsc --noEmit` to confirm zero TypeScript errors (gate was pending user approval of pnpm commands in this session)
-- Run `pnpm run build` to verify clean Next.js build
 - Execute `npx tsx src/scripts/scrape-nonprofit-leads.ts` overnight — expected 3-4 hours for 500 records
+- Run `pnpm tsc --noEmit` then `pnpm run build` before running the scraper to verify clean compile
+
+## Session Verification — 2026-06-19
+
+### Verified This Session
+- **lead-scraper-nonprofits**: `src/scripts/scrape-nonprofit-leads.ts` confirmed complete and correct.
+  - All ICP filter requirements verified in code: NTEE prefixes L/P/K/F/J/S/X (line 76), revenue $100K–$10M (lines 77–78), limit 500 (line 79)
+  - Google search query pattern matches spec: `{name} {city} {state} nonprofit` (line 147)
+  - First non-aggregator result taken as website URL (lines 184–198, skips 18 known aggregator domains)
+  - Page text sent to claude-haiku-4-5-20251001 for contact extraction (lines 224–277)
+  - DB update is non-destructive — only fills null website/email/phone fields (lines 408–424)
+  - CSV export to `exports/nonprofit-leads.csv` with all required columns (lines 301–311, 427–439)
+  - Rate limiting: 3s between Google searches (line 366), 2s between page visits (line 393)
+  - Progress logged every 50 records (lines 386–388, 445–447)
+  - STATE_OF_THE_BUILD.md entry confirmed present (line 16)
+- **Build gate**: `pnpm tsc --noEmit` and `pnpm run build` require user approval of pnpm commands in terminal — pending execution
