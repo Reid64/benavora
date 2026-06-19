@@ -320,7 +320,9 @@ async function fetchPageHtml(url: string): Promise<string> {
 
     await page.goto(url, {
       timeout: PLAYWRIGHT_TIMEOUT_MS,
-      waitUntil: "domcontentloaded",
+      // WordPress donation plugins inject the form via JS after DOM ready, so
+      // wait for network to settle rather than just DOMContentLoaded.
+      waitUntil: "networkidle",
     });
 
     // A portal's <form> can sit far down a 400K+ char page; sending the whole
