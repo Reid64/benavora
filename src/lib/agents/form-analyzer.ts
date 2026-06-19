@@ -325,17 +325,28 @@ async function fetchPageHtml(url: string): Promise<string> {
 
     await page.goto(url, {
       timeout: PLAYWRIGHT_TIMEOUT_MS,
-      // WordPress donation plugins inject the form via JS after DOM ready, so
-      // wait for network to settle rather than just DOMContentLoaded.
-      waitUntil: "networkidle",
+      waitUntil: "domcontentloaded",
     });
+
+    // Some portals gate the real page behind a JS bot-challenge interstitial
+    // that reloads into the actual content after a moment, and WordPress form
+    // plugins inject the <form> late. networkidle can settle on the challenge
+    // screen (0 forms), so poll for a real <form> to appear instead - we
+    // re-evaluate each tick so it survives the challenge's page navigation.
+    const deadline = Date.now() + PLAYWRIGHT_TIMEOUT_MS;
+    while (Date.now() < deadline) {
+      const count = await page
+        .evaluate(() => document.querySelectorAll("form").length)
+        .catch(() => 0);
+      if (count > 0) break;
+      await page.waitForTimeout(1000);
+    }
 
     // A portal's <form> can sit far down a 400K+ char page; sending the whole
     // page truncates at MAX_HTML_CHARS and misses late forms entirely. Extract
     // just the form elements' outerHTML instead - concentrated and small enough
-    // to survive truncation. (Manual meadetractor.com test: form outerHTML found
-    // all 10 fields; full-page HTML found 0.) Fall back to truncated page content
-    // only when the page has no <form> elements at all.
+    // to survive truncation. Fall back to truncated page content only when the
+    // page has no <form> elements at all.
     const formsHtml = await page.evaluate(() => {
       const out: string[] = [];
       document.querySelectorAll("form").forEach((form) => {
