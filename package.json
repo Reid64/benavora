@@ -30,11 +30,14 @@
         "pdf-lib": "^1.17.1",
         "pdf-parse": "^1.1.1",
         "playwright": "^1.60.0",
+        "playwright-extra": "^4.3.6",
+        "puppeteer-extra-plugin-stealth": "^2.11.2",
         "react": "^18.3.1",
         "react-dom": "^18.3.1",
         "recharts": "^2.15.4",
         "resend": "^6.12.4",
-        "stripe": "^22.2.0"
+        "stripe": "^22.2.0",
+        "ws": "^8.21.0"
     },
     "devDependencies": {
         "@playwright/test": "^1.47.2",
@@ -43,6 +46,7 @@
         "@types/pdf-parse": "^1.1.5",
         "@types/react": "^18.3.7",
         "@types/react-dom": "^18.3.0",
+        "@types/ws": "^8.18.1",
         "@typescript-eslint/eslint-plugin": "^8.61.0",
         "@typescript-eslint/parser": "^8.61.0",
         "autoprefixer": "^10.4.20",

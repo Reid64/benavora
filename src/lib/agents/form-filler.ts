@@ -10,7 +10,8 @@
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import { chromium } from "playwright";
+import { chromium } from "playwright-extra";
+import StealthPlugin from "puppeteer-extra-plugin-stealth";
 
 import { callClaude, DEFAULT_MAX_TOKENS, DEFAULT_MODEL } from "@/lib/ai/claude";
 import {
@@ -21,6 +22,10 @@ import {
 } from "@/lib/agents/base-agent";
 import type { FieldMappingEntry } from "@/lib/agents/form-analyzer";
 import type { AgentType } from "@/types/agents";
+
+// Anti-fingerprinting: spoofs navigator.webdriver, adds fake plugins, hides
+// automation flags, and passes common bot detection on every launched browser.
+chromium.use(StealthPlugin());
 
 const PLAYWRIGHT_TIMEOUT_MS = 30_000;
 const AUTOAPPLY_BUCKET = "autoapply-screenshots";
@@ -205,7 +210,7 @@ export class FormFillerAgent extends BaseAgent<FormFillerInput, FormFillerResult
     let postScreenshotUrl: string | null = null;
     let confirmationNumber: string | null = null;
 
-    const browser = await chromium.launch({ headless: true }).catch(
+    const browser = await chromium.launch({ headless: false, slowMo: 300 }).catch(
       (launchErr: unknown) => {
         const msg =
           launchErr instanceof Error ? launchErr.message : "launch failed";
@@ -408,3 +413,4 @@ export class FormFillerAgent extends BaseAgent<FormFillerInput, FormFillerResult
     };
   }
 }
+

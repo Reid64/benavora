@@ -7,7 +7,8 @@
 // will not run in Vercel serverless (no binary). The /api/agents/form-analyzer
 // route is for development and worker-proxied use only.
 
-import { chromium } from "playwright";
+import { chromium } from "playwright-extra";
+import StealthPlugin from "puppeteer-extra-plugin-stealth";
 
 import { callClaude, DEFAULT_MAX_TOKENS, DEFAULT_MODEL } from "@/lib/ai/claude";
 import {
@@ -18,6 +19,10 @@ import {
 } from "@/lib/agents/base-agent";
 import type { AgentType } from "@/types/agents";
 import type { Json } from "@/types/database";
+
+// Anti-fingerprinting: spoofs navigator.webdriver, adds fake plugins, hides
+// automation flags, and passes common bot detection on every launched browser.
+chromium.use(StealthPlugin());
 
 const MAX_HTML_CHARS = 80_000;
 const PLAYWRIGHT_TIMEOUT_MS = 30_000;
