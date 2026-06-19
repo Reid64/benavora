@@ -13,11 +13,11 @@ import type { Database } from '../types/database';
 // foundation_directory. Set BMF_URL env var to import a single file instead.
 //
 // State-level file pattern:
-//   https://apps.irs.gov/pub/epostcard/data-download/eo_XX.csv
+//   https://www.irs.gov/pub/irs-soi/eo_XX.csv
 // Regional file that includes TX (for reference):
 //   eo3.csv (AL, AR, FL, GA, KY, LA, MS, NC, SC, TN, TX)
 // ---------------------------------------------------------------------------
-const BMF_BASE_URL = 'https://apps.irs.gov/pub/epostcard/data-download';
+const BMF_BASE_URL = 'https://www.irs.gov/pub/irs-soi';
 
 // All 50 states + DC + US territories
 const STATE_CODES = [
@@ -30,6 +30,16 @@ const STATE_CODES = [
 ];
 
 const BATCH_SIZE = 500;
+
+// IRS EO BMF files have NO header row, so we supply the column names. Order per
+// the IRS "Exempt Organizations Business Master File Extract" record layout.
+const BMF_HEADERS: readonly string[] = [
+  'EIN', 'NAME', 'ICO', 'STREET', 'CITY', 'STATE', 'ZIP', 'GROUP',
+  'SUBSECTION', 'AFFILIATION', 'CLASSIFICATION', 'RULING', 'DEDUCTIBILITY',
+  'FOUNDATION', 'ACTIVITY', 'ORGANIZATION', 'STATUS', 'TAX_PERIOD',
+  'ASSET_CD', 'INCOME_CD', 'FILING_REQD_CD', 'PF_FILING_REQD_CD', 'ACCT_PD',
+  'ASSET_AMT', 'INCOME_AMT', 'REVENUE_AMT', 'NTEE_CD', 'SORT_NAME',
+];
 
 // ---------------------------------------------------------------------------
 // Minimal .env.local parser (tsx does not auto-load .env files)
@@ -194,7 +204,6 @@ async function importFile(
     return null;
   }
 
-  let headers: string[] = [];
   let batch: Database['public']['Tables']['foundation_directory']['Insert'][] = [];
   let fileImported = 0;
   let fileErrors = 0;
@@ -204,15 +213,12 @@ async function importFile(
   for await (const line of rl) {
     if (!line.trim()) continue;
 
-    if (headers.length === 0) {
-      headers = parseCSVLine(line);
-      continue;
-    }
-
+    // BMF files have no header row — every line is data, mapped positionally
+    // against the fixed BMF_HEADERS layout (so row['FOUNDATION'] etc. resolve).
     const values = parseCSVLine(line);
     const row: Record<string, string | undefined> = {};
-    for (let i = 0; i < headers.length; i++) {
-      const key = headers[i];
+    for (let i = 0; i < BMF_HEADERS.length; i++) {
+      const key = BMF_HEADERS[i];
       if (key !== undefined) {
         row[key] = values[i];
       }
@@ -344,3 +350,4 @@ main().catch((err: unknown) => {
   console.error('Import failed:', err instanceof Error ? err.message : String(err));
   process.exit(1);
 });
+
