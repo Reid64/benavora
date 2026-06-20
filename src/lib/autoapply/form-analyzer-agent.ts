@@ -18,7 +18,7 @@ export class FormAnalyzerAgent {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async analyzeAndStore(_options: AnalyzeOptions): Promise<{ id: string }> {
+  async analyzeAndStore(_options: AnalyzeOptions): Promise<{ id: string; fieldCount: number }> {
     throw new Error('FormAnalyzerAgent not yet implemented — Phase 3A pending');
   }
 }

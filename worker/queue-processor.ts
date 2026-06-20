@@ -237,6 +237,7 @@ export class QueueProcessor {
     const funder = funderData as FunderRow;
     const portalUrl = funder.giving_portal_url;
     if (!portalUrl) throw new SkipError('no_portal_url');
+    const funderName = funder.name ?? funderId;
 
     // Per-domain throttle: minimum 24 hours between submissions to the same funder
     const canSubmit = await this.rateLimiter.canSubmitToDomain(funderId);
@@ -257,6 +258,12 @@ export class QueueProcessor {
       existingTemplate.last_verified_at === null ||
       Date.now() - new Date(existingTemplate.last_verified_at).getTime() > SEVEN_DAYS_MS;
 
+    // Snapshot existing field count for change-detection during stale-template refresh
+    const existingFieldCount: number | null = existingTemplate !== null
+      ? (existingTemplate['field_count'] as number | null | undefined) ?? null
+      : null;
+    const isStaleRefresh = existingTemplate !== null && needsReanalysis;
+
     const stealthBrowser = new StealthBrowser({ headless: true });
     const { browser, page } = await stealthBrowser.launch();
 
@@ -272,9 +279,40 @@ export class QueueProcessor {
     try {
       // Analyze the form if no cached template or template is stale
       if (needsReanalysis) {
-        const analyzer = new FormAnalyzerAgent(this.supabase);
-        const stored = await analyzer.analyzeAndStore({ page, portalUrl, funderId, organizationId: orgId });
-        formTemplateId = stored.id;
+        let analyzeResult: { id: string; fieldCount: number };
+        try {
+          const analyzer = new FormAnalyzerAgent(this.supabase);
+          analyzeResult = await analyzer.analyzeAndStore({ page, portalUrl, funderId, organizationId: orgId });
+        } catch (analyzerErr) {
+          const analyzerMsg = analyzerErr instanceof Error ? analyzerErr.message : String(analyzerErr);
+          console.warn(`[QueueProcessor] FormAnalyzerAgent failed for funder ${funderName}: ${analyzerMsg}`);
+          // Mark portal as needing human review; ignore update errors (column may not exist yet)
+          await this.supabase
+            .from('funders')
+            .update({ portal_review_status: 'needs_review' })
+            .eq('id', funderId);
+          throw new SkipError(`analyzer_failed: ${analyzerMsg}`);
+        }
+
+        formTemplateId = analyzeResult.id;
+
+        // Persist auto-generated metadata on the stored template
+        await this.supabase
+          .from('form_templates')
+          .update({
+            auto_generated: true,
+            field_count: analyzeResult.fieldCount,
+            last_verified_at: new Date().toISOString(),
+          })
+          .eq('id', analyzeResult.id);
+
+        // Warn if form structure changed during a stale-template refresh
+        if (isStaleRefresh && existingFieldCount !== null && analyzeResult.fieldCount !== existingFieldCount) {
+          console.warn(
+            `[QueueProcessor] Form structure changed for ${funderName}: ` +
+            `was ${existingFieldCount} fields, now ${analyzeResult.fieldCount} fields`,
+          );
+        }
       }
 
       // Load current template (just stored or previously cached)
