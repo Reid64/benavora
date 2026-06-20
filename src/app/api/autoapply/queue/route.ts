@@ -4,8 +4,19 @@
 import { NextResponse } from "next/server";
 
 import { requireRole } from "@/lib/auth/role-gate";
+import { resolveTier } from "@/lib/billing/usage-tracker";
 
 export const runtime = "nodejs";
+
+// Max funders that may be enqueued in a single batch, per subscription tier.
+// Enterprise is configurable; 200 is the default. Consultant is unlimited (null).
+const BATCH_CAPS: Record<string, number | null> = {
+  free: 5,
+  starter: 10,
+  professional: 50,
+  enterprise: 200,
+  consultant: null,
+};
 
 export async function POST(request: Request) {
   const gate = await requireRole("writer");
@@ -29,6 +40,22 @@ export async function POST(request: Request) {
   }
 
   const ids = funder_ids as string[];
+
+  // Enforce the per-tier batch-size cap before doing any work.
+  const tier = await resolveTier(supabase, organizationId);
+  const cap = tier in BATCH_CAPS ? BATCH_CAPS[tier] : BATCH_CAPS.free;
+  if (cap != null && ids.length > cap) {
+    return NextResponse.json(
+      {
+        error: `Your ${tier} plan allows up to ${cap} funders per batch (you selected ${ids.length}). Reduce the selection or upgrade your plan.`,
+        code: "batch_cap_exceeded",
+        tier,
+        cap,
+        requested: ids.length,
+      },
+      { status: 422 },
+    );
+  }
 
   // Find funders that already have a pending or processing queue item.
   const { data: existing } = await supabase

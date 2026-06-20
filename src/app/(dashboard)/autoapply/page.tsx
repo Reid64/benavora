@@ -16,6 +16,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useProfile } from "@/lib/hooks/useProfile";
 import type { Json } from "@/types/database";
 import { WorkerStatus } from "@/components/autoapply/WorkerStatus";
+import { QueueMetrics } from "@/components/autoapply/QueueMetrics";
 import { QueuePanel } from "@/components/autoapply/QueuePanel";
 import { SubmissionHistory } from "@/components/autoapply/SubmissionHistory";
 
@@ -338,6 +339,9 @@ export default function AutoApplyPage() {
           {actionError}
         </div>
       )}
+
+      {/* QUEUE METRICS — depth, processing rate, est. completion (live) */}
+      <QueueMetrics />
 
       {/* QUEUE PANEL — real-time stats, per-item remove, clear queue */}
       <QueuePanel />
