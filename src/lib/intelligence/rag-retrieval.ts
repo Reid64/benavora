@@ -69,7 +69,6 @@ export async function retrieveIntelligence(params: {
   const {
     queryText,
     sectionTypes,
-    categories: _categories,
     limit = 5,
     threshold = 0.7,
   } = params
