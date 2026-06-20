@@ -10,7 +10,9 @@ export async function generateEmbedding(text: string): Promise<number[]> {
         model: 'text-embedding-3-small',
         input: text,
       })
-      return response.data[0].embedding
+      const item = response.data[0]
+      if (item === undefined) throw new Error('No embedding returned from API')
+      return item.embedding
     } catch (err) {
       lastError = err
       if (attempt < 2) {
