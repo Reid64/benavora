@@ -2725,6 +2725,69 @@ export interface Database {
         };
         Relationships: [];
       };
+      // Migration 049: auto_queue_config - autonomous queue population settings per org.
+      auto_queue_config: {
+        Row: {
+          id: string;
+          organization_id: string;
+          enabled: boolean;
+          max_per_batch: number;
+          schedule: string;
+          categories: string[] | null;
+          geographic_scope: string[] | null;
+          min_company_size: string | null;
+          exclusion_list: string[] | null;
+          dedup_window_days: number;
+          last_run_at: string | null;
+          last_run_queued: number | null;
+          last_run_skipped: number | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          enabled?: boolean;
+          max_per_batch?: number;
+          schedule?: string;
+          categories?: string[] | null;
+          geographic_scope?: string[] | null;
+          min_company_size?: string | null;
+          exclusion_list?: string[] | null;
+          dedup_window_days?: number;
+          last_run_at?: string | null;
+          last_run_queued?: number | null;
+          last_run_skipped?: number | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          enabled?: boolean;
+          max_per_batch?: number;
+          schedule?: string;
+          categories?: string[] | null;
+          geographic_scope?: string[] | null;
+          min_company_size?: string | null;
+          exclusion_list?: string[] | null;
+          dedup_window_days?: number;
+          last_run_at?: string | null;
+          last_run_queued?: number | null;
+          last_run_skipped?: number | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "auto_queue_config_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: true;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       // Migration 046: foundation_directory - IRS BMF public reference data (no RLS)
       foundation_directory: {
         Row: {

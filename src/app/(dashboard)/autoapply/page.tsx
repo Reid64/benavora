@@ -1,12 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import {
   ExternalLink,
   FileSearch,
   Play,
   Plus,
   RefreshCw,
+  Settings,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/Badge";
@@ -324,6 +326,12 @@ export default function AutoApplyPage() {
         </div>
         <div className="flex items-start gap-3">
           <WorkerStatus />
+          <Link href="/autoapply/settings">
+            <Button variant="secondary">
+              <Settings className="mr-1.5 h-4 w-4" />
+              Settings
+            </Button>
+          </Link>
           <Button onClick={() => void openAddToQueue()}>
             <Plus className="mr-1.5 h-4 w-4" />
             Add to Queue
