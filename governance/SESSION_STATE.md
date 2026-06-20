@@ -8,13 +8,30 @@
 - **Current prompt:** none (Phase 3 has not started)
 - **Completed prompts:** 0
 - **Failed prompts:** 0
-- **Last updated:** 2026-06-12T18:24:56.449Z
+- **Last updated:** 2026-06-19 (Claude Code)
 
 ## Active Build
 none — no build is executing yet
 
 ## Notes
 Initialized empty by Phase 2 (Governance Generator). Phase 3 updates this after every prompt.
+
+# ===========================================================================
+# HANDOFF SUMMARY — 2026-06-18/19 (Claude Code)
+# Live prod: benavora.vercel.app | Supabase project ref: vbjplpquqxxfbpazyalt
+# ===========================================================================
+
+## Session snapshot
+- **Last session:** June 18-19, 2026.
+- **Current commit:** latest on `main` (most recent code commit before this doc update: `eec485e` — landing footer labels).
+- **Vercel deployment:** live at benavora.vercel.app.
+- **Marketing pages:** all deployed and functional — root landing page, `/privacy`, `/terms`, `/for-consultants`.
+- **AutoApply proof of concept PROVEN:** form analyzer + form filler + StealthBrowser. FormFillerAgent submitted to a real corporate giving portal (Meade Tractor) end to end (status submitted, ~43s).
+- **Foundation directory populated:** ~133K private-foundation records in `foundation_directory` (`/foundations` UI live).
+- **Lead data exported (external drive):** 54K foundation websites + 298K 501(c)(3) nonprofit leads.
+
+See `STATE_OF_THE_BUILD.md` → "AutoApply + Data Infrastructure Session — 2026-06-18/19"
+for the full COMPLETED / KNOWN ISSUES / PENDING breakdown.
 
 # ===========================================================================
 # HANDOFF SUMMARY — 2026-06-18 (Claude Code)

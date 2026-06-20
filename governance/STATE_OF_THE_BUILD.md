@@ -117,3 +117,109 @@ Completed work this session (Phase 6 data-infrastructure + fixes):
 - **Recursive learning** — verified parts 1–4 already implemented (awarded→pattern analysis vs denied, stored in `proven_narratives.success_patterns`, injected into the draft prompt — now top 3) and the "Learning Insights" panel already present on outcomes analytics.
 
 DB note: migrations are NOT reliably applied to the live project (`vbjplpquqxxfbpazyalt`). This session confirmed 011 and 014 were missing in prod and applied 014 + 042 via the Management API. A full migration-vs-prod reconciliation audit is recommended.
+
+## AutoApply + Data Infrastructure Session — 2026-06-18/19 (Claude Code)
+
+### COMPLETED — Phase 3A: Form Analysis Engine
+- **FormAnalyzerAgent** (`src/lib/agents/form-analyzer.ts`) — fully functional.
+- Bug fixed: race condition where forms were extracted before WordPress plugins
+  finished injecting them. Fix waits for the total form-markup length to
+  STABILIZE (2 consecutive 1s ticks unchanged) before extracting. Verified
+  **11/11 fields on 4 consecutive runs** against Meade Tractor.
+- Uses **StealthBrowser** (`src/lib/autoapply/stealth-browser.ts`) for anti-detection.
+
+### COMPLETED — Phase 3B: Form Fill + Submit Engine
+- **FormFillerAgent** (`src/lib/agents/form-filler.ts`) — successfully submitted to a
+  real corporate giving portal (Meade Tractor, funder ID
+  `2521840b-9048-4c77-bd9c-f9f8492529d7`).
+- Status: **submitted**, duration **43 seconds**, stealth plugin defeated bot detection.
+- Uses StealthBrowser with `humanType()` (character-by-character) and `humanClick()`
+  (Bézier mouse path) for submit.
+- Form template stored in `form_templates` (ID `32b2ee99-616c-49e3-80f2-f0f670f27825`).
+
+### COMPLETED — StealthBrowser (`src/lib/autoapply/stealth-browser.ts`)
+- playwright-extra with the stealth plugin.
+- Canvas fingerprint randomization, WebGL vendor/renderer spoofing, AudioContext
+  noise injection.
+- `navigator.hardwareConcurrency` / `deviceMemory` / `platform` spoofing.
+- 20 real Chrome 120+ user-agent rotation pool.
+- US timezone/locale randomization (Eastern/Central/Pacific).
+- Viewport randomization (1280-1920 × 720-1080).
+- Human behavior helpers: `humanType` (80-200ms/char), `humanClick` (Bézier curves),
+  `humanScroll`, `humanDelay`.
+- Both `form-analyzer.ts` and `form-filler.ts` import StealthBrowser (Playwright's
+  `addInitScript` is used for the fingerprint overrides — the equivalent of
+  Puppeteer's `evaluateOnNewDocument`).
+
+### COMPLETED — IRS 990 BMF Import
+- **133,812 private foundations** imported into the `foundation_directory` table.
+- URL fixed: `https://www.irs.gov/pub/irs-soi/eo_XX.csv` (was `apps.irs.gov`, returned 404).
+- CSV parsing fixed: added a hardcoded `BMF_HEADERS` array (28 columns; the BMF files
+  are headerless).
+- Foundation Directory UI live at `/foundations` with search and an "Import as Funder" button.
+
+### COMPLETED — IRS 990 XML Website Enrichment
+- **54,216 foundation websites** extracted from IRS 990 e-file XML data.
+- Downloaded the index from `https://apps.irs.gov/pub/epostcard/990/xml/2025/index_2025.csv`.
+- Processed 13 of 15 ZIP batches (2 failed: ZIP64 format incompatible with
+  tar/Expand-Archive).
+- Output: `foundations-with-websites.csv` on external drive.
+
+### COMPLETED — 501(c)(3) Nonprofit Leads
+- **298,365 nonprofits** exported to `nonprofit-leads-501c3.csv`.
+- Filtered: SUBSECTION 03, NOT private foundations, revenue ≥ $100K, all NTEE
+  categories, active status.
+- Output on external drive for future enrichment.
+
+### COMPLETED — Marketing Pages (deployed to Vercel)
+- Privacy Policy at `/privacy` — data collection, AI processing, Supabase storage,
+  CCPA/GDPR, etc.
+- Terms of Service at `/terms` — subscription tiers, acceptable use, AI disclaimer,
+  Delaware law.
+- For Consultants at `/for-consultants` — pricing slider calculator
+  ($2,999/mo + $299/client), demo CTA.
+- Marketing layout with nav (logo, section anchors, login) and footer (privacy,
+  terms, agencies, email).
+- Full v15 marketing page converted to Next.js and deployed as the root landing page.
+- Landing page footer includes links to `/privacy`, `/terms`, `/for-consultants`,
+  `support@benavora.com`.
+- Logo displayed at 80px height in nav from `public/benavora-logo.png`.
+
+### COMPLETED — AutoApply Database Tables
+- Migration 045 applied: `form_templates`, `autoapply_submissions`, `submission_queue`
+  (no RLS, applied via SQL editor).
+- Migration 046 applied: `foundation_directory` with EIN unique constraint and indexes
+  (no RLS).
+
+### COMPLETED — Dependencies
+- `playwright-extra` and `puppeteer-extra-plugin-stealth` installed.
+- `ws` package installed for Node 20 WebSocket support.
+- `@types/ws` installed as a dev dependency.
+- Playwright Chromium installed locally (Chrome for Testing 148.0.7778.96).
+
+### KNOWN ISSUES
+- Form analyzer 0-fields: **FIXED** (markup stabilization wait).
+- Meade Tractor 403 on form filler: **FIXED** (stealth plugin).
+- IRS BMF URL returning 404: **FIXED** (URL changed from `apps.irs.gov` to `www.irs.gov`).
+- Scratch files breaking the Vercel build: **FIXED** (`tsconfig` exclude for `run-*.ts`).
+- Consultant scraper returning 0 results: Google blocking automated searches. Needs
+  stealth Playwright integration.
+- Nonprofit scraper returning 7 results: was filtering `foundation_directory` (funders)
+  not nonprofits. A separate standalone script was created for the 501(c)(3) import.
+- Two IRS 990 ZIP batches (11B, 05A) failed extraction: ZIP64 format; would need 7-Zip.
+  ~43K foundations missing websites.
+
+### PENDING
+- **Phase 3C: Queue + Batch Processing** — Railway/VPS worker deployment, queue
+  processor, nightly scheduling, rate limiting.
+- **Phase 3D: Full Autonomous Mode** — research agent auto-populates the queue,
+  auto-creates form templates.
+- **Phase 3E: Error Recovery** — CAPTCHA service integration (2Captcha), failure
+  classification, retry logic, form-template editing UI.
+- GoDaddy DNS: `benavora.com` CNAME `www -> cname.vercel-dns.com`, A record
+  `@ -> 76.76.21.21`.
+- Marketing page HTML conversion to Next.js: **COMPLETED**.
+- Alerts/notifications API routes: still returning 500 errors.
+- Orphaned `agent_runs` cleanup.
+- Tailwind CSS purge issue (amber styling).
+- OpenAI API key for three-model consensus.
