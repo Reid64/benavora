@@ -47,3 +47,29 @@
   - Progress logged every 50 records (lines 386–388, 445–447)
   - STATE_OF_THE_BUILD.md entry confirmed present (line 16)
 - **Build gate**: `pnpm tsc --noEmit` and `pnpm run build` require user approval of pnpm commands in terminal — pending execution
+
+## Session — 2026-06-19 (evening, Claude Code)
+
+### Snapshot
+- **Vercel:** live at benavora.vercel.app. Build green (143 routes). Latest code commit `eec485e` (landing footer); docs commits follow.
+- **Marketing site:** root landing (full v15 conversion) + /privacy + /terms + /for-consultants all deployed and functional.
+- **AutoApply proof of concept: PROVEN** — FormAnalyzer + FormFiller + StealthBrowser; live submission to Meade Tractor (status=submitted).
+
+### Verified against PROD (Supabase Management API, 2026-06-19)
+- `foundation_directory` = **133,812** rows ✓ (matches the reported IRS BMF import).
+- AutoApply tables present = **4/4** (`form_templates`, `autoapply_submissions`, `submission_queue`, `foundation_directory`) → **migrations 045 + 046 applied** ✓.
+- `form_templates` = 12 rows; the Meade template **`32b2ee99-616c-49e3-80f2-f0f670f27825` exists** ✓.
+- `autoapply_submissions` = 1 row, **status=submitted** ✓ (the live Meade Tractor submission).
+
+### Completed this session (code-verified by me)
+- FormAnalyzer stabilization fix — 11/11 fields on 4 consecutive runs vs Meade Tractor.
+- StealthBrowser utility (fingerprint randomization + human-behavior helpers); form-analyzer/filler use it; filler uses humanType/humanClick.
+- Marketing site converted + deployed; logo nav; footer link labels.
+- tsconfig excludes `run-*.ts` so scratch harnesses no longer break the build.
+
+### Reported by user, NOT independently verified by me
+- The 54,216 foundation-website and 298,365 nonprofit-lead CSV exports on the external drive (files are off-machine; I only verified the DB-side counts above).
+- The exact "~43s" filler duration and the IRS-990 ZIP64 batch failures.
+
+### Doc-duplication note
+There are TWO tracked copies of each governance doc: **this repo-root pair** (the living log you watch) and **`governance/STATE_OF_THE_BUILD.md` + `governance/SESSION_STATE.md`** (a parallel set in a different format). Earlier today the governance/ pair was updated (commit `d46b036`) — which is why this root file's timestamp didn't change. RECOMMEND picking one canonical location and removing the other to stop the divergence.
