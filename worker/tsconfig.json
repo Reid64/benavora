@@ -1,0 +1,26 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "outDir": "dist",
+    "rootDir": "..",
+    "noEmit": false,
+    "incremental": false,
+    "plugins": [],
+    "paths": {
+      "@/*": ["../src/*"]
+    }
+  },
+  "include": [
+    "**/*.ts",
+    "../src/lib/autoapply/**/*.ts",
+    "../src/lib/supabase/**/*.ts"
+  ],
+  "exclude": [
+    "../node_modules",
+    "dist"
+  ]
+}
