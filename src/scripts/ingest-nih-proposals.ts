@@ -4,9 +4,16 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import dotenv from 'dotenv';
+import ws from 'ws';
 import { createClient } from '@supabase/supabase-js';
 import Anthropic from '@anthropic-ai/sdk';
 import type { Database } from '../types/database';
+
+// Load .env.local before any Supabase/OpenAI/Anthropic client is initialized.
+// Runs at module load — ahead of the dynamic import of embeddings.ts, which
+// constructs the OpenAI client from process.env at import time.
+dotenv.config({ path: '.env.local' });
 
 const NIAID_PAGE = 'https://www.niaid.nih.gov/grants-contracts/sample-applications';
 const NIH_BASE = 'https://www.niaid.nih.gov';
@@ -156,7 +163,8 @@ async function main(): Promise<void> {
   const limitParsed = limitRaw !== undefined ? parseInt(limitRaw, 10) : NaN;
   const limit = !isNaN(limitParsed) ? limitParsed : Infinity;
 
-  const supabaseUrl = process.env['SUPABASE_URL'];
+  const supabaseUrl =
+    process.env['SUPABASE_URL'] ?? process.env['NEXT_PUBLIC_SUPABASE_URL'];
   const supabaseKey = process.env['SUPABASE_SERVICE_ROLE_KEY'];
   const anthropicKey = process.env['ANTHROPIC_API_KEY'];
   const openaiKey = process.env['OPENAI_API_KEY'];
@@ -178,7 +186,11 @@ async function main(): Promise<void> {
   // with process.env.OPENAI_API_KEY at module load time.
   const { generateEmbeddingsBatch } = await import('../lib/intelligence/embeddings');
 
-  const supabase = createClient<Database>(supabaseUrl, supabaseKey);
+  // Node < 22 has no native WebSocket; supabase-js's realtime client needs one.
+  // This script never opens a realtime channel, but createClient wires it eagerly.
+  const supabase = createClient<Database>(supabaseUrl, supabaseKey, {
+    realtime: { transport: ws as unknown as never },
+  });
   const anthropic = new Anthropic({ apiKey: anthropicKey });
 
   log('Fetching NIH NIAID sample applications page...');
@@ -196,13 +208,33 @@ async function main(): Promise<void> {
     log(`\nProcessing proposal ${i + 1}/${toProcess.length}: ${link.title}`);
 
     try {
+      // Dedup guard: skip if a proposal with this source_url already exists.
+      // Checked before download/parse/Claude so re-runs are cheap and idempotent.
+      const { data: existing, error: existingError } = await supabase
+        .from('intelligence_funded_proposals')
+        .select('id')
+        .eq('source_url', link.url)
+        .maybeSingle();
+      if (existingError) {
+        process.stderr.write(
+          `  Error checking for existing proposal: ${existingError.message}\n`,
+        );
+        continue;
+      }
+      if (existing) {
+        log(`  Skipping: already ingested (proposal ${existing.id})`);
+        continue;
+      }
+
       // Step 1: download PDF
       log(`  Downloading ${link.url}`);
       const pdfBuffer = await downloadPdf(link.url);
 
       // Step 2: extract text — lazy import as required
       log('  Parsing PDF...');
-      const pdfParse = (await import('pdf-parse')).default;
+      // Import the lib entry directly: pdf-parse's index.js runs a debug block on
+      // load that reads a bundled test PDF, throwing ENOENT in this context.
+      const pdfParse = (await import('pdf-parse/lib/pdf-parse.js')).default;
       const pdfData = await pdfParse(pdfBuffer);
       const fullText: string = pdfData.text;
 

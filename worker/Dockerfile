@@ -26,8 +26,8 @@ ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 
 WORKDIR /app
 
-COPY package.json package-lock.json ./
-RUN npm ci --production
+COPY package.json pnpm-lock.yaml ./
+RUN npm install -g pnpm && pnpm install --frozen-lockfile --prod
 
 COPY . .
 
