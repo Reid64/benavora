@@ -94,8 +94,7 @@ process.on('uncaughtException', (error: Error) => {
     .from('worker_status')
     .update({ status: 'error' })
     .eq('worker_id', env.workerId)
-    .then(() => process.exit(1))
-    .catch(() => process.exit(1));
+    .then(() => process.exit(1), () => process.exit(1));
 });
 
 process.on('unhandledRejection', (reason: unknown) => {
@@ -104,8 +103,7 @@ process.on('unhandledRejection', (reason: unknown) => {
     .from('worker_status')
     .update({ status: 'error' })
     .eq('worker_id', env.workerId)
-    .then(() => process.exit(1))
-    .catch(() => process.exit(1));
+    .then(() => process.exit(1), () => process.exit(1));
 });
 
 // --- Boot sequence ---
