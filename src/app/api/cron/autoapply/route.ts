@@ -63,6 +63,7 @@ async function runAutoQueue(request: Request) {
         organizationId: orgId,
         supabase: admin,
         maxItems: config.max_per_batch,
+        dry_run: false,
         filters: {
           categories: config.categories ?? undefined,
           geographicScope: config.geographic_scope ?? undefined,

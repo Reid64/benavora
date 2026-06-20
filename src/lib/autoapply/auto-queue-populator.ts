@@ -1,9 +1,35 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-type PopulateResult = {
+export type PopulateResult = {
   queued: number;
   skipped: number;
   reasons: Record<string, number>;
+};
+
+export type DryRunFunder = {
+  id: string;
+  name: string;
+  category: string | null;
+  city: string | null;
+  state: string | null;
+  giving_portal_url: string;
+};
+
+export type DryRunResult = {
+  funders: DryRunFunder[];
+};
+
+type PopulateParams = {
+  organizationId: string;
+  supabase: any;
+  maxItems?: number;
+  dry_run?: boolean;
+  filters?: {
+    categories?: string[];
+    minCompanySize?: string;
+    geographicScope?: string[];
+    excludeFunderIds?: string[];
+  };
 };
 
 function bumpReason(reasons: Record<string, number>, key: string): void {
@@ -18,18 +44,10 @@ function toStringSet(rows: Array<{ funder_id: string | null }> | null): Set<stri
   );
 }
 
-export async function populateQueue(params: {
-  organizationId: string;
-  supabase: any;
-  maxItems?: number;
-  filters?: {
-    categories?: string[];
-    minCompanySize?: string;
-    geographicScope?: string[];
-    excludeFunderIds?: string[];
-  };
-}): Promise<PopulateResult> {
-  const { organizationId, supabase, maxItems = 50, filters } = params;
+export async function populateQueue(params: PopulateParams & { dry_run: true }): Promise<DryRunResult>;
+export async function populateQueue(params: PopulateParams & { dry_run?: false }): Promise<PopulateResult>;
+export async function populateQueue(params: PopulateParams): Promise<PopulateResult | DryRunResult> {
+  const { organizationId, supabase, maxItems = 50, dry_run = false, filters } = params;
   const result: PopulateResult = { queued: 0, skipped: 0, reasons: {} };
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
@@ -58,7 +76,7 @@ export async function populateQueue(params: {
   // Query eligible funders
   let query = supabase
     .from('funders')
-    .select('id')
+    .select('id, name, category, city, state, giving_portal_url')
     .eq('organization_id', organizationId)
     .not('giving_portal_url', 'is', null)
     .neq('giving_portal_url', '');
@@ -84,7 +102,12 @@ export async function populateQueue(params: {
     throw new Error(`Failed to query funders: ${queryError.message}`);
   }
 
-  const eligible: Array<{ id: string }> = funders ?? [];
+  const eligible: DryRunFunder[] = funders ?? [];
+
+  // Preview mode: return the candidate funders without writing to the queue.
+  if (dry_run) {
+    return { funders: eligible };
+  }
 
   if (eligible.length > 0) {
     const inserts = eligible.map(funder => ({
