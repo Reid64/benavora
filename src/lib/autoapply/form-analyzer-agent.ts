@@ -17,6 +17,7 @@ export class FormAnalyzerAgent {
     void this.supabase; // referenced by real implementation
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async analyzeAndStore(_options: AnalyzeOptions): Promise<{ id: string }> {
     throw new Error('FormAnalyzerAgent not yet implemented — Phase 3A pending');
   }

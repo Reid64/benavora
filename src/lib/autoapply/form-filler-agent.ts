@@ -28,6 +28,7 @@ export class FormFillerAgent {
     void this.browser;
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async fillAndSubmit(_options: FillOptions): Promise<FillResult> {
     throw new Error('FormFillerAgent not yet implemented — Phase 3B pending');
   }
