@@ -1,12 +1,19 @@
 import OpenAI from 'openai'
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+let openaiClient: OpenAI | null = null
+
+function getOpenAI(): OpenAI {
+  if (openaiClient === null) {
+    openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  }
+  return openaiClient
+}
 
 export async function generateEmbedding(text: string): Promise<number[]> {
   let lastError: unknown
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      const response = await openai.embeddings.create({
+      const response = await getOpenAI().embeddings.create({
         model: 'text-embedding-3-small',
         input: text,
       })
@@ -29,7 +36,7 @@ export async function generateEmbeddingsBatch(texts: string[]): Promise<number[]
 
   for (let i = 0; i < texts.length; i += BATCH_SIZE) {
     const batch = texts.slice(i, i + BATCH_SIZE)
-    const response = await openai.embeddings.create({
+    const response = await getOpenAI().embeddings.create({
       model: 'text-embedding-3-small',
       input: batch,
     })
