@@ -26,10 +26,10 @@ export type DraftTemplateType =
   | "letter_of_inquiry"
   | "full_proposal";
 
-/** A single Knowledge Base / proven-narrative source cited in a draft. */
+/** A single Knowledge Base / proven-narrative / intelligence-library source cited in a draft. */
 export interface KnowledgeSource {
   id: string;
-  kind: "knowledge_base" | "proven_narrative";
+  kind: "knowledge_base" | "proven_narrative" | "intelligence_library";
   title: string;
 }
 

@@ -15,6 +15,14 @@ import {
 } from "@/lib/ai/claude";
 import { buildGrantNarrativePrompt } from "@/lib/ai/prompts/grant-narrative";
 import { buildDonationRequestPrompt } from "@/lib/ai/prompts/donation-request";
+import {
+  retrieveIntelligence,
+  retrieveRubric,
+  retrieveLogicModel,
+  type IntelligenceResult,
+  type ScoringRubric,
+  type LogicModel,
+} from "@/lib/intelligence/rag-retrieval";
 import { AI_CONFIDENCE_THRESHOLD } from "@/lib/utils/constants";
 import type {
   DraftPromptContext,
@@ -92,6 +100,36 @@ const TEMPLATE_KB_CATEGORIES: Record<DraftTemplateType, KbCategory[]> = {
     "partnerships",
     "budget_justification",
     "organizational_history",
+  ],
+};
+
+// Which intelligence section types are most relevant per template (used for
+// vector similarity filtering when querying the funded-proposals library).
+const TEMPLATE_SECTION_TYPES: Record<DraftTemplateType, string[]> = {
+  grant_narrative: [
+    "executive_summary",
+    "need_statement",
+    "problem_framing",
+    "program_design",
+    "outcomes",
+    "methodology",
+  ],
+  donation_request_letter: ["executive_summary", "need_statement"],
+  budget_narrative: ["budget_narrative"],
+  impact_statement: ["outcomes", "evaluation_plan"],
+  letter_of_inquiry: ["executive_summary", "need_statement", "program_design"],
+  full_proposal: [
+    "executive_summary",
+    "need_statement",
+    "problem_framing",
+    "program_design",
+    "outcomes",
+    "evaluation_plan",
+    "sustainability",
+    "budget_narrative",
+    "methodology",
+    "capacity",
+    "partnerships",
   ],
 };
 
@@ -415,6 +453,77 @@ export async function POST(request: Request) {
       successPatterns: successPatterns.length > 0 ? successPatterns : undefined,
     };
 
+    // ---------------------------------------------------------------------------
+    // Intelligence Library RAG retrieval (GRANT_INTELLIGENCE_ARCHITECTURE §5).
+    // Additive and non-blocking: if no data is ingested yet, or if any query
+    // fails, draft generation continues normally using only the org KB.
+    // ---------------------------------------------------------------------------
+    let intelligenceSections: IntelligenceResult[] = [];
+    let intelligenceRubric: ScoringRubric | null = null;
+    let intelligenceLogicModel: LogicModel | null = null;
+
+    {
+      const queryText = [
+        opportunity.description,
+        opportunity.name,
+        opportunity.eligibility_requirements,
+      ]
+        .filter(Boolean)
+        .join(" ");
+
+      const needsLogicModel =
+        template === "full_proposal" ||
+        ((opportunity.eligibility_requirements as string | null) ?? "")
+          .toLowerCase()
+          .includes("logic model") ||
+        ((opportunity.description as string | null) ?? "")
+          .toLowerCase()
+          .includes("logic model");
+
+      const sectionTypes = TEMPLATE_SECTION_TYPES[template];
+
+      try {
+        [intelligenceSections, intelligenceRubric, intelligenceLogicModel] =
+          await Promise.all([
+            retrieveIntelligence({ queryText, sectionTypes, limit: 5 }).catch(
+              (e: unknown) => {
+                console.error(
+                  "[INTELLIGENCE] retrieveIntelligence failed:",
+                  (e as Error).message,
+                );
+                return [] as IntelligenceResult[];
+              },
+            ),
+            retrieveRubric({
+              funderName: context.opportunity.funderName ?? undefined,
+              category: context.opportunity.category,
+            }).catch((e: unknown) => {
+              console.error(
+                "[INTELLIGENCE] retrieveRubric failed:",
+                (e as Error).message,
+              );
+              return null;
+            }),
+            needsLogicModel
+              ? retrieveLogicModel(context.opportunity.category).catch(
+                  (e: unknown) => {
+                    console.error(
+                      "[INTELLIGENCE] retrieveLogicModel failed:",
+                      (e as Error).message,
+                    );
+                    return null;
+                  },
+                )
+              : Promise.resolve(null),
+          ]);
+      } catch (e: unknown) {
+        console.error(
+          "[INTELLIGENCE] RAG retrieval failed:",
+          (e as Error).message,
+        );
+      }
+    }
+
     // Build the prompt: donation letters get their own builder; everything else
     // uses the grant-narrative builder, parameterized by template type.
     const built =
@@ -422,9 +531,52 @@ export async function POST(request: Request) {
         ? buildDonationRequestPrompt(context)
         : buildGrantNarrativePrompt(context, template);
 
+    // Augment the prompt with intelligence context. Each block is appended only
+    // when the corresponding query returned data, so an empty intelligence
+    // library is a no-op and never disrupts the baseline generation flow.
+    let enhancedPrompt = built.prompt;
+
+    if (intelligenceSections.length > 0) {
+      const excerpts = intelligenceSections
+        .map(
+          (s, i) =>
+            `[Example ${i + 1}] Source: ${s.funder_name ?? "Unknown funder"} | Year: ${s.award_year ?? "N/A"} | Section: ${s.section_type} | Quality: ${s.quality_score ?? "N/A"}/10\n${s.section_text}`,
+        )
+        .join("\n\n---\n\n");
+      enhancedPrompt +=
+        "\n\nINTELLIGENCE CONTEXT — These are excerpts from funded proposals in similar categories. Use their structure, patterns, and level of specificity as guidance:\n\n" +
+        excerpts;
+    }
+
+    if (intelligenceRubric) {
+      const dimensionText = JSON.stringify(intelligenceRubric.dimensions, null, 2);
+      enhancedPrompt +=
+        "\n\nSCORING OPTIMIZATION — The reviewer will score this on the following dimensions: " +
+        dimensionText +
+        ". Optimize every paragraph to maximize score on these criteria.";
+    }
+
+    if (intelligenceLogicModel) {
+      const logicText = JSON.stringify(
+        {
+          inputs: intelligenceLogicModel.inputs,
+          activities: intelligenceLogicModel.activities,
+          outputs: intelligenceLogicModel.outputs,
+          outcomes: intelligenceLogicModel.outcomes,
+          impact: intelligenceLogicModel.impact,
+        },
+        null,
+        2,
+      );
+      enhancedPrompt +=
+        "\n\nLOGIC MODEL TEMPLATE — Use this as a starting framework for the program logic:\n" +
+        logicText +
+        "\nAdapt it to the specific program.";
+    }
+
     const response = await callClaude({
       system: built.system,
-      prompt: built.prompt,
+      prompt: enhancedPrompt,
       model,
       maxTokens,
     });
@@ -444,8 +596,8 @@ export async function POST(request: Request) {
       provenNarratives.length,
     );
 
-    // Transparency panel (BEHAVIORAL_CONTRACTS §9): every KB entry and proven
-    // narrative supplied to the model informed the draft.
+    // Transparency panel (BEHAVIORAL_CONTRACTS §9): every KB entry, proven
+    // narrative, and intelligence library excerpt supplied to the model.
     const sources: KnowledgeSource[] = [
       ...knowledgeEntries.map((entry) => ({
         id: entry.id,
@@ -459,6 +611,20 @@ export async function POST(request: Request) {
           ? `Proven: ${p.sectionType}`
           : "Proven narrative",
       })),
+      ...intelligenceSections.map((s) => ({
+        id: s.id,
+        kind: "intelligence_library" as const,
+        title: `${s.section_type} — ${s.funder_name ?? "Funded proposal"} (${s.award_year ?? "N/A"})`,
+      })),
+      ...(intelligenceRubric
+        ? [
+            {
+              id: intelligenceRubric.id,
+              kind: "intelligence_library" as const,
+              title: `Scoring rubric: ${intelligenceRubric.funder_name ?? intelligenceRubric.source}`,
+            },
+          ]
+        : []),
     ];
 
     if (runId) {
