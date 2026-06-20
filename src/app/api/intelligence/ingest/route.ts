@@ -98,6 +98,12 @@ export async function POST(request: Request) {
   const proposalMeta =
     typeof metadata === 'object' && metadata !== null ? (metadata as Record<string, unknown>) : {}
 
+  const funderName = typeof proposalMeta.funder_name === 'string' ? proposalMeta.funder_name : null
+  const grantProgram = typeof proposalMeta.grant_program === 'string' ? proposalMeta.grant_program : null
+  const awardAmount = typeof proposalMeta.award_amount === 'number' ? proposalMeta.award_amount : null
+  const awardYear = typeof proposalMeta.award_year === 'number' ? proposalMeta.award_year : null
+  const category = Array.isArray(proposalMeta.category) ? (proposalMeta.category as string[]) : null
+
   const { data: proposalRow, error: proposalError } = await supabase
     .from('intelligence_funded_proposals')
     .insert({
@@ -105,6 +111,11 @@ export async function POST(request: Request) {
       source_url: source === 'url' ? (url as string) : null,
       full_text: fullText.slice(0, 100_000),
       metadata: proposalMeta,
+      funder_name: funderName,
+      grant_program: grantProgram,
+      award_amount: awardAmount,
+      award_year: awardYear,
+      category: category,
     })
     .select('id')
     .single()

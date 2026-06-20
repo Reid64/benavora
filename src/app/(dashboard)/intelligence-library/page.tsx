@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import {
   BookOpen,
   ChevronDown,
@@ -8,12 +8,14 @@ import {
   Database,
   FileText,
   GitBranch,
+  Plus,
   Search,
   Target,
   type LucideIcon,
 } from "lucide-react";
 
-import { Badge, Card, EmptyState, LoadingSpinner } from "@/components/ui";
+import { Badge, Button, Card, EmptyState, LoadingSpinner } from "@/components/ui";
+import { IngestModal } from "@/components/intelligence/IngestModal";
 import { createClient } from "@/lib/supabase/client";
 import { formatCurrency, formatDate } from "@/lib/utils/formatters";
 import type { Tables } from "@/types/database";
@@ -50,6 +52,7 @@ export default function IntelligenceLibraryPage() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<Stats | null>(null);
+  const [ingestOpen, setIngestOpen] = useState(false);
 
   const [proposals, setProposals] = useState<FundedProposal[]>([]);
   const [rubrics, setRubrics] = useState<ScoringRubric[]>([]);
@@ -60,61 +63,55 @@ export default function IntelligenceLibraryPage() {
   const [sections, setSections] = useState<Record<string, ProposalSection[]>>({});
   const [sectionsLoading, setSectionsLoading] = useState(false);
 
-  useEffect(() => {
-    let active = true;
+  const loadData = useCallback(async () => {
+    setLoading(true);
     const supabase = createClient();
 
-    (async () => {
-      setLoading(true);
+    const [proposalsRes, sectionsCountRes, rubricCountRes, logicModelCountRes, proposalData, rubricData, logicData, needSourceData] =
+      await Promise.all([
+        supabase.from("intelligence_funded_proposals").select("id", { count: "exact", head: true }),
+        supabase.from("intelligence_proposal_sections").select("id", { count: "exact", head: true }),
+        supabase.from("intelligence_scoring_rubrics").select("id", { count: "exact", head: true }),
+        supabase.from("intelligence_logic_models").select("id", { count: "exact", head: true }),
+        supabase
+          .from("intelligence_funded_proposals")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(100),
+        supabase.from("intelligence_scoring_rubrics").select("*").order("created_at", { ascending: false }),
+        supabase.from("intelligence_logic_models").select("*").order("category"),
+        supabase.from("intelligence_need_data").select("source"),
+      ]);
 
-      const [proposalsRes, sectionsCountRes, rubricCountRes, logicModelCountRes, proposalData, rubricData, logicData, needSourceData] =
-        await Promise.all([
-          supabase.from("intelligence_funded_proposals").select("id", { count: "exact", head: true }),
-          supabase.from("intelligence_proposal_sections").select("id", { count: "exact", head: true }),
-          supabase.from("intelligence_scoring_rubrics").select("id", { count: "exact", head: true }),
-          supabase.from("intelligence_logic_models").select("id", { count: "exact", head: true }),
-          supabase
-            .from("intelligence_funded_proposals")
-            .select("*")
-            .order("created_at", { ascending: false })
-            .limit(100),
-          supabase.from("intelligence_scoring_rubrics").select("*").order("created_at", { ascending: false }),
-          supabase.from("intelligence_logic_models").select("*").order("category"),
-          supabase.from("intelligence_need_data").select("source"),
-        ]);
+    // Aggregate need data by source
+    const sourceCounts: Record<string, number> = {};
+    for (const row of needSourceData.data ?? []) {
+      sourceCounts[row.source] = (sourceCounts[row.source] ?? 0) + 1;
+    }
+    const sources: NeedDataSource[] = Object.entries(sourceCounts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([source, count]) => ({ source, count }));
 
-      if (!active) return;
+    // Last ingestion from most recent proposal
+    const lastAt = (proposalData.data ?? [])[0]?.created_at ?? null;
 
-      // Aggregate need data by source
-      const sourceCounts: Record<string, number> = {};
-      for (const row of needSourceData.data ?? []) {
-        sourceCounts[row.source] = (sourceCounts[row.source] ?? 0) + 1;
-      }
-      const sources: NeedDataSource[] = Object.entries(sourceCounts)
-        .sort((a, b) => b[1] - a[1])
-        .map(([source, count]) => ({ source, count }));
-
-      // Last ingestion from most recent proposal
-      const lastAt = (proposalData.data ?? [])[0]?.created_at ?? null;
-
-      setStats({
-        proposalCount: proposalsRes.count ?? 0,
-        sectionCount: sectionsCountRes.count ?? 0,
-        rubricCount: rubricCountRes.count ?? 0,
-        logicModelCount: logicModelCountRes.count ?? 0,
-        lastIngestionAt: lastAt,
-      });
-      setProposals(proposalData.data ?? []);
-      setRubrics(rubricData.data ?? []);
-      setLogicModels(logicData.data ?? []);
-      setNeedSources(sources);
-      setLoading(false);
-    })();
-
-    return () => {
-      active = false;
-    };
+    setStats({
+      proposalCount: proposalsRes.count ?? 0,
+      sectionCount: sectionsCountRes.count ?? 0,
+      rubricCount: rubricCountRes.count ?? 0,
+      logicModelCount: logicModelCountRes.count ?? 0,
+      lastIngestionAt: lastAt,
+    });
+    setProposals(proposalData.data ?? []);
+    setRubrics(rubricData.data ?? []);
+    setLogicModels(logicData.data ?? []);
+    setNeedSources(sources);
+    setLoading(false);
   }, []);
+
+  useEffect(() => {
+    void loadData();
+  }, [loadData]);
 
   async function toggleProposal(proposalId: string) {
     if (expandedId === proposalId) {
@@ -172,14 +169,29 @@ export default function IntelligenceLibraryPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-navy-900">
-          Intelligence Library
-        </h1>
-        <p className="mt-1 text-sm text-navy-500">
-          Funded proposals, scoring rubrics, logic models, and evidence data powering the AI draft generator.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-navy-900">
+            Intelligence Library
+          </h1>
+          <p className="mt-1 text-sm text-navy-500">
+            Funded proposals, scoring rubrics, logic models, and evidence data powering the AI draft generator.
+          </p>
+        </div>
+        <Button onClick={() => setIngestOpen(true)}>
+          <Plus className="h-4 w-4" aria-hidden />
+          Add to Library
+        </Button>
       </div>
+
+      <IngestModal
+        isOpen={ingestOpen}
+        onClose={() => setIngestOpen(false)}
+        onSuccess={() => {
+          setIngestOpen(false);
+          void loadData();
+        }}
+      />
 
       {loading ? (
         <LoadingSpinner center label="Loading intelligence library..." />
