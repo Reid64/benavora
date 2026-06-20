@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { populateQueue } from "@/lib/autoapply/auto-queue-populator";
+import { sendAutoapplyDigest } from "@/lib/autoapply/digest-email";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -59,6 +60,8 @@ async function runAutoQueue(request: Request) {
     }
 
     try {
+      const digestSince = config.last_run_at ? new Date(config.last_run_at) : new Date(Date.now() - DAY_MS);
+
       const result = await populateQueue({
         organizationId: orgId,
         supabase: admin,
@@ -79,6 +82,8 @@ async function runAutoQueue(request: Request) {
           last_run_skipped: result.skipped,
         })
         .eq("organization_id", orgId);
+
+      await sendAutoapplyDigest({ organizationId: orgId, supabase: admin, since: digestSince });
 
       console.info(`Auto-queue for org ${orgId}: queued ${result.queued}, skipped ${result.skipped}`);
       results.push({ org_id: orgId, status: "queued", queued: result.queued, skipped: result.skipped });
