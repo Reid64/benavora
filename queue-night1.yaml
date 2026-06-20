@@ -1,0 +1,1010 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - BLUEPRINT.md
+  - SCHEMA_REGISTRY.md
+  - BEHAVIORAL_CONTRACTS.md
+  - AGENTS.md
+  - PRD.md
+  - AUTOAPPLY_ARCHITECTURE.md
+  - WORKER_ARCHITECTURE.md
+  - GRANT_INTELLIGENCE_ARCHITECTURE.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+prompts:
+
+  # ============================================================
+  # PHASE 3C: AUTOAPPLY WORKER INFRASTRUCTURE (Prompts 1-11)
+  # Reference: WORKER_ARCHITECTURE.md
+  # ============================================================
+
+  - id: worker-001
+    phase: build
+    description: "Create worker TypeScript config, Dockerfile, and Railway config"
+    prompt: |
+      Read WORKER_ARCHITECTURE.md sections 2 and 7 completely before doing anything.
+      You are building a persistent Node.js worker that runs on Railway, separate from the Vercel Next.js app but in the same repo.
+
+      Create C:\Users\manag\Documents\benavora\worker\tsconfig.json:
+      - Extend from the root tsconfig
+      - Set outDir to "dist"
+      - Set rootDir to "."
+      - Add paths alias: "@/*" maps to "../src/*" so the worker can import from src/lib/autoapply/
+      - Target ES2022, module NodeNext, moduleResolution NodeNext
+      - Include worker/**/*.ts and src/lib/autoapply/**/*.ts and src/lib/supabase/**/*.ts
+
+      Create C:\Users\manag\Documents\benavora\worker\Dockerfile:
+      - FROM node:20-slim
+      - Install Chromium and all Playwright dependencies (libgbm1, libnss3, libatk1.0-0, libatk-bridge2.0-0, libcups2, libdrm2, libxcomposite1, libxdamage1, libxrandr2, libgtk-3-0, libnspr4, libx11-xcb1, libasound2, libdbus-1-3, fonts-liberation, xdg-utils)
+      - Set PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium
+      - Set PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+      - WORKDIR /app
+      - COPY package.json package-lock.json, RUN npm ci --production
+      - COPY entire project
+      - RUN npx tsc -p worker/tsconfig.json
+      - CMD node worker/dist/index.js
+
+      Create C:\Users\manag\Documents\benavora\railway.json:
+      - dockerfilePath: worker/Dockerfile
+      - restartPolicyType: ON_FAILURE
+      - restartPolicyMaxRetries: 10
+    expected_outputs:
+      - worker/tsconfig.json
+      - worker/Dockerfile
+      - railway.json
+    gates:
+      - type: file_exists
+        files: [worker/tsconfig.json, worker/Dockerfile, railway.json]
+    max_retries: 3
+    on_fail: halt
+
+  - id: worker-002
+    phase: build
+    description: "Create worker entry point with boot sequence and graceful shutdown"
+    prompt: |
+      Read WORKER_ARCHITECTURE.md section 3 completely.
+      Read the existing Supabase client setup in C:\Users\manag\Documents\benavora\src\lib\supabase\ to understand how the client is configured.
+
+      Create C:\Users\manag\Documents\benavora\worker\index.ts:
+
+      Boot sequence:
+      1. Validate required env vars: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ANTHROPIC_API_KEY, WORKER_ID. Exit with error if any missing.
+      2. Initialize Supabase client using service role key (bypasses RLS). Use the ws package for WebSocket transport since Node 20 lacks native WebSocket: import ws from 'ws'; createClient with options { realtime: { transport: ws } }.
+      3. Call heartbeat.register() to insert/upsert into worker_status table.
+      4. Call heartbeat.start() to begin 30-second interval.
+      5. Call queueProcessor.start() to begin the poll loop.
+      6. Log "AutoApply Worker started" with worker ID and timestamp.
+
+      Graceful shutdown on SIGTERM and SIGINT:
+      1. Log "Shutdown signal received"
+      2. Call queueProcessor.stop() — sets a flag to stop accepting new items
+      3. Wait for current item to finish (up to 5 min timeout via Promise.race)
+      4. Call heartbeat.stop()
+      5. Update worker_status set status = 'offline'
+      6. Log "Worker shut down cleanly"
+      7. process.exit(0)
+
+      Handle uncaught exceptions and unhandled rejections — log the error, update worker_status to 'error', and exit(1).
+
+      Export the Supabase client instance so other modules can import it.
+    expected_outputs:
+      - worker/index.ts
+    gates:
+      - type: file_exists
+        files: [worker/index.ts]
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: worker-003
+    phase: build
+    description: "Create heartbeat system for worker health monitoring"
+    prompt: |
+      Read WORKER_ARCHITECTURE.md section 5.
+
+      Create C:\Users\manag\Documents\benavora\worker\heartbeat.ts:
+
+      Export a class or module with these methods:
+
+      register(): Upsert into worker_status table with worker_id from env, status 'online', last_heartbeat_at NOW(), started_at NOW(), items_processed 0, items_failed 0.
+
+      start(): Set a 30-second setInterval that updates last_heartbeat_at = NOW() in worker_status. Also updates status to 'idle' if not currently processing, or 'processing' if actively working on a queue item.
+
+      stop(): Clear the interval.
+
+      setProcessing(itemId: string | null): Update current_item_id and status in worker_status. Pass null when done processing.
+
+      incrementProcessed(): Increment items_processed by 1 in worker_status.
+
+      incrementFailed(): Increment items_failed by 1 in worker_status.
+
+      Import the Supabase client from worker/index.ts.
+      Use the service role client for all operations (no RLS).
+    expected_outputs:
+      - worker/heartbeat.ts
+    gates:
+      - type: file_exists
+        files: [worker/heartbeat.ts]
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: worker-004
+    phase: build
+    description: "Create rate limiter with randomized delays and per-domain throttling"
+    prompt: |
+      Read WORKER_ARCHITECTURE.md section 6.
+
+      Create C:\Users\manag\Documents\benavora\worker\rate-limiter.ts:
+
+      Export a class RateLimiter with:
+
+      waitBetweenSubmissions(): Returns a Promise that resolves after a randomized delay. Base delay 60 seconds + random jitter 0-60 seconds (total 60-120 seconds). Log the actual delay used.
+
+      canSubmitToDomain(funderId: string): Query autoapply_submissions for the most recent submission to this funder. Return false if last submission was less than 24 hours ago. Return true otherwise.
+
+      getBackoffDelay(errorType: string, retryCount: number): Return the appropriate delay based on error type:
+      - site_error or timeout: 1 hour * 2^retryCount (exponential), max 24 hours
+      - form_changed: 0 (immediate retry after re-analysis)
+      - captcha_blocked: return -1 (do not auto-retry)
+      - account_required: return -1 (do not auto-retry)
+
+      Import Supabase client from worker/index.ts.
+      All times in milliseconds internally, log in human-readable format.
+    expected_outputs:
+      - worker/rate-limiter.ts
+    gates:
+      - type: file_exists
+        files: [worker/rate-limiter.ts]
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: worker-005
+    phase: build
+    description: "Create queue processor with poll loop and processing pipeline"
+    prompt: |
+      Read WORKER_ARCHITECTURE.md section 4 completely.
+      Read C:\Users\manag\Documents\benavora\src\lib\autoapply\stealth-browser.ts to understand the StealthBrowser API.
+      Read C:\Users\manag\Documents\benavora\src\lib\autoapply\form-analyzer-agent.ts to understand the FormAnalyzerAgent API.
+      Read C:\Users\manag\Documents\benavora\src\lib\autoapply\form-filler-agent.ts to understand the FormFillerAgent API.
+
+      Create C:\Users\manag\Documents\benavora\worker\queue-processor.ts:
+
+      Export a class QueueProcessor with:
+
+      start(): Begin the poll loop. Set running = true.
+
+      stop(): Set running = false. Returns a Promise that resolves when the current item finishes processing (or immediately if idle).
+
+      The poll loop:
+      1. While running:
+      2. Query submission_queue: SELECT * WHERE status = 'pending' AND (scheduled_for IS NULL OR scheduled_for <= NOW()) ORDER BY priority ASC, created_at ASC LIMIT 1. Use Supabase RPC or raw SQL for FOR UPDATE SKIP LOCKED if possible, otherwise use a simple select + immediate update to 'processing' as a two-step atomic claim.
+      3. If no item found: log "Queue empty, sleeping 15s", sleep 15 seconds, continue.
+      4. Update the item status to 'processing', started_at = NOW().
+      5. Call heartbeat.setProcessing(item.id).
+      6. Try processItem(item).
+      7. On success: update status to 'completed', completed_at = NOW(). Call heartbeat.incrementProcessed().
+      8. On failure: update status to 'failed', completed_at = NOW(), store error in metadata. Call heartbeat.incrementFailed().
+      9. Call heartbeat.setProcessing(null).
+      10. Call rateLimiter.waitBetweenSubmissions().
+      11. Continue loop.
+
+      processItem(item):
+      1. Fetch funder record by item.funder_id (need giving_portal_url).
+      2. If no giving_portal_url, mark as failed with reason "no_portal_url", return.
+      3. Check rateLimiter.canSubmitToDomain(item.funder_id). If false, mark as 'skipped' with reason "domain_throttled", return.
+      4. Check for existing form_template for this funder. If exists and last_verified_at > 7 days, set needsReanalysis = true.
+      5. Launch StealthBrowser (use the existing class from src/lib/autoapply/stealth-browser.ts).
+      6. If no template or needsReanalysis: run FormAnalyzerAgent to analyze the form and store/update the template.
+      7. Run FormFillerAgent using the template + org Knowledge Base data.
+      8. Capture screenshots at each stage (pre-fill, post-fill, confirmation).
+      9. Upload screenshots to Supabase Storage bucket 'autoapply-screenshots' with path: {org_id}/{funder_id}/{timestamp}_{stage}.png.
+      10. Create an autoapply_submissions record with all audit data: status, screenshots URLs, confirmation info, timestamps.
+      11. Link the submission_id back to the queue item.
+      12. Close the browser.
+
+      Wrap the entire processItem in a try/catch. On error, classify the failure:
+      - If error message contains 'captcha' or 'recaptcha' or 'hcaptcha': status = 'captcha_blocked'
+      - If error message contains 'login' or 'sign in' or 'account': status = 'account_required'
+      - If error message contains 'timeout' or 'ETIMEDOUT': status = 'timeout'
+      - If error message contains '404' or '403' or '500': status = 'site_error'
+      - Default: status = 'failed'
+      Take an error screenshot if the browser is still open.
+
+      Import StealthBrowser, FormAnalyzerAgent, FormFillerAgent from their existing locations using the path aliases.
+      Import heartbeat and rate-limiter from the worker directory.
+      Import Supabase client from worker/index.ts.
+    expected_outputs:
+      - worker/queue-processor.ts
+    gates:
+      - type: file_exists
+        files: [worker/queue-processor.ts]
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: worker-006
+    phase: build
+    description: "Create migration 047 SQL file for worker_status table and indexes"
+    prompt: |
+      Read WORKER_ARCHITECTURE.md section 8.
+
+      Create C:\Users\manag\Documents\benavora\supabase\migrations\047_worker_status.sql:
+
+      CREATE TABLE IF NOT EXISTS worker_status (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        worker_id text NOT NULL UNIQUE,
+        status text NOT NULL DEFAULT 'online',
+        last_heartbeat_at timestamptz NOT NULL DEFAULT NOW(),
+        started_at timestamptz NOT NULL DEFAULT NOW(),
+        current_item_id uuid REFERENCES submission_queue(id),
+        items_processed integer NOT NULL DEFAULT 0,
+        items_failed integer NOT NULL DEFAULT 0,
+        version text,
+        created_at timestamptz NOT NULL DEFAULT NOW()
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_submission_queue_pending
+        ON submission_queue (priority ASC, created_at ASC)
+        WHERE status = 'pending';
+
+      CREATE INDEX IF NOT EXISTS idx_autoapply_submissions_domain
+        ON autoapply_submissions (funder_id, submitted_at DESC);
+
+      NOTE: This migration must be applied manually via the Supabase SQL Editor at https://supabase.com/dashboard/project/vbjplpquqxxfbpazyalt/sql. FORGE cannot apply it directly.
+    expected_outputs:
+      - supabase/migrations/047_worker_status.sql
+    gates:
+      - type: file_exists
+        files: [supabase/migrations/047_worker_status.sql]
+    max_retries: 3
+    on_fail: halt
+
+  - id: worker-007
+    phase: build
+    description: "Add worker status indicator to AutoApply dashboard"
+    prompt: |
+      Read WORKER_ARCHITECTURE.md section 5 (Dashboard Integration).
+      Read the existing AutoApply dashboard at C:\Users\manag\Documents\benavora\src\app\(dashboard)\autoapply\page.tsx.
+
+      Create C:\Users\manag\Documents\benavora\src\components\autoapply\WorkerStatus.tsx:
+      - Query worker_status table for the most recent worker record.
+      - Display a status indicator: green dot + "Worker Online" if last_heartbeat_at < 2 minutes ago, yellow dot + "Worker Stale" if 2-5 minutes, red dot + "Worker Offline" if > 5 minutes or status = 'offline'.
+      - Show items_processed and items_failed counts.
+      - Show current_item_id if processing (with funder name lookup).
+      - Show time since last heartbeat.
+      - Use Supabase Realtime subscription on worker_status table for live updates.
+      - Use Tailwind CSS consistent with the existing dashboard styling.
+
+      Add this component to the AutoApply dashboard page, positioned at the top right of the page content area.
+    expected_outputs:
+      - src/components/autoapply/WorkerStatus.tsx
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: worker-008
+    phase: build
+    description: "Add batch selection UI to funders list for queue population"
+    prompt: |
+      Read WORKER_ARCHITECTURE.md section 9 (Batch Selection UI).
+      Read the existing funders page at C:\Users\manag\Documents\benavora\src\app\(dashboard)\funders\page.tsx to understand the current table structure.
+
+      Modify the funders list page:
+      1. Add a checkbox column as the first column. Only show checkboxes on funders that have a giving_portal_url (non-null, non-empty).
+      2. Add a "Select All Visible" checkbox in the header.
+      3. Add a floating action bar at the bottom that appears when any checkboxes are selected. It should show: "{N} funders selected" and a "Queue Selected" button.
+      4. The "Queue Selected" button should call a new API route POST /api/autoapply/queue that accepts an array of funder_ids and creates submission_queue records for each one with status 'pending', automation_mode 'batch', and priority 100.
+      5. After queuing, show a toast notification: "Queued {N} funders for AutoApply".
+      6. Disable the checkbox for funders that already have a pending or processing queue item (query submission_queue to check).
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\autoapply\queue\route.ts:
+      - POST handler: accepts { funder_ids: string[], organization_id: string }
+      - For each funder_id, insert into submission_queue with status 'pending', automation_mode 'batch', priority 100.
+      - Skip any funder that already has a pending or processing queue item.
+      - Return { queued: number, skipped: number }.
+      - Use service role or verify auth and org membership.
+    expected_outputs:
+      - src/app/api/autoapply/queue/route.ts
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: worker-009
+    phase: build
+    description: "Build queue management panel on AutoApply dashboard"
+    prompt: |
+      Read WORKER_ARCHITECTURE.md section 9 (Queue Management Panel).
+      Read the existing AutoApply dashboard at C:\Users\manag\Documents\benavora\src\app\(dashboard)\autoapply\page.tsx.
+
+      Create C:\Users\manag\Documents\benavora\src\components\autoapply\QueuePanel.tsx:
+      - Table showing all submission_queue records: funder name (joined from funders table), status, priority, scheduled_for, created_at.
+      - Color-coded status badges: pending (gray), processing (blue/pulsing), completed (green), failed (red), skipped (yellow).
+      - "Remove" button per item (deletes from submission_queue if status is 'pending').
+      - "Clear Queue" button that removes all pending items (with confirmation dialog).
+      - Queue stats at the top: total pending, processing, completed today, failed today.
+      - Use Supabase Realtime subscription on submission_queue for live status transitions.
+      - When an item transitions to completed or failed, show a toast notification.
+
+      Add this component to the AutoApply dashboard page below the WorkerStatus component.
+      Use Tailwind CSS matching existing dashboard styling.
+    expected_outputs:
+      - src/components/autoapply/QueuePanel.tsx
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: worker-010
+    phase: build
+    description: "Add submission history table to AutoApply dashboard"
+    prompt: |
+      Read AUTOAPPLY_ARCHITECTURE.md section 2 (autoapply_submissions schema).
+      Read the existing AutoApply dashboard.
+
+      Create C:\Users\manag\Documents\benavora\src\components\autoapply\SubmissionHistory.tsx:
+      - Table showing autoapply_submissions records ordered by created_at DESC.
+      - Columns: funder name, status, request_type, submitted_at, confirmation_number.
+      - Expandable row detail showing: request_description, error_message, retry_count.
+      - Screenshot thumbnails (pre_submit_screenshot_url, confirmation_screenshot_url, error_screenshot_url) that open full-size in a modal on click.
+      - Filter by status dropdown.
+      - Pagination (25 per page).
+
+      Add this component as a tab or section on the AutoApply dashboard below the QueuePanel.
+      Use Tailwind CSS matching existing dashboard styling.
+    expected_outputs:
+      - src/components/autoapply/SubmissionHistory.tsx
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: worker-011
+    phase: build
+    description: "Verify worker compiles and Next.js build still passes"
+    prompt: |
+      Run the following checks:
+
+      1. Compile the worker: cd C:\Users\manag\Documents\benavora && npx tsc -p worker/tsconfig.json --noEmit
+         Fix any TypeScript errors. Common issues:
+         - Path alias resolution: ensure worker/tsconfig.json paths correctly resolve @/* to ../src/*
+         - Missing type imports from src/lib/autoapply/ modules
+         - Node.js types needed: ensure @types/node is in devDependencies
+
+      2. Run the Next.js build: cd C:\Users\manag\Documents\benavora && npm run build
+         Fix any build errors. The worker/ directory should NOT be included in the Next.js build — ensure it is excluded in the root tsconfig.json.
+
+      3. Verify the worker/Dockerfile syntax is valid.
+
+      4. Ensure package.json has all required dependencies for the worker:
+         - ws (WebSocket for Supabase Realtime in Node.js)
+         - playwright or playwright-core
+         - @supabase/supabase-js
+         - @anthropic-ai/sdk
+         If any are missing, add them.
+
+      Fix all issues until both the worker compilation and Next.js build succeed.
+    expected_outputs: []
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # GRANT INTELLIGENCE LIBRARY MVP (Prompts 12-22)
+  # Reference: GRANT_INTELLIGENCE_ARCHITECTURE.md
+  # ============================================================
+
+  - id: intel-001
+    phase: build
+    description: "Create migration 048 for pgvector and all intelligence library tables"
+    prompt: |
+      Read GRANT_INTELLIGENCE_ARCHITECTURE.md sections 3 and 4 completely.
+
+      Create C:\Users\manag\Documents\benavora\supabase\migrations\048_grant_intelligence.sql:
+
+      -- Enable pgvector extension
+      CREATE EXTENSION IF NOT EXISTS vector;
+
+      -- Funded proposals
+      CREATE TABLE IF NOT EXISTS intelligence_funded_proposals (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        source text NOT NULL,
+        source_url text,
+        funder_name text,
+        funder_type text,
+        grant_program text,
+        award_amount numeric(12,2),
+        award_year integer,
+        category text[],
+        full_text text,
+        reviewer_comments text,
+        metadata jsonb DEFAULT '{}',
+        created_at timestamptz DEFAULT NOW()
+      );
+
+      -- Proposal sections with embeddings
+      CREATE TABLE IF NOT EXISTS intelligence_proposal_sections (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        proposal_id uuid REFERENCES intelligence_funded_proposals(id) ON DELETE CASCADE,
+        section_type text NOT NULL,
+        section_text text NOT NULL,
+        quality_score numeric(3,1),
+        embedding vector(1536),
+        created_at timestamptz DEFAULT NOW()
+      );
+
+      -- Scoring rubrics
+      CREATE TABLE IF NOT EXISTS intelligence_scoring_rubrics (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        source text NOT NULL,
+        source_url text,
+        funder_name text,
+        grant_program text,
+        category text[],
+        dimensions jsonb NOT NULL,
+        full_text text,
+        embedding vector(1536),
+        created_at timestamptz DEFAULT NOW()
+      );
+
+      -- Logic models
+      CREATE TABLE IF NOT EXISTS intelligence_logic_models (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        category text NOT NULL,
+        subcategory text,
+        inputs jsonb NOT NULL,
+        activities jsonb NOT NULL,
+        outputs jsonb NOT NULL,
+        outcomes jsonb NOT NULL,
+        impact jsonb NOT NULL,
+        source text,
+        is_template boolean DEFAULT true,
+        embedding vector(1536),
+        created_at timestamptz DEFAULT NOW()
+      );
+
+      -- Need statement data
+      CREATE TABLE IF NOT EXISTS intelligence_need_data (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        source text NOT NULL,
+        source_url text,
+        data_type text NOT NULL,
+        geographic_level text NOT NULL,
+        state text,
+        county text,
+        city text,
+        zip text,
+        metric_name text NOT NULL,
+        metric_value text NOT NULL,
+        metric_year integer,
+        context text,
+        citation text NOT NULL,
+        raw_data jsonb,
+        embedding vector(1536),
+        created_at timestamptz DEFAULT NOW(),
+        updated_at timestamptz DEFAULT NOW()
+      );
+
+      -- Narrative patterns
+      CREATE TABLE IF NOT EXISTS intelligence_narrative_patterns (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        pattern_type text NOT NULL,
+        category text[],
+        structure jsonb NOT NULL,
+        example_ids uuid[],
+        frequency integer DEFAULT 1,
+        win_rate numeric(5,2),
+        description text,
+        embedding vector(1536),
+        created_at timestamptz DEFAULT NOW()
+      );
+
+      -- Budget templates
+      CREATE TABLE IF NOT EXISTS intelligence_budget_templates (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        budget_category text NOT NULL,
+        subcategory text,
+        justification_template text NOT NULL,
+        federal_reference text,
+        example_language text,
+        source text,
+        embedding vector(1536),
+        created_at timestamptz DEFAULT NOW()
+      );
+
+      -- Evaluation frameworks
+      CREATE TABLE IF NOT EXISTS intelligence_evaluation_frameworks (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        category text NOT NULL,
+        framework_name text,
+        kpis jsonb NOT NULL,
+        data_collection_methods jsonb,
+        reporting_frequency text,
+        example_text text,
+        source text,
+        embedding vector(1536),
+        created_at timestamptz DEFAULT NOW()
+      );
+
+      -- Grantmaker profiles
+      CREATE TABLE IF NOT EXISTS intelligence_grantmaker_profiles (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        funder_id uuid REFERENCES funders(id),
+        ein text,
+        priorities text[],
+        avg_award_amount numeric(12,2),
+        award_range_min numeric(12,2),
+        award_range_max numeric(12,2),
+        geographic_focus text[],
+        typical_language text,
+        common_keywords text[],
+        decision_timeline text,
+        application_tips text,
+        source text,
+        last_updated_at timestamptz DEFAULT NOW(),
+        embedding vector(1536),
+        created_at timestamptz DEFAULT NOW()
+      );
+
+      -- Post-award reports
+      CREATE TABLE IF NOT EXISTS intelligence_post_award_reports (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        source text NOT NULL,
+        source_url text,
+        funder_name text,
+        grantee_name text,
+        category text[],
+        highlighted_outcomes text,
+        reported_metrics jsonb,
+        funder_language text,
+        follow_on_funding boolean,
+        full_text text,
+        embedding vector(1536),
+        created_at timestamptz DEFAULT NOW()
+      );
+
+      -- Grant DNA scores
+      CREATE TABLE IF NOT EXISTS intelligence_grant_dna_scores (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        proposal_id uuid REFERENCES intelligence_funded_proposals(id) ON DELETE CASCADE,
+        need_statement_score numeric(3,1),
+        evidence_strength_score numeric(3,1),
+        outcome_specificity_score numeric(3,1),
+        evaluation_depth_score numeric(3,1),
+        sustainability_score numeric(3,1),
+        budget_alignment_score numeric(3,1),
+        program_design_score numeric(3,1),
+        reviewer_friendliness_score numeric(3,1),
+        composite_score numeric(3,1),
+        scoring_rationale jsonb,
+        created_at timestamptz DEFAULT NOW()
+      );
+
+      -- Vector similarity search index
+      CREATE INDEX IF NOT EXISTS idx_proposal_sections_embedding
+        ON intelligence_proposal_sections USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+
+      CREATE INDEX IF NOT EXISTS idx_rubrics_embedding
+        ON intelligence_scoring_rubrics USING ivfflat (embedding vector_cosine_ops) WITH (lists = 50);
+
+      CREATE INDEX IF NOT EXISTS idx_need_data_geo
+        ON intelligence_need_data (geographic_level, state, county);
+
+      NOTE: This migration must be applied manually via the Supabase SQL Editor. pgvector may need to be enabled first via the Supabase dashboard under Database > Extensions.
+    expected_outputs:
+      - supabase/migrations/048_grant_intelligence.sql
+    gates:
+      - type: file_exists
+        files: [supabase/migrations/048_grant_intelligence.sql]
+    max_retries: 3
+    on_fail: halt
+
+  - id: intel-002
+    phase: build
+    description: "Create embedding generation utility using OpenAI"
+    prompt: |
+      Read GRANT_INTELLIGENCE_ARCHITECTURE.md section 5 (Embedding Strategy).
+
+      First, install the OpenAI SDK: cd C:\Users\manag\Documents\benavora && npm install openai
+
+      Create C:\Users\manag\Documents\benavora\src\lib\intelligence\embeddings.ts:
+
+      Import OpenAI from 'openai'.
+      Initialize with process.env.OPENAI_API_KEY.
+
+      Export async function generateEmbedding(text: string): Promise<number[]>
+      - Call openai.embeddings.create with model 'text-embedding-3-small', input: text
+      - Return the embedding vector (1536 dimensions)
+      - Handle errors gracefully with retry logic (3 attempts, exponential backoff)
+
+      Export async function generateEmbeddingsBatch(texts: string[]): Promise<number[][]>
+      - Accept up to 100 texts per batch
+      - Call openai.embeddings.create with model 'text-embedding-3-small', input: texts
+      - Return array of embedding vectors in the same order as input
+      - If texts.length > 100, chunk into batches of 100 and process sequentially
+      - Add 500ms delay between batches to avoid rate limits
+
+      Export function chunkText(text: string, maxTokens: number = 500, overlap: number = 50): string[]
+      - Split text into chunks of approximately maxTokens tokens (estimate 4 chars per token)
+      - Respect sentence boundaries — do not split mid-sentence
+      - Add overlap tokens from the end of the previous chunk to the start of the next
+      - Return array of chunks
+    expected_outputs:
+      - src/lib/intelligence/embeddings.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: intel-003
+    phase: build
+    description: "Create RAG retrieval function for intelligence library"
+    prompt: |
+      Read GRANT_INTELLIGENCE_ARCHITECTURE.md section 5 (RAG Retrieval Flow).
+
+      Create C:\Users\manag\Documents\benavora\src\lib\intelligence\rag-retrieval.ts:
+
+      Import { generateEmbedding } from './embeddings'.
+      Import the Supabase server client.
+
+      Export async function retrieveIntelligence(params: {
+        queryText: string,
+        sectionTypes?: string[],
+        categories?: string[],
+        limit?: number,
+        threshold?: number
+      }): Promise<IntelligenceResult[]>
+
+      Steps:
+      1. Generate embedding for queryText using generateEmbedding().
+      2. Query intelligence_proposal_sections using pgvector cosine similarity:
+         SELECT id, proposal_id, section_type, section_text, quality_score,
+                1 - (embedding <=> $1::vector) as similarity
+         FROM intelligence_proposal_sections
+         WHERE 1 - (embedding <=> $1::vector) > $2
+         AND ($3::text[] IS NULL OR section_type = ANY($3))
+         ORDER BY similarity DESC
+         LIMIT $4
+         Parameters: $1 = embedding vector, $2 = threshold (default 0.7), $3 = sectionTypes, $4 = limit (default 5)
+      3. For each result, join to intelligence_funded_proposals to get funder_name, grant_program, award_year, award_amount.
+      4. Return results with similarity scores.
+
+      Export async function retrieveRubric(params: {
+        funderName?: string,
+        category?: string
+      }): Promise<ScoringRubric | null>
+      - Query intelligence_scoring_rubrics matching funder_name or category.
+      - Return the best match or null.
+
+      Export async function retrieveLogicModel(category: string): Promise<LogicModel | null>
+      - Query intelligence_logic_models WHERE category matches.
+      - Return the best match or null.
+
+      Export async function retrieveNeedData(params: {
+        state?: string,
+        county?: string,
+        category?: string
+      }): Promise<NeedDataPoint[]>
+      - Query intelligence_need_data matching geography (most specific first: county, then state, then national fallback).
+      - Return up to 10 most relevant data points.
+
+      Define TypeScript interfaces for all return types: IntelligenceResult, ScoringRubric, LogicModel, NeedDataPoint.
+    expected_outputs:
+      - src/lib/intelligence/rag-retrieval.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: intel-004
+    phase: build
+    description: "Create NIH funded application scraper and parser"
+    prompt: |
+      Read GRANT_INTELLIGENCE_ARCHITECTURE.md section 3 (KB 1: Funded Proposals Library).
+
+      Create C:\Users\manag\Documents\benavora\src\scripts\ingest-nih-proposals.ts:
+
+      This script scrapes the NIH Reporter funded application examples.
+
+      The NIH publishes sample funded applications at: https://www.niaid.nih.gov/grants-contracts/sample-applications
+      And the NIH RePORTER API at: https://api.reporter.nih.gov/
+
+      Step 1: Fetch the NIH sample applications page and extract links to PDF applications.
+      Use fetch() to get the page HTML. Parse with a simple regex or string matching to find PDF URLs.
+      For each PDF URL:
+        - Download the PDF to a temp directory
+        - Extract text using pdf-parse (already in the project dependencies, use lazy import)
+        - Store the raw text
+
+      Step 2: For each extracted application text, call Claude API to extract structured sections:
+      System prompt: "You are analyzing a funded NIH grant application. Extract the following sections if present. Return JSON with these keys: executive_summary, need_statement, problem_framing, program_design, methodology, outcomes, evaluation_plan, sustainability, budget_narrative, capacity, partnerships. For each key, provide the relevant text from the application. If a section is not present, set it to null."
+
+      Step 3: Insert into intelligence_funded_proposals with source = 'NIH', funder_name from the application, category = ['health', 'research'].
+
+      Step 4: For each non-null section, insert into intelligence_proposal_sections with the appropriate section_type.
+
+      Step 5: Generate embeddings for each section using generateEmbeddingsBatch() and update the embedding column.
+
+      Include progress logging: "Processing proposal {n}/{total}: {title}".
+      Include error handling: if a single proposal fails, log the error and continue to the next.
+      Add a --limit flag to process only N proposals for testing.
+
+      This script is meant to be run standalone: npx tsx src/scripts/ingest-nih-proposals.ts
+      It should NOT be imported by the Next.js app.
+      Add src/scripts/ingest-*.ts to tsconfig exclude if not already excluded.
+    expected_outputs:
+      - src/scripts/ingest-nih-proposals.ts
+    gates:
+      - type: file_exists
+        files: [src/scripts/ingest-nih-proposals.ts]
+    max_retries: 3
+    on_fail: halt
+
+  - id: intel-005
+    phase: build
+    description: "Create section extractor utility for processing raw grant text"
+    prompt: |
+      Create C:\Users\manag\Documents\benavora\src\lib\intelligence\section-extractor.ts:
+
+      This module uses Claude API to extract structured sections from raw grant application text.
+
+      Import Anthropic from '@anthropic-ai/sdk'.
+
+      Export async function extractSections(fullText: string): Promise<ExtractedSections>
+
+      Call Claude API (claude-sonnet-4-6) with:
+      System: "You are a grant application analyst. Extract the following sections from the provided grant application text. Return ONLY valid JSON with no markdown formatting. Keys: executive_summary, need_statement, problem_framing, program_design, methodology, outcomes, evaluation_plan, sustainability, budget_narrative, capacity, partnerships. For each key, provide the relevant text verbatim from the application. If a section is not identifiable, set it to null."
+      User: the full application text (truncated to 100,000 chars if longer)
+
+      Parse the JSON response. Handle cases where Claude wraps the JSON in markdown code blocks.
+
+      Export async function scoreSectionQuality(sectionType: string, sectionText: string): Promise<number>
+      Call Claude API with:
+      System: "You are a grant reviewer. Score the quality of this {sectionType} section on a scale of 1.0 to 10.0. Consider: specificity, evidence usage, clarity, completeness, and persuasiveness. Return ONLY a number."
+      User: the section text
+
+      Parse the numeric response. Default to 5.0 if parsing fails.
+
+      Define the ExtractedSections interface with all section types as optional strings.
+
+      Use maxDuration-safe patterns: set max_tokens to 4096 for extraction, 100 for scoring.
+    expected_outputs:
+      - src/lib/intelligence/section-extractor.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: intel-006
+    phase: build
+    description: "Integrate intelligence library RAG into draft generator"
+    prompt: |
+      Read GRANT_INTELLIGENCE_ARCHITECTURE.md section 5 (Modified Draft Generation Pipeline).
+      Read the existing draft generator API route at C:\Users\manag\Documents\benavora\src\app\api\ai\draft\route.ts completely before making changes.
+
+      Modify C:\Users\manag\Documents\benavora\src\app\api\ai\draft\route.ts:
+
+      After loading org KB entries (existing step) and before constructing the Claude prompt, add an intelligence retrieval step:
+
+      1. Import { retrieveIntelligence, retrieveRubric, retrieveLogicModel } from '@/lib/intelligence/rag-retrieval'.
+
+      2. Call retrieveIntelligence with the opportunity description as queryText, filtered by section types matching the template_type being generated. Get top 5 similar funded proposal sections.
+
+      3. Call retrieveRubric with the funder name and category from the opportunity.
+
+      4. If the template_type is 'full_proposal' or the opportunity requirements mention 'logic model', call retrieveLogicModel with the opportunity category.
+
+      5. Enhance the Claude prompt construction:
+         - Add a new section after org KB context: "INTELLIGENCE CONTEXT — These are excerpts from funded proposals in similar categories. Use their structure, patterns, and level of specificity as guidance:" followed by the retrieved sections with their quality scores and source info.
+         - If a rubric was found, add: "SCORING OPTIMIZATION — The reviewer will score this on the following dimensions: {rubric.dimensions}. Optimize every paragraph to maximize score on these criteria."
+         - If a logic model was found, add: "LOGIC MODEL TEMPLATE — Use this as a starting framework for the program logic: {logic_model}. Adapt it to the specific program."
+
+      6. Add intelligence sources to the response metadata alongside existing KB sources.
+
+      IMPORTANT: This must be additive — do not break the existing draft generation flow. If the intelligence queries return empty results (no data ingested yet), the draft should still generate normally using only the org KB. Wrap all intelligence queries in try/catch and log failures without blocking.
+
+      Do NOT increase maxDuration beyond the existing 300 seconds.
+    expected_outputs:
+      - src/app/api/ai/draft/route.ts
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: intel-007
+    phase: build
+    description: "Create Intelligence Library browser page"
+    prompt: |
+      Read GRANT_INTELLIGENCE_ARCHITECTURE.md section 3.
+
+      Create C:\Users\manag\Documents\benavora\src\app\(dashboard)\intelligence-library\page.tsx:
+
+      A dashboard page for browsing the Grant Intelligence Library. Layout:
+
+      Top section — Stats cards:
+      - Total funded proposals ingested
+      - Total sections indexed
+      - Total rubrics
+      - Total logic models
+      - Last ingestion date
+
+      Query these counts from the intelligence tables using Supabase.
+
+      Tab navigation with 4 tabs:
+      1. Funded Proposals — table of intelligence_funded_proposals with: funder_name, grant_program, award_amount, award_year, category, source. Click to expand and see sections.
+      2. Scoring Rubrics — table of intelligence_scoring_rubrics with: funder_name, grant_program, dimensions summary.
+      3. Logic Models — grid/cards of intelligence_logic_models grouped by category. Each card shows the Inputs->Activities->Outputs->Outcomes->Impact chain.
+      4. Data Sources — table of intelligence_need_data grouped by source (Census, HUD, etc.) with record counts per source.
+
+      Search bar at top that searches across all tables (simple text search on funder_name, grant_program, section_text).
+
+      Add a nav item "Intelligence Library" with a BookOpen icon from lucide-react in the sidebar navigation. Position it after Knowledge Base in the nav order.
+
+      Use Tailwind CSS matching existing dashboard styling.
+    expected_outputs:
+      - src/app/(dashboard)/intelligence-library/page.tsx
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: intel-008
+    phase: build
+    description: "Create intelligence ingestion API route for manual triggers"
+    prompt: |
+      Create C:\Users\manag\Documents\benavora\src\app\api\intelligence\ingest\route.ts:
+
+      POST handler for manually triggering intelligence ingestion.
+
+      Accept JSON body: { source: string, url?: string, text?: string, metadata?: object }
+
+      Source types:
+      - 'nih': Trigger NIH proposal ingestion (calls the logic from ingest-nih-proposals.ts but as an API-callable function)
+      - 'manual': Accept raw text of a funded proposal, extract sections, generate embeddings, store
+      - 'url': Fetch a URL, extract text, process as a funded proposal
+
+      For 'manual' and 'url' sources:
+      1. Extract or receive the full text
+      2. Call extractSections() from section-extractor.ts
+      3. Insert into intelligence_funded_proposals
+      4. Insert sections into intelligence_proposal_sections
+      5. Generate and store embeddings
+
+      Return { success: boolean, proposal_id: string, sections_extracted: number }
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\intelligence\stats\route.ts:
+
+      GET handler returning intelligence library statistics:
+      - funded_proposals_count
+      - sections_count
+      - rubrics_count
+      - logic_models_count
+      - need_data_count
+      - last_ingestion_at (most recent created_at across all tables)
+      - sections_by_type (grouped count)
+
+      Both routes require authentication. Use maxDuration 300 for the ingest route.
+    expected_outputs:
+      - src/app/api/intelligence/ingest/route.ts
+      - src/app/api/intelligence/stats/route.ts
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: intel-009
+    phase: build
+    description: "Add manual ingestion UI to Intelligence Library page"
+    prompt: |
+      Read the Intelligence Library page at C:\Users\manag\Documents\benavora\src\app\(dashboard)\intelligence-library\page.tsx.
+
+      Add a "Add to Library" button in the top right of the page that opens a modal/dialog.
+
+      Create C:\Users\manag\Documents\benavora\src\components\intelligence\IngestModal.tsx:
+
+      The modal has two tabs:
+      1. "Paste Text" — a large textarea where the user can paste the full text of a funded proposal. Fields: funder_name, grant_program, award_amount, award_year, category (multi-select from predefined list). Submit button calls POST /api/intelligence/ingest with source='manual'.
+      2. "From URL" — a URL input field. Submit button calls POST /api/intelligence/ingest with source='url'.
+
+      Show a progress indicator while processing (it may take 30-60 seconds for section extraction + embedding).
+      On success, show a toast with the number of sections extracted and refresh the page data.
+      On error, show the error message.
+
+      Categories for the multi-select: housing, homelessness, reentry, recovery, workforce, youth, veterans, health, education, faith-based, environment, arts, community-development, other.
+
+      Use Tailwind CSS matching existing dashboard styling.
+    expected_outputs:
+      - src/components/intelligence/IngestModal.tsx
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: intel-010
+    phase: build
+    description: "Add OPENAI_API_KEY to environment and verify full build"
+    prompt: |
+      1. Verify that .env.local.example includes OPENAI_API_KEY. If not, add it with a comment: "# Required for Grant Intelligence Library embeddings (text-embedding-3-small)".
+
+      2. Run the full Next.js build: cd C:\Users\manag\Documents\benavora && npm run build
+         Fix any build errors.
+
+      3. Verify the worker still compiles: npx tsc -p worker/tsconfig.json --noEmit
+         Fix any TypeScript errors.
+
+      4. Verify that the intelligence library modules do not break the Next.js build — they should only import OpenAI SDK in the embeddings.ts module, which is only called server-side.
+
+      5. Verify the intelligence library page is accessible in the build output.
+
+      6. Check that src/scripts/ingest-*.ts files are excluded from the Next.js build (in tsconfig.json exclude array or next.config.js).
+
+      Fix all issues until everything builds clean.
+    expected_outputs: []
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: intel-011
+    phase: build
+    description: "Update governance documents with Phase 3C and Intelligence Library status"
+    prompt: |
+      Update C:\Users\manag\Documents\benavora\STATE_OF_THE_BUILD.md:
+
+      Add a new section documenting:
+      - Phase 3C Worker Infrastructure: BUILT
+        - worker/index.ts, queue-processor.ts, heartbeat.ts, rate-limiter.ts
+        - worker/Dockerfile and railway.json for Railway deployment
+        - Migration 047: worker_status table + indexes (PENDING MANUAL APPLICATION)
+        - AutoApply dashboard: WorkerStatus, QueuePanel, SubmissionHistory components
+        - Batch selection UI on funders page with queue API
+        - Worker not yet deployed to Railway (requires manual Railway project setup + env vars)
+      - Grant Intelligence Library MVP: BUILT
+        - Migration 048: pgvector + 11 intelligence tables (PENDING MANUAL APPLICATION)
+        - OpenAI embeddings integration (text-embedding-3-small)
+        - RAG retrieval integrated into draft generator
+        - NIH proposal ingestion script
+        - Section extractor using Claude API
+        - Intelligence Library browser UI at /intelligence-library
+        - Manual ingestion modal (paste text or URL)
+        - No data ingested yet — run ingest-nih-proposals.ts to populate
+
+      Update C:\Users\manag\Documents\benavora\SESSION_STATE.md:
+      - Record that Phase 3C code is complete, pending Railway deployment
+      - Record that Intelligence Library MVP code is complete, pending migration application and data ingestion
+      - List manual steps remaining: apply migrations 047 + 048, set OPENAI_API_KEY in Vercel env vars, create Railway project, set Railway env vars, deploy worker, run NIH ingestion script
+    expected_outputs:
+      - STATE_OF_THE_BUILD.md
+      - SESSION_STATE.md
+    gates:
+      - type: file_exists
+        files: [STATE_OF_THE_BUILD.md, SESSION_STATE.md]
+    max_retries: 3
+    on_fail: halt
