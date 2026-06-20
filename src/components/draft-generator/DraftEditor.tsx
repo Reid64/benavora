@@ -54,8 +54,6 @@ function extractGaps(text: string): Gap[] {
  * textarea selection (the backdrop renders plain, un-highlighted text).
  */
 function buildInteractiveNodes(text: string, gaps: Gap[]) {
-  // eslint-disable-next-line no-console
-  console.log("BUILDING GAP NODES", { gapsCount: gaps.length, firstGapId: gaps[0] ? "gap-0" : "none" });
   if (gaps.length === 0) return [text];
   const nodes: (string | ReactElement)[] = [];
   let cursor = 0;
@@ -195,8 +193,6 @@ export function DraftEditor({
 
   // Badge click: jump to the first gap.
   const handleGapBadgeClick = useCallback(() => {
-    // eslint-disable-next-line no-console
-    console.log("GAP BADGE CLICKED", { gapsLength: gaps.length, readOnly, gap0: document.getElementById("gap-0") });
     if (readOnly) {
       scrollWindowToGap(0);
     } else {
@@ -208,8 +204,6 @@ export function DraftEditor({
 
   // Next Gap button: cycle through each gap in order.
   const handleNextGap = useCallback(() => {
-    // eslint-disable-next-line no-console
-    console.log("NEXT GAP CLICKED", { currentGapIndex, gapsLength: gaps.length, element: document.getElementById(`gap-${currentGapIndex}`) });
     const idx = currentGapIndex % Math.max(1, gaps.length);
     if (readOnly) {
       scrollWindowToGap(idx);

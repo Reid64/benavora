@@ -85,7 +85,6 @@ async function runAutoQueue(request: Request) {
 
       await sendAutoapplyDigest({ organizationId: orgId, supabase: admin, since: digestSince });
 
-      console.info(`Auto-queue for org ${orgId}: queued ${result.queued}, skipped ${result.skipped}`);
       results.push({ org_id: orgId, status: "queued", queued: result.queued, skipped: result.skipped });
     } catch (err) {
       results.push({

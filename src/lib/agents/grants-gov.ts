@@ -485,15 +485,9 @@ export class GrantsGovResearchAgent extends BaseAgent<
       // Relevance filter: skip irrelevant grants before any DB queries.
       const { score, rejected } = scoreRelevance(opp.title, opp.description);
       if (rejected !== null) {
-        console.log(
-          `[grants-gov] REJECTED "${opp.title}" — reject-list match: "${rejected}"`,
-        );
         continue;
       }
       if (score < 40) {
-        console.log(
-          `[grants-gov] REJECTED "${opp.title}" — relevance score ${score}/100 below threshold`,
-        );
         continue;
       }
 

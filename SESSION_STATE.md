@@ -118,3 +118,35 @@ All tables, ingestion pipeline, RAG retrieval, and UI are written. No data has b
 
 ### Next Build
 Phase 3D (Full Autonomous Mode) or Night 2 of Grant Intelligence Library (reviewer rubrics + logic models) — depending on priority.
+
+## Session — 2026-06-20 (Phase 3D)
+
+### Completed This Session
+
+#### Phase 3D: Full Autonomous Mode (code-complete, NOT yet live pending migration + env vars)
+
+**Files built:**
+- `src/lib/autoapply/auto-queue-populator.ts` — `populateQueue()` with TypeScript overloads (dry_run=true → DryRunResult; dry_run=false → PopulateResult); per-funder dedup with failure-type awareness (captcha_blocked/account_required = permanent skip; site_error/timeout within 7 days = temp skip; recently submitted within dedup window = skip; user exclusion list); `getQueueableCount()` for live eligible count
+- `src/app/(dashboard)/autoapply/settings/page.tsx` — settings page at `/autoapply/settings`: enable toggle, schedule, max-per-batch, category checkboxes, geographic scope tags, dedup window, min company size, funder exclusion list with autocomplete search
+- `src/app/api/autoapply/config/route.ts` — GET/POST for `auto_queue_config` (viewer GET, admin POST; upsert on organization_id conflict)
+- `src/components/autoapply/QueuePreview.tsx` — dry-run preview table with per-row exclusion toggle; eligible count; "Queue Now" button after preview review
+- `src/app/api/cron/autoapply/route.ts` — GET `/api/cron/autoapply`; Bearer CRON_SECRET auth; loads all enabled orgs; checks schedule intervals; calls `populateQueue` + updates config + sends digest
+- `src/lib/autoapply/digest-email.ts` — HTML email digest via Resend: completed/failed submissions since last run, remaining queue depth, per-failure action guidance; skips gracefully if RESEND_API_KEY unset
+- `supabase/migrations/049_auto_queue_config.sql` — `auto_queue_config` table with UNIQUE organization_id FK, schedule, filters, dedup config, run history columns, RLS
+
+**Build gate (2026-06-20):** `pnpm run build` PASSED. Cleaned up 5 `console.log` calls from `DraftEditor.tsx` (3) and `grants-gov.ts` (2) during gate run.
+
+### Manual Steps Remaining (BLOCKING before Phase 3D features are live)
+
+| Step | Reason |
+|------|--------|
+| Apply migration 049 (`049_auto_queue_config.sql`) via Supabase dashboard SQL editor | `auto_queue_config` table does not exist in prod yet |
+| Add `CRON_SECRET` to Vercel environment variables | `/api/cron/autoapply` returns 401 without it; also add to Vercel cron config or external scheduler |
+| Add `RESEND_API_KEY` and `RESEND_FROM_EMAIL` to Vercel environment variables | Digest emails silently skipped until set (non-blocking — cron still runs) |
+| Apply migration 047 (`047_worker_status.sql`) | `worker_status` table still pending from Phase 3C |
+| Apply migration 048 (`048_grant_intelligence.sql`) | All intelligence tables + pgvector still pending from Grant Intelligence MVP |
+| Add `OPENAI_API_KEY` to Vercel | RAG retrieval returns empty context without it |
+| Create Railway project + deploy worker | Worker not yet running |
+
+### Next Build
+Phase 3E: Error Recovery + Intelligence (CAPTCHA solving integration, account credential handling, form change re-analysis, retry logic with exponential backoff, success rate analytics per funder category).
