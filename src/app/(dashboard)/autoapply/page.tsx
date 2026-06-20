@@ -18,6 +18,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useProfile } from "@/lib/hooks/useProfile";
 import type { Json } from "@/types/database";
 import { WorkerStatus } from "@/components/autoapply/WorkerStatus";
+import { QueuePanel } from "@/components/autoapply/QueuePanel";
 
 interface QueueRow {
   id: string;
@@ -393,6 +394,9 @@ export default function AutoApplyPage() {
           {actionError}
         </div>
       )}
+
+      {/* QUEUE PANEL — real-time stats, per-item remove, clear queue */}
+      <QueuePanel />
 
       {/* QUEUE SECTION */}
       <Card
