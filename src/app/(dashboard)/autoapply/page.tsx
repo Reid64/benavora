@@ -19,6 +19,7 @@ import { useProfile } from "@/lib/hooks/useProfile";
 import type { Json } from "@/types/database";
 import { WorkerStatus } from "@/components/autoapply/WorkerStatus";
 import { QueueMetrics } from "@/components/autoapply/QueueMetrics";
+import { QueuePreview } from "@/components/autoapply/QueuePreview";
 import { QueuePanel } from "@/components/autoapply/QueuePanel";
 import { SubmissionHistory } from "@/components/autoapply/SubmissionHistory";
 
@@ -350,6 +351,9 @@ export default function AutoApplyPage() {
 
       {/* QUEUE METRICS — depth, processing rate, est. completion (live) */}
       <QueueMetrics />
+
+      {/* QUEUE PREVIEW — tonight's autonomous run candidates */}
+      <QueuePreview />
 
       {/* QUEUE PANEL — real-time stats, per-item remove, clear queue */}
       <QueuePanel />
