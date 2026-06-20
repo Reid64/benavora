@@ -1,6 +1,7 @@
 import {
   BarChart3,
   Bell,
+  BookOpen,
   Bot,
   Brain,
   Building2,
@@ -59,6 +60,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Draft Generator", href: "/draft-generator", icon: Wand2 },
   { label: "Documents", href: "/documents", icon: FolderOpen },
   { label: "Knowledge Base", href: "/knowledge-base", icon: Brain },
+  { label: "Intelligence Library", href: "/intelligence-library", icon: BookOpen },
   { label: "Deadlines", href: "/deadlines", icon: Calendar },
   { label: "Outcomes & Analytics", href: "/outcomes", icon: BarChart3 },
   { label: "Financials", href: "/financials", icon: DollarSign },

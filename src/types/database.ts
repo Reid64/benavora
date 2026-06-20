@@ -2577,6 +2577,154 @@ export interface Database {
         };
         Relationships: [];
       };
+      // Grant Intelligence Library — Night 2-3 tables (scoring rubrics, logic models, need data).
+      intelligence_scoring_rubrics: {
+        Row: {
+          id: string;
+          source: string;
+          source_url: string | null;
+          funder_name: string | null;
+          grant_program: string | null;
+          category: string[] | null;
+          dimensions: Json;
+          full_text: string | null;
+          embedding: number[] | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          source: string;
+          source_url?: string | null;
+          funder_name?: string | null;
+          grant_program?: string | null;
+          category?: string[] | null;
+          dimensions?: Json;
+          full_text?: string | null;
+          embedding?: number[] | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          source?: string;
+          source_url?: string | null;
+          funder_name?: string | null;
+          grant_program?: string | null;
+          category?: string[] | null;
+          dimensions?: Json;
+          full_text?: string | null;
+          embedding?: number[] | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      intelligence_logic_models: {
+        Row: {
+          id: string;
+          category: string;
+          subcategory: string | null;
+          inputs: Json;
+          activities: Json;
+          outputs: Json;
+          outcomes: Json;
+          impact: Json;
+          source: string | null;
+          is_template: boolean | null;
+          embedding: number[] | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          category: string;
+          subcategory?: string | null;
+          inputs?: Json;
+          activities?: Json;
+          outputs?: Json;
+          outcomes?: Json;
+          impact?: Json;
+          source?: string | null;
+          is_template?: boolean | null;
+          embedding?: number[] | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          category?: string;
+          subcategory?: string | null;
+          inputs?: Json;
+          activities?: Json;
+          outputs?: Json;
+          outcomes?: Json;
+          impact?: Json;
+          source?: string | null;
+          is_template?: boolean | null;
+          embedding?: number[] | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      intelligence_need_data: {
+        Row: {
+          id: string;
+          source: string;
+          source_url: string | null;
+          data_type: string;
+          geographic_level: string;
+          state: string | null;
+          county: string | null;
+          city: string | null;
+          zip: string | null;
+          metric_name: string;
+          metric_value: string;
+          metric_year: number | null;
+          context: string | null;
+          citation: string;
+          raw_data: Json | null;
+          embedding: number[] | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          source: string;
+          source_url?: string | null;
+          data_type: string;
+          geographic_level: string;
+          state?: string | null;
+          county?: string | null;
+          city?: string | null;
+          zip?: string | null;
+          metric_name: string;
+          metric_value: string;
+          metric_year?: number | null;
+          context?: string | null;
+          citation: string;
+          raw_data?: Json | null;
+          embedding?: number[] | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          source?: string;
+          source_url?: string | null;
+          data_type?: string;
+          geographic_level?: string;
+          state?: string | null;
+          county?: string | null;
+          city?: string | null;
+          zip?: string | null;
+          metric_name?: string;
+          metric_value?: string;
+          metric_year?: number | null;
+          context?: string | null;
+          citation?: string;
+          raw_data?: Json | null;
+          embedding?: number[] | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       // Migration 046: foundation_directory - IRS BMF public reference data (no RLS)
       foundation_directory: {
         Row: {
