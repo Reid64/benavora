@@ -1,9 +1,7 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
-  ChevronDown,
-  ChevronRight,
   ExternalLink,
   FileSearch,
   Play,
@@ -19,6 +17,7 @@ import { useProfile } from "@/lib/hooks/useProfile";
 import type { Json } from "@/types/database";
 import { WorkerStatus } from "@/components/autoapply/WorkerStatus";
 import { QueuePanel } from "@/components/autoapply/QueuePanel";
+import { SubmissionHistory } from "@/components/autoapply/SubmissionHistory";
 
 interface QueueRow {
   id: string;
@@ -29,21 +28,6 @@ interface QueueRow {
   scheduled_for: string | null;
   created_at: string;
   funders: { name: string; giving_portal_url: string | null } | null;
-}
-
-interface SubmissionRow {
-  id: string;
-  funder_id: string | null;
-  status: string;
-  request_description: string | null;
-  request_type: string | null;
-  request_amount: number | null;
-  pre_submit_screenshot_url: string | null;
-  confirmation_screenshot_url: string | null;
-  confirmation_number: string | null;
-  submitted_at: string | null;
-  created_at: string;
-  funders: { name: string } | null;
 }
 
 interface TemplateRow {
@@ -60,21 +44,6 @@ interface FunderOption {
   id: string;
   name: string;
   giving_portal_url: string;
-}
-
-function submissionStatusBadge(status: string): { color: BadgeColor; label: string } {
-  switch (status) {
-    case "submitted":
-      return { color: "green", label: "Submitted" };
-    case "failed":
-      return { color: "red", label: "Failed" };
-    case "captcha_blocked":
-      return { color: "yellow", label: "CAPTCHA Blocked" };
-    case "queued":
-      return { color: "gray", label: "Queued" };
-    default:
-      return { color: "gray", label: status.charAt(0).toUpperCase() + status.slice(1) };
-  }
 }
 
 function queueStatusBadge(status: string): { color: BadgeColor; label: string } {
@@ -114,11 +83,6 @@ export default function AutoApplyPage() {
   const [queueError, setQueueError] = useState<string | null>(null);
   const [selectedQueueIds, setSelectedQueueIds] = useState<Set<string>>(new Set());
 
-  const [submissions, setSubmissions] = useState<SubmissionRow[]>([]);
-  const [submissionsLoading, setSubmissionsLoading] = useState(true);
-  const [submissionsError, setSubmissionsError] = useState<string | null>(null);
-  const [expandedSubmissionId, setExpandedSubmissionId] = useState<string | null>(null);
-
   const [templates, setTemplates] = useState<TemplateRow[]>([]);
   const [templatesLoading, setTemplatesLoading] = useState(true);
   const [templatesError, setTemplatesError] = useState<string | null>(null);
@@ -153,25 +117,6 @@ export default function AutoApplyPage() {
     }
   }, []);
 
-  const loadSubmissions = useCallback(async () => {
-    setSubmissionsLoading(true);
-    const supabase = createClient();
-    try {
-      const { data, error } = await supabase
-        .from("autoapply_submissions")
-        .select("*, funders(name)")
-        .order("created_at", { ascending: false })
-        .limit(100);
-      if (error) throw error;
-      setSubmissions((data ?? []) as unknown as SubmissionRow[]);
-      setSubmissionsError(null);
-    } catch {
-      setSubmissionsError("Could not load submissions.");
-    } finally {
-      setSubmissionsLoading(false);
-    }
-  }, []);
-
   const loadTemplates = useCallback(async () => {
     setTemplatesLoading(true);
     const supabase = createClient();
@@ -192,9 +137,8 @@ export default function AutoApplyPage() {
 
   useEffect(() => {
     void loadQueue();
-    void loadSubmissions();
     void loadTemplates();
-  }, [loadQueue, loadSubmissions, loadTemplates]);
+  }, [loadQueue, loadTemplates]);
 
   async function openAddToQueue() {
     setAddToQueueOpen(true);
@@ -299,7 +243,7 @@ export default function AutoApplyPage() {
         setActionError(err.error ?? "Could not run form filler.");
         return;
       }
-      await Promise.all([loadQueue(), loadSubmissions()]);
+      await loadQueue();
     } catch {
       setActionError("Could not reach the form filler. Please try again.");
     } finally {
@@ -527,174 +471,7 @@ export default function AutoApplyPage() {
       </Card>
 
       {/* SUBMISSIONS SECTION */}
-      <Card
-        title="Submissions"
-        description="Automated form submission history"
-        noPadding
-      >
-        <div className="overflow-x-auto">
-          {submissionsError ? (
-            <div className="p-5 text-sm text-red-400">{submissionsError}</div>
-          ) : submissionsLoading ? (
-            <div className="p-5 text-sm text-navy-400">Loading submissions…</div>
-          ) : submissions.length === 0 ? (
-            <div className="p-5">
-              <EmptyState
-                icon={FileSearch}
-                title="No submissions yet"
-                description="Submissions will appear here after AutoApply runs."
-              />
-            </div>
-          ) : (
-            <table className="min-w-full divide-y divide-navy-100 text-sm">
-              <thead>
-                <tr className="bg-navy-50">
-                  <th className="w-8 px-4 py-3" />
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
-                    Funder
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
-                    Status
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
-                    Request Type
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
-                    Amount
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
-                    Confirmation #
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
-                    Submitted
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-navy-100 bg-white">
-                {submissions.map((sub) => {
-                  const { color, label } = submissionStatusBadge(sub.status);
-                  const isExpanded = expandedSubmissionId === sub.id;
-                  const hasDetail =
-                    Boolean(sub.pre_submit_screenshot_url) ||
-                    Boolean(sub.confirmation_screenshot_url) ||
-                    Boolean(sub.request_description);
-
-                  return (
-                    <Fragment key={sub.id}>
-                      <tr
-                        className={`${hasDetail ? "cursor-pointer" : ""} hover:bg-navy-50`}
-                        onClick={() => {
-                          if (hasDetail) {
-                            setExpandedSubmissionId(isExpanded ? null : sub.id);
-                          }
-                        }}
-                      >
-                        <td className="px-4 py-3">
-                          {hasDetail ? (
-                            isExpanded ? (
-                              <ChevronDown className="h-4 w-4 text-navy-400" />
-                            ) : (
-                              <ChevronRight className="h-4 w-4 text-navy-400" />
-                            )
-                          ) : null}
-                        </td>
-                        <td className="px-4 py-3 font-medium text-navy-900">
-                          {sub.funders?.name ?? (
-                            <span className="text-navy-400">—</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          <Badge color={color} withDot>
-                            {label}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-3 text-navy-600">
-                          {sub.request_type ?? (
-                            <span className="text-navy-400">—</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-navy-600">
-                          {sub.request_amount != null ? (
-                            `$${sub.request_amount.toLocaleString()}`
-                          ) : (
-                            <span className="text-navy-400">—</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-navy-600">
-                          {sub.confirmation_number ?? (
-                            <span className="text-navy-400">—</span>
-                          )}
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-navy-400">
-                          {sub.submitted_at
-                            ? new Date(sub.submitted_at).toLocaleString()
-                            : "—"}
-                        </td>
-                      </tr>
-                      {isExpanded && hasDetail && (
-                        <tr className="bg-navy-50">
-                          <td colSpan={7} className="px-6 py-5">
-                            <div className="space-y-4">
-                              {sub.request_description && (
-                                <div>
-                                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-navy-500">
-                                    Request Description
-                                  </p>
-                                  <p className="text-sm text-navy-700">
-                                    {sub.request_description}
-                                  </p>
-                                </div>
-                              )}
-                              <div className="flex flex-wrap gap-5">
-                                {sub.pre_submit_screenshot_url && (
-                                  <div>
-                                    <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-navy-500">
-                                      Pre-Submit Screenshot
-                                    </p>
-                                    <a
-                                      href={sub.pre_submit_screenshot_url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                    >
-                                      <img
-                                        src={sub.pre_submit_screenshot_url}
-                                        alt="Pre-submit screenshot"
-                                        className="h-40 w-auto rounded-lg border border-navy-200 object-cover shadow-sm transition hover:opacity-90"
-                                      />
-                                    </a>
-                                  </div>
-                                )}
-                                {sub.confirmation_screenshot_url && (
-                                  <div>
-                                    <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-navy-500">
-                                      Confirmation Screenshot
-                                    </p>
-                                    <a
-                                      href={sub.confirmation_screenshot_url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                    >
-                                      <img
-                                        src={sub.confirmation_screenshot_url}
-                                        alt="Confirmation screenshot"
-                                        className="h-40 w-auto rounded-lg border border-navy-200 object-cover shadow-sm transition hover:opacity-90"
-                                      />
-                                    </a>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </Card>
+      <SubmissionHistory />
 
       {/* TEMPLATES SECTION */}
       <Card
