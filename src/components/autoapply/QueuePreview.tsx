@@ -16,6 +16,7 @@ type AutoQueueConfig = {
   max_per_batch: number;
   categories: string[] | null;
   exclusion_list: string[] | null;
+  dedup_window_days: number;
 };
 
 function formatSchedule(cron: string): string {
@@ -56,7 +57,7 @@ export function QueuePreview() {
     const supabase = createClient();
     const { data } = await supabase
       .from("auto_queue_config")
-      .select("enabled, schedule, max_per_batch, categories, exclusion_list")
+      .select("enabled, schedule, max_per_batch, categories, exclusion_list, dedup_window_days")
       .maybeSingle();
     setConfig(
       data
@@ -66,6 +67,7 @@ export function QueuePreview() {
             max_per_batch: data.max_per_batch,
             categories: data.categories,
             exclusion_list: data.exclusion_list,
+            dedup_window_days: (data.dedup_window_days as number | null | undefined) ?? 30,
           }
         : null,
     );
@@ -108,6 +110,7 @@ export function QueuePreview() {
         supabase,
         maxItems: config?.max_per_batch ?? 50,
         dry_run: true,
+        dedupWindowDays: config?.dedup_window_days,
         filters: {
           categories: config?.categories ?? undefined,
           excludeFunderIds: config?.exclusion_list ?? undefined,
@@ -136,6 +139,7 @@ export function QueuePreview() {
         supabase,
         maxItems: remaining.length,
         dry_run: false,
+        dedupWindowDays: config?.dedup_window_days,
         filters: {
           excludeFunderIds: [
             ...(config?.exclusion_list ?? []),
@@ -204,18 +208,25 @@ export function QueuePreview() {
         )}
 
         {/* Eligible count */}
-        <p className="text-sm text-navy-600">
-          {countLoading ? (
-            <span className="text-navy-400">Counting eligible funders…</span>
-          ) : eligibleCount !== null ? (
-            <span>
-              <span className="font-semibold text-navy-900">{eligibleCount}</span>{" "}
-              funder{eligibleCount === 1 ? "" : "s"} eligible for auto-queue
+        <div className="flex items-baseline gap-3 flex-wrap">
+          <p className="text-sm text-navy-600">
+            {countLoading ? (
+              <span className="text-navy-400">Counting eligible funders…</span>
+            ) : eligibleCount !== null ? (
+              <span>
+                <span className="font-semibold text-navy-900">{eligibleCount}</span>{" "}
+                funder{eligibleCount === 1 ? "" : "s"} eligible for auto-queue
+              </span>
+            ) : (
+              <span className="text-navy-400">—</span>
+            )}
+          </p>
+          {config !== null && (
+            <span className="text-xs text-navy-400">
+              {config.dedup_window_days}-day dedup window
             </span>
-          ) : (
-            <span className="text-navy-400">—</span>
           )}
-        </p>
+        </div>
 
         {/* Action row */}
         <div className="flex items-center gap-3">
