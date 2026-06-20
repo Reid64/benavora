@@ -2498,6 +2498,85 @@ export interface Database {
         };
         Relationships: [];
       };
+      // Grant Intelligence Library — global shared tables, no RLS, no organization_id.
+      intelligence_funded_proposals: {
+        Row: {
+          id: string;
+          source: string;
+          source_url: string | null;
+          funder_name: string | null;
+          funder_type: string | null;
+          grant_program: string | null;
+          award_amount: number | null;
+          award_year: number | null;
+          category: string[] | null;
+          full_text: string | null;
+          reviewer_comments: string | null;
+          metadata: Json | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          source: string;
+          source_url?: string | null;
+          funder_name?: string | null;
+          funder_type?: string | null;
+          grant_program?: string | null;
+          award_amount?: number | null;
+          award_year?: number | null;
+          category?: string[] | null;
+          full_text?: string | null;
+          reviewer_comments?: string | null;
+          metadata?: Json | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          source?: string;
+          source_url?: string | null;
+          funder_name?: string | null;
+          funder_type?: string | null;
+          grant_program?: string | null;
+          award_amount?: number | null;
+          award_year?: number | null;
+          category?: string[] | null;
+          full_text?: string | null;
+          reviewer_comments?: string | null;
+          metadata?: Json | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      intelligence_proposal_sections: {
+        Row: {
+          id: string;
+          proposal_id: string;
+          section_type: string;
+          section_text: string;
+          quality_score: number | null;
+          embedding: number[] | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          proposal_id: string;
+          section_type: string;
+          section_text: string;
+          quality_score?: number | null;
+          embedding?: number[] | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          proposal_id?: string;
+          section_type?: string;
+          section_text?: string;
+          quality_score?: number | null;
+          embedding?: number[] | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       // Migration 046: foundation_directory - IRS BMF public reference data (no RLS)
       foundation_directory: {
         Row: {

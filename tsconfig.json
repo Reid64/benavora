@@ -42,6 +42,7 @@
     "node_modules",
     "tests",
     "run-*.ts",
-    "worker"
+    "worker",
+    "src/scripts/ingest-*.ts"
   ]
 }
