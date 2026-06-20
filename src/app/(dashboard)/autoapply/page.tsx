@@ -17,6 +17,7 @@ import { Button, Card, EmptyState, Modal } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 import { useProfile } from "@/lib/hooks/useProfile";
 import type { Json } from "@/types/database";
+import { WorkerStatus } from "@/components/autoapply/WorkerStatus";
 
 interface QueueRow {
   id: string;
@@ -375,10 +376,13 @@ export default function AutoApplyPage() {
             Automated form submission engine. Queue funders, analyze portal forms, and submit applications automatically.
           </p>
         </div>
-        <Button onClick={() => void openAddToQueue()}>
-          <Plus className="mr-1.5 h-4 w-4" />
-          Add to Queue
-        </Button>
+        <div className="flex items-start gap-3">
+          <WorkerStatus />
+          <Button onClick={() => void openAddToQueue()}>
+            <Plus className="mr-1.5 h-4 w-4" />
+            Add to Queue
+          </Button>
+        </div>
       </div>
 
       {actionError && (

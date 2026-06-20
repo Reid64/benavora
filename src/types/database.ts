@@ -2458,6 +2458,46 @@ export interface Database {
         };
         Relationships: [];
       };
+      // Migration 047: worker_status — Railway AutoApply worker heartbeat (no RLS, admin-managed)
+      worker_status: {
+        Row: {
+          id: string;
+          worker_id: string;
+          status: string;
+          last_heartbeat_at: string;
+          started_at: string;
+          current_item_id: string | null;
+          items_processed: number;
+          items_failed: number;
+          version: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          worker_id: string;
+          status?: string;
+          last_heartbeat_at?: string;
+          started_at?: string;
+          current_item_id?: string | null;
+          items_processed?: number;
+          items_failed?: number;
+          version?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          worker_id?: string;
+          status?: string;
+          last_heartbeat_at?: string;
+          started_at?: string;
+          current_item_id?: string | null;
+          items_processed?: number;
+          items_failed?: number;
+          version?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       // Migration 046: foundation_directory - IRS BMF public reference data (no RLS)
       foundation_directory: {
         Row: {
