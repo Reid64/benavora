@@ -13,6 +13,7 @@
   "crons": [
     { "path": "/api/cron/research", "schedule": "0 6 * * *" },
     { "path": "/api/cron/reminders", "schedule": "0 8 * * *" },
-    { "path": "/api/cron/campaigns", "schedule": "0 */2 * * *" }
+    { "path": "/api/cron/campaigns", "schedule": "0 */2 * * *" },
+    { "path": "/api/cron/autoapply", "schedule": "0 2 * * *" }
   ]
 }
