@@ -41,6 +41,7 @@
   "exclude": [
     "node_modules",
     "tests",
-    "run-*.ts"
+    "run-*.ts",
+    "worker"
   ]
 }
