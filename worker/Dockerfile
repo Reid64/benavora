@@ -27,11 +27,11 @@ ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 WORKDIR /app
 
 COPY package.json pnpm-lock.yaml ./
-RUN npm install -g pnpm && pnpm install --frozen-lockfile --prod
+RUN npm install -g pnpm && pnpm install --frozen-lockfile
 
 COPY . .
 
-RUN npx tsc -p worker/tsconfig.json
+RUN npx -p typescript tsc -p worker/tsconfig.json
 
 # rootDir is repo root (..) so worker/index.ts compiles to worker/dist/worker/index.js
 CMD ["node", "worker/dist/worker/index.js"]
