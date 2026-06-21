@@ -1,0 +1,545 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - BLUEPRINT.md
+  - SCHEMA_REGISTRY.md
+  - BEHAVIORAL_CONTRACTS.md
+  - AGENTS.md
+  - PRD.md
+  - AUTOAPPLY_ARCHITECTURE.md
+  - GRANT_INTELLIGENCE_ARCHITECTURE.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+# ============================================================
+# DRAFT AUTOMATION PIPELINE
+# ============================================================
+#
+# THE GAP THIS FILLS:
+#   Research → [MANUAL GAP] → Draft → [MANUAL GAP] → Submit
+# becomes:
+#   Research → Auto-Score → Auto-Queue → Auto-Draft → 
+#   Human Review → Approve → Auto-Submit
+#
+# The Draft Generator transforms from a manual tool into a
+# review workbench. The human's job becomes quality control,
+# not generation triggering.
+#
+# INTEGRATION POINTS (read these files before writing code):
+#   - src/app/api/ai/draft/route.ts (existing draft generation)
+#   - src/lib/autoapply/ (submission queue)
+#   - Research agents (opportunity discovery)
+#   - Eligibility scoring (qualification threshold)
+#   - Knowledge Base (org data for drafts)
+# ============================================================
+
+prompts:
+
+  # ============================================================
+  # PROMPT 1: DATABASE SCHEMA
+  # ============================================================
+
+  - id: draft-001
+    phase: build
+    description: "Create migration for draft automation pipeline tables"
+    prompt: |
+      FIRST: Read the existing schema — check all migration files for any existing draft_queue, draft_schedule, or similar tables. Read the drafts table schema. Read the opportunities table. Read the submission_queue table. Read the applications table.
+
+      Create C:\Users\manag\Documents\benavora\supabase\migrations\057_draft_automation_pipeline.sql:
+
+      CREATE TYPE draft_queue_status AS ENUM ('pending', 'generating', 'generated', 'review', 'approved', 'rejected', 'submitted', 'failed');
+      CREATE TYPE draft_trigger AS ENUM ('auto_scheduled', 'eligibility_threshold', 'deadline_approaching', 'manual');
+
+      -- The draft queue: opportunities waiting for or having received auto-generated drafts
+      CREATE TABLE IF NOT EXISTS draft_queue (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        opportunity_id uuid NOT NULL REFERENCES opportunities(id) ON DELETE CASCADE,
+        application_id uuid REFERENCES applications(id),
+        status draft_queue_status DEFAULT 'pending',
+        trigger_reason draft_trigger NOT NULL DEFAULT 'auto_scheduled',
+        template_type text NOT NULL DEFAULT 'grant_narrative',
+        priority integer DEFAULT 3 CHECK (priority >= 1 AND priority <= 5),
+        draft_id uuid,
+        confidence_score integer,
+        gap_count integer DEFAULT 0,
+        word_count integer DEFAULT 0,
+        auto_generated_at timestamptz,
+        reviewed_by uuid REFERENCES profiles(id),
+        reviewed_at timestamptz,
+        review_notes text,
+        approved_at timestamptz,
+        rejected_reason text,
+        submitted_to_autoapply_at timestamptz,
+        deadline_date timestamptz,
+        scheduled_for date,
+        error_message text,
+        retry_count integer DEFAULT 0,
+        max_retries integer DEFAULT 2,
+        created_at timestamptz DEFAULT NOW(),
+        updated_at timestamptz DEFAULT NOW(),
+        UNIQUE(organization_id, opportunity_id, template_type)
+      );
+
+      ALTER TABLE draft_queue ENABLE ROW LEVEL SECURITY;
+      CREATE POLICY "draft_queue_org" ON draft_queue USING (organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
+      CREATE INDEX idx_draft_queue_org ON draft_queue(organization_id);
+      CREATE INDEX idx_draft_queue_status ON draft_queue(status);
+      CREATE INDEX idx_draft_queue_scheduled ON draft_queue(scheduled_for) WHERE status = 'pending';
+      CREATE INDEX idx_draft_queue_priority ON draft_queue(priority ASC, deadline_date ASC);
+
+      -- Draft automation settings per org
+      CREATE TABLE IF NOT EXISTS draft_automation_config (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE UNIQUE,
+        is_enabled boolean DEFAULT false,
+        min_eligibility_score integer DEFAULT 70,
+        auto_generate_on_discovery boolean DEFAULT true,
+        auto_generate_on_deadline_days integer DEFAULT 14,
+        daily_draft_limit integer DEFAULT 5,
+        preferred_template_rules jsonb DEFAULT '{}',
+        excluded_categories text[] DEFAULT '{}',
+        excluded_funder_ids uuid[] DEFAULT '{}',
+        require_approval_before_submit boolean DEFAULT true,
+        auto_submit_above_confidence integer,
+        notification_on_generation boolean DEFAULT true,
+        notification_on_deadline boolean DEFAULT true,
+        created_at timestamptz DEFAULT NOW(),
+        updated_at timestamptz DEFAULT NOW()
+      );
+
+      ALTER TABLE draft_automation_config ENABLE ROW LEVEL SECURITY;
+      CREATE POLICY "draft_auto_config_org" ON draft_automation_config USING (organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
+    expected_outputs:
+      - supabase/migrations/057_draft_automation_pipeline.sql
+    gates:
+      - type: file_exists
+        files: [supabase/migrations/057_draft_automation_pipeline.sql]
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # PROMPT 2: TEMPLATE AUTO-SELECTION ENGINE
+  # ============================================================
+
+  - id: draft-002
+    phase: build
+    description: "Create template auto-selection engine that picks the right draft type per opportunity"
+    prompt: |
+      Read the opportunities table schema (category, source, funder link, amount fields).
+      Read the draft_template_type enum from the existing schema.
+      Read the draft_automation_config table from migration 057.
+
+      Create C:\Users\manag\Documents\benavora\src\lib\drafts\template-selector.ts:
+
+      Export class TemplateSelector:
+        - selectTemplate(opportunity: Opportunity, orgConfig?: DraftAutomationConfig): TemplateSelection
+          Rules-based selection with override support:
+
+          1. Check orgConfig.preferred_template_rules first (JSON mapping: { category_pattern: template_type }).
+             Example: { "government_grant": "full_proposal", "corporate_*": "donation_request_letter" }
+
+          2. Default rules if no override:
+             - Government Federal + amount > $100K → 'full_proposal'
+             - Government Federal + amount <= $100K → 'grant_narrative'
+             - Government State → 'grant_narrative'
+             - Corporate (any) → 'donation_request_letter'
+             - Private Foundation + amount > $50K → 'full_proposal'
+             - Private Foundation + amount <= $50K → 'letter_of_inquiry'
+             - Housing Grant → 'grant_narrative'
+             - Any with "LOI" or "letter of inquiry" in name → 'letter_of_inquiry'
+             - Any with "budget" in name → 'budget_narrative'
+             - Default fallback → 'grant_narrative'
+
+          3. Return: { template_type, reasoning, confidence }
+
+        - selectMultipleTemplates(opportunity: Opportunity): TemplateSelection[]
+          For complex opportunities that may need multiple drafts (e.g., a federal grant needing both a grant narrative AND a budget narrative). Returns ordered list.
+
+      Define TypeScript interfaces: TemplateSelection, Opportunity (import from existing types if available — READ the types file first).
+    expected_outputs:
+      - src/lib/drafts/template-selector.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # PROMPT 3: DRAFT QUEUE ENGINE
+  # ============================================================
+
+  - id: draft-003
+    phase: build
+    description: "Create the draft queue engine — auto-queuing qualified opportunities"
+    prompt: |
+      Read C:\Users\manag\Documents\benavora\src\lib\drafts\template-selector.ts completely.
+      Read the draft_queue and draft_automation_config tables from migration 057.
+      Read the opportunities table schema.
+      Read the existing eligibility scoring logic if it exists.
+
+      Create C:\Users\manag\Documents\benavora\src\lib\drafts\draft-queue-engine.ts:
+
+      Export class DraftQueueEngine:
+
+        - processNewOpportunities(orgId: string): Promise<QueueResult>
+          Called after research agents complete. For each new opportunity in the org:
+          1. Check if draft automation is enabled (draft_automation_config.is_enabled).
+          2. Check if opportunity category is excluded.
+          3. Check if eligibility_score >= min_eligibility_score threshold. If not scored yet, skip (will be picked up after scoring).
+          4. Check if opportunity is already in draft_queue (dedup by org + opportunity + template).
+          5. Select template via TemplateSelector.
+          6. Calculate priority: P1 = deadline within 7 days, P2 = deadline within 14 days, P3 = deadline within 30 days, P4 = deadline 30+ days, P5 = no deadline.
+          7. Insert into draft_queue with status = 'pending', trigger_reason = 'eligibility_threshold'.
+          8. Return { queued, skipped_low_score, skipped_excluded, skipped_duplicate }.
+
+        - processDeadlineApproaching(orgId: string): Promise<QueueResult>
+          Scans opportunities with deadlines within auto_generate_on_deadline_days.
+          If not already queued and meets eligibility threshold: queue with trigger = 'deadline_approaching' and elevated priority.
+
+        - getQueueForOrg(orgId: string, filters?: { status?, priority? }): Promise<DraftQueueItem[]>
+          Returns the org's draft queue with opportunity details joined.
+          Default sort: priority ASC, deadline_date ASC (most urgent first).
+
+        - updateQueueItemStatus(itemId: string, status: string, metadata?: object): Promise<void>
+          Updates status with appropriate timestamps (reviewed_at, approved_at, etc.).
+
+        - getQueueStats(orgId: string): Promise<QueueStats>
+          Returns: { pending, generating, generated, in_review, approved, rejected, submitted, failed, total, avg_confidence, by_priority: {} }
+    expected_outputs:
+      - src/lib/drafts/draft-queue-engine.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # PROMPT 4: AUTO-GENERATION ENGINE
+  # ============================================================
+
+  - id: draft-004
+    phase: build
+    description: "Create auto-generation engine — processes pending queue items into drafts"
+    prompt: |
+      Read C:\Users\manag\Documents\benavora\src\lib\drafts\draft-queue-engine.ts completely.
+      Read the EXISTING draft generation route at C:\Users\manag\Documents\benavora\src\app\api\ai\draft\route.ts COMPLETELY — understand every function, every input, every output.
+      Read the Knowledge Base schema.
+
+      Create C:\Users\manag\Documents\benavora\src\lib\drafts\auto-generator.ts:
+
+      Export class DraftAutoGenerator:
+
+        - processQueue(orgId: string, limit?: number): Promise<GenerationResult>
+          1. Fetch draft_automation_config for org. Check daily_draft_limit against today's generated count.
+          2. Query draft_queue WHERE status = 'pending' AND organization_id = orgId, ORDER BY priority ASC, deadline_date ASC, LIMIT min(remaining_daily_limit, limit || 5).
+          3. For each item:
+             a. Update status = 'generating'.
+             b. Load the opportunity details.
+             c. Load org Knowledge Base (same logic the existing draft route uses — reuse it, don't duplicate).
+             d. Call the EXISTING draft generation logic programmatically. Do NOT duplicate the Claude prompt construction — import and call the same function the /api/ai/draft route uses. If that logic is inline in the route handler, FIRST extract it into a shared function in src/lib/drafts/generator.ts, then import it in both the route and here.
+             e. If generation succeeds: create a draft record (same as the existing route does), update draft_queue with status = 'generated', draft_id, confidence_score, gap_count, word_count, auto_generated_at.
+             f. If generation fails: update status = 'failed', error_message. If retry_count < max_retries, reset to 'pending' with retry_count++ for next cycle.
+             g. If config.notification_on_generation: create an alert/notification for the org.
+          4. Return { generated, failed, skipped_limit, remaining_budget }.
+
+          CRITICAL: Reuse existing draft generation logic. Do not build a parallel draft system. The auto-generator calls the same code path as the manual Draft Generator — it just triggers it automatically.
+
+        - generateSingle(queueItemId: string): Promise<boolean>
+          Process a single queue item on demand (for manual retry from the UI).
+
+      If the existing draft generation logic in the route is not extractable into a shared function, create C:\Users\manag\Documents\benavora\src\lib\drafts\generator.ts that extracts the core generation logic from the route. Then update the route to import from this shared module. This ensures one code path for all draft generation.
+    expected_outputs:
+      - src/lib/drafts/auto-generator.ts
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # PROMPT 5: CRON + RESEARCH INTEGRATION
+  # ============================================================
+
+  - id: draft-005
+    phase: build
+    description: "Create cron job and integrate with research pipeline"
+    prompt: |
+      Read C:\Users\manag\Documents\benavora\src\lib\drafts\draft-queue-engine.ts completely.
+      Read C:\Users\manag\Documents\benavora\src\lib\drafts\auto-generator.ts completely.
+      Read the existing research run completion flow — find where research runs update their status to 'completed' (likely in /api/research/run or a cron).
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\cron\draft-automation\route.ts:
+        GET: Daily cron endpoint (runs early morning, e.g., 6 AM CT).
+        For each org with draft automation enabled:
+          1. Call processDeadlineApproaching() — queue items approaching deadline.
+          2. Call processQueue() — auto-generate drafts for pending items.
+        Set maxDuration = 300 (draft generation takes time).
+        Verify CRON_SECRET.
+        Log results per org.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\cron\draft-queue-check\route.ts:
+        GET: Runs after research completes (triggered by research completion or on a schedule).
+        For each org with draft automation enabled:
+          1. Call processNewOpportunities() — scan recent opportunities and queue eligible ones.
+        Set maxDuration = 120.
+        Verify CRON_SECRET.
+
+      Integrate with research pipeline:
+        Read the research run completion handler. After a research run completes successfully, add a call to processNewOpportunities() for that org. This should be fire-and-forget (don't block the research completion response). If the completion handler is in a route, add the call after the success response. If it's in a cron, add it to the cron sequence.
+
+        Read the eligibility scoring flow. After eligibility scores are updated on an opportunity, check if the score now meets the threshold and queue if so.
+
+        IMPORTANT: Both integration points must be additive — wrap in try/catch, never break existing flows.
+    expected_outputs:
+      - src/app/api/cron/draft-automation/route.ts
+      - src/app/api/cron/draft-queue-check/route.ts
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # PROMPT 6: DRAFT QUEUE API ROUTES
+  # ============================================================
+
+  - id: draft-006
+    phase: build
+    description: "Create draft queue API routes for the review workbench"
+    prompt: |
+      Read C:\Users\manag\Documents\benavora\src\lib\drafts\draft-queue-engine.ts completely.
+      Read C:\Users\manag\Documents\benavora\src\lib\drafts\auto-generator.ts completely.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\drafts\queue\route.ts:
+        GET: Get the org's draft queue. Tenant auth required (owner/admin/writer).
+        Query params: status, priority, sort (deadline, priority, created), limit, offset.
+        Returns queue items with opportunity name, funder name, template type, confidence score, gap count joined.
+        POST: Manually add an opportunity to the draft queue. Body: { opportunity_id, template_type?, priority? }.
+        Deduplicates by org + opportunity + template.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\drafts\queue\[id]\route.ts:
+        GET: Queue item detail with full draft content if generated.
+        PATCH: Update queue item. Actions:
+          - { action: 'approve' } → status = 'approved', approved_at = NOW(). If auto-submit configured and confidence >= threshold, also queue to AutoApply.
+          - { action: 'reject', reason: string } → status = 'rejected', rejected_reason.
+          - { action: 'retry' } → reset to 'pending', retry_count++.
+          - { action: 'prioritize', priority: number } → update priority.
+          - { action: 'submit' } → create submission_queue entry for AutoApply, status = 'submitted'.
+        DELETE: Remove from queue (soft delete — set status to 'rejected' with reason 'removed_from_queue').
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\drafts\queue\stats\route.ts:
+        GET: Queue statistics for the org. Returns getQueueStats() result.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\drafts\queue\config\route.ts:
+        GET: Get org's draft automation config. Creates default if none exists.
+        PATCH: Update config. Validates: min_eligibility_score 0-100, daily_draft_limit 1-50.
+    expected_outputs:
+      - src/app/api/drafts/queue/route.ts
+      - src/app/api/drafts/queue/[id]/route.ts
+      - src/app/api/drafts/queue/stats/route.ts
+      - src/app/api/drafts/queue/config/route.ts
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # PROMPT 7: AUTOAPPLY BRIDGE
+  # ============================================================
+
+  - id: draft-007
+    phase: build
+    description: "Create the bridge from approved drafts to AutoApply submission queue"
+    prompt: |
+      Read the submission_queue table schema.
+      Read C:\Users\manag\Documents\benavora\src\lib\drafts\draft-queue-engine.ts.
+      Read the AutoApply queue API routes — find how items are added to submission_queue.
+      Read the applications table — understand how applications link to opportunities and drafts.
+
+      Create C:\Users\manag\Documents\benavora\src\lib\drafts\submission-bridge.ts:
+
+      Export class SubmissionBridge:
+
+        - bridgeToSubmission(queueItemId: string): Promise<BridgeResult>
+          When a draft is approved and ready for submission:
+          1. Fetch the draft queue item with its draft and opportunity.
+          2. If no application exists for this opportunity: create one.
+             - Set stage = 'ready_for_review' (draft exists, approved).
+             - Link the draft to the application.
+          3. If application exists: verify draft is linked, update stage if needed.
+          4. Create a submission_queue entry:
+             - Link to application_id.
+             - Set priority from the draft queue item's priority.
+             - Set automation_mode based on funder's automation_level (full_auto, assisted, manual_only).
+          5. Update draft_queue status = 'submitted', submitted_to_autoapply_at = NOW().
+          6. Create notification: "Draft for {opportunity_name} has been submitted to AutoApply queue."
+          7. Return { success, application_id, submission_queue_id }.
+
+        - bulkBridge(orgId: string): Promise<{ bridged: number, failed: number }>
+          Bridge all approved drafts for the org in one call.
+
+        - canBridge(queueItemId: string): Promise<{ canBridge: boolean, reason?: string }>
+          Pre-check: is the draft approved? Does the org have submission capacity (tier limits)? Is the funder not paused in queue_controls? Are required documents attached?
+
+      IMPORTANT: Read how the existing submission queue and application creation work. Do not create a parallel path — use the same tables and follow the same patterns.
+    expected_outputs:
+      - src/lib/drafts/submission-bridge.ts
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # PROMPT 8: DRAFT QUEUE UI — THE MORNING WORKBENCH
+  # ============================================================
+
+  - id: draft-008
+    phase: build
+    description: "Create the Draft Queue UI — the daily review workbench"
+    prompt: |
+      Create C:\Users\manag\Documents\benavora\src\app\(dashboard)\draft-generator\queue\page.tsx:
+
+      The Morning Workbench — where the human operator reviews auto-generated drafts.
+
+      Top section — Queue stats (from /api/drafts/queue/stats):
+      - Stat cards: Pending Generation, Ready for Review, Approved (awaiting submit), Submitted, Average Confidence
+      - "Generate Now" button — triggers immediate processing of pending items (POST to a manual trigger endpoint)
+
+      Main section — Queue table:
+      - Columns: Priority badge (P1-P5 color coded), Opportunity Name, Funder, Template Type, Deadline (with urgency color), Status badge, Confidence (score/100 with color), Gaps, Actions
+      - Sort by: priority (default), deadline, confidence, status
+      - Filter by: status, priority, template type
+      - Click row → opens the draft in the existing Draft Generator page with the generated content loaded for review/edit
+
+      Action buttons per row:
+      - Review (opens draft) — for 'generated' status items
+      - Approve (green) — marks approved, shows confirmation
+      - Reject (red) — opens modal for rejection reason
+      - Submit to AutoApply (blue) — bridges approved draft to submission queue
+      - Retry (orange) — for failed items
+      - Priority arrows — move priority up/down
+
+      Bulk actions bar (when items selected):
+      - Approve Selected
+      - Reject Selected
+      - Submit Selected to AutoApply
+
+      Bottom section — Automation settings card:
+      - Toggle: Enable/Disable auto-drafting
+      - Min eligibility score slider (0-100)
+      - Daily draft limit input
+      - Auto-generate on discovery toggle
+      - Deadline alert days input
+      - Require approval before submit toggle
+      - Auto-submit confidence threshold (disabled if require_approval is on)
+      - Save button
+
+      Add "Draft Queue" as a sub-item under Draft Generator in the sidebar, or as a tab on the Draft Generator page — whichever integrates more naturally. Read the existing Draft Generator page structure before deciding.
+
+      Use Tailwind CSS matching existing dark theme.
+    expected_outputs:
+      - src/app/(dashboard)/draft-generator/queue/page.tsx
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # PROMPT 9: ROUTE INTEGRITY + BUILD VERIFICATION
+  # ============================================================
+
+  - id: draft-009
+    phase: build
+    description: "Route integrity check and build verification for draft automation"
+    prompt: |
+      1. Run: find src/app -name "route.ts" | sort — verify no duplicate routes.
+         Specifically check:
+         - /api/drafts/queue/* routes don't conflict with existing /api/ai/draft route
+         - /api/cron/draft-automation and draft-queue-check don't conflict with existing crons
+         - Draft Generator page at /draft-generator still works
+         - Draft Generator queue page at /draft-generator/queue is accessible
+
+      2. Run: pnpm tsc --noEmit — fix ALL TypeScript errors.
+      3. Run: pnpm run build — fix ALL build errors.
+
+      4. Verify the draft generation code path:
+         - The existing /api/ai/draft route still works unchanged for manual generation
+         - The auto-generator imports shared logic (not duplicated)
+         - If a shared generator module was created (src/lib/drafts/generator.ts), verify the route uses it
+
+      5. Verify the submission bridge:
+         - submission_queue table insertions follow the same schema as existing AutoApply queue entries
+         - application creation follows the same pattern as existing application creation
+
+      6. Verify nav: Draft Generator nav item still works. If a sub-item was added for Draft Queue, verify it renders correctly.
+
+      Fix everything found.
+    expected_outputs: []
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # PROMPT 10: GOVERNANCE UPDATE
+  # ============================================================
+
+  - id: draft-010
+    phase: build
+    description: "Final build and governance update for draft automation pipeline"
+    prompt: |
+      1. Run pnpm run build — zero errors.
+      2. Run pnpm tsc --noEmit — zero errors.
+
+      3. Count routes: find src/app -name "route.ts" | wc -l
+      4. Count pages: find src/app -name "page.tsx" | wc -l
+
+      5. Update C:\Users\manag\Documents\benavora\STATE_OF_THE_BUILD.md:
+         Add section:
+         ## Draft Automation Pipeline: BUILT
+
+         Closes the automation gap between Research → Draft → Submit.
+
+         - Template auto-selection engine: rules-based template matching per opportunity type
+           (federal > $100K → full_proposal, corporate → donation_request, foundation → LOI, etc.)
+         - Draft queue engine: auto-queues opportunities that pass eligibility threshold
+         - Deadline-aware priority: P1 (7 days) through P5 (no deadline)
+         - Auto-generation engine: processes queue overnight, generates drafts using existing Claude pipeline
+         - Shared draft generation logic: extracted from /api/ai/draft route into reusable module
+         - Research integration: new opportunities auto-queue after research runs complete
+         - Eligibility integration: opportunities queue when score crosses threshold
+         - Daily cron: /api/cron/draft-automation processes pending queue each morning
+         - Submission bridge: approved drafts auto-create applications and submission_queue entries
+         - Draft Queue UI (morning workbench) at /draft-generator/queue
+         - Automation config per org: eligibility threshold, daily limits, template rules, auto-submit
+         - Migration 057: draft_queue + draft_automation_config tables
+         - Post-run: apply migration 057, enable draft automation for Faith Foundation via config endpoint
+         - Total routes: [count]. Total pages: [count].
+
+      6. Update C:\Users\manag\Documents\benavora\SESSION_STATE.md:
+         - Draft Automation Pipeline complete
+         - The full autonomous loop is now: Research → Score → Queue → Draft → Review → Submit
+         - Post-run: apply migration 057
+    expected_outputs:
+      - STATE_OF_THE_BUILD.md
+      - SESSION_STATE.md
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
