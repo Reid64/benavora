@@ -12,6 +12,7 @@ import {
   KanbanSquare,
   LayoutDashboard,
   Library,
+  Mail,
   Radar,
   Search,
   Target,
@@ -83,6 +84,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Financials", href: "/financials", icon: DollarSign },
   { label: "Reports", href: "/reports", icon: FileBarChart2 },
   { label: "Research", href: "/research", icon: Radar },
+  { label: "Email", href: "/email", icon: Mail },
   {
     label: "Intelligence",
     href: "/intelligence",
