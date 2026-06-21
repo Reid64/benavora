@@ -150,6 +150,7 @@ export function SubmissionHistory() {
             <p className="mb-2 text-center text-xs font-medium uppercase tracking-wide text-navy-300">
               {screenshotLabel}
             </p>
+            {/* eslint-disable-next-line @next/next/no-img-element -- remote Supabase storage URL, dimensions unknown; next/image needs remotePatterns config */}
             <img
               src={screenshotUrl}
               alt={screenshotLabel}
@@ -403,6 +404,7 @@ function ScreenshotThumb({
         aria-label={`View full-size ${label}`}
         className="block rounded-lg border border-navy-200 shadow-sm transition hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-teal-500"
       >
+        {/* eslint-disable-next-line @next/next/no-img-element -- remote Supabase storage URL, dimensions unknown; next/image needs remotePatterns config */}
         <img
           src={url}
           alt={label}

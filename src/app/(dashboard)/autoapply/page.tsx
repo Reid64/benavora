@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import {
   ExternalLink,
   FileSearch,
@@ -23,7 +24,23 @@ import { QueuePreview } from "@/components/autoapply/QueuePreview";
 import { QueuePanel } from "@/components/autoapply/QueuePanel";
 import { SubmissionHistory } from "@/components/autoapply/SubmissionHistory";
 import { ReviewQueue } from "@/components/autoapply/ReviewQueue";
-import { SuccessAnalytics } from "@/components/autoapply/SuccessAnalytics";
+// Lazy-loaded: SuccessAnalytics statically imports the full recharts library
+// (~130 kB), which alone inflated this route's first-load JS. It renders below
+// the fold, so defer it to a client-only chunk fetched after initial paint.
+const SuccessAnalytics = dynamic(
+  () =>
+    import("@/components/autoapply/SuccessAnalytics").then(
+      (m) => m.SuccessAnalytics,
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="rounded-lg border border-navy-100 bg-white p-5 text-sm text-navy-400">
+        Loading analytics…
+      </div>
+    ),
+  },
+);
 
 interface QueueRow {
   id: string;

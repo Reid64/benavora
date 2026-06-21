@@ -2,10 +2,25 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, ArrowLeft, Plus, Trash2 } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  CalendarClock,
+  DollarSign,
+  ExternalLink,
+  Info,
+  Plus,
+  Trash2,
+} from "lucide-react";
 
 import { Badge, Button, Card } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
+import {
+  STATE_REGISTRATIONS,
+  STATE_REGISTRATION_DISCLAIMER,
+  STATE_REGISTRATION_LAST_REVIEWED,
+  getStateRegistration,
+} from "@/lib/autoapply/state-registration-data";
 
 const US_STATES: { code: string; name: string }[] = [
   { code: "AL", name: "Alabama" }, { code: "AK", name: "Alaska" },
@@ -83,6 +98,10 @@ export default function SolicitationCompliancePage() {
 
   // Remove state
   const [removingId, setRemovingId] = useState<string | null>(null);
+
+  // State-registration reference lookup
+  const [refState, setRefState] = useState<string>("");
+  const refInfo = refState ? getStateRegistration(refState) : undefined;
 
   const loadRegistrations = useCallback(async () => {
     setLoading(true);
@@ -378,6 +397,97 @@ export default function SolicitationCompliancePage() {
               </table>
             </div>
           )}
+        </div>
+      </Card>
+
+      {/* State registration requirements reference */}
+      <Card
+        title="Registration Requirements by State"
+        description="41 states (40 + DC) require charitable solicitation registration before you can fundraise there. Select a state for its fee, portal, renewal, and exemption details."
+      >
+        <div className="space-y-4">
+          <div className="max-w-xs">
+            <label htmlFor="ref-state" className="block text-xs font-medium text-navy-700">
+              State
+            </label>
+            <select
+              id="ref-state"
+              value={refState}
+              onChange={(e) => setRefState(e.target.value)}
+              className="mt-1 block w-full rounded-md border border-navy-200 bg-white px-2 py-1.5 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+            >
+              <option value="">Select a state…</option>
+              {STATE_REGISTRATIONS.map((s) => (
+                <option key={s.abbreviation} value={s.abbreviation}>
+                  {s.abbreviation} — {s.state}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {refInfo && (
+            <div className="rounded-lg border border-navy-200 bg-white p-4">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="text-base font-semibold text-navy-900">{refInfo.state}</h3>
+                  <p className="mt-0.5 text-xs text-navy-500">{refInfo.agency}</p>
+                </div>
+                <a
+                  href={refInfo.registrationPortalUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-teal-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-teal-700"
+                >
+                  Register Now
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </a>
+              </div>
+
+              <dl className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <div className="flex items-start gap-2">
+                  <DollarSign className="mt-0.5 h-4 w-4 shrink-0 text-teal-600" />
+                  <div>
+                    <dt className="text-xs font-medium uppercase tracking-wide text-navy-400">
+                      Registration Fee
+                    </dt>
+                    <dd className="text-sm text-navy-800">{refInfo.registrationFee}</dd>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <CalendarClock className="mt-0.5 h-4 w-4 shrink-0 text-teal-600" />
+                  <div>
+                    <dt className="text-xs font-medium uppercase tracking-wide text-navy-400">
+                      Renewal
+                    </dt>
+                    <dd className="text-sm text-navy-800">
+                      {refInfo.renewalFrequency}
+                      <span className="block text-xs text-navy-500">{refInfo.renewalInfo}</span>
+                    </dd>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Info className="mt-0.5 h-4 w-4 shrink-0 text-teal-600" />
+                  <div>
+                    <dt className="text-xs font-medium uppercase tracking-wide text-navy-400">
+                      Exemption
+                    </dt>
+                    <dd className="text-sm text-navy-800">{refInfo.exemptionThreshold}</dd>
+                  </div>
+                </div>
+              </dl>
+
+              {refInfo.notes && (
+                <p className="mt-4 rounded-md bg-navy-50 px-3 py-2 text-xs text-navy-600">
+                  <strong className="text-navy-700">Note:</strong> {refInfo.notes}
+                </p>
+              )}
+            </div>
+          )}
+
+          <p className="text-xs text-navy-400">
+            {STATE_REGISTRATION_DISCLAIMER} Reference data last reviewed{" "}
+            {STATE_REGISTRATION_LAST_REVIEWED}.
+          </p>
         </div>
       </Card>
 

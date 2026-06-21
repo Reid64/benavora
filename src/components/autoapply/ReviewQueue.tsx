@@ -346,9 +346,10 @@ export function ReviewQueue() {
                                             }}
                                             className="group relative overflow-hidden rounded-lg border border-navy-200 focus:outline-none focus:ring-2 focus:ring-teal-500"
                                           >
+                                            {/* eslint-disable-next-line @next/next/no-img-element -- remote Supabase storage URL, dimensions unknown; next/image needs remotePatterns config */}
                                             <img
                                               src={url}
-                                              alt=""
+                                              alt={ss.stage}
                                               className="h-24 w-36 object-cover"
                                             />
                                             <span className="absolute inset-x-0 bottom-0 bg-navy-900/70 px-1.5 py-1 text-center text-[10px] text-white">
@@ -558,9 +559,10 @@ export function ReviewQueue() {
           >
             <X className="h-6 w-6" />
           </button>
+          {/* eslint-disable-next-line @next/next/no-img-element -- remote Supabase storage URL, dimensions unknown; next/image needs remotePatterns config */}
           <img
             src={lightboxUrl}
-            alt=""
+            alt="Submission screenshot"
             className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain"
             onClick={(e) => e.stopPropagation()}
           />

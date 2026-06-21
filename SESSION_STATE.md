@@ -241,3 +241,42 @@ Phase 3F: Submission Intelligence — request amount optimization (query `funder
 ### Next Build
 Phase 3G (Multi-Channel + Follow-Up): email-based donation requests via Resend, submission channel analytics, confirmation email monitoring via Gmail API, automated follow-up sequences, autoapply_follow_ups table, follow-up cron job and management UI.
 Phase 3H (Analytics + Optimization): A/B testing framework for pitch variants, funder response time analytics, success rate dashboards with conversion funnel, ROI calculator.
+
+## Session — 2026-06-21 (Comprehensive Codebase Audit)
+
+### Completed This Session
+Full health check — see **AUDIT_REPORT.md** for the complete writeup (findings, fixes, risks, env var catalog, migration status, recommended actions). **Gates: `pnpm typecheck` = PASS, `pnpm build` = PASS** (both were already green; the audit fixes preserve green).
+
+#### Audited (no issues)
+- **worker/queue-processor.ts** read end-to-end (1,052 lines). Pipeline internally consistent; all 22 imports resolve; the 16 `src/lib/autoapply/*` symbols + 5 `worker/*` helpers all exist. ⚠️ `worker/` is excluded from `tsconfig.json`, so `tsc` never type-checks it.
+- **src/lib/autoapply/** module graph: 24 modules, **zero circular dependencies**, every sibling import resolves to a real export.
+
+#### Schema drift (most serious finding) — FIX CREATED, PENDING PROD APPLICATION
+5 columns referenced by the worker exist in **no** migration:
+- `funders.type` (CRITICAL — `.select()` 400s → skips *every* queue item)
+- `organizations.contact_email` (HIGH — only `email` exists; select 400s → org profile silently null)
+- `form_templates.auto_generated`, `form_templates.field_count` (MEDIUM — silent unchecked `.update()` loss)
+- `funders.portal_review_status` (LOW — already guarded as best-effort)
+
+**FIX:** created `supabase/migrations/053_autoapply_missing_columns.sql` — `ADD COLUMN IF NOT EXISTS` ×5, backfills `contact_email` from `email`, idempotent. **Must be applied to prod** (Management-API DDL path per project memory).
+
+#### Fixes applied this session (in working tree)
+- **ESLint `<img>`**: added `@next/next/no-img-element` disable comments to `SubmissionHistory.tsx` (×2) and `ReviewQueue.tsx` (×2, plus meaningful alt text). `settings/branding/page.tsx` was already suppressed. `next/image` deliberately not used — remote Supabase URLs + `images.remotePatterns:[]` would 500.
+- **Bundle size**: `/autoapply` first-load JS **422 kB → 315 kB (−107 kB)** by lazy-loading `SuccessAnalytics` (pulls full recharts, ~130 kB) via `next/dynamic` `ssr:false`.
+
+#### New feature
+- **`src/lib/autoapply/state-registration-data.ts`**: typed dataset of all **41** charitable-solicitation-registration jurisdictions (40 states + DC) — agency, fee, portal URL, renewal frequency + detail, exemption threshold, notes; `getStateRegistration()` lookup, `REGISTRATION_REQUIRED_STATES` set, disclaimer + `lastReviewed` date. Non-registering states (AZ, DE, ID, IN, IA, MT, NE, SD, VT, WY) excluded.
+- **`/autoapply/compliance`** enhanced: "Registration Requirements by State" card — pick a state → fee, **Register Now** portal link, renewal info, exemption details, notes, disclaimer. Existing org-registration table unchanged.
+
+### Manual Steps Remaining (from this audit)
+| Step | Reason |
+|------|--------|
+| Apply migration 053 (`053_autoapply_missing_columns.sql`) to prod | Unblocks worker read path (funders.type / organizations.contact_email 400s) — highest priority |
+| Verify migrations 047–052 are applied in prod | Long pending backlog; code assumes these tables/columns exist |
+| Commit `.eslintrc.json` (extends `next/core-web-vitals`) | No ESLint config exists → `next build` skips lint, `next lint` can't run unattended |
+| Add `worker/tsconfig.json` + `typecheck:worker` | `worker/` currently gets zero `tsc` coverage |
+| Document undocumented env vars in `.env.local.example` (esp. `SAM_GOV_API_KEY`); reconcile `SUPABASE_URL` vs `NEXT_PUBLIC_SUPABASE_URL` | Operability + missing-no-fallback var |
+| Verify state registration fee/threshold data against official portals | Many are sliding scales; portals/fees drift |
+
+### Next Build
+Phase 3G / 3H as previously planned, after migration 053 (and the 047–052 backlog) are confirmed applied to prod.
