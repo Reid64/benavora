@@ -3036,6 +3036,50 @@ export interface Database {
         };
         Relationships: [];
       };
+      // Org-scoped document vault — one current record per document_type per org.
+      // Created by migration 048 (AutoApply Phase 3C).
+      org_documents: {
+        Row: {
+          id: string;
+          organization_id: string;
+          document_type: string;
+          file_name: string;
+          storage_path: string;
+          mime_type: string | null;
+          file_size: number | null;
+          uploaded_by: string | null;
+          expires_at: string | null;
+          is_current: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          document_type: string;
+          file_name: string;
+          storage_path: string;
+          mime_type?: string | null;
+          file_size?: number | null;
+          uploaded_by?: string | null;
+          expires_at?: string | null;
+          is_current?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          document_type?: string;
+          file_name?: string;
+          storage_path?: string;
+          mime_type?: string | null;
+          file_size?: number | null;
+          uploaded_by?: string | null;
+          expires_at?: string | null;
+          is_current?: boolean;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
