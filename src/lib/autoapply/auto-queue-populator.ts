@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { ComplianceGuard } from './compliance-guard';
+import { getBestProfile, type FunderForMatching, type RequestProfile } from './funder-matcher';
+import { SubmissionControls } from './submission-controls';
 
 export type PopulateResult = {
   queued: number;
@@ -16,6 +18,9 @@ export type DryRunFunder = {
   city: string | null;
   state: string | null;
   giving_portal_url: string;
+  matched_profile_name: string | null;
+  matched_profile_type: string | null;
+  match_score: number | null;
 };
 
 export type DryRunResult = {
@@ -61,6 +66,14 @@ function toStringSet(rows: Array<{ funder_id: string | null }> | null): Set<stri
       .map(r => r.funder_id)
       .filter((id): id is string => id !== null)
   );
+}
+
+function extractDomainFromUrl(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return url;
+  }
 }
 
 async function resolveDedupWindow(
@@ -134,14 +147,30 @@ export async function populateQueue(params: PopulateParams): Promise<PopulateRes
   const dedupWindowDays = await resolveDedupWindow(supabase, organizationId, params.dedupWindowDays);
   result.dedupWindowDays = dedupWindowDays;
 
-  // Collect funder IDs already pending/processing in the queue
+  // Load active request profiles for this org — required to determine what to request
+  // from each funder via profile matching.
+  const { data: profilesData } = await supabase
+    .from('request_profiles')
+    .select('id, name, request_type, target_funder_categories, target_funder_types, geographic_requirements, active, priority')
+    .eq('organization_id', organizationId)
+    .eq('active', true);
+  const profiles: RequestProfile[] = (profilesData ?? []) as RequestProfile[];
+
+  // Collect funder/profile pairs already pending or processing in the queue.
+  // Dedup is per (funder_id, request_profile_id) pair so the same funder can be
+  // queued simultaneously with different profiles (e.g. monetary AND land donation).
   const { data: pendingRows } = await supabase
     .from('submission_queue')
-    .select('funder_id')
+    .select('funder_id, request_profile_id')
     .eq('organization_id', organizationId)
     .in('status', ['pending', 'processing']);
 
-  const pendingSet = toStringSet(pendingRows);
+  const pendingPairSet = new Set<string>();
+  for (const row of (pendingRows ?? []) as Array<{ funder_id: string | null; request_profile_id: string | null }>) {
+    if (row.funder_id && row.request_profile_id) {
+      pendingPairSet.add(`${row.funder_id}:${row.request_profile_id}`);
+    }
+  }
 
   // Build per-funder classification from submission history
   const { permanentBlockSet, captchaFunderIds, accountFunderIds, tempBlockSet, recentSet } =
@@ -149,8 +178,10 @@ export async function populateQueue(params: PopulateParams): Promise<PopulateRes
 
   const userExcludeSet = new Set<string>(filters?.excludeFunderIds ?? []);
 
+  // Pending funders are intentionally NOT excluded from the SQL query — dedup is handled
+  // per (funder, profile) pair in the loop below, allowing the same funder to be queued
+  // with a different profile if a different pair isn't already pending.
   const allExcluded = [
-    ...pendingSet,
     ...permanentBlockSet,
     ...tempBlockSet,
     ...recentSet,
@@ -158,10 +189,10 @@ export async function populateQueue(params: PopulateParams): Promise<PopulateRes
   ];
   const uniqueExcluded = [...new Set(allExcluded)];
 
-  // Query eligible funders
+  // Query eligible funders; include `type` for funder-matcher capability scoring.
   let query = supabase
     .from('funders')
-    .select('id, name, category, city, state, giving_portal_url')
+    .select('id, name, category, city, state, giving_portal_url, type')
     .eq('organization_id', organizationId)
     .not('giving_portal_url', 'is', null)
     .neq('giving_portal_url', '');
@@ -187,13 +218,26 @@ export async function populateQueue(params: PopulateParams): Promise<PopulateRes
     throw new Error(`Failed to query funders: ${queryError.message}`);
   }
 
-  const allEligible: DryRunFunder[] = funders ?? [];
+  type FunderRow = DryRunFunder & { type: string | null };
+
+  const allEligible: FunderRow[] = ((funders ?? []) as any[]).map((f) => ({
+    id: f.id as string,
+    name: f.name as string,
+    category: (f.category as string | null) ?? null,
+    city: (f.city as string | null) ?? null,
+    state: (f.state as string | null) ?? null,
+    giving_portal_url: f.giving_portal_url as string,
+    type: (f.type as string | null) ?? null,
+    matched_profile_name: null,
+    matched_profile_type: null,
+    match_score: null,
+  }));
 
   // Compliance filter: skip funders in states where the org isn't registered.
   const guard = new ComplianceGuard();
   const registeredStates = new Set(await guard.getRegisteredStates(organizationId, supabase));
-  const complianceHeld: DryRunFunder[] = [];
-  const eligible: DryRunFunder[] = [];
+  const complianceHeld: FunderRow[] = [];
+  const eligible: FunderRow[] = [];
   for (const funder of allEligible) {
     if (funder.state && !registeredStates.has(funder.state)) {
       complianceHeld.push(funder);
@@ -202,15 +246,81 @@ export async function populateQueue(params: PopulateParams): Promise<PopulateRes
     }
   }
 
-  // Preview mode: return the candidate funders without writing to the queue.
-  if (dry_run) {
-    return { funders: eligible, dedupWindowDays };
+  // Velocity check is done once per populate call (no submissions happen during this call,
+  // so the 24h rolling count is constant throughout).
+  const controls = new SubmissionControls();
+  const velocityCheck = await controls.checkVelocityLimits(organizationId, supabase);
+
+  // Per-funder: profile matching → pair dedup → submission controls.
+  type ReadyFunder = FunderRow & { request_profile_id: string };
+  const readyFunders: ReadyFunder[] = [];
+
+  for (const funder of eligible) {
+    // Match funder to the best active request profile.
+    const funderForMatch: FunderForMatching = {
+      id: funder.id,
+      name: funder.name,
+      category: funder.category,
+      type: funder.type,
+      state: funder.state,
+      city: funder.city,
+    };
+    const bestMatch = getBestProfile(funderForMatch, profiles);
+    if (!bestMatch) {
+      bumpReason(result.reasons, 'no_matching_profile');
+      result.skipped++;
+      continue;
+    }
+
+    // Pair-level dedup: skip if this exact (funder, profile) pair is already in the queue.
+    const pairKey = `${funder.id}:${bestMatch.profileId}`;
+    if (pendingPairSet.has(pairKey)) {
+      bumpReason(result.reasons, 'already_pending');
+      result.skipped++;
+      continue;
+    }
+
+    // Rolling 24-hour velocity cap — if already at limit, skip remaining funders.
+    if (velocityCheck.blocked) {
+      bumpReason(result.reasons, 'velocity_limit');
+      result.skipped++;
+      continue;
+    }
+
+    // Cross-client dedup: block if another org submitted to this domain in the last 7 days.
+    const domain = extractDomainFromUrl(funder.giving_portal_url);
+    const crossClientResult = await controls.checkCrossClientDedup(domain, organizationId, supabase);
+    if (crossClientResult.blocked) {
+      bumpReason(result.reasons, 'cross_client_blocked');
+      result.skipped++;
+      continue;
+    }
+
+    // Per-domain submission frequency cap (shared platform or standard portal).
+    const domainThrottleResult = await controls.checkDomainThrottle(funder.giving_portal_url, supabase);
+    if (domainThrottleResult.blocked) {
+      bumpReason(result.reasons, 'domain_throttled');
+      result.skipped++;
+      continue;
+    }
+
+    // All checks passed — record profile match info and add to ready set.
+    funder.matched_profile_name = bestMatch.profileName;
+    funder.matched_profile_type = bestMatch.requestType;
+    funder.match_score = bestMatch.score;
+    readyFunders.push({ ...funder, request_profile_id: bestMatch.profileId });
   }
 
-  if (eligible.length > 0) {
-    const inserts = eligible.map(funder => ({
+  // Preview mode: return the would-be-queued funders without writing to the queue.
+  if (dry_run) {
+    return { funders: readyFunders, dedupWindowDays };
+  }
+
+  if (readyFunders.length > 0) {
+    const inserts = readyFunders.map(funder => ({
       organization_id: organizationId,
       funder_id: funder.id,
+      request_profile_id: funder.request_profile_id,
       status: 'pending',
       automation_mode: 'autonomous',
       priority: 100,
@@ -224,54 +334,49 @@ export async function populateQueue(params: PopulateParams): Promise<PopulateRes
       throw new Error(`Failed to insert into submission_queue: ${insertError.message}`);
     }
 
-    result.queued = eligible.length;
+    result.queued = readyFunders.length;
   }
 
-  // Report compliance-held skips
+  // Report compliance-held skips (fetched from SQL but blocked by state registration).
   for (const funder of complianceHeld) {
     bumpReason(result.reasons, 'compliance_hold');
     result.skipped++;
-    // Prevent double-counting if the funder was also in another exclusion set
-    pendingSet.delete(funder.id);
+    // Defensive removal in case a funder appears in multiple sets (edge case).
     permanentBlockSet.delete(funder.id);
     tempBlockSet.delete(funder.id);
     recentSet.delete(funder.id);
     userExcludeSet.delete(funder.id);
   }
 
-  // Report skip reasons
-  for (const id of pendingSet) {
-    if (!userExcludeSet.has(id)) {
-      bumpReason(result.reasons, 'already_pending');
-      result.skipped++;
-    }
-  }
+  // Report SQL-level exclusion skip reasons.
+  // Note: pendingSet no longer contributes to SQL exclusion — pair-level dedup is
+  // tracked in the loop above, so there is no risk of double-counting here.
   for (const id of captchaFunderIds) {
-    if (!pendingSet.has(id) && !userExcludeSet.has(id)) {
+    if (!userExcludeSet.has(id)) {
       bumpReason(result.reasons, 'captcha_blocked_permanent');
       result.skipped++;
     }
   }
   for (const id of accountFunderIds) {
-    if (!pendingSet.has(id) && !userExcludeSet.has(id)) {
+    if (!userExcludeSet.has(id)) {
       bumpReason(result.reasons, 'account_required_permanent');
       result.skipped++;
     }
   }
   for (const id of tempBlockSet) {
-    if (!pendingSet.has(id) && !permanentBlockSet.has(id) && !userExcludeSet.has(id)) {
+    if (!permanentBlockSet.has(id) && !userExcludeSet.has(id)) {
       bumpReason(result.reasons, 'recently_failed');
       result.skipped++;
     }
   }
   for (const id of recentSet) {
-    if (!pendingSet.has(id) && !permanentBlockSet.has(id) && !tempBlockSet.has(id) && !userExcludeSet.has(id)) {
+    if (!permanentBlockSet.has(id) && !tempBlockSet.has(id) && !userExcludeSet.has(id)) {
       bumpReason(result.reasons, 'recently_submitted');
       result.skipped++;
     }
   }
   for (const id of userExcludeSet) {
-    if (!pendingSet.has(id) && !permanentBlockSet.has(id) && !tempBlockSet.has(id) && !recentSet.has(id)) {
+    if (!permanentBlockSet.has(id) && !tempBlockSet.has(id) && !recentSet.has(id)) {
       bumpReason(result.reasons, 'filtered_out');
       result.skipped++;
     }

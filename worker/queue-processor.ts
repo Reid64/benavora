@@ -6,10 +6,17 @@ import { CaptchaSolver } from '../src/lib/autoapply/captcha-solver.js';
 import { RegistrationAgent } from '../src/lib/autoapply/registration-agent.js';
 import { CredentialManager } from '../src/lib/autoapply/credential-manager.js';
 import { ScreenshotManager } from '../src/lib/autoapply/screenshot-manager.js';
+import { SubmissionValidator } from '../src/lib/autoapply/submission-validator.js';
+import { SubmissionControls } from '../src/lib/autoapply/submission-controls.js';
+import { parseConfirmationPage, type ConfirmationData } from '../src/lib/autoapply/confirmation-parser.js';
+import { getOptimalAskAmount } from '../src/lib/autoapply/amount-optimizer.js';
+import { personalizePitch } from '../src/lib/autoapply/pitch-personalizer.js';
+import { getTimingScore } from '../src/lib/autoapply/timing-optimizer.js';
 import * as heartbeat from './heartbeat.js';
 import { RateLimiter } from './rate-limiter.js';
 import { ProxyManager } from './proxy-manager.js';
 import { quickHealthCheck } from './portal-health.js';
+import { scoreAndReorderQueue } from './batch-scorer.js';
 
 // --- types -------------------------------------------------------------------
 
@@ -21,12 +28,15 @@ interface QueueItem {
   automation_mode: string;
   scheduled_for: string | null;
   created_at: string;
+  request_profile_id: string | null;
 }
 
 interface FunderRow {
   id: string;
   name: string | null;
   giving_portal_url: string | null;
+  category: string | null;
+  type: string | null;
 }
 
 interface FormTemplateRow {
@@ -34,6 +44,25 @@ interface FormTemplateRow {
   funder_id: string | null;
   last_verified_at: string | null;
   [key: string]: unknown;
+}
+
+interface RequestProfileRow {
+  id: string;
+  name: string;
+  request_type: string;
+  needs_description: string;
+  pitch_template: string | null;
+  form_field_overrides: Record<string, string> | null;
+  min_value: number | null;
+  max_value: number | null;
+}
+
+interface OrgRow {
+  name: string | null;
+  mission_statement: string | null;
+  subscription_tier: string | null;
+  ein: string | null;
+  contact_email: string | null;
 }
 
 // --- constants ---------------------------------------------------------------
@@ -69,20 +98,34 @@ function sleep(ms: number): Promise<void> {
   return new Promise<void>((resolve) => setTimeout(resolve, ms));
 }
 
+function extractDomain(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return url;
+  }
+}
+
 // --- QueueProcessor ----------------------------------------------------------
 
 export class QueueProcessor {
   private running = false;
   private processing = false;
+  private wasIdle = true;
   private readonly idleResolvers: Array<() => void> = [];
   private readonly rateLimiter = new RateLimiter();
   private readonly captchaSolver = new CaptchaSolver();
   private readonly registrationAgent = new RegistrationAgent();
   private readonly credentialManager: CredentialManager;
+  private readonly submissionValidator = new SubmissionValidator();
+  private readonly submissionControls = new SubmissionControls();
   private readonly proxyManager = new ProxyManager({
     provider: process.env['PROXY_PROVIDER'] ?? 'static',
     apiKey: process.env['PROXY_API_KEY'] ?? '',
   });
+  // Cached org readiness reports: orgId → ready flag.
+  // Reset on each idle→active transition to re-check after a long pause.
+  private readonly orgReadinessCache = new Map<string, boolean>();
 
   constructor(
     private readonly supabase: SupabaseClient,
@@ -127,9 +170,27 @@ export class QueueProcessor {
       const item = await this.dequeue();
 
       if (item === null) {
+        if (!this.wasIdle) {
+          // Transition from active → idle: clear readiness cache so it's re-checked
+          // on the next active period (org profile may have been updated while idle).
+          this.orgReadinessCache.clear();
+        }
+        this.wasIdle = true;
         console.log('[QueueProcessor] Queue empty, sleeping 15s');
         await sleep(SLEEP_MS);
         continue;
+      }
+
+      // Transition from idle → active: score and reorder the queue so the
+      // highest-value submissions execute first within this active burst.
+      if (this.wasIdle) {
+        this.wasIdle = false;
+        await scoreAndReorderQueue(this.supabase, item.organization_id).catch((e: unknown) => {
+          console.warn(
+            '[QueueProcessor] Batch scoring failed:',
+            e instanceof Error ? e.message : String(e),
+          );
+        });
       }
 
       this.processing = true;
@@ -222,10 +283,10 @@ export class QueueProcessor {
 
     if (funderId === null) throw new SkipError('no_funder_id');
 
-    // Fetch funder record
+    // Fetch funder record (category + type needed for timing score and pitch personalizer)
     const { data: funderData, error: funderError } = await this.supabase
       .from('funders')
-      .select('id, name, giving_portal_url')
+      .select('id, name, giving_portal_url, category, type')
       .eq('id', funderId)
       .maybeSingle();
 
@@ -234,16 +295,144 @@ export class QueueProcessor {
 
     const funder = funderData as FunderRow;
     const portalUrl = funder.giving_portal_url;
-
-    // Fetch org name for registration params (best-effort — null is handled gracefully)
-    const { data: orgRow } = await this.supabase
-      .from('organizations')
-      .select('name')
-      .eq('id', orgId)
-      .maybeSingle();
-    const orgProfile = orgRow as { name?: string | null } | null;
     if (!portalUrl) throw new SkipError('no_portal_url');
     const funderName = funder.name ?? funderId;
+
+    // Fetch org profile (mission needed for pitch personalizer, tier for controls)
+    const { data: orgData } = await this.supabase
+      .from('organizations')
+      .select('name, mission_statement, subscription_tier, ein, contact_email')
+      .eq('id', orgId)
+      .maybeSingle();
+    const orgProfile = orgData as OrgRow | null;
+
+    // --- Org readiness (cached per org, cleared on idle→active transition) ---
+    if (!this.orgReadinessCache.has(orgId)) {
+      const readiness = await this.submissionValidator.checkOrgReadiness(orgId, this.supabase);
+      this.orgReadinessCache.set(orgId, readiness.ready);
+      if (!readiness.ready) {
+        console.warn(
+          `[QueueProcessor] Org ${orgId} is not ready for AutoApply:`,
+          readiness.blockers.join(', '),
+        );
+        throw new SkipError(`org_not_ready: ${readiness.blockers[0] ?? 'incomplete profile'}`);
+      }
+    } else if (!this.orgReadinessCache.get(orgId)) {
+      throw new SkipError('org_not_ready');
+    }
+
+    // --- Load request profile linked to this queue item ---
+    let requestProfile: RequestProfileRow | null = null;
+    if (item.request_profile_id) {
+      const { data: profileData } = await this.supabase
+        .from('request_profiles')
+        .select('id, name, request_type, needs_description, pitch_template, form_field_overrides, min_value, max_value')
+        .eq('id', item.request_profile_id)
+        .maybeSingle();
+      requestProfile = profileData as RequestProfileRow | null;
+    }
+
+    // --- Submission controls: check before launching a browser session ---
+    const funderDomain = extractDomain(portalUrl);
+
+    const velocityCheck = await this.submissionControls.checkVelocityLimits(orgId, this.supabase);
+    if (velocityCheck.blocked) {
+      throw new SkipError(`velocity_limit: ${velocityCheck.reason ?? 'daily cap reached'}`);
+    }
+
+    const crossClientCheck = await this.submissionControls.checkCrossClientDedup(
+      funderDomain,
+      orgId,
+      this.supabase,
+    );
+    if (crossClientCheck.blocked) {
+      throw new SkipError(`cross_client_blocked: ${crossClientCheck.reason ?? 'domain recently used by another org'}`);
+    }
+
+    const domainThrottle = await this.submissionControls.checkDomainThrottle(portalUrl, this.supabase);
+    if (domainThrottle.blocked) {
+      throw new SkipError(`domain_throttled: ${domainThrottle.reason ?? 'too many recent submissions to this domain'}`);
+    }
+
+    // --- Timing score (for record-keeping and future scheduling intelligence) ---
+    const timingResult = getTimingScore({
+      funderType: funder.type ?? funder.category ?? 'corporate',
+      funderCategory: funder.category,
+    });
+    const timingScore = timingResult.score;
+
+    // --- Personalized pitch for description fields ---
+    let personalizedPitch: string | null = null;
+    const orgMission = orgProfile?.mission_statement ?? '';
+    const orgName = orgProfile?.name ?? 'Organization';
+    if (orgMission) {
+      // Load program names for pitch context (best-effort)
+      const { data: programsData } = await this.supabase
+        .from('programs')
+        .select('name')
+        .eq('organization_id', orgId);
+      const programs = ((programsData ?? []) as Array<{ name: string | null }>)
+        .map((p) => p.name)
+        .filter((n): n is string => n !== null);
+
+      personalizedPitch = await personalizePitch({
+        orgMission,
+        orgPrograms: programs,
+        orgName,
+        funderName,
+        funderPriorities: funder.category ? [funder.category] : [],
+        funderCategory: funder.category ?? undefined,
+        requestProfile: requestProfile
+          ? {
+              request_type: requestProfile.request_type,
+              needs_description: requestProfile.needs_description,
+              pitch_template: requestProfile.pitch_template,
+            }
+          : null,
+        organizationId: orgId,
+        funderId,
+        supabase: this.supabase,
+      }).catch((e: unknown) => {
+        console.warn(
+          '[QueueProcessor] personalizePitch failed (using raw mission):',
+          e instanceof Error ? e.message : String(e),
+        );
+        return null;
+      });
+    }
+
+    // --- Optimal ask amount for monetary fields ---
+    const askAmountResult = await getOptimalAskAmount({
+      funderId,
+      requestProfile: requestProfile
+        ? {
+            request_type: requestProfile.request_type,
+            min_value: requestProfile.min_value,
+            max_value: requestProfile.max_value,
+          }
+        : null,
+      funderCategory: funder.category,
+      supabase: this.supabase,
+    }).catch((e: unknown) => {
+      console.warn(
+        '[QueueProcessor] getOptimalAskAmount failed:',
+        e instanceof Error ? e.message : String(e),
+      );
+      return null;
+    });
+    const optimizedAmount = askAmountResult?.recommended ?? null;
+
+    // Build the FormFillerAgent request profile, injecting the personalized pitch
+    // and any overrides from the request profile record.
+    const fillerRequestProfile = requestProfile
+      ? {
+          request_type: requestProfile.request_type,
+          name: requestProfile.name,
+          needs_description: personalizedPitch ?? requestProfile.needs_description,
+          pitch_template: requestProfile.pitch_template,
+          form_field_overrides: requestProfile.form_field_overrides ?? undefined,
+        }
+      : undefined;
 
     // Quick portal health check before committing to a full browser session
     const portalHealth = await quickHealthCheck(portalUrl);
@@ -310,6 +499,7 @@ export class QueueProcessor {
     let requestDescription: string | null = null;
     let errorMessage: string | null = null;
     let formTemplateId: string | null = existingTemplate?.id ?? null;
+    let confirmationData: ConfirmationData | null = null;
 
     try {
       // Analyze the form if no cached template or template is stale
@@ -366,6 +556,44 @@ export class QueueProcessor {
 
       const template = templateRow as Record<string, unknown>;
 
+      // --- Pre-submission form data validation ---
+      // Validate field format constraints (EIN, email, phone, URL) using the template's
+      // form_structure and best-effort org data before launching the browser session.
+      if (Array.isArray(template['form_structure'])) {
+        const formFields = template['form_structure'] as Array<{
+          fieldName: string;
+          fieldLabel?: string;
+          fieldType?: string;
+          required?: boolean;
+          selector?: string;
+        }>;
+        // Build minimal field values from org profile for format-level validation only.
+        const fieldValues: Record<string, string> = {};
+        if (orgProfile) {
+          for (const field of formFields) {
+            const label = `${field.fieldLabel ?? ''} ${field.fieldName}`.toLowerCase();
+            if ((label.includes('ein') || label.includes('tax id')) && orgProfile.ein) {
+              fieldValues[field.fieldName] = orgProfile.ein;
+            } else if (label.includes('email') && orgProfile.contact_email) {
+              fieldValues[field.fieldName] = orgProfile.contact_email;
+            }
+          }
+        }
+        if (Object.keys(fieldValues).length > 0) {
+          const validation = await this.submissionValidator.validateFormData(
+            formFields as Parameters<typeof this.submissionValidator.validateFormData>[0],
+            fieldValues,
+            orgProfile,
+          ).catch(() => null);
+          if (validation && !validation.valid) {
+            console.warn(
+              `[QueueProcessor] Pre-submission format validation for ${funderName}:`,
+              validation.errors.map((e) => `${e.field}: ${e.message}`).join('; '),
+            );
+          }
+        }
+      }
+
       // For cached templates the FormAnalyzerAgent was skipped, so navigate now.
       if (!needsReanalysis) {
         await page.goto(portalUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
@@ -398,13 +626,28 @@ export class QueueProcessor {
         console.log(`[QueueProcessor] CAPTCHA solution injected for ${captchaDetection.type}`);
       }
 
-      // Fill and submit the form
+      // Fill and submit the form, passing request profile (with personalized pitch injected)
       const filler = new FormFillerAgent(this.supabase, stealthBrowser);
-      const fillResult = await filler.fillAndSubmit({ page, template, organizationId: orgId, funderId });
+      const fillResult = await filler.fillAndSubmit({
+        page,
+        template,
+        organizationId: orgId,
+        funderId,
+        requestProfile: fillerRequestProfile,
+      });
 
       confirmationNumber = fillResult.confirmationNumber;
       requestDescription = fillResult.requestDescription;
       submissionStatus = 'submitted';
+
+      // Parse the confirmation page for structured data (confirmation number, next steps, etc.)
+      confirmationData = await parseConfirmationPage(page).catch((e: unknown) => {
+        console.warn(
+          '[QueueProcessor] parseConfirmationPage failed:',
+          e instanceof Error ? e.message : String(e),
+        );
+        return null;
+      });
 
       // Capture live page state after fill + submit (post_fill = form submit complete)
       postFillPath = await snap('post_fill');
@@ -458,11 +701,16 @@ export class QueueProcessor {
         organization_id: orgId,
         funder_id: funderId,
         form_template_id: formTemplateId,
+        request_profile_id: item.request_profile_id,
         status: submissionStatus,
         request_description: requestDescription,
         pre_submit_screenshot_url: preFillPath,
         confirmation_screenshot_url: confirmationPath ?? postSubmitPath,
         confirmation_number: confirmationNumber,
+        confirmation_data: confirmationData,
+        personalized_pitch: personalizedPitch,
+        optimized_amount: optimizedAmount,
+        timing_score: timingScore,
         error_message: errorMessage,
         error_screenshot_url: errorPath,
         retry_count: 0,
@@ -490,6 +738,19 @@ export class QueueProcessor {
           .eq('id', queueItemId),
         screenshotManager.linkToSubmission(submissionRow.id, this.supabase),
       ]);
+
+      // Record in cross-client dedup log on successful submission so other tenants
+      // avoid submitting to the same domain in the next 7 days.
+      if (submissionStatus === 'submitted') {
+        await this.submissionControls.recordSubmission(funderDomain, orgId, this.supabase).catch(
+          (e: unknown) => {
+            console.warn(
+              '[QueueProcessor] recordSubmission failed:',
+              e instanceof Error ? e.message : String(e),
+            );
+          },
+        );
+      }
 
       // Schedule retry window for retryable error statuses
       if (submissionStatus !== 'submitted') {
@@ -598,7 +859,7 @@ export class QueueProcessor {
     orgId: string,
     funderId: string,
     portalUrl: string,
-    orgProfile: { name?: string | null } | null,
+    orgProfile: OrgRow | null,
   ): Promise<void> {
     const loginDetection = await this.registrationAgent.detectLoginForm(page);
     if (!loginDetection?.hasLoginForm) return;
