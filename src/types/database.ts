@@ -180,6 +180,8 @@ export interface Database {
           portal_last_checked_at: string | null;
           portal_response_time_ms: number | null;
           portal_review_status: string | null;
+          automation_level: string | null;
+          automation_notes: string | null;
           notes: string | null;
           last_contacted_at: string | null;
           created_at: string;
@@ -202,6 +204,8 @@ export interface Database {
           portal_last_checked_at?: string | null;
           portal_response_time_ms?: number | null;
           portal_review_status?: string | null;
+          automation_level?: string | null;
+          automation_notes?: string | null;
           notes?: string | null;
           last_contacted_at?: string | null;
           created_at?: string;
@@ -224,6 +228,8 @@ export interface Database {
           portal_last_checked_at?: string | null;
           portal_response_time_ms?: number | null;
           portal_review_status?: string | null;
+          automation_level?: string | null;
+          automation_notes?: string | null;
           notes?: string | null;
           last_contacted_at?: string | null;
           created_at?: string;
@@ -2325,6 +2331,7 @@ export interface Database {
           requires_login: boolean;
           requires_file_upload: boolean;
           file_upload_fields: Json | null;
+          automation_assessment: Json | null;
           last_verified_at: string | null;
           last_used_at: string | null;
           created_at: string;
@@ -2342,6 +2349,7 @@ export interface Database {
           requires_login?: boolean;
           requires_file_upload?: boolean;
           file_upload_fields?: Json | null;
+          automation_assessment?: Json | null;
           last_verified_at?: string | null;
           last_used_at?: string | null;
           created_at?: string;
@@ -2359,6 +2367,7 @@ export interface Database {
           requires_login?: boolean;
           requires_file_upload?: boolean;
           file_upload_fields?: Json | null;
+          automation_assessment?: Json | null;
           last_verified_at?: string | null;
           last_used_at?: string | null;
           created_at?: string;

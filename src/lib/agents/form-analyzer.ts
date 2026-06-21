@@ -2,6 +2,11 @@
 // sends the HTML to Claude to extract form structure, builds a field mapping
 // to Benavora KB columns, and inserts the result into form_templates.
 //
+// Also scans the full page text for anti-automation language (AUTOAPPLY_ARCHITECTURE_V2 §8C).
+// If the portal prohibits automated submissions with confidence > 0.7 the funder
+// record is updated to automation_level = 'manual_only' and the finding is
+// stored in the form_template's automation_assessment column.
+//
 // NOTE: Playwright requires a Chromium binary installed at runtime. This agent
 // runs correctly in local Node.js and on the dedicated AutoApply worker. It
 // will not run in Vercel serverless (no binary). The /api/agents/form-analyzer
@@ -19,7 +24,9 @@ import type { AgentType } from "@/types/agents";
 import type { Json } from "@/types/database";
 
 const MAX_HTML_CHARS = 80_000;
+const MAX_PAGE_TEXT_CHARS = 20_000;
 const PLAYWRIGHT_TIMEOUT_MS = 30_000;
+const AUTOMATION_CONFIDENCE_THRESHOLD = 0.7;
 
 export interface FormAnalyzerInput {
   funderId: string;
@@ -50,6 +57,13 @@ export interface FieldMappingEntry {
   manualReviewRequired: boolean;
 }
 
+export interface AutomationAssessment {
+  prohibits_automation: boolean;
+  relevant_text: string | null;
+  confidence: number;
+  scanned_at: string;
+}
+
 export interface FormAnalyzerResult {
   formTemplateId: string;
   funderId: string;
@@ -59,6 +73,7 @@ export interface FormAnalyzerResult {
   requiresLogin: boolean;
   requiresFileUpload: boolean;
   fieldMapping: FieldMappingEntry[];
+  automationAssessment: AutomationAssessment;
 }
 
 export interface FormAnalyzerAgentOptions extends BaseAgentOptions {
@@ -104,17 +119,29 @@ export class FormAnalyzerAgent extends BaseAgent<
       );
     }
 
-    const html = await fetchPageHtml(portalUrl);
+    const { formsHtml, pageText } = await fetchPageContent(portalUrl);
 
-    const response = await callClaude({
-      system: SYSTEM_PROMPT,
-      prompt: buildPrompt(portalUrl, html),
-      model: this.model,
-      maxTokens: this.maxTokens,
-    });
+    // Run form analysis and automation scan in parallel.
+    const [analysisResponse, automationResponse] = await Promise.all([
+      callClaude({
+        system: SYSTEM_PROMPT,
+        prompt: buildFormPrompt(portalUrl, formsHtml),
+        model: this.model,
+        maxTokens: this.maxTokens,
+      }),
+      callClaude({
+        system: AUTOMATION_SCAN_SYSTEM,
+        prompt: pageText,
+        model: this.model,
+        maxTokens: 300,
+      }),
+    ]);
 
-    const analysis = parseAnalysisResponse(response.text);
+    const analysis = parseAnalysisResponse(analysisResponse.text);
     const fieldMapping = buildFieldMapping(analysis.fields);
+    const automationAssessment = parseAutomationResponse(
+      automationResponse.text,
+    );
 
     const now = new Date().toISOString();
     const { data: row, error: insertError } = await this.client
@@ -128,6 +155,7 @@ export class FormAnalyzerAgent extends BaseAgent<
         is_multi_step: analysis.isMultiStep,
         requires_login: analysis.requiresLogin,
         requires_file_upload: analysis.requiresFileUpload,
+        automation_assessment: automationAssessment as unknown as Json,
         last_verified_at: now,
         updated_at: now,
       })
@@ -139,6 +167,27 @@ export class FormAnalyzerAgent extends BaseAgent<
         "Failed to save form template.",
         "write_failed",
       );
+    }
+
+    // If automation is prohibited with sufficient confidence, mark the funder
+    // as manual_only so the queue processor knows not to auto-submit.
+    if (
+      automationAssessment.prohibits_automation &&
+      automationAssessment.confidence > AUTOMATION_CONFIDENCE_THRESHOLD
+    ) {
+      const notes =
+        automationAssessment.relevant_text ??
+        "Automated submissions detected as prohibited on this portal.";
+
+      await this.client
+        .from("funders")
+        .update({
+          automation_level: "manual_only",
+          automation_notes: notes,
+          updated_at: now,
+        })
+        .eq("id", input.funderId)
+        .eq("organization_id", this.organizationId);
     }
 
     const manualCount = fieldMapping.filter((f) => f.manualReviewRequired).length;
@@ -153,16 +202,19 @@ export class FormAnalyzerAgent extends BaseAgent<
         requiresLogin: analysis.requiresLogin,
         requiresFileUpload: analysis.requiresFileUpload,
         fieldMapping,
+        automationAssessment,
       },
-      outputSummary: `Analyzed "${funder.name as string}" portal: ${analysis.fields.length} fields found, ${manualCount} require manual review. Multi-step: ${analysis.isMultiStep}. Login required: ${analysis.requiresLogin}.`,
+      outputSummary: `Analyzed "${funder.name as string}" portal: ${analysis.fields.length} fields found, ${manualCount} require manual review. Multi-step: ${analysis.isMultiStep}. Login required: ${analysis.requiresLogin}. Automation prohibited: ${automationAssessment.prohibits_automation} (confidence ${automationAssessment.confidence}).`,
       itemsFound: analysis.fields.length,
       itemsProcessed: analysis.fields.length,
-      tokensUsed: response.usage.totalTokens,
+      tokensUsed:
+        analysisResponse.usage.totalTokens +
+        automationResponse.usage.totalTokens,
     };
   }
 }
 
-// --- prompt ------------------------------------------------------------------
+// --- form analysis prompt ----------------------------------------------------
 
 const SYSTEM_PROMPT = `You are a web form analyst. Analyze HTML from a grant/donation portal and extract all form elements. Return ONLY valid JSON — no prose, no markdown fences.
 
@@ -190,10 +242,24 @@ Rules:
 - requiresFileUpload: true if any field has type=file or the page requests document uploads.
 - formAction: the action attribute of the main form element, or empty string if absent.`;
 
-function buildPrompt(portalUrl: string, html: string): string {
+function buildFormPrompt(portalUrl: string, html: string): string {
   const truncated = html.slice(0, MAX_HTML_CHARS);
   return `Portal URL: ${portalUrl}\n\nHTML:\n${truncated}`;
 }
+
+// --- automation scan prompt --------------------------------------------------
+
+const AUTOMATION_SCAN_SYSTEM = `You are a compliance analyst. Scan the provided page text for any language that prohibits automated submissions, bot usage, or requires manual human entry.
+
+Look for phrases such as: "automated submissions prohibited", "no bot submissions", "must be completed manually", "no automated access", "human review required", "do not use scripts or bots", "automated tools not permitted", "terms of use prohibiting automated access".
+
+Return ONLY valid JSON — no prose, no markdown fences:
+{"prohibits_automation": boolean, "relevant_text": string | null, "confidence": number}
+
+Rules:
+- prohibits_automation: true only if you find clear language that prohibits automation.
+- relevant_text: the exact sentence(s) from the page that indicate the prohibition, or null if none found.
+- confidence: 0.0 to 1.0. Use 0.0 when no prohibition language is found. Use 0.9+ only for explicit, unambiguous statements.`;
 
 // --- response parsing --------------------------------------------------------
 
@@ -238,6 +304,36 @@ function parseAnalysisResponse(text: string): FormAnalysis {
     requiresLogin: obj.requiresLogin === true,
     requiresFileUpload: obj.requiresFileUpload === true,
     formAction: typeof obj.formAction === "string" ? obj.formAction : "",
+  };
+}
+
+function parseAutomationResponse(text: string): AutomationAssessment {
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+
+  const fallback: AutomationAssessment = {
+    prohibits_automation: false,
+    relevant_text: null,
+    confidence: 0,
+    scanned_at: new Date().toISOString(),
+  };
+
+  if (start === -1 || end <= start) return fallback;
+
+  let raw: unknown;
+  try {
+    raw = JSON.parse(text.slice(start, end + 1));
+  } catch {
+    return fallback;
+  }
+
+  const obj = (raw ?? {}) as Record<string, unknown>;
+  return {
+    prohibits_automation: obj.prohibits_automation === true,
+    relevant_text:
+      typeof obj.relevant_text === "string" ? obj.relevant_text : null,
+    confidence: typeof obj.confidence === "number" ? obj.confidence : 0,
+    scanned_at: new Date().toISOString(),
   };
 }
 
@@ -295,7 +391,12 @@ function buildFieldMapping(fields: FormField[]): FieldMappingEntry[] {
 
 // --- browser -----------------------------------------------------------------
 
-async function fetchPageHtml(url: string): Promise<string> {
+interface PageContent {
+  formsHtml: string;
+  pageText: string;
+}
+
+async function fetchPageContent(url: string): Promise<PageContent> {
   // StealthBrowser handles the user-agent, fingerprint randomization, and
   // anti-bot hardening. The Chromium binary must be installed on the host:
   // npx playwright install chromium.
@@ -348,11 +449,7 @@ async function fetchPageHtml(url: string): Promise<string> {
       await page.waitForTimeout(1000);
     }
 
-    // A portal's <form> can sit far down a 400K+ char page; sending the whole
-    // page truncates at MAX_HTML_CHARS and misses late forms entirely. Extract
-    // just the form elements' outerHTML instead - concentrated and small enough
-    // to survive truncation. Fall back to truncated page content only when the
-    // page has no <form> elements at all.
+    // Extract form HTML for field analysis.
     const formsHtml = await page.evaluate(() => {
       const out: string[] = [];
       document.querySelectorAll("form").forEach((form) => {
@@ -361,12 +458,23 @@ async function fetchPageHtml(url: string): Promise<string> {
       return out.join("\n\n<!-- FORM SEPARATOR -->\n\n");
     });
 
-    if (formsHtml.trim() !== "") {
-      return formsHtml;
+    // Extract visible page text for the automation prohibition scan.
+    // innerText gives rendered text (skips hidden elements) which captures
+    // ToS notices, footer policy text, and inline warnings — the locations
+    // where anti-automation language typically appears.
+    const pageText = await page.evaluate(
+      (maxChars: number) =>
+        (document.body?.innerText ?? "").slice(0, maxChars),
+      MAX_PAGE_TEXT_CHARS,
+    );
+
+    // Fall back to truncated page HTML if no forms were found.
+    if (formsHtml.trim() === "") {
+      const html = await page.content();
+      return { formsHtml: html.slice(0, MAX_HTML_CHARS), pageText };
     }
 
-    const html = await page.content();
-    return html.slice(0, MAX_HTML_CHARS);
+    return { formsHtml, pageText };
   } finally {
     await browser.close();
   }
