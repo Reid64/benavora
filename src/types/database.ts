@@ -2500,6 +2500,40 @@ export interface Database {
         };
         Relationships: [];
       };
+      // Migration 052: queue_controls — Queue Control Plane pause states (no RLS, admin-managed).
+      queue_controls: {
+        Row: {
+          id: string;
+          control_type: string;
+          target_id: string | null;
+          paused: boolean;
+          paused_by: string | null;
+          paused_at: string | null;
+          reason: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          control_type: string;
+          target_id?: string | null;
+          paused?: boolean;
+          paused_by?: string | null;
+          paused_at?: string | null;
+          reason?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          control_type?: string;
+          target_id?: string | null;
+          paused?: boolean;
+          paused_by?: string | null;
+          paused_at?: string | null;
+          reason?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       // Migration 047: worker_status — Railway AutoApply worker heartbeat (no RLS, admin-managed)
       worker_status: {
         Row: {

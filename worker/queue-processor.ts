@@ -22,6 +22,7 @@ import { WebhookNotifier } from '../src/lib/autoapply/webhook-notifier.js';
 import { annotateErrorScreenshot } from '../src/lib/autoapply/error-annotator.js';
 import { assessSubmissionRisk } from '../src/lib/autoapply/risk-engine.js';
 import { RelationshipManager } from '../src/lib/autoapply/relationship-manager.js';
+import { QueueControlPlane } from '../src/lib/autoapply/queue-controls.js';
 import type { ReadinessReport } from '../src/lib/autoapply/submission-validator.js';
 
 // --- types -------------------------------------------------------------------
@@ -135,6 +136,7 @@ export class QueueProcessor {
   private readonly orgReadinessCache = new Map<string, ReadinessReport>();
   private readonly webhookNotifier = new WebhookNotifier();
   private readonly relationshipManager = new RelationshipManager();
+  private readonly queueControlPlane = new QueueControlPlane();
 
   constructor(
     private readonly supabase: SupabaseClient,
@@ -292,6 +294,24 @@ export class QueueProcessor {
 
     if (funderId === null) throw new SkipError('no_funder_id');
 
+    // Check queue control plane: platform → domain (unknown at this stage) → funder → tenant.
+    // Domain-level check is deferred until after funder record is fetched (portal URL needed).
+    const earlyBlock = await this.queueControlPlane.isBlocked({
+      orgId,
+      funderId,
+      supabase: this.supabase,
+    }).catch((e: unknown) => {
+      console.warn(
+        '[QueueProcessor] isBlocked check failed (proceeding):',
+        e instanceof Error ? e.message : String(e),
+      );
+      return null;
+    });
+
+    if (earlyBlock !== null && earlyBlock.blocked) {
+      throw new SkipError(`control_plane_blocked:${earlyBlock.controlType ?? 'unknown'}: ${earlyBlock.reason ?? 'paused'}`);
+    }
+
     // Fetch funder record (category + type needed for timing score and pitch personalizer)
     const { data: funderData, error: funderError } = await this.supabase
       .from('funders')
@@ -306,6 +326,16 @@ export class QueueProcessor {
     const portalUrl = funder.giving_portal_url;
     if (!portalUrl) throw new SkipError('no_portal_url');
     const funderName = funder.name ?? funderId;
+
+    // Domain-level control check now that we have the portal URL.
+    const domainBlock = await this.queueControlPlane.isBlocked({
+      portalUrl,
+      supabase: this.supabase,
+    }).catch(() => null);
+
+    if (domainBlock !== null && domainBlock.blocked && domainBlock.controlType === 'domain') {
+      throw new SkipError(`control_plane_blocked:domain: ${domainBlock.reason ?? 'domain paused'}`);
+    }
 
     // Fetch org profile (mission needed for pitch personalizer, tier for controls)
     const { data: orgData } = await this.supabase
