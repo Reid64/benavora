@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Solver } from '@2captcha/captcha-solver';
 
 export interface CaptchaDetection {
