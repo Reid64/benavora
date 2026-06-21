@@ -4,17 +4,44 @@
 > Tracks the live execution session. Initialized empty at Phase 2 — Phase 3 updates it
 > after every prompt (BLUEPRINT Canonical Rule 9).
 
-- **Current phase:** Phase 2 complete — awaiting Gate 3 approval
-- **Current prompt:** none (Phase 3 has not started)
-- **Completed prompts:** 0
-- **Failed prompts:** 0
-- **Last updated:** 2026-06-19 (Claude Code)
+- **Current phase:** Phase 3 (Build Executor) — overnight FORGE chain complete; next up Phase 4
+- **Current prompt:** none (chain idle after Intelligence Library Night 2)
+- **Completed prompts:** Phase 3F 18/18, Phase 3F-GOV 10/10, Phase 3G+3H 12/12, Intelligence Library Night 2 10/13
+- **Failed prompts:** logic-005 (type mismatch — fixed manually post-chain, commit 2d1bd72); logic-006–008 never ran (chain halted at logic-005)
+- **Last updated:** 2026-06-21 (Claude Code)
 
 ## Active Build
-none — no build is executing yet
+none — overnight chain idle. Build green at 175 routes.
 
 ## Notes
 Initialized empty by Phase 2 (Governance Generator). Phase 3 updates this after every prompt.
+
+# ===========================================================================
+# HANDOFF SUMMARY — 2026-06-21 (Overnight Autonomous FORGE Chain)
+# Live prod: benavora.vercel.app | Supabase project ref: vbjplpquqxxfbpazyalt
+# ===========================================================================
+
+## Session snapshot
+- **Overnight chain ran 3 queues unattended.** Results:
+  - Phase 3F (Submission Intelligence): **18/18 passed**
+  - Phase 3F-GOV: **10/10 passed**
+  - Phase 3G + 3H (multi-channel follow-up + analytics/optimization): **12/12 passed**
+  - Intelligence Library Night 2: **10/13 passed** — `logic-005` FAILED (GeneratedLogicModel/LogicModelData type mismatch), halting the chain so `logic-006`–`logic-008` never ran.
+- **Build:** 175 routes, `npx next build` green.
+- **logic-005 fixed post-chain** (commit `2d1bd72`) + Intelligence Library/draft-generator integration completed; `logic-006`–`logic-008` still to run.
+
+## FORGE engine
+- **v1.2 lessons-learned integration shipped** (commit `e34aa3e`) — self-corrected `gh-008` on the third attempt, proving the feedback loop's value.
+- **Rollback BUG:** `git reset --hard` rollback does NOT clean untracked files; needs `git clean -fd` added.
+
+## Prod / infra
+- **Migration 053 applied to prod** — 5 drift-fix columns (`funders.type`, `organizations.contact_email`, `form_templates.auto_generated`, `form_templates.field_count`, `funders.portal_review_status`).
+- **Compliance:** solicitation-registration data for **41 jurisdictions** (40 states + DC) added to `/autoapply/compliance`.
+
+## Next phase
+**Phase 4 — Email/Calendar Integration + Admin Sales Outreach Engine.** Intelligence Library `logic-006`–`logic-008` + Nights 3–7 remain open.
+
+See repo-root `STATE_OF_THE_BUILD.md` / `SESSION_STATE.md` and `AUDIT_REPORT.md` for full detail.
 
 # ===========================================================================
 # HANDOFF SUMMARY — 2026-06-18/19 (Claude Code)

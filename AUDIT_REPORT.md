@@ -290,3 +290,46 @@ autoapply_review_queue, solicitation_registrations, funders.portal_status/_last_
 submission_queue.request_profile_id), **052** (webhook_configs), and now **053** (the 5
 drift-fix columns). Per project memory, prod is on the Management-API DDL path
 (not MCP); confirm 045–053 are all applied there.
+
+---
+
+## Overnight autonomous FORGE chain — results (2026-06-21)
+
+After this audit, the FORGE chain ran **3 queues unattended overnight**. Outcomes
+recorded here so the audit reflects the post-run state.
+
+| Queue / Phase | Result |
+|---------------|--------|
+| Phase 3F — Submission Intelligence | **18 / 18 passed** |
+| Phase 3F-GOV (governance) | **10 / 10 passed** |
+| Phase 3G + 3H — Multi-channel follow-up + Analytics / Optimization | **12 / 12 passed** |
+| Intelligence Library Night 2 | **10 / 13 passed** — `logic-005` FAILED; chain halted, so `logic-006`–`logic-008` never ran |
+
+- **Build:** 175 routes, `npx next build` green.
+- **logic-005 failure** was a `GeneratedLogicModel` / `LogicModelData` type mismatch
+  (the API nested the five stages under `data` while consumers expected them flat).
+  Fixed manually post-chain (commit `2d1bd72`): `GeneratedLogicModel extends
+  LogicModelData`, `DraftResult.logicModel` added, and the Intelligence Library /
+  draft-generator integration completed. `logic-006`–`logic-008` remain to be run.
+
+### FORGE engine findings
+- **Lessons-learned integration (v1.2) shipped** (commit `e34aa3e`). It proved its
+  value by **self-correcting `gh-008` on the third attempt** — prior-failure context
+  was fed into the retry.
+- **Rollback BUG (action item):** the failed-prompt rollback uses `git reset --hard`,
+  which does **not** remove untracked files. A failed prompt that created new files
+  leaves them behind, polluting the next attempt. **Fix:** add `git clean -fd` to the
+  rollback path so it returns to a truly clean tree.
+
+### Schema drift follow-up
+- **Migration 053 has been applied to prod** — the 5 drift-fix columns flagged in §4
+  (`funders.type`, `organizations.contact_email`, `form_templates.auto_generated`,
+  `form_templates.field_count`, `funders.portal_review_status`) are now present. The
+  §4 risk is resolved pending a spot-check of the worker `.select()`/`.update()` paths.
+
+### Compliance data
+- Solicitation-registration dataset for **41 jurisdictions** (40 states + DC) added to
+  `/autoapply/compliance` (`src/lib/autoapply/state-registration-data.ts`).
+
+### Next phase
+**Phase 4 — Email / Calendar Integration + Admin Sales Outreach Engine.**

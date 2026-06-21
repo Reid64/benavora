@@ -223,3 +223,42 @@ DB note: migrations are NOT reliably applied to the live project (`vbjplpquqxxfb
 - Orphaned `agent_runs` cleanup.
 - Tailwind CSS purge issue (amber styling).
 - OpenAI API key for three-model consensus.
+
+## Overnight Autonomous Chain — 2026-06-21 (FORGE)
+
+The FORGE chain ran **3 queues unattended** overnight. The repo-root
+`STATE_OF_THE_BUILD.md` living log holds the per-feature detail; this is the
+phase-level summary.
+
+### Queue results
+| Queue / Phase | Result |
+|---------------|--------|
+| Phase 3F — Submission Intelligence | **18 / 18 passed** |
+| Phase 3F-GOV (governance) | **10 / 10 passed** |
+| Phase 3G + 3H — Multi-channel follow-up + Analytics / Optimization | **12 / 12 passed** |
+| Intelligence Library Night 2 | **10 / 13 passed** — `logic-005` FAILED (GeneratedLogicModel / LogicModelData type mismatch); the failure halted the chain so `logic-006`–`logic-008` **never ran** |
+
+- **Build:** 175 routes, `npx next build` green.
+- **logic-005 follow-up:** the type mismatch was fixed manually and the
+  Intelligence Library / draft-generator integration completed (commit
+  `2d1bd72`). `logic-006`–`logic-008` still need to be run.
+
+### FORGE engine
+- **v1.2 lessons-learned integration shipped** (commit `e34aa3e`). It proved its
+  value by **self-correcting `gh-008` on the third attempt** (prior-failure
+  context fed into the retry).
+- **Rollback BUG:** the failed-prompt rollback uses `git reset --hard`, which
+  does **not** remove untracked files — a failed prompt can leave untracked
+  files behind that pollute the next attempt. **Fix:** add `git clean -fd` to
+  the rollback path.
+
+### Prod / infra
+- **Migration 053 applied to prod** — 5 drift-fix columns: `funders.type`,
+  `organizations.contact_email`, `form_templates.auto_generated`,
+  `form_templates.field_count`, `funders.portal_review_status`.
+- **Compliance:** solicitation-registration dataset for **41 jurisdictions**
+  (40 states + DC) wired into `/autoapply/compliance`.
+
+### Next phase
+**Phase 4 — Email / Calendar Integration + Admin Sales Outreach Engine.**
+(Intelligence Library `logic-006`–`logic-008` and Nights 3–7 remain open.)

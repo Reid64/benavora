@@ -351,3 +351,29 @@ Intelligence Library Nights 2–7 (reviewer rubrics, logic models, need statemen
 ### Gates
 - `npx tsc --noEmit` — PASS (zero errors)
 - `npx next build` — PASS (175 routes, zero type/lint errors)
+
+## Session — 2026-06-21 (Governance update after overnight chain)
+
+### Overnight Autonomous FORGE Chain — Results
+The chain ran **3 queues unattended** overnight. Outcomes:
+
+| Queue / Phase | Result |
+|---------------|--------|
+| Phase 3F — Submission Intelligence | **18/18 passed** |
+| Phase 3F-GOV (governance) | **10/10 passed** |
+| Phase 3G + 3H — Multi-channel follow-up + Analytics/Optimization | **12/12 passed** |
+| Intelligence Library Night 2 | **10/13 passed** — `logic-005` FAILED (GeneratedLogicModel/LogicModelData type mismatch), which halted the chain so `logic-006`–`logic-008` **never ran** |
+
+- **Build:** 175 routes, `npx next build` green.
+- **logic-005 follow-up:** the type mismatch that failed the chain was fixed by hand and the Intelligence Library / draft-generator integration completed (commit `2d1bd72`). `logic-006`–`logic-008` still need to be run.
+
+### FORGE engine notes
+- **v1.2 lessons-learned integration shipped** (commit `e34aa3e`). It proved its value by **self-correcting `gh-008` on the third attempt** — the feedback loop fed prior failure context into the retry.
+- **Rollback BUG identified:** the failed-prompt rollback uses `git reset --hard`, which does **not** remove untracked files. A failed prompt can leave untracked files behind that pollute the next attempt. **Fix:** add `git clean -fd` to the rollback path so it returns to a truly clean tree.
+
+### Prod / infra
+- **Migration 053 applied to prod** — 5 drift-fix columns added: `funders.type`, `organizations.contact_email`, `form_templates.auto_generated`, `form_templates.field_count`, `funders.portal_review_status`.
+- **Compliance:** solicitation-registration dataset for **41 jurisdictions** (40 states + DC) wired into `/autoapply/compliance` (`src/lib/autoapply/state-registration-data.ts`).
+
+### Next phase
+**Phase 4 — Email/Calendar Integration + Admin Sales Outreach Engine.** (Remaining Intelligence Library work `logic-006`–`logic-008` and Nights 3–7 are still open and can be slotted before or alongside Phase 4.)
