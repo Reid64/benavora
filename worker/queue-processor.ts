@@ -27,6 +27,7 @@ import { QueueControlPlane } from '../src/lib/autoapply/queue-controls.js';
 import { UsageMeter } from '../src/lib/autoapply/usage-meter.js';
 import type { ReadinessReport } from '../src/lib/autoapply/submission-validator.js';
 import type { StreamServer } from './stream-server.js';
+import { promises as fs } from 'node:fs';
 
 // --- types -------------------------------------------------------------------
 
@@ -814,6 +815,7 @@ export class QueueProcessor {
         orgId, funderId, submissionId: null, supabase: this.supabase,
       });
 
+    let localRecordingPath: string | null = null;
     let pageLoadPath: string | null = null;
     let preFillPath: string | null = null;
     let postFillPath: string | null = null;
@@ -1032,6 +1034,8 @@ export class QueueProcessor {
       } catch {
         // Ignore close errors
       }
+      // Retrieve recording path only after browser.close() finalizes the .webm file
+      localRecordingPath = await stealthBrowser.getRecordingPath().catch(() => null);
     }
 
     // Persist full submission audit record
@@ -1088,6 +1092,44 @@ export class QueueProcessor {
           .eq('id', queueItemId),
         screenshotManager.linkToSubmission(submissionRow.id, this.supabase),
       ]);
+
+      // Upload session recording to Supabase Storage (fire-and-forget on failure)
+      if (localRecordingPath !== null) {
+        const storagePath = `${orgId}/${submissionRow.id}.webm`;
+        const capturedRecordingPath = localRecordingPath;
+        try {
+          const recordingBuffer = await fs.readFile(capturedRecordingPath);
+          const fileSizeBytes = recordingBuffer.byteLength;
+          const durationSeconds = Math.round((Date.now() - submissionStartedAt) / 1000);
+
+          const { error: recUploadErr } = await this.supabase.storage
+            .from('session-recordings')
+            .upload(storagePath, recordingBuffer, { contentType: 'video/webm', upsert: false });
+
+          if (recUploadErr) {
+            console.warn(
+              `[QueueProcessor] Recording upload failed for ${queueItemId}:`,
+              recUploadErr.message,
+            );
+          } else {
+            await this.supabase.from('session_recordings').insert({
+              submission_id: submissionRow.id,
+              organization_id: orgId,
+              funder_id: funderId,
+              storage_path: storagePath,
+              duration_seconds: durationSeconds,
+              file_size_bytes: fileSizeBytes,
+            });
+          }
+        } catch (recErr) {
+          console.warn(
+            '[QueueProcessor] Session recording error:',
+            recErr instanceof Error ? recErr.message : String(recErr),
+          );
+        } finally {
+          fs.unlink(capturedRecordingPath).catch(() => {});
+        }
+      }
 
       // Generate PDF receipt for successful submissions (fire-and-forget — never
       // block the queue on a receipt failure).

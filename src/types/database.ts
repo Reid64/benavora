@@ -3493,6 +3493,40 @@ export interface Database {
         };
         Relationships: [];
       };
+      // Migration gh-006 — session_recordings (Playwright .webm video audit trail per submission).
+      session_recordings: {
+        Row: {
+          id: string;
+          submission_id: string;
+          organization_id: string;
+          funder_id: string;
+          storage_path: string;
+          duration_seconds: number;
+          file_size_bytes: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          submission_id: string;
+          organization_id: string;
+          funder_id: string;
+          storage_path: string;
+          duration_seconds: number;
+          file_size_bytes: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          submission_id?: string;
+          organization_id?: string;
+          funder_id?: string;
+          storage_path?: string;
+          duration_seconds?: number;
+          file_size_bytes?: number;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
