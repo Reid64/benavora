@@ -11,6 +11,9 @@ importers:
 
   .:
     dependencies:
+      '@2captcha/captcha-solver':
+        specifier: ^1.3.6
+        version: 1.3.6
       '@anthropic-ai/sdk':
         specifier: ^0.30.1
         version: 0.30.1
@@ -143,6 +146,9 @@ importers:
         version: 5.9.3
 
 packages:
+
+  '@2captcha/captcha-solver@1.3.6':
+    resolution: {integrity: sha512-DrOzazTp6X5sJgcZzbmhAVbM4G78AZqLF9bejZdH8/RLlYqOg0rbqi5fGML1QXZHtqfI3lgNdmmzBJfL681pWg==}
 
   '@alloc/quick-lru@5.2.0':
     resolution: {integrity: sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw==}
@@ -2875,6 +2881,12 @@ packages:
     engines: {node: '>=18'}
 
 snapshots:
+
+  '@2captcha/captcha-solver@1.3.6':
+    dependencies:
+      node-fetch: 2.7.0
+    transitivePeerDependencies:
+      - encoding
 
   '@alloc/quick-lru@5.2.0': {}
 

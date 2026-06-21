@@ -1,0 +1,581 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - BLUEPRINT.md
+  - SCHEMA_REGISTRY.md
+  - BEHAVIORAL_CONTRACTS.md
+  - AGENTS.md
+  - PRD.md
+  - AUTOAPPLY_ARCHITECTURE.md
+  - AUTOAPPLY_ARCHITECTURE_V2.md
+  - WORKER_ARCHITECTURE.md
+  - GRANT_INTELLIGENCE_ARCHITECTURE.md
+
+pre_install:
+  - pnpm add @2captcha/captcha-solver
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+prompts:
+
+  # ============================================================
+  # PHASE 3E: ERROR RECOVERY + ADVANCED INFRASTRUCTURE
+  # Reference: AUTOAPPLY_ARCHITECTURE_V2.md
+  # ============================================================
+
+  - id: infra-001
+    phase: build
+    description: "Create proxy rotation manager and integrate with StealthBrowser"
+    prompt: |
+      Read AUTOAPPLY_ARCHITECTURE_V2.md section 1A (Rotating Residential Proxy Network).
+      Read C:\Users\manag\Documents\benavora\src\lib\autoapply\stealth-browser.ts completely.
+
+      Create C:\Users\manag\Documents\benavora\worker\proxy-manager.ts:
+
+      Export class ProxyManager with:
+
+      constructor(config: { provider: string, apiKey: string, poolSize?: number }):
+      - Store config. Provider can be 'brightdata', 'smartproxy', 'iproyal', or 'static' (for a hardcoded list).
+
+      async loadProxies(): Promise<void>
+      - For 'static' provider: read from PROXY_LIST env var (comma-separated proxy URLs).
+      - For API providers: fetch proxy list from provider API. For now, implement only 'static' — the API integrations are future work. Log a warning for unsupported providers.
+      - Store proxies in an internal array.
+
+      getProxy(region?: string): string | null
+      - Return a proxy URL from the pool, preferring geographic match if region is provided.
+      - Round-robin through the pool to avoid reusing the same proxy consecutively.
+      - Return null if pool is empty (system runs without proxy as fallback).
+
+      markFailed(proxyUrl: string): void
+      - Remove proxy from active pool for 30 minutes. Track failure count per proxy. After 3 failures, remove permanently until pool refresh.
+
+      rotateForSubmission(): string | null
+      - Get next proxy, ensuring it wasn't used in the last 5 submissions (track recent usage).
+      - Return null if no suitable proxy available.
+
+      getStats(): { total: number, active: number, failed: number }
+
+      Then modify C:\Users\manag\Documents\benavora\src\lib\autoapply\stealth-browser.ts:
+
+      Add an optional proxy parameter to the launch method:
+      - Accept { proxy?: string } in the launch options.
+      - Pass to Playwright: chromium.launch({ proxy: { server: proxy } }) when provided.
+      - If no proxy provided, launch without proxy (existing behavior).
+
+      Then modify C:\Users\manag\Documents\benavora\worker\queue-processor.ts:
+      - Import ProxyManager.
+      - Initialize ProxyManager at startup (read PROXY_PROVIDER, PROXY_API_KEY from env).
+      - Before each submission, call proxyManager.rotateForSubmission().
+      - Pass the proxy to StealthBrowser.launch({ proxy }).
+      - On submission failure that looks like IP block (403, 429, "blocked", "suspicious"), call proxyManager.markFailed().
+      - If no proxy available (null), proceed without proxy (graceful degradation).
+    expected_outputs:
+      - worker/proxy-manager.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: infra-002
+    phase: build
+    description: "Enhance StealthBrowser with full browser profile isolation per submission"
+    prompt: |
+      Read AUTOAPPLY_ARCHITECTURE_V2.md section 1B (Multi-Browser Profile Isolation).
+      Read C:\Users\manag\Documents\benavora\src\lib\autoapply\stealth-browser.ts completely.
+
+      Enhance StealthBrowser to create a fully isolated browser context per submission:
+
+      1. Each call to launch() should create a new browser context (browser.newContext()) with randomized:
+         - viewport: randomly selected from common resolutions: [1920x1080, 1366x768, 1440x900, 1536x864, 1280x720]
+         - timezone: if proxy region is available, match timezone to region. Otherwise random from a pool of US timezones.
+         - locale: match to timezone region. Default 'en-US'.
+         - geolocation: approximate lat/lng matching the timezone region (optional, can be null).
+         - userAgent: already handled by existing stealth plugin, but verify it rotates per context.
+
+      2. Ensure complete isolation: no shared cookies, localStorage, or cache between contexts. After each submission, call context.close() (not just page.close()).
+
+      3. Add a method: getContextFingerprint(): object — returns the current context's randomized profile for logging/audit purposes.
+
+      4. Do NOT break any existing StealthBrowser functionality. The existing API must work the same — these enhancements are additive.
+    expected_outputs:
+      - src/lib/autoapply/stealth-browser.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: infra-003
+    phase: build
+    description: "Create CAPTCHA detection and 2Captcha solving integration"
+    prompt: |
+      Read AUTOAPPLY_ARCHITECTURE_V2.md and the original Phase 3E plan.
+
+      Create C:\Users\manag\Documents\benavora\src\lib\autoapply\captcha-solver.ts:
+
+      Import Solver from '@2captcha/captcha-solver'. Use lazy initialization (do NOT instantiate at module level).
+
+      Export class CaptchaSolver with:
+
+      constructor(): Lazy-init Solver with process.env.TWOCAPTCHA_API_KEY.
+
+      async detectCaptcha(page: any): Promise<CaptchaDetection | null>
+      - Check for reCAPTCHA: look for iframe[src*="recaptcha"], .g-recaptcha, #recaptcha
+      - Check for hCaptcha: look for iframe[src*="hcaptcha"], .h-captcha
+      - Check for Cloudflare Turnstile: look for .cf-turnstile, iframe[src*="challenges.cloudflare.com"]
+      - Return { type: 'recaptcha_v2' | 'recaptcha_v3' | 'hcaptcha' | 'turnstile' | null, siteKey: string | null, pageUrl: string }
+      - Extract siteKey from the element's data-sitekey attribute or from iframe URL params.
+
+      async solveCaptcha(detection: CaptchaDetection, page: any): Promise<string | null>
+      - Based on detection.type, call the appropriate 2Captcha method:
+        - recaptcha_v2: solver.recaptcha({ pageurl, googlekey: siteKey })
+        - recaptcha_v3: solver.recaptcha({ pageurl, googlekey: siteKey, version: 'v3', action: 'submit' })
+        - hcaptcha: solver.hcaptcha({ pageurl, sitekey: siteKey })
+        - turnstile: solver.turnstile({ pageurl, sitekey: siteKey })
+      - Return the solution token.
+      - On failure, return null (do not throw).
+
+      async injectSolution(page: any, detection: CaptchaDetection, token: string): Promise<void>
+      - For reCAPTCHA: set document.getElementById('g-recaptcha-response').value = token, then call grecaptcha.getResponse callback.
+      - For hCaptcha: similar injection pattern.
+      - For Turnstile: inject into the response element.
+
+      Export interface CaptchaDetection.
+
+      Then modify C:\Users\manag\Documents\benavora\worker\queue-processor.ts:
+      - Import CaptchaSolver.
+      - In processItem, after page loads and before form filling:
+        1. Call captchaSolver.detectCaptcha(page).
+        2. If CAPTCHA detected AND TWOCAPTCHA_API_KEY is set: solve and inject.
+        3. If CAPTCHA detected AND no API key: classify failure as 'captcha_blocked', do not retry.
+        4. Log: "CAPTCHA detected: {type}, solving..." or "CAPTCHA detected: no solver configured".
+      - If solving fails, classify as 'captcha_failed' (different from 'captcha_blocked').
+    expected_outputs:
+      - src/lib/autoapply/captcha-solver.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: infra-004
+    phase: build
+    description: "Create funder credentials table and encrypted storage"
+    prompt: |
+      Create C:\Users\manag\Documents\benavora\supabase\migrations\050_funder_credentials.sql:
+
+      -- Funder portal credentials (encrypted)
+      CREATE TABLE IF NOT EXISTS funder_credentials (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        funder_id uuid NOT NULL REFERENCES funders(id) ON DELETE CASCADE,
+        portal_url text NOT NULL,
+        username text NOT NULL,
+        encrypted_password text NOT NULL,
+        mfa_secret text,
+        login_method text NOT NULL DEFAULT 'form',
+        last_login_at timestamptz,
+        login_success boolean,
+        notes text,
+        created_at timestamptz DEFAULT NOW(),
+        updated_at timestamptz DEFAULT NOW(),
+        UNIQUE(organization_id, funder_id)
+      );
+
+      -- Screenshot audit trail
+      CREATE TABLE IF NOT EXISTS autoapply_screenshots (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        submission_id uuid REFERENCES autoapply_submissions(id) ON DELETE CASCADE,
+        stage text NOT NULL,
+        storage_path text NOT NULL,
+        captured_at timestamptz DEFAULT NOW(),
+        metadata jsonb DEFAULT '{}'
+      );
+
+      -- Human review queue
+      CREATE TABLE IF NOT EXISTS autoapply_review_queue (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        submission_id uuid REFERENCES autoapply_submissions(id) ON DELETE CASCADE,
+        organization_id uuid NOT NULL,
+        funder_id uuid NOT NULL,
+        reason text NOT NULL,
+        failure_count integer NOT NULL DEFAULT 0,
+        status text NOT NULL DEFAULT 'pending',
+        assigned_to uuid,
+        resolved_at timestamptz,
+        resolution_notes text,
+        created_at timestamptz DEFAULT NOW()
+      );
+
+      -- Solicitation registrations
+      CREATE TABLE IF NOT EXISTS solicitation_registrations (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        organization_id uuid NOT NULL REFERENCES organizations(id),
+        state text NOT NULL,
+        registration_number text,
+        registered_at timestamptz,
+        expires_at timestamptz,
+        status text NOT NULL DEFAULT 'active',
+        created_at timestamptz DEFAULT NOW()
+      );
+
+      -- Portal health columns
+      ALTER TABLE funders ADD COLUMN IF NOT EXISTS portal_status text DEFAULT 'unknown';
+      ALTER TABLE funders ADD COLUMN IF NOT EXISTS portal_last_checked_at timestamptz;
+      ALTER TABLE funders ADD COLUMN IF NOT EXISTS portal_response_time_ms integer;
+
+      Create C:\Users\manag\Documents\benavora\src\lib\autoapply\credential-manager.ts:
+
+      Export class CredentialManager with:
+
+      async storeCredentials(params: { organizationId, funderId, portalUrl, username, password }): Promise<void>
+      - Encrypt password using Node.js crypto: AES-256-GCM with a key derived from process.env.CREDENTIAL_ENCRYPTION_KEY.
+      - Store in funder_credentials table.
+
+      async getCredentials(organizationId: string, funderId: string): Promise<{ username, password } | null>
+      - Fetch from funder_credentials.
+      - Decrypt password.
+      - Return null if not found.
+
+      async updateLastLogin(credentialId: string, success: boolean): Promise<void>
+
+      NOTE: Migration 050 must be applied manually via Supabase SQL Editor.
+    expected_outputs:
+      - supabase/migrations/050_funder_credentials.sql
+      - src/lib/autoapply/credential-manager.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: infra-005
+    phase: build
+    description: "Create account registration agent for portals requiring login"
+    prompt: |
+      Read AUTOAPPLY_ARCHITECTURE_V2.md.
+      Read C:\Users\manag\Documents\benavora\src\lib\autoapply\form-analyzer-agent.ts to understand the existing agent pattern.
+      Read C:\Users\manag\Documents\benavora\src\lib\autoapply\credential-manager.ts.
+
+      Create C:\Users\manag\Documents\benavora\src\lib\autoapply\registration-agent.ts:
+
+      Export class RegistrationAgent with:
+
+      async detectRegistrationForm(page: any): Promise<RegistrationFormDetection | null>
+      - Use Claude to analyze the page content and determine if it has a registration/signup form.
+      - Look for: "sign up", "register", "create account", "new user", form fields for email + password + confirm password.
+      - Return: { hasRegistrationForm, formSelector, fields: { email, password, confirmPassword, name, organization, phone, etc. } }
+      - Return null if no registration form detected.
+
+      async register(page: any, params: { orgName, orgEmail, orgPhone, contactName, contactEmail }): Promise<RegistrationResult>
+      - Fill the detected registration form with org details.
+      - Use a dedicated email for the email field: construct from params.contactEmail or use a configured apply@ address.
+      - Generate a secure random password (16 chars, mixed case + numbers + symbols).
+      - Submit the registration form.
+      - Capture screenshots before and after submission.
+      - Return { success, username: email used, password: generated password, confirmationRequired: boolean }
+
+      async detectLoginForm(page: any): Promise<LoginFormDetection | null>
+      - Detect login forms: "sign in", "log in", email + password fields, submit button.
+      - Return form selector and field locations.
+
+      async login(page: any, credentials: { username, password }): Promise<boolean>
+      - Fill login form with stored credentials.
+      - Submit and wait for navigation.
+      - Detect success (dashboard/welcome page) vs failure (error message, same page).
+      - Return true on success, false on failure.
+
+      Then modify C:\Users\manag\Documents\benavora\worker\queue-processor.ts:
+      - Import RegistrationAgent and CredentialManager.
+      - In processItem, when encountering an 'account_required' scenario:
+        1. Check CredentialManager for existing credentials.
+        2. If credentials exist: attempt login.
+        3. If no credentials: attempt registration, store credentials on success.
+        4. If registration requires email confirmation: mark as 'awaiting_confirmation', skip for now.
+        5. After successful login: proceed with form analysis and filling.
+    expected_outputs:
+      - src/lib/autoapply/registration-agent.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: infra-006
+    phase: build
+    description: "Create screenshot audit trail with Supabase Storage"
+    prompt: |
+      Read C:\Users\manag\Documents\benavora\worker\queue-processor.ts completely.
+
+      Create C:\Users\manag\Documents\benavora\src\lib\autoapply\screenshot-manager.ts:
+
+      Export class ScreenshotManager with:
+
+      async capture(page: any, stage: string, metadata?: object): Promise<Buffer>
+      - Take a full-page screenshot via Playwright: page.screenshot({ fullPage: true }).
+      - Return the buffer.
+
+      async upload(params: { buffer: Buffer, orgId: string, funderId: string, submissionId: string, stage: string }): Promise<string>
+      - Upload to Supabase Storage bucket 'autoapply-screenshots'.
+      - Path: {orgId}/{funderId}/{submissionId}/{stage}_{timestamp}.png
+      - Return the storage path.
+
+      async captureAndUpload(page: any, stage: string, params: { orgId, funderId, submissionId, supabase }): Promise<string>
+      - Combine capture + upload in one call.
+      - Also insert a row into autoapply_screenshots table with submission_id, stage, storage_path.
+      - Stages: 'page_load', 'pre_fill', 'post_fill', 'pre_submit', 'post_submit', 'confirmation', 'error'
+      - Return the storage path.
+
+      Then modify C:\Users\manag\Documents\benavora\worker\queue-processor.ts:
+      - Import ScreenshotManager.
+      - Add screenshot captures at every key step in processItem:
+        1. After page loads: captureAndUpload(page, 'page_load', ...)
+        2. Before form filling: captureAndUpload(page, 'pre_fill', ...)
+        3. After form filling: captureAndUpload(page, 'post_fill', ...)
+        4. After submission: captureAndUpload(page, 'post_submit', ...)
+        5. On confirmation page: captureAndUpload(page, 'confirmation', ...)
+        6. On error: captureAndUpload(page, 'error', ...) in the catch block.
+      - Store screenshot paths in the autoapply_submissions record.
+    expected_outputs:
+      - src/lib/autoapply/screenshot-manager.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: infra-007
+    phase: build
+    description: "Create human review queue UI and workflow"
+    prompt: |
+      Create C:\Users\manag\Documents\benavora\src\components\autoapply\ReviewQueue.tsx:
+
+      A dashboard component for reviewing failed AutoApply submissions.
+
+      Features:
+      1. Table of autoapply_review_queue items with: funder name, failure reason, failure count, status, created_at.
+      2. Status badges: pending (yellow), in_review (blue), resolved (green), dismissed (gray).
+      3. Click a row to expand and show:
+         - All screenshots for the submission (fetched from autoapply_screenshots, displayed as thumbnails with click-to-expand)
+         - Failure details from the submission record
+         - Form template that was used (from form_templates)
+         - Action buttons: "Retry", "Edit Template", "Dismiss", "Resolve with Notes"
+      4. "Retry" re-queues the submission in submission_queue with status 'pending'.
+      5. "Dismiss" marks the review item as 'dismissed' with a reason dropdown (not_worth_retrying, wrong_portal, duplicate, other).
+      6. "Resolve with Notes" marks as 'resolved' with a text input for resolution notes.
+      7. Supabase Realtime subscription for live updates.
+
+      Then modify C:\Users\manag\Documents\benavora\worker\queue-processor.ts:
+      - After 3 consecutive failures for the same funder, insert into autoapply_review_queue with reason = the last failure type.
+      - Do not auto-retry after 3 failures — wait for human review.
+
+      Add the ReviewQueue component to the AutoApply dashboard page as a tab or section.
+
+      Use Tailwind CSS matching existing dashboard styling.
+    expected_outputs:
+      - src/components/autoapply/ReviewQueue.tsx
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: infra-008
+    phase: build
+    description: "Create portal health monitoring script"
+    prompt: |
+      Read AUTOAPPLY_ARCHITECTURE_V2.md section 4A (Portal Health Monitoring).
+
+      Create C:\Users\manag\Documents\benavora\src\scripts\check-portal-health.ts:
+
+      Add at the top: import dotenv from 'dotenv'; dotenv.config({ path: '.env.local' });
+      Use ws package for Supabase WebSocket transport.
+
+      This standalone script checks all giving_portal_urls for health status.
+
+      Steps:
+      1. Query funders table for all records with giving_portal_url IS NOT NULL.
+      2. Accept --limit flag for testing.
+      3. For each funder:
+         a. Send a HEAD request with a 10-second timeout. Use a browser-like User-Agent.
+         b. Record: status_code, response_time_ms, redirect_url (if 301/302).
+         c. Classify: 'active' (200-299), 'redirect' (301/302), 'requires_login' (401/403), 'dead' (404/500/timeout), 'error' (network error).
+         d. UPDATE funders SET portal_status = classification, portal_last_checked_at = NOW(), portal_response_time_ms = response_time.
+         e. If redirect: also update giving_portal_url to the redirect target.
+      4. Log progress: "Checked {n}/{total}: {funderName} — {status} ({response_time}ms)"
+      5. Summary at end: "Active: X, Redirect: Y, Dead: Z, Error: W"
+      6. Add 500ms delay between requests to avoid flooding.
+
+      Run with: npx tsx src/scripts/check-portal-health.ts --limit 50
+
+      Also create C:\Users\manag\Documents\benavora\worker\portal-health.ts:
+      - Export async function quickHealthCheck(url: string): Promise<'active' | 'dead' | 'redirect' | 'unknown'>
+      - Simple HEAD request with 5-second timeout.
+      - Used by queue-processor before launching full browser for a submission.
+      - Import in queue-processor: before processItem launches StealthBrowser, call quickHealthCheck. If 'dead', skip with reason 'portal_dead'.
+    expected_outputs:
+      - src/scripts/check-portal-health.ts
+      - worker/portal-health.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: infra-009
+    phase: build
+    description: "Create charitable solicitation compliance guard"
+    prompt: |
+      Read AUTOAPPLY_ARCHITECTURE_V2.md section 6B (Charitable Solicitation Compliance Guard).
+
+      Create C:\Users\manag\Documents\benavora\src\lib\autoapply\compliance-guard.ts:
+
+      Export class ComplianceGuard with:
+
+      async canSolicitInState(organizationId: string, state: string, supabase: any): Promise<{ allowed: boolean, reason?: string }>
+      - Query solicitation_registrations WHERE organization_id = orgId AND state = state AND status = 'active'.
+      - If found and not expired: return { allowed: true }.
+      - If found but expired: return { allowed: false, reason: 'registration_expired' }.
+      - If not found: return { allowed: false, reason: 'not_registered_in_state' }.
+
+      async getRegisteredStates(organizationId: string, supabase: any): Promise<string[]>
+      - Return list of states where org has active, non-expired registrations.
+
+      Then modify C:\Users\manag\Documents\benavora\src\lib\autoapply\auto-queue-populator.ts:
+      - Import ComplianceGuard.
+      - Before queuing a funder, check: is the org registered to solicit in the funder's state?
+      - If funder has a state field and compliance check fails: skip with reason from compliance guard.
+      - If funder has no state field: allow (can't check).
+
+      Create C:\Users\manag\Documents\benavora\src\app\(dashboard)\autoapply\compliance\page.tsx:
+      A simple settings page for managing solicitation registrations:
+      - Table of current registrations: state, registration_number, status, expires_at.
+      - "Add Registration" button with form: state (dropdown of US states), registration_number, registered_at, expires_at.
+      - "Remove" button per row.
+      - Warning banner for registrations expiring within 30 days.
+      - Add nav link from AutoApply settings page.
+    expected_outputs:
+      - src/lib/autoapply/compliance-guard.ts
+      - src/app/(dashboard)/autoapply/compliance/page.tsx
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: infra-010
+    phase: build
+    description: "Create form template editing UI for human corrections"
+    prompt: |
+      Read the existing form_templates table structure by checking C:\Users\manag\Documents\benavora\src\lib\autoapply\form-analyzer-agent.ts.
+
+      Create C:\Users\manag\Documents\benavora\src\app\(dashboard)\autoapply\templates\page.tsx:
+
+      A page for viewing and editing form templates that the FormAnalyzerAgent has created.
+
+      Features:
+      1. Table of form_templates: funder name (joined), field count, last_verified_at, auto_generated flag.
+      2. Click a row to open a detail view / edit modal showing:
+         - The portal URL.
+         - Each detected form field: field name, field type (text, select, checkbox, textarea, etc.), selector, required flag, mapped_kb_field.
+         - Editable: the user can change field mappings (what KB data maps to which form field), correct field selectors, mark fields as skip.
+         - "Test Template" button that opens the portal URL in a new tab for visual verification.
+         - "Re-Analyze" button that re-runs FormAnalyzerAgent on this portal and shows a diff of changes.
+         - "Save" button that updates the template.
+      3. Filter by: auto_generated (true/false), has_errors, recently_changed.
+      4. Bulk action: "Re-analyze All Stale" (templates not verified in > 7 days).
+
+      Add a "Templates" nav link in the AutoApply section of the sidebar.
+
+      Use Tailwind CSS matching existing dashboard styling.
+    expected_outputs:
+      - src/app/(dashboard)/autoapply/templates/page.tsx
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: infra-011
+    phase: build
+    description: "Add success rate analytics to AutoApply dashboard"
+    prompt: |
+      Read the existing AutoApply dashboard at C:\Users\manag\Documents\benavora\src\app\(dashboard)\autoapply\page.tsx.
+
+      Create C:\Users\manag\Documents\benavora\src\components\autoapply\SuccessAnalytics.tsx:
+
+      A dashboard panel showing AutoApply performance analytics.
+
+      Features:
+      1. Overall stats: total submissions, success rate (%), average submissions per day.
+      2. Breakdown by failure type: pie chart or bar chart showing counts per failure classification (completed, captcha_blocked, account_required, site_error, timeout, form_changed). Use recharts (already installed).
+      3. Success rate by funder category: bar chart showing conversion rate per category (private_foundation, corporate, community_foundation).
+      4. Success rate by geographic region: simple table showing state, submission count, success rate.
+      5. Trend line: submissions per week over the last 8 weeks with success rate overlay.
+      6. All data queried from autoapply_submissions table.
+
+      Add this component to the AutoApply dashboard page as a collapsible "Analytics" section below the existing components.
+
+      Use Tailwind CSS matching existing dashboard styling.
+    expected_outputs:
+      - src/components/autoapply/SuccessAnalytics.tsx
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: infra-012
+    phase: build
+    description: "Verify full build and update governance documents for Phase 3E"
+    prompt: |
+      1. Run pnpm run build and fix any errors. Watch for:
+         - Lazy initialization on all new API clients (2Captcha, crypto)
+         - Unused variables
+         - Unescaped JSX entities
+         - Module-level instantiation issues
+
+      2. Run pnpm tsc --noEmit and fix any TypeScript errors.
+
+      3. Update C:\Users\manag\Documents\benavora\STATE_OF_THE_BUILD.md:
+         Add section documenting:
+         - Phase 3E Error Recovery + Advanced Infrastructure: BUILT
+           - proxy-manager.ts: rotating proxy support with geographic matching
+           - StealthBrowser: full browser profile isolation per submission
+           - captcha-solver.ts: 2Captcha integration for reCAPTCHA, hCaptcha, Turnstile
+           - credential-manager.ts: encrypted funder portal credential storage
+           - registration-agent.ts: auto-creates accounts on portals requiring login
+           - screenshot-manager.ts: full audit trail at every submission step
+           - ReviewQueue component: human review for 3x failed submissions
+           - check-portal-health.ts: standalone portal health monitoring script
+           - compliance-guard.ts: charitable solicitation state registration checks
+           - Form template editing UI at /autoapply/templates
+           - Compliance management UI at /autoapply/compliance
+           - Success rate analytics component with recharts
+           - Migration 050: funder_credentials, autoapply_screenshots, autoapply_review_queue, solicitation_registrations (PENDING)
+         - Post-run steps:
+           - Apply migration 050 via Supabase SQL Editor
+           - Create Supabase Storage bucket: autoapply-screenshots (private)
+           - Set TWOCAPTCHA_API_KEY in Vercel + Railway (when ready)
+           - Set CREDENTIAL_ENCRYPTION_KEY in Vercel + Railway (generate with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
+           - Set PROXY_PROVIDER and PROXY_LIST in Railway (when proxy service is set up)
+           - Run check-portal-health.ts --limit 50 to test portal monitoring
+
+      4. Update C:\Users\manag\Documents\benavora\SESSION_STATE.md:
+         - Record Phase 3E complete
+         - Next: Phase 3F (Submission Intelligence)
+    expected_outputs:
+      - STATE_OF_THE_BUILD.md
+      - SESSION_STATE.md
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
