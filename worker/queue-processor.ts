@@ -3,6 +3,8 @@ import { StealthBrowser } from '../src/lib/autoapply/stealth-browser.js';
 import { FormAnalyzerAgent } from '../src/lib/autoapply/form-analyzer-agent.js';
 import { FormFillerAgent } from '../src/lib/autoapply/form-filler-agent.js';
 import { CaptchaSolver } from '../src/lib/autoapply/captcha-solver.js';
+import { RegistrationAgent } from '../src/lib/autoapply/registration-agent.js';
+import { CredentialManager } from '../src/lib/autoapply/credential-manager.js';
 import * as heartbeat from './heartbeat.js';
 import { RateLimiter } from './rate-limiter.js';
 import { ProxyManager } from './proxy-manager.js';
@@ -100,6 +102,8 @@ export class QueueProcessor {
   private readonly idleResolvers: Array<() => void> = [];
   private readonly rateLimiter = new RateLimiter();
   private readonly captchaSolver = new CaptchaSolver();
+  private readonly registrationAgent = new RegistrationAgent();
+  private readonly credentialManager: CredentialManager;
   private readonly proxyManager = new ProxyManager({
     provider: process.env['PROXY_PROVIDER'] ?? 'static',
     apiKey: process.env['PROXY_API_KEY'] ?? '',
@@ -108,7 +112,9 @@ export class QueueProcessor {
   constructor(
     private readonly supabase: SupabaseClient,
     private readonly workerId: string,
-  ) {}
+  ) {
+    this.credentialManager = new CredentialManager(supabase);
+  }
 
   /** Begin the poll loop. */
   start(): void {
@@ -253,6 +259,14 @@ export class QueueProcessor {
 
     const funder = funderData as FunderRow;
     const portalUrl = funder.giving_portal_url;
+
+    // Fetch org name for registration params (best-effort — null is handled gracefully)
+    const { data: orgRow } = await this.supabase
+      .from('organizations')
+      .select('name')
+      .eq('id', orgId)
+      .maybeSingle();
+    const orgProfile = orgRow as { name?: string | null } | null;
     if (!portalUrl) throw new SkipError('no_portal_url');
     const funderName = funder.name ?? funderId;
 
@@ -354,6 +368,9 @@ export class QueueProcessor {
       if (!needsReanalysis) {
         await page.goto(portalUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
       }
+
+      // Handle portals that require login or registration before the form is reachable
+      await this.handleLoginGating(page, orgId, funderId, portalUrl, orgProfile);
 
       // Pre-submit screenshot: page is on the portal
       const preBuffer = await page.screenshot({ fullPage: false });
@@ -472,6 +489,93 @@ export class QueueProcessor {
     if (submissionStatus !== 'submitted') {
       throw new Error(errorMessage ?? submissionStatus);
     }
+  }
+
+  /**
+   * Detects whether the portal is gated behind a login wall and handles it by:
+   * 1. Using stored credentials to log in, or
+   * 2. Registering a new account and logging in with the generated credentials.
+   * Throws SkipError('awaiting_confirmation') if the portal requires email verification
+   * before the account becomes usable.
+   */
+  private async handleLoginGating(
+    page: any,
+    orgId: string,
+    funderId: string,
+    portalUrl: string,
+    orgProfile: { name?: string | null } | null,
+  ): Promise<void> {
+    const loginDetection = await this.registrationAgent.detectLoginForm(page);
+    if (!loginDetection?.hasLoginForm) return;
+
+    console.log(`[QueueProcessor] Login form detected for funder ${funderId} — checking credentials`);
+
+    const existing = await this.credentialManager.getCredentials(orgId, funderId);
+
+    if (existing !== null) {
+      const loginSuccess = await this.registrationAgent.login(page, {
+        username: existing.username,
+        password: existing.password,
+      });
+      await this.credentialManager.updateLastLogin(existing.id, loginSuccess);
+
+      if (!loginSuccess) {
+        throw new Error('account_required: stored credentials failed');
+      }
+
+      console.log(`[QueueProcessor] Logged in to ${portalUrl} with stored credentials`);
+      return;
+    }
+
+    // No stored credentials — attempt registration
+    console.log(`[QueueProcessor] No credentials for funder ${funderId} — attempting registration`);
+
+    const regDetection = await this.registrationAgent.detectRegistrationForm(page);
+    if (!regDetection?.hasRegistrationForm) {
+      throw new Error('account_required: portal requires login but no registration form found');
+    }
+
+    const applyEmail = process.env['AUTOAPPLY_EMAIL'] ?? `apply+${funderId.slice(0, 8)}@benavora.com`;
+    const orgName = orgProfile?.name ?? 'Organization';
+
+    const regResult = await this.registrationAgent.register(page, {
+      orgName,
+      orgEmail: applyEmail,
+      orgPhone: process.env['AUTOAPPLY_PHONE'] ?? '',
+      contactName: orgName,
+      contactEmail: applyEmail,
+    });
+
+    if (!regResult.success) {
+      throw new Error(`account_required: registration failed — ${regResult.error ?? 'unknown'}`);
+    }
+
+    if (regResult.confirmationRequired) {
+      // Can't proceed until the user confirms their email — skip this item
+      throw new SkipError('awaiting_confirmation');
+    }
+
+    // Persist credentials so future submissions don't need to re-register
+    await this.credentialManager.storeCredentials({
+      organizationId: orgId,
+      funderId,
+      portalUrl,
+      username: regResult.username ?? applyEmail,
+      password: regResult.password ?? '',
+    });
+
+    console.log(`[QueueProcessor] Registered on ${portalUrl} — logging in`);
+
+    const loginSuccess = await this.registrationAgent.login(page, {
+      username: regResult.username ?? applyEmail,
+      password: regResult.password ?? '',
+    });
+
+    if (!loginSuccess) {
+      throw new Error('account_required: login failed after registration');
+    }
+
+    console.log(`[QueueProcessor] Logged in to ${portalUrl} after registration`);
   }
 }
 
