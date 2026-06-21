@@ -3747,6 +3747,49 @@ export interface Database {
         };
         Relationships: [];
       };
+      // Migration 059 — email_templates (reusable email templates with variable placeholders).
+      email_templates: {
+        Row: {
+          id: string;
+          organization_id: string;
+          name: string;
+          template_type: string | null;
+          subject: string;
+          body: string;
+          variables: Json;
+          is_active: boolean;
+          created_by: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          name: string;
+          template_type?: string | null;
+          subject: string;
+          body: string;
+          variables?: Json;
+          is_active?: boolean;
+          created_by: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          name?: string;
+          template_type?: string | null;
+          subject?: string;
+          body?: string;
+          variables?: Json;
+          is_active?: boolean;
+          created_by?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
