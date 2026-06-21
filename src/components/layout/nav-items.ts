@@ -68,6 +68,7 @@ export const NAV_ITEMS: NavItem[] = [
       { label: "Agreements", href: "/autoapply/agreements" },
       { label: "Notifications", href: "/autoapply/webhooks" },
       { label: "Compliance", href: "/autoapply/compliance" },
+      { label: "Recordings", href: "/autoapply/recordings" },
       { label: "Settings", href: "/autoapply/settings" },
       { label: "Usage & Billing", href: "/autoapply/usage" },
     ],
