@@ -68,6 +68,7 @@ export const NAV_ITEMS: NavItem[] = [
       { label: "Notifications", href: "/autoapply/webhooks" },
       { label: "Compliance", href: "/autoapply/compliance" },
       { label: "Settings", href: "/autoapply/settings" },
+      { label: "Usage & Billing", href: "/autoapply/usage" },
     ],
   },
   { label: "Draft Generator", href: "/draft-generator", icon: Wand2 },
