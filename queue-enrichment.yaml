@@ -1,0 +1,632 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - BLUEPRINT.md
+  - SCHEMA_REGISTRY.md
+  - BEHAVIORAL_CONTRACTS.md
+  - AGENTS.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+# ============================================================
+# LEAD ENRICHMENT AGENT
+# ============================================================
+#
+# A platform-wide tool for automated organization data enrichment.
+#
+# TWO USE CASES:
+#   1. PLATFORM ADMIN (Reid): Enrich the master foundation_directory
+#      and prospect lists. Rebuild foundation data from scratch.
+#   2. TENANT USER: Upload a list of funders/orgs, get them enriched
+#      with websites, contacts, financials from free public sources.
+#
+# ENRICHMENT WATERFALL (all free, $0 API cost):
+#   Source 1: IRS 990 e-file data (XML returns — website, revenue,
+#             assets, officers)
+#   Source 2: ProPublica Nonprofit Explorer API (free, no key)
+#   Source 3: Web search via DuckDuckGo HTML scraping (no API key,
+#             no cost) + optional SearXNG self-hosted for speed
+#   Source 4: Playwright website scraper (contact pages → emails,
+#             phones, officer names)
+#
+# RUNTIME: The enrichment engine runs as a LOCAL Node.js script on
+# Reid's machine (or Railway worker), NOT as a Vercel serverless
+# function. Vercel has 300-second timeout; enrichment takes hours.
+# The engine writes progress to Supabase so the UI shows live status.
+#
+# PREREQUISITE: pnpm add cheerio (for HTML parsing)
+# SearXNG is optional — DuckDuckGo fallback works with zero setup.
+# ============================================================
+
+prompts:
+
+  # ============================================================
+  # PROMPT 1: DATABASE SCHEMA
+  # ============================================================
+
+  - id: enrich-001
+    phase: build
+    description: "Create migration for enrichment system tables"
+    prompt: |
+      Read the foundation_directory table schema completely.
+      Read the existing migration files listing.
+
+      Create C:\Users\manag\Documents\benavora\supabase\migrations\058_lead_enrichment_system.sql:
+
+      CREATE TYPE enrichment_job_status AS ENUM ('queued', 'running', 'paused', 'completed', 'failed', 'cancelled');
+      CREATE TYPE enrichment_source AS ENUM ('irs_990', 'propublica', 'web_search', 'website_scrape', 'manual');
+
+      -- Enrichment job tracking
+      CREATE TABLE IF NOT EXISTS enrichment_jobs (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        organization_id uuid REFERENCES organizations(id),
+        job_type text NOT NULL DEFAULT 'foundation_enrichment',
+        status enrichment_job_status DEFAULT 'queued',
+        target_table text NOT NULL,
+        total_records integer DEFAULT 0,
+        processed integer DEFAULT 0,
+        enriched integer DEFAULT 0,
+        failed integer DEFAULT 0,
+        skipped integer DEFAULT 0,
+        sources_used enrichment_source[] DEFAULT '{}',
+        config jsonb DEFAULT '{}',
+        started_at timestamptz,
+        completed_at timestamptz,
+        paused_at timestamptz,
+        last_processed_id text,
+        error_log jsonb DEFAULT '[]',
+        results_summary jsonb DEFAULT '{}',
+        created_by uuid,
+        created_at timestamptz DEFAULT NOW(),
+        updated_at timestamptz DEFAULT NOW()
+      );
+      CREATE INDEX idx_enrichment_jobs_status ON enrichment_jobs(status);
+      CREATE INDEX idx_enrichment_jobs_org ON enrichment_jobs(organization_id);
+
+      -- Per-record enrichment results (what was found for each entity)
+      CREATE TABLE IF NOT EXISTS enrichment_results (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        job_id uuid NOT NULL REFERENCES enrichment_jobs(id) ON DELETE CASCADE,
+        entity_id text NOT NULL,
+        entity_name text,
+        entity_ein text,
+        source enrichment_source NOT NULL,
+        found_website text,
+        found_emails text[] DEFAULT '{}',
+        found_phones text[] DEFAULT '{}',
+        found_officers jsonb DEFAULT '[]',
+        found_revenue numeric(14,2),
+        found_assets numeric(14,2),
+        found_giving numeric(14,2),
+        found_programs text[],
+        found_address jsonb,
+        confidence numeric(3,2) DEFAULT 0,
+        raw_data jsonb DEFAULT '{}',
+        applied_to_db boolean DEFAULT false,
+        created_at timestamptz DEFAULT NOW()
+      );
+      CREATE INDEX idx_enrichment_results_job ON enrichment_results(job_id);
+      CREATE INDEX idx_enrichment_results_entity ON enrichment_results(entity_ein);
+
+      -- Add columns to foundation_directory if missing
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'foundation_directory' AND column_name = 'enriched_at') THEN
+          ALTER TABLE foundation_directory ADD COLUMN enriched_at timestamptz;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'foundation_directory' AND column_name = 'enrichment_source') THEN
+          ALTER TABLE foundation_directory ADD COLUMN enrichment_source text;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'foundation_directory' AND column_name = 'officers') THEN
+          ALTER TABLE foundation_directory ADD COLUMN officers jsonb DEFAULT '[]';
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'foundation_directory' AND column_name = 'programs') THEN
+          ALTER TABLE foundation_directory ADD COLUMN programs text[];
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'foundation_directory' AND column_name = 'contact_emails') THEN
+          ALTER TABLE foundation_directory ADD COLUMN contact_emails text[] DEFAULT '{}';
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'foundation_directory' AND column_name = 'contact_phones') THEN
+          ALTER TABLE foundation_directory ADD COLUMN contact_phones text[] DEFAULT '{}';
+        END IF;
+      END $$;
+    expected_outputs:
+      - supabase/migrations/058_lead_enrichment_system.sql
+    gates:
+      - type: file_exists
+        files: [supabase/migrations/058_lead_enrichment_system.sql]
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # PROMPT 2: PROPUBLICA + IRS 990 ENRICHMENT SOURCES
+  # ============================================================
+
+  - id: enrich-002
+    phase: build
+    description: "Create ProPublica API integration and IRS 990 enrichment source"
+    prompt: |
+      Create C:\Users\manag\Documents\benavora\src\lib\enrichment\sources\propublica.ts:
+
+      ProPublica Nonprofit Explorer API — completely free, no API key.
+      Base URL: https://projects.propublica.org/nonprofits/api/v2
+
+      Export class ProPublicaSource:
+        - searchByEin(ein: string): Promise<EnrichmentResult | null>
+          GET /organizations/{ein}.json
+          Extract: name, city, state, ntee_code, ruling_date, revenue (totrevenue), assets (totassetsend), website (if in filing data)
+          Parse the most recent filing for financial data.
+          Return null if not found (404).
+
+        - searchByName(name: string, state?: string): Promise<EnrichmentResult[]>
+          GET /search.json?q={name}&state[id]={state}
+          Returns array of matches. Caller picks best match by name similarity.
+          Rate: be polite — 1 request per 500ms. No hard limit documented.
+
+        - getFilingDetails(ein: string): Promise<FilingDetails | null>
+          GET /organizations/{ein}.json → parse filings_with_data array
+          Get the most recent 990 filing. Extract: total revenue, total assets, total giving, program service revenue.
+
+      Create C:\Users\manag\Documents\benavora\src\lib\enrichment\sources\irs990.ts:
+
+      Export class IRS990Source:
+        - enrichFromLocalXml(ein: string, xmlDir: string): Promise<EnrichmentResult | null>
+          Reads IRS 990 XML files from a local directory (already downloaded from IRS).
+          Parses: ReturnHeader/Filer/BusinessName, WebsiteAddressTxt, OfficerList, TotalRevenue, TotalAssets, TotalGiving.
+          This is for batch processing on Reid's local machine.
+
+        - enrichFromIndex(ein: string, indexFile: string): Promise<{ xmlUrl: string } | null>
+          Looks up the EIN in the IRS 990 index CSV to find the XML file URL.
+          Returns the URL so the caller can download and parse.
+
+      Create C:\Users\manag\Documents\benavora\src\lib\enrichment\types.ts:
+        Define EnrichmentResult interface:
+        {
+          source: enrichment_source,
+          website?: string,
+          emails: string[],
+          phones: string[],
+          officers: Array<{ name: string, title: string }>,
+          revenue?: number,
+          assets?: number,
+          giving?: number,
+          programs?: string[],
+          address?: { street: string, city: string, state: string, zip: string },
+          confidence: number,
+          raw: any
+        }
+    expected_outputs:
+      - src/lib/enrichment/sources/propublica.ts
+      - src/lib/enrichment/sources/irs990.ts
+      - src/lib/enrichment/types.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # PROMPT 3: WEB SEARCH SOURCE — DuckDuckGo + SearXNG
+  # ============================================================
+
+  - id: enrich-003
+    phase: build
+    description: "Create free web search enrichment source — DuckDuckGo scraping + SearXNG"
+    prompt: |
+      Read C:\Users\manag\Documents\benavora\src\lib\enrichment\types.ts for the EnrichmentResult interface.
+
+      Create C:\Users\manag\Documents\benavora\src\lib\enrichment\sources\web-search.ts:
+
+      Export class WebSearchSource:
+        Two backends — DuckDuckGo (zero setup) and SearXNG (optional, faster).
+
+        - searchForWebsite(orgName: string, city?: string, state?: string): Promise<string | null>
+          Constructs a search query: "{orgName} {city} {state} official website"
+          Tries SearXNG first (if configured), falls back to DuckDuckGo.
+          Parses the first 5 organic results. Uses heuristics to pick the best match:
+            - Prefer .org domains for nonprofits
+            - Prefer domains containing parts of the org name
+            - Exclude social media (facebook, twitter, linkedin, instagram)
+            - Exclude aggregator sites (guidestar, charitynavigator, yelp, bbb)
+            - Exclude government sites (irs.gov, sec.gov)
+          Returns the best matching URL or null.
+
+        - searchDuckDuckGo(query: string): Promise<SearchResult[]>
+          HTTP GET to https://html.duckduckgo.com/html/?q={encodeURIComponent(query)}
+          Parse the HTML response using cheerio. Extract result titles, URLs, snippets from .result class elements.
+          No API key. No rate limit enforced by DDG on HTML endpoint (be polite: 1 req/second).
+          User-Agent: standard browser UA string.
+
+        - searchSearXNG(query: string): Promise<SearchResult[]>
+          HTTP GET to {SEARXNG_URL}/search?q={query}&format=json
+          SEARXNG_URL from env var (default: http://localhost:8080).
+          If SearXNG is not available (connection refused): fall back to DDG silently.
+          SearXNG returns JSON with results[].url, results[].title, results[].content.
+
+        - validateUrl(url: string): Promise<boolean>
+          Quick HEAD request to verify the URL returns 200. Timeout 5 seconds.
+          Returns false on 404, timeout, or connection error.
+
+      Define SearchResult: { title: string, url: string, snippet: string }
+
+      IMPORTANT: Use Node.js native fetch (available in Node 18+). Import cheerio for HTML parsing. Handle all network errors gracefully — a failed search should return null, not throw.
+    expected_outputs:
+      - src/lib/enrichment/sources/web-search.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # PROMPT 4: WEBSITE CONTACT SCRAPER
+  # ============================================================
+
+  - id: enrich-004
+    phase: build
+    description: "Create Playwright-based website contact scraper"
+    prompt: |
+      Read C:\Users\manag\Documents\benavora\src\lib\enrichment\types.ts for EnrichmentResult.
+
+      Create C:\Users\manag\Documents\benavora\src\lib\enrichment\sources\website-scraper.ts:
+
+      Export class WebsiteScraper:
+        Uses lightweight HTTP requests first, Playwright only as fallback for JS-heavy sites.
+
+        - scrapeContactInfo(websiteUrl: string): Promise<ContactInfo>
+          1. Fetch the homepage HTML via fetch(). Parse with cheerio.
+          2. Find contact/about page links: scan all <a> hrefs for paths containing 'contact', 'about', 'about-us', 'connect', 'get-in-touch', 'reach-us', 'team', 'staff', 'leadership'.
+          3. Fetch each found page (max 5 pages). Parse HTML.
+          4. Extract emails: regex /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g
+             Filter out: noreply@, no-reply@, donotreply@, webmaster@, admin@, support@ (low value)
+             Prioritize: named emails (john.doe@), executive titles nearby in text.
+          5. Extract phones: regex for US phone patterns /\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g
+          6. Extract officer names: look for patterns near titles like "Executive Director", "President", "CEO", "Director", "Board Chair", "Founder". Use cheerio to find text nodes near these titles.
+          7. Return ContactInfo: { emails: string[], phones: string[], officers: Array<{ name, title }>, social_media: { facebook?, twitter?, linkedin? } }
+
+        - scrapeWithPlaywright(websiteUrl: string): Promise<ContactInfo>
+          Fallback for JS-rendered sites. Uses Playwright headless chromium.
+          Same extraction logic but on rendered DOM.
+          Timeout: 15 seconds per page.
+          Only used if cheerio scrape returns zero results AND the homepage HTML is very short (< 1KB, likely JS-rendered).
+
+      ContactInfo type: { emails: string[], phones: string[], officers: Array<{ name: string, title: string }>, social_media: Record<string, string> }
+
+      IMPORTANT: Respect robots.txt conceptually (don't hammer sites — 2 second delay between page fetches on the same domain). Set a reasonable User-Agent. Handle all errors gracefully.
+    expected_outputs:
+      - src/lib/enrichment/sources/website-scraper.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # PROMPT 5: ENRICHMENT ENGINE — WATERFALL ORCHESTRATOR
+  # ============================================================
+
+  - id: enrich-005
+    phase: build
+    description: "Create the main enrichment engine that orchestrates the waterfall pipeline"
+    prompt: |
+      Read ALL source files:
+      - src/lib/enrichment/sources/propublica.ts
+      - src/lib/enrichment/sources/irs990.ts
+      - src/lib/enrichment/sources/web-search.ts
+      - src/lib/enrichment/sources/website-scraper.ts
+      - src/lib/enrichment/types.ts
+
+      Create C:\Users\manag\Documents\benavora\src\lib\enrichment\engine.ts:
+
+      Export class EnrichmentEngine:
+        The orchestrator. Processes records through the waterfall and writes results.
+
+        - constructor(config: EnrichmentConfig)
+          Config: {
+            sources: enrichment_source[] (order matters — first source tried first),
+            batchSize: number (default 50),
+            delayBetweenMs: number (default 1000),
+            concurrency: number (default 3),
+            targetTable: 'foundation_directory' | 'prospects' | 'funders',
+            resumeFromId?: string (for resuming interrupted jobs)
+          }
+
+        - async runJob(jobId: string): Promise<JobResult>
+          1. Fetch the enrichment_jobs record. Update status = 'running', started_at = NOW().
+          2. Fetch records from target_table in batches (batchSize), ordered by id. If resumeFromId set, start after that id.
+          3. For each record:
+             a. Check if already enriched (enriched_at is not null). Skip if so.
+             b. Run through waterfall sources in order:
+                - IRS 990: if source includes 'irs_990', try enrichFromLocalXml or filing lookup
+                - ProPublica: if source includes 'propublica', try searchByEin (if EIN available) or searchByName
+                - Web Search: if still no website, try searchForWebsite with name + city + state
+                - Website Scrape: if website was found by any source, scrape for contacts
+             c. Merge results across sources (later sources fill gaps, don't overwrite earlier data).
+             d. Write enrichment_results record with all found data.
+             e. Update the target table record: set website, contact_emails, contact_phones, officers, revenue_amount, asset_amount, giving_total, enriched_at, enrichment_source.
+             f. Update enrichment_jobs: increment processed, enriched (if data found) or skipped (if nothing found).
+             g. Set last_processed_id = current record id (for resume).
+          4. After all records: update status = 'completed', completed_at = NOW(), build results_summary.
+          5. Return: { processed, enriched, failed, skipped, duration_seconds }.
+
+        - async pause(jobId: string): Promise<void>
+          Sets status = 'paused', paused_at = NOW(). The run loop checks for pause signal each batch.
+
+        - async resume(jobId: string): Promise<void>
+          Sets status = 'running', resumes from last_processed_id.
+
+        - async getProgress(jobId: string): Promise<JobProgress>
+          Returns: { total, processed, enriched, failed, skipped, percent_complete, estimated_remaining_minutes, current_source, last_entity_name }
+
+      The engine MUST be designed to run as a long-lived Node.js process (not serverless). It writes progress to Supabase so the web UI can poll for updates.
+
+      Create C:\Users\manag\Documents\benavora\src\lib\enrichment\runner.ts:
+        A CLI entry point for running enrichment from the command line:
+        Usage: npx tsx src/lib/enrichment/runner.ts --job-id <uuid> --config <json>
+        Or: npx tsx src/lib/enrichment/runner.ts --target foundations --sources propublica,web_search,website_scrape
+        Creates the job record, instantiates EnrichmentEngine, and runs.
+        Handles SIGTERM/SIGINT gracefully (pauses the job, saves progress).
+    expected_outputs:
+      - src/lib/enrichment/engine.ts
+      - src/lib/enrichment/runner.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # PROMPT 6: ENRICHMENT API ROUTES
+  # ============================================================
+
+  - id: enrich-006
+    phase: build
+    description: "Create enrichment API routes for job management and progress tracking"
+    prompt: |
+      Read C:\Users\manag\Documents\benavora\src\lib\enrichment\engine.ts completely.
+      Read C:\Users\manag\Documents\benavora\src\lib\platform\auth.ts for platform auth.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\platform\enrichment\route.ts:
+        GET: List all enrichment jobs. Platform admin only (staff_view permission).
+        Returns jobs with progress stats.
+        POST: Create a new enrichment job. Platform admin only.
+        Body: { target_table, sources: string[], config: { batchSize?, delayBetweenMs?, concurrency? } }
+        Creates the job record. Does NOT start the job — the CLI runner on the local machine picks it up.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\platform\enrichment\[id]\route.ts:
+        GET: Job detail with full progress. Platform admin.
+        PATCH: Control job. Platform admin.
+        Body: { action: 'pause' | 'resume' | 'cancel' }
+        Updates job status. The CLI runner checks status each batch and responds accordingly.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\platform\enrichment\[id]\results\route.ts:
+        GET: Paginated enrichment results for a job. Shows what was found per entity.
+        Query: limit, offset, source filter, has_website filter.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\enrichment\route.ts:
+        Tenant-facing enrichment endpoint (for tenant admins to enrich their own funder lists).
+        GET: List enrichment jobs for the org. Tenant auth (admin/owner).
+        POST: Create enrichment job targeting the org's funders table.
+        Body: { sources: string[] }. Rate limited by tier (starter: 100 records/month, pro: 1000, enterprise: unlimited).
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\enrichment\[id]\route.ts:
+        GET: Job detail for tenant. Tenant auth, scoped to org.
+    expected_outputs:
+      - src/app/api/platform/enrichment/route.ts
+      - src/app/api/platform/enrichment/[id]/route.ts
+      - src/app/api/platform/enrichment/[id]/results/route.ts
+      - src/app/api/enrichment/route.ts
+      - src/app/api/enrichment/[id]/route.ts
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # PROMPT 7: ENRICHMENT UI — PLATFORM ADMIN
+  # ============================================================
+
+  - id: enrich-007
+    phase: build
+    description: "Create enrichment dashboard UI for platform admin"
+    prompt: |
+      Create C:\Users\manag\Documents\benavora\src\app\(dashboard)\platform\enrichment\page.tsx:
+
+      Lead Enrichment dashboard — platform admin only.
+
+      Top section — Active/Recent jobs:
+      - Job cards showing: target table, status badge, progress bar (processed/total), enriched count, source badges, started time, ETA.
+      - Active jobs show live progress (poll every 5 seconds via /api/platform/enrichment/[id]).
+
+      New Job section:
+      - Target selector: Foundation Directory | Prospect List | Custom CSV Upload
+      - Source checkboxes: IRS 990 Data | ProPublica API | Web Search (DuckDuckGo) | Website Contact Scraper
+      - Config inputs: batch size (default 50), delay between requests ms (default 1000), concurrency (default 3)
+      - "Start Job" button — creates the job record. Shows instruction: "Run the enrichment CLI on your local machine: npx tsx src/lib/enrichment/runner.ts --job-id {id}"
+      - For tenant-facing version: job starts automatically via a background process (future enhancement).
+
+      Results section (for completed/running jobs):
+      - Stats cards: Total Processed, Websites Found, Emails Found, Phone Numbers Found, Officers Found
+      - Source breakdown: pie chart showing which source found the most data
+      - Results table: entity name, EIN, website found (clickable), emails (count), phones (count), source badge, confidence
+      - Export button: download enriched data as CSV
+      - "Apply to Database" button: writes enrichment results to the target table (bulk update)
+
+      Add "Enrichment" to the Platform sub-nav (under Platform section).
+
+      Use Tailwind CSS with new design system. Recharts for charts (dynamic import ssr:false).
+    expected_outputs:
+      - src/app/(dashboard)/platform/enrichment/page.tsx
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # PROMPT 8: TENANT ENRICHMENT UI
+  # ============================================================
+
+  - id: enrich-008
+    phase: build
+    description: "Create tenant-facing enrichment tool for funder list enrichment"
+    prompt: |
+      Create C:\Users\manag\Documents\benavora\src\app\(dashboard)\settings\enrichment\page.tsx:
+
+      Tenant-level enrichment tool — available to admin/owner roles.
+      Located under Settings or as a tool accessible from the Funders page.
+
+      Description: "Enrich your funder database with websites, contact information, and financial data from public sources. Free and automated."
+
+      Section 1 — Quick Enrich:
+      - "Enrich All Funders" button: scans the org's funders table for records missing website or contact info, creates an enrichment job.
+      - Shows: X funders total, Y missing website, Z missing contacts.
+      - Source selection: checkboxes for ProPublica, Web Search, Website Scraper. IRS 990 not available to tenants (platform-level only).
+
+      Section 2 — Import & Enrich:
+      - CSV upload: drag-drop a CSV of organizations to enrich.
+      - Required columns: name. Optional: ein, city, state, website.
+      - Preview table shows first 10 rows after upload.
+      - "Enrich & Import" button: creates enrichment job, then imports results as new funders.
+
+      Section 3 — Job History:
+      - List of past enrichment jobs for this org with status, counts, date.
+      - Click job → results detail with what was found.
+
+      Tier gating: Show usage meter. Starter: 100 enrichments/month, Pro: 1,000, Enterprise: unlimited.
+
+      Add "Enrich Funders" link accessible from the Funders page header (as a button or tool icon).
+
+      Use Tailwind CSS with new design system.
+    expected_outputs:
+      - src/app/(dashboard)/settings/enrichment/page.tsx
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # PROMPT 9: FOUNDATION DIRECTORY REBUILD
+  # ============================================================
+
+  - id: enrich-009
+    phase: build
+    description: "Create foundation directory rebuild utility and IRS BMF re-import script"
+    prompt: |
+      Read the foundation_directory table schema completely.
+
+      Create C:\Users\manag\Documents\benavora\scripts\rebuild-foundations.ts:
+
+      A CLI script that:
+      1. Backs up the current foundation_directory to a CSV file (safety net).
+      2. Truncates foundation_directory (or deletes all records — check for FK constraints first).
+      3. Re-imports from IRS BMF CSV files.
+         IRS BMF files are at: https://www.irs.gov/pub/irs-soi/eo_XX.csv (XX = state code)
+         Files are HEADERLESS — 28 columns with known positions:
+         0=EIN, 1=name, 2=ICO, 3=street, 4=city, 5=state, 6=zip, 14=subsection_code, 15=foundation_type, 17=organization_type, 18=status, 24=ntee_code, 25=ruling_date
+         Also: revenue is at position 21 (if available in BMF), asset_amount at position 22.
+      4. For each row: INSERT into foundation_directory with: ein, name, city, state, zip, subsection_code, foundation_type, organization_type, status, ntee_code, ruling_date, revenue_amount, asset_amount.
+      5. Deduplicates by EIN (skip if already inserted).
+      6. Logs progress every 10,000 records.
+      7. After import: creates an enrichment job record for the full table with status = 'queued'.
+
+      Usage: npx tsx scripts/rebuild-foundations.ts --states "AL,AK,AZ,AR,CA,CO,CT,DE,FL,GA,HI,ID,IL,IN,IA,KS,KY,LA,ME,MD,MA,MI,MN,MS,MO,MT,NE,NV,NH,NJ,NM,NY,NC,ND,OH,OK,OR,PA,RI,SC,SD,TN,TX,UT,VT,VA,WA,WV,WI,WY,DC"
+
+      NOTE: The BMF data has carriage return issues on some columns. Trim all values. Handle encoding issues.
+
+      Create C:\Users\manag\Documents\benavora\scripts\import-prospects.ts:
+
+      Similar CLI script for importing the 298K nonprofit prospect CSV from DATAOCEAN:
+      1. Reads CSV from a specified file path.
+      2. Inserts into prospects table (migration 055 must be applied first).
+      3. Maps CSV columns to table columns.
+      4. Dedup by EIN.
+      5. Creates enrichment job for the prospects table.
+
+      Usage: npx tsx scripts/import-prospects.ts --file "D:\nonprofits.csv"
+    expected_outputs:
+      - scripts/rebuild-foundations.ts
+      - scripts/import-prospects.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # PROMPT 10: BUILD VERIFICATION + GOVERNANCE
+  # ============================================================
+
+  - id: enrich-010
+    phase: build
+    description: "Build verification and governance update for Lead Enrichment Agent"
+    prompt: |
+      1. Run pnpm tsc --noEmit — fix ALL TypeScript errors.
+      2. Run pnpm run build — fix ALL build errors.
+
+      3. Verify all new files compile:
+         - src/lib/enrichment/sources/*.ts
+         - src/lib/enrichment/engine.ts
+         - src/lib/enrichment/runner.ts
+         - src/app/api/platform/enrichment/**
+         - src/app/api/enrichment/**
+         - src/app/(dashboard)/platform/enrichment/page.tsx
+         - src/app/(dashboard)/settings/enrichment/page.tsx
+         - scripts/rebuild-foundations.ts
+         - scripts/import-prospects.ts
+
+      4. Verify no route conflicts.
+
+      5. Count routes and pages.
+
+      6. Update C:\Users\manag\Documents\benavora\STATE_OF_THE_BUILD.md:
+         Add section:
+         ## Lead Enrichment Agent: BUILT
+
+         Platform-wide automated organization data enrichment tool. $0 API cost.
+
+         ### Enrichment Sources (Waterfall)
+         - IRS 990 e-file XML parsing (website, revenue, assets, officers)
+         - ProPublica Nonprofit Explorer API (free, no key — financials, NTEE, filings)
+         - DuckDuckGo HTML search (free, no key — finds websites by org name + location)
+         - Optional SearXNG self-hosted search (faster, unlimited, aggregates multiple engines)
+         - Playwright website scraper (contact pages → emails, phones, officer names)
+
+         ### Platform Admin Features
+         - Enrichment dashboard at /platform/enrichment
+         - Job management: create, monitor, pause, resume, cancel
+         - Progress tracking: live stats, source breakdown, ETA
+         - Results viewer with export to CSV
+         - Foundation directory rebuild script (IRS BMF re-import)
+         - Prospect list import script (298K CSV)
+
+         ### Tenant Features
+         - Funder enrichment tool at /settings/enrichment
+         - Quick enrich: scan funders for missing data, auto-fill from public sources
+         - CSV import & enrich: upload org list, get enriched and imported as funders
+         - Tier-gated: Starter 100/mo, Pro 1,000/mo, Enterprise unlimited
+
+         ### Infrastructure
+         - Migration 058: enrichment_jobs + enrichment_results tables, foundation_directory column additions
+         - CLI runner for long-running enrichment on local machine
+         - Graceful pause/resume with progress checkpoint
+         - Post-run: apply migration 058, install SearXNG (optional), run rebuild-foundations.ts, then enrichment CLI
+
+      7. Update C:\Users\manag\Documents\benavora\SESSION_STATE.md accordingly.
+    expected_outputs:
+      - STATE_OF_THE_BUILD.md
+      - SESSION_STATE.md
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
