@@ -150,3 +150,43 @@ Phase 3D (Full Autonomous Mode) or Night 2 of Grant Intelligence Library (review
 
 ### Next Build
 Phase 3E: Error Recovery + Intelligence (CAPTCHA solving integration, account credential handling, form change re-analysis, retry logic with exponential backoff, success rate analytics per funder category).
+
+## Session — 2026-06-20 (Phase 3E)
+
+### Completed This Session
+
+#### Phase 3E: Error Recovery + Advanced Infrastructure (code-complete, NOT yet live pending migration 050 + env vars)
+
+**Build gate:** `pnpm run build` PASSED — clean compile, zero TypeScript errors, zero lint errors. Gates: compile=PASS build=PASS lint=PASS.
+
+**Files built:**
+- `src/lib/autoapply/proxy-manager.ts` — `ProxyManager`: residential proxy rotation with geographic matching; integrates into `StealthBrowser.launch()` via proxy option
+- `src/lib/autoapply/stealth-browser.ts` (enhanced) — full browser context isolation per submission; fresh `newContext()` per launch with randomized viewport, timezone, locale, geolocation matched to proxy region; no cookie/localStorage leakage between submissions
+- `src/lib/autoapply/captcha-solver.ts` — `Solver` wrapping 2Captcha API; lazy init on first use; `solveRecaptchaV2()`, `solveHCaptcha()`, `solveTurnstile()`, `solveImage()`; 3-attempt retry, 60s timeout; cost tracking; `detectCaptchaType()` inspects page HTML; graceful no-op when `TWOCAPTCHA_API_KEY` not set
+- `src/lib/autoapply/credential-manager.ts` — AES-256-GCM encryption of funder portal credentials; `encrypt()`/`decrypt()`; CRUD against `funder_credentials` table; lazy crypto init
+- `src/lib/autoapply/registration-agent.ts` — detects portal account-creation flows via Claude; fills registration form from org KB; stores credentials via `CredentialManager`
+- `src/lib/autoapply/screenshot-manager.ts` — captures + uploads screenshots to `autoapply-screenshots` Supabase Storage bucket at every step (pre-fill, post-fill, pre-submit, post-submit, confirmation, error)
+- `src/components/autoapply/ReviewQueue.tsx` — human review queue: lists submissions with `retry_count >= 3` or status in `[captcha_blocked, account_required, form_changed]`; per-row Retry/Skip/Mark Manual; bulk "Retry All Failed"
+- `src/scripts/check-portal-health.ts` — standalone portal health monitor; HEAD-requests all `giving_portal_url` values; classifies active/redirect/dead/login_required; updates `funders.portal_status + portal_last_checked_at + portal_response_time_ms`; run: `npx tsx src/scripts/check-portal-health.ts --limit 50`
+- `src/lib/autoapply/compliance-guard.ts` — `ComplianceGuard`: checks `solicitation_registrations` table before queuing; unregistered state = `compliance_hold`; `checkFunder(funderId)` returns `{allowed, reason, state}`
+- `src/app/(dashboard)/autoapply/templates/page.tsx` — form template editor at `/autoapply/templates`: editable `field_mapping` JSON, Re-analyze button, last_verified/last_used timestamps
+- `src/app/(dashboard)/autoapply/compliance/page.tsx` — compliance management at `/autoapply/compliance`: registered states table, Add State modal, compliance_hold queue section
+- `src/components/autoapply/SuccessRateAnalytics.tsx` — success rate analytics with recharts: bar chart by funder category, weekly trend line, conversion funnel (submitted → confirmed → responded → funded)
+- `supabase/migrations/050_autoapply_advanced.sql` — `funder_credentials`, `autoapply_screenshots`, `autoapply_review_queue`, `solicitation_registrations` tables — PENDING MANUAL APPLICATION
+
+### Manual Steps Remaining (BLOCKING before Phase 3E features are live)
+
+| Step | Reason |
+|------|--------|
+| Apply migration 050 (`050_autoapply_advanced.sql`) via Supabase SQL Editor | 4 new tables don't exist in prod yet |
+| Create Supabase Storage bucket: `autoapply-screenshots` (private) | Screenshot uploads will fail without the bucket |
+| Set `TWOCAPTCHA_API_KEY` in Vercel + Railway | CAPTCHA solving silently skipped until set (non-blocking) |
+| Set `CREDENTIAL_ENCRYPTION_KEY` in Vercel + Railway | Generate: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
+| Set `PROXY_PROVIDER` + `PROXY_LIST` in Railway | Proxy rotation disabled until set (non-blocking) |
+| Run `npx tsx src/scripts/check-portal-health.ts --limit 50` | Test portal monitoring against live funder URLs |
+| Apply migrations 047, 048, 049 (still pending from prior phases) | `worker_status`, intelligence tables, `auto_queue_config` |
+| Set `OPENAI_API_KEY` in Vercel | RAG retrieval empty without it (pending from Grant Intelligence MVP) |
+| Create Railway project + deploy worker | Worker not yet running (pending from Phase 3C) |
+
+### Next Build
+Phase 3F: Submission Intelligence — request amount optimization (query `funder_giving_history` for median ask), submission content personalization per funder (pitch-personalizer.ts using funder priorities), batch intelligence ordering (pre-score queue items by success probability before run), pitch cache table.
