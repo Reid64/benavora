@@ -190,3 +190,54 @@ Phase 3E: Error Recovery + Intelligence (CAPTCHA solving integration, account cr
 
 ### Next Build
 Phase 3F: Submission Intelligence — request amount optimization (query `funder_giving_history` for median ask), submission content personalization per funder (pitch-personalizer.ts using funder priorities), batch intelligence ordering (pre-score queue items by success probability before run), pitch cache table.
+
+## Session — 2026-06-21 (Phase 3F)
+
+### Completed This Session
+
+#### Phase 3F: Submission Intelligence (code-complete, NOT yet live pending migration 051 + Storage bucket)
+
+**Build gate (2026-06-21):** `pnpm run build` PASSED — Next.js "Linting and checking validity of types" confirmed green. Zero TypeScript errors, zero lint errors. Gates: compile=PASS build=PASS lint=PASS.
+
+**Files built:**
+- `src/lib/autoapply/document-vault.ts` — DocumentVault: 10 document types, upload to `org-documents` Storage bucket, readiness check for required/expired docs
+- `src/lib/autoapply/multi-page-handler.ts` — MultiPageHandler: wizard navigation, step detection, validation error back-tracking
+- `src/lib/autoapply/advanced-field-handler.ts` — AdvancedFieldHandler: full field type dispatch (text, select, checkbox, radio, date picker, file upload, conditional, ToS, session timeout)
+- `src/lib/autoapply/document-attacher.ts` — DocumentAttacher: keyword-matching of upload labels to org document types, auto-attach from Storage
+- `src/lib/autoapply/submission-validator.ts` — SubmissionValidator: format validation, org readiness, anti-duplicate detection
+- `src/lib/autoapply/confirmation-parser.ts` — ConfirmationParser: Claude-powered extraction of confirmation number, dates, next steps; rejection signal detection
+- `src/lib/autoapply/funder-matcher.ts` — matchFunderToProfiles(): 0.0–1.0 capability scoring by funder category; scoreBatch() pre-scores queue for priority ordering
+- `src/lib/autoapply/amount-optimizer.ts` — getOptimalAskAmount(): funder_giving_history median → CATEGORY_DEFAULTS fallback; non-monetary types return null
+- `src/lib/autoapply/pitch-personalizer.ts` — personalizePitch(): pitch_cache (30-day TTL) + Claude rewrite for funder priorities + request type
+- `src/lib/autoapply/timing-optimizer.ts` — getTimingScore(): corporate Q4 peak, government post-fiscal-year, foundation board meeting months
+- `src/lib/autoapply/submission-controls.ts` — SubmissionControls: cross-client dedup via cross_client_submissions, domain throttling, tier velocity limits, SHARED_PLATFORMS 4h gap
+- `src/lib/autoapply/receipt-generator.ts` — ReceiptGenerator: receipt_data jsonb assembly, submission_receipts insert, printable HTML formatter
+- `src/lib/autoapply/webhook-notifier.ts` — WebhookNotifier: Slack Block Kit, Teams Adaptive Card, custom JSON; 3-retry; logs to automation_notifications
+- `src/lib/autoapply/error-annotator.ts` — ErrorAnnotator: Claude vision classifies failure screenshot into 7 error classes + remediation steps
+- `src/app/(dashboard)/autoapply/profiles/page.tsx` — 5-step profile wizard, CRUD list, 8 request types, per-profile analytics
+- `src/app/(dashboard)/autoapply/documents/page.tsx` — document vault UI: upload, expiry warnings, readiness status card
+- `src/app/(dashboard)/autoapply/agreements/page.tsx` — post-award grant agreement tracking: amount, dates, terms, payment schedule, status
+- `src/app/(dashboard)/autoapply/webhooks/page.tsx` — webhook config UI: add/edit/delete, event checkboxes, test button
+- `src/components/autoapply/SubmissionPreview.tsx` — pre-submission review modal: field values, doc attachments, editable pitch, amount, timing score
+- `src/app/api/autoapply/profiles/route.ts` + `[id]/route.ts` — CRUD API for request_profiles (admin/writer role)
+- `src/app/api/autoapply/documents/route.ts` + `readiness/route.ts` — document upload + readiness report API
+- `src/app/api/autoapply/agreements/route.ts` + `[id]/route.ts` — grant agreement CRUD API
+- `src/app/api/autoapply/webhooks/route.ts` — webhook config API
+- `src/app/api/autoapply/templates/test/route.ts` — dry-run template fill (no submit, returns screenshots)
+- `supabase/migrations/051_submission_intelligence.sql` — 7 new tables (request_profiles, kb_extended_needs, pitch_cache, org_documents, submission_receipts, grant_agreements, webhook_configs, cross_client_submissions) + column additions to submission_queue and autoapply_submissions
+
+### Manual Steps Remaining (BLOCKING before Phase 3F features are live)
+
+| Step | Reason |
+|------|--------|
+| Apply migration 051 (`051_submission_intelligence.sql`) via Supabase SQL Editor | 7 new tables + column additions don't exist in prod yet |
+| Create Supabase Storage bucket: `org-documents` (private) | Document uploads fail without the bucket |
+| Create initial Faith Foundation request profiles | 4 profiles: Operating Funds, Cornerstone Land Acquisition, Construction Materials, Skilled Volunteer Labor |
+| Upload Faith Foundation documents | 501c3_letter and form_990 to Document Vault at `/autoapply/documents` |
+| Apply migrations 047–050 (still pending from prior phases) | worker_status, intelligence tables, auto_queue_config, funder_credentials/screenshots/review_queue/solicitation_registrations |
+| Set OPENAI_API_KEY + CRON_SECRET + TWOCAPTCHA_API_KEY + CREDENTIAL_ENCRYPTION_KEY in Vercel | RAG, cron, CAPTCHA solving pending from earlier phases |
+| Create Railway project + deploy worker | Worker not yet running |
+
+### Next Build
+Phase 3G (Multi-Channel + Follow-Up): email-based donation requests via Resend, submission channel analytics, confirmation email monitoring via Gmail API, automated follow-up sequences, autoapply_follow_ups table, follow-up cron job and management UI.
+Phase 3H (Analytics + Optimization): A/B testing framework for pitch variants, funder response time analytics, success rate dashboards with conversion funnel, ROI calculator.
