@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   ExternalLink,
   FileSearch,
+  FlaskConical,
   Loader2,
   RefreshCw,
   Save,
@@ -217,6 +218,15 @@ export default function FormTemplatesPage() {
   const [reanalyzeDiff, setReanalyzeDiff] = useState<FieldDiff[] | null>(null);
   const [reanalyzeError, setReanalyzeError] = useState<string | null>(null);
 
+  // Test modal state
+  const [testTemplate, setTestTemplate] = useState<TemplateRow | null>(null);
+  const [testRunning, setTestRunning] = useState(false);
+  const [testResult, setTestResult] = useState<{
+    screenshotDataUrl: string;
+    fieldValues: Record<string, string>;
+  } | null>(null);
+  const [testError, setTestError] = useState<string | null>(null);
+
   const load = useCallback(async () => {
     setLoading(true);
     const supabase = createClient();
@@ -395,6 +405,58 @@ export default function FormTemplatesPage() {
     } finally {
       setBulkReanalyzing(false);
     }
+  }
+
+  function openTestModal(tpl: TemplateRow) {
+    setTestTemplate(tpl);
+    setTestResult(null);
+    setTestError(null);
+    setTestRunning(false);
+  }
+
+  function closeTestModal() {
+    setTestTemplate(null);
+    setTestResult(null);
+    setTestError(null);
+    setTestRunning(false);
+  }
+
+  async function handleRunDryTest() {
+    if (!testTemplate) return;
+    setTestRunning(true);
+    setTestError(null);
+    setTestResult(null);
+    try {
+      const res = await fetch("/api/autoapply/templates/test", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ templateId: testTemplate.id }),
+      });
+      const json = (await res.json()) as {
+        screenshotDataUrl?: string;
+        fieldValues?: Record<string, string>;
+        error?: string;
+      };
+      if (!res.ok) {
+        setTestError(json.error ?? "Dry test failed.");
+        return;
+      }
+      setTestResult({
+        screenshotDataUrl: json.screenshotDataUrl ?? "",
+        fieldValues: json.fieldValues ?? {},
+      });
+    } catch {
+      setTestError("Could not connect to the test runner. Make sure you are on the Railway worker environment.");
+    } finally {
+      setTestRunning(false);
+    }
+  }
+
+  function handleNeedsFixing() {
+    if (!testTemplate) return;
+    const tpl = testTemplate;
+    closeTestModal();
+    openDetail(tpl);
   }
 
   function toggleSelect(id: string) {
@@ -619,16 +681,30 @@ export default function FormTemplatesPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3">
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openDetail(tpl);
-                          }}
-                        >
-                          Edit
-                        </Button>
+                        <div className="flex items-center gap-1.5">
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openTestModal(tpl);
+                            }}
+                            title="Test this template with a dry run"
+                          >
+                            <FlaskConical className="mr-1 h-3.5 w-3.5" />
+                            Test
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openDetail(tpl);
+                            }}
+                          >
+                            Edit
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -638,6 +714,201 @@ export default function FormTemplatesPage() {
           )}
         </div>
       </Card>
+
+      {/* Test Template Modal */}
+      <Modal
+        isOpen={testTemplate !== null}
+        onClose={closeTestModal}
+        title={
+          testTemplate
+            ? `Test — ${testTemplate.funders?.name ?? "Template"}`
+            : "Test Template"
+        }
+        description={testTemplate?.portal_url ?? undefined}
+        size="xl"
+        footer={
+          <div className="flex w-full items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={() => void handleRunDryTest()}
+                isLoading={testRunning}
+                disabled={testRunning}
+              >
+                <FlaskConical className="mr-1.5 h-4 w-4" />
+                {testRunning ? "Running…" : "Run Dry Test"}
+              </Button>
+              {testResult && (
+                <span className="text-xs text-navy-400">
+                  Screenshot captured
+                </span>
+              )}
+            </div>
+            <div className="flex gap-2">
+              {testResult ? (
+                <>
+                  <Button variant="secondary" onClick={handleNeedsFixing}>
+                    Needs Fixing
+                  </Button>
+                  <Button onClick={closeTestModal}>
+                    <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                    Looks Good
+                  </Button>
+                </>
+              ) : (
+                <Button variant="secondary" onClick={closeTestModal}>
+                  Cancel
+                </Button>
+              )}
+            </div>
+          </div>
+        }
+      >
+        {testTemplate && (
+          <div className="space-y-4">
+            {/* Portal URL */}
+            <div className="flex items-center gap-2 rounded-lg border border-navy-100 bg-navy-50 px-4 py-3">
+              <ExternalLink className="h-4 w-4 shrink-0 text-navy-400" />
+              <a
+                href={testTemplate.portal_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="truncate text-sm text-teal-600 hover:underline"
+              >
+                {testTemplate.portal_url}
+              </a>
+            </div>
+
+            {testError && (
+              <div
+                role="alert"
+                className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+              >
+                {testError}
+              </div>
+            )}
+
+            {/* Field mapping preview */}
+            {!testResult && !testRunning && (
+              <div>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-navy-500">
+                  Field Mappings
+                </p>
+                {(() => {
+                  const mapping = parseFieldMapping(testTemplate.field_mapping);
+                  const entries = Object.entries(mapping).filter(
+                    ([, v]) => v && v !== "__skip__",
+                  );
+                  if (entries.length === 0) {
+                    return (
+                      <p className="text-sm text-navy-400">
+                        No field mappings configured. Edit the template first.
+                      </p>
+                    );
+                  }
+                  return (
+                    <div className="overflow-auto rounded-lg border border-navy-200">
+                      <table className="min-w-full divide-y divide-navy-100 text-sm">
+                        <thead>
+                          <tr className="bg-navy-50">
+                            <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                              Form Field
+                            </th>
+                            <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                              KB Key
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-navy-100 bg-white">
+                          {entries.map(([field, kbKey]) => (
+                            <tr key={field}>
+                              <td className="px-3 py-2 font-medium text-navy-800">
+                                {field}
+                              </td>
+                              <td className="px-3 py-2 font-mono text-xs text-navy-500">
+                                {kbKey}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                })()}
+                <p className="mt-2 text-xs text-navy-400">
+                  Click "Run Dry Test" to navigate to the portal, fill the form with live KB values, and capture a screenshot — without submitting.
+                </p>
+              </div>
+            )}
+
+            {/* Running spinner */}
+            {testRunning && (
+              <div className="flex items-center justify-center gap-3 rounded-lg border border-navy-200 py-12">
+                <Loader2 className="h-6 w-6 animate-spin text-teal-500" />
+                <p className="text-sm text-navy-500">
+                  Launching browser and filling form…
+                </p>
+              </div>
+            )}
+
+            {/* Results */}
+            {testResult && (
+              <div className="space-y-4">
+                {/* Resolved field values */}
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-navy-500">
+                    Resolved Values
+                  </p>
+                  <div className="overflow-auto rounded-lg border border-navy-200">
+                    <table className="min-w-full divide-y divide-navy-100 text-sm">
+                      <thead>
+                        <tr className="bg-navy-50">
+                          <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                            Form Field
+                          </th>
+                          <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                            Value Used
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-navy-100 bg-white">
+                        {Object.entries(testResult.fieldValues).map(
+                          ([field, value]) => (
+                            <tr key={field}>
+                              <td className="px-3 py-2 font-medium text-navy-800">
+                                {field}
+                              </td>
+                              <td className="max-w-xs truncate px-3 py-2 text-navy-600">
+                                {value}
+                              </td>
+                            </tr>
+                          ),
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Screenshot */}
+                {testResult.screenshotDataUrl && (
+                  <div>
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-navy-500">
+                      Form Screenshot
+                    </p>
+                    <div className="overflow-hidden rounded-lg border border-navy-200">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={testResult.screenshotDataUrl}
+                        alt="Screenshot of the filled portal form"
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
 
       {/* Detail / Edit Modal */}
       <Modal
@@ -654,16 +925,17 @@ export default function FormTemplatesPage() {
           detailTemplate ? (
             <div className="flex w-full items-center justify-between gap-3">
               <div className="flex gap-2">
-                <a
-                  href={detailTemplate.portal_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    closeDetail();
+                    openTestModal(detailTemplate);
+                  }}
                 >
-                  <Button variant="secondary" size="sm">
-                    <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
-                    Test Template
-                  </Button>
-                </a>
+                  <FlaskConical className="mr-1.5 h-3.5 w-3.5" />
+                  Test Template
+                </Button>
                 <Button
                   variant="secondary"
                   size="sm"
