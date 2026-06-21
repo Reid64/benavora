@@ -5,6 +5,7 @@ import { FormFillerAgent } from '../src/lib/autoapply/form-filler-agent.js';
 import { CaptchaSolver } from '../src/lib/autoapply/captcha-solver.js';
 import { RegistrationAgent } from '../src/lib/autoapply/registration-agent.js';
 import { CredentialManager } from '../src/lib/autoapply/credential-manager.js';
+import { ScreenshotManager } from '../src/lib/autoapply/screenshot-manager.js';
 import * as heartbeat from './heartbeat.js';
 import { RateLimiter } from './rate-limiter.js';
 import { ProxyManager } from './proxy-manager.js';
@@ -38,7 +39,6 @@ interface FormTemplateRow {
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 const SLEEP_MS = 15_000;
-const SCREENSHOT_BUCKET = 'autoapply-screenshots';
 
 // --- helpers -----------------------------------------------------------------
 
@@ -66,32 +66,6 @@ function isIpBlock(message: string): boolean {
 
 function sleep(ms: number): Promise<void> {
   return new Promise<void>((resolve) => setTimeout(resolve, ms));
-}
-
-async function uploadScreenshot(
-  supabase: SupabaseClient,
-  buffer: Buffer,
-  path: string,
-): Promise<string | null> {
-  const { error: uploadError } = await supabase.storage
-    .from(SCREENSHOT_BUCKET)
-    .upload(path, buffer, { contentType: 'image/png', upsert: true });
-
-  if (uploadError) {
-    console.error(`[QueueProcessor] Screenshot upload failed (${path}):`, uploadError.message);
-    return null;
-  }
-
-  const { data: signedData, error: signError } = await supabase.storage
-    .from(SCREENSHOT_BUCKET)
-    .createSignedUrl(path, 365 * 24 * 60 * 60); // 1-year signed URL for audit trail
-
-  if (signError || signedData === null) {
-    console.error(`[QueueProcessor] Signed URL failed (${path}):`, signError?.message ?? 'null data');
-    return null;
-  }
-
-  return signedData.signedUrl;
 }
 
 // --- QueueProcessor ----------------------------------------------------------
@@ -303,9 +277,22 @@ export class QueueProcessor {
     const stealthBrowser = new StealthBrowser({ headless: true });
     const { browser, page } = await stealthBrowser.launch({ proxy: proxy ?? undefined });
 
-    let preSubmitUrl: string | null = null;
-    let confirmationUrl: string | null = null;
-    let errorUrl: string | null = null;
+    // Screenshot manager tracks all captures for this submission and back-fills
+    // submission_id once the autoapply_submissions record is created.
+    const screenshotManager = new ScreenshotManager();
+
+    // Convenience wrapper — submissionId is null until the submission record exists.
+    const snap = (stage: string): Promise<string> =>
+      screenshotManager.captureAndUpload(page, stage, {
+        orgId, funderId, submissionId: null, supabase: this.supabase,
+      });
+
+    let pageLoadPath: string | null = null;
+    let preFillPath: string | null = null;
+    let postFillPath: string | null = null;
+    let postSubmitPath: string | null = null;
+    let confirmationPath: string | null = null;
+    let errorPath: string | null = null;
     let submissionStatus = 'failed';
     let confirmationNumber: string | null = null;
     let requestDescription: string | null = null;
@@ -349,6 +336,9 @@ export class QueueProcessor {
             `was ${existingFieldCount} fields, now ${analyzeResult.fieldCount} fields`,
           );
         }
+
+        // Capture page state after form analysis (analyzer already navigated to the portal)
+        pageLoadPath = await snap('page_load');
       }
 
       // Load current template (just stored or previously cached)
@@ -367,15 +357,15 @@ export class QueueProcessor {
       // For cached templates the FormAnalyzerAgent was skipped, so navigate now.
       if (!needsReanalysis) {
         await page.goto(portalUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+        // Capture page state immediately after navigation
+        pageLoadPath = await snap('page_load');
       }
 
       // Handle portals that require login or registration before the form is reachable
       await this.handleLoginGating(page, orgId, funderId, portalUrl, orgProfile);
 
-      // Pre-submit screenshot: page is on the portal
-      const preBuffer = await page.screenshot({ fullPage: false });
-      const prePath = `${orgId}/${funderId}/${Date.now()}_pre_submit.png`;
-      preSubmitUrl = await uploadScreenshot(this.supabase, preBuffer, prePath);
+      // Capture page state after login (the portal form, ready to be filled)
+      preFillPath = await snap('pre_fill');
 
       // CAPTCHA detection and solving before form filling
       const captchaDetection = await this.captchaSolver.detectCaptcha(page);
@@ -404,10 +394,23 @@ export class QueueProcessor {
       requestDescription = fillResult.requestDescription;
       submissionStatus = 'submitted';
 
-      // Confirmation screenshot: use agent-captured buffer if available, else take one now
-      const confirmPath = `${orgId}/${funderId}/${Date.now()}_confirmation.png`;
-      const confirmBuffer = fillResult.confirmationScreenshot ?? await page.screenshot({ fullPage: false });
-      confirmationUrl = await uploadScreenshot(this.supabase, confirmBuffer, confirmPath);
+      // Capture live page state after fill + submit (post_fill = form submit complete)
+      postFillPath = await snap('post_fill');
+
+      // Capture post_submit using FormFillerAgent's screenshot if available
+      // (captured mid-submission), falling back to a fresh page screenshot.
+      if (fillResult.confirmationScreenshot) {
+        postSubmitPath = await screenshotManager.uploadAndRecord(
+          fillResult.confirmationScreenshot,
+          'post_submit',
+          { orgId, funderId, submissionId: null, supabase: this.supabase },
+        );
+      } else {
+        postSubmitPath = await snap('post_submit');
+      }
+
+      // Final confirmation screenshot of the landing page
+      confirmationPath = await snap('confirmation');
 
     } catch (err) {
       // Re-throw SkipErrors so the loop handles them as skips, not failures
@@ -424,9 +427,7 @@ export class QueueProcessor {
 
       // Best-effort error screenshot while browser may still be open
       try {
-        const errBuffer = await page.screenshot({ fullPage: false });
-        const errPath = `${orgId}/${funderId}/${Date.now()}_error.png`;
-        errorUrl = await uploadScreenshot(this.supabase, errBuffer, errPath);
+        errorPath = await snap('error');
       } catch {
         // Browser already closed — skip error screenshot
       }
@@ -447,11 +448,11 @@ export class QueueProcessor {
         form_template_id: formTemplateId,
         status: submissionStatus,
         request_description: requestDescription,
-        pre_submit_screenshot_url: preSubmitUrl,
-        confirmation_screenshot_url: confirmationUrl,
+        pre_submit_screenshot_url: preFillPath,
+        confirmation_screenshot_url: confirmationPath ?? postSubmitPath,
         confirmation_number: confirmationNumber,
         error_message: errorMessage,
-        error_screenshot_url: errorUrl,
+        error_screenshot_url: errorPath,
         retry_count: 0,
         submitted_at: submissionStatus === 'submitted' ? new Date().toISOString() : null,
       })
@@ -465,13 +466,18 @@ export class QueueProcessor {
       );
     }
 
-    // Link submission_id back to the queue item for dashboard correlation
+    // Link submission_id back to the queue item for dashboard correlation,
+    // and back-fill all autoapply_screenshots rows with the now-known submission ID.
     if (submission !== null) {
       const submissionRow = submission as { id: string };
-      await this.supabase
-        .from('submission_queue')
-        .update({ submission_id: submissionRow.id })
-        .eq('id', queueItemId);
+
+      await Promise.all([
+        this.supabase
+          .from('submission_queue')
+          .update({ submission_id: submissionRow.id })
+          .eq('id', queueItemId),
+        screenshotManager.linkToSubmission(submissionRow.id, this.supabase),
+      ]);
 
       // Schedule retry window for retryable error statuses
       if (submissionStatus !== 'submitted') {
@@ -484,6 +490,12 @@ export class QueueProcessor {
         }
       }
     }
+
+    // Log captured paths for observability
+    console.log(
+      `[QueueProcessor] Screenshots for queue item ${queueItemId}:`,
+      { pageLoadPath, preFillPath, postFillPath, postSubmitPath, confirmationPath, errorPath },
+    );
 
     // Non-submitted outcomes propagate as errors so the loop records them as failures
     if (submissionStatus !== 'submitted') {
