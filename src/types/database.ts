@@ -2731,6 +2731,28 @@ export interface Database {
         };
         Relationships: [];
       };
+      // Migration 052 — cross_client_submissions (anonymized cross-tenant dedup log, no RLS).
+      cross_client_submissions: {
+        Row: {
+          id: string;
+          funder_domain: string;
+          org_hash: string;
+          submitted_at: string;
+        };
+        Insert: {
+          id?: string;
+          funder_domain: string;
+          org_hash: string;
+          submitted_at?: string;
+        };
+        Update: {
+          id?: string;
+          funder_domain?: string;
+          org_hash?: string;
+          submitted_at?: string;
+        };
+        Relationships: [];
+      };
       // Grant Intelligence Library — global shared tables, no RLS, no organization_id.
       intelligence_funded_proposals: {
         Row: {
