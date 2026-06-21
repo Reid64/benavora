@@ -241,6 +241,7 @@ function LogoSection({
           </div>
         ) : (
           <div className="flex h-16 w-40 items-center justify-center rounded-lg border-2 border-dashed border-navy-200 bg-navy-50">
+            {/* eslint-disable-next-line jsx-a11y/alt-text */}
             <Image className="h-6 w-6 text-navy-300" aria-hidden />
           </div>
         )}

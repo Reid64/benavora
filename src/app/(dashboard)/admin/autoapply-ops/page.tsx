@@ -121,7 +121,7 @@ function rateColor(rate: number): string {
   return C.red;
 }
 
-function rateTextClass(rate: number): string {
+function _rateTextClass(rate: number): string {
   if (rate >= 70) return "text-teal-400";
   if (rate >= 40) return "text-amber-400";
   return "text-red-400";

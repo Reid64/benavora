@@ -280,3 +280,55 @@ Full health check — see **AUDIT_REPORT.md** for the complete writeup (findings
 
 ### Next Build
 Phase 3G / 3H as previously planned, after migration 053 (and the 047–052 backlog) are confirmed applied to prod.
+
+## Session — 2026-06-21 (Phase 3G + 3H + Build Gate)
+
+### Completed This Session
+
+#### Build Gate — All Clean
+- `pnpm run build` PASS — 175 routes, zero TypeScript errors, zero lint errors
+- `pnpm run typecheck` PASS — zero errors
+- `pnpm run lint` PASS — zero warnings, zero errors
+- Created `.eslintrc.json` (missing from repo; build was skipping lint entirely)
+- Fixed 3 lint issues: unused `rateTextClass` (autoapply-ops), unused `Q2` (timing-optimizer), false-positive `jsx-a11y/alt-text` on Lucide SVG icon (branding page)
+
+#### Phase 3G: Multi-Channel & Follow-Up — BUILT
+- `src/lib/autoapply/email-submitter.ts` — email donation request channel via Resend
+- `src/lib/autoapply/follow-up-scheduler.ts` — 14/30/60 day follow-up sequences with auto-cancellation on response
+- `/api/cron/follow-ups` — cron job processes due follow-ups for all orgs
+- `/autoapply/follow-ups` — follow-up management UI: table, cancel/edit per row, due-today highlights
+- Migration 053 additions: `autoapply_follow_ups`, `session_recordings`, `ab_test_variants` tables — PENDING MANUAL APPLICATION
+
+#### Live Session Streaming — BUILT
+- `worker/websocket-server.ts` — per-org JWT auth; broadcasts CDP screencast frames to connected viewers
+- StealthBrowser enhanced: `startScreencast()`/`stopScreencast()`; streams only when viewers connected (zero idle overhead)
+- `src/components/autoapply/LiveSessionViewer.tsx` — CSS monitor frame design; canvas rendering; viewer count badge
+- Session recordings via Playwright `recordVideo` → `autoapply-recordings` Storage bucket
+- `/autoapply/recordings` — recordings page with HTML5 video playback via Supabase signed URLs
+
+#### Phase 3H: Analytics & Optimization — BUILT
+- `src/lib/autoapply/ab-testing.ts` — variant assignment, winner detection (50+ samples, 95% confidence), challenger rotation
+- `src/lib/autoapply/response-analytics.ts` — response time tracking, overdue detection, stalled submission surface
+- `/autoapply/analytics` — comprehensive dashboard: A/B test results, channel comparison, conversion funnel, ROI calculator
+
+### AutoApply Feature Build: COMPLETE
+All Phase 3 sub-phases (3A through 3H) are code-complete. The full AutoApply stack is built:
+- Form analysis + fill engine (3A/3B)
+- Queue + batch processing + Railway worker (3C)
+- Full autonomous mode + cron (3D)
+- Error recovery + CAPTCHA + proxy + portal health (3E)
+- Submission intelligence + request profiles + document vault (3F)
+- Multi-channel + follow-ups + live streaming (3G)
+- Analytics + A/B testing + ROI (3H)
+
+### Manual Steps Still Pending (BLOCKING before features are live)
+| Step | Reason |
+|------|--------|
+| Apply migration 053 (`053_autoapply_missing_columns.sql` + follow-up/recording/ab tables) | Schema drift fix + Phase 3G/3H tables |
+| Create Supabase Storage bucket: `session-recordings` | Session video uploads fail without it |
+| Apply migrations 047–052 (pending from prior phases) | All worker/intelligence/config/advanced tables |
+| Create Railway project + deploy worker | Worker not yet running |
+| Set all env vars in Vercel + Railway | OPENAI_API_KEY, CRON_SECRET, TWOCAPTCHA_API_KEY, CREDENTIAL_ENCRYPTION_KEY, PROXY_LIST |
+
+### Next Build
+Intelligence Library Nights 2–7 (reviewer rubrics, logic models, need statement database, budget/evaluation libraries, grantmaker intelligence, narrative patterns + Grant DNA), then Phase 4 (Email + Calendar Integration).

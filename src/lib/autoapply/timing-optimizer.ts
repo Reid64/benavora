@@ -21,7 +21,7 @@ export interface DelayResult {
 
 // Month constants (1-based)
 const Q1 = [1, 2, 3];
-const Q2 = [4, 5, 6];
+const _Q2 = [4, 5, 6];
 const Q3 = [7, 8, 9];
 const Q4 = [10, 11, 12];
 
