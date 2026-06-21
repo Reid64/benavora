@@ -10,6 +10,10 @@
         "lint": "next lint",
         "typecheck": "tsc --noEmit",
         "test": "playwright test --reporter=list",
+        "test:unit": "vitest run",
+        "test:watch": "vitest",
+        "test:coverage": "vitest run --coverage",
+        "test:e2e": "playwright test",
         "seed-demo": "node seed-demo.mjs"
     },
     "dependencies": {
@@ -56,10 +60,12 @@
         "autoprefixer": "^10.4.20",
         "eslint": "^8.57.1",
         "eslint-config-next": "^14.2.13",
+        "@vitest/coverage-v8": "^2.0.0",
         "pg": "^8.21.0",
         "postcss": "^8.4.47",
         "tailwindcss": "^3.4.12",
-        "typescript": "^5.6.2"
+        "typescript": "^5.6.2",
+        "vitest": "^2.0.0"
     },
     "packageManager": "pnpm@9.0.0",
     "engines": {

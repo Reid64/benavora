@@ -41,6 +41,7 @@
   "exclude": [
     "node_modules",
     "tests",
+    "vitest.config.ts",
     "run-*.ts",
     "worker",
     "src/scripts/ingest-*.ts"
