@@ -2401,6 +2401,7 @@ export interface Database {
           timing_score: number | null;
           confirmation_data: Json | null;
           documents_attached: string[] | null;
+          variant_id: string | null;
           created_at: string;
         };
         Insert: {
@@ -2427,6 +2428,7 @@ export interface Database {
           timing_score?: number | null;
           confirmation_data?: Json | null;
           documents_attached?: string[] | null;
+          variant_id?: string | null;
           created_at?: string;
         };
         Update: {
@@ -2453,6 +2455,7 @@ export interface Database {
           timing_score?: number | null;
           confirmation_data?: Json | null;
           documents_attached?: string[] | null;
+          variant_id?: string | null;
           created_at?: string;
         };
         Relationships: [];
@@ -3524,6 +3527,52 @@ export interface Database {
           duration_seconds?: number;
           file_size_bytes?: number;
           created_at?: string;
+        };
+        Relationships: [];
+      };
+      // Migration 058 — ab_test_variants (A/B testing of pitch styles per funder category).
+      ab_test_variants: {
+        Row: {
+          id: string;
+          organization_id: string;
+          funder_category: string;
+          variant_name: string;
+          pitch_style: string;
+          emphasis: string;
+          active: boolean;
+          submission_count: number;
+          success_count: number;
+          is_winner: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          funder_category: string;
+          variant_name: string;
+          pitch_style: string;
+          emphasis: string;
+          active?: boolean;
+          submission_count?: number;
+          success_count?: number;
+          is_winner?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          funder_category?: string;
+          variant_name?: string;
+          pitch_style?: string;
+          emphasis?: string;
+          active?: boolean;
+          submission_count?: number;
+          success_count?: number;
+          is_winner?: boolean;
+          created_at?: string;
+          updated_at?: string;
         };
         Relationships: [];
       };

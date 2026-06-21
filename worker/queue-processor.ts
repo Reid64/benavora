@@ -25,6 +25,7 @@ import { RelationshipManager } from '../src/lib/autoapply/relationship-manager.j
 import { submitViaEmail } from '../src/lib/autoapply/email-submitter.js';
 import { QueueControlPlane } from '../src/lib/autoapply/queue-controls.js';
 import { UsageMeter } from '../src/lib/autoapply/usage-meter.js';
+import { ABTestEngine } from '../src/lib/autoapply/ab-testing.js';
 import type { ReadinessReport } from '../src/lib/autoapply/submission-validator.js';
 import type { StreamServer } from './stream-server.js';
 import { promises as fs } from 'node:fs';
@@ -143,6 +144,7 @@ export class QueueProcessor {
   private readonly relationshipManager = new RelationshipManager();
   private readonly queueControlPlane = new QueueControlPlane();
   private readonly usageMeter = new UsageMeter();
+  private readonly abTestEngine = new ABTestEngine();
 
   constructor(
     private readonly supabase: SupabaseClient,
@@ -456,6 +458,25 @@ export class QueueProcessor {
     });
     const timingScore = timingResult.score;
 
+    // --- A/B test variant selection (before pitch personalization) ---
+    let activeVariantId: string | null = null;
+    const abVariant = await this.abTestEngine
+      .getVariant(orgId, funder.category ?? '', this.supabase)
+      .catch((e: unknown) => {
+        console.warn(
+          '[QueueProcessor] ABTestEngine.getVariant failed:',
+          e instanceof Error ? e.message : String(e),
+        );
+        return null;
+      });
+
+    if (abVariant !== null) {
+      activeVariantId = abVariant.id;
+      console.log(
+        `[QueueProcessor] A/B test variant for ${funderName}: ${abVariant.variantName}`,
+      );
+    }
+
     // --- Personalized pitch for description fields ---
     let personalizedPitch: string | null = null;
     const orgMission = orgProfile?.mission_statement ?? '';
@@ -484,6 +505,9 @@ export class QueueProcessor {
               pitch_template: requestProfile.pitch_template,
             }
           : null,
+        pitchStyle: abVariant?.pitchStyle,
+        emphasis: abVariant?.emphasis,
+        bypassCache: abVariant !== null,
         organizationId: orgId,
         funderId,
         supabase: this.supabase,
@@ -577,11 +601,24 @@ export class QueueProcessor {
           personalized_pitch: personalizedPitch,
           optimized_amount: optimizedAmount,
           timing_score: timingScore,
+          variant_id: activeVariantId,
           error_message: emailError,
           submitted_at: emailStatus === 'submitted' ? new Date().toISOString() : null,
         })
         .select('*')
         .single();
+
+      // Record A/B test outcome for the email channel.
+      if (activeVariantId !== null) {
+        void this.abTestEngine
+          .recordOutcome(activeVariantId, emailStatus === 'submitted', this.supabase)
+          .catch((e: unknown) => {
+            console.warn(
+              '[QueueProcessor] ABTestEngine.recordOutcome (email):',
+              e instanceof Error ? e.message : String(e),
+            );
+          });
+      }
 
       if (emailSubError) {
         console.error(`[QueueProcessor] Failed to create email submission record for ${queueItemId}:`, emailSubError.message);
@@ -1055,6 +1092,7 @@ export class QueueProcessor {
         personalized_pitch: personalizedPitch,
         optimized_amount: optimizedAmount,
         timing_score: timingScore,
+        variant_id: activeVariantId,
         error_message: errorMessage,
         error_screenshot_url: errorPath,
         retry_count: 0,
@@ -1062,6 +1100,18 @@ export class QueueProcessor {
       })
       .select('*')
       .single();
+
+    // Record A/B test outcome now that the submission result is known.
+    if (activeVariantId !== null) {
+      void this.abTestEngine
+        .recordOutcome(activeVariantId, submissionStatus === 'submitted', this.supabase)
+        .catch((e: unknown) => {
+          console.warn(
+            '[QueueProcessor] ABTestEngine.recordOutcome:',
+            e instanceof Error ? e.message : String(e),
+          );
+        });
+    }
 
     if (submissionError) {
       console.error(

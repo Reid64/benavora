@@ -43,6 +43,12 @@ export interface PersonalizePitchParams {
   funderLanguage?: string;
   funderCategory?: string;
   requestProfile?: RequestProfileForPitch | null;
+  /** A/B test variant: writing style hint (e.g. "storytelling", "statistical"). */
+  pitchStyle?: string;
+  /** A/B test variant: thematic emphasis (e.g. "housing impact", "community benefit"). */
+  emphasis?: string;
+  /** Skip the pitch_cache read/write — use when A/B variant is active. */
+  bypassCache?: boolean;
   /** Required for cache read/write. */
   organizationId?: string;
   /** Required for cache read/write. */
@@ -116,6 +122,8 @@ function buildPrompt(params: PersonalizePitchParams): string {
     funderLanguage,
     funderCategory,
     requestProfile,
+    pitchStyle,
+    emphasis,
     maxLength,
   } = params;
 
@@ -149,6 +157,14 @@ function buildPrompt(params: PersonalizePitchParams): string {
     ? `\n\nFunder category: ${funderCategory}.`
     : '';
 
+  const pitchStyleHint = pitchStyle
+    ? `\n\nWriting style: ${pitchStyle} (write the pitch in this style).`
+    : '';
+
+  const emphasisHint = emphasis
+    ? `\n\nKey theme to emphasize: ${emphasis} (make this the central thread of the pitch).`
+    : '';
+
   if (isMonetary) {
     return `You are writing a concise, personalized pitch for a nonprofit donation request.
 
@@ -157,7 +173,7 @@ Mission: ${orgMission}
 Programs: ${programList}
 
 Target funder: ${funderName}
-Funder priorities: ${priorityList}${categoryHint}${languageHint}${needsContext}${pitchTemplateHint}
+Funder priorities: ${priorityList}${categoryHint}${languageHint}${pitchStyleHint}${emphasisHint}${needsContext}${pitchTemplateHint}
 
 Rewrite the organization's mission description into a donation request pitch tailored to ${funderName}'s stated priorities. Emphasize the overlap between the org's work and what the funder cares about. Use language consistent with the funder's own terminology where possible.
 
@@ -177,7 +193,7 @@ Mission: ${orgMission}
 Programs: ${programList}
 
 Target funder: ${funderName}
-Funder priorities: ${priorityList}${categoryHint}${languageHint}${needsContext}${pitchTemplateHint}
+Funder priorities: ${priorityList}${categoryHint}${languageHint}${pitchStyleHint}${emphasisHint}${needsContext}${pitchTemplateHint}
 
 Write a pitch requesting ${frame} from ${funderName} that connects the organization's work to the funder's stated priorities. Explain clearly what the donated resource (land, materials, labor, services, etc.) will be used for and why it matters to the funder's community.
 
@@ -200,11 +216,12 @@ Return ONLY the pitch text. No headings, no labels, no explanation.`;
 export async function personalizePitch(
   params: PersonalizePitchParams,
 ): Promise<string> {
-  const { organizationId, funderId, supabase, requestProfile } = params;
+  const { organizationId, funderId, supabase, requestProfile, bypassCache } = params;
   const requestType = requestProfile?.request_type ?? 'monetary';
 
   // Attempt cache read when we have both IDs and a supabase client.
-  if (organizationId && funderId && supabase) {
+  // Skip cache when bypassCache is true (e.g. A/B test variant active).
+  if (organizationId && funderId && supabase && !bypassCache) {
     const cached = await readCache(supabase, organizationId, funderId, requestType);
     if (cached) return cached;
   }
@@ -221,8 +238,8 @@ export async function personalizePitch(
   const pitch =
     content?.type === 'text' ? content.text.trim() : params.orgMission;
 
-  // Write to cache when we have both IDs and a supabase client.
-  if (organizationId && funderId && supabase) {
+  // Write to cache when we have both IDs and a supabase client (skip for A/B variants).
+  if (organizationId && funderId && supabase && !bypassCache) {
     await writeCache(supabase, organizationId, funderId, requestType, pitch);
   }
 
