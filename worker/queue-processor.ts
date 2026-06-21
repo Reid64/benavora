@@ -22,6 +22,7 @@ import { WebhookNotifier } from '../src/lib/autoapply/webhook-notifier.js';
 import { annotateErrorScreenshot } from '../src/lib/autoapply/error-annotator.js';
 import { assessSubmissionRisk } from '../src/lib/autoapply/risk-engine.js';
 import { RelationshipManager } from '../src/lib/autoapply/relationship-manager.js';
+import { submitViaEmail } from '../src/lib/autoapply/email-submitter.js';
 import { QueueControlPlane } from '../src/lib/autoapply/queue-controls.js';
 import { UsageMeter } from '../src/lib/autoapply/usage-meter.js';
 import type { ReadinessReport } from '../src/lib/autoapply/submission-validator.js';
@@ -43,6 +44,7 @@ interface FunderRow {
   id: string;
   name: string | null;
   giving_portal_url: string | null;
+  contact_email: string | null;
   category: string | null;
   type: string | null;
   automation_level: string | null;
@@ -317,7 +319,7 @@ export class QueueProcessor {
     // Fetch funder record (category + type needed for timing score and pitch personalizer)
     const { data: funderData, error: funderError } = await this.supabase
       .from('funders')
-      .select('id, name, giving_portal_url, category, type, automation_level')
+      .select('id, name, giving_portal_url, contact_email, category, type, automation_level')
       .eq('id', funderId)
       .maybeSingle();
 
@@ -326,14 +328,18 @@ export class QueueProcessor {
 
     const funder = funderData as FunderRow;
     const portalUrl = funder.giving_portal_url;
-    if (!portalUrl) throw new SkipError('no_portal_url');
+    const funderContactEmail = funder.contact_email;
     const funderName = funder.name ?? funderId;
 
-    // Domain-level control check now that we have the portal URL.
-    const domainBlock = await this.queueControlPlane.isBlocked({
+    // Prefer web form; fall back to email; skip if neither is available
+    if (!portalUrl && !funderContactEmail) throw new SkipError('no_portal_or_email');
+    const submissionChannel: 'web_form' | 'email' = portalUrl ? 'web_form' : 'email';
+
+    // Domain-level control check now that we have the portal URL (web form only).
+    const domainBlock = portalUrl !== null ? await this.queueControlPlane.isBlocked({
       portalUrl,
       supabase: this.supabase,
-    }).catch(() => null);
+    }).catch(() => null) : null;
 
     if (domainBlock !== null && domainBlock.blocked && domainBlock.controlType === 'domain') {
       throw new SkipError(`control_plane_blocked:domain: ${domainBlock.reason ?? 'domain paused'}`);
@@ -398,25 +404,28 @@ export class QueueProcessor {
     }
 
     // --- Submission controls: check before launching a browser session ---
-    const funderDomain = extractDomain(portalUrl);
+    const funderDomain = portalUrl !== null ? extractDomain(portalUrl) : null;
 
     const velocityCheck = await this.submissionControls.checkVelocityLimits(orgId, this.supabase);
     if (velocityCheck.blocked) {
       throw new SkipError(`velocity_limit: ${velocityCheck.reason ?? 'daily cap reached'}`);
     }
 
-    const crossClientCheck = await this.submissionControls.checkCrossClientDedup(
-      funderDomain,
-      orgId,
-      this.supabase,
-    );
-    if (crossClientCheck.blocked) {
-      throw new SkipError(`cross_client_blocked: ${crossClientCheck.reason ?? 'domain recently used by another org'}`);
-    }
+    // Cross-client dedup and domain throttle only apply to web form submissions
+    if (funderDomain !== null && portalUrl !== null) {
+      const crossClientCheck = await this.submissionControls.checkCrossClientDedup(
+        funderDomain,
+        orgId,
+        this.supabase,
+      );
+      if (crossClientCheck.blocked) {
+        throw new SkipError(`cross_client_blocked: ${crossClientCheck.reason ?? 'domain recently used by another org'}`);
+      }
 
-    const domainThrottle = await this.submissionControls.checkDomainThrottle(portalUrl, this.supabase);
-    if (domainThrottle.blocked) {
-      throw new SkipError(`domain_throttled: ${domainThrottle.reason ?? 'too many recent submissions to this domain'}`);
+      const domainThrottle = await this.submissionControls.checkDomainThrottle(portalUrl, this.supabase);
+      if (domainThrottle.blocked) {
+        throw new SkipError(`domain_throttled: ${domainThrottle.reason ?? 'too many recent submissions to this domain'}`);
+      }
     }
 
     // --- Relationship contact rules: do_not_contact_until + disallowed_request_types ---
@@ -517,8 +526,124 @@ export class QueueProcessor {
         }
       : undefined;
 
+    // --- Email submission channel ---
+    if (submissionChannel === 'email') {
+      if (!process.env['RESEND_API_KEY']) {
+        throw new SkipError('email_not_configured');
+      }
+
+      const requestType = requestProfile?.request_type ?? 'monetary';
+      const pitch = personalizedPitch ?? orgProfile?.mission_statement ?? '';
+      const replyTo = orgProfile?.contact_email ?? '';
+
+      let emailStatus = 'failed';
+      let emailMessageId: string | null = null;
+      let emailError: string | null = null;
+
+      try {
+        const result = await submitViaEmail({
+          funderEmail: funderContactEmail!,
+          funderName,
+          organizationName: orgName,
+          personalizedPitch: pitch,
+          requestType,
+          askAmount: optimizedAmount ?? undefined,
+          contactEmail: replyTo,
+        });
+        emailMessageId = result.messageId;
+        emailStatus = 'submitted';
+        console.log(`[QueueProcessor] Email submitted to ${funderName} (${funderContactEmail}): messageId=${emailMessageId}`);
+      } catch (err) {
+        emailError = err instanceof Error ? err.message : String(err);
+        console.error(`[QueueProcessor] Email submission failed for ${funderName}:`, emailError);
+      }
+
+      void this.usageMeter.recordUsage(orgId, 'email', { claude: 0, proxy: 0 }, this.supabase).catch((e: unknown) => {
+        console.warn('[QueueProcessor] recordUsage (email) failed:', e instanceof Error ? e.message : String(e));
+      });
+
+      const { data: emailSubmission, error: emailSubError } = await this.supabase
+        .from('autoapply_submissions')
+        .insert({
+          organization_id: orgId,
+          funder_id: funderId,
+          request_profile_id: item.request_profile_id,
+          status: emailStatus,
+          submission_channel: 'email',
+          request_description: pitch,
+          personalized_pitch: personalizedPitch,
+          optimized_amount: optimizedAmount,
+          timing_score: timingScore,
+          error_message: emailError,
+          submitted_at: emailStatus === 'submitted' ? new Date().toISOString() : null,
+        })
+        .select('*')
+        .single();
+
+      if (emailSubError) {
+        console.error(`[QueueProcessor] Failed to create email submission record for ${queueItemId}:`, emailSubError.message);
+      }
+
+      if (emailSubmission !== null) {
+        const emailSubRow = emailSubmission as { id: string };
+
+        await this.supabase
+          .from('submission_queue')
+          .update({ submission_id: emailSubRow.id })
+          .eq('id', queueItemId);
+
+        if (emailStatus === 'submitted') {
+          await this.relationshipManager.recordSubmission(
+            orgId,
+            funderId,
+            { request_type: requestType, submitted_at: new Date().toISOString() },
+            this.supabase,
+          ).catch((e: unknown) => {
+            console.warn('[QueueProcessor] relationshipManager.recordSubmission (email):', e instanceof Error ? e.message : String(e));
+          });
+
+          void this.webhookNotifier.notify({
+            orgId,
+            event: 'submission_completed',
+            data: {
+              submissionId: emailSubRow.id,
+              funderName,
+              confirmationNumber: emailMessageId,
+              requestType,
+              submittedAt: new Date().toISOString(),
+              channel: 'email',
+            },
+            supabase: this.supabase,
+          }).catch((e: unknown) => {
+            console.warn('[QueueProcessor] webhook email submission_completed:', e instanceof Error ? e.message : String(e));
+          });
+        } else {
+          void this.webhookNotifier.notify({
+            orgId,
+            event: 'submission_failed',
+            data: {
+              submissionId: emailSubRow.id,
+              funderName,
+              errorMessage: emailError ?? emailStatus,
+              status: emailStatus,
+              channel: 'email',
+            },
+            supabase: this.supabase,
+          }).catch((e: unknown) => {
+            console.warn('[QueueProcessor] webhook email submission_failed:', e instanceof Error ? e.message : String(e));
+          });
+        }
+      }
+
+      if (emailStatus !== 'submitted') {
+        throw new Error(emailError ?? emailStatus);
+      }
+
+      return;
+    }
+
     // Quick portal health check before committing to a full browser session
-    const portalHealth = await quickHealthCheck(portalUrl);
+    const portalHealth = await quickHealthCheck(portalUrl!);
     if (portalHealth === 'dead') {
       console.log(`[QueueProcessor] Portal dead for ${funderName} (${portalUrl}) — skipping`);
       await this.supabase
@@ -692,7 +817,7 @@ export class QueueProcessor {
         let analyzeResult: { id: string; fieldCount: number };
         try {
           const analyzer = new FormAnalyzerAgent(this.supabase);
-          analyzeResult = await analyzer.analyzeAndStore({ page, portalUrl, funderId, organizationId: orgId });
+          analyzeResult = await analyzer.analyzeAndStore({ page, portalUrl: portalUrl!, funderId, organizationId: orgId });
         } catch (analyzerErr) {
           const analyzerMsg = analyzerErr instanceof Error ? analyzerErr.message : String(analyzerErr);
           console.warn(`[QueueProcessor] FormAnalyzerAgent failed for funder ${funderName}: ${analyzerMsg}`);
@@ -781,13 +906,13 @@ export class QueueProcessor {
 
       // For cached templates the FormAnalyzerAgent was skipped, so navigate now.
       if (!needsReanalysis) {
-        await page.goto(portalUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+        await page.goto(portalUrl!, { waitUntil: 'domcontentloaded', timeout: 30_000 });
         // Capture page state immediately after navigation
         pageLoadPath = await snap('page_load');
       }
 
       // Handle portals that require login or registration before the form is reachable
-      await this.handleLoginGating(page, orgId, funderId, portalUrl, orgProfile);
+      await this.handleLoginGating(page, orgId, funderId, portalUrl!, orgProfile);
 
       // Capture page state after login (the portal form, ready to be filled)
       preFillPath = await snap('pre_fill');
@@ -965,7 +1090,7 @@ export class QueueProcessor {
 
       // Record in cross-client dedup log on successful submission so other tenants
       // avoid submitting to the same domain in the next 7 days.
-      if (submissionStatus === 'submitted') {
+      if (submissionStatus === 'submitted' && funderDomain !== null) {
         await this.submissionControls.recordSubmission(funderDomain, orgId, this.supabase).catch(
           (e: unknown) => {
             console.warn(
