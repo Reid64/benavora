@@ -8,6 +8,7 @@ import {
 } from "@/lib/integrations/google/auth";
 import { GmailSync } from "@/lib/integrations/google/gmail";
 import type { Enums, TablesInsert } from "@/types/database";
+import { ReminderEngine } from "@/lib/calendar/reminder-engine";
 
 // Deadline reminder sweep (BLUEPRINT §3.1 cron, Contracts §11 reminders + §20
 // calendar). Vercel Cron hits this with GET daily at 08:00 UTC (see vercel.json).
@@ -169,6 +170,44 @@ async function runSweep(request: Request) {
     }
   }
 
+  // Follow-up reminder scheduling: push 14/30/60-day reminders to Google
+  // Calendar for orgs that have an active calendar connection, and fire overdue
+  // follow-up alerts for all calendar-connected orgs.
+  const engine = new ReminderEngine();
+  const { data: calConnOrgs } = await admin
+    .from("calendar_connections")
+    .select("organization_id")
+    .eq("sync_status", "active");
+
+  type CalOrgRow = { organization_id: string };
+  const calOrgIds = [
+    ...new Set((calConnOrgs ?? []).map((r: CalOrgRow) => r.organization_id)),
+  ];
+
+  let followUpRemindersCreated = 0;
+  let followUpNotificationsCreated = 0;
+  let followUpCalEventsCreated = 0;
+  let overdueAlertsFired = 0;
+
+  for (const orgId of calOrgIds) {
+    try {
+      const reminderResult = await engine.scheduleFollowUpReminders(orgId);
+      followUpRemindersCreated += reminderResult.remindersCreated;
+      followUpNotificationsCreated += reminderResult.notificationsCreated;
+      followUpCalEventsCreated += reminderResult.calendarEventsCreated;
+      errors += reminderResult.errors.length;
+    } catch {
+      errors += 1;
+    }
+
+    try {
+      await engine.processOverdueFollowUps(orgId);
+      overdueAlertsFired += 1;
+    } catch {
+      errors += 1;
+    }
+  }
+
   return NextResponse.json({
     mode: "cron",
     scope: "all_organizations",
@@ -176,6 +215,10 @@ async function runSweep(request: Request) {
     remindersFired,
     emailsSent,
     notesLogged,
+    followUpRemindersCreated,
+    followUpNotificationsCreated,
+    followUpCalEventsCreated,
+    overdueAlertsFired,
     errors,
   });
 }
