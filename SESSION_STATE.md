@@ -420,3 +420,26 @@ The overnight FORGE chain ran 10/13 before `logic-005` halted it. The remaining 
 ### Next Build
 **Night 3 — Need Statement Database:** Census Bureau API, HUD PIT counts, SAMHSA treatment data, BLS unemployment, CDC health outcomes, geographic matching engine, auto-citation generator.
 **Phase 4 — Email/Calendar Integration + Admin Sales Outreach Engine** (queued for tonight's chain).
+
+## Session — 2026-06-21 (Phase 4A)
+
+### Completed This Session
+
+#### Phase 4A: Email/Calendar Integration — BUILT
+
+**Build gate (2026-06-21):** `pnpm run build` PASSED — all routes compiled, `/settings/integrations` = 9.64 kB, zero errors. Gates: compile=PASS build=PASS.
+
+**Files built / updated:**
+- `src/app/(dashboard)/settings/integrations/page.tsx` (full rewrite) — Suspense-wrapped integrations page; GmailCard (OAuth connect/disconnect/sync/auto-sync toggle+frequency), CalendarCard (OAuth connect/disconnect/sync deadlines/auto-sync toggle/auto-deadlines checkbox), ResendStatusCard (read-only env-var badge), SAM.gov KeyedCard (unchanged); preferences loaded/saved to `platform_config` table; disconnect confirmation modal
+- `src/app/(dashboard)/settings/layout.tsx` (new) — settings sub-navigation: General / Integrations / Branding / Custom APIs / Scraping Targets; active state via `usePathname()`
+- `src/app/api/settings/integrations/status/route.ts` (new) — GET returns `{ resend_configured: boolean }` from server-side `RESEND_API_KEY` check
+
+### Manual Steps Remaining (BLOCKING before Phase 4A features are live)
+| Step | Reason |
+|------|--------|
+| Set `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` in Vercel | OAuth flows return 500 without them |
+| Set `CREDENTIAL_ENCRYPTION_KEY` in Vercel | Token encryption fails without it |
+| Apply migration 054 (`054_email_calendar.sql`) if not yet applied | `email_connections`, `calendar_connections` and related tables required by OAuth callbacks |
+
+### Next Build
+**Phase 4B — Admin Sales Outreach Engine:** CRM for tracking outreach to prospective Benavora customers, email sequence builder, deal pipeline, contact management, outreach analytics.
