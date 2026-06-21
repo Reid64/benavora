@@ -23,6 +23,11 @@ import {
   type ScoringRubric,
   type LogicModel,
 } from "@/lib/intelligence/rag-retrieval";
+import {
+  generateLogicModel,
+  formatLogicModelAsText,
+  type GeneratedLogicModel,
+} from "@/lib/intelligence/logic-model-generator";
 import { AI_CONFIDENCE_THRESHOLD } from "@/lib/utils/constants";
 import type {
   DraftPromptContext,
@@ -517,6 +522,15 @@ export async function POST(request: Request) {
     let intelligenceRubric: ScoringRubric | null = null;
     let intelligenceLogicModel: LogicModel | null = null;
 
+    const oppDescLower = ((opportunity.description as string | null) ?? "").toLowerCase();
+    const oppEligLower = ((opportunity.eligibility_requirements as string | null) ?? "").toLowerCase();
+    const LOGIC_MODEL_KEYWORDS = ["logic model", "theory of change", "program design"];
+    const needsLogicModel =
+      template === "full_proposal" ||
+      LOGIC_MODEL_KEYWORDS.some((kw) => oppDescLower.includes(kw) || oppEligLower.includes(kw));
+
+    let generatedLogicModel: GeneratedLogicModel | null = null;
+
     {
       const queryText = [
         opportunity.description,
@@ -525,15 +539,6 @@ export async function POST(request: Request) {
       ]
         .filter(Boolean)
         .join(" ");
-
-      const needsLogicModel =
-        template === "full_proposal" ||
-        ((opportunity.eligibility_requirements as string | null) ?? "")
-          .toLowerCase()
-          .includes("logic model") ||
-        ((opportunity.description as string | null) ?? "")
-          .toLowerCase()
-          .includes("logic model");
 
       const sectionTypes = TEMPLATE_SECTION_TYPES[template];
 
@@ -655,6 +660,46 @@ export async function POST(request: Request) {
       }
     }
 
+    // Logic model resolution: prefer RAG result; fall back to AI generation when
+    // a logic model is needed and the library has no match yet.
+    {
+      const toStrArr = (v: unknown): string[] =>
+        Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+      if (intelligenceLogicModel) {
+        generatedLogicModel = {
+          data: {
+            inputs: toStrArr(intelligenceLogicModel.inputs),
+            activities: toStrArr(intelligenceLogicModel.activities),
+            outputs: toStrArr(intelligenceLogicModel.outputs),
+            outcomes: toStrArr(intelligenceLogicModel.outcomes),
+            impact: toStrArr(intelligenceLogicModel.impact),
+          },
+          category: context.opportunity.category,
+          templateBased: true,
+        };
+      } else if (needsLogicModel) {
+        try {
+          const programDescription =
+            knowledgeEntries
+              .filter((e) => e.category === "program_description")
+              .map((e) => e.content)
+              .join(" ") || context.organization?.missionStatement || "";
+          generatedLogicModel = await generateLogicModel({
+            category: context.opportunity.category,
+            programDescription,
+            organizationName: context.organization?.name ?? "",
+            targetPopulation: context.organization?.targetPopulation ?? undefined,
+            geography: context.organization?.serviceArea ?? undefined,
+          });
+        } catch (lmErr: unknown) {
+          console.error(
+            "[INTELLIGENCE] generateLogicModel failed:",
+            (lmErr as Error).message,
+          );
+        }
+      }
+    }
+
     // Build the prompt: donation letters get their own builder; everything else
     // uses the grant-narrative builder, parameterized by template type.
     const built =
@@ -690,22 +735,11 @@ export async function POST(request: Request) {
       enhancedPrompt += "\n\n" + promptText;
     }
 
-    if (intelligenceLogicModel) {
-      const logicText = JSON.stringify(
-        {
-          inputs: intelligenceLogicModel.inputs,
-          activities: intelligenceLogicModel.activities,
-          outputs: intelligenceLogicModel.outputs,
-          outcomes: intelligenceLogicModel.outcomes,
-          impact: intelligenceLogicModel.impact,
-        },
-        null,
-        2,
-      );
+    if (generatedLogicModel) {
+      const formattedModel = formatLogicModelAsText(generatedLogicModel);
       enhancedPrompt +=
-        "\n\nLOGIC MODEL TEMPLATE — Use this as a starting framework for the program logic:\n" +
-        logicText +
-        "\nAdapt it to the specific program.";
+        "\n\nPROGRAM LOGIC MODEL — Use this as the structural backbone for the program design section:\n" +
+        formattedModel;
     }
 
     const response = await callClaude({
@@ -869,6 +903,7 @@ export async function POST(request: Request) {
     const result: DraftResult & {
       belowThreshold: boolean;
       rubricDimensions?: Array<{ name: string; points: number | null; description: string | null }>;
+      logicModel?: GeneratedLogicModel;
     } = {
       content: draftText,
       confidenceScore,
@@ -876,6 +911,7 @@ export async function POST(request: Request) {
       savedVersion,
       belowThreshold: confidenceScore < threshold,
       rubricDimensions: rubricDimensionSummary.length > 0 ? rubricDimensionSummary : undefined,
+      logicModel: generatedLogicModel ?? undefined,
     };
 
     return NextResponse.json(result);
