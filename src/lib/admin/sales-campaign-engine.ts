@@ -3,6 +3,7 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { decryptToken } from "@/lib/email/encryption";
 import { WarmupEngine } from "@/lib/admin/warmup-engine";
+import { EmailComplianceEngine } from "@/lib/admin/compliance";
 
 export type CampaignConfig = {
   name: string;
@@ -65,6 +66,7 @@ function getFirstName(orgName: string): string {
 export class SalesCampaignEngine {
   private supabase = createAdminClient();
   private warmup = new WarmupEngine();
+  private compliance = new EmailComplianceEngine();
 
   async createCampaign(config: CampaignConfig): Promise<string> {
     const { data: campaign, error: cErr } = await this.supabase
@@ -368,6 +370,31 @@ export class SalesCampaignEngine {
         continue;
       }
 
+      // Enforce CAN-SPAM compliance before sending
+      const complianceResult = this.compliance.enforceCompliance({
+        from: fromAddress,
+        to: send.to_address,
+        subject: send.subject,
+        body_html: send.body_html ?? "",
+      });
+
+      let finalBodyHtml = send.body_html ?? send.subject;
+      if (!complianceResult.compliant) {
+        if (complianceResult.modified_body) {
+          // Auto-fixed body — use the compliant version
+          finalBodyHtml = complianceResult.modified_body;
+        } else {
+          // Cannot auto-fix — skip this send
+          const violationSummary = complianceResult.violations.join("; ");
+          await this.supabase
+            .from("sales_sends")
+            .update({ status: "failed", error_message: `CAN-SPAM violation: ${violationSummary}`.slice(0, 500) })
+            .eq("id", send.id);
+          result.failed++;
+          continue;
+        }
+      }
+
       // Send via Resend
       try {
         const resendRes = await fetch("https://api.resend.com/emails", {
@@ -380,7 +407,7 @@ export class SalesCampaignEngine {
             from: fromAddress,
             to: [send.to_address],
             subject: send.subject,
-            html: send.body_html ?? send.subject,
+            html: finalBodyHtml,
           }),
         });
 
