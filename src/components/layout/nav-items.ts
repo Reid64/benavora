@@ -70,6 +70,7 @@ export const NAV_ITEMS: NavItem[] = [
       { label: "Compliance", href: "/autoapply/compliance" },
       { label: "Recordings", href: "/autoapply/recordings" },
       { label: "Settings", href: "/autoapply/settings" },
+      { label: "Analytics", href: "/autoapply/analytics" },
       { label: "Usage & Billing", href: "/autoapply/usage" },
     ],
   },
