@@ -176,6 +176,10 @@ export interface Database {
           geographic_focus: string | null;
           preferred_application_method: string | null;
           has_giving_page: boolean | null;
+          portal_status: string | null;
+          portal_last_checked_at: string | null;
+          portal_response_time_ms: number | null;
+          portal_review_status: string | null;
           notes: string | null;
           last_contacted_at: string | null;
           created_at: string;
@@ -194,6 +198,10 @@ export interface Database {
           geographic_focus?: string | null;
           preferred_application_method?: string | null;
           has_giving_page?: boolean | null;
+          portal_status?: string | null;
+          portal_last_checked_at?: string | null;
+          portal_response_time_ms?: number | null;
+          portal_review_status?: string | null;
           notes?: string | null;
           last_contacted_at?: string | null;
           created_at?: string;
@@ -212,6 +220,10 @@ export interface Database {
           geographic_focus?: string | null;
           preferred_application_method?: string | null;
           has_giving_page?: boolean | null;
+          portal_status?: string | null;
+          portal_last_checked_at?: string | null;
+          portal_response_time_ms?: number | null;
+          portal_review_status?: string | null;
           notes?: string | null;
           last_contacted_at?: string | null;
           created_at?: string;

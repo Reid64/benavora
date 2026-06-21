@@ -9,6 +9,7 @@ import { ScreenshotManager } from '../src/lib/autoapply/screenshot-manager.js';
 import * as heartbeat from './heartbeat.js';
 import { RateLimiter } from './rate-limiter.js';
 import { ProxyManager } from './proxy-manager.js';
+import { quickHealthCheck } from './portal-health.js';
 
 // --- types -------------------------------------------------------------------
 
@@ -243,6 +244,17 @@ export class QueueProcessor {
     const orgProfile = orgRow as { name?: string | null } | null;
     if (!portalUrl) throw new SkipError('no_portal_url');
     const funderName = funder.name ?? funderId;
+
+    // Quick portal health check before committing to a full browser session
+    const portalHealth = await quickHealthCheck(portalUrl);
+    if (portalHealth === 'dead') {
+      console.log(`[QueueProcessor] Portal dead for ${funderName} (${portalUrl}) — skipping`);
+      await this.supabase
+        .from('funders')
+        .update({ portal_status: 'dead', portal_last_checked_at: new Date().toISOString() })
+        .eq('id', funderId);
+      throw new SkipError('portal_dead');
+    }
 
     // Per-domain throttle: minimum 24 hours between submissions to the same funder
     const canSubmit = await this.rateLimiter.canSubmitToDomain(funderId);
