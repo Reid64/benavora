@@ -1,0 +1,91 @@
+-- Funder relationship memory
+CREATE TABLE IF NOT EXISTS funder_relationships (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  organization_id uuid NOT NULL REFERENCES organizations(id),
+  funder_id uuid NOT NULL REFERENCES funders(id),
+  relationship_status text DEFAULT 'prospect',
+  last_submission_at timestamptz,
+  last_response_at timestamptz,
+  total_submissions integer DEFAULT 0,
+  total_funded numeric(12,2) DEFAULT 0,
+  preferred_channel text,
+  preferred_request_type text,
+  do_not_contact_until timestamptz,
+  contact_notes text,
+  board_meeting_months integer[],
+  fiscal_year_end_month integer,
+  response_time_avg_days integer,
+  funder_preferences jsonb DEFAULT '{}',
+  disallowed_request_types text[],
+  max_ask_amount numeric(12,2),
+  relationship_score numeric(3,1),
+  created_at timestamptz DEFAULT NOW(),
+  updated_at timestamptz DEFAULT NOW(),
+  UNIQUE(organization_id, funder_id)
+);
+
+-- Queue control plane
+CREATE TABLE IF NOT EXISTS queue_controls (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  control_type text NOT NULL,
+  target_id text,
+  paused boolean NOT NULL DEFAULT false,
+  paused_by text,
+  paused_at timestamptz,
+  reason text,
+  created_at timestamptz DEFAULT NOW()
+);
+
+-- Usage metering
+CREATE TABLE IF NOT EXISTS submission_usage (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  organization_id uuid NOT NULL REFERENCES organizations(id),
+  period_start timestamptz NOT NULL,
+  period_end timestamptz NOT NULL,
+  automated_count integer DEFAULT 0,
+  email_count integer DEFAULT 0,
+  manual_count integer DEFAULT 0,
+  overage_automated integer DEFAULT 0,
+  overage_email integer DEFAULT 0,
+  overage_cost numeric(10,2) DEFAULT 0,
+  api_cost_claude numeric(10,2) DEFAULT 0,
+  api_cost_openai numeric(10,2) DEFAULT 0,
+  proxy_cost numeric(10,2) DEFAULT 0,
+  captcha_cost numeric(10,2) DEFAULT 0,
+  using_own_keys boolean DEFAULT false,
+  created_at timestamptz DEFAULT NOW()
+);
+
+-- Tier limits
+CREATE TABLE IF NOT EXISTS tier_limits (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  tier_name text NOT NULL UNIQUE,
+  monthly_automated integer NOT NULL,
+  monthly_email integer NOT NULL,
+  monthly_manual integer NOT NULL,
+  daily_max integer NOT NULL,
+  overage_rate_automated numeric(6,2) NOT NULL,
+  overage_rate_email numeric(6,2) NOT NULL,
+  allow_own_keys boolean NOT NULL DEFAULT false
+);
+
+INSERT INTO tier_limits (tier_name, monthly_automated, monthly_email, monthly_manual, daily_max, overage_rate_automated, overage_rate_email, allow_own_keys) VALUES
+  ('starter', 50, 20, 10, 5, 2.99, 0.99, false),
+  ('professional', 200, 100, 50, 15, 1.99, 0.79, false),
+  ('enterprise', 1000, 500, -1, 50, 0.99, 0.49, true),
+  ('consultant', -1, -1, -1, 20, 0.99, 0.49, true)
+ON CONFLICT (tier_name) DO NOTHING;
+
+-- Add automation level to funders
+ALTER TABLE funders ADD COLUMN IF NOT EXISTS automation_level text DEFAULT 'assisted';
+ALTER TABLE funders ADD COLUMN IF NOT EXISTS automation_notes text;
+
+-- Add automation mode to submission queue
+ALTER TABLE submission_queue ADD COLUMN IF NOT EXISTS automation_mode text DEFAULT 'auto';
+ALTER TABLE submission_queue ADD COLUMN IF NOT EXISTS risk_score integer;
+ALTER TABLE submission_queue ADD COLUMN IF NOT EXISTS risk_factors jsonb;
+
+-- Indexes
+CREATE INDEX IF NOT EXISTS idx_funder_relationships_org ON funder_relationships(organization_id, funder_id);
+CREATE INDEX IF NOT EXISTS idx_queue_controls_active ON queue_controls(control_type, paused) WHERE paused = true;
+CREATE INDEX IF NOT EXISTS idx_submission_usage_org ON submission_usage(organization_id, period_start);
