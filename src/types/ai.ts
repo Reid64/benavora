@@ -53,6 +53,16 @@ export interface SavedDraftVersion {
   createdAt: string;
 }
 
+/** A single dimension from a scoring rubric (from intelligence_scoring_rubrics). */
+export interface RubricDimension {
+  /** Human-readable scoring criterion name, e.g. "Need Statement Quality". */
+  name: string;
+  /** Point value for this dimension (raw, not normalized). */
+  points: number;
+  /** What earns full marks on this dimension. */
+  description: string;
+}
+
 export interface DraftResult {
   content: string;
   /** AI confidence 0-100. Below 70 must show a review warning. */
@@ -63,6 +73,10 @@ export interface DraftResult {
    * the (best-effort) save failed - generation itself still succeeds.
    */
   savedVersion?: SavedDraftVersion | null;
+  /** Scoring rubric dimensions retrieved from the intelligence library (if available). */
+  rubric?: RubricDimension[] | null;
+  /** True when the rubric was inferred from the opportunity description rather than matched from the database. */
+  rubricInferred?: boolean;
 }
 
 /** Result of the Humanizer pass (/api/ai/humanize). */

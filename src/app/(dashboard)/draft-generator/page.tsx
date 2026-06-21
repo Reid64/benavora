@@ -20,6 +20,7 @@ import {
   DraftsHistoryPanel,
   type DraftVersionItem,
 } from "@/components/draft-generator/DraftsHistoryPanel";
+import { RubricPanel } from "@/components/intelligence/RubricPanel";
 import { createClient } from "@/lib/supabase/client";
 import { canEdit, useProfile } from "@/lib/hooks/useProfile";
 import { AI_CONFIDENCE_THRESHOLD } from "@/lib/utils/constants";
@@ -32,6 +33,7 @@ import type {
   HumanizationStatus,
   HumanizeResult,
   KnowledgeSource,
+  RubricDimension,
 } from "@/types/ai";
 import type { Json, Tables } from "@/types/database";
 
@@ -150,6 +152,9 @@ export default function DraftGeneratorPage() {
 
   const [budgetTable, setBudgetTable] = useState<BudgetTableItem[]>([]);
   const [totalRequested, setTotalRequested] = useState<number | null>(null);
+
+  const [rubric, setRubric] = useState<RubricDimension[] | null>(null);
+  const [rubricInferred, setRubricInferred] = useState(false);
 
   const [saving, setSaving] = useState(false);
   const [reverting, setReverting] = useState(false);
@@ -300,6 +305,8 @@ export default function DraftGeneratorPage() {
     setTotalRequested(null);
     setHumanizationStatus("not_humanized");
     setActiveVersionId(null);
+    setRubric(null);
+    setRubricInferred(false);
 
     try {
       if (templateType === "budget_narrative") {
@@ -366,6 +373,8 @@ export default function DraftGeneratorPage() {
         payload.savedVersion?.humanizationStatus ?? "not_humanized",
       );
       setActiveVersionId(payload.savedVersion?.id ?? null);
+      setRubric(payload.rubric ?? null);
+      setRubricInferred(payload.rubricInferred ?? false);
       // Refresh the history panel to include the just-saved version.
       await loadVersions(opportunityId, false);
     } catch {
@@ -754,6 +763,7 @@ export default function DraftGeneratorPage() {
                 <Card title="Sources used">
                   <KnowledgePreview sources={sources} />
                 </Card>
+                <RubricPanel rubric={rubric} rubricInferred={rubricInferred} />
                 {budgetTable.length > 0 && (
                   <Card title="Budget line items">
                     <div className="space-y-2">
