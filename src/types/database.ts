@@ -3790,6 +3790,155 @@ export interface Database {
         };
         Relationships: [];
       };
+      // Migration 054 — email_campaign_sequences, email_sequence_steps, email_sequence_enrollments.
+      email_campaign_sequences: {
+        Row: {
+          id: string;
+          organization_id: string;
+          name: string;
+          description: string | null;
+          trigger_type: string;
+          trigger_config: Json;
+          status: string;
+          total_enrolled: number;
+          total_completed: number;
+          total_replied: number;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          name: string;
+          description?: string | null;
+          trigger_type?: string;
+          trigger_config?: Json;
+          status?: string;
+          total_enrolled?: number;
+          total_completed?: number;
+          total_replied?: number;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          name?: string;
+          description?: string | null;
+          trigger_type?: string;
+          trigger_config?: Json;
+          status?: string;
+          total_enrolled?: number;
+          total_completed?: number;
+          total_replied?: number;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      email_sequence_steps: {
+        Row: {
+          id: string;
+          sequence_id: string;
+          step_number: number;
+          template_id: string | null;
+          subject_override: string | null;
+          body_override: string | null;
+          delay_days: number;
+          delay_hours: number;
+          condition_type: string;
+          condition_config: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          sequence_id: string;
+          step_number: number;
+          template_id?: string | null;
+          subject_override?: string | null;
+          body_override?: string | null;
+          delay_days?: number;
+          delay_hours?: number;
+          condition_type?: string;
+          condition_config?: Json;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          sequence_id?: string;
+          step_number?: number;
+          template_id?: string | null;
+          subject_override?: string | null;
+          body_override?: string | null;
+          delay_days?: number;
+          delay_hours?: number;
+          condition_type?: string;
+          condition_config?: Json;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      // Migration 055 adds variables jsonb column.
+      email_sequence_enrollments: {
+        Row: {
+          id: string;
+          organization_id: string;
+          sequence_id: string;
+          contact_id: string | null;
+          funder_id: string | null;
+          email_address: string;
+          current_step: number;
+          status: string;
+          enrolled_at: string;
+          completed_at: string | null;
+          paused_at: string | null;
+          last_sent_at: string | null;
+          next_send_at: string | null;
+          reply_detected: boolean;
+          variables: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          sequence_id: string;
+          contact_id?: string | null;
+          funder_id?: string | null;
+          email_address: string;
+          current_step?: number;
+          status?: string;
+          enrolled_at?: string;
+          completed_at?: string | null;
+          paused_at?: string | null;
+          last_sent_at?: string | null;
+          next_send_at?: string | null;
+          reply_detected?: boolean;
+          variables?: Json;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          sequence_id?: string;
+          contact_id?: string | null;
+          funder_id?: string | null;
+          email_address?: string;
+          current_step?: number;
+          status?: string;
+          enrolled_at?: string;
+          completed_at?: string | null;
+          paused_at?: string | null;
+          last_sent_at?: string | null;
+          next_send_at?: string | null;
+          reply_detected?: boolean;
+          variables?: Json;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
