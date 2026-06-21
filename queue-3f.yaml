@@ -1,0 +1,891 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - BLUEPRINT.md
+  - SCHEMA_REGISTRY.md
+  - BEHAVIORAL_CONTRACTS.md
+  - AGENTS.md
+  - PRD.md
+  - AUTOAPPLY_ARCHITECTURE.md
+  - AUTOAPPLY_ARCHITECTURE_V2.md
+  - WORKER_ARCHITECTURE.md
+  - GRANT_INTELLIGENCE_ARCHITECTURE.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+prompts:
+
+  # ============================================================
+  # PHASE 3F: COMPREHENSIVE SUBMISSION INTELLIGENCE
+  # Every gap, every missing component, every enterprise requirement
+  # Reference: AUTOAPPLY_ARCHITECTURE_V2.md
+  # ============================================================
+
+  - id: f3f-001
+    phase: build
+    description: "Create all Phase 3F database tables in a single migration"
+    prompt: |
+      Read AUTOAPPLY_ARCHITECTURE_V2.md sections 2A through 2D and 6A completely.
+
+      Create C:\Users\manag\Documents\benavora\supabase\migrations\051_submission_intelligence.sql:
+
+      -- Request profiles for multi-type submissions
+      CREATE TABLE IF NOT EXISTS request_profiles (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        name text NOT NULL,
+        request_type text NOT NULL,
+        priority integer NOT NULL DEFAULT 100,
+        active boolean NOT NULL DEFAULT true,
+        needs_description text NOT NULL,
+        specific_requirements jsonb DEFAULT '{}',
+        target_funder_categories text[],
+        target_funder_types text[],
+        pitch_template text,
+        form_field_overrides jsonb DEFAULT '{}',
+        success_criteria text,
+        min_value numeric(12,2),
+        max_value numeric(12,2),
+        value_unit text DEFAULT 'usd',
+        geographic_requirements jsonb,
+        created_at timestamptz DEFAULT NOW(),
+        updated_at timestamptz DEFAULT NOW()
+      );
+
+      -- Extended KB for non-monetary needs
+      CREATE TABLE IF NOT EXISTS kb_extended_needs (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        request_profile_id uuid REFERENCES request_profiles(id) ON DELETE CASCADE,
+        need_type text NOT NULL,
+        details jsonb NOT NULL,
+        created_at timestamptz DEFAULT NOW()
+      );
+
+      -- Pitch cache
+      CREATE TABLE IF NOT EXISTS pitch_cache (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        organization_id uuid NOT NULL,
+        funder_id uuid NOT NULL,
+        request_profile_id uuid REFERENCES request_profiles(id) ON DELETE SET NULL,
+        personalized_pitch text NOT NULL,
+        pitch_hash text NOT NULL,
+        created_at timestamptz DEFAULT NOW(),
+        expires_at timestamptz DEFAULT NOW() + INTERVAL '30 days',
+        UNIQUE(organization_id, funder_id, request_profile_id)
+      );
+
+      -- Organization document vault for form attachments
+      CREATE TABLE IF NOT EXISTS org_documents (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        document_type text NOT NULL,
+        display_name text NOT NULL,
+        storage_path text NOT NULL,
+        file_name text NOT NULL,
+        file_size integer,
+        mime_type text,
+        is_current boolean NOT NULL DEFAULT true,
+        expires_at timestamptz,
+        uploaded_by uuid,
+        created_at timestamptz DEFAULT NOW()
+      );
+
+      -- Submission receipts
+      CREATE TABLE IF NOT EXISTS submission_receipts (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        submission_id uuid REFERENCES autoapply_submissions(id) ON DELETE CASCADE,
+        organization_id uuid NOT NULL,
+        receipt_pdf_path text,
+        receipt_data jsonb NOT NULL,
+        generated_at timestamptz DEFAULT NOW()
+      );
+
+      -- Grant agreements (post-award tracking)
+      CREATE TABLE IF NOT EXISTS grant_agreements (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        submission_id uuid REFERENCES autoapply_submissions(id),
+        organization_id uuid NOT NULL REFERENCES organizations(id),
+        funder_id uuid NOT NULL REFERENCES funders(id),
+        amount_awarded numeric(12,2),
+        award_type text,
+        agreement_date timestamptz,
+        start_date timestamptz,
+        end_date timestamptz,
+        terms text,
+        reporting_requirements jsonb,
+        payment_schedule jsonb,
+        status text NOT NULL DEFAULT 'pending',
+        notes text,
+        created_at timestamptz DEFAULT NOW()
+      );
+
+      -- Webhook notification configs
+      CREATE TABLE IF NOT EXISTS webhook_configs (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        webhook_type text NOT NULL DEFAULT 'slack',
+        webhook_url text NOT NULL,
+        events text[] NOT NULL DEFAULT '{submission_completed,submission_failed}',
+        active boolean NOT NULL DEFAULT true,
+        created_at timestamptz DEFAULT NOW()
+      );
+
+      -- Cross-client submission tracking (anonymized)
+      CREATE TABLE IF NOT EXISTS cross_client_submissions (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        funder_domain text NOT NULL,
+        submitted_at timestamptz NOT NULL DEFAULT NOW(),
+        org_hash text NOT NULL
+      );
+
+      -- Add columns to existing tables
+      ALTER TABLE submission_queue ADD COLUMN IF NOT EXISTS request_profile_id uuid REFERENCES request_profiles(id);
+      ALTER TABLE autoapply_submissions ADD COLUMN IF NOT EXISTS request_profile_id uuid REFERENCES request_profiles(id);
+      ALTER TABLE autoapply_submissions ADD COLUMN IF NOT EXISTS submission_channel text DEFAULT 'web_form';
+      ALTER TABLE autoapply_submissions ADD COLUMN IF NOT EXISTS personalized_pitch text;
+      ALTER TABLE autoapply_submissions ADD COLUMN IF NOT EXISTS optimized_amount numeric(12,2);
+      ALTER TABLE autoapply_submissions ADD COLUMN IF NOT EXISTS timing_score numeric(3,2);
+      ALTER TABLE autoapply_submissions ADD COLUMN IF NOT EXISTS confirmation_data jsonb;
+      ALTER TABLE autoapply_submissions ADD COLUMN IF NOT EXISTS documents_attached text[];
+
+      -- Indexes
+      CREATE INDEX IF NOT EXISTS idx_request_profiles_org ON request_profiles(organization_id, active);
+      CREATE INDEX IF NOT EXISTS idx_pitch_cache_lookup ON pitch_cache(organization_id, funder_id, request_profile_id);
+      CREATE INDEX IF NOT EXISTS idx_org_documents_type ON org_documents(organization_id, document_type, is_current);
+      CREATE INDEX IF NOT EXISTS idx_cross_client_domain ON cross_client_submissions(funder_domain, submitted_at DESC);
+
+      NOTE: Migration 051 must be applied manually via Supabase SQL Editor.
+    expected_outputs:
+      - supabase/migrations/051_submission_intelligence.sql
+    gates:
+      - type: file_exists
+        files: [supabase/migrations/051_submission_intelligence.sql]
+    max_retries: 3
+    on_fail: halt
+
+  - id: f3f-002
+    phase: build
+    description: "Create org document vault with upload API and storage integration"
+    prompt: |
+      Create C:\Users\manag\Documents\benavora\src\lib\autoapply\document-vault.ts:
+
+      Export class DocumentVault with:
+
+      Standard document types (enum/const):
+      - '501c3_letter': IRS 501(c)(3) determination letter
+      - 'form_990': Latest IRS Form 990
+      - 'board_list': Current board of directors list
+      - 'project_budget': Project/program budget
+      - 'financial_statements': Audited financial statements
+      - 'annual_report': Latest annual report
+      - 'organizational_chart': Org chart
+      - 'letters_of_support': Letters of support/partnership
+      - 'insurance_certificate': Certificate of insurance
+      - 'other': Miscellaneous document
+
+      async uploadDocument(params: { orgId, documentType, file: Buffer, fileName, mimeType, uploadedBy?, expiresAt? }): Promise<string>
+      - Upload to Supabase Storage bucket 'org-documents' at path: {orgId}/{documentType}/{fileName}
+      - If a current document of this type exists, set is_current = false on the old one.
+      - Insert into org_documents with is_current = true.
+      - Return the document ID.
+
+      async getDocument(orgId: string, documentType: string): Promise<OrgDocument | null>
+      - Fetch the current (is_current = true) document of the given type.
+      - Return null if none exists.
+
+      async getDocumentBuffer(storagePath: string): Promise<Buffer>
+      - Download the file from Supabase Storage and return the buffer.
+
+      async getAllDocuments(orgId: string): Promise<OrgDocument[]>
+      - Return all current documents for the org.
+
+      async getReadinessReport(orgId: string): Promise<{ ready: boolean, missing: string[], expired: string[], score: number }>
+      - Check which standard document types exist for this org.
+      - Flag missing required docs: 501c3_letter, form_990 are required.
+      - Flag expired docs (expires_at < NOW()).
+      - Score: (docs present / total standard types) * 100.
+      - ready = true if 501c3_letter AND form_990 exist and are not expired.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\autoapply\documents\route.ts:
+      GET: return all current documents for the org.
+      POST: accept multipart form upload, call vault.uploadDocument.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\autoapply\documents\readiness\route.ts:
+      GET: return readiness report for the org.
+    expected_outputs:
+      - src/lib/autoapply/document-vault.ts
+      - src/app/api/autoapply/documents/route.ts
+      - src/app/api/autoapply/documents/readiness/route.ts
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: f3f-003
+    phase: build
+    description: "Create request profile CRUD API and management wizard UI"
+    prompt: |
+      Read AUTOAPPLY_ARCHITECTURE_V2.md section 2C (Request Profile System).
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\autoapply\profiles\route.ts:
+      GET: fetch all request_profiles for the org, ordered by priority. Include submission count per profile.
+      POST: create new profile. Validate request_type is one of: monetary, land, in_kind, volunteer, service, partnership, sponsorship, facility. needs_description is required.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\autoapply\profiles\[id]\route.ts:
+      GET: single profile. PUT: update. DELETE: soft-delete (active=false).
+
+      Create C:\Users\manag\Documents\benavora\src\app\(dashboard)\autoapply\profiles\page.tsx:
+      Profile management page with creation wizard:
+      - Card list of all profiles: name, type badge (color-coded), priority, active toggle, submission count, success rate.
+      - Type colors: monetary=green, land=amber, in_kind=blue, volunteer=purple, service=teal, partnership=orange, sponsorship=pink, facility=gray.
+      - "Create Profile" wizard modal with 5 steps:
+        Step 1: Select type from grid of cards with icons and descriptions.
+        Step 2: Type-specific needs form (monetary: amount range; land: acreage/zoning/counties; in_kind: items list; volunteer: skills/hours; service: type/scope; partnership: mutual benefits; facility: space/size/duration).
+        Step 3: Target criteria (funder categories multi-select, geographic scope).
+        Step 4: Pitch template (pre-filled default, editable).
+        Step 5: Review + activate.
+      - Edit, duplicate, archive buttons per card.
+      - "Org Readiness" banner at top showing document vault readiness score from /api/autoapply/documents/readiness. If missing required docs, show warning with link to upload.
+      - Add "Request Profiles" nav link in AutoApply sidebar.
+
+      Use Tailwind CSS, lucide-react icons. Match existing dashboard styling.
+    expected_outputs:
+      - src/app/api/autoapply/profiles/route.ts
+      - src/app/api/autoapply/profiles/[id]/route.ts
+      - src/app/(dashboard)/autoapply/profiles/page.tsx
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: f3f-004
+    phase: build
+    description: "Create multi-page form handler with dynamic field and complex input support"
+    prompt: |
+      Read C:\Users\manag\Documents\benavora\src\lib\autoapply\form-analyzer-agent.ts completely.
+      Read C:\Users\manag\Documents\benavora\src\lib\autoapply\form-filler-agent.ts completely.
+
+      Create C:\Users\manag\Documents\benavora\src\lib\autoapply\multi-page-handler.ts:
+
+      Export class MultiPageFormHandler with:
+
+      async detectMultiPage(page: any): Promise<{ isMultiPage: boolean, pageCount?: number, currentPage?: number, nextButton?: string, progressIndicator?: string }>
+      - Look for: "Next", "Continue", "Step X of Y", progress bars, pagination dots, wizard navigation.
+      - Check for form[data-step], .wizard-step, .form-step, multi-section with visibility toggles.
+      - Use Claude if ambiguous: "Is this a multi-page form? How many pages? What is the next button selector?"
+
+      async navigateToNextPage(page: any, nextButtonSelector: string): Promise<boolean>
+      - Click the next/continue button.
+      - Wait for page transition or new fields to appear (waitForSelector or waitForNavigation).
+      - Handle per-page validation errors: if clicking next doesn't advance, return false (validation failed).
+      - Return true on successful navigation.
+
+      async getAllPages(page: any): Promise<FormPage[]>
+      - Navigate through all pages, collecting fields from each.
+      - Return array of FormPage objects: { pageNumber, fields, nextButtonSelector }.
+      - Navigate back to page 1 when done (if possible) or note that it's forward-only.
+
+      Create C:\Users\manag\Documents\benavora\src\lib\autoapply\advanced-field-handler.ts:
+
+      Export class AdvancedFieldHandler with methods for each complex input type:
+
+      async fillSelect(page: any, selector: string, value: string): Promise<boolean>
+      - Handle <select> dropdowns: page.selectOption(selector, value).
+      - If value not in options, find closest match using string similarity.
+
+      async fillCheckbox(page: any, selector: string, shouldCheck: boolean): Promise<void>
+      - Check/uncheck: if current state differs from shouldCheck, click it.
+
+      async fillRadio(page: any, name: string, value: string): Promise<void>
+      - Find radio group by name, click the option matching value.
+
+      async fillDatePicker(page: any, selector: string, date: string): Promise<boolean>
+      - Try direct input first (type the date string).
+      - If that fails, try clicking the picker and navigating the calendar widget.
+      - Handle common date picker libraries: flatpickr, pikaday, jQuery UI datepicker.
+
+      async fillFileUpload(page: any, selector: string, filePath: string): Promise<boolean>
+      - Use page.setInputFiles(selector, filePath) for standard file inputs.
+      - Handle drag-and-drop zones by finding the underlying input.
+
+      async handleConditionalFields(page: any): Promise<void>
+      - After filling a select/radio that might trigger conditional fields, wait 1 second for DOM changes.
+      - Re-analyze the visible fields.
+
+      async acceptTerms(page: any): Promise<boolean>
+      - Find terms/conditions checkbox: [name*="terms"], [name*="agree"], [id*="terms"], [id*="agree"], label containing "I agree", "I accept", "terms and conditions".
+      - Check it. Return true if found and checked, false if not found.
+
+      async handleSessionTimeout(page: any): Promise<boolean>
+      - Detect timeout indicators: "session expired", "timed out", login redirect.
+      - If detected, return false so the caller can restart the session.
+
+      These classes are utilities imported by FormAnalyzerAgent and FormFillerAgent.
+    expected_outputs:
+      - src/lib/autoapply/multi-page-handler.ts
+      - src/lib/autoapply/advanced-field-handler.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: f3f-005
+    phase: build
+    description: "Create document attachment system for form file uploads"
+    prompt: |
+      Read C:\Users\manag\Documents\benavora\src\lib\autoapply\document-vault.ts.
+      Read C:\Users\manag\Documents\benavora\src\lib\autoapply\advanced-field-handler.ts.
+
+      Create C:\Users\manag\Documents\benavora\src\lib\autoapply\document-attacher.ts:
+
+      Export class DocumentAttacher with:
+
+      async detectUploadFields(page: any): Promise<UploadField[]>
+      - Find all file input elements: input[type="file"], .file-upload, .dropzone, [data-upload].
+      - For each, use Claude to classify what document type it expects based on: the field label, nearby text, placeholder, accept attribute.
+      - Return: { selector, label, expectedDocType, acceptedFormats, required }
+
+      async matchDocumentsToFields(uploadFields: UploadField[], orgDocuments: OrgDocument[]): Promise<DocumentMatch[]>
+      - For each upload field, find the best matching org document:
+        - "501(c)(3)" label → match to '501c3_letter' document
+        - "990" or "tax return" label → match to 'form_990'
+        - "board" label → match to 'board_list'
+        - "budget" label → match to 'project_budget'
+        - "financial" label → match to 'financial_statements'
+        - Use Claude for ambiguous matches: "This upload field is labeled '{label}'. Which of these document types is the best match: {available types}?"
+      - Return: { field, matchedDocument, confidence }
+      - If no match found, flag as 'unmatched' for human review.
+
+      async attachDocuments(page: any, matches: DocumentMatch[], vault: DocumentVault): Promise<AttachmentResult[]>
+      - For each match with a document:
+        1. Download the document from Supabase Storage via vault.getDocumentBuffer()
+        2. Save to a temp file
+        3. Use advancedFieldHandler.fillFileUpload() to attach
+        4. Clean up temp file
+      - Return results: { fieldLabel, documentName, success, error? }
+      - Log: "Attached {docName} to field '{label}'"
+
+      async getUnmatchedFields(uploadFields: UploadField[], matches: DocumentMatch[]): Promise<UploadField[]>
+      - Return fields that had no matching document — these may need human intervention.
+
+      Define interfaces: UploadField, DocumentMatch, AttachmentResult, OrgDocument.
+    expected_outputs:
+      - src/lib/autoapply/document-attacher.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: f3f-006
+    phase: build
+    description: "Create form validation, org readiness assessment, and anti-duplicate detection"
+    prompt: |
+      Create C:\Users\manag\Documents\benavora\src\lib\autoapply\submission-validator.ts:
+
+      Export class SubmissionValidator with:
+
+      async validateFormData(formFields: FormField[], fieldValues: Record<string, string>, orgData: any): Promise<ValidationResult>
+      - For each required field, check if a value exists and is non-empty.
+      - Validate specific formats:
+        - EIN: must match XX-XXXXXXX pattern
+        - Phone: must be 10+ digits
+        - Email: must contain @ and .
+        - URL: must start with http:// or https://
+        - ZIP: must be 5 or 9 digits
+        - Date: must be valid date format
+      - Return: { valid: boolean, errors: { field, message }[], warnings: { field, message }[] }
+
+      async checkOrgReadiness(orgId: string, supabase: any): Promise<ReadinessReport>
+      - Check KB completeness: mission (required), ein (required), address (required), contact_name (required), contact_email (required), phone (recommended), programs (recommended).
+      - Check document vault: 501c3_letter (required), form_990 (required), board_list (recommended).
+      - Check for active request profiles (at least one required for AutoApply).
+      - Return: { ready: boolean, score: number (0-100), missing_required: string[], missing_recommended: string[], blockers: string[] }
+      - ready = false if ANY required item is missing.
+
+      async detectExistingSubmission(page: any): Promise<{ hasPending: boolean, message?: string }>
+      - After page loads, use Claude to check if the page shows any indication of an existing pending request:
+        "You have a pending request", "Already submitted", "Your application is under review"
+      - Return whether a pending submission was detected.
+
+      Create C:\Users\manag\Documents\benavora\src\lib\autoapply\confirmation-parser.ts:
+
+      Export async function parseConfirmationPage(page: any): Promise<ConfirmationData>
+      - Take a screenshot for reference.
+      - Extract page text content.
+      - Use Claude to parse: "Extract the following from this confirmation page text. Return JSON: { confirmation_number, reference_id, expected_response_date, next_steps, thank_you_message, contact_for_questions }. If any field is not found, set it to null."
+      - Return structured ConfirmationData.
+
+      Define all interfaces: ValidationResult, ReadinessReport, ConfirmationData.
+    expected_outputs:
+      - src/lib/autoapply/submission-validator.ts
+      - src/lib/autoapply/confirmation-parser.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: f3f-007
+    phase: build
+    description: "Create funder capability matching engine"
+    prompt: |
+      Read AUTOAPPLY_ARCHITECTURE_V2.md section 2C (Funder Capability Matching) completely.
+
+      Create C:\Users\manag\Documents\benavora\src\lib\autoapply\funder-matcher.ts:
+
+      Export function matchFunderToProfiles(funder: FunderForMatching, profiles: RequestProfile[]): MatchResult[]
+
+      Score each (funder, profile) pair from 0.0 to 1.0:
+
+      1. Category match (0-0.4):
+         - funder.category in profile.target_funder_categories: +0.4
+         - Partial/related match: +0.2
+
+      2. Type alignment (0-0.3) — capability map:
+         - real_estate, construction, land_trust → land, facility: +0.3
+         - construction, building_supply, hardware → in_kind: +0.3
+         - law_firm, accounting, consulting → service: +0.3
+         - foundation, corporate_giving, community_foundation → monetary: +0.3
+         - retail, wholesale, manufacturing → in_kind: +0.3
+         - church, community_group, civic → volunteer, monetary: +0.3
+         - Any → sponsorship: +0.2
+
+      3. Geographic alignment (0-0.2):
+         - Profile has geographic_requirements AND funder matches: +0.2
+         - No geographic requirement: +0.1
+
+      4. Historical success (0-0.1):
+         - Previous successful submission to this funder with same type: +0.1
+
+      Filter scores below 0.3. Return sorted descending.
+
+      Export function getBestProfile(funder: FunderForMatching, profiles: RequestProfile[]): MatchResult | null
+
+      Define interfaces: FunderForMatching (category, type, state, city, id, name), RequestProfile, MatchResult (profileId, profileName, requestType, score, matchReasons).
+    expected_outputs:
+      - src/lib/autoapply/funder-matcher.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: f3f-008
+    phase: build
+    description: "Create amount optimizer and pitch personalizer"
+    prompt: |
+      Read AUTOAPPLY_ARCHITECTURE_V2.md sections 2A and 2B.
+
+      Create C:\Users\manag\Documents\benavora\src\lib\autoapply\amount-optimizer.ts:
+      Export async function getOptimalAskAmount(params: { funderId, requestProfile?, supabase }): Returns { recommended, min, max, confidence, source }.
+      Logic: query funder giving history for median/min/max. Clamp within profile range. Fall back to category defaults (foundation=$25K, corporate=$10K, community=$15K). Return null for non-monetary types.
+
+      Create C:\Users\manag\Documents\benavora\src\lib\autoapply\pitch-personalizer.ts:
+      Import Anthropic with lazy init.
+      Export async function personalizePitch(params: { orgMission, orgPrograms, orgName, funderName, funderPriorities, funderLanguage, funderCategory, requestProfile?, maxLength? }): Returns personalized pitch string.
+      Steps: check pitch_cache first. If miss, call Claude to rewrite mission for funder + request type. Cache result. Handle land/in_kind/volunteer/service differently than monetary.
+      Export async function clearPitchCache(orgId, funderId?): Clear cache entries.
+
+      Both files must use proper TypeScript interfaces, not 'any'. Use lazy client initialization.
+    expected_outputs:
+      - src/lib/autoapply/amount-optimizer.ts
+      - src/lib/autoapply/pitch-personalizer.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: f3f-009
+    phase: build
+    description: "Create timing optimizer and batch intelligence scorer"
+    prompt: |
+      Read AUTOAPPLY_ARCHITECTURE_V2.md sections 2D and 6A.
+
+      Create C:\Users\manag\Documents\benavora\src\lib\autoapply\timing-optimizer.ts:
+      Export function getTimingScore(params: { funderType, funderCategory?, funderFiscalYearEnd? }): Returns { score (0-1), explanation, optimalMonths }.
+      Corporate: Q4=1.0, Q1=0.8, Q3=0.6, Q2=0.5. Foundation: 0.7 uniform or aligned to fiscal year. Government: Sep-Nov=0.9. Community: spring+fall=0.9.
+      Export function shouldDelaySubmission(score, threshold?): Returns { delay, delayUntilMonth? }.
+
+      Create C:\Users\manag\Documents\benavora\worker\batch-scorer.ts:
+      Export async function scoreAndReorderQueue(supabase, organizationId): Returns { reordered: number }.
+      Composite score (0-100): timing 20%, funder match 30%, historical success 25%, amount alignment 15%, portal health 10%.
+      UPDATE priority = (100 - composite). Skip if < 5 items. Call once at batch start, not every poll.
+    expected_outputs:
+      - src/lib/autoapply/timing-optimizer.ts
+      - worker/batch-scorer.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: f3f-010
+    phase: build
+    description: "Create cross-client dedup, domain-level throttling, and velocity controls"
+    prompt: |
+      Create C:\Users\manag\Documents\benavora\src\lib\autoapply\submission-controls.ts:
+
+      Export class SubmissionControls with:
+
+      async checkCrossClientDedup(funderDomain: string, orgId: string, supabase: any): Promise<{ blocked: boolean, reason?: string, delayUntil?: Date }>
+      - Hash the orgId (SHA-256) for anonymization.
+      - Query cross_client_submissions WHERE funder_domain = domain AND submitted_at > NOW() - INTERVAL '7 days' AND org_hash != hashedOrgId.
+      - If recent submission from another client exists: return blocked=true, suggest delay of 7 days.
+      - After successful submission, insert into cross_client_submissions.
+
+      async checkDomainThrottle(portalUrl: string, supabase: any): Promise<{ blocked: boolean, reason?: string }>
+      - Extract domain from portal URL.
+      - Query autoapply_submissions WHERE giving_portal_url domain matches AND submitted_at > NOW() - INTERVAL '2 hours'.
+      - If submissions to same domain in last 2 hours >= 3: block (Benevity/CyberGrants protection).
+      - Known shared platforms: ['benevity.com', 'cybergrants.com', 'yourcause.com', 'smartsimple.com', 'submittable.com', 'fluxx.io', 'grantinterface.com'].
+      - Stricter limit for known shared platforms: max 2 per 4 hours.
+
+      async checkVelocityLimits(orgId: string, supabase: any): Promise<{ blocked: boolean, reason?: string, dailyCount: number, dailyLimit: number }>
+      - Query autoapply_submissions WHERE organization_id = orgId AND submitted_at > NOW() - INTERVAL '24 hours'.
+      - Default daily limits by tier: Starter=10, Professional=30, Enterprise=100, Consultant=unlimited.
+      - If at/above limit: block.
+      - Return current count and limit.
+
+      async recordSubmission(funderDomain: string, orgId: string, supabase: any): Promise<void>
+      - Insert into cross_client_submissions with hashed org_id.
+
+      async getControlsReport(orgId: string, supabase: any): Promise<ControlsReport>
+      - Return: daily submissions count, daily limit, domains submitted to today, cross-client blocks active.
+    expected_outputs:
+      - src/lib/autoapply/submission-controls.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: f3f-011
+    phase: build
+    description: "Enhance FormFillerAgent with request-type awareness and advanced field handling"
+    prompt: |
+      Read C:\Users\manag\Documents\benavora\src\lib\autoapply\form-filler-agent.ts completely.
+      Read C:\Users\manag\Documents\benavora\src\lib\autoapply\advanced-field-handler.ts.
+      Read C:\Users\manag\Documents\benavora\src\lib\autoapply\multi-page-handler.ts.
+      Read C:\Users\manag\Documents\benavora\src\lib\autoapply\document-attacher.ts.
+
+      Modify FormFillerAgent to integrate all new capabilities:
+
+      1. Accept optional requestProfile parameter. When provided:
+         - Use profile.needs_description for purpose/description fields instead of generic mission.
+         - Use profile.pitch_template as base narrative.
+         - Apply profile.form_field_overrides for custom field mapping.
+         - Add request-type framing to Claude prompt.
+
+      2. Import and use AdvancedFieldHandler for all non-text inputs:
+         - Before filling each field, check its type. Route to the appropriate handler: fillSelect, fillCheckbox, fillRadio, fillDatePicker.
+         - After filling selects/radios, call handleConditionalFields to detect newly visible fields.
+         - Call acceptTerms before final submission if a terms checkbox is detected.
+
+      3. Import and use MultiPageFormHandler:
+         - After analyzing page 1, check detectMultiPage.
+         - If multi-page: fill page 1, navigate to page 2, analyze and fill page 2, repeat until last page.
+         - Handle per-page validation: if navigation fails, log which page and which validation error.
+
+      4. Import and use DocumentAttacher:
+         - After filling text fields, detect upload fields.
+         - Match and attach org documents.
+         - Log attached documents and any unmatched upload fields.
+
+      5. Handle session timeout: if AdvancedFieldHandler.handleSessionTimeout returns true, restart from login/page load.
+
+      Do NOT break existing FormFillerAgent functionality. All enhancements are additive with graceful fallback.
+    expected_outputs:
+      - src/lib/autoapply/form-filler-agent.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: f3f-012
+    phase: build
+    description: "Enhance auto-queue populator with profile matching and full controls integration"
+    prompt: |
+      Read C:\Users\manag\Documents\benavora\src\lib\autoapply\auto-queue-populator.ts completely.
+      Read C:\Users\manag\Documents\benavora\src\lib\autoapply\funder-matcher.ts.
+      Read C:\Users\manag\Documents\benavora\src\lib\autoapply\submission-controls.ts.
+
+      Modify populateQueue:
+      1. Load all active request_profiles for the org.
+      2. For each eligible funder: call getBestProfile(funder, profiles). If null, skip with 'no_matching_profile'.
+      3. Tag queue item with request_profile_id.
+      4. Dedup per (funder_id, request_profile_id) pair — same funder can be queued with different profiles.
+      5. Before queuing, check submission controls: checkCrossClientDedup, checkDomainThrottle, checkVelocityLimits. Skip if any blocks.
+      6. Update DryRunFunder to include: matched_profile_name, matched_profile_type, match_score.
+
+      Modify C:\Users\manag\Documents\benavora\worker\queue-processor.ts:
+      - Fetch request profile for each queue item.
+      - Pass profile to FormFillerAgent.
+      - Before processing: run submission-validator.checkOrgReadiness (first time only, cache result).
+      - Before submitting: run submission-validator.validateFormData.
+      - Before launching browser: check submission-controls (domain throttle, velocity, cross-client).
+      - After successful submission: call confirmation-parser.parseConfirmationPage and store in confirmation_data.
+      - After successful submission: call submission-controls.recordSubmission.
+      - Call batch-scorer.scoreAndReorderQueue when transitioning from idle to active.
+      - Call amount-optimizer before filling amount fields.
+      - Call pitch-personalizer before filling description fields.
+      - Store personalized_pitch, optimized_amount, timing_score in submission record.
+    expected_outputs:
+      - src/lib/autoapply/auto-queue-populator.ts
+      - worker/queue-processor.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: f3f-013
+    phase: build
+    description: "Create submission preview UI"
+    prompt: |
+      Create C:\Users\manag\Documents\benavora\src\components\autoapply\SubmissionPreview.tsx:
+
+      A modal component that shows exactly what will be submitted before the bot acts.
+
+      Props: queueItemId (fetches details), onConfirm callback, onCancel callback.
+
+      Content:
+      1. Header: "Submission Preview — {funderName}"
+      2. Request profile badge showing type and name.
+      3. Form field preview table: each field the FormFillerAgent would fill, showing field name and the value that would be entered. Query the form_template for field list, and show what KB/profile data maps to each.
+      4. Documents section: list of documents that would be attached, with file names and document types.
+      5. Amount: show the optimized amount and its source (giving history, profile range, or default).
+      6. Pitch preview: show the personalized pitch text that would be used for description fields.
+      7. Timing info: timing score and explanation.
+      8. Controls status: domain throttle, velocity, cross-client check results.
+      9. Warnings section: any validation issues, missing documents, unmatched upload fields.
+      10. Buttons: "Confirm & Submit" (proceeds), "Edit Profile" (links to profile editor), "Cancel" (closes).
+
+      Add a "Preview" button next to each queue item in the QueuePanel component. Clicking opens this modal.
+
+      Use Tailwind CSS matching existing dashboard styling.
+    expected_outputs:
+      - src/components/autoapply/SubmissionPreview.tsx
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: f3f-014
+    phase: build
+    description: "Create submission receipt PDF generator and grant agreement tracking"
+    prompt: |
+      Create C:\Users\manag\Documents\benavora\src\lib\autoapply\receipt-generator.ts:
+
+      Export async function generateReceipt(params: {
+        submission: AutoApplySubmission,
+        funderName: string,
+        orgName: string,
+        requestProfile?: RequestProfile,
+        confirmationData?: ConfirmationData,
+        screenshots?: { stage: string, path: string }[]
+      }): Promise<Buffer>
+
+      Generate a PDF receipt using pdf-lib (already installed):
+      - Header: "SUBMISSION RECEIPT — {orgName}"
+      - Submission date, funder name, portal URL
+      - Request type and profile name (if applicable)
+      - Amount requested (if monetary)
+      - Confirmation number (if available)
+      - Summary of what was submitted (personalized pitch excerpt)
+      - Documents attached (list)
+      - Status and any response information
+      - Footer: "Generated by Benavora AutoApply on {date}"
+
+      Store the PDF in Supabase Storage at: {orgId}/receipts/{submissionId}.pdf
+      Insert into submission_receipts table.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\autoapply\agreements\route.ts:
+      GET: list grant agreements for the org.
+      POST: create new agreement (linked to submission_id). Accept: amount_awarded, award_type, agreement_date, start_date, end_date, terms, reporting_requirements, payment_schedule.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\autoapply\agreements\[id]\route.ts:
+      GET: single agreement. PUT: update status/details.
+
+      Auto-generate receipt after each successful submission in queue-processor.ts.
+    expected_outputs:
+      - src/lib/autoapply/receipt-generator.ts
+      - src/app/api/autoapply/agreements/route.ts
+      - src/app/api/autoapply/agreements/[id]/route.ts
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: f3f-015
+    phase: build
+    description: "Create webhook notification system and error screenshot annotation"
+    prompt: |
+      Create C:\Users\manag\Documents\benavora\src\lib\autoapply\webhook-notifier.ts:
+
+      Export class WebhookNotifier with:
+
+      async notify(params: { orgId, event, data, supabase }): Promise<void>
+      - Fetch active webhook_configs for the org where event is in the events array.
+      - For each webhook, POST the event data to the webhook_url.
+      - Supported events: 'submission_completed', 'submission_failed', 'queue_populated', 'review_needed', 'agreement_received'.
+      - Payload format:
+        - Slack: { text: formatted message, blocks: rich format }
+        - Generic: { event, timestamp, data }
+      - Handle failures gracefully: log and continue, don't block submission flow.
+      - Timeout: 5 seconds per webhook call.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\autoapply\webhooks\route.ts:
+      GET: list webhook configs for org.
+      POST: create new webhook config (type, url, events).
+      DELETE: remove webhook config.
+
+      Create C:\Users\manag\Documents\benavora\src\lib\autoapply\error-annotator.ts:
+
+      Export async function annotateErrorScreenshot(params: { screenshotBuffer: Buffer, errorMessage: string, pageUrl: string }): Promise<string>
+      - Use Claude with the screenshot image: "This is a screenshot of a form submission that failed with error: '{errorMessage}'. Analyze the screenshot and describe: 1) What specific error is shown on the page? 2) Which form field caused the error? 3) What is the likely fix? Return a concise annotation."
+      - Return the annotation string.
+      - Store annotation in autoapply_screenshots.metadata.
+
+      Integrate webhook-notifier into queue-processor: notify on completion and failure.
+      Integrate error-annotator into queue-processor: annotate on failure screenshots.
+    expected_outputs:
+      - src/lib/autoapply/webhook-notifier.ts
+      - src/app/api/autoapply/webhooks/route.ts
+      - src/lib/autoapply/error-annotator.ts
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: f3f-016
+    phase: build
+    description: "Create document vault management UI and webhook settings UI"
+    prompt: |
+      Create C:\Users\manag\Documents\benavora\src\app\(dashboard)\autoapply\documents\page.tsx:
+
+      Document vault management page:
+      1. Grid of document type cards. Each standard type has its own card showing: type name, icon, current file name (if uploaded), upload date, expiry status.
+      2. Upload button per card — opens file picker. On upload, calls POST /api/autoapply/documents.
+      3. Green check on cards with current documents. Red X on required but missing. Yellow warning on expiring within 30 days.
+      4. Readiness score banner at top: "Your organization is X% ready for AutoApply. Missing: {list}."
+      5. "Upload New Document" button for custom/other document types.
+      6. History: expandable section per type showing all versions (previous uploads with is_current=false).
+      7. Add "Document Vault" nav link in AutoApply sidebar.
+
+      Create C:\Users\manag\Documents\benavora\src\app\(dashboard)\autoapply\webhooks\page.tsx:
+
+      Webhook configuration page:
+      1. List of configured webhooks: type badge (Slack/Teams/Custom), URL (masked), events subscribed, active toggle.
+      2. "Add Webhook" form: type dropdown (slack, teams, discord, custom), URL input, events multi-select checkboxes.
+      3. "Test" button per webhook that sends a test notification.
+      4. "Remove" button per webhook.
+      5. Add "Notifications" nav link in AutoApply sidebar.
+
+      Use Tailwind CSS matching existing dashboard styling.
+    expected_outputs:
+      - src/app/(dashboard)/autoapply/documents/page.tsx
+      - src/app/(dashboard)/autoapply/webhooks/page.tsx
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: f3f-017
+    phase: build
+    description: "Create template dry-run testing and grant agreement management UI"
+    prompt: |
+      Add to the form template editing page at C:\Users\manag\Documents\benavora\src\app\(dashboard)\autoapply\templates\page.tsx:
+
+      1. "Test Template" feature per template:
+         - Button opens a modal showing: portal URL, all mapped fields with their current values from KB.
+         - "Run Dry Test" button: calls a new API route that launches StealthBrowser, navigates to the portal, fills the form WITHOUT clicking submit, takes a screenshot of the filled form, and returns it.
+         - Display the screenshot in the modal so the user can verify the form was filled correctly.
+         - "Looks Good" dismisses. "Needs Fixing" opens the template editor.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\autoapply\templates\test\route.ts:
+      POST: accepts { templateId, organizationId }. Launches StealthBrowser, navigates to portal, fills form using FormFillerAgent with dryRun=true (fills but doesn't submit), captures screenshot, returns screenshot URL.
+      Set maxDuration to 120 seconds.
+
+      Create C:\Users\manag\Documents\benavora\src\app\(dashboard)\autoapply\agreements\page.tsx:
+
+      Grant agreement tracking page:
+      1. Table of grant_agreements: funder name, amount awarded, status, agreement date, start/end dates.
+      2. Status badges: pending (yellow), active (green), completed (blue), terminated (red).
+      3. Click row to expand: terms, reporting requirements, payment schedule.
+      4. "Log Agreement" button to manually create an agreement linked to a successful submission.
+      5. Reporting reminder indicators: if reporting is due within 30 days, show amber warning.
+      6. Total awarded amount stat card at top.
+      7. Add "Agreements" nav link in AutoApply sidebar.
+
+      Use Tailwind CSS matching existing dashboard styling.
+    expected_outputs:
+      - src/app/api/autoapply/templates/test/route.ts
+      - src/app/(dashboard)/autoapply/agreements/page.tsx
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: f3f-018
+    phase: build
+    description: "Verify full build and update governance documents for Phase 3F"
+    prompt: |
+      1. Run pnpm run build and fix ALL errors. Watch for:
+         - Lazy initialization on Anthropic/OpenAI clients
+         - No explicit any (use proper interfaces or add eslint-disable)
+         - Unescaped JSX entities
+         - Missing imports
+         - Module-level instantiation
+
+      2. Run pnpm tsc --noEmit and fix ALL TypeScript errors.
+
+      3. Update C:\Users\manag\Documents\benavora\STATE_OF_THE_BUILD.md:
+         Add comprehensive section documenting Phase 3F:
+         - Request Profile System: 8 request types, CRUD API, wizard UI, profile management
+         - Document Vault: org document storage, upload API, readiness assessment, management UI
+         - Multi-Page Form Handler: wizard/multi-step form navigation
+         - Advanced Field Handler: dropdowns, checkboxes, radios, date pickers, file uploads, conditional fields, terms acceptance, session timeout detection
+         - Document Attacher: auto-match org docs to upload fields, auto-attach during submission
+         - Submission Validator: format validation, org readiness assessment, anti-duplicate detection
+         - Confirmation Parser: structured data extraction from confirmation pages
+         - Funder Matcher: capability-based matching of funders to request profiles
+         - Amount Optimizer: 990-based optimal ask amount calculation
+         - Pitch Personalizer: per-funder per-request-type personalization with cache
+         - Timing Optimizer: seasonal scoring for submission timing
+         - Batch Scorer: composite probability scoring for queue ordering
+         - Submission Controls: cross-client dedup, domain throttling, velocity limits
+         - Submission Preview UI: complete pre-submission review
+         - Receipt Generator: PDF submission receipts
+         - Grant Agreement Tracking: post-award management
+         - Webhook Notifier: Slack/Teams/custom notifications
+         - Error Annotator: Claude-powered failure screenshot analysis
+         - Template Dry-Run Testing: fill without submitting for verification
+         - Migration 051: 7 new tables + column additions (PENDING)
+         - Post-run: apply migration 051, create org-documents Storage bucket, create initial Faith Foundation request profiles and upload documents
+
+      4. Update C:\Users\manag\Documents\benavora\SESSION_STATE.md:
+         - Phase 3F complete
+         - Next: Phase 3G+3H (Multi-Channel + Analytics)
+    expected_outputs:
+      - STATE_OF_THE_BUILD.md
+      - SESSION_STATE.md
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
