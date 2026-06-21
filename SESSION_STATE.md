@@ -377,3 +377,46 @@ The chain ran **3 queues unattended** overnight. Outcomes:
 
 ### Next phase
 **Phase 4 — Email/Calendar Integration + Admin Sales Outreach Engine.** (Remaining Intelligence Library work `logic-006`–`logic-008` and Nights 3–7 are still open and can be slotted before or alongside Phase 4.)
+
+## Session — 2026-06-21 (Intelligence Library Night 2 complete + build/TSC gate)
+
+### Completed This Session
+
+#### Build Gate — PASS
+- `pnpm run build` PASS — Next.js "Linting and checking validity of types" confirmed green; 176 routes, zero TypeScript errors, zero lint errors.
+- TypeScript check implicit in build step (Next.js runs `tsc` during "Linting and checking validity of types"); zero errors confirmed.
+- Gates: compile=PASS build=PASS lint=PASS.
+
+#### Intelligence Library Night 2: COMPLETE (13/13)
+
+The overnight FORGE chain ran 10/13 before `logic-005` halted it. The remaining 3 prompts were resolved as follows:
+- **logic-005**: Fixed by hand (commit `2d1bd72`) — `GeneratedLogicModel` type mismatch resolved; logic model wired into draft generator and Intelligence Library page.
+- **logic-006** (commit `14c48c9`): `src/app/api/intelligence/logic-model/route.ts` — standalone POST endpoint at `/api/intelligence/logic-model` that generates and optionally saves a logic model by category + program description. 109 lines added.
+- **verify-001** (snapshot `f9d28f5`): FORGE pre-verification snapshot; build was green.
+
+**Reviewer Scoring Rubrics — BUILT:**
+- `src/lib/intelligence/rubric-extractor.ts` — extracts scoring dimensions from NOFA text via Claude; stores in `intelligence_scoring_rubrics` with embedding
+- `src/scripts/ingest-rubrics-from-opportunities.ts` — batch ingestion from existing parsed NOFA opportunities (`--limit N` flag)
+- `src/scripts/ingest-reviewer-guides.ts` — NIH/NSF/SAMHSA/HUD reviewer guidance ingestion
+- Draft generator enhanced: retrieves rubric before building Claude prompt; injects scoring dimension optimization instruction
+- `RubricPanel` component: shows scoring dimensions in draft generator review sidebar with progress bars
+- Rubrics tab added to `/intelligence-library`
+
+**Logic Model Library — BUILT:**
+- `src/scripts/seed-logic-models.ts` — seeds 10 program category templates into `intelligence_logic_models`
+- `src/lib/intelligence/logic-model-generator.ts` — `generateLogicModel()` customizes template for specific program via Claude; `GeneratedLogicModel extends LogicModelData` (type-safe, no wrapper object)
+- `LogicModelView` component — horizontal 5-stage flow visualization (dark-themed, arrow connectors)
+- Draft generator: renders "Program logic model" Card in review sidebar when API returns `logicModel`
+- Logic Models tab added to `/intelligence-library`
+- `/api/intelligence/logic-model` standalone route
+
+### Manual Steps Required (before Night 2 features produce data)
+| Step | Reason |
+|------|--------|
+| `npx tsx src/scripts/seed-logic-models.ts` | Seeds 10 templates; `intelligence_logic_models` is empty until this runs |
+| `npx tsx src/scripts/ingest-rubrics-from-opportunities.ts --limit 20` | Extracts rubrics from parsed NOFAs; `intelligence_scoring_rubrics` empty until this runs |
+| Apply migration 048 (`048_grant_intelligence.sql`) if not yet applied | All intelligence tables + pgvector extension — required before seed scripts |
+
+### Next Build
+**Night 3 — Need Statement Database:** Census Bureau API, HUD PIT counts, SAMHSA treatment data, BLS unemployment, CDC health outcomes, geographic matching engine, auto-citation generator.
+**Phase 4 — Email/Calendar Integration + Admin Sales Outreach Engine** (queued for tonight's chain).
