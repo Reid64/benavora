@@ -497,10 +497,81 @@ export class QueueProcessor {
       { pageLoadPath, preFillPath, postFillPath, postSubmitPath, confirmationPath, errorPath },
     );
 
+    // After 3 consecutive failures for the same funder, surface for human review
+    if (submissionStatus !== 'submitted' && submission !== null) {
+      await this.maybeEnqueueForReview({
+        orgId,
+        funderId,
+        submissionId: (submission as { id: string }).id,
+        reason: submissionStatus,
+      }).catch((e: unknown) => {
+        console.warn(
+          '[QueueProcessor] Failed to check review queue:',
+          e instanceof Error ? e.message : String(e),
+        );
+      });
+    }
+
     // Non-submitted outcomes propagate as errors so the loop records them as failures
     if (submissionStatus !== 'submitted') {
       throw new Error(errorMessage ?? submissionStatus);
     }
+  }
+
+  /**
+   * After 3+ consecutive failures for the same funder, inserts (or updates) a
+   * record in autoapply_review_queue so a human can investigate.
+   */
+  private async maybeEnqueueForReview({
+    orgId,
+    funderId,
+    submissionId,
+    reason,
+  }: {
+    orgId: string;
+    funderId: string;
+    submissionId: string;
+    reason: string;
+  }): Promise<void> {
+    const { count } = await this.supabase
+      .from('autoapply_submissions')
+      .select('id', { count: 'exact', head: true })
+      .eq('funder_id', funderId)
+      .eq('organization_id', orgId)
+      .neq('status', 'submitted');
+
+    const failureCount = count ?? 0;
+    if (failureCount < 3) return;
+
+    // If a pending or in_review entry already exists, update its failure count
+    const { data: existing } = await this.supabase
+      .from('autoapply_review_queue')
+      .select('id')
+      .eq('funder_id', funderId)
+      .eq('organization_id', orgId)
+      .in('status', ['pending', 'in_review'])
+      .maybeSingle();
+
+    if (existing !== null) {
+      await this.supabase
+        .from('autoapply_review_queue')
+        .update({ failure_count: failureCount, reason })
+        .eq('id', (existing as { id: string }).id);
+      return;
+    }
+
+    await this.supabase.from('autoapply_review_queue').insert({
+      submission_id: submissionId,
+      organization_id: orgId,
+      funder_id: funderId,
+      reason,
+      failure_count: failureCount,
+      status: 'pending',
+    });
+
+    console.log(
+      `[QueueProcessor] Funder ${funderId} has ${failureCount} failures — added to review queue`,
+    );
   }
 
   /**

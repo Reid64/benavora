@@ -22,6 +22,7 @@ import { QueueMetrics } from "@/components/autoapply/QueueMetrics";
 import { QueuePreview } from "@/components/autoapply/QueuePreview";
 import { QueuePanel } from "@/components/autoapply/QueuePanel";
 import { SubmissionHistory } from "@/components/autoapply/SubmissionHistory";
+import { ReviewQueue } from "@/components/autoapply/ReviewQueue";
 
 interface QueueRow {
   id: string;
@@ -488,6 +489,9 @@ export default function AutoApplyPage() {
 
       {/* SUBMISSIONS SECTION */}
       <SubmissionHistory />
+
+      {/* REVIEW QUEUE — failed submissions requiring human review */}
+      <ReviewQueue />
 
       {/* TEMPLATES SECTION */}
       <Card
