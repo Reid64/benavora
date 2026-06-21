@@ -84,7 +84,15 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Financials", href: "/financials", icon: DollarSign },
   { label: "Reports", href: "/reports", icon: FileBarChart2 },
   { label: "Research", href: "/research", icon: Radar },
-  { label: "Email", href: "/email", icon: Mail },
+  {
+    label: "Email",
+    href: "/email",
+    icon: Mail,
+    children: [
+      { label: "Campaigns", href: "/email/campaigns" },
+      { label: "Templates", href: "/email/templates" },
+    ],
+  },
   {
     label: "Intelligence",
     href: "/intelligence",
