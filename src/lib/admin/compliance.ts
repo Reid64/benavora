@@ -24,7 +24,8 @@ export class EmailComplianceEngine {
     const violations: string[] = [];
 
     // 1. From address uses a real, registered sending domain
-    const fromMatch = email.from.match(/@([\w.-]+)$/);
+    // Handle both "Name <email@domain>" and plain "email@domain" formats
+    const fromMatch = email.from.match(/<[^>]*@([\w.-]+)>/) ?? email.from.match(/@([\w.-]+)/);
     const fromDomain = fromMatch?.[1]?.toLowerCase() ?? "";
     if (!fromDomain || !ALLOWED_SENDING_DOMAINS.includes(fromDomain)) {
       violations.push(`From domain "${fromDomain}" is not an approved sending domain`);

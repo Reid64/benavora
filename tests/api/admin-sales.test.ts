@@ -23,12 +23,14 @@ const {
   mockImportFromCsv,
   mockCreateCampaign,
   mockGetDailyBudget,
+  mockAdminFrom,
 } = vi.hoisted(() => ({
   mockRequireAdmin: vi.fn(),
   mockAddDomain: vi.fn(),
   mockImportFromCsv: vi.fn(),
   mockCreateCampaign: vi.fn(),
   mockGetDailyBudget: vi.fn(),
+  mockAdminFrom: vi.fn(),
 }));
 
 vi.mock("@/lib/admin/auth", () => ({
@@ -56,7 +58,6 @@ vi.mock("@/lib/admin/sales-campaign-engine", () => ({
 }));
 
 // Shared supabase mock — engine tests override mockAdminFrom per test.
-const mockAdminFrom = vi.fn();
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: vi.fn().mockReturnValue({ from: mockAdminFrom }),
 }));

@@ -13,8 +13,9 @@ import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-const { mockMessagesCreate } = vi.hoisted(() => ({
+const { mockMessagesCreate, mockAdminFrom } = vi.hoisted(() => ({
   mockMessagesCreate: vi.fn(),
+  mockAdminFrom: vi.fn(),
 }));
 
 vi.mock("@anthropic-ai/sdk", () => ({
@@ -23,7 +24,6 @@ vi.mock("@anthropic-ai/sdk", () => ({
   })),
 }));
 
-const mockAdminFrom = vi.fn();
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: vi.fn().mockReturnValue({ from: mockAdminFrom }),
 }));
