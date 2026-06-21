@@ -13,6 +13,7 @@ import {
   LayoutDashboard,
   Library,
   Mail,
+  Megaphone,
   Radar,
   Search,
   Target,
@@ -101,6 +102,12 @@ export const NAV_ITEMS: NavItem[] = [
       { label: "Competitors", href: "/intelligence/competitors" },
       { label: "Semantic Matches", href: "/intelligence/matches" },
     ],
+  },
+  {
+    label: "Sales Outreach",
+    href: "/admin/sales-outreach",
+    icon: Megaphone,
+    roles: ["owner", "admin"],
   },
   // Settings, Billing, Onboarding, and Audit Log live in the header avatar
   // dropdown now, so they are intentionally absent from the sidebar.
