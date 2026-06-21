@@ -3350,6 +3350,100 @@ export interface Database {
         };
         Relationships: [];
       };
+      // Migration 8G — Usage Metering (AUTOAPPLY_ARCHITECTURE_V2.md §8G)
+      submission_usage: {
+        Row: {
+          id: string;
+          organization_id: string;
+          period_start: string;
+          period_end: string;
+          automated_count: number;
+          email_count: number;
+          manual_count: number;
+          overage_automated: number;
+          overage_email: number;
+          overage_cost: number;
+          api_cost_claude: number;
+          api_cost_openai: number;
+          proxy_cost: number;
+          captcha_cost: number;
+          using_own_keys: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          period_start: string;
+          period_end: string;
+          automated_count?: number;
+          email_count?: number;
+          manual_count?: number;
+          overage_automated?: number;
+          overage_email?: number;
+          overage_cost?: number;
+          api_cost_claude?: number;
+          api_cost_openai?: number;
+          proxy_cost?: number;
+          captcha_cost?: number;
+          using_own_keys?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          period_start?: string;
+          period_end?: string;
+          automated_count?: number;
+          email_count?: number;
+          manual_count?: number;
+          overage_automated?: number;
+          overage_email?: number;
+          overage_cost?: number;
+          api_cost_claude?: number;
+          api_cost_openai?: number;
+          proxy_cost?: number;
+          captcha_cost?: number;
+          using_own_keys?: boolean;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      tier_limits: {
+        Row: {
+          id: string;
+          tier_name: string;
+          monthly_automated: number;
+          monthly_email: number;
+          monthly_manual: number;
+          daily_max: number;
+          overage_rate_automated: number;
+          overage_rate_email: number;
+          allow_own_keys: boolean;
+        };
+        Insert: {
+          id?: string;
+          tier_name: string;
+          monthly_automated: number;
+          monthly_email: number;
+          monthly_manual: number;
+          daily_max: number;
+          overage_rate_automated: number;
+          overage_rate_email: number;
+          allow_own_keys?: boolean;
+        };
+        Update: {
+          id?: string;
+          tier_name?: string;
+          monthly_automated?: number;
+          monthly_email?: number;
+          monthly_manual?: number;
+          daily_max?: number;
+          overage_rate_automated?: number;
+          overage_rate_email?: number;
+          allow_own_keys?: boolean;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {

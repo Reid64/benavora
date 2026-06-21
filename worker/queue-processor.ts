@@ -23,6 +23,7 @@ import { annotateErrorScreenshot } from '../src/lib/autoapply/error-annotator.js
 import { assessSubmissionRisk } from '../src/lib/autoapply/risk-engine.js';
 import { RelationshipManager } from '../src/lib/autoapply/relationship-manager.js';
 import { QueueControlPlane } from '../src/lib/autoapply/queue-controls.js';
+import { UsageMeter } from '../src/lib/autoapply/usage-meter.js';
 import type { ReadinessReport } from '../src/lib/autoapply/submission-validator.js';
 
 // --- types -------------------------------------------------------------------
@@ -137,6 +138,7 @@ export class QueueProcessor {
   private readonly webhookNotifier = new WebhookNotifier();
   private readonly relationshipManager = new RelationshipManager();
   private readonly queueControlPlane = new QueueControlPlane();
+  private readonly usageMeter = new UsageMeter();
 
   constructor(
     private readonly supabase: SupabaseClient,
@@ -345,6 +347,15 @@ export class QueueProcessor {
       .maybeSingle();
     const orgProfile = orgData as OrgRow | null;
 
+    // Determine whether to use org-provided API keys for AI calls.
+    // Logged here so the worker log reflects key source per submission.
+    const ownKeysConfig = await this.usageMeter
+      .shouldUseOwnKeys(orgId, this.supabase)
+      .catch((_e: unknown) => ({ useOwn: false as const }));
+    if (ownKeysConfig.useOwn) {
+      console.log(`[QueueProcessor] Org ${orgId} using own API keys`);
+    }
+
     // --- Org readiness (cached per org, cleared on idle→active transition) ---
     let orgReadinessReport: ReadinessReport;
     if (!this.orgReadinessCache.has(orgId)) {
@@ -363,6 +374,16 @@ export class QueueProcessor {
       if (!orgReadinessReport.ready) {
         throw new SkipError('org_not_ready');
       }
+    }
+
+    // --- Usage allowance: enforce monthly + daily tier caps before browser launch ---
+    const usageAllowance = await this.usageMeter
+      .checkAllowance(orgId, 'automated', this.supabase)
+      .catch((_e: unknown) => null);
+    if (usageAllowance !== null && !usageAllowance.allowed) {
+      throw new SkipError(
+        `usage_limit_reached: monthly=${usageAllowance.monthlyCount}/${usageAllowance.monthlyLimit} daily=${usageAllowance.dailyCount}/${usageAllowance.dailyLimit}`,
+      );
     }
 
     // --- Load request profile linked to this queue item ---
@@ -894,6 +915,16 @@ export class QueueProcessor {
         submissionError.message,
       );
     }
+
+    // Record usage for billing metering — fire-and-forget, never block the queue.
+    void this.usageMeter.recordUsage(
+      orgId,
+      'automated',
+      { claude: 0.05, proxy: proxy !== null ? 0.03 : 0 },
+      this.supabase,
+    ).catch((e: unknown) => {
+      console.warn('[QueueProcessor] recordUsage failed:', e instanceof Error ? e.message : String(e));
+    });
 
     // Link submission_id back to the queue item for dashboard correlation,
     // and back-fill all autoapply_screenshots rows with the now-known submission ID.
