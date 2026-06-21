@@ -2498,6 +2498,160 @@ export interface Database {
         };
         Relationships: [];
       };
+      // Migration 050 — funder_credentials (encrypted portal login credentials).
+      funder_credentials: {
+        Row: {
+          id: string;
+          organization_id: string;
+          funder_id: string;
+          portal_url: string;
+          username: string;
+          encrypted_password: string;
+          mfa_secret: string | null;
+          login_method: string;
+          last_login_at: string | null;
+          login_success: boolean | null;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          funder_id: string;
+          portal_url: string;
+          username: string;
+          encrypted_password: string;
+          mfa_secret?: string | null;
+          login_method?: string;
+          last_login_at?: string | null;
+          login_success?: boolean | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          funder_id?: string;
+          portal_url?: string;
+          username?: string;
+          encrypted_password?: string;
+          mfa_secret?: string | null;
+          login_method?: string;
+          last_login_at?: string | null;
+          login_success?: boolean | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      // Migration 050 — autoapply_screenshots (screenshot audit trail per submission).
+      autoapply_screenshots: {
+        Row: {
+          id: string;
+          submission_id: string | null;
+          stage: string;
+          storage_path: string;
+          captured_at: string;
+          metadata: Record<string, unknown>;
+        };
+        Insert: {
+          id?: string;
+          submission_id?: string | null;
+          stage: string;
+          storage_path: string;
+          captured_at?: string;
+          metadata?: Record<string, unknown>;
+        };
+        Update: {
+          id?: string;
+          submission_id?: string | null;
+          stage?: string;
+          storage_path?: string;
+          captured_at?: string;
+          metadata?: Record<string, unknown>;
+        };
+        Relationships: [];
+      };
+      // Migration 050 — autoapply_review_queue (human review queue for failed/blocked submissions).
+      autoapply_review_queue: {
+        Row: {
+          id: string;
+          submission_id: string | null;
+          organization_id: string;
+          funder_id: string;
+          reason: string;
+          failure_count: number;
+          status: string;
+          assigned_to: string | null;
+          resolved_at: string | null;
+          resolution_notes: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          submission_id?: string | null;
+          organization_id: string;
+          funder_id: string;
+          reason: string;
+          failure_count?: number;
+          status?: string;
+          assigned_to?: string | null;
+          resolved_at?: string | null;
+          resolution_notes?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          submission_id?: string | null;
+          organization_id?: string;
+          funder_id?: string;
+          reason?: string;
+          failure_count?: number;
+          status?: string;
+          assigned_to?: string | null;
+          resolved_at?: string | null;
+          resolution_notes?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      // Migration 050 — solicitation_registrations (charitable solicitation state registrations).
+      solicitation_registrations: {
+        Row: {
+          id: string;
+          organization_id: string;
+          state: string;
+          registration_number: string | null;
+          registered_at: string | null;
+          expires_at: string | null;
+          status: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          state: string;
+          registration_number?: string | null;
+          registered_at?: string | null;
+          expires_at?: string | null;
+          status?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          state?: string;
+          registration_number?: string | null;
+          registered_at?: string | null;
+          expires_at?: string | null;
+          status?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       // Grant Intelligence Library — global shared tables, no RLS, no organization_id.
       intelligence_funded_proposals: {
         Row: {
