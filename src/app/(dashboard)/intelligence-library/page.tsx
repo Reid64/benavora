@@ -25,6 +25,13 @@ type ProposalSection = Tables<"intelligence_proposal_sections">;
 type ScoringRubric = Tables<"intelligence_scoring_rubrics">;
 type LogicModel = Tables<"intelligence_logic_models">;
 
+type RubricDimension = {
+  name?: string;
+  max_points?: number;
+  description?: string;
+  common_deductions?: string | string[];
+};
+
 type Stats = {
   proposalCount: number;
   sectionCount: number;
@@ -62,6 +69,9 @@ export default function IntelligenceLibraryPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [sections, setSections] = useState<Record<string, ProposalSection[]>>({});
   const [sectionsLoading, setSectionsLoading] = useState(false);
+
+  const [expandedRubricId, setExpandedRubricId] = useState<string | null>(null);
+  const [rubricSourceFilter, setRubricSourceFilter] = useState<string>("all");
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -142,12 +152,16 @@ export default function IntelligenceLibraryPage() {
     p.funder_type?.toLowerCase().includes(q),
   );
 
-  const filteredRubrics = rubrics.filter((r) =>
-    !q ||
-    r.funder_name?.toLowerCase().includes(q) ||
-    r.grant_program?.toLowerCase().includes(q) ||
-    r.source?.toLowerCase().includes(q),
-  );
+  const filteredRubrics = rubrics.filter((r) => {
+    const matchesSearch =
+      !q ||
+      r.funder_name?.toLowerCase().includes(q) ||
+      r.grant_program?.toLowerCase().includes(q) ||
+      r.source?.toLowerCase().includes(q);
+    const matchesSource =
+      rubricSourceFilter === "all" || r.source === rubricSourceFilter;
+    return matchesSearch && matchesSource;
+  });
 
   const filteredLogicModels = logicModels.filter((m) =>
     !q ||
@@ -348,64 +362,123 @@ export default function IntelligenceLibraryPage() {
           )}
 
           {activeTab === "scoring-rubrics" && (
-            <Card>
-              {filteredRubrics.length === 0 ? (
-                <EmptyState
-                  icon={Target}
-                  title="No scoring rubrics yet"
-                  description="Rubrics are extracted from federal NOFOs and reviewer guides during the Night 2 build."
-                />
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-navy-100 text-sm">
-                    <thead>
-                      <tr className="text-left text-xs font-medium uppercase tracking-wide text-navy-400">
-                        <th className="pb-3 pr-4">Funder</th>
-                        <th className="pb-3 pr-4">Program</th>
-                        <th className="pb-3 pr-4">Categories</th>
-                        <th className="pb-3">Dimensions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-navy-100">
-                      {filteredRubrics.map((r) => {
-                        const dims = Array.isArray(r.dimensions)
-                          ? (r.dimensions as { name?: string; points?: number }[])
-                          : [];
-                        return (
-                          <tr key={r.id} className="hover:bg-navy-50">
-                            <td className="py-3 pr-4 font-medium text-navy-900">
-                              {r.funder_name ?? <span className="text-navy-400">—</span>}
-                            </td>
-                            <td className="py-3 pr-4 text-navy-600">
-                              {r.grant_program ?? <span className="text-navy-400">—</span>}
-                            </td>
-                            <td className="py-3 pr-4">
-                              <div className="flex flex-wrap gap-1">
-                                {(r.category ?? []).slice(0, 3).map((cat) => (
-                                  <Badge key={cat} color="teal">
-                                    {cat}
-                                  </Badge>
-                                ))}
-                              </div>
-                            </td>
-                            <td className="py-3 text-navy-500">
-                              {dims.length > 0 ? (
-                                <span className="text-xs">
-                                  {dims.slice(0, 4).map((d) => d.name).join(" · ")}
-                                  {dims.length > 4 && ` +${dims.length - 4} more`}
-                                </span>
-                              ) : (
-                                <span className="text-navy-400">—</span>
+            <>
+              {/* Source filter */}
+              <div className="flex items-center gap-3">
+                <label htmlFor="rubric-source-filter" className="text-sm font-medium text-navy-600">
+                  Source type:
+                </label>
+                <select
+                  id="rubric-source-filter"
+                  value={rubricSourceFilter}
+                  onChange={(e) => setRubricSourceFilter(e.target.value)}
+                  className="rounded-lg border border-navy-200 bg-white px-3 py-1.5 text-sm text-navy-900 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                >
+                  <option value="all">All sources</option>
+                  <option value="nofa_parse">NOFA Parse</option>
+                  <option value="reviewer_guide">Reviewer Guide</option>
+                  <option value="inferred">Inferred</option>
+                </select>
+              </div>
+
+              <Card>
+                {filteredRubrics.length === 0 ? (
+                  <EmptyState
+                    icon={Target}
+                    title="No scoring rubrics yet"
+                    description="Rubrics are extracted from federal NOFOs and reviewer guides during the Night 2 build."
+                  />
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-navy-100 text-sm">
+                      <thead>
+                        <tr className="text-left text-xs font-medium uppercase tracking-wide text-navy-400">
+                          <th className="pb-3 pr-4" />
+                          <th className="pb-3 pr-4">Funder</th>
+                          <th className="pb-3 pr-4">Program</th>
+                          <th className="pb-3 pr-4">Source</th>
+                          <th className="pb-3 pr-4 text-right">Dimensions</th>
+                          <th className="pb-3 pr-4 text-right">Total pts</th>
+                          <th className="pb-3">Added</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-navy-100">
+                        {filteredRubrics.map((r) => {
+                          const dims = Array.isArray(r.dimensions)
+                            ? (r.dimensions as RubricDimension[])
+                            : [];
+                          const totalPoints = dims.reduce(
+                            (sum, d) => sum + (d.max_points ?? 0),
+                            0,
+                          );
+                          const isExpanded = expandedRubricId === r.id;
+                          return (
+                            <Fragment key={r.id}>
+                              <tr
+                                onClick={() =>
+                                  setExpandedRubricId(isExpanded ? null : r.id)
+                                }
+                                className="cursor-pointer hover:bg-navy-50"
+                              >
+                                <td className="py-3 pr-4">
+                                  {isExpanded ? (
+                                    <ChevronDown className="h-4 w-4 text-navy-400" aria-hidden />
+                                  ) : (
+                                    <ChevronRight className="h-4 w-4 text-navy-400" aria-hidden />
+                                  )}
+                                </td>
+                                <td className="py-3 pr-4 font-medium text-navy-900">
+                                  {r.funder_name ?? <span className="text-navy-400">—</span>}
+                                </td>
+                                <td className="py-3 pr-4 text-navy-600">
+                                  {r.grant_program ?? <span className="text-navy-400">—</span>}
+                                </td>
+                                <td className="py-3 pr-4">
+                                  {r.source ? (
+                                    <Badge color="navy">{r.source.replace(/_/g, " ")}</Badge>
+                                  ) : (
+                                    <span className="text-navy-400">—</span>
+                                  )}
+                                </td>
+                                <td className="py-3 pr-4 text-right tabular-nums text-navy-600">
+                                  {dims.length > 0 ? dims.length : <span className="text-navy-400">—</span>}
+                                </td>
+                                <td className="py-3 pr-4 text-right tabular-nums text-navy-600">
+                                  {totalPoints > 0 ? totalPoints : <span className="text-navy-400">—</span>}
+                                </td>
+                                <td className="py-3 text-navy-500">
+                                  {formatDate(r.created_at)}
+                                </td>
+                              </tr>
+                              {isExpanded && (
+                                <tr>
+                                  <td colSpan={7} className="bg-navy-50 px-6 py-4">
+                                    {dims.length === 0 ? (
+                                      <p className="text-sm text-navy-400">No dimensions recorded for this rubric.</p>
+                                    ) : (
+                                      <div className="space-y-3">
+                                        <p className="text-xs font-semibold uppercase tracking-wide text-navy-400">
+                                          Scoring Dimensions
+                                        </p>
+                                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                                          {dims.map((d, i) => (
+                                            <RubricDimensionCard key={i} dimension={d} />
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </td>
+                                </tr>
                               )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </Card>
+                            </Fragment>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </Card>
+            </>
           )}
 
           {activeTab === "logic-models" && (
@@ -564,4 +637,48 @@ function LogicRow({
 function toStringArray(value: unknown): string[] {
   if (Array.isArray(value)) return value.filter((v): v is string => typeof v === "string");
   return [];
+}
+
+function RubricDimensionCard({ dimension }: { dimension: RubricDimension }) {
+  const deductions = Array.isArray(dimension.common_deductions)
+    ? dimension.common_deductions
+    : dimension.common_deductions
+      ? [dimension.common_deductions]
+      : [];
+
+  return (
+    <div className="rounded-lg border border-navy-200 bg-white p-3">
+      <div className="mb-2 flex items-start justify-between gap-2">
+        <p className="font-medium text-navy-900 leading-tight">
+          {dimension.name ?? "Unnamed dimension"}
+        </p>
+        {dimension.max_points != null && (
+          <span className="shrink-0 rounded-full bg-teal-50 px-2 py-0.5 text-xs font-semibold text-teal-700">
+            {dimension.max_points} pts
+          </span>
+        )}
+      </div>
+      {dimension.description && (
+        <p className="mb-2 text-xs text-navy-600 line-clamp-3">{dimension.description}</p>
+      )}
+      {deductions.length > 0 && (
+        <div className="mt-2 border-t border-navy-100 pt-2">
+          <p className="mb-1 text-xs font-semibold text-navy-400 uppercase tracking-wide">
+            Common deductions
+          </p>
+          <ul className="space-y-0.5">
+            {deductions.slice(0, 3).map((d, i) => (
+              <li key={i} className="flex gap-1.5 text-xs text-navy-600">
+                <span className="mt-0.5 shrink-0 text-red-400">−</span>
+                <span>{d}</span>
+              </li>
+            ))}
+            {deductions.length > 3 && (
+              <li className="text-xs text-navy-400">+{deductions.length - 3} more</li>
+            )}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
 }
