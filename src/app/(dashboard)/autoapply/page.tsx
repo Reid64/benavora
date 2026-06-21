@@ -22,6 +22,7 @@ import { WorkerStatus } from "@/components/autoapply/WorkerStatus";
 import { QueueMetrics } from "@/components/autoapply/QueueMetrics";
 import { QueuePreview } from "@/components/autoapply/QueuePreview";
 import { QueuePanel } from "@/components/autoapply/QueuePanel";
+import { ManualQueue } from "@/components/autoapply/ManualQueue";
 import { SubmissionHistory } from "@/components/autoapply/SubmissionHistory";
 import { ReviewQueue } from "@/components/autoapply/ReviewQueue";
 // Lazy-loaded: SuccessAnalytics statically imports the full recharts library
@@ -120,6 +121,11 @@ export default function AutoApplyPage() {
   const [analyzing, setAnalyzing] = useState(false);
   const [runningSelected, setRunningSelected] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+
+  const [activeQueueTab, setActiveQueueTab] = useState<"queue_panel" | "manual_queue">(
+    "queue_panel",
+  );
+  const [manualQueueCount, setManualQueueCount] = useState(0);
 
   const loadQueue = useCallback(async () => {
     setQueueLoading(true);
@@ -374,8 +380,45 @@ export default function AutoApplyPage() {
       {/* QUEUE PREVIEW — tonight's autonomous run candidates */}
       <QueuePreview />
 
-      {/* QUEUE PANEL — real-time stats, per-item remove, clear queue */}
-      <QueuePanel />
+      {/* QUEUE PANEL / MANUAL QUEUE — tabbed view */}
+      <div>
+        {/* Tab navigation */}
+        <div className="mb-4 flex items-center gap-1 rounded-lg border border-navy-100 bg-navy-50 p-1 w-fit">
+          <button
+            type="button"
+            onClick={() => setActiveQueueTab("queue_panel")}
+            className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
+              activeQueueTab === "queue_panel"
+                ? "bg-white text-navy-900 shadow-sm"
+                : "text-navy-500 hover:text-navy-700"
+            }`}
+          >
+            Queue Panel
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveQueueTab("manual_queue")}
+            className={`flex items-center gap-2 rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
+              activeQueueTab === "manual_queue"
+                ? "bg-white text-navy-900 shadow-sm"
+                : "text-navy-500 hover:text-navy-700"
+            }`}
+          >
+            Manual Queue
+            {manualQueueCount > 0 && (
+              <span className="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-amber-500 px-1.5 text-xs font-bold text-white">
+                {manualQueueCount}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {activeQueueTab === "queue_panel" ? (
+          <QueuePanel />
+        ) : (
+          <ManualQueue onCountChange={setManualQueueCount} />
+        )}
+      </div>
 
       {/* QUEUE SECTION */}
       <Card
