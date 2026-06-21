@@ -620,6 +620,19 @@ export default function AutoApplySettingsPage() {
         </div>
       </Card>
 
+      {/* Compliance link */}
+      <div className="flex items-center justify-between rounded-lg border border-navy-200 bg-navy-50 px-4 py-3">
+        <div>
+          <p className="text-sm font-medium text-navy-900">Solicitation Registrations</p>
+          <p className="mt-0.5 text-xs text-navy-500">
+            Manage the states where your organization is registered to solicit donations. AutoApply skips funders in unregistered states.
+          </p>
+        </div>
+        <Link href="/autoapply/compliance">
+          <Button variant="secondary">Manage</Button>
+        </Link>
+      </div>
+
       {/* Save button */}
       <div className="flex justify-end gap-3 pb-8">
         <Link href="/autoapply">

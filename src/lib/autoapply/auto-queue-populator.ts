@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+import { ComplianceGuard } from './compliance-guard';
+
 export type PopulateResult = {
   queued: number;
   skipped: number;
@@ -185,7 +187,20 @@ export async function populateQueue(params: PopulateParams): Promise<PopulateRes
     throw new Error(`Failed to query funders: ${queryError.message}`);
   }
 
-  const eligible: DryRunFunder[] = funders ?? [];
+  const allEligible: DryRunFunder[] = funders ?? [];
+
+  // Compliance filter: skip funders in states where the org isn't registered.
+  const guard = new ComplianceGuard();
+  const registeredStates = new Set(await guard.getRegisteredStates(organizationId, supabase));
+  const complianceHeld: DryRunFunder[] = [];
+  const eligible: DryRunFunder[] = [];
+  for (const funder of allEligible) {
+    if (funder.state && !registeredStates.has(funder.state)) {
+      complianceHeld.push(funder);
+    } else {
+      eligible.push(funder);
+    }
+  }
 
   // Preview mode: return the candidate funders without writing to the queue.
   if (dry_run) {
@@ -210,6 +225,18 @@ export async function populateQueue(params: PopulateParams): Promise<PopulateRes
     }
 
     result.queued = eligible.length;
+  }
+
+  // Report compliance-held skips
+  for (const funder of complianceHeld) {
+    bumpReason(result.reasons, 'compliance_hold');
+    result.skipped++;
+    // Prevent double-counting if the funder was also in another exclusion set
+    pendingSet.delete(funder.id);
+    permanentBlockSet.delete(funder.id);
+    tempBlockSet.delete(funder.id);
+    recentSet.delete(funder.id);
+    userExcludeSet.delete(funder.id);
   }
 
   // Report skip reasons
