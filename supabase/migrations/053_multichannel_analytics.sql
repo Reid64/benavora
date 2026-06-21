@@ -45,5 +45,3 @@ ALTER TABLE autoapply_submissions ADD COLUMN IF NOT EXISTS follow_up_status text
 CREATE INDEX IF NOT EXISTS idx_follow_ups_scheduled ON autoapply_follow_ups(scheduled_at, status) WHERE status = 'pending';
 CREATE INDEX IF NOT EXISTS idx_session_recordings_org ON session_recordings(organization_id, recorded_at DESC);
 CREATE INDEX IF NOT EXISTS idx_ab_variants_category ON ab_test_variants(organization_id, funder_category, active);
-
--- NOTE: Migration 053 must be applied manually via Supabase SQL Editor.
