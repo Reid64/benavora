@@ -1,35 +1,576 @@
-// Stub — full implementation built in Phase 3B (Form Fill + Submit Engine).
-// Uses a stored form_template and org Knowledge Base to fill and submit a
-// corporate giving form via Playwright, returning confirmation data.
-
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Page } from 'playwright';
+import Anthropic from '@anthropic-ai/sdk';
 import type { StealthBrowser } from './stealth-browser.js';
+import { AdvancedFieldHandler } from './advanced-field-handler.js';
+import { MultiPageFormHandler } from './multi-page-handler.js';
+import { DocumentAttacher } from './document-attacher.js';
+import { DocumentVault } from './document-vault.js';
+import type { OrgDocument } from './document-vault.js';
+import { parseConfirmationPage } from './confirmation-parser.js';
+
+export interface RequestProfile {
+  request_type: string;
+  name: string;
+  needs_description: string;
+  pitch_template?: string | null;
+  form_field_overrides?: Record<string, string>;
+}
 
 export interface FillOptions {
   page: Page;
   template: Record<string, unknown>;
   organizationId: string;
   funderId: string;
+  requestProfile?: RequestProfile;
 }
 
 export interface FillResult {
   confirmationNumber: string | null;
   requestDescription: string | null;
   confirmationScreenshot: Buffer | null;
+  pagesCompleted?: number;
+  attachedDocuments?: string[];
+  unmatchedUploadFields?: string[];
+  sessionTimedOut?: boolean;
+}
+
+type FieldType =
+  | 'text'
+  | 'email'
+  | 'tel'
+  | 'url'
+  | 'number'
+  | 'textarea'
+  | 'select'
+  | 'checkbox'
+  | 'radio'
+  | 'date'
+  | 'file'
+  | 'hidden'
+  | 'unknown';
+
+interface DomFieldInfo {
+  type: FieldType;
+  name: string;
+}
+
+interface PageFillResult {
+  attachedDocs: string[];
+  unmatchedFields: string[];
+}
+
+interface KBEntry {
+  category: string | null;
+  content: string | null;
+}
+
+interface OrgRow {
+  name: string | null;
 }
 
 export class FormFillerAgent {
+  private readonly claude: Anthropic;
+
   constructor(
     private readonly supabase: SupabaseClient,
     private readonly browser: StealthBrowser,
   ) {
-    void this.supabase;
     void this.browser;
+    this.claude = new Anthropic();
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async fillAndSubmit(_options: FillOptions): Promise<FillResult> {
-    throw new Error('FormFillerAgent not yet implemented — Phase 3B pending');
+  async fillAndSubmit(options: FillOptions): Promise<FillResult> {
+    const { page, template, organizationId, funderId, requestProfile } = options;
+    void funderId;
+
+    const advancedHandler = new AdvancedFieldHandler();
+    const multiPageHandler = new MultiPageFormHandler();
+    const vault = new DocumentVault(this.supabase);
+    const attacher = new DocumentAttacher(advancedHandler);
+
+    const fillData = await this.buildFillData(organizationId, requestProfile);
+    const requestDescription = fillData['request.description'] ?? null;
+
+    const orgDocuments = await vault.getAllDocuments(organizationId).catch((): OrgDocument[] => []);
+    const fieldMapping = this.extractFieldMapping(template, requestProfile);
+
+    const allAttachedDocs: string[] = [];
+    const allUnmatchedUploadFields: string[] = [];
+    let pagesCompleted = 0;
+    let sessionTimedOut = false;
+
+    const multiPageInfo = await multiPageHandler
+      .detectMultiPage(page)
+      .catch(() => ({ isMultiPage: false, nextButton: undefined }));
+
+    if (multiPageInfo.isMultiPage) {
+      let pageNum = 1;
+      const maxPages = 20;
+
+      while (pageNum <= maxPages) {
+        const sessionActive = await advancedHandler
+          .handleSessionTimeout(page)
+          .catch(() => false);
+
+        if (!sessionActive) {
+          sessionTimedOut = true;
+          await page.reload().catch(() => null);
+          await page.waitForTimeout(2000);
+          const recovered = await advancedHandler
+            .handleSessionTimeout(page)
+            .catch(() => false);
+          if (!recovered) break;
+          sessionTimedOut = false;
+        }
+
+        const pageResult = await this.fillPageFields(
+          page,
+          fieldMapping,
+          fillData,
+          advancedHandler,
+          attacher,
+          orgDocuments,
+          vault,
+          requestProfile,
+        );
+        allAttachedDocs.push(...pageResult.attachedDocs);
+        allUnmatchedUploadFields.push(...pageResult.unmatchedFields);
+        pagesCompleted++;
+
+        const currentInfo = await multiPageHandler
+          .detectMultiPage(page)
+          .catch(() => ({ isMultiPage: false, nextButton: undefined }));
+
+        if (!currentInfo.isMultiPage || !currentInfo.nextButton) break;
+
+        const navigated = await multiPageHandler
+          .navigateToNextPage(page, currentInfo.nextButton)
+          .catch(() => false);
+
+        if (!navigated) {
+          // Navigation failed — likely a per-page validation error; stop advancing
+          break;
+        }
+
+        pageNum++;
+      }
+    } else {
+      const sessionActive = await advancedHandler
+        .handleSessionTimeout(page)
+        .catch(() => true);
+
+      if (!sessionActive) {
+        sessionTimedOut = true;
+        await page.reload().catch(() => null);
+        await page.waitForTimeout(2000);
+        const recovered = await advancedHandler
+          .handleSessionTimeout(page)
+          .catch(() => false);
+        if (recovered) sessionTimedOut = false;
+      }
+
+      if (!sessionTimedOut) {
+        const pageResult = await this.fillPageFields(
+          page,
+          fieldMapping,
+          fillData,
+          advancedHandler,
+          attacher,
+          orgDocuments,
+          vault,
+          requestProfile,
+        );
+        allAttachedDocs.push(...pageResult.attachedDocs);
+        allUnmatchedUploadFields.push(...pageResult.unmatchedFields);
+        pagesCompleted = 1;
+      }
+    }
+
+    // Accept terms before submitting
+    await advancedHandler.acceptTerms(page).catch(() => false);
+
+    let confirmationNumber: string | null = null;
+    let confirmationScreenshot: Buffer | null = null;
+
+    try {
+      await this.submitForm(page);
+      await page.waitForTimeout(3000);
+      const confirmData = await parseConfirmationPage(page).catch(() => null);
+      confirmationNumber =
+        confirmData?.confirmation_number ?? confirmData?.reference_id ?? null;
+    } catch {
+      // Submission failed; screenshot captures the failure state
+    }
+
+    try {
+      confirmationScreenshot = (await page.screenshot({ fullPage: false })) as Buffer;
+    } catch {
+      // Best-effort screenshot
+    }
+
+    return {
+      confirmationNumber,
+      requestDescription,
+      confirmationScreenshot,
+      pagesCompleted,
+      attachedDocuments: allAttachedDocs,
+      unmatchedUploadFields: allUnmatchedUploadFields,
+      sessionTimedOut,
+    };
+  }
+
+  // ─── Private helpers ───────────────────────────────────────────────────────
+
+  private async buildFillData(
+    organizationId: string,
+    requestProfile?: RequestProfile,
+  ): Promise<Record<string, string>> {
+    const fillData: Record<string, string> = {};
+
+    try {
+      const { data: orgData } = await this.supabase
+        .from('organizations')
+        .select('name')
+        .eq('id', organizationId)
+        .single();
+      const orgRow = orgData as OrgRow | null;
+      if (orgRow?.name) fillData['organization.name'] = orgRow.name;
+    } catch {
+      // org lookup failed — continue without it
+    }
+
+    let entries: KBEntry[] = [];
+    try {
+      const { data: kbData } = await this.supabase
+        .from('knowledge_base_entries')
+        .select('category, content')
+        .eq('organization_id', organizationId);
+      entries = (kbData as KBEntry[] | null) ?? [];
+    } catch {
+      // KB lookup failed — continue without entries
+    }
+
+    for (const entry of entries) {
+      const cat = (entry.category ?? '').toLowerCase();
+      const text = entry.content ?? '';
+      if (!text) continue;
+
+      if (cat.includes('mission') || cat === 'organization_profile') {
+        fillData['organization.mission_statement'] ??= text;
+      }
+      if (cat.includes('vision')) {
+        fillData['organization.vision'] ??= text;
+      }
+      if (cat.includes('program')) {
+        const prev = fillData['organization.programs'];
+        fillData['organization.programs'] = prev ? `${prev}\n${text}` : text;
+      }
+      if (cat.includes('ein') || cat.includes('tax_id')) {
+        fillData['organization.ein'] ??= text;
+      }
+      if (cat.includes('address') || cat.includes('location')) {
+        fillData['organization.address'] ??= text;
+      }
+      if (cat.includes('phone') || cat.includes('telephone')) {
+        fillData['organization.phone'] ??= text;
+      }
+      if (cat.includes('website') || cat === 'url') {
+        fillData['organization.website'] ??= text;
+      }
+      if (cat.includes('contact_name') || cat.includes('executive_director')) {
+        fillData['organization.contact_name'] ??= text;
+      }
+      if (cat.includes('contact_email')) {
+        fillData['organization.contact_email'] ??= text;
+      }
+      if (cat.includes('contact_title')) {
+        fillData['organization.contact_title'] ??= text;
+      }
+      if (cat.includes('budget') || cat.includes('annual_budget')) {
+        fillData['organization.budget'] ??= text;
+      }
+      if (cat.includes('staff') || cat.includes('employees')) {
+        fillData['organization.staff_count'] ??= text;
+      }
+      if (cat.includes('year_founded') || cat === 'founded') {
+        fillData['organization.year_founded'] ??= text;
+      }
+      if (cat.includes('service_area') || cat.includes('geography')) {
+        fillData['organization.service_area'] ??= text;
+      }
+    }
+
+    fillData['organization.tax_status'] ??= '501(c)(3) nonprofit organization';
+
+    // Request description driven by request profile when present
+    if (requestProfile) {
+      fillData['request.description'] = requestProfile.needs_description;
+      fillData['request.type'] = requestProfile.request_type;
+      fillData['request.narrative'] =
+        requestProfile.pitch_template ?? requestProfile.needs_description;
+    } else {
+      const mission =
+        fillData['organization.mission_statement'] ??
+        fillData['organization.name'] ??
+        'our organization';
+      fillData['request.description'] = `We are requesting support for ${mission}`;
+      fillData['request.type'] = 'monetary';
+      fillData['request.narrative'] = fillData['request.description'] ?? '';
+    }
+
+    return fillData;
+  }
+
+  private extractFieldMapping(
+    template: Record<string, unknown>,
+    requestProfile?: RequestProfile,
+  ): Record<string, string> {
+    const raw = template['field_mapping'];
+    const base: Record<string, string> =
+      raw && typeof raw === 'object' && !Array.isArray(raw)
+        ? (raw as Record<string, string>)
+        : {};
+
+    if (requestProfile?.form_field_overrides) {
+      return { ...base, ...requestProfile.form_field_overrides };
+    }
+
+    return { ...base };
+  }
+
+  private async fillPageFields(
+    page: Page,
+    fieldMapping: Record<string, string>,
+    fillData: Record<string, string>,
+    advancedHandler: AdvancedFieldHandler,
+    attacher: DocumentAttacher,
+    orgDocuments: OrgDocument[],
+    vault: DocumentVault,
+    requestProfile?: RequestProfile,
+  ): Promise<PageFillResult> {
+    const attachedDocs: string[] = [];
+    const unmatchedFields: string[] = [];
+    let triggerConditional = false;
+
+    // Fill fields present in the stored template mapping
+    for (const [benavoraField, selector] of Object.entries(fieldMapping)) {
+      const value = fillData[benavoraField];
+      if (!value || !selector) continue;
+
+      const domInfo = await this.getFieldInfo(page, selector);
+      if (domInfo.type === 'file' || domInfo.type === 'hidden') continue;
+
+      if (domInfo.type === 'select') {
+        const ok = await advancedHandler.fillSelect(page, selector, value).catch(() => false);
+        if (ok) triggerConditional = true;
+      } else if (domInfo.type === 'checkbox') {
+        const flag =
+          value.toLowerCase() === 'true' ||
+          value === '1' ||
+          value.toLowerCase() === 'yes';
+        await advancedHandler.fillCheckbox(page, selector, flag).catch(() => null);
+      } else if (domInfo.type === 'radio') {
+        await advancedHandler.fillRadio(page, domInfo.name, value).catch(() => null);
+        triggerConditional = true;
+      } else if (domInfo.type === 'date') {
+        await advancedHandler.fillDatePicker(page, selector, value).catch(() => null);
+      } else {
+        await page.fill(selector, value).catch(() => null);
+      }
+    }
+
+    // Wait for any conditionally-revealed fields after select/radio interactions
+    if (triggerConditional) {
+      await advancedHandler.handleConditionalFields(page).catch(() => null);
+    }
+
+    // Fill any visible form fields not covered by the template via Claude
+    await this.fillUnmappedFields(page, fieldMapping, fillData, advancedHandler, requestProfile).catch(
+      () => null,
+    );
+
+    // Detect and attach documents to upload fields
+    const uploadFields = await attacher.detectUploadFields(page).catch(() => []);
+    if (uploadFields.length > 0) {
+      if (orgDocuments.length > 0) {
+        const matches = await attacher
+          .matchDocumentsToFields(uploadFields, orgDocuments)
+          .catch(() => []);
+        const results = await attacher
+          .attachDocuments(page, matches, vault)
+          .catch(() => []);
+        for (const r of results) {
+          if (r.success) attachedDocs.push(r.documentName);
+        }
+        const unmatched = attacher.getUnmatchedFields(uploadFields, matches);
+        unmatchedFields.push(...unmatched.map((f) => f.label || f.selector));
+      } else {
+        unmatchedFields.push(...uploadFields.map((f) => f.label || f.selector));
+      }
+    }
+
+    return { attachedDocs, unmatchedFields };
+  }
+
+  private async getFieldInfo(page: Page, selector: string): Promise<DomFieldInfo> {
+    return page
+      .evaluate((sel: string): { type: string; name: string } => {
+        const el = document.querySelector(sel);
+        if (!el) return { type: 'unknown', name: '' };
+        const tag = el.tagName.toLowerCase();
+        if (tag === 'select')
+          return { type: 'select', name: (el as HTMLSelectElement).name };
+        if (tag === 'textarea')
+          return { type: 'textarea', name: (el as HTMLTextAreaElement).name };
+        if (tag === 'input') {
+          const inp = el as HTMLInputElement;
+          return { type: inp.type || 'text', name: inp.name };
+        }
+        return { type: 'unknown', name: '' };
+      }, selector)
+      .then((info) => ({
+        type: (info.type as FieldType) ?? 'unknown',
+        name: info.name ?? '',
+      }))
+      .catch((): DomFieldInfo => ({ type: 'unknown', name: '' }));
+  }
+
+  private async fillUnmappedFields(
+    page: Page,
+    fieldMapping: Record<string, string>,
+    fillData: Record<string, string>,
+    advancedHandler: AdvancedFieldHandler,
+    requestProfile?: RequestProfile,
+  ): Promise<void> {
+    const covered = new Set(Object.values(fieldMapping));
+
+    type RawField = { selector: string; label: string; type: string; name: string };
+
+    const visible = await page
+      .evaluate((): RawField[] => {
+        const results: RawField[] = [];
+        const inputs = document.querySelectorAll<HTMLElement>(
+          'input:not([type="hidden"]):not([type="submit"]):not([type="button"])' +
+            ':not([type="file"]):not([type="checkbox"]):not([type="radio"]),' +
+            'select, textarea',
+        );
+        inputs.forEach((el, idx) => {
+          const style = window.getComputedStyle(el);
+          if (style.display === 'none' || style.visibility === 'hidden') return;
+
+          const inp = el as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+          const id = inp.id ? `#${inp.id}` : '';
+          const nameAttr = inp.name ? `[name="${inp.name}"]` : '';
+          const selector =
+            id || nameAttr || `${el.tagName.toLowerCase()}:nth-of-type(${idx + 1})`;
+
+          const labelEl = inp.id
+            ? document.querySelector<HTMLLabelElement>(`label[for="${inp.id}"]`)
+            : null;
+          const label =
+            labelEl?.textContent?.trim() ??
+            inp.getAttribute('placeholder') ??
+            inp.name ??
+            '';
+
+          const tag = el.tagName.toLowerCase();
+          const type =
+            tag === 'select' || tag === 'textarea'
+              ? tag
+              : (inp as HTMLInputElement).type || 'text';
+
+          results.push({ selector, label, type, name: inp.name });
+        });
+        return results;
+      })
+      .catch((): RawField[] => []);
+
+    const unhandled = visible.filter((f) => !covered.has(f.selector));
+    if (unhandled.length === 0) return;
+
+    const fillContext = JSON.stringify(
+      Object.entries(fillData).map(([k, v]) => ({ field: k, value: v.slice(0, 200) })),
+    );
+    const fieldContext = JSON.stringify(
+      unhandled.map((f) => ({ selector: f.selector, label: f.label, type: f.type })),
+    );
+
+    const requestTypeFrame = requestProfile
+      ? `This is a ${requestProfile.request_type} request. The request need: ${requestProfile.needs_description.slice(0, 300)}.`
+      : 'This is a general monetary donation request.';
+
+    const message = await this.claude.messages
+      .create({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1024,
+        messages: [
+          {
+            role: 'user',
+            content:
+              `You are filling out a nonprofit funding request form. ${requestTypeFrame}\n` +
+              `Match each visible form field to the best available data value.\n` +
+              `Available data: ${fillContext}\n` +
+              `Visible form fields: ${fieldContext}\n` +
+              `Reply ONLY with valid JSON array (no markdown): [{"selector":"...","value":"..."}]. ` +
+              `Only include fields that have relevant data. Skip file, checkbox, and radio fields.`,
+          },
+        ],
+      })
+      .catch(() => null);
+
+    if (!message) return;
+
+    const raw = message.content[0]?.type === 'text' ? message.content[0].text : '';
+    try {
+      const jsonMatch = raw.match(/\[[\s\S]*\]/);
+      if (!jsonMatch) return;
+
+      const mappings = JSON.parse(jsonMatch[0]) as Array<{
+        selector: string;
+        value: string;
+      }>;
+
+      for (const { selector, value } of mappings) {
+        if (!selector || !value) continue;
+
+        const info = await this.getFieldInfo(page, selector);
+        if (info.type === 'select') {
+          await advancedHandler.fillSelect(page, selector, value).catch(() => null);
+          await advancedHandler.handleConditionalFields(page).catch(() => null);
+        } else if (info.type === 'radio') {
+          await advancedHandler.fillRadio(page, info.name, value).catch(() => null);
+        } else {
+          await page.fill(selector, value).catch(() => null);
+        }
+      }
+    } catch {
+      // Claude response unparseable — continue without filling unmapped fields
+    }
+  }
+
+  private async submitForm(page: Page): Promise<void> {
+    const explicitSelectors = [
+      'input[type="submit"]',
+      'button[type="submit"]',
+    ];
+
+    for (const sel of explicitSelectors) {
+      const el = await page.$(sel);
+      if (el) {
+        await el.click();
+        return;
+      }
+    }
+
+    // Fall back to text-match on any visible button
+    const btn = page
+      .locator('button')
+      .filter({ hasText: /submit|send application|apply now|send request/i })
+      .first();
+
+    if ((await btn.count()) > 0) {
+      await btn.click();
+    }
   }
 }
