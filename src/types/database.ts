@@ -2664,6 +2664,73 @@ export interface Database {
         };
         Relationships: [];
       };
+      // Migration 051 — request_profiles (Request Profile System, AUTOAPPLY_ARCHITECTURE_V2 §2C).
+      request_profiles: {
+        Row: {
+          id: string;
+          organization_id: string;
+          name: string;
+          request_type: string;
+          priority: number;
+          active: boolean;
+          needs_description: string;
+          specific_requirements: Json;
+          target_funder_categories: string[] | null;
+          target_funder_types: string[] | null;
+          pitch_template: string | null;
+          form_field_overrides: Json;
+          success_criteria: string | null;
+          min_value: number | null;
+          max_value: number | null;
+          value_unit: string;
+          geographic_requirements: Json | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          name: string;
+          request_type: string;
+          priority?: number;
+          active?: boolean;
+          needs_description: string;
+          specific_requirements?: Json;
+          target_funder_categories?: string[] | null;
+          target_funder_types?: string[] | null;
+          pitch_template?: string | null;
+          form_field_overrides?: Json;
+          success_criteria?: string | null;
+          min_value?: number | null;
+          max_value?: number | null;
+          value_unit?: string;
+          geographic_requirements?: Json | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          name?: string;
+          request_type?: string;
+          priority?: number;
+          active?: boolean;
+          needs_description?: string;
+          specific_requirements?: Json;
+          target_funder_categories?: string[] | null;
+          target_funder_types?: string[] | null;
+          pitch_template?: string | null;
+          form_field_overrides?: Json;
+          success_criteria?: string | null;
+          min_value?: number | null;
+          max_value?: number | null;
+          value_unit?: string;
+          geographic_requirements?: Json | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       // Grant Intelligence Library — global shared tables, no RLS, no organization_id.
       intelligence_funded_proposals: {
         Row: {
