@@ -1,13 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ListOrdered, Trash2, X } from "lucide-react";
+import { Eye, ListOrdered, Trash2, X } from "lucide-react";
 
 import { Badge } from "@/components/ui/Badge";
 import type { BadgeColor } from "@/components/ui/Badge";
 import { Button, Card, EmptyState, Modal } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 import { useProfile } from "@/lib/hooks/useProfile";
+import { SubmissionPreview } from "./SubmissionPreview";
 
 interface QueueItem {
   id: string;
@@ -60,6 +61,7 @@ export function QueuePanel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [previewItemId, setPreviewItemId] = useState<string | null>(null);
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
   const [clearing, setClearing] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -344,19 +346,29 @@ export function QueuePanel() {
                       <td className="whitespace-nowrap px-4 py-3 text-navy-400">
                         {new Date(item.created_at).toLocaleString()}
                       </td>
-                      <td className="px-4 py-3 text-right">
-                        {isPending && (
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-end gap-2">
                           <Button
                             size="sm"
                             variant="secondary"
-                            onClick={() => void handleRemove(item.id)}
-                            isLoading={isRemoving}
-                            disabled={isRemoving}
+                            onClick={() => setPreviewItemId(item.id)}
                           >
-                            <Trash2 className="mr-1 h-3 w-3" />
-                            Remove
+                            <Eye className="mr-1 h-3 w-3" />
+                            Preview
                           </Button>
-                        )}
+                          {isPending && (
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => void handleRemove(item.id)}
+                              isLoading={isRemoving}
+                              disabled={isRemoving}
+                            >
+                              <Trash2 className="mr-1 h-3 w-3" />
+                              Remove
+                            </Button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -393,6 +405,15 @@ export function QueuePanel() {
           </>
         }
       />
+
+      {/* Submission Preview Modal */}
+      {previewItemId && (
+        <SubmissionPreview
+          queueItemId={previewItemId}
+          onConfirm={() => setPreviewItemId(null)}
+          onCancel={() => setPreviewItemId(null)}
+        />
+      )}
     </>
   );
 }
