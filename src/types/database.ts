@@ -2385,6 +2385,13 @@ export interface Database {
           retry_count: number;
           next_retry_at: string | null;
           submitted_at: string | null;
+          request_profile_id: string | null;
+          submission_channel: string | null;
+          personalized_pitch: string | null;
+          optimized_amount: number | null;
+          timing_score: number | null;
+          confirmation_data: Json | null;
+          documents_attached: string[] | null;
           created_at: string;
         };
         Insert: {
@@ -2404,6 +2411,13 @@ export interface Database {
           retry_count?: number;
           next_retry_at?: string | null;
           submitted_at?: string | null;
+          request_profile_id?: string | null;
+          submission_channel?: string | null;
+          personalized_pitch?: string | null;
+          optimized_amount?: number | null;
+          timing_score?: number | null;
+          confirmation_data?: Json | null;
+          documents_attached?: string[] | null;
           created_at?: string;
         };
         Update: {
@@ -2423,6 +2437,13 @@ export interface Database {
           retry_count?: number;
           next_retry_at?: string | null;
           submitted_at?: string | null;
+          request_profile_id?: string | null;
+          submission_channel?: string | null;
+          personalized_pitch?: string | null;
+          optimized_amount?: number | null;
+          timing_score?: number | null;
+          confirmation_data?: Json | null;
+          documents_attached?: string[] | null;
           created_at?: string;
         };
         Relationships: [];
@@ -3165,6 +3186,89 @@ export interface Database {
           uploaded_by?: string | null;
           expires_at?: string | null;
           is_current?: boolean;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      // Migration 051 — submission_receipts (PDF receipts for AutoApply submissions).
+      submission_receipts: {
+        Row: {
+          id: string;
+          submission_id: string | null;
+          organization_id: string;
+          receipt_pdf_path: string | null;
+          receipt_data: Json;
+          generated_at: string;
+        };
+        Insert: {
+          id?: string;
+          submission_id?: string | null;
+          organization_id: string;
+          receipt_pdf_path?: string | null;
+          receipt_data: Json;
+          generated_at?: string;
+        };
+        Update: {
+          id?: string;
+          submission_id?: string | null;
+          organization_id?: string;
+          receipt_pdf_path?: string | null;
+          receipt_data?: Json;
+          generated_at?: string;
+        };
+        Relationships: [];
+      };
+      // Migration 051 — grant_agreements (post-award agreement tracking).
+      grant_agreements: {
+        Row: {
+          id: string;
+          submission_id: string | null;
+          organization_id: string;
+          funder_id: string;
+          amount_awarded: number | null;
+          award_type: string | null;
+          agreement_date: string | null;
+          start_date: string | null;
+          end_date: string | null;
+          terms: string | null;
+          reporting_requirements: Json | null;
+          payment_schedule: Json | null;
+          status: string;
+          notes: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          submission_id?: string | null;
+          organization_id: string;
+          funder_id: string;
+          amount_awarded?: number | null;
+          award_type?: string | null;
+          agreement_date?: string | null;
+          start_date?: string | null;
+          end_date?: string | null;
+          terms?: string | null;
+          reporting_requirements?: Json | null;
+          payment_schedule?: Json | null;
+          status?: string;
+          notes?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          submission_id?: string | null;
+          organization_id?: string;
+          funder_id?: string;
+          amount_awarded?: number | null;
+          award_type?: string | null;
+          agreement_date?: string | null;
+          start_date?: string | null;
+          end_date?: string | null;
+          terms?: string | null;
+          reporting_requirements?: Json | null;
+          payment_schedule?: Json | null;
+          status?: string;
+          notes?: string | null;
           created_at?: string;
         };
         Relationships: [];

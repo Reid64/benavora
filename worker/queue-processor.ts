@@ -9,6 +9,7 @@ import { ScreenshotManager } from '../src/lib/autoapply/screenshot-manager.js';
 import { SubmissionValidator } from '../src/lib/autoapply/submission-validator.js';
 import { SubmissionControls } from '../src/lib/autoapply/submission-controls.js';
 import { parseConfirmationPage, type ConfirmationData } from '../src/lib/autoapply/confirmation-parser.js';
+import { generateReceipt } from '../src/lib/autoapply/receipt-generator.js';
 import { getOptimalAskAmount } from '../src/lib/autoapply/amount-optimizer.js';
 import { personalizePitch } from '../src/lib/autoapply/pitch-personalizer.js';
 import { getTimingScore } from '../src/lib/autoapply/timing-optimizer.js';
@@ -716,7 +717,7 @@ export class QueueProcessor {
         retry_count: 0,
         submitted_at: submissionStatus === 'submitted' ? new Date().toISOString() : null,
       })
-      .select('id')
+      .select('*')
       .single();
 
     if (submissionError) {
@@ -738,6 +739,30 @@ export class QueueProcessor {
           .eq('id', queueItemId),
         screenshotManager.linkToSubmission(submissionRow.id, this.supabase),
       ]);
+
+      // Generate PDF receipt for successful submissions (fire-and-forget — never
+      // block the queue on a receipt failure).
+      if (submissionStatus === 'submitted') {
+        generateReceipt({
+          supabase: this.supabase,
+          submission: submission as Parameters<typeof generateReceipt>[0]['submission'],
+          funderName,
+          orgName,
+          requestProfile: (requestProfile as unknown) as Parameters<typeof generateReceipt>[0]['requestProfile'],
+          confirmationData: confirmationData ?? undefined,
+          screenshots: [
+            ...(pageLoadPath ? [{ stage: 'page_load', path: pageLoadPath }] : []),
+            ...(preFillPath ? [{ stage: 'pre_fill', path: preFillPath }] : []),
+            ...(postFillPath ? [{ stage: 'post_fill', path: postFillPath }] : []),
+            ...(confirmationPath ? [{ stage: 'confirmation', path: confirmationPath }] : []),
+          ],
+        }).catch((e: unknown) => {
+          console.warn(
+            '[QueueProcessor] Receipt generation failed:',
+            e instanceof Error ? e.message : String(e),
+          );
+        });
+      }
 
       // Record in cross-client dedup log on successful submission so other tenants
       // avoid submitting to the same domain in the next 7 days.
