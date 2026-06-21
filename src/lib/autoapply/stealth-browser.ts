@@ -215,8 +215,11 @@ export class StealthBrowser {
    * Launch a hardened browser and return { browser, page } with stealth, a
    * randomized fingerprint, rotated user-agent, US timezone/locale, and a
    * realistic desktop viewport already applied.
+   *
+   * @param options.proxy - Optional proxy server URL (e.g. "http://user:pass@host:port").
+   *   When omitted the browser connects directly.
    */
-  async launch(): Promise<StealthSession> {
+  async launch(options?: { proxy?: string }): Promise<StealthSession> {
     const userAgent = pick(USER_AGENTS);
     const tz = pick(TIMEZONES);
     const gpu = pick(WEBGL_GPUS);
@@ -229,14 +232,18 @@ export class StealthBrowser {
     const deviceMemory = pick([4, 8, 16]);
     const platform = platformForUA(userAgent);
 
-    const browser = await chromium.launch({
+    const launchArgs: Parameters<typeof chromium.launch>[0] = {
       headless: this.headless,
       args: [
         "--disable-blink-features=AutomationControlled",
         "--no-sandbox",
         "--disable-dev-shm-usage",
       ],
-    });
+    };
+    if (options?.proxy) {
+      launchArgs.proxy = { server: options.proxy };
+    }
+    const browser = await chromium.launch(launchArgs);
 
     const context = await browser.newContext({
       userAgent,

@@ -4,6 +4,7 @@ import { FormAnalyzerAgent } from '../src/lib/autoapply/form-analyzer-agent.js';
 import { FormFillerAgent } from '../src/lib/autoapply/form-filler-agent.js';
 import * as heartbeat from './heartbeat.js';
 import { RateLimiter } from './rate-limiter.js';
+import { ProxyManager } from './proxy-manager.js';
 
 // --- types -------------------------------------------------------------------
 
@@ -54,6 +55,11 @@ function classifyError(message: string): string {
   return 'failed';
 }
 
+function isIpBlock(message: string): boolean {
+  const lower = message.toLowerCase();
+  return /\b403\b|\b429\b|blocked|suspicious|too many requests|rate.?limit/.test(lower);
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise<void>((resolve) => setTimeout(resolve, ms));
 }
@@ -91,6 +97,10 @@ export class QueueProcessor {
   private processing = false;
   private readonly idleResolvers: Array<() => void> = [];
   private readonly rateLimiter = new RateLimiter();
+  private readonly proxyManager = new ProxyManager({
+    provider: process.env['PROXY_PROVIDER'] ?? 'static',
+    apiKey: process.env['PROXY_API_KEY'] ?? '',
+  });
 
   constructor(
     private readonly supabase: SupabaseClient,
@@ -125,6 +135,10 @@ export class QueueProcessor {
   }
 
   private async loop(): Promise<void> {
+    await this.proxyManager.loadProxies();
+    const proxyStats = this.proxyManager.getStats();
+    console.log(`[QueueProcessor] Proxy pool ready — ${proxyStats.active}/${proxyStats.total} active`);
+
     while (this.running) {
       const item = await this.dequeue();
 
@@ -264,8 +278,13 @@ export class QueueProcessor {
       : null;
     const isStaleRefresh = existingTemplate !== null && needsReanalysis;
 
+    const proxy = this.proxyManager.rotateForSubmission();
+    if (proxy !== null) {
+      console.log(`[QueueProcessor] Using proxy for ${funderName}: ${proxy.replace(/:[^:@]+@/, ':***@')}`);
+    }
+
     const stealthBrowser = new StealthBrowser({ headless: true });
-    const { browser, page } = await stealthBrowser.launch();
+    const { browser, page } = await stealthBrowser.launch({ proxy: proxy ?? undefined });
 
     let preSubmitUrl: string | null = null;
     let confirmationUrl: string | null = null;
@@ -353,6 +372,11 @@ export class QueueProcessor {
       const message = err instanceof Error ? err.message : String(err);
       errorMessage = message;
       submissionStatus = classifyError(message);
+
+      // Mark proxy as failed if the error looks like an IP block
+      if (proxy !== null && isIpBlock(message)) {
+        this.proxyManager.markFailed(proxy);
+      }
 
       // Best-effort error screenshot while browser may still be open
       try {
