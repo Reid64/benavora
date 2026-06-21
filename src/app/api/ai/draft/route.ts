@@ -667,13 +667,11 @@ export async function POST(request: Request) {
         Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
       if (intelligenceLogicModel) {
         generatedLogicModel = {
-          data: {
-            inputs: toStrArr(intelligenceLogicModel.inputs),
-            activities: toStrArr(intelligenceLogicModel.activities),
-            outputs: toStrArr(intelligenceLogicModel.outputs),
-            outcomes: toStrArr(intelligenceLogicModel.outcomes),
-            impact: toStrArr(intelligenceLogicModel.impact),
-          },
+          inputs: toStrArr(intelligenceLogicModel.inputs),
+          activities: toStrArr(intelligenceLogicModel.activities),
+          outputs: toStrArr(intelligenceLogicModel.outputs),
+          outcomes: toStrArr(intelligenceLogicModel.outcomes),
+          impact: toStrArr(intelligenceLogicModel.impact),
           category: context.opportunity.category,
           templateBased: true,
         };
@@ -903,7 +901,6 @@ export async function POST(request: Request) {
     const result: DraftResult & {
       belowThreshold: boolean;
       rubricDimensions?: Array<{ name: string; points: number | null; description: string | null }>;
-      logicModel?: GeneratedLogicModel;
     } = {
       content: draftText,
       confidenceScore,
@@ -911,6 +908,7 @@ export async function POST(request: Request) {
       savedVersion,
       belowThreshold: confidenceScore < threshold,
       rubricDimensions: rubricDimensionSummary.length > 0 ? rubricDimensionSummary : undefined,
+      // GeneratedLogicModel extends LogicModelData, so it satisfies DraftResult.logicModel.
       logicModel: generatedLogicModel ?? undefined,
     };
 

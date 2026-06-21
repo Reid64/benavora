@@ -332,3 +332,22 @@ All Phase 3 sub-phases (3A through 3H) are code-complete. The full AutoApply sta
 
 ### Next Build
 Intelligence Library Nights 2–7 (reviewer rubrics, logic models, need statement database, budget/evaluation libraries, grantmaker intelligence, narrative patterns + Grant DNA), then Phase 4 (Email + Calendar Integration).
+
+## Session — 2026-06-21 (logic-005: logic model type fix + integration)
+
+### Completed This Session
+- **logic-005**: Fixed the `GeneratedLogicModel` / `LogicModelData` type mismatch and wired the program logic model into the Intelligence Library + draft generator.
+  - `src/lib/intelligence/logic-model-generator.ts`:
+    - `GeneratedLogicModel` now `extends LogicModelData` — carries `inputs/activities/outputs/outcomes/impact` inline (removed the nested `data: LogicModelData`), plus `category`, `templateBased`, `templateId?`. A `GeneratedLogicModel` is now directly assignable wherever a `LogicModelData` is expected.
+    - `generateLogicModel()` returns `{ ...data, category, templateBased, templateId }`.
+    - `formatLogicModelAsText()` reads the stage arrays off `model` directly (no `model.data`).
+  - `src/app/api/ai/draft/route.ts`:
+    - Intelligence-library template branch builds the model inline (no `data:` wrapper).
+    - Result object's inline type no longer redeclares `logicModel` — it now comes from `DraftResult.logicModel`. Line ~914 `logicModel: generatedLogicModel ?? undefined` type-checks because `GeneratedLogicModel extends LogicModelData`.
+  - `src/types/ai.ts`: added self-contained `DraftLogicModel` interface and `DraftResult.logicModel?: DraftLogicModel | null` so the client can consume the model the API already returns.
+  - `src/app/(dashboard)/intelligence-library/page.tsx`: Logic Models tab already present (TABS + `LogicModelCard` grouped by category) — verified, no change.
+  - `src/app/(dashboard)/draft-generator/page.tsx`: imports `LogicModelView`; new `logicModel` state (reset on generate, set from `payload.logicModel`); renders a "Program logic model" Card in the review sidebar (below the rubric panel) wrapping `LogicModelView` in a `bg-navy-900` panel (the view is dark-themed).
+
+### Gates
+- `npx tsc --noEmit` — PASS (zero errors)
+- `npx next build` — PASS (175 routes, zero type/lint errors)

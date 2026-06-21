@@ -21,6 +21,10 @@ import {
   type DraftVersionItem,
 } from "@/components/draft-generator/DraftsHistoryPanel";
 import { RubricPanel } from "@/components/intelligence/RubricPanel";
+import {
+  LogicModelView,
+  type LogicModelData,
+} from "@/components/intelligence/LogicModelView";
 import { createClient } from "@/lib/supabase/client";
 import { canEdit, useProfile } from "@/lib/hooks/useProfile";
 import { AI_CONFIDENCE_THRESHOLD } from "@/lib/utils/constants";
@@ -155,6 +159,11 @@ export default function DraftGeneratorPage() {
 
   const [rubric, setRubric] = useState<RubricDimension[] | null>(null);
   const [rubricInferred, setRubricInferred] = useState(false);
+
+  // Program logic model the API used to ground the program-design section
+  // (template-based or AI-generated). GeneratedLogicModel/DraftLogicModel carry
+  // extra metadata, but they extend LogicModelData so they render directly.
+  const [logicModel, setLogicModel] = useState<LogicModelData | null>(null);
 
   const [saving, setSaving] = useState(false);
   const [reverting, setReverting] = useState(false);
@@ -307,6 +316,7 @@ export default function DraftGeneratorPage() {
     setActiveVersionId(null);
     setRubric(null);
     setRubricInferred(false);
+    setLogicModel(null);
 
     try {
       if (templateType === "budget_narrative") {
@@ -375,6 +385,7 @@ export default function DraftGeneratorPage() {
       setActiveVersionId(payload.savedVersion?.id ?? null);
       setRubric(payload.rubric ?? null);
       setRubricInferred(payload.rubricInferred ?? false);
+      setLogicModel(payload.logicModel ?? null);
       // Refresh the history panel to include the just-saved version.
       await loadVersions(opportunityId, false);
     } catch {
@@ -764,6 +775,16 @@ export default function DraftGeneratorPage() {
                   <KnowledgePreview sources={sources} />
                 </Card>
                 <RubricPanel rubric={rubric} rubricInferred={rubricInferred} />
+                {logicModel && (
+                  <Card
+                    title="Program logic model"
+                    description="The inputs → impact backbone the AI used to ground this draft's program design. Sourced from the Intelligence Library when a template matches, otherwise generated for this opportunity."
+                  >
+                    <div className="rounded-xl bg-navy-900 p-4">
+                      <LogicModelView model={logicModel} />
+                    </div>
+                  </Card>
+                )}
                 {budgetTable.length > 0 && (
                   <Card title="Budget line items">
                     <div className="space-y-2">

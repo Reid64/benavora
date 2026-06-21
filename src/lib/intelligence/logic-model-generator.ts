@@ -19,8 +19,11 @@ export interface LogicModelData {
   impact: string[]
 }
 
-export interface GeneratedLogicModel {
-  data: LogicModelData
+// Carries the five logic-model stages inline (extends LogicModelData) plus the
+// resolution metadata, so a GeneratedLogicModel is directly assignable anywhere
+// a LogicModelData is expected (e.g. the LogicModelView component and the
+// DraftResult.logicModel field) without unwrapping a nested `data` object.
+export interface GeneratedLogicModel extends LogicModelData {
   category: string
   templateBased: boolean
   templateId?: string
@@ -147,7 +150,7 @@ export async function generateLogicModel(params: {
   const data = parseLogicModelJson(block.text)
 
   return {
-    data,
+    ...data,
     category,
     templateBased: template !== null,
     templateId: template?.id,
@@ -155,16 +158,14 @@ export async function generateLogicModel(params: {
 }
 
 export function formatLogicModelAsText(model: GeneratedLogicModel): string {
-  const { data } = model
-
   const fmt = (items: string[]): string =>
     items.map((item) => `  - ${item}`).join('\n')
 
   return [
-    `INPUTS:\n${fmt(data.inputs)}`,
-    `ACTIVITIES:\n${fmt(data.activities)}`,
-    `OUTPUTS:\n${fmt(data.outputs)}`,
-    `OUTCOMES:\n${fmt(data.outcomes)}`,
-    `IMPACT:\n${fmt(data.impact)}`,
+    `INPUTS:\n${fmt(model.inputs)}`,
+    `ACTIVITIES:\n${fmt(model.activities)}`,
+    `OUTPUTS:\n${fmt(model.outputs)}`,
+    `OUTCOMES:\n${fmt(model.outcomes)}`,
+    `IMPACT:\n${fmt(model.impact)}`,
   ].join('\n\n')
 }

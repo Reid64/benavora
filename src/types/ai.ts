@@ -63,6 +63,26 @@ export interface RubricDimension {
   description: string;
 }
 
+/**
+ * Program logic model attached to a generated draft. Carries the five logic-model
+ * stages inline plus the resolution metadata. Structurally matches the server's
+ * GeneratedLogicModel (lib/intelligence/logic-model-generator) and the
+ * LogicModelView component's LogicModelData, so it can be rendered directly.
+ */
+export interface DraftLogicModel {
+  inputs: string[];
+  activities: string[];
+  outputs: string[];
+  outcomes: string[];
+  impact: string[];
+  /** Funder/program category the model was resolved for. */
+  category: string;
+  /** True when sourced from an intelligence-library template; false when AI-generated. */
+  templateBased: boolean;
+  /** Source template id when templateBased. */
+  templateId?: string;
+}
+
 export interface DraftResult {
   content: string;
   /** AI confidence 0-100. Below 70 must show a review warning. */
@@ -77,6 +97,12 @@ export interface DraftResult {
   rubric?: RubricDimension[] | null;
   /** True when the rubric was inferred from the opportunity description rather than matched from the database. */
   rubricInferred?: boolean;
+  /**
+   * Program logic model used to ground the program-design section. Present only
+   * for templates that need one (full_proposal, or opportunities mentioning a
+   * logic model / theory of change). Null/absent otherwise.
+   */
+  logicModel?: DraftLogicModel | null;
 }
 
 /** Result of the Humanizer pass (/api/ai/humanize). */
