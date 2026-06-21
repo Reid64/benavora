@@ -1,0 +1,499 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - BLUEPRINT.md
+  - SCHEMA_REGISTRY.md
+  - BEHAVIORAL_CONTRACTS.md
+  - AGENTS.md
+  - PRD.md
+  - AUTOAPPLY_ARCHITECTURE.md
+  - WORKER_ARCHITECTURE.md
+  - GRANT_INTELLIGENCE_ARCHITECTURE.md
+  - INTELLIGENCE_BUILD_ROADMAP.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+prompts:
+
+  # ============================================================
+  # REVIEWER SCORING RUBRICS (Prompts 1-6)
+  # Reference: GRANT_INTELLIGENCE_ARCHITECTURE.md KB 2
+  # Tables already exist from migration 048
+  # ============================================================
+
+  - id: rubric-001
+    phase: build
+    description: "Create NOFO rubric extractor that parses scoring criteria from opportunity data"
+    prompt: |
+      Read GRANT_INTELLIGENCE_ARCHITECTURE.md section 3 (KB 2: Reviewer Scoring Rubrics).
+
+      The opportunities table in Supabase contains parsed NOFA data including requirements, eligibility text, and raw content from federal grant announcements. Many NOFOs contain explicit scoring criteria sections (e.g., "Selection Criteria: Need 20pts, Approach 25pts, Evaluation 15pts").
+
+      Create C:\Users\manag\Documents\benavora\src\lib\intelligence\rubric-extractor.ts:
+
+      Import Anthropic from '@anthropic-ai/sdk'. Use lazy initialization pattern (do NOT instantiate at module level — use a getClient() getter function, same pattern as embeddings.ts).
+
+      Export async function extractRubricFromText(text: string, funderName?: string, grantProgram?: string): Promise<ExtractedRubric>
+
+      Call Claude API (claude-sonnet-4-6) with:
+      System: "You are a federal grant reviewer. Extract the scoring rubric from this grant announcement text. Return ONLY valid JSON with no markdown formatting. Structure:
+      {
+        \"dimensions\": [
+          {
+            \"name\": \"string (e.g., Need, Approach, Evaluation)\",
+            \"max_points\": number,
+            \"weight_percentage\": number,
+            \"description\": \"what earns full marks\",
+            \"common_deductions\": [\"string\"]
+          }
+        ],
+        \"total_points\": number,
+        \"review_type\": \"string (peer_review, panel_review, merit_review, internal)\",
+        \"notes\": \"any additional reviewer guidance found\"
+      }
+      If no explicit scoring criteria are found, infer likely dimensions based on the funder type and requirements, and set a flag inferred: true on each dimension."
+      User: the text (truncated to 50,000 chars)
+
+      Parse the JSON response. Handle markdown code blocks wrapping.
+
+      Export async function extractRubricFromOpportunity(opportunityId: string, supabase: any): Promise<ExtractedRubric | null>
+      - Fetch the opportunity record by ID
+      - Concatenate: requirements, eligibility_text, description, raw_content (whatever fields exist)
+      - If total text < 100 chars, return null (not enough to extract from)
+      - Call extractRubricFromText with the concatenated text and funder info
+      - Return the rubric
+
+      Define TypeScript interfaces: ExtractedRubric, RubricDimension.
+    expected_outputs:
+      - src/lib/intelligence/rubric-extractor.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: rubric-002
+    phase: build
+    description: "Create rubric ingestion script that processes existing opportunities"
+    prompt: |
+      Read the rubric-extractor.ts file at C:\Users\manag\Documents\benavora\src\lib\intelligence\rubric-extractor.ts.
+
+      Create C:\Users\manag\Documents\benavora\src\scripts\ingest-rubrics-from-opportunities.ts:
+
+      This standalone script processes existing opportunities in the database and extracts scoring rubrics.
+
+      Add at the top: import dotenv from 'dotenv'; dotenv.config({ path: '.env.local' });
+      Use ws package for Supabase WebSocket transport (same pattern as ingest-nih-proposals.ts).
+      Use lazy OpenAI client initialization.
+
+      Steps:
+      1. Query opportunities table for records that have requirements or description content. Order by created_at DESC. Accept --limit flag.
+      2. For each opportunity:
+         a. Check if a rubric already exists in intelligence_scoring_rubrics with matching grant_program or source_url. Skip if so (dedup).
+         b. Call extractRubricFromOpportunity() to extract the rubric.
+         c. If rubric is null or has 0 dimensions, skip.
+         d. Insert into intelligence_scoring_rubrics with: source = 'nofa_parse', source_url = opportunity URL, funder_name from opportunity, grant_program = opportunity title, category from opportunity, dimensions = the extracted JSON, full_text = concatenated source text.
+         e. Generate embedding for the full_text using generateEmbedding() from embeddings.ts and update the embedding column.
+      3. Log progress: "Processing opportunity {n}/{total}: {title}"
+      4. On error per opportunity, log and continue to next.
+
+      Run with: npx tsx src/scripts/ingest-rubrics-from-opportunities.ts --limit 20
+
+      Add to tsconfig exclude if not already: src/scripts/*.ts
+    expected_outputs:
+      - src/scripts/ingest-rubrics-from-opportunities.ts
+    gates:
+      - type: file_exists
+        files: [src/scripts/ingest-rubrics-from-opportunities.ts]
+    max_retries: 3
+    on_fail: halt
+
+  - id: rubric-003
+    phase: build
+    description: "Create reviewer guide ingestion script for NIH and federal sources"
+    prompt: |
+      Read GRANT_INTELLIGENCE_ARCHITECTURE.md section 3 (KB 2 sources).
+
+      Create C:\Users\manag\Documents\benavora\src\scripts\ingest-reviewer-guides.ts:
+
+      Add at the top: import dotenv from 'dotenv'; dotenv.config({ path: '.env.local' });
+      Use ws package for Supabase WebSocket transport.
+      Use lazy client initialization for both Anthropic and OpenAI.
+
+      This script ingests publicly available federal reviewer guidance documents. Hardcode the following sources:
+
+      const REVIEWER_GUIDE_SOURCES = [
+        { url: 'https://grants.nih.gov/grants/peer/guidelines_general/Review_Criteria_at_a_Glance.pdf', funder: 'NIH', program: 'General R01' },
+        { url: 'https://grants.nih.gov/grants/peer/reviewer_guidelines.htm', funder: 'NIH', program: 'Peer Review Guidelines' },
+        { url: 'https://www.nsf.gov/bfa/dias/policy/merit_review/', funder: 'NSF', program: 'Merit Review Criteria' },
+        { url: 'https://www.samhsa.gov/grants/applying/review-process', funder: 'SAMHSA', program: 'Review Process' },
+        { url: 'https://www.hud.gov/program_offices/spm/gmomgmt/grantsinfo/conductgrantreviews', funder: 'HUD', program: 'Grant Review Conduct' },
+      ];
+
+      For each source:
+      1. Fetch the URL content. If PDF, use pdf-parse (lazy import: import('pdf-parse/lib/pdf-parse.js')). If HTML, extract text content.
+      2. Call Claude API to extract scoring rubric using extractRubricFromText().
+      3. Also call Claude to extract: reviewer_tips (what reviewers look for), common_mistakes (what loses points), formatting_preferences.
+      4. Insert into intelligence_scoring_rubrics with source = 'reviewer_guide', dimensions from extraction.
+      5. Generate and store embedding.
+
+      Handle 404s and network errors gracefully — log and continue.
+      Add --dry-run flag that shows what would be fetched without inserting.
+
+      Run with: npx tsx src/scripts/ingest-reviewer-guides.ts
+    expected_outputs:
+      - src/scripts/ingest-reviewer-guides.ts
+    gates:
+      - type: file_exists
+        files: [src/scripts/ingest-reviewer-guides.ts]
+    max_retries: 3
+    on_fail: halt
+
+  - id: rubric-004
+    phase: build
+    description: "Enhance draft generator with rubric-aware scoring optimization"
+    prompt: |
+      Read the existing draft generator at C:\Users\manag\Documents\benavora\src\app\api\ai\draft\route.ts completely before making changes.
+      Read C:\Users\manag\Documents\benavora\src\lib\intelligence\rag-retrieval.ts to understand the retrieveRubric function.
+
+      Modify the draft generator route to enhance rubric integration:
+
+      The Night 1 build already added a basic retrieveRubric call. Enhance it:
+
+      1. If retrieveRubric returns a rubric with dimensions, add a detailed scoring optimization section to the Claude prompt. Not just "optimize for these dimensions" but:
+         - List each dimension with its point value
+         - For each dimension, include what earns full marks (from dimension.description)
+         - Include common deductions to avoid (from dimension.common_deductions)
+         - Add instruction: "For each section you write, mentally score it against the relevant dimension. If a section would score below 80% of available points, rewrite it to be more specific and evidence-based."
+
+      2. If no rubric is found in the database, add a fallback: call Claude with a mini-prompt to infer likely scoring dimensions based on the opportunity description and funder type. Cache this inferred rubric in intelligence_scoring_rubrics with a flag inferred: true so it's available next time.
+
+      3. Add the rubric dimensions to the response metadata so the frontend can display: "This draft was optimized for: Need (20pts), Approach (25pts), Evaluation (15pts)..."
+
+      Do NOT break existing functionality. Wrap all rubric logic in try/catch with graceful fallback to the existing behavior.
+    expected_outputs:
+      - src/app/api/ai/draft/route.ts
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: rubric-005
+    phase: build
+    description: "Add rubric display to draft generator UI"
+    prompt: |
+      Read the existing draft generator page at C:\Users\manag\Documents\benavora\src\app\(dashboard)\draft-generator\page.tsx.
+
+      Create C:\Users\manag\Documents\benavora\src\components\intelligence\RubricPanel.tsx:
+
+      A collapsible panel that displays the scoring rubric used for the current draft. Props: rubric (the dimensions array from the draft response metadata).
+
+      Display:
+      - Header: "Scoring Optimization" with a brain/target icon from lucide-react
+      - If rubric exists: show each dimension as a row with: dimension name, point value, description of what earns full marks
+      - Color-code by weight: highest-weighted dimensions get amber/gold accent
+      - If rubric was inferred (not from database), show a subtle "Inferred from opportunity description" note
+      - If no rubric: show "No scoring rubric available for this funder"
+
+      Integrate this component into the draft generator page — show it in the sidebar or below the draft output.
+
+      Use Tailwind CSS matching existing dashboard styling. Collapsible by default, expanded when a draft is generated.
+    expected_outputs:
+      - src/components/intelligence/RubricPanel.tsx
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: rubric-006
+    phase: build
+    description: "Add rubrics tab to Intelligence Library page"
+    prompt: |
+      Read the Intelligence Library page at C:\Users\manag\Documents\benavora\src\app\(dashboard)\intelligence-library\page.tsx.
+
+      Add a "Scoring Rubrics" tab to the existing tab navigation. This tab should:
+
+      1. Query intelligence_scoring_rubrics and display a table with columns: funder_name, grant_program, source, number of dimensions, total_points, created_at.
+      2. Click a row to expand and show the full dimensions breakdown: each dimension's name, max_points, description, and common_deductions.
+      3. Add a "Rubric count" stat card to the top stats section.
+      4. Add a filter dropdown for source type: all, nofa_parse, reviewer_guide, inferred.
+
+      Use Tailwind CSS matching the existing Intelligence Library page styling.
+    expected_outputs:
+      - src/app/(dashboard)/intelligence-library/page.tsx
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # LOGIC MODEL LIBRARY (Prompts 7-12)
+  # Reference: GRANT_INTELLIGENCE_ARCHITECTURE.md KB 3
+  # Table already exists from migration 048
+  # ============================================================
+
+  - id: logic-001
+    phase: build
+    description: "Create logic model template seed script with 10 program categories"
+    prompt: |
+      Read GRANT_INTELLIGENCE_ARCHITECTURE.md section 3 (KB 3: Logic Model Library).
+
+      Create C:\Users\manag\Documents\benavora\src\scripts\seed-logic-models.ts:
+
+      Add at the top: import dotenv from 'dotenv'; dotenv.config({ path: '.env.local' });
+      Use ws package for Supabase WebSocket transport.
+      Use lazy OpenAI client initialization for embeddings.
+
+      This script seeds the intelligence_logic_models table with expert-quality templates for 10 program categories. Use Claude API (lazy init) to generate each template, then store it.
+
+      For each of these 10 categories, call Claude to generate a comprehensive logic model:
+
+      const CATEGORIES = [
+        'homelessness_prevention',
+        'reentry_second_chance',
+        'addiction_recovery',
+        'workforce_development',
+        'affordable_housing',
+        'youth_mentoring',
+        'veterans_services',
+        'faith_based_services',
+        'food_insecurity',
+        'domestic_violence'
+      ];
+
+      Claude prompt per category:
+      System: "You are an expert in nonprofit program design and federal grant logic models. Generate a comprehensive logic model for the given program category. Return ONLY valid JSON with no markdown. Structure:
+      {
+        \"inputs\": [\"resource 1\", \"resource 2\", ...],
+        \"activities\": [\"activity 1\", \"activity 2\", ...],
+        \"outputs\": [\"output 1\", \"output 2\", ...],
+        \"outcomes\": [\"short-term outcome 1\", \"medium-term outcome 2\", ...],
+        \"impact\": [\"long-term impact 1\", \"long-term impact 2\", ...]
+      }
+      Each array should have 5-8 items. Inputs are resources needed. Activities are what the program does. Outputs are direct products (counts). Outcomes are measurable changes. Impact is long-term systemic change."
+      User: "Generate a logic model for: {category formatted nicely}"
+
+      For each generated model:
+      1. Check dedup: skip if category already exists in intelligence_logic_models.
+      2. Insert with is_template = true, source = 'claude_generated'.
+      3. Generate embedding from a text summary of the model (concatenate all arrays) and store it.
+
+      Run with: npx tsx src/scripts/seed-logic-models.ts
+    expected_outputs:
+      - src/scripts/seed-logic-models.ts
+    gates:
+      - type: file_exists
+        files: [src/scripts/seed-logic-models.ts]
+    max_retries: 3
+    on_fail: halt
+
+  - id: logic-002
+    phase: build
+    description: "Create logic model auto-generator that customizes templates for specific programs"
+    prompt: |
+      Create C:\Users\manag\Documents\benavora\src\lib\intelligence\logic-model-generator.ts:
+
+      Import the Supabase server client and Anthropic SDK (lazy init pattern).
+
+      Export async function generateLogicModel(params: {
+        category: string,
+        programDescription: string,
+        organizationName: string,
+        targetPopulation?: string,
+        geography?: string
+      }): Promise<GeneratedLogicModel>
+
+      Steps:
+      1. Query intelligence_logic_models for the closest matching category template (exact match first, then use embedding similarity if no exact match).
+      2. If a template is found, use it as a starting framework and customize:
+         Call Claude with: "Here is a template logic model for {category}: {template}. Customize it for this specific program: Organization: {organizationName}, Program: {programDescription}, Target Population: {targetPopulation}, Geography: {geography}. Adapt the inputs, activities, outputs, outcomes, and impact to be specific to this program. Return ONLY valid JSON matching the same structure."
+      3. If no template found, generate from scratch using the same Claude prompt but without the template context.
+      4. Return the generated logic model with a flag indicating whether it was template-based or generated from scratch.
+
+      Export async function formatLogicModelAsText(model: GeneratedLogicModel): string
+      - Format the logic model as readable text for inclusion in grant narratives
+      - Structure: "INPUTS: ...\nACTIVITIES: ...\nOUTPUTS: ...\nOUTCOMES: ...\nIMPACT: ..."
+
+      Define TypeScript interfaces: GeneratedLogicModel, LogicModelData.
+    expected_outputs:
+      - src/lib/intelligence/logic-model-generator.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: logic-003
+    phase: build
+    description: "Integrate logic model generation into draft generator"
+    prompt: |
+      Read the draft generator at C:\Users\manag\Documents\benavora\src\app\api\ai\draft\route.ts completely.
+      Read C:\Users\manag\Documents\benavora\src\lib\intelligence\logic-model-generator.ts.
+
+      Modify the draft generator to use logic model generation:
+
+      The Night 1 build already added a basic retrieveLogicModel call. Enhance it:
+
+      1. Import { generateLogicModel, formatLogicModelAsText } from '@/lib/intelligence/logic-model-generator'.
+
+      2. When a logic model is needed (opportunity mentions "logic model", "theory of change", "program design", or template_type is 'full_proposal'):
+         a. First try retrieveLogicModel from the intelligence library (existing).
+         b. If found, use it as context. If not found, call generateLogicModel with the org's program description, name, and target population from the Knowledge Base.
+         c. Add the formatted logic model to the Claude prompt: "PROGRAM LOGIC MODEL — Use this as the structural backbone for the program design section: {formatted_model}"
+
+      3. Include the generated logic model in the response metadata so the frontend can display it.
+
+      Wrap in try/catch. Do not break existing draft generation flow.
+    expected_outputs:
+      - src/app/api/ai/draft/route.ts
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: logic-004
+    phase: build
+    description: "Create logic model visualization component"
+    prompt: |
+      Create C:\Users\manag\Documents\benavora\src\components\intelligence\LogicModelView.tsx:
+
+      A visual component that renders a logic model as a horizontal flow diagram.
+
+      Props: model (with inputs, activities, outputs, outcomes, impact arrays), title?: string
+
+      Layout: Five columns flowing left to right with arrow connectors between them:
+      [Inputs] → [Activities] → [Outputs] → [Outcomes] → [Impact]
+
+      Each column:
+      - Header with the stage name and an icon from lucide-react (Package for Inputs, Cog for Activities, BarChart for Outputs, Target for Outcomes, Star for Impact)
+      - List of items in that stage as small cards/chips
+      - Column background color gradient: lightest on left (inputs) to darkest on right (impact)
+
+      Use Tailwind CSS. Make it responsive — on mobile, stack columns vertically instead of horizontally.
+
+      Also export a simpler LogicModelCompact component that shows just the stage names and item counts in a single row (for use in tables and cards).
+    expected_outputs:
+      - src/components/intelligence/LogicModelView.tsx
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: logic-005
+    phase: build
+    description: "Add logic models tab to Intelligence Library and draft generator integration"
+    prompt: |
+      Read the Intelligence Library page at C:\Users\manag\Documents\benavora\src\app\(dashboard)\intelligence-library\page.tsx.
+      Read C:\Users\manag\Documents\benavora\src\components\intelligence\LogicModelView.tsx.
+
+      1. Add a "Logic Models" tab to the Intelligence Library page tab navigation:
+         - Query intelligence_logic_models and display as a grid of cards, grouped by category.
+         - Each card shows: category name (formatted nicely from snake_case), whether it's a template or custom, and item counts per stage.
+         - Click a card to expand and show the full LogicModelView component.
+         - Add a "Logic Models" count to the stats cards at the top.
+
+      2. Add the LogicModelView component to the draft generator page:
+         - Read C:\Users\manag\Documents\benavora\src\app\(dashboard)\draft-generator\page.tsx.
+         - After a draft is generated, if the response metadata includes a logic model, display it in a collapsible section below the RubricPanel.
+         - Header: "Program Logic Model" with a flow/diagram icon.
+
+      Use Tailwind CSS matching existing dashboard styling.
+    expected_outputs:
+      - src/app/(dashboard)/intelligence-library/page.tsx
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: logic-006
+    phase: build
+    description: "Create standalone logic model generator API route"
+    prompt: |
+      Create C:\Users\manag\Documents\benavora\src\app\api\intelligence\logic-model\route.ts:
+
+      POST handler for generating a logic model on-demand (separate from draft generation).
+
+      Accept JSON body: {
+        category: string,
+        program_description: string,
+        organization_id: string,
+        target_population?: string,
+        geography?: string,
+        save_to_library?: boolean
+      }
+
+      Steps:
+      1. Verify auth and org membership.
+      2. Fetch org name from organizations table.
+      3. Call generateLogicModel() from logic-model-generator.ts.
+      4. If save_to_library is true, insert the generated model into intelligence_logic_models with is_template = false and source = 'user_generated'.
+      5. Return { success: true, logic_model: the generated model }.
+
+      Set maxDuration to 60 seconds (logic model generation is fast).
+
+      Use lazy client initialization for any API clients.
+    expected_outputs:
+      - src/app/api/intelligence/logic-model/route.ts
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # VERIFICATION + GOVERNANCE (Prompt 13)
+  # ============================================================
+
+  - id: verify-001
+    phase: build
+    description: "Verify full build and update governance documents"
+    prompt: |
+      1. Run pnpm run build and fix any errors.
+      2. Run pnpm tsc --noEmit and fix any TypeScript errors.
+
+      3. Update C:\Users\manag\Documents\benavora\STATE_OF_THE_BUILD.md:
+         Add section documenting:
+         - Reviewer Scoring Rubrics: BUILT
+           - rubric-extractor.ts: extracts scoring criteria from NOFO text
+           - ingest-rubrics-from-opportunities.ts: batch processes existing opportunities
+           - ingest-reviewer-guides.ts: ingests NIH/NSF/SAMHSA/HUD reviewer guidance
+           - Draft generator enhanced with rubric-aware scoring optimization
+           - RubricPanel component shows scoring dimensions in draft generator
+           - Rubrics tab added to Intelligence Library page
+         - Logic Model Library: BUILT
+           - seed-logic-models.ts: seeds 10 program category templates
+           - logic-model-generator.ts: customizes templates for specific programs
+           - LogicModelView component: horizontal flow visualization
+           - Draft generator enhanced with logic model integration
+           - Logic Models tab added to Intelligence Library page
+           - Standalone API route at /api/intelligence/logic-model
+         - Post-run steps: run seed-logic-models.ts, run ingest-rubrics-from-opportunities.ts --limit 20
+
+      4. Update C:\Users\manag\Documents\benavora\SESSION_STATE.md:
+         - Record Night 2 build complete
+         - List manual steps: run seed scripts, run rubric ingestion
+         - Note Night 3 is next: Need Statement Database
+    expected_outputs:
+      - STATE_OF_THE_BUILD.md
+      - SESSION_STATE.md
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt

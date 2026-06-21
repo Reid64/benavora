@@ -20,6 +20,8 @@ import { quickHealthCheck } from './portal-health.js';
 import { scoreAndReorderQueue } from './batch-scorer.js';
 import { WebhookNotifier } from '../src/lib/autoapply/webhook-notifier.js';
 import { annotateErrorScreenshot } from '../src/lib/autoapply/error-annotator.js';
+import { assessSubmissionRisk } from '../src/lib/autoapply/risk-engine.js';
+import type { ReadinessReport } from '../src/lib/autoapply/submission-validator.js';
 
 // --- types -------------------------------------------------------------------
 
@@ -40,6 +42,7 @@ interface FunderRow {
   giving_portal_url: string | null;
   category: string | null;
   type: string | null;
+  automation_level: string | null;
 }
 
 interface FormTemplateRow {
@@ -126,9 +129,9 @@ export class QueueProcessor {
     provider: process.env['PROXY_PROVIDER'] ?? 'static',
     apiKey: process.env['PROXY_API_KEY'] ?? '',
   });
-  // Cached org readiness reports: orgId → ready flag.
+  // Cached org readiness reports: orgId → full report.
   // Reset on each idle→active transition to re-check after a long pause.
-  private readonly orgReadinessCache = new Map<string, boolean>();
+  private readonly orgReadinessCache = new Map<string, ReadinessReport>();
   private readonly webhookNotifier = new WebhookNotifier();
 
   constructor(
@@ -290,7 +293,7 @@ export class QueueProcessor {
     // Fetch funder record (category + type needed for timing score and pitch personalizer)
     const { data: funderData, error: funderError } = await this.supabase
       .from('funders')
-      .select('id, name, giving_portal_url, category, type')
+      .select('id, name, giving_portal_url, category, type, automation_level')
       .eq('id', funderId)
       .maybeSingle();
 
@@ -311,9 +314,11 @@ export class QueueProcessor {
     const orgProfile = orgData as OrgRow | null;
 
     // --- Org readiness (cached per org, cleared on idle→active transition) ---
+    let orgReadinessReport: ReadinessReport;
     if (!this.orgReadinessCache.has(orgId)) {
       const readiness = await this.submissionValidator.checkOrgReadiness(orgId, this.supabase);
-      this.orgReadinessCache.set(orgId, readiness.ready);
+      this.orgReadinessCache.set(orgId, readiness);
+      orgReadinessReport = readiness;
       if (!readiness.ready) {
         console.warn(
           `[QueueProcessor] Org ${orgId} is not ready for AutoApply:`,
@@ -321,8 +326,11 @@ export class QueueProcessor {
         );
         throw new SkipError(`org_not_ready: ${readiness.blockers[0] ?? 'incomplete profile'}`);
       }
-    } else if (!this.orgReadinessCache.get(orgId)) {
-      throw new SkipError('org_not_ready');
+    } else {
+      orgReadinessReport = this.orgReadinessCache.get(orgId)!;
+      if (!orgReadinessReport.ready) {
+        throw new SkipError('org_not_ready');
+      }
     }
 
     // --- Load request profile linked to this queue item ---
@@ -473,6 +481,107 @@ export class QueueProcessor {
       ? (existingTemplate['field_count'] as number | null | undefined) ?? null
       : null;
     const isStaleRefresh = existingTemplate !== null && needsReanalysis;
+
+    // --- Risk assessment (before browser launch) ---
+    const riskAssessment = await assessSubmissionRisk({
+      funder: {
+        id: funderId,
+        name: funderName,
+        automation_level: funder.automation_level,
+        giving_portal_url: funder.giving_portal_url,
+      },
+      requestProfile: requestProfile
+        ? {
+            request_type: requestProfile.request_type,
+            min_value: requestProfile.min_value,
+            max_value: requestProfile.max_value,
+          }
+        : undefined,
+      formTemplate: existingTemplate
+        ? {
+            field_count: (existingTemplate['field_count'] as number | null | undefined) ?? null,
+            has_file_uploads: Boolean(existingTemplate['requires_file_upload']),
+            form_structure: existingTemplate['form_structure'],
+          }
+        : null,
+      orgReadiness: {
+        ready: orgReadinessReport.ready,
+        missing_required: orgReadinessReport.missing_required,
+      },
+      crossClientBlocked: false,
+      supabase: this.supabase,
+    }).catch((e: unknown) => {
+      console.warn(
+        '[QueueProcessor] assessSubmissionRisk failed (proceeding as auto):',
+        e instanceof Error ? e.message : String(e),
+      );
+      return null;
+    });
+
+    if (riskAssessment !== null) {
+      console.log(
+        `[QueueProcessor] Risk assessment for ${funderName}: score=${riskAssessment.score} classification=${riskAssessment.classification}`,
+        riskAssessment.factors.map((f) => `${f.name}(+${f.points})`).join(', ') || 'no factors',
+      );
+
+      if (riskAssessment.recommendation === 'manual') {
+        // Route to manual queue — store risk metadata and skip automated processing
+        await this.supabase
+          .from('submission_queue')
+          .update({
+            automation_mode: 'manual',
+            status: 'pending_manual',
+            risk_score: riskAssessment.score,
+            risk_factors: riskAssessment.factors,
+          })
+          .eq('id', queueItemId);
+
+        if (riskAssessment.shouldNotify) {
+          void this.webhookNotifier.notify({
+            orgId,
+            event: 'review_needed',
+            data: {
+              funderId,
+              funderName,
+              riskScore: riskAssessment.score,
+              riskClassification: riskAssessment.classification,
+              riskFactors: riskAssessment.factors,
+              reason: 'risk_engine_manual_route',
+            },
+            supabase: this.supabase,
+          }).catch((e: unknown) => {
+            console.warn('[QueueProcessor] webhook review_needed (risk):', e instanceof Error ? e.message : String(e));
+          });
+        }
+
+        throw new SkipError(`risk_manual_route: score=${riskAssessment.score} (${riskAssessment.classification})`);
+      }
+
+      if (riskAssessment.recommendation === 'assisted') {
+        console.log(
+          `[QueueProcessor] MEDIUM risk for ${funderName} — processing with enhanced logging. Factors:`,
+          riskAssessment.factors.map((f) => f.description).join(' | '),
+        );
+      }
+
+      if (riskAssessment.shouldNotify) {
+        void this.webhookNotifier.notify({
+          orgId,
+          event: 'review_needed',
+          data: {
+            funderId,
+            funderName,
+            riskScore: riskAssessment.score,
+            riskClassification: riskAssessment.classification,
+            riskFactors: riskAssessment.factors,
+            reason: 'risk_engine_notify',
+          },
+          supabase: this.supabase,
+        }).catch((e: unknown) => {
+          console.warn('[QueueProcessor] webhook review_needed (risk notify):', e instanceof Error ? e.message : String(e));
+        });
+      }
+    }
 
     const proxy = this.proxyManager.rotateForSubmission();
     if (proxy !== null) {
