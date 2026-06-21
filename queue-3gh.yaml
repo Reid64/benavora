@@ -1,0 +1,587 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - BLUEPRINT.md
+  - SCHEMA_REGISTRY.md
+  - BEHAVIORAL_CONTRACTS.md
+  - AGENTS.md
+  - PRD.md
+  - AUTOAPPLY_ARCHITECTURE.md
+  - AUTOAPPLY_ARCHITECTURE_V2.md
+  - WORKER_ARCHITECTURE.md
+  - GRANT_INTELLIGENCE_ARCHITECTURE.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+prompts:
+
+  # ============================================================
+  # PHASE 3G: MULTI-CHANNEL SUBMISSION & FOLLOW-UP
+  # ============================================================
+
+  - id: gh-001
+    phase: build
+    description: "Create migration for follow-up sequences and session recordings"
+    prompt: |
+      Create C:\Users\manag\Documents\benavora\supabase\migrations\053_multichannel_analytics.sql:
+
+      CREATE TABLE IF NOT EXISTS autoapply_follow_ups (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        submission_id uuid REFERENCES autoapply_submissions(id) ON DELETE CASCADE,
+        organization_id uuid NOT NULL,
+        funder_id uuid NOT NULL,
+        sequence_number integer NOT NULL,
+        scheduled_at timestamptz NOT NULL,
+        sent_at timestamptz,
+        status text NOT NULL DEFAULT 'pending',
+        template_type text NOT NULL,
+        content text,
+        response_received boolean DEFAULT false,
+        created_at timestamptz DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS session_recordings (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        submission_id uuid REFERENCES autoapply_submissions(id) ON DELETE CASCADE,
+        organization_id uuid NOT NULL,
+        funder_id uuid NOT NULL,
+        storage_path text NOT NULL,
+        duration_seconds integer,
+        file_size_bytes integer,
+        recorded_at timestamptz DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS ab_test_variants (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        organization_id uuid NOT NULL,
+        funder_category text NOT NULL,
+        variant_name text NOT NULL,
+        pitch_style text NOT NULL,
+        emphasis text,
+        submission_count integer DEFAULT 0,
+        success_count integer DEFAULT 0,
+        is_winner boolean DEFAULT false,
+        active boolean DEFAULT true,
+        created_at timestamptz DEFAULT NOW()
+      );
+
+      ALTER TABLE autoapply_submissions ADD COLUMN IF NOT EXISTS variant_id uuid REFERENCES ab_test_variants(id);
+      ALTER TABLE autoapply_submissions ADD COLUMN IF NOT EXISTS response_received_at timestamptz;
+      ALTER TABLE autoapply_submissions ADD COLUMN IF NOT EXISTS follow_up_status text DEFAULT 'none';
+
+      CREATE INDEX IF NOT EXISTS idx_follow_ups_scheduled ON autoapply_follow_ups(scheduled_at, status) WHERE status = 'pending';
+      CREATE INDEX IF NOT EXISTS idx_session_recordings_org ON session_recordings(organization_id, recorded_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_ab_variants_category ON ab_test_variants(organization_id, funder_category, active);
+
+      NOTE: Migration 053 must be applied manually via Supabase SQL Editor.
+    expected_outputs:
+      - supabase/migrations/053_multichannel_analytics.sql
+    gates:
+      - type: file_exists
+        files: [supabase/migrations/053_multichannel_analytics.sql]
+    max_retries: 3
+    on_fail: halt
+
+  - id: gh-002
+    phase: build
+    description: "Create email-based submission channel for funders without web portals"
+    prompt: |
+      Read AUTOAPPLY_ARCHITECTURE_V2.md section 3A (Email-Based Donation Requests).
+
+      Create C:\Users\manag\Documents\benavora\src\lib\autoapply\email-submitter.ts:
+
+      Import Resend with lazy initialization.
+
+      Export async function submitViaEmail(params: {
+        funderEmail: string,
+        funderName: string,
+        contactName?: string,
+        organizationName: string,
+        personalizedPitch: string,
+        requestType: string,
+        askAmount?: number,
+        contactEmail: string,
+        contactPhone?: string,
+        attachments?: { filename: string, content: Buffer }[]
+      }): Promise<{ messageId: string, status: string }>
+
+      Steps:
+      1. Construct a professional letter of inquiry email:
+         - Subject: "Partnership Inquiry from {organizationName}" (for non-monetary) or "Grant/Donation Request from {organizationName}" (for monetary)
+         - Body: HTML formatted letter with: personalized greeting (Dear {contactName} or "Dear Grants Committee"), the personalized pitch, specific request details, amount (if monetary), organization contact information, 501(c)(3) status mention.
+         - From: configured Resend sender (notifications@benavora.com or org-specific)
+         - Reply-To: org's contact email
+      2. Attach documents if provided (501c3 letter, budget, etc.)
+      3. Send via Resend API.
+      4. Return messageId and status.
+
+      Modify C:\Users\manag\Documents\benavora\worker\queue-processor.ts:
+      - In processItem, check submission channel: if funder has giving_portal_url → web_form. If funder has contact_email but no portal → email.
+      - If email channel: call submitViaEmail instead of launching StealthBrowser.
+      - Track in autoapply_submissions with submission_channel = 'email'.
+      - Skip all browser-related steps (screenshots, form filling, CAPTCHA) for email submissions.
+
+      If RESEND_API_KEY is not set, skip email submissions with reason 'email_not_configured'.
+    expected_outputs:
+      - src/lib/autoapply/email-submitter.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: gh-003
+    phase: build
+    description: "Create automated follow-up sequence scheduler"
+    prompt: |
+      Read AUTOAPPLY_ARCHITECTURE_V2.md section 5B (Automated Follow-Up Sequences).
+
+      Create C:\Users\manag\Documents\benavora\src\lib\autoapply\follow-up-scheduler.ts:
+
+      Export async function scheduleFollowUps(params: {
+        submissionId: string,
+        organizationId: string,
+        funderId: string,
+        funderName: string,
+        submissionChannel: string,
+        supabase: any
+      }): Promise<void>
+      - Insert 3 follow-up rows into autoapply_follow_ups:
+        - sequence 1: scheduled_at = submission_date + 14 days, template_type = 'initial_followup'
+        - sequence 2: scheduled_at = submission_date + 30 days, template_type = 'second_followup'
+        - sequence 3: scheduled_at = submission_date + 60 days, template_type = 'final_followup'
+
+      Export async function processFollowUps(supabase: any): Promise<{ sent: number, skipped: number }>
+      - Query autoapply_follow_ups WHERE scheduled_at <= NOW() AND status = 'pending'.
+      - For each:
+        1. Check if funder has responded (response_received on submission record). If yes, cancel all remaining follow-ups for this submission.
+        2. Check funder_relationships for do_not_contact_until. If active, skip.
+        3. Generate follow-up email content using Claude (lazy init Anthropic):
+           - initial_followup: "Following up on our request submitted on {date}..."
+           - second_followup: "Checking in regarding our {request_type} request..."
+           - final_followup: "Final follow-up with updated impact information..."
+        4. Send via Resend to the funder's email.
+        5. Update status = 'sent', sent_at = NOW().
+      - Return counts.
+
+      Export async function cancelFollowUps(submissionId: string, reason: string, supabase: any): Promise<void>
+      - Update all pending follow-ups for this submission to status = 'cancelled'.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\cron\follow-ups\route.ts:
+      - GET handler with CRON_SECRET auth.
+      - Calls processFollowUps.
+      - Set maxDuration to 60 seconds.
+    expected_outputs:
+      - src/lib/autoapply/follow-up-scheduler.ts
+      - src/app/api/cron/follow-ups/route.ts
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: gh-004
+    phase: build
+    description: "Create follow-up management UI"
+    prompt: |
+      Create C:\Users\manag\Documents\benavora\src\app\(dashboard)\autoapply\follow-ups\page.tsx:
+
+      Follow-up management dashboard:
+      1. Table of all follow-ups: funder name, sequence number, scheduled date, status badge (pending=yellow, sent=green, cancelled=gray, skipped=orange), submission date.
+      2. Filter by status, date range.
+      3. Upcoming section: follow-ups scheduled in next 7 days.
+      4. Click row to expand: view follow-up content preview, linked submission details, funder relationship summary.
+      5. Action buttons: "Send Now" (sends immediately), "Reschedule" (date picker), "Cancel" (with reason), "Cancel All for Funder" (cancels entire sequence).
+      6. Stats cards at top: total pending, sent this month, response rate after follow-up.
+      7. Add "Follow-Ups" nav link in AutoApply sidebar.
+
+      Use Tailwind CSS matching existing dashboard styling.
+    expected_outputs:
+      - src/app/(dashboard)/autoapply/follow-ups/page.tsx
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # LIVE SESSION STREAMING & RECORDINGS
+  # ============================================================
+
+  - id: gh-005
+    phase: build
+    description: "Add CDP screencast and WebSocket server to Railway worker for live streaming"
+    prompt: |
+      Read C:\Users\manag\Documents\benavora\worker\queue-processor.ts completely.
+      Read C:\Users\manag\Documents\benavora\src\lib\autoapply\stealth-browser.ts completely.
+
+      Create C:\Users\manag\Documents\benavora\worker\stream-server.ts:
+
+      Import http and ws (WebSocket). Use the 'ws' package already installed.
+
+      Export class StreamServer:
+
+      constructor(port: number):
+      - Create an HTTP server on the given port.
+      - Create a WebSocket server attached to the HTTP server.
+      - Add a GET /health endpoint returning { status: 'ok', viewers: count }.
+
+      async start(): Promise<void>
+      - Listen on the port. Log: "Stream server listening on port {port}".
+
+      onConnection(ws, req):
+      - Extract JWT token from query params or headers: ws://host:port?token=JWT
+      - Validate JWT against Supabase auth (use supabase.auth.getUser(token)).
+      - Extract organization_id from the user's JWT claims or user metadata.
+      - If invalid: close connection with code 4001.
+      - If valid: store connection in a Map<orgId, Set<WebSocket>>.
+      - Log: "Viewer connected for org {orgId}".
+
+      broadcastFrame(orgId: string, frameData: Buffer): void
+      - Get all WebSocket connections for this orgId.
+      - Send the frame as binary data to each connected viewer.
+      - Remove closed connections from the set.
+
+      broadcastStatus(orgId: string, status: { step: string, funderName: string, elapsed: number }): void
+      - Send JSON status update to all viewers for this org.
+
+      getViewerCount(orgId: string): number
+
+      Modify C:\Users\manag\Documents\benavora\src\lib\autoapply\stealth-browser.ts:
+
+      Add CDP screencast methods:
+
+      async startScreencast(callback: (frame: Buffer) => void): Promise<void>
+      - Get the CDP session: const cdp = await this.page.context().newCDPSession(this.page);
+      - Enable screencast: await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 40, maxWidth: 960, maxHeight: 540, everyNthFrame: 3 });
+      - Listen for frames: cdp.on('Page.screencastFrame', (params) => { callback(Buffer.from(params.data, 'base64')); cdp.send('Page.screencastFrameAck', { sessionId: params.sessionId }); });
+
+      async stopScreencast(): Promise<void>
+      - await cdp.send('Page.stopScreencast');
+
+      Modify C:\Users\manag\Documents\benavora\worker\index.ts (or wherever the worker entry point is):
+      - Import StreamServer.
+      - Initialize StreamServer on process.env.PORT || 8080.
+      - Start it before the queue processor begins.
+      - Pass the streamServer instance to the queue processor.
+
+      Modify queue-processor.ts:
+      - Accept streamServer as a parameter.
+      - When processing an item, if streamServer.getViewerCount(orgId) > 0:
+        - Call stealthBrowser.startScreencast((frame) => streamServer.broadcastFrame(orgId, frame));
+        - Broadcast status updates at each step: { step: 'Analyzing form', funderName, elapsed }.
+      - When done: call stopScreencast.
+      - If no viewers connected, skip screencast entirely (zero overhead).
+    expected_outputs:
+      - worker/stream-server.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: gh-006
+    phase: build
+    description: "Add session video recording to every submission"
+    prompt: |
+      Read C:\Users\manag\Documents\benavora\src\lib\autoapply\stealth-browser.ts.
+      Read C:\Users\manag\Documents\benavora\worker\queue-processor.ts.
+
+      Modify StealthBrowser.launch():
+      - When creating the browser context, enable video recording:
+        context = await browser.newContext({
+          ...existingOptions,
+          recordVideo: { dir: '/tmp/recordings', size: { width: 960, height: 540 } }
+        });
+      - Add method getRecordingPath(): returns the path to the recorded video after context is closed.
+
+      Modify queue-processor.ts:
+      - After a submission completes (success or failure), close the browser context (which finalizes the recording).
+      - Get the recording path from StealthBrowser.
+      - Upload the recording to Supabase Storage bucket 'session-recordings' at path: {orgId}/{submissionId}.webm
+      - Insert into session_recordings table: submission_id, organization_id, funder_id, storage_path, duration_seconds (estimate from elapsed time), file_size_bytes.
+      - Clean up the local recording file after upload.
+      - If upload fails, log warning but don't fail the submission.
+
+      Create the 'session-recordings' Supabase Storage bucket at the end of this prompt:
+      This will be done as a post-run manual step (same pattern as autoapply-screenshots).
+    expected_outputs:
+      - src/lib/autoapply/stealth-browser.ts
+      - worker/queue-processor.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: gh-007
+    phase: build
+    description: "Create LiveSessionViewer dashboard component with monitor frame design"
+    prompt: |
+      Create C:\Users\manag\Documents\benavora\src\components\autoapply\LiveSessionViewer.tsx:
+
+      A dashboard component that displays a live stream of the AutoApply worker session, rendered inside a CSS monitor frame.
+
+      MONITOR FRAME DESIGN (pure CSS, no images):
+      - Outer container: dark charcoal (#1a1a2e) rounded rectangle with 16px padding, subtle box-shadow (0 8px 32px rgba(0,0,0,0.4)).
+      - Top bezel: 12px, slightly lighter (#252540), with centered text "BENAVORA AUTOAPPLY" in 9px uppercase tracking-widest text, color #555.
+      - Screen area: inner div with 2px solid #333 border, border-radius 4px, overflow hidden. Background #0a0a15 when no stream.
+      - Bottom bezel: 16px, same color as top. Small green dot (6px circle, #22c55e with subtle glow box-shadow) as power indicator on the left. Status text on the right.
+      - Monitor stand: centered trapezoid shape below the monitor body. 60px wide at top, 100px at bottom, 20px tall, same charcoal color. Use CSS clip-path.
+      - Stand base: 120px wide rectangle, 6px tall, rounded, slightly lighter color.
+
+      STREAM FUNCTIONALITY:
+      1. Connect to worker WebSocket: ws://{WORKER_URL}?token={supabase_access_token}
+      2. Receive binary frames → render on a <canvas> element inside the screen area using createImageBitmap + drawImage.
+      3. Receive JSON status messages → display as overlay at bottom of screen: step name, funder name, elapsed time.
+      4. Auto-reconnect on disconnect with exponential backoff (1s, 2s, 4s, max 30s).
+      5. When no stream active: show "No active session" message centered on the dark screen with a subtle pulse animation on the power LED.
+      6. When streaming: green power LED glows brighter, status text shows "LIVE" with a recording dot animation.
+
+      STATES:
+      - Disconnected: dark screen, "Connecting..." text, amber LED.
+      - Connected, no session: dark screen, "Waiting for submission..." text, green LED (dim).
+      - Live streaming: full stream, status overlay, green LED (bright with glow), "LIVE" badge.
+
+      SIZING:
+      - Default: 384px wide (3:2 aspect ratio for the screen area).
+      - Expandable: click to toggle fullscreen modal view (960px wide).
+      - Responsive: scales down on mobile.
+
+      Add this component to the AutoApply dashboard page, positioned prominently.
+
+      Use Tailwind CSS for the monitor frame styling where possible, inline styles for the specific monitor design elements. Use lucide-react for any icons.
+    expected_outputs:
+      - src/components/autoapply/LiveSessionViewer.tsx
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: gh-008
+    phase: build
+    description: "Create session recordings page with video playback"
+    prompt: |
+      Create C:\Users\manag\Documents\benavora\src\app\(dashboard)\autoapply\recordings\page.tsx:
+
+      Session recordings page showing all recorded AutoApply submission sessions.
+
+      Features:
+      1. Grid of recording cards: thumbnail (first frame or placeholder), funder name, date, duration, status badge (completed/failed).
+      2. Click card to open video player modal:
+         - Fetch video from Supabase Storage signed URL.
+         - HTML5 <video> element with controls (play/pause, seek, speed 1x/2x/4x, fullscreen).
+         - Video rendered inside the same monitor frame CSS design from LiveSessionViewer (consistent branding).
+         - Overlay: funder name, submission date, result status.
+      3. Filter by: date range, funder name, status (completed/failed).
+      4. Sort by: newest first (default), oldest first, duration.
+      5. Bulk delete (admin only) for storage management.
+      6. Storage usage stat: "X recordings, Y MB used" at top.
+      7. Add "Recordings" nav link in AutoApply sidebar.
+
+      Use Tailwind CSS matching existing dashboard styling.
+    expected_outputs:
+      - src/app/(dashboard)/autoapply/recordings/page.tsx
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # PHASE 3H: ANALYTICS & OPTIMIZATION
+  # ============================================================
+
+  - id: gh-009
+    phase: build
+    description: "Create A/B testing framework for submission approaches"
+    prompt: |
+      Read AUTOAPPLY_ARCHITECTURE_V2.md section 7A (A/B Testing).
+
+      Create C:\Users\manag\Documents\benavora\src\lib\autoapply\ab-testing.ts:
+
+      Export class ABTestEngine:
+
+      async getVariant(orgId: string, funderCategory: string, supabase: any): Promise<ABVariant | null>
+      - Fetch active variants for this org + category from ab_test_variants.
+      - If no variants exist, return null (no A/B test running).
+      - Select a variant randomly weighted by inverse submission_count (less-tested variants get picked more).
+      - Return: { id, variantName, pitchStyle, emphasis }.
+
+      async recordOutcome(variantId: string, success: boolean, supabase: any): Promise<void>
+      - Increment submission_count. If success, increment success_count.
+      - After 50+ submissions per variant in the same category, check for a winner:
+        - Calculate conversion rate per variant.
+        - If one variant's rate is >20% higher than others with 95% confidence (simple z-test): mark as winner.
+        - Log: "A/B test winner for {category}: {variantName} at {rate}%".
+
+      async getTestResults(orgId: string, supabase: any): Promise<TestResults[]>
+      - Return all variants grouped by category with conversion rates, submission counts, winner status.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\autoapply\ab-tests\route.ts:
+      GET: return test results for the org.
+      POST: create new variant. Accept: funder_category, variant_name, pitch_style, emphasis.
+      DELETE: deactivate a variant.
+
+      Integrate into queue-processor:
+      - Before personalization, call abTestEngine.getVariant.
+      - If a variant is returned, pass its pitchStyle and emphasis to the pitch personalizer.
+      - After submission, call recordOutcome with the result.
+      - Store variant_id on the autoapply_submissions record.
+    expected_outputs:
+      - src/lib/autoapply/ab-testing.ts
+      - src/app/api/autoapply/ab-tests/route.ts
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: gh-010
+    phase: build
+    description: "Create funder response time analytics"
+    prompt: |
+      Create C:\Users\manag\Documents\benavora\src\lib\autoapply\response-analytics.ts:
+
+      Export async function getResponseTimeStats(orgId: string, supabase: any): Promise<ResponseTimeReport>
+      - Query autoapply_submissions WHERE response_received_at IS NOT NULL AND organization_id = orgId.
+      - Calculate per funder: average response time (days between submitted_at and response_received_at).
+      - Calculate per category: average response time.
+      - Calculate overall: average, median, fastest, slowest.
+      - Identify overdue: submissions where (NOW() - submitted_at) > (funder's avg response time * 1.5) AND no response received.
+      - Return: { overall, byFunder, byCategory, overdue }.
+
+      Export async function getChannelComparison(orgId: string, supabase: any): Promise<ChannelStats>
+      - Group autoapply_submissions by submission_channel (web_form, email, manual).
+      - For each: total count, success count, response rate, average response time.
+      - Return comparison data.
+
+      Export async function getConversionFunnel(orgId: string, supabase: any): Promise<FunnelData>
+      - Stage 1: Queued (total submission_queue items)
+      - Stage 2: Submitted (autoapply_submissions created)
+      - Stage 3: Confirmed (confirmation_data IS NOT NULL)
+      - Stage 4: Responded (response_received_at IS NOT NULL)
+      - Stage 5: Funded (linked grant_agreements with amount_awarded > 0)
+      - Calculate drop-off rate between each stage.
+      - Return stage counts and percentages.
+
+      Export async function getROICalculation(orgId: string, supabase: any): Promise<ROIReport>
+      - Total funded: SUM of grant_agreements.amount_awarded.
+      - Total cost: SUM of submission_usage costs (claude + openai + proxy + captcha) + subscription fee estimate.
+      - ROI: (total_funded - total_cost) / total_cost * 100.
+      - Cost per submission: total_cost / total_submissions.
+      - Cost per funded dollar: total_cost / total_funded.
+      - Return all metrics.
+    expected_outputs:
+      - src/lib/autoapply/response-analytics.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: gh-011
+    phase: build
+    description: "Create comprehensive analytics dashboard with charts"
+    prompt: |
+      Create C:\Users\manag\Documents\benavora\src\app\(dashboard)\autoapply\analytics\page.tsx:
+
+      Full analytics dashboard for AutoApply performance. Use recharts (already installed).
+
+      Sections:
+
+      1. CONVERSION FUNNEL (top):
+         - Horizontal funnel visualization: Queued → Submitted → Confirmed → Responded → Funded.
+         - Each stage shows count and drop-off percentage.
+         - Color gradient from blue (queued) to green (funded).
+
+      2. ROI SUMMARY (stat cards):
+         - Total Funded: ${amount} with trend arrow
+         - Cost Per Submission: ${amount}
+         - ROI: {percentage}%
+         - Cost Per Funded Dollar: ${amount}
+
+      3. SUBMISSION TRENDS (line chart):
+         - Weekly submissions over last 12 weeks.
+         - Two lines: total submissions (blue) and successful submissions (green).
+         - Success rate percentage overlay.
+
+      4. CHANNEL COMPARISON (bar chart):
+         - Grouped bars: web_form vs email vs manual.
+         - Metrics: submission count, success rate, avg response time.
+
+      5. RESPONSE TIME (bar chart):
+         - Top 10 funders by average response time.
+         - Color coded: fast (<14 days, green), medium (14-30, amber), slow (>30, red).
+         - Overdue submissions highlighted.
+
+      6. A/B TEST RESULTS (table):
+         - Category, variant names, submission counts, conversion rates, winner badge.
+         - "Create Test" button linking to test creation.
+
+      7. CATEGORY PERFORMANCE (pie chart):
+         - Success rate per funder category.
+         - Clickable slices to filter the dashboard.
+
+      Add "Analytics" nav link in AutoApply sidebar.
+      Use Tailwind CSS matching existing dashboard styling.
+    expected_outputs:
+      - src/app/(dashboard)/autoapply/analytics/page.tsx
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: gh-012
+    phase: build
+    description: "Verify full build and update governance documents for Phase 3G+3H"
+    prompt: |
+      1. Run pnpm run build and fix ALL errors.
+      2. Run pnpm tsc --noEmit and fix ALL TypeScript errors.
+
+      3. Update C:\Users\manag\Documents\benavora\STATE_OF_THE_BUILD.md:
+         Add section:
+         - Phase 3G Multi-Channel & Follow-Up: BUILT
+           - Email submission channel via Resend (for funders without web portals)
+           - Automated follow-up sequences (14/30/60 day) with auto-cancellation on response
+           - Follow-up cron job at /api/cron/follow-ups
+           - Follow-up management UI at /autoapply/follow-ups
+           - Migration 053: follow_ups, session_recordings, ab_test_variants (PENDING)
+         - Live Session Streaming: BUILT
+           - Worker WebSocket server with JWT auth per org
+           - CDP screencast integration in StealthBrowser (5-10 fps JPEG)
+           - LiveSessionViewer component with CSS monitor frame design
+           - Stream only when viewers connected (zero overhead otherwise)
+           - Session video recording via Playwright recordVideo
+           - Session recordings page with playback at /autoapply/recordings
+         - Phase 3H Analytics & Optimization: BUILT
+           - A/B testing framework with variant assignment and winner detection
+           - Funder response time analytics with overdue detection
+           - Channel comparison (web_form vs email vs manual)
+           - Conversion funnel (queued → submitted → confirmed → responded → funded)
+           - ROI calculator (total funded vs total cost)
+           - Comprehensive analytics dashboard at /autoapply/analytics
+         - Post-run: apply migration 053, create session-recordings Storage bucket
+
+      4. Update C:\Users\manag\Documents\benavora\SESSION_STATE.md:
+         - Phase 3G+3H complete
+         - AutoApply feature build COMPLETE
+         - Next: Intelligence Library Nights 2-7, then Phase 4 (Email + Calendar Integration)
+    expected_outputs:
+      - STATE_OF_THE_BUILD.md
+      - SESSION_STATE.md
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
