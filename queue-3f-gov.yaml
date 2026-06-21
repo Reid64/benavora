@@ -1,0 +1,563 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - BLUEPRINT.md
+  - SCHEMA_REGISTRY.md
+  - BEHAVIORAL_CONTRACTS.md
+  - AGENTS.md
+  - PRD.md
+  - AUTOAPPLY_ARCHITECTURE.md
+  - AUTOAPPLY_ARCHITECTURE_V2.md
+  - WORKER_ARCHITECTURE.md
+  - GRANT_INTELLIGENCE_ARCHITECTURE.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+prompts:
+
+  # ============================================================
+  # PHASE 3F-GOV: GOVERNANCE & PLATFORM SAFETY LAYER
+  # Reference: AUTOAPPLY_ARCHITECTURE_V2.md sections 8A-8H
+  # ============================================================
+
+  - id: gov-001
+    phase: build
+    description: "Create all governance database tables in a single migration"
+    prompt: |
+      Read AUTOAPPLY_ARCHITECTURE_V2.md sections 8A through 8H completely.
+
+      Create C:\Users\manag\Documents\benavora\supabase\migrations\052_governance_layer.sql:
+
+      -- Funder relationship memory
+      CREATE TABLE IF NOT EXISTS funder_relationships (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        organization_id uuid NOT NULL REFERENCES organizations(id),
+        funder_id uuid NOT NULL REFERENCES funders(id),
+        relationship_status text DEFAULT 'prospect',
+        last_submission_at timestamptz,
+        last_response_at timestamptz,
+        total_submissions integer DEFAULT 0,
+        total_funded numeric(12,2) DEFAULT 0,
+        preferred_channel text,
+        preferred_request_type text,
+        do_not_contact_until timestamptz,
+        contact_notes text,
+        board_meeting_months integer[],
+        fiscal_year_end_month integer,
+        response_time_avg_days integer,
+        funder_preferences jsonb DEFAULT '{}',
+        disallowed_request_types text[],
+        max_ask_amount numeric(12,2),
+        relationship_score numeric(3,1),
+        created_at timestamptz DEFAULT NOW(),
+        updated_at timestamptz DEFAULT NOW(),
+        UNIQUE(organization_id, funder_id)
+      );
+
+      -- Queue control plane
+      CREATE TABLE IF NOT EXISTS queue_controls (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        control_type text NOT NULL,
+        target_id text,
+        paused boolean NOT NULL DEFAULT false,
+        paused_by text,
+        paused_at timestamptz,
+        reason text,
+        created_at timestamptz DEFAULT NOW()
+      );
+
+      -- Usage metering
+      CREATE TABLE IF NOT EXISTS submission_usage (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        organization_id uuid NOT NULL REFERENCES organizations(id),
+        period_start timestamptz NOT NULL,
+        period_end timestamptz NOT NULL,
+        automated_count integer DEFAULT 0,
+        email_count integer DEFAULT 0,
+        manual_count integer DEFAULT 0,
+        overage_automated integer DEFAULT 0,
+        overage_email integer DEFAULT 0,
+        overage_cost numeric(10,2) DEFAULT 0,
+        api_cost_claude numeric(10,2) DEFAULT 0,
+        api_cost_openai numeric(10,2) DEFAULT 0,
+        proxy_cost numeric(10,2) DEFAULT 0,
+        captcha_cost numeric(10,2) DEFAULT 0,
+        using_own_keys boolean DEFAULT false,
+        created_at timestamptz DEFAULT NOW()
+      );
+
+      -- Tier limits
+      CREATE TABLE IF NOT EXISTS tier_limits (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        tier_name text NOT NULL UNIQUE,
+        monthly_automated integer NOT NULL,
+        monthly_email integer NOT NULL,
+        monthly_manual integer NOT NULL,
+        daily_max integer NOT NULL,
+        overage_rate_automated numeric(6,2) NOT NULL,
+        overage_rate_email numeric(6,2) NOT NULL,
+        allow_own_keys boolean NOT NULL DEFAULT false
+      );
+
+      INSERT INTO tier_limits (tier_name, monthly_automated, monthly_email, monthly_manual, daily_max, overage_rate_automated, overage_rate_email, allow_own_keys) VALUES
+        ('starter', 50, 20, 10, 5, 2.99, 0.99, false),
+        ('professional', 200, 100, 50, 15, 1.99, 0.79, false),
+        ('enterprise', 1000, 500, -1, 50, 0.99, 0.49, true),
+        ('consultant', -1, -1, -1, 20, 0.99, 0.49, true)
+      ON CONFLICT (tier_name) DO NOTHING;
+
+      -- Add automation level to funders
+      ALTER TABLE funders ADD COLUMN IF NOT EXISTS automation_level text DEFAULT 'assisted';
+      ALTER TABLE funders ADD COLUMN IF NOT EXISTS automation_notes text;
+
+      -- Add automation mode to submission queue
+      ALTER TABLE submission_queue ADD COLUMN IF NOT EXISTS automation_mode text DEFAULT 'auto';
+      ALTER TABLE submission_queue ADD COLUMN IF NOT EXISTS risk_score integer;
+      ALTER TABLE submission_queue ADD COLUMN IF NOT EXISTS risk_factors jsonb;
+
+      -- Indexes
+      CREATE INDEX IF NOT EXISTS idx_funder_relationships_org ON funder_relationships(organization_id, funder_id);
+      CREATE INDEX IF NOT EXISTS idx_queue_controls_active ON queue_controls(control_type, paused) WHERE paused = true;
+      CREATE INDEX IF NOT EXISTS idx_submission_usage_org ON submission_usage(organization_id, period_start);
+
+      NOTE: Migration 052 must be applied manually via Supabase SQL Editor.
+    expected_outputs:
+      - supabase/migrations/052_governance_layer.sql
+    gates:
+      - type: file_exists
+        files: [supabase/migrations/052_governance_layer.sql]
+    max_retries: 3
+    on_fail: halt
+
+  - id: gov-002
+    phase: build
+    description: "Create Submission Risk Engine"
+    prompt: |
+      Read AUTOAPPLY_ARCHITECTURE_V2.md section 8A (Submission Risk Engine).
+
+      Create C:\Users\manag\Documents\benavora\src\lib\autoapply\risk-engine.ts:
+
+      Export async function assessSubmissionRisk(params: {
+        funder: { id: string, name: string, automation_level?: string, giving_portal_url?: string },
+        requestProfile?: { request_type: string, min_value?: number, max_value?: number },
+        formTemplate?: { field_count?: number, has_file_uploads?: boolean },
+        orgReadiness?: { ready: boolean, missing_required: string[] },
+        crossClientBlocked?: boolean,
+        supabase: any
+      }): Promise<RiskAssessment>
+
+      Risk scoring (additive):
+      - Portal has automation_level = 'manual_only': +40, auto-route to manual
+      - CAPTCHA detected in template: +10
+      - Login/account required: +15
+      - File uploads required but org docs missing: +25
+      - Ask amount exceeds funder historical max by >50%: +15 (query funder_relationships or giving history)
+      - First submission to this funder (no relationship record): +10
+      - Low form template confidence (field_count < 3): +20
+      - Cross-client collision detected: +15
+      - Legal attestation or certification checkbox in form: +30
+      - Org not ready (missing required KB or docs): +25
+
+      Classification:
+      - 0-25: LOW — auto-submit
+      - 26-50: MEDIUM — auto-submit with enhanced logging
+      - 51-75: HIGH — route to manual queue
+      - 76-100: CRITICAL — route to manual queue + notify admin
+
+      Return: { score, classification: 'low'|'medium'|'high'|'critical', factors: { name, points, description }[], recommendation: 'auto'|'assisted'|'manual', shouldNotify: boolean }
+
+      Define interface RiskAssessment.
+
+      Integrate into C:\Users\manag\Documents\benavora\worker\queue-processor.ts:
+      - Call assessSubmissionRisk BEFORE launching browser.
+      - If recommendation is 'manual': update queue item automation_mode = 'manual', status = 'pending_manual', store risk_score and risk_factors. Do not process — skip to next item.
+      - If recommendation is 'assisted': process normally but log at enhanced level.
+      - If shouldNotify: call webhook notifier with 'review_needed' event.
+    expected_outputs:
+      - src/lib/autoapply/risk-engine.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: gov-003
+    phase: build
+    description: "Create Manual Submission Queue UI with pre-filled data display"
+    prompt: |
+      Read AUTOAPPLY_ARCHITECTURE_V2.md section 8B (Manual Submission Queue).
+
+      Create C:\Users\manag\Documents\benavora\src\components\autoapply\ManualQueue.tsx:
+
+      A dashboard component for items routed to manual submission.
+
+      Query: submission_queue WHERE automation_mode IN ('manual', 'assisted') AND status = 'pending_manual', ordered by priority.
+
+      Features:
+      1. Table showing: funder name, request type badge, risk score with color (green/yellow/orange/red), risk factors summary, created_at.
+      2. Click row to expand "Submission Prep" panel showing:
+         a. Funder portal URL with "Open Portal" button (opens in new tab).
+         b. Pre-filled form data table: each field name + the value that would be entered. Each value has a "Copy" button (copies to clipboard).
+         c. Personalized pitch text area (copy-ready, read-only).
+         d. Optimized amount (if monetary).
+         e. Documents to attach: list with download buttons for each org document.
+         f. Risk factors breakdown: each factor with points and description.
+      3. Action buttons:
+         - "Mark Complete": opens form for confirmation_number (text input), optional screenshot upload, notes. Saves to autoapply_submissions with submission_channel = 'manual'.
+         - "Skip": dropdown reason (not_worth_it, portal_broken, duplicate, funder_declined, other) + notes.
+         - "Convert to Auto": override risk assessment and queue for automated submission (requires typing "CONFIRM").
+         - "Reassign": select another org member to handle.
+      4. Count badge on the Manual Queue tab showing pending items.
+      5. Supabase Realtime subscription for live updates.
+
+      Add "Manual Queue" as a tab on the AutoApply dashboard page, next to the existing Queue Panel tab.
+
+      Use Tailwind CSS matching existing dashboard styling.
+    expected_outputs:
+      - src/components/autoapply/ManualQueue.tsx
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: gov-004
+    phase: build
+    description: "Create Compliant Automation Mode with portal terms detection"
+    prompt: |
+      Read AUTOAPPLY_ARCHITECTURE_V2.md section 8C (Compliant Automation Mode).
+      Read C:\Users\manag\Documents\benavora\src\lib\autoapply\form-analyzer-agent.ts.
+
+      Modify FormAnalyzerAgent to detect anti-automation language during form analysis:
+
+      1. After extracting form fields, also scan the page text for automation-prohibiting language. Use Claude: "Scan this page text for any language that prohibits automated submissions, bot usage, or requires manual human entry. Look for phrases like: 'automated submissions prohibited', 'no bot submissions', 'must be completed manually', 'terms of use prohibiting automated access'. Return JSON: { prohibits_automation: boolean, relevant_text: string | null, confidence: number }"
+
+      2. If prohibits_automation = true with confidence > 0.7:
+         - Update the funder record: automation_level = 'manual_only', automation_notes = relevant_text.
+         - Log: "Portal {url} prohibits automation — setting to manual_only"
+
+      3. Store the automation assessment in the form_template record for future reference.
+
+      Create C:\Users\manag\Documents\benavora\src\app\(dashboard)\autoapply\automation-settings\page.tsx:
+
+      Per-funder automation level management:
+      1. Table of funders with automation levels: funder name, current level (full_auto/assisted/manual_only), automation_notes, last assessed.
+      2. Level selector dropdown per funder (admin can override detected level).
+      3. Filter by level.
+      4. Bulk actions: "Set Selected to Assisted", "Set Selected to Manual Only".
+      5. Banner explaining the three levels and their implications.
+
+      Use Tailwind CSS matching existing dashboard styling.
+    expected_outputs:
+      - src/app/(dashboard)/autoapply/automation-settings/page.tsx
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: gov-005
+    phase: build
+    description: "Create Document Compliance Matrix and Funder Relationship Memory"
+    prompt: |
+      Read AUTOAPPLY_ARCHITECTURE_V2.md sections 8D and 8E.
+
+      Create C:\Users\manag\Documents\benavora\src\lib\autoapply\document-compliance.ts:
+
+      Define COMPLIANCE_MATRIX constant — for each request_type, specify required and recommended documents with freshness rules (days):
+      - monetary: required [501c3_letter, form_990], recommended [board_list, project_budget, financial_statements], freshness { form_990: 365, financial_statements: 365, board_list: 180 }
+      - land: required [501c3_letter, form_990, project_budget], recommended [insurance_certificate], freshness { form_990: 365 }
+      - in_kind: required [501c3_letter], recommended [form_990], freshness { form_990: 365 }
+      - volunteer: required [501c3_letter], recommended [], freshness {}
+      - service: required [501c3_letter], recommended [form_990], freshness { form_990: 365 }
+      - partnership: required [501c3_letter], recommended [annual_report], freshness {}
+      - sponsorship: required [501c3_letter], recommended [annual_report], freshness {}
+      - facility: required [501c3_letter, insurance_certificate], recommended [form_990], freshness { insurance_certificate: 365 }
+
+      Export function checkDocumentCompliance(requestType: string, orgDocuments: OrgDocument[]): ComplianceResult
+      - Check required docs exist and are current (is_current = true).
+      - Check freshness: if doc was uploaded more than {freshness days} ago, flag as stale.
+      - Verify doc.organization_id matches (prevent cross-tenant).
+      - Return: { compliant, missing_required, stale_documents, warnings }
+
+      Create C:\Users\manag\Documents\benavora\src\lib\autoapply\relationship-manager.ts:
+
+      Export class RelationshipManager:
+      - async getOrCreateRelationship(orgId, funderId, supabase): upsert into funder_relationships, return record.
+      - async recordSubmission(orgId, funderId, submissionData, supabase): increment total_submissions, update last_submission_at.
+      - async recordResponse(orgId, funderId, responseData, supabase): update last_response_at, update response_time_avg_days.
+      - async recordAward(orgId, funderId, amount, supabase): increment total_funded, update relationship_status to 'funded'.
+      - async checkContactRules(orgId, funderId, supabase): check do_not_contact_until, disallowed_request_types. Return { canContact, reason? }.
+      - async getRelationshipSummary(orgId, funderId, supabase): return full relationship data for display.
+
+      Integrate into queue-processor: before processing, call checkContactRules. After submission, call recordSubmission.
+    expected_outputs:
+      - src/lib/autoapply/document-compliance.ts
+      - src/lib/autoapply/relationship-manager.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: gov-006
+    phase: build
+    description: "Create Queue Control Plane with pause/resume/kill switch"
+    prompt: |
+      Read AUTOAPPLY_ARCHITECTURE_V2.md section 8F (Queue Control Plane).
+
+      Create C:\Users\manag\Documents\benavora\src\lib\autoapply\queue-controls.ts:
+
+      Export class QueueControlPlane:
+
+      async pauseTenant(orgId: string, reason: string, pausedBy: string, supabase: any): Promise<void>
+      - Upsert into queue_controls: control_type='tenant', target_id=orgId, paused=true.
+
+      async resumeTenant(orgId: string, supabase: any): Promise<void>
+      - Update paused=false.
+
+      async pauseFunder(funderId: string, reason: string, supabase: any): Promise<void>
+      - Upsert: control_type='funder', target_id=funderId, paused=true.
+
+      async pauseDomain(domain: string, reason: string, supabase: any): Promise<void>
+      - Upsert: control_type='domain', target_id=domain, paused=true.
+
+      async pausePlatform(reason: string, pausedBy: string, supabase: any): Promise<void>
+      - EMERGENCY KILL SWITCH. Upsert: control_type='platform', target_id='global', paused=true.
+      - Log at ERROR level: "PLATFORM PAUSED by {pausedBy}: {reason}"
+
+      async resumePlatform(supabase: any): Promise<void>
+
+      async isBlocked(params: { orgId?, funderId?, portalUrl?, supabase }): Promise<{ blocked: boolean, reason?: string, controlType?: string }>
+      - Check all control levels in order: platform → domain → funder → tenant.
+      - Return first block found.
+
+      async getStatus(supabase: any): Promise<ControlStatus[]>
+      - Return all active (paused=true) controls.
+
+      Integrate into queue-processor: call isBlocked before processing each item. If blocked, skip with reason.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\autoapply\controls\route.ts:
+      GET: return all control states.
+      POST: apply a control (pause tenant/funder/domain/platform).
+      DELETE: remove a control (resume).
+      Require admin role for platform-level controls.
+
+      Create C:\Users\manag\Documents\benavora\src\app\(dashboard)\autoapply\controls\page.tsx:
+      Admin page with:
+      - Platform kill switch (big red button, requires confirmation dialog).
+      - Active pauses table: control type, target, reason, paused_by, paused_at, resume button.
+      - "Pause Tenant" form (select org from dropdown).
+      - "Pause Funder" form (search funder by name).
+      - "Pause Domain" form (text input for domain).
+
+      Use Tailwind CSS matching existing dashboard styling.
+    expected_outputs:
+      - src/lib/autoapply/queue-controls.ts
+      - src/app/api/autoapply/controls/route.ts
+      - src/app/(dashboard)/autoapply/controls/page.tsx
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: gov-007
+    phase: build
+    description: "Create Usage Meter with tier enforcement and API key handoff"
+    prompt: |
+      Read AUTOAPPLY_ARCHITECTURE_V2.md section 8G (Usage Metering).
+
+      Create C:\Users\manag\Documents\benavora\src\lib\autoapply\usage-meter.ts:
+
+      Export class UsageMeter:
+
+      async checkAllowance(orgId: string, submissionType: 'automated' | 'email' | 'manual', supabase: any): Promise<{
+        allowed: boolean,
+        remaining: number,
+        atLimit: boolean,
+        overageEnabled: boolean,
+        dailyCount: number,
+        dailyLimit: number,
+        monthlyCount: number,
+        monthlyLimit: number
+      }>
+      Steps:
+      1. Get org's tier from organizations.subscription_tier.
+      2. Get tier limits from tier_limits table.
+      3. Get or create current period usage from submission_usage (period = current month).
+      4. Check monthly: if count >= limit (and limit != -1): check if org has overages enabled in billing settings.
+      5. Check daily: query autoapply_submissions WHERE submitted_at > start of today. If >= daily_max: block regardless of overages.
+      6. Return status.
+
+      async recordUsage(orgId: string, submissionType: string, costs: { claude?: number, openai?: number, proxy?: number, captcha?: number }, supabase: any): Promise<void>
+      - Increment the appropriate count in submission_usage.
+      - If over monthly limit, increment overage count and calculate overage cost.
+      - Add costs to the running totals.
+
+      async getUsageReport(orgId: string, periodStart?: Date, supabase: any): Promise<UsageReport>
+      - Return full usage report: counts, costs, limits, overages, trends.
+
+      async shouldUseOwnKeys(orgId: string, supabase: any): Promise<{ useOwn: boolean, anthropicKey?: string, openaiKey?: string }>
+      - Check if org's tier allows own keys (tier_limits.allow_own_keys).
+      - Check if org has stored API keys (in encrypted org settings).
+      - Return whether to use their keys and the decrypted values.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\autoapply\usage\route.ts:
+      GET: return usage report for current org and period.
+
+      Integrate into queue-processor:
+      - Before processing: call checkAllowance. If not allowed, skip with 'usage_limit_reached'.
+      - After processing: call recordUsage with actual costs.
+      - Before AI calls: call shouldUseOwnKeys to determine which API keys to use.
+    expected_outputs:
+      - src/lib/autoapply/usage-meter.ts
+      - src/app/api/autoapply/usage/route.ts
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: gov-008
+    phase: build
+    description: "Create usage dashboard UI with billing and key management"
+    prompt: |
+      Create C:\Users\manag\Documents\benavora\src\app\(dashboard)\autoapply\usage\page.tsx:
+
+      Usage and billing dashboard page:
+
+      1. Monthly usage overview:
+         - Three stat cards: Automated ({count}/{limit}), Email ({count}/{limit}), Manual ({count}/{limit}).
+         - Progress bars showing usage vs allocation (green under 80%, amber 80-100%, red at limit).
+         - "Overages this period: {count} ($X.XX)" if any.
+
+      2. Daily usage chart:
+         - Bar chart (recharts) showing submissions per day for current month.
+         - Daily limit line overlay.
+
+      3. Cost breakdown (visible if org has overages or own keys):
+         - Table: Claude API, OpenAI API, Proxy, CAPTCHA — cost per category.
+         - Total cost this period.
+
+      4. API Key Management section (only visible for Enterprise/Consultant tiers):
+         - "Use Your Own API Keys" toggle.
+         - Anthropic API Key input (masked, with save button).
+         - OpenAI API Key input (masked, with save button).
+         - Status indicator: "Using Benavora keys" or "Using your keys — AI costs not counted against allocation."
+
+      5. Upgrade prompt (for Starter/Professional hitting limits):
+         - "Running out of submissions? Upgrade to {next tier} for {X} more per month."
+
+      Add "Usage & Billing" nav link in AutoApply sidebar.
+
+      Use Tailwind CSS matching existing dashboard styling.
+    expected_outputs:
+      - src/app/(dashboard)/autoapply/usage/page.tsx
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: gov-009
+    phase: build
+    description: "Create observability dashboard with operational metrics and alerting"
+    prompt: |
+      Create C:\Users\manag\Documents\benavora\src\app\(dashboard)\admin\autoapply-ops\page.tsx:
+
+      Admin-only operational dashboard (check user role = admin):
+
+      1. System Health cards:
+         - Worker status (from worker_status table): online/offline, uptime, items processed today.
+         - Queue depth: pending items across all tenants.
+         - Platform paused: yes/no indicator with resume button.
+
+      2. Submission metrics (recharts):
+         - Success rate rolling 24h, 7d, 30d as gauge charts.
+         - Submissions per hour line chart (last 24 hours).
+         - Failure breakdown pie chart by error class.
+
+      3. Cost tracking:
+         - Today's total cost across all tenants (sum of usage costs).
+         - Cost per submission average (total cost / total submissions).
+         - Cost breakdown by category (Claude, OpenAI, Proxy, CAPTCHA).
+
+      4. Portal health:
+         - Portals with highest block rate (table: portal domain, submissions, blocks, block rate).
+         - Recently detected anti-automation portals.
+
+      5. Tenant activity:
+         - Top 5 tenants by submission volume today.
+         - Any tenants exceeding 3x normal daily volume (flagged).
+
+      6. Alert rules display (read-only for now):
+         - "Success rate < 50% for 1 hour → alert"
+         - "Daily cost > $50 → alert"
+         - "Worker offline > 5 minutes → alert"
+         - "Tenant exceeds 3x daily average → alert"
+
+      Create C:\Users\manag\Documents\benavora\src\lib\autoapply\alerting.ts:
+      Export async function checkAlerts(supabase: any): Promise<Alert[]>
+      - Query metrics and check against thresholds.
+      - Return triggered alerts.
+      - Called by the autoapply cron job after each run.
+      - Alerts sent via webhook notifier to admin webhook configs.
+
+      Restrict page access to admin role. Add "AutoApply Ops" link in admin sidebar section.
+
+      Use Tailwind CSS matching existing dashboard styling.
+    expected_outputs:
+      - src/app/(dashboard)/admin/autoapply-ops/page.tsx
+      - src/lib/autoapply/alerting.ts
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: gov-010
+    phase: build
+    description: "Verify full build and update governance documents for Phase 3F-GOV"
+    prompt: |
+      1. Run pnpm run build and fix ALL errors.
+      2. Run pnpm tsc --noEmit and fix ALL TypeScript errors.
+
+      3. Update C:\Users\manag\Documents\benavora\STATE_OF_THE_BUILD.md:
+         Add section:
+         - Phase 3F-GOV Governance & Platform Safety: BUILT
+           - Submission Risk Engine: scores every submission 0-100 with factor breakdown, routes high-risk to manual
+           - Manual Submission Queue: pre-filled data display, copy buttons, mark complete workflow, reassignment
+           - Compliant Automation Mode: three levels (full_auto, assisted, manual_only), portal terms detection, per-funder overrides
+           - Document Compliance Matrix: per-request-type required/recommended docs, freshness checking, cross-tenant prevention
+           - Funder Relationship Memory: unified relationship records with outcomes, preferences, contact rules, board cycles
+           - Queue Control Plane: pause/resume per tenant/funder/domain, emergency platform kill switch
+           - Usage Metering: monthly and daily caps per tier, overage tracking, cost-per-submission recording
+           - API Key Handoff: Enterprise/Consultant can provide own Anthropic + OpenAI keys
+           - Usage Dashboard: allocation tracking, cost breakdown, API key management, upgrade prompts
+           - Observability Dashboard: admin-only ops metrics, success rates, costs, portal health, tenant activity
+           - Alerting: threshold-based alerts via webhook
+           - Migration 052: funder_relationships, queue_controls, submission_usage, tier_limits (PENDING)
+         - Post-run: apply migration 052, configure alert webhooks
+
+      4. Update C:\Users\manag\Documents\benavora\SESSION_STATE.md:
+         - Phase 3F-GOV complete
+         - Next: Phase 3G + 3H (Multi-Channel & Analytics)
+    expected_outputs:
+      - STATE_OF_THE_BUILD.md
+      - SESSION_STATE.md
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt

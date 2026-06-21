@@ -573,6 +573,16 @@ These enhancements integrate into the existing phase structure:
 - Pitch cache table and management
 - Timing optimization (6A)
 
+**Phase 3F-GOV (Governance & Safety Layer — NEW PHASE):**
+- Submission Risk Engine (8A)
+- Manual Submission Queue / Assisted Mode (8B)
+- Compliant Automation Mode with per-portal automation flags (8C)
+- Document Compliance Matrix (8D)
+- Funder Relationship Memory System (8E)
+- Queue Control Plane — pause/resume/kill switch (8F)
+- Usage metering, tier caps, overage billing, API key handoff (8G)
+- Observability dashboard — operational health, costs, error classes (8H)
+
 **Phase 3G (Multi-Channel & Follow-Up — NEW PHASE):**
 - Email-based donation requests (3A)
 - Submission channel analytics (3B)
@@ -589,6 +599,292 @@ These enhancements integrate into the existing phase structure:
 
 ---
 
+## 9. Governance & Platform Safety Layer
+
+### 8A. Submission Risk Engine
+
+**Priority:** CRITICAL — Must exist before production use at scale
+
+Every submission receives a risk score (0-100) before execution. High-risk items require human approval.
+
+**Risk factors scored:**
+- Portal requires legal attestations or certifications: +30
+- Portal has "no automated submissions" language detected: +40 (auto-route to manual)
+- CAPTCHA present: +10
+- Account/login required: +15
+- File uploads required but documents missing: +25
+- Ask amount exceeds funder's historical max by >50%: +15
+- First submission to this funder (no template history): +10
+- Low confidence on form field mapping (<70%): +20
+- Funder flagged as sensitive or high-profile: +20
+- Cross-client collision detected: +15
+
+**Risk classification:**
+- 0-25: LOW — auto-submit (default)
+- 26-50: MEDIUM — auto-submit with enhanced logging + screenshot at every step
+- 51-75: HIGH — route to Manual Submission Queue for human review before submit
+- 76-100: CRITICAL — route to Manual Queue + notify org admin
+
+**Implementation:**
+```
+src/lib/autoapply/risk-engine.ts
+- Export async function assessSubmissionRisk(params): Promise<RiskAssessment>
+- Returns: { score, classification, factors: { name, points, description }[], recommendation }
+- Queue processor calls this BEFORE launching browser
+- Store risk_score and risk_factors in submission_queue metadata
+```
+
+### 8B. Manual Submission Queue (Assisted Mode)
+
+**Priority:** CRITICAL — Required for compliant automation
+
+When the risk engine routes a submission to manual, or when a portal is flagged as "no automation," the item appears in the Manual Submission Queue.
+
+**Operator workflow:**
+1. Dashboard shows "Manual Queue" tab with pending items, sorted by priority
+2. Each item displays: funder name, portal URL, request type, risk score, risk factors
+3. "Prepare Submission" expands to show: personalized pitch (copy-ready), optimized amount, documents to attach (download links), form field values (copy-ready table)
+4. "Open Portal" button opens funder's website in new tab
+5. Operator manually fills the form using the pre-prepared data
+6. Returns to Benavora, clicks "Mark Complete" — enters confirmation number, optional screenshot upload
+7. Submission is tracked identically to automated submissions (same analytics, follow-ups, receipts)
+8. "Skip" button with reason (not_worth_it, portal_broken, duplicate, other)
+9. "Reassign" to another team member
+
+**Implementation:**
+```
+-- Manual queue uses submission_queue with automation_mode = 'manual'
+ALTER TABLE submission_queue ADD COLUMN IF NOT EXISTS automation_mode text DEFAULT 'auto';
+-- Values: 'auto', 'manual', 'assisted' (auto-fill but human submits)
+
+src/components/autoapply/ManualQueue.tsx
+- Dedicated tab on AutoApply dashboard
+- Pre-filled data display with copy buttons per field
+- Document download links
+- Mark Complete form with confirmation capture
+```
+
+### 8C. Compliant Automation Mode
+
+**Priority:** HIGH — Reputation protection
+
+Default behavior shifts from "stealth automation" to "compliant assisted automation."
+
+**Three automation levels per portal:**
+- `full_auto`: Bot fills and submits. Used only for portals explicitly assessed as safe.
+- `assisted`: Bot fills form, human reviews and clicks submit. Default for most portals.
+- `manual_only`: No automation. Pre-prepared data only. For portals with anti-automation policies.
+
+**Per-funder automation flags:**
+```sql
+ALTER TABLE funders ADD COLUMN IF NOT EXISTS automation_level text DEFAULT 'assisted';
+ALTER TABLE funders ADD COLUMN IF NOT EXISTS automation_notes text;
+-- automation_level: 'full_auto', 'assisted', 'manual_only'
+-- automation_notes: why this level was set (detected ToS, admin override, etc.)
+```
+
+**Portal terms detection:**
+- During FormAnalyzerAgent analysis, scan page text for: "automated submissions prohibited", "bot submissions will be rejected", "manual entry required", "terms of use"
+- If detected: auto-set automation_level = 'manual_only' and flag for admin review
+- Log: "Portal {url} contains anti-automation language — routing to manual"
+
+### 8D. Document Compliance Matrix
+
+**Priority:** HIGH
+
+For each request type, define required, recommended, and disallowed documents with freshness rules.
+
+```
+src/lib/autoapply/document-compliance.ts
+
+COMPLIANCE_MATRIX = {
+  monetary: {
+    required: ['501c3_letter', 'form_990'],
+    recommended: ['board_list', 'project_budget', 'financial_statements'],
+    freshness: { form_990: 365, financial_statements: 365, board_list: 180 }
+  },
+  land: {
+    required: ['501c3_letter', 'form_990', 'project_budget'],
+    recommended: ['insurance_certificate', 'organizational_chart'],
+    freshness: { form_990: 365 }
+  },
+  // ... per request type
+}
+
+Export function checkDocumentCompliance(requestType, orgDocuments): ComplianceResult
+- Returns: { compliant, missing_required, stale_documents, warnings }
+- Blocks submission if missing required documents
+- Warns on stale documents (uploaded_at + freshness_days < NOW())
+- Prevents cross-tenant document attachment (verify doc.organization_id matches)
+```
+
+### 8E. Funder Relationship Memory System
+
+**Priority:** HIGH
+
+Unified relationship record per funder that persists across submissions.
+
+```sql
+CREATE TABLE IF NOT EXISTS funder_relationships (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  organization_id uuid NOT NULL REFERENCES organizations(id),
+  funder_id uuid NOT NULL REFERENCES funders(id),
+  relationship_status text DEFAULT 'prospect',
+  last_submission_at timestamptz,
+  last_response_at timestamptz,
+  total_submissions integer DEFAULT 0,
+  total_funded numeric(12,2) DEFAULT 0,
+  preferred_channel text,
+  preferred_request_type text,
+  do_not_contact_until timestamptz,
+  contact_notes text,
+  board_meeting_months integer[],
+  fiscal_year_end_month integer,
+  response_time_avg_days integer,
+  funder_preferences jsonb DEFAULT '{}',
+  disallowed_request_types text[],
+  max_ask_amount numeric(12,2),
+  relationship_score numeric(3,1),
+  created_at timestamptz DEFAULT NOW(),
+  updated_at timestamptz DEFAULT NOW(),
+  UNIQUE(organization_id, funder_id)
+);
+```
+
+- Auto-populated from submission outcomes
+- `do_not_contact_until`: blocks submissions until date passes
+- `board_meeting_months`: optimizes timing for foundation submissions
+- `disallowed_request_types`: prevents requesting things this funder explicitly won't provide
+- `max_ask_amount`: hard cap on ask amount for this funder
+- Updated after every submission, response, and award
+
+### 8F. Queue Control Plane
+
+**Priority:** HIGH — Operational safety
+
+```
+src/lib/autoapply/queue-controls.ts
+
+Export class QueueControlPlane:
+  pauseTenant(orgId): pause all submissions for an org
+  resumeTenant(orgId): resume
+  pauseFunder(funderId): pause submissions to a specific funder globally
+  pauseDomain(domain): pause all submissions to a domain (e.g., pause all Benevity)
+  pausePlatform(): EMERGENCY KILL SWITCH — stops ALL submissions across ALL tenants
+  resumePlatform(): resume global processing
+  getStatus(): returns current pause states
+
+-- Control state stored in a simple table:
+CREATE TABLE IF NOT EXISTS queue_controls (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  control_type text NOT NULL,
+  target_id text,
+  paused boolean NOT NULL DEFAULT false,
+  paused_by text,
+  paused_at timestamptz,
+  reason text,
+  created_at timestamptz DEFAULT NOW()
+);
+-- control_type: 'tenant', 'funder', 'domain', 'platform'
+
+Queue processor checks controls BEFORE processing each item.
+Admin UI: simple controls page with pause/resume buttons per level.
+```
+
+### 8G. Usage Metering, Tier Caps & Overage Billing
+
+**Priority:** CRITICAL — Revenue protection
+
+```sql
+CREATE TABLE IF NOT EXISTS submission_usage (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  organization_id uuid NOT NULL REFERENCES organizations(id),
+  period_start timestamptz NOT NULL,
+  period_end timestamptz NOT NULL,
+  automated_count integer DEFAULT 0,
+  email_count integer DEFAULT 0,
+  manual_count integer DEFAULT 0,
+  overage_automated integer DEFAULT 0,
+  overage_email integer DEFAULT 0,
+  overage_cost numeric(10,2) DEFAULT 0,
+  api_cost_claude numeric(10,2) DEFAULT 0,
+  api_cost_openai numeric(10,2) DEFAULT 0,
+  proxy_cost numeric(10,2) DEFAULT 0,
+  captcha_cost numeric(10,2) DEFAULT 0,
+  using_own_keys boolean DEFAULT false,
+  created_at timestamptz DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS tier_limits (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  tier_name text NOT NULL UNIQUE,
+  monthly_automated integer NOT NULL,
+  monthly_email integer NOT NULL,
+  monthly_manual integer NOT NULL,
+  daily_max integer NOT NULL,
+  overage_rate_automated numeric(6,2) NOT NULL,
+  overage_rate_email numeric(6,2) NOT NULL,
+  allow_own_keys boolean NOT NULL DEFAULT false
+);
+
+-- Seed tier limits
+INSERT INTO tier_limits (tier_name, monthly_automated, monthly_email, monthly_manual, daily_max, overage_rate_automated, overage_rate_email, allow_own_keys) VALUES
+  ('starter', 50, 20, 10, 5, 2.99, 0.99, false),
+  ('professional', 200, 100, 50, 15, 1.99, 0.79, false),
+  ('enterprise', 1000, 500, -1, 50, 0.99, 0.49, true),
+  ('consultant', -1, -1, -1, 20, 0.99, 0.49, true)
+ON CONFLICT (tier_name) DO NOTHING;
+-- -1 = unlimited
+```
+
+**Usage enforcement:**
+```
+src/lib/autoapply/usage-meter.ts
+
+Export class UsageMeter:
+  async checkAllowance(orgId, submissionType): Promise<{ allowed, remaining, atLimit, overageEnabled }>
+  async recordUsage(orgId, submissionType, costs: { claude, openai, proxy, captcha }): Promise<void>
+  async getUsageReport(orgId, period?): Promise<UsageReport>
+  async shouldUseOwnKeys(orgId): Promise<{ useOwn, anthropicKey?, openaiKey? }>
+```
+
+**API key handoff:**
+- Enterprise/Consultant can store their own Anthropic + OpenAI keys in encrypted org settings
+- When own keys configured: AI calls use their keys, usage doesn't count against AI cost pool
+- Benavora still charges for proxy/CAPTCHA/infrastructure at reduced overage rates
+
+### 8H. Observability Dashboard
+
+**Priority:** MEDIUM-HIGH
+
+**Operational metrics (admin-only page):**
+- Submissions per hour/day/week (all tenants aggregate)
+- Success rate (rolling 24h, 7d, 30d)
+- Failure rate by error class (captcha, site_error, timeout, validation, portal_dead)
+- CAPTCHA encounter rate and solve rate
+- Proxy block/ban rate
+- Average submission duration (page load to confirmation)
+- Cost per submission (broken down: Claude, OpenAI, proxy, CAPTCHA)
+- Cost per tenant per day
+- Queue age (how long items sit before processing)
+- Worker health (uptime, restarts, memory usage from Railway metrics)
+- Portal block rate (portals that consistently reject)
+
+**Per-tenant metrics (org dashboard):**
+- Monthly usage vs allocation (bar chart)
+- Cost breakdown (if on own keys)
+- Success rate trend
+- Top-performing funders
+- Submission channel mix
+
+**Alerting:**
+- Success rate drops below 50% for 1 hour → alert admin
+- Daily cost exceeds $50 → alert admin
+- Worker offline > 5 minutes → alert admin
+- Any tenant exceeds 3x normal daily volume → alert admin (possible misconfiguration)
+
+---
+
 ## Document Authority
 
-This addendum extends AUTOAPPLY_ARCHITECTURE.md. All items are approved for implementation in the specified phase order. Phase 3E incorporates both the original error recovery plan and new infrastructure requirements. Phases 3F, 3G, and 3H are new phases that follow 3E in build order.
+This addendum extends AUTOAPPLY_ARCHITECTURE.md. All items are approved for implementation in the specified phase order. Phase 3E incorporates both the original error recovery plan and new infrastructure requirements. Phases 3F, 3F-GOV, 3G, and 3H follow in sequence.
