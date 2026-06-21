@@ -62,6 +62,7 @@ export const NAV_ITEMS: NavItem[] = [
     icon: Bot,
     children: [
       { label: "Request Profiles", href: "/autoapply/profiles" },
+      { label: "Follow-Ups", href: "/autoapply/follow-ups" },
       { label: "Templates", href: "/autoapply/templates" },
       { label: "Document Vault", href: "/autoapply/documents" },
       { label: "Agreements", href: "/autoapply/agreements" },
