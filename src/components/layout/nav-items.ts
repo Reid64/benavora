@@ -63,6 +63,8 @@ export const NAV_ITEMS: NavItem[] = [
     children: [
       { label: "Request Profiles", href: "/autoapply/profiles" },
       { label: "Templates", href: "/autoapply/templates" },
+      { label: "Document Vault", href: "/autoapply/documents" },
+      { label: "Notifications", href: "/autoapply/webhooks" },
       { label: "Compliance", href: "/autoapply/compliance" },
       { label: "Settings", href: "/autoapply/settings" },
     ],
