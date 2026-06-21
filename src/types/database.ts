@@ -1385,6 +1385,58 @@ export interface Database {
         };
         Relationships: [];
       };
+      // Migration 054 — per-user Gmail OAuth connections.
+      email_connections: {
+        Row: {
+          id: string;
+          organization_id: string;
+          user_id: string;
+          provider: string;
+          email_address: string;
+          access_token_encrypted: string | null;
+          refresh_token_encrypted: string | null;
+          token_expires_at: string | null;
+          sync_status: string;
+          last_sync_at: string | null;
+          sync_cursor: string | null;
+          scopes: string[] | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          user_id: string;
+          provider?: string;
+          email_address: string;
+          access_token_encrypted?: string | null;
+          refresh_token_encrypted?: string | null;
+          token_expires_at?: string | null;
+          sync_status?: string;
+          last_sync_at?: string | null;
+          sync_cursor?: string | null;
+          scopes?: string[] | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          user_id?: string;
+          provider?: string;
+          email_address?: string;
+          access_token_encrypted?: string | null;
+          refresh_token_encrypted?: string | null;
+          token_expires_at?: string | null;
+          sync_status?: string;
+          last_sync_at?: string | null;
+          sync_cursor?: string | null;
+          scopes?: string[] | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       draft_versions: {
         Row: {
           id: string;
