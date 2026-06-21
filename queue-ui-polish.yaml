@@ -1,0 +1,607 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - BLUEPRINT.md
+  - SCHEMA_REGISTRY.md
+  - DESIGN_SYSTEM.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+# ============================================================
+# UI POLISH + DESIGN SYSTEM OVERHAUL
+# ============================================================
+#
+# Addresses every issue from the product walkthrough:
+#
+# DESIGN SYSTEM:
+#   - Dark mode palette: charcoal + gray layers, not navy-on-navy
+#   - Input/textarea sizing: compact, proportional, never oversized
+#   - Button contrast: solid backgrounds with white text
+#   - Information density: enterprise-grade, not template-grade
+#
+# NAVIGATION:
+#   - Header: Dashboard, Research, Opportunities, AutoApply, Draft Generator
+#   - Sidebar: everything else, NO duplication of header items
+#   - Nav badges: red count circles restored
+#
+# PAGE-SPECIFIC:
+#   - Dashboard: remove email parser, improve pipeline viz
+#   - Applications: grouped kanban + table toggle
+#   - AutoApply Analytics: chart shells
+#   - Alerts: category shells
+#   - Form Templates: funder-grouped cards
+#   - Documents: compact upload
+#   - Draft Generator: section scoring, export, readability
+#
+# BUGS (noted for Claude Code, NOT in this queue):
+#   - Opportunity detail fields showing dashes
+#   - HTML entity encoding in titles
+#   - Deadlines not populating from opportunities
+#   - Outcomes analytics charts need restoration from git
+# ============================================================
+
+prompts:
+
+  # ============================================================
+  # PROMPT 1: DESIGN SYSTEM — Global palette + typography + spacing
+  # ============================================================
+
+  - id: ui-001
+    phase: build
+    description: "Overhaul the global design system — dark mode palette, input sizing, button contrast"
+    prompt: |
+      Read the current global CSS: check src/app/globals.css, tailwind.config.ts or tailwind.config.js, and any theme files.
+      Read src/app/layout.tsx for font imports.
+
+      OVERHAUL the design system with these changes:
+
+      1. DARK MODE PALETTE — Replace navy-on-navy with layered charcoal:
+         In tailwind.config (extend.colors or CSS variables):
+         - Background (page): #0f1117 (near-black, not navy)
+         - Surface (cards/panels): #1a1d27 (dark charcoal)
+         - Surface elevated (modals/dropdowns): #242835 (lighter charcoal)
+         - Border: #2e3345 (subtle gray-blue, visible but not harsh)
+         - Border hover: #404660 (brighter on interaction)
+         - Text primary: #f0f0f5 (near-white, high contrast)
+         - Text secondary: #9ca3b4 (medium gray for labels/descriptions)
+         - Text muted: #6b7280 (dimmer for timestamps/metadata)
+         - Primary accent: #7C3AED (keep purple)
+         - CTA/Action: #10b981 (emerald green for primary actions — stands out against dark)
+         - Danger: #ef4444
+         - Warning: #f59e0b
+         - Info: #3b82f6
+         Apply these as CSS custom properties in globals.css AND as Tailwind theme extensions.
+
+      2. INPUT SIZING — Global compact defaults:
+         In globals.css, add base styles:
+         - input, select, textarea: max-height constraints, consistent padding (py-2 px-3), text-sm default
+         - textarea: default max-height 120px unless explicitly overridden with a class
+         - Form containers: max-width 640px for single-column forms, max-width 960px for two-column
+         - .form-compact class: even tighter spacing for inline/filter forms
+
+      3. BUTTON CONTRAST — All buttons must pop:
+         - Primary buttons: solid emerald (#10b981) background, white text, hover darken
+         - Secondary buttons: solid surface-elevated background, white text, border
+         - Danger buttons: solid red background, white text
+         - Ghost buttons: transparent with visible border, text-secondary, hover surface-elevated
+         - NO invisible/ghost buttons on dark backgrounds — every button must have a visible boundary
+
+      4. CARD STYLING:
+         - Cards: bg-surface, border border-border, rounded-lg
+         - Cards hover: border-border-hover transition
+         - Card headers: slightly lighter background or left border accent
+         - Remove any blue/purple gradient card backgrounds — use flat surface colors
+
+      5. TABLE STYLING:
+         - Row hover: bg-surface-elevated
+         - Header row: bg-surface, text-secondary, text-xs uppercase tracking-wide
+         - Borders between rows: border-border (subtle)
+         - Compact row height: py-3 not py-4 or py-5
+
+      IMPORTANT: These are GLOBAL changes. Every page inherits them. Do not touch individual page components in this prompt — just the design system foundation.
+    expected_outputs:
+      - src/app/globals.css
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # PROMPT 2: NAVIGATION RESTRUCTURE
+  # ============================================================
+
+  - id: ui-002
+    phase: build
+    description: "Restructure header nav and sidebar — eliminate duplication, add AutoApply to header"
+    prompt: |
+      Read ALL navigation-related files completely before making changes:
+      - Find the header/top nav component (check src/components/ for header, topnav, or navbar)
+      - Find the sidebar component (check src/components/ for sidebar, sidenav, or nav)
+      - Find the nav items config (check for nav-items.ts, navigation.ts, or similar)
+      - Read src/app/(dashboard)/layout.tsx
+
+      RESTRUCTURE:
+
+      1. HEADER NAV (top bar):
+         Items: Dashboard | Research | Opportunities | AutoApply | Draft Generator
+         - AutoApply and Draft Generator should be visually differentiated — slightly bolder font weight or underline accent to signal premium features
+         - Active state: solid background pill or underline, not just text color change
+         - Text color: #f0f0f5 (near-white, high contrast against dark header)
+         - Header background: #0f1117 or slightly lighter than page background
+         - Remove any transparency/blur effects that reduce readability
+
+      2. SIDEBAR (left nav):
+         REMOVE these items (they are in the header now): Dashboard, Research, Opportunities, AutoApply, Draft Generator
+         KEEP these items in this order:
+         - Alerts
+         - Funders
+         - Foundations
+         - Contacts
+         - Applications
+         - Documents
+         - Knowledge Base
+         - Intelligence Library
+         - Deadlines
+         - Outcomes & Analytics
+         - Financials
+         - Reports
+         - Intelligence (with sub-items: Competitors, Semantic Matches)
+         - Settings (at bottom, separated)
+
+         IF platform admin (check isPlatformAdmin): add Platform section at bottom with sub-items
+
+      3. NAV BADGES — Restore red count circles:
+         Add badge count support to sidebar items. Each item can optionally show a red circle with white number.
+         Create a NavBadge component: small red circle (bg-red-500, text-white, text-xs, min-w-5, h-5, rounded-full) positioned top-right of the icon or after the label.
+         Wire up badges for:
+         - Alerts: count of unread alerts (query alerts WHERE is_read = false)
+         - Applications: count of items needing action (stage = 'ready_for_review' or 'follow_up_due')
+         - Documents: count expiring within 30 days
+         - Deadlines: count overdue (due_date < NOW() AND is_completed = false)
+         Fetch counts via a single lightweight API call on layout mount: GET /api/nav-counts
+         Create that API route if it doesn't exist.
+
+      4. Create C:\Users\manag\Documents\benavora\src\app\api\nav-counts\route.ts:
+         GET: Returns { alerts: number, applications: number, documents: number, deadlines: number }
+         Lightweight queries, scoped by org_id. Cached for 60 seconds.
+
+      CRITICAL: Preserve all existing routes and page functionality. Only change the navigation rendering, not the pages themselves.
+    expected_outputs:
+      - src/app/api/nav-counts/route.ts
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # PROMPT 3: DASHBOARD REDESIGN
+  # ============================================================
+
+  - id: ui-003
+    phase: build
+    description: "Redesign the main dashboard — remove email parser, improve pipeline viz, add trends"
+    prompt: |
+      Read the dashboard page completely: src/app/(dashboard)/dashboard/page.tsx (or src/app/(dashboard)/page.tsx — find it first).
+
+      REDESIGN the dashboard:
+
+      1. REMOVE the Email Parser section entirely. It does not belong on the dashboard. Email parsing is a backend function that will surface in the Email Hub (/email) once Phase 4 is live.
+
+      2. METRIC CARDS (top row) — Keep existing metrics but enhance:
+         - Each card gets a trend indicator: small up/down arrow with percentage vs last period
+         - Cards: Total Opportunities, Applications Submitted, Drafts Generated, Upcoming Deadlines (next 7 days), Total Requested, Total Awarded, Success Rate
+         - Card styling: bg-surface, compact, number is text-2xl font-bold, label is text-xs text-secondary
+         - If no data: show "—" not "0" (zero implies tracking, dash implies not started)
+
+      3. PIPELINE SUMMARY — Replace the single blue bar:
+         Create a segmented horizontal bar where each stage gets a proportional width based on count.
+         Stages grouped into 4 macro-phases with distinct colors:
+         - Discovery (blue): Discovered + Eligibility Review + Qualified
+         - Preparation (purple): Drafting + Awaiting Documents + Ready for Review
+         - Active (emerald): Submitted + Follow-Up Due
+         - Outcome (amber/green/red): Awarded + Denied + Reporting + Renewal
+         Each segment shows the count inside if wide enough, or as a tooltip.
+         Below the bar: a compact legend with stage names and counts.
+         If only 1 application exists: show it as a small segment in context, not a full-width bar.
+
+      4. ADD SECTIONS:
+         - "Recent Activity" feed: last 10 actions across the org (draft generated, application moved, research completed, etc.). Query from team_activity_log or agent_runs. Compact list with icon + description + time ago.
+         - "Upcoming Deadlines" mini-table: next 5 deadlines with urgency color dots, opportunity name, days remaining. Link to /deadlines.
+         - REMOVE: Success Rate Trend chart and Corporate vs Grant split pie chart if they exist but are empty — replace with "Record outcomes to see trends" placeholder.
+
+      5. LAYOUT: Two-column grid on desktop. Left column: metric cards (2 rows of 3-4), pipeline bar, recent activity. Right column: upcoming deadlines, quick actions ("Run Research", "Generate Drafts", "Review Queue").
+
+      Use the new design system colors from prompt ui-001. Compact, dense, enterprise-grade.
+    expected_outputs:
+      - src/app/(dashboard)/dashboard/page.tsx
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # PROMPT 4: APPLICATIONS PIPELINE REDESIGN
+  # ============================================================
+
+  - id: ui-004
+    phase: build
+    description: "Redesign applications page — grouped kanban + table toggle"
+    prompt: |
+      Read the applications page completely: find it in src/app/(dashboard)/applications/page.tsx.
+
+      REDESIGN with two view modes toggled by a button group:
+
+      MODE 1 — TABLE VIEW (default):
+      - Compact table: Opportunity Name, Funder, Amount, Stage Badge (color-coded), Deadline, Last Updated, Actions
+      - Stage badge colors: Discovery stages = blue, Preparation = purple, Active = emerald, Outcome = amber/green/red
+      - Sort by any column. Filter by stage group (Discovery, Preparation, Active, Outcome).
+      - Click row → application detail page.
+      - Bulk actions: select multiple → move to stage (with validation).
+
+      MODE 2 — GROUPED KANBAN:
+      4 columns (not 12):
+      - Discovery (Discovered → Eligibility Review → Qualified)
+      - Preparation (Drafting → Awaiting Documents → Ready for Review)
+      - Active (Submitted → Follow-Up Due)
+      - Outcome (Awarded → Denied → Reporting → Renewal)
+
+      Each column:
+      - Header with group name, total count, expand/collapse toggle
+      - Cards inside show: opportunity name (truncated), funder name, amount, specific sub-stage badge, deadline with urgency color
+      - Cards are compact — max 3 lines of content
+      - Drag between groups auto-selects the first sub-stage of the target group (e.g., dragging to Preparation sets stage to "Drafting")
+
+      Within each group, cards are sub-grouped by their specific stage with a subtle divider and label.
+
+      All 4 columns fit on screen WITHOUT horizontal scrolling.
+
+      Empty state per column: "No applications in this phase" with a dashed border.
+
+      Use the new design system. Cards use bg-surface with border-border.
+    expected_outputs:
+      - src/app/(dashboard)/applications/page.tsx
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # PROMPT 5: ALERTS PAGE + AUTOAPPLY ANALYTICS
+  # ============================================================
+
+  - id: ui-005
+    phase: build
+    description: "Build out Alerts page with category shells and AutoApply Analytics with chart shells"
+    prompt: |
+      Read the alerts page: find it in src/app/(dashboard)/alerts/page.tsx or similar.
+      Read the AutoApply analytics page: find it in src/app/(dashboard)/autoapply/analytics/page.tsx.
+
+      1. ALERTS PAGE — Replace the empty "all caught up" with structured categories:
+
+         Even with no data, show category sections with icons and descriptions:
+         - Deadline Alerts (Calendar icon): "Application deadlines, follow-up dates, and reporting deadlines approaching or overdue."
+         - New Opportunities (Search icon): "Recently discovered opportunities matching your search profile and eligibility criteria."
+         - Submission Results (CheckCircle icon): "AutoApply submission confirmations, failures, and items needing attention."
+         - Email Responses (Mail icon): "Funder replies detected in synced email threads requiring follow-up."
+         - Document Alerts (FileWarning icon): "Documents expiring soon or missing from pending applications."
+         - System Notices (Bell icon): "Agent run results, usage limit warnings, and platform updates."
+
+         Each category is a collapsible card. When empty: shows the description and "No alerts in this category." When populated: shows a compact list of alerts with dismiss/snooze buttons.
+
+         Top bar: "Mark all read" button, filter pills (All, Unread, Urgent, Snoozed), count of unread.
+
+      2. AUTOAPPLY ANALYTICS — Build chart shell layouts:
+
+         Even without data, render chart containers with empty states:
+         - Conversion Funnel (Recharts FunnelChart, dynamic import ssr:false): stages Queued → Submitted → Confirmed → Responded → Funded. Empty state: "Submit your first application to see conversion data."
+         - Channel Comparison (Recharts PieChart): web_form vs email vs manual. Empty: "No submissions yet."
+         - Funder Response Time (Recharts BarChart): avg days per funder. Empty: "Track responses to see timing data."
+         - ROI Calculator: Total funded vs platform cost. Empty: "Record awarded outcomes to calculate ROI."
+         - Submission Volume (Recharts LineChart): daily/weekly submissions over time. Empty: "No submission history."
+
+         Each chart sits in a card with title, description, and the chart area (min-height 250px). Charts render axes and labels even when empty — the structure is visible.
+
+      Use Recharts with dynamic import and ssr:false for all charts. Use new design system colors.
+    expected_outputs:
+      - src/app/(dashboard)/autoapply/analytics/page.tsx
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # PROMPT 6: FORM TEMPLATES + DOCUMENTS REDESIGN
+  # ============================================================
+
+  - id: ui-006
+    phase: build
+    description: "Redesign Form Templates as funder-grouped cards and compact Documents layout"
+    prompt: |
+      Read the form templates page: find it in src/app/(dashboard)/autoapply/templates/page.tsx.
+      Read the documents page: find it in src/app/(dashboard)/documents/page.tsx.
+
+      1. FORM TEMPLATES — Redesign from flat table to funder-grouped cards:
+
+         Group templates by funder (or by domain if no funder linked). Each funder gets a card:
+         - Funder name (bold), portal URL (truncated, clickable)
+         - Stats row: X fields mapped, last verified date, X successful submissions
+         - Health badge: green (verified < 7d), yellow (7-30d), red (> 30d or errors)
+         - Coverage badge: "11/11 fields" = green 100%, partial = yellow with percentage
+         - Expand to see: individual field mappings, version history, test/edit buttons
+         - If multiple templates exist for the same funder/URL: show as versions within one card, not separate rows
+         - Deduplicate display: collapse identical entries into "X cached versions" with expandable history
+
+         Top bar: search, filter (by health status, by funder), "Add Portal" button.
+
+      2. DOCUMENTS PAGE — Compact the upload section:
+
+         Current: the upload zone takes the entire screen.
+         Redesign:
+         - Upload area: compact card at the top, max-height 200px. Drag-drop zone is a dashed rectangle, not a massive empty field.
+         - Category and expiration: inline on ONE row (side by side), not stacked vertically.
+         - Description: single-line input, not a textarea. Placeholder: "Optional note"
+         - Upload button: right-aligned on the same row as category/expiration.
+         - Below the upload card: Document Library table showing all uploaded documents. Columns: Name, Category badge, Uploaded date, Expiration (with warning if soon), Size, Actions (view, download, delete).
+         - The document library should be the PRIMARY content, not the upload form.
+
+      Use new design system colors and compact input sizing.
+    expected_outputs:
+      - src/app/(dashboard)/autoapply/templates/page.tsx
+      - src/app/(dashboard)/documents/page.tsx
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # PROMPT 7: DRAFT GENERATOR ENHANCEMENTS
+  # ============================================================
+
+  - id: ui-007
+    phase: build
+    description: "Enhance Draft Generator with section scoring, readability metrics, and export"
+    prompt: |
+      Read the draft generator page completely: src/app/(dashboard)/draft-generator/page.tsx.
+      Read the draft generation API route: src/app/api/ai/draft/route.ts.
+
+      ENHANCE the draft review experience (Step 3 — after generation):
+
+      1. SECTION-BY-SECTION SCORING:
+         After the draft is generated, parse it into sections (split on SECTION headers or ## headers).
+         For each section, display a mini confidence score:
+         - Section name, word count, score/100, one-line improvement suggestion
+         - Render as a compact sidebar panel or expandable accordion
+         - Color-code: green (80+), yellow (60-79), red (<60)
+         - If the API doesn't return per-section scores, estimate from gap density and KB source coverage per section.
+
+      2. READABILITY METRICS BAR:
+         Below the word count (4,105 words), add:
+         - Reading grade level (calculate Flesch-Kincaid from the generated text using a simple formula — syllable count / word count / sentence count)
+         - Passive voice estimate (count "was/were/been/being" + past participle patterns, show as percentage)
+         - "Ideal range: Grade 10-12, < 15% passive voice" reference text
+         Render as a compact horizontal bar with 3 metric chips.
+
+      3. EXPORT OPTIONS:
+         Add an export bar below or next to "Save draft":
+         - "Copy to Clipboard" button (copies plain text)
+         - "Download as Word" button (generates .docx using a simple template — if too complex, use .txt)
+         - "Download as PDF" button (generate via browser print or a simple PDF library)
+         - "Email Draft" button (disabled until email integration is live — shows "Connect Gmail to enable")
+
+      4. COMPACT THE TEMPLATE CARDS (Step 2):
+         The 6 template type cards are fine but slightly oversized. Reduce padding. Make them a 3x2 grid that fits without scrolling on most screens.
+
+      IMPORTANT: Do NOT modify the draft generation API logic. These are frontend-only enhancements to the review UI.
+    expected_outputs:
+      - src/app/(dashboard)/draft-generator/page.tsx
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # PROMPT 8: GLOBAL COMPONENT SWEEP — Apply design system to all pages
+  # ============================================================
+
+  - id: ui-008
+    phase: build
+    description: "Sweep all remaining pages to apply new design system — fix oversized elements, contrast, spacing"
+    prompt: |
+      This is a sweep prompt. Read each page file, then apply the design system consistently.
+
+      For EACH of these pages, read the file and fix:
+      - Any navy-blue-on-navy-blue color combinations → use the new surface/border/text variables
+      - Any oversized inputs/textareas → apply compact sizing (py-2 px-3, text-sm)
+      - Any full-width single-column forms that should be constrained → max-w-2xl or max-w-3xl
+      - Any buttons with low contrast (ghost/transparent on dark backgrounds) → solid backgrounds
+      - Any text that is light on light or dark on dark → proper contrast
+      - Any gradient card backgrounds that reduce readability → flat surface colors
+
+      Pages to sweep:
+      1. src/app/(dashboard)/funders/page.tsx — compact the funder table rows
+      2. src/app/(dashboard)/contacts/ — if it exists, same treatment
+      3. src/app/(dashboard)/knowledge-base/page.tsx — already decent, minor spacing tweaks only
+      4. src/app/(dashboard)/deadlines/page.tsx — looks good, verify colors match new system
+      5. src/app/(dashboard)/outcomes/page.tsx — verify styling, don't touch analytics (that's a Claude Code git restore)
+      6. src/app/(dashboard)/financials/page.tsx — verify card styling matches new system
+      7. src/app/(dashboard)/settings/ — all settings sub-pages: compact forms, proper input sizing
+      8. src/app/(dashboard)/intelligence-library/page.tsx — already good, verify colors
+
+      For each file: read it first, identify specific issues, fix them. Do NOT rewrite entire files — make targeted style changes only.
+
+      If a file already matches the new design system, skip it and move on.
+    expected_outputs: []
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # PROMPT 9: OPPORTUNITY DETAIL FIX + HTML ENTITY DECODE
+  # ============================================================
+
+  - id: ui-009
+    phase: build
+    description: "Fix opportunity detail page data mapping and HTML entity encoding"
+    prompt: |
+      Read C:\Users\manag\Documents\benavora\src\app\(dashboard)\opportunities\[id]\page.tsx completely.
+      Read the API route that fetches opportunity details — find it (likely /api/grants/[id] or /api/opportunities/[id]).
+      Read the opportunities table schema to see exact column names.
+
+      FIX 1 — Detail page showing dashes for populated fields:
+      The list page shows deadlines and amounts, but the detail page shows "-" for all fields. This means the detail page component is reading different column names than what the API returns.
+      - Check: does the detail page read `description` but the API returns `raw_description`?
+      - Check: does the detail page read `deadline` but the API returns `close_date` or `response_deadline`?
+      - Check: does the detail page read `amount_available` but the API returns `award_ceiling` or similar?
+      Map every field in the detail component to the ACTUAL column names returned by the API. Read the actual query, not the schema.
+
+      FIX 2 — HTML entity encoding:
+      Opportunity titles contain `&amp;` instead of `&`, `&#39;` instead of `'`, etc.
+      Find where opportunities are inserted into the database (the research agent code) OR where they're displayed (the component).
+      Add HTML entity decoding. Create a utility if needed:
+      function decodeHtmlEntities(text: string): string {
+        return text.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;/g, "'").replace(/&quot;/g, '"');
+      }
+      Apply it when rendering opportunity titles across the list AND detail pages.
+
+      FIX 3 — Deadlines not populating:
+      The Deadlines page shows "No deadlines yet" despite 97 opportunities having deadline dates.
+      Read the deadlines page and the deadlines API. Check:
+      - Are deadlines auto-created when opportunities are imported? If not, the import pipeline needs to create deadline records.
+      - Is the deadlines query filtering by a date range that excludes future dates?
+      - Are deadlines stored in a separate table that isn't populated by the research agents?
+      If deadlines require manual creation from opportunities, add auto-creation: when an opportunity has a deadline field, INSERT into the deadlines table with type = 'application_deadline', linked to the opportunity.
+    expected_outputs: []
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # PROMPT 10: OUTCOMES ANALYTICS RESTORATION
+  # ============================================================
+
+  - id: ui-010
+    phase: build
+    description: "Restore Outcomes & Analytics charts that were deleted by a prior session"
+    prompt: |
+      The Outcomes & Analytics page at /outcomes previously had extensive charts, graphs, and metrics that were gutted by a prior Claude Code session.
+
+      Step 1: Check git history for the outcomes page:
+      Run: git log --oneline -20 -- src/app/(dashboard)/outcomes/page.tsx
+      OR: git log --oneline -20 -- src/app/(dashboard)/analytics/page.tsx
+      Find the commit where charts were removed or the page was simplified.
+
+      Step 2: If a prior version with charts exists in git history:
+      - git show {commit_hash}:src/app/(dashboard)/outcomes/page.tsx > /tmp/outcomes-old.tsx
+      - Review the old version for chart components
+      - Restore the chart sections while keeping any improvements from the current version
+      - Merge: current structure + old charts
+
+      Step 3: If no prior version exists or charts were never properly built:
+      Build the following analytics sections using Recharts (dynamic import, ssr:false):
+      - Success Rate Trend (LineChart): monthly success rate over time. X: month, Y: percentage.
+      - Funding by Category (BarChart): dollars awarded per funder category.
+      - Requested vs Awarded (BarChart, grouped): side-by-side bars per month.
+      - Top Performing Narratives (Table): narratives ranked by effectiveness_score from proven_narratives.
+      - Funder Response Time (BarChart): avg days from submission to response per funder.
+      - Corporate vs Grant split (PieChart): dollars by source type.
+      - "View analytics" button should link to this page (or these charts should BE on this page).
+      - "Record application outcomes to see your success rate trend" empty state for each chart when no data.
+
+      Apply new design system colors. Charts in cards with titles.
+    expected_outputs: []
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # PROMPT 11: FINAL VERIFICATION
+  # ============================================================
+
+  - id: ui-011
+    phase: build
+    description: "Full build verification, route check, and governance update for UI overhaul"
+    prompt: |
+      1. Run pnpm tsc --noEmit — fix ALL TypeScript errors.
+      2. Run pnpm run build — fix ALL build errors.
+
+      3. VERIFY every modified page loads without runtime errors:
+         Check that each file has correct imports, no missing components, no undefined variables.
+         Specifically verify:
+         - Dashboard page renders (no email parser)
+         - Applications page renders (new grouped kanban)
+         - Alerts page renders (category sections)
+         - AutoApply Analytics page renders (chart shells)
+         - Documents page renders (compact upload)
+         - Draft Generator page renders (section scoring, export bar)
+         - Form Templates page renders (funder-grouped cards)
+         - Opportunity detail page renders (field mapping fix)
+         - Outcomes page renders (restored charts)
+         - Nav renders correctly (header + sidebar, no duplicates, badges)
+
+      4. VERIFY no route conflicts:
+         Run: find src/app -name "route.ts" -o -name "page.tsx" | sort
+         Check: no new routes shadow existing ones, /api/nav-counts exists.
+
+      5. Count routes and pages:
+         Routes: find src/app -name "route.ts" | wc -l
+         Pages: find src/app -name "page.tsx" | wc -l
+
+      6. Update C:\Users\manag\Documents\benavora\STATE_OF_THE_BUILD.md:
+         Add section:
+         ## UI Polish + Design System Overhaul: COMPLETE
+
+         - Dark mode palette: charcoal layers replacing navy-on-navy (#0f1117 / #1a1d27 / #242835)
+         - Button contrast: solid emerald CTAs, solid surface secondaries, no ghost buttons on dark
+         - Input sizing: globally compact (py-2 px-3, text-sm), textarea max-height 120px
+         - Header nav: Dashboard | Research | Opportunities | AutoApply | Draft Generator
+         - Sidebar: deduplicated (removed items already in header), ordered by workflow
+         - Nav badges: red count circles on Alerts, Applications, Documents, Deadlines (via /api/nav-counts)
+         - Dashboard: email parser removed, pipeline viz redesigned as segmented bar, recent activity feed added
+         - Applications: grouped kanban (4 columns) + table view toggle
+         - Alerts: 6 category sections with icons and descriptions
+         - AutoApply Analytics: 5 chart shells with empty states (Recharts)
+         - Form Templates: funder-grouped card layout with health badges
+         - Documents: compact upload card, document library as primary content
+         - Draft Generator: section-by-section scoring, readability metrics, export options
+         - Opportunity detail: field mapping bug fixed, HTML entity decoding
+         - Deadlines: auto-creation from imported opportunities
+         - Outcomes & Analytics: charts restored
+         - Global sweep: all remaining pages updated to new design system
+         - Total routes: [count]. Total pages: [count].
+
+      7. Update C:\Users\manag\Documents\benavora\SESSION_STATE.md:
+         - UI Polish + Design System Overhaul complete
+         - All walkthrough issues addressed
+    expected_outputs:
+      - STATE_OF_THE_BUILD.md
+      - SESSION_STATE.md
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt

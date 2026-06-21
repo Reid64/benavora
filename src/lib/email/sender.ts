@@ -17,6 +17,8 @@ export interface SendOptions {
   in_reply_to?: string;
   references?: string;
   gmail_thread_id?: string;
+  /** When present, the corresponding campaign_sends row is marked sent on success. */
+  campaign_send_id?: string;
 }
 
 export interface SendResult {
@@ -194,6 +196,7 @@ export class EmailSender {
 
     // Log outbound sends to synced_email_messages (best-effort, non-fatal)
     if (result.success) {
+      const now = new Date().toISOString();
       try {
         await admin.from("synced_email_messages").insert({
           organization_id: orgId,
@@ -204,10 +207,22 @@ export class EmailSender {
           subject: options.subject,
           body_html: options.body_html,
           body_text: options.body_text,
-          sent_at: new Date().toISOString(),
+          sent_at: now,
         });
       } catch {
         // Non-fatal: logging failure must not fail the send
+      }
+
+      // Update campaign_sends when this email is part of a campaign step
+      if (options.campaign_send_id) {
+        try {
+          await admin
+            .from("campaign_sends")
+            .update({ status: "sent", sent_at: now })
+            .eq("id", options.campaign_send_id);
+        } catch {
+          // Non-fatal: campaign tracking failure must not fail the send
+        }
       }
     }
 
