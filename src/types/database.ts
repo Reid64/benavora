@@ -3444,6 +3444,55 @@ export interface Database {
         };
         Relationships: [];
       };
+      // Migration 053 — autoapply_follow_ups (post-submission follow-up sequences).
+      autoapply_follow_ups: {
+        Row: {
+          id: string;
+          submission_id: string;
+          organization_id: string;
+          funder_id: string;
+          sequence_number: number;
+          scheduled_at: string;
+          sent_at: string | null;
+          status: string;
+          template_type: string;
+          content: string | null;
+          response_received: boolean;
+          cancel_reason: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          submission_id: string;
+          organization_id: string;
+          funder_id: string;
+          sequence_number: number;
+          scheduled_at: string;
+          sent_at?: string | null;
+          status?: string;
+          template_type: string;
+          content?: string | null;
+          response_received?: boolean;
+          cancel_reason?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          submission_id?: string;
+          organization_id?: string;
+          funder_id?: string;
+          sequence_number?: number;
+          scheduled_at?: string;
+          sent_at?: string | null;
+          status?: string;
+          template_type?: string;
+          content?: string | null;
+          response_received?: boolean;
+          cancel_reason?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
