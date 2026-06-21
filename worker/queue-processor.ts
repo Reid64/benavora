@@ -21,6 +21,7 @@ import { scoreAndReorderQueue } from './batch-scorer.js';
 import { WebhookNotifier } from '../src/lib/autoapply/webhook-notifier.js';
 import { annotateErrorScreenshot } from '../src/lib/autoapply/error-annotator.js';
 import { assessSubmissionRisk } from '../src/lib/autoapply/risk-engine.js';
+import { RelationshipManager } from '../src/lib/autoapply/relationship-manager.js';
 import type { ReadinessReport } from '../src/lib/autoapply/submission-validator.js';
 
 // --- types -------------------------------------------------------------------
@@ -133,6 +134,7 @@ export class QueueProcessor {
   // Reset on each idle→active transition to re-check after a long pause.
   private readonly orgReadinessCache = new Map<string, ReadinessReport>();
   private readonly webhookNotifier = new WebhookNotifier();
+  private readonly relationshipManager = new RelationshipManager();
 
   constructor(
     private readonly supabase: SupabaseClient,
@@ -364,6 +366,24 @@ export class QueueProcessor {
     const domainThrottle = await this.submissionControls.checkDomainThrottle(portalUrl, this.supabase);
     if (domainThrottle.blocked) {
       throw new SkipError(`domain_throttled: ${domainThrottle.reason ?? 'too many recent submissions to this domain'}`);
+    }
+
+    // --- Relationship contact rules: do_not_contact_until + disallowed_request_types ---
+    const contactCheck = await this.relationshipManager.checkContactRules(
+      orgId,
+      funderId,
+      this.supabase,
+      requestProfile?.request_type,
+    ).catch((e: unknown) => {
+      console.warn(
+        '[QueueProcessor] checkContactRules failed (proceeding):',
+        e instanceof Error ? e.message : String(e),
+      );
+      return null;
+    });
+
+    if (contactCheck !== null && !contactCheck.canContact) {
+      throw new SkipError(`contact_rules_blocked: ${contactCheck.reason ?? 'funder contact blocked'}`);
     }
 
     // --- Timing score (for record-keeping and future scheduling intelligence) ---
@@ -893,6 +913,22 @@ export class QueueProcessor {
             );
           },
         );
+
+        // Update funder relationship: increment total_submissions and last_submission_at.
+        await this.relationshipManager.recordSubmission(
+          orgId,
+          funderId,
+          {
+            request_type: requestProfile?.request_type,
+            submitted_at: new Date().toISOString(),
+          },
+          this.supabase,
+        ).catch((e: unknown) => {
+          console.warn(
+            '[QueueProcessor] relationshipManager.recordSubmission failed:',
+            e instanceof Error ? e.message : String(e),
+          );
+        });
       }
 
       // Webhook notifications — fire-and-forget, never block the queue.
