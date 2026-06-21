@@ -23,6 +23,7 @@ import { QueuePreview } from "@/components/autoapply/QueuePreview";
 import { QueuePanel } from "@/components/autoapply/QueuePanel";
 import { SubmissionHistory } from "@/components/autoapply/SubmissionHistory";
 import { ReviewQueue } from "@/components/autoapply/ReviewQueue";
+import { SuccessAnalytics } from "@/components/autoapply/SuccessAnalytics";
 
 interface QueueRow {
   id: string;
@@ -587,6 +588,9 @@ export default function AutoApplyPage() {
           )}
         </div>
       </Card>
+
+      {/* ANALYTICS SECTION */}
+      <SuccessAnalytics />
 
       {/* ADD TO QUEUE MODAL */}
       <Modal
