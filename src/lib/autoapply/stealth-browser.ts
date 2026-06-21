@@ -9,6 +9,12 @@
 //
 // Requires a Chromium binary at runtime (npx playwright install chromium). Runs
 // on local Node and the AutoApply worker, not Vercel serverless.
+//
+// Isolation guarantee: each launch() creates a brand-new browser + context.
+// No cookies, localStorage, or cache are shared between calls. Callers MUST
+// call context.close() (which also closes all pages) after each submission to
+// fully release the context. Closing only the page leaves the context alive and
+// leaks resources.
 
 import { chromium } from "playwright-extra";
 import StealthPlugin from "puppeteer-extra-plugin-stealth";
@@ -80,11 +86,58 @@ const WEBGL_GPUS: readonly { vendor: string; renderer: string }[] = [
   { vendor: "Apple", renderer: "Apple M2" },
 ];
 
-// US timezone + locale pairs (Eastern / Central / Pacific).
-const TIMEZONES: readonly { id: string; locale: string }[] = [
-  { id: "America/New_York", locale: "en-US" },
-  { id: "America/Chicago", locale: "en-US" },
-  { id: "America/Los_Angeles", locale: "en-US" },
+// Common real-world desktop resolutions (width x height).
+// These are the top 5 by global market share — no arbitrary random ranges.
+const VIEWPORTS: readonly { width: number; height: number }[] = [
+  { width: 1920, height: 1080 },
+  { width: 1366, height: 768 },
+  { width: 1440, height: 900 },
+  { width: 1536, height: 864 },
+  { width: 1280, height: 720 },
+];
+
+// US timezone descriptors with approximate geolocation centers and locale.
+// Geolocation matches the proxy region when one is provided so the browser's
+// reported position is consistent with the proxy IP's geography.
+interface TimezoneConfig {
+  id: string;
+  locale: string;
+  geolocation: { latitude: number; longitude: number };
+  /** Keywords matched against proxyRegion (lowercase) to prefer this entry. */
+  regionKeywords: readonly string[];
+}
+
+const TIMEZONES: readonly TimezoneConfig[] = [
+  {
+    id: "America/New_York",
+    locale: "en-US",
+    geolocation: { latitude: 40.7128, longitude: -74.006 },
+    regionKeywords: ["east", "new_york", "ny", "nyc", "virginia", "va", "florida", "fl", "georgia", "ga"],
+  },
+  {
+    id: "America/Chicago",
+    locale: "en-US",
+    geolocation: { latitude: 41.8781, longitude: -87.6298 },
+    regionKeywords: ["central", "chicago", "il", "texas", "tx", "illinois", "midwest"],
+  },
+  {
+    id: "America/Los_Angeles",
+    locale: "en-US",
+    geolocation: { latitude: 34.0522, longitude: -118.2437 },
+    regionKeywords: ["west", "california", "ca", "pacific", "la", "seattle", "wa"],
+  },
+  {
+    id: "America/Denver",
+    locale: "en-US",
+    geolocation: { latitude: 39.7392, longitude: -104.9903 },
+    regionKeywords: ["mountain", "denver", "co", "colorado", "utah", "ut", "nevada", "nv"],
+  },
+  {
+    id: "America/Phoenix",
+    locale: "en-US",
+    geolocation: { latitude: 33.4484, longitude: -112.074 },
+    regionKeywords: ["arizona", "az", "phoenix"],
+  },
 ];
 
 // --- small helpers -----------------------------------------------------------
@@ -103,6 +156,21 @@ function platformForUA(ua: string): string {
   if (/Windows/.test(ua)) return "Win32";
   if (/Macintosh|Mac OS/.test(ua)) return "MacIntel";
   return "Linux x86_64";
+}
+
+/**
+ * Select a timezone config, preferring one whose regionKeywords overlap with
+ * the provided proxy region string. Falls back to random when no match.
+ */
+function pickTimezone(proxyRegion?: string): TimezoneConfig {
+  if (proxyRegion) {
+    const needle = proxyRegion.toLowerCase();
+    const match = TIMEZONES.find((tz) =>
+      tz.regionKeywords.some((kw) => needle.includes(kw)),
+    );
+    if (match) return match;
+  }
+  return pick(TIMEZONES);
 }
 
 /** Cubic Bézier point at t in [0,1]. */
@@ -193,44 +261,90 @@ function buildInitScript(cfg: {
 })();`;
 }
 
+// --- public types ------------------------------------------------------------
+
 export interface StealthBrowserOptions {
   /** Launch headless. Default true. */
   headless?: boolean;
+}
+
+/**
+ * The randomized profile chosen for a single launch() call. Returned in
+ * StealthSession and accessible via getContextFingerprint() for audit logging.
+ */
+export interface ContextFingerprint {
+  userAgent: string;
+  viewport: { width: number; height: number };
+  timezone: string;
+  locale: string;
+  /** Approximate geolocation matching the proxy region, or null when unavailable. */
+  geolocation: { latitude: number; longitude: number } | null;
+  webglVendor: string;
+  webglRenderer: string;
+  hardwareConcurrency: number;
+  deviceMemory: number;
+  platform: string;
 }
 
 export interface StealthSession {
   browser: Browser;
   page: Page;
   context: BrowserContext;
+  /** The randomized profile used for this session. Useful for audit logs. */
+  fingerprint: ContextFingerprint;
 }
+
+// --- StealthBrowser ----------------------------------------------------------
 
 export class StealthBrowser {
   private readonly headless: boolean;
+  private _lastFingerprint: ContextFingerprint | null = null;
 
   constructor(options: StealthBrowserOptions = {}) {
     this.headless = options.headless ?? true;
   }
 
   /**
-   * Launch a hardened browser and return { browser, page } with stealth, a
-   * randomized fingerprint, rotated user-agent, US timezone/locale, and a
-   * realistic desktop viewport already applied.
+   * Launch a fully isolated browser context and return { browser, page, context,
+   * fingerprint }. Each call creates a brand-new browser instance with its own
+   * randomized viewport, timezone, locale, geolocation, user-agent, and canvas/
+   * WebGL fingerprints. No state leaks between calls.
    *
-   * @param options.proxy - Optional proxy server URL (e.g. "http://user:pass@host:port").
-   *   When omitted the browser connects directly.
+   * Callers MUST call context.close() (not page.close()) after each submission
+   * to fully release the context, cookies, and storage. page.close() alone leaves
+   * the context alive and leaks memory.
+   *
+   * @param options.proxy       - Optional proxy server URL ("http://user:pass@host:port").
+   * @param options.proxyRegion - Optional hint about the proxy's geographic region
+   *   (e.g. "east", "california", "texas"). Used to match the browser's timezone
+   *   and geolocation to the proxy IP's geography. Case-insensitive.
    */
-  async launch(options?: { proxy?: string }): Promise<StealthSession> {
+  async launch(options?: {
+    proxy?: string;
+    proxyRegion?: string;
+  }): Promise<StealthSession> {
     const userAgent = pick(USER_AGENTS);
-    const tz = pick(TIMEZONES);
+    const tz = pickTimezone(options?.proxyRegion);
     const gpu = pick(WEBGL_GPUS);
-    const viewport = {
-      width: randInt(1280, 1920),
-      height: randInt(720, 1080),
-    };
+    const viewport = pick(VIEWPORTS);
     const hardwareConcurrency = randInt(4, 16);
     // deviceMemory is reported as a power of two; keep it realistic within 4-16.
-    const deviceMemory = pick([4, 8, 16]);
+    const deviceMemory = pick([4, 8, 16] as const);
     const platform = platformForUA(userAgent);
+
+    const fingerprint: ContextFingerprint = {
+      userAgent,
+      viewport,
+      timezone: tz.id,
+      locale: tz.locale,
+      geolocation: tz.geolocation,
+      webglVendor: gpu.vendor,
+      webglRenderer: gpu.renderer,
+      hardwareConcurrency,
+      deviceMemory,
+      platform,
+    };
+    this._lastFingerprint = fingerprint;
 
     const launchArgs: Parameters<typeof chromium.launch>[0] = {
       headless: this.headless,
@@ -250,6 +364,8 @@ export class StealthBrowser {
       viewport,
       locale: tz.locale,
       timezoneId: tz.id,
+      geolocation: tz.geolocation,
+      permissions: ["geolocation"],
       deviceScaleFactor: 1,
     });
 
@@ -264,7 +380,16 @@ export class StealthBrowser {
     });
 
     const page = await context.newPage();
-    return { browser, page, context };
+    return { browser, page, context, fingerprint };
+  }
+
+  /**
+   * Returns the ContextFingerprint from the most recent launch() call, or null
+   * if launch() has not been called yet. Useful for audit logging after the fact
+   * without needing to thread the fingerprint through call chains.
+   */
+  getContextFingerprint(): ContextFingerprint | null {
+    return this._lastFingerprint;
   }
 
   // --- human behavior helpers (instance methods) -----------------------------
