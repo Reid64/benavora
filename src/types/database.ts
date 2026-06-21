@@ -1437,6 +1437,125 @@ export interface Database {
         };
         Relationships: [];
       };
+      // Migration 054 — Google Calendar OAuth connections.
+      calendar_connections: {
+        Row: {
+          id: string;
+          organization_id: string;
+          user_id: string;
+          provider: string;
+          calendar_id: string;
+          calendar_name: string | null;
+          access_token_encrypted: string | null;
+          refresh_token_encrypted: string | null;
+          token_expires_at: string | null;
+          sync_status: string;
+          last_sync_at: string | null;
+          sync_token: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          user_id: string;
+          provider?: string;
+          calendar_id?: string;
+          calendar_name?: string | null;
+          access_token_encrypted?: string | null;
+          refresh_token_encrypted?: string | null;
+          token_expires_at?: string | null;
+          sync_status?: string;
+          last_sync_at?: string | null;
+          sync_token?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          user_id?: string;
+          provider?: string;
+          calendar_id?: string;
+          calendar_name?: string | null;
+          access_token_encrypted?: string | null;
+          refresh_token_encrypted?: string | null;
+          token_expires_at?: string | null;
+          sync_status?: string;
+          last_sync_at?: string | null;
+          sync_token?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      // Migration 054 — calendar events synced to/from Google Calendar.
+      calendar_events: {
+        Row: {
+          id: string;
+          organization_id: string;
+          connection_id: string;
+          google_event_id: string | null;
+          title: string;
+          description: string | null;
+          start_time: string;
+          end_time: string;
+          all_day: boolean | null;
+          location: string | null;
+          event_type: string | null;
+          linked_deadline_id: string | null;
+          linked_opportunity_id: string | null;
+          linked_application_id: string | null;
+          is_synced: boolean | null;
+          recurrence_rule: string | null;
+          reminder_minutes: number[] | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          connection_id: string;
+          google_event_id?: string | null;
+          title: string;
+          description?: string | null;
+          start_time: string;
+          end_time: string;
+          all_day?: boolean | null;
+          location?: string | null;
+          event_type?: string | null;
+          linked_deadline_id?: string | null;
+          linked_opportunity_id?: string | null;
+          linked_application_id?: string | null;
+          is_synced?: boolean | null;
+          recurrence_rule?: string | null;
+          reminder_minutes?: number[] | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          connection_id?: string;
+          google_event_id?: string | null;
+          title?: string;
+          description?: string | null;
+          start_time?: string;
+          end_time?: string;
+          all_day?: boolean | null;
+          location?: string | null;
+          event_type?: string | null;
+          linked_deadline_id?: string | null;
+          linked_opportunity_id?: string | null;
+          linked_application_id?: string | null;
+          is_synced?: boolean | null;
+          recurrence_rule?: string | null;
+          reminder_minutes?: number[] | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       draft_versions: {
         Row: {
           id: string;
