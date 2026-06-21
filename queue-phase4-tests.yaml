@@ -1,0 +1,420 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - BLUEPRINT.md
+  - SCHEMA_REGISTRY.md
+  - BEHAVIORAL_CONTRACTS.md
+  - TESTING.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+prompts:
+
+  # ============================================================
+  # COMPREHENSIVE TEST SUITE
+  # Smoke tests, Playwright E2E, Vitest unit tests
+  # ============================================================
+
+  - id: test-001
+    phase: build
+    description: "Set up test infrastructure — Vitest config, test utilities, mock factories"
+    prompt: |
+      Read the existing test setup in C:\Users\manag\Documents\benavora to understand what already exists: check for vitest.config.ts, playwright.config.ts, any existing test files in __tests__, tests/, e2e/, or spec/ directories.
+
+      1. If vitest.config.ts does not exist, create it:
+         - Root: project root
+         - Environment: node (for API tests) and jsdom (for component tests via separate workspace)
+         - Include: src/**/*.test.ts, src/**/*.spec.ts, tests/**/*.test.ts
+         - Exclude: node_modules, .next, e2e
+         - Setup files: tests/setup.ts
+         - Coverage: v8 provider, threshold 60% for lines
+
+      2. Create C:\Users\manag\Documents\benavora\tests\setup.ts:
+         - Load dotenv from .env.test
+         - Mock Supabase client (createRouteHandlerClient, createServerComponentClient)
+         - Mock Claude API (return predictable responses)
+         - Set default timeout to 30 seconds
+
+      3. Create C:\Users\manag\Documents\benavora\tests\factories\index.ts:
+         Export factory functions for test data:
+         - createMockOrganization(overrides?): full org object with defaults
+         - createMockProfile(overrides?): profile with org link
+         - createMockFunder(overrides?): funder with category
+         - createMockOpportunity(overrides?): opportunity with deadline
+         - createMockApplication(overrides?): application with stage
+         - createMockDraft(overrides?): draft with content
+         - createMockEmailConnection(overrides?): email connection
+         - createMockProspect(overrides?): sales prospect
+         All return typed objects matching the actual DB schema.
+
+      4. Create C:\Users\manag\Documents\benavora\tests\helpers\supabase-mock.ts:
+         Export a configurable Supabase mock that:
+         - Tracks all queries made (table, filters, data)
+         - Returns configurable responses per table
+         - Simulates RLS (only returns data matching org_id)
+         - Supports chained query builders (.select().eq().order() etc.)
+
+      5. If playwright.config.ts does not exist, create it:
+         - BaseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000'
+         - Projects: chromium only for CI speed
+         - Retries: 1
+         - Timeout: 60 seconds
+         - Output: test-results/
+
+      6. Add scripts to package.json if not present:
+         "test": "vitest run"
+         "test:watch": "vitest"
+         "test:coverage": "vitest run --coverage"
+         "test:e2e": "playwright test"
+    expected_outputs:
+      - tests/setup.ts
+      - tests/factories/index.ts
+      - tests/helpers/supabase-mock.ts
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: test-002
+    phase: build
+    description: "Create API route unit tests — auth, grants, research, analytics"
+    prompt: |
+      Read the actual API route files before writing tests. For each route, read the file first to understand the exact exports, request shapes, and response shapes.
+
+      Create C:\Users\manag\Documents\benavora\tests\api\auth.test.ts:
+      - Test /api/auth routes (login, register, logout if they exist)
+      - Test: unauthenticated request returns 401
+      - Test: invalid credentials returns error
+      - Test: successful login returns session
+
+      Create C:\Users\manag\Documents\benavora\tests\api\grants.test.ts:
+      Read C:\Users\manag\Documents\benavora\src\app\api\grants\route.ts first.
+      - Test: GET returns grants scoped to org_id
+      - Test: GET with source_type filter returns filtered results
+      - Test: GET with pagination works
+      - Test: PATCH updates grant fields
+      - Test: PATCH with invalid enum returns 400
+      - Test: unauthenticated returns 401
+
+      Create C:\Users\manag\Documents\benavora\tests\api\research.test.ts:
+      Read C:\Users\manag\Documents\benavora\src\app\api\research\run\route.ts first.
+      - Test: POST creates research run
+      - Test: POST while run already in progress returns 409
+      - Test: GET /runs returns run history for org
+      - Test: viewer role returns 403
+
+      Create C:\Users\manag\Documents\benavora\tests\api\analytics.test.ts:
+      Read C:\Users\manag\Documents\benavora\src\app\api\analytics directory first.
+      - Test: GET /summary returns metrics object
+      - Test: GET /funnel returns stage counts
+      - Test: GET /financials handles NULL amounts
+      - Test: date range filtering works
+      - Test: empty org returns zero-value metrics, not errors
+    expected_outputs:
+      - tests/api/auth.test.ts
+      - tests/api/grants.test.ts
+      - tests/api/research.test.ts
+      - tests/api/analytics.test.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: skip
+
+  - id: test-003
+    phase: build
+    description: "Create API route unit tests — email, calendar, autoapply, intelligence"
+    prompt: |
+      Read each route file BEFORE writing its tests.
+
+      Create C:\Users\manag\Documents\benavora\tests\api\email.test.ts:
+      Read the email API routes in src/app/api/email/ first.
+      - Test: GET /email/auth returns OAuth URL (mock Google client)
+      - Test: POST /email/sync triggers sync (mock Gmail API)
+      - Test: POST /email/link links thread to funder
+      - Test: POST /email/send sends email (mock sender)
+      - Test: rate limiting returns 429 after threshold
+      - Test: unauthenticated returns 401
+
+      Create C:\Users\manag\Documents\benavora\tests\api\calendar.test.ts:
+      Read the calendar API routes first.
+      - Test: POST /calendar/sync syncs deadlines to calendar
+      - Test: unauthenticated returns 401
+
+      Create C:\Users\manag\Documents\benavora\tests\api\autoapply.test.ts:
+      Read the autoapply API routes first (check src/app/api/autoapply/ or similar).
+      - Test: submission queue operations (add, status, cancel)
+      - Test: queue controls (pause/resume)
+      - Test: tier gate enforcement (submission limits)
+
+      Create C:\Users\manag\Documents\benavora\tests\api\intelligence.test.ts:
+      Read src/app/api/intelligence/ routes first.
+      - Test: POST /intelligence/ingest handles text ingestion
+      - Test: POST /intelligence/logic-model generates model
+      - Test: unauthenticated returns 401
+    expected_outputs:
+      - tests/api/email.test.ts
+      - tests/api/calendar.test.ts
+      - tests/api/autoapply.test.ts
+      - tests/api/intelligence.test.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: skip
+
+  - id: test-004
+    phase: build
+    description: "Create unit tests for core business logic modules"
+    prompt: |
+      Read each module before writing tests.
+
+      Create C:\Users\manag\Documents\benavora\tests\lib\template-engine.test.ts:
+      Read src/lib/email/template-engine.ts first.
+      - Test: renderTemplate replaces all variables
+      - Test: renderTemplate throws on missing required variable
+      - Test: validateTemplate identifies all variable placeholders
+      - Test: validateTemplate warns on unrecognized variables
+
+      Create C:\Users\manag\Documents\benavora\tests\lib\compliance.test.ts:
+      Read src/lib/admin/compliance.ts first.
+      - Test: enforceCompliance rejects deceptive subject (RE:/FW: on initial)
+      - Test: enforceCompliance adds unsubscribe link if missing
+      - Test: enforceCompliance adds physical address if missing
+      - Test: generateUnsubscribeToken/verifyUnsubscribeToken round-trips
+      - Test: compliant email passes all checks
+
+      Create C:\Users\manag\Documents\benavora\tests\lib\warmup-engine.test.ts:
+      Read src/lib/admin/warmup-engine.ts first.
+      - Test: warmup schedule matches spec (5→10→20→35→50)
+      - Test: high bounce rate freezes warmup
+      - Test: very high bounce rate regresses tier
+      - Test: getDailyBudget counts today's sends correctly
+
+      Create C:\Users\manag\Documents\benavora\tests\lib\rubric-extractor.test.ts:
+      Read src/lib/intelligence/rubric-extractor.ts first.
+      - Test: extractRubricFromText parses Claude response correctly
+      - Test: handles markdown-wrapped JSON from Claude
+      - Test: returns null for text under 100 chars
+
+      Create C:\Users\manag\Documents\benavora\tests\lib\encryption.test.ts:
+      Read src/lib/email/encryption.ts first.
+      - Test: encryptToken/decryptToken round-trips
+      - Test: encrypted output differs from plaintext
+      - Test: decrypt with wrong key fails
+    expected_outputs:
+      - tests/lib/template-engine.test.ts
+      - tests/lib/compliance.test.ts
+      - tests/lib/warmup-engine.test.ts
+      - tests/lib/rubric-extractor.test.ts
+      - tests/lib/encryption.test.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: skip
+
+  - id: test-005
+    phase: build
+    description: "Create Playwright E2E tests for critical user flows"
+    prompt: |
+      Create Playwright E2E tests for the most critical user paths. These test against the running app.
+
+      Create C:\Users\manag\Documents\benavora\e2e\onboarding.spec.ts:
+      - Navigate to /register
+      - Fill org name, email, password
+      - Submit registration
+      - Assert redirect to onboarding wizard
+      - Complete wizard steps (fill minimum required fields)
+      - Assert redirect to dashboard
+      - Assert dashboard shows empty state widgets
+
+      Create C:\Users\manag\Documents\benavora\e2e\grant-pipeline.spec.ts:
+      - Login with test credentials
+      - Navigate to /opportunities
+      - Create new opportunity (name, category, deadline)
+      - Assert opportunity appears in list
+      - Navigate to /applications/new, link to opportunity
+      - Assert application created in 'discovered' stage
+      - Move through stages: discovered → eligibility_review → qualified → drafting
+      - Assert pipeline board shows application in correct column
+
+      Create C:\Users\manag\Documents\benavora\e2e\draft-generation.spec.ts:
+      - Login
+      - Navigate to /draft-generator
+      - Select an opportunity
+      - Select template type (grant_narrative)
+      - Click generate
+      - Wait for AI response (up to 60s)
+      - Assert draft content appears
+      - Assert confidence score is displayed
+      - Assert "Sources Used" panel shows KB entries
+
+      Create C:\Users\manag\Documents\benavora\e2e\billing-gates.spec.ts:
+      - Login as starter tier user
+      - Attempt to exceed AI draft limit
+      - Assert rate limit warning displayed
+      - Attempt to access enterprise-only feature
+      - Assert upgrade prompt shown
+      - Navigate to /settings/billing
+      - Assert correct tier displayed
+
+      All specs should use test credentials from environment variables:
+      PLAYWRIGHT_TEST_EMAIL, PLAYWRIGHT_TEST_PASSWORD, PLAYWRIGHT_BASE_URL.
+    expected_outputs:
+      - e2e/onboarding.spec.ts
+      - e2e/grant-pipeline.spec.ts
+      - e2e/draft-generation.spec.ts
+      - e2e/billing-gates.spec.ts
+    gates:
+      - type: file_exists
+        files: [e2e/onboarding.spec.ts, e2e/grant-pipeline.spec.ts]
+    max_retries: 3
+    on_fail: skip
+
+  - id: test-006
+    phase: build
+    description: "Create Playwright E2E tests for AutoApply and email flows"
+    prompt: |
+      Create C:\Users\manag\Documents\benavora\e2e\autoapply-dashboard.spec.ts:
+      - Login
+      - Navigate to /autoapply
+      - Assert dashboard loads with stat cards
+      - Assert queue panel shows (empty or with items)
+      - Navigate to /autoapply/compliance
+      - Assert solicitation registration data loads (41 jurisdictions)
+      - Navigate to /autoapply/settings
+      - Assert automation settings form renders
+
+      Create C:\Users\manag\Documents\benavora\e2e\email-integration.spec.ts:
+      - Login
+      - Navigate to /settings/integrations
+      - Assert Gmail connection card is visible
+      - Assert Calendar connection card is visible
+      - Navigate to /email
+      - Assert email hub loads (empty state if no connection)
+      - Navigate to /email/campaigns
+      - Assert campaign list renders
+
+      Create C:\Users\manag\Documents\benavora\e2e\tenant-isolation.spec.ts:
+      - Login as org A admin
+      - Create a funder
+      - Note funder ID
+      - Logout
+      - Login as org B admin
+      - Navigate to /funders/{org_a_funder_id}
+      - Assert 404 or redirect (not visible)
+      - Fetch GET /api/funders directly
+      - Assert org A's funder not in response
+
+      Create C:\Users\manag\Documents\benavora\e2e\smoke.spec.ts:
+      Smoke test — verify all critical pages load without error:
+      - /dashboard → 200, no error banner
+      - /funders → 200
+      - /contacts → 200
+      - /opportunities → 200
+      - /applications → 200
+      - /draft-generator → 200
+      - /documents → 200
+      - /knowledge-base → 200
+      - /deadlines → 200
+      - /analytics → 200
+      - /autoapply → 200
+      - /intelligence-library → 200
+      - /email → 200
+      - /settings → 200
+      - /settings/integrations → 200
+      Each page: assert no "500" or "Error" text in body, assert main content container exists.
+    expected_outputs:
+      - e2e/autoapply-dashboard.spec.ts
+      - e2e/email-integration.spec.ts
+      - e2e/tenant-isolation.spec.ts
+      - e2e/smoke.spec.ts
+    gates:
+      - type: file_exists
+        files: [e2e/smoke.spec.ts, e2e/tenant-isolation.spec.ts]
+    max_retries: 3
+    on_fail: skip
+
+  - id: test-007
+    phase: build
+    description: "Create admin sales outreach tests"
+    prompt: |
+      Create C:\Users\manag\Documents\benavora\tests\api\admin-sales.test.ts:
+      Read the admin API routes first.
+      - Test: non-admin user gets 403 on all /admin routes
+      - Test: POST /admin/domains creates domain
+      - Test: POST /admin/prospects imports CSV
+      - Test: POST /admin/campaigns creates campaign
+      - Test: suppression check prevents sending to suppressed email
+      - Test: daily budget enforcement stops sends at limit
+
+      Create C:\Users\manag\Documents\benavora\tests\lib\unsubscribe-agent.test.ts:
+      Read src/lib/admin/unsubscribe-agent.ts first.
+      - Test: classifyReply identifies "unsubscribe me" as unsubscribe intent
+      - Test: classifyReply identifies "tell me more" as positive
+      - Test: classifyReply identifies "out of office" as auto_reply
+      - Test: processIncomingReply suppresses on unsubscribe
+      - Test: processIncomingReply pauses sequence on positive reply
+
+      Create C:\Users\manag\Documents\benavora\e2e\admin-sales.spec.ts:
+      - Login as admin
+      - Navigate to /admin/sales-outreach
+      - Assert dashboard loads with tabs
+      - Click Domains tab, assert domain management renders
+      - Click Prospects tab, assert prospect table renders
+      - Click Suppression tab, assert suppression list renders
+      - Verify non-admin user cannot access /admin/sales-outreach (redirect or 403)
+    expected_outputs:
+      - tests/api/admin-sales.test.ts
+      - tests/lib/unsubscribe-agent.test.ts
+      - e2e/admin-sales.spec.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: skip
+
+  - id: test-008
+    phase: build
+    description: "Run all tests, fix failures, update governance"
+    prompt: |
+      1. Run pnpm run build — fix ALL errors.
+      2. Run pnpm tsc --noEmit — fix ALL TypeScript errors.
+      3. Run pnpm test — record results.
+         Fix any test infrastructure issues (missing mocks, import errors, config problems).
+         If individual test assertions fail due to implementation differences, update the tests to match the actual implementation — tests should test what IS, not what we assumed.
+      4. Record test results summary.
+
+      5. Update C:\Users\manag\Documents\benavora\STATE_OF_THE_BUILD.md:
+         Add section:
+         - Test Suite: BUILT
+           - Vitest unit tests: X passing / Y total
+           - Playwright E2E specs: X specs across critical flows
+           - Test factories and mock utilities
+           - Supabase mock with RLS simulation
+           - Coverage: API routes, business logic modules, admin features
+           - Critical paths tested: onboarding, grant pipeline, draft generation, billing gates, AutoApply, email, tenant isolation, admin sales
+
+      6. Update C:\Users\manag\Documents\benavora\SESSION_STATE.md:
+         - Test suite complete
+         - Record test pass/fail counts
+         - Full Phase 4 + Test Suite chain COMPLETE
+         - Next: Intelligence Library Nights 3-7
+    expected_outputs:
+      - STATE_OF_THE_BUILD.md
+      - SESSION_STATE.md
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt

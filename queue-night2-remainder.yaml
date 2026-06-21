@@ -1,0 +1,114 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - BLUEPRINT.md
+  - SCHEMA_REGISTRY.md
+  - BEHAVIORAL_CONTRACTS.md
+  - AGENTS.md
+  - PRD.md
+  - AUTOAPPLY_ARCHITECTURE.md
+  - WORKER_ARCHITECTURE.md
+  - GRANT_INTELLIGENCE_ARCHITECTURE.md
+  - INTELLIGENCE_BUILD_ROADMAP.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+prompts:
+
+  # ============================================================
+  # NIGHT 2 REMAINDER — logic-006 + verify-001
+  # logic-005 type mismatch already fixed (commit 2d1bd72)
+  # These 2 prompts never ran because chain halted on logic-005
+  # ============================================================
+
+  - id: logic-006
+    phase: build
+    description: "Create standalone logic model generator API route"
+    prompt: |
+      Read the existing logic model generator at C:\Users\manag\Documents\benavora\src\lib\intelligence\logic-model-generator.ts completely.
+      Read the auth patterns used in C:\Users\manag\Documents\benavora\src\app\api\intelligence\ingest\route.ts for reference.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\intelligence\logic-model\route.ts:
+
+      POST handler for generating a logic model on-demand (separate from draft generation).
+
+      Accept JSON body: {
+        category: string,
+        program_description: string,
+        organization_id: string,
+        target_population?: string,
+        geography?: string,
+        save_to_library?: boolean
+      }
+
+      Steps:
+      1. Verify auth via Supabase session (createRouteHandlerClient). If no session, return 401.
+      2. Verify the user belongs to the org specified in organization_id by checking their profile. If mismatch, return 403.
+      3. Fetch org name from organizations table.
+      4. Call generateLogicModel() from logic-model-generator.ts with { category, programDescription: program_description, orgName, targetPopulation: target_population, geography }.
+      5. If save_to_library is true, insert the generated model into intelligence_logic_models with is_template = false and source = 'user_generated'. Use the service role Supabase client for this insert since intelligence tables may not have per-org RLS.
+      6. Return { success: true, logic_model: the generated model }.
+
+      Set export const maxDuration = 60;
+
+      Use lazy client initialization for any API clients.
+      Import types from the logic-model-generator module — read the actual file to get the correct exported type names. Do NOT guess type names.
+    expected_outputs:
+      - src/app/api/intelligence/logic-model/route.ts
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: verify-001
+    phase: build
+    description: "Verify full Night 2 build and update governance documents"
+    prompt: |
+      1. Run pnpm run build and fix any errors.
+      2. Run pnpm tsc --noEmit and fix any TypeScript errors.
+
+      3. Update C:\Users\manag\Documents\benavora\STATE_OF_THE_BUILD.md:
+         Add section documenting:
+         - Intelligence Library Night 2: COMPLETE (13/13)
+           - Reviewer Scoring Rubrics: BUILT
+             - rubric-extractor.ts: extracts scoring criteria from NOFO text
+             - ingest-rubrics-from-opportunities.ts: batch processes existing opportunities
+             - ingest-reviewer-guides.ts: ingests NIH/NSF/SAMHSA/HUD reviewer guidance
+             - Draft generator enhanced with rubric-aware scoring optimization
+             - RubricPanel component shows scoring dimensions in draft generator
+             - Rubrics tab added to Intelligence Library page
+           - Logic Model Library: BUILT
+             - seed-logic-models.ts: seeds 10 program category templates
+             - logic-model-generator.ts: customizes templates for specific programs
+             - LogicModelView component: horizontal flow visualization
+             - Draft generator enhanced with logic model integration
+             - Logic Models tab added to Intelligence Library page
+             - Standalone API route at /api/intelligence/logic-model
+           - Post-run steps: run seed-logic-models.ts, run ingest-rubrics-from-opportunities.ts --limit 20
+
+      4. Update C:\Users\manag\Documents\benavora\SESSION_STATE.md:
+         - Record Night 2 build COMPLETE (13/13 — logic-005 fixed commit 2d1bd72, logic-006 + verify-001 completed this run)
+         - List manual steps: run seed scripts, run rubric ingestion
+         - Note Night 3 is next: Need Statement Database
+         - Phase 4 (Email/Calendar + Sales Outreach) queued for tonight's chain
+    expected_outputs:
+      - STATE_OF_THE_BUILD.md
+      - SESSION_STATE.md
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt

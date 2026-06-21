@@ -1,0 +1,829 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - BLUEPRINT.md
+  - SCHEMA_REGISTRY.md
+  - BEHAVIORAL_CONTRACTS.md
+  - AGENTS.md
+  - PRD.md
+  - AUTOAPPLY_ARCHITECTURE.md
+  - WORKER_ARCHITECTURE.md
+  - GRANT_INTELLIGENCE_ARCHITECTURE.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+prompts:
+
+  # ============================================================
+  # PHASE 4A: DATABASE MIGRATIONS (Prompt 1)
+  # ============================================================
+
+  - id: p4-001
+    phase: build
+    description: "Create migration for Phase 4 email and calendar tables"
+    prompt: |
+      Create C:\Users\manag\Documents\benavora\supabase\migrations\054_email_calendar_integration.sql:
+
+      -- Email Integration Tables
+
+      CREATE TYPE email_sync_status AS ENUM ('active', 'paused', 'error', 'disconnected');
+      CREATE TYPE email_direction AS ENUM ('inbound', 'outbound');
+      CREATE TYPE calendar_sync_status AS ENUM ('active', 'paused', 'error', 'disconnected');
+
+      CREATE TABLE IF NOT EXISTS email_connections (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        user_id uuid NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+        provider text NOT NULL DEFAULT 'gmail',
+        email_address text NOT NULL,
+        access_token_encrypted text,
+        refresh_token_encrypted text,
+        token_expires_at timestamptz,
+        sync_status email_sync_status DEFAULT 'disconnected',
+        last_sync_at timestamptz,
+        sync_cursor text,
+        scopes text[],
+        created_at timestamptz DEFAULT NOW(),
+        updated_at timestamptz DEFAULT NOW(),
+        UNIQUE(organization_id, email_address)
+      );
+
+      CREATE TABLE IF NOT EXISTS email_threads (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        connection_id uuid NOT NULL REFERENCES email_connections(id) ON DELETE CASCADE,
+        gmail_thread_id text NOT NULL,
+        subject text,
+        snippet text,
+        last_message_at timestamptz,
+        message_count integer DEFAULT 0,
+        is_read boolean DEFAULT true,
+        labels text[],
+        linked_funder_id uuid REFERENCES funders(id) ON DELETE SET NULL,
+        linked_contact_id uuid REFERENCES contacts(id) ON DELETE SET NULL,
+        linked_opportunity_id uuid REFERENCES opportunities(id) ON DELETE SET NULL,
+        linked_application_id uuid REFERENCES applications(id) ON DELETE SET NULL,
+        auto_linked boolean DEFAULT false,
+        created_at timestamptz DEFAULT NOW(),
+        updated_at timestamptz DEFAULT NOW(),
+        UNIQUE(organization_id, gmail_thread_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS email_messages (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        thread_id uuid NOT NULL REFERENCES email_threads(id) ON DELETE CASCADE,
+        gmail_message_id text NOT NULL,
+        direction email_direction NOT NULL,
+        from_address text,
+        from_name text,
+        to_addresses text[],
+        cc_addresses text[],
+        subject text,
+        body_text text,
+        body_html text,
+        sent_at timestamptz,
+        has_attachments boolean DEFAULT false,
+        attachment_count integer DEFAULT 0,
+        extracted_contacts jsonb DEFAULT '[]',
+        ai_summary text,
+        sentiment text,
+        created_at timestamptz DEFAULT NOW(),
+        UNIQUE(organization_id, gmail_message_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS calendar_connections (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        user_id uuid NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+        provider text NOT NULL DEFAULT 'google',
+        calendar_id text NOT NULL DEFAULT 'primary',
+        calendar_name text,
+        access_token_encrypted text,
+        refresh_token_encrypted text,
+        token_expires_at timestamptz,
+        sync_status calendar_sync_status DEFAULT 'disconnected',
+        last_sync_at timestamptz,
+        sync_token text,
+        created_at timestamptz DEFAULT NOW(),
+        updated_at timestamptz DEFAULT NOW(),
+        UNIQUE(organization_id, user_id, calendar_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS calendar_events (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        connection_id uuid NOT NULL REFERENCES calendar_connections(id) ON DELETE CASCADE,
+        google_event_id text,
+        title text NOT NULL,
+        description text,
+        start_time timestamptz NOT NULL,
+        end_time timestamptz NOT NULL,
+        all_day boolean DEFAULT false,
+        location text,
+        event_type text DEFAULT 'deadline',
+        linked_deadline_id uuid REFERENCES deadlines(id) ON DELETE SET NULL,
+        linked_opportunity_id uuid REFERENCES opportunities(id) ON DELETE SET NULL,
+        linked_application_id uuid REFERENCES applications(id) ON DELETE SET NULL,
+        is_synced boolean DEFAULT false,
+        recurrence_rule text,
+        reminder_minutes integer[],
+        created_at timestamptz DEFAULT NOW(),
+        updated_at timestamptz DEFAULT NOW(),
+        UNIQUE(organization_id, google_event_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS email_templates (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        name text NOT NULL,
+        subject_template text NOT NULL,
+        body_template text NOT NULL,
+        template_type text NOT NULL DEFAULT 'general',
+        variables text[] DEFAULT '{}',
+        is_active boolean DEFAULT true,
+        use_count integer DEFAULT 0,
+        created_by uuid REFERENCES profiles(id),
+        created_at timestamptz DEFAULT NOW(),
+        updated_at timestamptz DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS email_campaign_sequences (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        name text NOT NULL,
+        description text,
+        trigger_type text NOT NULL DEFAULT 'manual',
+        trigger_config jsonb DEFAULT '{}',
+        status campaign_status DEFAULT 'draft',
+        total_enrolled integer DEFAULT 0,
+        total_completed integer DEFAULT 0,
+        total_replied integer DEFAULT 0,
+        created_by uuid REFERENCES profiles(id),
+        created_at timestamptz DEFAULT NOW(),
+        updated_at timestamptz DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS email_sequence_steps (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        sequence_id uuid NOT NULL REFERENCES email_campaign_sequences(id) ON DELETE CASCADE,
+        step_number integer NOT NULL,
+        template_id uuid REFERENCES email_templates(id) ON DELETE SET NULL,
+        subject_override text,
+        body_override text,
+        delay_days integer NOT NULL DEFAULT 0,
+        delay_hours integer DEFAULT 0,
+        condition_type text DEFAULT 'always',
+        condition_config jsonb DEFAULT '{}',
+        created_at timestamptz DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS email_sequence_enrollments (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        sequence_id uuid NOT NULL REFERENCES email_campaign_sequences(id) ON DELETE CASCADE,
+        contact_id uuid REFERENCES contacts(id) ON DELETE SET NULL,
+        funder_id uuid REFERENCES funders(id) ON DELETE SET NULL,
+        email_address text NOT NULL,
+        current_step integer DEFAULT 0,
+        status text DEFAULT 'active',
+        enrolled_at timestamptz DEFAULT NOW(),
+        completed_at timestamptz,
+        paused_at timestamptz,
+        last_sent_at timestamptz,
+        next_send_at timestamptz,
+        reply_detected boolean DEFAULT false,
+        created_at timestamptz DEFAULT NOW(),
+        UNIQUE(sequence_id, email_address)
+      );
+
+      -- RLS on all tables
+      ALTER TABLE email_connections ENABLE ROW LEVEL SECURITY;
+      ALTER TABLE email_threads ENABLE ROW LEVEL SECURITY;
+      ALTER TABLE email_messages ENABLE ROW LEVEL SECURITY;
+      ALTER TABLE calendar_connections ENABLE ROW LEVEL SECURITY;
+      ALTER TABLE calendar_events ENABLE ROW LEVEL SECURITY;
+      ALTER TABLE email_templates ENABLE ROW LEVEL SECURITY;
+      ALTER TABLE email_campaign_sequences ENABLE ROW LEVEL SECURITY;
+      ALTER TABLE email_sequence_steps ENABLE ROW LEVEL SECURITY;
+      ALTER TABLE email_sequence_enrollments ENABLE ROW LEVEL SECURITY;
+
+      CREATE POLICY "email_conn_org" ON email_connections USING (organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
+      CREATE POLICY "email_threads_org" ON email_threads USING (organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
+      CREATE POLICY "email_messages_org" ON email_messages USING (organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
+      CREATE POLICY "cal_conn_org" ON calendar_connections USING (organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
+      CREATE POLICY "cal_events_org" ON calendar_events USING (organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
+      CREATE POLICY "email_templates_org" ON email_templates USING (organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
+      CREATE POLICY "email_sequences_org" ON email_campaign_sequences USING (organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
+      CREATE POLICY "email_seq_steps_org" ON email_sequence_steps USING (sequence_id IN (SELECT id FROM email_campaign_sequences WHERE organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid())));
+      CREATE POLICY "email_enrollments_org" ON email_sequence_enrollments USING (organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
+
+      -- Indexes
+      CREATE INDEX idx_email_threads_org ON email_threads(organization_id);
+      CREATE INDEX idx_email_threads_last_msg ON email_threads(last_message_at DESC);
+      CREATE INDEX idx_email_threads_funder ON email_threads(linked_funder_id);
+      CREATE INDEX idx_email_messages_thread ON email_messages(thread_id);
+      CREATE INDEX idx_email_messages_sent ON email_messages(sent_at DESC);
+      CREATE INDEX idx_cal_events_org ON calendar_events(organization_id);
+      CREATE INDEX idx_cal_events_start ON calendar_events(start_time);
+      CREATE INDEX idx_email_enrollments_next ON email_sequence_enrollments(next_send_at) WHERE status = 'active';
+    expected_outputs:
+      - supabase/migrations/054_email_calendar_integration.sql
+    gates:
+      - type: file_exists
+        files: [supabase/migrations/054_email_calendar_integration.sql]
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # PHASE 4B: GMAIL OAUTH + SYNC (Prompts 2-5)
+  # ============================================================
+
+  - id: p4-002
+    phase: build
+    description: "Create Gmail OAuth flow and token management"
+    prompt: |
+      Create C:\Users\manag\Documents\benavora\src\lib\email\gmail-auth.ts:
+
+      Gmail OAuth 2.0 integration using googleapis npm package.
+
+      IMPORTANT: Read package.json first to check if googleapis is already installed. If not, this prompt will fail at compile — it must be pre-installed before FORGE runs.
+
+      Export class GmailAuthManager:
+        - generateAuthUrl(orgId: string, userId: string, redirectUri: string): string
+          Returns Google OAuth consent URL with scopes: gmail.readonly, gmail.send, gmail.modify
+          State parameter encodes orgId + userId for callback verification.
+        - handleCallback(code: string, state: string, redirectUri: string): Promise<TokenResult>
+          Exchanges auth code for tokens. Encrypts access_token and refresh_token using CREDENTIAL_ENCRYPTION_KEY env var (AES-256-GCM). Stores in email_connections table.
+        - refreshToken(connectionId: string): Promise<string>
+          Checks if token is expired. If so, uses refresh_token to get new access_token. Updates DB. Returns valid access_token.
+        - revokeConnection(connectionId: string): Promise<void>
+          Revokes tokens with Google, updates sync_status to 'disconnected'.
+
+      Create C:\Users\manag\Documents\benavora\src\lib\email\encryption.ts:
+        Export function encryptToken(plaintext: string): string
+        Export function decryptToken(ciphertext: string): string
+        Uses AES-256-GCM with CREDENTIAL_ENCRYPTION_KEY from env.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\email\auth\route.ts:
+        GET: Returns Google OAuth URL for the authenticated user.
+        Body: { redirect_uri: string }
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\email\callback\route.ts:
+        GET: Handles OAuth callback. Extracts code and state from query params. Calls handleCallback. Redirects to /settings/integrations with success/error status.
+
+      Use env vars: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, CREDENTIAL_ENCRYPTION_KEY.
+    expected_outputs:
+      - src/lib/email/gmail-auth.ts
+      - src/lib/email/encryption.ts
+      - src/app/api/email/auth/route.ts
+      - src/app/api/email/callback/route.ts
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: p4-003
+    phase: build
+    description: "Create Gmail sync engine for thread and message ingestion"
+    prompt: |
+      Read C:\Users\manag\Documents\benavora\src\lib\email\gmail-auth.ts completely.
+
+      Create C:\Users\manag\Documents\benavora\src\lib\email\gmail-sync.ts:
+
+      Export class GmailSyncEngine:
+        constructor(connectionId: string)
+
+        - syncThreads(options?: { maxResults?: number, since?: Date }): Promise<SyncResult>
+          1. Get valid access token via GmailAuthManager.refreshToken().
+          2. List threads from Gmail API (users.threads.list) with pageToken for pagination.
+          3. For each thread, call users.threads.get to fetch full messages.
+          4. Upsert into email_threads (gmail_thread_id, subject, snippet, last_message_at, message_count).
+          5. For each message in thread, upsert into email_messages (gmail_message_id, direction based on from vs user email, from/to/cc parsing, subject, body extraction from MIME parts, sent_at from internalDate).
+          6. Update sync_cursor with the latest historyId.
+          7. Return { threads_synced, messages_synced, new_threads, errors }.
+
+        - incrementalSync(): Promise<SyncResult>
+          Uses Gmail history API (users.history.list) from last sync_cursor.
+          Only fetches changes since last sync. Much faster than full sync.
+
+        - extractContactsFromMessage(message: EmailMessage): Promise<ExtractedContact[]>
+          Parses from/to/cc fields. Returns name + email pairs.
+          Does NOT use Claude API — pure header parsing.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\email\sync\route.ts:
+        POST: Triggers a sync for the authenticated user's email connection.
+        Returns sync results.
+        Set maxDuration = 120 (syncs can take time).
+
+      Handle rate limiting from Gmail API (429 responses with exponential backoff).
+      Handle token expiration mid-sync (refresh and retry).
+    expected_outputs:
+      - src/lib/email/gmail-sync.ts
+      - src/app/api/email/sync/route.ts
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: p4-004
+    phase: build
+    description: "Create email-to-CRM auto-linking engine using Claude"
+    prompt: |
+      Read C:\Users\manag\Documents\benavora\src\lib\email\gmail-sync.ts completely.
+      Read the funders and contacts tables in the schema.
+
+      Create C:\Users\manag\Documents\benavora\src\lib\email\thread-linker.ts:
+
+      Export class ThreadLinker:
+        - autoLinkThread(threadId: string, orgId: string): Promise<LinkResult>
+          1. Fetch the thread and its messages from email_threads + email_messages.
+          2. Extract all email addresses from from/to/cc across all messages.
+          3. Query contacts table for matching email addresses within the org.
+          4. If contact found: link thread to that contact's funder (set linked_contact_id, linked_funder_id).
+          5. If no contact match but domain matches a funder's website domain: link to that funder.
+          6. If no automatic match possible: call Claude API (lazy init) with the thread subject + snippet + participant emails. System prompt: "Given this email thread metadata, identify if it relates to a grant funder, opportunity, or application. Return JSON: { funder_name?: string, opportunity_keywords?: string[], confidence: number }." If confidence > 0.7, search funders/opportunities by name similarity and link.
+          7. Set auto_linked = true on the thread.
+
+        - bulkAutoLink(orgId: string): Promise<{ linked: number, unlinked: number }>
+          Runs autoLinkThread on all unlinked threads for the org.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\email\link\route.ts:
+        POST: { thread_id: string, funder_id?: string, contact_id?: string, opportunity_id?: string, application_id?: string }
+        Manual linking endpoint. If thread_id is 'auto', runs bulkAutoLink.
+        Sets auto_linked = false for manual links.
+    expected_outputs:
+      - src/lib/email/thread-linker.ts
+      - src/app/api/email/link/route.ts
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: p4-005
+    phase: build
+    description: "Create contact extraction agent from email threads"
+    prompt: |
+      Read C:\Users\manag\Documents\benavora\src\lib\email\gmail-sync.ts completely.
+      Read the contacts and funders tables in the schema.
+
+      Create C:\Users\manag\Documents\benavora\src\lib\email\contact-extractor.ts:
+
+      Export class EmailContactExtractor:
+        - extractFromThread(threadId: string, orgId: string): Promise<ExtractedContact[]>
+          1. Fetch all messages in the thread.
+          2. Parse email headers for name + email pairs (from, to, cc, reply-to).
+          3. Call Claude API with the thread body text (first 3 messages, truncated to 10K chars).
+             System: "Extract contact information from these emails. For each person mentioned, return JSON array: [{ name, email, title, organization, phone, role_context }]. Only include people who appear to work at a funder or partner organization. Exclude the sender's own organization."
+          4. Cross-reference extracted contacts against existing contacts table. Flag duplicates.
+          5. Return new contacts with suggested funder linkage.
+
+        - suggestNewContacts(orgId: string, limit?: number): Promise<ContactSuggestion[]>
+          Scans unlinked threads for contacts not yet in the CRM. Returns suggestions with confidence scores.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\email\contacts\route.ts:
+        GET: Returns suggested new contacts from email analysis for the org.
+        POST: { thread_id: string } — triggers extraction for a specific thread.
+        POST: { action: 'import', contacts: Array } — imports suggested contacts into the CRM contacts table with funder linkage.
+    expected_outputs:
+      - src/lib/email/contact-extractor.ts
+      - src/app/api/email/contacts/route.ts
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # PHASE 4C: GOOGLE CALENDAR (Prompts 6-7)
+  # ============================================================
+
+  - id: p4-006
+    phase: build
+    description: "Create Google Calendar OAuth and sync engine"
+    prompt: |
+      Read C:\Users\manag\Documents\benavora\src\lib\email\gmail-auth.ts for OAuth patterns.
+      Read C:\Users\manag\Documents\benavora\src\lib\email\encryption.ts for token encryption.
+
+      Create C:\Users\manag\Documents\benavora\src\lib\calendar\gcal-auth.ts:
+        Similar pattern to GmailAuthManager but with calendar scopes.
+        Scopes: calendar.readonly, calendar.events
+        Stores tokens in calendar_connections table.
+        Can share the same Google OAuth consent screen if Gmail is already connected.
+        Export class GCalAuthManager with generateAuthUrl, handleCallback, refreshToken, revokeConnection.
+
+      Create C:\Users\manag\Documents\benavora\src\lib\calendar\gcal-sync.ts:
+        Export class GCalSyncEngine:
+          - syncDeadlinesOut(orgId: string, connectionId: string): Promise<SyncResult>
+            1. Fetch all deadlines from the deadlines table for the org where is_completed = false.
+            2. For each deadline, check if a calendar_events record exists (linked_deadline_id).
+            3. If no event exists: create a Google Calendar event via events.insert(). Title = deadline title. Date = due_date. Description includes linked opportunity/application names. Set reminders at 7, 3, 1 days before. Color-code: red for application_deadline, blue for follow_up_date, green for reporting_deadline.
+            4. If event exists but deadline was updated: patch the Google Calendar event.
+            5. Store google_event_id in calendar_events table.
+            6. Return { created, updated, unchanged, errors }.
+
+          - syncEventsIn(connectionId: string): Promise<SyncResult>
+            Pulls events from Google Calendar into calendar_events. Uses syncToken for incremental sync. Useful for detecting manually-added events.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\calendar\auth\route.ts:
+        GET: Returns Google Calendar OAuth URL.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\calendar\callback\route.ts:
+        GET: Handles OAuth callback for Calendar.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\calendar\sync\route.ts:
+        POST: Triggers deadline-to-calendar sync. Returns results.
+    expected_outputs:
+      - src/lib/calendar/gcal-auth.ts
+      - src/lib/calendar/gcal-sync.ts
+      - src/app/api/calendar/auth/route.ts
+      - src/app/api/calendar/callback/route.ts
+      - src/app/api/calendar/sync/route.ts
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: p4-007
+    phase: build
+    description: "Create follow-up reminder system with calendar integration"
+    prompt: |
+      Read C:\Users\manag\Documents\benavora\src\lib\calendar\gcal-sync.ts completely.
+      Read the follow_ups table schema if it exists (from migration 053).
+      Read the deadlines table schema.
+
+      Create C:\Users\manag\Documents\benavora\src\lib\calendar\reminder-engine.ts:
+
+      Export class ReminderEngine:
+        - scheduleFollowUpReminders(orgId: string): Promise<ReminderResult>
+          1. Fetch all applications in stages: submitted, follow_up_due.
+          2. For each, check if follow-up reminders exist in calendar_events.
+          3. If not: create reminders at 14, 30, 60 days post-submission.
+          4. If the application has a connected calendar: push to Google Calendar.
+          5. If no calendar connected: create in-app notification via automation_notifications table.
+
+        - processOverdueFollowUps(orgId: string): Promise<void>
+          1. Check follow_ups where due_date < NOW() and status = 'pending'.
+          2. For each overdue: create an alert/notification.
+          3. Optionally auto-advance application to follow_up_due stage if still in 'submitted'.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\cron\reminders\route.ts:
+        GET: Cron endpoint (Vercel cron or manual trigger). Processes all orgs with active calendar connections. Calls scheduleFollowUpReminders and processOverdueFollowUps.
+        Set maxDuration = 120.
+        Verify cron secret via Authorization header (CRON_SECRET env var).
+    expected_outputs:
+      - src/lib/calendar/reminder-engine.ts
+      - src/app/api/cron/reminders/route.ts
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # PHASE 4D: EMAIL CAMPAIGN BUILDER (Prompts 8-11)
+  # ============================================================
+
+  - id: p4-008
+    phase: build
+    description: "Create email template system with variable substitution"
+    prompt: |
+      Create C:\Users\manag\Documents\benavora\src\lib\email\template-engine.ts:
+
+      Export class EmailTemplateEngine:
+        - renderTemplate(template: { subject: string, body: string }, variables: Record<string, string>): { subject: string, body: string }
+          Replaces all {variable_name} placeholders with values.
+          Supported variables: {org_name}, {contact_name}, {funder_name}, {opportunity_name}, {deadline_date}, {amount}, {program_name}, {mission_snippet}, {custom_*}.
+          Throws if a required variable has no value (does not silently leave placeholder).
+
+        - validateTemplate(template: string): { valid: boolean, variables: string[], errors: string[] }
+          Scans template for {variable} patterns. Returns list of variables found.
+          Warns on unrecognized variable names (not in the standard set).
+
+        - generateWithAI(context: { funderName: string, opportunityName?: string, purpose: string, tone: string }, orgId: string): Promise<{ subject: string, body: string, variables: string[] }>
+          Calls Claude API to generate a personalized email template.
+          Loads org KB (mission, programs) for context.
+          Returns template with variable placeholders.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\email\templates\route.ts:
+        GET: List all templates for the org. Filter by template_type.
+        POST: Create new template. Validate variables. Store in email_templates.
+        PATCH: Update existing template by id.
+        DELETE: Soft delete (set is_active = false).
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\email\templates\generate\route.ts:
+        POST: AI-generate a template. Body: { funder_name, opportunity_name?, purpose, tone }.
+        Returns generated template without saving. User confirms before save.
+    expected_outputs:
+      - src/lib/email/template-engine.ts
+      - src/app/api/email/templates/route.ts
+      - src/app/api/email/templates/generate/route.ts
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: p4-009
+    phase: build
+    description: "Create drip sequence engine with scheduling"
+    prompt: |
+      Read C:\Users\manag\Documents\benavora\src\lib\email\template-engine.ts completely.
+      Read the email_campaign_sequences, email_sequence_steps, email_sequence_enrollments tables from migration 054.
+
+      Create C:\Users\manag\Documents\benavora\src\lib\email\sequence-engine.ts:
+
+      Export class SequenceEngine:
+        - createSequence(orgId: string, config: SequenceConfig): Promise<string>
+          Creates a new sequence with steps. Returns sequence ID.
+          SequenceConfig: { name, description, steps: Array<{ template_id?, subject_override?, body_override?, delay_days, delay_hours?, condition_type? }> }
+
+        - enrollContact(sequenceId: string, enrollment: { email: string, contact_id?: string, funder_id?: string, variables: Record<string, string> }): Promise<void>
+          Creates enrollment record. Sets next_send_at based on first step delay.
+          Prevents double enrollment (unique constraint on sequence + email).
+
+        - processScheduledSends(): Promise<{ sent: number, failed: number, skipped: number }>
+          1. Query email_sequence_enrollments WHERE status = 'active' AND next_send_at <= NOW().
+          2. For each enrollment:
+             a. Get current step from email_sequence_steps.
+             b. Render template with contact variables via EmailTemplateEngine.
+             c. Send email via Gmail API (using the org's connected Gmail account) or Resend API as fallback.
+             d. Update enrollment: increment current_step, calculate next_send_at from next step's delay.
+             e. If no more steps: set status = 'completed', completed_at = NOW().
+          3. Rate limit: max 50 sends per execution (prevent Gmail quota exhaustion).
+
+        - detectReply(threadId: string, enrollmentId: string): Promise<boolean>
+          Checks if a reply was received on a sent email thread.
+          If reply detected: set reply_detected = true, pause sequence (status = 'paused').
+          This is called by the Gmail sync engine when new messages arrive.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\email\sequences\route.ts:
+        GET: List all sequences for the org.
+        POST: Create new sequence with steps.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\email\sequences\[id]\route.ts:
+        GET: Get sequence details with steps and enrollment stats.
+        PATCH: Update sequence config.
+        DELETE: Archive sequence (set status = 'completed' on all active enrollments, then delete).
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\email\sequences\[id]\enroll\route.ts:
+        POST: Enroll one or more contacts. Body: { contacts: Array<{ email, contact_id?, funder_id?, variables }> }.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\cron\email-sequences\route.ts:
+        GET: Cron endpoint. Calls processScheduledSends. Verify CRON_SECRET.
+        Set maxDuration = 120.
+    expected_outputs:
+      - src/lib/email/sequence-engine.ts
+      - src/app/api/email/sequences/route.ts
+      - src/app/api/email/sequences/[id]/route.ts
+      - src/app/api/email/sequences/[id]/enroll/route.ts
+      - src/app/api/cron/email-sequences/route.ts
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: p4-010
+    phase: build
+    description: "Create email sending service with tracking"
+    prompt: |
+      Read C:\Users\manag\Documents\benavora\src\lib\email\sequence-engine.ts to understand the sending context.
+
+      Create C:\Users\manag\Documents\benavora\src\lib\email\sender.ts:
+
+      Export class EmailSender:
+        - sendViaGmail(connectionId: string, options: SendOptions): Promise<SendResult>
+          1. Get valid access token via GmailAuthManager.
+          2. Construct MIME message (raw format as required by Gmail API).
+          3. Send via Gmail API users.messages.send.
+          4. Return { messageId, threadId, success }.
+          Handle errors: token expired (refresh and retry), quota exceeded (throw with retry hint), invalid recipient.
+
+        - sendViaResend(options: SendOptions): Promise<SendResult>
+          Fallback sender using Resend API (RESEND_API_KEY env var).
+          Used when no Gmail connection exists or Gmail quota is hit.
+          From address: noreply@{org custom domain or benavora.com}.
+
+        - send(orgId: string, options: SendOptions): Promise<SendResult>
+          Strategy method: tries Gmail first, falls back to Resend.
+          Logs all sends to email_messages table with direction = 'outbound'.
+
+      SendOptions: { to: string[], cc?: string[], subject: string, body_html: string, body_text: string, reply_to?: string, in_reply_to?: string, references?: string }
+
+      SendResult: { success: boolean, message_id?: string, thread_id?: string, provider: 'gmail' | 'resend', error?: string }
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\email\send\route.ts:
+        POST: Send a single email. Body: { to, cc?, subject, body, reply_to_thread_id? }.
+        If reply_to_thread_id is provided, fetch the thread to set In-Reply-To and References headers for threading.
+        Rate limit: 20 sends per minute per org.
+    expected_outputs:
+      - src/lib/email/sender.ts
+      - src/app/api/email/send/route.ts
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: p4-011
+    phase: build
+    description: "Create campaign tracking and analytics"
+    prompt: |
+      Read C:\Users\manag\Documents\benavora\src\lib\email\sequence-engine.ts completely.
+      Read C:\Users\manag\Documents\benavora\src\lib\email\sender.ts completely.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\email\analytics\route.ts:
+        GET: Returns email analytics for the org.
+        Query params: period (7d, 30d, 90d, all), sequence_id? (filter to one sequence)
+        Returns:
+        {
+          total_sent, total_opened, total_replied, total_bounced,
+          open_rate, reply_rate, bounce_rate,
+          by_sequence: [{ id, name, enrolled, completed, replied, reply_rate }],
+          by_template: [{ id, name, sends, replies, reply_rate }],
+          daily_sends: [{ date, count }],
+          top_performing_templates: [{ id, name, reply_rate }]
+        }
+        Aggregate from email_sequence_enrollments + email_messages.
+
+      Enhance the existing email send flow in src/lib/email/sender.ts:
+        After each send, update campaign_sends if the email is part of a campaign (check campaign_step_id linkage).
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\email\sequences\[id]\analytics\route.ts:
+        GET: Detailed analytics for a specific sequence. Step-by-step conversion funnel, A/B variant comparison if applicable.
+    expected_outputs:
+      - src/app/api/email/analytics/route.ts
+      - src/app/api/email/sequences/[id]/analytics/route.ts
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # PHASE 4E: EMAIL + CALENDAR UI (Prompts 12-14)
+  # ============================================================
+
+  - id: p4-012
+    phase: build
+    description: "Create Email Hub page with inbox, threads, and compose"
+    prompt: |
+      Create C:\Users\manag\Documents\benavora\src\app\(dashboard)\email\page.tsx:
+
+      The Email Hub — central page for all email integration features.
+
+      Layout: 3-column on desktop, tabbed on mobile.
+
+      Left column — Thread list:
+      - Fetch from /api/email/threads (create this route if it doesn't exist — GET returns email_threads for the org, sorted by last_message_at DESC, with pagination).
+      - Each thread card shows: subject, from name, snippet, time ago, linked entity badge (funder/contact name).
+      - Unlinked threads have a subtle "Link" button.
+      - Search bar at top filters by subject, from_address, linked entity.
+      - Tabs: All | Linked | Unlinked
+
+      Center column — Thread detail:
+      - Shows all messages in the selected thread, chronologically.
+      - Each message: from/to/cc display, timestamp, body rendered (sanitized HTML).
+      - Reply box at bottom: rich text editor, CC field, send button.
+      - AI summary toggle: shows Claude-generated thread summary (call /api/email/summarize if it doesn't exist — create a route that calls Claude to summarize the thread).
+
+      Right column — Context panel:
+      - Shows linked entity details: funder card, contact card, opportunity card.
+      - "Change Link" button to manually relink.
+      - "Suggested contacts" from this thread (from contact extractor).
+      - Thread timeline: all messages as a visual timeline.
+
+      Add "Email" with a Mail icon to the sidebar navigation, positioned after Outreach.
+      Use Tailwind CSS matching existing dashboard styling.
+    expected_outputs:
+      - src/app/(dashboard)/email/page.tsx
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: p4-013
+    phase: build
+    description: "Create Campaign Builder and Sequence Management UI"
+    prompt: |
+      Create C:\Users\manag\Documents\benavora\src\app\(dashboard)\email\campaigns\page.tsx:
+
+      Campaign management page for email drip sequences.
+
+      Top section — Campaign list:
+      - Table: name, status badge (draft/active/paused/completed), enrolled count, reply rate, created date, actions (edit/pause/archive).
+      - "New Campaign" button opens creation flow.
+
+      Campaign creation flow (modal or slide-over panel):
+      1. Name + description.
+      2. Step builder: add steps with template selection (from email_templates), delay config (days + hours), condition (always, if_no_reply, if_opened).
+         Each step is a card that can be reordered via drag handle.
+         "Add Step" button. "Preview" button shows rendered template with sample variables.
+      3. Enrollment: select contacts from CRM or paste email list. Variable mapping.
+      4. Review + activate.
+
+      Template management section (separate tab or page at /email/templates):
+      - List all templates with preview.
+      - Create/edit template form: name, subject, body (rich text with variable insertion toolbar — click {variable} buttons to insert placeholders), template_type.
+      - "Generate with AI" button: opens modal with funder name, purpose, tone inputs → calls generate endpoint → preview → save.
+
+      Campaign detail view (/email/campaigns/[id]):
+      - Step-by-step funnel visualization: Step 1 → Step 2 → Step 3 with enrolled → sent → replied counts per step.
+      - Enrollment table: email, status, current step, last sent, replied.
+      - Pause/resume individual enrollments.
+
+      Add "Campaigns" link under Email in sidebar (nested nav or sub-route).
+      Use Tailwind CSS matching existing dashboard styling.
+    expected_outputs:
+      - src/app/(dashboard)/email/campaigns/page.tsx
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: p4-014
+    phase: build
+    description: "Create Integration Settings page and verify Phase 4 build"
+    prompt: |
+      Create or update C:\Users\manag\Documents\benavora\src\app\(dashboard)\settings\integrations\page.tsx:
+
+      Integrations settings page where users connect/disconnect external services.
+
+      Sections:
+
+      1. Gmail Connection:
+         - Status indicator: Connected (green) / Disconnected (gray).
+         - If disconnected: "Connect Gmail" button → calls /api/email/auth.
+         - If connected: shows connected email address, last sync time, sync status. "Sync Now" button. "Disconnect" button with confirmation.
+         - Auto-sync toggle with frequency selector (every 15 min, hourly, daily, manual only).
+
+      2. Google Calendar:
+         - Same pattern as Gmail. "Connect Calendar" button.
+         - If connected: shows calendar name, last sync. "Sync Deadlines Now" button.
+         - Auto-sync toggle.
+         - Checkbox: "Automatically create calendar events for new deadlines."
+
+      3. Resend (Email Sending):
+         - If RESEND_API_KEY is set (check via /api/settings/integrations/status): shows "Configured" badge.
+         - Info text: "Resend is used as a fallback email sender when Gmail is not connected."
+
+      4. SAM.gov:
+         - API key input field (masked).
+         - Save button → stores encrypted in integration_keys table.
+         - Status: key configured yes/no, last successful poll date.
+
+      Add "Integrations" to the Settings sub-navigation.
+
+      Then run:
+      1. pnpm run build — fix ALL errors.
+      2. pnpm tsc --noEmit — fix ALL TypeScript errors.
+
+      Update C:\Users\manag\Documents\benavora\STATE_OF_THE_BUILD.md:
+        - Phase 4A Email/Calendar Integration: BUILT
+          - Gmail OAuth with encrypted token storage
+          - Email thread sync with incremental history API
+          - Auto-linking threads to CRM entities (contacts, funders, opportunities) via Claude AI
+          - Contact extraction agent from email content
+          - Google Calendar OAuth with deadline auto-sync
+          - Follow-up reminder system with in-app + calendar notifications
+          - Email template engine with {variable} substitution and AI generation
+          - Drip sequence engine with scheduling, reply detection, auto-pause
+          - Email sending service (Gmail primary, Resend fallback)
+          - Campaign tracking and analytics
+          - Email Hub UI with thread viewer, compose, AI summary
+          - Campaign Builder UI with step designer and enrollment
+          - Integration settings page (Gmail, Calendar, Resend, SAM.gov)
+          - Migration 054: 9 new tables for email + calendar
+          - Post-run: set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, CREDENTIAL_ENCRYPTION_KEY in Vercel
+
+      Update C:\Users\manag\Documents\benavora\SESSION_STATE.md:
+        - Phase 4A (Email/Calendar Integration) complete
+        - Phase 4B (Admin Sales Outreach Engine) next in chain
+    expected_outputs:
+      - src/app/(dashboard)/settings/integrations/page.tsx
+      - STATE_OF_THE_BUILD.md
+      - SESSION_STATE.md
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt

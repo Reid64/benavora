@@ -1,0 +1,624 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - BLUEPRINT.md
+  - SCHEMA_REGISTRY.md
+  - BEHAVIORAL_CONTRACTS.md
+  - AGENTS.md
+  - PRD.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+prompts:
+
+  # ============================================================
+  # ADMIN SALES OUTREACH ENGINE
+  # Admin-only at /admin/sales-outreach
+  # Uses separate sending domains — NOT benavora.com
+  # Targets 298K nonprofit prospect database
+  # ============================================================
+
+  - id: sales-001
+    phase: build
+    description: "Create migration for admin sales outreach tables"
+    prompt: |
+      Create C:\Users\manag\Documents\benavora\supabase\migrations\055_admin_sales_outreach.sql:
+
+      -- These tables are NOT org-scoped. They are admin-only, platform-level tables.
+
+      CREATE TABLE IF NOT EXISTS sending_domains (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        domain text NOT NULL UNIQUE,
+        provider text NOT NULL DEFAULT 'resend',
+        api_key_encrypted text,
+        dns_verified boolean DEFAULT false,
+        warmup_status text DEFAULT 'cold',
+        warmup_started_at timestamptz,
+        current_daily_limit integer DEFAULT 5,
+        target_daily_limit integer DEFAULT 50,
+        warmup_day integer DEFAULT 0,
+        total_sent integer DEFAULT 0,
+        total_bounced integer DEFAULT 0,
+        total_complained integer DEFAULT 0,
+        bounce_rate numeric(5,4) DEFAULT 0,
+        complaint_rate numeric(5,4) DEFAULT 0,
+        is_active boolean DEFAULT true,
+        health_status text DEFAULT 'unknown',
+        last_health_check_at timestamptz,
+        created_at timestamptz DEFAULT NOW(),
+        updated_at timestamptz DEFAULT NOW()
+      );
+      -- No RLS: admin-only table
+
+      CREATE TABLE IF NOT EXISTS prospect_lists (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        name text NOT NULL,
+        description text,
+        source text,
+        total_prospects integer DEFAULT 0,
+        imported_at timestamptz DEFAULT NOW(),
+        created_at timestamptz DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS prospects (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        list_id uuid REFERENCES prospect_lists(id) ON DELETE CASCADE,
+        ein text,
+        org_name text NOT NULL,
+        org_type text,
+        email text,
+        website text,
+        city text,
+        state text,
+        zip text,
+        annual_revenue numeric(14,2),
+        employee_count integer,
+        ntee_code text,
+        subsection_code text,
+        status text DEFAULT 'active',
+        suppressed boolean DEFAULT false,
+        suppressed_reason text,
+        suppressed_at timestamptz,
+        last_contacted_at timestamptz,
+        total_emails_sent integer DEFAULT 0,
+        has_replied boolean DEFAULT false,
+        has_converted boolean DEFAULT false,
+        converted_org_id uuid,
+        created_at timestamptz DEFAULT NOW(),
+        UNIQUE(list_id, ein)
+      );
+
+      CREATE TABLE IF NOT EXISTS sales_campaigns (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        name text NOT NULL,
+        description text,
+        list_id uuid REFERENCES prospect_lists(id),
+        status text DEFAULT 'draft',
+        sending_domain_ids uuid[] DEFAULT '{}',
+        daily_send_target integer DEFAULT 20,
+        send_window_start integer DEFAULT 9,
+        send_window_end integer DEFAULT 17,
+        send_timezone text DEFAULT 'America/Chicago',
+        total_sent integer DEFAULT 0,
+        total_opened integer DEFAULT 0,
+        total_replied integer DEFAULT 0,
+        total_unsubscribed integer DEFAULT 0,
+        total_bounced integer DEFAULT 0,
+        filter_criteria jsonb DEFAULT '{}',
+        created_at timestamptz DEFAULT NOW(),
+        updated_at timestamptz DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS sales_campaign_steps (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        campaign_id uuid NOT NULL REFERENCES sales_campaigns(id) ON DELETE CASCADE,
+        step_number integer NOT NULL,
+        subject_template text NOT NULL,
+        body_template text NOT NULL,
+        delay_days integer NOT NULL DEFAULT 0,
+        created_at timestamptz DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS sales_sends (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        campaign_id uuid NOT NULL REFERENCES sales_campaigns(id),
+        step_id uuid NOT NULL REFERENCES sales_campaign_steps(id),
+        prospect_id uuid NOT NULL REFERENCES prospects(id),
+        sending_domain_id uuid REFERENCES sending_domains(id),
+        from_address text NOT NULL,
+        to_address text NOT NULL,
+        subject text NOT NULL,
+        body_html text,
+        status text DEFAULT 'queued',
+        sent_at timestamptz,
+        opened_at timestamptz,
+        replied_at timestamptz,
+        bounced_at timestamptz,
+        bounce_type text,
+        unsubscribed_at timestamptz,
+        resend_message_id text,
+        error_message text,
+        scheduled_for timestamptz,
+        created_at timestamptz DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS suppression_list (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        email text NOT NULL UNIQUE,
+        reason text NOT NULL,
+        source text,
+        added_at timestamptz DEFAULT NOW()
+      );
+
+      -- Indexes
+      CREATE INDEX idx_prospects_list ON prospects(list_id);
+      CREATE INDEX idx_prospects_status ON prospects(status) WHERE suppressed = false;
+      CREATE INDEX idx_prospects_email ON prospects(email);
+      CREATE INDEX idx_prospects_state ON prospects(state);
+      CREATE INDEX idx_sales_sends_campaign ON sales_sends(campaign_id);
+      CREATE INDEX idx_sales_sends_status ON sales_sends(status);
+      CREATE INDEX idx_sales_sends_scheduled ON sales_sends(scheduled_for) WHERE status = 'queued';
+      CREATE INDEX idx_suppression_email ON suppression_list(email);
+    expected_outputs:
+      - supabase/migrations/055_admin_sales_outreach.sql
+    gates:
+      - type: file_exists
+        files: [supabase/migrations/055_admin_sales_outreach.sql]
+    max_retries: 3
+    on_fail: halt
+
+  - id: sales-002
+    phase: build
+    description: "Create admin auth middleware and sending domain management"
+    prompt: |
+      Create C:\Users\manag\Documents\benavora\src\lib\admin\auth.ts:
+        Export async function requireAdmin(request: Request): Promise<{ userId: string }>
+        Checks if the authenticated user has an admin role. For MVP, hardcode Reid's user ID as the admin. Later this should check a platform_admins table.
+        Returns user info or throws 403.
+
+      Create C:\Users\manag\Documents\benavora\src\lib\admin\domain-manager.ts:
+
+      Read C:\Users\manag\Documents\benavora\src\lib\email\encryption.ts for the encryption functions.
+
+      Export class DomainManager:
+        - addDomain(domain: string, apiKey: string, provider?: string): Promise<SendingDomain>
+          Encrypts API key. Inserts into sending_domains. Returns record.
+
+        - verifyDns(domainId: string): Promise<{ verified: boolean, records: DnsRecord[] }>
+          Calls Resend API to check DNS verification status for the domain.
+          Updates dns_verified in DB.
+
+        - getDomainHealth(domainId: string): Promise<DomainHealth>
+          Calculates bounce_rate and complaint_rate from sales_sends.
+          Returns health status: 'healthy' (bounce < 2%), 'warning' (2-5%), 'critical' (>5%).
+          Updates health_status in DB.
+
+        - getWarmupStatus(domainId: string): Promise<WarmupStatus>
+          Returns current warmup day, current limit, sends today.
+
+        - rotateDomain(campaignId: string): Promise<SendingDomain>
+          Round-robin selects next healthy, warmed domain for sending.
+          Skips domains at daily limit. Returns null if all exhausted.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\admin\domains\route.ts:
+        GET: List all sending domains with health stats. Admin only.
+        POST: Add new domain. Body: { domain, api_key, provider? }. Admin only.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\admin\domains\[id]\route.ts:
+        GET: Get domain details including warmup history.
+        PATCH: Update domain settings (target_daily_limit, is_active).
+        DELETE: Deactivate domain (set is_active = false, don't hard delete).
+    expected_outputs:
+      - src/lib/admin/auth.ts
+      - src/lib/admin/domain-manager.ts
+      - src/app/api/admin/domains/route.ts
+      - src/app/api/admin/domains/[id]/route.ts
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: sales-003
+    phase: build
+    description: "Create automated domain warm-up engine"
+    prompt: |
+      Read C:\Users\manag\Documents\benavora\src\lib\admin\domain-manager.ts completely.
+
+      Create C:\Users\manag\Documents\benavora\src\lib\admin\warmup-engine.ts:
+
+      Export class WarmupEngine:
+        Manages the gradual ramp from 5 → 10 → 20 → 50 emails/day per domain.
+
+        Warmup schedule (conservative, reputation-safe):
+        Days 1-3: 5 emails/day
+        Days 4-7: 10 emails/day
+        Days 8-14: 20 emails/day
+        Days 15-21: 35 emails/day
+        Days 22+: 50 emails/day (target, adjustable per domain)
+
+        - advanceWarmup(domainId: string): Promise<void>
+          Called daily by cron. Increments warmup_day. Updates current_daily_limit per schedule.
+          If bounce_rate > 3% on any day: freeze at current level for 3 extra days.
+          If bounce_rate > 5%: regress one tier.
+
+        - getDailyBudget(domainId: string): Promise<{ remaining: number, limit: number, sent_today: number }>
+          Counts sends today (sent_at >= start of today in domain timezone).
+          Returns remaining capacity.
+
+        - isWarmupComplete(domainId: string): Promise<boolean>
+          True when warmup_day >= 22 and bounce_rate < 2%.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\cron\domain-warmup\route.ts:
+        GET: Cron endpoint. Processes all active domains. Calls advanceWarmup on each.
+        Verify CRON_SECRET.
+        Should run daily at midnight CT.
+    expected_outputs:
+      - src/lib/admin/warmup-engine.ts
+      - src/app/api/cron/domain-warmup/route.ts
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: sales-004
+    phase: build
+    description: "Create prospect import and management system"
+    prompt: |
+      Create C:\Users\manag\Documents\benavora\src\lib\admin\prospect-manager.ts:
+
+      Export class ProspectManager:
+        - importFromCsv(csvContent: string, listName: string, source: string): Promise<ImportResult>
+          Parses CSV with headers: ein, org_name, org_type, email, website, city, state, zip, annual_revenue, employee_count, ntee_code, subsection_code.
+          For each row:
+            1. Check suppression_list by email. Skip if suppressed.
+            2. Check for duplicate by EIN within the list. Skip if exists.
+            3. Insert into prospects table.
+          Returns { imported, skipped_suppressed, skipped_duplicate, errors }.
+
+        - filterProspects(listId: string, criteria: FilterCriteria): Promise<Prospect[]>
+          FilterCriteria: { states?: string[], min_revenue?: number, max_revenue?: number, ntee_codes?: string[], has_email?: boolean, not_contacted_since?: Date, exclude_replied?: boolean }
+          Returns matching prospects for campaign targeting.
+
+        - suppressProspect(email: string, reason: string, source: string): Promise<void>
+          Adds to suppression_list. Marks prospect as suppressed.
+
+        - getStats(listId?: string): Promise<ProspectStats>
+          Returns: total, with_email, suppressed, contacted, replied, converted, by_state breakdown.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\admin\prospects\route.ts:
+        GET: List prospects with filters. Pagination. Admin only.
+        POST: Import from CSV. Body: multipart form with file upload. Admin only.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\admin\prospects\[id]\route.ts:
+        GET: Get prospect detail.
+        PATCH: Update prospect (status, suppress).
+        DELETE: Suppress and mark inactive.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\admin\prospects\stats\route.ts:
+        GET: Get prospect statistics. Query param: list_id.
+    expected_outputs:
+      - src/lib/admin/prospect-manager.ts
+      - src/app/api/admin/prospects/route.ts
+      - src/app/api/admin/prospects/[id]/route.ts
+      - src/app/api/admin/prospects/stats/route.ts
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: sales-005
+    phase: build
+    description: "Create sales campaign engine with staggered multi-domain sending"
+    prompt: |
+      Read C:\Users\manag\Documents\benavora\src\lib\admin\domain-manager.ts completely.
+      Read C:\Users\manag\Documents\benavora\src\lib\admin\warmup-engine.ts completely.
+      Read C:\Users\manag\Documents\benavora\src\lib\admin\prospect-manager.ts completely.
+
+      Create C:\Users\manag\Documents\benavora\src\lib\admin\sales-campaign-engine.ts:
+
+      Export class SalesCampaignEngine:
+        - createCampaign(config: CampaignConfig): Promise<string>
+          Creates campaign with steps. Returns campaign ID.
+          CampaignConfig: { name, description, list_id, sending_domain_ids, daily_send_target, send_window_start, send_window_end, send_timezone, filter_criteria, steps: Array<{ subject_template, body_template, delay_days }> }
+
+        - scheduleSends(campaignId: string): Promise<{ scheduled: number }>
+          1. Get campaign details and filter criteria.
+          2. Query eligible prospects from list (not suppressed, not already enrolled in this campaign, has email, not contacted within 30 days).
+          3. For each prospect at step 1:
+             a. Calculate send time: random minute within send_window, distributed across sending domains.
+             b. Insert into sales_sends with status = 'queued', scheduled_for = calculated time.
+          4. For prospects at step 2+: schedule based on delay_days from previous send.
+          5. Respect daily_send_target across all domains combined.
+          6. Stagger: no more than 2 emails per minute per domain (human-like sending pattern).
+
+        - processQueuedSends(): Promise<SendBatchResult>
+          1. Query sales_sends WHERE status = 'queued' AND scheduled_for <= NOW() LIMIT 10.
+          2. For each:
+             a. Check domain daily budget via WarmupEngine.getDailyBudget. Skip if exhausted.
+             b. Check suppression list. Skip and mark suppressed if found.
+             c. Render template with prospect variables: {org_name}, {first_name}, {city}, {state}.
+             d. Send via Resend API using the domain's encrypted API key.
+             e. Update: status = 'sent', sent_at = NOW(), resend_message_id.
+             f. Update prospect: last_contacted_at, total_emails_sent++.
+             g. Update domain: total_sent++.
+          3. Random delay 15-45 seconds between sends (human-like).
+          4. Return { sent, failed, skipped_budget, skipped_suppressed }.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\admin\campaigns\route.ts:
+        GET: List all sales campaigns with stats. Admin only.
+        POST: Create campaign with steps. Admin only.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\admin\campaigns\[id]\route.ts:
+        GET: Campaign detail with step stats.
+        PATCH: Update campaign (status, config).
+        POST with action = 'schedule': Schedule next batch of sends.
+        POST with action = 'pause': Pause campaign (mark queued sends as 'cancelled').
+        POST with action = 'resume': Resume paused campaign (re-schedule cancelled sends).
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\cron\sales-sends\route.ts:
+        GET: Cron endpoint. Calls processQueuedSends(). Runs every 5 minutes during send window.
+        Verify CRON_SECRET.
+        Set maxDuration = 120.
+    expected_outputs:
+      - src/lib/admin/sales-campaign-engine.ts
+      - src/app/api/admin/campaigns/route.ts
+      - src/app/api/admin/campaigns/[id]/route.ts
+      - src/app/api/cron/sales-sends/route.ts
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: sales-006
+    phase: build
+    description: "Create auto-unsubscribe parser using Claude agentic system"
+    prompt: |
+      Create C:\Users\manag\Documents\benavora\src\lib\admin\unsubscribe-agent.ts:
+
+      Export class UnsubscribeAgent:
+        The agentic unsubscribe system. When prospects reply to campaign emails, this agent reads the reply and determines if it's an unsubscribe request, a positive response, or neutral.
+
+        - classifyReply(emailBody: string, emailSubject: string): Promise<ReplyClassification>
+          Calls Claude API (lazy init) with:
+          System: "You are analyzing email replies to a sales outreach campaign for a nonprofit SaaS platform. Classify the reply intent. Return ONLY valid JSON: { intent: 'unsubscribe' | 'positive' | 'question' | 'negative' | 'auto_reply' | 'bounce', confidence: number (0-1), reasoning: string }"
+          User: "Subject: {subject}\n\nBody: {body}"
+
+          Unsubscribe signals: "unsubscribe", "remove me", "stop emailing", "not interested", "do not contact", "take me off", explicit opt-out language.
+          Positive signals: "tell me more", "interested", "let's set up a call", "sounds good", pricing inquiries.
+          Auto-reply: out of office, vacation, automatic responses.
+
+        - processIncomingReply(sendId: string, replyBody: string, replySubject: string): Promise<ProcessResult>
+          1. Classify the reply.
+          2. If unsubscribe (confidence > 0.7):
+             a. Add email to suppression_list with reason = 'unsubscribe_reply'.
+             b. Mark prospect as suppressed.
+             c. Cancel all queued future sends for this prospect across ALL campaigns.
+             d. Send confirmation email: "You've been removed from our mailing list. We apologize for the inconvenience."
+             e. Update sales_sends: unsubscribed_at = NOW().
+          3. If positive:
+             a. Mark prospect: has_replied = true.
+             b. Pause campaign sequence for this prospect (don't send more automated emails).
+             c. Create an alert for admin: "Prospect {org_name} replied positively — follow up manually."
+          4. If bounce:
+             a. Update domain bounce stats.
+             b. Mark send as bounced.
+             c. If hard bounce: suppress the email address.
+          5. Log classification and action taken.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\admin\webhooks\email-reply\route.ts:
+        POST: Webhook endpoint for Resend's inbound email webhook.
+        Receives reply events, extracts body/subject, calls processIncomingReply.
+        Verify webhook signature via Resend webhook secret.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\admin\webhooks\email-events\route.ts:
+        POST: Webhook for Resend delivery events (bounced, complained, delivered, opened).
+        Updates sales_sends status accordingly.
+        On bounce: call unsubscribe agent for hard bounces.
+        On complaint: immediately suppress and add to suppression_list.
+    expected_outputs:
+      - src/lib/admin/unsubscribe-agent.ts
+      - src/app/api/admin/webhooks/email-reply/route.ts
+      - src/app/api/admin/webhooks/email-events/route.ts
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: sales-007
+    phase: build
+    description: "Create CAN-SPAM compliance layer"
+    prompt: |
+      Create C:\Users\manag\Documents\benavora\src\lib\admin\compliance.ts:
+
+      Export class EmailComplianceEngine:
+        CAN-SPAM Act compliance enforcement. Every outbound email MUST pass these checks.
+
+        - enforceCompliance(email: { from: string, to: string, subject: string, body_html: string }): ComplianceResult
+          Checks:
+          1. From address uses a real, registered sending domain (not spoofed).
+          2. Subject line is not deceptive (no RE: or FW: prefix on initial outreach).
+          3. Body includes physical mailing address (footer requirement).
+          4. Body includes unsubscribe link: "Unsubscribe: https://benavora.com/unsubscribe?email={encoded_email}&token={token}"
+          5. From name identifies the sender (not anonymous).
+          Returns: { compliant: boolean, violations: string[], modified_body?: string }
+          If not compliant, modified_body auto-adds missing footer/unsubscribe.
+
+        - generateUnsubscribeToken(email: string): string
+          HMAC-SHA256 of email + secret. Used to verify unsubscribe link authenticity.
+
+        - verifyUnsubscribeToken(email: string, token: string): boolean
+          Validates the token matches.
+
+        - getComplianceFooter(fromDomain: string): string
+          Returns the physical address + unsubscribe link HTML for email footer.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\unsubscribe\route.ts:
+        GET: Public unsubscribe page. Shows confirmation: "Are you sure you want to unsubscribe {email}?"
+        POST: Processes unsubscribe. Verifies token. Adds to suppression_list. Shows confirmation page.
+        This is a PUBLIC route — no auth required. The token proves the request is legitimate.
+
+      Update C:\Users\manag\Documents\benavora\src\lib\admin\sales-campaign-engine.ts:
+        Import and call enforceCompliance() before every send in processQueuedSends().
+        If not compliant and auto-fix fails: skip the send and log the violation.
+    expected_outputs:
+      - src/lib/admin/compliance.ts
+      - src/app/api/unsubscribe/route.ts
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: sales-008
+    phase: build
+    description: "Create Sales Outreach admin dashboard UI"
+    prompt: |
+      Create C:\Users\manag\Documents\benavora\src\app\(dashboard)\admin\sales-outreach\page.tsx:
+
+      Admin-only sales outreach dashboard at /admin/sales-outreach.
+      Verify admin access (check user ID against admin auth). Show 403 page if not admin.
+
+      Layout:
+
+      Top row — Stat cards:
+      - Total Prospects (from prospect_lists)
+      - Active Campaigns
+      - Emails Sent Today
+      - Reply Rate (all time)
+      - Bounce Rate (all time)
+      - Unsubscribe Rate
+
+      Tab navigation:
+
+      Tab 1 — Campaigns:
+      - Campaign list table: name, status badge, progress bar (sent/total), reply rate, bounce rate, actions.
+      - "New Campaign" button → creation flow (modal):
+        1. Name + description.
+        2. Select prospect list + filter criteria (state, revenue range, NTEE code, etc.).
+        3. Select sending domains (multi-select from active domains).
+        4. Configure send window (start hour, end hour, timezone, daily target).
+        5. Build email steps (subject + body template with variable insertion + delay).
+        6. Preview with sample prospect data.
+        7. Activate.
+      - Click campaign row → detail view with send-by-send log.
+
+      Tab 2 — Domains:
+      - Domain cards: each showing domain name, warmup progress bar, health indicator (green/yellow/red), daily budget remaining, total sent.
+      - "Add Domain" button → form: domain, Resend API key.
+      - DNS verification status per domain.
+
+      Tab 3 — Prospects:
+      - Filterable table of prospects: org_name, email, state, revenue, status, last contacted, replied.
+      - "Import CSV" button → file upload.
+      - Bulk actions: suppress selected, export filtered list.
+      - Prospect detail slide-over: full info + send history.
+
+      Tab 4 — Suppression List:
+      - Table: email, reason, source, added_at.
+      - "Add Email" button for manual suppression.
+      - "Import Suppression List" for bulk upload.
+      - Search bar.
+
+      Tab 5 — Analytics:
+      - Send volume chart (daily, last 30 days).
+      - Reply rate trend.
+      - Domain performance comparison.
+      - Best performing subject lines.
+      - Best performing send times.
+
+      Add "Sales Outreach" to sidebar with a Megaphone icon, visible only to admin users.
+      Use Tailwind CSS matching existing dashboard styling.
+    expected_outputs:
+      - src/app/(dashboard)/admin/sales-outreach/page.tsx
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: sales-009
+    phase: build
+    description: "Create sales analytics and reporting endpoints"
+    prompt: |
+      Create C:\Users\manag\Documents\benavora\src\app\api\admin\sales-analytics\route.ts:
+        GET: Returns comprehensive sales outreach analytics. Admin only.
+        Query params: period (7d, 30d, 90d, all), campaign_id?
+        Returns:
+        {
+          overview: { total_sent, total_delivered, total_opened, total_replied, total_bounced, total_unsubscribed, total_converted },
+          rates: { delivery_rate, open_rate, reply_rate, bounce_rate, unsubscribe_rate, conversion_rate },
+          by_campaign: [{ id, name, sent, replied, reply_rate, bounce_rate }],
+          by_domain: [{ domain, sent, bounced, bounce_rate, health_status }],
+          by_day: [{ date, sent, replied, bounced }],
+          by_state: [{ state, prospects, contacted, replied }],
+          top_subject_lines: [{ subject, sends, replies, reply_rate }],
+          send_time_performance: [{ hour, sends, replies, reply_rate }]
+        }
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\admin\sales-analytics\export\route.ts:
+        GET: Export sales data as CSV. Admin only.
+        Query params: type (sends | prospects | suppression | campaigns), campaign_id?, period?.
+        Returns CSV file download with appropriate headers.
+    expected_outputs:
+      - src/app/api/admin/sales-analytics/route.ts
+      - src/app/api/admin/sales-analytics/export/route.ts
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: sales-010
+    phase: build
+    description: "Verify full build and update governance for Sales Outreach Engine"
+    prompt: |
+      1. Run pnpm run build and fix ALL errors.
+      2. Run pnpm tsc --noEmit and fix ALL TypeScript errors.
+
+      3. Update C:\Users\manag\Documents\benavora\STATE_OF_THE_BUILD.md:
+         Add section:
+         - Phase 4B Admin Sales Outreach Engine: BUILT
+           - Multi-domain email sender management with Resend API
+           - Automated domain warm-up (5→10→20→50/day ramp with health-based regression)
+           - Prospect import system for 298K nonprofit database (CSV import, dedup, suppression)
+           - Sales campaign builder with staggered multi-domain sending
+           - Auto-unsubscribe parsing via Claude agentic system (reads replies, classifies intent, auto-suppresses)
+           - Bounce handling with hard/soft bounce differentiation
+           - CAN-SPAM compliance layer (physical address, unsubscribe link, deception check)
+           - Global suppression list with import/export
+           - Resend webhook integration for delivery events
+           - Admin-only dashboard at /admin/sales-outreach
+           - Analytics dashboard with domain health, campaign performance, send time optimization
+           - CSV export for all sales data
+           - Migration 055: 6 new tables for sales outreach
+           - Post-run: import 298K prospect CSV, add sending domains with Resend API keys, configure Resend webhooks
+
+      4. Update C:\Users\manag\Documents\benavora\SESSION_STATE.md:
+         - Phase 4B (Admin Sales Outreach Engine) complete
+         - Phase 4 fully complete (Email/Calendar + Sales Outreach)
+         - Next: Test suite, then Intelligence Library Nights 3-7
+    expected_outputs:
+      - STATE_OF_THE_BUILD.md
+      - SESSION_STATE.md
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
