@@ -121,7 +121,139 @@ src/lib/autoapply/pitch-personalizer.ts
 
 **Integration:** FormFillerAgent calls personalizePitch() before filling description/mission/purpose fields instead of using the raw KB mission statement.
 
-### 2C. Batch Intelligence Ordering
+### 2C. Request Profile System
+
+**Priority:** CRITICAL — Core customization layer for multi-tenant platform
+
+**Problem:** AutoApply assumes every submission is a monetary donation request. Nonprofits have diverse needs: cash, land, in-kind goods, volunteer hours, services, partnerships. Faith Foundation needs land donations for Cornerstone Communities AND cash for operations. A food bank needs produce donations AND cold storage equipment AND volunteer drivers. The current single-mode architecture cannot serve the diversity of nonprofit needs.
+
+**Solution:**
+Each organization defines multiple Request Profiles representing distinct needs. The submission engine selects the appropriate profile per funder based on funder capability matching, and personalizes the entire submission accordingly.
+
+**Request Types:**
+- `monetary` — Cash grants, donations, sponsorships (current default)
+- `land` — Property donations, land grants, easements
+- `in_kind` — Physical goods: equipment, materials, supplies, vehicles, food
+- `volunteer` — Time commitments: skilled labor, mentoring, event support
+- `service` — Pro bono professional services: legal, accounting, consulting, construction
+- `partnership` — Co-branded programs, shared initiatives, joint ventures
+- `sponsorship` — Event sponsorship, program sponsorship with branding
+- `facility` — Office space, warehouse, event venues, storage
+
+**Database Schema:**
+```sql
+CREATE TABLE IF NOT EXISTS request_profiles (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  name text NOT NULL,
+  request_type text NOT NULL,
+  priority integer NOT NULL DEFAULT 100,
+  active boolean NOT NULL DEFAULT true,
+  needs_description text NOT NULL,
+  specific_requirements jsonb DEFAULT '{}',
+  target_funder_categories text[],
+  target_funder_types text[],
+  pitch_template text,
+  form_field_overrides jsonb DEFAULT '{}',
+  success_criteria text,
+  min_value numeric(12,2),
+  max_value numeric(12,2),
+  value_unit text DEFAULT 'usd',
+  geographic_requirements jsonb,
+  created_at timestamptz DEFAULT NOW(),
+  updated_at timestamptz DEFAULT NOW()
+);
+
+-- Extended KB entries for non-monetary needs
+CREATE TABLE IF NOT EXISTS kb_extended_needs (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  request_profile_id uuid REFERENCES request_profiles(id) ON DELETE CASCADE,
+  need_type text NOT NULL,
+  details jsonb NOT NULL,
+  created_at timestamptz DEFAULT NOW()
+);
+```
+
+**specific_requirements examples by type:**
+- `land`: `{ "min_acreage": 5, "zoning": ["residential", "mixed-use"], "counties": ["Travis", "Williamson"], "access_requirements": "road frontage, utilities within 500ft", "development_plan": "Cornerstone Community: 20-unit affordable housing" }`
+- `in_kind`: `{ "items": [{"name": "lumber", "quantity": "5000 board feet"}, {"name": "concrete", "quantity": "50 yards"}], "delivery_location": "123 Main St", "timeline": "Q1 2027" }`
+- `volunteer`: `{ "skills_needed": ["carpentry", "electrical", "plumbing"], "hours_per_week": 20, "duration_months": 6, "schedule": "weekdays 8am-4pm" }`
+- `service`: `{ "service_type": "legal", "scope": "501(c)(3) compliance review and property title work", "estimated_hours": 40 }`
+
+**Funder Capability Matching:**
+```
+src/lib/autoapply/funder-matcher.ts
+- Export function matchFunderToProfiles(funder: Funder, profiles: RequestProfile[]): MatchResult[]
+- Matching logic by funder type:
+  - Real estate companies → land, facility profiles
+  - Construction companies → in_kind (materials), volunteer (labor), land
+  - Law firms → service (legal) profiles
+  - Foundations → monetary profiles (primary), in_kind (secondary)
+  - Retail/wholesale → in_kind (goods) profiles
+  - Corporate giving programs → monetary, sponsorship, volunteer
+  - Churches/religious orgs → volunteer, monetary, facility
+- Score each match: 0.0-1.0 based on alignment strength
+- Return ranked list of (profile, score) pairs
+- Only submit if score > 0.5 (configurable threshold)
+```
+
+**FormFillerAgent Enhancement:**
+When filling forms, the agent checks the request_profile attached to the queue item:
+- "Purpose of request" field: uses the profile's needs_description instead of generic mission
+- "Amount" field: uses profile's min/max value range (or amount-optimizer for monetary)
+- "Description" field: uses profile-specific pitch_template, personalized for the funder
+- form_field_overrides: per-profile mapping that overrides default KB-to-form-field mapping
+
+**Auto-Queue Populator Enhancement:**
+When populating the queue:
+1. Load all active request_profiles for the org
+2. For each eligible funder, run funder-matcher to find the best profile match
+3. Tag the queue item with request_profile_id
+4. If no profile matches above threshold, skip the funder
+5. A single funder can be queued multiple times with different profiles (e.g., ask a construction company for both materials AND volunteer labor) — dedup per (funder_id, request_profile_id) pair
+
+**Request Profile Management UI:**
+```
+/autoapply/profiles — Dashboard page
+- List of all request profiles with: name, type, priority, active toggle, target categories
+- "Create Profile" wizard:
+  Step 1: Select request type from dropdown
+  Step 2: Fill type-specific needs form (dynamic fields based on type)
+  Step 3: Set targeting criteria (funder categories, geographic scope)
+  Step 4: Customize pitch template (pre-filled from type defaults, editable)
+  Step 5: Review and activate
+- Edit existing profiles
+- Duplicate profile (for creating variations)
+- Archive/deactivate profiles
+- Per-profile analytics: submissions using this profile, success rate, total value received
+```
+
+**Example: Faith Foundation Configuration:**
+```
+Profile 1: "Operating Funds"
+  type: monetary, needs: "General operating support for faith-based housing programs"
+  target: [private_foundation, corporate_giving, community_foundation]
+  amount: $10,000 - $100,000
+
+Profile 2: "Cornerstone Land Acquisition"  
+  type: land, needs: "5+ acre parcels for Cornerstone Community affordable housing development"
+  target: [real_estate, construction, government, land_trust]
+  requirements: { min_acreage: 5, zoning: [residential, mixed-use], counties: [specific list] }
+  pitch_template: "Faith Foundation is developing Cornerstone Communities — permanently affordable housing..."
+
+Profile 3: "Construction Materials"
+  type: in_kind, needs: "Building materials for 20-unit affordable housing construction"
+  target: [construction, building_supply, hardware]
+  requirements: { items: [lumber, concrete, roofing, plumbing, electrical], timeline: "2027" }
+
+Profile 4: "Skilled Volunteer Labor"
+  type: volunteer, needs: "Licensed contractors and skilled tradespeople for housing builds"
+  target: [construction, trade_unions, churches, community_groups]
+  requirements: { skills: [carpentry, electrical, plumbing], hours: 20/week, duration: 6 months }
+```
+
+### 2D. Batch Intelligence Ordering
 
 **Priority:** MEDIUM-HIGH
 
@@ -430,9 +562,14 @@ These enhancements integrate into the existing phase structure:
 - Charitable solicitation compliance guard (NEW — 6B)
 
 **Phase 3F (Submission Intelligence — NEW PHASE):**
+- Request Profile System — tables, management UI, profile wizard (NEW — 2C)
+- Funder capability matching engine (NEW — 2C)
+- FormFillerAgent request-type awareness (NEW — 2C)
+- Auto-queue populator profile matching (NEW — 2C)
+- Extended KB entries for non-monetary needs (NEW — 2C)
 - Request amount optimization (2A)
-- Submission content personalization (2B)
-- Batch intelligence ordering (2C)
+- Submission content personalization per funder AND per request type (2B)
+- Batch intelligence ordering (2D)
 - Pitch cache table and management
 - Timing optimization (6A)
 

@@ -56,7 +56,16 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Foundations", href: "/foundations", icon: Library },
   { label: "Opportunities", href: "/opportunities", icon: Search },
   { label: "Applications", href: "/applications", icon: KanbanSquare },
-  { label: "AutoApply", href: "/autoapply", icon: Bot },
+  {
+    label: "AutoApply",
+    href: "/autoapply",
+    icon: Bot,
+    children: [
+      { label: "Templates", href: "/autoapply/templates" },
+      { label: "Compliance", href: "/autoapply/compliance" },
+      { label: "Settings", href: "/autoapply/settings" },
+    ],
+  },
   { label: "Draft Generator", href: "/draft-generator", icon: Wand2 },
   { label: "Documents", href: "/documents", icon: FolderOpen },
   { label: "Knowledge Base", href: "/knowledge-base", icon: Brain },
