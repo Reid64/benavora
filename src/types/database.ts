@@ -2685,6 +2685,40 @@ export interface Database {
         };
         Relationships: [];
       };
+      // Migration 052 — webhook_configs (AutoApply webhook notification endpoints per org).
+      webhook_configs: {
+        Row: {
+          id: string;
+          organization_id: string;
+          type: string;
+          webhook_url: string;
+          events: string[];
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          type?: string;
+          webhook_url: string;
+          events?: string[];
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          type?: string;
+          webhook_url?: string;
+          events?: string[];
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       // Migration 051 — request_profiles (Request Profile System, AUTOAPPLY_ARCHITECTURE_V2 §2C).
       request_profiles: {
         Row: {

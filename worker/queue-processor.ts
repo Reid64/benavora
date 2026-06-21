@@ -18,6 +18,8 @@ import { RateLimiter } from './rate-limiter.js';
 import { ProxyManager } from './proxy-manager.js';
 import { quickHealthCheck } from './portal-health.js';
 import { scoreAndReorderQueue } from './batch-scorer.js';
+import { WebhookNotifier } from '../src/lib/autoapply/webhook-notifier.js';
+import { annotateErrorScreenshot } from '../src/lib/autoapply/error-annotator.js';
 
 // --- types -------------------------------------------------------------------
 
@@ -127,6 +129,7 @@ export class QueueProcessor {
   // Cached org readiness reports: orgId → ready flag.
   // Reset on each idle→active transition to re-check after a long pause.
   private readonly orgReadinessCache = new Map<string, boolean>();
+  private readonly webhookNotifier = new WebhookNotifier();
 
   constructor(
     private readonly supabase: SupabaseClient,
@@ -495,6 +498,7 @@ export class QueueProcessor {
     let postSubmitPath: string | null = null;
     let confirmationPath: string | null = null;
     let errorPath: string | null = null;
+    let errorScreenshotBuffer: Buffer | null = null;
     let submissionStatus = 'failed';
     let confirmationNumber: string | null = null;
     let requestDescription: string | null = null;
@@ -681,9 +685,14 @@ export class QueueProcessor {
         this.proxyManager.markFailed(proxy);
       }
 
-      // Best-effort error screenshot while browser may still be open
+      // Best-effort error screenshot while browser may still be open.
+      // Capture as a buffer so the error-annotator can analyze it.
       try {
-        errorPath = await snap('error');
+        const buf = (await page.screenshot({ fullPage: false })) as Buffer;
+        errorScreenshotBuffer = buf;
+        errorPath = await screenshotManager.uploadAndRecord(buf, 'error', {
+          orgId, funderId, submissionId: null, supabase: this.supabase,
+        });
       } catch {
         // Browser already closed — skip error screenshot
       }
@@ -777,6 +786,58 @@ export class QueueProcessor {
         );
       }
 
+      // Webhook notifications — fire-and-forget, never block the queue.
+      if (submissionStatus === 'submitted') {
+        void this.webhookNotifier.notify({
+          orgId,
+          event: 'submission_completed',
+          data: {
+            submissionId: submissionRow.id,
+            funderName,
+            confirmationNumber: confirmationNumber ?? null,
+            requestType: requestProfile?.request_type ?? 'monetary',
+            submittedAt: new Date().toISOString(),
+          },
+          supabase: this.supabase,
+        }).catch((e: unknown) => {
+          console.warn('[QueueProcessor] webhook submission_completed:', e instanceof Error ? e.message : String(e));
+        });
+      } else {
+        void this.webhookNotifier.notify({
+          orgId,
+          event: 'submission_failed',
+          data: {
+            submissionId: submissionRow.id,
+            funderName,
+            errorMessage: errorMessage ?? submissionStatus,
+            status: submissionStatus,
+          },
+          supabase: this.supabase,
+        }).catch((e: unknown) => {
+          console.warn('[QueueProcessor] webhook submission_failed:', e instanceof Error ? e.message : String(e));
+        });
+      }
+
+      // Error annotation — analyze the error screenshot with Claude and store in
+      // autoapply_screenshots.metadata for faster manual triage.
+      if (errorPath !== null && errorScreenshotBuffer !== null) {
+        const capturedErrorPath = errorPath;
+        const capturedBuffer = errorScreenshotBuffer;
+        const capturedMsg = errorMessage ?? submissionStatus;
+        void annotateErrorScreenshot({
+          screenshotBuffer: capturedBuffer,
+          errorMessage: capturedMsg,
+          pageUrl: portalUrl,
+        }).then((annotation) => {
+          return this.supabase
+            .from('autoapply_screenshots')
+            .update({ metadata: { annotation } })
+            .eq('storage_path', capturedErrorPath);
+        }).catch((e: unknown) => {
+          console.warn('[QueueProcessor] annotateErrorScreenshot:', e instanceof Error ? e.message : String(e));
+        });
+      }
+
       // Schedule retry window for retryable error statuses
       if (submissionStatus !== 'submitted') {
         const backoffMs = this.rateLimiter.getBackoffDelay(submissionStatus, 0);
@@ -800,6 +861,7 @@ export class QueueProcessor {
       await this.maybeEnqueueForReview({
         orgId,
         funderId,
+        funderName,
         submissionId: (submission as { id: string }).id,
         reason: submissionStatus,
       }).catch((e: unknown) => {
@@ -823,11 +885,13 @@ export class QueueProcessor {
   private async maybeEnqueueForReview({
     orgId,
     funderId,
+    funderName,
     submissionId,
     reason,
   }: {
     orgId: string;
     funderId: string;
+    funderName: string;
     submissionId: string;
     reason: string;
   }): Promise<void> {
@@ -870,6 +934,15 @@ export class QueueProcessor {
     console.log(
       `[QueueProcessor] Funder ${funderId} has ${failureCount} failures — added to review queue`,
     );
+
+    void this.webhookNotifier.notify({
+      orgId,
+      event: 'review_needed',
+      data: { funderId, funderName, failureCount, reason },
+      supabase: this.supabase,
+    }).catch((e: unknown) => {
+      console.warn('[QueueProcessor] webhook review_needed:', e instanceof Error ? e.message : String(e));
+    });
   }
 
   /**
