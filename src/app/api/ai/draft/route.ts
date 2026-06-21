@@ -186,6 +186,61 @@ function isRateLimited(orgId: string): boolean {
 }
 
 /**
+ * Parse rubric dimensions jsonb into a detailed prompt section and a
+ * client-facing summary. Handles both array-of-objects and keyed-object shapes
+ * that different ingestion pipelines may produce.
+ */
+function buildDetailedRubricSection(rubric: ScoringRubric): {
+  promptText: string;
+  dimensionSummary: Array<{ name: string; points: number | null; description: string | null }>;
+} {
+  const dims = rubric.dimensions;
+  const dimensionSummary: Array<{ name: string; points: number | null; description: string | null }> = [];
+  const lines: string[] = [
+    "SCORING OPTIMIZATION — This grant will be evaluated by reviewers using the following scoring dimensions.",
+    "For each section you write, mentally score it against the relevant dimension. If a section would score below 80% of available points, rewrite it to be more specific and evidence-based.\n",
+  ];
+
+  const processDim = (name: string, val: unknown) => {
+    if (!val || typeof val !== "object" || Array.isArray(val)) {
+      const points = typeof val === "number" ? val : null;
+      dimensionSummary.push({ name, points, description: null });
+      lines.push(`• ${name}${points !== null ? ` (${points} pts)` : ""}`);
+      return;
+    }
+    const d = val as Record<string, unknown>;
+    const points = typeof d.points === "number" ? d.points : null;
+    const description = typeof d.description === "string" ? d.description : null;
+    const deductions = Array.isArray(d.common_deductions)
+      ? (d.common_deductions as string[])
+      : [];
+    dimensionSummary.push({ name, points, description });
+    lines.push(`• ${name}${points !== null ? ` (${points} pts)` : ""}`);
+    if (description) lines.push(`  - Full marks: ${description}`);
+    if (deductions.length > 0) lines.push(`  - Avoid: ${deductions.join("; ")}`);
+  };
+
+  if (Array.isArray(dims)) {
+    for (const item of dims) {
+      if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+      const d = item as Record<string, unknown>;
+      const name = typeof d.name === "string" ? d.name : "Unnamed";
+      processDim(name, {
+        points: d.points,
+        description: d.description,
+        common_deductions: d.common_deductions,
+      });
+    }
+  } else {
+    for (const [name, val] of Object.entries(dims)) {
+      processDim(name, val);
+    }
+  }
+
+  return { promptText: lines.join("\n"), dimensionSummary };
+}
+
+/**
  * Heuristic confidence score (BEHAVIORAL_CONTRACTS §9 / Agent 05). Reflects how
  * much of the draft is grounded in verified data versus AI-generated:
  *   - No Knowledge Base entries available  -> insufficient data (<50, blocks submit)
@@ -524,6 +579,82 @@ export async function POST(request: Request) {
       }
     }
 
+    // Fallback: if no rubric exists in the intelligence library, ask Claude to
+    // infer likely scoring dimensions from the opportunity details. The result is
+    // cached in intelligence_scoring_rubrics so the next call for the same
+    // category finds it in the DB and skips this step.
+    if (!intelligenceRubric) {
+      const oppDesc = ((opportunity.description as string | null) ?? "").slice(0, 800);
+      const oppName = opportunity.name as string;
+      if (oppDesc || oppName) {
+        try {
+          const inferPrompt = [
+            "You are an expert grant reviewer.",
+            "Based on this grant opportunity, infer the most likely scoring dimensions reviewers will use.",
+            "",
+            `Grant: ${oppName}`,
+            `Category: ${context.opportunity.category}`,
+            `Description: ${oppDesc}`,
+            "",
+            "Return ONLY valid JSON (no markdown fences, no explanation):",
+            '{"dimensions":{"Dimension Name":{"points":20,"description":"What earns full marks on this dimension","common_deductions":["vague language","missing data"]}}}',
+            "",
+            "Include 4-6 dimensions appropriate for this grant type and funder category.",
+          ].join("\n");
+          const inferResponse = await callClaude({
+            system:
+              "You are a grant scoring expert. Return only valid JSON, no markdown, no extra text.",
+            prompt: inferPrompt,
+            model,
+            maxTokens: 600,
+          });
+          const jsonMatch = inferResponse.text.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]) as {
+              dimensions?: Record<string, unknown>;
+            };
+            if (
+              parsed.dimensions &&
+              typeof parsed.dimensions === "object" &&
+              !Array.isArray(parsed.dimensions)
+            ) {
+              intelligenceRubric = {
+                id: "inferred",
+                source: "inferred",
+                source_url: null,
+                funder_name: context.opportunity.funderName,
+                grant_program: oppName,
+                category: [context.opportunity.category],
+                dimensions: parsed.dimensions,
+                full_text: null,
+              };
+              // Cache for future calls. Non-fatal if the insert fails.
+              try {
+                await supabase
+                  .from("intelligence_scoring_rubrics")
+                  .insert({
+                    source: "inferred",
+                    grant_program: oppName,
+                    category: [context.opportunity.category],
+                    dimensions: parsed.dimensions as unknown as Json,
+                  });
+              } catch (cacheErr: unknown) {
+                console.error(
+                  "[INTELLIGENCE] Inferred rubric cache failed:",
+                  (cacheErr as Error).message,
+                );
+              }
+            }
+          }
+        } catch (inferErr: unknown) {
+          console.error(
+            "[INTELLIGENCE] Rubric inference failed:",
+            (inferErr as Error).message,
+          );
+        }
+      }
+    }
+
     // Build the prompt: donation letters get their own builder; everything else
     // uses the grant-narrative builder, parameterized by template type.
     const built =
@@ -534,6 +665,11 @@ export async function POST(request: Request) {
     // Augment the prompt with intelligence context. Each block is appended only
     // when the corresponding query returned data, so an empty intelligence
     // library is a no-op and never disrupts the baseline generation flow.
+    let rubricDimensionSummary: Array<{
+      name: string;
+      points: number | null;
+      description: string | null;
+    }> = [];
     let enhancedPrompt = built.prompt;
 
     if (intelligenceSections.length > 0) {
@@ -549,11 +685,9 @@ export async function POST(request: Request) {
     }
 
     if (intelligenceRubric) {
-      const dimensionText = JSON.stringify(intelligenceRubric.dimensions, null, 2);
-      enhancedPrompt +=
-        "\n\nSCORING OPTIMIZATION — The reviewer will score this on the following dimensions: " +
-        dimensionText +
-        ". Optimize every paragraph to maximize score on these criteria.";
+      const { promptText, dimensionSummary } = buildDetailedRubricSection(intelligenceRubric);
+      rubricDimensionSummary = dimensionSummary;
+      enhancedPrompt += "\n\n" + promptText;
     }
 
     if (intelligenceLogicModel) {
@@ -732,12 +866,16 @@ export async function POST(request: Request) {
       }
     }
 
-    const result: DraftResult & { belowThreshold: boolean } = {
+    const result: DraftResult & {
+      belowThreshold: boolean;
+      rubricDimensions?: Array<{ name: string; points: number | null; description: string | null }>;
+    } = {
       content: draftText,
       confidenceScore,
       sources,
       savedVersion,
       belowThreshold: confidenceScore < threshold,
+      rubricDimensions: rubricDimensionSummary.length > 0 ? rubricDimensionSummary : undefined,
     };
 
     return NextResponse.json(result);
