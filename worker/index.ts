@@ -2,6 +2,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import ws from 'ws';
 import * as heartbeat from './heartbeat.js';
 import * as queueProcessor from './queue-processor.js';
+import { StreamServer } from './stream-server.js';
 
 // --- Environment validation ---
 
@@ -109,9 +110,13 @@ process.on('unhandledRejection', (reason: unknown) => {
 // --- Boot sequence ---
 
 async function main(): Promise<void> {
+  const streamPort = parseInt(process.env['PORT'] ?? '8080', 10);
+  const streamServer = new StreamServer(streamPort, supabase);
+  await streamServer.start();
+
   await heartbeat.register(supabase, env.workerId);
   heartbeat.start(supabase, env.workerId);
-  queueProcessor.start(supabase, env.workerId);
+  queueProcessor.start(supabase, env.workerId, streamServer);
 
   console.log(
     `[Worker] AutoApply Worker started — id=${env.workerId} at ${new Date().toISOString()}`,

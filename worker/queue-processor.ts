@@ -26,6 +26,7 @@ import { submitViaEmail } from '../src/lib/autoapply/email-submitter.js';
 import { QueueControlPlane } from '../src/lib/autoapply/queue-controls.js';
 import { UsageMeter } from '../src/lib/autoapply/usage-meter.js';
 import type { ReadinessReport } from '../src/lib/autoapply/submission-validator.js';
+import type { StreamServer } from './stream-server.js';
 
 // --- types -------------------------------------------------------------------
 
@@ -145,6 +146,7 @@ export class QueueProcessor {
   constructor(
     private readonly supabase: SupabaseClient,
     private readonly workerId: string,
+    private readonly streamServer?: StreamServer,
   ) {
     this.credentialManager = new CredentialManager(supabase);
   }
@@ -787,6 +789,21 @@ export class QueueProcessor {
     const stealthBrowser = new StealthBrowser({ headless: true });
     const { browser, page } = await stealthBrowser.launch({ proxy: proxy ?? undefined });
 
+    const submissionStartedAt = Date.now();
+    const hasViewers = this.streamServer !== undefined && this.streamServer.getViewerCount(orgId) > 0;
+    const broadcastStep = (step: string): void => {
+      if (hasViewers && this.streamServer !== undefined) {
+        this.streamServer.broadcastStatus(orgId, { step, funderName, elapsed: Date.now() - submissionStartedAt });
+      }
+    };
+    if (hasViewers) {
+      await stealthBrowser.startScreencast((frame) => {
+        this.streamServer!.broadcastFrame(orgId, frame);
+      }).catch((e: unknown) => {
+        console.warn('[QueueProcessor] startScreencast failed:', e instanceof Error ? e.message : String(e));
+      });
+    }
+
     // Screenshot manager tracks all captures for this submission and back-fills
     // submission_id once the autoapply_submissions record is created.
     const screenshotManager = new ScreenshotManager();
@@ -812,6 +829,7 @@ export class QueueProcessor {
     let confirmationData: ConfirmationData | null = null;
 
     try {
+      broadcastStep('Analyzing form');
       // Analyze the form if no cached template or template is stale
       if (needsReanalysis) {
         let analyzeResult: { id: string; fieldCount: number };
@@ -906,6 +924,7 @@ export class QueueProcessor {
 
       // For cached templates the FormAnalyzerAgent was skipped, so navigate now.
       if (!needsReanalysis) {
+        broadcastStep('Loading portal');
         await page.goto(portalUrl!, { waitUntil: 'domcontentloaded', timeout: 30_000 });
         // Capture page state immediately after navigation
         pageLoadPath = await snap('page_load');
@@ -917,6 +936,7 @@ export class QueueProcessor {
       // Capture page state after login (the portal form, ready to be filled)
       preFillPath = await snap('pre_fill');
 
+      broadcastStep('Checking for CAPTCHA');
       // CAPTCHA detection and solving before form filling
       const captchaDetection = await this.captchaSolver.detectCaptcha(page);
       if (captchaDetection !== null && captchaDetection.type !== null) {
@@ -936,6 +956,7 @@ export class QueueProcessor {
         console.log(`[QueueProcessor] CAPTCHA solution injected for ${captchaDetection.type}`);
       }
 
+      broadcastStep('Filling form');
       // Fill and submit the form, passing request profile (with personalized pitch injected)
       const filler = new FormFillerAgent(this.supabase, stealthBrowser);
       const fillResult = await filler.fillAndSubmit({
@@ -949,6 +970,7 @@ export class QueueProcessor {
       confirmationNumber = fillResult.confirmationNumber;
       requestDescription = fillResult.requestDescription;
       submissionStatus = 'submitted';
+      broadcastStep('Capturing confirmation');
 
       // Parse the confirmation page for structured data (confirmation number, next steps, etc.)
       confirmationData = await parseConfirmationPage(page).catch((e: unknown) => {
@@ -1002,6 +1024,9 @@ export class QueueProcessor {
         // Browser already closed — skip error screenshot
       }
     } finally {
+      if (hasViewers) {
+        await stealthBrowser.stopScreencast().catch(() => {});
+      }
       try {
         await browser.close();
       } catch {
@@ -1368,8 +1393,8 @@ export class QueueProcessor {
 
 let _processor: QueueProcessor | null = null;
 
-export function start(supabase: SupabaseClient, workerId: string): void {
-  _processor = new QueueProcessor(supabase, workerId);
+export function start(supabase: SupabaseClient, workerId: string, streamServer?: StreamServer): void {
+  _processor = new QueueProcessor(supabase, workerId, streamServer);
   _processor.start();
 }
 

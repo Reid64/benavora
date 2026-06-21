@@ -18,7 +18,7 @@
 
 import { chromium } from "playwright-extra";
 import StealthPlugin from "puppeteer-extra-plugin-stealth";
-import type { Browser, BrowserContext, Page } from "playwright";
+import type { Browser, BrowserContext, Page, CDPSession } from "playwright";
 
 // Apply stealth (spoofs navigator.webdriver, fake plugins, hides automation
 // flags) once at module load.
@@ -299,6 +299,8 @@ export interface StealthSession {
 export class StealthBrowser {
   private readonly headless: boolean;
   private _lastFingerprint: ContextFingerprint | null = null;
+  private _page: Page | null = null;
+  private _cdpSession: CDPSession | null = null;
 
   constructor(options: StealthBrowserOptions = {}) {
     this.headless = options.headless ?? true;
@@ -380,6 +382,7 @@ export class StealthBrowser {
     });
 
     const page = await context.newPage();
+    this._page = page;
     return { browser, page, context, fingerprint };
   }
 
@@ -390,6 +393,31 @@ export class StealthBrowser {
    */
   getContextFingerprint(): ContextFingerprint | null {
     return this._lastFingerprint;
+  }
+
+  // --- CDP screencast --------------------------------------------------------
+
+  async startScreencast(callback: (frame: Buffer) => void): Promise<void> {
+    if (this._page === null) throw new Error('Browser not launched');
+    const cdp = await this._page.context().newCDPSession(this._page);
+    this._cdpSession = cdp;
+    await cdp.send('Page.startScreencast', {
+      format: 'jpeg',
+      quality: 40,
+      maxWidth: 960,
+      maxHeight: 540,
+      everyNthFrame: 3,
+    });
+    cdp.on('Page.screencastFrame', (params: any) => {
+      callback(Buffer.from(params.data as string, 'base64'));
+      cdp.send('Page.screencastFrameAck', { sessionId: params.sessionId as number }).catch(() => {});
+    });
+  }
+
+  async stopScreencast(): Promise<void> {
+    if (this._cdpSession === null) return;
+    await this._cdpSession.send('Page.stopScreencast');
+    this._cdpSession = null;
   }
 
   // --- human behavior helpers (instance methods) -----------------------------
