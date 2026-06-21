@@ -64,6 +64,9 @@ export class RateLimiter {
       case 'captcha_blocked':
         console.log(`[RateLimiter] Backoff for captcha_blocked: no auto-retry`);
         return -1;
+      case 'captcha_failed':
+        console.log(`[RateLimiter] Backoff for captcha_failed: no auto-retry`);
+        return -1;
       case 'account_required':
         console.log(`[RateLimiter] Backoff for account_required: no auto-retry`);
         return -1;

@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { StealthBrowser } from '../src/lib/autoapply/stealth-browser.js';
 import { FormAnalyzerAgent } from '../src/lib/autoapply/form-analyzer-agent.js';
 import { FormFillerAgent } from '../src/lib/autoapply/form-filler-agent.js';
+import { CaptchaSolver } from '../src/lib/autoapply/captcha-solver.js';
 import * as heartbeat from './heartbeat.js';
 import { RateLimiter } from './rate-limiter.js';
 import { ProxyManager } from './proxy-manager.js';
@@ -47,6 +48,7 @@ class SkipError extends Error {
 }
 
 function classifyError(message: string): string {
+  if (/^captcha_failed/.test(message)) return 'captcha_failed';
   const lower = message.toLowerCase();
   if (/captcha|recaptcha|hcaptcha/.test(lower)) return 'captcha_blocked';
   if (/login|sign\s+in|account/.test(lower)) return 'account_required';
@@ -97,6 +99,7 @@ export class QueueProcessor {
   private processing = false;
   private readonly idleResolvers: Array<() => void> = [];
   private readonly rateLimiter = new RateLimiter();
+  private readonly captchaSolver = new CaptchaSolver();
   private readonly proxyManager = new ProxyManager({
     provider: process.env['PROXY_PROVIDER'] ?? 'static',
     apiKey: process.env['PROXY_API_KEY'] ?? '',
@@ -347,10 +350,34 @@ export class QueueProcessor {
 
       const template = templateRow as Record<string, unknown>;
 
-      // Pre-submit screenshot: page is on the portal after FormAnalyzerAgent ran
+      // For cached templates the FormAnalyzerAgent was skipped, so navigate now.
+      if (!needsReanalysis) {
+        await page.goto(portalUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+      }
+
+      // Pre-submit screenshot: page is on the portal
       const preBuffer = await page.screenshot({ fullPage: false });
       const prePath = `${orgId}/${funderId}/${Date.now()}_pre_submit.png`;
       preSubmitUrl = await uploadScreenshot(this.supabase, preBuffer, prePath);
+
+      // CAPTCHA detection and solving before form filling
+      const captchaDetection = await this.captchaSolver.detectCaptcha(page);
+      if (captchaDetection !== null && captchaDetection.type !== null) {
+        const hasApiKey = Boolean(process.env['TWOCAPTCHA_API_KEY']);
+        if (!hasApiKey) {
+          console.log(`[QueueProcessor] CAPTCHA detected: ${captchaDetection.type}, no solver configured`);
+          throw new Error('captcha_blocked');
+        }
+
+        console.log(`[QueueProcessor] CAPTCHA detected: ${captchaDetection.type}, solving...`);
+        const token = await this.captchaSolver.solveCaptcha(captchaDetection, page);
+        if (token === null) {
+          throw new Error(`captcha_failed: solve returned null for ${captchaDetection.type}`);
+        }
+
+        await this.captchaSolver.injectSolution(page, captchaDetection, token);
+        console.log(`[QueueProcessor] CAPTCHA solution injected for ${captchaDetection.type}`);
+      }
 
       // Fill and submit the form
       const filler = new FormFillerAgent(this.supabase, stealthBrowser);
