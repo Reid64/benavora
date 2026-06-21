@@ -34,6 +34,7 @@ const MENU_LINKS = [
   { label: "Billing", href: "/billing" },
   { label: "Onboarding", href: "/onboarding" },
   { label: "Audit Log", href: "/admin/audit-log" },
+  { label: "AutoApply Ops", href: "/admin/autoapply-ops" },
 ];
 
 /** Up-to-two-letter initials from the org name, falling back to the email. */
