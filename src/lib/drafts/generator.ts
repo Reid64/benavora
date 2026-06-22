@@ -19,6 +19,8 @@ import {
   type ScoringRubric,
   type LogicModel,
 } from "@/lib/intelligence/rag-retrieval";
+import { NeedStatementEngine } from "@/lib/intelligence/need-statement-engine";
+import type { NeedDataPoint } from "@/lib/intelligence/sources/types";
 import {
   generateLogicModel,
   formatLogicModelAsText,
@@ -427,6 +429,7 @@ export async function generateDraft(
   let intelligenceSections: IntelligenceResult[] = [];
   let intelligenceRubric: ScoringRubric | null = null;
   let intelligenceLogicModel: LogicModel | null = null;
+  let needDataPoints: NeedDataPoint[] = [];
 
   const oppDescLower = (
     (opportunity.description as string | null) ?? ""
@@ -455,6 +458,12 @@ export async function generateDraft(
       .join(" ");
 
     const sectionTypes = TEMPLATE_SECTION_TYPES[templateType];
+
+    // Templates that include a need statement benefit from live government data.
+    const needsNeedData =
+      templateType === "grant_narrative" ||
+      templateType === "letter_of_inquiry" ||
+      templateType === "full_proposal";
 
     try {
       [intelligenceSections, intelligenceRubric, intelligenceLogicModel] =
@@ -490,6 +499,28 @@ export async function generateDraft(
               )
             : Promise.resolve(null),
         ]);
+
+      // Gather need data for the org's service area when the template includes
+      // a need statement section. Non-blocking: a failure returns empty array.
+      if (needsNeedData && org?.service_area) {
+        const serviceArea = (org.service_area as string).trim();
+        // Derive state from a "City, ST" or "County, ST" or plain "ST" pattern
+        const statePart = serviceArea.split(',').pop()?.trim() ?? serviceArea;
+        if (statePart.length >= 2) {
+          needDataPoints = await new NeedStatementEngine()
+            .gatherNeedData(
+              { state: statePart },
+              [], // empty = all categories
+            )
+            .catch((e: unknown) => {
+              console.error(
+                "[INTELLIGENCE] gatherNeedData failed:",
+                (e as Error).message,
+              );
+              return [] as NeedDataPoint[];
+            });
+        }
+      }
     } catch (e: unknown) {
       console.error(
         "[INTELLIGENCE] RAG retrieval failed:",
@@ -644,6 +675,21 @@ export async function generateDraft(
       buildDetailedRubricSection(intelligenceRubric);
     rubricDimensionSummary = dimensionSummary;
     enhancedPrompt += "\n\n" + promptText;
+  }
+
+  if (needDataPoints.length > 0) {
+    const dataTable = needDataPoints
+      .slice(0, 20) // cap to avoid bloating the context window
+      .map(
+        (d) =>
+          `- ${d.metric}: ${d.value.toLocaleString()} (${d.geography}, ${d.year}) [Citation: ${d.citation}]`,
+      )
+      .join("\n");
+    enhancedPrompt +=
+      "\n\nNEED STATEMENT DATA — These statistics are sourced from authoritative government databases for the organization's service area. " +
+      "When writing the need statement section, use these figures with the provided citations. " +
+      "Do NOT fabricate statistics not present here. Include parenthetical citations (e.g., 'U.S. Census Bureau ACS, 2022') after each statistic.\n\n" +
+      dataTable;
   }
 
   if (generatedLogicModel) {
