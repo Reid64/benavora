@@ -83,7 +83,7 @@ export function TemplateSelector({
     <div
       role="radiogroup"
       aria-label="Draft template type"
-      className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3"
+      className="grid grid-cols-2 gap-2 sm:grid-cols-3"
     >
       {TEMPLATE_OPTIONS.map((option) => {
         const Icon = option.icon;
@@ -97,7 +97,7 @@ export function TemplateSelector({
             disabled={disabled}
             onClick={() => onChange(option.value)}
             className={cn(
-              "flex flex-col items-start gap-2 rounded-xl border p-4 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60",
+              "flex flex-col items-start gap-1.5 rounded-xl border p-3 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60",
               selected
                 ? "border-teal-500 bg-teal-50 ring-1 ring-teal-500"
                 : "border-navy-200 bg-white hover:border-navy-300 hover:bg-navy-50",
@@ -105,13 +105,13 @@ export function TemplateSelector({
           >
             <span
               className={cn(
-                "flex h-9 w-9 items-center justify-center rounded-lg",
+                "flex h-8 w-8 items-center justify-center rounded-lg",
                 selected
                   ? "bg-teal-600 text-white"
                   : "bg-navy-100 text-navy-500",
               )}
             >
-              <Icon className="h-5 w-5" aria-hidden />
+              <Icon className="h-4 w-4" aria-hidden />
             </span>
             <span className="text-sm font-semibold text-navy-900">
               {option.label}

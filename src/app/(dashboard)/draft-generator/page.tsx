@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { AlertTriangle, RefreshCw, Sparkles, Wand2 } from "lucide-react";
+import { AlertTriangle, Check, Clipboard, Download, Mail as MailIcon, RefreshCw, Sparkles, Wand2 } from "lucide-react";
 
 import {
   Badge,
@@ -97,6 +97,80 @@ function parseSources(value: Json | null): KnowledgeSource[] {
   return out;
 }
 
+// --- Section parsing & scoring ---
+type DraftSection = { name: string; text: string };
+
+function parseDraftSections(text: string): DraftSection[] {
+  const sections: DraftSection[] = [];
+  let currentName = "";
+  let currentLines: string[] = [];
+
+  for (const line of text.split("\n")) {
+    const mdHeader = line.match(/^#{1,3}\s+(.+)/);
+    const capsHeader = line.match(/^([A-Z][A-Z\s\-]{5,}):?\s*$/);
+    const header = mdHeader?.[1]?.trim() ?? capsHeader?.[1]?.trim();
+
+    if (header) {
+      if (currentLines.some((l) => l.trim()) && currentName) {
+        sections.push({ name: currentName, text: currentLines.join("\n") });
+      }
+      currentName = header;
+      currentLines = [];
+    } else {
+      currentLines.push(line);
+    }
+  }
+  if (currentLines.some((l) => l.trim()) && currentName) {
+    sections.push({ name: currentName, text: currentLines.join("\n") });
+  }
+  return sections.slice(0, 10);
+}
+
+function scoreSectionText(sectionText: string): { score: number; gaps: number; words: number } {
+  const words = (sectionText.match(/\b\w+\b/g) ?? []).length;
+  const gaps = (sectionText.match(/\[NEEDS INPUT/gi) ?? []).length;
+  if (words < 5) return { score: 0, gaps, words };
+  let score = 90;
+  score -= gaps * 8;
+  if (words < 50) score -= 10;
+  if (words < 20) score -= 10;
+  return { score: Math.max(5, Math.min(100, score)), gaps, words };
+}
+
+function sectionSuggestion(score: number, gaps: number): string {
+  if (gaps > 0) return `Fill ${gaps} input gap${gaps !== 1 ? "s" : ""} to complete this section`;
+  if (score >= 80) return "Well-developed section";
+  if (score >= 60) return "Expand with specific outcomes or evidence";
+  return "Needs development — add concrete details";
+}
+
+// --- Readability metrics ---
+function countSyllables(word: string): number {
+  const w = word.toLowerCase().replace(/[^a-z]/g, "");
+  if (w.length <= 3) return 1;
+  const trimmed = w.replace(/e$/, "");
+  const vowelGroups = trimmed.match(/[aeiouy]+/g);
+  return Math.max(1, vowelGroups?.length ?? 1);
+}
+
+type ReadabilityMetrics = { gradeLevel: number; passivePercent: number; wordCount: number };
+
+function computeReadabilityMetrics(text: string): ReadabilityMetrics | null {
+  const sentences = text.split(/[.!?]+/).filter((s) => s.trim().length > 5);
+  const words = text.match(/\b[a-zA-Z']+\b/g) ?? [];
+  if (words.length < 10 || sentences.length < 2) return null;
+
+  const syllables = words.reduce((sum, w) => sum + countSyllables(w), 0);
+  const avgWords = words.length / sentences.length;
+  const avgSyllables = syllables / words.length;
+  const gradeLevel = Math.max(1, Math.min(20, 0.39 * avgWords + 11.8 * avgSyllables - 15.59));
+
+  const passiveMatches = (text.match(/\b(was|were|been|being|is|are|am|be)\s+\w+(?:ed|en)\b/gi) ?? []).length;
+  const passivePercent = Math.min(100, (passiveMatches / sentences.length) * 100);
+
+  return { gradeLevel, passivePercent, wordCount: words.length };
+}
+
 /** Map a draft_versions row to the shape the history panel + editor consume. */
 function mapVersion(row: Tables<"draft_versions">): DraftVersionItem {
   return {
@@ -167,6 +241,7 @@ export default function DraftGeneratorPage() {
 
   const [saving, setSaving] = useState(false);
   const [reverting, setReverting] = useState(false);
+  const [copiedToClipboard, setCopiedToClipboard] = useState(false);
 
   const [versions, setVersions] = useState<DraftVersionItem[]>([]);
   const [versionsLoading, setVersionsLoading] = useState(false);
@@ -289,6 +364,42 @@ export default function DraftGeneratorPage() {
     () => programs.map((p) => ({ value: p.id, label: p.name })),
     [programs],
   );
+
+  const sections = useMemo(() => parseDraftSections(draftText), [draftText]);
+  const readability = useMemo(() => computeReadabilityMetrics(draftText), [draftText]);
+
+  function handleCopyToClipboard() {
+    if (!navigator.clipboard) return;
+    void navigator.clipboard.writeText(draftText)
+      .then(() => {
+        setCopiedToClipboard(true);
+        setTimeout(() => setCopiedToClipboard(false), 2000);
+      })
+      .catch(() => undefined);
+  }
+
+  function handleDownloadTxt() {
+    const blob = new Blob([draftText], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "draft.txt";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function handleDownloadPdf() {
+    const win = window.open("", "_blank");
+    if (!win) return;
+    const escaped = draftText.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    win.document.write(
+      `<!DOCTYPE html><html><head><title>Draft</title><style>body{font-family:Georgia,serif;line-height:1.7;max-width:820px;margin:48px auto;padding:0 24px;white-space:pre-wrap;font-size:12pt}@media print{body{margin:0}}</style></head><body>${escaped}</body></html>`,
+    );
+    win.document.close();
+    win.print();
+  }
 
   const canGenerate =
     Boolean(
@@ -726,6 +837,81 @@ export default function DraftGeneratorPage() {
                     readOnly={!editable}
                     label="Generated draft"
                   />
+
+                  {readability && (
+                    <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-navy-100 pt-3">
+                      <span
+                        className={
+                          "inline-flex items-center rounded-md px-2 py-1 text-xs font-medium " +
+                          (readability.gradeLevel >= 10 && readability.gradeLevel <= 12
+                            ? "bg-green-100 text-green-800"
+                            : "bg-yellow-100 text-yellow-800")
+                        }
+                      >
+                        Grade {readability.gradeLevel.toFixed(1)} reading level
+                      </span>
+                      <span
+                        className={
+                          "inline-flex items-center rounded-md px-2 py-1 text-xs font-medium " +
+                          (readability.passivePercent <= 15
+                            ? "bg-green-100 text-green-800"
+                            : "bg-yellow-100 text-yellow-800")
+                        }
+                      >
+                        {readability.passivePercent.toFixed(0)}% passive voice
+                      </span>
+                      <span className="inline-flex items-center rounded-md bg-navy-100 px-2 py-1 text-xs font-medium text-navy-700">
+                        {readability.wordCount.toLocaleString()} words
+                      </span>
+                      <span className="ml-auto text-xs text-navy-400">
+                        Ideal: Grade 10–12, &lt;15% passive
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-navy-100 pt-3">
+                    <button
+                      type="button"
+                      onClick={handleCopyToClipboard}
+                      disabled={!draftText.trim()}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-navy-200 bg-white px-3 py-1.5 text-xs font-medium text-navy-700 transition hover:bg-navy-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {copiedToClipboard ? (
+                        <Check className="h-3.5 w-3.5 text-green-600" aria-hidden />
+                      ) : (
+                        <Clipboard className="h-3.5 w-3.5" aria-hidden />
+                      )}
+                      {copiedToClipboard ? "Copied!" : "Copy to clipboard"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDownloadTxt}
+                      disabled={!draftText.trim()}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-navy-200 bg-white px-3 py-1.5 text-xs font-medium text-navy-700 transition hover:bg-navy-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <Download className="h-3.5 w-3.5" aria-hidden />
+                      Download .txt
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDownloadPdf}
+                      disabled={!draftText.trim()}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-navy-200 bg-white px-3 py-1.5 text-xs font-medium text-navy-700 transition hover:bg-navy-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <Download className="h-3.5 w-3.5" aria-hidden />
+                      Download PDF
+                    </button>
+                    <button
+                      type="button"
+                      disabled
+                      title="Connect Gmail to enable"
+                      className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-lg border border-navy-200 bg-white px-3 py-1.5 text-xs font-medium text-navy-400 opacity-50"
+                    >
+                      <MailIcon className="h-3.5 w-3.5" aria-hidden />
+                      Email draft
+                    </button>
+                    <span className="text-xs text-navy-400">Connect Gmail to enable email</span>
+                  </div>
                 </Card>
               </div>
 
@@ -774,6 +960,52 @@ export default function DraftGeneratorPage() {
                 <Card title="Sources used">
                   <KnowledgePreview sources={sources} />
                 </Card>
+
+                {sections.length > 0 && (
+                  <Card title="Section scores">
+                    <div className="space-y-1.5">
+                      {sections.map((section, i) => {
+                        const { score, gaps, words } = scoreSectionText(section.text);
+                        const bg =
+                          score >= 80
+                            ? "bg-green-50 border border-green-200"
+                            : score >= 60
+                              ? "bg-yellow-50 border border-yellow-200"
+                              : "bg-red-50 border border-red-200";
+                        const scoreColor =
+                          score >= 80
+                            ? "text-green-700"
+                            : score >= 60
+                              ? "text-yellow-700"
+                              : "text-red-700";
+                        return (
+                          <div key={i} className={"rounded-lg px-2.5 py-2 " + bg}>
+                            <div className="flex items-center justify-between gap-2">
+                              <span
+                                className="min-w-0 truncate text-xs font-semibold text-navy-800"
+                                title={section.name}
+                              >
+                                {section.name}
+                              </span>
+                              <div className="flex shrink-0 items-center gap-1.5">
+                                <span className="text-xs text-navy-400">{words}w</span>
+                                <span className={"text-xs font-bold " + scoreColor}>
+                                  {score}/100
+                                </span>
+                              </div>
+                            </div>
+                            {score < 80 && (
+                              <p className="mt-0.5 text-xs leading-snug text-navy-500">
+                                {sectionSuggestion(score, gaps)}
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </Card>
+                )}
+
                 <RubricPanel rubric={rubric} rubricInferred={rubricInferred} />
                 {logicModel && (
                   <Card
