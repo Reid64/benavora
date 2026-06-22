@@ -24,7 +24,7 @@ type DraftQueueStatus =
   | "pending"
   | "generating"
   | "generated"
-  | "in_review"
+  | "review"
   | "approved"
   | "rejected"
   | "submitted"
@@ -92,7 +92,7 @@ const STATUS_BADGE: Record<
   pending: { label: "Pending", color: "gray" },
   generating: { label: "Generating", color: "teal" },
   generated: { label: "Generated", color: "navy" },
-  in_review: { label: "In Review", color: "yellow" },
+  review: { label: "In Review", color: "yellow" },
   approved: { label: "Approved", color: "green" },
   rejected: { label: "Rejected", color: "red" },
   submitted: { label: "Submitted", color: "purple" },
@@ -110,7 +110,7 @@ const STATUS_FILTER_OPTIONS = [
   { value: "pending", label: "Pending" },
   { value: "generating", label: "Generating" },
   { value: "generated", label: "Generated" },
-  { value: "in_review", label: "In Review" },
+  { value: "review", label: "In Review" },
   { value: "approved", label: "Approved" },
   { value: "rejected", label: "Rejected" },
   { value: "submitted", label: "Submitted" },
@@ -721,7 +721,7 @@ export default function DraftQueuePage() {
                       </td>
                       <td className="py-2.5">
                         <div className="flex items-center gap-1.5">
-                          {(st === "generated" || st === "in_review") && (
+                          {(st === "generated" || st === "review") && (
                             <ActionButton
                               icon={<Eye className="h-3.5 w-3.5" aria-hidden />}
                               label="Review"
@@ -734,7 +734,7 @@ export default function DraftQueuePage() {
                               }
                             />
                           )}
-                          {(st === "generated" || st === "in_review") && (
+                          {(st === "generated" || st === "review") && (
                             <ActionButton
                               icon={<CheckCircle className="h-3.5 w-3.5" aria-hidden />}
                               label="Approve"
@@ -743,7 +743,7 @@ export default function DraftQueuePage() {
                               onClick={() => handleApprove(item.id)}
                             />
                           )}
-                          {(st === "generated" || st === "in_review" || st === "approved") && (
+                          {(st === "generated" || st === "review" || st === "approved") && (
                             <ActionButton
                               icon={<XCircle className="h-3.5 w-3.5" aria-hidden />}
                               label="Reject"
