@@ -113,10 +113,7 @@ export default function DocumentsPage() {
       )}
 
       {editable && profile && (
-        <Card
-          title="Upload a document"
-          description="Drag and drop a file, choose a category, then upload."
-        >
+        <Card>
           <DocumentUploader
             organizationId={profile.organization_id}
             uploadedBy={profile.id}

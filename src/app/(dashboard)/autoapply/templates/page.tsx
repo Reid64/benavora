@@ -5,10 +5,13 @@ import Link from "next/link";
 import {
   ArrowLeft,
   CheckCircle2,
+  ChevronDown,
+  ChevronRight,
   ExternalLink,
   FileSearch,
   FlaskConical,
   Loader2,
+  Plus,
   RefreshCw,
   Save,
   SkipForward,
@@ -17,7 +20,7 @@ import {
 
 import { Badge } from "@/components/ui/Badge";
 import type { BadgeColor } from "@/components/ui/Badge";
-import { Button, Card, EmptyState, Modal } from "@/components/ui";
+import { Button, Card, EmptyState, Modal, SearchBar } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 import type { Json } from "@/types/database";
 
@@ -57,13 +60,25 @@ interface TemplateRow {
   funders: { name: string } | null;
 }
 
-// Editable representation for the modal
 interface EditableField extends FormField {
   mapped_kb_field: string;
   skip: boolean;
 }
 
-type FilterKey = "all" | "stale" | "has_errors" | "recently_changed";
+interface PortalVersionGroup {
+  portalUrl: string;
+  templates: TemplateRow[];
+  primary: TemplateRow;
+}
+
+interface FunderGroup {
+  key: string;
+  funderName: string;
+  funderId: string | null;
+  portals: PortalVersionGroup[];
+}
+
+type HealthFilter = "all" | "healthy" | "stale" | "errors";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -102,6 +117,14 @@ const KB_FIELD_OPTIONS: { value: string; label: string }[] = [
 ];
 
 const STALE_DAYS = 7;
+const OUTDATED_DAYS = 30;
+
+const HEALTH_FILTERS: { key: HealthFilter; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "healthy", label: "Healthy" },
+  { key: "stale", label: "Stale" },
+  { key: "errors", label: "Errors" },
+];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -136,19 +159,85 @@ function hasErrors(tpl: TemplateRow): boolean {
   return !tpl.form_structure || countFields(tpl.form_structure) === 0;
 }
 
-function recentlyChanged(tpl: TemplateRow): boolean {
-  const daysAgo = (Date.now() - new Date(tpl.updated_at).getTime()) / 86_400_000;
-  return daysAgo <= STALE_DAYS;
-}
-
 function truncateUrl(url: string, max = 48): string {
   return url.length <= max ? url : url.slice(0, max) + "…";
 }
 
-function staleStatusBadge(tpl: TemplateRow): { color: BadgeColor; label: string } {
+function extractDomain(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url.slice(0, 30);
+  }
+}
+
+function groupTemplates(templates: TemplateRow[]): FunderGroup[] {
+  const funderMap = new Map<string, {
+    name: string;
+    funderId: string | null;
+    portalMap: Map<string, TemplateRow[]>;
+  }>();
+
+  for (const tpl of templates) {
+    const funderKey = tpl.funder_id ?? `domain:${extractDomain(tpl.portal_url)}`;
+    const funderName = tpl.funders?.name ?? extractDomain(tpl.portal_url);
+
+    if (!funderMap.has(funderKey)) {
+      funderMap.set(funderKey, {
+        name: funderName,
+        funderId: tpl.funder_id,
+        portalMap: new Map(),
+      });
+    }
+
+    const funder = funderMap.get(funderKey)!;
+    if (!funder.portalMap.has(tpl.portal_url)) {
+      funder.portalMap.set(tpl.portal_url, []);
+    }
+    funder.portalMap.get(tpl.portal_url)!.push(tpl);
+  }
+
+  const groups: FunderGroup[] = [];
+  for (const [key, funder] of funderMap) {
+    const portals: PortalVersionGroup[] = [];
+    for (const [portalUrl, tpls] of funder.portalMap) {
+      const first = tpls[0];
+      if (!first) continue;
+      portals.push({ portalUrl, templates: tpls, primary: first });
+    }
+    if (portals.length > 0) {
+      groups.push({
+        key,
+        funderName: funder.name,
+        funderId: funder.funderId,
+        portals,
+      });
+    }
+  }
+  return groups;
+}
+
+function healthBadge(tpl: TemplateRow): { color: BadgeColor; label: string } {
   if (hasErrors(tpl)) return { color: "red", label: "No fields" };
-  if (isStale(tpl)) return { color: "yellow", label: "Stale" };
-  return { color: "teal", label: "Current" };
+  if (!tpl.last_verified_at) return { color: "red", label: "Unverified" };
+  const daysAgo =
+    (Date.now() - new Date(tpl.last_verified_at).getTime()) / 86_400_000;
+  if (daysAgo <= STALE_DAYS) return { color: "teal", label: "Verified" };
+  if (daysAgo <= OUTDATED_DAYS) return { color: "yellow", label: "Stale" };
+  return { color: "red", label: "Outdated" };
+}
+
+function coverageBadge(tpl: TemplateRow): { color: BadgeColor; label: string } {
+  const total = countFields(tpl.form_structure);
+  if (total === 0) return { color: "gray", label: "0 fields" };
+  const mapping = parseFieldMapping(tpl.field_mapping);
+  const mapped = Object.values(mapping).filter(
+    (v) => v && v !== "__skip__",
+  ).length;
+  if (mapped >= total) return { color: "teal", label: `${total}/${total} fields` };
+  if (mapped === 0) return { color: "red", label: `0/${total} fields` };
+  const pct = Math.round((mapped / total) * 100);
+  return { color: "yellow", label: `${mapped}/${total} (${pct}%)` };
 }
 
 // Build editable fields array by merging form_structure + field_mapping
@@ -204,8 +293,11 @@ export default function FormTemplatesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [filter, setFilter] = useState<FilterKey>("all");
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [search, setSearch] = useState("");
+  const [healthFilter, setHealthFilter] = useState<HealthFilter>("all");
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [expandedVersions, setExpandedVersions] = useState<Set<string>>(new Set());
+
   const [bulkReanalyzing, setBulkReanalyzing] = useState(false);
   const [bulkResult, setBulkResult] = useState<string | null>(null);
 
@@ -218,7 +310,6 @@ export default function FormTemplatesPage() {
   const [reanalyzeDiff, setReanalyzeDiff] = useState<FieldDiff[] | null>(null);
   const [reanalyzeError, setReanalyzeError] = useState<string | null>(null);
 
-  // Test modal state
   const [testTemplate, setTestTemplate] = useState<TemplateRow | null>(null);
   const [testRunning, setTestRunning] = useState(false);
   const [testResult, setTestResult] = useState<{
@@ -250,13 +341,46 @@ export default function FormTemplatesPage() {
   }, [load]);
 
   const filtered = useMemo(() => {
-    switch (filter) {
-      case "stale": return templates.filter(isStale);
-      case "has_errors": return templates.filter(hasErrors);
-      case "recently_changed": return templates.filter(recentlyChanged);
-      default: return templates;
+    let result = templates;
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      result = result.filter(
+        (t) =>
+          (t.funders?.name ?? "").toLowerCase().includes(q) ||
+          t.portal_url.toLowerCase().includes(q),
+      );
     }
-  }, [templates, filter]);
+    switch (healthFilter) {
+      case "healthy":
+        return result.filter((t) => !hasErrors(t) && !isStale(t));
+      case "stale":
+        return result.filter(isStale);
+      case "errors":
+        return result.filter(hasErrors);
+      default:
+        return result;
+    }
+  }, [templates, search, healthFilter]);
+
+  const groups = useMemo(() => groupTemplates(filtered), [filtered]);
+
+  function toggleGroup(key: string) {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  function toggleVersions(key: string) {
+    setExpandedVersions((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
 
   function openDetail(tpl: TemplateRow) {
     setDetailTemplate(tpl);
@@ -322,7 +446,6 @@ export default function FormTemplatesPage() {
       if (err) throw err;
       setSaveSuccess(true);
       await load();
-      // Refresh the local template reference
       setDetailTemplate((prev) =>
         prev
           ? {
@@ -357,7 +480,6 @@ export default function FormTemplatesPage() {
         return;
       }
       await load();
-      // Load refreshed template for diff
       const supabase = createClient();
       const { data } = await supabase
         .from("form_templates")
@@ -395,7 +517,9 @@ export default function FormTemplatesPage() {
       });
       if (res.ok) {
         await load();
-        setBulkResult(`Re-analyzed ${funderIds.length} stale template${funderIds.length !== 1 ? "s" : ""}.`);
+        setBulkResult(
+          `Re-analyzed ${funderIds.length} stale template${funderIds.length !== 1 ? "s" : ""}.`,
+        );
       } else {
         const err = (await res.json().catch(() => ({}))) as { error?: string };
         setBulkResult(err.error ?? "Re-analysis failed.");
@@ -446,7 +570,9 @@ export default function FormTemplatesPage() {
         fieldValues: json.fieldValues ?? {},
       });
     } catch {
-      setTestError("Could not connect to the test runner. Make sure you are on the Railway worker environment.");
+      setTestError(
+        "Could not connect to the test runner. Make sure you are on the Railway worker environment.",
+      );
     } finally {
       setTestRunning(false);
     }
@@ -459,32 +585,7 @@ export default function FormTemplatesPage() {
     openDetail(tpl);
   }
 
-  function toggleSelect(id: string) {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-
-  function toggleSelectAll() {
-    if (selectedIds.size === filtered.length && filtered.length > 0) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(filtered.map((t) => t.id)));
-    }
-  }
-
   const staleCount = templates.filter(isStale).length;
-  const allSelected = filtered.length > 0 && selectedIds.size === filtered.length;
-
-  const FILTERS: { key: FilterKey; label: string }[] = [
-    { key: "all", label: `All (${templates.length})` },
-    { key: "stale", label: `Stale >${STALE_DAYS}d (${staleCount})` },
-    { key: "has_errors", label: `Errors (${templates.filter(hasErrors).length})` },
-    { key: "recently_changed", label: `Recent (${templates.filter(recentlyChanged).length})` },
-  ];
 
   return (
     <div className="space-y-6">
@@ -508,19 +609,48 @@ export default function FormTemplatesPage() {
             Cached portal form structures and field mappings. Edit mappings to improve submission accuracy.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          {staleCount > 0 && (
-            <Button
-              variant="secondary"
-              onClick={() => void handleBulkReanalyze()}
-              isLoading={bulkReanalyzing}
-              disabled={bulkReanalyzing}
-            >
-              <RefreshCw className="mr-1.5 h-4 w-4" />
-              Re-analyze All Stale ({staleCount})
-            </Button>
-          )}
+      </div>
+
+      {/* Top bar */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="min-w-48 flex-1">
+          <SearchBar
+            onSearch={setSearch}
+            placeholder="Search funders or portal URLs…"
+            aria-label="Search templates"
+          />
         </div>
+        <div className="flex gap-1 rounded-lg border border-navy-200 bg-navy-50 p-1">
+          {HEALTH_FILTERS.map(({ key, label }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setHealthFilter(key)}
+              className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
+                healthFilter === key
+                  ? "bg-white text-navy-900 shadow-sm"
+                  : "text-navy-500 hover:text-navy-700"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {staleCount > 0 && (
+          <Button
+            variant="secondary"
+            onClick={() => void handleBulkReanalyze()}
+            isLoading={bulkReanalyzing}
+            disabled={bulkReanalyzing}
+          >
+            <RefreshCw className="mr-1.5 h-4 w-4" />
+            Re-analyze Stale ({staleCount})
+          </Button>
+        )}
+        <Button variant="secondary">
+          <Plus className="mr-1.5 h-4 w-4" />
+          Add Portal
+        </Button>
       </div>
 
       {bulkResult && (
@@ -532,188 +662,313 @@ export default function FormTemplatesPage() {
         </div>
       )}
 
-      {/* Filter bar */}
-      <div className="flex gap-1 rounded-lg border border-navy-200 bg-navy-50 p-1">
-        {FILTERS.map(({ key, label }) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => setFilter(key)}
-            className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
-              filter === key
-                ? "bg-white text-navy-900 shadow-sm"
-                : "text-navy-500 hover:text-navy-700"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {/* Templates table */}
-      <Card noPadding>
-        <div className="overflow-x-auto">
-          {error ? (
-            <div className="p-6 text-sm text-red-500">{error}</div>
-          ) : loading ? (
-            <div className="flex items-center gap-2 p-6 text-sm text-navy-400">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Loading templates…
-            </div>
-          ) : filtered.length === 0 ? (
-            <div className="p-6">
-              <EmptyState
-                icon={FileSearch}
-                title="No templates"
-                description={
-                  filter === "all"
-                    ? 'Run "Analyze Forms" on queued funders to generate form templates.'
-                    : "No templates match this filter."
-                }
-              />
-            </div>
-          ) : (
-            <table className="min-w-full divide-y divide-navy-100 text-sm">
-              <thead>
-                <tr className="bg-navy-50">
-                  <th className="w-10 px-4 py-3">
-                    <input
-                      type="checkbox"
-                      checked={allSelected}
-                      onChange={toggleSelectAll}
-                      className="rounded border-navy-300 text-teal-600 focus:ring-teal-500"
-                      aria-label="Select all"
-                    />
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
-                    Funder
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
-                    Portal URL
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
-                    Fields
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
-                    Status
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
-                    Last Verified
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
-                    Last Used
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
-                    Flags
-                  </th>
-                  <th className="px-4 py-3" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-navy-100 bg-white">
-                {filtered.map((tpl) => {
-                  const { color, label } = staleStatusBadge(tpl);
-                  return (
-                    <tr
-                      key={tpl.id}
-                      className="cursor-pointer hover:bg-navy-50"
-                      onClick={() => openDetail(tpl)}
-                    >
-                      <td
-                        className="px-4 py-3"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedIds.has(tpl.id)}
-                          onChange={() => toggleSelect(tpl.id)}
-                          className="rounded border-navy-300 text-teal-600 focus:ring-teal-500"
-                          aria-label={`Select ${tpl.funders?.name ?? "template"}`}
-                        />
-                      </td>
-                      <td className="px-4 py-3 font-medium text-navy-900">
-                        {tpl.funders?.name ?? <span className="text-navy-400">—</span>}
-                      </td>
-                      <td className="max-w-xs px-4 py-3">
-                        <a
-                          href={tpl.portal_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="flex items-center gap-1 text-teal-500 hover:underline"
-                        >
-                          <span className="truncate">{truncateUrl(tpl.portal_url)}</span>
-                          <ExternalLink className="h-3 w-3 shrink-0" />
-                        </a>
-                      </td>
-                      <td className="px-4 py-3 text-navy-600">
-                        {countFields(tpl.form_structure)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <Badge color={color}>{label}</Badge>
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-navy-400">
-                        {tpl.last_verified_at
-                          ? new Date(tpl.last_verified_at).toLocaleDateString()
-                          : "—"}
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-navy-400">
-                        {tpl.last_used_at
-                          ? new Date(tpl.last_used_at).toLocaleDateString()
-                          : "—"}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-wrap gap-1">
-                          {tpl.requires_login && (
-                            <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
-                              Login
-                            </span>
-                          )}
-                          {tpl.requires_file_upload && (
-                            <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
-                              Files
-                            </span>
-                          )}
-                          {tpl.is_multi_step && (
-                            <span className="inline-flex items-center rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">
-                              Multi-step
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-1.5">
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openTestModal(tpl);
-                            }}
-                            title="Test this template with a dry run"
-                          >
-                            <FlaskConical className="mr-1 h-3.5 w-3.5" />
-                            Test
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openDetail(tpl);
-                            }}
-                          >
-                            Edit
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
+      {/* Funder cards */}
+      {error ? (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-500">
+          {error}
         </div>
-      </Card>
+      ) : loading ? (
+        <div className="flex items-center gap-2 py-6 text-sm text-navy-400">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading templates…
+        </div>
+      ) : groups.length === 0 ? (
+        <Card noPadding>
+          <div className="p-6">
+            <EmptyState
+              icon={FileSearch}
+              title="No templates"
+              description={
+                healthFilter === "all" && !search
+                  ? 'Run "Analyze Forms" on queued funders to generate form templates.'
+                  : "No templates match this filter."
+              }
+            />
+          </div>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {groups.map((group) => {
+            const primaryPortal = group.portals[0];
+            if (!primaryPortal) return null;
+            const primaryTpl = primaryPortal.primary;
+            const health = healthBadge(primaryTpl);
+            const coverage = coverageBadge(primaryTpl);
+            const isExpanded = expandedGroups.has(group.key);
+            const mappedCount = Object.values(
+              parseFieldMapping(primaryTpl.field_mapping),
+            ).filter((v) => v && v !== "__skip__").length;
+
+            return (
+              <div
+                key={group.key}
+                className="overflow-hidden rounded-xl border border-navy-200 bg-white shadow-sm"
+              >
+                {/* Card header — click to expand */}
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(group.key)}
+                  className="flex w-full items-start gap-3 px-5 py-4 text-left transition hover:bg-navy-50/50"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-semibold text-navy-900">
+                        {group.funderName}
+                      </span>
+                      <Badge color={health.color}>{health.label}</Badge>
+                      <Badge color={coverage.color}>{coverage.label}</Badge>
+                      {group.portals.length > 1 && (
+                        <span className="text-xs text-navy-400">
+                          {group.portals.length} portals
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-1 flex items-center gap-1">
+                      <a
+                        href={primaryPortal.portalUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex items-center gap-1 text-xs text-teal-500 hover:underline"
+                      >
+                        <span className="max-w-xs truncate">
+                          {truncateUrl(primaryPortal.portalUrl)}
+                        </span>
+                        <ExternalLink className="h-3 w-3 shrink-0" />
+                      </a>
+                    </div>
+                    <div className="mt-1 flex flex-wrap gap-x-2 text-xs text-navy-500">
+                      <span>{mappedCount} fields mapped</span>
+                      <span>·</span>
+                      <span>
+                        Verified{" "}
+                        {primaryTpl.last_verified_at
+                          ? new Date(primaryTpl.last_verified_at).toLocaleDateString()
+                          : "never"}
+                      </span>
+                      {primaryPortal.templates.length > 1 && (
+                        <>
+                          <span>·</span>
+                          <span>{primaryPortal.templates.length} cached versions</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Flags */}
+                  <div className="flex shrink-0 items-center gap-1.5 pt-0.5">
+                    {primaryTpl.requires_login && (
+                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+                        Login
+                      </span>
+                    )}
+                    {primaryTpl.requires_file_upload && (
+                      <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+                        Files
+                      </span>
+                    )}
+                    {primaryTpl.is_multi_step && (
+                      <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">
+                        Multi-step
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Action buttons */}
+                  <div className="flex shrink-0 items-center gap-2 pt-0.5">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openTestModal(primaryTpl);
+                      }}
+                    >
+                      <FlaskConical className="mr-1 h-3.5 w-3.5" />
+                      Test
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openDetail(primaryTpl);
+                      }}
+                    >
+                      Edit
+                    </Button>
+                    <ChevronDown
+                      className={`h-4 w-4 text-navy-400 transition-transform ${
+                        isExpanded ? "rotate-180" : ""
+                      }`}
+                    />
+                  </div>
+                </button>
+
+                {/* Expanded content */}
+                {isExpanded && (
+                  <div className="border-t border-navy-100">
+                    {group.portals.map((portal) => {
+                      const versionsKey = `${group.key}:${portal.portalUrl}`;
+                      const versionsExpanded = expandedVersions.has(versionsKey);
+                      const fields = parseFormStructure(portal.primary.form_structure);
+                      const mapping = parseFieldMapping(portal.primary.field_mapping);
+                      const portalHealth = healthBadge(portal.primary);
+                      const portalCoverage = coverageBadge(portal.primary);
+
+                      return (
+                        <div
+                          key={portal.portalUrl}
+                          className="border-b border-navy-50 px-5 py-4 last:border-b-0"
+                        >
+                          {/* Per-portal header (only shown when funder has multiple portals) */}
+                          {group.portals.length > 1 && (
+                            <div className="mb-3 flex flex-wrap items-center gap-2">
+                              <a
+                                href={portal.portalUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-1 text-xs text-teal-500 hover:underline"
+                              >
+                                <span className="truncate">
+                                  {truncateUrl(portal.portalUrl)}
+                                </span>
+                                <ExternalLink className="h-3 w-3 shrink-0" />
+                              </a>
+                              <Badge color={portalHealth.color}>
+                                {portalHealth.label}
+                              </Badge>
+                              <Badge color={portalCoverage.color}>
+                                {portalCoverage.label}
+                              </Badge>
+                            </div>
+                          )}
+
+                          {/* Field mappings preview table */}
+                          {fields.length === 0 ? (
+                            <p className="mb-3 text-sm text-navy-400">
+                              No fields detected — click Edit and then Re-Analyze to scan the portal form.
+                            </p>
+                          ) : (
+                            <div className="mb-3 overflow-x-auto rounded-lg border border-navy-200">
+                              <table className="min-w-full divide-y divide-navy-100 text-xs">
+                                <thead>
+                                  <tr className="bg-navy-50">
+                                    <th className="px-3 py-2 text-left font-medium uppercase tracking-wide text-navy-500">
+                                      Field
+                                    </th>
+                                    <th className="px-3 py-2 text-left font-medium uppercase tracking-wide text-navy-500">
+                                      Type
+                                    </th>
+                                    <th className="px-3 py-2 text-left font-medium uppercase tracking-wide text-navy-500">
+                                      KB Mapping
+                                    </th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-navy-100 bg-white">
+                                  {fields.map((f) => (
+                                    <tr key={f.name}>
+                                      <td className="px-3 py-1.5 font-medium text-navy-800">
+                                        {f.name}
+                                        {f.required && (
+                                          <span className="ml-1 text-red-400" aria-hidden>
+                                            *
+                                          </span>
+                                        )}
+                                      </td>
+                                      <td className="px-3 py-1.5">
+                                        <span className="rounded bg-navy-100 px-1.5 py-0.5 font-mono text-navy-600">
+                                          {f.type}
+                                        </span>
+                                      </td>
+                                      <td className="px-3 py-1.5 font-mono text-navy-500">
+                                        {mapping[f.name] === "__skip__" ? (
+                                          <span className="text-navy-400">skipped</span>
+                                        ) : mapping[f.name] ? (
+                                          String(mapping[f.name])
+                                        ) : (
+                                          <span className="text-red-400">not mapped</span>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+
+                          {/* Actions */}
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => openTestModal(portal.primary)}
+                            >
+                              <FlaskConical className="mr-1 h-3.5 w-3.5" />
+                              Test
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => openDetail(portal.primary)}
+                            >
+                              Edit Mappings
+                            </Button>
+                          </div>
+
+                          {/* Version history */}
+                          {portal.templates.length > 1 && (
+                            <div className="mt-3">
+                              <button
+                                type="button"
+                                onClick={() => toggleVersions(versionsKey)}
+                                className="flex items-center gap-1.5 text-xs text-navy-500 hover:text-navy-700"
+                              >
+                                <ChevronRight
+                                  className={`h-3.5 w-3.5 transition-transform ${
+                                    versionsExpanded ? "rotate-90" : ""
+                                  }`}
+                                />
+                                {portal.templates.length} cached versions
+                              </button>
+                              {versionsExpanded && (
+                                <div className="mt-2 space-y-1">
+                                  {portal.templates.map((tpl, idx) => (
+                                    <div
+                                      key={tpl.id}
+                                      className="flex items-center gap-3 rounded-lg bg-navy-50 px-3 py-2 text-xs text-navy-600"
+                                    >
+                                      <span className="text-navy-400">
+                                        v{portal.templates.length - idx}
+                                      </span>
+                                      <span>
+                                        {new Date(tpl.updated_at).toLocaleString()}
+                                      </span>
+                                      <span className="text-navy-300">·</span>
+                                      <span>
+                                        {countFields(tpl.form_structure)} fields
+                                      </span>
+                                      {idx === 0 && (
+                                        <span className="ml-auto rounded-full bg-teal-100 px-2 py-0.5 text-teal-700">
+                                          current
+                                        </span>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Test Template Modal */}
       <Modal
@@ -738,9 +993,7 @@ export default function FormTemplatesPage() {
                 {testRunning ? "Running…" : "Run Dry Test"}
               </Button>
               {testResult && (
-                <span className="text-xs text-navy-400">
-                  Screenshot captured
-                </span>
+                <span className="text-xs text-navy-400">Screenshot captured</span>
               )}
             </div>
             <div className="flex gap-2">
@@ -765,7 +1018,6 @@ export default function FormTemplatesPage() {
       >
         {testTemplate && (
           <div className="space-y-4">
-            {/* Portal URL */}
             <div className="flex items-center gap-2 rounded-lg border border-navy-100 bg-navy-50 px-4 py-3">
               <ExternalLink className="h-4 w-4 shrink-0 text-navy-400" />
               <a
@@ -787,7 +1039,6 @@ export default function FormTemplatesPage() {
               </div>
             )}
 
-            {/* Field mapping preview */}
             {!testResult && !testRunning && (
               <div>
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-navy-500">
@@ -840,7 +1091,6 @@ export default function FormTemplatesPage() {
               </div>
             )}
 
-            {/* Running spinner */}
             {testRunning && (
               <div className="flex items-center justify-center gap-3 rounded-lg border border-navy-200 py-12">
                 <Loader2 className="h-6 w-6 animate-spin text-teal-500" />
@@ -850,10 +1100,8 @@ export default function FormTemplatesPage() {
               </div>
             )}
 
-            {/* Results */}
             {testResult && (
               <div className="space-y-4">
-                {/* Resolved field values */}
                 <div>
                   <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-navy-500">
                     Resolved Values
@@ -888,7 +1136,6 @@ export default function FormTemplatesPage() {
                   </div>
                 </div>
 
-                {/* Screenshot */}
                 {testResult.screenshotDataUrl && (
                   <div>
                     <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-navy-500">
@@ -966,7 +1213,6 @@ export default function FormTemplatesPage() {
       >
         {detailTemplate && (
           <div className="space-y-4">
-            {/* Alerts */}
             {saveError && (
               <div
                 role="alert"
@@ -993,28 +1239,37 @@ export default function FormTemplatesPage() {
               </div>
             )}
 
-            {/* Re-analyze diff */}
             {reanalyzeDiff !== null && (
               <div className="rounded-lg border border-navy-200 bg-navy-50 p-4">
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-navy-500">
                   Re-analysis Changes
                 </p>
                 {reanalyzeDiff.length === 0 ? (
-                  <p className="text-sm text-navy-500">No changes detected — template is up to date.</p>
+                  <p className="text-sm text-navy-500">
+                    No changes detected — template is up to date.
+                  </p>
                 ) : (
                   <ul className="space-y-1">
                     {reanalyzeDiff.map((d, i) => (
                       <li key={i} className="flex items-center gap-2 text-sm">
                         {d.change === "added" && (
-                          <span className="rounded-full bg-teal-100 px-2 py-0.5 text-xs text-teal-700">+added</span>
+                          <span className="rounded-full bg-teal-100 px-2 py-0.5 text-xs text-teal-700">
+                            +added
+                          </span>
                         )}
                         {d.change === "removed" && (
-                          <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-700">−removed</span>
+                          <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-700">
+                            −removed
+                          </span>
                         )}
                         {d.change === "changed" && (
-                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">~changed</span>
+                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">
+                            ~changed
+                          </span>
                         )}
-                        <code className="font-mono text-xs text-navy-700">{d.name}</code>
+                        <code className="font-mono text-xs text-navy-700">
+                          {d.name}
+                        </code>
                         {d.change === "changed" && (
                           <span className="text-navy-400">
                             {d.before ?? "—"} → {d.after ?? "—"}
@@ -1027,7 +1282,6 @@ export default function FormTemplatesPage() {
               </div>
             )}
 
-            {/* Meta row */}
             <div className="flex flex-wrap gap-4 rounded-lg border border-navy-100 bg-navy-50 px-4 py-3 text-xs text-navy-500">
               <span>
                 <span className="font-medium text-navy-700">Multi-step:</span>{" "}
@@ -1049,7 +1303,6 @@ export default function FormTemplatesPage() {
               </span>
             </div>
 
-            {/* Fields table */}
             {editableFields.length === 0 ? (
               <div className="rounded-lg border border-navy-100 px-4 py-6 text-center text-sm text-navy-400">
                 No field structure detected. Click "Re-Analyze" to scan the portal form.
@@ -1139,7 +1392,11 @@ export default function FormTemplatesPage() {
                                 ? "bg-navy-200 text-navy-500 hover:bg-navy-300"
                                 : "text-navy-300 hover:bg-navy-100 hover:text-navy-600"
                             }`}
-                            title={f.skip ? "Click to un-skip" : "Skip this field (AutoApply will ignore it)"}
+                            title={
+                              f.skip
+                                ? "Click to un-skip"
+                                : "Skip this field (AutoApply will ignore it)"
+                            }
                           >
                             {f.skip ? (
                               <X className="h-3.5 w-3.5" />

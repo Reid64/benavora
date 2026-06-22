@@ -2,9 +2,9 @@
 
 import { useRef, useState } from "react";
 import type { DragEvent } from "react";
-import { UploadCloud, FileUp, Loader2 } from "lucide-react";
+import { FileUp, UploadCloud, X } from "lucide-react";
 
-import { Button, Input, Select } from "@/components/ui";
+import { Button } from "@/components/ui";
 import { recordAudit } from "@/lib/audit/client";
 import { createClient } from "@/lib/supabase/client";
 import { DOCUMENT_CATEGORIES, MAX_UPLOAD_BYTES } from "@/lib/utils/constants";
@@ -37,7 +37,7 @@ function sanitizeFileName(name: string): string {
 }
 
 /**
- * Drag-and-drop document upload (BLUEPRINT §4.6, Behavioral Contracts §7).
+ * Compact drag-and-drop document upload (BLUEPRINT §4.6, Behavioral Contracts §7).
  *
  * Uploads go to the org's Storage bucket `org-{organizationId}` at
  * `{category}/{timestamp}_{filename}` using the session-bound browser client,
@@ -198,7 +198,8 @@ export function DocumentUploader({
   const maxMb = Math.round(MAX_UPLOAD_BYTES / (1024 * 1024));
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
+      {/* Compact drag-drop zone */}
       <div
         onDragOver={(e) => {
           e.preventDefault();
@@ -216,29 +217,47 @@ export function DocumentUploader({
           }
         }}
         className={[
-          "flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-10 text-center transition",
+          "flex cursor-pointer items-center gap-3 rounded-lg border-2 border-dashed px-4 py-3 transition",
           isDragging
             ? "border-teal-400 bg-teal-50"
             : "border-navy-300 bg-navy-50/50 hover:border-navy-400",
         ].join(" ")}
       >
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-navy-100">
-          <UploadCloud className="h-6 w-6 text-navy-400" aria-hidden />
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-navy-100">
+          {file ? (
+            <FileUp className="h-4 w-4 text-teal-500" aria-hidden />
+          ) : (
+            <UploadCloud className="h-4 w-4 text-navy-400" aria-hidden />
+          )}
         </div>
-        {file ? (
-          <p className="mt-4 flex items-center gap-2 text-sm font-medium text-navy-900">
-            <FileUp className="h-4 w-4 text-teal-600" aria-hidden />
-            {file.name}
-          </p>
-        ) : (
-          <>
-            <p className="mt-4 text-sm font-medium text-navy-900">
-              Drag and drop a file, or click to browse
+        <div className="min-w-0 flex-1">
+          {file ? (
+            <p className="truncate text-sm font-medium text-navy-900">
+              {file.name}
             </p>
-            <p className="mt-1 text-xs text-navy-500">
-              PDF, DOC, DOCX, JPG, PNG, XLS, XLSX, TXT · up to {maxMb} MB
-            </p>
-          </>
+          ) : (
+            <>
+              <p className="text-sm font-medium text-navy-900">
+                Drag &amp; drop or click to browse
+              </p>
+              <p className="text-xs text-navy-500">
+                PDF, DOC, DOCX, JPG, PNG, XLS, XLSX, TXT · up to {maxMb} MB
+              </p>
+            </>
+          )}
+        </div>
+        {file && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              selectFile(null);
+            }}
+            className="shrink-0 rounded p-1 text-navy-400 hover:bg-navy-100 hover:text-navy-600"
+            aria-label="Remove selected file"
+          >
+            <X className="h-4 w-4" aria-hidden />
+          </button>
         )}
         <input
           ref={inputRef}
@@ -249,50 +268,55 @@ export function DocumentUploader({
         />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Select
-          label="Category"
-          required
-          placeholder="Select a category"
-          options={CATEGORY_OPTIONS}
+      {/* Controls row: category | expiration | description | upload */}
+      <div className="flex flex-wrap items-center gap-2">
+        <select
           value={category}
           onChange={(e) => setCategory(e.target.value as DocumentCategory)}
-        />
-        <Input
-          label="Expiration date"
+          aria-label="Category"
+          className="rounded-md border border-navy-200 bg-white px-2.5 py-1.5 text-xs text-navy-700 focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+        >
+          <option value="">Category *</option>
+          {CATEGORY_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+        <input
           type="date"
           value={expirationDate}
           onChange={(e) => setExpirationDate(e.target.value)}
-          helperText="Optional - for docs that expire (tax letters, insurance)."
+          aria-label="Expiration date"
+          title="Expiration date (optional)"
+          className="rounded-md border border-navy-200 bg-white px-2.5 py-1.5 text-xs text-navy-700 focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
         />
+        <input
+          type="text"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Optional note"
+          className="min-w-0 flex-1 rounded-md border border-navy-200 bg-white px-2.5 py-1.5 text-xs text-navy-700 placeholder:text-navy-400 focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+        />
+        <Button
+          size="sm"
+          onClick={() => void handleUpload()}
+          disabled={uploading || !file}
+          isLoading={uploading}
+        >
+          {!uploading && <UploadCloud className="h-3.5 w-3.5" aria-hidden />}
+          Upload
+        </Button>
       </div>
-
-      <Input
-        label="Description"
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-        placeholder="Optional note about this document"
-      />
 
       {error && (
         <div
           role="alert"
-          className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+          className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700"
         >
           {error}
         </div>
       )}
-
-      <div className="flex justify-end">
-        <Button onClick={handleUpload} disabled={uploading || !file}>
-          {uploading ? (
-            <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-          ) : (
-            <UploadCloud className="h-4 w-4" aria-hidden />
-          )}
-          Upload document
-        </Button>
-      </div>
     </div>
   );
 }
