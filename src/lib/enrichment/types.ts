@@ -1,7 +1,10 @@
 export type enrichment_source =
   | "propublica"
+  | "irs_990"
   | "irs_990_xml"
   | "irs_990_index"
+  | "web_search"
+  | "website_scrape"
   | "candid"
   | "manual";
 
