@@ -4306,6 +4306,48 @@ export interface Database {
         };
         Relationships: [];
       };
+      platform_admins: {
+        Row: {
+          id: string;
+          user_id: string;
+          email: string;
+          full_name: string;
+          platform_role: Database["public"]["Enums"]["platform_role"];
+          permissions: Database["public"]["Enums"]["staff_permission"][];
+          is_active: boolean;
+          last_login_at: string | null;
+          invited_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          email: string;
+          full_name: string;
+          platform_role?: Database["public"]["Enums"]["platform_role"];
+          permissions?: Database["public"]["Enums"]["staff_permission"][];
+          is_active?: boolean;
+          last_login_at?: string | null;
+          invited_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          email?: string;
+          full_name?: string;
+          platform_role?: Database["public"]["Enums"]["platform_role"];
+          permissions?: Database["public"]["Enums"]["staff_permission"][];
+          is_active?: boolean;
+          last_login_at?: string | null;
+          invited_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -4323,6 +4365,16 @@ export interface Database {
     };
     Enums: {
       user_role: "owner" | "admin" | "writer" | "viewer";
+      platform_role: "platform_owner" | "staff_admin" | "staff_support" | "staff_readonly";
+      staff_permission:
+        | "tenant_view" | "tenant_manage" | "tenant_impersonate"
+        | "billing_view" | "billing_manage"
+        | "feature_flags_view" | "feature_flags_manage"
+        | "staff_view" | "staff_manage"
+        | "queue_view" | "queue_manage" | "queue_emergency_stop"
+        | "analytics_view" | "error_view" | "error_resolve"
+        | "sales_outreach_view" | "sales_outreach_manage"
+        | "system_health_view" | "audit_log_view";
       funder_category:
         | "corporate_donation"
         | "corporate_sponsorship"
