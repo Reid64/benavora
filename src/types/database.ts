@@ -3701,6 +3701,151 @@ export interface Database {
         };
         Relationships: [];
       };
+      // Migration 057 — draft_queue and draft_automation_config (autonomous draft generation pipeline).
+      draft_queue: {
+        Row: {
+          id: string;
+          organization_id: string;
+          opportunity_id: string;
+          application_id: string | null;
+          status: Database["public"]["Enums"]["draft_queue_status"] | null;
+          trigger_reason: Database["public"]["Enums"]["draft_trigger"];
+          template_type: string;
+          priority: number | null;
+          draft_id: string | null;
+          confidence_score: number | null;
+          gap_count: number | null;
+          word_count: number | null;
+          auto_generated_at: string | null;
+          reviewed_by: string | null;
+          reviewed_at: string | null;
+          review_notes: string | null;
+          approved_at: string | null;
+          rejected_reason: string | null;
+          submitted_to_autoapply_at: string | null;
+          deadline_date: string | null;
+          scheduled_for: string | null;
+          error_message: string | null;
+          retry_count: number | null;
+          max_retries: number | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          opportunity_id: string;
+          application_id?: string | null;
+          status?: Database["public"]["Enums"]["draft_queue_status"] | null;
+          trigger_reason?: Database["public"]["Enums"]["draft_trigger"];
+          template_type?: string;
+          priority?: number | null;
+          draft_id?: string | null;
+          confidence_score?: number | null;
+          gap_count?: number | null;
+          word_count?: number | null;
+          auto_generated_at?: string | null;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          review_notes?: string | null;
+          approved_at?: string | null;
+          rejected_reason?: string | null;
+          submitted_to_autoapply_at?: string | null;
+          deadline_date?: string | null;
+          scheduled_for?: string | null;
+          error_message?: string | null;
+          retry_count?: number | null;
+          max_retries?: number | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          opportunity_id?: string;
+          application_id?: string | null;
+          status?: Database["public"]["Enums"]["draft_queue_status"] | null;
+          trigger_reason?: Database["public"]["Enums"]["draft_trigger"];
+          template_type?: string;
+          priority?: number | null;
+          draft_id?: string | null;
+          confidence_score?: number | null;
+          gap_count?: number | null;
+          word_count?: number | null;
+          auto_generated_at?: string | null;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          review_notes?: string | null;
+          approved_at?: string | null;
+          rejected_reason?: string | null;
+          submitted_to_autoapply_at?: string | null;
+          deadline_date?: string | null;
+          scheduled_for?: string | null;
+          error_message?: string | null;
+          retry_count?: number | null;
+          max_retries?: number | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      draft_automation_config: {
+        Row: {
+          id: string;
+          organization_id: string;
+          is_enabled: boolean | null;
+          min_eligibility_score: number | null;
+          auto_generate_on_discovery: boolean | null;
+          auto_generate_on_deadline_days: number | null;
+          daily_draft_limit: number | null;
+          preferred_template_rules: Json | null;
+          excluded_categories: string[] | null;
+          excluded_funder_ids: string[] | null;
+          require_approval_before_submit: boolean | null;
+          auto_submit_above_confidence: number | null;
+          notification_on_generation: boolean | null;
+          notification_on_deadline: boolean | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          is_enabled?: boolean | null;
+          min_eligibility_score?: number | null;
+          auto_generate_on_discovery?: boolean | null;
+          auto_generate_on_deadline_days?: number | null;
+          daily_draft_limit?: number | null;
+          preferred_template_rules?: Json | null;
+          excluded_categories?: string[] | null;
+          excluded_funder_ids?: string[] | null;
+          require_approval_before_submit?: boolean | null;
+          auto_submit_above_confidence?: number | null;
+          notification_on_generation?: boolean | null;
+          notification_on_deadline?: boolean | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          is_enabled?: boolean | null;
+          min_eligibility_score?: number | null;
+          auto_generate_on_discovery?: boolean | null;
+          auto_generate_on_deadline_days?: number | null;
+          daily_draft_limit?: number | null;
+          preferred_template_rules?: Json | null;
+          excluded_categories?: string[] | null;
+          excluded_funder_ids?: string[] | null;
+          require_approval_before_submit?: boolean | null;
+          auto_submit_above_confidence?: number | null;
+          notification_on_generation?: boolean | null;
+          notification_on_deadline?: boolean | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       // Migration 058 — ab_test_variants (A/B testing of pitch styles per funder category).
       ab_test_variants: {
         Row: {
@@ -4554,6 +4699,21 @@ export interface Database {
         | "gcal"
         | "resend"
         | "custom_api";
+      // Migration 057 - draft automation pipeline enums.
+      draft_queue_status:
+        | "pending"
+        | "generating"
+        | "generated"
+        | "review"
+        | "approved"
+        | "rejected"
+        | "submitted"
+        | "failed";
+      draft_trigger:
+        | "auto_scheduled"
+        | "eligibility_threshold"
+        | "deadline_approaching"
+        | "manual";
     };
     CompositeTypes: Record<string, never>;
   };
