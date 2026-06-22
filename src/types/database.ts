@@ -3286,6 +3286,125 @@ export interface Database {
         };
         Relationships: [];
       };
+      // Migration 060: intelligence_grantmaker_profiles - per-foundation profile data.
+      intelligence_grantmaker_profiles: {
+        Row: {
+          id: string;
+          foundation_id: string | null;
+          ein: string | null;
+          name: string;
+          avg_award_amount: number | null;
+          total_annual_giving: number | null;
+          geographic_focus: string[] | null;
+          program_priorities: string[] | null;
+          typical_award_range: Json | null;
+          language_patterns: string[] | null;
+          application_url: string | null;
+          last_profiled_at: string | null;
+          profile_data: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          foundation_id?: string | null;
+          ein?: string | null;
+          name: string;
+          avg_award_amount?: number | null;
+          total_annual_giving?: number | null;
+          geographic_focus?: string[] | null;
+          program_priorities?: string[] | null;
+          typical_award_range?: Json | null;
+          language_patterns?: string[] | null;
+          application_url?: string | null;
+          last_profiled_at?: string | null;
+          profile_data?: Json;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          foundation_id?: string | null;
+          ein?: string | null;
+          name?: string;
+          avg_award_amount?: number | null;
+          total_annual_giving?: number | null;
+          geographic_focus?: string[] | null;
+          program_priorities?: string[] | null;
+          typical_award_range?: Json | null;
+          language_patterns?: string[] | null;
+          application_url?: string | null;
+          last_profiled_at?: string | null;
+          profile_data?: Json;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      // Migration 058: enrichment_results - per-record results from enrichment jobs.
+      enrichment_results: {
+        Row: {
+          id: string;
+          job_id: string;
+          entity_id: string;
+          entity_name: string | null;
+          entity_ein: string | null;
+          source: string;
+          found_website: string | null;
+          found_emails: string[] | null;
+          found_phones: string[] | null;
+          found_officers: Json | null;
+          found_revenue: number | null;
+          found_assets: number | null;
+          found_giving: number | null;
+          found_programs: string[] | null;
+          found_address: Json | null;
+          confidence: number | null;
+          raw_data: Json | null;
+          applied_to_db: boolean | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          job_id: string;
+          entity_id: string;
+          entity_name?: string | null;
+          entity_ein?: string | null;
+          source: string;
+          found_website?: string | null;
+          found_emails?: string[] | null;
+          found_phones?: string[] | null;
+          found_officers?: Json | null;
+          found_revenue?: number | null;
+          found_assets?: number | null;
+          found_giving?: number | null;
+          found_programs?: string[] | null;
+          found_address?: Json | null;
+          confidence?: number | null;
+          raw_data?: Json | null;
+          applied_to_db?: boolean | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          job_id?: string;
+          entity_id?: string;
+          entity_name?: string | null;
+          entity_ein?: string | null;
+          source?: string;
+          found_website?: string | null;
+          found_emails?: string[] | null;
+          found_phones?: string[] | null;
+          found_officers?: Json | null;
+          found_revenue?: number | null;
+          found_assets?: number | null;
+          found_giving?: number | null;
+          found_programs?: string[] | null;
+          found_address?: Json | null;
+          confidence?: number | null;
+          raw_data?: Json | null;
+          applied_to_db?: boolean | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       // Migration 049: auto_queue_config - autonomous queue population settings per org.
       auto_queue_config: {
         Row: {
