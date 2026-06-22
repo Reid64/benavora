@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { AlertTriangle, Check, Clipboard, Download, Mail as MailIcon, RefreshCw, Sparkles, Wand2 } from "lucide-react";
+import { AlertTriangle, Check, Clipboard, Dna, Download, Mail as MailIcon, RefreshCw, Sparkles, Wand2 } from "lucide-react";
 
 import {
   Badge,
@@ -21,6 +21,7 @@ import {
   type DraftVersionItem,
 } from "@/components/draft-generator/DraftsHistoryPanel";
 import { RubricPanel } from "@/components/intelligence/RubricPanel";
+import { GrantDNACard, type GrantDNAResult } from "@/components/intelligence/GrantDNACard";
 import {
   LogicModelView,
   type LogicModelData,
@@ -246,8 +247,42 @@ export default function DraftGeneratorPage() {
   const [versions, setVersions] = useState<DraftVersionItem[]>([]);
   const [versionsLoading, setVersionsLoading] = useState(false);
 
+  const [dnaScore, setDnaScore] = useState<GrantDNAResult | null>(null);
+  const [dnaScoring, setDnaScoring] = useState(false);
+
   const generatingRef = useRef(false);
   const humanizingRef = useRef(false);
+
+  const runDNAScore = useCallback(
+    async (text: string, category: string, grantType?: string) => {
+      if (!text.trim()) return;
+      setDnaScoring(true);
+      try {
+        const secs = parseDraftSections(text);
+        const sectionsRecord: Record<string, string> = {};
+        for (const s of secs) {
+          sectionsRecord[s.name] = s.text;
+        }
+        if (Object.keys(sectionsRecord).length === 0) {
+          sectionsRecord["full_draft"] = text;
+        }
+        const res = await fetch("/api/intelligence/grant-dna", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sections: sectionsRecord, category, grant_type: grantType }),
+        });
+        if (res.ok) {
+          const data = (await res.json()) as GrantDNAResult;
+          setDnaScore(data);
+        }
+      } catch {
+        // DNA scoring is supplementary — silent failure is acceptable.
+      } finally {
+        setDnaScoring(false);
+      }
+    },
+    [],
+  );
 
   // Load a saved version into the editor + review sidebar.
   const loadVersion = useCallback((version: DraftVersionItem) => {
@@ -428,6 +463,7 @@ export default function DraftGeneratorPage() {
     setRubric(null);
     setRubricInferred(false);
     setLogicModel(null);
+    setDnaScore(null);
 
     try {
       if (templateType === "budget_narrative") {
@@ -462,6 +498,8 @@ export default function DraftGeneratorPage() {
         );
         setActiveVersionId(budget.savedVersion?.id ?? null);
         await loadVersions(opportunityId, false);
+        const budgetCategory = opportunities.find((o) => o.id === opportunityId)?.category ?? "default";
+        void runDNAScore(budget.budget_narrative, budgetCategory, "budget_narrative");
         return;
       }
 
@@ -499,13 +537,15 @@ export default function DraftGeneratorPage() {
       setLogicModel(payload.logicModel ?? null);
       // Refresh the history panel to include the just-saved version.
       await loadVersions(opportunityId, false);
+      const draftCategory = opportunities.find((o) => o.id === opportunityId)?.category ?? "default";
+      void runDNAScore(payload.content, draftCategory, templateType ?? undefined);
     } catch {
       setError("Network error while generating. Please try again.");
     } finally {
       generatingRef.current = false;
       setGenerating(false);
     }
-  }, [opportunityId, templateType, programId, loadVersions]);
+  }, [opportunityId, templateType, programId, loadVersions, opportunities, runDNAScore]);
 
   // Second pass: rewrite the current draft for an authentic human voice
   // (anti-detection). The endpoint appends a new humanized version and returns
@@ -816,16 +856,31 @@ export default function DraftGeneratorPage() {
                   description="Humanize rewrites the draft in an authentic human voice (no em dashes, no AI clichés, varied rhythm), grounded in your verified data."
                   actions={
                     editable ? (
-                      <Button
-                        variant="secondary"
-                        onClick={handleHumanize}
-                        isLoading={humanizing}
-                        disabled={!draftText.trim() || generating || humanizing}
-                        title="Rewrite this draft to read like a human wrote it"
-                      >
-                        <Wand2 className="h-4 w-4" aria-hidden />
-                        {humanizing ? "Humanizing..." : "Humanize"}
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const opp = opportunities.find((o) => o.id === opportunityId);
+                            void runDNAScore(draftText, opp?.category ?? "default", templateType ?? undefined);
+                          }}
+                          disabled={!draftText.trim() || dnaScoring}
+                          title="Score this draft with Grant DNA"
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-500/40 bg-indigo-500/10 px-3 py-1.5 text-xs font-medium text-indigo-300 transition hover:bg-indigo-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <Dna className={`h-3.5 w-3.5 ${dnaScoring ? "animate-spin" : ""}`} aria-hidden />
+                          {dnaScoring ? "Scoring..." : "Score Draft"}
+                        </button>
+                        <Button
+                          variant="secondary"
+                          onClick={handleHumanize}
+                          isLoading={humanizing}
+                          disabled={!draftText.trim() || generating || humanizing}
+                          title="Rewrite this draft to read like a human wrote it"
+                        >
+                          <Wand2 className="h-4 w-4" aria-hidden />
+                          {humanizing ? "Humanizing..." : "Humanize"}
+                        </Button>
+                      </div>
                     ) : undefined
                   }
                 >
@@ -957,6 +1012,26 @@ export default function DraftGeneratorPage() {
                     </p>
                   )}
                 </Card>
+                {(dnaScore !== null || dnaScoring) && (
+                  dnaScore !== null ? (
+                    <GrantDNACard
+                      result={dnaScore}
+                      scoring={dnaScoring}
+                      onReScore={() => {
+                        const opp = opportunities.find((o) => o.id === opportunityId);
+                        void runDNAScore(draftText, opp?.category ?? "default", templateType ?? undefined);
+                      }}
+                    />
+                  ) : (
+                    <div className="glow-border rounded-xl bg-ink-700/60 shadow-card p-5 backdrop-blur-md">
+                      <div className="mb-3 flex items-center gap-2">
+                        <Dna className="h-4 w-4 animate-spin text-indigo-400" aria-hidden />
+                        <h3 className="text-base font-semibold text-navy-100">Grant DNA Score</h3>
+                      </div>
+                      <div className="h-[220px] animate-pulse rounded-lg bg-navy-800/30" />
+                    </div>
+                  )
+                )}
                 <Card title="Sources used">
                   <KnowledgePreview sources={sources} />
                 </Card>
