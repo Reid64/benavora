@@ -3252,6 +3252,40 @@ export interface Database {
         };
         Relationships: [];
       };
+      // Migration 059: Grant Intelligence Library - budget pattern templates.
+      intelligence_budget_patterns: {
+        Row: {
+          id: string;
+          program_category: string;
+          grant_type: string;
+          line_items: Json;
+          typical_percentages: Json | null;
+          justification_examples: Json | null;
+          source: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          program_category: string;
+          grant_type: string;
+          line_items?: Json;
+          typical_percentages?: Json | null;
+          justification_examples?: Json | null;
+          source?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          program_category?: string;
+          grant_type?: string;
+          line_items?: Json;
+          typical_percentages?: Json | null;
+          justification_examples?: Json | null;
+          source?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       // Migration 049: auto_queue_config - autonomous queue population settings per org.
       auto_queue_config: {
         Row: {
