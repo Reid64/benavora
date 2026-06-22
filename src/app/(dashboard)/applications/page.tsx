@@ -2,29 +2,27 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { KanbanSquare } from "lucide-react";
+import { KanbanSquare, LayoutList, RefreshCw } from "lucide-react";
 
 import { Button, EmptyState, LoadingSpinner } from "@/components/ui";
-import { PipelineBoard } from "@/components/applications/PipelineBoard";
-import { ApplicationsViewToggle } from "@/components/applications/ApplicationsViewToggle";
+import { ApplicationsTable } from "@/components/applications/ApplicationsTable";
+import { GroupedKanban } from "@/components/applications/GroupedKanban";
 import {
   loadPipelineApplications,
   type EnrichedApplication,
 } from "@/components/applications/pipeline";
 import { createClient } from "@/lib/supabase/client";
 import { canEdit, useProfile } from "@/lib/hooks/useProfile";
+import { cn } from "@/lib/utils/cn";
 
-/**
- * Applications pipeline board (BLUEPRINT §4.5). Renders the 12-stage kanban
- * board with drag-and-drop transitions. Reads are RLS-scoped to the
- * organization; viewers see a read-only board (no dragging). A toggle links to
- * the alternative list view.
- */
+type ViewMode = "table" | "kanban";
+
 export default function ApplicationsPage() {
   const { profile } = useProfile();
   const [applications, setApplications] = useState<EnrichedApplication[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [view, setView] = useState<ViewMode>("table");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -48,18 +46,64 @@ export default function ApplicationsPage() {
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-navy-900">
             Applications
           </h1>
           <p className="mt-1 text-sm text-navy-500">
-            Your funding pipeline. Drag a card to move it between stages.
+            {view === "table"
+              ? "Sort, filter, and bulk-move applications through the funding pipeline."
+              : "Drag cards between groups to move applications to a new phase."}
           </p>
         </div>
-        <ApplicationsViewToggle active="board" />
+
+        <div className="flex items-center gap-3">
+          {/* Renewals link */}
+          <Link
+            href="/renewals"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-navy-200 bg-white px-3 py-2 text-sm font-medium text-navy-600 shadow-sm transition hover:bg-navy-50"
+          >
+            <RefreshCw className="h-4 w-4" aria-hidden />
+            Renewals
+          </Link>
+
+          {/* View toggle */}
+          <div className="inline-flex items-center gap-1 rounded-lg border border-navy-200 bg-white p-1 shadow-sm">
+            <button
+              type="button"
+              onClick={() => setView("table")}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition",
+                view === "table"
+                  ? "bg-navy-900 text-white"
+                  : "text-navy-600 hover:bg-navy-50",
+              )}
+              aria-current={view === "table" ? "true" : undefined}
+            >
+              <LayoutList className="h-4 w-4" aria-hidden />
+              Table
+            </button>
+            <button
+              type="button"
+              onClick={() => setView("kanban")}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition",
+                view === "kanban"
+                  ? "bg-navy-900 text-white"
+                  : "text-navy-600 hover:bg-navy-50",
+              )}
+              aria-current={view === "kanban" ? "true" : undefined}
+            >
+              <KanbanSquare className="h-4 w-4" aria-hidden />
+              Kanban
+            </button>
+          </div>
+        </div>
       </div>
 
+      {/* Error */}
       {error && (
         <div
           role="alert"
@@ -69,8 +113,9 @@ export default function ApplicationsPage() {
         </div>
       )}
 
+      {/* Content */}
       {loading ? (
-        <LoadingSpinner center label="Loading pipeline..." />
+        <LoadingSpinner center label="Loading pipeline…" />
       ) : showEmpty ? (
         <EmptyState
           icon={KanbanSquare}
@@ -82,8 +127,15 @@ export default function ApplicationsPage() {
             </Link>
           }
         />
+      ) : view === "table" ? (
+        <ApplicationsTable
+          applications={applications}
+          role={profile?.role}
+          changedBy={profile?.id ?? null}
+          onChanged={load}
+        />
       ) : (
-        <PipelineBoard
+        <GroupedKanban
           applications={applications}
           interactive={editable}
           role={profile?.role}
