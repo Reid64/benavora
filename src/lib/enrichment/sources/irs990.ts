@@ -37,7 +37,7 @@ function xmlNum(xml: string, tag: string): number | undefined {
 }
 
 /** Extract inner XML of the first matching element (for nested structures). */
-function xmlInner(xml: string, tag: string): string | undefined {
+function _xmlInner(xml: string, tag: string): string | undefined {
   const re = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`, "s");
   return re.exec(xml)?.[1];
 }
