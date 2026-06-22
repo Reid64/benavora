@@ -93,4 +93,66 @@ Closes the automation gap between Research → Draft → Submit.
 - Automation config per org: eligibility threshold, daily limits, template rules, auto-submit
 - Migration 057: draft_queue + draft_automation_config tables
 - Post-run: apply migration 057, enable draft automation for Faith Foundation via config endpoint
-- Total routes: 157. Total pages: 82.
+
+## Intelligence Library Nights 3-7: BUILT
+
+intel-701 through intel-703 completed (2026-06-22). Gates: compile=UNVERIFIED (pnpm blocked by session permission constraints; manual code review found zero TypeScript errors) build=UNVERIFIED lint=UNVERIFIED.
+
+### KB 4: Need Statement Database
+- Census Bureau API integration (poverty, housing, demographics) — src/lib/intelligence/sources/census-api.ts
+- HUD API integration (PIT counts, Fair Market Rents) — src/lib/intelligence/sources/hud-api.ts
+- BLS API integration (unemployment, wages) — src/lib/intelligence/sources/bls-api.ts
+- CDC/SAMHSA data integration (health, substance abuse) — src/lib/intelligence/sources/cdc-api.ts
+- NeedStatementEngine: gatherNeedData() aggregates across all 4 sources with geographic fallback (county → state → national); generateNeedStatement() calls Claude with data table, returns statement + citations — src/lib/intelligence/need-statement-engine.ts
+- Geographic matching engine (zip → county → state → national fallback chain)
+- API route: /api/intelligence/need-data (POST: fetch data for geography + categories)
+- Ingestion scripts (excluded from tsconfig): src/scripts/ingest-*.ts
+
+### KB 5: Budget Pattern Library
+- Budget templates by program category with line items and percentages — src/lib/intelligence/budget-patterns.ts
+- Federal cost principles reference (2 CFR 200), fringe rate and indirect cost guidance
+- BudgetPatternLibrary.getTemplateByCategory() + generateBudgetNarrative() via Claude
+- API route: /api/intelligence/budget-patterns (POST: get template + generate narrative)
+- Integrated into unified search and draft intelligence briefing
+
+### KB 6: Compliance Requirements
+- Federal (2 CFR 200, OMB, SAM.gov, UEI), HUD-specific (environmental review, Davis-Bacon, Section 3), state and foundation requirements — src/lib/intelligence/compliance-library.ts + src/lib/intelligence/data/compliance-requirements.ts
+- ComplianceLibrary.getRequirements() resolves applicable rules by grant type + funding source tag matching
+- ComplianceLibrary.checkCompliance() runs per-requirement checks (document presence, data fields, attestations)
+- API route: /api/intelligence/compliance (POST: check + list requirements)
+- Integrated into draft briefing (compliance_requirements section, tier-gated)
+
+### KB 7: Evaluation Framework Library
+- Evaluation templates for 7 program categories — src/lib/intelligence/evaluation-library.ts + src/lib/intelligence/data/evaluation-templates.ts
+- 50+ KPI database with measurement methods and data collection tool suggestions
+- EvaluationLibrary.getFrameworkByCategory() + generateEvaluationPlan() via Claude
+- API route: /api/intelligence/evaluation (POST: get framework + generate plan)
+- Integrated into unified search and draft briefing
+
+### KB 8: Grantmaker Intelligence
+- Grantmaker profile builder from foundation_directory + enrichment_results + intelligence_grantmaker_profiles — src/lib/intelligence/grantmaker-profiles.ts
+- FunderRecommender: scores funder profiles 0-100 on geographic, programmatic, and amount fit; explainMatch() via Claude — src/lib/intelligence/funder-recommender.ts
+- Funder recommendation page at /intelligence/recommendations
+- Post-award outcome benchmarks by program category — src/lib/intelligence/data/outcome-benchmarks.ts + src/lib/intelligence/outcome-benchmarks.ts
+- API route: /api/intelligence/recommendations (POST: score + rank funders for org)
+- API route: /api/intelligence/benchmarks (POST: get outcome benchmarks by category)
+
+### KB 9: Grant DNA Scoring
+- 8-dimension scoring via Claude (clarity, evidence_density, outcome_specificity, funder_alignment, innovation, sustainability, feasibility, impact_scope) — src/lib/intelligence/grant-dna.ts
+- Weight sets by grant type (federal/corporate/default)
+- benchmarkAgainstFunded(): compares dimensions to FUNDED_BENCHMARKS lookup table, returns percentile + comparison sentence
+- Narrative pattern extraction from funded proposals — src/lib/intelligence/pattern-engine.ts (NarrativePatternEngine.extractPatterns() + scoreSection())
+- API route: /api/intelligence/grant-dna (POST: score proposal sections, return percentile benchmark)
+
+### Cross-Library Integration
+- UnifiedIntelligenceSearch: single search() across all 9 KBs; getRelatedIntelligence() builds full briefing for any opportunity — src/lib/intelligence/unified-search.ts
+- Intelligence briefing API at /api/intelligence/briefing (GET ?opportunity_id=: returns tier-gated RelatedIntelligence bundle)
+- Tier gates: Starter = funded_proposals + compliance; Pro = +rubrics, need_data, budget_patterns, evaluation; Enterprise/Consultant = +grantmaker_profiles
+- Intelligence library analytics dashboard at /intelligence-library/dashboard: stats cards, coverage heat map by category, recharts bar chart
+- Intelligence competitors page at /intelligence/competitors, matches page at /intelligence/matches
+- RAG retrieval: src/lib/intelligence/rag-retrieval.ts (retrieveIntelligence, retrieveRubric, retrieveLogicModel, retrieveNeedData)
+
+### Route Count (2026-06-22)
+- Total dashboard pages: 84 (was 82)
+- Total API routes: 167 (was 157)
+- Total routes + pages: 251
