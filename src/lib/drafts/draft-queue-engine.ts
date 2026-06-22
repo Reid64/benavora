@@ -1,7 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/types/database';
 import { TemplateSelector } from './template-selector';
-import type { DraftAutomationConfig } from './template-selector';
 
 type DraftQueueRow = Database['public']['Tables']['draft_queue']['Row'];
 type DraftQueueInsert = Database['public']['Tables']['draft_queue']['Insert'];
@@ -30,7 +29,7 @@ export interface QueueStats {
   submitted: number;
   failed: number;
   total: number;
-  avg_confidence: number;
+  avg_confidence: number | null;
   by_priority: Record<string, number>;
 }
 
@@ -43,16 +42,6 @@ function calculatePriority(deadlineDate: string | null): number {
   if (daysUntil <= 14) return 2;
   if (daysUntil <= 30) return 3;
   return 4;
-}
-
-function toTemplateConfig(config: { preferred_template_rules: unknown }): DraftAutomationConfig {
-  const rules = config.preferred_template_rules;
-  return {
-    preferred_template_rules:
-      rules !== null && typeof rules === 'object' && !Array.isArray(rules)
-        ? (rules as Record<string, string>)
-        : null,
-  };
 }
 
 export class DraftQueueEngine {
@@ -82,7 +71,6 @@ export class DraftQueueEngine {
 
     const minScore = (config.min_eligibility_score ?? 70) as number;
     const excludedCategories: string[] = (config.excluded_categories as string[] | null) ?? [];
-    const templateConfig = toTemplateConfig(config);
 
     const { data: opportunities } = await this.supabase
       .from('opportunities')
@@ -105,35 +93,36 @@ export class DraftQueueEngine {
         continue;
       }
 
-      const selection = this.templateSelector.selectTemplate(opp, templateConfig);
-
-      const { data: existing } = await this.supabase
-        .from('draft_queue')
-        .select('id')
-        .eq('organization_id', orgId)
-        .eq('opportunity_id', opp.id)
-        .eq('template_type', selection.template_type)
-        .maybeSingle();
-
-      if (existing) {
-        result.skipped_duplicate++;
-        continue;
-      }
-
+      const selections = this.templateSelector.selectMultipleTemplates(opp);
       const priority = calculatePriority(opp.deadline);
 
-      const insertRow: DraftQueueInsert = {
-        organization_id: orgId,
-        opportunity_id: opp.id,
-        status: 'pending',
-        trigger_reason: 'eligibility_threshold',
-        template_type: selection.template_type,
-        priority,
-        deadline_date: opp.deadline,
-      };
+      for (const selection of selections) {
+        const { data: existing } = await this.supabase
+          .from('draft_queue')
+          .select('id')
+          .eq('organization_id', orgId)
+          .eq('opportunity_id', opp.id)
+          .eq('template_type', selection.template_type)
+          .maybeSingle();
 
-      await this.supabase.from('draft_queue').insert(insertRow);
-      result.queued++;
+        if (existing) {
+          result.skipped_duplicate++;
+          continue;
+        }
+
+        const insertRow: DraftQueueInsert = {
+          organization_id: orgId,
+          opportunity_id: opp.id,
+          status: 'pending',
+          trigger_reason: 'eligibility_threshold',
+          template_type: selection.template_type,
+          priority,
+          deadline_date: opp.deadline,
+        };
+
+        await this.supabase.from('draft_queue').insert(insertRow);
+        result.queued++;
+      }
     }
 
     return result;
@@ -158,7 +147,6 @@ export class DraftQueueEngine {
     const minScore = (config.min_eligibility_score ?? 70) as number;
     const excludedCategories: string[] = (config.excluded_categories as string[] | null) ?? [];
     const deadlineDays = (config.auto_generate_on_deadline_days ?? 14) as number;
-    const templateConfig = toTemplateConfig(config);
 
     const now = new Date();
     const cutoff = new Date(now);
@@ -183,36 +171,37 @@ export class DraftQueueEngine {
         continue;
       }
 
-      const selection = this.templateSelector.selectTemplate(opp, templateConfig);
-
-      const { data: existing } = await this.supabase
-        .from('draft_queue')
-        .select('id')
-        .eq('organization_id', orgId)
-        .eq('opportunity_id', opp.id)
-        .eq('template_type', selection.template_type)
-        .maybeSingle();
-
-      if (existing) {
-        result.skipped_duplicate++;
-        continue;
-      }
-
+      const selections = this.templateSelector.selectMultipleTemplates(opp);
       const priority = calculatePriority(opp.deadline);
       const elevatedPriority = Math.max(1, priority - 1);
 
-      const insertRow: DraftQueueInsert = {
-        organization_id: orgId,
-        opportunity_id: opp.id,
-        status: 'pending',
-        trigger_reason: 'deadline_approaching',
-        template_type: selection.template_type,
-        priority: elevatedPriority,
-        deadline_date: opp.deadline,
-      };
+      for (const selection of selections) {
+        const { data: existing } = await this.supabase
+          .from('draft_queue')
+          .select('id')
+          .eq('organization_id', orgId)
+          .eq('opportunity_id', opp.id)
+          .eq('template_type', selection.template_type)
+          .maybeSingle();
 
-      await this.supabase.from('draft_queue').insert(insertRow);
-      result.queued++;
+        if (existing) {
+          result.skipped_duplicate++;
+          continue;
+        }
+
+        const insertRow: DraftQueueInsert = {
+          organization_id: orgId,
+          opportunity_id: opp.id,
+          status: 'pending',
+          trigger_reason: 'deadline_approaching',
+          template_type: selection.template_type,
+          priority: elevatedPriority,
+          deadline_date: opp.deadline,
+        };
+
+        await this.supabase.from('draft_queue').insert(insertRow);
+        result.queued++;
+      }
     }
 
     return result;
@@ -285,7 +274,7 @@ export class DraftQueueEngine {
       submitted: 0,
       failed: 0,
       total: rows.length,
-      avg_confidence: 0,
+      avg_confidence: null,
       by_priority: {},
     };
 
@@ -314,7 +303,7 @@ export class DraftQueueEngine {
     }
 
     stats.avg_confidence =
-      confidenceCount > 0 ? Math.round(confidenceSum / confidenceCount) : 0;
+      confidenceCount > 0 ? Math.round(confidenceSum / confidenceCount) : null;
 
     return stats;
   }
