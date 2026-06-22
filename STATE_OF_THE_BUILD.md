@@ -74,3 +74,23 @@ test-suite-complete (2026-06-21) — Full test suite written and gate-verified. 
 - **Coverage:** 9 API route test files (auth, analytics, grants, research, email, calendar, intelligence, autoapply, admin-sales) + 6 library test files (encryption, rubric-extractor, warmup-engine, compliance, template-engine, unsubscribe-agent)
 - **Critical paths tested:** onboarding, grant pipeline, draft generation, billing gates, AutoApply queue/controls, email/calendar integration, tenant isolation, admin sales outreach
 - **Bugs fixed during test run:** (1) compliance.ts enforceCompliance() from-domain regex /@([\w.-]+)$/ failed to match RFC 5322 "Name <email@domain>" format (trailing > blocked match) — fixed to /<[^>]*@([\w.-]+)>/ with /@([\w.-]+)/ fallback; (2) admin-sales.test.ts mockAdminFrom declared as plain const but referenced inside vi.mock() factory that Vitest hoists before const initialization — fixed by moving into vi.hoisted(); (3) unsubscribe-agent.test.ts — same vi.hoisted() bug as above, fixed identically.
+
+## Draft Automation Pipeline: BUILT
+
+Closes the automation gap between Research → Draft → Submit.
+
+- Template auto-selection engine: rules-based template matching per opportunity type
+  (federal > $100K → full_proposal, corporate → donation_request, foundation → LOI, etc.)
+- Draft queue engine: auto-queues opportunities that pass eligibility threshold
+- Deadline-aware priority: P1 (7 days) through P5 (no deadline)
+- Auto-generation engine: processes queue overnight, generates drafts using existing Claude pipeline
+- Shared draft generation logic: extracted from /api/ai/draft route into reusable module
+- Research integration: new opportunities auto-queue after research runs complete
+- Eligibility integration: opportunities queue when score crosses threshold
+- Daily cron: /api/cron/draft-automation processes pending queue each morning
+- Submission bridge: approved drafts auto-create applications and submission_queue entries
+- Draft Queue UI (morning workbench) at /draft-generator/queue
+- Automation config per org: eligibility threshold, daily limits, template rules, auto-submit
+- Migration 057: draft_queue + draft_automation_config tables
+- Post-run: apply migration 057, enable draft automation for Faith Foundation via config endpoint
+- Total routes: 157. Total pages: 82.

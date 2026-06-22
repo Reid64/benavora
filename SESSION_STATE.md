@@ -520,3 +520,20 @@ Three test failures were found and fixed:
 - Night 5 — Evaluation Frameworks Library
 - Night 6 — Grantmaker Intelligence Profiles
 - Night 7 — Narrative Patterns + Grant DNA Scoring
+
+## Session — 2026-06-21 (Draft Automation Pipeline)
+
+### Completed This Session
+
+#### Draft Automation Pipeline: COMPLETE
+
+- Draft Automation Pipeline complete — closes the Research → Score → Queue → Draft → Review → Submit loop
+- The full autonomous loop is now: Research → Score → Queue → Draft → Review → Submit
+- Migration 057: draft_queue + draft_automation_config tables
+
+### Gates
+- `pnpm run build` — PASS (157 routes, 82 pages, zero errors, zero TypeScript errors, zero lint errors)
+
+### Post-Run Steps
+- Apply migration 057 (`057_draft_automation_pipeline.sql`) via Supabase SQL Editor
+- Enable draft automation for Faith Foundation via config endpoint (`POST /api/drafts/queue/config`)
