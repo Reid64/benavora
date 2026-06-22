@@ -76,7 +76,12 @@ export const NAV_ITEMS: NavItem[] = [
       { label: "Usage & Billing", href: "/autoapply/usage" },
     ],
   },
-  { label: "Draft Generator", href: "/draft-generator", icon: Wand2 },
+  {
+    label: "Draft Generator",
+    href: "/draft-generator",
+    icon: Wand2,
+    children: [{ label: "Draft Queue", href: "/draft-generator/queue" }],
+  },
   { label: "Documents", href: "/documents", icon: FolderOpen },
   { label: "Knowledge Base", href: "/knowledge-base", icon: Brain },
   { label: "Intelligence Library", href: "/intelligence-library", icon: BookOpen },
