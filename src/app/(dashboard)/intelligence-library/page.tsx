@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import {
   BookOpen,
   ChevronDown,
@@ -243,6 +244,12 @@ export default function IntelligenceLibraryPage() {
           {/* Tab bar */}
           <div className="border-b border-navy-200">
             <nav className="-mb-px flex gap-6" aria-label="Intelligence library tabs">
+              <Link
+                href="/intelligence-library/dashboard"
+                className="whitespace-nowrap border-b-2 border-transparent pb-3 text-sm font-medium text-navy-500 transition hover:border-navy-300 hover:text-navy-700"
+              >
+                Dashboard
+              </Link>
               {TABS.map((tab) => (
                 <button
                   key={tab.id}
