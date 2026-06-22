@@ -1,34 +1,68 @@
 import Link from "next/link";
 
-import type { BadgeColor } from "@/components/ui";
+import { cn } from "@/lib/utils/cn";
 import {
-  STAGE_COLOR,
   STAGE_LABEL,
   type PipelineStage,
 } from "@/components/applications/pipeline";
 import { PIPELINE_STAGES } from "@/lib/utils/constants";
-import { cn } from "@/lib/utils/cn";
 
-/** Solid bar/segment fill for each Badge color used by the pipeline stages. */
-const BAR_FILL: Record<BadgeColor, string> = {
-  gray: "bg-navy-400",
-  teal: "bg-teal-500",
-  indigo: "bg-teal-500",
-  purple: "bg-plum-500",
-  navy: "bg-navy-600",
-  green: "bg-green-500",
-  yellow: "bg-amber-500",
-  red: "bg-red-500",
-  blue: "bg-blue-500",
-  sky: "bg-sky-500",
-  orange: "bg-orange-500",
-  pink: "bg-pink-500",
+type MacroPhase = {
+  id: string;
+  label: string;
+  stages: PipelineStage[];
+  barColor: string;
+  dotColor: string;
+  headerColor: string;
 };
 
+const MACRO_PHASES: MacroPhase[] = [
+  {
+    id: "discovery",
+    label: "Discovery",
+    stages: ["discovered", "eligibility_review", "qualified"],
+    barColor: "bg-blue-500",
+    dotColor: "bg-blue-400",
+    headerColor: "text-blue-600",
+  },
+  {
+    id: "preparation",
+    label: "Preparation",
+    stages: ["drafting", "awaiting_documents", "ready_for_review"],
+    barColor: "bg-purple-500",
+    dotColor: "bg-purple-400",
+    headerColor: "text-purple-600",
+  },
+  {
+    id: "active",
+    label: "Active",
+    stages: ["submitted", "follow_up_due"],
+    barColor: "bg-emerald-500",
+    dotColor: "bg-emerald-400",
+    headerColor: "text-emerald-600",
+  },
+  {
+    id: "outcome",
+    label: "Outcome",
+    stages: ["awarded", "denied", "reporting_required", "renewal_opportunity"],
+    barColor: "bg-amber-500",
+    dotColor: "bg-amber-400",
+    headerColor: "text-amber-600",
+  },
+];
+
+const STAGE_PHASE: Partial<Record<PipelineStage, MacroPhase>> = {};
+for (const phase of MACRO_PHASES) {
+  for (const stage of phase.stages) {
+    STAGE_PHASE[stage] = phase;
+  }
+}
+
 /**
- * Pipeline summary (BLUEPRINT §4.1 / §4.5): a horizontal bar of application
- * counts across the 12 pipeline stages, with a per-stage legend. Counts are
- * computed server-side and passed in as a map keyed by stage.
+ * Pipeline summary: a segmented horizontal bar grouped into 4 macro-phases
+ * (Discovery / Preparation / Active / Outcome), each with a distinct color.
+ * Segment width is proportional to count; when total ≤ 3 each segment is
+ * capped at 40% so a single application doesn't fill the entire bar.
  */
 export function PipelineSummary({
   counts,
@@ -36,7 +70,7 @@ export function PipelineSummary({
   counts: Record<PipelineStage, number>;
 }) {
   const total = PIPELINE_STAGES.reduce(
-    (sum, stage) => sum + (counts[stage] ?? 0),
+    (sum, s) => sum + (counts[s] ?? 0),
     0,
   );
 
@@ -49,57 +83,98 @@ export function PipelineSummary({
     );
   }
 
-  const present = PIPELINE_STAGES.filter((stage) => (counts[stage] ?? 0) > 0);
+  const maxPct = total <= 3 ? 40 : 100;
+  const presentStages = PIPELINE_STAGES.filter((s) => (counts[s] ?? 0) > 0);
 
   return (
     <div className="space-y-4">
-      <div className="flex h-3 w-full overflow-hidden rounded-full bg-navy-100">
-        {present.map((stage) => {
+      {/* Segmented bar */}
+      <div
+        className="flex h-4 w-full overflow-hidden rounded-full bg-navy-100"
+        role="img"
+        aria-label="Pipeline stages distribution"
+      >
+        {presentStages.map((stage) => {
           const count = counts[stage] ?? 0;
+          const rawPct = (count / total) * 100;
+          const pct = Math.min(rawPct, maxPct);
+          const phase = STAGE_PHASE[stage];
+          const showCount = pct >= 8;
+
           return (
             <div
               key={stage}
-              className={cn("h-full", BAR_FILL[STAGE_COLOR[stage]])}
-              style={{ width: `${(count / total) * 100}%` }}
+              className={cn(
+                "relative flex h-full items-center justify-center",
+                phase?.barColor ?? "bg-navy-400",
+              )}
+              style={{ width: `${pct}%` }}
               title={`${STAGE_LABEL[stage]}: ${count}`}
               aria-hidden
-            />
+            >
+              {showCount && (
+                <span className="select-none text-[10px] font-bold text-white drop-shadow-sm">
+                  {count}
+                </span>
+              )}
+            </div>
           );
         })}
       </div>
 
-      <ul className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3">
-        {present.map((stage) => (
-          <li key={stage}>
-            <Link
-              href="/applications"
-              className="flex items-center justify-between gap-2 text-sm transition hover:opacity-80"
-            >
-              <span className="flex min-w-0 items-center gap-2">
-                <span
-                  className={cn(
-                    "h-2 w-2 shrink-0 rounded-full",
-                    BAR_FILL[STAGE_COLOR[stage]],
-                  )}
-                  aria-hidden
-                />
-                <span className="truncate text-navy-600">
-                  {STAGE_LABEL[stage]}
-                </span>
-              </span>
-              <span className="shrink-0 font-semibold text-navy-900">
-                {counts[stage]}
-              </span>
-            </Link>
-          </li>
-        ))}
-      </ul>
+      {/* Phase legend — 4 columns, each listing stage-level counts */}
+      <div className="grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-4">
+        {MACRO_PHASES.map((phase) => {
+          const phaseTotal = phase.stages.reduce(
+            (sum, s) => sum + (counts[s] ?? 0),
+            0,
+          );
+          if (phaseTotal === 0) return null;
+
+          return (
+            <div key={phase.id} className="space-y-1.5">
+              <p
+                className={cn(
+                  "text-[10px] font-bold uppercase tracking-widest",
+                  phase.headerColor,
+                )}
+              >
+                {phase.label}
+              </p>
+              {phase.stages
+                .filter((s) => (counts[s] ?? 0) > 0)
+                .map((stage) => (
+                  <Link
+                    key={stage}
+                    href="/applications"
+                    className="flex items-center justify-between gap-1.5 transition hover:opacity-75"
+                  >
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <span
+                        className={cn(
+                          "h-1.5 w-1.5 shrink-0 rounded-full",
+                          phase.dotColor,
+                        )}
+                        aria-hidden
+                      />
+                      <span className="truncate text-xs text-navy-600">
+                        {STAGE_LABEL[stage]}
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-xs font-semibold text-navy-900">
+                      {counts[stage]}
+                    </span>
+                  </Link>
+                ))}
+            </div>
+          );
+        })}
+      </div>
 
       <p className="text-xs text-navy-400">
         {total} application{total === 1 ? "" : "s"} across{" "}
-        {present.length} stage{present.length === 1 ? "" : "s"}.
+        {presentStages.length} stage{presentStages.length === 1 ? "" : "s"}.
       </p>
     </div>
   );
 }
-

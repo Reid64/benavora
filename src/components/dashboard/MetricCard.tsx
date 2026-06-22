@@ -58,14 +58,14 @@ export function MetricCard({
       )}
     >
       <div className="flex items-center justify-between gap-3">
-        <span className="text-sm font-medium text-navy-500">{label}</span>
+        <span className="text-xs font-medium text-navy-500">{label}</span>
         {Icon && (
           <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-teal-50 text-teal-600 ring-1 ring-inset ring-teal-100 transition group-hover:bg-teal-100">
             <Icon className="h-4 w-4" aria-hidden />
           </span>
         )}
       </div>
-      <div className="mt-3 text-3xl font-semibold tracking-tight text-navy-900">
+      <div className="mt-3 text-2xl font-bold tracking-tight text-navy-900">
         {value}
       </div>
       {trend && TrendIcon ? (
