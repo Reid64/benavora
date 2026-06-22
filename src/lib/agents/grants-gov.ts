@@ -20,6 +20,7 @@
 // fetch failure wraps in AgentError so BaseAgent can log status="failed".
 
 import { callClaude } from "@/lib/ai/claude";
+import { decodeHtmlEntities } from "@/lib/utils/formatters";
 import {
   AgentError,
   BaseAgent,
@@ -460,7 +461,7 @@ export class GrantsGovResearchAgent extends BaseAgent<
       }
 
       opportunities.push({
-        title: toStr(hit.title),
+        title: decodeHtmlEntities(toStr(hit.title)),
         agency: toStr(hit.agencyName ?? hit.agency),
         opportunity_number: oppNum,
         close_date: closeDate,
@@ -539,11 +540,24 @@ export class GrantsGovResearchAgent extends BaseAgent<
         row.opportunity_documents = opp.opportunity_documents;
       }
 
-      const { error } = await this.client
+      const { data: inserted, error } = await this.client
         .from("opportunities")
-        .insert(row);
+        .insert(row)
+        .select("id")
+        .single();
 
-      if (!error) opportunitiesCreated++;
+      if (!error && inserted) {
+        opportunitiesCreated++;
+        if (row.deadline) {
+          await this.client.from("deadlines").insert({
+            organization_id: this.organizationId,
+            opportunity_id: inserted.id,
+            deadline_type: "application_deadline" as const,
+            due_date: row.deadline as string,
+            title: `${row.name as string} – Application Deadline`,
+          });
+        }
+      }
     }
 
     // Backfill pass: enrich existing sparse rows (missing eligibility) with the

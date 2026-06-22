@@ -13,7 +13,7 @@ import {
 } from "@/components/opportunities/eligibility";
 import { SourceTypeBadge } from "@/components/opportunities/SourceTypeBadge";
 import type { OpportunityRow } from "@/components/opportunities/OpportunityTable";
-import { formatCurrency, formatDate, humanizeEnum } from "@/lib/utils/formatters";
+import { decodeHtmlEntities, formatCurrency, formatDate, humanizeEnum } from "@/lib/utils/formatters";
 
 export type OpportunityCardProps = {
   opportunity: OpportunityRow;
@@ -47,7 +47,7 @@ export function OpportunityCard({ opportunity }: OpportunityCardProps) {
 
       <div className="min-w-0">
         <h3 className="line-clamp-2 font-medium text-navy-900 group-hover:text-teal-700">
-          {opportunity.name}
+          {decodeHtmlEntities(opportunity.name)}
         </h3>
         {opportunity.funderName && (
           <p className="mt-1 flex items-center gap-1.5 text-xs text-navy-500">

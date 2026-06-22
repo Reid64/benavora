@@ -28,6 +28,20 @@ export function formatRelative(value: string | Date | null | undefined): string 
   return formatDistanceToNow(date, { addSuffix: true });
 }
 
+/** Decode HTML entities inserted by external APIs (e.g. &amp; → &, &#39; → '). */
+export function decodeHtmlEntities(text: string): string {
+  return text
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&#39;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&#(\d+);/g, (_match, dec: string) =>
+      String.fromCharCode(parseInt(dec, 10)),
+    );
+}
+
 /** Convert a snake_case enum value to a human label, e.g. "private_foundation" -> "Private Foundation". */
 export function humanizeEnum(value: string | null | undefined): string {
   if (!value) return "-";

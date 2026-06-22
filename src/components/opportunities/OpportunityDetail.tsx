@@ -50,6 +50,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { canEdit, useProfile } from "@/lib/hooks/useProfile";
 import {
+  decodeHtmlEntities,
   formatCurrency,
   formatDate,
   formatRelative,
@@ -261,7 +262,7 @@ export function OpportunityDetail({ opportunityId }: OpportunityDetailProps) {
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-2xl font-semibold tracking-tight text-navy-900">
-              {opportunity.name}
+              {decodeHtmlEntities(opportunity.name)}
             </h1>
             <MatchBadge percentage={opportunity.match_percentage} />
             {opportunity.is_high_priority && <HighPriorityBadge />}
@@ -450,7 +451,7 @@ export function OpportunityDetail({ opportunityId }: OpportunityDetailProps) {
           </p>
         ) : (
           <p className="text-sm text-navy-600">
-            Deleting <span className="font-medium">{opportunity.name}</span> also
+            Deleting <span className="font-medium">{decodeHtmlEntities(opportunity.name)}</span> also
             removes its keywords, deadlines, and notes.
           </p>
         )}
@@ -672,8 +673,8 @@ function OverviewTab({
       >
         <dl className="divide-y divide-navy-100">
           <DetailRow label="Amount available">
-            {opportunity.amount_available != null ? (
-              formatCurrency(opportunity.amount_available)
+            {opportunity.amount_max != null || opportunity.amount_available != null ? (
+              formatCurrency(opportunity.amount_max ?? opportunity.amount_available)
             ) : (
               <span className="text-navy-400">-</span>
             )}

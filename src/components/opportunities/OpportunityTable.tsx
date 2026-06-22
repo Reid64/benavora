@@ -34,7 +34,7 @@ import {
   OPPORTUNITY_STATUSES,
 } from "@/lib/utils/constants";
 import { cn } from "@/lib/utils/cn";
-import { formatCurrency, formatDate, humanizeEnum } from "@/lib/utils/formatters";
+import { decodeHtmlEntities, formatCurrency, formatDate, humanizeEnum } from "@/lib/utils/formatters";
 import type { Enums, Tables } from "@/types/database";
 
 /** An opportunity enriched with its keyword tags and funder name for the list. */
@@ -199,10 +199,10 @@ export function OpportunityTable({
       key: "name",
       header: "Name",
       sortable: true,
-      sortValue: (row) => row.name.toLowerCase(),
+      sortValue: (row) => decodeHtmlEntities(row.name).toLowerCase(),
       render: (row) => (
         <div className="min-w-0">
-          <span className="font-medium text-navy-900">{row.name}</span>
+          <span className="font-medium text-navy-900">{decodeHtmlEntities(row.name)}</span>
           {row.funderName && (
             <span className="mt-0.5 block text-xs text-navy-500">
               {row.funderName}
