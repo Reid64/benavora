@@ -429,10 +429,10 @@ function IntegrationsContent() {
       {/* OAuth callback notification banner */}
       {notification && (
         <div
-          className={`mb-6 flex items-center justify-between gap-3 rounded-lg px-4 py-3 text-sm ${
+          className={`mb-6 flex items-center justify-between gap-3 rounded-lg border px-4 py-3 text-sm ${
             notification.type === "success"
-              ? "bg-green-500/15 text-green-300"
-              : "bg-red-500/15 text-red-300"
+              ? "border-green-200 bg-green-50 text-green-700"
+              : "border-red-200 bg-red-50 text-red-700"
           }`}
         >
           <span>{notification.message}</span>
@@ -751,9 +751,9 @@ function GmailCard({
         {connected ? (
           <>
             {/* Connected email address */}
-            <div className="flex items-center gap-1.5 rounded-md border border-white/10 bg-ink-900/60 px-3 py-2">
+            <div className="flex items-center gap-1.5 rounded-md border border-navy-200 bg-navy-50 px-3 py-2">
               <Mail className="h-3.5 w-3.5 shrink-0 text-navy-400" aria-hidden />
-              <span className="truncate text-xs text-navy-200">{conn.email_address}</span>
+              <span className="truncate text-xs text-navy-700">{conn.email_address}</span>
             </div>
 
             {/* Last sync */}
@@ -783,7 +783,7 @@ function GmailCard({
                 <select
                   value={syncFreq}
                   onChange={(e) => onSyncFreqChange(e.target.value)}
-                  className="flex-1 rounded-md border border-white/15 bg-ink-900/60 px-2 py-1 text-xs text-navy-200 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                  className="flex-1 rounded-md border border-navy-200 bg-white px-2 py-1 text-xs text-navy-900 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
                 >
                   {SYNC_FREQ_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>
@@ -803,7 +803,7 @@ function GmailCard({
               <button
                 type="button"
                 onClick={onDisconnect}
-                className="flex items-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-400 transition hover:border-red-500/50 hover:bg-red-500/20"
+                className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 transition hover:border-red-300 hover:bg-red-100"
               >
                 <Unlink className="h-3.5 w-3.5" aria-hidden />
                 Disconnect
@@ -888,9 +888,9 @@ function CalendarCard({
           <>
             {/* Calendar name */}
             {conn.calendar_name && (
-              <div className="flex items-center gap-1.5 rounded-md border border-white/10 bg-ink-900/60 px-3 py-2">
+              <div className="flex items-center gap-1.5 rounded-md border border-navy-200 bg-navy-50 px-3 py-2">
                 <CalendarDays className="h-3.5 w-3.5 shrink-0 text-navy-400" aria-hidden />
-                <span className="truncate text-xs text-navy-200">{conn.calendar_name}</span>
+                <span className="truncate text-xs text-navy-700">{conn.calendar_name}</span>
               </div>
             )}
 
@@ -934,7 +934,7 @@ function CalendarCard({
               <button
                 type="button"
                 onClick={onDisconnect}
-                className="flex items-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-400 transition hover:border-red-500/50 hover:bg-red-500/20"
+                className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 transition hover:border-red-300 hover:bg-red-100"
               >
                 <Unlink className="h-3.5 w-3.5" aria-hidden />
                 Disconnect
@@ -1016,7 +1016,7 @@ function PlatformCard({
           {configurePath && (
             <Link
               href={configurePath}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-ink-900/40 px-3 py-1.5 text-xs font-medium text-navy-300 transition hover:border-white/25 hover:bg-ink-900/70 hover:text-navy-100"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-navy-200 bg-white px-3 py-1.5 text-xs font-medium text-navy-700 transition hover:border-navy-300 hover:bg-navy-50 hover:text-navy-900"
             >
               <Settings2 className="h-3.5 w-3.5" aria-hidden />
               Configure
@@ -1095,9 +1095,9 @@ function KeyedCard({
 
         {/* Current key hint */}
         {integrationKey && (
-          <div className="flex items-center gap-1.5 rounded-md border border-white/10 bg-ink-900/60 px-3 py-1.5">
+          <div className="flex items-center gap-1.5 rounded-md border border-navy-200 bg-navy-50 px-3 py-1.5">
             <Key className="h-3.5 w-3.5 shrink-0 text-navy-400" aria-hidden />
-            <span className="font-mono text-xs text-navy-300">
+            <span className="font-mono text-xs text-navy-700">
               {integrationKey.key_hint}
             </span>
             {integrationKey.validation_status === "valid" && (
@@ -1115,12 +1115,12 @@ function KeyedCard({
               onChange={(e) => onEditChange(e.target.value)}
               placeholder={configured ? "Replace existing key…" : "Paste API key…"}
               autoComplete="off"
-              className="block w-full rounded-lg border border-white/15 bg-ink-900/60 px-3 py-2 pr-9 font-mono text-xs text-navy-100 placeholder:text-navy-500 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+              className="block w-full rounded-lg border border-navy-300 bg-white px-3 py-2 pr-9 font-mono text-xs text-navy-900 placeholder:text-navy-400 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
             />
             <button
               type="button"
               onClick={onToggleShow}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-navy-400 hover:text-navy-200 focus:outline-none"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-navy-400 hover:text-navy-600 focus:outline-none"
               aria-label={showValue ? "Hide key" : "Show key"}
             >
               {showValue ? (
@@ -1199,7 +1199,7 @@ function ResendStatusCard({ configured }: { configured: boolean }) {
         <p className="text-xs leading-relaxed text-navy-500">
           Resend is used as a fallback email sender when Gmail is not connected.
           Configured via the{" "}
-          <code className="rounded bg-white/5 px-1 font-mono text-navy-300">
+          <code className="rounded bg-navy-100 px-1 font-mono text-navy-700">
             RESEND_API_KEY
           </code>{" "}
           environment variable.
