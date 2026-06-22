@@ -2,7 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Lightbulb, TrendingUp, TrendingDown } from "lucide-react";
+import {
+  ArrowLeft,
+  BookOpen,
+  Lightbulb,
+  TrendingDown,
+  TrendingUp,
+} from "lucide-react";
 
 import { Badge, Button, Card, EmptyState, LoadingSpinner } from "@/components/ui";
 import { AnalyticsDashboard } from "@/components/outcomes/AnalyticsDashboard";
@@ -11,7 +17,7 @@ import {
   SUBSCRIPTION_TIERS,
   type SubscriptionTier,
 } from "@/lib/utils/constants";
-import { humanizeEnum } from "@/lib/utils/formatters";
+import { formatDate, humanizeEnum } from "@/lib/utils/formatters";
 import type {
   AgentRunRow,
   ApplicationRow,
@@ -28,6 +34,17 @@ type DashboardData = {
   deadlines: DeadlineRow[];
   agentRuns: AgentRunRow[];
   subscriptionTier: SubscriptionTier;
+};
+
+type NarrativeRow = {
+  id: string;
+  funder_category: string | null;
+  success_patterns: unknown;
+  effectiveness_score: number | null;
+  success_count: number | null;
+  section_type: string | null;
+  narrative_text: string;
+  last_used_at: string | null;
 };
 
 /** One funder-category bucket of discovered language patterns. */
@@ -60,6 +77,7 @@ function asTier(value: unknown): SubscriptionTier {
 export default function OutcomeAnalyticsPage() {
   const [data, setData] = useState<DashboardData>(EMPTY);
   const [patternGroups, setPatternGroups] = useState<CategoryPatterns[]>([]);
+  const [topNarratives, setTopNarratives] = useState<NarrativeRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -93,11 +111,16 @@ export default function OutcomeAnalyticsPage() {
         .from("agent_runs")
         .select("agent_type, status, created_at, items_found"),
       supabase.from("organizations").select("subscription_tier"),
-      // Load proven_narratives with success_patterns for the pattern panel.
+      // Load proven_narratives for both the top-narratives table and the
+      // pattern insights panel. Order by effectiveness_score so the table
+      // gets pre-sorted data.
       supabase
         .from("proven_narratives")
-        .select("funder_category, success_patterns")
-        .not("success_patterns", "is", null),
+        .select(
+          "id, funder_category, success_patterns, effectiveness_score, success_count, section_type, narrative_text, last_used_at",
+        )
+        .order("effectiveness_score", { ascending: false, nullsFirst: false })
+        .limit(50),
     ]);
 
     // Outcomes + applications power most charts - treat their failure as fatal;
@@ -121,11 +144,13 @@ export default function OutcomeAnalyticsPage() {
       subscriptionTier: asTier(orgRow?.subscription_tier),
     });
 
+    const allNarratives = (narrativesRes.data ?? []) as NarrativeRow[];
+
     // Group success_patterns by funder_category - one analysis per category
     // (take the first row that has patterns for each category).
     const categoryMap = new Map<string, SuccessPatternAnalysis>();
-    for (const row of narrativesRes.data ?? []) {
-      const category = row.funder_category as string | null;
+    for (const row of allNarratives) {
+      const category = row.funder_category;
       if (!category || categoryMap.has(category)) continue;
       const raw = row.success_patterns;
       if (!raw || typeof raw !== "object" || Array.isArray(raw)) continue;
@@ -146,6 +171,12 @@ export default function OutcomeAnalyticsPage() {
         funderCategory,
         analysis,
       })),
+    );
+
+    // Top performing narratives: those with a numeric effectiveness_score,
+    // already sorted desc by the query.
+    setTopNarratives(
+      allNarratives.filter((n) => n.effectiveness_score !== null),
     );
 
     setLoading(false);
@@ -201,9 +232,116 @@ export default function OutcomeAnalyticsPage() {
             agentRuns={data.agentRuns}
             subscriptionTier={data.subscriptionTier}
           />
+          <TopNarrativesTable narratives={topNarratives} />
           <PatternInsightsSection groups={patternGroups} />
         </>
       )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Top performing narratives table - ranked by effectiveness_score
+// ---------------------------------------------------------------------------
+
+function TopNarrativesTable({ narratives }: { narratives: NarrativeRow[] }) {
+  if (narratives.length === 0) {
+    return (
+      <EmptyState
+        icon={BookOpen}
+        title="No scored narratives yet"
+        description="Effectiveness scores are assigned after recording awarded outcomes. Awarded drafts are saved as proven narratives and scored based on how often they lead to funding."
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-lg font-semibold tracking-tight text-navy-900">
+          Top performing narratives
+        </h2>
+        <p className="mt-1 text-sm text-navy-500">
+          Proven narrative sections ranked by effectiveness score. Higher scores
+          mean these narratives have been used more and led to funded outcomes.
+        </p>
+      </div>
+      <Card noPadding>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-navy-100 text-left text-xs font-medium uppercase tracking-wide text-navy-400">
+                <th className="px-4 py-3 w-10">#</th>
+                <th className="px-4 py-3">Narrative snippet</th>
+                <th className="px-4 py-3 hidden sm:table-cell">Section</th>
+                <th className="px-4 py-3 hidden md:table-cell">Category</th>
+                <th className="px-4 py-3 text-right">Score</th>
+                <th className="px-4 py-3 text-right hidden sm:table-cell">Uses</th>
+                <th className="px-4 py-3 text-right hidden lg:table-cell">Last used</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-navy-100">
+              {narratives.slice(0, 20).map((n, i) => {
+                const score = n.effectiveness_score ?? 0;
+                const pct = Math.min(100, Math.max(0, score));
+                const barColor =
+                  pct >= 75
+                    ? "bg-teal-400"
+                    : pct >= 50
+                      ? "bg-blue-400"
+                      : pct >= 25
+                        ? "bg-amber-400"
+                        : "bg-red-400";
+                return (
+                  <tr key={n.id} className="hover:bg-white/[0.02] transition-colors">
+                    <td className="px-4 py-3 text-navy-400 tabular-nums">{i + 1}</td>
+                    <td className="px-4 py-3 max-w-xs">
+                      <p className="line-clamp-2 text-navy-700">
+                        {n.narrative_text.slice(0, 160)}
+                        {n.narrative_text.length > 160 ? "…" : ""}
+                      </p>
+                    </td>
+                    <td className="px-4 py-3 hidden sm:table-cell">
+                      {n.section_type ? (
+                        <Badge color="indigo">{humanizeEnum(n.section_type)}</Badge>
+                      ) : (
+                        <span className="text-navy-400">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 hidden md:table-cell text-navy-500">
+                      {n.funder_category ? humanizeEnum(n.funder_category) : "—"}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <div className="hidden sm:block w-16 h-1.5 rounded-full bg-white/10">
+                          <div
+                            className={`h-1.5 rounded-full ${barColor}`}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                        <span className="font-semibold tabular-nums text-navy-900">
+                          {score}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-right hidden sm:table-cell text-navy-500 tabular-nums">
+                      {n.success_count ?? 0}
+                    </td>
+                    <td className="px-4 py-3 text-right hidden lg:table-cell text-navy-400">
+                      {n.last_used_at ? formatDate(n.last_used_at) : "—"}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        {narratives.length > 20 && (
+          <p className="border-t border-navy-100 px-4 py-2 text-xs text-navy-400">
+            Showing top 20 of {narratives.length} scored narratives.
+          </p>
+        )}
+      </Card>
     </div>
   );
 }

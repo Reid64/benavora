@@ -510,6 +510,48 @@ export function buildYearOverYear(outcomes: OutcomeRow[]): YearPoint[] {
     }));
 }
 
+// --- 11. Funder response time -----------------------------------------------
+
+export interface FunderResponseTimePoint {
+  category: string;
+  label: string;
+  avgDays: number;
+  count: number;
+}
+
+/**
+ * Average days from application submission to a recorded outcome, grouped by
+ * funder category. Only outcomes where the matching application has a
+ * submitted_at timestamp are included.
+ */
+export function buildFunderResponseTime(
+  outcomes: OutcomeRow[],
+  apps: ApplicationRow[],
+): FunderResponseTimePoint[] {
+  const appById = new Map(apps.map((a) => [a.id, a]));
+  const categorySpans = new Map<string, number[]>();
+
+  for (const o of outcomes) {
+    const app = appById.get(o.application_id);
+    if (!app?.submitted_at) continue;
+    const days = daysBetween(app.submitted_at, o.recorded_at);
+    if (days === null || days < 0) continue;
+    const cat = o.funder_category ?? o.opportunity_category ?? "unknown";
+    const spans = categorySpans.get(cat) ?? [];
+    spans.push(days);
+    categorySpans.set(cat, spans);
+  }
+
+  return Array.from(categorySpans.entries())
+    .map(([category, spans]) => ({
+      category,
+      label: category === "unknown" ? "Unknown" : humanizeEnum(category),
+      avgDays: round(spans.reduce((s, x) => s + x, 0) / spans.length, 1),
+      count: spans.length,
+    }))
+    .sort((a, b) => a.avgDays - b.avgDays);
+}
+
 // --- Top-line KPIs ----------------------------------------------------------
 
 export interface AnalyticsKpis {

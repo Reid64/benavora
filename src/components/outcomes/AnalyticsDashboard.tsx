@@ -37,6 +37,7 @@ import {
   buildAgentActivity,
   buildDeadlineHeatmap,
   buildFunnel,
+  buildFunderResponseTime,
   buildMonthly,
   buildSourcePie,
   buildTopCategories,
@@ -154,6 +155,10 @@ export function AnalyticsDashboard({
     [outcomes, subscriptionTier],
   );
   const yearOverYear = useMemo(() => buildYearOverYear(outcomes), [outcomes]);
+  const funderResponseTime = useMemo(
+    () => buildFunderResponseTime(outcomes, applications),
+    [outcomes, applications],
+  );
 
   const hasAnyData =
     outcomes.length > 0 ||
@@ -589,6 +594,51 @@ export function AnalyticsDashboard({
               isAnimationActive={false}
             />
           </ComposedChart>
+        </ChartFrame>
+      </Card>
+
+      {/* Funder response time -------------------------------------------- */}
+      <Card
+        title="Funder response time"
+        description="Average days from application submission to recorded outcome, by funder category."
+      >
+        <ChartFrame empty={funderResponseTime.length === 0}>
+          <BarChart
+            layout="vertical"
+            data={funderResponseTime}
+            margin={{ top: 4, right: 24, bottom: 4, left: 8 }}
+          >
+            <CartesianGrid stroke={C.grid} horizontal={false} />
+            <XAxis
+              type="number"
+              tick={AXIS_TICK}
+              tickLine={false}
+              unit="d"
+              allowDecimals={false}
+            />
+            <YAxis
+              type="category"
+              dataKey="label"
+              tick={AXIS_TICK}
+              tickLine={false}
+              width={150}
+            />
+            <Tooltip
+              contentStyle={TOOLTIP_STYLE}
+              formatter={(value) => [`${Number(value)} days avg`, "Response time"]}
+            />
+            <Bar
+              dataKey="avgDays"
+              name="Avg days"
+              fill={C.sky}
+              radius={[0, 4, 4, 0]}
+              isAnimationActive={false}
+            >
+              {funderResponseTime.map((_entry, i) => (
+                <Cell key={i} fill={SERIES[i % SERIES.length]} />
+              ))}
+            </Bar>
+          </BarChart>
         </ChartFrame>
       </Card>
 
