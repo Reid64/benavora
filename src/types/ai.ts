@@ -83,6 +83,26 @@ export interface DraftLogicModel {
   templateId?: string;
 }
 
+/** Single item in a compliance checklist produced during draft generation. */
+export interface DraftComplianceItem {
+  requirementId: string;
+  requirementName: string;
+  status: 'pass' | 'fail' | 'warning' | 'unknown';
+  severity: 'required' | 'recommended';
+  message: string;
+  citation: string;
+}
+
+/** Aggregate compliance check result attached to every generated draft. */
+export interface DraftComplianceChecklist {
+  overallStatus: 'pass' | 'fail' | 'warning';
+  passCount: number;
+  failCount: number;
+  warningCount: number;
+  unknownCount: number;
+  items: DraftComplianceItem[];
+}
+
 export interface DraftResult {
   content: string;
   /** AI confidence 0-100. Below 70 must show a review warning. */
@@ -103,6 +123,12 @@ export interface DraftResult {
    * logic model / theory of change). Null/absent otherwise.
    */
   logicModel?: DraftLogicModel | null;
+  /**
+   * Compliance checklist produced for every draft. Required items with status
+   * 'fail' or 'warning' reduce the confidence score. Null only when the check
+   * itself failed (non-blocking).
+   */
+  complianceChecklist?: DraftComplianceChecklist | null;
 }
 
 /** Result of the Humanizer pass (/api/ai/humanize). */

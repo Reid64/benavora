@@ -26,6 +26,9 @@ import {
   formatLogicModelAsText,
   type GeneratedLogicModel,
 } from "@/lib/intelligence/logic-model-generator";
+import { BudgetPatternLibrary, type BudgetTemplate } from "@/lib/intelligence/budget-patterns";
+import { EvaluationLibrary, type KPI } from "@/lib/intelligence/evaluation-library";
+import { ComplianceLibrary, type ComplianceCheckResult } from "@/lib/intelligence/compliance-library";
 import type {
   DraftPromptContext,
   DraftTemplateType,
@@ -269,6 +272,25 @@ export interface GenerateDraftOutput {
     description: string | null;
   }>;
   logicModel: GeneratedLogicModel | null;
+  /** Compliance checklist (null when check itself failed). */
+  complianceChecklist: ComplianceCheckResult | null;
+}
+
+/** Map opportunity source_type + category to a budget grantType string. */
+function resolveGrantType(
+  sourceType: string | null,
+  category: string | null,
+): string {
+  const src = (sourceType ?? "").toLowerCase();
+  const cat = (category ?? "").toLowerCase();
+  if (["grants_gov", "sam_gov", "federal"].some((k) => src.includes(k))) return "federal";
+  if (["state", "portal"].some((k) => src.includes(k))) return "state";
+  if (["foundation", "propublica", "private"].some((k) => src.includes(k))) return "foundation";
+  if (src.includes("corporate")) return "corporate";
+  if (["federal", "government"].some((k) => cat.includes(k))) return "federal";
+  if (cat.includes("state")) return "state";
+  if (["foundation", "private"].some((k) => cat.includes(k))) return "foundation";
+  return "federal";
 }
 
 /**
@@ -644,6 +666,64 @@ export async function generateDraft(
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Budget patterns, evaluation KPIs, and compliance intelligence
+  // ---------------------------------------------------------------------------
+  const grantType = resolveGrantType(
+    opportunity.source_type as string | null,
+    opportunity.category as string | null,
+  );
+
+  const needsBudgetPatterns =
+    templateType === "budget_narrative" || templateType === "full_proposal";
+  const needsEvaluationKPIs = TEMPLATE_SECTION_TYPES[templateType].includes("evaluation_plan");
+
+  let budgetTemplate: BudgetTemplate | null = null;
+  let evaluationKPIs: KPI[] = [];
+  let complianceChecklist: ComplianceCheckResult | null = null;
+
+  try {
+    const budgetLib = new BudgetPatternLibrary();
+    const evalLib = new EvaluationLibrary();
+
+    const [budgetRes, evalRes] = await Promise.all([
+      needsBudgetPatterns
+        ? budgetLib
+            .getTemplateByCategory(opportunity.category as string, grantType)
+            .catch((e: unknown) => {
+              console.error("[INTELLIGENCE] budget patterns failed:", (e as Error).message);
+              return null;
+            })
+        : Promise.resolve(null),
+      needsEvaluationKPIs
+        ? evalLib.getKPIs(opportunity.category as string).catch((e: unknown) => {
+            console.error("[INTELLIGENCE] evaluation KPIs failed:", (e as Error).message);
+            return [] as KPI[];
+          })
+        : Promise.resolve([] as KPI[]),
+    ]);
+
+    budgetTemplate = budgetRes;
+    evaluationKPIs = evalRes ?? [];
+
+    // Compliance — always run for all template types.
+    const complianceLib = new ComplianceLibrary();
+    const complianceReqs = complianceLib.getRequirements(
+      opportunity.category as string,
+      (opportunity.source_type as string | null) ?? "",
+    );
+    complianceChecklist = complianceLib.checkCompliance(
+      {
+        documents: Array.isArray(opportunity.required_documents)
+          ? (opportunity.required_documents as string[])
+          : [],
+      },
+      complianceReqs,
+    );
+  } catch (e: unknown) {
+    console.error("[INTELLIGENCE] budget/eval/compliance failed:", (e as Error).message);
+  }
+
   // Build prompt.
   const built =
     templateType === "donation_request_letter"
@@ -699,6 +779,58 @@ export async function generateDraft(
       formattedModel;
   }
 
+  if (budgetTemplate !== null) {
+    const budgetLib = new BudgetPatternLibrary();
+    const indirectGuidance = budgetLib.getIndirectCostRateGuidance(grantType);
+    const lineItemsText = budgetTemplate.lineItems
+      .map(
+        (item) =>
+          `- ${item.name} (${item.category}): typical ${item.typicalPctMin}–${item.typicalPctMax}% of budget.\n  Example: "${item.justificationExample}"`,
+      )
+      .join("\n");
+    const costPrinciplesText = budgetTemplate.lineItems
+      .map((item) => {
+        const refs = budgetLib.getFederalCostPrinciples(item.category);
+        return `${item.category}:\n${refs.map((r) => `  - ${r}`).join("\n")}`;
+      })
+      .join("\n");
+    enhancedPrompt +=
+      "\n\nBUDGET PATTERNS — Typical line items and justification language for this grant type:\n" +
+      lineItemsText +
+      "\n\nINDIRECT COST GUIDANCE:\n" +
+      indirectGuidance +
+      "\n\nFEDERAL COST PRINCIPLES:\n" +
+      costPrinciplesText;
+  }
+
+  if (evaluationKPIs.length > 0) {
+    const kpiText = evaluationKPIs
+      .slice(0, 8)
+      .map(
+        (k) =>
+          `- ${k.name}: ${k.definition} (Target: ${k.target_range}; Measured by: ${k.measurement_method}; Source: ${k.data_source}; Frequency: ${k.frequency})`,
+      )
+      .join("\n");
+    enhancedPrompt +=
+      "\n\nEVALUATION KPIs — Include these measurable outcomes in the evaluation plan section. " +
+      "Use specific targets and measurement methods as shown:\n" +
+      kpiText;
+  }
+
+  if (complianceChecklist !== null) {
+    const actionItems = complianceChecklist.items
+      .filter((i) => i.status === "fail" || i.status === "warning")
+      .slice(0, 10)
+      .map((i) => `- [${i.severity.toUpperCase()}] ${i.requirementName}: ${i.message} (${i.citation})`)
+      .join("\n");
+    if (actionItems) {
+      enhancedPrompt +=
+        "\n\nCOMPLIANCE REQUIREMENTS NEEDING ATTENTION — Flag these items explicitly in the draft " +
+        "where relevant and note what the applicant must provide:\n" +
+        actionItems;
+    }
+  }
+
   const response = await callClaude({
     system: built.system,
     prompt: enhancedPrompt,
@@ -715,11 +847,18 @@ export async function generateDraft(
       "\n\n[Draft truncated — regenerate with a more specific template type for complete output]";
   }
 
-  const confidenceScore = computeConfidence(
+  let confidenceScore = computeConfidence(
     draftText,
     knowledgeEntries.length,
     provenNarratives.length,
   );
+
+  // Compliance penalty: required failures cost 5 pts each, warnings cost 2.
+  if (complianceChecklist !== null) {
+    const penalty =
+      complianceChecklist.failCount * 5 + complianceChecklist.warningCount * 2;
+    confidenceScore = Math.max(0, Math.min(100, confidenceScore - penalty));
+  }
 
   const gapCount = (draftText.match(/\[NEEDS INPUT/gi) ?? []).length;
   const wordCount = draftText.trim().split(/\s+/).length;
@@ -823,5 +962,6 @@ export async function generateDraft(
     tokensUsed: response.usage.totalTokens,
     rubricDimensionSummary,
     logicModel: generatedLogicModel,
+    complianceChecklist,
   };
 }

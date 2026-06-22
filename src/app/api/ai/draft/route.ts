@@ -211,6 +211,7 @@ export async function POST(request: Request) {
           ? output.rubricDimensionSummary
           : undefined,
       logicModel: output.logicModel ?? undefined,
+      complianceChecklist: output.complianceChecklist ?? undefined,
     };
 
     return NextResponse.json(result);
