@@ -1,30 +1,51 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { X } from "lucide-react";
 
-import { navItemsForRole } from "@/components/layout/nav-items";
+import {
+  navItemsForRole,
+  PLATFORM_NAV_ITEMS,
+  SETTINGS_NAV_ITEM,
+} from "@/components/layout/nav-items";
 import { Logo } from "@/components/layout/Logo";
 import { rememberedHref } from "@/lib/navigation/section-memory";
-import { useAlerts } from "@/lib/hooks/useAlerts";
-import { createClient } from "@/lib/supabase/client";
 import type { Enums } from "@/types/database";
+
+type NavCounts = {
+  alerts: number;
+  applications: number;
+  documents: number;
+  deadlines: number;
+};
 
 type SidebarProps = {
   /** Whether the mobile drawer is open. Ignored at lg+ where the sidebar is static. */
   open: boolean;
   /** Close the mobile drawer (backdrop tap, link click, or close button). */
   onClose: () => void;
-  /** Caller's role - gates role-restricted items (e.g. Billing is owner-only). */
+  /** Caller's role — gates role-restricted items and the platform section. */
   role: Enums<"user_role"> | undefined;
-  /** Whether onboarding is complete - shows the Onboarding return link when true. */
+  /** Whether onboarding is complete. */
   onboardingCompleted: boolean;
 };
 
+function NavBadge({ count }: { count: number }) {
+  if (count <= 0) return null;
+  return (
+    <span
+      className="ml-auto inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-xs font-semibold leading-none text-white"
+      aria-label={`${count} ${count === 1 ? "item needs" : "items need"} attention`}
+    >
+      {count > 99 ? "99+" : count}
+    </span>
+  );
+}
+
 /**
- * Dashboard sidebar navigation - dark navy brand rail.
+ * Dashboard sidebar navigation — dark navy brand rail.
  * - Static rail on lg+ screens.
  * - Slide-in drawer with backdrop on mobile, controlled by `open`.
  * - The nav item whose route matches the current path is highlighted in teal.
@@ -32,57 +53,59 @@ type SidebarProps = {
 export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarProps) {
   const pathname = usePathname();
   const navItems = navItemsForRole(role, { onboardingCompleted });
+  const isPlatformAdmin = role === "owner" || role === "admin";
 
-  // Live red badge counts (deadlines ≤7 days, new opportunities since last
-  // login, applications needing action, drafts pending review). Refresh on
-  // every navigation so acting on items elsewhere clears the badges.
-  const { counts, refresh } = useAlerts();
-  const firstRun = useRef(true);
-  useEffect(() => {
-    // useAlerts already loads on mount; only re-fetch on later navigations.
-    if (firstRun.current) {
-      firstRun.current = false;
-      return;
+  // Lightweight badge counts from a single API call.
+  const [navCounts, setNavCounts] = useState<NavCounts>({
+    alerts: 0,
+    applications: 0,
+    documents: 0,
+    deadlines: 0,
+  });
+
+  const fetchCounts = useCallback(async () => {
+    try {
+      const res = await fetch("/api/nav-counts", { cache: "no-store" });
+      if (res.ok) {
+        const data = (await res.json()) as NavCounts;
+        setNavCounts(data);
+      }
+    } catch {
+      // Non-fatal — badges simply stay at zero.
     }
-    void refresh();
-  }, [pathname, refresh]);
+  }, []);
 
-  // Automation sessions awaiting human approval.
-  const [automationPending, setAutomationPending] = useState(0);
   useEffect(() => {
-    const supabase = createClient();
-    void supabase
-      .from("automation_sessions")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "awaiting_approval")
-      .then(({ count }) => setAutomationPending(count ?? 0));
-  }, [pathname]);
+    void fetchCounts();
+  }, [fetchCounts]);
 
-  const badgeByHref: Record<string, number> = {
-    "/alerts": counts.total,
-    "/deadlines": counts.deadline_due,
-    "/opportunities": counts.new_opportunity,
-    "/applications": counts.application_action,
-    "/draft-generator": counts.draft_review,
-    "/autoapply": automationPending,
-  };
+  // Re-fetch on navigation so badges update after the user acts on items.
+  useEffect(() => {
+    void fetchCounts();
+  }, [pathname, fetchCounts]);
 
   // Resolve each item's href to the section's remembered location (restoring
-  // saved filters/search/sort/view). Computed after mount - sessionStorage is
+  // saved filters/search/sort/view). Computed after mount — sessionStorage is
   // unavailable during SSR, so the first render uses the plain hrefs to keep
-  // server and client markup identical (no hydration mismatch). Recomputed on
-  // navigation, by which point the section the user is leaving is recorded.
+  // server and client markup identical (no hydration mismatch).
   const [hrefs, setHrefs] = useState<Record<string, string>>({});
   useEffect(() => {
     const resolved: Record<string, string> = {};
     for (const item of navItemsForRole(role, { onboardingCompleted })) {
       resolved[item.href] = rememberedHref(item.href);
     }
+    resolved[SETTINGS_NAV_ITEM.href] = rememberedHref(SETTINGS_NAV_ITEM.href);
     setHrefs(resolved);
   }, [pathname, role, onboardingCompleted]);
 
+  const badgeByHref: Record<string, number> = {
+    "/alerts": navCounts.alerts,
+    "/applications": navCounts.applications,
+    "/documents": navCounts.documents,
+    "/deadlines": navCounts.deadlines,
+  };
+
   function isActive(href: string): boolean {
-    // Highlight on exact match or when inside a section (e.g. /funders/new).
     return pathname === href || pathname.startsWith(`${href}/`);
   }
 
@@ -126,8 +149,8 @@ export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarPro
           </button>
         </div>
 
-        {/* Nav links */}
-        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
+        {/* Main nav links */}
+        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4" aria-label="Main navigation">
           {navItems.map(({ label, href, icon: Icon, children }) => {
             const active = isActive(href);
             const badge = badgeByHref[href] ?? 0;
@@ -151,21 +174,12 @@ export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarPro
                   )}
                   <Icon
                     className={`h-5 w-5 shrink-0 transition ${
-                      active
-                        ? "text-teal-400"
-                        : "text-navy-400 group-hover:text-teal-300"
+                      active ? "text-teal-400" : "text-navy-400 group-hover:text-teal-300"
                     }`}
                     aria-hidden
                   />
                   <span className="truncate">{label}</span>
-                  {badge > 0 && (
-                    <span
-                      className="ml-auto inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-xs font-semibold leading-none text-white"
-                      aria-label={`${badge} ${badge === 1 ? "item needs" : "items need"} attention`}
-                    >
-                      {badge > 99 ? "99+" : badge}
-                    </span>
-                  )}
+                  <NavBadge count={badge} />
                 </Link>
                 {active && children && children.length > 0 && (
                   <div className="ml-9 mt-0.5 space-y-0.5">
@@ -178,13 +192,14 @@ export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarPro
                           onClick={onClose}
                           aria-current={childActive ? "page" : undefined}
                           className={`flex items-center rounded-md px-3 py-1.5 text-xs font-medium transition ${
-                            childActive
-                              ? "text-teal-300"
-                              : "text-navy-400 hover:text-navy-200"
+                            childActive ? "text-teal-300" : "text-navy-400 hover:text-navy-200"
                           }`}
                         >
                           {childActive && (
-                            <span className="mr-2 inline-block h-1 w-1 rounded-full bg-teal-400" aria-hidden />
+                            <span
+                              className="mr-2 inline-block h-1 w-1 rounded-full bg-teal-400"
+                              aria-hidden
+                            />
                           )}
                           {child.label}
                         </Link>
@@ -197,10 +212,78 @@ export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarPro
           })}
         </nav>
 
-        <div className="border-t border-white/10 px-5 py-4">
-          <p className="text-xs text-navy-400">
-            Nonprofit funding automation
-          </p>
+        {/* Platform admin section */}
+        {isPlatformAdmin && (
+          <div className="border-t border-white/10 px-3 py-3">
+            <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-widest text-navy-500">
+              Platform
+            </p>
+            {PLATFORM_NAV_ITEMS.map(({ label, href, icon: Icon }) => {
+              const active = isActive(href);
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  onClick={onClose}
+                  aria-current={active ? "page" : undefined}
+                  className={`group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                    active
+                      ? "bg-white/10 text-white"
+                      : "text-navy-300 hover:bg-white/5 hover:text-white"
+                  }`}
+                >
+                  {active && (
+                    <span
+                      className="absolute inset-y-1.5 left-0 w-1 rounded-full bg-teal-400"
+                      aria-hidden
+                    />
+                  )}
+                  <Icon
+                    className={`h-5 w-5 shrink-0 transition ${
+                      active ? "text-teal-400" : "text-navy-500 group-hover:text-teal-300"
+                    }`}
+                    aria-hidden
+                  />
+                  <span className="truncate">{label}</span>
+                </Link>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Settings — bottom, separated */}
+        <div className="border-t border-white/10 px-3 py-3">
+          {(() => {
+            const { label, href, icon: Icon } = SETTINGS_NAV_ITEM;
+            const active = isActive(href);
+            return (
+              <Link
+                href={hrefs[href] ?? href}
+                onClick={onClose}
+                aria-current={active ? "page" : undefined}
+                className={`group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                  active
+                    ? "bg-white/10 text-white"
+                    : "text-navy-200 hover:bg-white/5 hover:text-white"
+                }`}
+              >
+                {active && (
+                  <span
+                    className="absolute inset-y-1.5 left-0 w-1 rounded-full bg-teal-400"
+                    aria-hidden
+                  />
+                )}
+                <Icon
+                  className={`h-5 w-5 shrink-0 transition ${
+                    active ? "text-teal-400" : "text-navy-400 group-hover:text-teal-300"
+                  }`}
+                  aria-hidden
+                />
+                <span className="truncate">{label}</span>
+              </Link>
+            );
+          })()}
+          <p className="mt-3 px-3 text-xs text-navy-500">Nonprofit funding automation</p>
         </div>
       </aside>
     </>

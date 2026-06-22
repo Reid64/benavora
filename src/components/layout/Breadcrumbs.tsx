@@ -11,6 +11,12 @@ const SEGMENT_LABELS: Record<string, string> = {
   ...Object.fromEntries(
     NAV_ITEMS.map((item) => [item.href.replace(/^\//, ""), item.label]),
   ),
+  // Header nav items (not in sidebar NAV_ITEMS but still need correct labels).
+  dashboard: "Dashboard",
+  research: "Research",
+  opportunities: "Opportunities",
+  autoapply: "AutoApply",
+  "draft-generator": "Draft Generator",
   new: "New",
   list: "List",
   profile: "Profile",

@@ -22,10 +22,11 @@ type HeaderProps = {
 
 /** Primary tab links surfaced in the header. */
 const TABS = [
-  { label: "Dashboard", href: "/dashboard" },
-  { label: "Research", href: "/research" },
-  { label: "Opportunities", href: "/opportunities" },
-  { label: "Draft Generator", href: "/draft-generator" },
+  { label: "Dashboard", href: "/dashboard", premium: false },
+  { label: "Research", href: "/research", premium: false },
+  { label: "Opportunities", href: "/opportunities", premium: false },
+  { label: "AutoApply", href: "/autoapply", premium: true },
+  { label: "Draft Generator", href: "/draft-generator", premium: true },
 ];
 
 /** Avatar-dropdown destinations (Log Out is rendered separately). */
@@ -87,18 +88,18 @@ export function Header({ userEmail, orgName, orgLogoUrl, onMenuClick }: HeaderPr
   const initials = orgInitials(orgName, userEmail);
 
   return (
-    <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center gap-4 border-b border-white/10 bg-ink-900/70 px-4 backdrop-blur-xl sm:px-6">
+    <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center gap-4 border-b border-white/10 bg-[#0f1117] px-4 sm:px-6">
       <button
         type="button"
         onClick={onMenuClick}
-        className="rounded-md p-1.5 text-navy-300 transition hover:bg-white/10 hover:text-white lg:hidden"
+        className="rounded-md p-1.5 text-[#f0f0f5]/60 transition hover:bg-white/10 hover:text-[#f0f0f5] lg:hidden"
         aria-label="Open navigation"
       >
         <Menu className="h-5 w-5" />
       </button>
 
       {/* Header tab links */}
-      <nav className="hidden items-center gap-1 md:flex" aria-label="Primary sections">
+      <nav className="hidden items-center gap-0.5 md:flex" aria-label="Primary sections">
         {TABS.map((tab) => {
           const active = isActiveTab(tab.href);
           return (
@@ -107,13 +108,23 @@ export function Header({ userEmail, orgName, orgLogoUrl, onMenuClick }: HeaderPr
               href={tab.href}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "rounded-lg px-3 py-1.5 text-sm font-medium transition",
+                "relative rounded-lg px-3 py-1.5 text-sm transition",
+                tab.premium ? "font-semibold" : "font-medium",
                 active
-                  ? "bg-white/10 text-white"
-                  : "text-navy-300 hover:bg-white/5 hover:text-white",
+                  ? "bg-white/15 text-[#f0f0f5]"
+                  : "text-[#f0f0f5]/65 hover:bg-white/5 hover:text-[#f0f0f5]",
               )}
             >
               {tab.label}
+              {tab.premium && (
+                <span
+                  className={cn(
+                    "absolute bottom-0.5 left-3 right-3 h-0.5 rounded-full transition",
+                    active ? "bg-teal-400" : "bg-teal-400/35",
+                  )}
+                  aria-hidden
+                />
+              )}
             </Link>
           );
         })}
@@ -144,19 +155,19 @@ export function Header({ userEmail, orgName, orgLogoUrl, onMenuClick }: HeaderPr
               {initials}
             </span>
           )}
-          <ChevronDown className="h-4 w-4 text-navy-300" aria-hidden />
+          <ChevronDown className="h-4 w-4 text-[#f0f0f5]/50" aria-hidden />
         </button>
 
         {menuOpen && (
           <div
             role="menu"
-            className="absolute right-0 top-full z-30 mt-2 w-56 overflow-hidden rounded-xl border border-white/10 bg-ink-900 shadow-2xl"
+            className="absolute right-0 top-full z-30 mt-2 w-56 overflow-hidden rounded-xl border border-white/10 bg-[#0f1117] shadow-2xl"
           >
             <div className="border-b border-white/10 px-4 py-3">
-              <p className="truncate text-sm font-semibold text-white">
+              <p className="truncate text-sm font-semibold text-[#f0f0f5]">
                 {orgName || "Your organization"}
               </p>
-              <p className="truncate text-xs text-navy-400">{userEmail}</p>
+              <p className="truncate text-xs text-[#f0f0f5]/50">{userEmail}</p>
             </div>
             <div className="py-1">
               {MENU_LINKS.map((l) => (
@@ -165,7 +176,7 @@ export function Header({ userEmail, orgName, orgLogoUrl, onMenuClick }: HeaderPr
                   href={l.href}
                   onClick={() => setMenuOpen(false)}
                   role="menuitem"
-                  className="block px-4 py-2 text-sm text-navy-200 transition hover:bg-white/5 hover:text-white"
+                  className="block px-4 py-2 text-sm text-[#f0f0f5]/70 transition hover:bg-white/5 hover:text-[#f0f0f5]"
                 >
                   {l.label}
                 </Link>
@@ -177,7 +188,7 @@ export function Header({ userEmail, orgName, orgLogoUrl, onMenuClick }: HeaderPr
                 onClick={handleSignOut}
                 disabled={signingOut}
                 role="menuitem"
-                className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-navy-200 transition hover:bg-white/5 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-[#f0f0f5]/70 transition hover:bg-white/5 hover:text-[#f0f0f5] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <LogOut className="h-4 w-4" aria-hidden />
                 {signingOut ? "Signing out..." : "Log Out"}
