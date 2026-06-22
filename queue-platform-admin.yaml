@@ -1,0 +1,987 @@
+project: benavora
+github_repo: Reid64/benavora
+supabase_project_ref: vbjplpquqxxfbpazyalt
+vercel_project_name: benavora
+domain: benavora.com
+
+governance:
+  - BLUEPRINT.md
+  - SCHEMA_REGISTRY.md
+  - BEHAVIORAL_CONTRACTS.md
+  - AGENTS.md
+  - PRD.md
+
+settings:
+  max_retries_per_prompt: 3
+  build_model: claude-sonnet-4-6-20250514
+  review_model: claude-sonnet-4-6-20250514
+  report_model: claude-haiku-4-5-20251001
+  permission_mode: acceptEdits
+  allowed_tools: "*"
+  review_frequency: 5
+  governance_check_frequency: 10
+
+# ============================================================
+# BENAVORA 4-TIER ADMINISTRATION SYSTEM
+# ============================================================
+#
+# TIER 1: PLATFORM OWNER (Super Admin)
+#   Who: Reid (and future co-founders/CTO)
+#   Access: Everything. All tenants, all data, all controls.
+#   Dashboard: /platform — system health, revenue, all tenants,
+#     staff management, error monitoring, AI costs, feature flags,
+#     queue monitoring, impersonation, task assignment.
+#
+# TIER 2: INTERNAL STAFF
+#   Who: Hired operators, support agents, account managers
+#   Access: Scoped by permissions. Cannot self-elevate.
+#   Dashboard: /platform — same UI, permission-gated. Only sees
+#     what their permissions allow. Task board for assignments.
+#   Roles: staff_admin (most access), staff_support (tenant
+#     support + error resolution), staff_readonly (view only)
+#
+# TIER 3: TENANT ADMIN
+#   Who: Nonprofit org owner or admin (existing user_role enum)
+#   Access: Their org only. Team management, org billing,
+#     org usage stats, org integrations, org settings.
+#   Dashboard: /settings/organization — enhanced admin hub
+#     showing team, usage, billing, integrations for THEIR org.
+#
+# TIER 4: TENANT USER
+#   Who: Writers and viewers within a tenant org
+#   Access: Role-gated. Writers create/edit. Viewers read-only.
+#   Dashboard: Existing dashboard with nav items and actions
+#     conditionally hidden/disabled based on their role.
+#
+# ROUTE ARCHITECTURE:
+#   /platform/*          — Tier 1 & 2 (platform admin auth)
+#   /admin/sales-outreach — Existing, untouched
+#   /settings/organization/* — Tier 3 (tenant admin pages)
+#   Everything else      — Tier 3 & 4 (tenant auth, role-gated)
+#
+# ZERO CONFLICTS:
+#   - Platform roles are SEPARATE from tenant roles
+#   - Platform admins are NOT members of any tenant org
+#   - middleware.ts is NOT modified
+#   - Existing routes are NOT moved or renamed
+#   - Existing nav items are NOT removed
+# ============================================================
+
+prompts:
+
+  # ============================================================
+  # PROMPT 1: DATABASE SCHEMA — All 4 tiers
+  # ============================================================
+
+  - id: admin-001
+    phase: build
+    description: "Create migration for complete 4-tier administration system"
+    prompt: |
+      FIRST: Read the entire supabase/migrations/ directory listing. Read the profiles table schema. Read the organizations table schema. Check for any existing platform_admins, staff, or admin tables. Check existing enums.
+
+      Create C:\Users\manag\Documents\benavora\supabase\migrations\056_four_tier_admin_system.sql:
+
+      -- =====================================================
+      -- TIER 1 & 2: Platform-level types and tables
+      -- =====================================================
+
+      CREATE TYPE platform_role AS ENUM ('platform_owner', 'staff_admin', 'staff_support', 'staff_readonly');
+
+      CREATE TYPE staff_permission AS ENUM (
+        'tenant_view', 'tenant_manage', 'tenant_impersonate',
+        'billing_view', 'billing_manage',
+        'feature_flags_view', 'feature_flags_manage',
+        'staff_view', 'staff_manage',
+        'queue_view', 'queue_manage', 'queue_emergency_stop',
+        'analytics_view', 'error_view', 'error_resolve',
+        'sales_outreach_view', 'sales_outreach_manage',
+        'system_health_view', 'audit_log_view'
+      );
+
+      CREATE TYPE task_status AS ENUM ('open', 'in_progress', 'blocked', 'completed', 'cancelled');
+      CREATE TYPE task_priority AS ENUM ('low', 'medium', 'high', 'critical');
+
+      -- Platform admin accounts — NOT linked to any org
+      CREATE TABLE IF NOT EXISTS platform_admins (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE UNIQUE,
+        email text NOT NULL,
+        full_name text NOT NULL,
+        platform_role platform_role NOT NULL DEFAULT 'staff_readonly',
+        permissions staff_permission[] DEFAULT '{}',
+        is_active boolean DEFAULT true,
+        last_login_at timestamptz,
+        invited_by uuid REFERENCES platform_admins(id),
+        created_at timestamptz DEFAULT NOW(),
+        updated_at timestamptz DEFAULT NOW()
+      );
+      CREATE INDEX idx_platform_admins_user ON platform_admins(user_id);
+
+      -- Staff task system
+      CREATE TABLE IF NOT EXISTS platform_tasks (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        title text NOT NULL,
+        description text,
+        assigned_to uuid REFERENCES platform_admins(id),
+        assigned_by uuid REFERENCES platform_admins(id),
+        status task_status DEFAULT 'open',
+        priority task_priority DEFAULT 'medium',
+        category text DEFAULT 'general',
+        related_tenant_id uuid REFERENCES organizations(id),
+        related_entity_type text,
+        related_entity_id uuid,
+        due_date timestamptz,
+        completed_at timestamptz,
+        notes text,
+        created_at timestamptz DEFAULT NOW(),
+        updated_at timestamptz DEFAULT NOW()
+      );
+      CREATE INDEX idx_platform_tasks_assigned ON platform_tasks(assigned_to);
+      CREATE INDEX idx_platform_tasks_status ON platform_tasks(status);
+
+      -- Impersonation audit
+      CREATE TABLE IF NOT EXISTS impersonation_log (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        admin_id uuid NOT NULL REFERENCES platform_admins(id),
+        target_org_id uuid NOT NULL REFERENCES organizations(id),
+        target_user_id uuid,
+        started_at timestamptz DEFAULT NOW(),
+        ended_at timestamptz,
+        reason text NOT NULL,
+        actions_taken text[]
+      );
+      CREATE INDEX idx_impersonation_admin ON impersonation_log(admin_id);
+
+      -- System error aggregation
+      CREATE TABLE IF NOT EXISTS system_errors (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        source text NOT NULL,
+        error_type text NOT NULL,
+        message text NOT NULL,
+        stack_trace text,
+        organization_id uuid REFERENCES organizations(id),
+        user_id uuid,
+        route text,
+        request_body jsonb,
+        severity text DEFAULT 'error',
+        is_resolved boolean DEFAULT false,
+        resolved_by uuid REFERENCES platform_admins(id),
+        resolved_at timestamptz,
+        resolution_notes text,
+        occurrence_count integer DEFAULT 1,
+        first_seen_at timestamptz DEFAULT NOW(),
+        last_seen_at timestamptz DEFAULT NOW(),
+        created_at timestamptz DEFAULT NOW()
+      );
+      CREATE INDEX idx_system_errors_resolved ON system_errors(is_resolved, last_seen_at DESC);
+      CREATE INDEX idx_system_errors_source ON system_errors(source);
+
+      -- AI usage tracking (per request, per org)
+      CREATE TABLE IF NOT EXISTS ai_usage_log (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        organization_id uuid NOT NULL REFERENCES organizations(id),
+        model text NOT NULL,
+        endpoint text NOT NULL,
+        input_tokens integer DEFAULT 0,
+        output_tokens integer DEFAULT 0,
+        total_tokens integer DEFAULT 0,
+        estimated_cost_cents integer DEFAULT 0,
+        duration_ms integer,
+        agent_type text,
+        created_at timestamptz DEFAULT NOW()
+      );
+      CREATE INDEX idx_ai_usage_org ON ai_usage_log(organization_id);
+      CREATE INDEX idx_ai_usage_date ON ai_usage_log(created_at);
+
+      -- =====================================================
+      -- TIER 3: Tenant admin enhancements
+      -- =====================================================
+
+      -- Team activity log (tracks what each tenant user does)
+      CREATE TABLE IF NOT EXISTS team_activity_log (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        organization_id uuid NOT NULL REFERENCES organizations(id),
+        user_id uuid NOT NULL REFERENCES profiles(id),
+        action text NOT NULL,
+        entity_type text,
+        entity_id uuid,
+        details jsonb DEFAULT '{}',
+        created_at timestamptz DEFAULT NOW()
+      );
+      ALTER TABLE team_activity_log ENABLE ROW LEVEL SECURITY;
+      CREATE POLICY "team_activity_org" ON team_activity_log USING (organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
+      CREATE INDEX idx_team_activity_org ON team_activity_log(organization_id);
+      CREATE INDEX idx_team_activity_user ON team_activity_log(user_id);
+      CREATE INDEX idx_team_activity_date ON team_activity_log(created_at DESC);
+
+      -- Org-level usage summary (materialized daily for fast tenant admin queries)
+      CREATE TABLE IF NOT EXISTS org_usage_summary (
+        id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+        organization_id uuid NOT NULL REFERENCES organizations(id),
+        period_date date NOT NULL,
+        ai_tokens_used integer DEFAULT 0,
+        ai_cost_cents integer DEFAULT 0,
+        drafts_generated integer DEFAULT 0,
+        submissions_attempted integer DEFAULT 0,
+        submissions_succeeded integer DEFAULT 0,
+        agent_runs integer DEFAULT 0,
+        storage_bytes_used bigint DEFAULT 0,
+        active_users integer DEFAULT 0,
+        created_at timestamptz DEFAULT NOW(),
+        UNIQUE(organization_id, period_date)
+      );
+      ALTER TABLE org_usage_summary ENABLE ROW LEVEL SECURITY;
+      CREATE POLICY "org_usage_org" ON org_usage_summary USING (organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
+      CREATE INDEX idx_org_usage_org_date ON org_usage_summary(organization_id, period_date DESC);
+
+      -- No RLS on platform tables (platform_admins, platform_tasks, impersonation_log, system_errors, ai_usage_log)
+      -- Access controlled by platform auth middleware, not RLS
+    expected_outputs:
+      - supabase/migrations/056_four_tier_admin_system.sql
+    gates:
+      - type: file_exists
+        files: [supabase/migrations/056_four_tier_admin_system.sql]
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # PROMPT 2: AUTH MIDDLEWARE — Platform + Tenant role utilities
+  # ============================================================
+
+  - id: admin-002
+    phase: build
+    description: "Create platform auth middleware and tenant role gating utility"
+    prompt: |
+      Read C:\Users\manag\Documents\benavora\src\lib\admin\auth.ts (existing admin auth — do not modify).
+      Read the platform_admins table from migration 056.
+
+      Create C:\Users\manag\Documents\benavora\src\lib\platform\auth.ts:
+
+      Export async function requirePlatformAuth(options?: { permissions?: string[] }): Promise<PlatformAdmin>
+        1. Get Supabase session via createRouteHandlerClient.
+        2. Query platform_admins WHERE user_id = session.user.id AND is_active = true. Use service role client.
+        3. If no record: throw 403 "Not a platform administrator".
+        4. If permissions specified: verify admin.permissions contains ALL required. Platform owners bypass this check.
+        5. Update last_login_at (fire-and-forget).
+        6. Return PlatformAdmin record.
+
+      Export async function requirePlatformRole(minRole: platform_role): Promise<PlatformAdmin>
+        Hierarchy: platform_owner > staff_admin > staff_support > staff_readonly.
+        Returns admin if their role is at or above minRole. Throws 403 otherwise.
+
+      Export async function seedPlatformOwner(): Promise<void>
+        If zero platform_owner records exist: find user with email = process.env.PLATFORM_OWNER_EMAIL || 'info@faithfoundation.org'.
+        Create platform_admins record with role = 'platform_owner' and ALL permissions. Self-disabling after first call.
+
+      Export async function isPlatformAdmin(userId: string): Promise<boolean>
+        Quick check — returns true if user_id exists in platform_admins with is_active = true. Used by nav to conditionally show Platform menu item.
+
+      Export function hasPlatformPermission(admin: PlatformAdmin, permission: string): boolean
+        Returns true if admin has the permission OR is platform_owner.
+
+      Create C:\Users\manag\Documents\benavora\src\lib\platform\role-gate.ts:
+
+      Tenant-level role gating utilities for UI conditional rendering.
+
+      Export function canAccess(userRole: string, requiredRole: string): boolean
+        Hierarchy: owner > admin > writer > viewer.
+        Returns true if userRole is at or above requiredRole.
+
+      Export function getNavItemsForRole(userRole: string): string[]
+        Returns the list of nav item IDs visible to this role:
+        - viewer: dashboard, funders, contacts, opportunities, applications, documents, knowledge-base, deadlines, analytics
+        - writer: everything viewer has + draft-generator, outreach
+        - admin: everything writer has + autoapply, settings, intelligence-library
+        - owner: everything admin has + settings/billing, settings/team, settings/integrations
+
+      Export function getDisabledActionsForRole(userRole: string): string[]
+        Returns actions that should be disabled (shown but grayed out):
+        - viewer: create, edit, delete, submit, generate, upload
+        - writer: delete (funders/contacts/docs), org settings, billing
+        - admin: billing management, delete organization
+
+      Define TypeScript types for all exports.
+    expected_outputs:
+      - src/lib/platform/auth.ts
+      - src/lib/platform/role-gate.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # PROMPT 3: PLATFORM OWNER APIs — tenants, health, revenue
+  # ============================================================
+
+  - id: admin-003
+    phase: build
+    description: "Create platform API routes — tenants, system health, revenue dashboard"
+    prompt: |
+      Read C:\Users\manag\Documents\benavora\src\lib\platform\auth.ts completely.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\platform\tenants\route.ts:
+        GET: List all organizations with enriched data. Requires: tenant_view.
+        Uses service role client (bypasses RLS).
+        Returns per tenant: id, name, subscription_tier, user_count, total_applications, total_drafts, total_submissions, last_activity_at (MAX of any updated_at across their data), created_at, is_active.
+        Supports: search (by name), filter by tier, sort by created_at or last_activity, pagination (limit/offset).
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\platform\tenants\[id]\route.ts:
+        GET: Full tenant detail. Requires: tenant_view.
+        Returns: org record, all profiles with roles and last login, feature flags from platform_config, usage summary (last 30 days from org_usage_summary), recent agent_runs (last 10), recent errors (last 10), subscription details.
+        PATCH: Update tenant. Requires: tenant_manage.
+        Accepts: subscription_tier, feature flag changes (key/value pairs written to platform_config).
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\platform\health\route.ts:
+        GET: System health. Requires platform auth (any role).
+        Returns:
+        {
+          database: { connected: boolean, response_time_ms: number },
+          tenants: { total, active_7d, active_30d, new_this_month },
+          submissions: { queued, processing, completed_today, failed_today },
+          agents: { runs_today, failed_today, avg_duration_ms },
+          ai: { tokens_today, cost_today_cents, requests_today },
+          workers: { online, offline, last_heartbeat },
+          errors: { unresolved, critical, last_error_at }
+        }
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\platform\revenue\route.ts:
+        GET: Revenue and billing analytics. Requires: billing_view.
+        Query params: period (30d, 90d, 12m, all)
+        Returns:
+        {
+          mrr_cents: number (sum of active subscriptions monthly value),
+          arr_cents: number (mrr * 12),
+          total_tenants, paying_tenants, free_tenants,
+          by_tier: [{ tier, count, mrr_cents }],
+          churn: { cancelled_this_period, churn_rate_percent },
+          growth: { new_this_period, net_growth },
+          by_month: [{ month, mrr_cents, tenant_count, new, churned }]
+        }
+        Derive from organizations.subscription_tier. Map tiers to price points:
+        starter=0, professional=4900, enterprise=14900, consultant=29900 (cents/month).
+        Count tier distribution and calculate MRR.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\platform\bootstrap\route.ts:
+        POST: Seeds Reid as platform_owner. Self-disabling after first use.
+        Calls seedPlatformOwner() from platform auth module.
+    expected_outputs:
+      - src/app/api/platform/tenants/route.ts
+      - src/app/api/platform/tenants/[id]/route.ts
+      - src/app/api/platform/health/route.ts
+      - src/app/api/platform/revenue/route.ts
+      - src/app/api/platform/bootstrap/route.ts
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # PROMPT 4: PLATFORM APIs — errors, AI usage, feature flags
+  # ============================================================
+
+  - id: admin-004
+    phase: build
+    description: "Create platform API routes — errors, AI usage, feature flags"
+    prompt: |
+      Read C:\Users\manag\Documents\benavora\src\lib\platform\auth.ts completely.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\platform\errors\route.ts:
+        GET: List system errors. Requires: error_view.
+        Filters: is_resolved, severity, source, organization_id, date_range. Pagination.
+        Returns: errors with org name joined.
+        PATCH: Bulk resolve. Body: { ids: string[], resolution_notes }. Requires: error_resolve.
+        Sets is_resolved = true, resolved_by = admin.id, resolved_at = NOW().
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\platform\ai-usage\route.ts:
+        GET: AI cost analytics. Requires: analytics_view.
+        Query params: period (7d, 30d, 90d), organization_id?
+        Returns:
+        {
+          total_tokens, total_cost_cents,
+          by_org: [{ org_id, org_name, tokens, cost_cents }],
+          by_model: [{ model, tokens, cost_cents, request_count }],
+          by_day: [{ date, tokens, cost_cents }],
+          by_endpoint: [{ endpoint, tokens, avg_duration_ms }],
+          monthly_projection_cents: (daily avg * 30)
+        }
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\platform\feature-flags\route.ts:
+        GET: All feature flags. Requires: feature_flags_view.
+        Returns: grouped by key — each key shows its tier defaults and per-tenant overrides.
+        POST: Set flag. Body: { organization_id, key, value }. Requires: feature_flags_manage.
+        Upserts into platform_config for the specified org.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\platform\queue-monitor\route.ts:
+        GET: Cross-tenant queue status. Requires: queue_view.
+        Returns: all submission_queue items across all orgs, grouped by status.
+        Uses service role client. Includes org name for each item.
+        POST: Emergency actions. Requires: queue_emergency_stop.
+        Body: { action: 'pause_all' | 'resume_all' | 'pause_tenant' | 'pause_funder', target_id? }
+        Writes to queue_controls table.
+    expected_outputs:
+      - src/app/api/platform/errors/route.ts
+      - src/app/api/platform/ai-usage/route.ts
+      - src/app/api/platform/feature-flags/route.ts
+      - src/app/api/platform/queue-monitor/route.ts
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # PROMPT 5: PLATFORM APIs — staff, tasks, impersonation
+  # ============================================================
+
+  - id: admin-005
+    phase: build
+    description: "Create platform API routes — staff management, tasks, impersonation"
+    prompt: |
+      Read C:\Users\manag\Documents\benavora\src\lib\platform\auth.ts completely.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\platform\staff\route.ts:
+        GET: List all platform staff. Requires: staff_view.
+        POST: Invite new staff. Body: { email, full_name, platform_role, permissions[] }. Requires: staff_manage.
+        If email not in auth.users: create via Supabase Admin API (service role). Send invite email via Resend if RESEND_API_KEY is set.
+        Create platform_admins record. Set invited_by = current admin.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\platform\staff\[id]\route.ts:
+        GET: Staff detail with task history.
+        PATCH: Update role, permissions, is_active. Requires: staff_manage.
+        Guards: cannot modify a platform_owner unless you are platform_owner. Cannot deactivate yourself.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\platform\tasks\route.ts:
+        GET: List tasks. Filters: assigned_to, status, priority, category, related_tenant_id. Any platform role.
+        POST: Create task. Requires: staff_manage or platform_owner.
+        Body: { title, description, assigned_to?, priority, category, related_tenant_id?, due_date? }
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\platform\tasks\[id]\route.ts:
+        GET: Task detail.
+        PATCH: Update. Assignee can update status/notes. staff_manage can reassign.
+        Completed status sets completed_at = NOW().
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\platform\impersonate\route.ts:
+        POST: Start impersonation. Requires: tenant_impersonate.
+        Body: { organization_id, reason }. Reason is required (audit trail).
+        Creates impersonation_log record. Returns log_id.
+        NOTE: Does NOT modify middleware.ts. Impersonation creates the audit record. Actual session switching is a future enhancement — for now the admin navigates to the tenant detail page to view their data via platform APIs.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\platform\impersonate\[logId]\route.ts:
+        PATCH: End impersonation. Body: { actions_taken: string[] }. Sets ended_at.
+    expected_outputs:
+      - src/app/api/platform/staff/route.ts
+      - src/app/api/platform/staff/[id]/route.ts
+      - src/app/api/platform/tasks/route.ts
+      - src/app/api/platform/tasks/[id]/route.ts
+      - src/app/api/platform/impersonate/route.ts
+      - src/app/api/platform/impersonate/[logId]/route.ts
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # PROMPT 6: INSTRUMENTATION — AI usage + error logging
+  # ============================================================
+
+  - id: admin-006
+    phase: build
+    description: "Instrument Claude API calls with usage logging and create error logger"
+    prompt: |
+      Read C:\Users\manag\Documents\benavora\src\lib\ai\claude.ts completely. Understand every export.
+
+      MODIFY the Claude API wrapper to log usage after each call:
+      - After each successful response, INSERT into ai_usage_log (fire-and-forget, try/catch, never blocks response):
+        organization_id (add as optional param if not already accepted), model, endpoint, input_tokens, output_tokens, total_tokens (from response.usage), estimated_cost_cents (claude-sonnet-4-6: input $3/MTok, output $15/MTok), duration_ms.
+      - Use service role Supabase client for the insert.
+      - If organization_id is not provided, skip logging (backwards compatible).
+      - Do NOT change return types or break any existing callers.
+
+      Create C:\Users\manag\Documents\benavora\src\lib\platform\error-logger.ts:
+
+      Export async function logSystemError(params: {
+        source: string, error_type: string, message: string,
+        stack_trace?: string, organization_id?: string, user_id?: string,
+        route?: string, request_body?: object, severity?: string
+      }): Promise<void>
+        Deduplicates: if same source + error_type + message exists in last 24h, increment occurrence_count and update last_seen_at. Otherwise insert new.
+        Fire-and-forget. Service role client. Never throws.
+
+      Export function withErrorLogging(route: string, handler: Function): Function
+        HOF wrapper for API route handlers. Catches thrown errors, logs via logSystemError, returns proper error JSON response. Usage:
+        export const GET = withErrorLogging('/api/grants', async (req) => { ... })
+        Do NOT apply this to any existing routes in this prompt — it's available for incremental adoption.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\cron\usage-summary\route.ts:
+        GET: Daily cron that aggregates ai_usage_log into org_usage_summary for the previous day.
+        For each org with activity yesterday: count tokens, cost, drafts (from drafts table), submissions, agent runs, active users (distinct user_ids in team_activity_log).
+        Upsert into org_usage_summary. Verify CRON_SECRET.
+    expected_outputs:
+      - src/lib/ai/claude.ts
+      - src/lib/platform/error-logger.ts
+      - src/app/api/cron/usage-summary/route.ts
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # PROMPT 7: TENANT ADMIN APIs — team, usage, billing
+  # ============================================================
+
+  - id: admin-007
+    phase: build
+    description: "Create tenant admin API routes — team management, org usage, org billing"
+    prompt: |
+      Read the profiles table schema. Read the organizations table. Read the org_usage_summary and team_activity_log tables from migration 056.
+
+      These routes use STANDARD tenant auth (not platform auth). They check that the user has owner or admin role within their org.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\settings\team\route.ts (or modify if it exists — read first):
+        GET: List all team members for the org. Returns: profiles with role, email, full_name, last login (from auth.users if accessible, otherwise from profiles.updated_at), status.
+        Only owner and admin roles can access.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\settings\team\[id]\route.ts:
+        PATCH: Update team member role. Body: { role }. Only owner can change roles.
+        Guards: cannot change own role, cannot set role higher than your own, last owner cannot be demoted.
+        DELETE: Remove team member. Only owner. Cannot remove yourself. Deactivates their profile (does not delete auth user).
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\settings\team\invite\route.ts:
+        POST: Invite user. Body: { email, full_name, role }. Only owner/admin.
+        Creates auth user via Supabase Admin API, creates profile linked to org.
+        Admin cannot invite with owner role. Send welcome email via Resend if available.
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\settings\usage\route.ts:
+        GET: Org usage stats for the tenant admin. Owner/admin only.
+        Query params: period (7d, 30d, 90d)
+        Returns from org_usage_summary + live counts:
+        {
+          current_period: { ai_tokens, ai_cost_cents, drafts, submissions, agent_runs },
+          limits: { ai_drafts_monthly_limit, daily_submissions_limit, max_users },
+          usage_percent: { drafts_percent, submissions_percent, users_percent },
+          by_day: [{ date, tokens, drafts, submissions }],
+          by_user: [{ user_id, name, drafts, submissions, last_active }]
+        }
+
+      Create C:\Users\manag\Documents\benavora\src\app\api\settings\billing\history\route.ts:
+        GET: Billing history for the org. Owner only.
+        If Stripe customer_id exists on org: fetch invoices via Stripe API.
+        Returns: [{ id, date, amount_cents, status, pdf_url }]
+        If no Stripe integration: return empty array with current_tier info.
+    expected_outputs:
+      - src/app/api/settings/team/route.ts
+      - src/app/api/settings/team/[id]/route.ts
+      - src/app/api/settings/team/invite/route.ts
+      - src/app/api/settings/usage/route.ts
+      - src/app/api/settings/billing/history/route.ts
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # PROMPT 8: PLATFORM OWNER DASHBOARD UI
+  # ============================================================
+
+  - id: admin-008
+    phase: build
+    description: "Create Platform Owner Dashboard — main command center page"
+    prompt: |
+      Read C:\Users\manag\Documents\benavora\src\lib\platform\auth.ts for the isPlatformAdmin function.
+      Read the existing nav configuration (find it — likely nav-items.ts or sidebar component).
+
+      Create C:\Users\manag\Documents\benavora\src\app\(dashboard)\platform\page.tsx:
+
+      Platform command center. Check platform auth on load — if user is not a platform admin, show a minimal "Access Denied" page (not a redirect, to avoid loops).
+
+      Layout:
+
+      Top row — 5 health cards (from /api/platform/health):
+      - Tenants: total / active 7d. Green if active > 0.
+      - Submissions: queued + processing / completed today / failed today. Red if failed > 0.
+      - AI Cost: $X.XX today. Yellow if > $10.
+      - Workers: online count. Red if 0.
+      - Errors: unresolved count / critical. Red if critical > 0.
+      Each card is clickable — links to relevant sub-page.
+
+      Section — Revenue Summary (from /api/platform/revenue):
+      - 3 metric cards: MRR, ARR, Paying Tenants
+      - Mini bar chart: tenants by tier (Recharts, dynamic import ssr:false)
+
+      Section — Tenant Table (from /api/platform/tenants):
+      - Columns: name, tier badge, users, last active (time ago), status indicator
+      - Search bar. Click row → /platform/tenants/[id].
+      - Show first 10 rows with "View All" link.
+
+      Section — Recent Errors (from /api/platform/errors?limit=5&is_resolved=false):
+      - Compact list: severity dot, message (truncated), source, time ago
+      - "Resolve" quick action. "View All" → /platform/errors.
+
+      Section — My Tasks (from /api/platform/tasks?assigned_to=me&status=open,in_progress):
+      - Task cards with priority badge, title, due date. "View All" → /platform/tasks.
+
+      SIDEBAR NAVIGATION: Modify the sidebar nav component to conditionally render a "Platform" section (Shield icon) with sub-items: Overview, Tenants, Staff, Tasks, Errors, AI Usage, Feature Flags, Revenue, Queue Monitor. This section is ONLY visible when the user is a platform admin. Use isPlatformAdmin() — call it once on layout mount, cache the result.
+
+      CRITICAL: Do NOT remove or reorder any existing nav items. The Platform section is appended at the bottom or in a visually separated section.
+
+      Use Tailwind CSS matching existing dark theme. Recharts for any charts.
+    expected_outputs:
+      - src/app/(dashboard)/platform/page.tsx
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # PROMPT 9: PLATFORM SUB-PAGES — tenants, staff, tasks
+  # ============================================================
+
+  - id: admin-009
+    phase: build
+    description: "Create Platform sub-pages — tenant detail, staff management, task board"
+    prompt: |
+      Create C:\Users\manag\Documents\benavora\src\app\(dashboard)\platform\tenants\page.tsx:
+        Full tenant list with search, tier filter, sort by name/created/activity.
+        Table: name, tier badge, user count, applications, submissions, last active, actions.
+        Click row → /platform/tenants/[id].
+
+      Create C:\Users\manag\Documents\benavora\src\app\(dashboard)\platform\tenants\[id]\page.tsx:
+        Tenant deep dive:
+        - Header: org name, tier badge, created date, "Impersonate" button.
+        - Tab 1 — Overview: org details, usage stats cards (drafts, submissions, AI cost this month), subscription tier with change dropdown.
+        - Tab 2 — Team: user table with roles, last login. No edit capability (that's the tenant admin's job).
+        - Tab 3 — Feature Flags: toggle switches per flag. Saves on toggle.
+        - Tab 4 — Activity: recent agent_runs, recent errors, recent submissions for this org.
+
+      Create C:\Users\manag\Documents\benavora\src\app\(dashboard)\platform\staff\page.tsx:
+        Staff management:
+        - Table: name, email, role badge, permissions (count or chips), last login, active status.
+        - "Invite Staff" button → modal: email, name, role dropdown, permission checkboxes grouped by category.
+        - Click row → edit modal: change role, toggle permissions, deactivate. Cannot edit yourself.
+
+      Create C:\Users\manag\Documents\benavora\src\app\(dashboard)\platform\tasks\page.tsx:
+        Task kanban board:
+        - 4 columns: Open | In Progress | Blocked | Completed (last 7 days only for completed).
+        - Cards: title, priority badge (color-coded), assignee name, due date, tenant name if linked.
+        - "New Task" button → creation modal.
+        - Filter bar: assignee, priority, category, tenant. "My Tasks" toggle.
+
+      Use Tailwind CSS. Dark theme consistent.
+    expected_outputs:
+      - src/app/(dashboard)/platform/tenants/page.tsx
+      - src/app/(dashboard)/platform/tenants/[id]/page.tsx
+      - src/app/(dashboard)/platform/staff/page.tsx
+      - src/app/(dashboard)/platform/tasks/page.tsx
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # PROMPT 10: PLATFORM SUB-PAGES — errors, AI, flags, revenue, queue
+  # ============================================================
+
+  - id: admin-010
+    phase: build
+    description: "Create Platform sub-pages — errors, AI usage, feature flags, revenue, queue monitor"
+    prompt: |
+      Create C:\Users\manag\Documents\benavora\src\app\(dashboard)\platform\errors\page.tsx:
+        Error dashboard: filter bar (severity, source, resolved, tenant, date range). Error table with severity badge, message, count, first/last seen, tenant. Bulk resolve with notes. Click → detail slide-over with stack trace.
+
+      Create C:\Users\manag\Documents\benavora\src\app\(dashboard)\platform\ai-usage\page.tsx:
+        AI cost analytics: period selector. Summary cards (tokens, cost, requests, projection). Line chart daily cost (Recharts). Bar chart top orgs. Table by model. Table by endpoint.
+
+      Create C:\Users\manag\Documents\benavora\src\app\(dashboard)\platform\feature-flags\page.tsx:
+        Flag management: list of all flag keys with default. Per-tenant override table with toggle switches. "Set for all" bulk action. Highlight non-default values.
+
+      Create C:\Users\manag\Documents\benavora\src\app\(dashboard)\platform\revenue\page.tsx:
+        Revenue dashboard: MRR/ARR cards. Tier distribution bar chart. Monthly MRR trend line chart. Tenant table sorted by revenue contribution. Churn metrics. Growth metrics.
+
+      Create C:\Users\manag\Documents\benavora\src\app\(dashboard)\platform\queue-monitor\page.tsx:
+        Cross-tenant queue monitor: live view of all submission_queue items. Group by status (pending/processing/completed/failed). Show org name per item. Emergency controls: Pause All (red button with confirmation), Resume All, Pause Tenant dropdown, Pause Funder dropdown. Current pause states displayed as alert banners.
+
+      Use Tailwind CSS. Recharts (dynamic import ssr:false). Dark theme.
+    expected_outputs:
+      - src/app/(dashboard)/platform/errors/page.tsx
+      - src/app/(dashboard)/platform/ai-usage/page.tsx
+      - src/app/(dashboard)/platform/feature-flags/page.tsx
+      - src/app/(dashboard)/platform/revenue/page.tsx
+      - src/app/(dashboard)/platform/queue-monitor/page.tsx
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # PROMPT 11: TENANT ADMIN UI — team management, usage, billing
+  # ============================================================
+
+  - id: admin-011
+    phase: build
+    description: "Create tenant admin pages — team management, org usage, org billing history"
+    prompt: |
+      Read the existing settings pages: ls C:\Users\manag\Documents\benavora\src\app\(dashboard)\settings\
+      Read whatever team/organization settings pages already exist. Do NOT overwrite working pages — enhance them.
+
+      Create or enhance C:\Users\manag\Documents\benavora\src\app\(dashboard)\settings\team\page.tsx:
+        Team management for tenant admins (owner/admin roles only).
+        If user role is writer or viewer: show "You don't have permission to manage the team."
+        - Team table: name, email, role badge, last active (time ago), status.
+        - "Invite Member" button → modal: email, full name, role selector (admin cannot invite as owner).
+        - Per-member actions (for owner): change role dropdown, remove member (with confirmation).
+        - Pending invitations section (if applicable).
+
+      Create C:\Users\manag\Documents\benavora\src\app\(dashboard)\settings\usage\page.tsx:
+        Org usage dashboard for tenant admins (owner/admin only).
+        - Usage meters: AI Drafts (used / limit), Daily Submissions (used / limit), Team Members (count / limit). Color-coded: green < 70%, yellow 70-90%, red > 90%.
+        - Line chart: daily usage over last 30 days (Recharts).
+        - By-user table: who is using what (drafts generated, submissions triggered).
+        - Current tier card with "Upgrade" button linking to /settings/billing.
+
+      Enhance C:\Users\manag\Documents\benavora\src\app\(dashboard)\settings\billing\page.tsx (read first, then enhance):
+        Add billing history section (if not already present):
+        - Invoice table: date, amount, status (paid/pending/failed), download PDF link.
+        - Current plan details: tier name, price, renewal date.
+        - If no Stripe integration: show tier name with "Contact us to upgrade" or Stripe checkout link.
+
+      Ensure these pages are in the Settings sub-navigation. Read the settings layout/nav to understand how sub-pages are linked.
+
+      Use Tailwind CSS. Dark theme. Recharts for charts.
+    expected_outputs:
+      - src/app/(dashboard)/settings/team/page.tsx
+      - src/app/(dashboard)/settings/usage/page.tsx
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # PROMPT 12: ROLE-BASED UI GATING
+  # ============================================================
+
+  - id: admin-012
+    phase: build
+    description: "Implement role-based UI gating across the entire application"
+    prompt: |
+      Read C:\Users\manag\Documents\benavora\src\lib\platform\role-gate.ts for the gating utilities.
+      Read the sidebar/nav component completely. Find it first — check src/components/ for nav, sidebar, or layout files.
+      Read the dashboard layout at src/app/(dashboard)/layout.tsx.
+
+      IMPLEMENT role-based visibility across the app:
+
+      1. SIDEBAR NAVIGATION:
+         Read the nav items configuration. Modify it to include a `minRole` property on each item.
+         In the sidebar component, filter nav items based on the user's role from their profile.
+         - Viewer: sees Dashboard, Funders, Contacts, Opportunities, Applications, Documents, Knowledge Base, Deadlines, Analytics
+         - Writer: adds Draft Generator, Outreach
+         - Admin: adds AutoApply (with all sub-items), Intelligence Library, Settings
+         - Owner: adds Settings/Billing, Settings/Team, Settings/Usage
+         DO NOT remove items — add the minRole gating. If minRole is not set, the item is visible to all.
+
+      2. ACTION BUTTONS:
+         Create C:\Users\manag\Documents\benavora\src\components\ui\RoleGate.tsx:
+         A wrapper component that conditionally renders children based on user role.
+         Props: { requiredRole: string, children: ReactNode, fallback?: ReactNode }
+         If user role is below requiredRole: render fallback (default: null — hides the element).
+         Usage: <RoleGate requiredRole="admin"><DeleteButton /></RoleGate>
+
+         Create C:\Users\manag\Documents\benavora\src\components\ui\RoleDisabled.tsx:
+         Shows the children but disabled/grayed out with a tooltip "Requires {role} access".
+         Props: { requiredRole: string, children: ReactNode }
+
+      3. CRITICAL PAGES: Apply RoleGate to these specific locations (read each file first):
+         - Draft Generator page: wrap the "Generate" button with requiredRole="writer"
+         - Settings pages: wrap with requiredRole="admin" (the page-level check, not individual fields)
+         - Any delete buttons on funders/contacts: wrap with requiredRole="admin"
+
+      IMPORTANT: Read every file before modifying. Do NOT guess component names or prop shapes. If a file structure differs from what's described, adapt. Preserve all existing functionality.
+    expected_outputs:
+      - src/components/ui/RoleGate.tsx
+      - src/components/ui/RoleDisabled.tsx
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # PROMPT 13: ROUTE INTEGRITY + CONFLICT CHECK
+  # ============================================================
+
+  - id: admin-013
+    phase: build
+    description: "Zero-conflict verification — check every route, every nav item, every import"
+    prompt: |
+      SAFETY-CRITICAL PROMPT. Verify the entire application has zero conflicts.
+
+      1. LIST all routes:
+         Run: find src/app -name "route.ts" -o -name "page.tsx" | sort
+         Check for duplicates. Check /platform/* routes don't shadow existing routes. Check /admin/sales-outreach still exists.
+
+      2. CHECK all imports:
+         Run: pnpm tsc --noEmit
+         Fix ALL TypeScript errors. Zero tolerance.
+
+      3. BUILD:
+         Run: pnpm run build
+         Fix ALL build errors. Zero tolerance.
+
+      4. VERIFY middleware.ts is UNCHANGED. Read it. If any prompt modified it, revert those changes.
+
+      5. VERIFY nav:
+         Read the sidebar component. Confirm:
+         - All existing nav items are present and unchanged
+         - Platform section is conditionally rendered (isPlatformAdmin check)
+         - No duplicate entries
+         - Settings sub-nav includes Team, Usage, Billing, Integrations
+
+      6. VERIFY existing routes still work:
+         - /admin/sales-outreach page exists
+         - /autoapply page exists with all sub-routes
+         - /settings/* pages exist
+         - /api/grants, /api/research, /api/analytics routes exist
+
+      7. CHECK for circular imports:
+         Ensure platform/auth.ts does not import from tenant auth and vice versa.
+         Ensure role-gate.ts has no circular dependencies.
+
+      Fix everything. Report what was found and fixed.
+    expected_outputs: []
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  # ============================================================
+  # PROMPT 14: TESTS FOR ADMIN SYSTEM
+  # ============================================================
+
+  - id: admin-014
+    phase: build
+    description: "Create tests for the 4-tier admin system"
+    prompt: |
+      Read the test infrastructure: check for vitest.config.ts, tests/ directory, test helpers.
+      Read src/lib/platform/auth.ts and src/lib/platform/role-gate.ts.
+
+      Create C:\Users\manag\Documents\benavora\tests\lib\platform-auth.test.ts:
+        - requirePlatformAuth returns 403 for non-admin users
+        - requirePlatformAuth succeeds for active platform admin
+        - requirePlatformAuth checks permissions correctly
+        - platform_owner bypasses permission checks
+        - requirePlatformRole enforces hierarchy
+        - isPlatformAdmin returns true/false correctly
+        - seedPlatformOwner creates record on first call, no-ops on second
+
+      Create C:\Users\manag\Documents\benavora\tests\lib\role-gate.test.ts:
+        - canAccess: owner can access all roles
+        - canAccess: viewer cannot access admin
+        - canAccess: writer can access writer and viewer
+        - getNavItemsForRole: viewer gets minimal set
+        - getNavItemsForRole: owner gets all items
+        - getDisabledActionsForRole: viewer has create/edit/delete disabled
+
+      Create C:\Users\manag\Documents\benavora\tests\api\platform.test.ts:
+        Read the platform API routes before writing tests.
+        - Non-platform-admin gets 403 on all /api/platform/* routes
+        - GET /api/platform/health returns health object shape
+        - GET /api/platform/tenants returns array with expected fields
+        - POST /api/platform/bootstrap creates owner record
+        - GET /api/platform/revenue returns financial metrics
+
+      Create C:\Users\manag\Documents\benavora\tests\api\tenant-admin.test.ts:
+        Read the settings API routes before writing tests.
+        - Viewer gets 403 on /api/settings/team
+        - Owner can list team members
+        - Owner can invite new member
+        - Admin cannot invite as owner role
+        - Owner cannot remove self
+        - GET /api/settings/usage returns usage with limits
+    expected_outputs:
+      - tests/lib/platform-auth.test.ts
+      - tests/lib/role-gate.test.ts
+      - tests/api/platform.test.ts
+      - tests/api/tenant-admin.test.ts
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: skip
+
+  # ============================================================
+  # PROMPT 15: FINAL BUILD + GOVERNANCE UPDATE
+  # ============================================================
+
+  - id: admin-015
+    phase: build
+    description: "Final build verification and governance update for 4-tier admin system"
+    prompt: |
+      1. Run pnpm run build — zero errors.
+      2. Run pnpm tsc --noEmit — zero errors.
+      3. Run pnpm test 2>&1 || true — record results (don't fail the build on test failures).
+
+      4. Count total routes: find src/app -name "route.ts" | wc -l
+      5. Count total pages: find src/app -name "page.tsx" | wc -l
+
+      6. Update C:\Users\manag\Documents\benavora\STATE_OF_THE_BUILD.md:
+         Add section:
+         ## 4-Tier Administration System: BUILT
+
+         ### Tier 1 — Platform Owner (Super Admin)
+         - Platform command center at /platform with system health, revenue, tenant management
+         - Revenue dashboard: MRR, ARR, tier distribution, churn, growth trends
+         - Cross-tenant queue monitor with emergency kill switch
+         - AI cost tracking with per-org breakdown and monthly projection
+         - System error aggregation with dedup, severity levels, bulk resolution
+         - Feature flag management with per-tenant overrides
+         - Staff management: invite, role assignment, 18 granular permissions
+         - Task assignment: kanban board with priority, category, tenant linking
+         - Tenant impersonation with audit trail
+         - Platform bootstrap endpoint for initial setup
+
+         ### Tier 2 — Internal Staff
+         - Same /platform UI, permission-gated per staff member
+         - 4 staff roles: staff_admin, staff_support, staff_readonly
+         - 18 granular permissions across 9 categories
+         - Task board for assigned work items
+         - Invitation system with Resend email
+
+         ### Tier 3 — Tenant Admin
+         - Team management at /settings/team: invite users, change roles, remove members
+         - Org usage dashboard at /settings/usage: AI tokens, drafts, submissions with tier limits
+         - Billing history at /settings/billing: invoice table, plan details
+         - Activity tracking per team member
+
+         ### Tier 4 — Tenant User
+         - Role-based nav gating: viewers see minimal nav, writers add draft tools, admins add automation
+         - RoleGate and RoleDisabled UI components for action-level gating
+         - Delete buttons restricted to admin+
+         - Settings restricted to admin+, billing to owner
+
+         ### Infrastructure
+         - Migration 056: 7 new tables (platform_admins, platform_tasks, impersonation_log, system_errors, ai_usage_log, team_activity_log, org_usage_summary)
+         - AI usage instrumentation on Claude API wrapper (fire-and-forget logging)
+         - System error logger with deduplication
+         - Daily usage summary cron aggregation
+         - Route namespace /platform/* — zero conflict with existing routes
+         - Total routes: [count]. Total pages: [count].
+         - Post-run: apply migration 056, call POST /api/platform/bootstrap
+
+      7. Update C:\Users\manag\Documents\benavora\SESSION_STATE.md:
+         - 4-Tier Administration System complete
+         - Post-run: apply migration 056, bootstrap platform owner
+    expected_outputs:
+      - STATE_OF_THE_BUILD.md
+      - SESSION_STATE.md
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
