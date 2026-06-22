@@ -2,15 +2,16 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { Award, ExternalLink, TrendingDown, TrendingUp } from "lucide-react";
 import {
   Bar,
   BarChart,
   CartesianGrid,
   Cell,
-  ComposedChart,
   Legend,
   Line,
+  LineChart,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -49,6 +50,66 @@ const TICK = { fill: C.axis, fontSize: 11 };
 const FUNNEL_COLORS = ["#3b82f6", "#60a5fa", "#2dd4bf", "#34d399", "#22c55e"] as const;
 const PIE_COLORS = [C.blue, C.teal, C.purple, C.amber, C.sky, C.indigo, C.green, C.red];
 
+// ── Dynamic FunnelChart (ssr:false) ───────────────────────────────────────────
+interface FunnelStage {
+  name: string;
+  count: number;
+  color: string;
+}
+
+const DynamicFunnel = dynamic<{ stages: FunnelStage[] }>(
+  async () => {
+    const {
+      FunnelChart: FC,
+      Funnel: F,
+      LabelList: LL,
+      ResponsiveContainer: RC,
+      Cell: CE,
+    } = await import("recharts");
+    function FunnelView({ stages }: { stages: FunnelStage[] }) {
+      const allEmpty = stages.every((s) => s.count === 0);
+      if (allEmpty) {
+        return (
+          <div
+            className="flex items-center justify-center text-sm text-navy-500"
+            style={{ height: 250 }}
+          >
+            Submit your first application to see conversion data.
+          </div>
+        );
+      }
+      return (
+        <RC width="100%" height={250}>
+          <FC>
+            <F dataKey="count" data={stages}>
+              {stages.map((s, i) => (
+                <CE key={i} fill={s.color} />
+              ))}
+              <LL
+                position="right"
+                fill="#8a93b6"
+                stroke="none"
+                dataKey="name"
+                style={{ fontSize: 11 }}
+              />
+            </F>
+          </FC>
+        </RC>
+      );
+    }
+    return { default: FunnelView };
+  },
+  {
+    ssr: false,
+    loading: () => (
+      <div
+        className="animate-pulse rounded-lg bg-navy-50"
+        style={{ height: 250 }}
+      />
+    ),
+  },
+);
+
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface Sub {
   id: string;
@@ -67,17 +128,10 @@ interface QItem {
   status: string;
 }
 
-interface FunnelStage {
-  name: string;
-  count: number;
-  color: string;
-}
-
 interface TrendPt {
   week: string;
   total: number;
   success: number;
-  rate: number;
 }
 
 interface ChannelPt {
@@ -139,12 +193,7 @@ function computeTrends(subs: Sub[]): TrendPt[] {
       return t >= wStart.getTime() && t < wEnd.getTime();
     });
     const success = rows.filter((r) => r.status === "submitted").length;
-    return {
-      week: wk,
-      total: rows.length,
-      success,
-      rate: rows.length ? (success / rows.length) * 100 : 0,
-    };
+    return { week: wk, total: rows.length, success };
   });
 }
 
@@ -238,44 +287,6 @@ function computeWaiting(subs: Sub[]): WaitRow[] {
 }
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
-function ConversionFunnel({ stages }: { stages: FunnelStage[] }) {
-  const max = stages[0]?.count ?? 1;
-  return (
-    <div className="space-y-3">
-      {stages.map((stage, i) => {
-        const pct = max > 0 ? Math.max(3, (stage.count / max) * 100) : 3;
-        const prev = stages[i - 1];
-        const dropOff =
-          prev && prev.count > 0
-            ? ((prev.count - stage.count) / prev.count) * 100
-            : null;
-        return (
-          <div key={stage.name} className="flex items-center gap-3">
-            <span className="w-24 shrink-0 text-right text-xs text-navy-400">
-              {stage.name}
-            </span>
-            <div className="flex-1 h-9 overflow-hidden rounded-lg bg-white/5">
-              <div
-                className="h-full flex items-center px-3 text-xs font-semibold text-white rounded-lg transition-all"
-                style={{ width: `${pct}%`, background: stage.color }}
-              >
-                {stage.count.toLocaleString()}
-              </div>
-            </div>
-            {dropOff !== null ? (
-              <span className="w-14 shrink-0 text-right text-xs text-red-400">
-                ↓ {dropOff.toFixed(0)}%
-              </span>
-            ) : (
-              <span className="w-14 shrink-0" />
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 function StatCard({
   label,
   value,
@@ -360,6 +371,17 @@ function renderPieActiveShape(props: unknown) {
         fill={p.fill}
       />
     </g>
+  );
+}
+
+// Shared empty overlay rendered on top of chart structure
+function ChartEmptyOverlay({ message }: { message: string }) {
+  return (
+    <div className="absolute inset-0 flex items-center justify-center">
+      <p className="rounded-lg bg-white/80 px-4 py-2 text-sm text-navy-500 shadow-sm">
+        {message}
+      </p>
+    </div>
   );
 }
 
@@ -510,7 +532,7 @@ export default function AutoApplyAnalyticsPage() {
         title="Conversion Funnel"
         description="From queue entry to funded outcome"
       >
-        <ConversionFunnel stages={funnelStages} />
+        <DynamicFunnel stages={funnelStages} />
         <p className="mt-3 text-xs text-navy-500">
           Responded and Funded stages populate as follow-up responses are
           recorded.
@@ -550,153 +572,113 @@ export default function AutoApplyAnalyticsPage() {
           sub={`${successRate.toFixed(1)}% conversion rate`}
         />
       </div>
+      {subs.length === 0 && (
+        <p className="text-center text-sm text-navy-400">
+          Record awarded outcomes to calculate ROI.
+        </p>
+      )}
 
-      {/* 3. Submission Trends */}
+      {/* 3. Submission Volume */}
       <Card
-        title="Submission Trends"
-        description="Weekly totals and success rate over the last 12 weeks"
+        title="Submission Volume"
+        description="Weekly submission totals over the last 12 weeks"
       >
-        {subs.length === 0 ? (
-          <p className="text-sm text-navy-500">No submission data yet.</p>
-        ) : (
-          <ResponsiveContainer width="100%" height={240}>
-            <ComposedChart
+        <div className="relative" style={{ height: 250 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart
               data={trends}
-              margin={{ top: 10, right: 50, bottom: 0, left: 0 }}
+              margin={{ top: 10, right: 30, bottom: 0, left: 0 }}
             >
               <CartesianGrid strokeDasharray="3 3" stroke={C.grid} />
               <XAxis dataKey="week" tick={TICK} />
-              <YAxis yAxisId="count" tick={TICK} allowDecimals={false} />
-              <YAxis
-                yAxisId="rate"
-                orientation="right"
-                domain={[0, 100]}
-                tickFormatter={(v) => `${Number(v)}%`}
-                tick={TICK}
-              />
+              <YAxis tick={TICK} allowDecimals={false} />
               <Tooltip
                 contentStyle={TOOLTIP_STYLE}
                 itemStyle={{ color: "#e2e8f0" }}
-                formatter={(v, name) =>
-                  name === "rate"
-                    ? [`${Number(v).toFixed(1)}%`, "Success Rate"]
-                    : name === "total"
-                      ? [String(Number(v)), "Total"]
-                      : [String(Number(v)), "Successful"]
-                }
+                formatter={(v, name) => [
+                  String(Number(v)),
+                  name === "total" ? "Total" : "Successful",
+                ]}
               />
-              <Legend
-                formatter={(v) =>
-                  v === "total"
-                    ? "Total"
-                    : v === "success"
-                      ? "Successful"
-                      : "Success Rate %"
-                }
-                wrapperStyle={{ fontSize: 12, color: C.axis }}
-              />
-              <Bar
-                yAxisId="count"
-                dataKey="total"
-                fill={C.blue}
-                opacity={0.6}
-                radius={[2, 2, 0, 0]}
-                name="total"
-              />
-              <Bar
-                yAxisId="count"
-                dataKey="success"
-                fill={C.green}
-                opacity={0.85}
-                radius={[2, 2, 0, 0]}
-                name="success"
-              />
-              <Line
-                yAxisId="rate"
-                type="monotone"
-                dataKey="rate"
-                stroke={C.teal}
-                strokeWidth={2}
-                dot={{ r: 3, fill: C.teal }}
-                activeDot={{ r: 5 }}
-                name="rate"
-              />
-            </ComposedChart>
+              {subs.length > 0 && (
+                <>
+                  <Line
+                    type="monotone"
+                    dataKey="total"
+                    stroke={C.blue}
+                    strokeWidth={2}
+                    dot={{ r: 3, fill: C.blue }}
+                    activeDot={{ r: 5 }}
+                    name="total"
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="success"
+                    stroke={C.green}
+                    strokeWidth={2}
+                    dot={{ r: 3, fill: C.green }}
+                    activeDot={{ r: 5 }}
+                    name="success"
+                  />
+                </>
+              )}
+            </LineChart>
           </ResponsiveContainer>
-        )}
+          {subs.length === 0 && (
+            <ChartEmptyOverlay message="No submission history." />
+          )}
+        </div>
       </Card>
 
-      {/* 4 + 7. Channel Comparison & Category Pie */}
+      {/* 4 + 5. Channel Comparison & Category Pie */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* 4. Channel Comparison */}
+        {/* 4. Channel Comparison — PieChart */}
         <Card
           title="Channel Comparison"
-          description="Submission counts and success rate by automation mode"
+          description="Submissions by automation channel"
         >
-          {channels.length === 0 ? (
-            <p className="text-sm text-navy-500">No queue data yet.</p>
-          ) : (
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart
-                data={channels}
-                margin={{ top: 0, right: 10, bottom: 0, left: 10 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke={C.grid} />
-                <XAxis dataKey="mode" tick={TICK} />
-                <YAxis
-                  yAxisId="count"
-                  tick={TICK}
-                  allowDecimals={false}
-                />
-                <YAxis
-                  yAxisId="rate"
-                  orientation="right"
-                  domain={[0, 100]}
-                  tickFormatter={(v) => `${Number(v)}%`}
-                  tick={TICK}
-                />
+          <div className="relative" style={{ height: 250 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={channels}
+                  cx="50%"
+                  cy="45%"
+                  innerRadius={55}
+                  outerRadius={85}
+                  dataKey="total"
+                  nameKey="mode"
+                >
+                  {channels.map((_c, i) => (
+                    <Cell
+                      key={i}
+                      fill={PIE_COLORS[i % PIE_COLORS.length]}
+                    />
+                  ))}
+                </Pie>
                 <Tooltip
                   contentStyle={TOOLTIP_STYLE}
                   itemStyle={{ color: "#e2e8f0" }}
-                  formatter={(v, name) =>
-                    name === "rate"
-                      ? [`${Number(v).toFixed(1)}%`, "Success Rate"]
-                      : [String(Number(v)), String(name)]
-                  }
+                  formatter={(v, name) => [String(Number(v)), String(name)]}
                 />
-                <Legend
-                  wrapperStyle={{ fontSize: 12, color: C.axis }}
-                />
-                <Bar
-                  yAxisId="count"
-                  dataKey="total"
-                  fill={C.blue}
-                  opacity={0.7}
-                  radius={[2, 2, 0, 0]}
-                  name="Submissions"
-                />
-                <Bar
-                  yAxisId="count"
-                  dataKey="success"
-                  fill={C.green}
-                  opacity={0.85}
-                  radius={[2, 2, 0, 0]}
-                  name="Successful"
-                />
-              </BarChart>
+                {channels.length > 0 && (
+                  <Legend wrapperStyle={{ fontSize: 12, color: C.axis }} />
+                )}
+              </PieChart>
             </ResponsiveContainer>
-          )}
+            {channels.length === 0 && (
+              <ChartEmptyOverlay message="No submissions yet." />
+            )}
+          </div>
         </Card>
 
-        {/* 7. Category Performance Pie */}
+        {/* 5. Category Performance Pie */}
         <Card
           title="Category Performance"
           description="Click a slice to filter charts by category"
         >
-          {categories.length === 0 ? (
-            <p className="text-sm text-navy-500">No category data yet.</p>
-          ) : (
-            <ResponsiveContainer width="100%" height={220}>
+          <div className="relative" style={{ height: 250 }}>
+            <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
                   activeIndex={activePieIdx}
@@ -734,43 +716,41 @@ export default function AutoApplyAnalyticsPage() {
                 />
               </PieChart>
             </ResponsiveContainer>
-          )}
+            {categories.length === 0 && (
+              <ChartEmptyOverlay message="No category data yet." />
+            )}
+          </div>
         </Card>
       </div>
 
-      {/* 5. Response Time (submission age) */}
+      {/* 6. Funder Response Time */}
       <Card
-        title="Submission Age by Funder"
-        description="Days since submission for awaiting-response funders — longest waits first"
+        title="Funder Response Time"
+        description="Average days since submission per funder — longest waits first"
       >
-        {waitingRows.length === 0 ? (
-          <p className="text-sm text-navy-500">
-            No awaiting-response submissions yet. Populates as AutoApply
-            processes submissions.
-          </p>
-        ) : (
-          <>
-            <ResponsiveContainer
-              width="100%"
-              height={Math.max(180, waitingRows.length * 34)}
+        <div
+          className="relative"
+          style={{ height: Math.max(250, waitingRows.length * 34 + 20) }}
+        >
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={waitingRows}
+              layout="vertical"
+              margin={{ top: 0, right: 60, bottom: 0, left: 120 }}
             >
-              <BarChart
-                data={waitingRows}
-                layout="vertical"
-                margin={{ top: 0, right: 60, bottom: 0, left: 120 }}
-              >
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke={C.grid}
-                  horizontal={false}
-                />
-                <XAxis type="number" tick={TICK} unit=" d" />
-                <YAxis
-                  type="category"
-                  dataKey="funder"
-                  width={116}
-                  tick={{ fill: C.axis, fontSize: 10 }}
-                />
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke={C.grid}
+                horizontal={false}
+              />
+              <XAxis type="number" tick={TICK} unit=" d" />
+              <YAxis
+                type="category"
+                dataKey="funder"
+                width={116}
+                tick={{ fill: C.axis, fontSize: 10 }}
+              />
+              {waitingRows.length > 0 && (
                 <Tooltip
                   contentStyle={TOOLTIP_STYLE}
                   itemStyle={{ color: "#e2e8f0" }}
@@ -779,41 +759,46 @@ export default function AutoApplyAnalyticsPage() {
                     "Avg Wait",
                   ]}
                 />
-                <Bar dataKey="avgDays" radius={[0, 3, 3, 0]} name="Avg Days">
-                  {waitingRows.map((row, i) => (
-                    <Cell
-                      key={i}
-                      fill={
-                        row.avgDays < 14
-                          ? C.green
-                          : row.avgDays < 30
-                            ? C.amber
-                            : C.red
-                      }
-                    />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-            <div className="mt-3 flex items-center gap-5 text-xs text-navy-400">
-              <span className="flex items-center gap-1.5">
-                <span className="inline-block h-2 w-2 rounded-full bg-emerald-400" />
-                &lt;14 days (fast)
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="inline-block h-2 w-2 rounded-full bg-amber-400" />
-                14–30 days (medium)
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="inline-block h-2 w-2 rounded-full bg-red-400" />
-                &gt;30 days (slow)
-              </span>
-            </div>
-          </>
+              )}
+              <Bar dataKey="avgDays" radius={[0, 3, 3, 0]} name="Avg Days">
+                {waitingRows.map((row, i) => (
+                  <Cell
+                    key={i}
+                    fill={
+                      row.avgDays < 14
+                        ? C.green
+                        : row.avgDays < 30
+                          ? C.amber
+                          : C.red
+                    }
+                  />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+          {waitingRows.length === 0 && (
+            <ChartEmptyOverlay message="Track responses to see timing data." />
+          )}
+        </div>
+        {waitingRows.length > 0 && (
+          <div className="mt-3 flex items-center gap-5 text-xs text-navy-400">
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block h-2 w-2 rounded-full bg-emerald-400" />
+              &lt;14 days (fast)
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block h-2 w-2 rounded-full bg-amber-400" />
+              14–30 days (medium)
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block h-2 w-2 rounded-full bg-red-400" />
+              &gt;30 days (slow)
+            </span>
+          </div>
         )}
       </Card>
 
-      {/* 6. A/B Test Results */}
+      {/* 7. A/B Test Results */}
       <Card
         title="A/B Test Results"
         description="Submission variant performance by funder category"

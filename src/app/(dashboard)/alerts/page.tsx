@@ -5,48 +5,93 @@ import Link from "next/link";
 import {
   AlarmClock,
   Bell,
-  BellOff,
-  CalendarClock,
+  Calendar,
+  CheckCircle,
+  ChevronDown,
   ChevronRight,
-  KanbanSquare,
+  FileWarning,
+  Mail,
   Search,
-  Wand2,
   X,
   type LucideIcon,
 } from "lucide-react";
 
-import { Button, Card, EmptyState, LoadingSpinner } from "@/components/ui";
+import { Button, Card, LoadingSpinner } from "@/components/ui";
 import { useAlerts, type Alert } from "@/lib/hooks/useAlerts";
-import {
-  ALERT_TYPE_LABEL,
-  type AlertSeverity,
-  type AlertType,
-} from "@/lib/alerts/alerts-service";
+import { type AlertSeverity, type AlertType } from "@/lib/alerts/alerts-service";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils/cn";
 import { formatRelative } from "@/lib/utils/formatters";
 
-// Most-urgent category first. `system` is appended only if present.
-const CATEGORY_ORDER: AlertType[] = [
-  "deadline_due",
-  "application_action",
-  "draft_review",
-  "new_opportunity",
-  "system",
+type FilterType = "all" | "unread" | "urgent" | "snoozed";
+
+interface DisplayCategory {
+  key: string;
+  label: string;
+  Icon: LucideIcon;
+  description: string;
+  types: AlertType[];
+}
+
+const DISPLAY_CATEGORIES: DisplayCategory[] = [
+  {
+    key: "deadline",
+    label: "Deadline Alerts",
+    Icon: Calendar,
+    description:
+      "Application deadlines, follow-up dates, and reporting deadlines approaching or overdue.",
+    types: ["deadline_due"],
+  },
+  {
+    key: "opportunity",
+    label: "New Opportunities",
+    Icon: Search,
+    description:
+      "Recently discovered opportunities matching your search profile and eligibility criteria.",
+    types: ["new_opportunity"],
+  },
+  {
+    key: "submission",
+    label: "Submission Results",
+    Icon: CheckCircle,
+    description:
+      "AutoApply submission confirmations, failures, and items needing attention.",
+    types: ["application_action", "draft_review"],
+  },
+  {
+    key: "email",
+    label: "Email Responses",
+    Icon: Mail,
+    description:
+      "Funder replies detected in synced email threads requiring follow-up.",
+    types: [],
+  },
+  {
+    key: "document",
+    label: "Document Alerts",
+    Icon: FileWarning,
+    description:
+      "Documents expiring soon or missing from pending applications.",
+    types: [],
+  },
+  {
+    key: "system",
+    label: "System Notices",
+    Icon: Bell,
+    description:
+      "Agent run results, usage limit warnings, and platform updates.",
+    types: ["system"],
+  },
 ];
 
-const CATEGORY_ICON: Record<AlertType, LucideIcon> = {
-  deadline_due: CalendarClock,
-  application_action: KanbanSquare,
-  draft_review: Wand2,
-  new_opportunity: Search,
-  system: Bell,
-};
+const FILTERS: { key: FilterType; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "unread", label: "Unread" },
+  { key: "urgent", label: "Urgent" },
+  { key: "snoozed", label: "Snoozed" },
+];
 
-const SEVERITY: Record<
-  AlertSeverity,
-  { accent: string; dot: string }
-> = {
+const SEVERITY: Record<AlertSeverity, { accent: string; dot: string }> = {
   critical: { accent: "border-l-red-500", dot: "bg-red-500" },
   warning: { accent: "border-l-amber-500", dot: "bg-amber-500" },
   info: { accent: "border-l-teal-500", dot: "bg-teal-500" },
@@ -59,23 +104,29 @@ const SNOOZE_OPTIONS: { label: string; ms: number }[] = [
   { label: "1 week", ms: 7 * 24 * 60 * 60 * 1000 },
 ];
 
-/**
- * Alerts (daily action list). Surfaces every active alert generated from live
- * data - deadlines within 7 days, opportunities new since last login,
- * applications needing action, and drafts pending review - grouped by category
- * and ordered by urgency. Each alert links to the record it concerns; every
- * alert can be dismissed or snoozed. Reads/writes are RLS-scoped to the org.
- */
 export default function AlertsPage() {
   const { alerts, loading, error, refresh } = useAlerts();
-  // Local mirror so dismiss/snooze can update optimistically.
   const [items, setItems] = useState<Alert[]>([]);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<FilterType>("all");
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     setItems(alerts);
   }, [alerts]);
+
+  function toggleCollapsed(key: string) {
+    setCollapsed((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
+
+  const filteredItems = items.filter((a) => {
+    if (filter === "unread") return !a.is_read;
+    if (filter === "urgent") return a.severity === "critical";
+    return true;
+  });
+
+  const unreadCount = items.filter((a) => !a.is_read).length;
 
   async function dismiss(alert: Alert) {
     if (busyId) return;
@@ -89,7 +140,7 @@ export default function AlertsPage() {
       .eq("id", alert.id);
     if (updateError) {
       setActionError("Could not dismiss the alert. Please try again.");
-      setItems((prev) => [alert, ...prev]); // restore
+      setItems((prev) => [alert, ...prev]);
     } else {
       void refresh();
     }
@@ -127,29 +178,68 @@ export default function AlertsPage() {
       .eq("id", alert.id);
   }
 
-  const visibleCategories = CATEGORY_ORDER.filter((type) =>
-    items.some((a) => a.type === type),
-  );
+  async function markAllRead() {
+    const unread = items.filter((a) => !a.is_read);
+    if (unread.length === 0) return;
+    setItems((prev) => prev.map((a) => ({ ...a, is_read: true })));
+    const supabase = createClient();
+    await supabase
+      .from("alerts")
+      .update({ is_read: true, read_at: new Date().toISOString() })
+      .in(
+        "id",
+        unread.map((a) => a.id),
+      );
+  }
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      {/* Header */}
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-navy-900">
             Alerts
           </h1>
           <p className="mt-1 text-sm text-navy-500">
-            Your daily action list - deadlines, new opportunities, applications
-            needing action, and drafts pending review. Click any alert to jump
-            to it; dismiss or snooze the ones you have handled.
+            Your daily action list — deadlines, new opportunities, applications
+            needing action, and drafts pending review.
           </p>
         </div>
-        {items.length > 0 && (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-3 py-1 text-sm font-medium text-red-700">
-            <Bell className="h-4 w-4" aria-hidden />
-            {items.length} active
-          </span>
-        )}
+        <div className="flex items-center gap-3">
+          {unreadCount > 0 && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-3 py-1 text-sm font-medium text-red-700">
+              <Bell className="h-4 w-4" aria-hidden />
+              {unreadCount} unread
+            </span>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={markAllRead}
+            disabled={unreadCount === 0}
+          >
+            Mark all read
+          </Button>
+        </div>
+      </div>
+
+      {/* Filter pills */}
+      <div className="flex flex-wrap gap-2">
+        {FILTERS.map((f) => (
+          <button
+            key={f.key}
+            type="button"
+            onClick={() => setFilter(f.key)}
+            className={cn(
+              "rounded-full px-3 py-1 text-sm font-medium transition",
+              filter === f.key
+                ? "bg-navy-900 text-white"
+                : "bg-navy-100 text-navy-600 hover:bg-navy-200",
+            )}
+          >
+            {f.label}
+          </button>
+        ))}
       </div>
 
       {(error || actionError) && (
@@ -163,38 +253,70 @@ export default function AlertsPage() {
 
       {loading ? (
         <LoadingSpinner center label="Loading alerts..." />
-      ) : items.length === 0 ? (
-        <EmptyState
-          icon={BellOff}
-          title="You're all caught up"
-          description="No deadlines, new opportunities, pending drafts, or applications need your attention right now. New alerts will appear here automatically."
-        />
       ) : (
-        <div className="space-y-6">
-          {visibleCategories.map((type) => {
-            const group = items.filter((a) => a.type === type);
-            const Icon = CATEGORY_ICON[type];
+        <div className="space-y-3">
+          {DISPLAY_CATEGORIES.map((cat) => {
+            const catItems = filteredItems.filter((a) =>
+              (cat.types as string[]).includes(a.type),
+            );
+            const isCollapsed = collapsed[cat.key] ?? false;
+            const { Icon } = cat;
+
             return (
-              <section key={type} className="space-y-2">
-                <div className="flex items-center gap-2 text-sm font-semibold text-navy-700">
-                  <Icon className="h-4 w-4 text-navy-400" aria-hidden />
-                  {ALERT_TYPE_LABEL[type]}
-                  <span className="text-navy-400">({group.length})</span>
-                </div>
-                <Card noPadding>
-                  <ul className="divide-y divide-navy-100">
-                    {group.map((alert) => (
-                      <AlertRow
-                        key={alert.id}
-                        alert={alert}
-                        busy={busyId === alert.id}
-                        onDismiss={() => dismiss(alert)}
-                        onSnooze={(ms) => snooze(alert, ms)}
-                        onOpen={() => markRead(alert)}
-                      />
-                    ))}
-                  </ul>
-                </Card>
+              <section key={cat.key}>
+                <button
+                  type="button"
+                  onClick={() => toggleCollapsed(cat.key)}
+                  className="flex w-full items-center gap-2 rounded-lg px-1 py-2 text-left transition hover:bg-navy-50"
+                >
+                  <Icon
+                    className="h-4 w-4 shrink-0 text-navy-400"
+                    aria-hidden
+                  />
+                  <span className="flex-1 text-sm font-semibold text-navy-700">
+                    {cat.label}
+                  </span>
+                  {catItems.length > 0 && (
+                    <span className="rounded-full bg-navy-100 px-2 py-0.5 text-xs font-medium text-navy-600">
+                      {catItems.length}
+                    </span>
+                  )}
+                  <ChevronDown
+                    className={cn(
+                      "h-4 w-4 text-navy-400 transition-transform duration-150",
+                      isCollapsed && "-rotate-90",
+                    )}
+                    aria-hidden
+                  />
+                </button>
+
+                {!isCollapsed && (
+                  <Card noPadding className="mt-1">
+                    {catItems.length === 0 ? (
+                      <div className="px-5 py-6 text-center">
+                        <p className="text-sm text-navy-500">
+                          {cat.description}
+                        </p>
+                        <p className="mt-2 text-xs text-navy-400">
+                          No alerts in this category.
+                        </p>
+                      </div>
+                    ) : (
+                      <ul className="divide-y divide-navy-100">
+                        {catItems.map((alert) => (
+                          <AlertRow
+                            key={alert.id}
+                            alert={alert}
+                            busy={busyId === alert.id}
+                            onDismiss={() => dismiss(alert)}
+                            onSnooze={(ms) => snooze(alert, ms)}
+                            onOpen={() => markRead(alert)}
+                          />
+                        ))}
+                      </ul>
+                    )}
+                  </Card>
+                )}
               </section>
             );
           })}
@@ -221,7 +343,6 @@ function AlertRow({
   const menuRef = useRef<HTMLDivElement>(null);
   const styles = SEVERITY[alert.severity];
 
-  // Close the snooze menu on an outside click.
   useEffect(() => {
     if (!snoozeOpen) return;
     function onClick(e: MouseEvent) {
