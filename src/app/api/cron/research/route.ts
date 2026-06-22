@@ -23,6 +23,7 @@ import {
   LOCAL_CATEGORIES,
 } from "@/lib/agents/research/local-sponsorship";
 import { parseAgentSettings } from "@/lib/research/profile-config";
+import { DraftQueueEngine } from "@/lib/drafts/draft-queue-engine";
 import type { AgentType } from "@/types/agents";
 import type { Enums, Json } from "@/types/database";
 
@@ -353,6 +354,18 @@ async function processOrganization(
         status: "completed",
         profiles: job.profileNames,
       });
+
+      // Fire-and-forget: scan newly discovered opportunities and enqueue eligible
+      // ones for auto-drafting (BEHAVIORAL_CONTRACTS §28). Must not block or
+      // break the research sweep if draft automation fails.
+      void (async () => {
+        try {
+          const engine = new DraftQueueEngine(admin);
+          await engine.processNewOpportunities(organizationId);
+        } catch {
+          // Intentionally swallowed — draft queue is additive, never fatal.
+        }
+      })();
     } catch (err) {
       base.jobs.push({
         agentType: job.def.agentType,

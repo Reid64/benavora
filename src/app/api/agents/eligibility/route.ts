@@ -6,6 +6,7 @@ import { enforceLimit } from "@/lib/billing/tier-enforcer";
 import { AgentError } from "@/lib/agents/base-agent";
 import { EligibilityScorer } from "@/lib/agents/eligibility-scorer";
 import { DEFAULT_MAX_TOKENS, DEFAULT_MODEL } from "@/lib/ai/claude";
+import { DraftQueueEngine } from "@/lib/drafts/draft-queue-engine";
 
 // Eligibility Scoring endpoint (AGENTS.md Agent 02). Authenticates the user,
 // derives organization_id from their profile (never the request body), and runs
@@ -111,6 +112,19 @@ export async function POST(request: Request) {
 
   try {
     const outcome = await scorer.run({ opportunityId: opportunityId.trim() });
+
+    // Fire-and-forget: the score may now cross the draft-automation threshold.
+    // Scan all opportunities for the org and queue any newly eligible ones.
+    // Wrapped in void + try/catch so it never blocks or breaks the response.
+    void (async () => {
+      try {
+        const engine = new DraftQueueEngine(supabase);
+        await engine.processNewOpportunities(organizationId);
+      } catch {
+        // Intentionally swallowed — draft queue is additive, never fatal.
+      }
+    })();
+
     return NextResponse.json({
       ...outcome.data,
       tokensUsed: outcome.tokensUsed,
