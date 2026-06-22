@@ -36,6 +36,7 @@ import {
   OPPORTUNITY_STATUS_COLOR,
   RecommendationBadge,
 } from "@/components/opportunities/eligibility";
+import { IntelligenceBriefingPanel } from "@/components/intelligence/IntelligenceBriefingPanel";
 import { OpportunityForm } from "@/components/opportunities/OpportunityForm";
 import { SourceTypeBadge } from "@/components/opportunities/SourceTypeBadge";
 import { ValidationBadge } from "@/components/opportunities/ValidationBadge";
@@ -64,7 +65,8 @@ type TabKey =
   | "eligibility"
   | "validation"
   | "applications"
-  | "notes";
+  | "notes"
+  | "intelligence";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "overview", label: "Overview" },
@@ -72,6 +74,7 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "validation", label: "Validation" },
   { key: "applications", label: "Applications" },
   { key: "notes", label: "Notes" },
+  { key: "intelligence", label: "Intelligence" },
 ];
 
 type OpportunityData = {
@@ -397,6 +400,9 @@ export function OpportunityDetail({ opportunityId }: OpportunityDetailProps) {
           authorId={profile?.id ?? null}
           onAdded={load}
         />
+      )}
+      {tab === "intelligence" && (
+        <IntelligenceBriefingPanel opportunityId={opportunity.id} />
       )}
 
       {/* Edit modal */}
