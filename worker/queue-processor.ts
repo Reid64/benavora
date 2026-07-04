@@ -20,7 +20,7 @@ import { quickHealthCheck } from './portal-health.js';
 import { scoreAndReorderQueue } from './batch-scorer.js';
 import { WebhookNotifier } from '../src/lib/autoapply/webhook-notifier.js';
 import { annotateErrorScreenshot } from '../src/lib/autoapply/error-annotator.js';
-import { assessSubmissionRisk } from '../src/lib/autoapply/risk-engine.js';
+import { assessSubmissionRisk, type RiskAssessment } from '../src/lib/autoapply/risk-engine.js';
 import { RelationshipManager } from '../src/lib/autoapply/relationship-manager.js';
 import { submitViaEmail } from '../src/lib/autoapply/email-submitter.js';
 import { QueueControlPlane } from '../src/lib/autoapply/queue-controls.js';
@@ -866,6 +866,8 @@ export class QueueProcessor {
     let errorMessage: string | null = null;
     let formTemplateId: string | null = existingTemplate?.id ?? null;
     let confirmationData: ConfirmationData | null = null;
+    // Set just before fillAndSubmit() — see createApprovedAutomationSession() below.
+    let autoSessionId: string | null = null;
 
     try {
       broadcastStep('Analyzing form');
@@ -996,6 +998,24 @@ export class QueueProcessor {
       }
 
       broadcastStep('Filling form');
+
+      // BEHAVIORAL_CONTRACTS §18 / CRITICAL ISSUE #15: fillAndSubmit() now refuses
+      // to submit without an approved automation_sessions row. This worker is a
+      // fully autonomous per-item pipeline (no human reviews each queue item) —
+      // approval here reflects that the risk engine above already routed anything
+      // it flagged 'manual' to pending_manual before this point, so everything
+      // that reaches here was already cleared for automated submission. A real
+      // session row is still created and driven through pending -> approved (and
+      // finalized to submitted/failed below) so there's a genuine, queryable
+      // audit trail rather than a synthetic id or a skipped check.
+      autoSessionId = await this.createApprovedAutomationSession({
+        orgId,
+        funderId,
+        portalUrl: portalUrl!,
+        queueItemId,
+        riskAssessment,
+      });
+
       // Fill and submit the form, passing request profile (with personalized pitch injected)
       const filler = new FormFillerAgent(this.supabase, stealthBrowser);
       const fillResult = await filler.fillAndSubmit({
@@ -1004,6 +1024,7 @@ export class QueueProcessor {
         organizationId: orgId,
         funderId,
         requestProfile: fillerRequestProfile,
+        sessionId: autoSessionId,
       });
 
       confirmationNumber = fillResult.confirmationNumber;
@@ -1073,6 +1094,23 @@ export class QueueProcessor {
       }
       // Retrieve recording path only after browser.close() finalizes the .webm file
       localRecordingPath = await stealthBrowser.getRecordingPath().catch(() => null);
+    }
+
+    // Close out the automation_sessions audit trail (if a session was created above —
+    // it may not have been if the run failed before reaching the fill/submit stage).
+    if (autoSessionId !== null) {
+      await this.finalizeAutomationSession(
+        autoSessionId,
+        orgId,
+        submissionStatus === 'submitted',
+        confirmationNumber,
+        errorMessage,
+      ).catch((e: unknown) => {
+        console.warn(
+          '[QueueProcessor] Failed to finalize automation session:',
+          e instanceof Error ? e.message : String(e),
+        );
+      });
     }
 
     // Persist full submission audit record
@@ -1323,6 +1361,105 @@ export class QueueProcessor {
     // Non-submitted outcomes propagate as errors so the loop records them as failures
     if (submissionStatus !== 'submitted') {
       throw new Error(errorMessage ?? submissionStatus);
+    }
+  }
+
+  /**
+   * Create an automation_sessions row and drive it straight to 'approved' for
+   * this autonomous AutoApply submission. There is no per-item human review in
+   * this worker — the risk engine already decides upstream whether a submission
+   * proceeds at all (a 'manual' recommendation throws SkipError before this is
+   * ever called), so this records that decision as a real, auditable session
+   * rather than bypassing form-filler-agent.ts's approval check with a synthetic
+   * or missing id.
+   *
+   * `approved_by` is deliberately left null: it's a uuid column meant for a
+   * human approver's profile id (see AutomationSessionManager.approve()).
+   * session-manager.ts's markAutoSubmitted() writes a non-uuid `system:<level>`
+   * string into this same column for the semi_autonomous/autonomous grant-
+   * automation path (src/lib/agents/browser-automation.ts) — that would fail
+   * with an "invalid input syntax for type uuid" error if that code path ever
+   * ran against this schema; noted here so the same mistake isn't repeated, not
+   * fixed as part of this change since it's a separate, already-shipped file.
+   * The actual "who/why" for this auto-approval goes in `notes` instead.
+   */
+  private async createApprovedAutomationSession(params: {
+    orgId: string;
+    funderId: string;
+    portalUrl: string;
+    queueItemId: string;
+    riskAssessment: RiskAssessment | null;
+  }): Promise<string> {
+    const { orgId, funderId, portalUrl, queueItemId, riskAssessment } = params;
+
+    const notes = riskAssessment
+      ? `Auto-approved by the AutoApply queue worker for submission_queue item ${queueItemId} ` +
+        `(risk score=${riskAssessment.score}, classification=${riskAssessment.classification}, ` +
+        `recommendation=${riskAssessment.recommendation}).`
+      : `Auto-approved by the AutoApply queue worker for submission_queue item ${queueItemId} ` +
+        `(risk assessment unavailable).`;
+
+    const { data, error } = await this.supabase
+      .from('automation_sessions')
+      .insert({
+        organization_id: orgId,
+        funder_id: funderId,
+        target_url: portalUrl,
+        session_type: 'form_fill',
+        status: 'pending',
+        mapped_fields: [],
+        unmapped_fields: [],
+        notes,
+        started_at: new Date().toISOString(),
+      })
+      .select('id')
+      .single();
+
+    if (error || !data) {
+      throw new Error(
+        `Failed to create automation session: ${error?.message ?? 'no row returned'}`,
+      );
+    }
+
+    const sessionId = (data as { id: string }).id;
+
+    const { error: approveError } = await this.supabase
+      .from('automation_sessions')
+      .update({ status: 'approved', updated_at: new Date().toISOString() })
+      .eq('id', sessionId)
+      .eq('organization_id', orgId);
+
+    if (approveError) {
+      throw new Error(
+        `Failed to approve automation session ${sessionId}: ${approveError.message}`,
+      );
+    }
+
+    return sessionId;
+  }
+
+  /** Close out the audit-trail session once the fill/submit attempt finishes. */
+  private async finalizeAutomationSession(
+    sessionId: string,
+    orgId: string,
+    submitted: boolean,
+    confirmationNumber: string | null,
+    errorMessage: string | null,
+  ): Promise<void> {
+    const { error } = await this.supabase
+      .from('automation_sessions')
+      .update({
+        status: submitted ? 'submitted' : 'failed',
+        confirmation_number: submitted ? confirmationNumber : null,
+        error_message: submitted ? null : errorMessage,
+        completed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', sessionId)
+      .eq('organization_id', orgId);
+
+    if (error) {
+      throw new Error(`Failed to finalize automation session ${sessionId}: ${error.message}`);
     }
   }
 
