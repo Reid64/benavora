@@ -11,6 +11,7 @@ import {
   FolderOpen,
   KanbanSquare,
   Library,
+  Mail,
   Megaphone,
   Settings,
   Shield,
@@ -71,6 +72,7 @@ export const NAV_ITEMS: NavItem[] = [
       { label: "Semantic Matches", href: "/intelligence/matches" },
     ],
   },
+  { label: "Email", href: "/email", icon: Mail },
 ];
 
 /** Settings rendered at the bottom of the sidebar, separated from main nav. */

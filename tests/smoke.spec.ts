@@ -8,10 +8,12 @@ import { expect, test } from "@playwright/test";
  */
 test("landing page renders the Benavora hero", async ({ page }) => {
   await page.goto("/");
-  // The redesigned hero leads with the tagline as the page's H1; "Benavora" is
-  // the brand wordmark beside the logo mark.
+  // The redesigned hero leads with the tagline as the page's H1; the nav's
+  // brand mark is now an image logo (no separate text wordmark) named via alt text.
   await expect(
-    page.getByRole("heading", { level: 1, name: /Fund More/ }),
+    page.getByRole("heading", { level: 1, name: /Win More Grants/ }),
   ).toBeVisible();
-  await expect(page.getByText("Benavora", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("navigation").getByAltText("Benavora"),
+  ).toBeVisible();
 });

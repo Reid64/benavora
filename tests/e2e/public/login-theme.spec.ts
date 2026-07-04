@@ -12,11 +12,11 @@ test("login page uses the dark theme", async ({ page }) => {
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
 
-  // The deep #0a0a1a canvas applies on the public login route too.
+  // The deep #0f1117 canvas applies on the public login route too.
   const bodyBg = await page.evaluate(
     () => getComputedStyle(document.body).backgroundColor,
   );
-  expect(bodyBg).toBe("rgb(10, 10, 26)");
+  expect(bodyBg).toBe("rgb(15, 17, 23)");
 
   // The brand panel's gradient headline is part of the dark hero.
   await expect(page.getByText("Fund More.").first()).toBeVisible();

@@ -21,6 +21,10 @@ export default defineConfig({
   // Using "." as the root so both tests/ and e2e/ are resolved from the project
   // root. All testMatch patterns below are relative to this directory.
   testDir: ".",
+  // Without this, testMatch patterns (e.g. "tests/e2e/auth.setup.ts") also match
+  // identical relative paths inside nested checkouts under .claude/worktrees/ and
+  // node_modules/, multiplying the suite by however many worktrees exist on disk.
+  testIgnore: ["**/.claude/**", "**/node_modules/**"],
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
