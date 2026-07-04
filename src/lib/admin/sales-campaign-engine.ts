@@ -63,6 +63,12 @@ function getFirstName(orgName: string): string {
   return words[0] ?? orgName;
 }
 
+function addDaysIso(iso: string, days: number): string {
+  const d = new Date(iso);
+  d.setDate(d.getDate() + days);
+  return d.toISOString();
+}
+
 export class SalesCampaignEngine {
   private supabase = createAdminClient();
   private warmup = new WarmupEngine();
@@ -433,6 +439,15 @@ export class SalesCampaignEngine {
           })
           .eq("id", send.id);
 
+        // Advance the sequence: schedule the next step for this prospect, if
+        // one exists and hasn't already been scheduled. Previously this never
+        // happened — every campaign was effectively single-touch regardless
+        // of how many steps it was configured with.
+        await this.scheduleNextStep(send, sentAt).catch((err: unknown) => {
+          const msg = err instanceof Error ? err.message : "unknown error";
+          console.warn(`[SalesCampaignEngine] Failed to schedule next step for send ${send.id}: ${msg}`);
+        });
+
         // Update prospect
         const { data: prospectRow } = await this.supabase
           .from("prospects")
@@ -483,5 +498,84 @@ export class SalesCampaignEngine {
     }
 
     return result;
+  }
+
+  /**
+   * After a step's send completes, schedule the next step in the sequence
+   * (if any) for the same prospect, `delay_days` after this send. No-op if
+   * this was the last configured step, if the next step is already scheduled
+   * for this prospect (idempotent against re-processing), or if the prospect
+   * has since been suppressed.
+   */
+  private async scheduleNextStep(send: SendRow, sentAtIso: string): Promise<void> {
+    const { data: steps } = await this.supabase
+      .from("sales_campaign_steps")
+      .select("*")
+      .eq("campaign_id", send.campaign_id)
+      .order("step_number", { ascending: true });
+
+    const stepList = (steps ?? []) as Array<{
+      id: string;
+      step_number: number;
+      subject_template: string;
+      body_template: string;
+      delay_days: number;
+    }>;
+    if (stepList.length === 0) return;
+
+    const currentIdx = stepList.findIndex((s) => s.id === send.step_id);
+    if (currentIdx === -1 || currentIdx + 1 >= stepList.length) return;
+
+    const nextStep = stepList[currentIdx + 1];
+    if (!nextStep) return;
+
+    // Idempotency guard: don't double-schedule if a send for this step
+    // already exists for this prospect (e.g. re-run after a partial failure).
+    const { data: existing } = await this.supabase
+      .from("sales_sends")
+      .select("id")
+      .eq("campaign_id", send.campaign_id)
+      .eq("prospect_id", send.prospect_id)
+      .eq("step_id", nextStep.id)
+      .maybeSingle();
+    if (existing) return;
+
+    const { data: prospectData } = await this.supabase
+      .from("prospects")
+      .select("org_name, email, city, state, suppressed")
+      .eq("id", send.prospect_id)
+      .maybeSingle();
+    const prospect = prospectData as {
+      org_name: string;
+      email: string | null;
+      city: string | null;
+      state: string | null;
+      suppressed: boolean | null;
+    } | null;
+    if (!prospect || !prospect.email || prospect.suppressed) return;
+
+    const vars: Record<string, string> = {
+      org_name: prospect.org_name,
+      first_name: getFirstName(prospect.org_name),
+      city: prospect.city ?? "",
+      state: prospect.state ?? "",
+    };
+
+    const { error } = await this.supabase.from("sales_sends").insert({
+      campaign_id: send.campaign_id,
+      step_id: nextStep.id,
+      prospect_id: send.prospect_id,
+      sending_domain_id: send.sending_domain_id,
+      from_address: send.from_address,
+      to_address: send.to_address,
+      subject: renderTemplate(nextStep.subject_template, vars),
+      body_html: renderTemplate(nextStep.body_template, vars),
+      status: "queued",
+      scheduled_for: addDaysIso(sentAtIso, nextStep.delay_days),
+    });
+
+    if (error) {
+      throw new Error(`Failed to schedule step ${nextStep.step_number}: ${error.message}`);
+    }
   }
 }

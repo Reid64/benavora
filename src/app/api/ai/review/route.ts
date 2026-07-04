@@ -14,6 +14,7 @@ import { DEFAULT_MAX_TOKENS, DEFAULT_MODEL } from "@/lib/ai/claude";
 // the review as a note, logs to agent_runs, and tracks token usage.
 
 export const runtime = "nodejs";
+export const maxDuration = 300;
 
 function jsonError(message: string, code: string, status: number) {
   // Consistent error shape across API routes (BEHAVIORAL_CONTRACTS §16).

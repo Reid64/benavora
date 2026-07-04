@@ -20,6 +20,7 @@ import {
 // Logs to agent_runs with token tracking (BEHAVIORAL_CONTRACTS §15, §16).
 
 export const runtime = "nodejs";
+export const maxDuration = 300;
 
 function jsonError(message: string, code: string, status: number) {
   // Consistent error shape across API routes (BEHAVIORAL_CONTRACTS §16).

@@ -17,7 +17,7 @@ import { FunderIntelAgent } from "@/lib/agents/funder-intel";
 // Requires writer role or above (Contracts §16).
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 const RATE_LIMIT = 10;
 const RATE_WINDOW_MS = 60_000;

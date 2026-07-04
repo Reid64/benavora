@@ -60,10 +60,11 @@ function scoreDomain(url: string, orgName: string): number {
 }
 
 export class WebSearchSource {
-  private searxngUrl: string;
+  /** null when SEARXNG_URL is unset — searchSearXNG() throws rather than hitting a default that can never succeed. */
+  private readonly searxngUrl: string | null;
 
   constructor() {
-    this.searxngUrl = process.env.SEARXNG_URL ?? "http://localhost:8080";
+    this.searxngUrl = process.env.SEARXNG_URL ?? null;
   }
 
   async searchForWebsite(
@@ -76,7 +77,14 @@ export class WebSearchSource {
 
     let results: SearchResult[] = [];
 
-    const searxResults = await this.searchSearXNG(query);
+    // SearXNG being unconfigured is treated the same as it returning nothing —
+    // fall through to the DuckDuckGo path below, which needs no configuration.
+    let searxResults: SearchResult[] = [];
+    try {
+      searxResults = await this.searchSearXNG(query);
+    } catch {
+      searxResults = [];
+    }
     if (searxResults.length > 0) {
       results = searxResults;
     } else {
@@ -143,6 +151,12 @@ export class WebSearchSource {
   }
 
   async searchSearXNG(query: string): Promise<SearchResult[]> {
+    if (!this.searxngUrl) {
+      throw new Error(
+        "SEARXNG_URL is not configured; SearXNG search is unavailable.",
+      );
+    }
+
     try {
       const url = `${this.searxngUrl}/search?q=${encodeURIComponent(query)}&format=json`;
       const res = await fetch(url, {

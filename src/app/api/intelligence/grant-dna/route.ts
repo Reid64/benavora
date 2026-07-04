@@ -1,17 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { requireRole } from '@/lib/auth/role-gate'
 import { GrantDNAScorer } from '@/lib/intelligence/grant-dna'
 
 export const maxDuration = 300
 
 export async function POST(req: NextRequest) {
-  const supabase = createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const gate = await requireRole('writer')
+  if ('error' in gate) return gate.error
 
   const body = (await req.json()) as {
     sections?: unknown

@@ -29,6 +29,14 @@ import { useProfile } from "@/lib/hooks/useProfile";
 
 // ---------------------------------------------------------------------------
 // Types
+//
+// The real backend for this page lives across four route groups —
+// /api/admin/campaigns, /api/admin/domains, /api/admin/prospects, and
+// /api/admin/sales-analytics — plus /api/admin/suppression (added alongside
+// this rewrite; the suppression_list table existed and was already written
+// to by ProspectManager and the bounce webhook, but had no admin CRUD route).
+// None of these return exactly the shape this page originally assumed, so
+// each tab below maps the real response onto these display types.
 // ---------------------------------------------------------------------------
 
 type CampaignStatus = "draft" | "active" | "paused" | "completed";
@@ -51,7 +59,7 @@ type Domain = {
   warmup_progress: number;
   health: "green" | "yellow" | "red";
   daily_budget: number;
-  daily_remaining: number;
+  daily_current: number;
   total_sent: number;
   dns_verified: boolean;
 };
@@ -59,7 +67,7 @@ type Domain = {
 type Prospect = {
   id: string;
   org_name: string;
-  email: string;
+  email: string | null;
   state: string | null;
   revenue: number | null;
   status: string;
@@ -90,7 +98,7 @@ type AnalyticsData = {
   send_volume: ChartPoint[];
   top_subjects: { subject: string; reply_rate: number }[];
   best_hours: { hour: number; reply_rate: number }[];
-  domain_perf: { domain: string; sent: number; reply_rate: number }[];
+  domain_perf: { domain: string; sent: number; bounce_rate: number }[];
 };
 
 // ---------------------------------------------------------------------------
@@ -112,6 +120,60 @@ function fmtDate(iso: string | null) {
   if (!iso) return "—";
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString();
+}
+
+function mapCampaign(raw: Record<string, unknown>): Campaign {
+  const sends = (raw["sales_sends"] as { id: string; status: string }[] | null) ?? [];
+  const totalSent =
+    typeof raw["total_sent"] === "number"
+      ? (raw["total_sent"] as number)
+      : sends.filter((s) => s.status === "sent").length;
+  const totalReplied = typeof raw["total_replied"] === "number" ? (raw["total_replied"] as number) : 0;
+  const totalBounced = typeof raw["total_bounced"] === "number" ? (raw["total_bounced"] as number) : 0;
+
+  return {
+    id: raw["id"] as string,
+    name: raw["name"] as string,
+    description: (raw["description"] as string | null) ?? null,
+    status: raw["status"] as CampaignStatus,
+    sent: totalSent,
+    total: sends.length,
+    reply_rate: totalSent > 0 ? totalReplied / totalSent : 0,
+    bounce_rate: totalSent > 0 ? totalBounced / totalSent : 0,
+    created_at: raw["created_at"] as string,
+  };
+}
+
+function mapDomain(raw: Record<string, unknown>): Domain {
+  const budget = (raw["target_daily_limit"] as number | null) ?? 0;
+  const current = (raw["current_daily_limit"] as number | null) ?? 0;
+  const healthStatus = raw["health_status"] as string | null;
+  const health: Domain["health"] =
+    healthStatus === "critical" ? "red" : healthStatus === "healthy" ? "green" : "yellow";
+
+  return {
+    id: raw["id"] as string,
+    domain: raw["domain"] as string,
+    warmup_progress: budget > 0 ? Math.min(100, Math.round((current / budget) * 100)) : 100,
+    health,
+    daily_budget: budget,
+    daily_current: current,
+    total_sent: (raw["total_sent"] as number | null) ?? 0,
+    dns_verified: Boolean(raw["dns_verified"]),
+  };
+}
+
+function mapProspect(raw: Record<string, unknown>): Prospect {
+  return {
+    id: raw["id"] as string,
+    org_name: raw["org_name"] as string,
+    email: (raw["email"] as string | null) ?? null,
+    state: (raw["state"] as string | null) ?? null,
+    revenue: (raw["annual_revenue"] as number | null) ?? null,
+    status: raw["status"] as string,
+    last_contacted: (raw["last_contacted_at"] as string | null) ?? null,
+    replied: Boolean(raw["has_replied"]),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -172,38 +234,111 @@ function HealthDot({ health }: { health: Domain["health"] }) {
 function CampaignsTab() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
+  const [domainOptions, setDomainOptions] = useState<{ id: string; domain: string }[]>([]);
   const [showNew, setShowNew] = useState(false);
   const [newName, setNewName] = useState("");
   const [newDesc, setNewDesc] = useState("");
+  const [listId, setListId] = useState("");
+  const [selectedDomainIds, setSelectedDomainIds] = useState<Set<string>>(new Set());
+  const [dailyTarget, setDailyTarget] = useState("50");
+  const [windowStart, setWindowStart] = useState("9");
+  const [windowEnd, setWindowEnd] = useState("17");
+  const [timezone, setTimezone] = useState("America/New_York");
+  const [stepSubject, setStepSubject] = useState("");
+  const [stepBody, setStepBody] = useState("");
+  const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/sales-outreach/campaigns");
+      const res = await fetch("/api/admin/campaigns");
       if (res.ok) {
-        const json = (await res.json()) as { campaigns?: Campaign[] };
-        setCampaigns(json.campaigns ?? []);
+        const json = (await res.json()) as { campaigns?: Record<string, unknown>[] };
+        setCampaigns((json.campaigns ?? []).map(mapCampaign));
       }
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => { void load(); }, [load]);
+  const loadDomainOptions = useCallback(async () => {
+    const res = await fetch("/api/admin/domains");
+    if (res.ok) {
+      const json = (await res.json()) as { domains?: { id: string; domain: string }[] };
+      setDomainOptions((json.domains ?? []).map((d) => ({ id: d.id, domain: d.domain })));
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+    void loadDomainOptions();
+  }, [load, loadDomainOptions]);
+
+  function toggleDomain(id: string) {
+    setSelectedDomainIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function resetForm() {
+    setNewName("");
+    setNewDesc("");
+    setListId("");
+    setSelectedDomainIds(new Set());
+    setDailyTarget("50");
+    setWindowStart("9");
+    setWindowEnd("17");
+    setTimezone("America/New_York");
+    setStepSubject("");
+    setStepBody("");
+    setFormError(null);
+  }
 
   async function createCampaign() {
-    if (!newName.trim()) return;
+    setFormError(null);
+    const dailyTargetNum = parseInt(dailyTarget, 10);
+    const windowStartNum = parseInt(windowStart, 10);
+    const windowEndNum = parseInt(windowEnd, 10);
+
+    if (!newName.trim()) return setFormError("Campaign name is required.");
+    if (!listId.trim()) return setFormError("Prospect list ID is required.");
+    if (selectedDomainIds.size === 0) return setFormError("Select at least one sending domain.");
+    if (!Number.isFinite(dailyTargetNum) || dailyTargetNum <= 0)
+      return setFormError("Daily send target must be a positive number.");
+    if (!Number.isFinite(windowStartNum) || !Number.isFinite(windowEndNum) || windowStartNum >= windowEndNum)
+      return setFormError("Send window start must be before end (0-23).");
+    if (!stepSubject.trim() || !stepBody.trim())
+      return setFormError("The first email step needs a subject and body.");
+
     setSaving(true);
     try {
-      await fetch("/api/admin/sales-outreach/campaigns", {
+      const res = await fetch("/api/admin/campaigns", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newName.trim(), description: newDesc.trim() || null }),
+        body: JSON.stringify({
+          name: newName.trim(),
+          description: newDesc.trim() || undefined,
+          list_id: listId.trim(),
+          sending_domain_ids: Array.from(selectedDomainIds),
+          daily_send_target: dailyTargetNum,
+          send_window_start: windowStartNum,
+          send_window_end: windowEndNum,
+          send_timezone: timezone.trim() || "America/New_York",
+          filter_criteria: {},
+          steps: [{ subject_template: stepSubject.trim(), body_template: stepBody.trim(), delay_days: 0 }],
+        }),
       });
+      if (!res.ok) {
+        const json = (await res.json().catch(() => null)) as { error?: string } | null;
+        setFormError(json?.error ?? "Failed to create campaign.");
+        return;
+      }
       setShowNew(false);
-      setNewName("");
-      setNewDesc("");
+      resetForm();
       void load();
     } finally {
       setSaving(false);
@@ -288,8 +423,12 @@ function CampaignsTab() {
 
       <Modal
         isOpen={showNew}
-        onClose={() => setShowNew(false)}
+        onClose={() => {
+          setShowNew(false);
+          resetForm();
+        }}
         title="New Campaign"
+        size="lg"
       >
         <div className="space-y-4">
           <Input
@@ -302,13 +441,105 @@ function CampaignsTab() {
             label="Description (optional)"
             value={newDesc}
             onChange={(e) => setNewDesc(e.target.value)}
-            rows={3}
+            rows={2}
           />
+          <Input
+            label="Prospect List ID"
+            value={listId}
+            onChange={(e) => setListId(e.target.value)}
+            placeholder="UUID from a CSV import on the Prospects tab"
+            helperText="There's no list picker yet — import prospects first, then copy the list ID from that import."
+          />
+
+          <div>
+            <p className="mb-1.5 text-sm font-medium text-navy-700">Sending Domains</p>
+            {domainOptions.length === 0 ? (
+              <p className="text-sm text-navy-400">
+                No sending domains configured yet — add one on the Domains tab first.
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-3">
+                {domainOptions.map((d) => (
+                  <label key={d.id} className="flex items-center gap-2 text-sm text-navy-700">
+                    <input
+                      type="checkbox"
+                      checked={selectedDomainIds.has(d.id)}
+                      onChange={() => toggleDomain(d.id)}
+                      className="rounded border-navy-300"
+                    />
+                    {d.domain}
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <Input
+              label="Daily Send Target"
+              type="number"
+              min={1}
+              value={dailyTarget}
+              onChange={(e) => setDailyTarget(e.target.value)}
+            />
+            <Input
+              label="Window Start (0-23)"
+              type="number"
+              min={0}
+              max={23}
+              value={windowStart}
+              onChange={(e) => setWindowStart(e.target.value)}
+            />
+            <Input
+              label="Window End (0-23)"
+              type="number"
+              min={0}
+              max={23}
+              value={windowEnd}
+              onChange={(e) => setWindowEnd(e.target.value)}
+            />
+          </div>
+          <Input
+            label="Timezone"
+            value={timezone}
+            onChange={(e) => setTimezone(e.target.value)}
+            placeholder="America/New_York"
+          />
+
+          <div className="space-y-2 border-t border-navy-100 pt-4">
+            <p className="text-sm font-medium text-navy-700">First Email (Step 1)</p>
+            <Input
+              label="Subject Template"
+              value={stepSubject}
+              onChange={(e) => setStepSubject(e.target.value)}
+              placeholder="Quick question, {org_name}"
+            />
+            <Textarea
+              label="Body Template"
+              value={stepBody}
+              onChange={(e) => setStepBody(e.target.value)}
+              rows={4}
+              placeholder="Hi {first_name}, ..."
+            />
+            <p className="text-xs text-navy-400">
+              Use {"{org_name}"}, {"{first_name}"}, {"{city}"}, {"{state}"} as placeholders. Additional
+              follow-up steps can be added later via the campaign&apos;s API.
+            </p>
+          </div>
+
+          {formError && <p className="text-sm text-red-600">{formError}</p>}
+
           <div className="flex justify-end gap-3">
-            <Button variant="secondary" onClick={() => setShowNew(false)}>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setShowNew(false);
+                resetForm();
+              }}
+            >
               Cancel
             </Button>
-            <Button onClick={createCampaign} disabled={!newName.trim() || saving}>
+            <Button onClick={createCampaign} disabled={saving}>
               {saving ? "Creating…" : "Create Campaign"}
             </Button>
           </div>
@@ -333,10 +564,10 @@ function DomainsTab() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/sales-outreach/domains");
+      const res = await fetch("/api/admin/domains");
       if (res.ok) {
-        const json = (await res.json()) as { domains?: Domain[] };
-        setDomains(json.domains ?? []);
+        const json = (await res.json()) as { domains?: Record<string, unknown>[] };
+        setDomains((json.domains ?? []).map(mapDomain));
       }
     } finally {
       setLoading(false);
@@ -349,10 +580,10 @@ function DomainsTab() {
     if (!newDomain.trim() || !newApiKey.trim()) return;
     setSaving(true);
     try {
-      await fetch("/api/admin/sales-outreach/domains", {
+      await fetch("/api/admin/domains", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ domain: newDomain.trim(), resend_api_key: newApiKey.trim() }),
+        body: JSON.stringify({ domain: newDomain.trim(), api_key: newApiKey.trim(), provider: "resend" }),
       });
       setShowAdd(false);
       setNewDomain("");
@@ -414,8 +645,8 @@ function DomainsTab() {
 
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div>
-                  <p className="text-navy-400">Daily budget</p>
-                  <p className="text-navy-700">{d.daily_remaining}/{d.daily_budget}</p>
+                  <p className="text-navy-400">Current / target limit</p>
+                  <p className="text-navy-700">{d.daily_current}/{d.daily_budget}</p>
                 </div>
                 <div>
                   <p className="text-navy-400">Total sent</p>
@@ -476,15 +707,21 @@ function ProspectsTab() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [suppressing, setSuppressing] = useState(false);
+  const [showImport, setShowImport] = useState(false);
+  const [importListName, setImportListName] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const pendingFileRef = useRef<File | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/sales-outreach/prospects");
+      const res = await fetch("/api/admin/prospects?per_page=100");
       if (res.ok) {
-        const json = (await res.json()) as { prospects?: Prospect[] };
-        setProspects(json.prospects ?? []);
+        const json = (await res.json()) as { prospects?: Record<string, unknown>[] };
+        setProspects((json.prospects ?? []).map(mapProspect));
       }
     } finally {
       setLoading(false);
@@ -497,28 +734,63 @@ function ProspectsTab() {
     (p) =>
       !search ||
       p.org_name.toLowerCase().includes(search.toLowerCase()) ||
-      p.email.toLowerCase().includes(search.toLowerCase()),
+      (p.email ?? "").toLowerCase().includes(search.toLowerCase()),
   );
 
-  async function uploadCsv(file: File) {
-    const form = new FormData();
-    form.append("file", file);
-    await fetch("/api/admin/sales-outreach/prospects/import", {
-      method: "POST",
-      body: form,
-    });
-    void load();
+  function openImportModal(file: File) {
+    pendingFileRef.current = file;
+    setImportListName("");
+    setImportResult(null);
+    setShowImport(true);
+  }
+
+  async function runImport() {
+    const file = pendingFileRef.current;
+    if (!file || !importListName.trim()) return;
+    setImporting(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("list_name", importListName.trim());
+      form.append("source", "upload");
+      const res = await fetch("/api/admin/prospects", { method: "POST", body: form });
+      const json = (await res.json().catch(() => null)) as
+        | { result?: { imported: number; skipped_suppressed: number; skipped_duplicate: number } }
+        | { error?: string }
+        | null;
+      if (res.ok && json && "result" in json && json.result) {
+        setImportResult(
+          `Imported ${json.result.imported}, skipped ${json.result.skipped_suppressed + json.result.skipped_duplicate}.`,
+        );
+        void load();
+      } else {
+        setImportResult(
+          (json && "error" in json && json.error) || "Import failed.",
+        );
+      }
+    } finally {
+      setImporting(false);
+    }
   }
 
   async function suppressSelected() {
     if (selected.size === 0) return;
-    await fetch("/api/admin/sales-outreach/suppress", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ids: Array.from(selected) }),
-    });
-    setSelected(new Set());
-    void load();
+    setSuppressing(true);
+    try {
+      await Promise.all(
+        Array.from(selected).map((id) =>
+          fetch(`/api/admin/prospects/${id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ suppressed: true, suppressed_reason: "manual_bulk_suppress" }),
+          }),
+        ),
+      );
+      setSelected(new Set());
+      void load();
+    } finally {
+      setSuppressing(false);
+    }
   }
 
   function toggleSelect(id: string) {
@@ -555,8 +827,8 @@ function ProspectsTab() {
       key: "email",
       header: "Email",
       sortable: true,
-      sortValue: (r) => r.email,
-      render: (r) => <span className="text-navy-700">{r.email}</span>,
+      sortValue: (r) => r.email ?? "",
+      render: (r) => <span className="text-navy-700">{r.email ?? "—"}</span>,
     },
     {
       key: "state",
@@ -616,8 +888,8 @@ function ProspectsTab() {
         <h2 className="text-lg font-medium text-navy-900">Prospects</h2>
         <div className="flex items-center gap-2">
           {selected.size > 0 && (
-            <Button variant="secondary" onClick={suppressSelected}>
-              Suppress {selected.size} selected
+            <Button variant="secondary" onClick={suppressSelected} disabled={suppressing}>
+              {suppressing ? "Suppressing…" : `Suppress ${selected.size} selected`}
             </Button>
           )}
           <Button
@@ -634,7 +906,8 @@ function ProspectsTab() {
             className="hidden"
             onChange={(e) => {
               const file = e.target.files?.[0];
-              if (file) void uploadCsv(file);
+              if (file) openImportModal(file);
+              e.target.value = "";
             }}
           />
         </div>
@@ -662,6 +935,27 @@ function ProspectsTab() {
           />
         </Card>
       )}
+
+      <Modal isOpen={showImport} onClose={() => setShowImport(false)} title="Import Prospects">
+        <div className="space-y-4">
+          <Input
+            label="List Name"
+            value={importListName}
+            onChange={(e) => setImportListName(e.target.value)}
+            placeholder="e.g. Q3 Education Prospects"
+            helperText="Every import creates a new prospect list; copy its ID from the result to use in a campaign."
+          />
+          {importResult && <p className="text-sm text-navy-700">{importResult}</p>}
+          <div className="flex justify-end gap-3">
+            <Button variant="secondary" onClick={() => setShowImport(false)}>
+              Close
+            </Button>
+            <Button onClick={runImport} disabled={!importListName.trim() || importing}>
+              {importing ? "Importing…" : "Import"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
@@ -683,7 +977,7 @@ function SuppressionTab() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/sales-outreach/suppression");
+      const res = await fetch("/api/admin/suppression");
       if (res.ok) {
         const json = (await res.json()) as { entries?: SuppressionEntry[] };
         setEntries(json.entries ?? []);
@@ -705,7 +999,7 @@ function SuppressionTab() {
     if (!newEmail.trim()) return;
     setSaving(true);
     try {
-      await fetch("/api/admin/sales-outreach/suppression", {
+      await fetch("/api/admin/suppression", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: newEmail.trim(), reason: newReason.trim() || "manual" }),
@@ -722,7 +1016,7 @@ function SuppressionTab() {
   async function uploadCsv(file: File) {
     const form = new FormData();
     form.append("file", file);
-    await fetch("/api/admin/sales-outreach/suppression/import", {
+    await fetch("/api/admin/suppression/import", {
       method: "POST",
       body: form,
     });
@@ -779,6 +1073,7 @@ function SuppressionTab() {
             onChange={(e) => {
               const file = e.target.files?.[0];
               if (file) void uploadCsv(file);
+              e.target.value = "";
             }}
           />
           <Button onClick={() => setShowAdd(true)}>
@@ -852,10 +1147,34 @@ function AnalyticsTab() {
     void (async () => {
       setLoading(true);
       try {
-        const res = await fetch("/api/admin/sales-outreach/analytics");
+        const res = await fetch("/api/admin/sales-analytics?period=30d");
         if (res.ok) {
-          const json = (await res.json()) as AnalyticsData;
-          setData(json);
+          const raw = (await res.json()) as {
+            by_day?: { date: string; sent: number; replied: number }[];
+            top_subject_lines?: { subject: string; reply_rate: number }[];
+            send_time_performance?: { hour: number; sends: number; reply_rate: number }[];
+            by_domain?: { domain: string; sent: number; bounce_rate: number }[];
+          };
+          setData({
+            send_volume: (raw.by_day ?? []).map((d) => ({
+              date: d.date,
+              sent: d.sent,
+              replies: d.replied,
+            })),
+            top_subjects: (raw.top_subject_lines ?? []).map((s) => ({
+              subject: s.subject,
+              reply_rate: s.reply_rate / 100,
+            })),
+            best_hours: [...(raw.send_time_performance ?? [])]
+              .filter((h) => h.sends > 0)
+              .sort((a, b) => b.reply_rate - a.reply_rate)
+              .map((h) => ({ hour: h.hour, reply_rate: h.reply_rate / 100 })),
+            domain_perf: (raw.by_domain ?? []).map((d) => ({
+              domain: d.domain,
+              sent: d.sent,
+              bounce_rate: d.bounce_rate / 100,
+            })),
+          });
         }
       } finally {
         setLoading(false);
@@ -967,7 +1286,7 @@ function AnalyticsTab() {
                 <tr className="border-b border-navy-100">
                   <th className="pb-2 text-left text-xs font-medium text-navy-400">Domain</th>
                   <th className="pb-2 text-right text-xs font-medium text-navy-400">Sent</th>
-                  <th className="pb-2 text-right text-xs font-medium text-navy-400">Reply Rate</th>
+                  <th className="pb-2 text-right text-xs font-medium text-navy-400">Bounce Rate</th>
                 </tr>
               </thead>
               <tbody>
@@ -975,7 +1294,7 @@ function AnalyticsTab() {
                   <tr key={d.domain} className="border-b border-navy-50 last:border-0">
                     <td className="py-2 text-navy-700">{d.domain}</td>
                     <td className="py-2 text-right text-navy-700">{d.sent.toLocaleString()}</td>
-                    <td className="py-2 text-right font-medium text-teal-600">{pct(d.reply_rate)}</td>
+                    <td className="py-2 text-right font-medium text-teal-600">{pct(d.bounce_rate)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1027,14 +1346,45 @@ export default function SalesOutreachPage() {
   const [statsLoading, setStatsLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
 
+  // No single endpoint returns this dashboard's summary shape, so it's
+  // assembled from three real endpoints: prospect totals, campaign statuses,
+  // and all-time + last-7-day analytics (for "sent today").
   const loadStats = useCallback(async () => {
     setStatsLoading(true);
     try {
-      const res = await fetch("/api/admin/sales-outreach/stats");
-      if (res.ok) {
-        const json = (await res.json()) as StatsData;
-        setStats(json);
-      }
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const [prospectsRes, campaignsRes, allTimeRes, recentRes] = await Promise.all([
+        fetch("/api/admin/prospects/stats"),
+        fetch("/api/admin/campaigns"),
+        fetch("/api/admin/sales-analytics?period=all"),
+        fetch("/api/admin/sales-analytics?period=7d"),
+      ]);
+
+      const prospectsJson = prospectsRes.ok
+        ? ((await prospectsRes.json()) as { stats?: { total: number } })
+        : null;
+      const campaignsJson = campaignsRes.ok
+        ? ((await campaignsRes.json()) as { campaigns?: { status: string }[] })
+        : null;
+      const allTimeJson = allTimeRes.ok
+        ? ((await allTimeRes.json()) as {
+            rates?: { reply_rate: number; bounce_rate: number; unsubscribe_rate: number };
+          })
+        : null;
+      const recentJson = recentRes.ok
+        ? ((await recentRes.json()) as { by_day?: { date: string; sent: number }[] })
+        : null;
+
+      const emailsSentToday = recentJson?.by_day?.find((d) => d.date === todayStr)?.sent ?? 0;
+
+      setStats({
+        total_prospects: prospectsJson?.stats?.total ?? 0,
+        active_campaigns: (campaignsJson?.campaigns ?? []).filter((c) => c.status === "active").length,
+        emails_sent_today: emailsSentToday,
+        reply_rate: (allTimeJson?.rates?.reply_rate ?? 0) / 100,
+        bounce_rate: (allTimeJson?.rates?.bounce_rate ?? 0) / 100,
+        unsubscribe_rate: (allTimeJson?.rates?.unsubscribe_rate ?? 0) / 100,
+      });
     } finally {
       setStatsLoading(false);
     }

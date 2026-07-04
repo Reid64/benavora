@@ -85,23 +85,26 @@ export async function GET(
   // Steps and screenshots key off session_id; the session has already been
   // confirmed to belong to this organization above (manager.getSession is
   // org-scoped under RLS). automation_steps / automation_screenshots have no
-  // organization_id of their own and - unlike every sibling child table - carry
-  // no org-isolation RLS policy, so a session-bound (RLS) read returns zero rows
-  // and the detail page renders empty "No steps / No screenshots" states. Read
-  // them with the service-role client, still strictly scoped to the already
-  // verified session_id, so the caller sees their own session's children. The
-  // accompanying migration adds the missing policies for fresh deploys.
+  // organization_id column of their own (confirmed against the live schema)
+  // and - unlike every sibling child table - carry no org-isolation RLS
+  // policy, so a session-bound (RLS) read returns zero rows and the detail
+  // page renders empty "No steps / No screenshots" states. Read them with the
+  // service-role client, scoped by `session.id` (the already org-verified
+  // session object) rather than the raw `params.sessionId` route param, so
+  // there's no gap between what getSession() validated and what these two
+  // queries actually read. The accompanying migration adds the missing
+  // policies for fresh deploys.
   const admin = createAdminClient();
   const [{ data: steps }, { data: screenshots }] = await Promise.all([
     admin
       .from("automation_steps")
       .select("*")
-      .eq("session_id", params.sessionId)
+      .eq("session_id", session.id)
       .order("step_number", { ascending: true }),
     admin
       .from("automation_screenshots")
       .select("*")
-      .eq("session_id", params.sessionId)
+      .eq("session_id", session.id)
       .order("captured_at", { ascending: true }),
   ]);
 

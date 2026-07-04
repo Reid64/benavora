@@ -72,9 +72,9 @@ export const USER_ROLES = ["owner", "admin", "writer", "viewer"] as const;
 export type UserRole = (typeof USER_ROLES)[number];
 
 // Role hierarchy: owner > admin > writer > viewer (BLUEPRINT §3.2). Higher rank =
-// more privilege. Defined here (a client-safe module) so both the server gate
-// (src/lib/auth/role-gate.ts) and the client wrapper (components/auth/RoleGate)
-// share one source of truth without pulling server-only code into the bundle.
+// more privilege. Defined here (a client-safe module) so the server gate
+// (src/lib/auth/role-gate.ts) and any client components share one source of
+// truth without pulling server-only code into the bundle.
 export const ROLE_HIERARCHY: Record<UserRole, number> = {
   owner: 4,
   admin: 3,
@@ -342,7 +342,7 @@ export const TIER_PLANS: Record<
   starter: {
     name: "Starter",
     monthlyPrice: 149,
-    priceEnvVar: "STRIPE_PRICE_STARTER",
+    priceEnvVar: "STRIPE_STARTER_PRICE_ID",
     tagline: "For small teams getting going",
     features: [
       "50 agent runs/day",
@@ -356,7 +356,7 @@ export const TIER_PLANS: Record<
   professional: {
     name: "Professional",
     monthlyPrice: 299,
-    priceEnvVar: "STRIPE_PRICE_PROFESSIONAL",
+    priceEnvVar: "STRIPE_PROFESSIONAL_PRICE_ID",
     tagline: "For growing organizations",
     features: [
       "200 agent runs/day",
@@ -371,7 +371,7 @@ export const TIER_PLANS: Record<
   enterprise: {
     name: "Enterprise",
     monthlyPrice: 499,
-    priceEnvVar: "STRIPE_PRICE_ENTERPRISE",
+    priceEnvVar: "STRIPE_ENTERPRISE_PRICE_ID",
     tagline: "For established nonprofits at scale",
     features: [
       "1,000 agent runs/day",
@@ -386,7 +386,7 @@ export const TIER_PLANS: Record<
   consultant: {
     name: "Consultant",
     monthlyPrice: 799,
-    priceEnvVar: "STRIPE_PRICE_CONSULTANT",
+    priceEnvVar: "STRIPE_CONSULTANT_PRICE_ID",
     tagline: "For consultants managing multiple nonprofits",
     features: [
       "5,000 agent runs/day",

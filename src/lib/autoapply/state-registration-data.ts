@@ -47,6 +47,14 @@ export interface StateRegistration {
   exemptionThreshold: string;
   /** Anything else worth surfacing to a filer. */
   notes: string;
+  /**
+   * False when this jurisdiction has NO general charitable-solicitation
+   * requirement and only specific categories of organization must register
+   * (e.g. Texas — see its `exemptionThreshold`). Defaults to true (general
+   * requirement) when omitted. REGISTRATION_REQUIRED_STATES only includes
+   * entries where this isn't explicitly false.
+   */
+  generallyRequired?: boolean;
 }
 
 export const STATE_REGISTRATIONS: StateRegistration[] = [
@@ -480,6 +488,7 @@ export const STATE_REGISTRATIONS: StateRegistration[] = [
     exemptionThreshold:
       "Texas has NO general charitable registration. Only law-enforcement, public-safety, and veterans organizations (and their solicitors) must register.",
     notes: "Most 501(c)(3) charities do NOT register in Texas — verify whether your org falls into a required category.",
+    generallyRequired: false,
   },
   {
     state: "Utah",
@@ -564,7 +573,7 @@ export function getStateRegistration(
   return STATE_REGISTRATIONS.find((s) => s.abbreviation === code);
 }
 
-/** Set of abbreviations that require registration — handy for filtering UIs. */
+/** Set of abbreviations that require GENERAL registration — handy for filtering UIs. */
 export const REGISTRATION_REQUIRED_STATES: ReadonlySet<string> = new Set(
-  STATE_REGISTRATIONS.map((s) => s.abbreviation),
+  STATE_REGISTRATIONS.filter((s) => s.generallyRequired !== false).map((s) => s.abbreviation),
 );

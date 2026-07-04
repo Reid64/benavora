@@ -56,12 +56,30 @@ function parseCSVLine(line: string): string[] {
 export class HudDataSource {
   async fetchHomelessCounts(state: string, year = 2023): Promise<NeedDataPoint[]> {
     const abbr = normalizeState(state);
-    // HUD Exchange PIT data is distributed as downloadable files; use the public data API endpoint
-    const url = `https://www.hudexchange.info/resource/3031/pit-and-hic-data-since-2007/`;
+    // HUD Exchange does not expose a JSON/CSV API for Point-in-Time (PIT) homeless
+    // counts — this resource page just links to downloadable data files that
+    // change name/format by year. Fetch the page, locate the actual CSV export
+    // link on it, and parse THAT file — the page itself is HTML, not data, so
+    // CSV-parsing it directly (the previous behavior here) always produced
+    // garbage/empty results regardless of what state/year was requested.
+    const resourceUrl = `https://www.hudexchange.info/resource/3031/pit-and-hic-data-since-2007/`;
 
     try {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`HUD Exchange error: ${res.status}`);
+      const pageRes = await fetch(resourceUrl);
+      if (!pageRes.ok) throw new Error(`HUD Exchange error: ${pageRes.status}`);
+      const pageHtml = await pageRes.text();
+
+      const csvHrefMatch = pageHtml.match(/href="([^"]+\.csv)"/i);
+      if (!csvHrefMatch || !csvHrefMatch[1]) {
+        // No machine-readable export is currently linked from this page (PIT
+        // data is often only published as a spreadsheet download, which this
+        // source doesn't parse) — report no data rather than misparsing HTML.
+        return [];
+      }
+
+      const csvUrl = new URL(csvHrefMatch[1], resourceUrl).toString();
+      const res = await fetch(csvUrl);
+      if (!res.ok) throw new Error(`HUD Exchange CSV error: ${res.status}`);
 
       const text = await res.text();
       const lines = text.split('\n').filter((l) => l.trim());

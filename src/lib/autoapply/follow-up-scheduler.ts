@@ -122,6 +122,141 @@ export interface ProcessFollowUpsResult {
   skipped: number;
 }
 
+export type SendFollowUpOutcome =
+  | { sent: true }
+  | { sent: false; skipped: true; reason: string }
+  | { sent: false; skipped: false; error: string };
+
+/**
+ * Send (or skip) a single due follow-up item: checks for a received response
+ * and a do-not-contact window, resolves the funder contact, generates content
+ * via Claude, and sends via Resend. Extracted from processFollowUps()'s loop
+ * body so a single item can also be sent on demand (e.g. the "Send Now"
+ * action on the Follow-Ups page), not just in a scheduled batch.
+ */
+export async function sendSingleFollowUp(
+  item: any,
+  supabase: any,
+): Promise<SendFollowUpOutcome> {
+  try {
+    // Check if funder has already responded on the submission record.
+    const { data: submission } = await supabase
+      .from("autoapply_submissions")
+      .select("submitted_at, request_type, status, confirmation_number")
+      .eq("id", item.submission_id)
+      .maybeSingle();
+
+    const responseReceived = item.response_received === true;
+
+    if (responseReceived) {
+      // Cancel all remaining follow-ups for this submission.
+      await cancelFollowUps(item.submission_id, "response_received", supabase);
+      return { sent: false, skipped: true, reason: "response_received" };
+    }
+
+    // Check funder_relationships for do_not_contact_until.
+    const { data: rel } = await supabase
+      .from("funder_relationships")
+      .select("do_not_contact_until")
+      .eq("organization_id", item.organization_id)
+      .eq("funder_id", item.funder_id)
+      .maybeSingle();
+
+    if (rel?.do_not_contact_until && new Date(rel.do_not_contact_until) > new Date()) {
+      return { sent: false, skipped: true, reason: "do_not_contact_window" };
+    }
+
+    // Load funder name.
+    const { data: funder } = await supabase
+      .from("funders")
+      .select("name")
+      .eq("id", item.funder_id)
+      .maybeSingle();
+
+    const funderName: string = funder?.name ?? "Valued Funder";
+
+    // Load primary contact email for this funder (first contact with an email).
+    const { data: contact } = await supabase
+      .from("contacts")
+      .select("email, name")
+      .eq("funder_id", item.funder_id)
+      .eq("organization_id", item.organization_id)
+      .not("email", "is", null)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    const funderEmail: string | null = contact?.email ?? null;
+
+    if (!funderEmail) {
+      // No email address — skip silently.
+      await supabase
+        .from("autoapply_follow_ups")
+        .update({ status: "skipped", cancel_reason: "no_email" })
+        .eq("id", item.id);
+      return { sent: false, skipped: true, reason: "no_email" };
+    }
+
+    // Load org name for the email sender.
+    const { data: org } = await supabase
+      .from("organizations")
+      .select("name, email")
+      .eq("id", item.organization_id)
+      .maybeSingle();
+
+    const orgName: string = org?.name ?? "Our Organization";
+    const replyTo: string = org?.email ?? "noreply@benavora.com";
+
+    // Generate follow-up email content.
+    const content = await generateFollowUpContent(
+      item.template_type,
+      funderName,
+      funderEmail,
+      submission?.submitted_at ?? null,
+      submission?.request_type ?? null,
+      orgName,
+    );
+
+    // Update content in DB first.
+    await supabase
+      .from("autoapply_follow_ups")
+      .update({ content })
+      .eq("id", item.id);
+
+    // Send via Resend.
+    const resend = getResend();
+    const subjectMap: Record<string, string> = {
+      initial_followup: `Following Up — ${orgName} Donation Request`,
+      second_followup: `Checking In — ${orgName} Partnership Request`,
+      final_followup: `${orgName} — Final Follow-Up on Our Request`,
+    };
+    const subject = subjectMap[item.template_type] ?? `Follow-Up from ${orgName}`;
+
+    await (resend.emails.send as (p: any) => Promise<{ data: { id: string } | null; error: { message: string } | null }>)({
+      from: `${orgName} via Benavora <notifications@benavora.com>`,
+      to: funderEmail,
+      reply_to: replyTo,
+      subject,
+      text: content,
+    });
+
+    await supabase
+      .from("autoapply_follow_ups")
+      .update({ status: "sent", sent_at: new Date().toISOString() })
+      .eq("id", item.id);
+
+    return { sent: true };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "unknown_error";
+    // Mark as failed but let the caller keep processing remaining items.
+    await supabase
+      .from("autoapply_follow_ups")
+      .update({ status: "failed", cancel_reason: message })
+      .eq("id", item.id);
+    return { sent: false, skipped: false, error: message };
+  }
+}
+
 export async function processFollowUps(supabase: any): Promise<ProcessFollowUpsResult> {
   const now = new Date().toISOString();
 
@@ -140,128 +275,9 @@ export async function processFollowUps(supabase: any): Promise<ProcessFollowUpsR
   let skipped = 0;
 
   for (const item of items) {
-    try {
-      // Check if funder has already responded on the submission record.
-      const { data: submission } = await supabase
-        .from("autoapply_submissions")
-        .select("submitted_at, request_type, status, confirmation_number")
-        .eq("id", item.submission_id)
-        .maybeSingle();
-
-      const responseReceived = item.response_received === true;
-
-      if (responseReceived) {
-        // Cancel all remaining follow-ups for this submission.
-        await cancelFollowUps(item.submission_id, "response_received", supabase);
-        skipped++;
-        continue;
-      }
-
-      // Check funder_relationships for do_not_contact_until.
-      const { data: rel } = await supabase
-        .from("funder_relationships")
-        .select("do_not_contact_until")
-        .eq("organization_id", item.organization_id)
-        .eq("funder_id", item.funder_id)
-        .maybeSingle();
-
-      if (rel?.do_not_contact_until && new Date(rel.do_not_contact_until) > new Date()) {
-        skipped++;
-        continue;
-      }
-
-      // Load funder name.
-      const { data: funder } = await supabase
-        .from("funders")
-        .select("name")
-        .eq("id", item.funder_id)
-        .maybeSingle();
-
-      const funderName: string = funder?.name ?? "Valued Funder";
-
-      // Load primary contact email for this funder (first contact with an email).
-      const { data: contact } = await supabase
-        .from("contacts")
-        .select("email, name")
-        .eq("funder_id", item.funder_id)
-        .eq("organization_id", item.organization_id)
-        .not("email", "is", null)
-        .order("created_at", { ascending: true })
-        .limit(1)
-        .maybeSingle();
-
-      const funderEmail: string | null = contact?.email ?? null;
-
-      if (!funderEmail) {
-        // No email address — skip silently.
-        skipped++;
-        await supabase
-          .from("autoapply_follow_ups")
-          .update({ status: "skipped", cancel_reason: "no_email" })
-          .eq("id", item.id);
-        continue;
-      }
-
-      // Load org name for the email sender.
-      const { data: org } = await supabase
-        .from("organizations")
-        .select("name, email")
-        .eq("id", item.organization_id)
-        .maybeSingle();
-
-      const orgName: string = org?.name ?? "Our Organization";
-      const replyTo: string = org?.email ?? "noreply@benavora.com";
-
-      // Generate follow-up email content.
-      const content = await generateFollowUpContent(
-        item.template_type,
-        funderName,
-        funderEmail,
-        submission?.submitted_at ?? null,
-        submission?.request_type ?? null,
-        orgName,
-      );
-
-      // Update content in DB first.
-      await supabase
-        .from("autoapply_follow_ups")
-        .update({ content })
-        .eq("id", item.id);
-
-      // Send via Resend.
-      const resend = getResend();
-      const subjectMap: Record<string, string> = {
-        initial_followup: `Following Up — ${orgName} Donation Request`,
-        second_followup: `Checking In — ${orgName} Partnership Request`,
-        final_followup: `${orgName} — Final Follow-Up on Our Request`,
-      };
-      const subject = subjectMap[item.template_type] ?? `Follow-Up from ${orgName}`;
-
-      await (resend.emails.send as (p: any) => Promise<{ data: { id: string } | null; error: { message: string } | null }>)({
-        from: `${orgName} via Benavora <notifications@benavora.com>`,
-        to: funderEmail,
-        reply_to: replyTo,
-        subject,
-        text: content,
-      });
-
-      await supabase
-        .from("autoapply_follow_ups")
-        .update({ status: "sent", sent_at: new Date().toISOString() })
-        .eq("id", item.id);
-
-      sent++;
-    } catch (err) {
-      // Mark as failed but continue processing remaining items.
-      await supabase
-        .from("autoapply_follow_ups")
-        .update({
-          status: "failed",
-          cancel_reason: err instanceof Error ? err.message : "unknown_error",
-        })
-        .eq("id", item.id);
-      skipped++;
-    }
+    const outcome = await sendSingleFollowUp(item, supabase);
+    if (outcome.sent) sent++;
+    else skipped++;
   }
 
   return { sent, skipped };

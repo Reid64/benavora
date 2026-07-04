@@ -21,6 +21,7 @@ import {
 // (BEHAVIORAL_CONTRACTS §10). Logs to agent_runs with token tracking (§15).
 
 export const runtime = "nodejs";
+export const maxDuration = 300;
 
 // Default minimum outcomes before a success rate is considered meaningful
 // (BEHAVIORAL_CONTRACTS §10); overridable via the

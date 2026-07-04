@@ -7,6 +7,7 @@ import { AgentError } from "@/lib/agents/base-agent";
 import { SemanticMatchingAgent } from "@/lib/agents/semantic-matching";
 
 export const runtime = "nodejs";
+export const maxDuration = 300;
 
 function jsonError(message: string, code: string, status: number) {
   return NextResponse.json({ error: message, code }, { status });

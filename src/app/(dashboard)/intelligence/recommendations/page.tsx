@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { ChevronDown, ChevronUp, Plus, Search, AlertCircle } from "lucide-react";
 
 import { useProfile } from "@/lib/hooks/useProfile";
+import { createClient } from "@/lib/supabase/client";
 
 interface FunderRecommendation {
   foundation_id: string;
@@ -50,9 +51,11 @@ function ScoreBadge({ score }: { score: number }) {
 function FunderCard({
   rec,
   onAdd,
+  isAdding,
 }: {
   rec: FunderRecommendation;
   onAdd: (rec: FunderRecommendation) => void;
+  isAdding: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -92,10 +95,11 @@ function FunderCard({
         <div className="flex shrink-0 items-center gap-2">
           <button
             onClick={() => onAdd(rec)}
-            className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-blue-700"
+            disabled={isAdding}
+            className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <Plus className="h-3 w-3" />
-            Add to Funders
+            {isAdding ? "Adding…" : "Add to Funders"}
           </button>
           <button
             onClick={() => setExpanded((v) => !v)}
@@ -144,6 +148,7 @@ export default function RecommendationsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
+  const [addingId, setAddingId] = useState<string | null>(null);
 
   const fetchRecommendations = useCallback(async () => {
     if (!orgId) return;
@@ -170,8 +175,31 @@ export default function RecommendationsPage() {
     void fetchRecommendations();
   }, [fetchRecommendations]);
 
-  function handleAdd(rec: FunderRecommendation) {
-    setAddedIds((prev) => new Set([...prev, rec.foundation_id]));
+  async function handleAdd(rec: FunderRecommendation) {
+    if (!orgId || addedIds.has(rec.foundation_id) || addingId) return;
+    setAddingId(rec.foundation_id);
+    try {
+      const supabase = createClient();
+      const noteParts = [
+        rec.ein ? `EIN ${rec.ein}` : null,
+        rec.match_reasons.length > 0 ? `Match reasons: ${rec.match_reasons.join("; ")}` : null,
+      ].filter(Boolean);
+
+      const { error } = await supabase.from("funders").insert({
+        organization_id: orgId,
+        name: rec.name,
+        category: "private_foundation",
+        annual_giving_budget: rec.total_annual_giving,
+        geographic_focus: rec.geographic_focus,
+        notes: noteParts.length > 0 ? noteParts.join(" — ") : null,
+      });
+
+      if (!error) {
+        setAddedIds((prev) => new Set([...prev, rec.foundation_id]));
+      }
+    } finally {
+      setAddingId(null);
+    }
   }
 
   return (
@@ -264,7 +292,7 @@ export default function RecommendationsPage() {
                   Added
                 </div>
               )}
-              <FunderCard rec={rec} onAdd={handleAdd} />
+              <FunderCard rec={rec} onAdd={handleAdd} isAdding={addingId === rec.foundation_id} />
             </div>
           ))}
         </div>

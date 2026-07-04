@@ -1,3 +1,4 @@
+import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
@@ -8,7 +9,9 @@ export async function GET() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) {
+  const orgId = headers().get("x-organization-id");
+
+  if (!user || !orgId) {
     return NextResponse.json(
       { alerts: 0, applications: 0, documents: 0, deadlines: 0 },
       { headers: { "Cache-Control": "private, no-store" } },
@@ -24,11 +27,13 @@ export async function GET() {
     supabase
       .from("alerts")
       .select("id", { count: "exact", head: true })
+      .eq("organization_id", orgId)
       .eq("is_read", false)
       .eq("is_dismissed", false),
     supabase
       .from("applications")
       .select("id", { count: "exact", head: true })
+      .eq("organization_id", orgId)
       .in("stage", [
         "awaiting_documents",
         "follow_up_due",
@@ -38,12 +43,14 @@ export async function GET() {
     supabase
       .from("documents")
       .select("id", { count: "exact", head: true })
+      .eq("organization_id", orgId)
       .not("expiration_date", "is", null)
       .gte("expiration_date", now.toISOString().split("T")[0])
       .lte("expiration_date", thirtyDaysOut.toISOString().split("T")[0]),
     supabase
       .from("deadlines")
       .select("id", { count: "exact", head: true })
+      .eq("organization_id", orgId)
       .lt("due_date", todayStr)
       .not("is_completed", "eq", true),
   ]);

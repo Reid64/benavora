@@ -23,6 +23,15 @@ export interface FillOptions {
   organizationId: string;
   funderId: string;
   requestProfile?: RequestProfile;
+  /**
+   * Id of the automation_sessions row gating this submission
+   * (BEHAVIORAL_CONTRACTS §18: automation pauses at `awaiting_approval` and only
+   * a human's approve() can advance it to `approved`). fillAndSubmit() verifies
+   * this session's status is 'approved' immediately before submitting and
+   * throws otherwise — there is no bypass. Omitting sessionId is treated the
+   * same as an unapproved session: submission is blocked.
+   */
+  sessionId?: string;
 }
 
 export interface FillResult {
@@ -81,7 +90,7 @@ export class FormFillerAgent {
   }
 
   async fillAndSubmit(options: FillOptions): Promise<FillResult> {
-    const { page, template, organizationId, funderId, requestProfile } = options;
+    const { page, template, organizationId, funderId, requestProfile, sessionId } = options;
     void funderId;
 
     const advancedHandler = new AdvancedFieldHandler();
@@ -190,6 +199,9 @@ export class FormFillerAgent {
     // Accept terms before submitting
     await advancedHandler.acceptTerms(page).catch(() => false);
 
+    // BEHAVIORAL_CONTRACTS §18: never submit without a human-approved session.
+    await this.assertSessionApproved(sessionId, organizationId);
+
     let confirmationNumber: string | null = null;
     let confirmationScreenshot: Buffer | null = null;
 
@@ -221,6 +233,34 @@ export class FormFillerAgent {
   }
 
   // ─── Private helpers ───────────────────────────────────────────────────────
+
+  /**
+   * Verify the automation session backing this submission is 'approved'
+   * before allowing a submit. Queries automation_sessions directly (rather
+   * than importing AutomationSessionManager from src/lib/automation/) because
+   * this file is compiled as part of the standalone AutoApply worker build,
+   * whose tsconfig only includes src/lib/autoapply/** and src/lib/supabase/**
+   * — see worker/tsconfig.json.
+   */
+  private async assertSessionApproved(
+    sessionId: string | undefined,
+    organizationId: string,
+  ): Promise<void> {
+    if (!sessionId) {
+      throw new Error('Submission blocked: session not approved');
+    }
+
+    const { data, error } = await this.supabase
+      .from('automation_sessions')
+      .select('status')
+      .eq('id', sessionId)
+      .eq('organization_id', organizationId)
+      .maybeSingle();
+
+    if (error || !data || (data as { status: string }).status !== 'approved') {
+      throw new Error('Submission blocked: session not approved');
+    }
+  }
 
   private async buildFillData(
     organizationId: string,

@@ -7,6 +7,7 @@ import { enforceLimit } from "@/lib/billing/tier-enforcer";
 import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
+export const maxDuration = 300;
 
 function jsonError(message: string, code: string, status: number) {
   return NextResponse.json({ error: message, code }, { status });

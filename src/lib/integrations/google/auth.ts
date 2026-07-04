@@ -25,6 +25,7 @@ import { google, type Auth } from "googleapis";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { signOAuthStatePayload, verifyOAuthStatePayload } from "./oauth-state";
 
 /** Provider key used for the `integrations.provider` column. */
 export const GOOGLE_PROVIDER = "google";
@@ -86,42 +87,16 @@ export function getOAuthClient(): Auth.OAuth2Client {
 // HMAC is keyed on GOOGLE_CLIENT_SECRET (always present when OAuth is configured),
 // so a forged/tampered state is rejected. The callback route still cross-checks
 // the decoded org against the session org before trusting it (Contracts Â§2).
-
-function stateSecret(): string {
-  return requiredEnv("GOOGLE_CLIENT_SECRET");
-}
-
-function b64url(input: Buffer | string): string {
-  return Buffer.from(input)
-    .toString("base64")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "");
-}
+// Sign/verify primitives live in ./oauth-state (shared with lib/calendar/gcal-auth.ts,
+// which used to reimplement the identical logic independently).
 
 function signState(organizationId: string): string {
-  const payload = b64url(organizationId);
-  const mac = b64url(
-    crypto.createHmac("sha256", stateSecret()).update(payload).digest(),
-  );
-  return `${payload}.${mac}`;
+  return signOAuthStatePayload(organizationId);
 }
 
 /** Verify a state token's HMAC and return the embedded organizationId, or null. */
 export function verifyState(state: string): string | null {
-  const [payload, mac] = state.split(".");
-  if (!payload || !mac) return null;
-  const expected = b64url(
-    crypto.createHmac("sha256", stateSecret()).update(payload).digest(),
-  );
-  const a = Buffer.from(mac);
-  const b = Buffer.from(expected);
-  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
-  try {
-    return Buffer.from(payload, "base64").toString("utf8");
-  } catch {
-    return null;
-  }
+  return verifyOAuthStatePayload(state);
 }
 
 // --- token encryption (AES-256-GCM) ------------------------------------------

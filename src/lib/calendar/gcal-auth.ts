@@ -12,13 +12,12 @@
 // google-auth-library version (10.7.0) diverges from the copy bundled inside
 // googleapis, making the types incompatible. Removing the casts breaks the build.
 
-import crypto from "crypto";
-
 import { google } from "googleapis";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 
 import { decryptToken, encryptToken } from "@/lib/email/encryption";
+import { signOAuthStatePayload, verifyOAuthStatePayload } from "@/lib/integrations/google/oauth-state";
 
 const GCAL_SCOPES = [
   "https://www.googleapis.com/auth/calendar.readonly",
@@ -32,20 +31,6 @@ export interface CalendarTokenResult {
   calendarName: string;
   organizationId: string;
   userId: string;
-}
-
-function b64url(input: Buffer | string): string {
-  return Buffer.from(input)
-    .toString("base64")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "");
-}
-
-function stateSecret(): string {
-  const s = process.env.GOOGLE_CLIENT_SECRET;
-  if (!s) throw new Error("Missing GOOGLE_CLIENT_SECRET");
-  return s;
 }
 
 export class GCalAuthManager {
@@ -62,11 +47,7 @@ export class GCalAuthManager {
 
   generateAuthUrl(orgId: string, userId: string, redirectUri: string): string {
     const oauth = this.buildOAuthClient(redirectUri);
-    const payload = b64url(JSON.stringify({ orgId, userId }));
-    const mac = b64url(
-      crypto.createHmac("sha256", stateSecret()).update(payload).digest(),
-    );
-    const state = `${payload}.${mac}`;
+    const state = signOAuthStatePayload(JSON.stringify({ orgId, userId }));
     return oauth.generateAuthUrl({
       access_type: "offline",
       prompt: "consent",
@@ -78,20 +59,10 @@ export class GCalAuthManager {
   private verifyState(
     state: string,
   ): { orgId: string; userId: string } | null {
-    const dotIndex = state.lastIndexOf(".");
-    if (dotIndex === -1) return null;
-    const payload = state.slice(0, dotIndex);
-    const mac = state.slice(dotIndex + 1);
-    const expected = b64url(
-      crypto.createHmac("sha256", stateSecret()).update(payload).digest(),
-    );
-    const a = Buffer.from(mac);
-    const b = Buffer.from(expected);
-    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+    const payload = verifyOAuthStatePayload(state);
+    if (!payload) return null;
     try {
-      return JSON.parse(
-        Buffer.from(payload, "base64url").toString("utf8"),
-      ) as { orgId: string; userId: string };
+      return JSON.parse(payload) as { orgId: string; userId: string };
     } catch {
       return null;
     }

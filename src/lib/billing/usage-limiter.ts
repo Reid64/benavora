@@ -11,7 +11,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { resolveTier } from "@/lib/billing/usage-tracker";
-import type { SubscriptionTier } from "@/lib/utils/constants";
+import { SUBSCRIPTION_TIERS, TIER_LIMITS, type SubscriptionTier } from "@/lib/utils/constants";
 
 export type UsageResourceType =
   | "opportunities"
@@ -21,17 +21,39 @@ export type UsageResourceType =
   | "storage_mb"
   | "users";
 
-// -1 = unlimited. Values mirror the task spec / BLUEPRINT Phase 5 pricing table.
+// opportunities/applications/ai_drafts have no equivalent in TIER_LIMITS
+// (constants.ts) — they're tracked only here. agent_runs/storage_mb/users DO
+// overlap with TIER_LIMITS, and used to be hand-duplicated with numbers that
+// had drifted out of sync (e.g. starter.agent_runs was 5 here vs free tier's
+// own 10, and starter.users was 1 here vs free's 2 — paying customers had a
+// *worse* limit than the free tier). Those three now derive directly from
+// TIER_LIMITS so there's a single source of truth and this can't drift again.
+// -1 = unlimited.
+const MONTHLY_ONLY_LIMITS: Record<
+  SubscriptionTier,
+  Record<"opportunities" | "applications" | "ai_drafts", number>
+> = {
+  free:         { opportunities: 10,  applications: 5,   ai_drafts: 3   },
+  starter:      { opportunities: 50,  applications: 20,  ai_drafts: 10  },
+  professional: { opportunities: 200, applications: 100, ai_drafts: 50  },
+  enterprise:   { opportunities: -1,  applications: -1,  ai_drafts: 200 },
+  consultant:   { opportunities: -1,  applications: -1,  ai_drafts: -1  },
+};
+
 export const RESOURCE_LIMITS: Record<
   SubscriptionTier,
   Record<UsageResourceType, number>
-> = {
-  free:         { opportunities: 10,  applications: 5,   ai_drafts: 3,   agent_runs: 10,  storage_mb: 100,  users: 2  },
-  starter:      { opportunities: 50,  applications: 20,  ai_drafts: 10,  agent_runs: 5,   storage_mb: 100,  users: 1  },
-  professional: { opportunities: 200, applications: 100, ai_drafts: 50,  agent_runs: 25,  storage_mb: 500,  users: 5  },
-  enterprise:   { opportunities: -1,  applications: -1,  ai_drafts: 200, agent_runs: 100, storage_mb: 2048, users: 20 },
-  consultant:   { opportunities: -1,  applications: -1,  ai_drafts: -1,  agent_runs: -1,  storage_mb: -1,   users: 50 },
-};
+> = Object.fromEntries(
+  SUBSCRIPTION_TIERS.map((tier) => [
+    tier,
+    {
+      ...MONTHLY_ONLY_LIMITS[tier],
+      agent_runs: TIER_LIMITS[tier].agent_runs_per_day,
+      storage_mb: TIER_LIMITS[tier].storage_mb,
+      users: TIER_LIMITS[tier].users,
+    },
+  ]),
+) as Record<SubscriptionTier, Record<UsageResourceType, number>>;
 
 // Monthly resources reset on the 1st of each month (UTC).
 const MONTHLY_RESOURCES: UsageResourceType[] = [

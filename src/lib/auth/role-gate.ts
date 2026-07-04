@@ -2,9 +2,8 @@
 //
 // SERVER-ONLY. Imports the session-bound Supabase server client, so this module
 // must never be imported by a Client Component. The pure role hierarchy lives in
-// `@/lib/utils/constants` (ROLE_HIERARCHY / hasRequiredRole) so the client
-// wrapper (components/auth/RoleGate) can share it without dragging server code
-// into the browser bundle.
+// `@/lib/utils/constants` (ROLE_HIERARCHY / hasRequiredRole) so client
+// components can share it without dragging server code into the browser bundle.
 //
 // Two layers:
 //   - checkPermission(userId, requiredRole) - the primitive asked for in the

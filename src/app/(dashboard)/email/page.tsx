@@ -78,6 +78,7 @@ export default function EmailPage() {
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
   const [mobileTab, setMobileTab] = useState<MobileTab>("list");
+  const [linkingId, setLinkingId] = useState<string | null>(null);
 
   const selectedThread = threads.find((t) => t.id === selectedThreadId) ?? null;
 
@@ -170,6 +171,20 @@ export default function EmailPage() {
       // silent — user can retry
     } finally {
       setSending(false);
+    }
+  }
+
+  async function handleAutoLink(threadId: string) {
+    setLinkingId(threadId);
+    try {
+      await fetch("/api/email/link", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ thread_id: threadId, auto: true }),
+      });
+      await loadThreads();
+    } finally {
+      setLinkingId(null);
     }
   }
 
@@ -299,13 +314,15 @@ export default function EmailPage() {
                             ) : (
                               <button
                                 type="button"
+                                disabled={linkingId === thread.id}
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  void handleAutoLink(thread.id);
                                 }}
-                                className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-navy-400 ring-1 ring-navy-200 transition hover:text-navy-600 hover:ring-navy-300"
+                                className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-navy-400 ring-1 ring-navy-200 transition hover:text-navy-600 hover:ring-navy-300 disabled:opacity-50"
                               >
                                 <Link2 className="h-3 w-3" aria-hidden />
-                                Link
+                                {linkingId === thread.id ? "Linking…" : "Link"}
                               </button>
                             )}
                           </div>

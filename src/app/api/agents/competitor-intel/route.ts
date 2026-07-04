@@ -17,7 +17,7 @@ import { AgentError } from "@/lib/agents/base-agent";
 import { CompetitorIntelAgent } from "@/lib/agents/competitor-intel";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 const RATE_LIMIT = 10;
 const RATE_WINDOW_MS = 60_000;

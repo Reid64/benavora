@@ -1,25 +1,20 @@
 import { NextResponse } from 'next/server'
 
 import { createAdminClient } from '@/lib/supabase/admin'
-import { createClient } from '@/lib/supabase/server'
+import { requireRole } from '@/lib/auth/role-gate'
 import { generateLogicModel, type GeneratedLogicModel } from '@/lib/intelligence/logic-model-generator'
 
 export const runtime = 'nodejs'
-export const maxDuration = 60
+export const maxDuration = 300
 
 function jsonError(message: string, code: string, status: number) {
   return NextResponse.json({ error: message, code }, { status })
 }
 
 export async function POST(request: Request) {
-  const supabase = createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) {
-    return jsonError('Authentication required.', 'unauthenticated', 401)
-  }
+  const gate = await requireRole('writer')
+  if ('error' in gate) return gate.error
+  const { supabase, organizationId } = gate
 
   let body: unknown
   try {
@@ -55,13 +50,7 @@ export async function POST(request: Request) {
   }
 
   // Verify the authenticated user belongs to the requested org
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('organization_id')
-    .eq('id', user.id)
-    .single()
-
-  if (!profile || profile.organization_id !== organization_id) {
+  if (organization_id !== organizationId) {
     return jsonError('You do not have access to this organization.', 'forbidden', 403)
   }
 

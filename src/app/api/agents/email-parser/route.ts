@@ -18,7 +18,7 @@ import { EmailParserAgent, type EmailInput } from "@/lib/agents/email-parser";
 // EmailParserWidget on the dashboard is the entry point.
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 const RATE_LIMIT = 20;
 const RATE_WINDOW_MS = 60_000;
