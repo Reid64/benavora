@@ -38,13 +38,40 @@ function jsonError(message: string, code: string, status: number) {
  * POST /api/platform/bootstrap
  *
  * One-time setup endpoint to promote a user to platform_owner.
- * INTENTIONALLY UNAUTHENTICATED — it is idempotent and only ever grants the
- * single platform_owner seat to an existing auth.users account. Remove or gate
- * this route once initial setup is complete.
+ * SECURITY: This endpoint is intentionally unauthenticated for initial setup,
+ * but self-disables after first platform_owner is created.
  *
  * Body: { email: string }
  */
 export async function POST(request: Request) {
+  const admin = createAdminClient();
+
+  // SECURITY: refuse to run at all once a platform_owner already exists —
+  // otherwise any authenticated caller could self-grant platform_owner by
+  // just knowing this endpoint's shape.
+  const { data: existingOwner, error: ownerCheckErr } = await admin
+    .from("platform_admins")
+    .select("id")
+    .eq("platform_role", "platform_owner")
+    .limit(1)
+    .maybeSingle();
+
+  if (ownerCheckErr) {
+    return jsonError(
+      "Failed to check for an existing platform owner.",
+      "owner_check_failed",
+      500,
+    );
+  }
+
+  if (existingOwner) {
+    return jsonError(
+      "Bootstrap already completed. Platform owner exists.",
+      "already_bootstrapped",
+      403,
+    );
+  }
+
   let body: unknown;
   try {
     body = await request.json();
@@ -62,7 +89,6 @@ export async function POST(request: Request) {
   }
 
   const normalizedEmail = email.trim().toLowerCase();
-  const admin = createAdminClient();
 
   // Look up the user in auth.users by email. The admin API paginates, so scan
   // pages until we find a match.
