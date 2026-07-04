@@ -2,6 +2,15 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import WebSocket from "ws";
+
+// Node 20 (the version this Playwright runner targets) has no native
+// WebSocket global, which @supabase/realtime-js requires to construct any
+// client even though these tests never subscribe to a realtime channel.
+// Polyfill it once so every createClient() call in this file works.
+if (typeof globalThis.WebSocket === "undefined") {
+  globalThis.WebSocket = WebSocket as unknown as typeof globalThis.WebSocket;
+}
 
 /**
  * Shared E2E helpers: environment loading, the dedicated test account, and a
