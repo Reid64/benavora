@@ -29,7 +29,7 @@
 ## Batch fix — all 21 remaining audit findings (2026-07-03)
 Fixed in one pass, verified with `tsc --noEmit` (0 errors) and `pnpm run build` (clean), committed together. Full per-issue detail in STATE_OF_THE_BUILD.md; summary:
 - [x] **#2 Sales Outreach page** — rewritten to call the real `/api/admin/*` routes with reconciled response shapes; New Campaign form expanded to collect the real backend's required fields (list ID, sending domains, send window/timezone, first step); prospect CSV import now collects `list_name`; bulk-suppress uses per-prospect PATCH calls (no bulk endpoint exists); added new `GET/POST /api/admin/suppression` + `POST /api/admin/suppression/import` since no admin suppression CRUD existed anywhere.
-- [x] **#3 AutoApply Follow-Ups routes** — created all 4 missing routes + extracted `sendSingleFollowUp()` for reuse. **Blocked**: the `autoapply_follow_ups` table doesn't exist in production at all (confirmed via live schema query) — routes are code-complete but non-functional until a migration creates it. Not applied without asking first.
+- [x] **#3 AutoApply Follow-Ups routes** — created all 4 missing routes + extracted `sendSingleFollowUp()` for reuse. The backing `autoapply_follow_ups` table didn't exist in production (confirmed via live schema query) — resolved same day, see "Migration 065" below. Fully functional now.
 - [x] **#4 Renewals route** — created `GET /api/renewals`, org-scoped, joined to opportunities/funders/applications.
 - [x] **#7 Stripe env var naming** — aligned code to `.env.local.example`'s convention (no live config existed either way, so zero risk either direction).
 - [x] **#9 Sales campaign multi-step** — `scheduleNextStep()` now advances sequences past step 1.
@@ -48,8 +48,16 @@ Fixed in one pass, verified with `tsc --noEmit` (0 errors) and `pnpm run build` 
 - [x] **#23 SEARXNG_URL** — throws if unset instead of defaulting to unreachable localhost; DuckDuckGo fallback unaffected.
 - [x] **#25 dead code deletion** — deleted `lib/platform/auth.ts`, `lib/platform/role-gate.ts`, `components/auth/RoleGate.tsx` after re-confirming zero real importers.
 
+## Migration 065 — autoapply_follow_ups (2026-07-03, same day follow-up)
+- [x] Read all 4 new follow-ups routes + `follow-up-scheduler.ts` to determine the exact expected schema (13 columns, FKs, status/template_type value sets).
+- [x] Created `supabase/migrations/065_autoapply_follow_ups.sql`: table + RLS enabled + 3 org-scoped policies (select/insert/update, deriving org membership from the caller's `profiles` row — the same pattern as migration 020, not the `organization_members` table migration 045 assumed, which doesn't exist in this schema) + 4 indexes.
+- [x] Applied to production (ref `vbjplpquqxxfbpazyalt`) via `POST /v1/projects/.../database/query` with the Management API PAT. Returned `201 []`.
+- [x] Verified live: `information_schema.columns` (13/13 columns, correct types/defaults), `pg_class.relrowsecurity = true`, `pg_policies` (3/3 policies present).
+- [x] `tsc --noEmit` re-run clean after the migration file was added (no code changes needed — the routes already assumed this exact schema).
+- [x] Committed as `feat: add migration 065 autoapply_follow_ups table`.
+- **AutoApply Follow-Ups (audit #3) is now fully resolved** — code and data both in place.
+
 ## Still open / needs a decision
-- [ ] **Migration needed**: `autoapply_follow_ups` table doesn't exist in production — the Follow-Ups feature (scheduler + all 4 new routes) can't work until it's created. Needs Reid's go-ahead before applying a production migration.
 - [ ] **Worker update needed**: `worker/queue-processor.ts`'s call to `form-filler-agent.ts`'s `fillAndSubmit()` needs to be updated to pass an approved `sessionId`, or that autonomous-submission path will always be blocked by the new approval gate (#15).
 - [ ] Set `RESEND_WEBHOOK_SECRET` and `RESEND_API_KEY` in Vercel production — neither is configured, so Resend email sending and the inbound webhook are both likely non-functional right now (pre-existing gap, unrelated to this session's fixes).
 - [ ] Set real Stripe Price ID values in Vercel once they exist — the naming mismatch is fixed, but no Stripe price vars are set at all yet.
@@ -59,6 +67,6 @@ Fixed in one pass, verified with `tsc --noEmit` (0 errors) and `pnpm run build` 
 - [ ] Full damage report — largely superseded by this session's deep audit; see STATE_OF_THE_BUILD.md
 
 ## Environment
-- Supabase: vbjplpquqxxfbpazyalt (all migrations through 064 applied, 104 tables confirmed live)
+- Supabase: vbjplpquqxxfbpazyalt (all migrations through 065 applied, 105 tables confirmed live)
 - Vercel: benavora.vercel.app (Pro)
 - Platform owner: info@faithfoundation.org (19 permissions) — bootstrap endpoint that created this is now locked down (see CRITICAL above)
