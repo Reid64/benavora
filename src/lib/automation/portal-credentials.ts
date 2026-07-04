@@ -116,10 +116,12 @@ function credentialsConfigKey(funderId: string): string {
 }
 
 async function deriveKey(organizationId: string): Promise<Buffer> {
-  const secret =
-    process.env.PORTAL_ENCRYPT_SECRET ??
-    process.env.NEXTAUTH_SECRET ??
-    "benavora-portal-default";
+  const secret = process.env.PORTAL_ENCRYPT_SECRET;
+  if (!secret) {
+    throw new Error(
+      "Missing required env var: PORTAL_ENCRYPT_SECRET. Encryption cannot proceed without it.",
+    );
+  }
 
   return new Promise<Buffer>((resolve, reject) => {
     crypto.pbkdf2(

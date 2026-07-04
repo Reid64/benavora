@@ -126,16 +126,20 @@ export function verifyState(state: string): string | null {
 
 // --- token encryption (AES-256-GCM) ------------------------------------------
 //
-// Key material: INTEGRATION_ENCRYPTION_KEY if set, else derived from
-// GOOGLE_CLIENT_SECRET via scrypt so encryption works out of the box once OAuth
-// is configured (Contracts Â§19 mandates encryption at rest). Format:
+// Key material: INTEGRATION_ENCRYPTION_KEY, required (Contracts Â§19 mandates
+// encryption at rest) — there is no fallback key, so encrypt/decrypt throw
+// immediately if it's missing. Format:
 //   "v1:" + ivHex + ":" + authTagHex + ":" + cipherHex
 
 const ENC_PREFIX = "v1";
 
 function encryptionKey(): Buffer {
-  const explicit = process.env.INTEGRATION_ENCRYPTION_KEY;
-  const material = explicit && explicit.length > 0 ? explicit : stateSecret();
+  const material = process.env.INTEGRATION_ENCRYPTION_KEY;
+  if (!material) {
+    throw new Error(
+      "Missing required env var: INTEGRATION_ENCRYPTION_KEY. Encryption cannot proceed without it.",
+    );
+  }
   // Fixed salt: the key only needs to be stable across processes, not unique.
   return crypto.scryptSync(material, "benavora.integration.v1", 32);
 }

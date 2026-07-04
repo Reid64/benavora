@@ -8,7 +8,15 @@ export type ComplianceResult = {
   modified_body?: string;
 };
 
-const HMAC_SECRET = process.env.UNSUBSCRIBE_HMAC_SECRET ?? "benavora-unsubscribe-secret";
+function hmacSecret(): string {
+  const secret = process.env.UNSUBSCRIBE_HMAC_SECRET;
+  if (!secret) {
+    throw new Error(
+      "Missing required env var: UNSUBSCRIBE_HMAC_SECRET. Encryption cannot proceed without it.",
+    );
+  }
+  return secret;
+}
 
 const PHYSICAL_ADDRESS = "Benavora Inc., 123 Main Street, Suite 100, New York, NY 10001";
 
@@ -79,7 +87,7 @@ export class EmailComplianceEngine {
   }
 
   generateUnsubscribeToken(email: string): string {
-    return createHmac("sha256", HMAC_SECRET).update(email.toLowerCase()).digest("hex");
+    return createHmac("sha256", hmacSecret()).update(email.toLowerCase()).digest("hex");
   }
 
   verifyUnsubscribeToken(email: string, token: string): boolean {

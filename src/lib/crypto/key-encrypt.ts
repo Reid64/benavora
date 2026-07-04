@@ -2,15 +2,20 @@
 // NEVER import from Client Components.
 //
 // Requires INTEGRATION_KEY_SECRET env var (32+ characters in production).
-// Shorter secrets are padded; missing secret falls back to zeros (insecure —
-// always set the env var in deployed environments).
+// Shorter secrets are padded; the env var must be set — there is no fallback
+// key, so encrypt/decrypt throw immediately if it's missing.
 
 import { createCipheriv, createDecipheriv, randomBytes } from "crypto";
 
 const ALGORITHM = "aes-256-gcm";
 
 function getKeyBuf(): Buffer {
-  const secret = process.env.INTEGRATION_KEY_SECRET ?? "";
+  const secret = process.env.INTEGRATION_KEY_SECRET;
+  if (!secret) {
+    throw new Error(
+      "Missing required env var: INTEGRATION_KEY_SECRET. Encryption cannot proceed without it.",
+    );
+  }
   // AES-256 needs exactly 32 bytes. Pad with NUL or truncate.
   return Buffer.from(secret.padEnd(32, "\0").slice(0, 32));
 }
