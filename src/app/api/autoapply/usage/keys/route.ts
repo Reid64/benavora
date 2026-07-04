@@ -4,17 +4,30 @@
 //
 // Keys are stored in platform_config as:
 //   key = "own_key_anthropic" | "own_key_openai" | "own_keys_enabled"
-//   value = the encrypted key text (plaintext for now; swap for AES at encryption layer)
+//   value = the AES-256-GCM ciphertext (see @/lib/crypto/key-encrypt). The raw
+//   key is never returned to the client — GET only ever exposes a masked
+//   `****last4` hint, decrypted server-side just long enough to mask it.
 
 import { NextResponse } from "next/server";
 
 import { requireRole } from "@/lib/auth/role-gate";
+import { decryptKey, encryptKey, maskKey } from "@/lib/crypto/key-encrypt";
 
 export const runtime = "nodejs";
 
 const KEY_ANTHROPIC = "own_key_anthropic";
 const KEY_OPENAI = "own_key_openai";
 const KEY_ENABLED = "own_keys_enabled";
+
+/** Decrypt a stored ciphertext just long enough to mask it. Never return the full key. */
+function maskStoredKey(ciphertext: string | undefined): string | null {
+  if (!ciphertext) return null;
+  try {
+    return maskKey(decryptKey(ciphertext));
+  } catch {
+    return null;
+  }
+}
 
 export async function GET(_req: Request) {
   const gate = await requireRole("viewer");
@@ -36,6 +49,8 @@ export async function GET(_req: Request) {
     using_own_keys: rowMap[KEY_ENABLED] === "true",
     has_anthropic: !!rowMap[KEY_ANTHROPIC],
     has_openai: !!rowMap[KEY_OPENAI],
+    anthropic_key_hint: maskStoredKey(rowMap[KEY_ANTHROPIC]),
+    openai_key_hint: maskStoredKey(rowMap[KEY_OPENAI]),
   });
 }
 
@@ -67,7 +82,7 @@ export async function POST(req: Request) {
     {
       organization_id: organizationId,
       key: configKey,
-      value: body.key,
+      value: encryptKey(body.key),
     },
     { onConflict: "organization_id,key" },
   );

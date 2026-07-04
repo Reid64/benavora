@@ -4,6 +4,8 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { decryptKey } from '@/lib/crypto/key-encrypt';
+
 // --- Local row-shape mirrors -------------------------------------------------
 
 interface TierLimitsRow {
@@ -399,8 +401,11 @@ export class UsageMeter {
 
   /**
    * Returns whether this org's tier allows own API keys, and what keys are
-   * stored. Keys are stored in integration_keys under service_name 'anthropic'
-   * or 'openai' (enum extension required before keys can be inserted).
+   * stored. Keys are stored (AES-256-GCM encrypted) in platform_config under
+   * key = 'own_key_anthropic' | 'own_key_openai' by
+   * POST /api/autoapply/usage/keys — NOT in integration_keys (that table's
+   * integration_service enum has no 'anthropic'/'openai' values, so a lookup
+   * there always returned empty regardless of what the org had saved).
    */
   async shouldUseOwnKeys(
     orgId: string,
@@ -428,25 +433,27 @@ export class UsageMeter {
       return { useOwn: false };
     }
 
-    // Look for org-stored API keys in integration_keys.
-    // 'anthropic' and 'openai' are not in the integration_service enum yet;
-    // this query returns empty until that enum is extended and rows inserted.
     const { data: keyRows } = await supabase
-      .from('integration_keys')
-      .select('service_name, encrypted_key')
+      .from('platform_config')
+      .select('key, value')
       .eq('organization_id', orgId)
-      .eq('is_active', true)
-      .in('service_name', ['anthropic', 'openai'] as any);
+      .in('key', ['own_key_anthropic', 'own_key_openai']);
 
-    const keyMap = new Map<string, string>(
-      ((keyRows ?? []) as Array<{ service_name: string; encrypted_key: string }>).map((k) => [
-        k.service_name,
-        k.encrypted_key,
-      ]),
+    const rowMap = new Map<string, string>(
+      ((keyRows ?? []) as Array<{ key: string; value: string }>).map((r) => [r.key, r.value]),
     );
 
-    const anthropicKey = keyMap.get('anthropic');
-    const openaiKey = keyMap.get('openai');
+    const decryptOrUndefined = (ciphertext: string | undefined): string | undefined => {
+      if (!ciphertext) return undefined;
+      try {
+        return decryptKey(ciphertext);
+      } catch {
+        return undefined;
+      }
+    };
+
+    const anthropicKey = decryptOrUndefined(rowMap.get('own_key_anthropic'));
+    const openaiKey = decryptOrUndefined(rowMap.get('own_key_openai'));
 
     return {
       useOwn: Boolean(anthropicKey ?? openaiKey),
