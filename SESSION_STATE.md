@@ -1,83 +1,100 @@
-# BENAVORA — Session State
-## Current Session: Deep Operational Audit
-## Date: 2026-07-03
-## Mode: Manual (Claude Code + Claude.ai)
-## Status: Full exhaustive audit complete (456 files, live schema, cross-cutting security sweep) AND all 25 findings from that audit are now FIXED or explicitly resolved — 4 security fixes committed individually, then all 21 remaining findings fixed in one batch. See STATE_OF_THE_BUILD.md for the full report, per-issue detail, and two flagged items needing a follow-up decision (below).
+# BENAVORA — SESSION STATE
+## Last updated: 2026-07-06
+## Current branch: main
+## Last commit: 855f192c4368fecc97429cfcf2e86a5ca68962c8
+## Commit message: fix: wire sessionId to form-filler approval gate, fix migration 045 RLS policies
 
-## Completed This Session (2026-07-03)
+---
 
-### Earlier: test/build gate + nav/config fixes
-- [x] Ran full test/build gate: vitest (161 passed, 0 failed), tsc --noEmit (0 errors), pnpm build (clean)
-- [x] Added Email nav entry (src/components/layout/nav-items.ts) — /email now reachable from the sidebar
-- [x] Fixed playwright.config.ts testIgnore (stops scanning .claude/worktrees/*, was inflating suite from ~24 real specs to 1110)
-- [x] Fixed stale tests/smoke.spec.ts and tests/e2e/public/login-theme.spec.ts to match current landing copy/theme
-- [x] Fixed Node 20 WebSocket blocker — polyfilled globalThis.WebSocket with `ws` in tests/e2e/helpers.ts
+## COMPLETED — July 3 audit session
 
-### This session: Deep Operational Audit (27 parallel sub-agents + live schema query)
-- [x] Read every file in src/lib/** (213 files), src/app/api/** (168 routes), src/app/(dashboard)/** (75 pages) — zero sampling
-- [x] Queried live production schema via Supabase Management API: 104 tables, 1331 columns confirmed
-- [x] Cross-cutting sweep: auth flow trace, RLS/org-scoping, env var inventory, encryption audit, swallowed-errors sweep, hardcoded-secrets scan
-- [x] Full report written to STATE_OF_THE_BUILD.md (replaces prior content) — see that file for the complete file-by-file breakdown, 25 ranked findings, and per-feature readiness ratings
+### Earlier in session: test/build gate + nav/config fixes
+- Added Email nav entry (`src/components/layout/nav-items.ts`) — /email now reachable from the sidebar
+- Fixed `playwright.config.ts` testIgnore to stop scanning `.claude/worktrees/*` (was inflating suite from ~24 real specs to 1110)
+- Fixed stale `tests/smoke.spec.ts` and `tests/e2e/public/login-theme.spec.ts` to match current landing copy
+- Fixed Node 20 WebSocket blocker — polyfilled `globalThis.WebSocket` with `ws` in `tests/e2e/helpers.ts`
+- Confirmed gates: Vitest 161 passed / 0 failed · tsc --noEmit 0 errors · pnpm build clean
 
-## CRITICAL — FIXED
-- [x] **`/api/platform/bootstrap` had zero auth/role check** — fixed 2026-07-03 (commit `ae058c9`): the route now checks for an existing `platform_role='platform_owner'` row first and returns `403 {error: "Bootstrap already completed. Platform owner exists."}` if one exists, before doing anything else. Since the owner (info@faithfoundation.org) was already bootstrapped, the route is now effectively self-disabled in production. Verified via `tsc --noEmit` (0 errors).
-- [x] **4 hardcoded fallback encryption/HMAC secrets** — fixed 2026-07-03 (commit `e29bd6f`): `key-encrypt.ts` (INTEGRATION_KEY_SECRET), `portal-credentials.ts` (PORTAL_ENCRYPT_SECRET, dropped the NEXTAUTH_SECRET fallback too — confirmed unused elsewhere), `google/auth.ts` (INTEGRATION_ENCRYPTION_KEY), `admin/compliance.ts` (UNSUBSCRIBE_HMAC_SECRET) now all throw `"Missing required env var: <NAME>..."` instead of silently using a weak/known key. Verified via `tsc --noEmit` (0 errors).
-- [x] **All 4 guard env vars now set in Vercel production** — done 2026-07-03: generated 4 independent 32-byte (256-bit) secrets via `[System.Security.Cryptography.RandomNumberGenerator]` (not `Get-Random`, which isn't cryptographically secure) and added each via `vercel env add <NAME> production --value <key> --sensitive --yes`. Confirmed present via `vercel env ls production`: `INTEGRATION_KEY_SECRET`, `PORTAL_ENCRYPT_SECRET`, `INTEGRATION_ENCRYPTION_KEY`, `UNSUBSCRIBE_HMAC_SECRET` — all `Encrypted`, Production only. Raw values were never echoed to any output/transcript (only confirmation of success was surfaced). **Still outstanding**: these 4 vars are NOT yet in local `.env.local`, so local dev will still throw on Google OAuth connect, portal-credential save, custom API key add, and unsubscribe-link generation until pulled/added locally (e.g. `vercel env pull .env.local` or set manually) — not done this session, wasn't asked for.
-- [x] **BYO Anthropic/OpenAI keys were stored plaintext** — fixed 2026-07-03 (commit `c7704b6`): `POST /api/autoapply/usage/keys` now encrypts the key with `encryptKey()` (AES-256-GCM) before storing in `platform_config`; `GET` now decrypts server-side and returns only a masked `****last4` hint (`anthropic_key_hint`/`openai_key_hint`), never the full key. Confirmed via a production read (no values fetched) that no org had actually saved a key yet, so no plaintext-to-encrypted migration was needed. Also fixed `shouldUseOwnKeys()` in `usage-meter.ts`, which was querying the wrong table (`integration_keys`, filtered on enum values that don't exist there) instead of `platform_config` where the route actually writes — the BYO-keys feature was two disconnected code paths before this fix and can now work end-to-end. Verified via `tsc --noEmit` (0 errors).
-- [x] **Resend webhook had no real signature verification** — fixed 2026-07-03 (commit `74be491`): `api/webhooks/resend/route.ts` now does real Svix-format HMAC-SHA256 verification (svix-id/svix-timestamp/svix-signature headers, ±300s tolerance, timingSafeEqual comparison), reusing the same manual-HMAC pattern already used in `admin/webhooks/email-events`/`email-reply`. Fails closed: `500` if `RESEND_WEBHOOK_SECRET` is unset, `401` on bad signature — never silently accepts an unsigned payload like the old code did. `svix` npm package is not installed; this uses the equivalent manual algorithm per instruction not to add the dependency. Verified via `tsc --noEmit` (0 errors). **⚠️ Immediate impact**: confirmed via `vercel env ls production` that neither `RESEND_WEBHOOK_SECRET` nor `RESEND_API_KEY` are set in Vercel prod at all — this webhook will 500 on every real event until the secret is set, and Resend outbound sending itself may not be configured in production either (pre-existing gap, not caused by this fix).
+### Deep operational audit (27 parallel sub-agents + live schema query)
+- Read every file in `src/lib/**` (213 files), `src/app/api/**` (168 routes at the time), `src/app/(dashboard)/**` (75 pages) — zero sampling
+- Queried live production schema: 104 tables, 1331 columns confirmed
+- Cross-cutting sweep: auth flow, RLS/org-scoping, env vars, encryption, swallowed errors, hardcoded secrets
 
-## Batch fix — all 21 remaining audit findings (2026-07-03)
-Fixed in one pass, verified with `tsc --noEmit` (0 errors) and `pnpm run build` (clean), committed together. Full per-issue detail in STATE_OF_THE_BUILD.md; summary:
-- [x] **#2 Sales Outreach page** — rewritten to call the real `/api/admin/*` routes with reconciled response shapes; New Campaign form expanded to collect the real backend's required fields (list ID, sending domains, send window/timezone, first step); prospect CSV import now collects `list_name`; bulk-suppress uses per-prospect PATCH calls (no bulk endpoint exists); added new `GET/POST /api/admin/suppression` + `POST /api/admin/suppression/import` since no admin suppression CRUD existed anywhere.
-- [x] **#3 AutoApply Follow-Ups routes** — created all 4 missing routes + extracted `sendSingleFollowUp()` for reuse. The backing `autoapply_follow_ups` table didn't exist in production (confirmed via live schema query) — resolved same day, see "Migration 065" below. Fully functional now.
-- [x] **#4 Renewals route** — created `GET /api/renewals`, org-scoped, joined to opportunities/funders/applications.
-- [x] **#7 Stripe env var naming** — aligned code to `.env.local.example`'s convention (no live config existed either way, so zero risk either direction).
-- [x] **#9 Sales campaign multi-step** — `scheduleNextStep()` now advances sequences past step 1.
-- [x] **#10 HUD homeless-count fetcher** — now discovers and parses the real CSV link instead of misparsing the HTML landing page.
-- [x] **#11 maxDuration=300** — added/corrected on all 15 flagged AI-calling routes.
-- [x] **#12 requireRole gates** — added to `grant-dna` and `logic-model`.
-- [x] **#13 form-analyzer-agent.ts stub** — replaced with a real port of the Claude-based analyzer logic.
-- [x] **#15 form-filler approval gate** — `fillAndSubmit()` now requires an `approved` automation session before submitting. The worker call site gap this created was resolved same day — see "Migration 066 + worker fix" below.
-- [x] **#16 tier-limit conflict** — `usage-limiter.ts`'s `RESOURCE_LIMITS` now derives from `constants.ts`'s `TIER_LIMITS` instead of a second hardcoded (and lower) set.
-- [x] **#17 nav-counts org filter** — added `organization_id` filter to all 4 count queries.
-- [x] **#18 automation/[sessionId] org cross-check** — child-table queries now use the already org-validated session's own id (confirmed those tables have no organization_id column to filter on directly).
-- [x] **#19 Texas registration data** — added a `generallyRequired` flag; TX no longer contradicts its own notes.
-- [x] **#20 email/link role** — now requires `writer`, not `viewer`.
-- [x] **#21 dead buttons** — Email Hub "Link" now auto-links a thread for real; "Add to Funders" now inserts a real `funders` row.
-- [x] **#22 dual Calendar OAuth** — confirmed NOT true duplicates (different data models); extracted only the genuinely-duplicated HMAC state-signing primitive into a shared `oauth-state.ts`.
-- [x] **#23 SEARXNG_URL** — throws if unset instead of defaulting to unreachable localhost; DuckDuckGo fallback unaffected.
-- [x] **#25 dead code deletion** — deleted `lib/platform/auth.ts`, `lib/platform/role-gate.ts`, `components/auth/RoleGate.tsx` after re-confirming zero real importers.
+### Security fixes (committed individually)
+- **commit ae058c9** — `api/platform/bootstrap` now self-disables (403) once a platform_owner exists; previously had zero role check
+- **commit e29bd6f** — 4 hardcoded fallback encryption/HMAC secrets now throw instead of using weak/known keys; all 4 env vars set in Vercel production
+- **commit c7704b6** — BYO API keys encrypted at rest (AES-256-GCM); `shouldUseOwnKeys()` fixed to read the correct table
+- **commit 74be491** — Resend webhook now does real Svix-format HMAC-SHA256 verification; fails closed
 
-## Migration 065 — autoapply_follow_ups (2026-07-03, same day follow-up)
-- [x] Read all 4 new follow-ups routes + `follow-up-scheduler.ts` to determine the exact expected schema (13 columns, FKs, status/template_type value sets).
-- [x] Created `supabase/migrations/065_autoapply_follow_ups.sql`: table + RLS enabled + 3 org-scoped policies (select/insert/update, deriving org membership from the caller's `profiles` row — the same pattern as migration 020, not the `organization_members` table migration 045 assumed, which doesn't exist in this schema) + 4 indexes.
-- [x] Applied to production (ref `vbjplpquqxxfbpazyalt`) via `POST /v1/projects/.../database/query` with the Management API PAT. Returned `201 []`.
-- [x] Verified live: `information_schema.columns` (13/13 columns, correct types/defaults), `pg_class.relrowsecurity = true`, `pg_policies` (3/3 policies present).
-- [x] `tsc --noEmit` re-run clean after the migration file was added (no code changes needed — the routes already assumed this exact schema).
-- [x] Committed as `feat: add migration 065 autoapply_follow_ups table`.
-- **AutoApply Follow-Ups (audit #3) is now fully resolved** — code and data both in place.
+### Batch fix — 21 remaining audit findings (commit a03a0e3)
+1. Sales Outreach page — rewritten to call real `/api/admin/*` routes; suppression CRUD added (GET/POST /api/admin/suppression + import)
+2. AutoApply Follow-Ups — 4 missing routes created + `sendSingleFollowUp()` extracted for reuse
+3. Renewals route — `GET /api/renewals` created, org-scoped, joined to opportunities/funders/applications
+4. Stripe env var naming — aligned code to `.env.local.example` convention
+5. Campaign multi-step — `scheduleNextStep()` now advances sequences past step 1
+6. HUD homeless-count fetcher — now discovers and parses the real CSV link instead of misparsing HTML
+7. maxDuration=300 — added/corrected on 15 AI-calling routes (eligibility, application-cloner, follow-up, learning, outreach, semantic-matching, state-portals, competitor-intel, email-parser, funder-intel; ai/fit-analysis, ai/review, ai/summarize, ai/validate; intelligence/logic-model)
+8. requireRole gates — added to `grant-dna` and `logic-model`
+9. `form-analyzer-agent.ts` stub — replaced with real Claude-based analyzer logic
+10. form-filler approval gate — `fillAndSubmit()` now requires an approved automation_sessions row before submitting
+11. Tier-limit conflict — `usage-limiter.ts` derives from `constants.ts`'s `TIER_LIMITS` (one authoritative source)
+12. nav-counts org filter — `organization_id` filter added to all 4 count queries
+13. `automation/[sessionId]` child-table queries — use the org-validated session's own id (those tables have no `organization_id` column)
+14. Texas registration data — `generallyRequired` flag added; TX no longer contradicts its own notes
+15. `email/link` role — now requires `writer`, not `viewer`
+16. Dead buttons — Email Hub "Link" auto-links thread; "Add to Funders" inserts real funders row
+17. Dual Calendar OAuth — HMAC state-signing extracted to shared `oauth-state.ts`; both flows confirmed not true duplicates
+18. SearXNG — throws if `SEARXNG_URL` unset; DuckDuckGo fallback unaffected
+19. Dead code — deleted `lib/platform/auth.ts`, `lib/platform/role-gate.ts`, `components/auth/RoleGate.tsx`
 
-## Migration 066 + worker fix — sessionId wiring and broken RLS (2026-07-03, same day follow-up)
-- [x] Read `worker/queue-processor.ts` completely; found the single `filler.fillAndSubmit()` call site (no `sessionId` passed at all).
-- [x] Read `form-filler-agent.ts`'s `assertSessionApproved()` to confirm exactly what it needs: a `sessionId` whose `automation_sessions` row has `status = 'approved'`, org-scoped.
-- [x] Added `createApprovedAutomationSession()` (creates a session row, moves it `pending → approved`, records risk score/classification/recommendation in `notes`) and `finalizeAutomationSession()` (closes it out to `submitted`/`failed`) to `QueueProcessor`. Called immediately before/after `fillAndSubmit()`. This worker has no per-item human in the loop by design — the risk engine already decides upstream whether an item proceeds at all (`'manual'` recommendation → `SkipError` → `pending_manual`, never reaches this point) — so approval here reflects that existing decision as a real, queryable session row rather than bypassing the check.
-- [x] **Found and avoided a related bug**: `automation_sessions.approved_by` is a `uuid` column, but the already-shipped `session-manager.ts`'s `markAutoSubmitted()` (used by the separate grant-application automation path in `browser-automation.ts`) writes a non-uuid `system:<level>` string into it — would fail with "invalid input syntax for type uuid" if it ever ran. Not fixed (separate, already-shipped file, out of scope) but flagged in STATE_OF_THE_BUILD.md. The new worker code leaves `approved_by` null and puts its reasoning in `notes` instead.
-- [x] Read `supabase/migrations/045_autoapply_tables.sql`; confirmed all 12 policies (4 actions × `form_templates`/`autoapply_submissions`/`submission_queue`) reference a nonexistent `organization_members` table — confirmed live (`to_regclass('public.organization_members')` returns null). This is a real, live bug: these 3 tables are queried via the session-scoped client in `GET/POST /api/autoapply/queue`, `POST /api/autoapply/templates/test`, and `GET /api/autoapply/profiles` — all broken for real users until fixed.
-- [x] Created and applied `supabase/migrations/066_fix_autoapply_rls_policies.sql` — drops and recreates all 12 policies using `organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid())`, matching migration 020's pattern. Applied via the Management API, verified live via `pg_policies` (all 12 present with the corrected `qual`/`with_check`).
-- [x] `pnpm tsc --noEmit` clean (root gate). The worker's own standalone `tsc -p worker/tsconfig.json --noEmit` has pre-existing, unrelated errors (missing `dom` lib for `page.evaluate()` callbacks in several files never touched this session, plus one pre-existing `pageUrl: string | null` mismatch in `error-annotator.ts` usage) — confirmed via `git show HEAD:worker/queue-processor.ts` that these predate this session's edit; not something this fix introduced or was asked to fix.
-- [x] Committed as `fix: wire sessionId to form-filler approval gate, fix migration 045 RLS policies`.
-- **Both audit findings (#15's worker gap, and the newly-found migration 045 RLS bug) are now fully resolved.**
+### Migration 065 — autoapply_follow_ups (commit 1121c5a)
+- `autoapply_follow_ups` table did not exist in production (confirmed via live schema query — zero results for the table or anything matching `%follow%`)
+- `follow-up-scheduler.ts` had been non-functional in production all along as a result
+- Created `supabase/migrations/065_autoapply_follow_ups.sql`: 13 columns, FKs to organizations/autoapply_submissions/funders (ON DELETE CASCADE), status and template_type check constraints, RLS enabled with 3 org-scoped policies using the profiles-derived pattern (NOT organization_members, which doesn't exist in this schema)
+- Applied to production via Supabase Management API; verified live (13/13 columns, relrowsecurity=true, 3 policies)
+- AutoApply Follow-Ups now fully functional end-to-end
 
-## Still open / needs a decision
-- [ ] Set `RESEND_WEBHOOK_SECRET` and `RESEND_API_KEY` in Vercel production — neither is configured, so Resend email sending and the inbound webhook are both likely non-functional right now (pre-existing gap, unrelated to this session's fixes).
-- [ ] Set real Stripe Price ID values in Vercel once they exist — the naming mismatch is fixed, but no Stripe price vars are set at all yet.
-- [ ] `session-manager.ts`'s `markAutoSubmitted()` writes a non-uuid string into the uuid `approved_by` column (found while fixing #15, see above) — separate, already-shipped file, not touched.
+### Migration 066 + worker fix (commit 855f192)
+- Discovered all 12 RLS policies on `form_templates`/`autoapply_submissions`/`submission_queue` (from migration 045) referenced a nonexistent `organization_members` table — confirmed live (`to_regclass('public.organization_members')` returns null)
+- These 3 tables are queried by real user-facing routes (`GET/POST /api/autoapply/queue`, `POST /api/autoapply/templates/test`, `GET /api/autoapply/profiles`) — all broken for real users
+- Created and applied `supabase/migrations/066_fix_autoapply_rls_policies.sql` — drops and recreates all 12 policies using the correct `profiles.organization_id` pattern (matching migration 020)
+- Fixed `worker/queue-processor.ts` to create and approve a real `automation_sessions` row per submission before calling `fillAndSubmit()`, and finalize it to `submitted`/`failed` afterward — the approval gate added to `fillAndSubmit()` would have silently disabled the worker's entire autonomous-submission path without this fix
+- Found but did NOT fix: `session-manager.ts`'s `markAutoSubmitted()` writes a non-uuid string into the uuid `approved_by` column — pre-existing issue in a separate, already-shipped file; flagged in STATE_OF_THE_BUILD.md
 
-## In Progress (carried from prior session)
-- [ ] Visual audit — elongated boxes CSS fix (not covered by this code audit)
-- [ ] Full damage report — largely superseded by this session's deep audit; see STATE_OF_THE_BUILD.md
+---
 
-## Environment
-- Supabase: vbjplpquqxxfbpazyalt (all migrations through 066 applied, 105 tables confirmed live — 066 is policy-only, no table count change)
-- Vercel: benavora.vercel.app (Pro)
-- Platform owner: info@faithfoundation.org (19 permissions) — bootstrap endpoint that created this is now locked down (see CRITICAL above)
+## PENDING — as of 2026-07-06
+
+### Production-blocking
+- [ ] **Set `RESEND_API_KEY` in Vercel production** — outbound email (campaigns, follow-ups, digests) is non-functional without it
+- [ ] **Set `RESEND_WEBHOOK_SECRET` in Vercel production** — inbound webhook 500s on every Resend event without it
+- [ ] **Set Stripe Price ID vars in Vercel** (`STRIPE_STARTER_PRICE_ID`, `STRIPE_PROFESSIONAL_PRICE_ID`, `STRIPE_ENTERPRISE_PRICE_ID`, `STRIPE_CONSULTANT_PRICE_ID`) — tier billing selection unconfigured
+- [ ] **Deploy Railway worker** — AutoApply Playwright routes (form-analyzer, form-filler, templates/test) need a Chromium worker process; none is deployed
+
+### Code / low-priority fixes
+- [ ] Fix `session-manager.ts` `markAutoSubmitted()` writing non-uuid to `automation_sessions.approved_by` (uuid column)
+- [ ] Pull new env vars to local `.env.local` (`vercel env pull .env.local`) — 4 encryption vars missing locally
+- [ ] Consolidate `NEXT_PUBLIC_SITE_URL` vs `NEXT_PUBLIC_APP_URL` (used interchangeably)
+- [ ] Add maxDuration to `api/agents/campaigns` and `api/agents/custom-scrape`
+- [ ] Add SSRF allowlist or admin-only gate to `api/integrations/custom-api/test`
+- [ ] Fix `compliance-library.ts` dead branch: `omb-a133-threshold` check always returns 'pass'
+- [ ] Implement `ingest-nih-proposals.ts` (currently a stub returning fake success)
+- [ ] Visual: verify/fix elongated input/textarea boxes reported across the platform
+
+### Informational (no fix needed short-term)
+- `grants-gov.ts` uses legacy `apply07.grants.gov` REST API — confirm upstream hasn't deprecated it
+- Census (2022 vintage) and BLS (2022–2023) data sources are stale; self-labeled as approximations
+- state-portal.ts covers Texas only; `PORTAL_REGISTRY` is effectively a single-state registry
+- Hardcoded URL lists in corporate-scraper, foundation-finder, state-scrapers will go stale without monitoring
+
+---
+
+## ENVIRONMENT
+
+| Item | Value |
+|---|---|
+| Supabase | vbjplpquqxxfbpazyalt — 105 tables, migrations 001–066 applied |
+| Vercel | benavora.vercel.app (Pro) |
+| Platform owner | info@faithfoundation.org (19 permissions) |
+| Encryption vars in Vercel | INTEGRATION_KEY_SECRET · PORTAL_ENCRYPT_SECRET · INTEGRATION_ENCRYPTION_KEY · UNSUBSCRIBE_HMAC_SECRET — all set, Encrypted, Production only |
+| Local .env.local | Missing those 4 encryption vars; only 6 vars total locally |
