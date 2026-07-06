@@ -74,18 +74,12 @@ test("registers, completes onboarding wizard, and reaches the dashboard", async 
   }
 
   // ── Onboarding wizard ──────────────────────────────────────────────────────
-  await expect(page.getByText("Benavora setup")).toBeVisible();
+  await expect(page.getByText("Welcome to Benavora")).toBeVisible();
   await expect(page.getByText(/Step 1 of/)).toBeVisible();
   await expect(page.getByText(/% complete/)).toBeVisible();
 
-  // Step 1 — Welcome: just a "Next" / "Get started" button.
-  await page
-    .getByRole("button", { name: /Next|Get started|Continue/i })
-    .first()
-    .click();
-
-  // Steps 2–6: fill any visible empty required text inputs and advance.
-  for (let step = 2; step <= 6; step++) {
+  // Steps 1–6: fill any visible empty required text inputs and advance.
+  for (let step = 1; step <= 6; step++) {
     await expect(page.getByText(`Step ${step} of`)).toBeVisible({
       timeout: 10_000,
     });
@@ -104,16 +98,16 @@ test("registers, completes onboarding wizard, and reaches the dashboard", async 
       }
     }
 
-    // Click Next / Continue / Save — whichever is the primary advance button.
+    // Click "Save & Continue" — the primary advance button for steps 1-6.
     const advance = page
-      .getByRole("button", { name: /^(Next|Continue|Save and continue|Skip)$/i })
+      .getByRole("button", { name: /Save.*Continue|Next|Continue|Get started/i })
       .first();
     await advance.click();
   }
 
-  // Step 7 (last) — look for the Finish / Complete / Go to dashboard button.
+  // Step 7 (last, Plan Selection) — look for the Finish / Complete / Go to dashboard button.
   const lastStepVisible = await page
-    .getByText(/Step 7 of|Grant search/i)
+    .getByText(/Step 7 of|Plan Selection/i)
     .isVisible({ timeout: 10_000 })
     .catch(() => false);
 

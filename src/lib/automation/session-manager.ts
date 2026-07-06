@@ -280,7 +280,8 @@ export class AutomationSessionManager {
     await this.update(sessionId, {
       status: "submitted",
       confirmation_number: confirmationNumber ?? null,
-      approved_by: `system:${automationLevel}`,
+      approved_by: null,
+      notes: `auto_submitted:${automationLevel}`,
       completed_at: new Date().toISOString(),
     });
   }

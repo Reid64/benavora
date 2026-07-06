@@ -18,7 +18,9 @@ let anthropicClient: Anthropic | null = null
 
 function getClient(): Anthropic {
   if (anthropicClient === null) {
-    anthropicClient = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+    const apiKey = process.env.ANTHROPIC_API_KEY
+    if (!apiKey) throw new Error("Missing required env var: ANTHROPIC_API_KEY")
+    anthropicClient = new Anthropic({ apiKey })
   }
   return anthropicClient
 }

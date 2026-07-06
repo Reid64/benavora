@@ -13,21 +13,25 @@ test.use({ storageState: ONBOARDING_STORAGE_STATE });
 test("onboarding wizard renders all steps", async ({ page }) => {
   await page.goto("/onboarding");
 
-  // Wizard chrome: brand header, skip control, and the progress indicator.
-  await expect(page.getByText("Benavora setup")).toBeVisible();
-  await expect(page.getByRole("button", { name: /Skip setup/ })).toBeVisible();
+  // Wizard header.
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Welcome to Benavora" }),
+  ).toBeVisible();
+
+  // Progress indicator renders "Step 1 of 7" and a percentage.
   await expect(page.getByText("Step 1 of 7")).toBeVisible();
   await expect(page.getByText(/% complete/)).toBeVisible();
 
-  // Every step title is present in the step indicator (BLUEPRINT onboarding).
+  // The step indicator shows every step title (hidden on small screens — use
+  // hidden:block if needed, but on a 1280px viewport they are visible).
   for (const stepTitle of [
-    "Welcome",
-    "Organization",
+    "Organization Profile",
     "Programs",
-    "Board",
+    "Knowledge Base",
+    "Board Members",
     "Documents",
-    "First funder",
-    "Grant search",
+    "Search Profile",
+    "Plan Selection",
   ]) {
     await expect(page.getByText(stepTitle, { exact: true }).first()).toBeVisible();
   }

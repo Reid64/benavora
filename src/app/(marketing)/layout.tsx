@@ -17,6 +17,7 @@ const NAV_LINKS: { label: string; href: string }[] = [
   { label: "Pricing", href: "/#pricing" },
   { label: "FAQ", href: "/#faq" },
   { label: "For Agencies", href: "/for-consultants" },
+  { label: "Security", href: "/security" },
 ];
 
 export default function MarketingLayout({
@@ -92,6 +93,9 @@ export default function MarketingLayout({
               className="transition hover:text-gray-300"
             >
               For Consultants
+            </Link>
+            <Link href="/security" className="transition hover:text-gray-300">
+              Security
             </Link>
             <a
               href="mailto:support@benavora.com"

@@ -1,5 +1,5 @@
 # BENAVORA — STATE OF THE BUILD
-## Last updated: 2026-07-06
+## Last updated: 2026-07-06 (audit: full test suite + security page)
 ## Method: live codebase audit — every file path, route, agent, and migration counted directly from the filesystem; no assumptions carried from prior docs.
 
 ---
@@ -233,7 +233,7 @@ All migrations through 066 confirmed applied to production (ref vbjplpquqxxfbpaz
 
 **Stripe Tier Resolution** — No Stripe Price ID vars (`STRIPE_STARTER_PRICE_ID`, `STRIPE_PROFESSIONAL_PRICE_ID`, `STRIPE_ENTERPRISE_PRICE_ID`, `STRIPE_CONSULTANT_PRICE_ID`) set in Vercel. Tier plan resolution is structurally correct but non-functional.
 
-**NIH Proposals Ingestion** — `src/lib/intelligence/ingest-nih-proposals.ts` is an explicit stub (always returns fake success). Labeled "Full implementation scheduled for Night 1" — never implemented.
+~~**NIH Proposals Ingestion**~~ — Fully implemented 2026-07-06. Real NIH Reporter API v2 integration: rotates 7 search terms by day-of-year, POSTs to `https://api.reporter.nih.gov/v2/projects/search`, deduplicates by `nih:{appl_id}` source key, calls `extractSections()` + `generateEmbedding()`, inserts into `intelligence_funded_proposals` + `intelligence_proposal_sections`.
 
 ---
 
@@ -246,14 +246,14 @@ All migrations through 066 confirmed applied to production (ref vbjplpquqxxfbpaz
 4. **Railway worker not deployed** — AutoApply Playwright routes (form-analyzer, form-filler, templates/test) require a Chromium worker process that isn't running anywhere in production.
 
 ### Code (non-blocking but should be fixed)
-5. **`session-manager.ts` markAutoSubmitted()** writes a non-uuid string (`system:<automationLevel>`) into `automation_sessions.approved_by`, which is a `uuid` column — would fail with "invalid input syntax for type uuid" if that code path ran. Separate file, not touched in July 3 session.
+~~5. **`session-manager.ts` markAutoSubmitted()**~~ — Fixed 2026-07-06: `approved_by` is now set to `null` (valid for uuid); automation level recorded in `notes: auto_submitted:<level>` instead.
 6. **Local `.env.local`** missing the 4 encryption vars added to Vercel on 2026-07-03 (`INTEGRATION_KEY_SECRET`, `PORTAL_ENCRYPT_SECRET`, `INTEGRATION_ENCRYPTION_KEY`, `UNSUBSCRIBE_HMAC_SECRET`). Local dev throws on Google OAuth connect, portal-credential save, custom API key add, and unsubscribe-link generation until pulled (`vercel env pull .env.local`).
 7. **`NEXT_PUBLIC_SITE_URL` vs `NEXT_PUBLIC_APP_URL`** used interchangeably in different files — should be consolidated to one variable.
-8. **`api/agents/campaigns`** no maxDuration despite triggering per-contact content generation.
-9. **`api/agents/custom-scrape`** no maxDuration despite potentially long scrape.
+~~8. **`api/agents/campaigns`**~~ — Fixed 2026-07-06: `maxDuration=300` added.
+~~9. **`api/agents/custom-scrape`**~~ — Fixed 2026-07-06: `maxDuration=300` added.
 10. **`api/integrations/custom-api/test`** is an SSRF-adjacent surface — unrestricted server-side fetch to admin-supplied URL with no allowlist.
 11. **`compliance-library.ts`** has a dead branch: `omb-a133-threshold` check always returns 'pass' due to a logic error.
-12. **`ingest-nih-proposals.ts`** is a stub that always returns fake success.
+~~12. **`ingest-nih-proposals.ts`**~~ — Fully implemented 2026-07-06 (real NIH Reporter API v2).
 13. **Visual: elongated input/textarea boxes** reported across the platform — UI polish queue passed compile but visual results unverified.
 
 ### Architecture / maintenance
@@ -273,7 +273,8 @@ All migrations through 066 confirmed applied to production (ref vbjplpquqxxfbpaz
 - **Vercel:** benavora.vercel.app (Pro), 5 configured crons
 - **Platform owner:** info@faithfoundation.org (bootstrapped, bootstrap endpoint now self-disabled)
 - **Auth model:** profiles + owner/admin/writer/viewer roles (contracts reference admin/member/viewer — that is aspirational, not the live model)
-- **Tests (last confirmed passing, 2026-07-03):** Vitest 161 passed / 0 failed; tsc --noEmit 0 errors; pnpm build clean
+- **Tests (2026-07-06):** Vitest passing (`.env.test` added for secrets; compliance + logic-model tests fixed). tsc --noEmit 0 errors. pnpm build clean. Playwright: 27 passing before this session's selector fixes; ~40+ additional fixes applied (dashboard labels, deadlines Month button, documents upload zone, pipeline kanban switch, onboarding wizard text, automation autoapply page, research Command Center, ui-redesign sidebar items). Security page added at `/security` with marketing nav link.
+- **New files (2026-07-06):** `.env.test` (Vitest secrets), `src/app/(marketing)/security/page.tsx`
 
 ## VERCEL CRON SCHEDULE
 

@@ -4,7 +4,9 @@ let openaiClient: OpenAI | null = null
 
 function getOpenAI(): OpenAI {
   if (openaiClient === null) {
-    openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+    const apiKey = process.env.OPENAI_API_KEY
+    if (!apiKey) throw new Error('Missing required env var: OPENAI_API_KEY')
+    openaiClient = new OpenAI({ apiKey })
   }
   return openaiClient
 }

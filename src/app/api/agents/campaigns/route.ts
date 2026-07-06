@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { requireRole } from "@/lib/auth/role-gate";
 import { createClient } from "@/lib/supabase/server";
 import { AgentError } from "@/lib/agents/base-agent";
+
+export const maxDuration = 300;
 import { EmailCampaignAgent } from "@/lib/agents/email-campaign";
 
 // Email Campaign engine endpoint (AGENTS.md Agent 18, BLUEPRINT §4.11).

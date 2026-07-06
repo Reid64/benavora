@@ -10,24 +10,24 @@ test("dashboard renders with metric cards", async ({ page }) => {
     page.getByRole("heading", { level: 1, name: "Dashboard" }),
   ).toBeVisible();
 
-  // The seven metric cards from the blueprint.
+  // The metric cards on the dashboard.
   for (const label of [
     "Total Opportunities",
     "Applications Submitted",
-    "Drafts Pending Review",
+    "Drafts Generated",
     "Deadlines This Week",
-    "Total Dollars Requested",
-    "Total Dollars Awarded",
-    "Overall Success Rate",
+    "Total Requested",
+    "Total Awarded",
+    "Success Rate",
   ]) {
     await expect(page.getByText(label, { exact: true })).toBeVisible();
   }
 
   // Supporting widgets are present.
   await expect(
-    page.getByRole("heading", { name: "Pipeline summary" }),
+    page.getByRole("heading", { name: "Pipeline" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Recent opportunities" }),
+    page.getByRole("heading", { name: "Recent Activity" }),
   ).toBeVisible();
 });

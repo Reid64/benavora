@@ -11,9 +11,9 @@ test("deadlines page renders calendar view", async ({ page }) => {
     page.getByRole("heading", { level: 1, name: "Deadlines" }),
   ).toBeVisible();
 
-  // Calendar is selected by default.
+  // Month (calendar) view is selected by default.
   await expect(
-    page.getByRole("button", { name: "Calendar" }),
+    page.getByRole("button", { name: "Month" }),
   ).toHaveAttribute("aria-pressed", "true");
 
   // The monthly grid renders weekday headers and day cells.
