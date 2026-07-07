@@ -1,13 +1,13 @@
 # benavora — DESIGN SYSTEM (FORGE × UI/UX Pro Max)
 
 - **Generated:** 2026-06-12T18:03:13.507Z
-- **Product-type query:** benavora ```json { "prd": "# Executive Summary\n\nBenavora is an AI-powered nonprofit funding discovery and management platform. This PRD covers Tier 2 feature enhancements that transform
-- **Source:** UI/UX Pro Max design intelligence (`search.py --design-system --persist`)
+- **Last revised:** 2026-07-07 — replaced the podcast-platform generator output with the benavora brand system (nonprofit grant management SaaS).
+- **Source:** Hand-maintained brand system, derived from the benavora logo palette.
 
-> Auto-generated design system. FORGE injects this document into EVERY UI prompt context
-> during Phase 1B (FrontendArchitecture + InteractionMaps) and Phase 3 UI prompts, so all
-> generated UI uses one consistent palette, type scale, spacing scale, shadow depths, and
-> component spec. Re-run the generator to refresh — do not hand-edit (it is overwritten).
+> FORGE injects this document into EVERY UI prompt context during Phase 1B
+> (FrontendArchitecture + InteractionMaps) and Phase 3 UI prompts, so all
+> generated UI uses one consistent palette, type scale, spacing scale, shadow
+> depths, and component spec.
 
 ---
 
@@ -20,8 +20,7 @@
 ---
 
 **Project:** benavora
-**Generated:** 2026-06-12 13:03:13
-**Category:** Podcast Platform
+**Category:** Nonprofit Grant Management SaaS
 
 ---
 
@@ -31,24 +30,29 @@
 
 | Role | Hex | CSS Variable |
 |------|-----|--------------|
-| Primary | `#7C3AED` | `--color-primary` |
-| Secondary | `#A78BFA` | `--color-secondary` |
-| CTA/Accent | `#F97316` | `--color-cta` |
-| Background | `#FAF5FF` | `--color-background` |
-| Text | `#4C1D95` | `--color-text` |
+| Primary | `#0077B6` | `--color-accent` |
+| Secondary | `#00B4D8` | `--color-secondary` |
+| Background | `#F8FAFC` | `--color-page` |
+| Surface | `#FFFFFF` | `--color-surface` |
+| Surface-2 | `#EFF6FF` | `--color-surface-elevated` |
+| Sidebar | `#0F172A` | `--color-sidebar` |
+| Text | `#0F172A` | `--color-text-primary` |
+| Text-muted | `#64748B` | `--color-text-muted` |
+| Border | `#E2E8F0` | `--color-border` |
+| CTA gradient | `#00B4D8 → #0077B6` | `--color-cta-from` / `--color-cta-to` |
 
-**Color Notes:** Excitement purple + action orange
+**Color Notes:** Deep navy-cyan primary with a bright cyan secondary, on light neutral surfaces. Sidebar stays a fixed deep navy regardless of theme, echoing the logo mark. Trustworthy, professional, calm — appropriate for a nonprofit-facing funding platform, not a consumer or entertainment product.
 
 ### Typography
 
-- **Heading Font:** Cormorant Garamond
-- **Body Font:** Libre Baskerville
-- **Mood:** editorial, classic, literary, traditional, refined, bookish
-- **Google Fonts:** [Cormorant Garamond + Libre Baskerville](https://fonts.google.com/share?selection.family=Cormorant+Garamond:wght@400;500;600;700|Libre+Baskerville:wght@400;700)
+- **Heading Font:** Plus Jakarta Sans
+- **Body Font:** Inter
+- **Mood:** professional, clear, trustworthy, modern, approachable
+- **Google Fonts:** [Plus Jakarta Sans + Inter](https://fonts.google.com/share?selection.family=Plus+Jakarta+Sans:wght@500;600;700;800|Inter:wght@400;500;600;700)
 
 **CSS Import:**
 ```css
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Libre+Baskerville:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
 ```
 
 ### Spacing Variables
@@ -67,10 +71,10 @@
 
 | Level | Value | Usage |
 |-------|-------|-------|
-| `--shadow-sm` | `0 1px 2px rgba(0,0,0,0.05)` | Subtle lift |
-| `--shadow-md` | `0 4px 6px rgba(0,0,0,0.1)` | Cards, buttons |
-| `--shadow-lg` | `0 10px 15px rgba(0,0,0,0.1)` | Modals, dropdowns |
-| `--shadow-xl` | `0 20px 25px rgba(0,0,0,0.15)` | Hero images, featured cards |
+| `--shadow-sm` | `0 1px 2px rgba(15,23,42,0.04)` | Subtle lift |
+| `--shadow-md` | `0 4px 12px rgba(15,23,42,0.06)` | Cards, buttons |
+| `--shadow-lg` | `0 10px 24px rgba(15,23,42,0.10)` | Modals, dropdowns |
+| `--shadow-xl` | `0 20px 40px rgba(15,23,42,0.14)` | Hero images, featured cards |
 
 ---
 
@@ -81,25 +85,25 @@
 ```css
 /* Primary Button */
 .btn-primary {
-  background: #F97316;
+  background: linear-gradient(135deg, #00B4D8 0%, #0077B6 100%);
   color: white;
   padding: 12px 24px;
   border-radius: 8px;
   font-weight: 600;
-  transition: all 200ms ease;
+  transition: filter 200ms ease, box-shadow 200ms ease;
   cursor: pointer;
 }
 
 .btn-primary:hover {
-  opacity: 0.9;
-  transform: translateY(-1px);
+  filter: brightness(0.94);
+  box-shadow: 0 4px 14px -4px rgba(0, 119, 182, 0.45);
 }
 
 /* Secondary Button */
 .btn-secondary {
   background: transparent;
-  color: #7C3AED;
-  border: 2px solid #7C3AED;
+  color: #0077B6;
+  border: 2px solid #0077B6;
   padding: 12px 24px;
   border-radius: 8px;
   font-weight: 600;
@@ -112,17 +116,17 @@
 
 ```css
 .card {
-  background: #FAF5FF;
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
   border-radius: 12px;
   padding: 24px;
   box-shadow: var(--shadow-md);
   transition: all 200ms ease;
-  cursor: pointer;
 }
 
 .card:hover {
+  border-color: #CBD5E1;
   box-shadow: var(--shadow-lg);
-  transform: translateY(-2px);
 }
 ```
 
@@ -134,13 +138,14 @@
   border: 1px solid #E2E8F0;
   border-radius: 8px;
   font-size: 16px;
-  transition: border-color 200ms ease;
+  background: #FFFFFF;
+  transition: border-color 200ms ease, box-shadow 200ms ease;
 }
 
 .input:focus {
-  border-color: #7C3AED;
+  border-color: #0077B6;
   outline: none;
-  box-shadow: 0 0 0 3px #7C3AED20;
+  box-shadow: 0 0 0 3px rgba(0, 119, 182, 0.18);
 }
 ```
 
@@ -148,12 +153,12 @@
 
 ```css
 .modal-overlay {
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(15, 23, 42, 0.5);
   backdrop-filter: blur(4px);
 }
 
 .modal {
-  background: white;
+  background: #FFFFFF;
   border-radius: 16px;
   padding: 32px;
   box-shadow: var(--shadow-xl);
@@ -162,39 +167,59 @@
 }
 ```
 
+### Sidebar
+
+```css
+.sidebar {
+  background: #0F172A;
+  color: #F8FAFC;
+  width: 240px;
+}
+
+.sidebar-item.active {
+  background: rgba(248, 250, 252, 0.1);
+  color: #FFFFFF;
+}
+
+.sidebar-item .accent-bar {
+  background: #00B4D8;
+}
+```
+
 ---
 
 ## Style Guidelines
 
-**Style:** Dark Mode (OLED)
+**Style:** Light, professional SaaS
 
-**Keywords:** Dark theme, low light, high contrast, deep black, midnight blue, eye-friendly, OLED, night mode, power efficient
+**Keywords:** Light theme, clean, high contrast, trustworthy, navy and cyan, generous whitespace, data-dense but calm
 
-**Best For:** Night-mode apps, coding platforms, entertainment, eye-strain prevention, OLED devices, low-light
+**Best For:** Nonprofit operations tools, grant/funding workflows, dashboards, admin panels, document-heavy B2B SaaS
 
-**Key Effects:** Minimal glow (text-shadow: 0 0 10px), dark-to-light transitions, low white emission, high readability, visible focus
+**Key Effects:** Subtle elevation via soft shadows (not glow), gradient reserved for primary CTAs and headline accents, visible focus rings, no heavy blur or dark glass effects on the page canvas
 
 ### Page Pattern
 
-**Pattern Name:** Pricing-Focused Landing
+**Pattern Name:** Dashboard-First Application Shell
 
-- **Conversion Strategy:** Annual discount 20-30%. Recommend mid-tier (most popular badge). Address objections in FAQ.
-- **CTA Placement:** Each pricing card + Sticky CTA in nav + Bottom
-- **Section Order:** 1. Hero (value proposition), 2. Pricing cards (3 tiers), 3. Feature comparison, 4. FAQ, 5. Final CTA
+- **Structure:** Fixed deep-navy sidebar (240px) for primary navigation, light content canvas for tables, forms, and cards.
+- **CTA Placement:** Primary action top-right of each page header; contextual actions inline on cards/rows.
+- **Section Order (dashboard pages):** 1. Page header (title + primary action), 2. Key metrics / summary cards, 3. Primary data table or content, 4. Secondary panels / detail views.
 
 ---
 
 ## Anti-Patterns (Do NOT Use)
 
-- ❌ Poor audio player
-- ❌ Cluttered layout
+- ❌ Purple (`#7C3AED`) or orange (`#F97316`) accents — replaced by the navy-cyan brand palette
+- ❌ OLED/near-black page backgrounds (`#0a0a1a`) — this product is light-theme by default
+- ❌ Podcast/media-player UI patterns (audio players, episode feeds)
 
 ### Additional Forbidden Patterns
 
 - ❌ **Emojis as icons** — Use SVG icons (Heroicons, Lucide, Simple Icons)
 - ❌ **Missing cursor:pointer** — All clickable elements must have cursor:pointer
 - ❌ **Layout-shifting hovers** — Avoid scale transforms that shift layout
-- ❌ **Low contrast text** — Maintain 4.5:1 minimum contrast ratio
+- ❌ **Low contrast text** — Maintain 4.5:1 minimum contrast ratio on light surfaces
 - ❌ **Instant state changes** — Always use transitions (150-300ms)
 - ❌ **Invisible focus states** — Focus states must be visible for a11y
 
@@ -208,9 +233,10 @@ Before delivering any UI code, verify:
 - [ ] All icons from consistent icon set (Heroicons/Lucide)
 - [ ] `cursor-pointer` on all clickable elements
 - [ ] Hover states with smooth transitions (150-300ms)
-- [ ] Light mode: text contrast 4.5:1 minimum
+- [ ] Text contrast 4.5:1 minimum on light surfaces
 - [ ] Focus states visible for keyboard navigation
 - [ ] `prefers-reduced-motion` respected
 - [ ] Responsive: 375px, 768px, 1024px, 1440px
 - [ ] No content hidden behind fixed navbars
 - [ ] No horizontal scroll on mobile
+- [ ] No purple, orange, or OLED-black colors introduced
