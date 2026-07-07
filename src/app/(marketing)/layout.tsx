@@ -33,16 +33,16 @@ export default function MarketingLayout({
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#0a0a1a] text-gray-200">
+    <div className="flex min-h-screen flex-col bg-white text-slate-800">
       {/* Top nav */}
-      <header className="sticky top-0 z-40 border-b border-white/10 bg-[#0a0a1a]/90 backdrop-blur">
+      <header className="sticky top-0 z-40 border-b border-[#e5e7eb] bg-white/90 backdrop-blur">
         <nav className="mx-auto flex max-w-6xl items-center justify-between gap-6 px-6 py-3">
-          <Link href="/" className="flex items-center" aria-label="Benavora home">
+          <Link href="/" className="flex items-center ml-0" aria-label="Benavora home">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/benavora-logo.png"
               alt="Benavora"
-              style={{ height: "80px", width: "auto" }}
+              style={{ height: "56px", width: "auto" }}
             />
           </Link>
 
@@ -51,7 +51,7 @@ export default function MarketingLayout({
               <Link
                 key={link.href}
                 href={link.href}
-                className="text-sm text-gray-300 transition hover:text-white"
+                className="text-sm text-slate-800 transition hover:text-cyan-600"
               >
                 {link.label}
               </Link>
@@ -61,13 +61,13 @@ export default function MarketingLayout({
           <div className="flex items-center gap-3 sm:gap-4">
             <Link
               href="/login"
-              className="text-sm text-gray-300 transition hover:text-white"
+              className="text-sm text-slate-800 transition hover:text-cyan-600"
             >
               Login
             </Link>
             <Link
               href="/login"
-              className="rounded-lg bg-orange-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-orange-900/30 transition hover:bg-orange-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0a1a]"
+              className="rounded-lg bg-gradient-to-r from-[#00B4D8] to-[#0077B6] px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-cyan-900/10 transition hover:from-cyan-600 hover:to-cyan-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
             >
               Start Free Trial
             </Link>
@@ -78,28 +78,28 @@ export default function MarketingLayout({
       <main className="flex-1">{children}</main>
 
       {/* Footer */}
-      <footer className="border-t border-white/10 bg-[#0a0a1a]">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-6 py-8 text-sm text-gray-500 sm:flex-row">
+      <footer className="border-t border-[#e5e7eb] bg-slate-50">
+        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-6 py-8 text-sm text-slate-400 sm:flex-row">
           <p>© 2026 Benavora. All rights reserved.</p>
           <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
-            <Link href="/privacy" className="transition hover:text-gray-300">
+            <Link href="/privacy" className="transition hover:text-cyan-600">
               Privacy Policy
             </Link>
-            <Link href="/terms" className="transition hover:text-gray-300">
+            <Link href="/terms" className="transition hover:text-cyan-600">
               Terms of Service
             </Link>
             <Link
               href="/for-consultants"
-              className="transition hover:text-gray-300"
+              className="transition hover:text-cyan-600"
             >
               For Consultants
             </Link>
-            <Link href="/security" className="transition hover:text-gray-300">
+            <Link href="/security" className="transition hover:text-cyan-600">
               Security
             </Link>
             <a
               href="mailto:support@benavora.com"
-              className="transition hover:text-gray-300"
+              className="transition hover:text-cyan-600"
             >
               support@benavora.com
             </a>
