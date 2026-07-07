@@ -1,5 +1,5 @@
 # BENAVORA — STATE OF THE BUILD
-## Last updated: 2026-07-06 (audit: full test suite + security page)
+## Last updated: 2026-07-07 (fix: self-host fonts to remove build-time Google Fonts dependency)
 ## Method: live codebase audit — every file path, route, agent, and migration counted directly from the filesystem; no assumptions carried from prior docs.
 
 ---
@@ -275,6 +275,8 @@ All migrations through 066 confirmed applied to production (ref vbjplpquqxxfbpaz
 - **Auth model:** profiles + owner/admin/writer/viewer roles (contracts reference admin/member/viewer — that is aspirational, not the live model)
 - **Tests (2026-07-06):** Vitest passing (`.env.test` added for secrets; compliance + logic-model tests fixed). tsc --noEmit 0 errors. pnpm build clean. Playwright: 27 passing before this session's selector fixes; ~40+ additional fixes applied (dashboard labels, deadlines Month button, documents upload zone, pipeline kanban switch, onboarding wizard text, automation autoapply page, research Command Center, ui-redesign sidebar items). Security page added at `/security` with marketing nav link.
 - **New files (2026-07-06):** `.env.test` (Vitest secrets), `src/app/(marketing)/security/page.tsx`
+- **Brand tokens (2026-07-07):** `tailwind.config.ts`'s own color/gradient/shadow definitions (previously still the old dark purple/emerald/teal-green theme underneath the `globals.css` compat layer) rewritten to the live navy `#0077B6` / cyan `#00B4D8` brand — `accent`/`cta` tokens, the legacy `teal` and `plum` 50–950 scales, `gradient-accent`/`gradient-brand`/`gradient-cta`/`gradient-purple`, and `shadow-glow`/`glow-accent`/`glow-blue`. Root layout: dropped `className="dark"` from `<html>`, `themeColor` `#0a0a1a→#0077B6`. tsc --noEmit clean; pnpm build clean.
+- **Self-hosted fonts (2026-07-07):** `next/font/google` fetches Inter/JetBrains Mono from `fonts.googleapis.com` at build time, which times out in this environment. Replaced with `next/font/local` in `src/app/layout.tsx`, sourcing latin variable-weight woff2 files copied from the `@fontsource-variable/inter` and `@fontsource-variable/jetbrains-mono` packages into `public/fonts/`. Same `--font-sans`/`--font-mono` CSS variables and weight ranges preserved — no other file changed. `pnpm run build` now completes with zero external font network requests.
 
 ## VERCEL CRON SCHEDULE
 

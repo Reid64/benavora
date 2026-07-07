@@ -1,11 +1,60 @@
 # BENAVORA — SESSION STATE
-## Last updated: 2026-07-06
+## Last updated: 2026-07-07
 ## Current branch: main
-## Last commit: f55ded3 (docs: governance audit rewrite 2026-07-06)
+## Last commit: ed302f4 (design: replace podcast theme with benavora brand system)
 
 ---
 
-## COMPLETED — July 6 audit session (this session)
+## COMPLETED — July 7 font self-hosting session
+
+### Build was failing: next/font/google couldn't reach fonts.googleapis.com (ETIMEDOUT)
+
+`src/app/layout.tsx` used `next/font/google` for Inter + JetBrains Mono, which fetches
+font files from Google's CDN at build time. In this environment that network call times
+out, breaking `pnpm run build` unconditionally.
+
+**Fix — self-host both fonts, zero network calls at build time:**
+- `pnpm add @fontsource-variable/inter @fontsource-variable/jetbrains-mono` (variable-weight woff2 packages)
+- Copied the latin-subset variable woff2 files into `public/fonts/`:
+  `inter-latin-wght-normal.woff2`, `jetbrains-mono-latin-wght-normal.woff2`
+- `src/app/layout.tsx`: replaced `next/font/google` (`Inter`, `JetBrains_Mono`) with
+  `next/font/local` pointing at those two files. Same CSS variable names preserved
+  (`--font-sans`, `--font-mono`) and same weight ranges (100–900 / 100–800), so no
+  other file needed to change.
+
+**Verification:** `pnpm run build` completes clean (0 errors, 234 static pages generated) with no `next/font/google` import anywhere in the tree.
+
+---
+
+## COMPLETED — July 7 design session
+
+### Brand token replacement — tailwind.config.ts + root layout
+
+Prior sessions (`ed302f4`, `7e046b1`) rebranded `globals.css` to the light navy/cyan
+theme (`--color-accent: #0077b6`, `--color-secondary: #00b4d8`) via a compatibility
+layer of `!important` overrides, but `tailwind.config.ts` itself still declared the
+old dark/purple theme underneath — so any class not covered by the compat layer
+(`ring-teal-400`, `accent-teal-500`, `shadow-glow-*`, `bg-gradient-accent`, the raw
+`plum`/`teal` scales) still rendered the legacy purple/emerald/teal-green colors.
+
+**`tailwind.config.ts`:**
+- `colors.accent`: `DEFAULT #7c3aed→#00B4D8`, `hover #6d28d9→#0093AC`, `indigo #6366f1→#0077B6`, `teal #2dd4bf→#00B4D8`, `purple #a855f7→#0077B6` (`accent.blue`/`info`/`warning` left untouched — not in the purple/orange/emerald/teal removal list)
+- `colors.cta`: `#10b981→#0077B6`, hover `#059669→#005F92`
+- `colors.teal` (legacy 50–950 scale, backs every `teal-*`/`ring-teal-*` class): replaced with a cyan ramp anchored at 500 `#00b4d8` / 600 `#0093ac` (exact secondary/secondary-hover match)
+- `colors.plum` (legacy 50–950 scale): replaced with a navy-blue ramp anchored at 600 `#0077b6` (exact primary match)
+- `backgroundImage`: `gradient-accent`/`gradient-brand`/`gradient-cta` → cyan `#00B4D8` → navy `#0077B6` sweep (matches `globals.css`'s `--color-cta-from/to` exactly); `gradient-purple` → navy two-tone; `glow-radial` → cyan
+- `boxShadow`: `glow`/`glow-accent`/`glow-blue` → navy/cyan rgba (was emerald/purple/blue)
+- No `#f97316` (orange) hardcoded anywhere in the config — nothing to replace there
+
+**`src/app/layout.tsx`:** removed `className="dark"` from `<html>` (site is light-theme now); `viewport.themeColor` `#0a0a1a→#0077B6`
+
+**Verification:** read every file using `bg-accent`/`border-accent` (1: `GroupedKanban.tsx` drag-over highlight), `shadow-glow-*` (login/register/forgot-password/reset-password/invite-accept CTA buttons, `AssemblyPanel.tsx`, `Button.tsx` primary variant), and `ring-teal-400`/`focus:ring-teal-400` (~30 files — form input focus rings across the entire autoapply section, `PlanCard.tsx`, `Badge.tsx`) — all render as cyan/navy on the light theme with no contrast regressions. `Button.tsx`'s dark-styled `secondary`/`ghost`/`purple` variants and `Badge.tsx`'s dark-chip styling are pre-existing light/dark mismatches unrelated to this color-value swap — not touched.
+
+Gate: `pnpm tsc --noEmit` clean (0 errors). `pnpm run build` — see below.
+
+---
+
+## COMPLETED — July 6 audit session
 
 ### STEP 1: Vitest — test suite clean
 
