@@ -64,7 +64,7 @@ export default function LoginPage() {
           aria-hidden
         />
         <div
-          className="pointer-events-none absolute -bottom-32 -left-16 h-96 w-96 rounded-full bg-plum-600/25 blur-3xl"
+          className="pointer-events-none absolute -bottom-32 -left-16 h-96 w-96 rounded-full bg-primary/25 blur-3xl"
           aria-hidden
         />
         <div className="relative z-10">
@@ -74,7 +74,7 @@ export default function LoginPage() {
           <h1 className="text-4xl font-bold leading-tight tracking-tight">
             Fund More.{" "}
             <span className="text-teal-400">Do More.</span>{" "}
-            <span className="text-plum-400">Change More.</span>
+            <span className="text-accent">Change More.</span>
           </h1>
           <p className="mt-5 text-navy-200">
             AI-powered grant research, drafting, and lifecycle tracking - built

@@ -864,11 +864,10 @@ function TagInput({
       {value.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1.5">
           {value.map((tag) => (
-            <span
+            <Badge
               key={tag}
-              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                chipColor === "red" ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"
-              }`}
+              variant={chipColor === "red" ? "error" : "info"}
+              className={!disabled ? "pr-1" : undefined}
             >
               {tag}
               {!disabled && (
@@ -881,7 +880,7 @@ function TagInput({
                   <X className="h-3 w-3" aria-hidden />
                 </button>
               )}
-            </span>
+            </Badge>
           ))}
         </div>
       )}

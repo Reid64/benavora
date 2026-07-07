@@ -2,7 +2,7 @@ import Link from "next/link";
 import { CalendarCheck } from "lucide-react";
 import { differenceInCalendarDays } from "date-fns";
 
-import { cn } from "@/lib/utils/cn";
+import { Badge, type BadgeVariant } from "@/components/ui/Badge";
 import { formatDate, humanizeEnum } from "@/lib/utils/formatters";
 
 export type DeadlineWidgetItem = {
@@ -18,13 +18,12 @@ export type DeadlineWidgetItem = {
 
 type UrgencyBand = "overdue" | "orange" | "yellow" | "green";
 
-// Four urgency bands (BLUEPRINT §4.9). The Badge component has no "orange",
-// so urgency pills use explicit color classes to keep all four bands distinct.
-const BAND_CLASSES: Record<UrgencyBand, { pill: string; dot: string }> = {
-  overdue: { pill: "bg-red-100 text-red-700", dot: "bg-red-500" },
-  orange: { pill: "bg-orange-100 text-orange-700", dot: "bg-orange-500" },
-  yellow: { pill: "bg-yellow-100 text-yellow-800", dot: "bg-yellow-500" },
-  green: { pill: "bg-green-100 text-green-700", dot: "bg-green-500" },
+// Four urgency bands (BLUEPRINT §4.9), mapped onto the shared Badge variants.
+const BAND_VARIANT: Record<UrgencyBand, BadgeVariant> = {
+  overdue: "error",
+  orange: "warning",
+  yellow: "warning",
+  green: "success",
 };
 
 /**
@@ -68,7 +67,6 @@ export function DeadlineWidget({ items }: { items: DeadlineWidgetItem[] }) {
     <ul className="space-y-3">
       {items.map((item) => {
         const { band, label } = urgency(item.dueDate);
-        const styles = BAND_CLASSES[band];
         const body = (
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
@@ -79,18 +77,9 @@ export function DeadlineWidget({ items }: { items: DeadlineWidgetItem[] }) {
                 {humanizeEnum(item.deadlineType)} · {formatDate(item.dueDate)}
               </p>
             </div>
-            <span
-              className={cn(
-                "inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium",
-                styles.pill,
-              )}
-            >
-              <span
-                className={cn("h-1.5 w-1.5 rounded-full", styles.dot)}
-                aria-hidden
-              />
+            <Badge variant={BAND_VARIANT[band]} withDot className="shrink-0">
               {label}
-            </span>
+            </Badge>
           </div>
         );
 

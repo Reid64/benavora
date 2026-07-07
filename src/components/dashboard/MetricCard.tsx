@@ -30,9 +30,9 @@ const TREND_STYLES: Record<
   MetricTrendDirection,
   { icon: LucideIcon; className: string }
 > = {
-  up: { icon: TrendingUp, className: "text-plum-600" },
-  down: { icon: TrendingDown, className: "text-red-600" },
-  neutral: { icon: Minus, className: "text-navy-400" },
+  up: { icon: TrendingUp, className: "text-success-text" },
+  down: { icon: TrendingDown, className: "text-error-text" },
+  neutral: { icon: Minus, className: "text-text-muted" },
 };
 
 /**
@@ -53,19 +53,19 @@ export function MetricCard({
   return (
     <div
       className={cn(
-        "group rounded-xl border border-navy-100 bg-white p-5 shadow-card transition-shadow hover:shadow-card-hover",
+        "group rounded-xl border border-border bg-surface p-5 shadow-sm transition-shadow hover:shadow-md",
         className,
       )}
     >
       <div className="flex items-center justify-between gap-3">
-        <span className="text-xs font-medium text-navy-500">{label}</span>
+        <span className="text-xs font-medium text-text-muted">{label}</span>
         {Icon && (
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-teal-50 text-teal-600 ring-1 ring-inset ring-teal-100 transition group-hover:bg-teal-100">
+          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent/10 text-primary ring-1 ring-inset ring-accent/20 transition group-hover:bg-accent/15">
             <Icon className="h-4 w-4" aria-hidden />
           </span>
         )}
       </div>
-      <div className="mt-3 text-2xl font-bold tracking-tight text-navy-900">
+      <div className="mt-3 text-2xl font-bold tracking-tight text-text">
         {value}
       </div>
       {trend && TrendIcon ? (
@@ -79,7 +79,7 @@ export function MetricCard({
           {trend.label}
         </div>
       ) : (
-        hint && <p className="mt-2 text-xs text-navy-400">{hint}</p>
+        hint && <p className="mt-2 text-xs text-text-muted">{hint}</p>
       )}
     </div>
   );

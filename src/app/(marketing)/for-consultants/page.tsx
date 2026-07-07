@@ -43,12 +43,12 @@ export default function ForConsultantsPage() {
     <div className="px-6">
       {/* Hero */}
       <section className="mx-auto max-w-4xl pb-12 pt-20 text-center">
-        <p className="text-sm font-semibold uppercase tracking-widest text-orange-400">
+        <p className="text-sm font-semibold uppercase tracking-widest text-accent">
           For Grant-Writing Agencies &amp; Consultants
         </p>
         <h1 className="mt-4 text-4xl font-bold leading-tight tracking-tight text-white sm:text-5xl">
           Scale Your{" "}
-          <span className="bg-gradient-to-r from-orange-400 via-amber-300 to-orange-500 bg-clip-text text-transparent">
+          <span className="bg-gradient-to-r from-accent via-amber-300 to-primary bg-clip-text text-transparent">
             Grant Writing Practice
           </span>
         </h1>
@@ -60,7 +60,7 @@ export default function ForConsultantsPage() {
         <div className="mt-8 flex justify-center">
           <a
             href="mailto:sales@benavora.com?subject=Benavora%20Agency%20Demo"
-            className="rounded-lg bg-orange-500 px-7 py-3 text-sm font-semibold text-white shadow-lg shadow-orange-900/30 transition hover:bg-orange-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0a1a]"
+            className="rounded-lg bg-primary px-7 py-3 text-sm font-semibold text-white shadow-lg shadow-primary/30 transition hover:bg-primary/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar"
           >
             Schedule a Demo
           </a>
@@ -89,7 +89,7 @@ export default function ForConsultantsPage() {
         <div className="text-center">
           <h2 className="text-3xl font-bold tracking-tight text-white">
             Agency{" "}
-            <span className="bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-accent to-primary bg-clip-text text-transparent">
               Pricing
             </span>
           </h2>
@@ -104,7 +104,7 @@ export default function ForConsultantsPage() {
             <label htmlFor="clients" className="text-sm font-medium text-gray-300">
               Number of clients
             </label>
-            <span className="font-mono text-2xl font-bold text-orange-400">
+            <span className="font-mono text-2xl font-bold text-accent">
               {clients}
             </span>
           </div>
@@ -117,7 +117,7 @@ export default function ForConsultantsPage() {
             step={1}
             value={clients}
             onChange={(e) => setClients(Number(e.target.value))}
-            className="mt-4 w-full accent-orange-500"
+            className="mt-4 w-full accent-primary"
             aria-label="Number of clients"
           />
           <div className="mt-1 flex justify-between text-xs text-gray-500">
@@ -126,7 +126,7 @@ export default function ForConsultantsPage() {
           </div>
 
           <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="rounded-xl border border-white/10 bg-[#0a0a1a] p-5 text-center">
+            <div className="rounded-xl border border-white/10 bg-sidebar p-5 text-center">
               <p className="text-xs uppercase tracking-wide text-gray-500">
                 Monthly
               </p>
@@ -138,7 +138,7 @@ export default function ForConsultantsPage() {
                 {fmt(MONTHLY_PER_CLIENT)}
               </p>
             </div>
-            <div className="rounded-xl border border-white/10 bg-[#0a0a1a] p-5 text-center">
+            <div className="rounded-xl border border-white/10 bg-sidebar p-5 text-center">
               <p className="text-xs uppercase tracking-wide text-gray-500">
                 One-time setup
               </p>
@@ -156,7 +156,7 @@ export default function ForConsultantsPage() {
         <div className="mt-8 flex justify-center">
           <a
             href="mailto:sales@benavora.com?subject=Benavora%20Agency%20Demo"
-            className="rounded-lg bg-orange-500 px-7 py-3 text-sm font-semibold text-white shadow-lg shadow-orange-900/30 transition hover:bg-orange-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0a1a]"
+            className="rounded-lg bg-primary px-7 py-3 text-sm font-semibold text-white shadow-lg shadow-primary/30 transition hover:bg-primary/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar"
           >
             Schedule a Demo
           </a>

@@ -3,32 +3,36 @@
 import { differenceInCalendarDays, parseISO } from "date-fns";
 import { CalendarCheck, ExternalLink, X } from "lucide-react";
 import Link from "next/link";
+import { Badge, type BadgeVariant } from "@/components/ui/Badge";
 import { cn } from "@/lib/utils/cn";
 import { formatDate, humanizeEnum } from "@/lib/utils/formatters";
 
 export type UrgencyBand = "overdue" | "orange" | "yellow" | "green";
 
+export const BAND_VARIANT: Record<UrgencyBand, BadgeVariant> = {
+  overdue: "error",
+  orange: "warning",
+  yellow: "warning",
+  green: "success",
+};
+
 export const BAND_CLASSES: Record<
   UrgencyBand,
-  { pill: string; dot: string; cell: string }
+  { dot: string; cell: string }
 > = {
   overdue: {
-    pill: "bg-red-100 text-red-700",
     dot: "bg-red-500",
     cell: "bg-red-100 text-red-700 hover:bg-red-200 border border-red-200",
   },
   orange: {
-    pill: "bg-orange-100 text-orange-700",
-    dot: "bg-orange-500",
-    cell: "bg-orange-100 text-orange-700 hover:bg-orange-200 border border-orange-200",
+    dot: "bg-warning-text",
+    cell: "bg-warning-bg text-warning-text hover:bg-warning-bg/70 border border-warning-text/20",
   },
   yellow: {
-    pill: "bg-yellow-100 text-yellow-800",
     dot: "bg-yellow-500",
     cell: "bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border border-yellow-200",
   },
   green: {
-    pill: "bg-green-100 text-green-700",
     dot: "bg-green-500",
     cell: "bg-green-100 text-green-700 hover:bg-green-200 border border-green-200",
   },
@@ -114,7 +118,6 @@ interface ModalProps {
 export function DeadlineDetailModal({ deadline, onClose }: ModalProps) {
   const completed = deadline.is_completed;
   const { band, label } = urgency(deadline.due_date);
-  const styles = BAND_CLASSES[band];
   const href = parentHref(deadline);
 
   return (
@@ -158,14 +161,7 @@ export function DeadlineDetailModal({ deadline, onClose }: ModalProps) {
             {completed ? (
               <span className="text-navy-400">Completed</span>
             ) : (
-              <span
-                className={cn(
-                  "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
-                  styles.pill,
-                )}
-              >
-                {label}
-              </span>
+              <Badge variant={BAND_VARIANT[band]}>{label}</Badge>
             )}
           </div>
           {deadline.description && (

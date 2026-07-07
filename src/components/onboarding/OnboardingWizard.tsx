@@ -264,7 +264,7 @@ export function OnboardingWizard({ userId, snapshot }: OnboardingWizardProps) {
         </div>
         <div className="h-2 w-full overflow-hidden rounded-full bg-navy-100">
           <div
-            className="h-full rounded-full bg-gradient-to-r from-teal-500 to-plum-500 transition-all duration-500"
+            className="h-full rounded-full bg-gradient-to-r from-teal-500 to-primary transition-all duration-500"
             style={{ width: `${percent}%` }}
             role="progressbar"
             aria-valuenow={percent}

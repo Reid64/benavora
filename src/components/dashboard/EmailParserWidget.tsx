@@ -4,22 +4,23 @@ import { useState } from "react";
 import { Mail, Loader2, CheckCircle, AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
 
 import { cn } from "@/lib/utils/cn";
+import { Badge, type BadgeVariant } from "@/components/ui/Badge";
 import type { ParsedEmailResult, EmailType } from "@/lib/agents/email-parser";
 
-// Badge colors keyed by email type.
-const TYPE_STYLES: Record<EmailType, { pill: string; label: string }> = {
+// Badge variant keyed by email type.
+const TYPE_STYLES: Record<EmailType, { variant: BadgeVariant; label: string }> = {
   award_notification: {
-    pill: "bg-green-100 text-green-700",
+    variant: "success",
     label: "Award",
   },
-  rejection: { pill: "bg-red-100 text-red-700", label: "Rejection" },
-  acknowledgment: { pill: "bg-blue-100 text-blue-700", label: "Acknowledgment" },
+  rejection: { variant: "error", label: "Rejection" },
+  acknowledgment: { variant: "info", label: "Acknowledgment" },
   information_request: {
-    pill: "bg-yellow-100 text-yellow-800",
+    variant: "warning",
     label: "Info Request",
   },
-  follow_up: { pill: "bg-purple-100 text-purple-700", label: "Follow-up" },
-  general: { pill: "bg-gray-100 text-gray-600", label: "General" },
+  follow_up: { variant: "info", label: "Follow-up" },
+  general: { variant: "neutral", label: "General" },
 };
 
 const URGENCY_DOT: Record<string, string> = {
@@ -203,14 +204,9 @@ export function EmailParserWidget() {
           <div className="px-4 py-3 space-y-3">
             {/* Type + urgency */}
             <div className="flex flex-wrap items-center gap-2">
-              <span
-                className={cn(
-                  "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
-                  TYPE_STYLES[parsed.emailType]?.pill ?? "bg-gray-100 text-gray-600",
-                )}
-              >
+              <Badge variant={TYPE_STYLES[parsed.emailType]?.variant ?? "neutral"}>
                 {TYPE_STYLES[parsed.emailType]?.label ?? parsed.emailType}
-              </span>
+              </Badge>
 
               <span className="inline-flex items-center gap-1 text-xs text-navy-600">
                 <span

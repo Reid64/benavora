@@ -24,7 +24,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 
-import { Button, Card, EmptyState, LoadingSpinner } from "@/components/ui";
+import { Badge, Button, Card, EmptyState, LoadingSpinner } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 import { canEdit, useProfile } from "@/lib/hooks/useProfile";
 import { useUrlState } from "@/lib/hooks/useUrlState";
@@ -32,6 +32,7 @@ import { cn } from "@/lib/utils/cn";
 import { formatDate, humanizeEnum } from "@/lib/utils/formatters";
 import {
   BAND_CLASSES,
+  BAND_VARIANT,
   urgency,
   parentHref,
 } from "@/components/deadlines/DeadlinePill";
@@ -777,14 +778,9 @@ function ComplianceList({ items }: { items: ComplianceItem[] }) {
                   {isCompleted ? (
                     <span className="text-xs text-navy-400">Completed</span>
                   ) : (
-                    <span
-                      className={cn(
-                        "inline-flex shrink-0 items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
-                        styles.pill,
-                      )}
-                    >
+                    <Badge variant={BAND_VARIANT[band]} className="shrink-0">
                       {label}
-                    </span>
+                    </Badge>
                   )}
                 </div>
               </li>
@@ -894,9 +890,7 @@ function ListView({
                     <span>·</span>
                     <span>{formatDate(d.due_date)}</span>
                     {isRenewal && (
-                      <span className="rounded-full bg-teal-50 px-1.5 py-0.5 text-teal-600">
-                        Renewal
-                      </span>
+                      <Badge variant="info">Renewal</Badge>
                     )}
                   </div>
                 </div>
@@ -906,14 +900,9 @@ function ListView({
                 {completed ? (
                   <span className="text-xs text-navy-400">Completed</span>
                 ) : (
-                  <span
-                    className={cn(
-                      "inline-flex shrink-0 items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
-                      styles.pill,
-                    )}
-                  >
+                  <Badge variant={BAND_VARIANT[band]} className="shrink-0">
                     {label}
-                  </span>
+                  </Badge>
                 )}
                 {calendarConnected &&
                   !isRenewal &&

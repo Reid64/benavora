@@ -190,7 +190,7 @@ export default function FundersPage() {
         <div
           role="status"
           aria-live="polite"
-          className="fixed right-6 top-6 z-50 flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 text-sm font-medium text-white shadow-xl"
+          className="fixed right-6 top-6 z-50 flex items-center gap-2 rounded-xl bg-success-text px-5 py-3 text-sm font-medium text-white shadow-xl"
         >
           <CheckCircle className="h-4 w-4 flex-shrink-0" aria-hidden />
           {toast}

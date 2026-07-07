@@ -588,20 +588,17 @@ function SearchProfileForm({
         {keywords.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">
             {keywords.map((keyword) => (
-              <span
-                key={keyword}
-                className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700"
-              >
+              <Badge key={keyword} variant="info" className="pr-1">
                 {keyword}
                 <button
                   type="button"
                   onClick={() => removeKeyword(keyword)}
-                  className="rounded-full p-0.5 hover:bg-blue-200"
+                  className="rounded-full p-0.5 hover:bg-black/5"
                   aria-label={`Remove ${keyword}`}
                 >
                   <X className="h-3 w-3" aria-hidden />
                 </button>
-              </span>
+              </Badge>
             ))}
           </div>
         )}

@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { RefreshCw, Wand2 } from "lucide-react";
 
-import { Button, EmptyState, LoadingSpinner } from "@/components/ui";
+import { Badge, Button, EmptyState, LoadingSpinner } from "@/components/ui";
+import type { BadgeVariant } from "@/components/ui";
 import { ApplicationsViewToggle } from "@/components/applications/ApplicationsViewToggle";
 
 type RenewalOpportunity = { id: string; name: string; recurrence: string | null };
@@ -44,34 +45,34 @@ function daysUntil(dateStr: string | null): number | null {
 
 function urgencyClasses(days: number | null): {
   row: string;
-  badge: string;
+  variant: BadgeVariant;
   label: string;
 } {
   if (days === null)
-    return { row: "", badge: "bg-navy-100 text-navy-600", label: "No deadline" };
+    return { row: "", variant: "neutral", label: "No deadline" };
   if (days < 0)
-    return { row: "bg-gray-50", badge: "bg-gray-200 text-gray-600", label: "Overdue" };
+    return { row: "bg-gray-50", variant: "neutral", label: "Overdue" };
   if (days <= 14)
     return {
       row: "bg-red-50",
-      badge: "bg-red-100 text-red-700",
+      variant: "error",
       label: `${days}d`,
     };
   if (days <= 30)
     return {
-      row: "bg-orange-50",
-      badge: "bg-orange-100 text-orange-700",
+      row: "bg-warning-bg/40",
+      variant: "warning",
       label: `${days}d`,
     };
   if (days <= 60)
     return {
       row: "bg-yellow-50",
-      badge: "bg-yellow-100 text-yellow-700",
+      variant: "warning",
       label: `${days}d`,
     };
   return {
     row: "",
-    badge: "bg-green-100 text-green-700",
+    variant: "success",
     label: `${days}d`,
   };
 }
@@ -93,12 +94,12 @@ const COMPLIANCE_LABELS: Record<string, string> = {
   overdue: "Overdue",
 };
 
-const COMPLIANCE_COLORS: Record<string, string> = {
-  pending: "bg-navy-100 text-navy-600",
-  in_progress: "bg-blue-100 text-blue-700",
-  submitted: "bg-teal-100 text-teal-700",
-  approved: "bg-green-100 text-green-700",
-  overdue: "bg-red-100 text-red-700",
+const COMPLIANCE_VARIANTS: Record<string, BadgeVariant> = {
+  pending: "neutral",
+  in_progress: "info",
+  submitted: "info",
+  approved: "success",
+  overdue: "error",
 };
 
 export default function RenewalsPage() {
@@ -151,19 +152,18 @@ export default function RenewalsPage() {
       {/* Urgency legend */}
       <div className="flex flex-wrap items-center gap-3 text-xs">
         <span className="font-medium text-navy-500">Days remaining:</span>
-        {[
-          { label: "≤14 days", cls: "bg-red-100 text-red-700" },
-          { label: "≤30 days", cls: "bg-orange-100 text-orange-700" },
-          { label: "≤60 days", cls: "bg-yellow-100 text-yellow-700" },
-          { label: ">60 days", cls: "bg-green-100 text-green-700" },
-          { label: "No deadline", cls: "bg-navy-100 text-navy-600" },
-        ].map(({ label, cls }) => (
-          <span
-            key={label}
-            className={`inline-flex items-center rounded-full px-2.5 py-0.5 font-medium ${cls}`}
-          >
+        {(
+          [
+            { label: "≤14 days", variant: "error" },
+            { label: "≤30 days", variant: "warning" },
+            { label: "≤60 days", variant: "warning" },
+            { label: ">60 days", variant: "success" },
+            { label: "No deadline", variant: "neutral" },
+          ] as { label: string; variant: BadgeVariant }[]
+        ).map(({ label, variant }) => (
+          <Badge key={label} variant={variant}>
             {label}
-          </span>
+          </Badge>
         ))}
       </div>
 
@@ -224,9 +224,8 @@ export default function RenewalsPage() {
                 const complianceLabel =
                   COMPLIANCE_LABELS[renewal.compliance_status] ??
                   renewal.compliance_status;
-                const complianceColor =
-                  COMPLIANCE_COLORS[renewal.compliance_status] ??
-                  "bg-navy-100 text-navy-600";
+                const complianceVariant: BadgeVariant =
+                  COMPLIANCE_VARIANTS[renewal.compliance_status] ?? "neutral";
 
                 return (
                   <tr
@@ -254,18 +253,12 @@ export default function RenewalsPage() {
                       )}
                     </td>
                     <td className="whitespace-nowrap px-4 py-3">
-                      <span
-                        className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${complianceColor}`}
-                      >
-                        {complianceLabel}
-                      </span>
+                      <Badge variant={complianceVariant}>{complianceLabel}</Badge>
                     </td>
                     <td className="whitespace-nowrap px-4 py-3">
-                      <span
-                        className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${urgency.badge}`}
-                      >
+                      <Badge variant={urgency.variant} className="font-semibold">
                         {urgency.label}
-                      </span>
+                      </Badge>
                     </td>
                     <td className="whitespace-nowrap px-4 py-3">
                       <Link

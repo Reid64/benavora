@@ -6,7 +6,7 @@ import { X } from "lucide-react";
 
 import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 
-import { Button, Input, Select, Textarea } from "@/components/ui";
+import { Badge, Button, Input, Select, Textarea } from "@/components/ui";
 import type { SelectOption } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 import { useProfile } from "@/lib/hooks/useProfile";
@@ -532,20 +532,17 @@ function TagInput({
         onClick={() => inputRef.current?.focus()}
       >
         {values.map((value, index) => (
-          <span
-            key={`${value}-${index}`}
-            className="inline-flex items-center gap-1 rounded-full bg-teal-50 py-0.5 pl-2.5 pr-1 text-xs font-medium text-teal-700"
-          >
+          <Badge key={`${value}-${index}`} variant="info" className="pr-1">
             {value}
             <button
               type="button"
               onClick={() => removeTag(index)}
-              className="rounded-full p-0.5 text-teal-400 transition hover:bg-teal-100 hover:text-teal-700"
+              className="rounded-full p-0.5 text-info-text/70 transition hover:bg-black/5"
               aria-label={`Remove ${value}`}
             >
               <X className="h-3 w-3" aria-hidden />
             </button>
-          </span>
+          </Badge>
         ))}
         <input
           ref={inputRef}

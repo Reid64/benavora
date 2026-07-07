@@ -340,20 +340,20 @@ export default async function DashboardPage() {
               </Link>
               <Link
                 href="/draft-generator"
-                className="flex w-full items-center gap-3 rounded-lg border border-navy-100 px-4 py-3 text-sm font-medium text-navy-700 transition hover:border-purple-300 hover:bg-purple-50 hover:text-purple-700"
+                className="flex w-full items-center gap-3 rounded-lg border border-navy-100 px-4 py-3 text-sm font-medium text-navy-700 transition hover:border-primary/30 hover:bg-primary/5 hover:text-primary"
               >
                 <PenLine
-                  className="h-4 w-4 shrink-0 text-purple-500"
+                  className="h-4 w-4 shrink-0 text-primary"
                   aria-hidden
                 />
                 Generate Drafts
               </Link>
               <Link
                 href="/draft-generator/queue"
-                className="flex w-full items-center gap-3 rounded-lg border border-navy-100 px-4 py-3 text-sm font-medium text-navy-700 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
+                className="flex w-full items-center gap-3 rounded-lg border border-navy-100 px-4 py-3 text-sm font-medium text-navy-700 transition hover:border-success-text/30 hover:bg-success-bg hover:text-success-text"
               >
                 <ClipboardList
-                  className="h-4 w-4 shrink-0 text-emerald-500"
+                  className="h-4 w-4 shrink-0 text-success-text"
                   aria-hidden
                 />
                 Review Queue

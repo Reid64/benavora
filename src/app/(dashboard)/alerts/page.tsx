@@ -16,7 +16,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { Button, Card, LoadingSpinner } from "@/components/ui";
+import { Badge, Button, Card, LoadingSpinner } from "@/components/ui";
 import { useAlerts, type Alert } from "@/lib/hooks/useAlerts";
 import { type AlertSeverity, type AlertType } from "@/lib/alerts/alerts-service";
 import { createClient } from "@/lib/supabase/client";
@@ -207,10 +207,10 @@ export default function AlertsPage() {
         </div>
         <div className="flex items-center gap-3">
           {unreadCount > 0 && (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-3 py-1 text-sm font-medium text-red-700">
+            <Badge variant="error">
               <Bell className="h-4 w-4" aria-hidden />
               {unreadCount} unread
-            </span>
+            </Badge>
           )}
           <Button
             variant="ghost"
@@ -277,9 +277,7 @@ export default function AlertsPage() {
                     {cat.label}
                   </span>
                   {catItems.length > 0 && (
-                    <span className="rounded-full bg-navy-100 px-2 py-0.5 text-xs font-medium text-navy-600">
-                      {catItems.length}
-                    </span>
+                    <Badge variant="neutral">{catItems.length}</Badge>
                   )}
                   <ChevronDown
                     className={cn(

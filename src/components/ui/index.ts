@@ -17,7 +17,7 @@ export { Card } from "@/components/ui/Card";
 export type { CardProps } from "@/components/ui/Card";
 
 export { Badge } from "@/components/ui/Badge";
-export type { BadgeProps, BadgeColor } from "@/components/ui/Badge";
+export type { BadgeProps, BadgeColor, BadgeVariant } from "@/components/ui/Badge";
 
 export { Table } from "@/components/ui/Table";
 export type {

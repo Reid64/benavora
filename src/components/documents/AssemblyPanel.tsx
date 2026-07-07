@@ -110,7 +110,7 @@ export function AssemblyPanel({ applicationId }: AssemblyPanelProps) {
                   <li key={i} className="flex items-center gap-3 py-3">
                     {item.status === "attached" ? (
                       <CheckCircle2
-                        className="h-5 w-5 shrink-0 text-emerald-500"
+                        className="h-5 w-5 shrink-0 text-success-text"
                         aria-label="Attached"
                       />
                     ) : (
@@ -144,7 +144,7 @@ export function AssemblyPanel({ applicationId }: AssemblyPanelProps) {
             <Card>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="text-sm font-semibold text-emerald-700">
+                  <p className="text-sm font-semibold text-success-text">
                     All required documents attached
                   </p>
                   <p className="mt-0.5 text-xs text-navy-500">

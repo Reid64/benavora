@@ -21,6 +21,7 @@ import {
   YAxis,
 } from "recharts";
 
+import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 
@@ -783,7 +784,7 @@ export default function AutoApplyAnalyticsPage() {
         {waitingRows.length > 0 && (
           <div className="mt-3 flex items-center gap-5 text-xs text-navy-400">
             <span className="flex items-center gap-1.5">
-              <span className="inline-block h-2 w-2 rounded-full bg-emerald-400" />
+              <span className="inline-block h-2 w-2 rounded-full bg-success-text" />
               &lt;14 days (fast)
             </span>
             <span className="flex items-center gap-1.5">
@@ -881,10 +882,10 @@ export default function AutoApplyAnalyticsPage() {
                       </td>
                       <td className="px-4 py-2.5">
                         {isWinner && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-yellow-400/15 px-2 py-0.5 text-xs font-medium text-yellow-300 ring-1 ring-yellow-400/25">
+                          <Badge variant="warning" className="gap-1">
                             <Award className="h-3 w-3" />
                             Winner
-                          </span>
+                          </Badge>
                         )}
                       </td>
                     </tr>

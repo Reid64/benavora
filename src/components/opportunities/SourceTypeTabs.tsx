@@ -23,14 +23,14 @@ const DOT_BG: Record<BadgeColor, string> = {
   gray: "bg-navy-400",
   teal: "bg-teal-500",
   indigo: "bg-teal-500",
-  purple: "bg-plum-500",
+  purple: "bg-primary",
   navy: "bg-navy-600",
   green: "bg-green-500",
   yellow: "bg-amber-500",
   red: "bg-red-500",
   blue: "bg-blue-500",
   sky: "bg-sky-500",
-  orange: "bg-orange-500",
+  orange: "bg-warning-text",
   pink: "bg-pink-500",
 };
 

@@ -26,7 +26,7 @@ import {
   X,
 } from "lucide-react";
 
-import { Button, Card, Input, LoadingSpinner, Select, Textarea } from "@/components/ui";
+import { Badge, Button, Card, Input, LoadingSpinner, Select, Textarea } from "@/components/ui";
 import { PlanCard } from "@/components/billing/PlanCard";
 import { createClient } from "@/lib/supabase/client";
 import { FUNDER_CATEGORIES, SUBSCRIPTION_TIERS, type SubscriptionTier } from "@/lib/utils/constants";
@@ -496,20 +496,17 @@ function Step3({
           </p>
           <div className="flex flex-wrap gap-2">
             {state.keywords.map((kw) => (
-              <span
-                key={kw}
-                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-teal-50 text-teal-700 border border-teal-200"
-              >
+              <Badge key={kw} variant="info">
                 {kw}
                 <button
                   type="button"
                   onClick={() => onRemoveKeyword(kw)}
-                  className="hover:text-teal-900 ml-0.5"
+                  className="hover:text-info-text/70 ml-0.5"
                   aria-label={`Remove keyword ${kw}`}
                 >
                   <X className="h-3 w-3" />
                 </button>
-              </span>
+              </Badge>
             ))}
           </div>
         </div>
@@ -804,19 +801,16 @@ function Step6({
           {profile.keywords.length > 0 && (
             <div className="flex flex-wrap gap-2 mt-2">
               {profile.keywords.map((kw) => (
-                <span
-                  key={kw}
-                  className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-teal-50 text-teal-700 border border-teal-200"
-                >
+                <Badge key={kw} variant="info">
                   {kw}
                   <button
                     type="button"
                     onClick={() => removeKeyword(kw)}
-                    className="hover:text-teal-900"
+                    className="hover:text-info-text/70"
                   >
                     <X className="h-3 w-3" />
                   </button>
-                </span>
+                </Badge>
               ))}
             </div>
           )}

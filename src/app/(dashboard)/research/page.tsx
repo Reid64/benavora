@@ -8,6 +8,7 @@ import { SearchConfiguration } from "@/app/(dashboard)/search-profiles/configure
 import type { AgentType } from "@/types/agents";
 import type { Enums } from "@/types/database";
 import type { ResearchConfig } from "@/lib/research/org-research-config";
+import { Badge, type BadgeVariant } from "@/components/ui/Badge";
 
 type FunderCategory = Enums<"funder_category">;
 type OppSourceType = Enums<"opportunity_source_type">;
@@ -110,7 +111,7 @@ const RESEARCH_AGENT_TYPES: AgentType[] = [
 
 const POLL_INTERVAL_MS = 30_000;
 
-function sourceBadgeProps(source: string | null, sourceType: OppSourceType | null): { label: string; cls: string } {
+function sourceBadgeProps(source: string | null, sourceType: OppSourceType | null): { label: string; variant: BadgeVariant } {
   let label = "Unknown";
   if (source) {
     try {
@@ -122,13 +123,12 @@ function sourceBadgeProps(source: string | null, sourceType: OppSourceType | nul
     label = sourceType.replace(/_/g, " ");
   }
 
-  // Solid backgrounds with white text — readable, no same-color-on-same-color.
-  let cls = "bg-gray-600 text-white";
-  if (sourceType === "government_federal") cls = "bg-blue-600 text-white";
-  else if (sourceType === "government_state" || sourceType === "government_local") cls = "bg-green-600 text-white";
-  else if (sourceType === "corporate_giving") cls = "bg-purple-600 text-white";
+  let variant: BadgeVariant = "neutral";
+  if (sourceType === "government_federal") variant = "info";
+  else if (sourceType === "government_state" || sourceType === "government_local") variant = "success";
+  else if (sourceType === "corporate_giving") variant = "info";
 
-  return { label, cls };
+  return { label, variant };
 }
 
 function formatAmount(min: number | null, max: number | null): string {
@@ -659,9 +659,9 @@ export default function ResearchPage() {
           </h2>
           {activeSource && (
             <>
-              <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700">
+              <Badge variant="info">
                 Filtered by {activeSourceLabel}
-              </span>
+              </Badge>
               <button
                 onClick={() => setActiveSource(null)}
                 className="text-xs font-medium text-blue-600 underline-offset-2 hover:underline"
@@ -730,11 +730,7 @@ export default function ResearchPage() {
                         {opp.name}
                       </td>
                       <td className="px-4 py-3">
-                        <span
-                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${badge.cls}`}
-                        >
-                          {badge.label}
-                        </span>
+                        <Badge variant={badge.variant}>{badge.label}</Badge>
                       </td>
                       <td className="px-4 py-3 text-xs text-navy-600">
                         {categoryLabel(opp.category)}

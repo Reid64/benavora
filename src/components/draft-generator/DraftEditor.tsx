@@ -245,7 +245,7 @@ export function DraftEditor({
               <button
                 type="button"
                 onClick={handleGapBadgeClick}
-                className="inline-flex items-center gap-1 font-medium text-purple-500 transition-colors hover:text-purple-400"
+                className="inline-flex items-center gap-1 font-medium text-primary transition-colors hover:text-primary/80"
                 title="Jump to first gap"
               >
                 <AlertTriangle className="h-3.5 w-3.5" aria-hidden />

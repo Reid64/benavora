@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { ChevronDown, ChevronUp, Plus, Search, AlertCircle } from "lucide-react";
 
+import { Badge } from "@/components/ui/Badge";
 import { useProfile } from "@/lib/hooks/useProfile";
 import { createClient } from "@/lib/supabase/client";
 
@@ -38,14 +39,8 @@ const PROGRAM_CATEGORIES = [
 ];
 
 function ScoreBadge({ score }: { score: number }) {
-  let cls = "bg-green-900/40 text-green-300";
-  if (score < 60) cls = "bg-yellow-900/40 text-yellow-300";
-  if (score < 40) cls = "bg-red-900/40 text-red-300";
-  return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${cls}`}>
-      {score}%
-    </span>
-  );
+  const variant = score < 40 ? "error" : score < 60 ? "warning" : "success";
+  return <Badge variant={variant}>{score}%</Badge>;
 }
 
 function FunderCard({

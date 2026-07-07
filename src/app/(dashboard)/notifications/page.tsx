@@ -61,7 +61,7 @@ const EVENT_META: Record<
   deadline_approaching: {
     label: "Deadline Approaching",
     icon: Calendar,
-    color: "text-orange-400",
+    color: "text-warning-text",
   },
   agent_completed: {
     label: "Agent Completed",

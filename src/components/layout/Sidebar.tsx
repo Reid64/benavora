@@ -121,7 +121,7 @@ export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarPro
       )}
 
       <aside
-        className={`scrollbar-dark fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-white/10 bg-ink-900/80 text-navy-100 backdrop-blur-xl transition-transform duration-200 ease-in-out lg:static lg:z-auto lg:translate-x-0 ${
+        className={`scrollbar-dark fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-white/10 bg-sidebar text-slate-400 transition-transform duration-200 ease-in-out lg:static lg:z-auto lg:translate-x-0 ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
         aria-label="Primary navigation"
@@ -132,7 +132,7 @@ export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarPro
             {/* Desktop: full wordmark + tagline */}
             <div className="hidden flex-col lg:flex">
               <Logo />
-              <span className="mt-1 text-[10px] leading-tight tracking-wide text-navy-400">
+              <span className="mt-1 text-[10px] leading-tight tracking-wide text-slate-400">
                 Fund More. Do More. Change More.
               </span>
             </div>
@@ -142,7 +142,7 @@ export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarPro
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md p-1.5 text-navy-300 transition hover:bg-white/10 hover:text-white lg:hidden"
+            className="rounded-md p-1.5 text-slate-400 transition hover:bg-white/10 hover:text-white lg:hidden"
             aria-label="Close navigation"
           >
             <X className="h-5 w-5" />
@@ -162,19 +162,19 @@ export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarPro
                   aria-current={active ? "page" : undefined}
                   className={`group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
                     active
-                      ? "bg-white/10 text-white"
-                      : "text-navy-200 hover:bg-white/5 hover:text-white"
+                      ? "bg-sidebar-active text-accent"
+                      : "text-slate-400 hover:bg-white/5 hover:text-white"
                   }`}
                 >
                   {active && (
                     <span
-                      className="absolute inset-y-1.5 left-0 w-1 rounded-full bg-teal-400"
+                      className="absolute inset-y-1.5 left-0 w-1 rounded-full bg-accent"
                       aria-hidden
                     />
                   )}
                   <Icon
                     className={`h-5 w-5 shrink-0 transition ${
-                      active ? "text-teal-400" : "text-navy-400 group-hover:text-teal-300"
+                      active ? "text-accent" : "text-slate-400 group-hover:text-white"
                     }`}
                     aria-hidden
                   />
@@ -192,12 +192,12 @@ export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarPro
                           onClick={onClose}
                           aria-current={childActive ? "page" : undefined}
                           className={`flex items-center rounded-md px-3 py-1.5 text-xs font-medium transition ${
-                            childActive ? "text-teal-300" : "text-navy-400 hover:text-navy-200"
+                            childActive ? "text-accent" : "text-slate-400 hover:text-white"
                           }`}
                         >
                           {childActive && (
                             <span
-                              className="mr-2 inline-block h-1 w-1 rounded-full bg-teal-400"
+                              className="mr-2 inline-block h-1 w-1 rounded-full bg-accent"
                               aria-hidden
                             />
                           )}
@@ -215,7 +215,7 @@ export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarPro
         {/* Platform admin section */}
         {isPlatformAdmin && (
           <div className="border-t border-white/10 px-3 py-3">
-            <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-widest text-navy-500">
+            <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
               Platform
             </p>
             {PLATFORM_NAV_ITEMS.map(({ label, href, icon: Icon }) => {
@@ -228,19 +228,19 @@ export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarPro
                   aria-current={active ? "page" : undefined}
                   className={`group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
                     active
-                      ? "bg-white/10 text-white"
-                      : "text-navy-300 hover:bg-white/5 hover:text-white"
+                      ? "bg-sidebar-active text-accent"
+                      : "text-slate-400 hover:bg-white/5 hover:text-white"
                   }`}
                 >
                   {active && (
                     <span
-                      className="absolute inset-y-1.5 left-0 w-1 rounded-full bg-teal-400"
+                      className="absolute inset-y-1.5 left-0 w-1 rounded-full bg-accent"
                       aria-hidden
                     />
                   )}
                   <Icon
                     className={`h-5 w-5 shrink-0 transition ${
-                      active ? "text-teal-400" : "text-navy-500 group-hover:text-teal-300"
+                      active ? "text-accent" : "text-slate-400 group-hover:text-white"
                     }`}
                     aria-hidden
                   />
@@ -263,19 +263,19 @@ export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarPro
                 aria-current={active ? "page" : undefined}
                 className={`group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
                   active
-                    ? "bg-white/10 text-white"
-                    : "text-navy-200 hover:bg-white/5 hover:text-white"
+                    ? "bg-sidebar-active text-accent"
+                    : "text-slate-400 hover:bg-white/5 hover:text-white"
                 }`}
               >
                 {active && (
                   <span
-                    className="absolute inset-y-1.5 left-0 w-1 rounded-full bg-teal-400"
+                    className="absolute inset-y-1.5 left-0 w-1 rounded-full bg-accent"
                     aria-hidden
                   />
                 )}
                 <Icon
                   className={`h-5 w-5 shrink-0 transition ${
-                    active ? "text-teal-400" : "text-navy-400 group-hover:text-teal-300"
+                    active ? "text-accent" : "text-slate-400 group-hover:text-white"
                   }`}
                   aria-hidden
                 />
@@ -283,7 +283,7 @@ export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarPro
               </Link>
             );
           })()}
-          <p className="mt-3 px-3 text-xs text-navy-500">Nonprofit funding automation</p>
+          <p className="mt-3 px-3 text-xs text-slate-500">Nonprofit funding automation</p>
         </div>
       </aside>
     </>

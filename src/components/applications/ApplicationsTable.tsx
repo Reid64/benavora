@@ -105,7 +105,7 @@ function DeadlineCell({ deadline }: { deadline: string | null }) {
     urgency === "overdue"
       ? "text-red-400 font-medium"
       : urgency === "urgent"
-        ? "text-orange-400 font-medium"
+        ? "text-warning-text font-medium"
         : urgency === "soon"
           ? "text-yellow-400"
           : "text-navy-600";

@@ -612,7 +612,7 @@ function LogicModelCard({ model }: { model: LogicModel }) {
         <LogicRow label="Inputs" items={inputs} color="bg-sky-50 text-sky-700" />
         <LogicRow label="Activities" items={activities} color="bg-teal-50 text-teal-700" />
         <LogicRow label="Outputs" items={outputs} color="bg-green-50 text-green-700" />
-        <LogicRow label="Outcomes" items={outcomes} color="bg-purple-50 text-purple-700" />
+        <LogicRow label="Outcomes" items={outcomes} color="bg-info-bg text-info-text" />
         <LogicRow label="Impact" items={impact} color="bg-amber-50 text-amber-700" />
       </div>
     </Card>
@@ -660,9 +660,9 @@ function RubricDimensionCard({ dimension }: { dimension: RubricDimension }) {
           {dimension.name ?? "Unnamed dimension"}
         </p>
         {dimension.max_points != null && (
-          <span className="shrink-0 rounded-full bg-teal-50 px-2 py-0.5 text-xs font-semibold text-teal-700">
+          <Badge variant="info" className="shrink-0 font-semibold">
             {dimension.max_points} pts
-          </span>
+          </Badge>
         )}
       </div>
       {dimension.description && (

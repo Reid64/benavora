@@ -352,12 +352,9 @@ export default function WebhooksPage() {
                         const label =
                           ALL_EVENTS.find((e) => e.key === ev)?.label ?? ev;
                         return (
-                          <span
-                            key={ev}
-                            className="rounded-full bg-navy-50 px-2 py-0.5 text-xs text-navy-600"
-                          >
+                          <Badge key={ev} variant="neutral">
                             {label}
-                          </span>
+                          </Badge>
                         );
                       })}
                     </div>

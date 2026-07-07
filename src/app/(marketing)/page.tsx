@@ -8,9 +8,9 @@ import { useEffect, useRef } from "react";
 // inline <script> is injected once after mount so its querySelectors find DOM.
 
 const CSS = `*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Inter',-apple-system,sans-serif;background:#0a0a1a;color:#e2e8f0;overflow-x:hidden}
-a{color:#a78bfa;text-decoration:none}
-a:hover{color:#c4b5fd}
+body{font-family:'Inter',-apple-system,sans-serif;background:var(--color-sidebar);color:#e2e8f0;overflow-x:hidden}
+a{color:var(--color-accent);text-decoration:none}
+a:hover{color:#33c2e0}
 .container{max-width:1200px;margin:0 auto;padding:0 24px}
 
 /* Nav */
@@ -19,23 +19,23 @@ nav img{height:36px}
 .nav-links{display:flex;gap:32px;align-items:center}
 .nav-links a{font-size:14px;color:#94a3b8;transition:color 200ms}
 .nav-links a:hover{color:#e2e8f0}
-.btn-primary{padding:14px 32px;border-radius:10px;border:none;background:#f97316;color:#fff;font-size:15px;font-weight:600;cursor:pointer;transition:all 200ms}
-.btn-primary:hover{background:#ea580c;transform:translateY(-1px)}
+.btn-primary{padding:14px 32px;border-radius:10px;border:none;background:var(--color-primary);color:#fff;font-size:15px;font-weight:600;cursor:pointer;transition:all 200ms}
+.btn-primary:hover{background:var(--color-cta-hover);transform:translateY(-1px)}
 .btn-sm{padding:10px 24px;font-size:14px}
-.btn-secondary{padding:14px 32px;border-radius:10px;border:2px solid #7c3aed;background:transparent;color:#a78bfa;font-size:15px;font-weight:600;cursor:pointer;transition:all 200ms}
-.btn-secondary:hover{background:#7c3aed22}
+.btn-secondary{padding:14px 32px;border-radius:10px;border:2px solid var(--color-primary);background:transparent;color:var(--color-accent);font-size:15px;font-weight:600;cursor:pointer;transition:all 200ms}
+.btn-secondary:hover{background:rgba(0,119,182,0.13)}
 
 /* Hero */
 .hero{position:relative;text-align:center;padding:100px 24px 60px;max-width:900px;margin:0 auto}
-.hero::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:800px;height:800px;background:radial-gradient(circle,#7c3aed15 0%,transparent 70%);pointer-events:none}
-.hero h1{font-size:54px;font-weight:800;line-height:1.08;margin-bottom:20px;background:linear-gradient(135deg,#7c3aed,#a78bfa,#f97316);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hero::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:800px;height:800px;background:radial-gradient(circle,rgba(0,119,182,0.08) 0%,transparent 70%);pointer-events:none}
+.hero h1{font-size:54px;font-weight:800;line-height:1.08;margin-bottom:20px;background:linear-gradient(135deg,var(--color-primary),var(--color-accent),var(--color-primary));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 .hero p{font-size:19px;color:#94a3b8;max-width:660px;margin:0 auto 36px;line-height:1.65}
 .hero-cta{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
 
 /* Stats */
 .stats{display:flex;justify-content:center;gap:64px;padding:48px 24px 72px;flex-wrap:wrap}
 .stat{text-align:center}
-.stat-num{font-size:40px;font-weight:800;background:linear-gradient(135deg,#f97316,#fb923c);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.stat-num{font-size:40px;font-weight:800;background:linear-gradient(135deg,var(--color-primary),var(--color-accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 .stat-label{font-size:13px;color:#64748b;margin-top:4px;letter-spacing:0.5px}
 
 /* How it works */
@@ -43,10 +43,10 @@ nav img{height:36px}
 .how-section h2{text-align:center;font-size:36px;font-weight:700;margin-bottom:48px}
 .how-grid{display:grid;grid-template-columns:1fr 40px 1fr 40px 1fr;align-items:center;max-width:1000px;margin:0 auto;gap:0}
 .how-step{background:#1a1a2e;border-radius:16px;padding:32px 28px;border:1px solid #2a2a4a;text-align:center}
-.how-num{width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#a78bfa);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;margin:0 auto 16px;color:#fff}
+.how-num{width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,var(--color-primary),var(--color-accent));display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;margin:0 auto 16px;color:#fff}
 .how-step h3{font-size:18px;font-weight:600;margin-bottom:8px}
 .how-step p{font-size:13px;color:#94a3b8;line-height:1.5}
-.how-arrow{text-align:center;color:#7c3aed;font-size:24px}
+.how-arrow{text-align:center;color:var(--color-primary);font-size:24px}
 
 /* Section headers */
 .sh{text-align:center;padding:60px 24px 40px}
@@ -56,7 +56,7 @@ nav img{height:36px}
 /* Two tools */
 .tools{display:grid;grid-template-columns:1fr 1fr;gap:28px;padding:0 24px 40px;max-width:1200px;margin:0 auto}
 .tool{background:#1a1a2e;border-radius:16px;padding:36px 32px;border:1px solid #2a2a4a;transition:border-color 300ms}
-.tool:hover{border-color:#7c3aed55}
+.tool:hover{border-color:rgba(0,119,182,0.33)}
 .tool-badge{display:inline-block;font-size:11px;font-weight:600;padding:5px 14px;border-radius:9999px;margin-bottom:16px}
 .tool h3{font-size:24px;font-weight:700;margin-bottom:10px}
 .tool>p{font-size:15px;color:#94a3b8;line-height:1.65;margin-bottom:20px}
@@ -67,7 +67,7 @@ nav img{height:36px}
 /* ===== REALISTIC LAPTOP ANIMATION ===== */
 .anim-wrap{max-width:1200px;margin:0 auto;padding:0 24px 80px}
 .anim-container{background:#0f0f23;border-radius:20px;padding:48px 32px;border:1px solid #1e1e38;position:relative;overflow:hidden}
-.anim-container::before{content:'';position:absolute;top:-100px;left:50%;transform:translateX(-50%);width:600px;height:400px;background:radial-gradient(ellipse,#7c3aed10,transparent 70%);pointer-events:none}
+.anim-container::before{content:'';position:absolute;top:-100px;left:50%;transform:translateX(-50%);width:600px;height:400px;background:radial-gradient(ellipse,rgba(0,119,182,0.06),transparent 70%);pointer-events:none}
 .anim-title{text-align:center;font-size:14px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:2px;margin-bottom:32px}
 
 
@@ -105,7 +105,7 @@ nav img{height:36px}
 .rform-field{margin-bottom:5px}
 .rform-label{font-size:7px;color:#666;margin-bottom:1px;font-weight:600}
 .rform-input{height:16px;border:1px solid #ddd;border-radius:2px;background:#fafafa;font-size:8px;color:#333;padding:0 6px;line-height:16px;overflow:hidden;white-space:nowrap;width:100%;display:block}
-.rform-input.typing{border-color:#7c3aed;background:#f8f5ff}
+.rform-input.typing{border-color:var(--color-primary);background:#eaf6fb}
 .rform-input.done{border-color:#22c55e;background:#f0fdf4}
 .rform-submit{margin-top:8px;padding:4px 0;background:#e5e7eb;color:#9ca3af;font-size:7px;font-weight:600;text-align:center;border-radius:2px;transition:all 0.3s}
 .rform-submit.active{background:#22c55e;color:#fff;cursor:pointer}
@@ -120,15 +120,15 @@ nav img{height:36px}
 .counter-item{text-align:center}
 .counter-num{font-size:38px;font-weight:800}
 .counter-num.submitted{color:#22c55e}
-.counter-num.pending{color:#f97316}
-.counter-num.confirmed{color:#a78bfa}
+.counter-num.pending{color:var(--color-primary)}
+.counter-num.confirmed{color:var(--color-accent)}
 .counter-label{font-size:12px;font-weight:600;color:#64748b;margin-top:2px;text-transform:uppercase;letter-spacing:1px}
 .counter-period{text-align:center;font-size:11px;color:#475569;margin-top:12px}
 
 /* Bento features */
 .bento{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:auto;gap:20px;max-width:1200px;margin:0 auto;padding:0 24px 80px}
 .bento-card{background:#1a1a2e;border-radius:14px;padding:28px 24px;border:1px solid #2a2a4a;transition:all 300ms}
-.bento-card:hover{border-color:#7c3aed44;transform:translateY(-2px)}
+.bento-card:hover{border-color:rgba(0,119,182,0.27);transform:translateY(-2px)}
 .bento-card.large{grid-column:span 2;display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:center}
 .bento-card.large .bento-visual{background:#0f0f23;border-radius:10px;height:160px;display:flex;align-items:center;justify-content:center;border:1px solid #1e1e38}
 .bento-icon{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;margin-bottom:14px;flex-shrink:0}
@@ -139,13 +139,13 @@ nav img{height:36px}
 /* Pricing */
 .billing-toggle{display:inline-flex;background:#1a1a2e;border-radius:9999px;padding:4px;margin-bottom:48px}
 .billing-toggle button{padding:10px 24px;border-radius:9999px;border:none;cursor:pointer;font-size:14px;font-weight:500;transition:all 200ms;font-family:inherit}
-.bt-active{background:#7c3aed;color:#fff}
+.bt-active{background:var(--color-primary);color:#fff}
 .bt-inactive{background:transparent;color:#94a3b8}
 .pricing-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;max-width:1200px;margin:0 auto;padding:0 24px 80px}
 .price-card{background:#1a1a2e;border-radius:16px;padding:32px;border:1px solid #2a2a4a;display:flex;flex-direction:column;position:relative;transition:all 300ms}
-.price-card:hover{border-color:#7c3aed55}
-.price-card.feat{border:2px solid #7c3aed}
-.card-badge{position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:#7c3aed;color:#fff;font-size:11px;font-weight:600;padding:4px 16px;border-radius:9999px;white-space:nowrap}
+.price-card:hover{border-color:rgba(0,119,182,0.33)}
+.price-card.feat{border:2px solid var(--color-primary)}
+.card-badge{position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:var(--color-primary);color:#fff;font-size:11px;font-weight:600;padding:4px 16px;border-radius:9999px;white-space:nowrap}
 .price-card h3{font-size:22px;font-weight:600;margin-bottom:6px}
 .price-card .desc{font-size:13px;color:#94a3b8;margin-bottom:20px;min-height:40px}
 .price{font-size:44px;font-weight:700}
@@ -163,14 +163,14 @@ nav img{height:36px}
 .faq-item{background:#1a1a2e;border-radius:12px;margin-bottom:12px;border:1px solid #2a2a4a;overflow:hidden}
 .faq-q{width:100%;padding:18px 20px;background:transparent;border:none;color:#e2e8f0;font-size:15px;font-weight:500;text-align:left;cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-family:inherit}
 .faq-q:hover{background:#1e1e38}
-.faq-tog{color:#7c3aed;font-size:22px;transition:transform 200ms}
+.faq-tog{color:var(--color-primary);font-size:22px;transition:transform 200ms}
 .faq-a{padding:0 20px 18px;font-size:14px;color:#94a3b8;line-height:1.7;display:none}
 .faq-item.open .faq-a{display:block}
 .faq-item.open .faq-tog{transform:rotate(45deg)}
 
 /* Bottom CTA */
 .bottom-cta{text-align:center;padding:80px 24px;background:#0f0f23;position:relative}
-.bottom-cta::before{content:'';position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:600px;height:400px;background:radial-gradient(ellipse,#f9731610,transparent 70%);pointer-events:none}
+.bottom-cta::before{content:'';position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:600px;height:400px;background:radial-gradient(ellipse,rgba(0,119,182,0.06),transparent 70%);pointer-events:none}
 .bottom-cta h2{font-size:36px;font-weight:700;margin-bottom:12px}
 .bottom-cta p{font-size:16px;color:#94a3b8;margin-bottom:36px}
 footer{text-align:center;padding:40px 24px;font-size:12px;color:#475569}
@@ -249,7 +249,7 @@ const BODY = `
 </div>
 <div class="tools container">
   <div class="tool">
-    <span class="tool-badge" style="background:#7c3aed22;color:#a78bfa">AI-Assisted</span>
+    <span class="tool-badge" style="background:rgba(0,180,216,0.13);color:var(--color-accent)">AI-Assisted</span>
     <h3>Grant Application Pipeline</h3>
     <p>AI-drafted narratives, budgets, and compliance packages for federal, state, and foundation grants. You review and approve — the system handles the heavy lifting.</p>
     <ul>
@@ -262,8 +262,8 @@ const BODY = `
       <li>Human review checkpoint on every submission</li>
     </ul>
   </div>
-  <div class="tool" style="border-color:#f9731644">
-    <span class="tool-badge" style="background:#f9731622;color:#f97316">Fully Autonomous</span>
+  <div class="tool" style="border-color:rgba(0,119,182,0.27)">
+    <span class="tool-badge" style="background:rgba(0,119,182,0.13);color:var(--color-primary)">Fully Autonomous</span>
     <h3>AutoApply Engine</h3>
     <p>AI-powered browser automation visits corporate giving portals, analyzes forms, fills them with your org data, and submits donation requests — hundreds per night, zero manual work.</p>
     <ul>
@@ -294,15 +294,15 @@ const BODY = `
           <div class="claptop-bezel">
             <div class="claptop-cam"></div>
             <div class="claptop-screen">
-              <div style="background:linear-gradient(135deg,#7c3aed,#5b21b6);padding:8px 12px;border-radius:4px 4px 0 0;display:flex;align-items:center;gap:6px">
+              <div style="background:linear-gradient(135deg,var(--color-primary),#005f92);padding:8px 12px;border-radius:4px 4px 0 0;display:flex;align-items:center;gap:6px">
                 <img src="data:image/png;base64,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" alt="Benavora" style="height:40px"><span style="font-size:13px;font-weight:700;color:#fff;display:none">benavora</span>
-                <div style="margin-left:auto;font-size:7px;color:#c4b5fd">AutoApply Queue</div>
+                <div style="margin-left:auto;font-size:7px;color:#a3e9f7">AutoApply Queue</div>
               </div>
               <div style="padding:8px;font-size:7px;color:#94a3b8">
                 <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:#22c55e;font-weight:600">● Live</span><span>4 active</span></div>
                 <div class="q-row" style="background:#16a34a22;border-left:2px solid #22c55e;padding:3px 6px;margin-bottom:3px;border-radius:2px;color:#22c55e;font-size:6px">Target Corp — Submitting...</div>
-                <div class="q-row" style="background:#f9731622;border-left:2px solid #f97316;padding:3px 6px;margin-bottom:3px;border-radius:2px;color:#f97316;font-size:6px">Home Depot — Filling form...</div>
-                <div class="q-row" style="background:#f9731622;border-left:2px solid #f97316;padding:3px 6px;margin-bottom:3px;border-radius:2px;color:#f97316;font-size:6px">Lowe's — Analyzing form...</div>
+                <div class="q-row" style="background:rgba(0,119,182,0.13);border-left:2px solid var(--color-primary);padding:3px 6px;margin-bottom:3px;border-radius:2px;color:var(--color-primary);font-size:6px">Home Depot — Filling form...</div>
+                <div class="q-row" style="background:rgba(0,119,182,0.13);border-left:2px solid var(--color-primary);padding:3px 6px;margin-bottom:3px;border-radius:2px;color:var(--color-primary);font-size:6px">Lowe's — Analyzing form...</div>
                 <div class="q-row" style="background:#64748b22;border-left:2px solid #64748b;padding:3px 6px;margin-bottom:3px;border-radius:2px;color:#64748b;font-size:6px">Wells Fargo — Queued</div>
                 <div class="q-row" style="background:#64748b22;border-left:2px solid #64748b;padding:3px 6px;margin-bottom:3px;border-radius:2px;color:#64748b;font-size:6px">Bank of America — Queued</div>
               </div>
@@ -321,7 +321,7 @@ const BODY = `
     <!-- Connection lines SVG overlay -->
     <svg style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0" id="connSvg">
       <defs>
-        <linearGradient id="lineGrad" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#7c3aed" stop-opacity="0.1"/><stop offset="50%" stop-color="#7c3aed" stop-opacity="0.4"/><stop offset="100%" stop-color="#7c3aed" stop-opacity="0.1"/></linearGradient>
+        <linearGradient id="lineGrad" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#0077B6" stop-opacity="0.1"/><stop offset="50%" stop-color="#0077B6" stop-opacity="0.4"/><stop offset="100%" stop-color="#0077B6" stop-opacity="0.1"/></linearGradient>
       </defs>
     </svg>
 
@@ -341,14 +341,14 @@ const BODY = `
   <!-- Row 1: Large AI Draft + Smart Discovery -->
   <div class="bento-card large">
     <div>
-      <div class="bento-icon" style="background:#7c3aed22"><svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
+      <div class="bento-icon" style="background:rgba(0,180,216,0.13)"><svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
       <h4>AI Draft Generation with Humanizer</h4>
       <p>Tailored grant narratives built from your Knowledge Base and proven winning patterns. Confidence scoring tells you exactly what needs attention. Drafts improve with every funded outcome through recursive learning.</p>
     </div>
     <div class="bento-visual"><div style="text-align:center"><div style="font-size:48px;font-weight:800;background:linear-gradient(135deg,#22c55e,#4ade80);-webkit-background-clip:text;-webkit-text-fill-color:transparent">88%</div><div style="font-size:12px;color:#64748b;margin-top:4px">Confidence Score</div><div style="width:160px;height:6px;background:#1e1e38;border-radius:3px;margin:12px auto 0;overflow:hidden"><div style="width:88%;height:100%;background:linear-gradient(90deg,#22c55e,#4ade80);border-radius:3px"></div></div></div></div>
   </div>
   <div class="bento-card">
-    <div class="bento-icon" style="background:#f9731622"><svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
+    <div class="bento-icon" style="background:rgba(0,119,182,0.13)"><svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
     <h4>Smart Discovery</h4>
     <p>Research agents scan Grants.gov, SAM.gov, state agencies, and foundation databases around the clock. Opportunities scored and delivered to your dashboard.</p>
   </div>
@@ -364,18 +364,18 @@ const BODY = `
     <p>Federal grant PDFs downloaded, stored, and parsed. Eligibility, deadlines, and amounts extracted automatically and viewable inline.</p>
   </div>
   <div class="bento-card">
-    <div class="bento-icon" style="background:#a78bfa22"><svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg></div>
+    <div class="bento-icon" style="background:rgba(0,180,216,0.13)"><svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="2"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg></div>
     <h4>Document Management</h4>
     <p>Tax letters, 990s, and program docs organized and auto-pulled when assembling application packages.</p>
   </div>
   <!-- Row 3: Large AutoApply + Deadline -->
   <div class="bento-card large">
     <div>
-      <div class="bento-icon" style="background:#f9731622"><svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div>
+      <div class="bento-icon" style="background:rgba(0,119,182,0.13)"><svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div>
       <h4>AutoApply Automation</h4>
       <p>Queue corporate giving portals. The AI-powered browser engine analyzes forms, fills fields with your org data, uploads documents, captures screenshots, and submits — hundreds per night while you sleep.</p>
     </div>
-    <div class="bento-visual"><div style="text-align:center"><div style="font-size:14px;color:#f97316;font-weight:600;margin-bottom:8px">Tonight's Queue</div><div style="display:flex;gap:8px;justify-content:center"><div style="width:12px;height:40px;background:#22c55e;border-radius:2px;opacity:0.8"></div><div style="width:12px;height:32px;background:#22c55e;border-radius:2px;opacity:0.7;margin-top:8px"></div><div style="width:12px;height:36px;background:#22c55e;border-radius:2px;opacity:0.75;margin-top:4px"></div><div style="width:12px;height:28px;background:#f97316;border-radius:2px;opacity:0.6;margin-top:12px"></div><div style="width:12px;height:20px;background:#64748b;border-radius:2px;opacity:0.4;margin-top:20px"></div><div style="width:12px;height:16px;background:#64748b;border-radius:2px;opacity:0.3;margin-top:24px"></div></div><div style="font-size:10px;color:#64748b;margin-top:8px">■ Submitted ■ Processing ■ Queued</div></div></div>
+    <div class="bento-visual"><div style="text-align:center"><div style="font-size:14px;color:var(--color-primary);font-weight:600;margin-bottom:8px">Tonight's Queue</div><div style="display:flex;gap:8px;justify-content:center"><div style="width:12px;height:40px;background:#22c55e;border-radius:2px;opacity:0.8"></div><div style="width:12px;height:32px;background:#22c55e;border-radius:2px;opacity:0.7;margin-top:8px"></div><div style="width:12px;height:36px;background:#22c55e;border-radius:2px;opacity:0.75;margin-top:4px"></div><div style="width:12px;height:28px;background:var(--color-primary);border-radius:2px;opacity:0.6;margin-top:12px"></div><div style="width:12px;height:20px;background:#64748b;border-radius:2px;opacity:0.4;margin-top:20px"></div><div style="width:12px;height:16px;background:#64748b;border-radius:2px;opacity:0.3;margin-top:24px"></div></div><div style="font-size:10px;color:#64748b;margin-top:8px">■ Submitted ■ Processing ■ Queued</div></div></div>
   </div>
   <div class="bento-card">
     <div class="bento-icon" style="background:#ec489922"><svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="#ec4899" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
@@ -448,7 +448,7 @@ const BODY = `
 
 <!-- Agency CTA -->
 <div style="max-width:800px;margin:0 auto;padding:0 24px 80px;text-align:center">
-  <div style="background:#1a1a2e;border-radius:16px;padding:40px 32px;border:1px solid #f9731644">
+  <div style="background:#1a1a2e;border-radius:16px;padding:40px 32px;border:1px solid rgba(0,119,182,0.27)">
     <h3 style="font-size:22px;margin-bottom:8px">Managing Multiple Nonprofits?</h3>
     <p style="font-size:15px;color:#94a3b8;margin-bottom:24px">Our Consultant tier gives you multi-tenant management, full autonomous AutoApply, and white-label options. Built for grant writing firms operating at scale.</p>
     <a href="/for-consultants"><button class="btn-primary">Learn About Agency Pricing →</button></a>

@@ -15,7 +15,7 @@ import {
   Users,
 } from "lucide-react";
 
-import { Button, Card, LoadingSpinner } from "@/components/ui";
+import { Badge, Button, Card, LoadingSpinner } from "@/components/ui";
 import type { RelatedIntelligence, SearchResult } from "@/lib/intelligence/unified-search";
 
 type BriefingResponse = {
@@ -166,9 +166,9 @@ function CollapsibleSection({
                     <span className="text-sm font-medium text-navy-800">
                       {item.title}
                     </span>
-                    <span className="shrink-0 rounded-full bg-teal-50 px-2 py-0.5 text-xs font-medium text-teal-700">
+                    <Badge variant="info" className="shrink-0">
                       {Math.round(item.relevance_score * 100)}%
-                    </span>
+                    </Badge>
                   </div>
                   {item.excerpt && (
                     <p className="text-xs leading-relaxed text-navy-500">

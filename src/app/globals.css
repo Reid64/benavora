@@ -21,43 +21,59 @@
 
 /* ── Semantic design tokens ─────────────────────────────────────────────────── */
 :root {
-  /* Surface stack */
-  --color-page: #f8fafc;
+  /* Canonical layered palette — tailwind.config.ts colors MUST reference these
+     same variables, never restate the literal hex, so the two files can't drift. */
+  --color-background: #eef2f7;
   --color-surface: #ffffff;
-  --color-surface-elevated: #eff6ff;
-
-  /* Borders */
+  --color-surface-raised: #f8fafc;
+  --color-sidebar: #0b1220;
+  --color-sidebar-active: rgba(0, 180, 216, 0.12);
+  --color-primary: #0077b6;
+  --color-accent: #00b4d8;
+  --color-text: #0f172a;
+  --color-text-muted: #475569;
   --color-border: #e2e8f0;
+
+  /* Semantic status pairs — bg is always the light tint, text the 700-level
+     of the same hue (≥4.5:1 contrast on the paired bg). Used by <Badge>. */
+  --color-success-bg: #dcfce7;
+  --color-success-text: #15803d;
+  --color-warning-bg: #fef3c7;
+  --color-warning-text: #b45309;
+  --color-error-bg: #fee2e2;
+  --color-error-text: #b91c1c;
+  --color-info-bg: #e0f2fe;
+  --color-info-text: #0369a1;
+
+  /* ── Legacy aliases — existing classes/CSS keep working, now sourced from
+     the canonical tokens above so there is exactly one place values live. */
+  --color-page: var(--color-background);
+  --color-surface-elevated: var(--color-surface-raised);
   --color-border-hover: #cbd5e1;
 
-  /* Text */
-  --color-text-primary: #0f172a;
+  --color-text-primary: var(--color-text);
   --color-text-secondary: #334155;
-  --color-text-muted: #64748b;
 
-  /* Brand */
-  --color-accent: #0077b6;
   --color-accent-hover: #005f92;
-  --color-secondary: #00b4d8;
+  --color-secondary: var(--color-accent);
   --color-secondary-hover: #0093ac;
 
   /* CTA gradient (secondary → primary) */
-  --color-cta-from: #00b4d8;
-  --color-cta-to: #0077b6;
-  --color-cta: #0077b6;
+  --color-cta-from: var(--color-accent);
+  --color-cta-to: var(--color-primary);
+  --color-cta: var(--color-primary);
   --color-cta-hover: #005f92;
 
-  /* Sidebar (deep navy, stays dark against the light theme) */
-  --color-sidebar: #0f172a;
   --color-sidebar-text: #f8fafc;
   --color-sidebar-border: rgba(248, 250, 252, 0.08);
   --color-sidebar-hover: rgba(248, 250, 252, 0.06);
 
-  /* Status */
+  /* Status (solid-color uses — buttons, dots — distinct from the bg/text
+     tint pairs above) */
   --color-danger: #dc2626;
   --color-danger-hover: #b91c1c;
   --color-warning: #d97706;
-  --color-info: #00b4d8;
+  --color-info: var(--color-accent);
 
   /* Legacy aliases for existing var(--background) / var(--foreground) usage */
   --background: var(--color-page);
@@ -117,7 +133,7 @@ h6 {
 a:focus-visible,
 [tabindex]:focus-visible,
 summary:focus-visible {
-  outline: 2px solid var(--color-accent);
+  outline: 2px solid var(--color-primary);
   outline-offset: 2px;
   border-radius: 4px;
 }
@@ -218,7 +234,7 @@ input:focus,
 select:focus,
 textarea:focus {
   outline: none;
-  border-color: var(--color-accent);
+  border-color: var(--color-primary);
   box-shadow: 0 0 0 2px rgba(0, 119, 182, 0.18);
 }
 input::placeholder,
@@ -570,5 +586,5 @@ textarea {
 }
 .text-blue-700,
 .text-blue-800 {
-  color: var(--color-accent) !important;
+  color: var(--color-primary) !important;
 }

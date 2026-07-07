@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { Building2, CalendarClock, Clock } from "lucide-react";
 
+import { Badge } from "@/components/ui/Badge";
 import { formatCurrency, formatDate } from "@/lib/utils/formatters";
 import {
   daysInStage,
@@ -95,18 +96,10 @@ export function ApplicationCard({
 }
 
 function ProbabilityBadge({ score }: { score: number }) {
-  const color =
-    score >= 70
-      ? "bg-green-100 text-green-700"
-      : score >= 40
-        ? "bg-yellow-100 text-yellow-700"
-        : "bg-red-100 text-red-700";
+  const variant = score >= 70 ? "success" : score >= 40 ? "warning" : "error";
   return (
-    <span
-      className={`rounded-full px-2 py-0.5 text-xs font-medium ${color}`}
-      title="Success probability"
-    >
-      {score}%
+    <span title="Success probability">
+      <Badge variant={variant}>{score}%</Badge>
     </span>
   );
 }

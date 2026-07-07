@@ -1,7 +1,68 @@
 # BENAVORA — SESSION STATE
 ## Last updated: 2026-07-07
 ## Current branch: main
-## Last commit: ed302f4 (design: replace podcast theme with benavora brand system)
+## Last commit: design: unified token system, layered palette, Badge component
+
+---
+
+## COMPLETED — July 7 design system unification pass
+
+Full token + component pass across the app (supersedes the reverted `ed302f4`
+podcast-theme commit — built fresh this time, not reapplied).
+
+**Token layer** (`src/app/globals.css` + `tailwind.config.ts`, kept in agreement —
+Tailwind color keys read the same CSS custom properties, no value is restated):
+`background` #EEF2F7, `surface` #FFFFFF, `surface-raised` #F8FAFC, `sidebar` #0B1220,
+`sidebar-active` rgba(0,180,216,0.12), `primary` #0077B6, `accent` #00B4D8, `text` #0F172A,
+`text-muted` #475569, `border` #E2E8F0, plus semantic pairs `success`/`warning`/`error`/`info`
+(light bg tint + 700-level text of the same hue, ≥4.5:1 contrast). Legacy CSS var names
+(`--color-page`, `--color-surface-elevated`, `--color-accent` formerly = navy not cyan, etc.)
+now alias the canonical tokens instead of restating literal hex, so there's one source of
+truth. Fixed a real bug found along the way: `--color-accent` used to equal the navy
+primary (#0077b6); several rules (`:focus-visible` outline, input focus border, the
+`.text-blue-700/800` compat rule) depended on that and were repointed to the new
+`--color-primary` to avoid a low-contrast cyan-on-white regression.
+
+**`src/components/ui/Badge.tsx`** rewritten as the only pill/badge implementation — a
+`variant` prop (`success`/`warning`/`error`/`info`/`neutral`) selects the token pair. Kept
+the legacy `color` prop (13 names) as an internal alias so none of the ~80 existing call
+sites needed to change; every color name resolves to one of the five variants, so no raw
+hue class can leak through anymore. The old implementation was dark-theme leftovers
+(`bg-teal-400/15 text-teal-200` etc.) — `text-teal-200` on a white page background was
+functionally invisible; this was a real, live bug across every badge in the app.
+
+**~30 files** had hand-rolled inline pill `<span>`s (status pills, score/match-% pills like
+the "0% match" badges, removable filter chips) converted to `<Badge>`, preserving every
+threshold/status-mapping function exactly — only the rendering wrapper changed.
+
+**Purple/orange/plum/emerald hue classes and the 5 listed hardcoded hex codes** (`#7C3AED`,
+`#A78BFA`, `#F97316`, `#0a0a1a`, plus branding.ts defaults) removed from ~40 more files,
+including the marketing landing page's inline `<style>` block (~33 raw hex occurrences,
+including alpha-suffixed shorthand converted to `rgba()`).
+
+**Sidebar** (`src/components/layout/Sidebar.tsx`): bg `#0B1220` (was a semi-transparent
+`bg-ink-900/80`), inactive `text-slate-400`, hover `text-white`, active `text-accent` +
+`bg-sidebar-active`. **`MetricCard`**: swapped the dark-theme `shadow-card` (designed for a
+dark bg) for `shadow-sm`, `border-navy-100`→`border-border`, values now `text-text` — was
+previously always going to read fine since `border-navy-100` aliased to a safe rgba, but the
+card was never actually reviewed against the token system until now.
+
+**Scope decision**: left `teal-*` Tailwind classes untouched app-wide (508 occurrences,
+129 files) — user call, made explicit before the pass. `teal-500`/`600` are numerically
+identical to the new `accent`/`accent-hover` tokens already, and the `globals.css`
+compatibility layer already coerces `text-teal-600/700` to specific WCAG-safe hex; a blind
+mechanical replace risked contrast regressions across dozens of files with no way to
+visually re-verify each one in this pass. Tracked as follow-up debt, not fixed here.
+
+**Verification**: `pnpm tsc --noEmit` and `pnpm run build` both clean (234/234 static pages,
+zero errors) after the full pass.
+
+**Left uncommitted/unstaged, NOT part of this pass** — pre-existing in-progress feature work
+found already sitting in the working tree at the start of this session, unrelated to the
+design system: `src/app/(dashboard)/intelligence/recommendations/page.tsx` (org-summary-card
++ geography-filter feature; only its `ScoreBadge` pill was touched by this pass, split out
+via a partial-file stage so the rest stays uncommitted), `src/app/api/intelligence/recommendations/route.ts`,
+`src/lib/intelligence/evaluation-library.ts`, `supabase/migrations/060_grantmaker_profiles.sql`.
 
 ---
 

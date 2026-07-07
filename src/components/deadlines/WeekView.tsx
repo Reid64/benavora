@@ -9,7 +9,7 @@ import {
   startOfWeek,
 } from "date-fns";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { Button, Card } from "@/components/ui";
+import { Badge, Button, Card } from "@/components/ui";
 import { cn } from "@/lib/utils/cn";
 import { humanizeEnum } from "@/lib/utils/formatters";
 import {
@@ -149,9 +149,9 @@ export function WeekView({
                             <div className="text-xs opacity-75">
                               {humanizeEnum(d.deadline_type)}
                               {d.source === "renewal" && (
-                                <span className="ml-1.5 rounded-full bg-teal-100 px-1.5 py-0.5 text-teal-700">
+                                <Badge variant="info" className="ml-1.5">
                                   Renewal
-                                </span>
+                                </Badge>
                               )}
                             </div>
                           </div>

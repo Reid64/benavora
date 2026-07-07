@@ -29,7 +29,7 @@ const VARIANT_CLASSES: Record<ButtonVariant, string> = {
   secondary:
     "border border-white/15 bg-white/5 text-navy-100 backdrop-blur-sm hover:bg-white/10 hover:border-white/25 focus-visible:ring-teal-400",
   purple:
-    "bg-gradient-purple text-white shadow-glow-purple hover:brightness-110 focus-visible:ring-plum-400",
+    "bg-gradient-purple text-white shadow-glow-purple hover:brightness-110 focus-visible:ring-primary",
   danger:
     "border border-red-400/30 bg-red-500/90 text-white shadow-sm shadow-red-900/40 hover:bg-red-500 focus-visible:ring-red-400",
   ghost:

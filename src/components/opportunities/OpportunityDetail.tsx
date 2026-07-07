@@ -351,16 +351,12 @@ export function OpportunityDetail({ opportunityId }: OpportunityDetailProps) {
               >
                 {t.label}
                 {count != null && (
-                  <span
-                    className={
-                      "ml-2 rounded-full px-2 py-0.5 text-xs " +
-                      (active
-                        ? "bg-teal-100 text-teal-700"
-                        : "bg-navy-100 text-navy-600")
-                    }
+                  <Badge
+                    variant={active ? "info" : "neutral"}
+                    className="ml-2"
                   >
                     {count}
-                  </span>
+                  </Badge>
                 )}
               </button>
             );
@@ -466,10 +462,9 @@ export function OpportunityDetail({ opportunityId }: OpportunityDetailProps) {
   );
 }
 
-// Orange accent so the primary CTA stands out from the secondary/danger buttons.
-// Inline styles because cn() has no tailwind-merge and the Button variants target
-// the dark theme; orange-on-white reads cleanly regardless.
-const APPLY_CTA_STYLE = { backgroundColor: "#f97316", color: "#ffffff" } as const;
+// Inline styles (not Tailwind classes) because cn() has no tailwind-merge and the
+// Button variants target the dark theme; the brand primary reads cleanly on white.
+const APPLY_CTA_STYLE = { backgroundColor: "var(--color-primary)", color: "#ffffff" } as const;
 
 /**
  * Primary "Apply Now" CTA with lifecycle states. Precedence:

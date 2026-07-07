@@ -49,7 +49,7 @@ export function DocumentsStep({
             key={s.title}
             className="flex items-start gap-3 rounded-xl border border-navy-100 bg-white p-4 shadow-card"
           >
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-plum-50 text-plum-600">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/5 text-primary">
               <FileText className="h-5 w-5" aria-hidden />
             </span>
             <div>

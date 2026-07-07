@@ -10,6 +10,7 @@ import { AlertCircle, Lock, Target, TrendingUp, TrendingDown, Minus, RefreshCw }
 import { createClient } from "@/lib/supabase/client";
 import { useProfile } from "@/lib/hooks/useProfile";
 import { canEdit } from "@/lib/hooks/useProfile";
+import { Badge } from "@/components/ui/Badge";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -52,31 +53,31 @@ function competitionBadge(level: CompetitionLevel | null) {
   switch (level) {
     case "very_high":
       return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-700">
+        <Badge variant="error">
           <TrendingUp className="h-3 w-3" />
           Very High
-        </span>
+        </Badge>
       );
     case "high":
       return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-medium text-orange-700">
+        <Badge variant="warning">
           <TrendingUp className="h-3 w-3" />
           High
-        </span>
+        </Badge>
       );
     case "low":
       return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700">
+        <Badge variant="success">
           <TrendingDown className="h-3 w-3" />
           Low
-        </span>
+        </Badge>
       );
     default:
       return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
+        <Badge variant="neutral">
           <Minus className="h-3 w-3" />
           Unknown
-        </span>
+        </Badge>
       );
   }
 }

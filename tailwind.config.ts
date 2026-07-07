@@ -3,13 +3,19 @@ import type { Config } from "tailwindcss";
 /**
  * Benavora brand theme.
  *
- * Palette:
- *  - Semantic charcoal dark mode (page / surface / surface-elevated / border)
- *  - navy   — legacy color scale kept for compatibility with existing pages
- *  - teal   — legacy accent scale
- *  - plum   — legacy purple scale
- *  - accent purple (#7c3aed) — primary UI accent
- *  - cta (#10b981) — emerald green for primary action buttons
+ * Canonical layered palette (agrees with the CSS custom properties in
+ * src/app/globals.css — both files read from the same values, never restate
+ * a literal hex twice):
+ *  - background #EEF2F7 / surface #FFFFFF / surface-raised #F8FAFC
+ *  - sidebar #0B1220, sidebar-active rgba(0,180,216,0.12)
+ *  - primary #0077B6 (cta), accent #00B4D8
+ *  - text #0F172A, text-muted #475569, border #E2E8F0
+ *  - semantic pairs: success/warning/error/info, each a light bg tint + a
+ *    700-level text of the same hue (see <Badge>)
+ *
+ * Legacy scales below (page/surface-elevated/navy/teal/plum) are kept for
+ * compatibility with existing class names — they alias the canonical tokens
+ * above rather than restating values.
  */
 const config: Config = {
   darkMode: "class",
@@ -24,6 +30,29 @@ const config: Config = {
         background: "var(--background)",
         foreground: "var(--foreground)",
 
+        // ── Canonical layered palette ──────────────────────────────────────────
+        // Sourced from the SAME CSS custom properties defined in globals.css —
+        // the two files must agree, so nothing here restates a literal hex.
+        "surface-raised": "var(--color-surface-raised)",
+        sidebar: "var(--color-sidebar)",
+        "sidebar-active": "var(--color-sidebar-active)",
+        primary: {
+          DEFAULT: "var(--color-primary)",
+          hover: "var(--color-cta-hover)",
+        },
+        text: "var(--color-text)",
+
+        // ── Semantic status pairs — bg is the light tint, text is the 700-level
+        // of the same hue. Consumed by <Badge>; do not use raw hue classes.
+        "success-bg": "var(--color-success-bg)",
+        "success-text": "var(--color-success-text)",
+        "warning-bg": "var(--color-warning-bg)",
+        "warning-text": "var(--color-warning-text)",
+        "error-bg": "var(--color-error-bg)",
+        "error-text": "var(--color-error-text)",
+        "info-bg": "var(--color-info-bg)",
+        "info-text": "var(--color-info-text)",
+
         // ── Semantic charcoal tokens ──────────────────────────────────────────
         // Used as: bg-page, bg-surface, bg-surface-elevated, border-border, etc.
         page: "var(--color-page)",
@@ -37,16 +66,16 @@ const config: Config = {
 
         // ── Action / state colors ─────────────────────────────────────────────
         accent: {
-          DEFAULT: "#7c3aed",
-          hover: "#6d28d9",
+          DEFAULT: "var(--color-accent)",
+          hover: "var(--color-secondary-hover)",
           blue: "#3b82f6",
-          indigo: "#6366f1",
-          teal: "#2dd4bf",
-          purple: "#a855f7",
+          indigo: "#0077B6",
+          teal: "#00B4D8",
+          purple: "#0077B6",
         },
         cta: {
-          DEFAULT: "#10b981",
-          hover: "#059669",
+          DEFAULT: "var(--color-cta)",
+          hover: "var(--color-cta-hover)",
         },
         danger: {
           DEFAULT: "#ef4444",
@@ -70,34 +99,34 @@ const config: Config = {
           950: "#111a30",
         },
 
-        // ── Legacy teal scale ─────────────────────────────────────────────────
+        // ── Legacy teal scale — now a cyan ramp anchored on secondary #00B4D8 ──
         teal: {
-          50: "#eff9f7",
-          100: "#d4f0ea",
-          200: "#a9e1d7",
-          300: "#74cabd",
-          400: "#43b1a3",
-          500: "#2a9d8f",
-          600: "#23897c",
-          700: "#1e6e64",
-          800: "#1b5851",
-          900: "#194944",
-          950: "#0a2b28",
+          50: "#eafbfe",
+          100: "#d0f4fb",
+          200: "#a3e9f7",
+          300: "#6ddaef",
+          400: "#33c2e0",
+          500: "#00b4d8",
+          600: "#0093ac",
+          700: "#00748a",
+          800: "#045a6d",
+          900: "#0a4a59",
+          950: "#042e38",
         },
 
-        // ── Legacy plum scale ─────────────────────────────────────────────────
+        // ── Legacy plum scale — now a navy-blue ramp anchored on primary #0077B6 ──
         plum: {
-          50: "#faf3fb",
-          100: "#f2e2f5",
-          200: "#e6c6ec",
-          300: "#d29edd",
-          400: "#b566c8",
-          500: "#993fae",
-          600: "#7b2d8e",
-          700: "#652576",
-          800: "#531f61",
-          900: "#451b51",
-          950: "#2c0936",
+          50: "#eaf4fb",
+          100: "#cfe6f5",
+          200: "#9fcceb",
+          300: "#63ade0",
+          400: "#3690d1",
+          500: "#1f7bbd",
+          600: "#0077b6",
+          700: "#005f92",
+          800: "#004a72",
+          900: "#073456",
+          950: "#04202f",
         },
 
         // ── Legacy ink scale ──────────────────────────────────────────────────
@@ -133,25 +162,25 @@ const config: Config = {
 
       backgroundImage: {
         "gradient-brand":
-          "linear-gradient(135deg, #6366f1 0%, #3b82f6 45%, #2dd4bf 100%)",
-        "gradient-accent": "linear-gradient(135deg, #3b82f6 0%, #2dd4bf 100%)",
+          "linear-gradient(135deg, #00B4D8 0%, #0077B6 100%)",
+        "gradient-accent": "linear-gradient(135deg, #00B4D8 0%, #0077B6 100%)",
         "gradient-purple":
-          "linear-gradient(135deg, #a855f7 0%, #6366f1 100%)",
+          "linear-gradient(135deg, #0077B6 0%, #005F92 100%)",
         "gradient-cta":
-          "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+          "linear-gradient(135deg, #00B4D8 0%, #0077B6 100%)",
         "glow-radial":
-          "radial-gradient(60% 60% at 50% 0%, rgba(124,58,237,0.15) 0%, rgba(15,17,23,0) 70%)",
+          "radial-gradient(60% 60% at 50% 0%, rgba(0,180,216,0.15) 0%, rgba(15,17,23,0) 70%)",
       },
 
       boxShadow: {
         card: "0 4px 20px -8px rgba(0,0,0,0.6), inset 0 1px 0 0 rgba(255,255,255,0.03)",
         "card-hover":
           "0 8px 30px -10px rgba(0,0,0,0.7), inset 0 1px 0 0 rgba(255,255,255,0.05)",
-        glow: "0 0 0 1px rgba(16,185,129,0.3), 0 0 20px -4px rgba(16,185,129,0.35)",
+        glow: "0 0 0 1px rgba(0,119,182,0.3), 0 0 20px -4px rgba(0,119,182,0.35)",
         "glow-accent":
-          "0 0 0 1px rgba(124,58,237,0.3), 0 0 20px -4px rgba(124,58,237,0.35)",
+          "0 0 0 1px rgba(0,180,216,0.3), 0 0 20px -4px rgba(0,180,216,0.35)",
         "glow-blue":
-          "0 0 0 1px rgba(59,130,246,0.3), 0 0 20px -4px rgba(59,130,246,0.35)",
+          "0 0 0 1px rgba(0,180,216,0.3), 0 0 20px -4px rgba(0,180,216,0.35)",
       },
     },
   },

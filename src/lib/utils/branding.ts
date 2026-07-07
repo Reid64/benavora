@@ -14,9 +14,9 @@ export type BrandingSettings = {
 
 const DEFAULTS: BrandingSettings = {
   logo_url: "",
-  primary_color: "#0a0a1a",
+  primary_color: "#0077B6",
   secondary_color: "#1e40af",
-  accent_color: "#7c3aed",
+  accent_color: "#00B4D8",
   login_message: "",
   footer_text: "",
   email_from_name: "",

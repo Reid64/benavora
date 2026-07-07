@@ -270,7 +270,7 @@ export default function AutomationSettingsPage() {
                 oversight.
               </li>
               <li>
-                <span className="font-medium text-orange-700">
+                <span className="font-medium text-warning-text">
                   Manual Only
                 </span>{" "}
                 — No automation. AutoApply prepares the submission data (pitch,

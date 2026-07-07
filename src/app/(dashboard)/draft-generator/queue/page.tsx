@@ -1088,7 +1088,7 @@ function ActionButton({
     green: "bg-green-50 text-green-700 hover:bg-green-100 border-green-200",
     red: "bg-red-50 text-red-700 hover:bg-red-100 border-red-200",
     teal: "bg-teal-50 text-teal-700 hover:bg-teal-100 border-teal-200",
-    orange: "bg-orange-50 text-orange-700 hover:bg-orange-100 border-orange-200",
+    orange: "bg-warning-bg text-warning-text hover:bg-warning-bg/70 border-warning-text/20",
   };
 
   return (

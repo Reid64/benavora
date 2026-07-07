@@ -136,7 +136,7 @@ export default function PrivacyPage() {
           deletion of your data at any time by emailing{" "}
           <a
             href="mailto:support@benavora.com"
-            className="text-orange-400 hover:text-orange-300"
+            className="text-accent hover:text-accent/80"
           >
             support@benavora.com
           </a>
@@ -195,7 +195,7 @@ export default function PrivacyPage() {
           Questions about this policy or your data? Email{" "}
           <a
             href="mailto:support@benavora.com"
-            className="text-orange-400 hover:text-orange-300"
+            className="text-accent hover:text-accent/80"
           >
             support@benavora.com
           </a>

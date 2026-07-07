@@ -115,7 +115,7 @@ export default function RegisterPage() {
           aria-hidden
         />
         <div
-          className="pointer-events-none absolute -bottom-32 -left-16 h-96 w-96 rounded-full bg-plum-600/25 blur-3xl"
+          className="pointer-events-none absolute -bottom-32 -left-16 h-96 w-96 rounded-full bg-primary/25 blur-3xl"
           aria-hidden
         />
         <div className="relative z-10">
@@ -125,7 +125,7 @@ export default function RegisterPage() {
           <h1 className="text-4xl font-bold leading-tight tracking-tight">
             Fund More.{" "}
             <span className="text-teal-400">Do More.</span>{" "}
-            <span className="text-plum-400">Change More.</span>
+            <span className="text-accent">Change More.</span>
           </h1>
           <p className="mt-5 text-navy-200">
             Create your organization workspace in seconds. Discover
@@ -148,12 +148,12 @@ export default function RegisterPage() {
           {checkEmail ? (
             <div
               role="status"
-              className="rounded-lg border border-plum-200 bg-plum-50 px-5 py-6"
+              className="rounded-lg border border-primary/20 bg-primary/5 px-5 py-6"
             >
-              <h2 className="text-lg font-semibold text-plum-900">
+              <h2 className="text-lg font-semibold text-primary">
                 Check your email
               </h2>
-              <p className="mt-2 text-sm text-plum-800">
+              <p className="mt-2 text-sm text-primary">
                 We sent a confirmation link to{" "}
                 <span className="font-medium">{email.trim()}</span>. Click it to
                 activate your account and set up your organization.

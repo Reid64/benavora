@@ -758,19 +758,13 @@ export default function FormTemplatesPage() {
                   {/* Flags */}
                   <div className="flex shrink-0 items-center gap-1.5 pt-0.5">
                     {primaryTpl.requires_login && (
-                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
-                        Login
-                      </span>
+                      <Badge variant="warning">Login</Badge>
                     )}
                     {primaryTpl.requires_file_upload && (
-                      <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
-                        Files
-                      </span>
+                      <Badge variant="info">Files</Badge>
                     )}
                     {primaryTpl.is_multi_step && (
-                      <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">
-                        Multi-step
-                      </span>
+                      <Badge variant="info">Multi-step</Badge>
                     )}
                   </div>
 
@@ -949,9 +943,9 @@ export default function FormTemplatesPage() {
                                         {countFields(tpl.form_structure)} fields
                                       </span>
                                       {idx === 0 && (
-                                        <span className="ml-auto rounded-full bg-teal-100 px-2 py-0.5 text-teal-700">
+                                        <Badge variant="info" className="ml-auto">
                                           current
-                                        </span>
+                                        </Badge>
                                       )}
                                     </div>
                                   ))}
@@ -1253,19 +1247,13 @@ export default function FormTemplatesPage() {
                     {reanalyzeDiff.map((d, i) => (
                       <li key={i} className="flex items-center gap-2 text-sm">
                         {d.change === "added" && (
-                          <span className="rounded-full bg-teal-100 px-2 py-0.5 text-xs text-teal-700">
-                            +added
-                          </span>
+                          <Badge variant="info">+added</Badge>
                         )}
                         {d.change === "removed" && (
-                          <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-700">
-                            −removed
-                          </span>
+                          <Badge variant="error">−removed</Badge>
                         )}
                         {d.change === "changed" && (
-                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">
-                            ~changed
-                          </span>
+                          <Badge variant="warning">~changed</Badge>
                         )}
                         <code className="font-mono text-xs text-navy-700">
                           {d.name}

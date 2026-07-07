@@ -383,16 +383,9 @@ export function FunderDetail({ funderId }: FunderDetailProps) {
               >
                 {t.label}
                 {count != null && (
-                  <span
-                    className={
-                      "ml-2 rounded-full px-2 py-0.5 text-xs " +
-                      (active
-                        ? "bg-teal-100 text-teal-700"
-                        : "bg-navy-100 text-navy-600")
-                    }
-                  >
+                  <Badge variant={active ? "info" : "neutral"} className="ml-2">
                     {count}
-                  </span>
+                  </Badge>
                 )}
               </button>
             );
@@ -1611,9 +1604,9 @@ function RelationshipScoreBadge({ score }: { score: RelationshipScore }) {
       <span className="text-navy-400">/100</span>
       <TrendIcon className={`h-3.5 w-3.5 ${trendColor}`} aria-hidden />
       {is_stale && (
-        <span className="ml-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-700">
+        <Badge variant="warning" className="ml-1 px-1.5">
           stale
-        </span>
+        </Badge>
       )}
     </div>
   );

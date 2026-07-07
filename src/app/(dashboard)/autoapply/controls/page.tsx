@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, ArrowLeft, Loader2, Power, X } from "lucide-react";
 
+import { Badge } from "@/components/ui/Badge";
 import { Button, Card } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 
@@ -396,19 +397,19 @@ export default function QueueControlsPage() {
                 {controls.map((c) => (
                   <tr key={c.id} className={c.control_type === "platform" ? "bg-red-50" : ""}>
                     <td className="py-2.5 pr-4">
-                      <span
-                        className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                      <Badge
+                        variant={
                           c.control_type === "platform"
-                            ? "bg-red-100 text-red-700"
+                            ? "error"
                             : c.control_type === "tenant"
-                            ? "bg-purple-100 text-purple-700"
+                            ? "info"
                             : c.control_type === "funder"
-                            ? "bg-yellow-100 text-yellow-700"
-                            : "bg-blue-100 text-blue-700"
-                        }`}
+                            ? "warning"
+                            : "info"
+                        }
                       >
                         {c.control_type}
-                      </span>
+                      </Badge>
                     </td>
                     <td className="py-2.5 pr-4 font-mono text-xs text-navy-700">
                       {formatControlLabel(c)}

@@ -40,8 +40,8 @@ const KANBAN_GROUPS: {
   {
     key: "preparation",
     label: "Preparation",
-    headerColor: "text-plum-300",
-    dotColor: "bg-plum-400",
+    headerColor: "text-primary",
+    dotColor: "bg-primary",
     stages: ["drafting", "awaiting_documents", "ready_for_review"],
     firstStage: "drafting",
   },
@@ -76,7 +76,7 @@ function deadlineClass(deadline: string | null): string {
   if (!deadline) return "text-navy-400";
   const days = differenceInCalendarDays(new Date(deadline), new Date());
   if (days < 0) return "text-red-400 font-medium";
-  if (days < 7) return "text-orange-400 font-medium";
+  if (days < 7) return "text-warning-text font-medium";
   if (days < 30) return "text-yellow-400";
   return "text-navy-500";
 }
@@ -213,9 +213,7 @@ function KanbanColumn({
           <span className={cn("text-sm font-semibold", group.headerColor)}>
             {group.label}
           </span>
-          <span className="rounded-full bg-surface px-2 py-0.5 text-xs font-medium text-text-muted border border-border">
-            {total}
-          </span>
+          <Badge variant="neutral">{total}</Badge>
         </button>
       </div>
 

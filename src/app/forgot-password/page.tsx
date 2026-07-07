@@ -67,12 +67,12 @@ export default function ForgotPasswordPage() {
         {sent ? (
           <div
             role="status"
-            className="rounded-lg border border-plum-200 bg-plum-50 px-5 py-6"
+            className="rounded-lg border border-primary/20 bg-primary/5 px-5 py-6"
           >
-            <h1 className="text-lg font-semibold text-plum-900">
+            <h1 className="text-lg font-semibold text-primary">
               Check your email
             </h1>
-            <p className="mt-2 text-sm text-plum-800">
+            <p className="mt-2 text-sm text-primary">
               If an account exists for{" "}
               <span className="font-medium">{email.trim()}</span>, we&rsquo;ve
               sent a link to reset your password. The link expires shortly, so

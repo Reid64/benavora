@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useState } from "react";
 import { Activity, ChevronDown, ChevronUp, RefreshCw } from "lucide-react";
 
+import { Badge } from "@/components/ui/Badge";
 import type { GrantDNAScore } from "@/lib/intelligence/grant-dna";
 
 export interface GrantDNAResult extends GrantDNAScore {
@@ -141,9 +142,9 @@ export function GrantDNACard({ result, scoring = false, onReScore }: Props) {
             <span className="mt-0.5 text-[10px] font-medium text-navy-400">/100</span>
           </div>
           <div className="min-w-0 flex-1">
-            <div className="inline-flex items-center rounded-full border border-indigo-500/30 bg-indigo-500/10 px-2.5 py-1 text-xs font-semibold text-indigo-300">
+            <Badge variant="info">
               Top {100 - result.percentile}% of funded proposals
-            </div>
+            </Badge>
             <p className="mt-1.5 text-xs leading-relaxed text-navy-400">
               {result.comparison}
             </p>

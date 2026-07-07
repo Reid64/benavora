@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 
+import { Badge as UIBadge } from "@/components/ui/Badge";
+
 export const metadata: Metadata = {
   title: "Security - Benavora",
   description:
@@ -25,9 +27,9 @@ function Section({
 
 function Badge({ label }: { label: string }) {
   return (
-    <span className="inline-block rounded-full border border-orange-500/40 bg-orange-500/10 px-3 py-1 text-xs font-semibold text-orange-400">
+    <UIBadge variant="warning" className="px-3 py-1">
       {label}
-    </span>
+    </UIBadge>
   );
 }
 
@@ -192,7 +194,7 @@ export default function SecurityPage() {
             by emailing{" "}
             <a
               href="mailto:support@benavora.com"
-              className="text-orange-400 hover:text-orange-300"
+              className="text-accent hover:text-accent/80"
             >
               support@benavora.com
             </a>
@@ -238,7 +240,7 @@ export default function SecurityPage() {
           responsibly by emailing{" "}
           <a
             href="mailto:security@benavora.com"
-            className="text-orange-400 hover:text-orange-300"
+            className="text-accent hover:text-accent/80"
           >
             security@benavora.com
           </a>
@@ -253,14 +255,14 @@ export default function SecurityPage() {
           Security questions or data requests?{" "}
           <a
             href="mailto:security@benavora.com"
-            className="text-orange-400 hover:text-orange-300"
+            className="text-accent hover:text-accent/80"
           >
             security@benavora.com
           </a>
           . General support:{" "}
           <a
             href="mailto:support@benavora.com"
-            className="text-orange-400 hover:text-orange-300"
+            className="text-accent hover:text-accent/80"
           >
             support@benavora.com
           </a>

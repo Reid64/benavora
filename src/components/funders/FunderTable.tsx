@@ -197,12 +197,11 @@ export function FunderTable({
         <div className="flex items-center gap-2">
           <span className="font-medium text-navy-900">{row.name}</span>
           {row.isStale && (
-            <span
-              title="No interaction in 180+ days with score of 0"
-              className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700"
-            >
-              <AlertTriangle className="h-3 w-3" aria-hidden />
-              Stale
+            <span title="No interaction in 180+ days with score of 0">
+              <Badge variant="warning">
+                <AlertTriangle className="h-3 w-3" aria-hidden />
+                Stale
+              </Badge>
             </span>
           )}
         </div>

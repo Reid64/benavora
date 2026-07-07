@@ -39,7 +39,7 @@ export function WelcomeStep({ orgName }: { orgName: string }) {
           aria-hidden
         />
         <div
-          className="pointer-events-none absolute -bottom-24 -left-12 h-72 w-72 rounded-full bg-plum-600/25 blur-3xl"
+          className="pointer-events-none absolute -bottom-24 -left-12 h-72 w-72 rounded-full bg-primary/25 blur-3xl"
           aria-hidden
         />
         <div className="relative z-10">
@@ -59,7 +59,7 @@ export function WelcomeStep({ orgName }: { orgName: string }) {
             on day one.
           </p>
           <p className="mt-5 text-sm font-medium tracking-tight text-teal-300">
-            Fund More. <span className="text-plum-300">Do More.</span> Change More.
+            Fund More. <span className="text-accent">Do More.</span> Change More.
           </p>
         </div>
       </div>
