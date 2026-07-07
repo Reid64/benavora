@@ -19,6 +19,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 import dotenv from "dotenv";
+import ws from "ws";
 
 dotenv.config({ path: ".env.local" });
 
@@ -31,6 +32,7 @@ if (!url || !serviceRoleKey) {
 
 const admin = createClient(url, serviceRoleKey, {
   auth: { autoRefreshToken: false, persistSession: false },
+  realtime: { transport: ws as unknown as WebSocket },
 });
 
 const SOURCE_ORG_ID = "b1ab7402-dfc2-4712-869f-70ea3566cc1d";
