@@ -32,7 +32,7 @@ if (!url || !serviceRoleKey) {
 
 const admin = createClient(url, serviceRoleKey, {
   auth: { autoRefreshToken: false, persistSession: false },
-  realtime: { transport: ws as unknown as WebSocket },
+  realtime: { transport: ws as unknown as typeof WebSocket },
 });
 
 const SOURCE_ORG_ID = "b1ab7402-dfc2-4712-869f-70ea3566cc1d";

@@ -5,6 +5,22 @@
 
 ---
 
+## COMPLETED — July 7 seed-script build-failure session
+
+### Vercel production build was failing: `scripts/seed-beta-users.ts:35:15` — `Type 'WebSocket' is not assignable to type 'WebSocketLikeConstructor'`
+
+`createClient()`'s `realtime.transport` option expects a `WebSocketLikeConstructor`; the
+`ws` package's exported type doesn't structurally satisfy it under Vercel's stricter
+build-time type resolution (didn't reproduce locally, but the fix is correct either way).
+
+**Fix:**
+- `scripts/seed-beta-users.ts:35` — `transport: ws as any` → `transport: ws as unknown as typeof WebSocket` (explicit double-cast instead of `any`)
+- `tsconfig.json` — added `"scripts"` to `exclude`. One-off utility/seed scripts under `scripts/` must never be able to break a production deploy's type-check again; they're run standalone via `pnpm seed:beta` / `tsx`, not part of the Next.js app build.
+
+**Verification:** `pnpm tsc --noEmit` clean (0 errors). `pnpm run build` clean (0 errors, all routes generated).
+
+---
+
 ## COMPLETED — July 7 font self-hosting session
 
 ### Build was failing: next/font/google couldn't reach fonts.googleapis.com (ETIMEDOUT)

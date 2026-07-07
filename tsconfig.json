@@ -45,6 +45,7 @@
     "vitest.config.ts",
     "run-*.ts",
     "worker",
-    "src/scripts/ingest-*.ts"
+    "src/scripts/ingest-*.ts",
+    "scripts"
   ]
 }

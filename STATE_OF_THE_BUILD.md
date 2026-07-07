@@ -1,5 +1,5 @@
 # BENAVORA — STATE OF THE BUILD
-## Last updated: 2026-07-07 (fix: self-host fonts to remove build-time Google Fonts dependency)
+## Last updated: 2026-07-07 (fix: exclude scripts from build type-check, fix seed ws type)
 ## Method: live codebase audit — every file path, route, agent, and migration counted directly from the filesystem; no assumptions carried from prior docs.
 
 ---
@@ -255,6 +255,7 @@ All migrations through 066 confirmed applied to production (ref vbjplpquqxxfbpaz
 11. **`compliance-library.ts`** has a dead branch: `omb-a133-threshold` check always returns 'pass' due to a logic error.
 ~~12. **`ingest-nih-proposals.ts`**~~ — Fully implemented 2026-07-06 (real NIH Reporter API v2).
 13. **Visual: elongated input/textarea boxes** reported across the platform — UI polish queue passed compile but visual results unverified.
+~~19. **`scripts/seed-beta-users.ts` broke Vercel production builds**~~ — Fixed 2026-07-07: `ws` transport cast tightened (`as unknown as typeof WebSocket`) and `scripts/` added to `tsconfig.json` exclude so one-off utility scripts can never again fail the app type-check.
 
 ### Architecture / maintenance
 14. **Two Grants.gov clients** (`grants-gov.ts` using legacy `apply07.grants.gov` REST API, and `simpler-grants.ts` using the newer `api.simpler.grants.gov/v1`) both live side-by-side — confirm the legacy endpoint hasn't been deprecated upstream.
