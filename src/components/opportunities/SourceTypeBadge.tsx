@@ -1,25 +1,14 @@
 import { Badge } from "@/components/ui";
-import type { BadgeColor } from "@/components/ui";
 import { humanizeEnum } from "@/lib/utils/formatters";
 import type { OpportunitySourceType } from "@/lib/opportunities/source-type";
 
 /**
- * Color-coded badge for an opportunity's funding source_type (migration 010).
- * Each source gets a distinct hue so the Opportunities list, cards, and detail
- * view read at a glance. Colors are kept in one place here, mirroring
- * OPPORTUNITY_STATUS_COLOR in eligibility.tsx.
+ * Badge for an opportunity's funding source_type (migration 010). Always the
+ * "info" variant — source_type is a nominal/descriptive field, not a status,
+ * so it doesn't get a semantic color of its own; a per-type hue (the old
+ * 8-color scheme) just competed visually with the real status/match badges
+ * next to it without carrying extra meaning.
  */
-export const SOURCE_TYPE_COLOR: Record<OpportunitySourceType, BadgeColor> = {
-  government_federal: "blue",
-  government_state: "sky",
-  government_local: "teal",
-  private_foundation: "purple",
-  corporate_giving: "orange",
-  community_foundation: "green",
-  faith_based: "yellow",
-  international: "pink",
-};
-
 export type SourceTypeBadgeProps = {
   /** The opportunity's source_type, or null when it has not been classified. */
   sourceType: OpportunitySourceType | null;
@@ -32,17 +21,17 @@ export type SourceTypeBadgeProps = {
   showUnclassified?: boolean;
 };
 
-/** Badge for an opportunity's funding source, color-coded per source type. */
+/** Badge for an opportunity's funding source. */
 export function SourceTypeBadge({
   sourceType,
   withDot = true,
   showUnclassified = false,
 }: SourceTypeBadgeProps) {
   if (!sourceType) {
-    return showUnclassified ? <Badge color="gray">Unclassified</Badge> : null;
+    return showUnclassified ? <Badge variant="neutral">Unclassified</Badge> : null;
   }
   return (
-    <Badge color={SOURCE_TYPE_COLOR[sourceType]} withDot={withDot}>
+    <Badge variant="info" withDot={withDot}>
       {humanizeEnum(sourceType)}
     </Badge>
   );

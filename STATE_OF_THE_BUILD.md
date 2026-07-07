@@ -1,5 +1,5 @@
 # BENAVORA — STATE OF THE BUILD
-## Last updated: 2026-07-07 (design: unified token system, layered palette, Badge component)
+## Last updated: 2026-07-07 (fix: convert missed table pills to Badge, apply surface layering)
 ## Method: live codebase audit — every file path, route, agent, and migration counted directly from the filesystem; no assumptions carried from prior docs.
 
 ---
@@ -265,6 +265,8 @@ All migrations through 066 confirmed applied to production (ref vbjplpquqxxfbpaz
 18. **research/page.tsx** uses a manual `SOURCE_ROUTE_MAP` — same fragile pattern that produced the sales-outreach routing bug; worth linting.
 20. **`teal-*` Tailwind classes** (508 occurrences, 129 files) intentionally left untouched in the 2026-07-07 design-system pass — `teal-500`/`600` numerically equal the new `accent`/`accent-hover` tokens and `globals.css`'s compat layer already coerces `text-teal-600/700` to WCAG-safe hex, so it's low-severity, but it's real debt: those files reference Tailwind's hue scale instead of the semantic tokens directly, and a future Tailwind theme change could silently break them.
 21. **`src/app/(dashboard)/intelligence/recommendations/page.tsx`** has an in-progress, uncommitted org-summary-card + geography-filter feature (found already in the working tree, unrelated to the design-system pass — only its `ScoreBadge` pill was touched). The whole page is also still on the old dark theme (`bg-gray-800`/`text-white`) — not migrated to the light token system in this pass since it wasn't in scope of the pill/hue sweep.
+~~22. **Opportunities table/card/detail `Category` and `Source` badges** collapsed to indistinguishable colors after the first design-system pass~~ — Fixed 2026-07-07: `Category`→`neutral`, `Source`→always `info` (was 8 colors for a nominal field). Two genuinely-missed raw pills (`autoapply/settings` geo chip, `research/page.tsx` stage pill) also converted.
+~~23. **`DashboardShell.tsx`'s `<main>` had no background class**, inheriting the shell's `bg-surface` (white) — every dashboard page's content area rendered on white instead of the `#EEF2F7` page background~~ — Fixed 2026-07-07, one-line fix at the layout level (`bg-background` on the shell + `<main>`), applies to every page automatically.
 
 ---
 

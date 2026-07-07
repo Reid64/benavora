@@ -4,8 +4,6 @@ import { cn } from "@/lib/utils/cn";
 import { humanizeEnum } from "@/lib/utils/formatters";
 import { OPPORTUNITY_SOURCE_TYPES } from "@/lib/utils/constants";
 import type { OpportunitySourceType } from "@/lib/opportunities/source-type";
-import { SOURCE_TYPE_COLOR } from "@/components/opportunities/SourceTypeBadge";
-import type { BadgeColor } from "@/components/ui";
 
 export type SourceTypeTabValue = OpportunitySourceType | "all";
 
@@ -18,20 +16,21 @@ export type SourceTypeTabsProps = {
   onChange: (value: SourceTypeTabValue) => void;
 };
 
-/** Tailwind background for each source-type dot, keyed off the shared palette. */
-const DOT_BG: Record<BadgeColor, string> = {
-  gray: "bg-navy-400",
-  teal: "bg-teal-500",
-  indigo: "bg-teal-500",
-  purple: "bg-primary",
-  navy: "bg-navy-600",
-  green: "bg-green-500",
-  yellow: "bg-amber-500",
-  red: "bg-red-500",
-  blue: "bg-blue-500",
-  sky: "bg-sky-500",
-  orange: "bg-warning-text",
-  pink: "bg-pink-500",
+/**
+ * Tailwind background for each source-type dot. Distinct per type here (unlike
+ * the per-row Source badge, which is always the "info" variant) because these
+ * are filter tabs, not repeated status pills — a quick color key across the
+ * whole strip is useful; the same variety on every table row was just noise.
+ */
+const DOT_BG: Record<OpportunitySourceType, string> = {
+  government_federal: "bg-info-text",
+  government_state: "bg-sky-500",
+  government_local: "bg-teal-500",
+  private_foundation: "bg-primary",
+  corporate_giving: "bg-warning-text",
+  community_foundation: "bg-success-text",
+  faith_based: "bg-amber-500",
+  international: "bg-pink-500",
 };
 
 /**
@@ -67,7 +66,7 @@ export function SourceTypeTabs({
           key={type}
           label={humanizeEnum(type)}
           count={counts[type]}
-          dotClass={DOT_BG[SOURCE_TYPE_COLOR[type]]}
+          dotClass={DOT_BG[type]}
           active={value === type}
           onClick={() => onChange(type)}
         />

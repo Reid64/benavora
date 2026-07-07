@@ -8,7 +8,7 @@ import {
   EligibilityBar,
   HighPriorityBadge,
   MatchBadge,
-  OPPORTUNITY_STATUS_COLOR,
+  OPPORTUNITY_STATUS_VARIANT,
   RecommendationBadge,
 } from "@/components/opportunities/eligibility";
 import { SourceTypeBadge } from "@/components/opportunities/SourceTypeBadge";
@@ -37,9 +37,9 @@ export function OpportunityCard({ opportunity }: OpportunityCardProps) {
         <MatchBadge percentage={opportunity.match_percentage} />
         {opportunity.is_high_priority && <HighPriorityBadge />}
         <SourceTypeBadge sourceType={opportunity.source_type} />
-        <Badge color="indigo">{humanizeEnum(opportunity.category)}</Badge>
+        <Badge variant="neutral">{humanizeEnum(opportunity.category)}</Badge>
         {opportunity.status && (
-          <Badge color={OPPORTUNITY_STATUS_COLOR[opportunity.status]}>
+          <Badge variant={OPPORTUNITY_STATUS_VARIANT[opportunity.status]}>
             {humanizeEnum(opportunity.status)}
           </Badge>
         )}

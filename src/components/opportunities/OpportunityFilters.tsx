@@ -93,7 +93,7 @@ export function OpportunityFilters({ value, onChange }: OpportunityFiltersProps)
   }
 
   return (
-    <div className="space-y-4 rounded-xl border border-navy-200 bg-white p-4">
+    <div className="space-y-4 rounded-xl border border-border bg-surface p-4 shadow-sm">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
         <div className="lg:max-w-xs lg:flex-1">
           <SearchBar
@@ -128,7 +128,7 @@ export function OpportunityFilters({ value, onChange }: OpportunityFiltersProps)
 
       <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
         <div>
-          <label className="mb-1.5 block text-xs font-medium text-navy-600">
+          <label className="mb-1.5 block text-xs font-medium text-text-muted">
             Deadline from
           </label>
           <input
@@ -137,11 +137,11 @@ export function OpportunityFilters({ value, onChange }: OpportunityFiltersProps)
             max={value.deadlineTo || undefined}
             onChange={(e) => patch({ deadlineFrom: e.target.value })}
             aria-label="Deadline from"
-            className="block w-full rounded-lg border border-navy-300 bg-white px-3 py-2 text-sm text-navy-900 shadow-sm transition focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500"
+            className="block w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text shadow-sm transition focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500"
           />
         </div>
         <div>
-          <label className="mb-1.5 block text-xs font-medium text-navy-600">
+          <label className="mb-1.5 block text-xs font-medium text-text-muted">
             Deadline to
           </label>
           <input
@@ -150,11 +150,11 @@ export function OpportunityFilters({ value, onChange }: OpportunityFiltersProps)
             min={value.deadlineFrom || undefined}
             onChange={(e) => patch({ deadlineTo: e.target.value })}
             aria-label="Deadline to"
-            className="block w-full rounded-lg border border-navy-300 bg-white px-3 py-2 text-sm text-navy-900 shadow-sm transition focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500"
+            className="block w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text shadow-sm transition focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500"
           />
         </div>
         <div>
-          <label className="mb-1.5 block text-xs font-medium text-navy-600">
+          <label className="mb-1.5 block text-xs font-medium text-text-muted">
             Min eligibility
           </label>
           <input
@@ -165,11 +165,11 @@ export function OpportunityFilters({ value, onChange }: OpportunityFiltersProps)
             onChange={(e) => patch({ scoreMin: e.target.value })}
             placeholder="0"
             aria-label="Minimum eligibility score"
-            className="block w-full rounded-lg border border-navy-300 bg-white px-3 py-2 text-sm text-navy-900 shadow-sm transition placeholder:text-navy-400 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500"
+            className="block w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text shadow-sm transition placeholder:text-text-muted focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500"
           />
         </div>
         <div>
-          <label className="mb-1.5 block text-xs font-medium text-navy-600">
+          <label className="mb-1.5 block text-xs font-medium text-text-muted">
             Max eligibility
           </label>
           <input
@@ -180,7 +180,7 @@ export function OpportunityFilters({ value, onChange }: OpportunityFiltersProps)
             onChange={(e) => patch({ scoreMax: e.target.value })}
             placeholder="100"
             aria-label="Maximum eligibility score"
-            className="block w-full rounded-lg border border-navy-300 bg-white px-3 py-2 text-sm text-navy-900 shadow-sm transition placeholder:text-navy-400 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500"
+            className="block w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text shadow-sm transition placeholder:text-text-muted focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500"
           />
         </div>
       </div>

@@ -58,7 +58,7 @@ export function SearchBar({
         onChange={(event) => setValue(event.target.value)}
         placeholder={placeholder}
         aria-label={ariaLabel}
-        className="block w-full rounded-lg border border-navy-300 bg-white py-2 pl-9 pr-9 text-sm text-navy-900 shadow-sm transition placeholder:text-navy-400 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500 [&::-webkit-search-cancel-button]:hidden"
+        className="block w-full rounded-lg border border-border bg-surface py-2 pl-9 pr-9 text-sm text-text shadow-sm transition placeholder:text-text-muted focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500 [&::-webkit-search-cancel-button]:hidden"
       />
       {value && (
         <button

@@ -126,9 +126,9 @@ export function Table<T>({
 
   return (
     <div className={cn("w-full", className)}>
-      <div className="overflow-x-auto rounded-xl border border-navy-200">
+      <div className="overflow-x-auto rounded-xl border border-border bg-surface shadow-sm">
         <table className="min-w-full divide-y divide-navy-200">
-          <thead className="bg-navy-50">
+          <thead className="bg-surface-raised">
             <tr>
               {columns.map((column) => {
                 const isSorted = sortKey === column.key;
@@ -178,7 +178,7 @@ export function Table<T>({
               })}
             </tr>
           </thead>
-          <tbody className="divide-y divide-navy-200 bg-white">
+          <tbody className="divide-y divide-navy-200 bg-surface">
             {isLoading ? (
               <tr>
                 <td colSpan={colSpan} className="px-4 py-12">

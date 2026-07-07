@@ -42,16 +42,21 @@ const config: Config = {
         },
         text: "var(--color-text)",
 
-        // ── Semantic status pairs — bg is the light tint, text is the 700-level
-        // of the same hue. Consumed by <Badge>; do not use raw hue classes.
+        // ── Semantic status pairs — bg is the 100-level tint, text is the
+        // 700-level, border is the 200-level, all of the same hue. Consumed
+        // by <Badge>; do not use raw hue classes.
         "success-bg": "var(--color-success-bg)",
         "success-text": "var(--color-success-text)",
+        "success-border": "var(--color-success-border)",
         "warning-bg": "var(--color-warning-bg)",
         "warning-text": "var(--color-warning-text)",
+        "warning-border": "var(--color-warning-border)",
         "error-bg": "var(--color-error-bg)",
         "error-text": "var(--color-error-text)",
+        "error-border": "var(--color-error-border)",
         "info-bg": "var(--color-info-bg)",
         "info-text": "var(--color-info-text)",
+        "info-border": "var(--color-info-border)",
 
         // ── Semantic charcoal tokens ──────────────────────────────────────────
         // Used as: bg-page, bg-surface, bg-surface-elevated, border-border, etc.

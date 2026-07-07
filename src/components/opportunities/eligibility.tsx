@@ -1,7 +1,7 @@
 import { AlertTriangle, Flame, Target } from "lucide-react";
 
 import { Badge } from "@/components/ui";
-import type { BadgeColor } from "@/components/ui";
+import type { BadgeVariant } from "@/components/ui";
 import { cn } from "@/lib/utils/cn";
 import { humanizeEnum } from "@/lib/utils/formatters";
 import type { Enums } from "@/types/database";
@@ -77,10 +77,10 @@ export function EligibilityBar({
   );
 }
 
-const RECOMMENDATION_COLOR: Record<string, BadgeColor> = {
-  apply: "green",
-  review: "yellow",
-  skip: "gray",
+const RECOMMENDATION_VARIANT: Record<string, BadgeVariant> = {
+  apply: "success",
+  review: "warning",
+  skip: "neutral",
 };
 
 export type RecommendationBadgeProps = {
@@ -91,8 +91,8 @@ export type RecommendationBadgeProps = {
 /** Badge for the agent's apply/skip/review recommendation. */
 export function RecommendationBadge({ recommendation }: RecommendationBadgeProps) {
   if (!recommendation) return null;
-  const color = RECOMMENDATION_COLOR[recommendation.toLowerCase()] ?? "gray";
-  return <Badge color={color}>{humanizeEnum(recommendation)}</Badge>;
+  const variant = RECOMMENDATION_VARIANT[recommendation.toLowerCase()] ?? "neutral";
+  return <Badge variant={variant}>{humanizeEnum(recommendation)}</Badge>;
 }
 
 // --- match percentage --------------------------------------------------------
@@ -114,10 +114,10 @@ export function matchColor(percentage: number): ScoreColor {
   return "red";
 }
 
-const MATCH_BADGE_COLOR: Record<ScoreColor, BadgeColor> = {
-  green: "green",
-  yellow: "yellow",
-  red: "red",
+const MATCH_BADGE_VARIANT: Record<ScoreColor, BadgeVariant> = {
+  green: "success",
+  yellow: "warning",
+  red: "error",
 };
 
 export type MatchBadgeProps = {
@@ -130,7 +130,7 @@ export type MatchBadgeProps = {
 export function MatchBadge({ percentage, className }: MatchBadgeProps) {
   if (percentage == null) {
     return (
-      <Badge color="gray" className={className}>
+      <Badge variant="neutral" className={className}>
         <Target className="h-3 w-3" aria-hidden />
         Not scored
       </Badge>
@@ -138,7 +138,7 @@ export function MatchBadge({ percentage, className }: MatchBadgeProps) {
   }
   const clamped = Math.max(0, Math.min(100, percentage));
   return (
-    <Badge color={MATCH_BADGE_COLOR[matchColor(clamped)]} className={className}>
+    <Badge variant={MATCH_BADGE_VARIANT[matchColor(clamped)]} className={className}>
       <Target className="h-3 w-3" aria-hidden />
       <span className="tabular-nums">{clamped}%</span> match
     </Badge>
@@ -148,7 +148,7 @@ export function MatchBadge({ percentage, className }: MatchBadgeProps) {
 /** Flag shown on the strongest opportunities (match >= 80). */
 export function HighPriorityBadge({ className }: { className?: string }) {
   return (
-    <Badge color="orange" className={className}>
+    <Badge variant="warning" className={className}>
       <Flame className="h-3 w-3" aria-hidden />
       High priority
     </Badge>
@@ -187,13 +187,13 @@ export function MismatchReasons({ reasons, className }: MismatchReasonsProps) {
   );
 }
 
-/** Badge colour for an opportunity_status value. Shared across views. */
-export const OPPORTUNITY_STATUS_COLOR: Record<
+/** Badge variant for an opportunity_status value. Shared across views. */
+export const OPPORTUNITY_STATUS_VARIANT: Record<
   Enums<"opportunity_status">,
-  BadgeColor
+  BadgeVariant
 > = {
-  open: "green",
-  applied: "blue",
-  closed: "gray",
-  expired: "red",
+  open: "success",
+  applied: "info",
+  closed: "neutral",
+  expired: "error",
 };

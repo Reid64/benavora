@@ -2,9 +2,10 @@ import type { ReactNode } from "react";
 
 import { cn } from "@/lib/utils/cn";
 
-/** The only four semantic pairs a badge may render — bg is the light tint,
- * text is the 700-level of the same hue (≥4.5:1 contrast), plus a neutral
- * pair for non-semantic labels. */
+/** The only four semantic pairs a badge may render — bg is the 100-level
+ * tint, text is the 700-level of the same hue (≥4.5:1 contrast), border is
+ * the 200-level of the same hue, plus a neutral pair for non-semantic
+ * labels. */
 export type BadgeVariant = "success" | "warning" | "error" | "info" | "neutral";
 
 /**
@@ -43,10 +44,10 @@ const COLOR_TO_VARIANT: Record<BadgeColor, BadgeVariant> = {
 };
 
 const VARIANT_CLASSES: Record<BadgeVariant, string> = {
-  success: "bg-success-bg text-success-text",
-  warning: "bg-warning-bg text-warning-text",
-  error: "bg-error-bg text-error-text",
-  info: "bg-info-bg text-info-text",
+  success: "bg-success-bg text-success-text border border-success-border",
+  warning: "bg-warning-bg text-warning-text border border-warning-border",
+  error: "bg-error-bg text-error-text border border-error-border",
+  info: "bg-info-bg text-info-text border border-info-border",
   neutral: "bg-surface-raised text-text-muted border border-border",
 };
 

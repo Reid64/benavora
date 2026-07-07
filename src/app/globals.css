@@ -34,16 +34,21 @@
   --color-text-muted: #475569;
   --color-border: #e2e8f0;
 
-  /* Semantic status pairs — bg is always the light tint, text the 700-level
-     of the same hue (≥4.5:1 contrast on the paired bg). Used by <Badge>. */
+  /* Semantic status pairs — bg is always the light (100-level) tint, text the
+     700-level of the same hue (≥4.5:1 contrast on the paired bg), border the
+     200-level of the same hue for definition. Used by <Badge>. */
   --color-success-bg: #dcfce7;
   --color-success-text: #15803d;
+  --color-success-border: #bbf7d0;
   --color-warning-bg: #fef3c7;
   --color-warning-text: #b45309;
+  --color-warning-border: #fde68a;
   --color-error-bg: #fee2e2;
   --color-error-text: #b91c1c;
+  --color-error-border: #fecaca;
   --color-info-bg: #e0f2fe;
   --color-info-text: #0369a1;
+  --color-info-border: #bae6fd;
 
   /* ── Legacy aliases — existing classes/CSS keep working, now sourced from
      the canonical tokens above so there is exactly one place values live. */

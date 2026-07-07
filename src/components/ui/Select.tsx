@@ -81,10 +81,10 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
           value={value}
           defaultValue={resolvedDefault}
           className={cn(
-            "block w-full appearance-none rounded-lg border bg-white py-2 pl-3 pr-9 text-sm text-navy-900 shadow-sm transition focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:bg-navy-50 disabled:text-navy-500",
+            "block w-full appearance-none rounded-lg border bg-surface py-2 pl-3 pr-9 text-sm text-text shadow-sm transition focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:bg-navy-50 disabled:text-navy-500",
             error
               ? "border-red-300 focus:border-red-500 focus:ring-red-500"
-              : "border-navy-300 focus:border-teal-500 focus:ring-teal-500",
+              : "border-border focus:border-teal-500 focus:ring-teal-500",
             className,
           )}
           {...props}

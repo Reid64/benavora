@@ -754,12 +754,12 @@ export default function ResearchPage() {
                         onClick={(e) => e.stopPropagation()}
                       >
                         {applied ? (
-                          <div className="flex flex-col">
-                            <span className="inline-flex w-fit items-center rounded-full bg-blue-600 px-2 py-0.5 font-medium text-white">
+                          <div className="flex flex-col items-start">
+                            <Badge variant="info">
                               {applied.stage
                                 .replace(/_/g, " ")
                                 .replace(/\b\w/g, (c) => c.toUpperCase())}
-                            </span>
+                            </Badge>
                             <span className="mt-1 text-navy-400">
                               Applied {formatDate(applied.created_at)}
                             </span>

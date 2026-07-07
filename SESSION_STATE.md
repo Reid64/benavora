@@ -1,7 +1,49 @@
 # BENAVORA — SESSION STATE
 ## Last updated: 2026-07-07
 ## Current branch: main
-## Last commit: design: unified token system, layered palette, Badge component
+## Last commit: fix: convert missed table pills to Badge, apply surface layering
+
+---
+
+## COMPLETED — July 7 follow-up: missed table pills + surface layering
+
+Caught two real gaps left by the design-system pass above.
+
+**Badge borders**: every semantic variant (success/warning/error/info) now gets a
+200-level border of the same hue (`--color-success-border` #bbf7d0 etc., new in
+`globals.css`/`tailwind.config.ts`), not just `neutral`. Bg stays the 100-level tint,
+text the 700-level — matches Tailwind's own green/amber/red/sky-100/200/700 triads.
+
+**Opportunities table/card/detail**: `Category` badge was `<Badge color="indigo">`
+(resolves to `info`, visually identical to the `Source` badge next to it) — changed to
+`variant="neutral"` so the two columns read distinctly. `SourceTypeBadge` used a
+different Tailwind hue per source_type (8 colors for a nominal field) — collapsed to a
+single `variant="info"` everywhere it's used (table, card, detail), since color-per-type
+on a repeated-every-row field was noise, not signal. `SourceTypeTabs`' own dot-color
+variety was kept (tabs are a one-time filter strip, not repeated per row) but decoupled
+from `SourceTypeBadge`'s removed color map into its own inline lookup. `eligibility.tsx`'s
+`MatchBadge`/`HighPriorityBadge`/`RecommendationBadge` and `OPPORTUNITY_STATUS_COLOR`
+(renamed `OPPORTUNITY_STATUS_VARIANT`) now pass `variant` directly instead of routing
+through the legacy `color` alias — same resolved colors, no more indirection.
+
+**Two genuinely missed raw pills** found via a second grep sweep (the first pass's ~30
+files were real but not exhaustive): `autoapply/settings/page.tsx`'s geo-scope removable
+chip (`bg-navy-100 text-navy-700`) and `research/page.tsx`'s application-stage pill
+(`bg-blue-600 text-white`, no light-tint pairing so it dodged the first regex) — both
+converted to `<Badge>`. Swept every other hue family (amber/emerald/cyan/violet/rose/
+slate/stone/zinc/lime/fuchsia) too — only two more hits, both legitimate notification
+count bubbles (solid bg + white bold number), correctly left alone.
+
+**Layering bug, confirmed and fixed at the layout level**: `DashboardShell.tsx`'s `<main>`
+had no background class and inherited the outer shell's `bg-surface` (white) — every
+dashboard page's content area was rendering on white instead of the `#EEF2F7` background
+token. Fixed by adding `bg-background` to both the outer shell and `<main>` directly, one
+place, applies to every page. Also brought `OpportunityFilters`, `Table`, `Select`, and
+`SearchBar` onto explicit `bg-surface`/`border-border`/`shadow-sm` tokens (they were
+working via the `navy-*`/`bg-white` compatibility-layer aliases before, which resolved to
+the same values but not through the canonical token names).
+
+**Verification**: `pnpm tsc --noEmit` and `pnpm run build` both clean after the fix.
 
 ---
 

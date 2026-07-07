@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Loader2, X } from "lucide-react";
 
-import { Button, Card } from "@/components/ui";
+import { Badge, Button, Card } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 
 interface AutoQueueConfig {
@@ -483,10 +483,7 @@ export default function AutoApplySettingsPage() {
             {geographicScope.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {geographicScope.map((s) => (
-                  <span
-                    key={s}
-                    className="inline-flex items-center gap-1 rounded-full bg-navy-100 px-2.5 py-0.5 text-xs font-medium text-navy-700"
-                  >
+                  <Badge key={s} variant="neutral" className="gap-1">
                     {s}
                     <button
                       type="button"
@@ -495,12 +492,12 @@ export default function AutoApplySettingsPage() {
                         setGeographicScope(next);
                         setGeoInput(next.join(", "));
                       }}
-                      className="ml-0.5 text-navy-400 hover:text-navy-700"
+                      className="ml-0.5 text-text-muted hover:text-text"
                       aria-label={`Remove ${s}`}
                     >
                       <X className="h-3 w-3" />
                     </button>
-                  </span>
+                  </Badge>
                 ))}
               </div>
             )}

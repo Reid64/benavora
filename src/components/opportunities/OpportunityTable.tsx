@@ -5,12 +5,12 @@ import { useRouter } from "next/navigation";
 import { LayoutGrid, List } from "lucide-react";
 
 import { Badge, Table } from "@/components/ui";
-import type { BadgeColor, TableColumn } from "@/components/ui";
+import type { BadgeVariant, TableColumn } from "@/components/ui";
 import {
   EligibilityBar,
   HighPriorityBadge,
   MatchBadge,
-  OPPORTUNITY_STATUS_COLOR,
+  OPPORTUNITY_STATUS_VARIANT,
   RecommendationBadge,
 } from "@/components/opportunities/eligibility";
 import {
@@ -45,16 +45,16 @@ export type OpportunityRow = Tables<"opportunities"> & {
   applicationStage?: string | null;
 };
 
-/** Map an application stage to a coarse application-status label + color. */
+/** Map an application stage to a coarse application-status label + variant. */
 function applicationStatusLabel(stage: string | null | undefined): {
   label: string;
-  color: BadgeColor;
+  variant: BadgeVariant;
 } {
-  if (!stage) return { label: "Not Applied", color: "gray" };
-  if (stage === "submitted") return { label: "Submitted", color: "blue" };
-  if (stage === "awarded") return { label: "Awarded", color: "green" };
-  if (stage === "denied") return { label: "Denied", color: "red" };
-  return { label: `In Progress: ${humanizeEnum(stage)}`, color: "yellow" };
+  if (!stage) return { label: "Not Applied", variant: "neutral" };
+  if (stage === "submitted") return { label: "Submitted", variant: "info" };
+  if (stage === "awarded") return { label: "Awarded", variant: "success" };
+  if (stage === "denied") return { label: "Denied", variant: "error" };
+  return { label: `In Progress: ${humanizeEnum(stage)}`, variant: "warning" };
 }
 
 export type OpportunityTableProps = {
@@ -228,7 +228,7 @@ export function OpportunityTable({
       header: "Category",
       sortable: true,
       sortValue: (row) => row.category,
-      render: (row) => <Badge color="indigo">{humanizeEnum(row.category)}</Badge>,
+      render: (row) => <Badge variant="neutral">{humanizeEnum(row.category)}</Badge>,
     },
     {
       key: "deadline",
@@ -296,7 +296,7 @@ export function OpportunityTable({
       sortValue: (row) => row.status ?? "",
       render: (row) =>
         row.status ? (
-          <Badge color={OPPORTUNITY_STATUS_COLOR[row.status]}>
+          <Badge variant={OPPORTUNITY_STATUS_VARIANT[row.status]}>
             {humanizeEnum(row.status)}
           </Badge>
         ) : (
@@ -310,7 +310,7 @@ export function OpportunityTable({
       sortValue: (row) => row.applicationStage ?? "",
       render: (row) => {
         const s = applicationStatusLabel(row.applicationStage);
-        return <Badge color={s.color}>{s.label}</Badge>;
+        return <Badge variant={s.variant}>{s.label}</Badge>;
       },
     },
   ];
