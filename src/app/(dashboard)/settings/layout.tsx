@@ -18,7 +18,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
   return (
     <div className="space-y-6">
       <nav
-        className="flex gap-1 overflow-x-auto border-b border-white/10"
+        className="flex gap-1 overflow-x-auto border-b border-border"
         aria-label="Settings navigation"
       >
         {NAV_ITEMS.map(({ label, href }) => {
@@ -32,8 +32,8 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
               href={href}
               className={`relative whitespace-nowrap px-3 pb-3 pt-1 text-sm font-medium transition-colors ${
                 active
-                  ? "text-teal-400 after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-full after:bg-teal-400"
-                  : "text-navy-400 hover:text-navy-200"
+                  ? "text-primary after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-full after:bg-primary"
+                  : "text-text-muted hover:text-text"
               }`}
             >
               {label}

@@ -636,7 +636,7 @@ export default function ResearchPage() {
                     void handleRunSource(src);
                   }}
                   disabled={isRunning || runningAll}
-                  className="mt-3 w-full rounded-md border border-gray-300 px-2 py-1.5 text-xs font-medium text-navy-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                  className="mt-3 w-full rounded-md border border-primary/40 bg-surface px-2 py-1.5 text-xs font-medium text-primary hover:bg-primary/5 disabled:opacity-50 transition-colors"
                 >
                   {isRunning ? "Running..." : "Run"}
                 </button>

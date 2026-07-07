@@ -477,7 +477,7 @@ export default function AutoApplyOpsPage() {
       {/* Section 3: Cost Tracking */}
       <Card title="Cost Tracking" description="Today's spend across all tenants">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div className="rounded-lg border border-navy-100 bg-white/5 px-5 py-4">
+          <div className="rounded-lg border border-border bg-surface-raised px-5 py-4">
             <p className="text-xs font-medium uppercase tracking-wide text-navy-400">
               Total Today
             </p>
@@ -485,7 +485,7 @@ export default function AutoApplyOpsPage() {
               {fmtCost(costs.totalToday)}
             </p>
           </div>
-          <div className="rounded-lg border border-navy-100 bg-white/5 px-5 py-4">
+          <div className="rounded-lg border border-border bg-surface-raised px-5 py-4">
             <p className="text-xs font-medium uppercase tracking-wide text-navy-400">
               Cost per Submission
             </p>
@@ -493,7 +493,7 @@ export default function AutoApplyOpsPage() {
               {fmtCost(costs.costPerSubmission)}
             </p>
           </div>
-          <div className="rounded-lg border border-navy-100 bg-white/5 px-5 py-4">
+          <div className="rounded-lg border border-border bg-surface-raised px-5 py-4">
             <p className="text-xs font-medium uppercase tracking-wide text-navy-400">
               Breakdown by Category
             </p>

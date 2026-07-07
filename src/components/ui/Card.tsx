@@ -31,20 +31,20 @@ export function Card({
   return (
     <div
       className={cn(
-        "glow-border rounded-xl bg-ink-700/60 shadow-card backdrop-blur-md transition-shadow hover:shadow-card-hover",
+        "rounded-xl border border-border bg-surface shadow-sm transition-shadow hover:shadow-md",
         className,
       )}
     >
       {hasHeader && (
-        <div className="flex items-start justify-between gap-4 border-b border-navy-100 px-5 py-4">
+        <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
           <div className="min-w-0">
             {title && (
-              <h3 className="truncate text-base font-semibold text-navy-900">
+              <h3 className="truncate text-base font-semibold text-text">
                 {title}
               </h3>
             )}
             {description && (
-              <p className="mt-0.5 text-sm text-navy-500">{description}</p>
+              <p className="mt-0.5 text-sm text-text-muted">{description}</p>
             )}
           </div>
           {actions && <div className="shrink-0">{actions}</div>}

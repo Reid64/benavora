@@ -72,7 +72,7 @@ const DNARadarChart = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="h-[220px] animate-pulse rounded-lg bg-navy-800/30" />
+      <div className="h-[220px] animate-pulse rounded-lg bg-surface-raised" />
     ),
   },
 );
@@ -84,16 +84,16 @@ export function GrantDNACard({ result, scoring = false, onReScore }: Props) {
   const displayScore = Math.round(result.composite * 10);
   const scoreColor =
     displayScore >= 75
-      ? "text-green-400"
+      ? "text-success-text"
       : displayScore >= 50
-        ? "text-yellow-400"
-        : "text-red-400";
+        ? "text-warning-text"
+        : "text-error-text";
   const scoreBg =
     displayScore >= 75
-      ? "border-green-500/30 bg-green-500/10"
+      ? "border-success-border bg-success-bg"
       : displayScore >= 50
-        ? "border-yellow-500/30 bg-yellow-500/10"
-        : "border-red-500/30 bg-red-500/10";
+        ? "border-warning-border bg-warning-bg"
+        : "border-error-border bg-error-bg";
 
   const radarData = Object.entries(DIMENSION_LABELS).map(([key, dim]) => ({
     dim,
@@ -110,19 +110,19 @@ export function GrantDNACard({ result, scoring = false, onReScore }: Props) {
   }));
 
   return (
-    <div className="glow-border rounded-xl bg-ink-700/60 shadow-card backdrop-blur-md">
+    <div className="rounded-xl border border-border bg-surface shadow-sm">
       {/* Header */}
-      <div className="flex items-center justify-between gap-3 border-b border-navy-700/60 px-5 py-4">
+      <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-4">
         <div className="flex items-center gap-2">
-          <Activity className="h-4 w-4 text-indigo-400" aria-hidden />
-          <h3 className="text-base font-semibold text-navy-100">Grant DNA Score</h3>
+          <Activity className="h-4 w-4 text-primary" aria-hidden />
+          <h3 className="text-base font-semibold text-text">Grant DNA Score</h3>
         </div>
         {onReScore && (
           <button
             type="button"
             onClick={onReScore}
             disabled={scoring}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-500/40 bg-indigo-500/10 px-3 py-1.5 text-xs font-medium text-indigo-300 transition hover:bg-indigo-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-surface text-primary px-3 py-1.5 text-xs font-medium transition hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${scoring ? "animate-spin" : ""}`} aria-hidden />
             {scoring ? "Scoring..." : "Re-score"}
@@ -139,13 +139,13 @@ export function GrantDNACard({ result, scoring = false, onReScore }: Props) {
             <span className={`text-2xl font-bold leading-none ${scoreColor}`}>
               {displayScore}
             </span>
-            <span className="mt-0.5 text-[10px] font-medium text-navy-400">/100</span>
+            <span className="mt-0.5 text-[10px] font-medium text-text-muted">/100</span>
           </div>
           <div className="min-w-0 flex-1">
             <Badge variant="info">
               Top {100 - result.percentile}% of funded proposals
             </Badge>
-            <p className="mt-1.5 text-xs leading-relaxed text-navy-400">
+            <p className="mt-1.5 text-xs leading-relaxed text-text-muted">
               {result.comparison}
             </p>
           </div>
@@ -160,17 +160,17 @@ export function GrantDNACard({ result, scoring = false, onReScore }: Props) {
             const val = result.dimensions[key] ?? 0;
             const pct = val * 10;
             const barColor =
-              pct >= 75 ? "bg-green-500" : pct >= 50 ? "bg-yellow-500" : "bg-red-500";
+              pct >= 75 ? "bg-success-text" : pct >= 50 ? "bg-warning-text" : "bg-error-text";
             return (
               <div key={key} className="flex items-center gap-2">
-                <span className="w-20 shrink-0 text-xs text-navy-400">{label}</span>
-                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-navy-800">
+                <span className="w-20 shrink-0 text-xs text-text-muted">{label}</span>
+                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-raised">
                   <div
                     className={`h-full rounded-full transition-all ${barColor}`}
                     style={{ width: `${pct}%` }}
                   />
                 </div>
-                <span className="w-6 shrink-0 text-right text-xs font-medium text-navy-300">
+                <span className="w-6 shrink-0 text-right text-xs font-medium text-text">
                   {val.toFixed(1)}
                 </span>
               </div>
@@ -179,20 +179,20 @@ export function GrantDNACard({ result, scoring = false, onReScore }: Props) {
         </div>
 
         {/* Expandable improvement suggestions */}
-        <div className="border-t border-navy-700/60 pt-3">
+        <div className="border-t border-border pt-3">
           <button
             type="button"
             onClick={() => setShowSuggestions((p) => !p)}
             className="flex w-full items-center justify-between gap-2 text-left"
             aria-expanded={showSuggestions}
           >
-            <span className="text-sm font-medium text-navy-200">
+            <span className="text-sm font-medium text-text">
               Improvement suggestions
             </span>
             {showSuggestions ? (
-              <ChevronUp className="h-4 w-4 shrink-0 text-navy-500" aria-hidden />
+              <ChevronUp className="h-4 w-4 shrink-0 text-text-muted" aria-hidden />
             ) : (
-              <ChevronDown className="h-4 w-4 shrink-0 text-navy-500" aria-hidden />
+              <ChevronDown className="h-4 w-4 shrink-0 text-text-muted" aria-hidden />
             )}
           </button>
 
@@ -202,16 +202,16 @@ export function GrantDNACard({ result, scoring = false, onReScore }: Props) {
                 const pct = score * 10;
                 const dimColor =
                   pct >= 75
-                    ? "border-green-500/20 bg-green-500/5"
+                    ? "border-success-border bg-success-bg"
                     : pct >= 50
-                      ? "border-yellow-500/20 bg-yellow-500/5"
-                      : "border-red-500/20 bg-red-500/5";
+                      ? "border-warning-border bg-warning-bg"
+                      : "border-error-border bg-error-bg";
                 const labelColor =
                   pct >= 75
-                    ? "text-green-400"
+                    ? "text-success-text"
                     : pct >= 50
-                      ? "text-yellow-400"
-                      : "text-red-400";
+                      ? "text-warning-text"
+                      : "text-error-text";
                 return (
                   <div
                     key={key}
@@ -224,7 +224,7 @@ export function GrantDNACard({ result, scoring = false, onReScore }: Props) {
                       </span>
                     </div>
                     {hint && (
-                      <p className="text-xs leading-relaxed text-navy-400">{hint}</p>
+                      <p className="text-xs leading-relaxed text-text-muted">{hint}</p>
                     )}
                   </div>
                 );

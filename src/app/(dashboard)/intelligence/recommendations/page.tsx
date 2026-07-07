@@ -55,17 +55,17 @@ function FunderCard({
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="rounded-xl border border-gray-700 bg-gray-800">
+    <div className="rounded-xl border border-border bg-surface shadow-sm">
       <div className="flex items-start gap-4 px-5 py-4">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="font-semibold text-white">{rec.name}</p>
+            <p className="font-semibold text-text">{rec.name}</p>
             <ScoreBadge score={rec.match_score} />
             {rec.ein && (
-              <span className="text-xs text-gray-400">EIN {rec.ein}</span>
+              <span className="text-xs text-text-muted">EIN {rec.ein}</span>
             )}
           </div>
-          <div className="mt-2 flex flex-wrap gap-3 text-xs text-gray-400">
+          <div className="mt-2 flex flex-wrap gap-3 text-xs text-text-muted">
             {rec.avg_award_amount !== null && (
               <span>Avg award: ${rec.avg_award_amount.toLocaleString()}</span>
             )}
@@ -80,7 +80,7 @@ function FunderCard({
             {rec.match_reasons.slice(0, 3).map((reason, i) => (
               <span
                 key={i}
-                className="rounded-md bg-blue-900/30 px-2 py-0.5 text-xs text-blue-300"
+                className="rounded-md bg-info-bg px-2 py-0.5 text-xs text-info-text"
               >
                 {reason}
               </span>
@@ -98,7 +98,7 @@ function FunderCard({
           </button>
           <button
             onClick={() => setExpanded((v) => !v)}
-            className="rounded-lg p-1.5 text-gray-400 transition hover:bg-gray-700 hover:text-white"
+            className="rounded-lg p-1.5 text-text-muted transition hover:bg-surface-raised hover:text-text"
             aria-label={expanded ? "Collapse" : "Expand match reasoning"}
           >
             {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
@@ -106,23 +106,23 @@ function FunderCard({
         </div>
       </div>
       {expanded && (
-        <div className="border-t border-gray-700 px-5 py-4 space-y-3">
+        <div className="border-t border-border px-5 py-4 space-y-3">
           <div>
-            <p className="mb-1.5 text-xs font-medium text-gray-500 uppercase tracking-wide">Match reasoning</p>
+            <p className="mb-1.5 text-xs font-medium text-text-muted uppercase tracking-wide">Match reasoning</p>
             <ul className="space-y-1">
               {rec.match_reasons.map((reason, i) => (
-                <li key={i} className="text-sm text-gray-300">• {reason}</li>
+                <li key={i} className="text-sm text-text">• {reason}</li>
               ))}
             </ul>
           </div>
           {rec.program_priorities.length > 0 && (
             <div>
-              <p className="mb-1 text-xs font-medium text-gray-500 uppercase tracking-wide">Program priorities</p>
+              <p className="mb-1 text-xs font-medium text-text-muted uppercase tracking-wide">Program priorities</p>
               <div className="flex flex-wrap gap-1.5">
                 {rec.program_priorities.map((p, i) => (
-                  <span key={i} className="rounded-md bg-gray-700 px-2 py-0.5 text-xs text-gray-300">
+                  <Badge key={i} variant="neutral">
                     {p}
-                  </span>
+                  </Badge>
                 ))}
               </div>
             </div>
@@ -201,26 +201,26 @@ export default function RecommendationsPage() {
     <div className="space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-white">
+        <h1 className="text-2xl font-semibold tracking-tight text-text">
           Funder Recommendations
         </h1>
-        <p className="mt-1 text-sm text-gray-400">
+        <p className="mt-1 text-sm text-text-muted">
           Ranked funder matches based on geographic fit, program alignment, and award size.
         </p>
       </div>
 
       {/* Filters */}
-      <div className="rounded-xl border border-gray-700 bg-gray-800 p-4">
+      <div className="rounded-xl border border-border bg-surface p-4 shadow-sm">
         <div className="flex flex-wrap items-end gap-4">
           <div className="min-w-[200px] flex-1">
-            <label className="mb-1.5 block text-xs font-medium text-gray-400" htmlFor="category-select">
+            <label className="mb-1.5 block text-xs font-medium text-text-muted" htmlFor="category-select">
               Program Category
             </label>
             <select
               id="category-select"
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              className="w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
+              className="w-full rounded-lg border border-border bg-surface-raised px-3 py-2 text-sm text-text focus:border-primary focus:outline-none"
             >
               <option value="">All categories</option>
               {PROGRAM_CATEGORIES.map((c) => (
@@ -231,7 +231,7 @@ export default function RecommendationsPage() {
             </select>
           </div>
           <div className="min-w-[160px]">
-            <label className="mb-1.5 block text-xs font-medium text-gray-400" htmlFor="amount-input">
+            <label className="mb-1.5 block text-xs font-medium text-text-muted" htmlFor="amount-input">
               Grant Amount ($)
             </label>
             <input
@@ -240,7 +240,7 @@ export default function RecommendationsPage() {
               min={0}
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              className="w-full rounded-lg border border-gray-600 bg-gray-900 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
+              className="w-full rounded-lg border border-border bg-surface-raised px-3 py-2 text-sm text-text focus:border-primary focus:outline-none"
               placeholder="50000"
             />
           </div>
@@ -259,7 +259,7 @@ export default function RecommendationsPage() {
       {error && (
         <div
           role="alert"
-          className="flex items-start gap-2 rounded-lg border border-red-800 bg-red-900/30 px-4 py-3 text-sm text-red-300"
+          className="flex items-start gap-2 rounded-lg border border-error-border bg-error-bg px-4 py-3 text-sm text-error-text"
         >
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
           {error}
@@ -268,10 +268,10 @@ export default function RecommendationsPage() {
 
       {/* Results */}
       {!loading && recommendations.length === 0 && !error && (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-gray-700 bg-gray-800 py-20 text-center">
-          <Search className="mb-4 h-10 w-10 text-gray-600" />
-          <p className="text-base font-semibold text-gray-300">No recommendations found</p>
-          <p className="mt-2 max-w-sm text-sm text-gray-500">
+        <div className="flex flex-col items-center justify-center rounded-xl border border-border bg-surface py-20 text-center shadow-sm">
+          <Search className="mb-4 h-10 w-10 text-text-muted" />
+          <p className="text-base font-semibold text-text">No recommendations found</p>
+          <p className="mt-2 max-w-sm text-sm text-text-muted">
             Adjust the filters or add more grantmaker profiles to the intelligence library to improve matches.
           </p>
         </div>
@@ -279,11 +279,11 @@ export default function RecommendationsPage() {
 
       {recommendations.length > 0 && (
         <div className="space-y-3">
-          <p className="text-sm text-gray-400">{recommendations.length} matches found</p>
+          <p className="text-sm text-text-muted">{recommendations.length} matches found</p>
           {recommendations.map((rec) => (
             <div key={rec.foundation_id} className="relative">
               {addedIds.has(rec.foundation_id) && (
-                <div className="absolute right-14 top-4 z-10 rounded-md bg-green-900/50 px-2 py-0.5 text-xs text-green-300">
+                <div className="absolute right-14 top-4 z-10 rounded-md bg-success-bg px-2 py-0.5 text-xs text-success-text">
                   Added
                 </div>
               )}

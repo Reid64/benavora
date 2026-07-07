@@ -4,12 +4,7 @@ import { Loader2 } from "lucide-react";
 
 import { cn } from "@/lib/utils/cn";
 
-export type ButtonVariant =
-  | "primary"
-  | "secondary"
-  | "purple"
-  | "danger"
-  | "ghost";
+export type ButtonVariant = "primary" | "secondary" | "danger" | "ghost";
 export type ButtonSize = "sm" | "md" | "lg";
 
 export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -23,17 +18,20 @@ export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   fullWidth?: boolean;
 };
 
+/**
+ * `secondary` always has a visible border — never a borderless light-on-light
+ * button. `ghost` has no border or background of its own, so reserve it for
+ * buttons sitting on a surface that already provides definition (a colored
+ * banner, a card header, dark chrome); on the plain page background it has
+ * too little affordance on its own.
+ */
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
-  primary:
-    "bg-gradient-accent bg-[length:200%_100%] bg-left text-white shadow-glow-blue hover:bg-right hover:shadow-glow focus-visible:ring-teal-400",
+  primary: "bg-primary text-white hover:bg-primary/90 focus-visible:ring-primary",
   secondary:
-    "border border-white/15 bg-white/5 text-navy-100 backdrop-blur-sm hover:bg-white/10 hover:border-white/25 focus-visible:ring-teal-400",
-  purple:
-    "bg-gradient-purple text-white shadow-glow-purple hover:brightness-110 focus-visible:ring-primary",
+    "border border-primary/40 bg-surface text-primary hover:bg-primary/5 focus-visible:ring-primary",
   danger:
-    "border border-red-400/30 bg-red-500/90 text-white shadow-sm shadow-red-900/40 hover:bg-red-500 focus-visible:ring-red-400",
-  ghost:
-    "text-navy-300 hover:bg-white/10 hover:text-white focus-visible:ring-teal-400",
+    "border border-red-400/30 bg-red-500/90 text-white shadow-sm hover:bg-red-500 focus-visible:ring-red-400",
+  ghost: "text-primary hover:bg-primary/10 focus-visible:ring-primary",
 };
 
 const SIZE_CLASSES: Record<ButtonSize, string> = {

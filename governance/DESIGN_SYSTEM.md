@@ -1,8 +1,8 @@
 # benavora — DESIGN SYSTEM (FORGE × UI/UX Pro Max)
 
 - **Generated:** 2026-06-12T18:03:13.507Z
-- **Last revised:** 2026-07-07 — replaced the podcast-platform generator output with the benavora brand system (nonprofit grant management SaaS).
-- **Source:** Hand-maintained brand system, derived from the benavora logo palette.
+- **Last revised:** 2026-07-07 — purged remaining dark-theme surfaces (`bg-ink-*`, `glow-border`, `backdrop-blur`, dark-tuned `shadow-card`) from `Card`/`Modal`/`GrantDNACard`/`LogicModelView`/`RubricPanel` and page bodies; fixed invisible `secondary`/`ghost` buttons; corrected the color palette table below, which had drifted from the live tokens in `src/app/globals.css`/`tailwind.config.ts` since the 2026-07-07 rebrand pass.
+- **Source:** Hand-maintained brand system, derived from the benavora logo palette. Canonical values live in `src/app/globals.css` (CSS custom properties) and `tailwind.config.ts` (Tailwind color keys reading the same variables) — this file is a summary for prompt-injection use, not the source of truth; if the two disagree, the code wins.
 
 > FORGE injects this document into EVERY UI prompt context during Phase 1B
 > (FrontendArchitecture + InteractionMaps) and Phase 3 UI prompts, so all
@@ -28,20 +28,31 @@
 
 ### Color Palette
 
-| Role | Hex | CSS Variable |
-|------|-----|--------------|
-| Primary | `#0077B6` | `--color-accent` |
-| Secondary | `#00B4D8` | `--color-secondary` |
-| Background | `#F8FAFC` | `--color-page` |
-| Surface | `#FFFFFF` | `--color-surface` |
-| Surface-2 | `#EFF6FF` | `--color-surface-elevated` |
-| Sidebar | `#0F172A` | `--color-sidebar` |
-| Text | `#0F172A` | `--color-text-primary` |
-| Text-muted | `#64748B` | `--color-text-muted` |
-| Border | `#E2E8F0` | `--color-border` |
-| CTA gradient | `#00B4D8 → #0077B6` | `--color-cta-from` / `--color-cta-to` |
+| Role | Hex | CSS Variable | Tailwind class |
+|------|-----|--------------|-----------------|
+| Background | `#EEF2F7` | `--color-background` | `bg-background` |
+| Surface | `#FFFFFF` | `--color-surface` | `bg-surface` |
+| Surface-raised (nested/inset areas) | `#F8FAFC` | `--color-surface-raised` | `bg-surface-raised` |
+| Sidebar (the ONLY intentionally dark surface) | `#0B1220` | `--color-sidebar` | `bg-sidebar` |
+| Sidebar-active | `rgba(0,180,216,0.12)` | `--color-sidebar-active` | `bg-sidebar-active` |
+| Primary | `#0077B6` | `--color-primary` | `bg-primary` / `text-primary` |
+| Accent | `#00B4D8` | `--color-accent` | `bg-accent` / `text-accent` |
+| Text | `#0F172A` | `--color-text` | `text-text` |
+| Text-muted | `#475569` | `--color-text-muted` | `text-text-muted` |
+| Border | `#E2E8F0` | `--color-border` | `border-border` |
+| CTA gradient | `#00B4D8 → #0077B6` | `--color-cta-from` / `--color-cta-to` | n/a (used in `.btn-primary` only) |
 
-**Color Notes:** Deep navy-cyan primary with a bright cyan secondary, on light neutral surfaces. Sidebar stays a fixed deep navy regardless of theme, echoing the logo mark. Trustworthy, professional, calm — appropriate for a nonprofit-facing funding platform, not a consumer or entertainment product.
+**Semantic status pairs** (bg = 100-level tint, text = 700-level, border = 200-level of the same hue — consumed by `<Badge>`, never by raw Tailwind hue classes):
+
+| Variant | Bg | Text | Border |
+|---|---|---|---|
+| success | `#DCFCE7` `bg-success-bg` | `#15803D` `text-success-text` | `#BBF7D0` `border-success-border` |
+| warning | `#FEF3C7` `bg-warning-bg` | `#B45309` `text-warning-text` | `#FDE68A` `border-warning-border` |
+| error | `#FEE2E2` `bg-error-bg` | `#B91C1C` `text-error-text` | `#FECACA` `border-error-border` |
+| info | `#E0F2FE` `bg-info-bg` | `#0369A1` `text-info-text` | `#BAE6FD` `border-info-border` |
+| neutral | `bg-surface-raised` | `text-text-muted` | `border-border` |
+
+**Color Notes:** Deep navy-cyan primary with a bright cyan accent, on light neutral surfaces. Sidebar stays a fixed near-black navy regardless of theme, echoing the logo mark — it is the **only** deliberately dark element in the app; every page body, panel, card, and modal is light. Trustworthy, professional, calm — appropriate for a nonprofit-facing funding platform, not a consumer or entertainment product.
 
 ### Typography
 
@@ -82,51 +93,60 @@
 
 ### Buttons
 
+Canonical implementation: `src/components/ui/Button.tsx`, four variants. `secondary` and `ghost` were dark-theme leftovers (`border-white/15 bg-white/5 text-navy-100` / `text-navy-300 hover:text-white`) that rendered invisible on the light background until fixed 2026-07-07 — never reintroduce translucent-white or `text-white`-on-hover styling for these variants.
+
 ```css
-/* Primary Button */
+/* Primary — solid brand fill */
 .btn-primary {
-  background: linear-gradient(135deg, #00B4D8 0%, #0077B6 100%);
+  background: #0077B6; /* bg-primary */
   color: white;
-  padding: 12px 24px;
   border-radius: 8px;
-  font-weight: 600;
-  transition: filter 200ms ease, box-shadow 200ms ease;
-  cursor: pointer;
+  font-weight: 500;
 }
+.btn-primary:hover { background: rgba(0, 119, 182, 0.9); /* hover:bg-primary/90 */ }
 
-.btn-primary:hover {
-  filter: brightness(0.94);
-  box-shadow: 0 4px 14px -4px rgba(0, 119, 182, 0.45);
-}
-
-/* Secondary Button */
+/* Secondary — ALWAYS a visible border, never borderless/white-on-white */
 .btn-secondary {
-  background: transparent;
-  color: #0077B6;
-  border: 2px solid #0077B6;
-  padding: 12px 24px;
+  background: #FFFFFF; /* bg-surface */
+  color: #0077B6; /* text-primary */
+  border: 1px solid rgba(0, 119, 182, 0.4); /* border-primary/40 */
   border-radius: 8px;
-  font-weight: 600;
-  transition: all 200ms ease;
-  cursor: pointer;
+  font-weight: 500;
+}
+.btn-secondary:hover { background: rgba(0, 119, 182, 0.05); /* hover:bg-primary/5 */ }
+
+/* Ghost — no border/bg of its own; reserve for buttons on a surface that
+   already provides definition (a colored banner, a card header, dark chrome).
+   On the plain page background it has too little affordance on its own. */
+.btn-ghost {
+  color: #0077B6; /* text-primary */
+}
+.btn-ghost:hover { background: rgba(0, 119, 182, 0.1); /* hover:bg-primary/10 */ }
+
+/* Danger */
+.btn-danger {
+  background: rgba(239, 68, 68, 0.9);
+  color: white;
+  border: 1px solid rgba(248, 113, 113, 0.3);
 }
 ```
 
 ### Cards
 
+Canonical implementation: `src/components/ui/Card.tsx`. Also used by `Modal.tsx`'s dialog surface. Never `bg-ink-*`, `glow-border`, or `backdrop-blur` — those were dark-glass leftovers purged 2026-07-07 (they had gone unnoticed in `Card`, `Modal`, `GrantDNACard`, `LogicModelView`, and `RubricPanel` since the original dark-theme build, silently rendering translucent near-black panels — with light `navy-100`-family text on top — on every page that used them).
+
 ```css
 .card {
-  background: #FFFFFF;
-  border: 1px solid #E2E8F0;
+  background: #FFFFFF; /* bg-surface */
+  border: 1px solid #E2E8F0; /* border-border */
   border-radius: 12px;
   padding: 24px;
-  box-shadow: var(--shadow-md);
-  transition: all 200ms ease;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 200ms ease;
 }
 
 .card:hover {
-  border-color: #CBD5E1;
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-md);
 }
 ```
 
@@ -169,20 +189,23 @@
 
 ### Sidebar
 
+The only intentionally dark surface in the app — every other panel, card, and modal is light. Canonical implementation: `src/components/layout/Sidebar.tsx`.
+
 ```css
 .sidebar {
-  background: #0F172A;
-  color: #F8FAFC;
-  width: 240px;
+  background: #0B1220; /* bg-sidebar */
+  width: 256px;
 }
 
+.sidebar-item {
+  color: #94A3B8; /* text-slate-400, inactive */
+}
+.sidebar-item:hover {
+  color: #FFFFFF; /* hover:text-white */
+}
 .sidebar-item.active {
-  background: rgba(248, 250, 252, 0.1);
-  color: #FFFFFF;
-}
-
-.sidebar-item .accent-bar {
-  background: #00B4D8;
+  background: rgba(0, 180, 216, 0.12); /* bg-sidebar-active */
+  color: #00B4D8; /* text-accent */
 }
 ```
 
@@ -213,6 +236,10 @@
 - ❌ Purple (`#7C3AED`) or orange (`#F97316`) accents — replaced by the navy-cyan brand palette
 - ❌ OLED/near-black page backgrounds (`#0a0a1a`) — this product is light-theme by default
 - ❌ Podcast/media-player UI patterns (audio players, episode feeds)
+- ❌ `bg-ink-*`, `glow-border`, `backdrop-blur-md`, or the dark-tuned `shadow-card`/`shadow-card-hover` on any page-body panel, card, or modal — these are dark-glass leftovers from the pre-rebrand theme. The sidebar (`bg-sidebar`, `#0B1220`) is the ONLY intentionally dark surface in the app.
+- ❌ Raw Tailwind hue classes on status/label pills (`bg-green-100 text-green-700`, etc.) — use `<Badge variant="success|warning|error|info|neutral">` from `src/components/ui/Badge.tsx` so bg/text/border stay in sync.
+- ❌ `text-white`, `text-gray-200/300`, or other light text colors outside a genuinely dark/colored container (a solid button, a badge, a gradient avatar, an image overlay, the sidebar) — these go invisible on the light page background.
+- ❌ Borderless `secondary`/`ghost` buttons that render as white-on-white — `secondary` always has a visible `border-primary/40`.
 
 ### Additional Forbidden Patterns
 

@@ -88,11 +88,11 @@ export function Header({ userEmail, orgName, orgLogoUrl, onMenuClick }: HeaderPr
   const initials = orgInitials(orgName, userEmail);
 
   return (
-    <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center gap-4 border-b border-white/10 bg-[#0f1117] px-4 sm:px-6">
+    <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center gap-4 border-b border-border bg-surface px-4 sm:px-6">
       <button
         type="button"
         onClick={onMenuClick}
-        className="rounded-md p-1.5 text-[#f0f0f5]/60 transition hover:bg-white/10 hover:text-[#f0f0f5] lg:hidden"
+        className="rounded-md p-1.5 text-text-muted transition hover:bg-surface-raised hover:text-text lg:hidden"
         aria-label="Open navigation"
       >
         <Menu className="h-5 w-5" />
@@ -111,8 +111,8 @@ export function Header({ userEmail, orgName, orgLogoUrl, onMenuClick }: HeaderPr
                 "relative rounded-lg px-3 py-1.5 text-sm transition",
                 tab.premium ? "font-semibold" : "font-medium",
                 active
-                  ? "bg-white/15 text-[#f0f0f5]"
-                  : "text-[#f0f0f5]/65 hover:bg-white/5 hover:text-[#f0f0f5]",
+                  ? "bg-primary/10 text-primary"
+                  : "text-text-muted hover:bg-surface-raised hover:text-text",
               )}
             >
               {tab.label}
@@ -120,7 +120,7 @@ export function Header({ userEmail, orgName, orgLogoUrl, onMenuClick }: HeaderPr
                 <span
                   className={cn(
                     "absolute bottom-0.5 left-3 right-3 h-0.5 rounded-full transition",
-                    active ? "bg-teal-400" : "bg-teal-400/35",
+                    active ? "bg-accent" : "bg-accent/35",
                   )}
                   aria-hidden
                 />
@@ -135,7 +135,7 @@ export function Header({ userEmail, orgName, orgLogoUrl, onMenuClick }: HeaderPr
         <button
           type="button"
           onClick={() => setMenuOpen((o) => !o)}
-          className="flex items-center gap-1.5 rounded-full p-0.5 pr-1.5 transition hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400"
+          className="flex items-center gap-1.5 rounded-full p-0.5 pr-1.5 transition hover:bg-surface-raised focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           aria-haspopup="menu"
           aria-expanded={menuOpen}
           aria-label="Organization menu"
@@ -149,25 +149,25 @@ export function Header({ userEmail, orgName, orgLogoUrl, onMenuClick }: HeaderPr
             />
           ) : (
             <span
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-teal-400 to-teal-600 text-sm font-semibold text-white shadow-md shadow-teal-900/40"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-accent to-primary text-sm font-semibold text-white shadow-sm"
               aria-hidden
             >
               {initials}
             </span>
           )}
-          <ChevronDown className="h-4 w-4 text-[#f0f0f5]/50" aria-hidden />
+          <ChevronDown className="h-4 w-4 text-text-muted" aria-hidden />
         </button>
 
         {menuOpen && (
           <div
             role="menu"
-            className="absolute right-0 top-full z-30 mt-2 w-56 overflow-hidden rounded-xl border border-white/10 bg-[#0f1117] shadow-2xl"
+            className="absolute right-0 top-full z-30 mt-2 w-56 overflow-hidden rounded-xl border border-border bg-surface shadow-lg"
           >
-            <div className="border-b border-white/10 px-4 py-3">
-              <p className="truncate text-sm font-semibold text-[#f0f0f5]">
+            <div className="border-b border-border px-4 py-3">
+              <p className="truncate text-sm font-semibold text-text">
                 {orgName || "Your organization"}
               </p>
-              <p className="truncate text-xs text-[#f0f0f5]/50">{userEmail}</p>
+              <p className="truncate text-xs text-text-muted">{userEmail}</p>
             </div>
             <div className="py-1">
               {MENU_LINKS.map((l) => (
@@ -176,19 +176,19 @@ export function Header({ userEmail, orgName, orgLogoUrl, onMenuClick }: HeaderPr
                   href={l.href}
                   onClick={() => setMenuOpen(false)}
                   role="menuitem"
-                  className="block px-4 py-2 text-sm text-[#f0f0f5]/70 transition hover:bg-white/5 hover:text-[#f0f0f5]"
+                  className="block px-4 py-2 text-sm text-text-muted transition hover:bg-surface-raised hover:text-text"
                 >
                   {l.label}
                 </Link>
               ))}
             </div>
-            <div className="border-t border-white/10 py-1">
+            <div className="border-t border-border py-1">
               <button
                 type="button"
                 onClick={handleSignOut}
                 disabled={signingOut}
                 role="menuitem"
-                className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-[#f0f0f5]/70 transition hover:bg-white/5 hover:text-[#f0f0f5] disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-text-muted transition hover:bg-surface-raised hover:text-text disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <LogOut className="h-4 w-4" aria-hidden />
                 {signingOut ? "Signing out..." : "Log Out"}

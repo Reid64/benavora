@@ -300,7 +300,7 @@ function StatCard({
   trend?: "up" | "down" | "neutral";
 }) {
   return (
-    <div className="rounded-xl border border-navy-100 bg-white/5 px-5 py-4">
+    <div className="rounded-xl border border-border bg-surface-raised px-5 py-4">
       <p className="text-xs font-medium uppercase tracking-wide text-navy-400">
         {label}
       </p>
@@ -520,7 +520,7 @@ export default function AutoApplyAnalyticsPage() {
             <button
               type="button"
               onClick={() => setSelectedCategory(null)}
-              className="ml-1 rounded px-1 text-blue-400 hover:text-white"
+              className="ml-1 rounded px-1 text-blue-400 hover:text-blue-600"
             >
               ×
             </button>

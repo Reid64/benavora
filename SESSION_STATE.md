@@ -1,7 +1,84 @@
 # BENAVORA — SESSION STATE
 ## Last updated: 2026-07-07
 ## Current branch: main
-## Last commit: fix: convert missed table pills to Badge, apply surface layering
+## Last commit: design: purge dark surfaces, fix button visibility, verified via screenshots
+
+---
+
+## COMPLETED — July 7 definitive UI pass: dark-surface purge, button visibility, screenshot-verified
+
+Root cause found: **`src/components/ui/Card.tsx`** (72 call sites) and **`Modal.tsx`** still had
+`bg-ink-700/60` / `bg-ink-800` (a genuinely dark near-black legacy scale), `glow-border`,
+`backdrop-blur-md`, and dark-tuned `shadow-card` — leftover from before the light-theme
+rebrand, never touched by the two prior design passes because neither one's grep patterns
+covered the app's own custom `ink-*` color scale (they checked Tailwind's default
+gray/slate/zinc/neutral families and literal hex, not this codebase's named legacy scale).
+This explained the user's report that Details/Funding panels, Pipeline/Recent Activity,
+and other dashboard cards still looked dark — it wasn't scattered per-page debt, it was
+one shared component. Fixed `Card` and `Modal` to `bg-surface border-border shadow-sm`.
+
+**Cascading fix, not just the root component**: several components had copy-pasted Card's
+old dark markup inline instead of using the component (`RubricPanel.tsx`,
+`AnalyticsDashboard.tsx`'s `StatCard`, `GrantDNACard.tsx`, and a `bg-navy-900` wrapper
+around `LogicModelView` in `draft-generator/page.tsx`) — all converted individually.
+`GrantDNACard.tsx` and `LogicModelView.tsx` were fully rewritten (dark navy-100-family
+text/bg pairs throughout, designed to sit on the dark `ink-700` background that no longer
+exists) — `LogicModelView`'s 5 stage columns now use neutral/info/success/primary/warning
+tokens instead of slate/blue/teal/violet/amber `/10`-opacity dark-mode tints.
+
+**Second-order bug, caught by an 88-occurrence sweep**: fixing `Card` to a light background
+meant any child content still using `text-white` (correctly, when `Card` was dark) went
+invisible. Grepped `text-white` across all of `src/app/(dashboard)` and `src/components`
+(88 hits, 45 files) and triaged every one via 4 parallel agents — the overwhelming majority
+were already correct (solid-colored buttons, badges, gradient avatars, dark video-player
+overlays) and left alone; genuine misses (`Breadcrumbs.tsx`, an `autoapply/analytics`
+hover state, `follow-ups/page.tsx`'s `<h2>`) were fixed.
+
+**Full dark-page conversions**: `intelligence/recommendations/page.tsx`,
+`funders/import/page.tsx`, and `notifications/page.tsx` were entirely on the old dark
+theme (never migrated) — converted in full. `settings/layout.tsx`'s persistent tab nav
+(wraps all 5 Settings pages) had `border-white/10` and `text-navy-400 hover:text-navy-200`
+— invisible border, low-contrast hover — fixed.
+
+**Button system** (`src/components/ui/Button.tsx`): `secondary` was
+`border-white/15 bg-white/5 text-navy-100` (near-white-on-white — invisible on the light
+background) and `ghost` was `text-navy-300 hover:text-white` (disappears on hover). Both
+were dark-theme leftovers, used 246× across 86 files. Rewrote to
+`primary` = `bg-primary text-white hover:bg-primary/90`,
+`secondary` = `bg-surface text-primary border border-primary/40 hover:bg-primary/5`
+(always has a visible border, never borderless white-on-white),
+`ghost` = `text-primary hover:bg-primary/10`. Removed the unused `purple` variant
+(0 call sites). This single-file fix cascaded correctly to every `<Button variant="secondary">`
+in the app (confirmed via screenshot on `/autoapply` and `/research`).
+
+**Header** (`src/components/layout/Header.tsx`) converted from dark chrome (`bg-[#0f1117]`,
+`text-[#f0f0f5]`) to light (`bg-surface`, `text-text`/`text-text-muted`) — the sidebar is
+the only intentionally dark element per this pass's explicit instruction; the header
+previously matched the sidebar's dark tone but wasn't named as an exception.
+
+**Visual verification**: started the dev server, logged in as `beta1@benavora-test.com`
+(had to flip that org's `onboarding_completed` to `true` via a one-off service-role script
+— it was `false`, so every route redirected to `/onboarding` and the first screenshot pass
+showed the wizard instead of real pages), and used Playwright to screenshot `/dashboard`,
+`/opportunities`, an opportunity detail page, `/draft-generator`, `/autoapply`, and
+`/research`. Reviewed each: confirmed Details/Funding panels, Pipeline/Recent Activity, and
+every Card-based panel now render as clean white cards with visible borders and readable
+text; confirmed `secondary` buttons ("Settings" on `/autoapply`, "Edit"/"Parse NOFA" on the
+opportunity detail page) show the correct white-bg/primary-border/primary-text treatment.
+Caught one more issue this way — `research/page.tsx`'s per-source "Run" buttons used raw
+`border-gray-300 text-navy-700` instead of the token system (not literally invisible, but
+inconsistent) — fixed to `border-primary/40 text-primary`, re-screenshotted to confirm.
+
+**Scope note**: draft-generator's "Review & edit"/"Confidence" sub-panels only render after
+generating an actual AI draft (real opportunity + template selection + a live model call,
+~30-180s per prior session notes) — verified those specific components
+(`GrantDNACard`/`RubricPanel`) via full source rewrite + `tsc` rather than forcing a live
+generation; the underlying `Card`-based panels one screenshot away were confirmed working.
+
+**Verification**: `pnpm tsc --noEmit` and `pnpm run build` both clean (234/234 pages) after
+the full pass. Two pre-existing client-side 400 console errors observed during the
+Playwright run are unrelated (no matching entries in the Next.js server log, and none of
+this pass's edits touched data-fetching/query code) — not investigated further, out of scope.
 
 ---
 

@@ -27,12 +27,12 @@ export function RubricPanel({ rubric, rubricInferred = false }: RubricPanelProps
   }, [hasRubric]);
 
   return (
-    <div className="glow-border rounded-xl bg-ink-700/60 shadow-card backdrop-blur-md transition-shadow hover:shadow-card-hover">
+    <div className="rounded-xl border border-border bg-surface shadow-sm transition-shadow hover:shadow-md">
       <button
         type="button"
         onClick={() => setExpanded((prev) => !prev)}
         aria-expanded={expanded}
-        className={`flex w-full items-center justify-between gap-4 px-5 py-4${expanded ? " border-b border-navy-100" : ""}`}
+        className={`flex w-full items-center justify-between gap-4 px-5 py-4${expanded ? " border-b border-border" : ""}`}
       >
         <div className="flex items-center gap-2">
           <Target className="h-4 w-4 text-amber-500" aria-hidden />

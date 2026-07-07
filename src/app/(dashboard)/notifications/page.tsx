@@ -46,17 +46,17 @@ const EVENT_META: Record<
   automation_completed: {
     label: "Automation Completed",
     icon: CheckCircle2,
-    color: "text-teal-400",
+    color: "text-success-text",
   },
   automation_failed: {
     label: "Automation Failed",
     icon: TriangleAlert,
-    color: "text-red-400",
+    color: "text-error-text",
   },
   automation_paused: {
     label: "Automation Paused",
     icon: Bot,
-    color: "text-amber-400",
+    color: "text-warning-text",
   },
   deadline_approaching: {
     label: "Deadline Approaching",
@@ -66,23 +66,23 @@ const EVENT_META: Record<
   agent_completed: {
     label: "Agent Completed",
     icon: CheckCircle2,
-    color: "text-teal-400",
+    color: "text-success-text",
   },
   agent_failed: {
     label: "Agent Failed",
     icon: TriangleAlert,
-    color: "text-red-400",
+    color: "text-error-text",
   },
-  key_expired: { label: "Key Expired", icon: Key, color: "text-red-400" },
+  key_expired: { label: "Key Expired", icon: Key, color: "text-error-text" },
   target_paused: {
     label: "Target Paused",
     icon: Target,
-    color: "text-amber-400",
+    color: "text-warning-text",
   },
   daily_limit_reached: {
     label: "Daily Limit Reached",
     icon: Zap,
-    color: "text-amber-400",
+    color: "text-warning-text",
   },
 };
 
@@ -93,7 +93,7 @@ function metaFor(event_type: string) {
     EVENT_META[event_type as NotificationEventType] ?? {
       label: event_type,
       icon: Bell,
-      color: "text-navy-400",
+      color: "text-text-muted",
     }
   );
 }
@@ -178,8 +178,8 @@ export default function NotificationsPage() {
       {/* Page header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Notifications</h1>
-          <p className="mt-1 text-sm text-navy-400">
+          <h1 className="text-2xl font-bold text-text">Notifications</h1>
+          <p className="mt-1 text-sm text-text-muted">
             Last 90 days · {unreadCount} unread
           </p>
         </div>
@@ -188,7 +188,7 @@ export default function NotificationsPage() {
             type="button"
             onClick={markAllRead}
             disabled={busyId === "all"}
-            className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-navy-200 transition hover:bg-white/10 hover:text-white disabled:opacity-50"
+            className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-text-muted transition hover:bg-surface-raised hover:text-text disabled:opacity-50"
           >
             Mark all read
           </button>
@@ -198,7 +198,7 @@ export default function NotificationsPage() {
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
         {/* Read/unread toggle */}
-        <div className="flex overflow-hidden rounded-lg border border-white/10 text-sm">
+        <div className="flex overflow-hidden rounded-lg border border-border text-sm">
           {(["all", "unread", "read"] as ReadFilter[]).map((f) => (
             <button
               key={f}
@@ -208,7 +208,7 @@ export default function NotificationsPage() {
                 "px-3 py-1.5 capitalize transition",
                 readFilter === f
                   ? "bg-teal-600 text-white"
-                  : "text-navy-300 hover:bg-white/5 hover:text-white",
+                  : "text-text-muted hover:bg-surface-raised hover:text-text",
               )}
             >
               {f}
@@ -222,7 +222,7 @@ export default function NotificationsPage() {
           onChange={(e) =>
             setTypeFilter(e.target.value as NotificationEventType | "all")
           }
-          className="rounded-lg border border-white/10 bg-ink-800 px-3 py-1.5 text-sm text-navy-200 focus:outline-none focus:ring-2 focus:ring-teal-500"
+          className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-text focus:outline-none focus:ring-2 focus:ring-teal-500"
         >
           <option value="all">All types</option>
           {ALL_EVENT_TYPES.map((t) => (
@@ -235,20 +235,20 @@ export default function NotificationsPage() {
 
       {/* Content */}
       {loading ? (
-        <div className="py-16 text-center text-sm text-navy-400">
+        <div className="py-16 text-center text-sm text-text-muted">
           Loading notifications…
         </div>
       ) : error ? (
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-6 text-center text-sm text-red-400">
+        <div className="rounded-xl border border-error-border bg-error-bg px-4 py-6 text-center text-sm text-error-text">
           {error}
         </div>
       ) : visible.length === 0 ? (
-        <div className="rounded-xl border border-white/10 bg-ink-800 py-16 text-center">
-          <Bell className="mx-auto mb-3 h-8 w-8 text-navy-500" />
-          <p className="text-sm text-navy-400">No notifications match your filters.</p>
+        <div className="rounded-xl border border-border bg-surface py-16 text-center">
+          <Bell className="mx-auto mb-3 h-8 w-8 text-text-muted" />
+          <p className="text-sm text-text-muted">No notifications match your filters.</p>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-white/10">
+        <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
           {visible.map((n, idx) => {
             const meta = metaFor(n.event_type);
             const Icon = meta.icon;
@@ -256,8 +256,8 @@ export default function NotificationsPage() {
               <div
                 key={n.id}
                 className={cn(
-                  "flex items-start gap-4 border-b border-white/5 px-4 py-4 last:border-0",
-                  !n.is_read && "bg-white/[0.03]",
+                  "flex items-start gap-4 border-b border-border px-4 py-4 last:border-0",
+                  !n.is_read && "bg-primary/[0.04]",
                   idx === 0 && "rounded-t-xl",
                   idx === visible.length - 1 && "rounded-b-xl",
                 )}
@@ -265,7 +265,7 @@ export default function NotificationsPage() {
                 {/* Icon */}
                 <div
                   className={cn(
-                    "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/5",
+                    "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-raised",
                     meta.color,
                   )}
                 >
@@ -279,18 +279,18 @@ export default function NotificationsPage() {
                       <p
                         className={cn(
                           "text-sm font-medium",
-                          n.is_read ? "text-navy-200" : "text-white",
+                          n.is_read ? "text-text-muted" : "text-text",
                         )}
                       >
                         {n.title}
                       </p>
                       {n.message && (
-                        <p className="mt-0.5 text-sm text-navy-400">
+                        <p className="mt-0.5 text-sm text-text-muted">
                           {n.message}
                         </p>
                       )}
-                      <p className="mt-1.5 text-xs text-navy-500">
-                        <span className="mr-2 rounded-full border border-white/10 px-1.5 py-0.5">
+                      <p className="mt-1.5 text-xs text-text-muted">
+                        <span className="mr-2 rounded-full border border-border px-1.5 py-0.5">
                           {meta.label}
                         </span>
                         {formatRelative(n.created_at)}
@@ -303,7 +303,7 @@ export default function NotificationsPage() {
                         type="button"
                         onClick={() => markRead(n.id)}
                         disabled={busyId === n.id}
-                        className="shrink-0 rounded-md px-2 py-1 text-xs text-navy-400 transition hover:bg-white/5 hover:text-white disabled:opacity-50"
+                        className="shrink-0 rounded-md px-2 py-1 text-xs text-text-muted transition hover:bg-surface-raised hover:text-text disabled:opacity-50"
                       >
                         Mark read
                       </button>

@@ -1023,12 +1023,12 @@ export default function DraftGeneratorPage() {
                       }}
                     />
                   ) : (
-                    <div className="glow-border rounded-xl bg-ink-700/60 shadow-card p-5 backdrop-blur-md">
+                    <div className="rounded-xl border border-border bg-surface shadow-sm p-5">
                       <div className="mb-3 flex items-center gap-2">
-                        <Dna className="h-4 w-4 animate-spin text-indigo-400" aria-hidden />
-                        <h3 className="text-base font-semibold text-navy-100">Grant DNA Score</h3>
+                        <Dna className="h-4 w-4 animate-spin text-primary" aria-hidden />
+                        <h3 className="text-base font-semibold text-text">Grant DNA Score</h3>
                       </div>
-                      <div className="h-[220px] animate-pulse rounded-lg bg-navy-800/30" />
+                      <div className="h-[220px] animate-pulse rounded-lg bg-surface-raised" />
                     </div>
                   )
                 )}
@@ -1087,9 +1087,7 @@ export default function DraftGeneratorPage() {
                     title="Program logic model"
                     description="The inputs → impact backbone the AI used to ground this draft's program design. Sourced from the Intelligence Library when a template matches, otherwise generated for this opportunity."
                   >
-                    <div className="rounded-xl bg-navy-900 p-4">
-                      <LogicModelView model={logicModel} />
-                    </div>
+                    <LogicModelView model={logicModel} />
                   </Card>
                 )}
                 {budgetTable.length > 0 && (

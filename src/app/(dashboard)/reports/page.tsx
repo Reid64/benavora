@@ -156,7 +156,7 @@ export default function ReportsPage() {
         </div>
 
         {rangeLabel && (
-          <p className="mb-5 text-xs text-slate-400">{rangeLabel}</p>
+          <p className="mb-5 text-xs text-text-muted">{rangeLabel}</p>
         )}
 
         <button
@@ -178,7 +178,7 @@ export default function ReportsPage() {
         </button>
 
         {loading && (
-          <p className="mt-3 text-center text-xs text-slate-400">
+          <p className="mt-3 text-center text-xs text-text-muted">
             Aggregating data, generating AI narrative, and building PDF - this
             takes 20-40 seconds.
           </p>

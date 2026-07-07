@@ -35,51 +35,51 @@ const STAGES: StageConfig[] = [
     key: "inputs",
     label: "Inputs",
     Icon: Package,
-    headerColor: "text-slate-200",
-    bgColor: "bg-white/5",
-    borderColor: "border-white/10",
-    chipColor: "bg-white/8 text-slate-300 ring-1 ring-inset ring-white/10",
-    iconColor: "text-slate-400",
+    headerColor: "text-text",
+    bgColor: "bg-surface-raised",
+    borderColor: "border-border",
+    chipColor: "bg-surface text-text border border-border",
+    iconColor: "text-text-muted",
   },
   {
     key: "activities",
     label: "Activities",
     Icon: Cog,
-    headerColor: "text-blue-200",
-    bgColor: "bg-blue-500/10",
-    borderColor: "border-blue-500/15",
-    chipColor: "bg-blue-400/10 text-blue-200 ring-1 ring-inset ring-blue-400/20",
-    iconColor: "text-blue-400",
+    headerColor: "text-info-text",
+    bgColor: "bg-info-bg",
+    borderColor: "border-info-border",
+    chipColor: "bg-surface text-text border border-border",
+    iconColor: "text-info-text",
   },
   {
     key: "outputs",
     label: "Outputs",
     Icon: BarChart,
-    headerColor: "text-teal-200",
-    bgColor: "bg-teal-500/10",
-    borderColor: "border-teal-500/15",
-    chipColor: "bg-teal-400/10 text-teal-200 ring-1 ring-inset ring-teal-400/20",
-    iconColor: "text-teal-400",
+    headerColor: "text-success-text",
+    bgColor: "bg-success-bg",
+    borderColor: "border-success-border",
+    chipColor: "bg-surface text-text border border-border",
+    iconColor: "text-success-text",
   },
   {
     key: "outcomes",
     label: "Outcomes",
     Icon: Target,
-    headerColor: "text-violet-200",
-    bgColor: "bg-violet-500/10",
-    borderColor: "border-violet-500/15",
-    chipColor: "bg-violet-400/10 text-violet-200 ring-1 ring-inset ring-violet-400/20",
-    iconColor: "text-violet-400",
+    headerColor: "text-primary",
+    bgColor: "bg-primary/10",
+    borderColor: "border-primary/20",
+    chipColor: "bg-surface text-text border border-border",
+    iconColor: "text-primary",
   },
   {
     key: "impact",
     label: "Impact",
     Icon: Star,
-    headerColor: "text-amber-200",
-    bgColor: "bg-amber-500/12",
-    borderColor: "border-amber-500/20",
-    chipColor: "bg-amber-400/12 text-amber-200 ring-1 ring-inset ring-amber-400/25",
-    iconColor: "text-amber-400",
+    headerColor: "text-warning-text",
+    bgColor: "bg-warning-bg",
+    borderColor: "border-warning-border",
+    chipColor: "bg-surface text-text border border-border",
+    iconColor: "text-warning-text",
   },
 ];
 
@@ -103,11 +103,11 @@ function StageColumn({
       <div className="mb-3 flex items-center gap-2">
         <Icon className={cn("h-4 w-4 shrink-0", iconColor)} aria-hidden />
         <h3 className={cn("text-sm font-semibold", headerColor)}>{label}</h3>
-        <span className="ml-auto text-xs text-white/30">{items.length}</span>
+        <span className="ml-auto text-xs text-text-muted">{items.length}</span>
       </div>
 
       {items.length === 0 ? (
-        <p className="text-xs italic text-white/25">None specified</p>
+        <p className="text-xs italic text-text-muted">None specified</p>
       ) : (
         <ul className="flex flex-col gap-1.5">
           {items.map((item, idx) => (
@@ -146,7 +146,7 @@ export function LogicModelView({ model, title, className }: LogicModelViewProps)
 
             {idx < STAGES.length - 1 && (
               <div className="mx-2 mt-6 shrink-0" aria-hidden>
-                <ChevronRight className="h-5 w-5 text-white/20" />
+                <ChevronRight className="h-5 w-5 text-border" />
               </div>
             )}
           </div>
@@ -161,7 +161,7 @@ export function LogicModelView({ model, title, className }: LogicModelViewProps)
 
             {idx < STAGES.length - 1 && (
               <div className="py-1.5" aria-hidden>
-                <ChevronDown className="h-5 w-5 text-white/20" />
+                <ChevronDown className="h-5 w-5 text-border" />
               </div>
             )}
           </div>
@@ -189,9 +189,9 @@ export function LogicModelCompact({
         return (
           <div key={stage.key} className="flex items-center gap-1">
             <span className={cn("font-medium", stage.iconColor)}>{stage.label}</span>
-            <span className="text-white/40">({count})</span>
+            <span className="text-text-muted">({count})</span>
             {idx < STAGES.length - 1 && (
-              <ChevronRight className="h-3 w-3 shrink-0 text-white/20" aria-hidden />
+              <ChevronRight className="h-3 w-3 shrink-0 text-border" aria-hidden />
             )}
           </div>
         );

@@ -692,17 +692,17 @@ function StatCard({
   hint?: string;
 }) {
   return (
-    <div className="glow-border rounded-xl bg-ink-700/60 p-4 shadow-card backdrop-blur-md">
-      <div className="flex items-center gap-2 text-navy-500">
+    <div className="rounded-xl border border-border bg-surface p-4 shadow-sm">
+      <div className="flex items-center gap-2 text-text-muted">
         <Icon className="h-4 w-4" aria-hidden />
         <span className="text-xs font-medium uppercase tracking-wide">
           {label}
         </span>
       </div>
-      <div className="mt-2 text-xl font-semibold tracking-tight text-navy-900">
+      <div className="mt-2 text-xl font-semibold tracking-tight text-text">
         {value}
       </div>
-      {hint && <div className="mt-0.5 text-xs text-navy-400">{hint}</div>}
+      {hint && <div className="mt-0.5 text-xs text-text-muted">{hint}</div>}
     </div>
   );
 }

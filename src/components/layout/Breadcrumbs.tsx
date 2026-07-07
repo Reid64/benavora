@@ -63,7 +63,7 @@ export function Breadcrumbs() {
           <li key={crumb.href} className="flex items-center gap-1.5">
             {crumb.isLast ? (
               <span
-                className="font-semibold text-white"
+                className="font-semibold text-text"
                 aria-current="page"
               >
                 {crumb.label}
@@ -72,7 +72,7 @@ export function Breadcrumbs() {
               <>
                 <Link
                   href={crumb.href}
-                  className="text-navy-300 transition hover:text-white"
+                  className="text-navy-300 transition hover:text-text"
                 >
                   {crumb.label}
                 </Link>

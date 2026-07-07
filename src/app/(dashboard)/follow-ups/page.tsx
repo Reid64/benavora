@@ -124,8 +124,8 @@ export default function FollowUpsPage() {
     <div className="space-y-6 p-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-white">Follow-Up Sequences</h1>
-          <p className="mt-1 text-sm text-slate-400">
+          <h1 className="text-2xl font-semibold text-text">Follow-Up Sequences</h1>
+          <p className="mt-1 text-sm text-text-muted">
             Humanized follow-up emails generated for submitted applications.
           </p>
         </div>
@@ -179,10 +179,10 @@ function SequenceCard({ record, copied, onCopy }: SequenceCardProps) {
     <Card className="p-6">
       <div className="mb-4 flex items-start justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-white">
+          <h2 className="text-lg font-semibold text-text">
             {sequence.opportunityName}
           </h2>
-          <p className="text-sm text-slate-400">
+          <p className="text-sm text-text-muted">
             {sequence.funderName} &middot; Generated {generatedDate}
           </p>
         </div>
@@ -236,7 +236,7 @@ function StepRow({ step, noteId, copied, onCopy }: StepRowProps) {
         </div>
         <button
           onClick={() => void onCopy(stepId, fullText)}
-          className="flex items-center gap-1 rounded px-2 py-1 text-xs text-slate-400 transition-colors hover:bg-slate-700 hover:text-white"
+          className="flex items-center gap-1 rounded px-2 py-1 text-xs text-text-muted transition-colors hover:bg-surface-raised hover:text-text"
           aria-label="Copy email to clipboard"
         >
           {isCopied ? (
@@ -250,7 +250,7 @@ function StepRow({ step, noteId, copied, onCopy }: StepRowProps) {
         </button>
       </div>
       <p className="mb-1 text-sm font-medium text-white">{step.subject}</p>
-      <p className="line-clamp-4 whitespace-pre-wrap text-sm text-slate-400">
+      <p className="line-clamp-4 whitespace-pre-wrap text-sm text-text-muted">
         {step.body}
       </p>
     </div>

@@ -915,12 +915,12 @@ function CalendarCard({
             </div>
 
             {/* Auto-deadlines checkbox */}
-            <label className="flex cursor-pointer items-start gap-2 text-xs text-navy-400">
+            <label className="flex cursor-pointer items-start gap-2 text-xs text-text-muted">
               <input
                 type="checkbox"
                 checked={autoDeadlines}
                 onChange={(e) => onAutoDeadlinesChange(e.target.checked)}
-                className="mt-0.5 rounded border-white/20 bg-ink-900 accent-teal-500"
+                className="mt-0.5 rounded border-border bg-surface accent-primary"
               />
               Automatically create calendar events for new deadlines
             </label>

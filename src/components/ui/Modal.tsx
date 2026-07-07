@@ -83,7 +83,7 @@ export function Modal({
         ref={dialogRef}
         tabIndex={-1}
         className={cn(
-          "glow-border relative z-10 flex max-h-[calc(100vh-2rem)] w-full flex-col rounded-2xl bg-ink-800 shadow-card-hover outline-none",
+          "relative z-10 flex max-h-[calc(100vh-2rem)] w-full flex-col rounded-2xl border border-border bg-surface shadow-lg outline-none",
           SIZE_CLASSES[size],
         )}
       >
