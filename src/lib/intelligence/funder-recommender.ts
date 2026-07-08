@@ -1,5 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk'
-
+import { callClaude } from '@/lib/ai/claude'
 import { createClient } from '@/lib/supabase/server'
 
 export interface FunderRecommendation {
@@ -12,17 +11,6 @@ export interface FunderRecommendation {
   total_annual_giving: number | null
   geographic_focus: string[]
   program_priorities: string[]
-}
-
-let anthropicClient: Anthropic | null = null
-
-function getClient(): Anthropic {
-  if (anthropicClient === null) {
-    const apiKey = process.env.ANTHROPIC_API_KEY
-    if (!apiKey) throw new Error("Missing required env var: ANTHROPIC_API_KEY")
-    anthropicClient = new Anthropic({ apiKey })
-  }
-  return anthropicClient
 }
 
 function toStringArray(raw: unknown): string[] {
@@ -171,13 +159,7 @@ Funder profile:
 
 Be specific, practical, and highlight the strongest alignment points.`
 
-    const response = await getClient().messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 512,
-      messages: [{ role: 'user', content: prompt }],
-    })
-
-    const block = response.content[0]
-    return block?.type === 'text' ? block.text : 'Could not generate explanation.'
+    const response = await callClaude({ prompt, maxTokens: 512 })
+    return response.text || 'Could not generate explanation.'
   }
 }

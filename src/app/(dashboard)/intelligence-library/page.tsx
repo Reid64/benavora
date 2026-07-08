@@ -131,8 +131,8 @@ export default function IntelligenceLibraryPage() {
     void loadData();
   }, [loadData]);
 
-  async function toggleProposal(proposalId: string) {
-    if (expandedId === proposalId) {
+  async function toggleProposal(proposalId: string, forceExpand = false) {
+    if (!forceExpand && expandedId === proposalId) {
       setExpandedId(null);
       return;
     }
@@ -149,6 +149,24 @@ export default function IntelligenceLibraryPage() {
     setSections((prev) => ({ ...prev, [proposalId]: data ?? [] }));
     setSectionsLoading(false);
   }
+
+  // Deep-link support: /intelligence-library?proposal={id} opens and scrolls to that proposal.
+  useEffect(() => {
+    if (loading) return;
+    const proposalId = new URLSearchParams(window.location.search).get("proposal");
+    if (!proposalId) return;
+    setActiveTab("funded-proposals");
+    void toggleProposal(proposalId, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
+
+  useEffect(() => {
+    if (!expandedId) return;
+    if (new URLSearchParams(window.location.search).get("proposal") !== expandedId) return;
+    document
+      .getElementById(`proposal-row-${expandedId}`)
+      ?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [expandedId]);
 
   const q = search.trim().toLowerCase();
 
@@ -298,6 +316,7 @@ export default function IntelligenceLibraryPage() {
                       {filteredProposals.map((p) => (
                         <Fragment key={p.id}>
                           <tr
+                            id={`proposal-row-${p.id}`}
                             onClick={() => void toggleProposal(p.id)}
                             className="cursor-pointer hover:bg-slate-50"
                           >

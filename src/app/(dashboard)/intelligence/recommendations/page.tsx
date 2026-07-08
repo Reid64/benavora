@@ -64,6 +64,30 @@ function FunderCard({
   isAdding: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [explanation, setExplanation] = useState<string | null>(null);
+  const [explanationLoading, setExplanationLoading] = useState(false);
+  const [explanationError, setExplanationError] = useState<string | null>(null);
+
+  const toggleExpanded = useCallback(() => {
+    setExpanded((v) => {
+      const next = !v;
+      if (next && explanation === null && !explanationLoading) {
+        setExplanationLoading(true);
+        setExplanationError(null);
+        fetch(`/api/intelligence/recommendations/explain?funderId=${encodeURIComponent(rec.foundation_id)}`)
+          .then(async (res) => {
+            const data = (await res.json().catch(() => ({}))) as { explanation?: string; error?: string };
+            if (!res.ok) throw new Error(data.error ?? "Failed to generate explanation.");
+            setExplanation(data.explanation ?? "No explanation available.");
+          })
+          .catch((err: unknown) => {
+            setExplanationError(err instanceof Error ? err.message : "Failed to generate explanation.");
+          })
+          .finally(() => setExplanationLoading(false));
+      }
+      return next;
+    });
+  }, [explanation, explanationLoading, rec.foundation_id]);
 
   return (
     <div className="rounded-xl border border-border bg-surface shadow-sm">
@@ -108,7 +132,7 @@ function FunderCard({
             {isAdding ? "Adding…" : "Add to Funders"}
           </button>
           <button
-            onClick={() => setExpanded((v) => !v)}
+            onClick={toggleExpanded}
             className="rounded-lg p-1.5 text-text-muted transition hover:bg-surface-raised hover:text-text"
             aria-label={expanded ? "Collapse" : "Expand match reasoning"}
           >
@@ -125,6 +149,12 @@ function FunderCard({
                 <li key={i} className="text-sm text-text">• {reason}</li>
               ))}
             </ul>
+          </div>
+          <div>
+            <p className="mb-1.5 text-xs font-medium text-text-muted uppercase tracking-wide">AI explanation</p>
+            {explanationLoading && <p className="text-sm text-text-muted">Generating explanation…</p>}
+            {explanationError && <p className="text-sm text-error-text">{explanationError}</p>}
+            {explanation && <p className="text-sm text-text">{explanation}</p>}
           </div>
           {rec.program_priorities.length > 0 && (
             <div>
@@ -237,7 +267,7 @@ export default function RecommendationsPage() {
         name: rec.name,
         category: "private_foundation",
         annual_giving_budget: rec.total_annual_giving,
-        geographic_focus: rec.geographic_focus,
+        geographic_focus: rec.geographic_focus.length > 0 ? rec.geographic_focus.join(", ") : null,
         notes: noteParts.length > 0 ? noteParts.join(" — ") : null,
       });
 

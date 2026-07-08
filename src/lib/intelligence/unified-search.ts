@@ -175,6 +175,7 @@ export class UnifiedIntelligenceSearch {
 
     return (data as Array<{
       id: string
+      proposal_id: string
       section_text: string
       section_type: string
       similarity: number
@@ -192,6 +193,7 @@ export class UnifiedIntelligenceSearch {
         funder_name: row.funder_name,
         grant_program: row.grant_program,
         award_year: row.award_year,
+        proposal_id: row.proposal_id,
       },
     }))
   }

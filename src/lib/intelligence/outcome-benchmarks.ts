@@ -1,4 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk'
+import { callClaude } from '@/lib/ai/claude'
 
 import { OUTCOME_BENCHMARKS } from './data/outcome-benchmarks'
 
@@ -15,8 +15,6 @@ export interface ComparisonResult {
   position: 'above' | 'at' | 'below' | 'unknown'
   source: string
 }
-
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 export class OutcomeBenchmarkEngine {
   async getBenchmarks(programCategory: string, _geography?: string): Promise<OutcomeBenchmark[]> {
@@ -111,12 +109,7 @@ Write a concise outcome projection (3–5 sentences) that:
 3. Cites the benchmark sources to establish credibility
 4. Is written in a tone appropriate for a grant application narrative`
 
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 600,
-      messages: [{ role: 'user', content: prompt }],
-    })
-
-    return response.content[0]?.type === 'text' ? response.content[0].text : ''
+    const response = await callClaude({ prompt, maxTokens: 600 })
+    return response.text || ''
   }
 }

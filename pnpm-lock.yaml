@@ -98,6 +98,9 @@ importers:
       resend:
         specifier: ^6.12.4
         version: 6.12.4
+      robots-parser:
+        specifier: ^3.0.1
+        version: 3.0.1
       stripe:
         specifier: ^22.2.0
         version: 22.2.0(@types/node@20.19.42)
@@ -3139,6 +3142,10 @@ packages:
   rimraf@5.0.10:
     resolution: {integrity: sha512-l0OE8wL34P4nJH/H2ffoaniAokM2qSmrtXHmlpvYr5AVVX8msAyW0l8NVJFDxlSK4u3Uh/f41cQheDVdnYijwQ==}
     hasBin: true
+
+  robots-parser@3.0.1:
+    resolution: {integrity: sha512-s+pyvQeIKIZ0dx5iJiQk1tPLJAWln39+MI5jtM8wnyws+G5azk+dMnMX0qfbqNetKKNgcWWOdi0sfm+FbQbgdQ==}
+    engines: {node: '>=10.0.0'}
 
   rollup@4.62.2:
     resolution: {integrity: sha512-RFnrW4lhXA3s3eqHDZvN654g8OTjzRfqpIRJYczCGB6HzphckVAi/Qh4tbPUbRuDi7s1Llv8g/NspLkttY3gTA==}
@@ -6748,6 +6755,8 @@ snapshots:
   rimraf@5.0.10:
     dependencies:
       glob: 10.3.10
+
+  robots-parser@3.0.1: {}
 
   rollup@4.62.2:
     dependencies:

@@ -1,90 +1,121 @@
 prompts:
-  - id: nav-rename-autoapply
-    category: ui
+  - id: dd-101
+    phase: build
+    description: "Donor Discovery migrations: taxonomy, requests, prospects, directory, connectors"
     prompt: |
-      CODEBASE: C:\Users\manag\Documents\benavora
-      TASK: Rename "Automation" to "AutoApply" everywhere in the application.
-      STEPS:
-      1. Read the sidebar nav component (likely src/components/layout/Sidebar.tsx or similar). Find the nav item labeled "Automation" and rename it to "AutoApply".
-      2. Search the entire src/ directory for any other references to "Automation" as a nav label, page title, or breadcrumb. Rename all to "AutoApply".
-      3. If there is a route folder at src/app/(dashboard)/automation, rename it to autoapply and update all internal links and imports.
-      4. Verify build compiles: cd C:\Users\manag\Documents\benavora && pnpm build
-      DO NOT change any functionality. Only rename the label and route references.
-      AFTER COMPLETION: Append to C:\Users\manag\Documents\benavora\STATE_OF_THE_BUILD.md a line noting nav-rename-autoapply completed.
+      Read DONOR_DISCOVERY_ARCHITECTURE.md sections 1C, 3, and 6 in the repo root before writing anything.
+      Read SCHEMA_REGISTRY.md and the two most recent files in supabase/migrations/ to match existing migration conventions exactly (naming, RLS policy style, updated_at triggers).
+      Create the next-numbered migration implementing: donor_discovery_taxonomy (shared, no org_id), donor_discovery_requests (org-scoped, RLS), donor_discovery_prospects (org-scoped, RLS), donor_discovery_directory (shared, no org_id, unique index on lower(legal_name) + website domain), donor_discovery_connectors (org-scoped, RLS, encrypted_api_key text).
+      Follow the column specs in the architecture doc exactly. Add RLS policies matching the pattern used by the funders table. Add indexes: prospects(organization_id, pipeline_stage), prospects(score desc), directory USING gist(geo), requests(organization_id, status).
+      Do NOT apply the migration to production — file only. Register all tables in SCHEMA_REGISTRY.md.
+    gates:
+      - type: compile
+    max_retries: 2
+    on_fail: halt
 
-  - id: fix-opportunity-detail-display
-    category: ui
+  - id: dd-102
+    phase: build
+    description: "Taxonomy seed script: full NAICS 2022 + civic entity branch"
     prompt: |
-      CODEBASE: C:\Users\manag\Documents\benavora
-      PROBLEM: The opportunity detail page at /opportunities/[id] shows dashes (-) for all fields in the Overview tab even though the database has populated values for description, eligibility_requirements, amount_max, amount_min, amount_available, deadline, recurrence, geographic_restrictions, application_method, and required_documents. The list page at /opportunities correctly shows amounts and deadlines, proving data exists in Supabase. The detail page is either not querying those columns or not rendering them.
-      STEPS:
-      1. Read src/app/(dashboard)/opportunities/[id]/page.tsx
-      2. Find the Supabase query that loads the opportunity record. Check the select() clause. It must include ALL columns: name, description, category, status, source, amount_available, amount_min, amount_max, deadline, recurrence, eligibility_requirements, required_documents, geographic_restrictions, application_method, url, eligibility_score, recommendation, recommendation_reasoning, discovered_at, created_at, updated_at, and opportunity_documents.
-      3. Find the Overview tab rendering section. For each field, ensure there is a display element that renders the value when non-null. Currently all show "-" even when data exists.
-      4. Details card (left): render DESCRIPTION (full text not truncated), DEADLINE (formatted date), RECURRENCE, GEOGRAPHIC RESTRICTIONS, ELIGIBILITY REQUIREMENTS (full text block scrollable if long), REQUIRED DOCUMENTS (render as list if text[] array).
-      5. Funding card (right): render AMOUNT AVAILABLE, REQUEST RANGE (amount_min to amount_max), APPLICATION METHOD, URL (clickable link).
-      6. Match the existing dark theme styling already in the codebase. Do not reference DESIGN_SYSTEM.md.
-      7. Verify build: cd C:\Users\manag\Documents\benavora && pnpm build
-      CRITICAL: Do not modify any data or queries on the list page. Only fix the detail page.
-      AFTER COMPLETION: Append to C:\Users\manag\Documents\benavora\STATE_OF_THE_BUILD.md a line noting fix-opportunity-detail-display completed.
+      Read DONOR_DISCOVERY_ARCHITECTURE.md sections 1A-1C.
+      Create scripts/seed-dd-taxonomy.ts (runnable via pnpm tsx, add package.json script seed:dd-taxonomy).
+      The script must: 1) download the official US Census 2022 NAICS 6-digit code list (use the Census NAICS files at census.gov/naics; prefer a CSV/TXT format; parse robustly). 2) Insert every 6-digit code as kind='naics' with parent linkage built from the 2-digit sector and 4-digit industry group levels. 3) Insert the civic branch: land_bank, community_foundation, corporate_foundation, municipal_surplus, trade_association as kind='civic'. 4) Be idempotent — upsert on (kind, code), safe to re-run. 5) If the Census download fails, exit with a clear error. NEVER fabricate or hardcode a partial NAICS list.
+      Use the Supabase admin client with realtime disabled via ws transport (see scripts/seed-beta-users.ts for the working pattern, including the @ts-nocheck header since scripts/ is excluded from build type-check).
+      Do not run the script — create it only.
+    gates:
+      - type: compile
+    max_retries: 2
+    on_fail: halt
 
-  - id: tighten-grants-gov-keywords
-    category: agent
+  - id: dd-103
+    phase: build
+    description: "Crawler core: rate limiter, robots.txt, ToS registry, kill switches"
     prompt: |
-      CODEBASE: C:\Users\manag\Documents\benavora
-      PROBLEM: The Grants.gov research agent returns irrelevant federal grants. Bad examples in the DB: "Clinical Trials Phased Awards for Down syndrome Research", "State Criminal Alien Assistance Program (SCAAP)", "Assistive Technology Program for Farmers with Disabilities", "Centers of Excellence for Veteran Student Success", "National Defense Education Program (NDEP) STEM".
-      Faith Foundation is a 508(c)(1)(a) serving emergency/transitional housing in rural Texas. Only relevant grants: housing, homelessness, reentry, addiction recovery, rural community development, CDBG, HOME program, ESG, CoC, faith-based initiatives, Texas programs.
-      STEPS:
-      1. Find the Grants.gov agent. Search for grants-gov, grants_gov, or grantsGov in src/lib/agents/. Read the file.
-      2. Find the keyword/query parameters sent to the Grants.gov API. Replace the keyword list with ONLY these terms: "homeless housing", "transitional housing", "emergency shelter", "reentry housing", "recovery housing", "rural housing", "community development block grant", "HOME Investment Partnership", "Emergency Solutions Grant", "Continuum of Care", "faith-based community", "substance abuse recovery housing".
-      3. If the API supports geographic filtering, add Texas or filter for grants available nationally or in Texas.
-      4. ADD a post-fetch relevance scoring function BEFORE inserting any opportunity into the database:
-         a. Score each result 0-100 based on keyword overlap with: housing, homeless, shelter, reentry, recovery, rural, community development, faith, Texas, nonprofit
-         b. Check title and description against REJECT list: ["disability", "veteran education", "criminal alien", "STEM", "defense", "agriculture", "farmers", "fisheries", "NIH", "CDC", "NASA", "DOD research", "clinical trial"]
-         c. Only insert opportunities with relevance score >= 40 AND no reject-list matches
-         d. Log rejected grants to console with reason
-      5. Do NOT delete existing irrelevant grants from the database.
-      6. Verify build: cd C:\Users\manag\Documents\benavora && pnpm build
-      AFTER COMPLETION: Append to C:\Users\manag\Documents\benavora\STATE_OF_THE_BUILD.md a line noting tighten-grants-gov-keywords completed with relevance filter details.
+      Read DONOR_DISCOVERY_ARCHITECTURE.md section 5 (compliance is Phase 1 infrastructure, not an afterthought).
+      Create src/lib/donor-discovery/crawler-core.ts exporting:
+      - class DomainRateLimiter: token-bucket per domain, default 1 request per 5 seconds per domain, configurable per adapter, shared across all tenants (module-level state is fine for the worker; document that Vercel routes never crawl).
+      - async fetchCompliant(url, opts): checks robots.txt (fetch + cache 24h in-memory with DB fallback table dd_robots_cache — add to the migration from dd-101 via a new migration if needed), respects disallow rules, applies the rate limiter, sets User-Agent "BenavoraBot/1.0 (+https://benavora.vercel.app/security)", 15s timeout, returns {ok, status, html} and never throws on HTTP errors.
+      - ToS registry check: reads donor_discovery_tos_registry table (create in a new migration: domain, scrape_allowed bool, notes) — fetchCompliant refuses domains where scrape_allowed=false.
+      - Kill switch: every adapter checks process.env.DD_ADAPTER_<NAME>_DISABLED before running.
+      Write it dependency-light; if a robots.txt parser package is genuinely needed use the pre-installed robots-parser package — do NOT run npm/pnpm install.
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
 
-  - id: nofa-pdf-parsing-pipeline
-    category: agent
+  - id: dd-104
+    phase: build
+    description: "Google Places registry adapter with budget cap"
     prompt: |
-      CODEBASE: C:\Users\manag\Documents\benavora
-      TASK: Build a PDF NOFA parsing pipeline that downloads federal grant PDFs and extracts structured data to enrich opportunity records.
-      CONTEXT: A column called opportunity_documents (jsonb) stores PDF URLs from Grants.gov. These PDFs are the authoritative source for federal grants containing full eligibility, exact deadlines, funding amounts, geographic restrictions, and requirements. Currently stored but never parsed.
-      STEPS:
-      1. Find the opportunity_documents column. Search supabase/migrations/ for any migration adding opportunity_documents. If it does not exist in prod, create it: ALTER TABLE opportunities ADD COLUMN IF NOT EXISTS opportunity_documents jsonb DEFAULT '[]'.
-      2. Install pdf-parse: cd C:\Users\manag\Documents\benavora && pnpm add pdf-parse && pnpm add -D @types/pdf-parse
-      3. Create src/lib/agents/nofa-parser.ts:
-         a. Accept an opportunity ID as input
-         b. Query the opportunity record for opportunity_documents URLs
-         c. For each PDF URL: download via fetch (30s timeout), parse text with pdf-parse, send to Claude API with prompt: "Extract from this NOFA: description (2-3 sentences), eligibility_requirements, amount_available, amount_min, amount_max, deadline (ISO date), geographic_restrictions, application_method, required_documents (string array), recurrence, key_priorities (string array). Return JSON only."
-         d. Parse Claude response. UPDATE opportunity: only overwrite fields where current DB value is null or empty. Never overwrite populated data.
-         e. Log to agent_runs table with agent_type government_research.
-      4. Create API route at src/app/api/agents/nofa-parser/route.ts: POST handler accepting opportunityId, requires auth, calls nofa-parser agent, returns success and enrichedFields array. Set maxDuration = 300.
-      5. Create a batch function that processes all opportunities where opportunity_documents is not null AND description is null.
-      6. Verify build: cd C:\Users\manag\Documents\benavora && pnpm build
-      DO NOT build any UI in this prompt.
-      AFTER COMPLETION: Append to C:\Users\manag\Documents\benavora\STATE_OF_THE_BUILD.md a line noting nofa-pdf-parsing-pipeline completed.
+      Read DONOR_DISCOVERY_ARCHITECTURE.md section 2A.
+      Create src/lib/donor-discovery/adapters/google-places.ts:
+      - enumerate({naicsCodes, geography}): maps NAICS codes to Places API (New) includedTypes/textQuery terms via a maintainable mapping table in the same file (cover the construction/services/retail sectors well; fall back to the NAICS label as textQuery), performs Text Search with pagination, radius from geography.
+      - Budget guard: reads DD_PLACES_MONTHLY_BUDGET_USD (default 200) and tracks spend in a dd_api_spend table (new migration: provider, month, requests, est_cost_usd) at ~$0.032 per text search request; hard-stops with a clear error when the cap is reached.
+      - Normalizes results into donor_discovery_directory upsert shape (legal_name, website, hq_address, geo point, phone, naics_codes, source_adapters append 'google_places').
+      - Requires GOOGLE_PLACES_API_KEY env var; add to the env startup guard in src/lib/env.ts as optional-but-warned.
+      No UI. No calls at module load. Everything lazy and worker-safe.
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
 
-  - id: opportunity-documents-ui
-    category: ui
+  - id: dd-105
+    phase: build
+    description: "Request queue: API routes + worker processor skeleton"
     prompt: |
-      CODEBASE: C:\Users\manag\Documents\benavora
-      TASK: Add a Documents section to the opportunity detail page and a Parse NOFA button that triggers the PDF parsing pipeline.
-      STEPS:
-      1. Read src/app/(dashboard)/opportunities/[id]/page.tsx
-      2. Find opportunity_documents in the loaded data (jsonb with PDF URLs from Grants.gov)
-      3. Add a Documents section below existing Overview content:
-         a. List all PDF URLs from opportunity_documents as clickable links with a PDF icon, opening in new tab
-         b. Show filename extracted from URL or label "NOFA Document"
-      4. Add a "Parse NOFA" button matching existing Edit/Delete button styling:
-         a. On click: POST to /api/agents/nofa-parser with the opportunity ID
-         b. Show loading spinner while processing (30-120 seconds expected)
-         c. On success: refresh page data to show newly enriched Overview fields
-         d. On failure: show error toast or alert
-      5. If opportunity_documents is null or empty, show "No NOFA documents available"
-      6. Match existing dark theme styling in the codebase.
-      7. Verify build: cd C:\Users\manag\Documents\benavora && pnpm build
-      AFTER COMPLETION: Append to C:\Users\manag\Documents\benavora\STATE_OF_THE_BUILD.md a line noting opportunity-documents-ui completed. Also update SESSION_STATE.md with current session status.
+      Read DONOR_DISCOVERY_ARCHITECTURE.md section 3.
+      Create API routes following the existing route conventions (auth, org_id scoping, requireRole where mutating):
+      - POST /api/donor-discovery/requests — create a request (name, taxonomy_ids, geography), status 'queued'.
+      - GET /api/donor-discovery/requests — list org's requests with counts.
+      - GET /api/donor-discovery/requests/[id] — detail with progress.
+      - GET /api/donor-discovery/prospects — filterable list (request_id, stage, min_score) org-scoped.
+      Create worker/dd-request-processor.ts mirroring worker/queue-processor.ts structure: claims queued requests (FOR UPDATE SKIP LOCKED), runs enumeration via the google-places adapter, upserts directory rows, creates org-scoped prospect rows linked to directory records, updates counts/status through enumerating -> complete, marks failed with error detail on exception. Enrichment and scoring stages are Phase 2 — leave clearly-marked stubs that set status complete after enumeration for now, with a TODO referencing the architecture doc section 2B/2D.
+      maxDuration is irrelevant here (worker, not Vercel route) but the API routes must NOT do any crawling or Places calls.
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: dd-106
+    phase: build
+    description: "Directory dedup + upsert module"
+    prompt: |
+      Read DONOR_DISCOVERY_ARCHITECTURE.md section 3 (shared directory, compounding moat).
+      Create src/lib/donor-discovery/directory.ts:
+      - normalizeDomain(url): strips protocol/www/paths.
+      - upsertDirectoryRecord(record): dedup priority 1) exact normalized domain match, 2) fuzzy legal_name match (postgres similarity() > 0.65 within 25km geo radius when both have geo). On match: merge (append source_adapters, fill nulls, never overwrite non-null enrichment). On miss: insert.
+      - findOrCreateProspect(orgId, requestId, directoryId): idempotent per (org, directory) — a second request by the same org linking the same company reuses the prospect row and appends the request linkage (add a join table dd_prospect_requests in a migration if the schema needs it).
+      Wire dd-105's worker to use this module instead of raw inserts if it isn't already.
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 3
+    on_fail: halt
+
+  - id: dd-107
+    phase: test
+    description: "Vitest coverage: RLS shapes, rate limiter, dedup, budget guard"
+    prompt: |
+      Read TESTING.md for the project's test conventions.
+      Add vitest suites: 1) DomainRateLimiter — enforces per-domain spacing, independent domains don't block each other (use fake timers). 2) directory.ts — domain normalization cases, dedup merge behavior (mock supabase client per existing test patterns). 3) google-places budget guard — hard-stops at cap, resets across months. 4) API route auth — requests routes reject unauthenticated and cross-org access (match the style of existing route tests).
+      Run pnpm vitest run — every new test must pass and no existing test may regress. Record final counts.
+    gates:
+      - type: compile
+    max_retries: 3
+    on_fail: halt
+
+  - id: dd-108
+    phase: governance
+    description: "Governance update + commit"
+    prompt: |
+      Update STATE_OF_THE_BUILD.md: new section "Donor Discovery — Phase 1" listing every table, module, adapter, route, worker file, and test suite created in dd-101..dd-107, plus explicitly deferred items (enrichment, scoring, dashboard, connectors — Phases 2-4 per DONOR_DISCOVERY_ARCHITECTURE.md).
+      Update SESSION_STATE.md with current commit and Phase 1 completion.
+      Run pnpm tsc --noEmit and pnpm run build to confirm clean, then git add -A and git commit -m "feat(donor-discovery): phase 1 foundation - schema, taxonomy, crawler core, places adapter, request queue".
+    gates:
+      - type: compile
+      - type: build
+    max_retries: 2
+    on_fail: halt

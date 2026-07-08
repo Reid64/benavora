@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import {
   BookOpen,
   ChevronDown,
   ChevronUp,
   ClipboardList,
   DollarSign,
+  ExternalLink,
   FileCheck,
   Lock,
   Sparkles,
@@ -160,23 +162,38 @@ function CollapsibleSection({
             </p>
           ) : (
             <ul className="space-y-3">
-              {items.map((item) => (
-                <li key={item.id} className="space-y-0.5">
-                  <div className="flex items-start justify-between gap-3">
-                    <span className="text-sm font-medium text-navy-800">
-                      {item.title}
-                    </span>
-                    <Badge variant="info" className="shrink-0">
-                      {Math.round(item.relevance_score * 100)}%
-                    </Badge>
-                  </div>
-                  {item.excerpt && (
-                    <p className="text-xs leading-relaxed text-navy-500">
-                      {item.excerpt}
-                    </p>
-                  )}
-                </li>
-              ))}
+              {items.map((item) => {
+                const proposalId =
+                  typeof item.metadata?.proposal_id === "string"
+                    ? item.metadata.proposal_id
+                    : null;
+                return (
+                  <li key={item.id} className="space-y-0.5">
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="text-sm font-medium text-navy-800">
+                        {item.title}
+                      </span>
+                      <Badge variant="info" className="shrink-0">
+                        {Math.round(item.relevance_score * 100)}%
+                      </Badge>
+                    </div>
+                    {item.excerpt && (
+                      <p className="text-xs leading-relaxed text-navy-500">
+                        {item.excerpt}
+                      </p>
+                    )}
+                    {proposalId && (
+                      <Link
+                        href={`/intelligence-library?proposal=${encodeURIComponent(proposalId)}`}
+                        className="inline-flex items-center gap-1 text-xs font-medium text-teal-600 hover:text-teal-700"
+                      >
+                        View
+                        <ExternalLink className="h-3 w-3" aria-hidden />
+                      </Link>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>
