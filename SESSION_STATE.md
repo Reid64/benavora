@@ -1,7 +1,69 @@
 # BENAVORA — SESSION STATE
-## Last updated: 2026-07-07
+## Last updated: 2026-07-08
 ## Current branch: main
-## Last commit: design: chromatic icon system, stat accents, draft editor viewport fix
+## Last commit: chore: dd architecture doc + phase 1 queue + robots-parser
+
+---
+
+## COMPLETED — July 8 gate re-verification + Intelligence Library claim correction
+
+Same task as the 07-07 pass below, re-run a day later. Ran all three gates fresh rather
+than trusting yesterday's result: `pnpm run typecheck` (tsc --noEmit) — 0 errors. `pnpm run
+build` — clean, 235/235 static pages, 261 route files (85 pages + 176 API routes), no route
+conflicts. `pnpm run lint` — 0 warnings/errors. No drift from 07-07 — same counts, same
+clean result.
+
+The task text (again) asked to document a specific "Intelligence Library Nights 3-7: BUILT"
+bullet list. That section already existed in `STATE_OF_THE_BUILD.md` from the 07-07 pass, so
+rather than re-transcribing it, ran an independent Explore-agent audit against the actual
+source for all 25 individual claims (Census/HUD/BLS/CDC clients, geo fallback, budget/
+compliance/evaluation libraries, grantmaker recommender, Grant DNA, unified search, briefing
+panel, tier gating, migrations, pgvector/embeddings) rather than assuming yesterday's writeup
+was still exhaustive. Two corrections came out of it, verified by reading the code directly
+(not just trusting the subagent):
+
+1. **Geo fallback is county→state only**, not the documented zip→county→state→national chain
+   — `need-statement-engine.ts:41-42` says so in its own comment; `census-api.ts` has no zip
+   or national-level lookup path.
+2. **No real SAMHSA integration exists** — `cdc-api.ts`'s `fetchSubstanceAbuseData()` comment
+   claims "SAMHSA NSDUH state estimates" but the actual query hits a CDC BRFSS (alcohol
+   module) Socrata dataset, a different survey entirely. The mislabeling is in the source
+   code's own comment, not just prior documentation.
+
+Both written into `STATE_OF_THE_BUILD.md` (KB4 section, detailed KB4-9 walkthrough, and new
+gap items #33a/#33b) rather than silently left as-is. Everything else in the Nights 3-7
+section (KB5 Budget, Compliance, KB7 Evaluation, KB8 Grantmaker/Recommendations, KB9 Grant
+DNA, Cross-Library Integration) re-confirmed accurate on a fresh read — no other changes.
+
+No code changes this pass — docs + gate verification only, as scoped. Route/page/layout
+conflict check: static analysis of all `page.tsx`/`route.ts` paths found no directory with
+both a `page.tsx` and a `route.ts`, and no sibling dynamic segments with conflicting param
+names — consistent with the build succeeding (a real conflict fails `next build` outright).
+
+---
+
+## COMPLETED — July 7 gate re-verification + STATE_OF_THE_BUILD.md restructure (second pass, same day)
+
+Re-ran the full gate sequence: `pnpm run typecheck` (tsc --noEmit) — 0 errors. `pnpm run
+build` — clean, 235/235 static pages, 261 route files (85 pages + 176 API routes), no route
+conflicts. `pnpm run lint` — 0 warnings/errors. Same clean result as the prior "Nights 3-7
+verification pass" entry below — no regressions since.
+
+This session's task asked for a new `## Intelligence Library Nights 3-7: BUILT` section
+in STATE_OF_THE_BUILD.md with a specific bullet list. Before writing it, re-checked the
+contested claims against `src/` directly rather than transcribing the requested text
+verbatim, since one bullet ("narrative pattern extraction from funded proposals") conflicts
+with the prior pass's finding that `intelligence_narrative_patterns` has zero code
+references. Re-confirmed via grep: still zero references — this KB piece is schema-only,
+so the new section documents it as **not built** rather than marking it done. Also
+re-confirmed `IntelligenceBriefingPanel` is genuinely mounted on `OpportunityDetail.tsx`,
+and that `build-grantmaker-profiles.ts` builds from `foundation_directory` +
+already-scraped enrichment fields rather than doing its own fresh website scrape. The new
+section lives directly under the file's top-level audit-counts block; the pre-existing
+detailed "Intelligence Library KB4-9" walkthrough further down is unchanged and still the
+source of truth for file-level detail.
+
+No code changes this pass — docs + gate verification only, as scoped.
 
 ---
 

@@ -2,6 +2,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import ws from 'ws';
 import * as heartbeat from './heartbeat.js';
 import * as queueProcessor from './queue-processor.js';
+import * as ddRequestProcessor from './dd-request-processor.js';
 import { StreamServer } from './stream-server.js';
 
 // --- Environment validation ---
@@ -61,10 +62,11 @@ async function shutdown(signal: string): Promise<void> {
   console.log(`[Worker] ${signal} received — shutting down`);
 
   queueProcessor.stop();
+  ddRequestProcessor.stop();
 
   const FIVE_MINUTES_MS = 5 * 60 * 1000;
   await Promise.race([
-    queueProcessor.waitForIdle(),
+    Promise.all([queueProcessor.waitForIdle(), ddRequestProcessor.waitForIdle()]),
     new Promise<void>((resolve) => setTimeout(resolve, FIVE_MINUTES_MS)),
   ]);
 
@@ -117,6 +119,7 @@ async function main(): Promise<void> {
   await heartbeat.register(supabase, env.workerId);
   heartbeat.start(supabase, env.workerId);
   queueProcessor.start(supabase, env.workerId, streamServer);
+  ddRequestProcessor.start(supabase);
 
   console.log(
     `[Worker] AutoApply Worker started — id=${env.workerId} at ${new Date().toISOString()}`,

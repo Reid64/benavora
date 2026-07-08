@@ -13,10 +13,54 @@ const STATE_FIPS: Record<string, string> = {
   'south carolina': '45', 'south dakota': '46', tennessee: '47', texas: '48',
   utah: '49', vermont: '50', virginia: '51', washington: '53', 'west virginia': '54',
   wisconsin: '55', wyoming: '56', 'district of columbia': '11',
+  al: '01', ak: '02', az: '04', ar: '05', ca: '06', co: '08', ct: '09', de: '10',
+  fl: '12', ga: '13', hi: '15', id: '16', il: '17', in: '18', ia: '19', ks: '20',
+  ky: '21', la: '22', me: '23', md: '24', ma: '25', mi: '26', mn: '27', ms: '28',
+  mo: '29', mt: '30', ne: '31', nv: '32', nh: '33', nj: '34', nm: '35', ny: '36',
+  nc: '37', nd: '38', oh: '39', ok: '40', or: '41', pa: '42', ri: '44', sc: '45',
+  sd: '46', tn: '47', tx: '48', ut: '49', vt: '50', va: '51', wa: '53', wv: '54',
+  wi: '55', wy: '56', dc: '11',
 };
 
 function getStateFips(state: string): string | undefined {
   return STATE_FIPS[state.toLowerCase().trim()];
+}
+
+function normalizeCountyName(name: string): string {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/\s+county$/, '')
+    .replace(/\s+parish$/, '')
+    .replace(/\s+borough$/, '');
+}
+
+// Cache of state FIPS -> (normalized county name -> 3-digit county FIPS)
+const countyFipsCache = new Map<string, Record<string, string>>();
+
+async function getCountyFips(stateFips: string, county: string): Promise<string | undefined> {
+  // Already a raw 3-digit FIPS code
+  if (/^\d{3}$/.test(county.trim())) return county.trim();
+
+  let lookup = countyFipsCache.get(stateFips);
+  if (!lookup) {
+    const key = process.env.CENSUS_API_KEY ? `&key=${process.env.CENSUS_API_KEY}` : '';
+    const url = `https://api.census.gov/data/2022/acs/acs5?get=NAME&for=county:*&in=state:${stateFips}${key}`;
+    const res = await fetch(url);
+    if (!res.ok) return undefined;
+
+    const data = (await res.json()) as string[][];
+    lookup = {};
+    // Row shape: [NAME, state, county] e.g. ["Harris County, Texas", "48", "201"]
+    for (const [name, , code] of data.slice(1)) {
+      if (!name || !code) continue;
+      const cleanName = normalizeCountyName(name.split(',')[0] ?? name);
+      lookup[cleanName] = code;
+    }
+    countyFipsCache.set(stateFips, lookup);
+  }
+
+  return lookup[normalizeCountyName(county)];
 }
 
 async function fetchCensus(variables: string[], stateFips: string, countyFips?: string): Promise<Record<string, string>[]> {
@@ -45,9 +89,11 @@ export class CensusDataSource {
   async fetchPovertyData(state: string, county?: string): Promise<NeedDataPoint[]> {
     const stateFips = getStateFips(state);
     if (!stateFips) return [];
+    const countyFips = county ? await getCountyFips(stateFips, county) : undefined;
+    if (county && !countyFips) return [];
 
     const variables = ['B17001_001E', 'B17001_002E'];
-    const rows = await fetchCensus(variables, stateFips, county);
+    const rows = await fetchCensus(variables, stateFips, countyFips);
     const geography = county ? `${county}, ${state}` : state;
 
     return rows.flatMap((row): NeedDataPoint[] => {
@@ -81,9 +127,11 @@ export class CensusDataSource {
   async fetchHousingData(state: string, county?: string): Promise<NeedDataPoint[]> {
     const stateFips = getStateFips(state);
     if (!stateFips) return [];
+    const countyFips = county ? await getCountyFips(stateFips, county) : undefined;
+    if (county && !countyFips) return [];
 
     const variables = ['B25003_001E', 'B25003_003E', 'B25077_001E'];
-    const rows = await fetchCensus(variables, stateFips, county);
+    const rows = await fetchCensus(variables, stateFips, countyFips);
     const geography = county ? `${county}, ${state}` : state;
 
     return rows.flatMap((row): NeedDataPoint[] => {
@@ -132,9 +180,11 @@ export class CensusDataSource {
   async fetchDemographics(state: string, county?: string): Promise<NeedDataPoint[]> {
     const stateFips = getStateFips(state);
     if (!stateFips) return [];
+    const countyFips = county ? await getCountyFips(stateFips, county) : undefined;
+    if (county && !countyFips) return [];
 
     const variables = ['B01003_001E', 'B19013_001E'];
-    const rows = await fetchCensus(variables, stateFips, county);
+    const rows = await fetchCensus(variables, stateFips, countyFips);
     const geography = county ? `${county}, ${state}` : state;
 
     return rows.flatMap((row): NeedDataPoint[] => {

@@ -1,8 +1,8 @@
-{
+﻿{
   "extends": "../tsconfig.json",
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022"],
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "outDir": "dist",
@@ -17,10 +17,13 @@
   "include": [
     "**/*.ts",
     "../src/lib/autoapply/**/*.ts",
-    "../src/lib/supabase/**/*.ts"
+    "../src/lib/supabase/**/*.ts",
+    "../src/lib/donor-discovery/**/*.ts",
+    "../src/lib/env.ts"
   ],
   "exclude": [
     "../node_modules",
     "dist"
   ]
 }
+

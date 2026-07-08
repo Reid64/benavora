@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+﻿import type { SupabaseClient } from '@supabase/supabase-js';
 import { StealthBrowser } from '../src/lib/autoapply/stealth-browser.js';
 import { FormAnalyzerAgent } from '../src/lib/autoapply/form-analyzer-agent.js';
 import { FormFillerAgent } from '../src/lib/autoapply/form-filler-agent.js';
@@ -137,8 +137,8 @@ export class QueueProcessor {
     provider: process.env['PROXY_PROVIDER'] ?? 'static',
     apiKey: process.env['PROXY_API_KEY'] ?? '',
   });
-  // Cached org readiness reports: orgId → full report.
-  // Reset on each idle→active transition to re-check after a long pause.
+  // Cached org readiness reports: orgId â†’ full report.
+  // Reset on each idleâ†’active transition to re-check after a long pause.
   private readonly orgReadinessCache = new Map<string, ReadinessReport>();
   private readonly webhookNotifier = new WebhookNotifier();
   private readonly relationshipManager = new RelationshipManager();
@@ -158,7 +158,7 @@ export class QueueProcessor {
   start(): void {
     if (this.running) return;
     this.running = true;
-    console.log(`[QueueProcessor] Starting — worker=${this.workerId}`);
+    console.log(`[QueueProcessor] Starting â€” worker=${this.workerId}`);
     void this.loop();
   }
 
@@ -184,14 +184,14 @@ export class QueueProcessor {
   private async loop(): Promise<void> {
     await this.proxyManager.loadProxies();
     const proxyStats = this.proxyManager.getStats();
-    console.log(`[QueueProcessor] Proxy pool ready — ${proxyStats.active}/${proxyStats.total} active`);
+    console.log(`[QueueProcessor] Proxy pool ready â€” ${proxyStats.active}/${proxyStats.total} active`);
 
     while (this.running) {
       const item = await this.dequeue();
 
       if (item === null) {
         if (!this.wasIdle) {
-          // Transition from active → idle: clear readiness cache so it's re-checked
+          // Transition from active â†’ idle: clear readiness cache so it's re-checked
           // on the next active period (org profile may have been updated while idle).
           this.orgReadinessCache.clear();
         }
@@ -201,7 +201,7 @@ export class QueueProcessor {
         continue;
       }
 
-      // Transition from idle → active: score and reorder the queue so the
+      // Transition from idle â†’ active: score and reorder the queue so the
       // highest-value submissions execute first within this active burst.
       if (this.wasIdle) {
         this.wasIdle = false;
@@ -254,7 +254,7 @@ export class QueueProcessor {
   }
 
   /**
-   * Atomically claim the next pending item using a two-step SELECT → UPDATE.
+   * Atomically claim the next pending item using a two-step SELECT â†’ UPDATE.
    * When a dedicated RPC with FOR UPDATE SKIP LOCKED is added, replace this.
    */
   private async dequeue(): Promise<QueueItem | null> {
@@ -303,7 +303,7 @@ export class QueueProcessor {
 
     if (funderId === null) throw new SkipError('no_funder_id');
 
-    // Check queue control plane: platform → domain (unknown at this stage) → funder → tenant.
+    // Check queue control plane: platform â†’ domain (unknown at this stage) â†’ funder â†’ tenant.
     // Domain-level check is deferred until after funder record is fetched (portal URL needed).
     const earlyBlock = await this.queueControlPlane.isBlocked({
       orgId,
@@ -367,7 +367,7 @@ export class QueueProcessor {
       console.log(`[QueueProcessor] Org ${orgId} using own API keys`);
     }
 
-    // --- Org readiness (cached per org, cleared on idle→active transition) ---
+    // --- Org readiness (cached per org, cleared on idleâ†’active transition) ---
     let orgReadinessReport: ReadinessReport;
     if (!this.orgReadinessCache.has(orgId)) {
       const readiness = await this.submissionValidator.checkOrgReadiness(orgId, this.supabase);
@@ -685,7 +685,7 @@ export class QueueProcessor {
     // Quick portal health check before committing to a full browser session
     const portalHealth = await quickHealthCheck(portalUrl!);
     if (portalHealth === 'dead') {
-      console.log(`[QueueProcessor] Portal dead for ${funderName} (${portalUrl}) — skipping`);
+      console.log(`[QueueProcessor] Portal dead for ${funderName} (${portalUrl}) â€” skipping`);
       await this.supabase
         .from('funders')
         .update({ portal_status: 'dead', portal_last_checked_at: new Date().toISOString() })
@@ -761,7 +761,7 @@ export class QueueProcessor {
       );
 
       if (riskAssessment.recommendation === 'manual') {
-        // Route to manual queue — store risk metadata and skip automated processing
+        // Route to manual queue â€” store risk metadata and skip automated processing
         await this.supabase
           .from('submission_queue')
           .update({
@@ -795,7 +795,7 @@ export class QueueProcessor {
 
       if (riskAssessment.recommendation === 'assisted') {
         console.log(
-          `[QueueProcessor] MEDIUM risk for ${funderName} — processing with enhanced logging. Factors:`,
+          `[QueueProcessor] MEDIUM risk for ${funderName} â€” processing with enhanced logging. Factors:`,
           riskAssessment.factors.map((f) => f.description).join(' | '),
         );
       }
@@ -846,7 +846,7 @@ export class QueueProcessor {
     // submission_id once the autoapply_submissions record is created.
     const screenshotManager = new ScreenshotManager();
 
-    // Convenience wrapper — submissionId is null until the submission record exists.
+    // Convenience wrapper â€” submissionId is null until the submission record exists.
     const snap = (stage: string): Promise<string> =>
       screenshotManager.captureAndUpload(page, stage, {
         orgId, funderId, submissionId: null, supabase: this.supabase,
@@ -866,7 +866,7 @@ export class QueueProcessor {
     let errorMessage: string | null = null;
     let formTemplateId: string | null = existingTemplate?.id ?? null;
     let confirmationData: ConfirmationData | null = null;
-    // Set just before fillAndSubmit() — see createApprovedAutomationSession() below.
+    // Set just before fillAndSubmit() â€” see createApprovedAutomationSession() below.
     let autoSessionId: string | null = null;
 
     try {
@@ -999,9 +999,9 @@ export class QueueProcessor {
 
       broadcastStep('Filling form');
 
-      // BEHAVIORAL_CONTRACTS §18 / CRITICAL ISSUE #15: fillAndSubmit() now refuses
+      // BEHAVIORAL_CONTRACTS Â§18 / CRITICAL ISSUE #15: fillAndSubmit() now refuses
       // to submit without an approved automation_sessions row. This worker is a
-      // fully autonomous per-item pipeline (no human reviews each queue item) —
+      // fully autonomous per-item pipeline (no human reviews each queue item) â€”
       // approval here reflects that the risk engine above already routed anything
       // it flagged 'manual' to pending_manual before this point, so everything
       // that reaches here was already cleared for automated submission. A real
@@ -1081,7 +1081,7 @@ export class QueueProcessor {
           orgId, funderId, submissionId: null, supabase: this.supabase,
         });
       } catch {
-        // Browser already closed — skip error screenshot
+        // Browser already closed â€” skip error screenshot
       }
     } finally {
       if (hasViewers) {
@@ -1096,7 +1096,7 @@ export class QueueProcessor {
       localRecordingPath = await stealthBrowser.getRecordingPath().catch(() => null);
     }
 
-    // Close out the automation_sessions audit trail (if a session was created above —
+    // Close out the automation_sessions audit trail (if a session was created above â€”
     // it may not have been if the run failed before reaching the fill/submit stage).
     if (autoSessionId !== null) {
       await this.finalizeAutomationSession(
@@ -1158,7 +1158,7 @@ export class QueueProcessor {
       );
     }
 
-    // Record usage for billing metering — fire-and-forget, never block the queue.
+    // Record usage for billing metering â€” fire-and-forget, never block the queue.
     void this.usageMeter.recordUsage(
       orgId,
       'automated',
@@ -1219,7 +1219,7 @@ export class QueueProcessor {
         }
       }
 
-      // Generate PDF receipt for successful submissions (fire-and-forget — never
+      // Generate PDF receipt for successful submissions (fire-and-forget â€” never
       // block the queue on a receipt failure).
       if (submissionStatus === 'submitted') {
         generateReceipt({
@@ -1272,7 +1272,7 @@ export class QueueProcessor {
         });
       }
 
-      // Webhook notifications — fire-and-forget, never block the queue.
+      // Webhook notifications â€” fire-and-forget, never block the queue.
       if (submissionStatus === 'submitted') {
         void this.webhookNotifier.notify({
           orgId,
@@ -1304,7 +1304,7 @@ export class QueueProcessor {
         });
       }
 
-      // Error annotation — analyze the error screenshot with Claude and store in
+      // Error annotation â€” analyze the error screenshot with Claude and store in
       // autoapply_screenshots.metadata for faster manual triage.
       if (errorPath !== null && errorScreenshotBuffer !== null) {
         const capturedErrorPath = errorPath;
@@ -1313,7 +1313,7 @@ export class QueueProcessor {
         void annotateErrorScreenshot({
           screenshotBuffer: capturedBuffer,
           errorMessage: capturedMsg,
-          pageUrl: portalUrl,
+          pageUrl: portalUrl ?? "",
         }).then((annotation) => {
           return this.supabase
             .from('autoapply_screenshots')
@@ -1367,7 +1367,7 @@ export class QueueProcessor {
   /**
    * Create an automation_sessions row and drive it straight to 'approved' for
    * this autonomous AutoApply submission. There is no per-item human review in
-   * this worker — the risk engine already decides upstream whether a submission
+   * this worker â€” the risk engine already decides upstream whether a submission
    * proceeds at all (a 'manual' recommendation throws SkipError before this is
    * ever called), so this records that decision as a real, auditable session
    * rather than bypassing form-filler-agent.ts's approval check with a synthetic
@@ -1377,7 +1377,7 @@ export class QueueProcessor {
    * human approver's profile id (see AutomationSessionManager.approve()).
    * session-manager.ts's markAutoSubmitted() writes a non-uuid `system:<level>`
    * string into this same column for the semi_autonomous/autonomous grant-
-   * automation path (src/lib/agents/browser-automation.ts) — that would fail
+   * automation path (src/lib/agents/browser-automation.ts) â€” that would fail
    * with an "invalid input syntax for type uuid" error if that code path ever
    * ran against this schema; noted here so the same mistake isn't repeated, not
    * fixed as part of this change since it's a separate, already-shipped file.
@@ -1517,7 +1517,7 @@ export class QueueProcessor {
     });
 
     console.log(
-      `[QueueProcessor] Funder ${funderId} has ${failureCount} failures — added to review queue`,
+      `[QueueProcessor] Funder ${funderId} has ${failureCount} failures â€” added to review queue`,
     );
 
     void this.webhookNotifier.notify({
@@ -1547,7 +1547,7 @@ export class QueueProcessor {
     const loginDetection = await this.registrationAgent.detectLoginForm(page);
     if (!loginDetection?.hasLoginForm) return;
 
-    console.log(`[QueueProcessor] Login form detected for funder ${funderId} — checking credentials`);
+    console.log(`[QueueProcessor] Login form detected for funder ${funderId} â€” checking credentials`);
 
     const existing = await this.credentialManager.getCredentials(orgId, funderId);
 
@@ -1566,8 +1566,8 @@ export class QueueProcessor {
       return;
     }
 
-    // No stored credentials — attempt registration
-    console.log(`[QueueProcessor] No credentials for funder ${funderId} — attempting registration`);
+    // No stored credentials â€” attempt registration
+    console.log(`[QueueProcessor] No credentials for funder ${funderId} â€” attempting registration`);
 
     const regDetection = await this.registrationAgent.detectRegistrationForm(page);
     if (!regDetection?.hasRegistrationForm) {
@@ -1586,11 +1586,11 @@ export class QueueProcessor {
     });
 
     if (!regResult.success) {
-      throw new Error(`account_required: registration failed — ${regResult.error ?? 'unknown'}`);
+      throw new Error(`account_required: registration failed â€” ${regResult.error ?? 'unknown'}`);
     }
 
     if (regResult.confirmationRequired) {
-      // Can't proceed until the user confirms their email — skip this item
+      // Can't proceed until the user confirms their email â€” skip this item
       throw new SkipError('awaiting_confirmation');
     }
 
@@ -1603,7 +1603,7 @@ export class QueueProcessor {
       password: regResult.password ?? '',
     });
 
-    console.log(`[QueueProcessor] Registered on ${portalUrl} — logging in`);
+    console.log(`[QueueProcessor] Registered on ${portalUrl} â€” logging in`);
 
     const loginSuccess = await this.registrationAgent.login(page, {
       username: regResult.username ?? applyEmail,
@@ -1634,3 +1634,4 @@ export function stop(): void {
 export function waitForIdle(): Promise<void> {
   return _processor?.waitForIdle() ?? Promise.resolve();
 }
+

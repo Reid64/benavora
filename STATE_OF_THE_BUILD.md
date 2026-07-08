@@ -1,6 +1,61 @@
 # BENAVORA — STATE OF THE BUILD
-## Last updated: 2026-07-07 (design: chromatic icon system, stat accents, draft editor viewport fix)
+## Last updated: 2026-07-08 (gate re-verification: tsc/build/lint clean, no drift since 07-07; two Intelligence Library claims corrected against fresh code read)
 ## Method: live codebase audit — every file path, route, agent, and migration counted directly from the filesystem; no assumptions carried from prior docs.
+
+---
+
+## Intelligence Library Nights 3-7: BUILT
+
+Verified 2026-07-07 by direct file/grep audit against `src/`, not against the BLUEPRINT.md spec text — see the "Intelligence Library KB4-9" entry further below for the original file-level walkthrough. Where a spec-promised piece doesn't exist in code, it's called out as a gap rather than marked built.
+
+### KB 4: Need Statement Database
+- Census Bureau ACS5, HUD (PIT counts + Fair Market Rents), BLS, and CDC API clients — `src/lib/intelligence/sources/{census,hud,bls,cdc}-api.ts`, real `fetch()` calls with real parsing, not stubs
+- Need statement auto-generator with inline citations, refuses to fabricate when no data exists — `need-statement-engine.ts`
+- Geographic matching engine: **county → state fallback only** — corrected 2026-07-08. `need-statement-engine.ts:41-42` and `census-api.ts` are explicit in-code that zip and national levels are not implemented ("zip and national not currently supported by APIs — county and state are used"); the spec's full zip→county→state→national chain does not exist yet
+- **CDC/SAMHSA labeling correction (2026-07-08):** there is no separate SAMHSA API integration. `cdc-api.ts:169-180`'s `fetchSubstanceAbuseData()` comment claims "SAMHSA NSDUH state estimates" but the actual call hits a CDC Socrata BRFSS (Behavioral Risk Factor Surveillance System, alcohol module) dataset — a different survey than SAMHSA's National Survey on Drug Use and Health. The in-code comment itself is mislabeled, not just prior docs.
+- Ingestion scripts: `scripts/ingest-census-data.ts`, `scripts/ingest-hud-data.ts`
+- Backing table: `intelligence_need_data` (migration 048)
+
+### KB 5: Budget Pattern Library
+- Budget templates by program category with line items — `budget-patterns.ts`, backed by `intelligence_budget_templates` (048) + `intelligence_budget_patterns` (059)
+- Federal cost principles (2 CFR 200) references baked into template content
+- Budget narrative auto-generator wired into `src/lib/drafts/generator.ts`
+
+### KB 6: Compliance Requirements
+- Federal (2 CFR 200, OMB, SAM.gov, UEI), HUD-specific (environmental review, Davis-Bacon, Section 3), and state/foundation requirements — `compliance-library.ts` + `data/compliance-requirements.ts` (22 entries), code-defined, no DB table
+- Compliance pre-check wired into draft output and unified search
+- Carried-over known bug: `omb-a133-threshold` check has a dead branch that always returns `'pass'` (see gap #11 below) — not fixed by this pass, scope was gates + docs only
+
+### KB 7: Evaluation Framework Library
+- Evaluation templates for 7 program categories, ~91 named KPIs (exceeds the spec's "50+" target) — `evaluation-library.ts` + `data/evaluation-templates.ts`
+- Data collection method suggestions per KPI
+- Evaluation plan auto-generator wired into the draft pipeline
+- Gap: `intelligence_evaluation_frameworks` table (048) exists but nothing writes to it — the live KPI data is a static TypeScript file, not DB rows
+
+### KB 8: Grantmaker Intelligence
+- Grantmaker profile builder (`scripts/build-grantmaker-profiles.ts`) — builds from `foundation_directory` plus prior website-enrichment fields (`found_programs`, `found_giving`, `found_revenue`); it consumes previously-scraped enrichment data rather than performing its own fresh scrape
+- Funder recommendation engine — real weighted score (geo 30% / program match 30% / amount fit 20% / giving-activity proxy 20%) with human-readable reasons — `funder-recommender.ts`
+- `explainMatch()` Claude narrative explanation exposed via `/api/intelligence/recommendations/explain`; rendered at `/intelligence/recommendations`
+- Post-award outcome benchmarks — real comparison logic in `outcome-benchmarks.ts`, but against a static hardcoded lookup table (`data/outcome-benchmarks.ts`), not yet DB-backed
+
+### KB 9: Grant DNA Scoring
+- 8-dimension Claude-based scoring — clarity, evidence density, outcome specificity, funder alignment, innovation, sustainability, feasibility, impact scope — category-weighted (default/federal/corporate) — `grant-dna.ts`
+- `GrantDNACard.tsx` — real Recharts radar chart + expandable improvement suggestions per dimension
+- Draft benchmarking is against hardcoded category-average scores, not a live funded-proposal corpus comparison
+- **Not built, despite spec language implying otherwise:** narrative pattern extraction from funded proposals and post-award-report mining. Confirmed this pass — `intelligence_narrative_patterns` and `intelligence_post_award_reports` (both migration 048) have zero references anywhere in `src/`
+- Scores are computed live per-request and never persisted to `intelligence_grant_dna_scores` (048) — no scoring history exists across draft revisions
+
+### Cross-Library Integration
+- Unified search across all 9 KBs — `unified-search.ts` (vector RPC for proposals/rubrics, direct table queries for grantmakers, static-data lookups for budget/eval/compliance/benchmarks)
+- Intelligence briefing API (`/api/intelligence/briefing`) — one-call intelligence bundle per opportunity, real tier-gating (free/starter/professional/enterprise/consultant)
+- Intelligence briefing panel confirmed mounted on the opportunity detail page — `OpportunityDetail.tsx` imports and renders `IntelligenceBriefingPanel.tsx`
+- Intelligence library analytics dashboard with a real coverage heat map (not a placeholder) — `intelligence-library/dashboard/page.tsx`
+- Tier-gated access enforced server-side in the briefing route
+
+### Gate results for this pass
+`pnpm run typecheck` (tsc --noEmit) — 0 errors. `pnpm run build` — clean, 235/235 static pages generated, no route conflicts (261 route files: 85 pages + 176 API routes). `pnpm run lint` — 0 warnings/errors.
+
+**2026-07-08 re-verification:** all three gates re-run clean with identical counts (176 API routes, 85 pages, no conflicts) — no drift since 07-07. Rather than transcribing this session's requested "BUILT" bullet list verbatim, re-read the actual source for two specific claims first: the geo-matching fallback chain and the CDC/SAMHSA data source. Both needed correction (see KB4 above) — the code itself was more limited/mislabeled than the existing doc text implied. Everything else in the Nights 3-7 section held up against a fresh independent audit and is unchanged.
 
 ---
 
@@ -15,7 +70,7 @@
 | Dashboard pages (`src/app/(dashboard)/**/page.tsx`) | **75** |
 | Migration files (`supabase/migrations/*.sql`) | **68 files** (61 unique numbers, 7 duplicate-numbered pairs; highest applied: 066) |
 
-Route count increased from 168 (July 3 audit) to 175 (July 6/7 session: 4 autoapply/follow-ups routes, 2 admin/suppression routes, /api/renewals) to **176** (this pass: new `api/intelligence/recommendations/explain` route). `pnpm tsc --noEmit` clean, `pnpm run build` clean (235/235 pages generated), no route conflicts.
+Route count increased from 168 (July 3 audit) to 175 (July 6/7 session: 4 autoapply/follow-ups routes, 2 admin/suppression routes, /api/renewals) to **176** (07-07 pass: new `api/intelligence/recommendations/explain` route). Reconfirmed unchanged at 176 API routes / 85 pages on 2026-07-08. `pnpm tsc --noEmit` clean, `pnpm run build` clean (235/235 pages generated), `pnpm run lint` clean, no route conflicts.
 
 ---
 
@@ -207,7 +262,7 @@ All migrations through 066 confirmed applied to production (ref vbjplpquqxxfbpaz
 
 **Intelligence Library KB4-9 (verified 2026-07-07, file-level audit)**
 
-- **KB4 Need Statement Database** — `src/lib/intelligence/sources/{census,hud,bls,cdc}-api.ts` (170-239 lines each) make real `fetch()` calls to Census ACS5, HUD FMR/CHAS/PIT CSV, BLS, CDC/SAMHSA endpoints with real parsing and citation generation, not stubs. `need-statement-engine.ts` does geo fallback (zip→county→state→national) and a Claude call that refuses to fabricate when no data exists. `scripts/ingest-census-data.ts` and `scripts/ingest-hud-data.ts` are real ingestion scripts. Backing table `intelligence_need_data` (migration 048).
+- **KB4 Need Statement Database** — `src/lib/intelligence/sources/{census,hud,bls,cdc}-api.ts` (170-239 lines each) make real `fetch()` calls to Census ACS5, HUD FMR/CHAS/PIT CSV, BLS, and CDC endpoints with real parsing and citation generation, not stubs. `need-statement-engine.ts` does geo fallback but only **county→state**, not the full zip→county→state→national chain the spec describes — confirmed 2026-07-08 by reading the code directly, which admits this in its own comment. Also confirmed 2026-07-08: the "SAMHSA" data point is really a CDC BRFSS alcohol-module dataset, not a SAMHSA NSDUH source — no true SAMHSA integration exists. `scripts/ingest-census-data.ts` and `scripts/ingest-hud-data.ts` are real ingestion scripts. Backing table `intelligence_need_data` (migration 048).
 - **KB5 Budget Pattern Library** — `budget-patterns.ts` (367 lines) is real, backed by `intelligence_budget_templates` (048) + `intelligence_budget_patterns` (059). Confirmed wired into `src/lib/drafts/generator.ts`.
 - **Compliance Requirements** — `compliance-library.ts` (251 lines) + `data/compliance-requirements.ts` (352 lines, 22 entries covering SAM.gov/UEI/2 CFR 200/OMB, HUD CDBG/HOME/ESG/HOPWA/CoC). Real document/data/attestation checks, wired into the draft generator and unified search. This KB is code-defined (static data file), not DB-backed — no `intelligence_compliance_*` table exists or is needed. Known bug: `omb-a133-threshold` check has a dead branch that always returns 'pass' (existing gap #11 below).
 - **KB7 Evaluation Framework Library** — `evaluation-library.ts` (269 lines) + `data/evaluation-templates.ts` (975 lines, ~91 named KPIs across 7 program categories) — exceeds the "50+ KPI" target. Wired into the draft generator. Table `intelligence_evaluation_frameworks` (048) exists but is not written to by any ingestion script — the live KPI data is a static TypeScript file, not DB rows.
@@ -287,6 +342,8 @@ All migrations through 066 confirmed applied to production (ref vbjplpquqxxfbpaz
 30. **`intelligence_narrative_patterns` and `intelligence_post_award_reports` tables are defined (migration 048) but have zero code references** — no ingestion script populates them, no route or component reads them. The corresponding spec features (winning-pattern extraction, post-award outcome mining) do not exist yet, only their schema.
 31. **No foundation-website-scraping or IRS-990-grants-made ingestion scripts exist for the intelligence library** — `intelligence_grantmaker_profiles` is populated by `scripts/build-grantmaker-profiles.ts` from `foundation_directory` data already in the DB, not from a dedicated website-scrape or 990 grants-made extraction pipeline as described in GRANT_INTELLIGENCE_ARCHITECTURE.md §3.6/§8.
 ~~32. **`src/app/globals.css`'s global `textarea { max-height: 120px }` base style silently clamped the draft-generator's main editor** — the textarea had `rows={20}` in the JSX (a hint, not a hard height) but the CSS `max-height` won regardless, rendering ~5 visible rows with dead space below on a card that visually should have filled the viewport~~ — Fixed 2026-07-07: the draft editor's textarea gets an explicit `max-h-none` override (Tailwind class beats the element-selector base rule on specificity) plus `min-h-[55vh] flex-1`; `Card.tsx`'s body wrapper made unconditionally `flex-1` (inert elsewhere) so a `flex flex-col` `Card` genuinely stretches to match its CSS Grid row's height. The global 120px clamp itself was left in place — other small textareas (Mission Statement, etc.) still want it; this was a single-component override, not a global rule change.
+33a. **Need-statement geo fallback is county→state only, not zip→county→state→national** (found 2026-07-08) — `need-statement-engine.ts:41-42` documents this itself in a code comment; no zip-level or national-level fallback exists in `census-api.ts`/`hud-api.ts`/`bls-api.ts`/`cdc-api.ts`.
+33b. **CDC/SAMHSA labeling is wrong in `cdc-api.ts`** (found 2026-07-08) — `fetchSubstanceAbuseData()`'s comment claims "SAMHSA NSDUH state estimates" but the query hits CDC's own BRFSS alcohol-module Socrata dataset (`dttw-5yxu`), not any SAMHSA source. No real SAMHSA API integration exists anywhere in the codebase.
 33. **`ColorIcon` categorical hue system added** (`src/components/ui/ColorIcon.tsx`) — cyan/emerald/blue/amber/violet/indigo/rose, one per function (opportunities, money, documents, deadlines, analytics, applications, alerts). Uses raw Tailwind hue classes including violet/rose, a deliberate, documented exception to the intensity pass's "no purple/violet brand accents" rule — these are nominal/categorical colors for icon-chip scanning, not brand accents. Applied to dashboard `MetricCard`s (+ matching `border-l-4`), `TemplateSelector`'s 6 template cards, Research's 9 source cards, and Intelligence Library's 5 stat tiles. Not yet applied anywhere else in the app — a future consistency sweep could extend it, but wasn't asked for beyond these four surfaces.
 
 ---

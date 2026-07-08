@@ -24,6 +24,8 @@ import {
 import { Badge, Card, LoadingSpinner } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 import { formatDate } from "@/lib/utils/formatters";
+import { ComplianceLibrary } from "@/lib/intelligence/compliance-library";
+import { EVALUATION_TEMPLATES, KPI_DATABASE } from "@/lib/intelligence/data/evaluation-templates";
 
 // ─── Categories ────────────────────────────────────────────────────────────────
 
@@ -79,6 +81,21 @@ function arrayMatchesCategory(arr: unknown, cat: Category): boolean {
   );
 }
 
+// Maps dashboard categories to the static EVALUATION_TEMPLATES keys (Night 2
+// build — 7 of 10 categories have named KPI templates; the rest have none,
+// which is real coverage information, not a bug).
+const EVAL_TEMPLATE_KEY: Partial<Record<Category, string>> = {
+  housing: "housing",
+  substance_abuse: "substance_abuse_treatment",
+  workforce: "workforce_development",
+  youth: "youth_programs",
+  food: "food_assistance",
+  mental_health: "mental_health",
+  reentry: "reentry_criminal_justice",
+};
+
+const complianceLibrary = new ComplianceLibrary();
+
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
 type Stats = {
@@ -87,7 +104,7 @@ type Stats = {
   needData: number;
   grantmakerProfiles: number;
   budgetPatterns: number;
-  rubrics: number;
+  totalKpis: number;
 };
 
 type HeatCell = {
@@ -96,6 +113,8 @@ type HeatCell = {
   logic_models: number;
   need_data: number;
   budget_patterns: number;
+  evaluation: number;
+  compliance: number;
   grantmaker_profiles: number;
 };
 
@@ -112,6 +131,8 @@ type RecentIngestion = {
 type FreshnessItem = {
   name: string;
   lastUpdated: string | null;
+  /** True for bundled static datasets (no DB ingestion timestamp) — shown neutrally instead of "stale". */
+  isStatic?: boolean;
 };
 
 type SearchResultItem = {
@@ -123,14 +144,18 @@ type SearchResultItem = {
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
+// ids match UnifiedIntelligenceSearch's KBType enum exactly — the API's
+// switch has no default case, so a mismatched id throws instead of filtering.
 const KB_FILTER_TYPES = [
   { id: "all", label: "All" },
-  { id: "funded_proposals", label: "Proposals" },
-  { id: "scoring_rubrics", label: "Rubrics" },
-  { id: "logic_models", label: "Logic Models" },
+  { id: "funded_proposal", label: "Proposals" },
+  { id: "rubric", label: "Rubrics" },
+  { id: "logic_model", label: "Logic Models" },
   { id: "need_data", label: "Need Data" },
-  { id: "budget_patterns", label: "Budget" },
-  { id: "grantmaker_profiles", label: "Funders" },
+  { id: "budget_pattern", label: "Budget" },
+  { id: "evaluation", label: "Evaluation" },
+  { id: "compliance", label: "Compliance" },
+  { id: "grantmaker", label: "Funders" },
 ];
 
 const HEAT_COLS = [
@@ -139,6 +164,8 @@ const HEAT_COLS = [
   { key: "logic_models" as const, label: "Logic Models" },
   { key: "need_data" as const, label: "Need Data" },
   { key: "budget_patterns" as const, label: "Budget" },
+  { key: "evaluation" as const, label: "Evaluation" },
+  { key: "compliance" as const, label: "Compliance" },
   { key: "grantmaker_profiles" as const, label: "Funders" },
 ];
 
@@ -169,14 +196,28 @@ function freshnessLabel(lastUpdated: string | null): string {
   return `${days}d ago`;
 }
 
+function groupResultsByKbType(
+  results: SearchResultItem[],
+): [string, SearchResultItem[]][] {
+  const groups = new Map<string, SearchResultItem[]>();
+  for (const r of results) {
+    const bucket = groups.get(r.kb_type);
+    if (bucket) bucket.push(r);
+    else groups.set(r.kb_type, [r]);
+  }
+  return Array.from(groups.entries());
+}
+
 function typeBadgeColor(
   type: string,
-): "teal" | "navy" | "purple" | "green" | "yellow" | "sky" {
+): "teal" | "navy" | "purple" | "green" | "yellow" | "sky" | "orange" | "pink" {
   const t = type.toLowerCase();
   if (t.includes("proposal") || t.includes("funded")) return "teal";
   if (t.includes("rubric")) return "purple";
   if (t.includes("logic")) return "sky";
   if (t.includes("budget")) return "yellow";
+  if (t.includes("evaluation") || t.includes("kpi")) return "pink";
+  if (t.includes("compliance")) return "orange";
   if (t.includes("grantmaker") || t.includes("funder") || t.includes("profile")) return "green";
   return "navy";
 }
@@ -191,7 +232,7 @@ export default function IntelligenceLibraryDashboardPage() {
     needData: 0,
     grantmakerProfiles: 0,
     budgetPatterns: 0,
-    rubrics: 0,
+    totalKpis: KPI_DATABASE.length,
   });
   const [heatMap, setHeatMap] = useState<HeatMap | null>(null);
   const [recent, setRecent] = useState<RecentIngestion[]>([]);
@@ -211,14 +252,12 @@ export default function IntelligenceLibraryDashboardPage() {
     const [
       proposalsCount,
       sectionsCount,
-      rubricsCount,
       needDataCount,
       budgetPatternsCount,
       grantmakerProfilesCount,
     ] = await Promise.all([
       supabase.from("intelligence_funded_proposals").select("id", { count: "exact", head: true }),
       supabase.from("intelligence_proposal_sections").select("id", { count: "exact", head: true }),
-      supabase.from("intelligence_scoring_rubrics").select("id", { count: "exact", head: true }),
       supabase.from("intelligence_need_data").select("id", { count: "exact", head: true }),
       supabase.from("intelligence_budget_patterns").select("id", { count: "exact", head: true }),
       supabase.from("intelligence_grantmaker_profiles").select("id", { count: "exact", head: true }),
@@ -227,10 +266,11 @@ export default function IntelligenceLibraryDashboardPage() {
     setStats({
       proposals: proposalsCount.count ?? 0,
       sections: sectionsCount.count ?? 0,
-      rubrics: rubricsCount.count ?? 0,
       needData: needDataCount.count ?? 0,
       budgetPatterns: budgetPatternsCount.count ?? 0,
       grantmakerProfiles: grantmakerProfilesCount.count ?? 0,
+      // Static bundled dataset (data/evaluation-templates.ts) — not a DB table, see STATE_OF_THE_BUILD.md KB7 note.
+      totalKpis: KPI_DATABASE.length,
     });
 
     // Category fields for heat map
@@ -275,6 +315,13 @@ export default function IntelligenceLibraryDashboardPage() {
         grantmaker_profiles: (grantmakerPrioritiesRes.data ?? []).filter((r) =>
           arrayMatchesCategory(r.program_priorities, cat),
         ).length,
+        // Static bundled datasets — no DB round-trip, computed from the same
+        // library code the draft generator actually calls.
+        evaluation: (() => {
+          const key = EVAL_TEMPLATE_KEY[cat];
+          return key ? (EVALUATION_TEMPLATES[key]?.kpis.length ?? 0) : 0;
+        })(),
+        compliance: complianceLibrary.getRequirements(cat, "federal").length,
       };
     }
     setHeatMap(hm);
@@ -375,6 +422,10 @@ export default function IntelligenceLibraryDashboardPage() {
       { name: "Need Data (Census/HUD/etc.)", lastUpdated: (recentNeedData.data ?? [])[0]?.created_at ?? null },
       { name: "Budget Patterns", lastUpdated: (recentBudgetPatterns.data ?? [])[0]?.created_at ?? null },
       { name: "Grantmaker Profiles", lastUpdated: (recentGrantmakerProfiles.data ?? [])[0]?.created_at ?? null },
+      // Bundled with the codebase, not ingested into a DB table — see
+      // STATE_OF_THE_BUILD.md KB7 note. "Freshness" tracks the last deploy, not decay.
+      { name: "Evaluation KPI Library", lastUpdated: null, isStatic: true },
+      { name: "Compliance Requirements", lastUpdated: null, isStatic: true },
     ]);
 
     setLoading(false);
@@ -489,7 +540,7 @@ export default function IntelligenceLibraryDashboardPage() {
             <StatCard icon={Database} label="Need data points" value={stats.needData} />
             <StatCard icon={Users} label="Grantmaker profiles" value={stats.grantmakerProfiles} />
             <StatCard icon={BarChart2} label="Budget patterns" value={stats.budgetPatterns} />
-            <StatCard icon={Target} label="Scoring rubrics" value={stats.rubrics} />
+            <StatCard icon={Target} label="Total KPIs" value={stats.totalKpis} />
           </div>
 
           {/* ── Coverage heat map ─────────────────────────────────────────── */}
@@ -644,25 +695,34 @@ export default function IntelligenceLibraryDashboardPage() {
                 <LoadingSpinner label="Searching…" />
               )}
               {!searchLoading && searchResults.length > 0 && (
-                <div className="space-y-2">
-                  {searchResults.map((r) => (
-                    <div
-                      key={r.id}
-                      className="rounded-lg border border-navy-200 bg-navy-50 p-3"
-                    >
-                      <div className="mb-1 flex items-center gap-2">
-                        <Badge color={typeBadgeColor(r.kb_type.replace(/_/g, " "))}>
-                          {r.kb_type.replace(/_/g, " ")}
+                <div className="space-y-4">
+                  {groupResultsByKbType(searchResults).map(([kbType, items]) => (
+                    <div key={kbType}>
+                      <div className="mb-2 flex items-center gap-2">
+                        <Badge color={typeBadgeColor(kbType.replace(/_/g, " "))}>
+                          {kbType.replace(/_/g, " ")}
                         </Badge>
-                        <span className="text-sm font-medium text-navy-900">
-                          {r.title}
+                        <span className="text-xs text-navy-400">
+                          {items.length} result{items.length === 1 ? "" : "s"}
                         </span>
                       </div>
-                      {r.excerpt && (
-                        <p className="line-clamp-2 text-xs text-navy-500">
-                          {r.excerpt}
-                        </p>
-                      )}
+                      <div className="space-y-2">
+                        {items.map((r) => (
+                          <div
+                            key={r.id}
+                            className="rounded-lg border border-navy-200 bg-navy-50 p-3"
+                          >
+                            <span className="text-sm font-medium text-navy-900">
+                              {r.title}
+                            </span>
+                            {r.excerpt && (
+                              <p className="mt-1 line-clamp-2 text-xs text-navy-500">
+                                {r.excerpt}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -728,15 +788,23 @@ export default function IntelligenceLibraryDashboardPage() {
                       {item.name}
                     </span>
                     <div className="flex items-center gap-2 text-right">
-                      <span
-                        className={`text-xs font-semibold ${freshnessColorClass(item.lastUpdated)}`}
-                      >
-                        {freshnessLabel(item.lastUpdated)}
-                      </span>
-                      {item.lastUpdated && (
-                        <span className="text-xs text-navy-400">
-                          {formatDate(item.lastUpdated)}
+                      {item.isStatic ? (
+                        <span className="text-xs font-semibold text-sky-500">
+                          Bundled (static)
                         </span>
+                      ) : (
+                        <>
+                          <span
+                            className={`text-xs font-semibold ${freshnessColorClass(item.lastUpdated)}`}
+                          >
+                            {freshnessLabel(item.lastUpdated)}
+                          </span>
+                          {item.lastUpdated && (
+                            <span className="text-xs text-navy-400">
+                              {formatDate(item.lastUpdated)}
+                            </span>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>
