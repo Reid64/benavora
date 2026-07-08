@@ -50,7 +50,7 @@ export function Card({
           {actions && <div className="shrink-0">{actions}</div>}
         </div>
       )}
-      <div className={cn(!noPadding && "p-5")}>{children}</div>
+      <div className={cn("flex-1", !noPadding && "p-5")}>{children}</div>
     </div>
   );
 }

@@ -1,7 +1,95 @@
 # BENAVORA — SESSION STATE
 ## Last updated: 2026-07-07
 ## Current branch: main
-## Last commit: design: intensity pass — saturated buttons, tonal layers, sunken headers
+## Last commit: design: chromatic icon system, stat accents, draft editor viewport fix
+
+---
+
+## COMPLETED — July 7 color & polish pass: chromatic icons, stat accents, draft editor viewport fix
+
+**Draft editor height bug (root cause + fix)**: the Generated draft textarea rendered ~5
+visible rows with dead space below despite `rows={20}` in the JSX. Root cause:
+`src/app/globals.css`'s global base style `textarea { max-height: 120px; resize: vertical; }`
+applies to every textarea app-wide (intended for small form fields like Mission Statement)
+and was silently clamping the draft editor too — a `rows` attribute can't override a CSS
+`max-height`. Fixed surgically: the draft editor's textarea gets `max-h-none` (a Tailwind
+class beats the plain-element-selector base rule on specificity) plus `min-h-[55vh] flex-1
+h-full resize-none`, removed the now-meaningless `rows={20}`. Left the global 120px clamp
+in place for other small textareas that want it — this was a one-textarea override, not a
+global rule change.
+
+**Genuine flex-to-viewport stretch, not just a tall minimum**: `draft-generator/page.tsx`'s
+two-column results layout is a `grid grid-cols-1 gap-6 lg:grid-cols-3` — CSS Grid's default
+`align-items: stretch` already equalizes both columns' height to the taller one. Made the
+left column `flex flex-col`, the "Review & edit" `<Card>` `flex flex-1 flex-col`, and
+`Card.tsx`'s body wrapper unconditionally `flex-1` (inert unless the outer Card is itself
+`display:flex`, so harmless across the other 71 call sites) — so on wide viewports the
+editor card now genuinely stretches to match the right column's stacked cards (Confidence,
+Grant DNA, Sources used), not just a fixed 55vh floor.
+
+**ColorIcon system** (`src/components/ui/ColorIcon.tsx`, new): one hue per function —
+cyan=opportunities/search, emerald=money/funding, blue=documents/drafts, amber=deadlines/
+time, violet=analytics, indigo=applications, rose=alerts. Deliberately uses raw Tailwind
+hue classes (violet, rose, etc.) — an intentional, documented exception to the "no purple/
+violet accents" anti-pattern from the intensity pass: these are categorical/nominal colors
+for scanning icon chips, not brand accents. `ICON_HUE_BORDER_CLASSES` provides the matching
+`border-l-{hue}-500` for the "colored left border" pairing.
+
+Applied to: **`MetricCard`** (dashboard's 7 stat cards — cyan/indigo/blue/amber/emerald×2/
+violet, plus a `border-l-4` in the same hue), **`Card`**'s Upcoming Deadlines (amber) and
+Quick Actions (cyan) via a plain `className` override, **`TemplateSelector`** (all 6 draft
+templates — blue/emerald/amber/violet/cyan/indigo, selection state rebuilt as `border-primary
+ring-2 ring-primary/20 bg-blue-50/50`, grid changed to symmetric `grid-cols-1 sm:grid-cols-3`
+with `h-full` cards), **Research source cards** (all 9 sources get a cyan `Search` icon chip,
+on top of the existing 3px cyan top-accent-bar from the intensity pass), and **Intelligence
+Library**'s 5 stat tiles (blue/violet/indigo/cyan/amber, each with a matching `border-l-4`).
+
+**Step-circle headers**: draft-generator's numbered `Card` titles ("1. Choose an opportunity"
+etc.) were plain text — added a `StepTitle` helper (filled `bg-primary` circle + label) and
+wired it into all 4 numbered cards (steps 1, 2, 3-conditional-program, 3-review-and-edit —
+the app's own numbering already reuses "3" for both, not changed here). Also fixed an
+adjacent dark-theme leftover found in the same section: the "Score Draft" button was
+`text-indigo-300` (a light color meant for a dark bg) on a white card — unreadable pale
+lavender text — converted to `bg-indigo-50 text-indigo-700 border-indigo-200`.
+
+**Visual verification**: seeded a real `draft_versions` row for the beta org (a service-role
+script — no existing draft existed to screenshot, and triggering a live AI generation would
+take 30-180s per generation) so `/draft-generator?opportunity={id}` could be screenshotted
+with an actual loaded draft rather than the empty template-picker state. Logged in as
+`beta1@benavora-test.com`, reviewed `/dashboard`, `/research`, `/intelligence-library`, and
+`/draft-generator` (both the template-picker and loaded-draft states) — confirmed every stat
+card has a colored chip + matching left border, the template grid shows clear hue variety
+with an obvious selection ring, all 3 step circles render, and the editor genuinely fills a
+large portion of the viewport with word-count/save controls pinned below it. Zero console
+errors during the run.
+
+**Verification**: `pnpm tsc --noEmit` and `pnpm run build` both clean.
+
+---
+
+## COMPLETED — July 7 Intelligence Library Nights 3-7 verification pass
+
+Gate run: `pnpm run typecheck` clean, `pnpm run build` clean (235/235 pages, 176 API routes,
+no route conflicts). This was a verification pass, not a build pass — the task asked to
+document Nights 3-7 as "BUILT," so before writing anything a full file-level audit was run
+against GRANT_INTELLIGENCE_ARCHITECTURE.md's 9-KB spec to confirm claims are real rather
+than copying the pre-drafted status text. Findings written into STATE_OF_THE_BUILD.md's new
+"Intelligence Library KB4-9" subsection and gaps #29-31.
+
+**Bottom line: KB4 (Need Statement), KB5 (Budget), Compliance, KB7 (Evaluation), KB8
+(Grantmaker Intelligence), and Cross-Library Integration (unified search, tier-gated
+briefing, coverage heat map) are all real and wired into the draft generator — not stubs.**
+Three things from the spec are schema-only or missing: `intelligence_grant_dna_scores` is
+defined but never written to (DNA scores compute live, aren't persisted), and
+`intelligence_narrative_patterns`/`intelligence_post_award_reports` have zero code
+references (no ingestion, no reads). No foundation-website-scrape or 990-grants-made
+ingestion script exists specifically for the intelligence library.
+
+Uncommitted working-tree changes present at session start (small, pre-existing, not part of
+this verification): `intelligence-library/page.tsx`, `intelligence/recommendations/page.tsx`,
+`IntelligenceBriefingPanel.tsx`, `funder-recommender.ts`, `outcome-benchmarks.ts`,
+`unified-search.ts`, plus a new untracked `api/intelligence/recommendations/explain/` route
+— left as-is (not committed) since committing wasn't requested this session.
 
 ---
 
@@ -454,6 +542,9 @@ Sales Outreach real routes · AutoApply Follow-Ups 4 routes · Renewals route ·
 - Census (2022) and BLS (2022–2023) data sources self-labeled as approximations
 - state-portal.ts covers Texas only
 - Hardcoded URL lists in corporate/foundation/state scrapers will go stale
+- `intelligence_grant_dna_scores` table unused — DNA scores compute live, never persisted (found 2026-07-07)
+- `intelligence_narrative_patterns` / `intelligence_post_award_reports` tables unused — schema only, no ingestion or reads (found 2026-07-07)
+- No foundation-website-scrape or 990-grants-made ingestion script for the intelligence library specifically (found 2026-07-07)
 
 ---
 

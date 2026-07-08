@@ -2,6 +2,11 @@ import type { LucideIcon } from "lucide-react";
 import { Minus, TrendingDown, TrendingUp } from "lucide-react";
 
 import { cn } from "@/lib/utils/cn";
+import {
+  ColorIcon,
+  ICON_HUE_BORDER_CLASSES,
+  type IconHue,
+} from "@/components/ui/ColorIcon";
 
 export type MetricTrendDirection = "up" | "down" | "neutral";
 
@@ -19,6 +24,8 @@ export type MetricCardProps = {
   value: string;
   /** Optional leading icon for the metric. */
   icon?: LucideIcon;
+  /** Icon chip + left-border accent color, by function (see ColorIcon). */
+  hue?: IconHue;
   /** Optional trend indicator shown under the value. */
   trend?: MetricTrend;
   /** Optional supporting line under the value (when no trend is shown). */
@@ -44,6 +51,7 @@ export function MetricCard({
   label,
   value,
   icon: Icon,
+  hue = "blue",
   trend,
   hint,
   className,
@@ -53,17 +61,14 @@ export function MetricCard({
   return (
     <div
       className={cn(
-        "group rounded-xl border border-border bg-surface p-5 shadow-sm transition-shadow hover:shadow-md",
+        "group rounded-xl border border-border border-l-4 bg-surface p-5 shadow-sm transition-shadow hover:shadow-md",
+        ICON_HUE_BORDER_CLASSES[hue],
         className,
       )}
     >
       <div className="flex items-center justify-between gap-3">
         <span className="text-xs font-medium text-text-muted">{label}</span>
-        {Icon && (
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent/10 text-primary ring-1 ring-inset ring-accent/20 transition group-hover:bg-accent/15">
-            <Icon className="h-4 w-4" aria-hidden />
-          </span>
-        )}
+        {Icon && <ColorIcon icon={Icon} hue={hue} size="sm" />}
       </div>
       <div className="mt-3 text-2xl font-bold tracking-tight text-text">
         {value}

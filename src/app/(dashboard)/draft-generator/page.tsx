@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AlertTriangle, Check, Clipboard, Dna, Download, Mail as MailIcon, RefreshCw, Sparkles, Wand2 } from "lucide-react";
 
@@ -66,6 +67,18 @@ function formatCurrency(amount: number): string {
     currency: "USD",
     maximumFractionDigits: 0,
   }).format(amount);
+}
+
+/** Numbered step header — a filled circle instead of a plain "N." prefix. */
+function StepTitle({ step, children }: { step: number; children: ReactNode }) {
+  return (
+    <span className="flex items-center gap-2.5">
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-white">
+        {step}
+      </span>
+      {children}
+    </span>
+  );
 }
 
 /** Badge styling for the active draft's humanization status (mirrors history). */
@@ -775,7 +788,7 @@ export default function DraftGeneratorPage() {
             </div>
           )}
 
-          <Card title="1. Choose an opportunity">
+          <Card title={<StepTitle step={1}>Choose an opportunity</StepTitle>}>
             <div className="max-w-xl">
               <Select
                 options={opportunityOptions}
@@ -788,7 +801,7 @@ export default function DraftGeneratorPage() {
             </div>
           </Card>
 
-          <Card title="2. Choose a template">
+          <Card title={<StepTitle step={2}>Choose a template</StepTitle>}>
             <TemplateSelector
               value={templateType}
               onChange={setTemplateType}
@@ -798,7 +811,7 @@ export default function DraftGeneratorPage() {
 
           {templateType === "budget_narrative" && (
             <Card
-              title="3. Choose a program"
+              title={<StepTitle step={3}>Choose a program</StepTitle>}
               description="The budget will be scoped to this program's financial data and your Knowledge Base budget justification entries."
             >
               <div className="max-w-xl space-y-2">
@@ -836,8 +849,8 @@ export default function DraftGeneratorPage() {
           </div>
 
           {hasDraft && (
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-              <div className="space-y-4 lg:col-span-2">
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:items-stretch">
+              <div className="flex flex-col gap-4 lg:col-span-2">
                 {belowThreshold && (
                   <div
                     role="alert"
@@ -852,7 +865,8 @@ export default function DraftGeneratorPage() {
                   </div>
                 )}
                 <Card
-                  title="3. Review &amp; edit"
+                  className="flex flex-1 flex-col"
+                  title={<StepTitle step={3}>Review &amp; edit</StepTitle>}
                   description="Humanize rewrites the draft in an authentic human voice (no em dashes, no AI clichés, varied rhythm), grounded in your verified data."
                   actions={
                     editable ? (
@@ -865,7 +879,7 @@ export default function DraftGeneratorPage() {
                           }}
                           disabled={!draftText.trim() || dnaScoring}
                           title="Score this draft with Grant DNA"
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-500/40 bg-indigo-500/10 px-3 py-1.5 text-xs font-medium text-indigo-300 transition hover:bg-indigo-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 transition hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           <Dna className={`h-3.5 w-3.5 ${dnaScoring ? "animate-spin" : ""}`} aria-hidden />
                           {dnaScoring ? "Scoring..." : "Score Draft"}

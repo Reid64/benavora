@@ -37,3 +37,6 @@ export type {
 
 export { SearchBar } from "@/components/ui/SearchBar";
 export type { SearchBarProps } from "@/components/ui/SearchBar";
+
+export { ColorIcon, ICON_HUE_CLASSES, ICON_HUE_BORDER_CLASSES } from "@/components/ui/ColorIcon";
+export type { ColorIconProps, IconHue } from "@/components/ui/ColorIcon";

@@ -240,21 +240,25 @@ export default async function DashboardPage() {
               label="Total Opportunities"
               value={metricCount(totalOpportunities)}
               icon={Search}
+              hue="cyan"
             />
             <MetricCard
               label="Applications Submitted"
               value={metricCount(submittedCount)}
               icon={Send}
+              hue="indigo"
             />
             <MetricCard
               label="Drafts Generated"
               value={metricCount(draftsGenerated)}
               icon={FileText}
+              hue="blue"
             />
             <MetricCard
               label="Deadlines This Week"
               value={metricCount(deadlinesThisWeek)}
               icon={CalendarClock}
+              hue="amber"
               trend={
                 deadlinesThisWeek > 0
                   ? { direction: "neutral", label: "Next 7 days" }
@@ -269,16 +273,19 @@ export default async function DashboardPage() {
               label="Total Requested"
               value={metricCurrency(totalRequested)}
               icon={DollarSign}
+              hue="emerald"
             />
             <MetricCard
               label="Total Awarded"
               value={metricCurrency(summary.totalAwarded)}
               icon={Award}
+              hue="emerald"
             />
             <MetricCard
               label="Success Rate"
               value={successRateValue}
               icon={Percent}
+              hue="violet"
               hint={
                 summary.successRate != null
                   ? `${summary.awarded} awarded of ${summary.total}`
@@ -308,6 +315,7 @@ export default async function DashboardPage() {
         <div className="space-y-6">
           {/* Upcoming deadlines */}
           <Card
+            className="border-l-4 border-l-amber-500"
             title="Upcoming Deadlines"
             description="Due in the next 7 days."
             actions={
@@ -323,7 +331,7 @@ export default async function DashboardPage() {
           </Card>
 
           {/* Quick actions */}
-          <Card title="Quick Actions">
+          <Card className="border-l-4 border-l-cyan-500" title="Quick Actions">
             <div className="space-y-2">
               <Link
                 href="/research"

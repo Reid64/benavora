@@ -18,7 +18,13 @@ import {
 import { Badge, Button, Card, EmptyState, LoadingSpinner } from "@/components/ui";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { IngestModal } from "@/components/intelligence/IngestModal";
+import {
+  ColorIcon,
+  ICON_HUE_BORDER_CLASSES,
+  type IconHue,
+} from "@/components/ui/ColorIcon";
 import { createClient } from "@/lib/supabase/client";
+import { cn } from "@/lib/utils/cn";
 import { formatCurrency, formatDate } from "@/lib/utils/formatters";
 import type { Tables } from "@/types/database";
 
@@ -211,14 +217,15 @@ export default function IntelligenceLibraryPage() {
         <>
           {/* Stats cards */}
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-            <StatCard icon={FileText} label="Funded proposals" value={stats?.proposalCount ?? 0} />
-            <StatCard icon={GitBranch} label="Sections indexed" value={stats?.sectionCount ?? 0} />
-            <StatCard icon={Target} label="Scoring rubrics" value={stats?.rubricCount ?? 0} />
-            <StatCard icon={BookOpen} label="Logic models" value={stats?.logicModelCount ?? 0} />
+            <StatCard icon={FileText} label="Funded proposals" value={stats?.proposalCount ?? 0} hue="blue" />
+            <StatCard icon={GitBranch} label="Sections indexed" value={stats?.sectionCount ?? 0} hue="violet" />
+            <StatCard icon={Target} label="Scoring rubrics" value={stats?.rubricCount ?? 0} hue="indigo" />
+            <StatCard icon={BookOpen} label="Logic models" value={stats?.logicModelCount ?? 0} hue="cyan" />
             <StatCard
               icon={Database}
               label="Last ingestion"
               value={stats?.lastIngestionAt ? formatDate(stats.lastIngestionAt) : "—"}
+              hue="amber"
               isText
             />
           </div>
@@ -562,19 +569,19 @@ function StatCard({
   icon: Icon,
   label,
   value,
+  hue = "blue",
   isText = false,
 }: {
   icon: LucideIcon;
   label: string;
   value: number | string;
+  hue?: IconHue;
   isText?: boolean;
 }) {
   return (
-    <Card>
+    <Card className={cn("border-l-4", ICON_HUE_BORDER_CLASSES[hue])}>
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-teal-50">
-          <Icon className="h-5 w-5 text-teal-600" aria-hidden />
-        </div>
+        <ColorIcon icon={Icon} hue={hue} />
         <div className="min-w-0">
           {isText ? (
             <p className="truncate text-sm font-semibold text-navy-900">{value}</p>

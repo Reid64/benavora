@@ -1,7 +1,7 @@
 # benavora — DESIGN SYSTEM (FORGE × UI/UX Pro Max)
 
 - **Generated:** 2026-06-12T18:03:13.507Z
-- **Last revised:** 2026-07-07 (intensity pass) — darkened the canvas background so white cards read with real contrast, added a `surface-sunken` tint for table headers/card header wells, rebuilt `secondary` buttons as a visible gray chip, and added a shared `PageHeader` (white band + bottom border) as the first of three visible layers on every page. Supersedes the same-day dark-surface-purge revision below it in this history, which purged remaining dark-theme surfaces (`bg-ink-*`, `glow-border`, `backdrop-blur`, dark-tuned `shadow-card`) from `Card`/`Modal`/`GrantDNACard`/`LogicModelView`/`RubricPanel` and page bodies and fixed invisible `secondary`/`ghost` buttons for the first time.
+- **Last revised:** 2026-07-07 (color & polish pass) — added `ColorIcon` (`src/components/ui/ColorIcon.tsx`), a categorical hue-per-function icon-chip system (cyan/emerald/blue/amber/violet/indigo/rose), applied to dashboard stat cards, draft templates, research source cards, and Intelligence Library stat tiles, each paired with a matching `border-l-4` accent. Fixed the draft-generator editor's height (global `textarea{max-height:120px}` base style was silently clamping it — see Inputs section below). Supersedes the same-day intensity-pass revision below it in this history, which darkened the canvas background, added `surface-sunken`, rebuilt `secondary` buttons as a visible gray chip, and added the shared `PageHeader`.
 - **Source:** Hand-maintained brand system, derived from the benavora logo palette. Canonical values live in `src/app/globals.css` (CSS custom properties) and `tailwind.config.ts` (Tailwind color keys reading the same variables) — this file is a summary for prompt-injection use, not the source of truth; if the two disagree, the code wins.
 
 > FORGE injects this document into EVERY UI prompt context during Phase 1B
@@ -183,6 +183,25 @@ Canonical implementation: `src/components/layout/PageHeader.tsx`. White band (`b
   border-color: #0077B6;
   outline: none;
   box-shadow: 0 0 0 3px rgba(0, 119, 182, 0.18);
+}
+```
+
+**Textareas:** `globals.css` applies a global base `textarea { max-height: 120px; resize: vertical; }` — correct for small form fields (Mission Statement, notes), but it silently overrides any `rows` attribute. Any textarea meant to be large (an editor, not a form field) MUST explicitly override with a Tailwind class of higher specificity, e.g. `max-h-none min-h-[55vh] flex-1` — a `rows={N}` prop alone will not win against the CSS `max-height`. This bit the draft-generator editor once already (2026-07-07); don't reintroduce it elsewhere.
+
+### Icon chips (ColorIcon)
+
+Canonical implementation: `src/components/ui/ColorIcon.tsx`. One hue per **function**, applied consistently everywhere that function's icon appears — cyan = opportunities/search, emerald = money/funding, blue = documents/drafts, amber = deadlines/time, violet = analytics, indigo = applications, rose = alerts. Pair with `ICON_HUE_BORDER_CLASSES` for a matching `border-l-4` card accent. These are categorical/nominal colors for scanning, not brand accents — `violet` and `rose` here are an intentional, narrow exception to the "no purple accents" anti-pattern below; don't use violet/rose/etc. as a general page accent outside this icon-chip system.
+
+```css
+.icon-chip {
+  display: flex;
+  height: 40px; /* h-10, or 36px/h-9 for the "sm" size */
+  width: 40px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: #CFFAFE; /* e.g. bg-cyan-100 */
+  color: #0E7490; /* e.g. text-cyan-700 */
 }
 ```
 

@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils/cn";
+import { ColorIcon, type IconHue } from "@/components/ui/ColorIcon";
 import type { DraftTemplateType } from "@/types/ai";
 
 type TemplateOption = {
@@ -18,45 +19,53 @@ type TemplateOption = {
   label: string;
   description: string;
   icon: LucideIcon;
+  hue: IconHue;
 };
 
 // Mirrors the draft_template_type enum (SCHEMA_REGISTRY) and BLUEPRINT §4.8.
+// Each template gets its own hue so the grid scans at a glance.
 const TEMPLATE_OPTIONS: TemplateOption[] = [
   {
     value: "grant_narrative",
     label: "Grant narrative",
     description: "Structured proposal: need, program, capacity, impact.",
     icon: FileText,
+    hue: "blue",
   },
   {
     value: "donation_request_letter",
     label: "Donation request letter",
     description: "Warm corporate appeal with a concise, specific ask.",
     icon: Mail,
+    hue: "emerald",
   },
   {
     value: "budget_narrative",
     label: "Budget narrative",
     description: "Line-item justification tied to program activities.",
     icon: Calculator,
+    hue: "amber",
   },
   {
     value: "impact_statement",
     label: "Impact statement",
     description: "Quantified outcomes this funding makes possible.",
     icon: Target,
+    hue: "violet",
   },
   {
     value: "letter_of_inquiry",
     label: "Letter of inquiry",
     description: "Brief intro to gauge a funder's interest first.",
     icon: PenLine,
+    hue: "cyan",
   },
   {
     value: "full_proposal",
     label: "Full proposal",
     description: "All standard sections, summary through evaluation.",
     icon: ScrollText,
+    hue: "indigo",
   },
 ];
 
@@ -83,7 +92,7 @@ export function TemplateSelector({
     <div
       role="radiogroup"
       aria-label="Draft template type"
-      className="grid grid-cols-2 gap-2 sm:grid-cols-3"
+      className="grid grid-cols-1 gap-3 sm:grid-cols-3"
     >
       {TEMPLATE_OPTIONS.map((option) => {
         const Icon = option.icon;
@@ -97,26 +106,17 @@ export function TemplateSelector({
             disabled={disabled}
             onClick={() => onChange(option.value)}
             className={cn(
-              "flex flex-col items-start gap-1.5 rounded-xl border p-3 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60",
+              "flex h-full flex-col items-start gap-1.5 rounded-xl border p-4 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60",
               selected
-                ? "border-teal-500 bg-teal-50 ring-1 ring-teal-500"
-                : "border-navy-200 bg-white hover:border-navy-300 hover:bg-navy-50",
+                ? "border-primary ring-2 ring-primary/20 bg-blue-50/50"
+                : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50",
             )}
           >
-            <span
-              className={cn(
-                "flex h-8 w-8 items-center justify-center rounded-lg",
-                selected
-                  ? "bg-teal-600 text-white"
-                  : "bg-navy-100 text-navy-500",
-              )}
-            >
-              <Icon className="h-4 w-4" aria-hidden />
-            </span>
-            <span className="text-sm font-semibold text-navy-900">
+            <ColorIcon icon={Icon} hue={option.hue} size="sm" />
+            <span className="text-sm font-semibold text-slate-900">
               {option.label}
             </span>
-            <span className="text-xs text-navy-500">{option.description}</span>
+            <span className="text-xs text-slate-500">{option.description}</span>
           </button>
         );
       })}

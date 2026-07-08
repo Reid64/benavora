@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Search } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { SearchConfiguration } from "@/app/(dashboard)/search-profiles/configure/SearchConfiguration";
 import type { AgentType } from "@/types/agents";
@@ -10,6 +11,7 @@ import type { Enums } from "@/types/database";
 import type { ResearchConfig } from "@/lib/research/org-research-config";
 import { Badge, type BadgeVariant } from "@/components/ui/Badge";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { ColorIcon } from "@/components/ui/ColorIcon";
 
 type FunderCategory = Enums<"funder_category">;
 type OppSourceType = Enums<"opportunity_source_type">;
@@ -603,12 +605,13 @@ export default function ResearchPage() {
                 }`}
               >
                 <span className="absolute inset-x-0 top-0 h-[3px] bg-accent" aria-hidden />
-                <div className="flex items-start justify-between gap-1">
-                  <span className="text-sm font-semibold text-slate-900 leading-tight">
-                    {src.label}
-                  </span>
+                <div className="flex items-start justify-between gap-2">
+                  <ColorIcon icon={Search} hue="cyan" size="sm" />
                   {isRunning && <Spinner className="h-4 w-4 shrink-0 text-blue-500" />}
                 </div>
+                <span className="mt-2 text-sm font-semibold text-slate-900 leading-tight">
+                  {src.label}
+                </span>
 
                 <div className="mt-2 flex-1 space-y-1">
                   <p className="text-xs text-slate-500">

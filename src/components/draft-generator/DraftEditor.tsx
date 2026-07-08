@@ -215,7 +215,7 @@ export function DraftEditor({
   }, [currentGapIndex, readOnly, gaps, scrollToGapInTextarea, scrollWindowToGap]);
 
   return (
-    <div className="space-y-3">
+    <div className="flex h-full flex-col space-y-3">
       {/* ── Header ── */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-sm font-medium text-navy-700">{label}</span>
@@ -269,14 +269,17 @@ export function DraftEditor({
       {readOnly ? (
         // Read-only: plain div with inline clickable amber spans.
         <div
-          className="block w-full rounded-lg border border-navy-300 bg-navy-50 px-3 py-2 font-mono text-sm leading-relaxed text-navy-600 shadow-sm"
-          style={{ whiteSpace: "pre-wrap", minHeight: "20rem" }}
+          className="block min-h-[55vh] w-full flex-1 overflow-y-auto rounded-lg border border-navy-300 bg-navy-50 px-3 py-2 font-mono text-sm leading-relaxed text-navy-600 shadow-sm"
+          style={{ whiteSpace: "pre-wrap" }}
         >
           {readOnlyNodes}
         </div>
       ) : (
-        // Edit mode: textarea floated over a highlight backdrop.
-        <div className="relative rounded-lg border border-navy-300 bg-white shadow-sm transition focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-500">
+        // Edit mode: textarea floated over a highlight backdrop. min-h-[55vh]
+        // + flex-1 so the editor fills the available height instead of the
+        // old fixed `rows={20}` (which the global `textarea{max-height:120px}`
+        // base style clamped down to a few visible lines regardless).
+        <div className="relative flex min-h-[55vh] flex-1 flex-col rounded-lg border border-navy-300 bg-white shadow-sm transition focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-500">
           {/* Backdrop — plain transparent text, no gap highlighting. Gaps are
               visible as literal "[NEEDS INPUT: …]" text in the textarea layer. */}
           <div
@@ -302,10 +305,9 @@ export function DraftEditor({
             value={value}
             onChange={(e) => onChange(e.target.value)}
             onScroll={syncScroll}
-            rows={20}
             aria-label={label}
             spellCheck
-            className="relative block w-full rounded-lg bg-transparent px-3 py-2 font-mono text-sm leading-relaxed text-navy-900 placeholder:text-navy-400 focus:outline-none"
+            className="relative block h-full max-h-none w-full flex-1 resize-none rounded-lg bg-transparent px-3 py-2 font-mono text-sm leading-relaxed text-navy-900 placeholder:text-navy-400 focus:outline-none"
             placeholder="The generated draft will appear here. Edit freely before saving."
           />
         </div>
