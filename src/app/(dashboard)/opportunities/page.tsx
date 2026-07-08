@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Plus, Search } from "lucide-react";
 
 import { Button, EmptyState } from "@/components/ui";
+import { PageHeader } from "@/components/layout/PageHeader";
 import {
   OpportunityTable,
   type OpportunityRow,
@@ -98,24 +99,21 @@ export default function OpportunitiesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-navy-900">
-            Opportunities
-          </h1>
-          <p className="mt-1 text-sm text-navy-500">
-            Grants, donation programs, and sponsorships you&rsquo;re tracking.
-          </p>
-        </div>
-        {editable && (
-          <Link href="/opportunities/new">
-            <Button>
-              <Plus className="h-4 w-4" aria-hidden />
-              New opportunity
-            </Button>
-          </Link>
-        )}
-      </div>
+      <PageHeader
+        title="Opportunities"
+        description="Grants, donation programs, and sponsorships you're tracking."
+        align="center"
+        actions={
+          editable && (
+            <Link href="/opportunities/new">
+              <Button>
+                <Plus className="h-4 w-4" aria-hidden />
+                New opportunity
+              </Button>
+            </Link>
+          )
+        }
+      />
 
       {error && (
         <div

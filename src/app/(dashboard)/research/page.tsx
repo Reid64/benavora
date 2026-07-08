@@ -9,6 +9,7 @@ import type { AgentType } from "@/types/agents";
 import type { Enums } from "@/types/database";
 import type { ResearchConfig } from "@/lib/research/org-research-config";
 import { Badge, type BadgeVariant } from "@/components/ui/Badge";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 type FunderCategory = Enums<"funder_category">;
 type OppSourceType = Enums<"opportunity_source_type">;
@@ -468,15 +469,10 @@ export default function ResearchPage() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-navy-900">
-          Research Command Center
-        </h1>
-        <p className="mt-1 text-sm text-navy-500">
-          Run research agents to discover funding opportunities from government,
-          corporate, and foundation sources.
-        </p>
-      </div>
+      <PageHeader
+        title="Research Command Center"
+        description="Run research agents to discover funding opportunities from government, corporate, and foundation sources."
+      />
 
       {/* Research / Search Configuration tabs */}
       <div className="border-b border-gray-200">
@@ -600,27 +596,28 @@ export default function ResearchPage() {
                     setActiveSource((cur) => (cur === src.key ? null : src.key));
                   }
                 }}
-                className={`flex cursor-pointer flex-col rounded-xl bg-white p-4 shadow-sm transition-colors ${
+                className={`relative flex cursor-pointer flex-col overflow-hidden rounded-xl bg-white p-4 shadow-sm transition-colors ${
                   isActive
                     ? "border-2 border-blue-400 ring-1 ring-blue-200"
-                    : "border border-gray-200 hover:border-gray-300"
+                    : "border border-slate-200 hover:border-slate-300"
                 }`}
               >
+                <span className="absolute inset-x-0 top-0 h-[3px] bg-accent" aria-hidden />
                 <div className="flex items-start justify-between gap-1">
-                  <span className="text-sm font-semibold text-navy-900 leading-tight">
+                  <span className="text-sm font-semibold text-slate-900 leading-tight">
                     {src.label}
                   </span>
                   {isRunning && <Spinner className="h-4 w-4 shrink-0 text-blue-500" />}
                 </div>
 
                 <div className="mt-2 flex-1 space-y-1">
-                  <p className="text-xs text-navy-500">
+                  <p className="text-xs text-slate-500">
                     Last run:{" "}
                     <span className="font-medium">
                       {stats?.lastRunAt ? formatDate(stats.lastRunAt) : "Never"}
                     </span>
                   </p>
-                  <p className="text-xs text-navy-500">
+                  <p className="text-xs text-slate-500">
                     Found:{" "}
                     <span className="font-medium">
                       {stats?.itemsFound != null
@@ -636,7 +633,7 @@ export default function ResearchPage() {
                     void handleRunSource(src);
                   }}
                   disabled={isRunning || runningAll}
-                  className="mt-3 w-full rounded-md border border-primary/40 bg-surface px-2 py-1.5 text-xs font-medium text-primary hover:bg-primary/5 disabled:opacity-50 transition-colors"
+                  className="mt-3 w-full rounded-md bg-primary px-2 py-1.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-primary-hover disabled:opacity-50"
                 >
                   {isRunning ? "Running..." : "Run"}
                 </button>
@@ -673,17 +670,17 @@ export default function ResearchPage() {
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center rounded-xl border border-gray-200 bg-white p-10 text-sm text-navy-500">
-            <Spinner className="mr-2 h-4 w-4 text-navy-400" />
+          <div className="flex items-center justify-center rounded-xl border border-slate-200 bg-white p-10 text-sm text-slate-500">
+            <Spinner className="mr-2 h-4 w-4 text-slate-400" />
             Loading opportunities...
           </div>
         ) : opportunities.length === 0 ? (
-          <div className="rounded-xl border border-gray-200 bg-white p-10 text-center text-sm text-navy-500">
+          <div className="rounded-xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500">
             No discovered opportunities yet. Run a research agent above to find
             funding sources.
           </div>
         ) : visibleOpportunities.length === 0 ? (
-          <div className="rounded-xl border border-gray-200 bg-white p-10 text-center text-sm text-navy-500">
+          <div className="rounded-xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500">
             No discovered opportunities from {activeSourceLabel} yet.{" "}
             <button
               onClick={() => setActiveSource(null)}
@@ -693,10 +690,10 @@ export default function ResearchPage() {
             </button>
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
-            <table className="min-w-full divide-y divide-gray-200">
+          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+            <table className="min-w-full divide-y divide-slate-200">
               <thead>
-                <tr className="bg-gray-50">
+                <tr className="bg-surface-sunken">
                   {[
                     "Name",
                     "Source",
@@ -709,14 +706,14 @@ export default function ResearchPage() {
                   ].map((col) => (
                     <th
                       key={col}
-                      className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500"
+                      className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600"
                     >
                       {col}
                     </th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-slate-200">
                 {visibleOpportunities.map((opp) => {
                   const badge = sourceBadgeProps(opp.source, opp.source_type);
                   const applied = appsByOpp[opp.id];
@@ -724,29 +721,29 @@ export default function ResearchPage() {
                     <tr
                       key={opp.id}
                       onClick={() => router.push(`/opportunities/${opp.id}`)}
-                      className="cursor-pointer hover:bg-gray-50 transition-colors"
+                      className="cursor-pointer hover:bg-slate-50 transition-colors"
                     >
-                      <td className="max-w-[200px] truncate px-4 py-3 text-sm font-medium text-navy-900">
+                      <td className="max-w-[200px] truncate px-4 py-3 text-sm font-medium text-slate-900">
                         {opp.name}
                       </td>
                       <td className="px-4 py-3">
                         <Badge variant={badge.variant}>{badge.label}</Badge>
                       </td>
-                      <td className="px-4 py-3 text-xs text-navy-600">
+                      <td className="px-4 py-3 text-xs text-slate-600">
                         {categoryLabel(opp.category)}
                       </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-xs text-navy-600">
+                      <td className="whitespace-nowrap px-4 py-3 text-xs text-slate-600">
                         {formatAmount(opp.amount_min, opp.amount_max)}
                       </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-xs text-navy-600">
+                      <td className="whitespace-nowrap px-4 py-3 text-xs text-slate-600">
                         {formatDate(opp.deadline)}
                       </td>
-                      <td className="px-4 py-3 text-xs text-navy-600">
+                      <td className="px-4 py-3 text-xs text-slate-600">
                         {opp.eligibility_score != null
                           ? `${opp.eligibility_score}%`
                           : "—"}
                       </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-xs text-navy-500">
+                      <td className="whitespace-nowrap px-4 py-3 text-xs text-slate-500">
                         {formatDate(opp.created_at)}
                       </td>
                       <td
@@ -760,7 +757,7 @@ export default function ResearchPage() {
                                 .replace(/_/g, " ")
                                 .replace(/\b\w/g, (c) => c.toUpperCase())}
                             </Badge>
-                            <span className="mt-1 text-navy-400">
+                            <span className="mt-1 text-slate-500">
                               Applied {formatDate(applied.created_at)}
                             </span>
                           </div>
@@ -768,7 +765,7 @@ export default function ResearchPage() {
                           <Link
                             href={`/applications/new?opportunityId=${opp.id}`}
                             onClick={(e) => e.stopPropagation()}
-                            className="inline-flex items-center rounded-md bg-navy-900 px-2.5 py-1 font-medium text-white hover:bg-navy-800"
+                            className="inline-flex items-center rounded-md bg-primary px-2.5 py-1 font-medium text-white shadow-sm hover:bg-primary-hover"
                           >
                             Apply
                           </Link>
@@ -787,10 +784,10 @@ export default function ResearchPage() {
       <section className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-navy-900">
+            <h2 className="text-lg font-semibold text-slate-900">
               Historical Awards
             </h2>
-            <p className="text-xs text-navy-500">
+            <p className="text-xs text-slate-500">
               Who actually received similar federal grants - competitive
               intelligence from USAspending.gov (what funders funded, not just
               what they say they fund).
@@ -799,7 +796,7 @@ export default function ResearchPage() {
           <button
             onClick={() => void handlePullAwards()}
             disabled={pullingAwards}
-            className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-navy-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-navy-800 disabled:opacity-60 transition-colors"
+            className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-primary-hover disabled:opacity-60 transition-colors"
           >
             {pullingAwards && <Spinner className="h-4 w-4" />}
             {pullingAwards ? "Pulling..." : "Pull Historical Awards"}
@@ -816,20 +813,20 @@ export default function ResearchPage() {
         )}
 
         {historicalAwards.length === 0 ? (
-          <div className="rounded-xl border border-gray-200 bg-white p-8 text-center text-sm text-navy-500">
+          <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
             No historical awards yet. Pull awards to see who actually received
             grants like the ones you pursue.
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
-            <table className="min-w-full divide-y divide-gray-200">
+          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+            <table className="min-w-full divide-y divide-slate-200">
               <thead>
-                <tr className="bg-gray-50">
+                <tr className="bg-surface-sunken">
                   {["Recipient", "Amount", "Agency", "Date", "Description"].map(
                     (col) => (
                       <th
                         key={col}
-                        className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500"
+                        className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600"
                       >
                         {col}
                       </th>
@@ -837,24 +834,24 @@ export default function ResearchPage() {
                   )}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-slate-200">
                 {historicalAwards.map((award) => (
                   <tr key={award.id}>
-                    <td className="max-w-[200px] truncate px-4 py-3 text-sm font-medium text-navy-900">
+                    <td className="max-w-[200px] truncate px-4 py-3 text-sm font-medium text-slate-900">
                       {award.recipient_name ?? "Unknown recipient"}
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-xs font-medium text-navy-700">
+                    <td className="whitespace-nowrap px-4 py-3 text-xs font-medium text-slate-700">
                       {award.award_amount != null
                         ? `$${Math.round(award.award_amount).toLocaleString("en-US")}`
                         : "-"}
                     </td>
-                    <td className="px-4 py-3 text-xs text-navy-600">
+                    <td className="px-4 py-3 text-xs text-slate-600">
                       {award.awarding_agency ?? "-"}
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-xs text-navy-600">
+                    <td className="whitespace-nowrap px-4 py-3 text-xs text-slate-600">
                       {formatDate(award.award_date)}
                     </td>
-                    <td className="max-w-[280px] truncate px-4 py-3 text-xs text-navy-500">
+                    <td className="max-w-[280px] truncate px-4 py-3 text-xs text-slate-500">
                       {award.description ?? "-"}
                     </td>
                   </tr>
@@ -866,7 +863,7 @@ export default function ResearchPage() {
       </section>
 
       {/* AGENT RUN HISTORY LINK (replaces the inline Agent Run Log) */}
-      <div className="flex items-center justify-between border-t border-gray-200 pt-4">
+      <div className="flex items-center justify-between border-t border-slate-200 pt-4">
         <Link
           href="/admin/audit-log"
           className="text-sm font-medium text-blue-600 hover:underline"

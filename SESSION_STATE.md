@@ -1,7 +1,69 @@
 # BENAVORA — SESSION STATE
 ## Last updated: 2026-07-07
 ## Current branch: main
-## Last commit: design: purge dark surfaces, fix button visibility, verified via screenshots
+## Last commit: design: intensity pass — saturated buttons, tonal layers, sunken headers
+
+---
+
+## COMPLETED — July 7 intensity pass: saturated buttons, tonal layers, sunken headers
+
+Follow-up to the dark-surface purge above — that pass made everything correctly light,
+but flat: near-white-on-white-on-white with no depth cues. This pass adds tonal hierarchy.
+
+**Tokens**: `--color-background` darkened #EEF2F7 → **#E2E8F0** (real contrast under white
+cards — this is a page-wide cascading change since `--color-page`/`--background` alias it).
+New `--color-surface-sunken` **#F1F5F9** for table headers and card header wells, added
+alongside `surface`/`surface-raised` in both `globals.css` and `tailwind.config.ts`.
+
+**Buttons** (`Button.tsx`): `primary` = `bg-primary text-white hover:bg-primary-hover
+shadow-sm` — explicitly the default for every card CTA (Run, Apply, Add to Queue,
+Re-score), not just form submits. `secondary` rebuilt as a visible gray chip (`bg-slate-100
+text-slate-700 border border-slate-300 hover:bg-slate-200`) — no longer a
+primary-tinted-border ghost, a genuinely distinct neutral action style. Converted every
+Run/Apply/Add-to-Queue/Re-score button that was rendering as a faint outline: Research
+page's per-source "Run" buttons and the "Apply"/"Pull Historical Awards" buttons (raw
+`<button>`s, not the shared component, so hand-converted to matching classes),
+`GrantDNACard`'s "Re-score" button.
+
+**Cards** (`Card.tsx`): border → `border-slate-200` (same hex as the old `border-border`
+token, but literal per this pass's spec), header block now `bg-surface-sunken` — every
+titled panel (Pipeline, Recent Activity, Quick Actions, Grant DNA Score, Scoring
+Optimization) gets a visibly sunken header band distinct from its white body. Applied the
+same header treatment to `Modal.tsx` and `RubricPanel.tsx` (which duplicate Card's
+header/body split inline rather than using the component).
+
+**Research source cards** (Grants.gov, SAM.gov, etc.): added a 3px `bg-accent` top bar
+(`relative overflow-hidden` wrapper + absolutely-positioned span), title → `text-slate-900
+font-semibold`, metadata (Last run/Found) → `text-slate-500`.
+
+**Tables**: `Table.tsx` (the shared component — cascades to Opportunities via
+`OpportunityTable`) header row → `bg-surface-sunken text-slate-600`, row dividers →
+`divide-slate-200`, row hover → `hover:bg-slate-50`, body text → `text-slate-700`. Research
+and Intelligence Library both hand-roll their own tables (found via audit — neither used
+the shared component, and each had a different ad-hoc class convention: `gray-*`/`px-4
+py-3` vs `navy-*`/`py-3 pr-4`) — converted both, 4 tables total (Discovered Opportunities,
+Historical Awards, Funded Proposals, Scoring Rubrics, Data Sources — 5 actually), each now
+matching the same header/divider/hover convention as the shared component.
+
+**Page headers**: no shared header component existed — every one of ~70 dashboard pages
+hand-rolled its own `<h1>`/`<p>`/action-button block directly on the gray canvas, with
+inconsistent wrapper alignment (`items-center` vs `items-start`) depending on whether the
+original author needed room for a multi-button action area. Created
+`src/components/layout/PageHeader.tsx` (white band, `border-slate-200`, `shadow-sm`,
+`align="start"|"center"` prop to preserve each page's original vertical alignment) and
+applied it to the 5 pages this pass verifies (`dashboard`, `research`, `opportunities`,
+`intelligence-library`, `autoapply`). The remaining ~65 dashboard pages still hand-roll
+their header block — same visual weight as before (no white band), tracked as follow-up
+debt below, not a regression from this pass.
+
+**Visual verification**: dev server + Playwright, logged in as `beta1@benavora-test.com`,
+screenshotted all 5 named pages plus one cropped close-up of a Research source card to
+confirm the 3px accent bar actually renders (it does). Reviewed each full-page screenshot:
+confirmed the three-layer structure (gray canvas → white header band → white cards with
+sunken headers) on every page, confirmed no white-on-white buttons anywhere (Settings on
+`/autoapply` reads as a clear gray chip; every Run/Apply button is solid blue).
+
+**Verification**: `pnpm tsc --noEmit` and `pnpm run build` both clean (234/234 pages).
 
 ---
 

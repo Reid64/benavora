@@ -6,7 +6,7 @@ import type { Config } from "tailwindcss";
  * Canonical layered palette (agrees with the CSS custom properties in
  * src/app/globals.css — both files read from the same values, never restate
  * a literal hex twice):
- *  - background #EEF2F7 / surface #FFFFFF / surface-raised #F8FAFC
+ *  - background #E2E8F0 / surface #FFFFFF / surface-raised #F8FAFC / surface-sunken #F1F5F9
  *  - sidebar #0B1220, sidebar-active rgba(0,180,216,0.12)
  *  - primary #0077B6 (cta), accent #00B4D8
  *  - text #0F172A, text-muted #475569, border #E2E8F0
@@ -34,6 +34,7 @@ const config: Config = {
         // Sourced from the SAME CSS custom properties defined in globals.css —
         // the two files must agree, so nothing here restates a literal hex.
         "surface-raised": "var(--color-surface-raised)",
+        "surface-sunken": "var(--color-surface-sunken)",
         sidebar: "var(--color-sidebar)",
         "sidebar-active": "var(--color-sidebar-active)",
         primary: {

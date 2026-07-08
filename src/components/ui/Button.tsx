@@ -19,16 +19,17 @@ export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 };
 
 /**
- * `secondary` always has a visible border — never a borderless light-on-light
- * button. `ghost` has no border or background of its own, so reserve it for
- * buttons sitting on a surface that already provides definition (a colored
- * banner, a card header, dark chrome); on the plain page background it has
- * too little affordance on its own.
+ * `primary` is the default for every card CTA — Run, Apply, Add to Queue,
+ * Re-score, and any other primary action, not just form submits.
+ * `secondary` is a visible gray chip (never a borderless white-on-white
+ * button). `ghost` has no border or background of its own — reserve it for
+ * buttons inside a colored header/banner that already provides definition;
+ * on the plain page background or a white card it has too little affordance.
  */
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
-  primary: "bg-primary text-white hover:bg-primary/90 focus-visible:ring-primary",
+  primary: "bg-primary text-white hover:bg-primary-hover shadow-sm focus-visible:ring-primary",
   secondary:
-    "border border-primary/40 bg-surface text-primary hover:bg-primary/5 focus-visible:ring-primary",
+    "bg-slate-100 text-slate-700 border border-slate-300 hover:bg-slate-200 focus-visible:ring-primary",
   danger:
     "border border-red-400/30 bg-red-500/90 text-white shadow-sm hover:bg-red-500 focus-visible:ring-red-400",
   ghost: "text-primary hover:bg-primary/10 focus-visible:ring-primary",

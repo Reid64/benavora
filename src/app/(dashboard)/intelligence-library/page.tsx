@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 
 import { Badge, Button, Card, EmptyState, LoadingSpinner } from "@/components/ui";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { IngestModal } from "@/components/intelligence/IngestModal";
 import { createClient } from "@/lib/supabase/client";
 import { formatCurrency, formatDate } from "@/lib/utils/formatters";
@@ -184,20 +185,16 @@ export default function IntelligenceLibraryPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-navy-900">
-            Intelligence Library
-          </h1>
-          <p className="mt-1 text-sm text-navy-500">
-            Funded proposals, scoring rubrics, logic models, and evidence data powering the AI draft generator.
-          </p>
-        </div>
-        <Button onClick={() => setIngestOpen(true)}>
-          <Plus className="h-4 w-4" aria-hidden />
-          Add to Library
-        </Button>
-      </div>
+      <PageHeader
+        title="Intelligence Library"
+        description="Funded proposals, scoring rubrics, logic models, and evidence data powering the AI draft generator."
+        actions={
+          <Button onClick={() => setIngestOpen(true)}>
+            <Plus className="h-4 w-4" aria-hidden />
+            Add to Library
+          </Button>
+        }
+      />
 
       <IngestModal
         isOpen={ingestOpen}
@@ -278,45 +275,45 @@ export default function IntelligenceLibraryPage() {
                 />
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-navy-100 text-sm">
+                  <table className="min-w-full divide-y divide-slate-200 text-sm">
                     <thead>
-                      <tr className="text-left text-xs font-medium uppercase tracking-wide text-navy-400">
-                        <th className="pb-3 pr-4" />
-                        <th className="pb-3 pr-4">Funder</th>
-                        <th className="pb-3 pr-4">Program</th>
-                        <th className="pb-3 pr-4">Amount</th>
-                        <th className="pb-3 pr-4">Year</th>
-                        <th className="pb-3 pr-4">Categories</th>
-                        <th className="pb-3">Source</th>
+                      <tr className="bg-surface-sunken text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
+                        <th className="py-3 pl-4 pr-4" />
+                        <th className="py-3 pr-4">Funder</th>
+                        <th className="py-3 pr-4">Program</th>
+                        <th className="py-3 pr-4">Amount</th>
+                        <th className="py-3 pr-4">Year</th>
+                        <th className="py-3 pr-4">Categories</th>
+                        <th className="py-3 pr-4">Source</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-navy-100">
+                    <tbody className="divide-y divide-slate-200">
                       {filteredProposals.map((p) => (
                         <Fragment key={p.id}>
                           <tr
                             onClick={() => void toggleProposal(p.id)}
-                            className="cursor-pointer hover:bg-navy-50"
+                            className="cursor-pointer hover:bg-slate-50"
                           >
-                            <td className="py-3 pr-4">
+                            <td className="py-3 pl-4 pr-4">
                               {expandedId === p.id ? (
-                                <ChevronDown className="h-4 w-4 text-navy-400" aria-hidden />
+                                <ChevronDown className="h-4 w-4 text-slate-400" aria-hidden />
                               ) : (
-                                <ChevronRight className="h-4 w-4 text-navy-400" aria-hidden />
+                                <ChevronRight className="h-4 w-4 text-slate-400" aria-hidden />
                               )}
                             </td>
-                            <td className="py-3 pr-4 font-medium text-navy-900">
-                              {p.funder_name ?? <span className="text-navy-400">—</span>}
+                            <td className="py-3 pr-4 font-medium text-slate-900">
+                              {p.funder_name ?? <span className="text-slate-400">—</span>}
                             </td>
-                            <td className="py-3 pr-4 text-navy-600">
-                              {p.grant_program ?? <span className="text-navy-400">—</span>}
+                            <td className="py-3 pr-4 text-slate-600">
+                              {p.grant_program ?? <span className="text-slate-400">—</span>}
                             </td>
-                            <td className="py-3 pr-4 text-navy-600">
+                            <td className="py-3 pr-4 text-slate-600">
                               {p.award_amount != null
                                 ? formatCurrency(p.award_amount)
-                                : <span className="text-navy-400">—</span>}
+                                : <span className="text-slate-400">—</span>}
                             </td>
-                            <td className="py-3 pr-4 text-navy-600">
-                              {p.award_year ?? <span className="text-navy-400">—</span>}
+                            <td className="py-3 pr-4 text-slate-600">
+                              {p.award_year ?? <span className="text-slate-400">—</span>}
                             </td>
                             <td className="py-3 pr-4">
                               <div className="flex flex-wrap gap-1">
@@ -327,31 +324,31 @@ export default function IntelligenceLibraryPage() {
                                 ))}
                               </div>
                             </td>
-                            <td className="py-3 text-navy-500">{p.source}</td>
+                            <td className="py-3 pr-4 text-slate-500">{p.source}</td>
                           </tr>
                           {expandedId === p.id && (
                             <tr>
-                              <td colSpan={7} className="bg-navy-50 px-6 py-4">
+                              <td colSpan={7} className="bg-surface-sunken px-6 py-4">
                                 {sectionsLoading && !sections[p.id] ? (
                                   <LoadingSpinner label="Loading sections…" />
                                 ) : (sections[p.id] ?? []).length === 0 ? (
-                                  <p className="text-sm text-navy-400">No sections indexed for this proposal.</p>
+                                  <p className="text-sm text-slate-400">No sections indexed for this proposal.</p>
                                 ) : (
                                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                                     {(sections[p.id] ?? []).map((s) => (
                                       <div
                                         key={s.id}
-                                        className="rounded-lg border border-navy-200 bg-white p-3"
+                                        className="rounded-lg border border-slate-200 bg-white p-3"
                                       >
                                         <div className="mb-1.5 flex items-center justify-between gap-2">
                                           <Badge color="navy">{s.section_type.replace(/_/g, " ")}</Badge>
                                           {s.quality_score != null && (
-                                            <span className="text-xs text-navy-400">
+                                            <span className="text-xs text-slate-400">
                                               Quality: {s.quality_score}/10
                                             </span>
                                           )}
                                         </div>
-                                        <p className="line-clamp-4 text-xs text-navy-600">{s.section_text}</p>
+                                        <p className="line-clamp-4 text-xs text-slate-600">{s.section_text}</p>
                                       </div>
                                     ))}
                                   </div>
@@ -372,14 +369,14 @@ export default function IntelligenceLibraryPage() {
             <>
               {/* Source filter */}
               <div className="flex items-center gap-3">
-                <label htmlFor="rubric-source-filter" className="text-sm font-medium text-navy-600">
+                <label htmlFor="rubric-source-filter" className="text-sm font-medium text-slate-600">
                   Source type:
                 </label>
                 <select
                   id="rubric-source-filter"
                   value={rubricSourceFilter}
                   onChange={(e) => setRubricSourceFilter(e.target.value)}
-                  className="rounded-lg border border-navy-200 bg-white px-3 py-1.5 text-sm text-navy-900 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
                 >
                   <option value="all">All sources</option>
                   <option value="nofa_parse">NOFA Parse</option>
@@ -397,19 +394,19 @@ export default function IntelligenceLibraryPage() {
                   />
                 ) : (
                   <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-navy-100 text-sm">
+                    <table className="min-w-full divide-y divide-slate-200 text-sm">
                       <thead>
-                        <tr className="text-left text-xs font-medium uppercase tracking-wide text-navy-400">
-                          <th className="pb-3 pr-4" />
-                          <th className="pb-3 pr-4">Funder</th>
-                          <th className="pb-3 pr-4">Program</th>
-                          <th className="pb-3 pr-4">Source</th>
-                          <th className="pb-3 pr-4 text-right">Dimensions</th>
-                          <th className="pb-3 pr-4 text-right">Total pts</th>
-                          <th className="pb-3">Added</th>
+                        <tr className="bg-surface-sunken text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
+                          <th className="py-3 pl-4 pr-4" />
+                          <th className="py-3 pr-4">Funder</th>
+                          <th className="py-3 pr-4">Program</th>
+                          <th className="py-3 pr-4">Source</th>
+                          <th className="py-3 pr-4 text-right">Dimensions</th>
+                          <th className="py-3 pr-4 text-right">Total pts</th>
+                          <th className="py-3 pr-4">Added</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-navy-100">
+                      <tbody className="divide-y divide-slate-200">
                         {filteredRubrics.map((r) => {
                           const dims = Array.isArray(r.dimensions)
                             ? (r.dimensions as RubricDimension[])
@@ -425,46 +422,46 @@ export default function IntelligenceLibraryPage() {
                                 onClick={() =>
                                   setExpandedRubricId(isExpanded ? null : r.id)
                                 }
-                                className="cursor-pointer hover:bg-navy-50"
+                                className="cursor-pointer hover:bg-slate-50"
                               >
-                                <td className="py-3 pr-4">
+                                <td className="py-3 pl-4 pr-4">
                                   {isExpanded ? (
-                                    <ChevronDown className="h-4 w-4 text-navy-400" aria-hidden />
+                                    <ChevronDown className="h-4 w-4 text-slate-400" aria-hidden />
                                   ) : (
-                                    <ChevronRight className="h-4 w-4 text-navy-400" aria-hidden />
+                                    <ChevronRight className="h-4 w-4 text-slate-400" aria-hidden />
                                   )}
                                 </td>
-                                <td className="py-3 pr-4 font-medium text-navy-900">
-                                  {r.funder_name ?? <span className="text-navy-400">—</span>}
+                                <td className="py-3 pr-4 font-medium text-slate-900">
+                                  {r.funder_name ?? <span className="text-slate-400">—</span>}
                                 </td>
-                                <td className="py-3 pr-4 text-navy-600">
-                                  {r.grant_program ?? <span className="text-navy-400">—</span>}
+                                <td className="py-3 pr-4 text-slate-600">
+                                  {r.grant_program ?? <span className="text-slate-400">—</span>}
                                 </td>
                                 <td className="py-3 pr-4">
                                   {r.source ? (
                                     <Badge color="navy">{r.source.replace(/_/g, " ")}</Badge>
                                   ) : (
-                                    <span className="text-navy-400">—</span>
+                                    <span className="text-slate-400">—</span>
                                   )}
                                 </td>
-                                <td className="py-3 pr-4 text-right tabular-nums text-navy-600">
-                                  {dims.length > 0 ? dims.length : <span className="text-navy-400">—</span>}
+                                <td className="py-3 pr-4 text-right tabular-nums text-slate-600">
+                                  {dims.length > 0 ? dims.length : <span className="text-slate-400">—</span>}
                                 </td>
-                                <td className="py-3 pr-4 text-right tabular-nums text-navy-600">
-                                  {totalPoints > 0 ? totalPoints : <span className="text-navy-400">—</span>}
+                                <td className="py-3 pr-4 text-right tabular-nums text-slate-600">
+                                  {totalPoints > 0 ? totalPoints : <span className="text-slate-400">—</span>}
                                 </td>
-                                <td className="py-3 text-navy-500">
+                                <td className="py-3 pr-4 text-slate-500">
                                   {formatDate(r.created_at)}
                                 </td>
                               </tr>
                               {isExpanded && (
                                 <tr>
-                                  <td colSpan={7} className="bg-navy-50 px-6 py-4">
+                                  <td colSpan={7} className="bg-surface-sunken px-6 py-4">
                                     {dims.length === 0 ? (
-                                      <p className="text-sm text-navy-400">No dimensions recorded for this rubric.</p>
+                                      <p className="text-sm text-slate-400">No dimensions recorded for this rubric.</p>
                                     ) : (
                                       <div className="space-y-3">
-                                        <p className="text-xs font-semibold uppercase tracking-wide text-navy-400">
+                                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                                           Scoring Dimensions
                                         </p>
                                         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -525,25 +522,25 @@ export default function IntelligenceLibraryPage() {
                 />
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-navy-100 text-sm">
+                  <table className="min-w-full divide-y divide-slate-200 text-sm">
                     <thead>
-                      <tr className="text-left text-xs font-medium uppercase tracking-wide text-navy-400">
-                        <th className="pb-3 pr-4">Source</th>
-                        <th className="pb-3 text-right">Records</th>
+                      <tr className="bg-surface-sunken text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
+                        <th className="py-3 pl-4 pr-4">Source</th>
+                        <th className="py-3 pr-4 text-right">Records</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-navy-100">
+                    <tbody className="divide-y divide-slate-200">
                       {filteredNeedSources.map((s) => (
-                        <tr key={s.source} className="hover:bg-navy-50">
-                          <td className="py-3 pr-4 font-medium text-navy-900">{s.source}</td>
-                          <td className="py-3 text-right tabular-nums text-navy-600">
+                        <tr key={s.source} className="hover:bg-slate-50">
+                          <td className="py-3 pl-4 pr-4 font-medium text-slate-900">{s.source}</td>
+                          <td className="py-3 pr-4 text-right tabular-nums text-slate-600">
                             {s.count.toLocaleString()}
                           </td>
                         </tr>
                       ))}
-                      <tr className="border-t-2 border-navy-200">
-                        <td className="py-3 pr-4 text-sm font-semibold text-navy-700">Total</td>
-                        <td className="py-3 text-right tabular-nums font-semibold text-navy-700">
+                      <tr className="border-t-2 border-slate-200">
+                        <td className="py-3 pl-4 pr-4 text-sm font-semibold text-slate-700">Total</td>
+                        <td className="py-3 pr-4 text-right tabular-nums font-semibold text-slate-700">
                           {filteredNeedSources
                             .reduce((sum, s) => sum + s.count, 0)
                             .toLocaleString()}

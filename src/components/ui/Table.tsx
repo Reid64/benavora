@@ -126,9 +126,9 @@ export function Table<T>({
 
   return (
     <div className={cn("w-full", className)}>
-      <div className="overflow-x-auto rounded-xl border border-border bg-surface shadow-sm">
-        <table className="min-w-full divide-y divide-navy-200">
-          <thead className="bg-surface-raised">
+      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-surface shadow-sm">
+        <table className="min-w-full divide-y divide-slate-200">
+          <thead className="bg-surface-sunken">
             <tr>
               {columns.map((column) => {
                 const isSorted = sortKey === column.key;
@@ -145,7 +145,7 @@ export function Table<T>({
                         : undefined
                     }
                     className={cn(
-                      "px-4 py-3 text-xs font-semibold uppercase tracking-wide text-navy-500",
+                      "px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600",
                       ALIGN_CLASSES[column.align ?? "left"],
                       column.className,
                     )}
@@ -154,7 +154,7 @@ export function Table<T>({
                       <button
                         type="button"
                         onClick={() => handleSort(column)}
-                        className="inline-flex items-center gap-1 transition hover:text-navy-700 focus:outline-none focus-visible:text-navy-700"
+                        className="inline-flex items-center gap-1 transition hover:text-slate-900 focus:outline-none focus-visible:text-slate-900"
                       >
                         {column.header}
                         {isSorted ? (
@@ -165,7 +165,7 @@ export function Table<T>({
                           )
                         ) : (
                           <ChevronsUpDown
-                            className="h-3.5 w-3.5 text-navy-300"
+                            className="h-3.5 w-3.5 text-slate-400"
                             aria-hidden
                           />
                         )}
@@ -178,7 +178,7 @@ export function Table<T>({
               })}
             </tr>
           </thead>
-          <tbody className="divide-y divide-navy-200 bg-surface">
+          <tbody className="divide-y divide-slate-200 bg-surface">
             {isLoading ? (
               <tr>
                 <td colSpan={colSpan} className="px-4 py-12">
@@ -189,7 +189,7 @@ export function Table<T>({
               <tr>
                 <td
                   colSpan={colSpan}
-                  className="px-4 py-12 text-center text-sm text-navy-500"
+                  className="px-4 py-12 text-center text-sm text-slate-500"
                 >
                   {emptyMessage}
                 </td>
@@ -201,14 +201,14 @@ export function Table<T>({
                   onClick={onRowClick ? () => onRowClick(row) : undefined}
                   className={cn(
                     "transition",
-                    onRowClick && "cursor-pointer hover:bg-navy-50",
+                    onRowClick && "cursor-pointer hover:bg-slate-50",
                   )}
                 >
                   {columns.map((column) => (
                     <td
                       key={column.key}
                       className={cn(
-                        "px-4 py-3 text-sm text-navy-700",
+                        "px-4 py-3 text-sm text-slate-700",
                         ALIGN_CLASSES[column.align ?? "left"],
                         column.className,
                       )}
@@ -225,17 +225,17 @@ export function Table<T>({
 
       {paginate && !isLoading && sortedData.length > 0 && (
         <div className="mt-3 flex items-center justify-between gap-4">
-          <p className="text-sm text-navy-500">
+          <p className="text-sm text-slate-500">
             Showing{" "}
-            <span className="font-medium text-navy-700">
+            <span className="font-medium text-slate-700">
               {(currentPage - 1) * pageSize + 1}
             </span>
             -
-            <span className="font-medium text-navy-700">
+            <span className="font-medium text-slate-700">
               {Math.min(currentPage * pageSize, sortedData.length)}
             </span>{" "}
             of{" "}
-            <span className="font-medium text-navy-700">
+            <span className="font-medium text-slate-700">
               {sortedData.length}
             </span>
           </p>
@@ -248,7 +248,7 @@ export function Table<T>({
             >
               Previous
             </Button>
-            <span className="text-sm text-navy-500">
+            <span className="text-sm text-slate-500">
               Page {currentPage} of {totalPages}
             </span>
             <Button

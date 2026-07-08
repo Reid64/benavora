@@ -23,9 +23,10 @@
 :root {
   /* Canonical layered palette — tailwind.config.ts colors MUST reference these
      same variables, never restate the literal hex, so the two files can't drift. */
-  --color-background: #eef2f7;
+  --color-background: #e2e8f0;
   --color-surface: #ffffff;
   --color-surface-raised: #f8fafc;
+  --color-surface-sunken: #f1f5f9;
   --color-sidebar: #0b1220;
   --color-sidebar-active: rgba(0, 180, 216, 0.12);
   --color-primary: #0077b6;

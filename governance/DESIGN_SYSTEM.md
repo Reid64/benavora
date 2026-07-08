@@ -1,7 +1,7 @@
 # benavora — DESIGN SYSTEM (FORGE × UI/UX Pro Max)
 
 - **Generated:** 2026-06-12T18:03:13.507Z
-- **Last revised:** 2026-07-07 — purged remaining dark-theme surfaces (`bg-ink-*`, `glow-border`, `backdrop-blur`, dark-tuned `shadow-card`) from `Card`/`Modal`/`GrantDNACard`/`LogicModelView`/`RubricPanel` and page bodies; fixed invisible `secondary`/`ghost` buttons; corrected the color palette table below, which had drifted from the live tokens in `src/app/globals.css`/`tailwind.config.ts` since the 2026-07-07 rebrand pass.
+- **Last revised:** 2026-07-07 (intensity pass) — darkened the canvas background so white cards read with real contrast, added a `surface-sunken` tint for table headers/card header wells, rebuilt `secondary` buttons as a visible gray chip, and added a shared `PageHeader` (white band + bottom border) as the first of three visible layers on every page. Supersedes the same-day dark-surface-purge revision below it in this history, which purged remaining dark-theme surfaces (`bg-ink-*`, `glow-border`, `backdrop-blur`, dark-tuned `shadow-card`) from `Card`/`Modal`/`GrantDNACard`/`LogicModelView`/`RubricPanel` and page bodies and fixed invisible `secondary`/`ghost` buttons for the first time.
 - **Source:** Hand-maintained brand system, derived from the benavora logo palette. Canonical values live in `src/app/globals.css` (CSS custom properties) and `tailwind.config.ts` (Tailwind color keys reading the same variables) — this file is a summary for prompt-injection use, not the source of truth; if the two disagree, the code wins.
 
 > FORGE injects this document into EVERY UI prompt context during Phase 1B
@@ -30,9 +30,10 @@
 
 | Role | Hex | CSS Variable | Tailwind class |
 |------|-----|--------------|-----------------|
-| Background | `#EEF2F7` | `--color-background` | `bg-background` |
+| Background (page canvas) | `#E2E8F0` | `--color-background` | `bg-background` |
 | Surface | `#FFFFFF` | `--color-surface` | `bg-surface` |
 | Surface-raised (nested/inset areas) | `#F8FAFC` | `--color-surface-raised` | `bg-surface-raised` |
+| Surface-sunken (table headers, card header wells) | `#F1F5F9` | `--color-surface-sunken` | `bg-surface-sunken` |
 | Sidebar (the ONLY intentionally dark surface) | `#0B1220` | `--color-sidebar` | `bg-sidebar` |
 | Sidebar-active | `rgba(0,180,216,0.12)` | `--color-sidebar-active` | `bg-sidebar-active` |
 | Primary | `#0077B6` | `--color-primary` | `bg-primary` / `text-primary` |
@@ -53,6 +54,8 @@
 | neutral | `bg-surface-raised` | `text-text-muted` | `border-border` |
 
 **Color Notes:** Deep navy-cyan primary with a bright cyan accent, on light neutral surfaces. Sidebar stays a fixed near-black navy regardless of theme, echoing the logo mark — it is the **only** deliberately dark element in the app; every page body, panel, card, and modal is light. Trustworthy, professional, calm — appropriate for a nonprofit-facing funding platform, not a consumer or entertainment product.
+
+**Three-layer tonal structure** (every dashboard page): 1) gray canvas (`bg-background`, `#E2E8F0`) — darker than a pure near-white so white cards read with real contrast, not washed out; 2) white header band (`PageHeader`, `border-slate-200`) separating the page title from the canvas; 3) white cards (`Card`, `border-slate-200`, `shadow-sm`) with a `bg-surface-sunken` header well for titled panels. Table headers use the same `surface-sunken` tint.
 
 ### Typography
 
@@ -93,31 +96,33 @@
 
 ### Buttons
 
-Canonical implementation: `src/components/ui/Button.tsx`, four variants. `secondary` and `ghost` were dark-theme leftovers (`border-white/15 bg-white/5 text-navy-100` / `text-navy-300 hover:text-white`) that rendered invisible on the light background until fixed 2026-07-07 — never reintroduce translucent-white or `text-white`-on-hover styling for these variants.
+Canonical implementation: `src/components/ui/Button.tsx`, four variants. `secondary` and `ghost` were dark-theme leftovers (`border-white/15 bg-white/5 text-navy-100` / `text-navy-300 hover:text-white`) that rendered invisible on the light background until fixed 2026-07-07 — never reintroduce translucent-white or `text-white`-on-hover styling for these variants. `primary` is the default for every card CTA — Run, Apply, Add to Queue, Re-score, not just form submits; don't leave these as faint outlines.
 
 ```css
-/* Primary — solid brand fill */
+/* Primary — solid brand fill, the default for every card CTA */
 .btn-primary {
   background: #0077B6; /* bg-primary */
   color: white;
   border-radius: 8px;
   font-weight: 500;
+  box-shadow: var(--shadow-sm);
 }
-.btn-primary:hover { background: rgba(0, 119, 182, 0.9); /* hover:bg-primary/90 */ }
+.btn-primary:hover { background: #005F92; /* hover:bg-primary-hover */ }
 
-/* Secondary — ALWAYS a visible border, never borderless/white-on-white */
+/* Secondary — a visible GRAY CHIP, never a primary-tinted outline or
+   borderless white-on-white. */
 .btn-secondary {
-  background: #FFFFFF; /* bg-surface */
-  color: #0077B6; /* text-primary */
-  border: 1px solid rgba(0, 119, 182, 0.4); /* border-primary/40 */
+  background: #F1F5F9; /* bg-slate-100 */
+  color: #334155; /* text-slate-700 */
+  border: 1px solid #CBD5E1; /* border-slate-300 */
   border-radius: 8px;
   font-weight: 500;
 }
-.btn-secondary:hover { background: rgba(0, 119, 182, 0.05); /* hover:bg-primary/5 */ }
+.btn-secondary:hover { background: #E2E8F0; /* hover:bg-slate-200 */ }
 
-/* Ghost — no border/bg of its own; reserve for buttons on a surface that
-   already provides definition (a colored banner, a card header, dark chrome).
-   On the plain page background it has too little affordance on its own. */
+/* Ghost — no border/bg of its own; reserve for buttons inside a colored
+   header/banner that already provides definition. On the plain page
+   background or a white card it has too little affordance on its own. */
 .btn-ghost {
   color: #0077B6; /* text-primary */
 }
@@ -138,7 +143,7 @@ Canonical implementation: `src/components/ui/Card.tsx`. Also used by `Modal.tsx`
 ```css
 .card {
   background: #FFFFFF; /* bg-surface */
-  border: 1px solid #E2E8F0; /* border-border */
+  border: 1px solid #E2E8F0; /* border-slate-200 */
   border-radius: 12px;
   padding: 24px;
   box-shadow: var(--shadow-sm);
@@ -148,7 +153,19 @@ Canonical implementation: `src/components/ui/Card.tsx`. Also used by `Modal.tsx`
 .card:hover {
   box-shadow: var(--shadow-md);
 }
+
+/* Titled panels (title/description/actions passed to <Card>) get a sunken
+   header well distinct from the white body below. */
+.card-header {
+  background: #F1F5F9; /* bg-surface-sunken */
+  border-bottom: 1px solid #E2E8F0; /* border-slate-200 */
+  padding: 16px 20px;
+}
 ```
+
+### Page headers
+
+Canonical implementation: `src/components/layout/PageHeader.tsx`. White band (`bg-surface`, `border-slate-200`, `shadow-sm`) at the top of every dashboard page's content — the first of the three tonal layers (gray canvas → white header band → white cards). Applied to `dashboard`, `research`, `opportunities`, `intelligence-library`, `autoapply` as of 2026-07-07; most other dashboard pages still hand-roll a bare `<div>` header (no white band) — migrate opportunistically, not yet a full sweep.
 
 ### Inputs
 
@@ -239,7 +256,8 @@ The only intentionally dark surface in the app — every other panel, card, and 
 - ❌ `bg-ink-*`, `glow-border`, `backdrop-blur-md`, or the dark-tuned `shadow-card`/`shadow-card-hover` on any page-body panel, card, or modal — these are dark-glass leftovers from the pre-rebrand theme. The sidebar (`bg-sidebar`, `#0B1220`) is the ONLY intentionally dark surface in the app.
 - ❌ Raw Tailwind hue classes on status/label pills (`bg-green-100 text-green-700`, etc.) — use `<Badge variant="success|warning|error|info|neutral">` from `src/components/ui/Badge.tsx` so bg/text/border stay in sync.
 - ❌ `text-white`, `text-gray-200/300`, or other light text colors outside a genuinely dark/colored container (a solid button, a badge, a gradient avatar, an image overlay, the sidebar) — these go invisible on the light page background.
-- ❌ Borderless `secondary`/`ghost` buttons that render as white-on-white — `secondary` always has a visible `border-primary/40`.
+- ❌ Borderless `secondary`/`ghost` buttons that render as white-on-white — `secondary` is always a visible gray chip (`bg-slate-100 border-slate-300 text-slate-700`).
+- ❌ Washed-out contrast: a near-white page canvas under white cards, faint outline-only CTAs, or missing sunken headers on titled panels — the canvas (`bg-background`, `#E2E8F0`) must read as visibly darker than card surfaces.
 
 ### Additional Forbidden Patterns
 

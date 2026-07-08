@@ -110,9 +110,9 @@ export function GrantDNACard({ result, scoring = false, onReScore }: Props) {
   }));
 
   return (
-    <div className="rounded-xl border border-border bg-surface shadow-sm">
+    <div className="rounded-xl border border-slate-200 bg-surface shadow-sm">
       {/* Header */}
-      <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-4">
+      <div className="flex items-center justify-between gap-3 rounded-t-xl border-b border-slate-200 bg-surface-sunken px-5 py-4">
         <div className="flex items-center gap-2">
           <Activity className="h-4 w-4 text-primary" aria-hidden />
           <h3 className="text-base font-semibold text-text">Grant DNA Score</h3>
@@ -122,7 +122,7 @@ export function GrantDNACard({ result, scoring = false, onReScore }: Props) {
             type="button"
             onClick={onReScore}
             disabled={scoring}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-surface text-primary px-3 py-1.5 text-xs font-medium transition hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${scoring ? "animate-spin" : ""}`} aria-hidden />
             {scoring ? "Scoring..." : "Re-score"}

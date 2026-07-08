@@ -27,23 +27,23 @@ export function RubricPanel({ rubric, rubricInferred = false }: RubricPanelProps
   }, [hasRubric]);
 
   return (
-    <div className="rounded-xl border border-border bg-surface shadow-sm transition-shadow hover:shadow-md">
+    <div className="overflow-hidden rounded-xl border border-slate-200 bg-surface shadow-sm transition-shadow hover:shadow-md">
       <button
         type="button"
         onClick={() => setExpanded((prev) => !prev)}
         aria-expanded={expanded}
-        className={`flex w-full items-center justify-between gap-4 px-5 py-4${expanded ? " border-b border-border" : ""}`}
+        className={`flex w-full items-center justify-between gap-4 bg-surface-sunken px-5 py-4${expanded ? " border-b border-slate-200" : ""}`}
       >
         <div className="flex items-center gap-2">
           <Target className="h-4 w-4 text-amber-500" aria-hidden />
-          <h3 className="text-base font-semibold text-navy-900">
+          <h3 className="text-base font-semibold text-slate-900">
             Scoring Optimization
           </h3>
         </div>
         {expanded ? (
-          <ChevronUp className="h-4 w-4 shrink-0 text-navy-500" aria-hidden />
+          <ChevronUp className="h-4 w-4 shrink-0 text-slate-500" aria-hidden />
         ) : (
-          <ChevronDown className="h-4 w-4 shrink-0 text-navy-500" aria-hidden />
+          <ChevronDown className="h-4 w-4 shrink-0 text-slate-500" aria-hidden />
         )}
       </button>
 

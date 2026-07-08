@@ -15,6 +15,7 @@ import {
 import { Badge } from "@/components/ui/Badge";
 import type { BadgeColor } from "@/components/ui/Badge";
 import { Button, Card, EmptyState, Modal } from "@/components/ui";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { createClient } from "@/lib/supabase/client";
 import { useProfile } from "@/lib/hooks/useProfile";
 import type { Json } from "@/types/database";
@@ -342,29 +343,25 @@ export default function AutoApplyPage() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-navy-900">
-            AutoApply
-          </h1>
-          <p className="mt-1 text-sm text-navy-500">
-            Automated form submission engine. Queue funders, analyze portal forms, and submit applications automatically.
-          </p>
-        </div>
-        <div className="flex items-start gap-3">
-          <WorkerStatus />
-          <Link href="/autoapply/settings">
-            <Button variant="secondary">
-              <Settings className="mr-1.5 h-4 w-4" />
-              Settings
+      <PageHeader
+        title="AutoApply"
+        description="Automated form submission engine. Queue funders, analyze portal forms, and submit applications automatically."
+        actions={
+          <>
+            <WorkerStatus />
+            <Link href="/autoapply/settings">
+              <Button variant="secondary">
+                <Settings className="mr-1.5 h-4 w-4" />
+                Settings
+              </Button>
+            </Link>
+            <Button onClick={() => void openAddToQueue()}>
+              <Plus className="mr-1.5 h-4 w-4" />
+              Add to Queue
             </Button>
-          </Link>
-          <Button onClick={() => void openAddToQueue()}>
-            <Plus className="mr-1.5 h-4 w-4" />
-            Add to Queue
-          </Button>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {actionError && (
         <div

@@ -15,6 +15,7 @@ import {
 import { addDays, differenceInCalendarDays, format } from "date-fns";
 
 import { Card } from "@/components/ui";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import {
   DeadlineWidget,
@@ -214,14 +215,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-navy-900">
-          Dashboard
-        </h1>
-        <p className="mt-1 text-sm text-navy-500">
-          Your funding pipeline at a glance.
-        </p>
-      </div>
+      <PageHeader title="Dashboard" description="Your funding pipeline at a glance." />
 
       {hasNoData && (
         <div className="rounded-xl border border-teal-200 bg-teal-50 px-5 py-4">
