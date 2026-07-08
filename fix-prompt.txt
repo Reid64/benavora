@@ -1,0 +1,1 @@
+﻿Find every file in src/ that imports pdf-parse and convert those imports to dynamic imports inside the function body. Then run pnpm run build and confirm it completes. Commit as fix: convert pdf-parse to dynamic imports to unblock Next.js build

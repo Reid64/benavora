@@ -34,7 +34,7 @@ export async function GET(request: Request) {
 
   const { data: org } = await supabase
     .from('organizations')
-    .select('state, service_area')
+    .select('name, mission_statement, state, service_area, annual_budget, target_population')
     .eq('id', orgId)
     .single()
 
@@ -42,10 +42,12 @@ export async function GET(request: Request) {
   const category = searchParams.get('category')?.trim() ?? ''
   const amountParam = searchParams.get('amount')?.trim()
   const limitParam = searchParams.get('limit')?.trim()
+  const geographyParam = searchParams.get('geography')?.trim()
 
   const amount = amountParam ? parseInt(amountParam, 10) : 50000
   const limit = limitParam ? Math.min(50, parseInt(limitParam, 10)) : 20
-  const geography = org?.service_area ?? org?.state ?? ''
+  const defaultGeography = org?.service_area ?? org?.state ?? ''
+  const geography = geographyParam || defaultGeography
 
   try {
     const recommender = new FunderRecommender()
@@ -59,6 +61,17 @@ export async function GET(request: Request) {
     return NextResponse.json({
       recommendations: recommendations.slice(0, limit),
       count: Math.min(recommendations.length, limit),
+      organization: org
+        ? {
+            name: org.name,
+            mission_statement: org.mission_statement,
+            state: org.state,
+            service_area: org.service_area,
+            annual_budget: org.annual_budget,
+            target_population: org.target_population,
+            default_geography: defaultGeography,
+          }
+        : null,
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Recommendation lookup failed.'

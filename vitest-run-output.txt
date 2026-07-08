@@ -1,0 +1,249 @@
+﻿node.exe : [33mThe CJS build of Vite's Node API is deprecated. See 
+https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+At C:\nvm4w\nodejs\pnpm.ps1:16 char:5
++     & "$basedir/node$exe"  "$basedir/node_modules/pnpm/bin/pnpm.cjs"  ...
++     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([33mThe CJS bu...e details.[39m:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+[1m[7m[36m RUN [39m[27m[22m [36mv2.1.9 [39m[90mC:/Users/manag/Documents/benavora[39m
+
+[90mstdout[2m | tests/api/admin-sales.test.ts
+[22m[39m◇ injected env (0) from .env.test // tip: ◈ secrets for agents [www.dotenvx.com]
+
+[90mstdout[2m | tests/lib/template-engine.test.ts
+[22m[39m◇ injected env (0) from .env.test // tip: ◈ secrets for agents [www.dotenvx.com]
+
+[90mstdout[2m | tests/lib/encryption.test.ts
+[22m[39m◇ injected env (0) from .env.test // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+
+[90mstdout[2m | tests/api/intelligence.test.ts
+[22m[39m◇ injected env (0) from .env.test // tip: ⌘ enable debugging { debug: true }
+
+[90mstdout[2m | tests/api/autoapply.test.ts
+[22m[39m◇ injected env (0) from .env.test // tip: ⌘ override existing { override: true }
+
+[90mstdout[2m | tests/api/email.test.ts
+[22m[39m◇ injected env (0) from .env.test // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+
+[90mstdout[2m | tests/api/calendar.test.ts
+[22m[39m◇ injected env (0) from .env.test // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+
+[90mstdout[2m | tests/lib/rubric-extractor.test.ts
+[22m[39m◇ injected env (0) from .env.test // tip: ⌁ auth for agents [www.vestauth.com]
+
+[90mstdout[2m | tests/api/research.test.ts
+[22m[39m◇ injected env (0) from .env.test // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+
+[90mstdout[2m | tests/lib/unsubscribe-agent.test.ts
+[22m[39m◇ injected env (0) from .env.test // tip: ⌘ suppress logs { quiet: true }
+
+[90mstdout[2m | tests/lib/compliance.test.ts
+[22m[39m◇ injected env (0) from .env.test // tip: ⌁ auth for agents [www.vestauth.com]
+
+[90mstdout[2m | tests/api/auth.test.ts
+[22m[39m◇ injected env (0) from .env.test // tip: ◈ secrets for agents [www.dotenvx.com]
+
+[90mstdout[2m | tests/api/analytics.test.ts
+[22m[39m◇ injected env (0) from .env.test // tip: ⌘ enable debugging { debug: true }
+
+[90mstdout[2m | tests/api/grants.test.ts
+[22m[39m◇ injected env (0) from .env.test // tip: ⌘ enable debugging { debug: true }
+
+[90mstdout[2m | tests/lib/warmup-engine.test.ts
+[22m[39m◇ injected env (0) from .env.test // tip: ⌘ override existing { override: true }
+
+ [2m[90m↓[39m[22m tests/api/analytics.test.ts [2m([22m[2m13 tests[22m[2m | [22m[33m13 skipped[39m[2m)[22m
+ [32m✓[39m tests/lib/rubric-extractor.test.ts [2m([22m[2m5 tests[22m[2m)[22m[90m 19[2mms[22m[39m
+ [32m✓[39m tests/lib/warmup-engine.test.ts [2m([22m[2m6 tests[22m[2m)[22m[90m 22[2mms[22m[39m
+ [32m✓[39m tests/lib/unsubscribe-agent.test.ts [2m([22m[2m11 tests[22m[2m)[22m[90m 30[2mms[22m[39m
+ [31m❯[39m tests/lib/compliance.test.ts [2m([22m[2m8 tests[22m[2m | [22m[31m5 failed[39m[2m)[22m[90m 26[2mms[22m[39m
+[31m   [31m×[31m EmailComplianceEngine.enforceCompliance[2m > [22madds unsubscribe link if missing and returns modified_body[90m 8[2mms[22m[31m[39m
+[31m     → Missing required env var: UNSUBSCRIBE_HMAC_SECRET. Encryption cannot proceed without it.[39m
+[31m   [31m×[31m EmailComplianceEngine.enforceCompliance[2m > [22madds physical address if missing and returns modified_body[90m 1[2mms[22m[31m[39m
+[31m     → Missing required env var: UNSUBSCRIBE_HMAC_SECRET. Encryption cannot proceed without it.[39m
+[31m   [31m×[31m EmailComplianceEngine unsubscribe token[2m > [22mgenerateUnsubscribeToken/verifyUnsubscribeToken round-trips[90m 2[2mms[22m[31m[39m
+[31m     → Missing required env var: UNSUBSCRIBE_HMAC_SECRET. Encryption cannot proceed without it.[39m
+[31m   [31m×[31m EmailComplianceEngine unsubscribe token[2m > [22mfails verification with a wrong token[90m 1[2mms[22m[31m[39m
+[31m     → Missing required env var: UNSUBSCRIBE_HMAC_SECRET. Encryption cannot proceed without it.[39m
+[31m   [31m×[31m EmailComplianceEngine unsubscribe token[2m > [22mnormalises email to lowercase before hashing[90m 0[2mms[22m[31m[39m
+[31m     → Missing required env var: UNSUBSCRIBE_HMAC_SECRET. Encryption cannot proceed without it.[39m
+ [32m✓[39m tests/lib/template-engine.test.ts [2m([22m[2m8 tests[22m[2m)[22m[90m 13[2mms[22m[39m
+ [32m✓[39m tests/lib/encryption.test.ts [2m([22m[2m6 tests[22m[2m)[22m[33m 433[2mms[22m[39m
+ [32m✓[39m tests/api/calendar.test.ts [2m([22m[2m4 tests[22m[2m)[22m[90m 13[2mms[22m[39m
+ [32m✓[39m tests/api/research.test.ts [2m([22m[2m11 tests[22m[2m)[22m[90m 34[2mms[22m[39m
+ [32m✓[39m tests/api/auth.test.ts [2m([22m[2m10 tests[22m[2m)[22m[90m 31[2mms[22m[39m
+ [32m✓[39m tests/api/autoapply.test.ts [2m([22m[2m21 tests[22m[2m)[22m[90m 28[2mms[22m[39m
+ [31m❯[39m tests/api/intelligence.test.ts [2m([22m[2m15 tests[22m[2m | [22m[31m5 failed[39m[2m)[22m[90m 41[2mms[22m[39m
+[31m   [31m×[31m POST /api/intelligence/logic-model[2m > [22mreturns 401 when no authenticated user[90m 12[2mms[22m[31m[39m
+[31m     → supabase.from is not a function[39m
+[31m   [31m×[31m POST /api/intelligence/logic-model[2m > [22mreturns 403 when user does not belong to the requested org[90m 1[2mms[22m[31m[39m
+[31m     → supabase.from is not a function[39m
+[31m   [31m×[31m POST /api/intelligence/logic-model[2m > [22mgenerates and returns a logic model with success=true[90m 1[2mms[22m[31m[39m
+[31m     → supabase.from is not a function[39m
+[31m   [31m×[31m POST /api/intelligence/logic-model[2m > [22msaves the model to the library when save_to_library=true[90m 1[2mms[22m[31m[39m
+[31m     → supabase.from is not a function[39m
+[31m   [31m×[31m POST /api/intelligence/logic-model[2m > [22mdoes not call admin insert when save_to_library is absent[90m 1[2mms[22m[31m[39m
+[31m     → supabase.from is not a function[39m
+ [32m✓[39m tests/api/email.test.ts [2m([22m[2m18 tests[22m[2m)[22m[90m 29[2mms[22m[39m
+ [32m✓[39m tests/api/admin-sales.test.ts [2m([22m[2m20 tests[22m[2m)[22m[90m 177[2mms[22m[39m
+ [32m✓[39m tests/api/grants.test.ts [2m([22m[2m18 tests[22m[2m)[22m[90m 103[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯[1m[7m Failed Tests 10 [27m[22m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[31m[1m[7m FAIL [27m[22m[39m tests/api/intelligence.test.ts[2m > [22mPOST /api/intelligence/logic-model[2m > [22mreturns 
+401 when no authenticated user
+[31m[1mTypeError[22m: supabase.from is not a function[39m
+[36m [2m❯[22m Module.POST src/app/api/intelligence/logic-model/route.ts:[2m59:6[22m[39m
+    [90m 57| [39m  [90m// Fetch organization name[39m
+    [90m 58| [39m  [35mconst[39m { data[33m:[39m org } [33m=[39m [35mawait[39m supabase
+    [90m 59| [39m    [33m.[39m[35mfrom[39m([32m'organizations'[39m)
+    [90m   | [39m     [31m^[39m
+    [90m 60| [39m    [33m.[39m[34mselect[39m([32m'name'[39m)
+    [90m 61| [39m    [33m.[39m[34meq[39m([32m'id'[39m[33m,[39m organization_id)
+[90m [2m❯[22m tests/api/intelligence.test.ts:[2m274:17[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/10]⎯[22m[39m
+
+[31m[1m[7m FAIL [27m[22m[39m tests/api/intelligence.test.ts[2m > [22mPOST /api/intelligence/logic-model[2m > [22mreturns 
+403 when user does not belong to the requested org
+[31m[1mTypeError[22m: supabase.from is not a function[39m
+[36m [2m❯[22m Module.POST src/app/api/intelligence/logic-model/route.ts:[2m59:6[22m[39m
+    [90m 57| [39m  [90m// Fetch organization name[39m
+    [90m 58| [39m  [35mconst[39m { data[33m:[39m org } [33m=[39m [35mawait[39m supabase
+    [90m 59| [39m    [33m.[39m[35mfrom[39m([32m'organizations'[39m)
+    [90m   | [39m     [31m^[39m
+    [90m 60| [39m    [33m.[39m[34mselect[39m([32m'name'[39m)
+    [90m 61| [39m    [33m.[39m[34meq[39m([32m'id'[39m[33m,[39m organization_id)
+[90m [2m❯[22m tests/api/intelligence.test.ts:[2m327:17[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/10]⎯[22m[39m
+
+[31m[1m[7m FAIL [27m[22m[39m tests/api/intelligence.test.ts[2m > [22mPOST /api/intelligence/logic-model[2m > 
+[22mgenerates and returns a logic model with success=true
+[31m[1mTypeError[22m: supabase.from is not a function[39m
+[36m [2m❯[22m Module.POST src/app/api/intelligence/logic-model/route.ts:[2m59:6[22m[39m
+    [90m 57| [39m  [90m// Fetch organization name[39m
+    [90m 58| [39m  [35mconst[39m { data[33m:[39m org } [33m=[39m [35mawait[39m supabase
+    [90m 59| [39m    [33m.[39m[35mfrom[39m([32m'organizations'[39m)
+    [90m   | [39m     [31m^[39m
+    [90m 60| [39m    [33m.[39m[34mselect[39m([32m'name'[39m)
+    [90m 61| [39m    [33m.[39m[34meq[39m([32m'id'[39m[33m,[39m organization_id)
+[90m [2m❯[22m tests/api/intelligence.test.ts:[2m336:17[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/10]⎯[22m[39m
+
+[31m[1m[7m FAIL [27m[22m[39m tests/api/intelligence.test.ts[2m > [22mPOST /api/intelligence/logic-model[2m > [22msaves 
+the model to the library when save_to_library=true
+[31m[1mTypeError[22m: supabase.from is not a function[39m
+[36m [2m❯[22m Module.POST src/app/api/intelligence/logic-model/route.ts:[2m59:6[22m[39m
+    [90m 57| [39m  [90m// Fetch organization name[39m
+    [90m 58| [39m  [35mconst[39m { data[33m:[39m org } [33m=[39m [35mawait[39m supabase
+    [90m 59| [39m    [33m.[39m[35mfrom[39m([32m'organizations'[39m)
+    [90m   | [39m     [31m^[39m
+    [90m 60| [39m    [33m.[39m[34mselect[39m([32m'name'[39m)
+    [90m 61| [39m    [33m.[39m[34meq[39m([32m'id'[39m[33m,[39m organization_id)
+[90m [2m❯[22m tests/api/intelligence.test.ts:[2m357:17[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/10]⎯[22m[39m
+
+[31m[1m[7m FAIL [27m[22m[39m tests/api/intelligence.test.ts[2m > [22mPOST /api/intelligence/logic-model[2m > [22mdoes not 
+call admin insert when save_to_library is absent
+[31m[1mTypeError[22m: supabase.from is not a function[39m
+[36m [2m❯[22m Module.POST src/app/api/intelligence/logic-model/route.ts:[2m59:6[22m[39m
+    [90m 57| [39m  [90m// Fetch organization name[39m
+    [90m 58| [39m  [35mconst[39m { data[33m:[39m org } [33m=[39m [35mawait[39m supabase
+    [90m 59| [39m    [33m.[39m[35mfrom[39m([32m'organizations'[39m)
+    [90m   | [39m     [31m^[39m
+    [90m 60| [39m    [33m.[39m[34mselect[39m([32m'name'[39m)
+    [90m 61| [39m    [33m.[39m[34meq[39m([32m'id'[39m[33m,[39m organization_id)
+[90m [2m❯[22m tests/api/intelligence.test.ts:[2m368:17[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/10]⎯[22m[39m
+
+[31m[1m[7m FAIL [27m[22m[39m tests/lib/compliance.test.ts[2m > [22mEmailComplianceEngine.enforceCompliance[2m > [22madds 
+unsubscribe link if missing and returns modified_body
+[31m[1mError[22m: Missing required env var: UNSUBSCRIBE_HMAC_SECRET. Encryption cannot proceed without it.[39m
+[36m [2m❯[22m hmacSecret src/lib/admin/compliance.ts:[2m14:11[22m[39m
+    [90m 12| [39m  [35mconst[39m secret [33m=[39m process[33m.[39menv[33m.[39m[33mUNSUBSCRIBE_HMAC_SECRET[39m[33m;[39m
+    [90m 13| [39m  [35mif[39m ([33m![39msecret) {
+    [90m 14| [39m    [35mthrow[39m [35mnew[39m [33mError[39m(
+    [90m   | [39m          [31m^[39m
+    [90m 15| [39m      [32m"Missing required env var: UNSUBSCRIBE_HMAC_SECRET. Encryption c[39m…
+    [90m 16| [39m    )[33m;[39m
+[90m [2m❯[22m EmailComplianceEngine.generateUnsubscribeToken src/lib/admin/compliance.ts:[2m90:33[22m[39m
+[90m [2m❯[22m EmailComplianceEngine.getComplianceFooter src/lib/admin/compliance.ts:[2m107:32[22m[39m
+[90m [2m❯[22m EmailComplianceEngine.enforceCompliance src/lib/admin/compliance.ts:[2m75:29[22m[39m
+[90m [2m❯[22m tests/lib/compliance.test.ts:[2m39:27[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/10]⎯[22m[39m
+
+[31m[1m[7m FAIL [27m[22m[39m tests/lib/compliance.test.ts[2m > [22mEmailComplianceEngine.enforceCompliance[2m > [22madds 
+physical address if missing and returns modified_body
+[31m[1mError[22m: Missing required env var: UNSUBSCRIBE_HMAC_SECRET. Encryption cannot proceed without it.[39m
+[36m [2m❯[22m hmacSecret src/lib/admin/compliance.ts:[2m14:11[22m[39m
+    [90m 12| [39m  [35mconst[39m secret [33m=[39m process[33m.[39menv[33m.[39m[33mUNSUBSCRIBE_HMAC_SECRET[39m[33m;[39m
+    [90m 13| [39m  [35mif[39m ([33m![39msecret) {
+    [90m 14| [39m    [35mthrow[39m [35mnew[39m [33mError[39m(
+    [90m   | [39m          [31m^[39m
+    [90m 15| [39m      [32m"Missing required env var: UNSUBSCRIBE_HMAC_SECRET. Encryption c[39m…
+    [90m 16| [39m    )[33m;[39m
+[90m [2m❯[22m EmailComplianceEngine.generateUnsubscribeToken src/lib/admin/compliance.ts:[2m90:33[22m[39m
+[90m [2m❯[22m EmailComplianceEngine.getComplianceFooter src/lib/admin/compliance.ts:[2m107:32[22m[39m
+[90m [2m❯[22m EmailComplianceEngine.enforceCompliance src/lib/admin/compliance.ts:[2m75:29[22m[39m
+[90m [2m❯[22m tests/lib/compliance.test.ts:[2m50:27[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/10]⎯[22m[39m
+
+[31m[1m[7m FAIL [27m[22m[39m tests/lib/compliance.test.ts[2m > [22mEmailComplianceEngine unsubscribe token[2m > 
+[22mgenerateUnsubscribeToken/verifyUnsubscribeToken round-trips
+[31m[1mError[22m: Missing required env var: UNSUBSCRIBE_HMAC_SECRET. Encryption cannot proceed without it.[39m
+[36m [2m❯[22m hmacSecret src/lib/admin/compliance.ts:[2m14:11[22m[39m
+    [90m 12| [39m  [35mconst[39m secret [33m=[39m process[33m.[39menv[33m.[39m[33mUNSUBSCRIBE_HMAC_SECRET[39m[33m;[39m
+    [90m 13| [39m  [35mif[39m ([33m![39msecret) {
+    [90m 14| [39m    [35mthrow[39m [35mnew[39m [33mError[39m(
+    [90m   | [39m          [31m^[39m
+    [90m 15| [39m      [32m"Missing required env var: UNSUBSCRIBE_HMAC_SECRET. Encryption c[39m…
+    [90m 16| [39m    )[33m;[39m
+[90m [2m❯[22m EmailComplianceEngine.generateUnsubscribeToken src/lib/admin/compliance.ts:[2m90:33[22m[39m
+[90m [2m❯[22m tests/lib/compliance.test.ts:[2m73:26[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/10]⎯[22m[39m
+
+[31m[1m[7m FAIL [27m[22m[39m tests/lib/compliance.test.ts[2m > [22mEmailComplianceEngine unsubscribe token[2m > [22mfails 
+verification with a wrong token
+[31m[1mError[22m: Missing required env var: UNSUBSCRIBE_HMAC_SECRET. Encryption cannot proceed without it.[39m
+[36m [2m❯[22m hmacSecret src/lib/admin/compliance.ts:[2m14:11[22m[39m
+    [90m 12| [39m  [35mconst[39m secret [33m=[39m process[33m.[39menv[33m.[39m[33mUNSUBSCRIBE_HMAC_SECRET[39m[33m;[39m
+    [90m 13| [39m  [35mif[39m ([33m![39msecret) {
+    [90m 14| [39m    [35mthrow[39m [35mnew[39m [33mError[39m(
+    [90m   | [39m          [31m^[39m
+    [90m 15| [39m      [32m"Missing required env var: UNSUBSCRIBE_HMAC_SECRET. Encryption c[39m…
+    [90m 16| [39m    )[33m;[39m
+[90m [2m❯[22m EmailComplianceEngine.generateUnsubscribeToken src/lib/admin/compliance.ts:[2m90:33[22m[39m
+[90m [2m❯[22m EmailComplianceEngine.verifyUnsubscribeToken src/lib/admin/compliance.ts:[2m94:27[22m[39m
+[90m [2m❯[22m tests/lib/compliance.test.ts:[2m78:19[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/10]⎯[22m[39m
+
+[31m[1m[7m FAIL [27m[22m[39m tests/lib/compliance.test.ts[2m > [22mEmailComplianceEngine unsubscribe token[2m > 
+[22mnormalises email to lowercase before hashing
+[31m[1mError[22m: Missing required env var: UNSUBSCRIBE_HMAC_SECRET. Encryption cannot proceed without it.[39m
+[36m [2m❯[22m hmacSecret src/lib/admin/compliance.ts:[2m14:11[22m[39m
+    [90m 12| [39m  [35mconst[39m secret [33m=[39m process[33m.[39menv[33m.[39m[33mUNSUBSCRIBE_HMAC_SECRET[39m[33m;[39m
+    [90m 13| [39m  [35mif[39m ([33m![39msecret) {
+    [90m 14| [39m    [35mthrow[39m [35mnew[39m [33mError[39m(
+    [90m   | [39m          [31m^[39m
+    [90m 15| [39m      [32m"Missing required env var: UNSUBSCRIBE_HMAC_SECRET. Encryption c[39m…
+    [90m 16| [39m    )[33m;[39m
+[90m [2m❯[22m EmailComplianceEngine.generateUnsubscribeToken src/lib/admin/compliance.ts:[2m90:33[22m[39m
+[90m [2m❯[22m tests/lib/compliance.test.ts:[2m82:26[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/10]⎯[22m[39m
+
+[2m Test Files [22m [1m[31m2 failed[39m[22m[2m | [22m[1m[32m12 passed[39m[22m[2m | [22m[33m1 skipped[39m[90m (15)[39m
+[2m      Tests [22m [1m[31m10 failed[39m[22m[2m | [22m[1m[32m151 passed[39m[22m[2m | [22m[90m13 todo[39m[90m (174)[39m
+[2m   Start at [22m 14:45:30
+[2m   Duration [22m 12.91s[2m (transform 4.87s, setup 3.45s, collect 15.07s, tests 999ms, environment 5ms, prepare 9.89s)[22m
+

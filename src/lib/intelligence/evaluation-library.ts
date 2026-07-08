@@ -9,13 +9,16 @@ import {
 
 export type { EvaluationFramework, KPI }
 
+// Matches the intelligence_evaluation_frameworks columns defined in
+// supabase/migrations/048_grant_intelligence.sql — the table has no
+// separate design/analysis-plan columns, only framework_name/example_text.
 interface EvaluationFrameworkRow {
-  program_category: string
-  evaluation_design: string
+  category: string
+  framework_name: string | null
   kpis: unknown
   data_collection_methods: unknown
-  reporting_schedule: unknown
-  analysis_plan: string
+  reporting_frequency: string | null
+  example_text: string | null
 }
 
 let anthropicClient: Anthropic | null = null
@@ -77,20 +80,24 @@ export class EvaluationLibrary {
 
     const { data } = await supabase
       .from('intelligence_evaluation_frameworks')
-      .select('program_category, evaluation_design, kpis, data_collection_methods, reporting_schedule, analysis_plan')
-      .eq('program_category', programCategory)
+      .select('category, framework_name, kpis, data_collection_methods, reporting_frequency, example_text')
+      .eq('category', programCategory)
       .limit(1)
       .maybeSingle()
 
     if (data) {
       const row = data as EvaluationFrameworkRow
       return {
-        programCategory: row.program_category,
-        evaluationDesign: row.evaluation_design,
+        programCategory: row.category,
+        evaluationDesign:
+          row.example_text ??
+          `${row.framework_name ?? row.category} evaluation framework using standard pre/post outcome tracking.`,
         kpis: toKpiArray(row.kpis),
         dataCollectionMethods: toStringArray(row.data_collection_methods),
-        reportingSchedule: toStringArray(row.reporting_schedule),
-        analysisPlan: row.analysis_plan,
+        reportingSchedule: row.reporting_frequency ? [row.reporting_frequency] : [],
+        analysisPlan:
+          row.example_text ??
+          `Analyze KPI trends against target ranges on a ${row.reporting_frequency ?? 'periodic'} basis.`,
       }
     }
 
@@ -136,7 +143,7 @@ export class EvaluationLibrary {
     const { data } = await supabase
       .from('intelligence_evaluation_frameworks')
       .select('kpis')
-      .eq('program_category', programCategory)
+      .eq('category', programCategory)
       .limit(1)
       .maybeSingle()
 

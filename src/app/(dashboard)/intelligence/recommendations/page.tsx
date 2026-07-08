@@ -19,9 +19,20 @@ interface FunderRecommendation {
   program_priorities: string[];
 }
 
+interface OrgSummary {
+  name: string | null;
+  mission_statement: string | null;
+  state: string | null;
+  service_area: string | null;
+  annual_budget: number | null;
+  target_population: string | null;
+  default_geography: string;
+}
+
 interface RecommendationsResponse {
   recommendations: FunderRecommendation[];
   count: number;
+  organization: OrgSummary | null;
   error?: string;
 }
 
@@ -133,12 +144,45 @@ function FunderCard({
   );
 }
 
+function OrgSummaryCard({ org }: { org: OrgSummary }) {
+  return (
+    <div className="rounded-xl border border-border bg-surface p-5 shadow-sm">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-lg font-semibold text-text">{org.name ?? "Your organization"}</h2>
+        <span className="text-xs text-text-muted">Recommendations are tailored to this profile</span>
+      </div>
+      {org.mission_statement && (
+        <p className="mt-1.5 text-sm text-text-muted">{org.mission_statement}</p>
+      )}
+      <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1.5 text-xs text-text-muted">
+        <span>
+          <span className="text-text-muted">Service area:</span>{" "}
+          {org.service_area ?? org.state ?? "Not specified"}
+        </span>
+        {org.target_population && (
+          <span>
+            <span className="text-text-muted">Target population:</span> {org.target_population}
+          </span>
+        )}
+        {org.annual_budget !== null && (
+          <span>
+            <span className="text-text-muted">Annual budget:</span> ${org.annual_budget.toLocaleString()}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function RecommendationsPage() {
   const { profile } = useProfile();
   const orgId = profile?.organization_id ?? "";
 
   const [category, setCategory] = useState("");
   const [amount, setAmount] = useState("50000");
+  const [geography, setGeography] = useState("");
+  const [geographyTouched, setGeographyTouched] = useState(false);
+  const [org, setOrg] = useState<OrgSummary | null>(null);
   const [recommendations, setRecommendations] = useState<FunderRecommendation[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -153,17 +197,25 @@ export default function RecommendationsPage() {
       const params = new URLSearchParams({ limit: "20" });
       if (category) params.set("category", category);
       if (amount) params.set("amount", amount);
+      if (geographyTouched && geography) params.set("geography", geography);
       const res = await fetch(`/api/intelligence/recommendations?${params.toString()}`);
       const data = (await res.json().catch(() => ({}))) as RecommendationsResponse;
       if (!res.ok) {
         setError(data.error ?? "Failed to load recommendations.");
       } else {
         setRecommendations(data.recommendations ?? []);
+        if (data.organization) {
+          setOrg(data.organization);
+          if (!geographyTouched) setGeography(data.organization.default_geography);
+        }
       }
     } catch {
       setError("Could not reach the recommendations API.");
     }
     setLoading(false);
+    // geography/geographyTouched intentionally excluded: geography is applied via the
+    // "Find Matches" button, not auto-refetched on every keystroke.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orgId, category, amount]);
 
   useEffect(() => {
@@ -209,6 +261,9 @@ export default function RecommendationsPage() {
         </p>
       </div>
 
+      {/* Org profile summary */}
+      {org && <OrgSummaryCard org={org} />}
+
       {/* Filters */}
       <div className="rounded-xl border border-border bg-surface p-4 shadow-sm">
         <div className="flex flex-wrap items-end gap-4">
@@ -242,6 +297,22 @@ export default function RecommendationsPage() {
               onChange={(e) => setAmount(e.target.value)}
               className="w-full rounded-lg border border-border bg-surface-raised px-3 py-2 text-sm text-text focus:border-primary focus:outline-none"
               placeholder="50000"
+            />
+          </div>
+          <div className="min-w-[180px] flex-1">
+            <label className="mb-1.5 block text-xs font-medium text-text-muted" htmlFor="geography-input">
+              Geographic Scope
+            </label>
+            <input
+              id="geography-input"
+              type="text"
+              value={geography}
+              onChange={(e) => {
+                setGeography(e.target.value);
+                setGeographyTouched(true);
+              }}
+              className="w-full rounded-lg border border-border bg-surface-raised px-3 py-2 text-sm text-text focus:border-primary focus:outline-none"
+              placeholder="e.g. Texas"
             />
           </div>
           <button
