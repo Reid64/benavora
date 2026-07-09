@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { usePathname } from "next/navigation";
 
 import { Header } from "@/components/layout/Header";
 import { Sidebar } from "@/components/layout/Sidebar";
+import { OnboardingBanner, type OnboardingProgressSummary } from "@/components/layout/OnboardingBanner";
 import { useSectionLocationTracker } from "@/lib/navigation/section-memory";
 import type { Enums } from "@/types/database";
 
@@ -13,6 +15,8 @@ type DashboardShellProps = {
   role: Enums<"user_role"> | undefined;
   /** Whether onboarding is complete — shows the Onboarding return link in the sidebar. */
   onboardingCompleted: boolean;
+  /** Onboarding step-completion summary, or null when complete/not applicable. */
+  onboardingProgress: OnboardingProgressSummary | null;
   /** Organization name — drives the header avatar initials fallback. */
   orgName: string;
   /** Organization logo URL — shown in the header avatar when present. */
@@ -29,15 +33,22 @@ export function DashboardShell({
   userEmail,
   role,
   onboardingCompleted,
+  onboardingProgress,
   orgName,
   orgLogoUrl,
   children,
 }: DashboardShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const pathname = usePathname();
 
   // Record each section's latest URL so the sidebar can restore the filters,
   // search, sort, view toggle, or tab the user left open there.
   useSectionLocationTracker();
+
+  // The wizard itself already shows its own progress bar - don't stack a
+  // second one on top of it.
+  const onboardingBanner =
+    !onboardingCompleted && !pathname.startsWith("/onboarding") ? onboardingProgress : null;
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
@@ -55,6 +66,13 @@ export function DashboardShell({
           orgLogoUrl={orgLogoUrl}
           onMenuClick={() => setSidebarOpen(true)}
         />
+        {onboardingBanner && (
+          <OnboardingBanner
+            completedSteps={onboardingBanner.completedSteps}
+            totalSteps={onboardingBanner.totalSteps}
+            lastStep={onboardingBanner.lastStep}
+          />
+        )}
         <main className="flex-1 overflow-y-auto bg-background p-4 sm:p-6 lg:p-8">
           {children}
         </main>

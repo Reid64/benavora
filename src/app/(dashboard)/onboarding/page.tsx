@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import {
+  Suspense,
   useCallback,
   useEffect,
   useRef,
@@ -8,7 +9,7 @@ import {
   type ChangeEvent,
   type FormEvent,
 } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   BookOpen,
   Building2,
@@ -138,6 +139,15 @@ const TAX_STATUS_OPTIONS = [
 ];
 
 const STORAGE_BUCKET = "documents";
+
+// Session cookie (no Max-Age) read by middleware to let a user browse the
+// dashboard before finishing the wizard. Cleared automatically when the
+// browser session ends, so a fresh login always lands on /onboarding again.
+const ONBOARDING_SKIP_COOKIE = "benavora_onboarding_skip";
+
+function skipOnboardingForSession() {
+  document.cookie = `${ONBOARDING_SKIP_COOKIE}=1; path=/; SameSite=Lax`;
+}
 
 function makeKey() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -953,14 +963,17 @@ const DEFAULT_DOC_SLOTS: Omit<DocSlot, "key">[] = [
   { label: "Organizational Budget", category: "financial_documents", file: null, uploaded: false, storagePath: "" },
 ];
 
-export default function OnboardingPage() {
+function OnboardingPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
+  const appliedStepParam = useRef(false);
 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [alreadyCompleted, setAlreadyCompleted] = useState(false);
 
   // Step state
   const [currentStep, setCurrentStep] = useState(1);
@@ -1035,6 +1048,7 @@ export default function OnboardingPage() {
       // Resume to saved step. `data.step` is already the next step to execute
       // (e.g. after step 1 saves, data.step = 2). When completed = true, start
       // at step 1 so users can review and update their information.
+      setAlreadyCompleted(data.completed);
       if (data.completed) {
         setCurrentStep(1);
       } else if (data.step > 0) {
@@ -1125,6 +1139,20 @@ export default function OnboardingPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Deep-link override: Settings > Organization Setup and the dashboard
+  // resume banner link to a specific step (e.g. /onboarding?step=4) rather
+  // than relying on the server-resolved resume pointer, so a completed
+  // wizard's "review" links can jump straight to any step. Applied once,
+  // after the initial load, so it never fights step navigation afterward.
+  useEffect(() => {
+    if (loading || appliedStepParam.current) return;
+    appliedStepParam.current = true;
+    const stepParam = Number(searchParams.get("step"));
+    if (Number.isInteger(stepParam) && stepParam >= 1 && stepParam <= TOTAL_STEPS) {
+      setCurrentStep(stepParam);
+    }
+  }, [loading, searchParams]);
 
   const generateNarratives = useCallback(async () => {
     setNarrativesState((s) => ({ ...s, generating: true, genError: null }));
@@ -1351,6 +1379,14 @@ export default function OnboardingPage() {
     if (currentStep > 1) setCurrentStep((s) => s - 1);
   }
 
+  // Lets a user browse the dashboard before finishing the wizard. Progress
+  // already saved so far is untouched; onboarding_completed stays false, so
+  // a fresh login (new browser session) lands back on /onboarding.
+  function handleExploreFirst() {
+    skipOnboardingForSession();
+    router.push("/dashboard");
+  }
+
   // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
@@ -1374,12 +1410,23 @@ export default function OnboardingPage() {
 
   return (
     <div className="max-w-3xl mx-auto py-8 px-4">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-navy-900">Welcome to Benavora</h1>
-        <p className="mt-2 text-navy-500">
-          Complete these steps to set up your account and start finding funding
-          opportunities.
-        </p>
+      <div className="mb-8 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-navy-900">Welcome to Benavora</h1>
+          <p className="mt-2 text-navy-500">
+            Complete these steps to set up your account and start finding funding
+            opportunities.
+          </p>
+        </div>
+        {!alreadyCompleted && (
+          <button
+            type="button"
+            onClick={handleExploreFirst}
+            className="shrink-0 whitespace-nowrap text-sm font-medium text-navy-500 underline underline-offset-2 hover:text-navy-700"
+          >
+            Explore the platform first
+          </button>
+        )}
       </div>
 
       <ProgressBar step={currentStep} />
@@ -1461,6 +1508,20 @@ export default function OnboardingPage() {
         </Card>
       </form>
     </div>
+  );
+}
+
+export default function OnboardingPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <LoadingSpinner center label="Loading your setup wizard..." />
+        </div>
+      }
+    >
+      <OnboardingPageInner />
+    </Suspense>
   );
 }
 

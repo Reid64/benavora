@@ -6,6 +6,29 @@ import type { Enums } from "@/types/database";
 
 export const runtime = "nodejs";
 
+type OnboardingProgress = { completed_steps: string[]; last_step: string };
+
+/**
+ * Folds a just-completed step into the progress checklist read by the
+ * dashboard resume banner and Settings > Organization Setup. Separate from
+ * onboarding_step (the resume pointer) because the checklist needs the full
+ * set of completed steps, not just "the next one to do".
+ */
+function nextOnboardingProgress(
+  current: unknown,
+  completedStep: number,
+  nextStep: number,
+): OnboardingProgress {
+  const currentSteps =
+    current && typeof current === "object" && Array.isArray((current as { completed_steps?: unknown }).completed_steps)
+      ? ((current as { completed_steps: unknown[] }).completed_steps.filter((s): s is string => typeof s === "string"))
+      : [];
+  const completed = new Set(currentSteps);
+  completed.add(String(completedStep));
+  const ordered = Array.from(completed).sort((a, b) => Number(a) - Number(b));
+  return { completed_steps: ordered, last_step: String(nextStep) };
+}
+
 /**
  * Normalize the wizard's optional partner input into { name, description }.
  * Accepts an array of plain names or of { name, description } objects so the
@@ -53,7 +76,7 @@ export async function GET() {
   const { data: org, error: orgError } = await supabase
     .from("organizations")
     .select(
-      "id, name, ein, tax_status, mission_statement, service_area, target_population, onboarding_step, onboarding_completed, subscription_tier",
+      "id, name, ein, tax_status, mission_statement, service_area, target_population, onboarding_step, onboarding_completed, onboarding_progress, subscription_tier",
     )
     .eq("id", orgId)
     .single();
@@ -104,6 +127,7 @@ export async function GET() {
   return NextResponse.json({
     step: org.onboarding_step ?? 0,
     completed: org.onboarding_completed ?? false,
+    progress: (org.onboarding_progress as OnboardingProgress | null) ?? { completed_steps: [], last_step: "1" },
     org: {
       id: org.id,
       name: org.name ?? "",
@@ -162,6 +186,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "step is required" }, { status: 400 });
   }
 
+  const { data: progressRow } = await supabase
+    .from("organizations")
+    .select("onboarding_progress")
+    .eq("id", orgId)
+    .single();
+  const nextStep = step < 7 ? step + 1 : 7;
+  const progress = nextOnboardingProgress(progressRow?.onboarding_progress, step, nextStep);
+
   switch (step) {
     case 1: {
       const { error } = await supabase
@@ -174,6 +206,7 @@ export async function POST(request: NextRequest) {
           service_area: data.service_area ? String(data.service_area) : null,
           target_population: data.target_population ? String(data.target_population) : null,
           onboarding_step: 2,
+          onboarding_progress: progress,
         })
         .eq("id", orgId);
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -213,7 +246,7 @@ export async function POST(request: NextRequest) {
       }
       const { error } = await supabase
         .from("organizations")
-        .update({ onboarding_step: 3 })
+        .update({ onboarding_step: 3, onboarding_progress: progress })
         .eq("id", orgId);
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
       break;
@@ -290,7 +323,7 @@ export async function POST(request: NextRequest) {
       }
       const { error } = await supabase
         .from("organizations")
-        .update({ onboarding_step: 4 })
+        .update({ onboarding_step: 4, onboarding_progress: progress })
         .eq("id", orgId);
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
       break;
@@ -354,7 +387,7 @@ export async function POST(request: NextRequest) {
 
       const { error } = await supabase
         .from("organizations")
-        .update({ onboarding_step: 5 })
+        .update({ onboarding_step: 5, onboarding_progress: progress })
         .eq("id", orgId);
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
       break;
@@ -386,7 +419,7 @@ export async function POST(request: NextRequest) {
       }
       const { error } = await supabase
         .from("organizations")
-        .update({ onboarding_step: 6 })
+        .update({ onboarding_step: 6, onboarding_progress: progress })
         .eq("id", orgId);
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
       break;
@@ -426,7 +459,7 @@ export async function POST(request: NextRequest) {
       }
       const { error } = await supabase
         .from("organizations")
-        .update({ onboarding_step: 7 })
+        .update({ onboarding_step: 7, onboarding_progress: progress })
         .eq("id", orgId);
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
       break;
@@ -439,6 +472,7 @@ export async function POST(request: NextRequest) {
           onboarding_step: 7,
           onboarding_completed: true,
           onboarding_completed_at: new Date().toISOString(),
+          onboarding_progress: progress,
         })
         .eq("id", orgId);
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });

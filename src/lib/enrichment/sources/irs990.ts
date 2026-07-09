@@ -126,7 +126,70 @@ function extractAddress(xml: string): EnrichmentResult["address"] | undefined {
   return undefined;
 }
 
+function extractFiscalYear(xml: string): number | undefined {
+  const taxYr = xmlNum(xml, "TaxYr");
+  if (taxYr !== undefined) return taxYr;
+
+  const endDt = xmlText(xml, "TaxPeriodEndDt");
+  if (endDt) {
+    const year = Number(endDt.slice(0, 4));
+    if (isFinite(year)) return year;
+  }
+
+  // Legacy schema: TaxPeriod is YYYYMM.
+  const legacyPeriod = xmlText(xml, "TaxPeriod");
+  if (legacyPeriod && legacyPeriod.length >= 4) {
+    const year = Number(legacyPeriod.slice(0, 4));
+    if (isFinite(year)) return year;
+  }
+
+  return undefined;
+}
+
+interface GrantScheduleSummary {
+  grantCount: number;
+  grantMin?: number;
+  grantMax?: number;
+}
+
+// Schedule I ("Grants and Other Assistance") lists one block per recipient.
+// Only present on filers that actually make grants — absence is normal, not
+// an extraction failure.
+function extractGrantSchedule(xml: string): GrantScheduleSummary | undefined {
+  const blocks = [
+    ...xmlAllInner(xml, "RecipientTable"),
+    ...xmlAllInner(xml, "Form990ScheduleIPartIIGrp"),
+  ];
+  if (blocks.length === 0) return undefined;
+
+  const amounts: number[] = [];
+  for (const block of blocks) {
+    const amt =
+      xmlNum(block, "CashGrantAmt") ?? xmlNum(block, "AmountOfCashGrantAmt");
+    if (amt !== undefined) amounts.push(amt);
+  }
+
+  if (amounts.length === 0) return { grantCount: blocks.length };
+  return {
+    grantCount: blocks.length,
+    grantMin: Math.min(...amounts),
+    grantMax: Math.max(...amounts),
+  };
+}
+
 // --- Public class -----------------------------------------------------------
+
+export interface Irs990FilingMeta {
+  fiscalYear?: number;
+  grantCount?: number;
+  grantRangeMin?: number;
+  grantRangeMax?: number;
+}
+
+export interface Irs990RemoteResult {
+  result: EnrichmentResult;
+  meta: Irs990FilingMeta;
+}
 
 export class IRS990Source {
   /**
@@ -152,6 +215,16 @@ export class IRS990Source {
     const xmlPath = path.join(dir, match);
     const xml = fs.readFileSync(xmlPath, "utf-8");
 
+    return this.parseXml(cleanEin, xml, match);
+  }
+
+  /**
+   * Parse a 990 XML document already in memory (from a local file or a
+   * downloaded remote filing) into an EnrichmentResult. `sourceLabel` is
+   * stored on `raw.file` for traceability (filename, or the URL it was
+   * fetched from).
+   */
+  parseXml(ein: string, xml: string, sourceLabel: string): EnrichmentResult | null {
     const name = extractBusinessName(xml);
     if (!name) return null;
 
@@ -166,8 +239,42 @@ export class IRS990Source {
       giving: extractGiving(xml),
       address: extractAddress(xml),
       confidence: 0.95,
-      raw: { file: match, ein: cleanEin },
+      raw: { file: sourceLabel, ein },
     };
+  }
+
+  /** Filing-level fields not carried by EnrichmentResult: fiscal year and, where a grant schedule (Schedule I) exists, grant count/range. */
+  extractFilingMeta(xml: string): Irs990FilingMeta {
+    const grants = extractGrantSchedule(xml);
+    return {
+      fiscalYear: extractFiscalYear(xml),
+      grantCount: grants?.grantCount,
+      grantRangeMin: grants?.grantMin,
+      grantRangeMax: grants?.grantMax,
+    };
+  }
+
+  /**
+   * Download and parse a 990 XML filing by URL (e.g. the URL column from an
+   * IRS index CSV/JSON row). Returns null on a fetch failure, non-2xx
+   * response, or unparseable XML (no business name found).
+   */
+  async enrichFromRemoteXml(ein: string, xmlUrl: string): Promise<Irs990RemoteResult | null> {
+    const cleanEin = ein.replace(/\D/g, "");
+
+    let xml: string;
+    try {
+      const res = await fetch(xmlUrl);
+      if (!res.ok) return null;
+      xml = await res.text();
+    } catch {
+      return null;
+    }
+
+    const result = this.parseXml(cleanEin, xml, xmlUrl);
+    if (!result) return null;
+
+    return { result, meta: this.extractFilingMeta(xml) };
   }
 
   /**

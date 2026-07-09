@@ -16,6 +16,7 @@ import {
   Settings,
   Shield,
   Target,
+  Telescope,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -51,6 +52,15 @@ export type NavOptions = {
  * live in the top header bar — they are intentionally absent here.
  */
 export const NAV_ITEMS: NavItem[] = [
+  // Discovery feeds Opportunities/AutoApply in the header bar (Discover ->
+  // Score -> Apply -> Track, DONOR_DISCOVERY_ARCHITECTURE.md §7) — placed
+  // first so it sits immediately below that row.
+  {
+    label: "Donor Discovery",
+    href: "/donor-discovery",
+    icon: Telescope,
+    children: [{ label: "Prospects", href: "/donor-discovery/prospects" }],
+  },
   { label: "Alerts", href: "/alerts", icon: Bell },
   { label: "Funders", href: "/funders", icon: Building2 },
   { label: "Foundations", href: "/foundations", icon: Library },

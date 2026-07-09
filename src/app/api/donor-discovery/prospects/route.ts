@@ -1,6 +1,6 @@
 // GET /api/donor-discovery/prospects — filterable, paginated list of the org's
-// prospects (request_id, stage, min_score), joined with the shared directory
-// record for display fields (legal_name, website, etc).
+// prospects (request_id, taxonomy_id, stage, min_score), joined with the
+// shared directory record for display fields (legal_name, website, etc).
 
 import { NextResponse } from "next/server";
 
@@ -42,6 +42,7 @@ export async function GET(request: Request) {
   const params = url.searchParams;
 
   const requestId = params.get("request_id");
+  const taxonomyId = params.get("taxonomy_id");
 
   const stageParam = params.get("stage");
   if (stageParam !== null && !(PIPELINE_STAGES as readonly string[]).includes(stageParam)) {
@@ -88,6 +89,37 @@ export async function GET(request: Request) {
 
     const prospectIds = (links ?? []).map((l: { prospect_id: string }) => l.prospect_id);
     query = query.in("id", prospectIds.length > 0 ? prospectIds : [NIL_UUID]);
+  }
+  if (taxonomyId !== null && taxonomyId.trim() !== "") {
+    // Taxonomy isn't a column on prospects/directory — it's resolved through
+    // the node's kind+code against the shared directory's naics_codes /
+    // civic_kind, then narrowed to matching directory ids (same join-filter
+    // shape as the request_id branch above).
+    const { data: node, error: nodeError } = await supabase
+      .from("donor_discovery_taxonomy")
+      .select("kind, code")
+      .eq("id", taxonomyId)
+      .maybeSingle();
+
+    if (nodeError) {
+      return jsonError("Failed to load prospects.", "DB_ERROR", 500);
+    }
+    if (!node) {
+      return jsonError("Invalid taxonomy_id.", "INVALID_FILTER", 400);
+    }
+
+    const directoryQuery =
+      node.kind === "naics"
+        ? supabase.from("donor_discovery_directory").select("id").contains("naics_codes", [node.code])
+        : supabase.from("donor_discovery_directory").select("id").eq("civic_kind", node.code);
+
+    const { data: directoryRows, error: directoryError } = await directoryQuery;
+    if (directoryError) {
+      return jsonError("Failed to load prospects.", "DB_ERROR", 500);
+    }
+
+    const directoryIds = (directoryRows ?? []).map((d: { id: string }) => d.id);
+    query = query.in("directory_id", directoryIds.length > 0 ? directoryIds : [NIL_UUID]);
   }
   if (stageParam !== null) {
     query = query.eq("pipeline_stage", stageParam);

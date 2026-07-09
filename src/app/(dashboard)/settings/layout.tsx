@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 
 const NAV_ITEMS = [
   { label: "General", href: "/settings" },
+  { label: "Organization Setup", href: "/settings/organization-setup" },
   { label: "Integrations", href: "/settings/integrations" },
   { label: "Branding", href: "/settings/branding" },
   { label: "Custom APIs", href: "/settings/custom-apis" },

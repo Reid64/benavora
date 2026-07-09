@@ -1,7 +1,50 @@
 # BENAVORA — SESSION STATE
-## Last updated: 2026-07-08
+## Last updated: 2026-07-09
 ## Current branch: main
-## Last commit: chore: dd architecture doc + phase 1 queue + robots-parser
+## Last commit: feat: dd phase 2+3, foundation enrichment pipeline, onboarding soft-gate
+
+---
+
+## COMPLETED — July 9: Donor Discovery Phases 2+3, Foundation Enrichment Pipeline, Onboarding soft-gate
+
+Built on top of the 07-08 Phase 1 commit (`0d065eb`, enumeration-only). This pass adds:
+
+- **Donor Discovery scoring engine** (`src/lib/donor-discovery/scoring.ts`) — pure 6-signal
+  weighted scorer (giving program/donation form/in-kind signals/linked-foundation confidence/
+  geo match/size fit), org-overridable weights, 27 unit tests.
+- **Foundation linkage** (`src/lib/donor-discovery/foundation-linkage.ts`) — trigram name
+  matching against `foundation_directory` via a new `donor_discovery_match_foundations` RPC,
+  domain-match confidence boost. No dedicated test file yet.
+- **Worker pipeline** (`worker/dd-request-processor.ts`, +428 lines) — grew from
+  enumeration-only to enumerate → enrich → link foundations → score, with per-row error
+  swallowing so one bad website/match doesn't fail the whole request.
+- **Dashboard UI** — `/donor-discovery` (overview), `/donor-discovery/new` (3-step launch
+  wizard), `/donor-discovery/prospects` (filterable list + bulk stage-move),
+  `/donor-discovery/prospects/[id]` (detail + "Queue in AutoApply"). No map/visualization —
+  geocoding is address-resolution text only.
+- **Foundation Enrichment Pipeline** — three scripts (`pnpm seed:dd-taxonomy`, `pnpm
+  enrich:990`, `pnpm enrich:web`) plus `web-extractor.ts`/`website-discovery.ts` shared libs.
+  Built and gate-clean, but **not yet run against production** — migrations 072/073/074 are
+  unapplied (074 says so explicitly in-file), so nothing has executed yet.
+- **Onboarding soft-gate** — `middleware.ts` hard-redirects to `/onboarding` unless a
+  session-scoped `benavora_onboarding_skip` cookie is set (via the onboarding page's "explore
+  first" link); `OnboardingBanner.tsx` then nudges on every dashboard page until
+  `onboarding_completed` flips true. `organizations.onboarding_progress` (migration 073)
+  backs the banner and a new read-only `/settings/organization-setup` review page.
+
+Full detail (file paths, exact table/column names, RPC signatures, script flags) written into
+`STATE_OF_THE_BUILD.md`'s new "Donor Discovery Phases 2+3" / "Foundation Enrichment Pipeline"
+/ "Onboarding soft-gate" sections, including Reid's ordered morning-action list (apply
+migrations → seed taxonomy → run both enrichment scripts → back up `./enrichment-output/` to
+DATAOCEAN → smoke-test a discovery request from the new UI).
+
+**Gates, all run fresh and clean this pass:**
+- `pnpm run test:unit` (vitest) — 228 passed, 13 todo, 0 failures, across 19 test files (1 skipped file, pre-existing).
+- `pnpm run typecheck` (tsc --noEmit) — 0 errors.
+- `pnpm run build` (next build) — clean, 242/242 static pages generated, no route conflicts.
+- Railway worker gate (`tsc -p worker/tsconfig.json --noEmit`, matching `worker/Dockerfile`'s exact build step) — 0 errors.
+
+No regressions found — all four gates passed on the first run, no fix-up needed.
 
 ---
 

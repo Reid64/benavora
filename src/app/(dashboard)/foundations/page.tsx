@@ -110,6 +110,22 @@ function formatCurrency(amount: number | null): string {
   return `$${amount.toLocaleString()}`;
 }
 
+interface CoverageStats {
+  total: number;
+  enriched990: number;
+  enrichedWeb: number;
+}
+
+function StatCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
+  return (
+    <div className="rounded-xl border border-navy-200 bg-white px-5 py-4">
+      <p className="text-xs font-medium uppercase tracking-wide text-navy-400">{label}</p>
+      <p className="mt-1 text-2xl font-semibold text-navy-900">{value}</p>
+      {sub && <p className="mt-0.5 text-xs text-navy-500">{sub}</p>}
+    </div>
+  );
+}
+
 export default function FoundationsPage() {
   const { profile } = useProfile();
 
@@ -118,6 +134,8 @@ export default function FoundationsPage() {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [coverage, setCoverage] = useState<CoverageStats | null>(null);
 
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -163,6 +181,39 @@ export default function FoundationsPage() {
       setPage(1);
     }, 400);
   }
+
+  // Cheap head-count-only queries — independent of the filtered/paginated
+  // list below, so coverage stats always reflect the whole directory.
+  useEffect(() => {
+    let active = true;
+    const supabase = createClient();
+
+    (async () => {
+      const [totalRes, enriched990Res, enrichedWebRes] = await Promise.all([
+        supabase.from("foundation_directory").select("*", { count: "exact", head: true }),
+        supabase
+          .from("foundation_directory")
+          .select("*", { count: "exact", head: true })
+          .not("enriched_990_at", "is", null),
+        supabase
+          .from("foundation_directory")
+          .select("*", { count: "exact", head: true })
+          .not("enriched_web_at", "is", null),
+      ]);
+
+      if (!active) return;
+
+      setCoverage({
+        total: totalRes.count ?? 0,
+        enriched990: enriched990Res.count ?? 0,
+        enrichedWeb: enrichedWebRes.count ?? 0,
+      });
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Fetch foundations from Supabase with server-side filtering and pagination
   useEffect(() => {
@@ -472,6 +523,23 @@ export default function FoundationsPage() {
           </Button>
         )}
       </div>
+
+      {/* Enrichment coverage */}
+      {coverage && (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <StatCard label="Foundations" value={coverage.total.toLocaleString()} />
+          <StatCard
+            label="990 Enriched"
+            value={coverage.enriched990.toLocaleString()}
+            sub={`${coverage.total > 0 ? Math.round((coverage.enriched990 / coverage.total) * 100) : 0}% of ${coverage.total.toLocaleString()}`}
+          />
+          <StatCard
+            label="Web Enriched"
+            value={coverage.enrichedWeb.toLocaleString()}
+            sub={`${coverage.total > 0 ? Math.round((coverage.enrichedWeb / coverage.total) * 100) : 0}% of ${coverage.total.toLocaleString()}`}
+          />
+        </div>
+      )}
 
       {/* Filter bar */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">

@@ -70,7 +70,8 @@ export interface DirectoryRecord {
   created_at: string;
 }
 
-function parseGeo(raw: unknown): DirectoryGeo | null {
+/** Parses the raw `point` column value PostgREST returns into {lat, lng}. Exported so callers reading `donor_discovery_directory.geo` directly (e.g. the scoring stage) don't duplicate this parsing. */
+export function parseGeo(raw: unknown): DirectoryGeo | null {
   if (raw == null) return null;
   if (typeof raw === "string") {
     // PostgREST serializes `point` as its text form, "(x,y)" = "(lng,lat)".

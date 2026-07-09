@@ -1,6 +1,80 @@
 # BENAVORA — STATE OF THE BUILD
-## Last updated: 2026-07-08 (gate re-verification: tsc/build/lint clean, no drift since 07-07; two Intelligence Library claims corrected against fresh code read)
+## Last updated: 2026-07-09 (Donor Discovery Phases 2+3 + Foundation Enrichment Pipeline + Onboarding soft-gate)
 ## Method: live codebase audit — every file path, route, agent, and migration counted directly from the filesystem; no assumptions carried from prior docs.
+
+---
+
+## Donor Discovery Phases 2+3: BUILT (engine + dashboard)
+
+Phase 1 (enumeration only, Google Places adapter) shipped in `0d065eb`. This pass adds the
+scoring/linkage engine and the full dashboard UI on top of it.
+
+**Scoring engine** — `src/lib/donor-discovery/scoring.ts`. Pure function, no I/O:
+`scoreProspect(directoryRecord, requestContext, weights?) → { score: 0-100, rationale }`.
+Six weighted signals (giving program 25 / donation form 20 / in-kind keyword match 15 /
+linked-foundation confidence 15 / geo match 15 / size-appropriateness 10, sums to 100,
+overridable per-org via `organizations.donor_discovery_scoring_weights` jsonb). 27 unit
+tests in `scoring.test.ts` cover every signal, all three geography modes (national/radius/
+states), and weight-override parsing/validation.
+
+**Foundation linkage** — `src/lib/donor-discovery/foundation-linkage.ts`. Matches a company
+in `donor_discovery_directory` to its likely giving vehicle in `foundation_directory` (IRS
+BMF) by generating candidate names (strip corporate suffix, append "Foundation"/"Charitable
+Trust"/etc.) and trigram-matching via the `donor_discovery_match_foundations` RPC (migration
+074, `pg_trgm`, min similarity 0.55), with a +0.35 confidence boost on matching website
+domain. Name-heuristic only, not verified ownership — no dedicated test file yet (unlike
+scoring.ts).
+
+**Worker pipeline** — `worker/dd-request-processor.ts` grew from enumeration-only to a full
+4-stage `processItem()`: enumerate → enrich (concurrency 5, `extractFromWebsite` on each
+prospect's site, 180-day staleness TTL) → link foundations (concurrency 5) → score (writes
+`score`/`score_rationale` onto `donor_discovery_prospects`). Per-row failures in enrichment
+and linkage are logged and swallowed, never thrown — a request only lands in `status=failed`
+on a structural error (bad taxonomy, DB failure), not one bad website or one missed match.
+
+**Dashboard UI** — new `/donor-discovery` route tree:
+- `/donor-discovery` — overview: live-polling active requests, pipeline-stage bar chart, top-scored new prospects.
+- `/donor-discovery/new` — 3-step launch wizard (taxonomy tree from `donor_discovery_taxonomy` → geography: radius/states/national → review & launch).
+- `/donor-discovery/prospects` — filterable/sortable full list, bulk stage-move.
+- `/donor-discovery/prospects/[id]` — detail view with score rationale, enrichment fields, linked-foundation card, and a "Queue in AutoApply" action.
+- No map/geo-visualization component exists — `/api/donor-discovery/geocode` (Places API "New", server-only key) resolves an address to lat/lng for the radius-search step's text summary only, nothing is rendered on a map.
+- Known schema gap: "already queued in AutoApply" detection on the prospect detail page is a best-effort `funders.website`-then-`funders.name` match — there is no persisted FK between `donor_discovery_prospects` and `funders`.
+- Civic/association taxonomy nodes (land banks, community foundations, municipal surplus, trade associations) are seeded but not yet enumerable — the worker explicitly skips non-NAICS taxonomy nodes; that's scoped as a future phase.
+
+## Foundation Enrichment Pipeline — BUILT, NOT YET RUN
+
+Three new/changed scripts + two shared libs enrich `foundation_directory` (IRS BMF, migration
+046) with financials, contact info, and web-derived giving-program data. **None of this has
+been executed against production data yet** — see "Reid's morning actions" below.
+
+- `pnpm seed:dd-taxonomy` (`scripts/seed-dd-taxonomy.ts`) — downloads the full 2022 Census NAICS code list live from census.gov (~1,057 six-digit codes) plus 5 flat civic entity types into `donor_discovery_taxonomy`; refuses to seed on a short/malformed download (`MIN_SIX_DIGIT_CODES = 900` floor), no hardcoded fallback. Idempotent upsert.
+- `pnpm enrich:990` (`scripts/enrich-foundations-990.ts`) — streams the current-year IRS 990 e-file index CSV, matches by EIN, parses each filing's XML (`IRS990Source.enrichFromRemoteXml`, new method) for assets/giving total/phone/website/address/grant-count/typical-grant-range. Resumable via checkpoint file + `enriched_990_at` skip. In-code warning: the hardcoded IRS index URL may have moved by run time.
+- `pnpm enrich:web --limit 2000` (`scripts/enrich-foundations-web.ts`) — for rows still missing web enrichment (ordered by assets desc), discovers a website via SearXNG search if none is on file, then runs one Claude extraction call per site (`web-extractor.ts`, schema `"foundation"`) for giving-program/donation-form/focus-area signals. Concurrency 8, default `--limit 500` (Reid should pass `--limit 2000` per the run plan below). Requires `SEARXNG_URL` and `ANTHROPIC_API_KEY`.
+- Both enrichment scripts write to `./enrichment-output/` (checkpoint JSON + raw CSV extract) for resumability and audit trail.
+- Backing migrations (all **unapplied to production as of 2026-07-09**): `072_foundation_directory_990_enrichment.sql` (adds `enrichment` jsonb + `enriched_990_at`/`enriched_web_at`/`website_discovered_via` to `foundation_directory`), `073_onboarding_progress.sql` (adds `organizations.onboarding_progress` jsonb), `074_donor_discovery_foundation_linkage_and_scoring.sql` (explicitly marked in-file as not-yet-applied: adds `linked_foundation_id`/`linkage_confidence` to `donor_discovery_directory`, `pg_trgm` + trigram index on `foundation_directory.name`, the `donor_discovery_match_foundations` RPC, and `organizations.donor_discovery_scoring_weights`). **The scoring/linkage worker stages and the enrichment scripts will fail without these applied first.**
+
+## Onboarding soft-gate: LIVE
+
+Despite the name, this is a hard redirect with a per-browser-session opt-out, not a pure
+banner. `src/middleware.ts` (full-file replacement, per governance rule #4) redirects any
+authenticated, org-attached user to `/onboarding` when `organizations.onboarding_completed`
+is false — unless a `benavora_onboarding_skip` session cookie is present (set by the
+"Explore the platform first" link on the onboarding page; expires with the browser session,
+so a fresh login re-triggers the redirect). Once a user has skipped past the redirect,
+`OnboardingBanner.tsx` (new) renders on every dashboard page showing "{n} of {total} steps
+complete" + a resume link; dismissal is `sessionStorage`-based, so it reappears each new
+session. `organizations.onboarding_progress` (migration 073) tracks per-step completion for
+the banner and the new read-only `/settings/organization-setup` review page; the pre-existing
+`onboarding_completed` column remains the sole flag middleware actually gates on.
+
+## Reid's morning actions (in order)
+
+1. Apply migrations 072, 073, 074 to production via the Management API pattern (`sbp_` PAT, ASCII SQL only, same path used since migration 011). Migration 074 is explicitly marked in-file as not yet applied; verify 072/073 too before assuming either is live.
+2. `pnpm seed:dd-taxonomy`
+3. `pnpm enrich:990`
+4. `pnpm enrich:web --limit 2000`
+5. Back up `./enrichment-output/` to DATAOCEAN.
+6. Launch a discovery request from the new `/donor-discovery/new` UI as a smoke test.
 
 ---
 

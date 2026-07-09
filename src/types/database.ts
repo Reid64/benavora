@@ -55,6 +55,7 @@ export interface Database {
           onboarding_completed: boolean;
           onboarding_completed_at: string | null;
           onboarding_step: number;
+          onboarding_progress: Json;
           created_at: string;
           updated_at: string;
         };
@@ -88,6 +89,7 @@ export interface Database {
           onboarding_completed?: boolean;
           onboarding_completed_at?: string | null;
           onboarding_step?: number;
+          onboarding_progress?: Json;
           created_at?: string;
           updated_at?: string;
         };
@@ -121,6 +123,7 @@ export interface Database {
           onboarding_completed?: boolean;
           onboarding_completed_at?: string | null;
           onboarding_step?: number;
+          onboarding_progress?: Json;
           created_at?: string;
           updated_at?: string;
         };

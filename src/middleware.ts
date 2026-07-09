@@ -1,4 +1,4 @@
-﻿import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 type CookieToSet = { name: string; value: string; options: CookieOptions };
@@ -38,6 +38,11 @@ const PUBLIC_PATHS = [
   "/forgot-password",
   "/reset-password",
 ];
+
+// Session cookie (no Max-Age) set by the onboarding wizard's "Explore the
+// platform first" link. Must match ONBOARDING_SKIP_COOKIE in
+// src/app/(dashboard)/onboarding/page.tsx.
+const ONBOARDING_SKIP_COOKIE = "benavora_onboarding_skip";
 
 function isPublicPath(pathname: string): boolean {
   if (PUBLIC_PATHS.includes(pathname)) return true;
@@ -100,7 +105,7 @@ export async function middleware(request: NextRequest) {
   // Public routes never block, even for signed-in users.
   if (isPublic) return response;
 
-  // Protected route with no (refreshable) session â†’ /login.
+  // Protected route with no (refreshable) session -> /login.
   if (!user) {
     return redirectToLogin(request);
   }
@@ -134,17 +139,23 @@ export async function middleware(request: NextRequest) {
   requestHeaders.set("x-user-role", profile.role as string);
   requestHeaders.set("x-pathname", request.nextUrl.pathname);
 
-    // Onboarding gate: redirect to /onboarding if not completed
+  // Onboarding gate: redirect to /onboarding if not completed. Bypassed for
+  // the current browser session once the user picks "Explore the platform
+  // first" on the wizard (sets ONBOARDING_SKIP_COOKIE, a session cookie with
+  // no Max-Age) - a fresh login in a new session still lands on /onboarding.
   if (profile.organization_id && !request.nextUrl.pathname.includes("onboarding")) {
-    const { data: org } = await supabase
-      .from("organizations")
-      .select("onboarding_completed")
-      .eq("id", profile.organization_id)
-      .single();
-    if (org && org.onboarding_completed === false) {
-      const onboardingUrl = request.nextUrl.clone();
-      onboardingUrl.pathname = "/onboarding";
-      return NextResponse.redirect(onboardingUrl);
+    const skipOnboarding = request.cookies.get(ONBOARDING_SKIP_COOKIE);
+    if (!skipOnboarding) {
+      const { data: org } = await supabase
+        .from("organizations")
+        .select("onboarding_completed")
+        .eq("id", profile.organization_id)
+        .single();
+      if (org && org.onboarding_completed === false) {
+        const onboardingUrl = request.nextUrl.clone();
+        onboardingUrl.pathname = "/onboarding";
+        return NextResponse.redirect(onboardingUrl);
+      }
     }
   }
 
@@ -169,4 +180,3 @@ export const config = {
     "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|.*\\.).*)",
   ],
 };
-

@@ -15,7 +15,10 @@
         "test:coverage": "vitest run --coverage",
         "test:e2e": "playwright test",
         "seed-demo": "node seed-demo.mjs",
-        "seed:beta": "tsx scripts/seed-beta-users.ts"
+        "seed:beta": "tsx scripts/seed-beta-users.ts",
+        "seed:dd-taxonomy": "tsx scripts/seed-dd-taxonomy.ts",
+        "enrich:990": "tsx scripts/enrich-foundations-990.ts",
+        "enrich:web": "tsx scripts/enrich-foundations-web.ts"
     },
     "dependencies": {
         "@2captcha/captcha-solver": "^1.3.6",
