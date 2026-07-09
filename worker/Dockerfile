@@ -31,7 +31,7 @@ RUN npm install -g pnpm && pnpm install --frozen-lockfile
 
 COPY . .
 
-RUN npx -p typescript tsc -p worker/tsconfig.json
+RUN pnpm run build:worker
 
 # rootDir is repo root (..) so worker/index.ts compiles to worker/dist/worker/index.js
 CMD ["node", "worker/dist/worker/index.js"]

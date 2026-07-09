@@ -6,6 +6,7 @@
     "scripts": {
         "dev": "next dev",
         "build": "next build",
+        "build:worker": "tsc -p worker/tsconfig.json && tsc-alias -p worker/tsconfig.json",
         "start": "next start",
         "lint": "next lint",
         "typecheck": "tsc --noEmit",
@@ -52,7 +53,8 @@
         "resend": "^6.12.4",
         "robots-parser": "^3.0.1",
         "stripe": "^22.2.0",
-        "ws": "^8.21.0"
+        "ws": "^8.21.0",
+        "xlsx": "^0.18.5"
     },
     "devDependencies": {
         "@playwright/test": "^1.47.2",
@@ -71,6 +73,7 @@
         "pg": "^8.21.0",
         "postcss": "^8.4.47",
         "tailwindcss": "^3.4.12",
+        "tsc-alias": "^1.9.0",
         "tsx": "^4.23.0",
         "typescript": "^5.6.2",
         "vitest": "^2.0.0"
