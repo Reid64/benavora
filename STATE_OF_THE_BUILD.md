@@ -446,3 +446,10 @@ All migrations through 066 confirmed applied to production (ref vbjplpquqxxfbpaz
 | /api/cron/domain-warmup | 0 6 * * * (daily 6am) |
 
 Note: vercel.json applies a global maxDuration=60 to `api/agents/**` — individual routes that need 300s override this with `export const maxDuration = 300`. All AI-calling routes have been verified to set 300s. `api/ai/**` routes get 300s from the global config. `api/cron/**` routes get 120s from the global config.
+
+## Production Sync 2026-07-09 14:19
+- Migrations 067-074 ALL applied to production Supabase (vbjplpquqxxfbpazyalt) via Management API
+- Commit 03cb3ab pushed: DD Phases 2+3, enrichment pipeline, onboarding soft-gate (11/11 FORGE gates)
+- NOT YET RUN: pnpm seed:dd-taxonomy, pnpm enrich:990, pnpm enrich:web, DATAOCEAN backup, DD smoke test
+- Railway status of 03cb3ab UNVERIFIED; RESEND_API_KEY still unset on both platforms
+

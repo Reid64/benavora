@@ -663,3 +663,10 @@ Sales Outreach real routes · AutoApply Follow-Ups 4 routes · Renewals route ·
 | Encryption vars in Vercel | INTEGRATION_KEY_SECRET · PORTAL_ENCRYPT_SECRET · INTEGRATION_ENCRYPTION_KEY · UNSUBSCRIBE_HMAC_SECRET — all set, Encrypted, Production only |
 | Local .env.local | Missing those 4 encryption vars + missing ANTHROPIC_API_KEY and other AI keys |
 | .env.test | Created for Vitest: 6 test-only secrets |
+
+## Production Sync 2026-07-09 14:19
+- Migrations 067-074 ALL applied to production Supabase (vbjplpquqxxfbpazyalt) via Management API
+- Commit 03cb3ab pushed: DD Phases 2+3, enrichment pipeline, onboarding soft-gate (11/11 FORGE gates)
+- NOT YET RUN: pnpm seed:dd-taxonomy, pnpm enrich:990, pnpm enrich:web, DATAOCEAN backup, DD smoke test
+- Railway status of 03cb3ab UNVERIFIED; RESEND_API_KEY still unset on both platforms
+
