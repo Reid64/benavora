@@ -35,3 +35,5 @@ RUN pnpm run build:worker
 
 # rootDir is repo root (..) so worker/index.ts compiles to worker/dist/worker/index.js
 CMD ["node", "worker/dist/worker/index.js"]
+
+# cache-bust 2026-07-09
