@@ -20,6 +20,9 @@ type HeaderProps = {
   onMenuClick: () => void;
 };
 
+// PERMANENT do not remove Donor Discovery from header nav — this list keeps
+// getting reverted; Donor Discovery is a top-level header tab, not a sidebar
+// item. Do not delete or relocate it without explicit user instruction.
 /** Primary tab links surfaced in the header. */
 const TABS = [
   { label: "Dashboard", href: "/dashboard", premium: false },
@@ -27,6 +30,7 @@ const TABS = [
   { label: "Opportunities", href: "/opportunities", premium: false },
   { label: "AutoApply", href: "/autoapply", premium: true },
   { label: "Draft Generator", href: "/draft-generator", premium: true },
+  { label: "Donor Discovery", href: "/donor-discovery", premium: false },
 ];
 
 /** Avatar-dropdown destinations (Log Out is rendered separately). */
@@ -108,23 +112,20 @@ export function Header({ userEmail, orgName, orgLogoUrl, onMenuClick }: HeaderPr
               href={tab.href}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "relative rounded-lg px-3 py-1.5 text-sm transition",
-                tab.premium ? "font-semibold" : "font-medium",
+                "relative rounded-lg px-3 py-1.5 text-sm font-semibold transition",
                 active
                   ? "bg-primary/10 text-primary"
                   : "text-text-muted hover:bg-surface-raised hover:text-text",
               )}
             >
               {tab.label}
-              {tab.premium && (
-                <span
-                  className={cn(
-                    "absolute bottom-0.5 left-3 right-3 h-0.5 rounded-full transition",
-                    active ? "bg-accent" : "bg-accent/35",
-                  )}
-                  aria-hidden
-                />
-              )}
+              <span
+                className={cn(
+                  "absolute bottom-0.5 left-3 right-3 h-0.5 rounded-full transition",
+                  active ? "bg-primary" : tab.premium ? "bg-accent/35" : "bg-transparent",
+                )}
+                aria-hidden
+              />
             </Link>
           );
         })}

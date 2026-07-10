@@ -3,9 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { X } from "lucide-react";
+import { Telescope, X } from "lucide-react";
 
 import {
+  DONOR_DISCOVERY_DRILLDOWN,
   navItemsForRole,
   PLATFORM_NAV_ITEMS,
   SETTINGS_NAV_ITEM,
@@ -151,6 +152,26 @@ export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarPro
 
         {/* Main nav links */}
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4" aria-label="Main navigation">
+          {pathname.startsWith("/donor-discovery") && (
+            <div className="mb-2 border-b border-white/10 pb-2">
+              <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+                Donor Discovery
+              </p>
+              <Link
+                href={DONOR_DISCOVERY_DRILLDOWN.href}
+                onClick={onClose}
+                aria-current={isActive(DONOR_DISCOVERY_DRILLDOWN.href) ? "page" : undefined}
+                className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                  isActive(DONOR_DISCOVERY_DRILLDOWN.href)
+                    ? "bg-sidebar-active text-accent"
+                    : "text-slate-400 hover:bg-white/5 hover:text-white"
+                }`}
+              >
+                <Telescope className="h-5 w-5 shrink-0" aria-hidden />
+                <span className="truncate">{DONOR_DISCOVERY_DRILLDOWN.label}</span>
+              </Link>
+            </div>
+          )}
           {navItems.map(({ label, href, icon: Icon, children }) => {
             const active = isActive(href);
             const badge = badgeByHref[href] ?? 0;

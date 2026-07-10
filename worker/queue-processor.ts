@@ -29,6 +29,18 @@ import { ABTestEngine } from '../src/lib/autoapply/ab-testing.js';
 import type { ReadinessReport } from '../src/lib/autoapply/submission-validator.js';
 import type { StreamServer } from './stream-server.js';
 import { promises as fs } from 'node:fs';
+import {
+  claimNextEnrichDonorProspectJob,
+  handleEnrichDonorProspectJob,
+} from '../src/worker/jobs/enrich-donor-prospect.js';
+import {
+  claimNextScoreDonorProspectJob,
+  handleScoreDonorProspectJob,
+} from '../src/worker/jobs/score-donor-prospect.js';
+import {
+  claimNextRunConnectorEnrichmentJob,
+  handleRunConnectorEnrichmentJob,
+} from '../src/worker/jobs/run-connector-enrichment.js';
 
 // --- types -------------------------------------------------------------------
 
@@ -196,6 +208,39 @@ export class QueueProcessor {
           this.orgReadinessCache.clear();
         }
         this.wasIdle = true;
+
+        // Idle-cycle background work: donor_discovery §2B/§2D re-enrichment
+        // (enrich_donor_prospect job type). Runs only when submission_queue is
+        // empty so it never competes with funder submissions for this process.
+        await this.runEnrichDonorProspectJob().catch((e: unknown) => {
+          console.warn(
+            '[QueueProcessor] enrich_donor_prospect job failed:',
+            e instanceof Error ? e.message : String(e),
+          );
+        });
+
+        // Idle-cycle background work: donor_discovery §2D Claude-rationale
+        // (re-)scoring (score_donor_prospect job type). See
+        // runScoreDonorProspectJob's doc comment for how this relates to
+        // dd-request-processor.ts's own inline scoring stage.
+        await this.runScoreDonorProspectJob().catch((e: unknown) => {
+          console.warn(
+            '[QueueProcessor] score_donor_prospect job failed:',
+            e instanceof Error ? e.message : String(e),
+          );
+        });
+
+        // Idle-cycle background work: donor_discovery §6 BYO-key connector
+        // enrichment (run_connector_enrichment job type). Same opportunistic
+        // posture as the two jobs above — see
+        // runRunConnectorEnrichmentJob's doc comment.
+        await this.runRunConnectorEnrichmentJob().catch((e: unknown) => {
+          console.warn(
+            '[QueueProcessor] run_connector_enrichment job failed:',
+            e instanceof Error ? e.message : String(e),
+          );
+        });
+
         console.log('[QueueProcessor] Queue empty, sleeping 15s');
         await sleep(SLEEP_MS);
         continue;
@@ -296,6 +341,77 @@ export class QueueProcessor {
     if (claimed === null) return null;
 
     return item;
+  }
+
+  /**
+   * Wires the `enrich_donor_prospect` job type
+   * (DONOR_DISCOVERY_ARCHITECTURE.md §2B/§2D) into this processor's idle
+   * cycle. `donor_discovery_directory` re-enrichment isn't AutoApply's
+   * concern, but this is the one long-lived worker loop with idle cycles to
+   * spare. `worker/dd-request-processor.ts` already runs enrichment inline
+   * as part of a request's enumerate -> enrich -> score pipeline (the
+   * authoritative, request-scoped path); this is supplementary opportunistic
+   * re-enrichment for prospects that have gone stale (>180 days) since a
+   * request last touched them, claimed one at a time via
+   * `claimNextEnrichDonorProspectJob`.
+   */
+  private async runEnrichDonorProspectJob(): Promise<void> {
+    const job = await claimNextEnrichDonorProspectJob(this.supabase);
+    if (job === null) return;
+
+    console.log(`[QueueProcessor] enrich_donor_prospect: processing directory ${job.directoryId}`);
+    const result = await handleEnrichDonorProspectJob(this.supabase, job);
+    console.log(
+      `[QueueProcessor] enrich_donor_prospect: directory ${job.directoryId} â€” ` +
+        `${result.scoredProspectCount} prospect(s) re-scored` +
+        (result.enrichment.error_reason ? ` (error_reason=${result.enrichment.error_reason})` : ''),
+    );
+  }
+
+  /**
+   * Wires the `score_donor_prospect` job type
+   * (DONOR_DISCOVERY_ARCHITECTURE.md Â§2D) into this processor's idle cycle,
+   * same posture as `runEnrichDonorProspectJob` above. This is the
+   * Claude-rationale `ScoringEngine` (scoring-engine.ts) â€” supplementary to
+   * `worker/dd-request-processor.ts`'s inline, deterministic (non-Claude)
+   * scoring stage, which already scores every prospect a request surfaces
+   * before marking that request complete. This job instead picks up
+   * prospects that have never been scored by `ScoringEngine`, or whose
+   * `scored_at` has gone stale, one at a time.
+   */
+  private async runScoreDonorProspectJob(): Promise<void> {
+    const job = await claimNextScoreDonorProspectJob(this.supabase);
+    if (job === null) return;
+
+    console.log(`[QueueProcessor] score_donor_prospect: processing prospect ${job.prospectId}`);
+    const { result } = await handleScoreDonorProspectJob(this.supabase, job);
+    console.log(
+      `[QueueProcessor] score_donor_prospect: prospect ${job.prospectId} â€” score=${result.score}`,
+    );
+  }
+
+  /**
+   * Wires the `run_connector_enrichment` job type
+   * (DONOR_DISCOVERY_ARCHITECTURE.md Â§6) into this processor's idle cycle,
+   * same posture as `runEnrichDonorProspectJob`/`runScoreDonorProspectJob`
+   * above. Picks up one (prospect, provider) pair at a time for orgs with an
+   * active Apollo/Hunter connector whose prospect hasn't been enriched by
+   * that provider yet, decrypts the org's stored key, calls the connector,
+   * and merges the result into `donor_discovery_prospects.enrichment_private`
+   * (tenant-scoped, migration 079) â€” never the shared directory row.
+   */
+  private async runRunConnectorEnrichmentJob(): Promise<void> {
+    const job = await claimNextRunConnectorEnrichmentJob(this.supabase);
+    if (job === null) return;
+
+    console.log(
+      `[QueueProcessor] run_connector_enrichment: processing prospect ${job.prospectId} via ${job.connectorProvider}`,
+    );
+    const result = await handleRunConnectorEnrichmentJob(this.supabase, job);
+    console.log(
+      `[QueueProcessor] run_connector_enrichment: prospect ${job.prospectId} â€” ` +
+        `${result.enrichment.contacts.length} decision-maker contact(s) found via ${job.connectorProvider}`,
+    );
   }
 
   private async processItem(item: QueueItem): Promise<void> {

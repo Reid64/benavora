@@ -40,7 +40,7 @@ import type { Json } from '../src/types/database.js';
 
 // --- types -------------------------------------------------------------------
 
-interface DdRequestRow {
+export interface DdRequestRow {
   id: string;
   organization_id: string;
   name: string;
@@ -247,7 +247,8 @@ export class DdRequestProcessor {
     return (data as DdRequestRow | null) ?? null;
   }
 
-  private async processItem(item: DdRequestRow): Promise<void> {
+  /** Runs the full enumerate -> enrich -> link foundations -> score pipeline for one request. */
+  async processItem(item: DdRequestRow): Promise<void> {
     // --- Resolve taxonomy_ids -> NAICS codes (Phase 1: Google Places only) ---
     const { data: taxonomyRows, error: taxonomyError } = await this.supabase
       .from('donor_discovery_taxonomy')

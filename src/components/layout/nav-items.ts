@@ -16,7 +16,6 @@ import {
   Settings,
   Shield,
   Target,
-  Telescope,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -48,19 +47,10 @@ export type NavOptions = {
 
 /**
  * Primary sidebar navigation items in display order.
- * Dashboard, Research, Opportunities, AutoApply, and Draft Generator
- * live in the top header bar — they are intentionally absent here.
+ * Dashboard, Research, Opportunities, AutoApply, Draft Generator, and Donor
+ * Discovery live in the top header bar — they are intentionally absent here.
  */
 export const NAV_ITEMS: NavItem[] = [
-  // Discovery feeds Opportunities/AutoApply in the header bar (Discover ->
-  // Score -> Apply -> Track, DONOR_DISCOVERY_ARCHITECTURE.md §7) — placed
-  // first so it sits immediately below that row.
-  {
-    label: "Donor Discovery",
-    href: "/donor-discovery",
-    icon: Telescope,
-    children: [{ label: "Prospects", href: "/donor-discovery/prospects" }],
-  },
   { label: "Alerts", href: "/alerts", icon: Bell },
   { label: "Funders", href: "/funders", icon: Building2 },
   { label: "Foundations", href: "/foundations", icon: Library },
@@ -85,6 +75,16 @@ export const NAV_ITEMS: NavItem[] = [
   },
   { label: "Email", href: "/email", icon: Mail },
 ];
+
+/**
+ * Donor Discovery's own top-level entry now lives in the header nav — this
+ * is the drill-down link Sidebar renders in its place, only while the user
+ * is inside /donor-discovery/*.
+ */
+export const DONOR_DISCOVERY_DRILLDOWN: NavChild = {
+  label: "Prospects",
+  href: "/donor-discovery/prospects",
+};
 
 /** Settings rendered at the bottom of the sidebar, separated from main nav. */
 export const SETTINGS_NAV_ITEM: NavItem = {
