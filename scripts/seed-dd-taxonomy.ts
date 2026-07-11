@@ -31,6 +31,7 @@
 import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
 import ws from "ws";
+import * as XLSX from "xlsx";
 
 dotenv.config({ path: ".env.local" });
 
@@ -73,12 +74,48 @@ function fatal(message: string): never {
 // substitute a hand-typed or partial code list.
 // ----------------------------------------------------------------------------
 const NAICS_SOURCE_CANDIDATES = [
+  "https://www.census.gov/naics/2022NAICS/2-6%20digit_2022_Codes.xlsx",
+  "https://www.census.gov/naics/2022NAICS/6-digit_2022_Codes.xlsx",
   "https://www.census.gov/naics/2022NAICS/2022_NAICS_Descriptions.txt",
   "https://www.census.gov/naics/2022NAICS/2022_NAICS_Descriptions.csv",
   "https://www.census.gov/naics/2022NAICS/2-6%20digit_2022_Codes.csv",
 ];
 
 const MIN_SIX_DIGIT_CODES = 900; // official list is ~1,057; well below that = bad/partial download
+
+// Census's xlsx exports list every digit level in one sheet with a header row
+// like "Seq. No." | "2022 NAICS US   Code" | "2022 NAICS US Title" — column
+// order isn't guaranteed, so locate the code/title columns by header text
+// instead of assuming position, then re-flatten to the same "Code|Title"
+// shape the pipe-delimited .txt source already produces.
+function xlsxBufferToPipeText(buffer: ArrayBuffer): string {
+  const workbook = XLSX.read(buffer, { type: "array" });
+  const sheet = workbook.Sheets[workbook.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" }) as unknown[][];
+
+  let codeCol = -1;
+  let titleCol = -1;
+  for (const row of rows) {
+    const cells = row.map((c) => String(c ?? "").trim());
+    const ci = cells.findIndex((c) => /code/i.test(c));
+    const ti = cells.findIndex((c) => /title/i.test(c));
+    if (ci !== -1 && ti !== -1) {
+      codeCol = ci;
+      titleCol = ti;
+      break;
+    }
+  }
+  if (codeCol === -1 || titleCol === -1) return "";
+
+  const lines: string[] = [];
+  for (const row of rows) {
+    const code = String(row[codeCol] ?? "").trim();
+    const title = String(row[titleCol] ?? "").trim();
+    if (!code || !title) continue;
+    lines.push(`${code}|${title}`);
+  }
+  return lines.join("\n");
+}
 
 async function downloadNaicsSource(): Promise<string> {
   for (const candidate of NAICS_SOURCE_CANDIDATES) {
@@ -88,6 +125,22 @@ async function downloadNaicsSource(): Promise<string> {
         console.error(`  ✗ ${candidate}: HTTP ${res.status}`);
         continue;
       }
+
+      const contentType = res.headers.get("content-type") || "";
+      const isXlsx =
+        candidate.toLowerCase().endsWith(".xlsx") || /spreadsheetml|officedocument/i.test(contentType);
+
+      if (isXlsx) {
+        const buffer = await res.arrayBuffer();
+        const text = xlsxBufferToPipeText(buffer);
+        if (text.length < 10_000) {
+          console.error(`  ✗ ${candidate}: converted XLSX text too small (${text.length} bytes), likely not the real file`);
+          continue;
+        }
+        ok("download NAICS source", `${candidate} (xlsx, ${text.length} bytes after conversion)`);
+        return text;
+      }
+
       const text = await res.text();
       const looksLikeHtml = /<!doctype html|<html/i.test(text.slice(0, 500));
       if (looksLikeHtml) {

@@ -1,0 +1,3 @@
+CREATE TABLE IF NOT EXISTS donor_discovery_taxonomy_aliases (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), taxonomy_id uuid NOT NULL REFERENCES donor_discovery_taxonomy(id) ON DELETE CASCADE, alias text NOT NULL, alias_type text NOT NULL DEFAULT 'trade_name' CHECK (alias_type IN ('trade_name','keyword','common_name','material')), created_at timestamptz DEFAULT now());
+CREATE INDEX IF NOT EXISTS idx_dd_taxonomy_aliases_taxonomy_id ON donor_discovery_taxonomy_aliases(taxonomy_id);
+CREATE INDEX IF NOT EXISTS idx_dd_taxonomy_aliases_alias_trgm ON donor_discovery_taxonomy_aliases USING gin(alias gin_trgm_ops);

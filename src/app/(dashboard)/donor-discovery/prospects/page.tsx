@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowUpRight, CheckCircle, Telescope } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, CheckCircle, ChevronDown, Search, Telescope } from "lucide-react";
 
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Badge, Button, EmptyState, Input, Select, Table } from "@/components/ui";
@@ -115,6 +115,130 @@ function scoreVariant(score: number | null): BadgeVariant {
 }
 
 const FETCH_LIMIT = 100;
+
+type ComboboxOption = { value: string; label: string };
+
+/**
+ * Filterable taxonomy picker. `options[0]` is treated as the always-visible
+ * "clear" option (e.g. "All taxonomies") and is exempt from the text filter
+ * so it's always reachable.
+ */
+function TaxonomyCombobox({
+  options,
+  value,
+  onChange,
+}: {
+  options: ComboboxOption[];
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleOutside(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) setQuery("");
+  }, [open]);
+
+  const clearOption = options[0];
+  const selectableOptions = options.slice(1);
+  const normalizedQuery = query.trim().toLowerCase();
+  const filtered = normalizedQuery
+    ? selectableOptions.filter((o) => o.label.toLowerCase().includes(normalizedQuery))
+    : selectableOptions;
+
+  const selectedLabel = options.find((o) => o.value === value)?.label ?? clearOption?.label ?? "";
+
+  return (
+    <div className="relative w-full" ref={containerRef}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label="Filter by taxonomy"
+        className="flex w-full items-center justify-between rounded-lg border border-border bg-surface py-2 pl-3 pr-3 text-left text-sm text-text shadow-sm transition focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500"
+      >
+        <span className="truncate">{selectedLabel}</span>
+        <ChevronDown className="ml-2 h-4 w-4 shrink-0 text-navy-400" aria-hidden />
+      </button>
+
+      {open && (
+        <div className="absolute z-20 mt-1 w-full rounded-lg border border-border bg-surface shadow-lg">
+          <div className="relative border-b border-border p-2">
+            <Search
+              className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-navy-400"
+              aria-hidden
+            />
+            <input
+              autoFocus
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search taxonomies..."
+              aria-label="Search taxonomies"
+              className="w-full rounded-md border border-border bg-surface py-1.5 pl-8 pr-2 text-sm text-text placeholder:text-text-muted focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+            />
+          </div>
+          <ul role="listbox" className="max-h-64 overflow-y-auto py-1">
+            {clearOption && (
+              <li role="option" aria-selected={value === clearOption.value}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onChange(clearOption.value);
+                    setOpen(false);
+                  }}
+                  className={`block w-full px-3 py-1.5 text-left text-sm transition ${
+                    value === clearOption.value
+                      ? "bg-teal-50 font-medium text-teal-700"
+                      : "text-text hover:bg-surface-raised"
+                  }`}
+                >
+                  {clearOption.label}
+                </button>
+              </li>
+            )}
+            {filtered.length === 0 ? (
+              <li className="px-3 py-2 text-sm text-navy-400">No matches</li>
+            ) : (
+              filtered.map((o) => (
+                <li key={o.value} role="option" aria-selected={value === o.value}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onChange(o.value);
+                      setOpen(false);
+                    }}
+                    title={o.label}
+                    className={`block w-full truncate px-3 py-1.5 text-left text-sm transition ${
+                      value === o.value
+                        ? "bg-teal-50 font-medium text-teal-700"
+                        : "text-text hover:bg-surface-raised"
+                    }`}
+                  >
+                    {o.label}
+                  </button>
+                </li>
+              ))
+            )}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function DonorDiscoveryProspectsPage() {
   const router = useRouter();
@@ -256,6 +380,8 @@ export default function DonorDiscoveryProspectsPage() {
     }
     return badges;
   }
+
+  const hasActiveFilters = Boolean(taxonomyId || requestId || stage || minScoreParam);
 
   const editable = canEdit(profile?.role);
 
@@ -441,6 +567,11 @@ export default function DonorDiscoveryProspectsPage() {
       <PageHeader
         title="Prospects"
         description="All prospects surfaced by your discovery requests, across every taxonomy and geography."
+        actions={
+          <Link href="/donor-discovery/new">
+            <Button>New Discovery</Button>
+          </Link>
+        }
       />
 
       {error && (
@@ -450,11 +581,10 @@ export default function DonorDiscoveryProspectsPage() {
       )}
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Select
-          aria-label="Filter by taxonomy"
+        <TaxonomyCombobox
           options={taxonomyOptions}
           value={taxonomyId}
-          onChange={(e) => setParams({ taxonomy_id: e.target.value || null })}
+          onChange={(value) => setParams({ taxonomy_id: value || null })}
         />
         <Select
           aria-label="Filter by request"
@@ -486,16 +616,29 @@ export default function DonorDiscoveryProspectsPage() {
       )}
 
       {!loading && prospects.length === 0 ? (
-        <EmptyState
-          icon={Telescope}
-          title="No prospects match these filters"
-          description="Adjust or clear your filters, or launch a new discovery request to find more prospects."
-          action={
-            <Link href="/donor-discovery/new">
-              <Button size="sm">New Discovery</Button>
-            </Link>
-          }
-        />
+        hasActiveFilters ? (
+          <EmptyState
+            icon={Telescope}
+            title="No prospects match these filters"
+            description="Adjust or clear your filters, or launch a new discovery request to find more prospects."
+            action={
+              <Link href="/donor-discovery/new">
+                <Button size="sm">New Discovery</Button>
+              </Link>
+            }
+          />
+        ) : (
+          <EmptyState
+            icon={Telescope}
+            title="No prospects yet"
+            description="Launch a discovery request to find corporate donors matched to your mission."
+            action={
+              <Link href="/donor-discovery/new">
+                <Button size="lg">Start Discovery</Button>
+              </Link>
+            }
+          />
+        )
       ) : (
         <Table
           columns={columns}

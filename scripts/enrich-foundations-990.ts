@@ -172,8 +172,8 @@ async function* streamIndexRows(indexUrl: string): AsyncGenerator<IndexRow> {
     if (!ein) continue;
 
     const urlIdx = headers.indexOf("url");
-    const objectIdIdx = headers.indexOf("objectid");
-    const nameIdx = headers.indexOf("organizationname");
+    const objectIdIdx = headers.indexOf("object_id");
+    const nameIdx = headers.indexOf("taxpayer_name");
 
     const objectId = objectIdIdx >= 0 ? (cols[objectIdIdx] ?? "").trim().replace(/^"|"$/g, "") : "";
     let xmlUrl = urlIdx >= 0 ? (cols[urlIdx] ?? "").trim().replace(/^"|"$/g, "") : "";

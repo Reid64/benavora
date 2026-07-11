@@ -61,7 +61,7 @@ export function MetricCard({
   return (
     <div
       className={cn(
-        "group rounded-xl border border-border border-l-4 bg-surface p-5 shadow-sm transition-shadow hover:shadow-md",
+        "group rounded-xl border border-border border-l-4 bg-surface p-5 shadow-md transition-shadow hover:shadow-lg",
         ICON_HUE_BORDER_CLASSES[hue],
         className,
       )}

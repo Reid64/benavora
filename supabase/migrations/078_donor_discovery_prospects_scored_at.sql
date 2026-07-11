@@ -1,0 +1,21 @@
+-- 078_donor_discovery_prospects_scored_at.sql — Donor Discovery Claude-rationale
+-- scoring engine (DONOR_DISCOVERY_ARCHITECTURE.md §2D). Backs
+-- src/lib/donor-discovery/scoring-engine.ts.
+--
+-- `donor_discovery_prospects.score` / `score_rationale` already exist
+-- (migration 067) and are written by the deterministic pipeline in
+-- worker/dd-request-processor.ts (scoring.ts, no AI call). This adds only
+-- `scored_at`, a timestamp neither that pipeline nor migration 067 needed —
+-- the new on-demand ScoringEngine (Claude-generated rationale, its own
+-- weight scheme) reuses the same two columns for its output but needs a
+-- staleness marker to support re-score TTL logic in the
+-- `score_donor_prospect` worker job, mirroring `donor_discovery_directory
+-- .enriched_at`'s role for re-enrichment.
+--
+-- File only — not applied to production per this task's instructions.
+
+ALTER TABLE public.donor_discovery_prospects
+  ADD COLUMN IF NOT EXISTS scored_at timestamptz;
+
+CREATE INDEX IF NOT EXISTS donor_discovery_prospects_scored_at_idx
+  ON public.donor_discovery_prospects(scored_at);

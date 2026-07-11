@@ -161,10 +161,10 @@ export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarPro
                 href={DONOR_DISCOVERY_DRILLDOWN.href}
                 onClick={onClose}
                 aria-current={isActive(DONOR_DISCOVERY_DRILLDOWN.href) ? "page" : undefined}
-                className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                className={`flex items-center gap-3 rounded-lg border-l-[3px] px-3 py-2 text-xs font-medium uppercase tracking-widest transition ${
                   isActive(DONOR_DISCOVERY_DRILLDOWN.href)
-                    ? "bg-sidebar-active text-accent"
-                    : "text-slate-400 hover:bg-white/5 hover:text-white"
+                    ? "border-l-accent bg-primary text-white"
+                    : "border-l-transparent text-slate-500 hover:bg-sidebar-hover hover:text-white"
                 }`}
               >
                 <Telescope className="h-5 w-5 shrink-0" aria-hidden />
@@ -181,21 +181,15 @@ export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarPro
                   href={hrefs[href] ?? href}
                   onClick={onClose}
                   aria-current={active ? "page" : undefined}
-                  className={`group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                  className={`group relative flex items-center gap-3 rounded-lg border-l-[3px] px-3 py-2 text-xs font-medium uppercase tracking-widest transition ${
                     active
-                      ? "bg-sidebar-active text-accent"
-                      : "text-slate-400 hover:bg-white/5 hover:text-white"
+                      ? "border-l-accent bg-primary text-white"
+                      : "border-l-transparent text-slate-500 hover:bg-sidebar-hover hover:text-white"
                   }`}
                 >
-                  {active && (
-                    <span
-                      className="absolute inset-y-1.5 left-0 w-1 rounded-full bg-accent"
-                      aria-hidden
-                    />
-                  )}
                   <Icon
                     className={`h-5 w-5 shrink-0 transition ${
-                      active ? "text-accent" : "text-slate-400 group-hover:text-white"
+                      active ? "text-white" : "text-slate-500 group-hover:text-white"
                     }`}
                     aria-hidden
                   />
@@ -247,21 +241,15 @@ export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarPro
                   href={href}
                   onClick={onClose}
                   aria-current={active ? "page" : undefined}
-                  className={`group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                  className={`group relative flex items-center gap-3 rounded-lg border-l-[3px] px-3 py-2 text-xs font-medium uppercase tracking-widest transition ${
                     active
-                      ? "bg-sidebar-active text-accent"
-                      : "text-slate-400 hover:bg-white/5 hover:text-white"
+                      ? "border-l-accent bg-primary text-white"
+                      : "border-l-transparent text-slate-500 hover:bg-sidebar-hover hover:text-white"
                   }`}
                 >
-                  {active && (
-                    <span
-                      className="absolute inset-y-1.5 left-0 w-1 rounded-full bg-accent"
-                      aria-hidden
-                    />
-                  )}
                   <Icon
                     className={`h-5 w-5 shrink-0 transition ${
-                      active ? "text-accent" : "text-slate-400 group-hover:text-white"
+                      active ? "text-white" : "text-slate-500 group-hover:text-white"
                     }`}
                     aria-hidden
                   />
@@ -282,21 +270,15 @@ export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarPro
                 href={hrefs[href] ?? href}
                 onClick={onClose}
                 aria-current={active ? "page" : undefined}
-                className={`group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                className={`group relative flex items-center gap-3 rounded-lg border-l-[3px] px-3 py-2 text-xs font-medium uppercase tracking-widest transition ${
                   active
-                    ? "bg-sidebar-active text-accent"
-                    : "text-slate-400 hover:bg-white/5 hover:text-white"
+                    ? "border-l-accent bg-primary text-white"
+                    : "border-l-transparent text-slate-500 hover:bg-sidebar-hover hover:text-white"
                 }`}
               >
-                {active && (
-                  <span
-                    className="absolute inset-y-1.5 left-0 w-1 rounded-full bg-accent"
-                    aria-hidden
-                  />
-                )}
                 <Icon
                   className={`h-5 w-5 shrink-0 transition ${
-                    active ? "text-accent" : "text-slate-400 group-hover:text-white"
+                    active ? "text-white" : "text-slate-500 group-hover:text-white"
                   }`}
                   aria-hidden
                 />

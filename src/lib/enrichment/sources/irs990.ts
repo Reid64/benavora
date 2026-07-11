@@ -264,7 +264,7 @@ export class IRS990Source {
 
     let xml: string;
     try {
-      const res = await fetch(xmlUrl);
+      const res = await fetch(xmlUrl, { signal: AbortSignal.timeout(30_000) });
       if (!res.ok) return null;
       xml = await res.text();
     } catch {

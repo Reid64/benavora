@@ -1,33 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  AlertCircle,
-  Check,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  Globe,
-  Loader2,
-  Map as MapIcon,
-  MapPin,
-  Rocket,
-  X,
-} from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Globe, Map as MapIcon, MapPin, Rocket } from "lucide-react";
 
 import { PageHeader } from "@/components/layout/PageHeader";
-import { Badge, Button, Card, EmptyState, Input } from "@/components/ui";
-import { createClient } from "@/lib/supabase/client";
+import { Badge, Button, Card, Input } from "@/components/ui";
+import { TaxonomyCombobox, type TaxonomyComboboxOption } from "@/components/donor-discovery/TaxonomyCombobox";
 import { cn } from "@/lib/utils/cn";
-
-interface TaxonomyNode {
-  id: string;
-  kind: string;
-  code: string;
-  label: string;
-  parent_id: string | null;
-}
 
 type GeographyMode = "radius" | "states" | "national";
 
@@ -35,6 +15,9 @@ interface GeocodeResult {
   lat: number;
   lng: number;
   formatted_address: string;
+  state: string | null;
+  county: string | null;
+  zip: string | null;
 }
 
 const STEPS = [
@@ -97,121 +80,13 @@ const STATE_OPTIONS: { value: string; label: string }[] = [
   { value: "WY", label: "Wyoming" },
 ];
 
-const PAGE = 1000;
-
-/** Fetches every row of the shared, no-RLS taxonomy table (paginated — the
- * NAICS branch alone is ~1,400 rows, well past PostgREST's default page cap). */
-async function fetchAllTaxonomy(): Promise<TaxonomyNode[]> {
-  const supabase = createClient();
-  const rows: TaxonomyNode[] = [];
-  let from = 0;
-  for (;;) {
-    const { data, error } = await supabase
-      .from("donor_discovery_taxonomy")
-      .select("id, kind, code, label, parent_id")
-      .order("label", { ascending: true })
-      .range(from, from + PAGE - 1);
-    if (error || !data) break;
-    rows.push(...(data as TaxonomyNode[]));
-    if (data.length < PAGE) break;
-    from += PAGE;
-  }
-  return rows;
-}
-
-function ancestryLabel(node: TaxonomyNode, byId: Map<string, TaxonomyNode>): string {
-  const path: string[] = [node.label];
-  let cur = node;
-  while (cur.parent_id) {
-    const parent = byId.get(cur.parent_id);
-    if (!parent) break;
-    path.unshift(parent.label);
-    cur = parent;
-  }
-  return path.join(" › ");
-}
-
-function TaxonomyRow({
-  node,
-  depth,
-  childrenOf,
-  expandedIds,
-  onToggleExpand,
-  selectedIds,
-  onToggleSelect,
-}: {
-  node: TaxonomyNode;
-  depth: number;
-  childrenOf: Map<string, TaxonomyNode[]>;
-  expandedIds: Set<string>;
-  onToggleExpand: (id: string) => void;
-  selectedIds: Set<string>;
-  onToggleSelect: (node: TaxonomyNode) => void;
-}) {
-  const children = (childrenOf.get(node.id) ?? []).slice().sort((a, b) => a.label.localeCompare(b.label));
-  const hasChildren = children.length > 0;
-  const isExpanded = expandedIds.has(node.id);
-  const isSelected = selectedIds.has(node.id);
-
-  return (
-    <div>
-      <div
-        className="flex items-center gap-2 rounded-md py-1.5 pr-2 hover:bg-surface-sunken"
-        style={{ paddingLeft: `${depth * 1.25 + 0.5}rem` }}
-      >
-        {hasChildren ? (
-          <button
-            type="button"
-            onClick={() => onToggleExpand(node.id)}
-            className="shrink-0 text-text-muted hover:text-text"
-            aria-label={isExpanded ? "Collapse" : "Expand"}
-          >
-            <ChevronDown className={cn("h-4 w-4 transition-transform", !isExpanded && "-rotate-90")} aria-hidden />
-          </button>
-        ) : (
-          <span className="w-4 shrink-0" aria-hidden />
-        )}
-        <input
-          type="checkbox"
-          checked={isSelected}
-          onChange={() => onToggleSelect(node)}
-          className="h-4 w-4 shrink-0 rounded border-navy-300 text-teal-500 accent-teal-500 focus:ring-teal-500"
-          aria-label={node.label}
-        />
-        <span className="truncate text-sm text-text">{node.label}</span>
-        <span className="ml-auto shrink-0 text-xs text-text-muted">{node.code}</span>
-      </div>
-      {hasChildren && isExpanded && (
-        <div>
-          {children.map((child) => (
-            <TaxonomyRow
-              key={child.id}
-              node={child}
-              depth={depth + 1}
-              childrenOf={childrenOf}
-              expandedIds={expandedIds}
-              onToggleExpand={onToggleExpand}
-              selectedIds={selectedIds}
-              onToggleSelect={onToggleSelect}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 export default function NewDonorDiscoveryPage() {
   const router = useRouter();
 
   const [step, setStep] = useState(1);
 
   // Taxonomy state
-  const [taxonomyLoading, setTaxonomyLoading] = useState(true);
-  const [nodes, setNodes] = useState<TaxonomyNode[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-  const [selectedNodes, setSelectedNodes] = useState<Map<string, TaxonomyNode>>(new Map());
+  const [selected, setSelected] = useState<TaxonomyComboboxOption[]>([]);
 
   // Geography state
   const [geoMode, setGeoMode] = useState<GeographyMode>("radius");
@@ -226,76 +101,6 @@ export default function NewDonorDiscoveryPage() {
   const [requestName, setRequestName] = useState("");
   const [launching, setLaunching] = useState(false);
   const [launchError, setLaunchError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      const rows = await fetchAllTaxonomy();
-      if (active) {
-        setNodes(rows);
-        setTaxonomyLoading(false);
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  const nodesById = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
-
-  const childrenOf = useMemo(() => {
-    const map = new Map<string, TaxonomyNode[]>();
-    for (const n of nodes) {
-      if (n.parent_id) {
-        const arr = map.get(n.parent_id) ?? [];
-        arr.push(n);
-        map.set(n.parent_id, arr);
-      }
-    }
-    return map;
-  }, [nodes]);
-
-  const naicsSectors = useMemo(
-    () =>
-      nodes
-        .filter((n) => n.kind === "naics" && n.parent_id === null)
-        .slice()
-        .sort((a, b) => a.label.localeCompare(b.label)),
-    [nodes],
-  );
-
-  const civicNodes = useMemo(
-    () => nodes.filter((n) => n.kind !== "naics").slice().sort((a, b) => a.label.localeCompare(b.label)),
-    [nodes],
-  );
-
-  const selectedIdSet = useMemo(() => new Set(selectedNodes.keys()), [selectedNodes]);
-
-  const searchResults = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) return [];
-    return nodes
-      .filter((n) => n.label.toLowerCase().includes(q) || n.code.toLowerCase().includes(q))
-      .slice(0, 200);
-  }, [nodes, searchQuery]);
-
-  function toggleExpand(id: string) {
-    setExpandedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-
-  function toggleSelect(node: TaxonomyNode) {
-    setSelectedNodes((prev) => {
-      const next = new Map(prev);
-      if (next.has(node.id)) next.delete(node.id);
-      else next.set(node.id, node);
-      return next;
-    });
-  }
 
   function toggleState(code: string) {
     setSelectedStates((prev) => {
@@ -330,6 +135,9 @@ export default function NewDonorDiscoveryPage() {
           lat: payload.lat,
           lng: payload.lng,
           formatted_address: payload.formatted_address ?? address.trim(),
+          state: payload.state ?? null,
+          county: payload.county ?? null,
+          zip: payload.zip ?? null,
         });
       }
     } catch {
@@ -338,7 +146,7 @@ export default function NewDonorDiscoveryPage() {
     setGeocoding(false);
   }
 
-  const step1Valid = selectedNodes.size > 0;
+  const step1Valid = selected.length > 0;
   const step2Valid =
     geoMode === "national" ||
     (geoMode === "radius" && geocodeResult !== null && radiusMiles > 0) ||
@@ -375,7 +183,7 @@ export default function NewDonorDiscoveryPage() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           name: requestName.trim(),
-          taxonomy_ids: Array.from(selectedNodes.keys()),
+          taxonomy_ids: selected.map((option) => option.id),
           geography: buildGeography(),
         }),
       });
@@ -432,118 +240,9 @@ export default function NewDonorDiscoveryPage() {
       {step === 1 && (
         <Card
           title="Pick industries & entity types"
-          description="Search or browse the taxonomy tree. Select any mix of NAICS industries and civic entity types."
+          description="Search for a trade, service, or material to find matching NAICS industries and civic entity types."
         >
-          {taxonomyLoading ? (
-            <div className="flex items-center justify-center py-10 text-sm text-text-muted">
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
-              Loading taxonomy…
-            </div>
-          ) : nodes.length === 0 ? (
-            <EmptyState
-              icon={AlertCircle}
-              title="Taxonomy not seeded"
-              description='Run "pnpm seed:dd-taxonomy" to populate the NAICS and civic taxonomy before launching a discovery request.'
-            />
-          ) : (
-            <div className="space-y-4">
-              <Input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search by name or NAICS code…"
-              />
-
-              <div className="max-h-96 overflow-y-auto rounded-lg border border-border">
-                {searchQuery.trim() ? (
-                  searchResults.length === 0 ? (
-                    <p className="px-4 py-6 text-center text-sm text-text-muted">
-                      No taxonomy nodes match &ldquo;{searchQuery}&rdquo;.
-                    </p>
-                  ) : (
-                    <div className="divide-y divide-border">
-                      {searchResults.map((n) => (
-                        <label
-                          key={n.id}
-                          className="flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-surface-sunken"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selectedNodes.has(n.id)}
-                            onChange={() => toggleSelect(n)}
-                            className="h-4 w-4 shrink-0 rounded border-navy-300 text-teal-500 accent-teal-500 focus:ring-teal-500"
-                          />
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate text-sm text-text">{ancestryLabel(n, nodesById)}</span>
-                          </span>
-                          <span className="shrink-0 text-xs text-text-muted">{n.code}</span>
-                        </label>
-                      ))}
-                    </div>
-                  )
-                ) : (
-                  <div className="p-2">
-                    <p className="px-2 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-widest text-text-muted">
-                      NAICS Sectors
-                    </p>
-                    {naicsSectors.map((sector) => (
-                      <TaxonomyRow
-                        key={sector.id}
-                        node={sector}
-                        depth={0}
-                        childrenOf={childrenOf}
-                        expandedIds={expandedIds}
-                        onToggleExpand={toggleExpand}
-                        selectedIds={selectedIdSet}
-                        onToggleSelect={toggleSelect}
-                      />
-                    ))}
-                    {civicNodes.length > 0 && (
-                      <>
-                        <p className="px-2 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-widest text-text-muted">
-                          Civic &amp; Association Entities
-                        </p>
-                        {civicNodes.map((n) => (
-                          <TaxonomyRow
-                            key={n.id}
-                            node={n}
-                            depth={0}
-                            childrenOf={childrenOf}
-                            expandedIds={expandedIds}
-                            onToggleExpand={toggleExpand}
-                            selectedIds={selectedIdSet}
-                            onToggleSelect={toggleSelect}
-                          />
-                        ))}
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {selectedNodes.size > 0 && (
-                <div>
-                  <p className="mb-1.5 text-xs font-medium text-text-muted">
-                    {selectedNodes.size} selected
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {Array.from(selectedNodes.values()).map((n) => (
-                      <Badge key={n.id} color="teal" className="gap-1 pr-1">
-                        {n.label}
-                        <button
-                          type="button"
-                          onClick={() => toggleSelect(n)}
-                          className="rounded-full p-0.5 hover:bg-black/10"
-                          aria-label={`Remove ${n.label}`}
-                        >
-                          <X className="h-3 w-3" aria-hidden />
-                        </button>
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+          <TaxonomyCombobox selected={selected} onChange={setSelected} />
         </Card>
       )}
 
@@ -602,10 +301,19 @@ export default function NewDonorDiscoveryPage() {
                 </div>
                 {geocodeError && <p className="text-sm text-red-600">{geocodeError}</p>}
                 {geocodeResult && (
-                  <p className="flex items-center gap-1.5 text-sm text-teal-700">
-                    <Check className="h-4 w-4" aria-hidden />
-                    Resolved: {geocodeResult.formatted_address}
-                  </p>
+                  <div className="space-y-0.5">
+                    <p className="flex items-center gap-1.5 text-sm text-teal-700">
+                      <Check className="h-4 w-4" aria-hidden />
+                      Resolved: {geocodeResult.formatted_address}
+                    </p>
+                    {(geocodeResult.county || geocodeResult.state || geocodeResult.zip) && (
+                      <p className="pl-[22px] text-xs text-navy-500">
+                        {[geocodeResult.county, geocodeResult.state, geocodeResult.zip]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </p>
+                    )}
+                  </div>
                 )}
                 <Input
                   type="number"
@@ -664,12 +372,12 @@ export default function NewDonorDiscoveryPage() {
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="rounded-lg border border-border p-4">
                 <p className="text-xs font-semibold uppercase tracking-widest text-text-muted">
-                  Taxonomy ({selectedNodes.size})
+                  Taxonomy ({selected.length})
                 </p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
-                  {Array.from(selectedNodes.values()).map((n) => (
-                    <Badge key={n.id} color="teal">
-                      {n.label}
+                  {selected.map((option) => (
+                    <Badge key={option.id} color="teal">
+                      {option.label}
                     </Badge>
                   ))}
                 </div>

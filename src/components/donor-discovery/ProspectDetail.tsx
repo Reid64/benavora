@@ -5,17 +5,19 @@ import Link from "next/link";
 import {
   Building2,
   CheckCircle,
+  CheckCircle2,
   ExternalLink,
   Landmark,
   Rocket,
   Users,
+  XCircle,
 } from "lucide-react";
 
-import { Badge, Button, Card, EmptyState, LoadingSpinner, Select } from "@/components/ui";
+import { Badge, Button, Card, EmptyState, LoadingSpinner, Select, Textarea } from "@/components/ui";
 import type { BadgeVariant } from "@/components/ui";
 import { canEdit, useProfile } from "@/lib/hooks/useProfile";
 import { createClient } from "@/lib/supabase/client";
-import { formatCurrency, formatRelative, humanizeEnum } from "@/lib/utils/formatters";
+import { formatCurrency, formatDate, formatRelative, humanizeEnum } from "@/lib/utils/formatters";
 
 type DdPipelineStage =
   | "new"
@@ -53,12 +55,15 @@ function scoreVariant(score: number | null): BadgeVariant {
   return "neutral";
 }
 
+type CompanySizeEstimate = "small" | "medium" | "large" | "enterprise";
+
 interface DonorProspectExtraction {
   has_giving_program: boolean | null;
   has_donation_form: boolean | null;
   donation_form_url: string | null;
   csr_page_url: string | null;
   giving_focus_areas: string[];
+  in_kind_history_signals: string[];
   decision_contacts: Array<{
     name: string;
     title: string;
@@ -66,6 +71,7 @@ interface DonorProspectExtraction {
     phone: string | null;
   }>;
   service_area: string | null;
+  company_size_estimate: CompanySizeEstimate | null;
 }
 
 interface DdDirectoryDetail {
@@ -87,10 +93,47 @@ interface DdProspectData {
   id: string;
   score: number | null;
   score_rationale: string | null;
+  scored_at: string | null;
   pipeline_stage: DdPipelineStage;
   notes: string | null;
+  assigned_to: string | null;
   created_at: string;
   directory: DdDirectoryDetail | null;
+}
+
+interface OrgMember {
+  id: string;
+  full_name: string | null;
+  email: string;
+}
+
+interface NoteEntry {
+  content: string;
+  author: string;
+  created_at: string;
+}
+
+/** `notes` is a single `text` column (migration 067) — the timeline is a
+ * JSON-array-of-entries serialized into that column, newest first. A
+ * pre-existing plain-text value (or an unparseable one) is shown as a
+ * single untimed entry rather than dropped. */
+function parseNotes(raw: string | null): NoteEntry[] {
+  if (!raw || !raw.trim()) return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return parsed
+        .filter((e): e is NoteEntry => Boolean(e) && typeof (e as NoteEntry).content === "string")
+        .map((e) => ({
+          content: e.content,
+          author: typeof e.author === "string" ? e.author : "",
+          created_at: typeof e.created_at === "string" ? e.created_at : "",
+        }));
+    }
+  } catch {
+    // fall through to legacy plain-text handling below
+  }
+  return [{ content: raw, author: "", created_at: "" }];
 }
 
 interface LinkedFoundation {
@@ -119,6 +162,24 @@ function BoolBadge({ value }: { value: boolean | null }) {
   return <span className="text-navy-400">Unknown</span>;
 }
 
+/** Green checkmark / gray X indicator (DONOR_DISCOVERY_ARCHITECTURE.md §4). */
+function BoolIcon({ value, label }: { value: boolean | null; label: string }) {
+  if (value === true) {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-success-text">
+        <CheckCircle2 className="h-4 w-4" aria-hidden />
+        {label}
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1.5 text-navy-400">
+      <XCircle className="h-4 w-4" aria-hidden />
+      {label}
+    </span>
+  );
+}
+
 export type ProspectDetailProps = {
   prospectId: string;
 };
@@ -141,6 +202,11 @@ export function ProspectDetail({ prospectId }: ProspectDetailProps) {
   const [queuing, setQueuing] = useState(false);
   const [queueError, setQueueError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+
+  const [members, setMembers] = useState<OrgMember[]>([]);
+  const [assigning, setAssigning] = useState(false);
+  const [noteDraft, setNoteDraft] = useState("");
+  const [addingNote, setAddingNote] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -182,14 +248,16 @@ export function ProspectDetail({ prospectId }: ProspectDetailProps) {
       setLinkedFoundation((foundationRes.data as LinkedFoundation | null) ?? null);
 
       // Best-effort: donor_discovery_prospects has no persisted link to funders,
-      // so detect a prior "Queue in AutoApply" by matching on website (falling
-      // back to an exact name match) rather than re-creating a duplicate funder.
+      // so detect a prior "Queue in AutoApply" the same way the handoff route
+      // matches funders (giving_portal_url, falling back to an exact name
+      // match) rather than re-creating a duplicate funder.
+      const formUrl = directory.enrichment?.donation_form_url ?? null;
       let funderId: string | null = null;
-      if (directory.website) {
+      if (formUrl) {
         const { data } = await supabase
           .from("funders")
           .select("id")
-          .eq("website", directory.website)
+          .eq("giving_portal_url", formUrl)
           .maybeSingle();
         funderId = data?.id ?? null;
       }
@@ -210,6 +278,17 @@ export function ProspectDetail({ prospectId }: ProspectDetailProps) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!profile?.organization_id) return;
+    const supabase = createClient();
+    void supabase
+      .from("profiles")
+      .select("id, full_name, email")
+      .then(({ data }) => setMembers((data as OrgMember[] | null) ?? []));
+  }, [profile?.organization_id]);
+
+  const noteEntries = useMemo(() => parseNotes(prospect?.notes ?? null), [prospect]);
 
   const categoryBadges = useMemo(() => {
     const directory = prospect?.directory;
@@ -246,49 +325,80 @@ export function ProspectDetail({ prospectId }: ProspectDetailProps) {
   }
 
   async function handleQueueInAutoApply() {
-    if (!prospect?.directory || !profile?.organization_id) return;
+    if (!prospect?.directory) return;
     const directory = prospect.directory;
     const enrichment = directory.enrichment;
 
     setQueuing(true);
     setQueueError(null);
     try {
-      const supabase = createClient();
-      const { data: newFunder, error: funderError } = await supabase
-        .from("funders")
-        .insert({
-          organization_id: profile.organization_id,
-          name: directory.legal_name,
-          category: "in_kind_donation",
-          website: directory.website,
-          giving_portal_url: enrichment?.donation_form_url ?? null,
-          has_giving_page: true,
-          geographic_focus: directory.hq_address,
-        })
-        .select("id")
-        .single();
-
-      if (funderError || !newFunder) {
-        setQueueError("Could not create a funder record for this prospect.");
-        return;
-      }
-
       const res = await fetch("/api/autoapply/queue", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ funder_ids: [newFunder.id] }),
+        body: JSON.stringify({
+          source: "donor_discovery",
+          prospect_id: prospect.id,
+          form_url: enrichment?.donation_form_url ?? null,
+          org_name: directory.legal_name,
+        }),
       });
-      const resPayload = (await res.json().catch(() => ({}))) as { error?: string };
-      if (!res.ok) {
+      const resPayload = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        funder_id?: string;
+      };
+      if (!res.ok || !resPayload.funder_id) {
         setQueueError(resPayload.error ?? "Could not queue this funder for AutoApply.");
         return;
       }
 
-      setQueuedFunderId(newFunder.id);
-      setToast(`Queued ${directory.legal_name} for AutoApply.`);
+      setQueuedFunderId(resPayload.funder_id);
+      setToast("Added to AutoApply queue.");
       setTimeout(() => setToast(null), 4000);
     } finally {
       setQueuing(false);
+    }
+  }
+
+  async function handleAssigneeChange(nextAssignee: string) {
+    if (!prospect) return;
+    setAssigning(true);
+    try {
+      const res = await fetch(`/api/donor-discovery/prospects/${prospect.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assigned_to: nextAssignee || null }),
+      });
+      if (res.ok) {
+        const payload = (await res.json()) as { prospect: DdProspectData };
+        setProspect(payload.prospect);
+      }
+    } finally {
+      setAssigning(false);
+    }
+  }
+
+  async function handleAddNote() {
+    if (!prospect || !noteDraft.trim()) return;
+    setAddingNote(true);
+    try {
+      const entry: NoteEntry = {
+        content: noteDraft.trim(),
+        author: profile?.email ?? "",
+        created_at: new Date().toISOString(),
+      };
+      const nextNotes = JSON.stringify([entry, ...parseNotes(prospect.notes)]);
+      const res = await fetch(`/api/donor-discovery/prospects/${prospect.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notes: nextNotes }),
+      });
+      if (res.ok) {
+        const payload = (await res.json()) as { prospect: DdProspectData };
+        setProspect(payload.prospect);
+        setNoteDraft("");
+      }
+    } finally {
+      setAddingNote(false);
     }
   }
 
@@ -309,7 +419,7 @@ export function ProspectDetail({ prospectId }: ProspectDetailProps) {
   const directory = prospect.directory;
   const enrichment = directory?.enrichment ?? null;
   const editable = canEdit(profile?.role);
-  const canQueue = editable && enrichment?.has_donation_form === true;
+  const hasDonationForm = enrichment?.has_donation_form === true;
 
   return (
     <div className="space-y-6">
@@ -355,20 +465,25 @@ export function ProspectDetail({ prospectId }: ProspectDetailProps) {
                 />
               </div>
             )}
-            {canQueue &&
-              (queuedFunderId ? (
-                <Link href={`/funders/${queuedFunderId}`}>
-                  <Button variant="secondary">
-                    <CheckCircle className="h-4 w-4" aria-hidden />
-                    Queued — view funder
-                  </Button>
-                </Link>
-              ) : (
+            {queuedFunderId ? (
+              <Link href={`/funders/${queuedFunderId}`}>
+                <Button variant="secondary">
+                  <CheckCircle className="h-4 w-4" aria-hidden />
+                  Queued — view funder
+                </Button>
+              </Link>
+            ) : hasDonationForm ? (
+              editable && (
                 <Button onClick={() => void handleQueueInAutoApply()} isLoading={queuing} disabled={queuing}>
                   <Rocket className="h-4 w-4" aria-hidden />
                   Queue in AutoApply
                 </Button>
-              ))}
+              )
+            ) : (
+              <Button variant="secondary" disabled>
+                No donation form found
+              </Button>
+            )}
           </div>
           {queueError && <p className="text-sm text-red-600">{queueError}</p>}
         </div>
@@ -410,7 +525,12 @@ export function ProspectDetail({ prospectId }: ProspectDetailProps) {
 
         <Card title="Score rationale">
           {prospect.score_rationale ? (
-            <p className="whitespace-pre-wrap text-sm text-navy-700">{prospect.score_rationale}</p>
+            <div className="rounded-lg border border-teal-200 bg-teal-50 p-4">
+              <p className="whitespace-pre-wrap text-sm text-navy-700">{prospect.score_rationale}</p>
+              <p className="mt-3 text-xs text-navy-500">
+                Scored {prospect.scored_at ? formatDate(prospect.scored_at) : "-"}
+              </p>
+            </div>
           ) : (
             <p className="text-sm text-navy-400">Not yet scored.</p>
           )}
@@ -420,13 +540,10 @@ export function ProspectDetail({ prospectId }: ProspectDetailProps) {
           {enrichment ? (
             <dl className="divide-y divide-navy-100">
               <DetailRow label="Has giving program">
-                <BoolBadge value={enrichment.has_giving_program} />
+                <BoolIcon value={enrichment.has_giving_program} label={enrichment.has_giving_program ? "Yes" : "No"} />
               </DetailRow>
               <DetailRow label="Has donation form">
-                <BoolBadge value={enrichment.has_donation_form} />
-              </DetailRow>
-              {enrichment.donation_form_url && (
-                <DetailRow label="Donation form URL">
+                {enrichment.has_donation_form && enrichment.donation_form_url ? (
                   <a
                     href={enrichment.donation_form_url}
                     target="_blank"
@@ -436,8 +553,10 @@ export function ProspectDetail({ prospectId }: ProspectDetailProps) {
                     {enrichment.donation_form_url}
                     <ExternalLink className="h-3.5 w-3.5" aria-hidden />
                   </a>
-                </DetailRow>
-              )}
+                ) : (
+                  <BoolBadge value={enrichment.has_donation_form} />
+                )}
+              </DetailRow>
               {enrichment.csr_page_url && (
                 <DetailRow label="CSR page">
                   <a
@@ -464,8 +583,26 @@ export function ProspectDetail({ prospectId }: ProspectDetailProps) {
                   <span className="text-navy-400">-</span>
                 )}
               </DetailRow>
+              <DetailRow label="In-kind history signals">
+                {enrichment.in_kind_history_signals.length > 0 ? (
+                  <ul className="list-disc space-y-1 pl-4">
+                    {enrichment.in_kind_history_signals.map((signal, i) => (
+                      <li key={i}>{signal}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <span className="text-navy-400">-</span>
+                )}
+              </DetailRow>
               <DetailRow label="Service area">
                 {enrichment.service_area ?? <span className="text-navy-400">-</span>}
+              </DetailRow>
+              <DetailRow label="Company size estimate">
+                {enrichment.company_size_estimate ? (
+                  <Badge color="gray">{humanizeEnum(enrichment.company_size_estimate)}</Badge>
+                ) : (
+                  <span className="text-navy-400">-</span>
+                )}
               </DetailRow>
             </dl>
           ) : (
@@ -502,6 +639,64 @@ export function ProspectDetail({ prospectId }: ProspectDetailProps) {
               title="No contacts extracted"
               description="Decision-maker contacts found during enrichment will appear here."
             />
+          )}
+        </Card>
+
+        <Card title="Activity timeline" className="lg:col-span-2">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="w-full sm:w-64">
+              <Select
+                label="Assigned to"
+                options={[
+                  { value: "", label: "Unassigned" },
+                  ...members.map((m) => ({ value: m.id, label: m.full_name ?? m.email })),
+                ]}
+                value={prospect.assigned_to ?? ""}
+                disabled={!editable || assigning}
+                onChange={(e) => void handleAssigneeChange(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {editable && (
+            <div className="mb-4 space-y-2">
+              <Textarea
+                label="Add a note"
+                placeholder="Log a call, email, or other update on this prospect..."
+                value={noteDraft}
+                onChange={(e) => setNoteDraft(e.target.value)}
+                rows={3}
+              />
+              <div className="flex justify-end">
+                <Button
+                  size="sm"
+                  onClick={() => void handleAddNote()}
+                  isLoading={addingNote}
+                  disabled={addingNote || !noteDraft.trim()}
+                >
+                  Add note
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {noteEntries.length > 0 ? (
+            <ul className="space-y-4 border-t border-navy-100 pt-4">
+              {noteEntries.map((entry, i) => (
+                <li key={i} className="text-sm">
+                  <p className="whitespace-pre-wrap text-navy-800">{entry.content}</p>
+                  {(entry.author || entry.created_at) && (
+                    <p className="mt-1 text-xs text-navy-500">
+                      {[entry.author, entry.created_at ? formatRelative(entry.created_at) : null]
+                        .filter(Boolean)
+                        .join(" — ")}
+                    </p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="border-t border-navy-100 pt-4 text-sm text-navy-400">No notes yet.</p>
           )}
         </Card>
 

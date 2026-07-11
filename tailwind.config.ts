@@ -6,8 +6,8 @@ import type { Config } from "tailwindcss";
  * Canonical layered palette (agrees with the CSS custom properties in
  * src/app/globals.css — both files read from the same values, never restate
  * a literal hex twice):
- *  - background #E2E8F0 / surface #FFFFFF / surface-raised #F8FAFC / surface-sunken #F1F5F9
- *  - sidebar #0B1220, sidebar-active rgba(0,180,216,0.12)
+ *  - background #EEF2F7 / surface #FFFFFF / surface-raised #F8FAFC / surface-sunken #F1F5F9
+ *  - sidebar #1A2B3C, sidebar-active rgba(0,180,216,0.12), sidebar-hover #243B55
  *  - primary #0077B6 (cta), accent #00B4D8
  *  - text #0F172A, text-muted #475569, border #E2E8F0
  *  - semantic pairs: success/warning/error/info, each a light bg tint + a
@@ -37,6 +37,7 @@ const config: Config = {
         "surface-sunken": "var(--color-surface-sunken)",
         sidebar: "var(--color-sidebar)",
         "sidebar-active": "var(--color-sidebar-active)",
+        "sidebar-hover": "var(--color-sidebar-hover)",
         primary: {
           DEFAULT: "var(--color-primary)",
           hover: "var(--color-cta-hover)",

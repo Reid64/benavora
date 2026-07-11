@@ -246,19 +246,19 @@ export default async function DashboardPage() {
               label="Applications Submitted"
               value={metricCount(submittedCount)}
               icon={Send}
-              hue="indigo"
+              hue="violet"
             />
             <MetricCard
               label="Drafts Generated"
               value={metricCount(draftsGenerated)}
               icon={FileText}
-              hue="blue"
+              hue="amber"
             />
             <MetricCard
               label="Deadlines This Week"
               value={metricCount(deadlinesThisWeek)}
               icon={CalendarClock}
-              hue="amber"
+              hue="rose"
               trend={
                 deadlinesThisWeek > 0
                   ? { direction: "neutral", label: "Next 7 days" }

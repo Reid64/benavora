@@ -7,9 +7,9 @@
 /**
  * Benavora — nonprofit grant management brand theme.
  *
- * Palette: light neutral surfaces (#F8FAFC page → #FFFFFF surface → #EFF6FF
+ * Palette: light neutral surfaces (#EEF2F7 page → #FFFFFF surface → #F8FAFC
  * elevated), deep navy-cyan primary (#0077B6), bright cyan secondary
- * (#00B4D8), deep navy sidebar (#0F172A), slate text.
+ * (#00B4D8), slate-navy sidebar (#1A2B3C), slate text.
  *
  * Strategy: CSS custom properties define the semantic tokens. Tailwind theme
  * extensions reference them. The COMPATIBILITY LAYER remaps legacy utility
@@ -23,16 +23,17 @@
 :root {
   /* Canonical layered palette — tailwind.config.ts colors MUST reference these
      same variables, never restate the literal hex, so the two files can't drift. */
-  --color-background: #e2e8f0;
+  --color-background: #eef2f7;
   --color-surface: #ffffff;
   --color-surface-raised: #f8fafc;
   --color-surface-sunken: #f1f5f9;
-  --color-sidebar: #0b1220;
+  --color-sidebar: #1a2b3c;
   --color-sidebar-active: rgba(0, 180, 216, 0.12);
+  --color-sidebar-hover: #243b55;
   --color-primary: #0077b6;
   --color-accent: #00b4d8;
   --color-text: #0f172a;
-  --color-text-muted: #475569;
+  --color-text-muted: #94a3b8;
   --color-border: #e2e8f0;
 
   /* Semantic status pairs — bg is always the light (100-level) tint, text the

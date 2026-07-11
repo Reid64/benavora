@@ -1,7 +1,585 @@
 # BENAVORA — SESSION STATE
-## Last updated: 2026-07-09
+## Last updated: 2026-07-10
 ## Current branch: main
-## Last commit: feat: dd phase 2+3, foundation enrichment pipeline, onboarding soft-gate
+## Last commit: fix: permanent Donor Discovery header nav placement (uncommitted work on top, see below)
+
+---
+
+## AUDIT — July 10 (latest session): Phase 2-4 completion audit — not marked complete
+
+Task requested writing Donor Discovery Phases 2/3/4 as "COMPLETE" in
+`DONOR_DISCOVERY_ARCHITECTURE.md` §8 and a "Night 3 Build COMPLETE" section in
+`STATE_OF_THE_BUILD.md`. Did not write either as requested — an Explore-agent audit of every
+Phase 2-4 deliverable against the actual files found three concrete production breakages
+(taxonomy search 500s because `donor_discovery_taxonomy_aliases`/migration 075 is unapplied;
+`ScoringEngine.persist()` throws because `scored_at`/migration 078 is unapplied; connector
+enrichment throws because `enrichment_private`/migration 079 is unapplied), a missing
+trade-association adapter, three new registry adapters that are built but never wired into the
+live request pipeline, and a stray duplicate `src/supabase/migrations/` directory. Full findings
+and recommended next actions written into `STATE_OF_THE_BUILD.md`'s new top entry.
+
+`pnpm tsc --noEmit` (root) was requested for this session's audit gate and could not be run —
+blocked on interactive-approval every attempt (the same intermittent issue logged repeatedly
+elsewhere in this file). Not claimed as passing. Route/page counts were taken directly from the
+filesystem instead: 91 `page.tsx` files, 184 `route.ts` files under `src/app`, 5 donor-discovery
+pages, 8 donor-discovery API routes.
+
+`queue.yaml` was overwritten with a placeholder (`queue-night4-intelligence.yaml`'s content,
+already present untracked in the repo root) per this session's explicit instruction — the real
+Phase 1 queue content it held is preserved in git history (already committed).
+
+Governance docs updated: `STATE_OF_THE_BUILD.md`, this file, `DONOR_DISCOVERY_ARCHITECTURE.md`
+§8 (phase status corrected, not marked complete), `SCHEMA_REGISTRY.md` (three Phase 2-4 tables
+registered: `donor_discovery_taxonomy_aliases`, `adapter_usage_log`, `donor_discovery_geocache`
+— all three already existed as file-only migrations 075/076/077; this only adds them to the
+registry doc). `git add -A`/commit/push were **not** run this session — flagged to Reid for
+confirmation given the mixed working tree (log/output dumps, modified agent-worktree directories)
+and the severity of the production-breakage findings above.
+
+---
+
+## COMPLETED — July 10 (latest session): Apollo + Hunter §6 BYO-key connectors + run_connector_enrichment worker job
+
+Task: read `src/app/(dashboard)/donor-discovery/connectors/page.tsx` and
+`src/lib/crypto/key-encrypt.ts` in full, then build the actual enrichment behavior behind the
+Connectors page — Apollo.io and Hunter.io connectors implementing a shared `ConnectorEnricher`
+interface, plus the worker job that runs them.
+
+- **`src/lib/donor-discovery/connectors/types.ts`** — the shared `ConnectorEnricher` interface
+  (`enrich(prospect: DirectoryRecord, apiKey: string): Promise<ConnectorEnrichment>`) and a
+  shared `isDecisionMakerTitle()` keyword filter (ceo/executive director/president/director/
+  manager/csr/development/donor/giving/philanthropy) used by both connectors.
+- **`apollo-connector.ts`**: `POST /v1/mixed_people/search`, `api_key` in the body. Domain search
+  when the directory record has a website, name search (`q_organization_name`) as fallback.
+  Sends the task's target titles (CEO/Executive Director/CSR Director/Donations Manager) as
+  Apollo's `person_titles` filter, re-filtered client-side. `confidence: null` on every contact —
+  Apollo's response carries no per-contact confidence field, unlike Hunter.
+- **`hunter-connector.ts`**: `GET /v2/domain-search?domain=&api_key=`, domain-only (throws if no
+  website on file). Keeps Hunter's real per-email confidence score. Filtered to the same shared
+  decision-maker keyword list the task specified (director/manager/president/CEO/executive/
+  development/donor/giving/CSR).
+- **`usage-log.ts`** — `logConnectorUsage()`, writes to `adapter_usage_log` keyed by
+  `adapter_name = provider`, matching the column convention the connectors API route already
+  aggregates by — so the page's "last used"/"records enriched" stats populate for real once this
+  job runs, no route change needed.
+- **`src/worker/jobs/run-connector-enrichment.ts`** — `handleRunConnectorEnrichmentJob(supabase,
+  {prospectId, connectorProvider})`: loads the prospect + its shared directory record, decrypts
+  the org's active connector key (`decryptKey` from `key-encrypt.ts`), calls the matching
+  connector, merges the result into `donor_discovery_prospects.enrichment_private` (new column,
+  keyed by provider so a Hunter run doesn't erase a prior Apollo result), logs usage.
+  `claimNextRunConnectorEnrichmentJob` scans active Apollo/Hunter connectors then each org's
+  oldest not-yet-enriched-by-that-provider prospect (`enrichment_private->>provider IS NULL`,
+  matching the existing `.is("col->>key", null)` convention from
+  `enrich-nonprofits-propublica.ts`) — same plain-scan posture as the sibling donor-discovery
+  jobs, no dedicated queue/lock column.
+- **New migration `supabase/migrations/079_donor_discovery_prospects_enrichment_private.sql`** —
+  adds `donor_discovery_prospects.enrichment_private jsonb not null default '{}'`. Already
+  RLS-protected by the table's existing org-isolation policy; deliberately distinct from the
+  shared, no-RLS `donor_discovery_directory.enrichment` — connector contact data is tenant-owned
+  per §6, never written to the shared directory row. File only, not applied to production.
+- **Wired into `worker/queue-processor.ts`**: third idle-cycle job alongside
+  `enrich_donor_prospect`/`score_donor_prospect`.
+- Gate: `pnpm run typecheck` — 0 errors. `pnpm tsc --noEmit -p worker/tsconfig.json` (required to
+  actually check the `queue-processor.ts` edit — `worker/` is excluded from the root tsconfig) —
+  0 errors.
+- **Not done:** migration 079 not applied to production; no live Apollo/Hunter key exercised
+  (nothing has actually enriched a prospect yet); `pnpm run build` / `pnpm lint` / Playwright not
+  run (only the two tsc gates were requested this pass).
+- Governance docs updated: `STATE_OF_THE_BUILD.md`, this file. `BLUEPRINT.md`,
+  `SCHEMA_REGISTRY.md`, `BEHAVIORAL_CONTRACTS.md`, `AGENTS.md`, `CLAUDE.md`, and
+  `DONOR_DISCOVERY_ARCHITECTURE.md` untouched — §6 already specified this exact connector shape;
+  this pass implements it rather than changing the design. One additive column, no new table,
+  contract, or agent-type definition.
+
+---
+
+## COMPLETED — July 10: TX TDLR + land bank directory registry adapters
+
+Task: read `DONOR_DISCOVERY_ARCHITECTURE.md` §2A in full, then build two §2A "Registry layer"
+adapters — `src/lib/donor-discovery/adapters/tx-tdlr-adapter.ts` (Texas Department of Licensing
+and Regulation licensee search, license types ELEC/PLMB/HVAC/ELEV/BLRP, active-license filter,
+NAICS mapping) and `src/lib/donor-discovery/adapters/land-bank-adapter.ts` (Center for Community
+Progress land bank directory scrape) — plus their ingest scripts and package.json entries.
+
+- **`tx-tdlr-adapter.ts`**: `GET https://www.tdlr.texas.gov/TNPWS/Lookup.aspx?SearchType=Business
+  &LicenseType=<code>` per license type, fetched via `fetchCompliant` (crawler-core.ts, not a
+  bare fetch). Parses the results table with the newly-installed `node-html-parser`, matching
+  columns by header text (business name/license number/city/zip/phone/expiration date) rather
+  than a hardcoded index. Filters to licenses whose parsed expiration date is strictly after
+  today. NAICS mapping: ELEC→238210, PLMB→238220, HVAC→238220, ELEV→238290 (all given explicitly
+  in the task); BLRP→238290 was not given explicitly — mapped to match ELEV per the real Census
+  NAICS manual, which groups elevator and boiler-house-piping installation under the same "Other
+  Building Equipment Contractors" code. Implements `RegistryAdapter` as the task required
+  (`enumerate(naicsCodes, geography, organizationId)`, resolving license types from the requested
+  NAICS codes); also exports a standalone `searchLicenseType()` for the ingest script, matching
+  `samgov-adapter.ts`'s existing standalone-function pattern.
+- **`land-bank-adapter.ts`**: single fetch of the Community Progress directory page, same
+  `node-html-parser`/header-matching approach, upserts with `civic_kind: "land_bank"` (matches
+  the existing taxonomy convention in `scripts/seed-dd-taxonomy.ts`'s civic branch) and
+  `source_adapter: "land_bank_directory"`. Not wrapped in `RegistryAdapter` — the task didn't ask
+  for that here, and there's no NAICS/geography axis to enumerate a fixed national directory
+  against; exports a standalone `fetchLandBankDirectory()` instead.
+- **Dependency**: `node-html-parser` was not already in `package.json` — installed via
+  `pnpm add node-html-parser` (task's explicit instruction), even though this codebase already
+  has `cheerio` for HTML parsing elsewhere (`website-scraper.ts`). Kept the two libraries
+  separate rather than retrofitting cheerio, per the literal task spec.
+- **New: `scripts/ingest-tx-tdlr.ts`** (`pnpm ingest:tdlr`) and **`scripts/ingest-land-banks.ts`**
+  (`pnpm ingest:landbanks`), both added to `package.json`. TDLR script sweeps all five license
+  types with non-fatal per-type failure handling (same posture as `ingest-samgov.ts`); land bank
+  script is a single call, no loop.
+- Gate: `pnpm tsc --noEmit` — 0 errors, ran clean on the first attempt (no interactive-approval
+  block this session).
+- **Not done:** neither ingest script has actually been run — `donor_discovery_directory` isn't
+  populated by either adapter yet. The TDLR and Community Progress pages' real HTML structure
+  is unverified in this session (no live fetch was made) — the header-text-matching parsers are
+  a best-effort design against undocumented public pages; if either site's actual markup uses a
+  structure the header-matching logic doesn't recognize, `searchLicenseType`/
+  `fetchLandBankDirectory` will log a "zero rows parsed" warning rather than fail loudly, per
+  BEHAVIORAL_CONTRACTS.md §18/§21's "flag for reconfiguration" posture — worth a live run to
+  confirm before relying on either adapter. `pnpm run build` / `pnpm lint` / Playwright not run
+  (only tsc was requested this pass); not manually verified in a browser (not applicable — no UI
+  change).
+- Governance docs updated: `STATE_OF_THE_BUILD.md`, this file, and `DONOR_DISCOVERY_
+  ARCHITECTURE.md` §2A (adapter cross-reference bullets) and §8 Phase 4 (status note).
+  `BLUEPRINT.md`, `SCHEMA_REGISTRY.md`, `BEHAVIORAL_CONTRACTS.md`, `AGENTS.md`, and `CLAUDE.md`
+  untouched — no schema, contract, or agent-type change.
+
+---
+
+## COMPLETED — July 10 (latest session): Donor Discovery Connectors page + connectors API
+
+Task: build `src/app/(dashboard)/donor-discovery/connectors/page.tsx` per
+`DONOR_DISCOVERY_ARCHITECTURE.md` §6 (read in full first) — the BYO-key connector management
+page — plus `GET`/`POST /api/donor-discovery/connectors` and `POST
+/api/donor-discovery/connectors/test`, using the existing `encryptKey`/`decryptKey`/`maskKey`
+from `src/lib/crypto/key-encrypt.ts`.
+
+- Found the schema already existed from a prior session: `donor_discovery_connectors`
+  (migration 067 — provider enum `apollo`/`hunter`/`zoominfo`/`clay`, later extended with
+  `google_places` in migration 076) and `adapter_usage_log` (migration 076, already written
+  to by `google-places-adapter.ts` with `adapter_name = 'google_places'`). Built the page and
+  routes against these rather than adding new tables.
+- **New `src/lib/donor-discovery/connector-providers.ts`** — the 5-provider catalog (name,
+  description, `connectable` flag) shared by the page and both routes, so "coming soon"
+  (ZoomInfo, Clay per §6's V1 list) can't be enforced in the UI but bypassed via a direct API
+  call.
+- **`GET /api/donor-discovery/connectors`** always returns one row per catalog provider
+  (not just connected ones), merging connection status with `adapter_usage_log` aggregates
+  (`last_used_at` = max `called_at`, `records_enriched` = sum `records_returned`, grouped by
+  `adapter_name` = provider key) so the UI can show "last used" / "records enriched" without
+  a second client-side query.
+- **`POST /api/donor-discovery/connectors/test`** calls each provider's real validation
+  endpoint rather than mocking a result — Apollo's `GET /api/v1/auth/health`, Hunter's
+  `GET /v2/account`, Google Places' legacy Nearby Search (whose validity signal is the JSON
+  `status` field, not the HTTP status — Places always returns 200). 8s timeout.
+- Connect modal gates Save on a successful Test (matches Behavioral Contracts §20: "Test call
+  required before saving"). Disconnect uses the same confirm-modal pattern as
+  `settings/integrations/page.tsx`'s Gmail/Calendar disconnect flow.
+- Added a "Connectors" button to the Donor Discovery Overview page header — it was otherwise
+  unreachable (no nav entry links to it; `nav-items.ts`/`Sidebar.tsx`/`Header.tsx` already had
+  uncommitted changes from other in-progress work this session, left untouched).
+- Gate: `pnpm run typecheck` — 0 errors. `npx tsc --noEmit` hit the known intermittent
+  approval block (~6 tries); `pnpm run typecheck` (same underlying `tsc --noEmit`, via the
+  project's own script) went through clean on the first try.
+- **Not done:** `pnpm run build` / `pnpm lint` / Playwright not run (only tsc was requested
+  this pass); not manually verified in a browser or against live provider keys; migrations
+  067/076 remain unapplied to production (unchanged by this pass — both tables/enum values
+  already exist per those files).
+- Governance docs updated: `STATE_OF_THE_BUILD.md`, this file. `BLUEPRINT.md`,
+  `SCHEMA_REGISTRY.md`, `BEHAVIORAL_CONTRACTS.md`, `AGENTS.md`, `CLAUDE.md`, and
+  `DONOR_DISCOVERY_ARCHITECTURE.md` untouched — no schema, contract, or agent-type change.
+
+---
+
+## COMPLETED — July 10: Prospect detail page rebuild + AutoApply handoff route
+
+Task: build `src/app/(dashboard)/donor-discovery/prospects/[id]/page.tsx` and its API route
+per `DONOR_DISCOVERY_ARCHITECTURE.md` §4/§7. Found the page, `ProspectDetail.tsx`, and
+`GET`/`PATCH /api/donor-discovery/prospects/[id]` already built by a prior uncommitted
+session — read all three in full, then filled the gaps against the task's exact spec rather
+than rebuilding:
+
+- **PATCH route extended** to accept `notes` and `assigned_to` (previously `pipeline_stage`
+  only) — any non-empty subset of the three in one request. `assigned_to` is validated as a
+  profile id belonging to the caller's own organization (not just any uuid) before the update.
+- **`ProspectDetail.tsx` enrichment display**: `has_giving_program` now renders as a green
+  `CheckCircle2`/gray `XCircle` icon (was a Yes/No badge) per spec; added
+  `in_kind_history_signals` (bulleted list) and `company_size_estimate` (badge) — both already
+  existed on `enrichment-agent.ts`'s `EnrichmentRecord` type and in the enrichment jsonb, just
+  never surfaced in the UI. Score rationale card now shows `scored_at` (migration 078's
+  column) inside a highlighted teal card.
+- **AutoApply handoff button now always renders a state**: previously the button was hidden
+  entirely when `has_donation_form` was false; now shows a disabled "No donation form found"
+  button per spec, "Queue in AutoApply" when true and editable, or "Queued — view funder"
+  once queued.
+- **Rewired the handoff itself to be server-side**, not client-side: `POST
+  /api/autoapply/queue` gained a second request shape —
+  `{ source: "donor_discovery", prospect_id, form_url, org_name }` — that creates/reuses the
+  funder record and queues it in one atomic route call, alongside the pre-existing
+  `{ funder_ids: string[] }` batch shape (still used unchanged by `funders/page.tsx` and
+  `autoapply/settings/page.tsx` — verified both call sites before touching this shared route).
+  The client component previously did the funder `insert` directly via the browser Supabase
+  client, then called the batch route with the new id; moved that logic into the route so
+  dedup-by-`giving_portal_url`/name and the queue-insert happen together, not two round trips.
+  Toast copy corrected to the spec's exact "Added to AutoApply queue."
+- **New activity timeline section**: `donor_discovery_prospects.notes` is a single `text`
+  column (migration 067), not a table — implemented the timeline as a JSON-array-of-entries
+  (`{content, author, created_at}`) serialized into that one column, newest first, rendered as
+  a list with an add-note textarea above it. A pre-existing plain-text `notes` value (or
+  anything unparseable) degrades to a single untimed entry rather than breaking. Added an
+  "Assigned to" `Select` sourced from a client-side `profiles` query (RLS already scopes it to
+  the caller's org, same pattern as the existing funder-detection query in this file).
+- Gate: `pnpm tsc --noEmit` — 0 errors, ran clean.
+- **Not done:** `pnpm run build` / `pnpm lint` / Playwright not run (only tsc was requested
+  this pass); not manually verified in a browser; migrations 067-078 remain unapplied to
+  production (unchanged by this pass — no new migration was needed, both edited tables/columns
+  already exist per those files).
+- Governance docs updated: `STATE_OF_THE_BUILD.md`, this file. `BLUEPRINT.md`,
+  `SCHEMA_REGISTRY.md`, `BEHAVIORAL_CONTRACTS.md`, `AGENTS.md`, `CLAUDE.md`, and
+  `DONOR_DISCOVERY_ARCHITECTURE.md` untouched — no schema, contract, or agent-type change.
+
+---
+
+## COMPLETED — July 10: Donor Discovery Overview page rebuild
+
+Task: rebuild `src/app/(dashboard)/donor-discovery/page.tsx` to match
+`DONOR_DISCOVERY_ARCHITECTURE.md` §4's Overview spec exactly — PageHeader with the specified
+copy, an Active Requests section of per-request cards (taxonomy labels, geography, status
+badge, progress bar, counts, time-ago), a horizontal Pipeline Funnel stat row (6 stages, each
+linking to the Prospects page's `?stage=` filter), a Top Prospects section (top 5 by score
+where `pipeline_stage=new`, 3-tier score badge, rationale excerpt, taxonomy label, Review
+link), and a Scout Report placeholder card.
+
+- Read the existing directory in full first (`new/page.tsx`, `prospects/page.tsx`,
+  `requests/route.ts`, `prospects/route.ts`, `TaxonomyCombobox.tsx`) to match established
+  conventions (Badge/Card/PageHeader/EmptyState components, `formatRelative`/`humanizeEnum`
+  formatters, `cn()`) rather than reinventing them.
+- Reused `GET /api/donor-discovery/prospects?stage=new&limit=5` for Top Prospects instead of a
+  raw Supabase query — it already sorts by score desc and joins the directory record, so no
+  new query logic was needed.
+- Taxonomy labels are resolved via two small, scoped Supabase lookups (not the ~1,400-row full
+  taxonomy preload the Prospects/New-Discovery pages use): one `.in('id', ...)` against the
+  request cards' `taxonomy_ids`, one `.in('code', ...)` against the top prospects' directory
+  `naics_codes`/`civic_kind` — each limited to only the ids/codes actually referenced by what
+  was just fetched.
+- Dropped the prior version's 3 `MetricCard` KPI tiles — not in this task's spec.
+- Gate: `pnpm tsc --noEmit` — 0 errors, ran clean on the first pass.
+- **Not done:** `pnpm run build` / `pnpm lint` / Playwright not run (only tsc was requested
+  this pass); not manually verified in a browser.
+- Governance docs updated: `STATE_OF_THE_BUILD.md`, this file. `BLUEPRINT.md`,
+  `SCHEMA_REGISTRY.md`, `BEHAVIORAL_CONTRACTS.md`, `AGENTS.md`, `CLAUDE.md`, and
+  `DONOR_DISCOVERY_ARCHITECTURE.md` untouched — pure UI rebuild against existing routes and
+  tables, no schema, contract, or agent-type change.
+
+---
+
+## COMPLETED — July 10: process_discovery_request worker job + requests API pagination
+
+Task asked to build `src/worker/jobs/process-discovery-request.ts`, wire it into
+`worker/queue-processor.ts`, and create `src/app/api/donor-discovery/requests/route.ts`
+(POST create+enqueue, GET paginated list). Found all three **already built** by a prior
+uncommitted session (git status shows them as untracked, not yet committed) — verified them
+against the task spec instead of rebuilding:
+
+- `process-discovery-request.ts` delegates to `worker/dd-request-processor.ts`'s
+  `DdRequestProcessor.processItem()`, which already runs the full enumerate → enrich
+  (concurrency 5) → link foundations → score pipeline with the exact status transitions and
+  `counts` updates the task described.
+- **Did not wire it into `queue-processor.ts`'s idle cycle** like the sibling
+  `enrich_donor_prospect`/`score_donor_prospect` jobs — verified this is deliberate, not a
+  missed step: `DdRequestProcessor` already has its own always-on poll loop (started in
+  `worker/index.ts` alongside `queueProcessor`), claiming via the `donor_discovery_claim_request`
+  RPC (migration 070, real row locking). Adding it to `queue-processor.ts`'s idle cycle too would
+  just be a second, less-frequently-polled consumer of the same queue for no functional benefit.
+- **Fixed a real gap:** the requests GET route had no pagination. Added `page`/`limit` params,
+  `range()` + `count: "exact"`, matching the existing convention in
+  `src/app/api/donor-discovery/prospects/route.ts`. Response now returns `total`/`page`/`limit`
+  alongside `requests` — backward compatible with the two existing UI callers.
+- Noted but not touched (separate decision needed from Reid): two independent, unconnected
+  Google Places registry adapters exist (`google-places.ts`, actually used by the worker, vs.
+  `google-places-adapter.ts`, cache-first/BYOK, unused) — flagged in `STATE_OF_THE_BUILD.md`.
+- Gate: `pnpm tsc --noEmit` (root) — 0 errors. `pnpm tsc --noEmit -p worker/tsconfig.json` — 0
+  errors (this is the only way to type-check `worker/*.ts`, excluded from the root tsconfig).
+  `pnpm run build` / `pnpm lint` / Playwright not run this pass.
+- Governance docs updated: `STATE_OF_THE_BUILD.md`, this file. `BLUEPRINT.md`,
+  `SCHEMA_REGISTRY.md`, `BEHAVIORAL_CONTRACTS.md`, `AGENTS.md`, `CLAUDE.md`, and
+  `DONOR_DISCOVERY_ARCHITECTURE.md` untouched — no schema, contract, or agent-type change.
+
+---
+
+## COMPLETED — July 10: Claude-rationale donor-discovery scoring engine
+
+Built `src/lib/donor-discovery/scoring-engine.ts` — a `ScoringEngine` class implementing
+DONOR_DISCOVERY_ARCHITECTURE.md §2D's scoring signals with the task-specified weights
+(has_giving_program +25, has_donation_form +20, in_kind_history_signals +15,
+foundation_linkage_found +15, geographic_match +10, company_size_match +10,
+csr_page_exists +5), and calling `claude-haiku-4-5` (`max_tokens: 300`) for a genuinely
+plain-English 2-sentence rationale (deterministic fallback if the Claude call fails).
+Distinct from — and complementary to — the existing pure `scoring.ts` used inline by
+`worker/dd-request-processor.ts`'s per-request pipeline; both write
+`donor_discovery_prospects.score` / `score_rationale`, this one also stamps `scored_at`.
+
+- Foundation linkage: existing `linked_foundation_id` short-circuits to true; otherwise an
+  EIN match against `foundation_directory.ein` (if the directory record's enrichment has
+  one) or a live `donor_discovery_match_foundations` RPC call at a 0.4 similarity floor.
+- Per-org weight overrides read from `organizations.donor_discovery_scoring_weights`
+  (migration 074) under a nested `scoring_engine` sub-key — reused rather than adding a
+  second jsonb column, no collision with `scoring.ts`'s own camelCase override keys on
+  that same column.
+- **New: `src/worker/jobs/score-donor-prospect.ts`** — claim/handle job mirroring
+  `enrich-donor-prospect.ts`, wired into `worker/queue-processor.ts`'s idle cycle
+  alongside `enrich_donor_prospect`.
+- **New migration `078_donor_discovery_prospects_scored_at.sql`** — adds
+  `donor_discovery_prospects.scored_at timestamptz` + index. File only, not applied to
+  production (consistent with 074-077).
+- **Known gap:** `RequestContext.askSizeEstimate` is always `null` — no per-request
+  ask-size column exists yet in `donor_discovery_requests`; the engine already treats
+  null as "company-size-match doesn't fire," not a guess.
+- Gate: `pnpm tsc --noEmit` — clean, 0 errors. `pnpm run build:worker` — clean, 0 errors
+  (root tsconfig excludes `worker/`, so this was needed to actually check the
+  `queue-processor.ts` edit). `pnpm run build` / `pnpm lint` / Playwright not run this pass.
+- Governance docs updated: `STATE_OF_THE_BUILD.md`, this file. `BLUEPRINT.md`,
+  `SCHEMA_REGISTRY.md`, `BEHAVIORAL_CONTRACTS.md`, `AGENTS.md`, `CLAUDE.md`, and
+  `DONOR_DISCOVERY_ARCHITECTURE.md` untouched — no new table, contract, or agent-type was
+  needed; the only schema change is one additive column.
+
+---
+
+## COMPLETED — July 10: SAM.gov registry adapter + ingest script
+
+Built `src/lib/donor-discovery/adapters/samgov-adapter.ts` (registry layer,
+DONOR_DISCOVERY_ARCHITECTURE.md §2A) against SAM.gov: `searchEntitiesByNaics(naicsCode)` (Entity
+Management API v3, `purposeOfRegistrationCode=Z2` federal-assistance-registered entities by
+NAICS) and `searchRecentAwardRecipients(daysBack=90)` (Contract Opportunities API v2 Award
+Notices, `ptype=a`, whose `awardee` block is the one place this endpoint carries recipient
+identity). Both upsert into `donor_discovery_directory` via `upsertDirectoryRecord()` with
+`source_adapters: ["samgov"]`. Rate limited to 450 req/min shared across both endpoints.
+
+- **Env var correction:** task spec said `SAM_API_KEY`; actual configured var (verified in
+  `.env.local` and every existing SAM.gov call site) is `SAM_GOV_API_KEY` — used the real one so
+  the adapter isn't dead code against an unset env var.
+- **New: `scripts/ingest-samgov.ts`** (`pnpm ingest:samgov`) — sweeps 50 curated NAICS codes
+  (construction trades, site development, professional services, food service, transportation)
+  through the entity search, then one award-recipients call. Non-fatal per-code failure handling,
+  no checkpoint needed (small bounded list, completes in under a minute).
+- Gate: `pnpm tsc --noEmit` — ran clean, 0 errors.
+- **Not done:** script not run — `donor_discovery_directory` not yet populated by it. `pnpm run
+  build` / `pnpm lint` / Playwright not run (only tsc was requested this pass).
+- Governance docs updated: `STATE_OF_THE_BUILD.md`, this file, and `DONOR_DISCOVERY_
+  ARCHITECTURE.md` §2A (new adapter cross-reference bullet). `SCHEMA_REGISTRY.md` was read in
+  full per the task's first instruction — no schema change was needed (writes through the
+  existing `donor_discovery_directory` table, no new migration). `BLUEPRINT.md`,
+  `BEHAVIORAL_CONTRACTS.md`, `AGENTS.md`, and `CLAUDE.md` are untouched for the same reason.
+
+---
+
+## COMPLETED — July 10: ProPublica financial enrichment adapter + script
+
+Built `src/lib/donor-discovery/adapters/propublica-adapter.ts` (signal layer,
+DONOR_DISCOVERY_ARCHITECTURE.md §2C) against ProPublica's free Nonprofit Explorer API v2 —
+`enrichOrganizationByEin(directoryId, ein)` fetches `/organizations/{ein}.json` and writes
+`total_revenue`/`total_expenses`/`total_assets`/`ntee_code`/`ntee_description`/`filing_year`/
+`form_type`/`pdf_url` into `donor_discovery_directory.enrichment.propublica`, stamping
+`enrichment.propublica_enriched_at`; `searchOrganizations()` wraps `/search.json` for future
+use. Rate limited to 1 req/s (contract §19).
+
+- Writes via a direct `.update()` by directory id, **not** `upsertDirectoryRecord()` — that
+  helper's RPC never overwrites an existing non-null enrichment key (migration 071), which
+  would permanently block the 90-day cache refresh this task specifically asks for. Financial
+  data lives under its own `enrichment.propublica` namespace so it can't collide with the BMF
+  ingest's top-level `ein`/`ntee_cd` keys on the same row.
+- **New: `scripts/enrich-nonprofits-propublica.ts`** (`pnpm enrich:propublica`) — batches of
+  100, `civic_kind = 'nonprofit_501c3'` AND `enrichment->>propublica_enriched_at IS NULL`,
+  paged by an `id` cursor (not offset) so a permanently-failing EIN doesn't loop the batch
+  forever within one run. Resumable via `./enrichment-output/propublica-checkpoint.json`.
+- Gate: `pnpm tsc --noEmit` — ran clean, 0 errors.
+- **Not done:** script not run — its input population (BMF-ingested `nonprofit_501c3` rows)
+  doesn't exist in the directory yet either, since `pnpm ingest:bmf` (below) hasn't been run.
+  `pnpm run build` / `pnpm lint` / Playwright not run (only tsc was requested this pass).
+- Governance docs updated: `STATE_OF_THE_BUILD.md`, this file, and `DONOR_DISCOVERY_
+  ARCHITECTURE.md` §2C (adapter cross-reference added). `BLUEPRINT.md`, `SCHEMA_REGISTRY.md`,
+  `BEHAVIORAL_CONTRACTS.md`, `AGENTS.md`, and `CLAUDE.md` are untouched — no schema, contract,
+  or agent-definition change was needed (writes through the existing `donor_discovery_directory`
+  table, no new migration).
+
+---
+
+## COMPLETED — July 10: IRS BMF full ingest script
+
+Authored `scripts/ingest-irs-bmf-full.ts` — streams all 53 IRS BMF CSV extracts (50 states +
+DC + PR + `eo_other.csv`) and writes every active (`STATUS='O'`) 501(c)(3) record into
+`donor_discovery_directory` via the existing `upsertDirectoryRecord()` helper (never a raw
+insert, per that module's own policy), in concurrency-limited 1000-row chunks.
+
+- Resumable via `./enrichment-output/bmf-checkpoint.json` (file + row + totals), same pattern
+  as the existing 990-enrichment script — required because `donor_discovery_directory` has no
+  plain EIN column to dedup a BMF-sourced row against (EIN goes into the `enrichment` jsonb).
+- Added `pnpm ingest:bmf` to package.json.
+- **Gate:** `pnpm tsc --noEmit` was requested but `scripts/` is excluded from the root
+  tsconfig entirely (true for every script in this repo, not specific to this one). Verified
+  with a throwaway tsconfig (root config, exclusion lifted, `include` narrowed to this file
+  only) run through `node node_modules/typescript/bin/tsc` directly — `pnpm`/`npx` themselves
+  were permission-blocked this session, the known intermittent gate issue. Result: 0 errors.
+  Scratch tsconfig deleted afterward, not committed.
+- **Not done:** the script has not actually been run — `donor_discovery_directory` has not
+  been populated by it. No `pnpm run build` / `pnpm lint` / Playwright this pass.
+- Governance docs updated: `STATE_OF_THE_BUILD.md` and this file only. `BLUEPRINT.md`,
+  `SCHEMA_REGISTRY.md`, `BEHAVIORAL_CONTRACTS.md`, `AGENTS.md`, and `CLAUDE.md` are untouched —
+  no schema, contract, or agent-definition change was needed for this script (it writes through
+  an already-existing table + RPC + helper module, doesn't add a new agent or table).
+
+---
+
+## COMPLETED — July 10: Google Geocoding adapter + donor_discovery_geocache
+
+Built `src/lib/donor-discovery/adapters/geocoding-adapter.ts` — resolves a plain-text address
+to `{lat, lng, formatted_address, state, county, zip}` via the Google Geocoding API
+(`maps.googleapis.com/maps/api/geocode/json`), distinct from both existing Places adapters.
+
+- Cache-first against new table `donor_discovery_geocache` (migration `077`, task asked for
+  `074` which is already taken by `074_donor_discovery_foundation_linkage_and_scoring.sql` —
+  used the next free number, same renumbering pattern as migration 076), keyed by a sha256 hash
+  of the normalized address string. No RLS — shared platform-wide cache.
+- Same platform `GOOGLE_PLACES_API_KEY` as the Places registry adapter, no BYOK path.
+- Rate limited to 10 req/s via a dedicated `DomainRateLimiter(100)` instance/bucket, kept
+  separate from `google-places-adapter.ts`'s 1 req/5s Nearby Search bucket even though both hit
+  `maps.googleapis.com`.
+- Rewired `/api/donor-discovery/geocode` to delegate to the adapter instead of its old inline
+  Places API (New) Text Search call; response now also returns `state`/`county`/`zip`.
+- Wired into the New Discovery wizard (`/donor-discovery/new`): the existing Step 2 "Geocode"
+  button flow now carries and displays `state`/`county`/`zip` as a second confirmation line.
+  Only `lat`/`lng` go into `donor_discovery_requests.geography` (unchanged `buildGeography()`).
+- Gate: `pnpm tsc --noEmit` — 0 errors, ran clean.
+- **Not done:** migration 077 not applied to prod; no tests written; `pnpm run build` /
+  `pnpm lint` / Playwright not run (only tsc was requested this pass); not manually verified in
+  a browser.
+
+---
+
+## COMPLETED — July 9: Google Places cache-first registry adapter
+
+Built `src/lib/donor-discovery/adapters/google-places-adapter.ts` — a new, standalone
+`RegistryAdapter` implementation distinct from the existing `google-places.ts` (still what
+`worker/dd-request-processor.ts` actually calls; not wired together this session).
+
+- Cache-first: checks `donor_discovery_directory` (naics overlap + geo proximity — PostGIS
+  `ST_DWithin` RPC attempted first, falls back to a bounding-box filter since no PostGIS
+  extension/RPC exists in this schema) before any Places API call; only NAICS codes with zero
+  cached coverage trigger a fresh call.
+- Uses the **legacy** Nearby Search endpoint (not Places API (New)) specifically because it
+  supports a free-text `keyword` param — built from the NAICS taxonomy label plus a
+  `donor_discovery_taxonomy_aliases` alias (migration 075).
+- Faith Foundation org (`FAITH_FOUNDATION_ORG_ID` env var, added to `.env.local`) uses the
+  platform `GOOGLE_PLACES_API_KEY` under a $100/month ceiling tracked in a new
+  `adapter_usage_log` table; over budget → cached-only results + `wasBudgetLimited()` flag.
+  Every other org must have an active BYOK connector row in `donor_discovery_connectors`
+  (provider `google_places`, added to that enum this session) or the call throws
+  `AdapterError('BYOK_REQUIRED', ...)`.
+- Reuses existing infra throughout: `crawler-core.ts`'s `DomainRateLimiter` (1 req/5s),
+  `directory.ts`'s `upsertDirectoryRecord`, `crypto/key-encrypt.ts`'s `decryptKey`.
+- **New migration `076_adapter_usage_log.sql`** (task asked for `073`, already taken by
+  `073_onboarding_progress.sql` — used the next free number) — the usage-log table plus
+  `ALTER TYPE donor_discovery_connector_provider ADD VALUE IF NOT EXISTS 'google_places'`.
+  Not yet applied to production.
+- Gate: `pnpm tsc --noEmit` — 0 errors, ran clean (no interactive-approval issue this time).
+- **Not done:** migration not applied to prod; no tests written; not wired into the worker;
+  `pnpm run build` / `pnpm lint` / Playwright not run (only tsc was requested this pass).
+
+---
+
+## COMPLETED — July 9 (newest session): New Discovery wizard TaxonomyCombobox
+
+Replaced the New Discovery wizard's step-1 taxonomy picker (full-table preload + expandable NAICS
+tree + client-side substring filter) with a single search-first combobox wired to the
+`taxonomy/search` route built (but never used by any UI) in the prior session.
+
+- **New `src/components/donor-discovery/TaxonomyCombobox.tsx`** — 300ms-debounced multi-select
+  combobox. Calls `GET /api/donor-discovery/taxonomy/search?q=`, renders a `max-h-72
+  overflow-y-auto` result list (`matched_alias` bold / `ancestry_label` muted below, falling back
+  to `label` when a result matched on label not alias), removable `Badge` chips for selections
+  above the input, "All industries" shown when nothing is selected, a "Popular categories" quick-
+  pick row (Construction Trades/Site Services/Food Services/Professional Services/Manufacturing)
+  when the input is focused and empty, full keyboard support (arrows/Enter/Escape/Backspace).
+- **`donor-discovery/new/page.tsx`** rewired to use it: `selectedNodes: Map<string, TaxonomyNode>`
+  → `selected: TaxonomyComboboxOption[]`; deleted `fetchAllTaxonomy()`, `TaxonomyNode`,
+  `TaxonomyRow`, `ancestryLabel()`, and all the tree/expand-state plumbing (now dead code since the
+  combobox owns its own search). The wizard no longer preloads the ~1,400-row taxonomy table on
+  mount. `donor-discovery/prospects/page.tsx`'s own separate, unrelated taxonomy-filter
+  implementation was left untouched (different use case — filtering an existing list, not picking
+  taxonomy for a new request).
+- **Gate — could not run `npx tsc --noEmit` this session.** The Bash/PowerShell sandbox required
+  interactive command approval that never came through across six attempts (both shells, same
+  command) — a known intermittent behavior in this environment, not new to this change.
+  Compensated with manual verification: grepped the codebase to confirm no
+  other file imports the deleted symbols from `new/page.tsx` (none do — `prospects/page.tsx` has
+  its own independent copy of those names, unrelated), and manually checked the new component
+  against `noUncheckedIndexedAccess: true` — found and fixed two real type errors that a naive
+  version would have had (`results[highlightedIndex]` and `selected[selected.length - 1]` both
+  needed explicit undefined-checks before use). **Still genuinely unverified by the compiler —
+  run `npx tsc --noEmit` before treating this as gate-clean.** `pnpm run build` / `pnpm lint` /
+  Playwright were not attempted either (only the tsc gate was in scope).
+
+---
+
+## COMPLETED — July 9 (latest session): Donor Discovery taxonomy aliases (search-by-trade-name)
+
+Built the plain-language alias layer for `donor_discovery_taxonomy` (§1A-1C) so a nonprofit
+staffer searching "septic installer" can find NAICS 562991 ("Septic Tank and Related
+Services") without knowing the official Census title.
+
+- **Migration `supabase/migrations/075_donor_discovery_taxonomy_aliases.sql`** — new table
+  `donor_discovery_taxonomy_aliases` (taxonomy_id FK -> `donor_discovery_taxonomy`, alias text,
+  alias_type check-constrained to trade_name/keyword/common_name/material), trigram GIN index
+  on `alias` (reuses `pg_trgm`, already enabled by migration 071). Not yet applied to
+  production — file only, same posture as 067-071 before this session's earlier prod sync.
+  **Deviation from the task spec:** the task asked for path `src/supabase/migrations/072_...`;
+  this repo's real migrations directory is `supabase/migrations/` (no `src/` prefix) and `072`
+  is already taken (`072_foundation_directory_990_enrichment.sql`, applied to prod along with
+  073-074 earlier today). Used `075` (next free number) at the correct path instead of
+  following the literal instruction into a collision.
+- **`scripts/seed-dd-aliases.ts`** (`pnpm seed:dd-aliases`) — batches all 6-digit NAICS nodes
+  50 at a time, asks Claude (claude-sonnet-4-6) for 3-8 structured-JSON aliases per code, skips
+  aliases already on file per taxonomy node (idempotent re-run; the table has no unique
+  index on (taxonomy_id, alias) to upsert against by design — free-text dedup doesn't fit an
+  exact-match constraint). Non-fatal per-batch failures (logs and continues) since batches are
+  independent, unlike the parent/child-dependent `seed-dd-taxonomy.ts`. Not yet run.
+- **`src/app/api/donor-discovery/taxonomy/search/route.ts`** — `GET ?q=` for the New Discovery
+  wizard's taxonomy picker. Searches aliases first, falls back to `donor_discovery_taxonomy.label`,
+  ranks exact > prefix > substring (alias tier always outranks label tier), returns top 20 with
+  a computed `ancestry_label` breadcrumb (walks `parent_id` up to sector, generic depth-capped
+  walk though real NAICS depth is 2 hops). `requireRole("viewer")` — shared taxonomy table has
+  no RLS, but the route still requires an authenticated session like every other Donor
+  Discovery route.
+- Gate: `pnpm tsc --noEmit` — 0 errors (scripts/ is tsc-excluded per finding #19 below, and
+  `seed-dd-aliases.ts` also carries `@ts-nocheck` matching every other one-off script's
+  convention).
+- **Not done this session:** migration 075 not applied to prod; `pnpm seed:dd-aliases` not
+  run (no aliases exist yet, table is empty); the search route is therefore untested against
+  real data; the New Discovery wizard UI (§4.2) that would call this route doesn't exist yet
+  (Phase 3 in the architecture doc's phasing, not yet built). `pnpm run build` / `pnpm lint`
+  / Playwright were not run for this change (only the tsc gate was requested/verified).
+
+---
+
+## COMPLETED — July 9 (later session): Donor Discovery header nav placement fix
+
+`Header.tsx`, `Sidebar.tsx`, and `nav-items.ts` already had the correct implementation
+sitting uncommitted in the working tree (done in an earlier session, never committed —
+which is why the header/sidebar placement kept "reverting"). This session verified the
+existing diff against the requested spec rather than re-writing it:
+
+- Header tab order: Dashboard · Research · Opportunities · AutoApply · Draft Generator ·
+  Donor Discovery, all `font-semibold` (600), active tab gets a solid underline indicator.
+- Donor Discovery links to `/donor-discovery`.
+- A `PERMANENT do not remove Donor Discovery from header nav` comment now sits above the
+  `TABS` array in `Header.tsx` to make future accidental removal harder.
+- Donor Discovery has no top-level sidebar entry — `nav-items.ts` exports
+  `DONOR_DISCOVERY_DRILLDOWN` (a single "Prospects" link), which `Sidebar.tsx` renders only
+  while `pathname.startsWith("/donor-discovery")`.
+- Gate: `pnpm tsc --noEmit` — 0 errors.
+- Committed only the three layout files. Two other pre-existing uncommitted files
+  (`scripts/seed-dd-taxonomy.ts`, `donor-discovery/prospects/page.tsx`) were left as-is —
+  unrelated to this fix, not part of the requested scope.
 
 ---
 
