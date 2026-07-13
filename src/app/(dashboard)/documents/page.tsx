@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { FolderOpen } from "lucide-react";
 
 import { Card, EmptyState } from "@/components/ui";
+import { PageHeader } from "@/components/layout/PageHeader";
 import {
   DocumentList,
   type ApplicationOption,
@@ -93,15 +94,11 @@ export default function DocumentsPage() {
   const showEmpty = !loading && !error && documents.length === 0;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-navy-900">
-          Documents
-        </h1>
-        <p className="mt-1 text-sm text-navy-500">
-          Upload, categorize, and attach supporting files to applications.
-        </p>
-      </div>
+    <div className="min-h-screen space-y-6 bg-[#EEF2F7] p-6">
+      <PageHeader
+        title="Documents"
+        description="Upload, categorize, and attach supporting files to applications."
+      />
 
       {error && (
         <div

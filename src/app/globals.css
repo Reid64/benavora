@@ -145,6 +145,26 @@ summary:focus-visible {
   border-radius: 4px;
 }
 
+/* ── 3D flip-card utilities (Mission Control HUD) ───────────────────────────────
+   Tailwind 3.4 has no built-in Y-axis rotation/perspective utilities, so these
+   are hand-defined. Declared in @layer utilities so Tailwind's variant engine
+   (hover:, group-hover:, etc.) still applies to them automatically. */
+@layer utilities {
+  .perspective-1000 {
+    perspective: 1000px;
+  }
+  .preserve-3d {
+    transform-style: preserve-3d;
+  }
+  .backface-hidden {
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+  .rotate-y-180 {
+    transform: rotateY(180deg);
+  }
+}
+
 /* ── Premium utilities ───────────────────────────────────────────────────────── */
 
 /* Gradient text (brand sweep) */

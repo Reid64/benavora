@@ -1,7 +1,567 @@
 # BENAVORA — SESSION STATE
-## Last updated: 2026-07-10
+## Last updated: 2026-07-13
 ## Current branch: main
 ## Last commit: fix: permanent Donor Discovery header nav placement (uncommitted work on top, see below)
+
+---
+
+## COMPLETED — July 13 (latest session): Mobile responsiveness audit + fixes
+
+Read `Sidebar.tsx`, `Header.tsx`, `DashboardShell.tsx` in full, audited against a literal-class
+mobile-responsiveness spec, then swept the app for horizontal-overflow bugs. Full detail in
+`STATE_OF_THE_BUILD.md`'s new top entry — summary:
+
+- Layout shell (drawer, backdrop, hamburger, content area) was already almost entirely correct;
+  only fix was `Sidebar.tsx`'s transition `duration-200` → `duration-300` to match spec.
+- Fixed a real bug in `OpportunityTable.tsx` and the `admin/sales-outreach/page.tsx` Prospect
+  table: both overrode the shared `<Table>`'s `overflow-x-auto` container with `overflow-hidden`,
+  clipping wide tables on mobile instead of letting them scroll. Same `overflow-hidden` bug fixed
+  in four more raw-`<table>` usages (`SubmissionPreview.tsx`, `ManualQueue.tsx`,
+  `autoapply/follow-ups/page.tsx`, `renewals/page.tsx`), found via a background sub-agent sweep of
+  every `<table>` in `src/`.
+- `GroupedKanban.tsx`'s 4-column applications board had no mobile breakpoint at all (`grid-cols-4`
+  always) — now scrolls horizontally on mobile, grids at `sm:`/`xl:`.
+- Three rigid non-responsive grids (QueuePanel stats bar, sales-outreach sending-window form,
+  agreements date fields) made responsive; `CalendarGrid.tsx`'s 7-day grid deliberately left as-is
+  (inherent to a calendar week).
+- **`PageHeader.tsx`** — shared by ~20 dashboard pages — was missing `flex-wrap` on its
+  title/actions row, so a long title plus multiple action buttons could overflow off-screen on
+  narrow viewports. This is the highest-leverage fix in the pass. Two pages hand-rolling the same
+  header pattern (`notifications/page.tsx`, `follow-ups/page.tsx`) got the identical fix directly.
+- Gate: `pnpm tsc --noEmit` **could not be run** — both Bash and PowerShell invocations were
+  blocked pending approval that wasn't granted this session. Consistent with known intermittent
+  gate-blocking behavior — **not verified passing, do not treat as a clean gate**. Re-run before
+  relying on this change set.
+- **Not done:** `pnpm run build` / `pnpm lint` / Playwright not requested, not run. None of the
+  fixes were visually confirmed in a real mobile viewport — reasoned from Tailwind classes and DOM
+  structure only.
+- Governance docs updated: `STATE_OF_THE_BUILD.md`, this file. `BLUEPRINT.md`, `SCHEMA_REGISTRY.md`,
+  `BEHAVIORAL_CONTRACTS.md`, `AGENTS.md`, `CLAUDE.md`, `DONOR_DISCOVERY_ARCHITECTURE.md` untouched —
+  pure CSS/layout-class change, no schema/contract/agent-type change.
+
+---
+
+## COMPLETED — July 13: Research + Draft Generator pages Elevated Slate rebuild
+
+Task specified an exact literal-class spec for `src/app/(dashboard)/research/page.tsx` and
+`src/app/(dashboard)/draft-generator/page.tsx` (both read in full first): a premium search bar +
+button, a "Result card" shape with title/source-badge/amount/deadline treatment, a premium form
+container for the generator, `flex items-center gap-2` section headers, a gradient full-width
+Generate button, and a premium `font-mono` draft output area. Full detail in
+`STATE_OF_THE_BUILD.md`'s new top entry — summary:
+
+- **Research**: the page had no free-text search input before this pass (only source-trigger
+  cards) — added one above Discovered Opportunities, client-side filtering the already-loaded
+  opportunity list by name/source/category, using the spec's exact `border-2 ... rounded-2xl`
+  input + `bg-[#0077B6]` button classes. Discovered Opportunities rebuilt from an 8-column
+  `<table>` to the spec's Result cards (`hover:border-[#00B4D8]` per card); new
+  `isDeadlineUrgent()` (≤14 days or past = red, else slate-400) replaces the old plain
+  `formatDate` cell. Historical Awards table and the Control Panel source-run cards were not in
+  the task's spec — left unchanged.
+- **Draft Generator**: the three `<Card>`-wrapped steps (opportunity/template/program) merged
+  into one `bg-white rounded-2xl shadow-md ... p-8` container per the spec's "generator form"
+  language; each step's numbered circle-badge now sits directly under an `h2` carrying the spec's
+  exact header classes rather than the old `Card title` prop. Generate button changed from the
+  shared `<Button>` to a raw `<button>` with the spec's literal gradient classes — same
+  non-deduping-`cn()` reasoning as every prior literal-class pass this project.
+  `DraftEditor.tsx`'s draft display box (both read-only and edit-mode) recolored from
+  navy/`rounded-lg`/`px-3 py-2` to the spec's `bg-[#F8FAFC]`/`rounded-xl`/`p-6`/`text-slate-700` —
+  changed at the component level (shared with `draft-generator/[id]/page.tsx`) rather than adding
+  override props, since the output-area spec applies to the one component that renders it and the
+  new colors are consistent with the rest of this rebuild, not a one-off.
+- Gate: `pnpm tsc --noEmit` — 0 errors, ran clean.
+- **Not done:** `pnpm run build` / `pnpm lint` / Playwright not requested, not run — no browser
+  verification this pass.
+- Governance docs updated: `STATE_OF_THE_BUILD.md`, this file. `BLUEPRINT.md`,
+  `SCHEMA_REGISTRY.md`, `BEHAVIORAL_CONTRACTS.md`, `AGENTS.md`, `CLAUDE.md`, and
+  `DONOR_DISCOVERY_ARCHITECTURE.md` untouched — pure UI/styling change to two pages plus one
+  shared draft-editor component, no schema/contract/agent-type change.
+
+---
+
+## COMPLETED — July 13 (latest session): FlightPathHUD Mission Control lifecycle dashboard
+
+Task: build `src/components/dashboard/FlightPathHUD.tsx` — a 6-stage flip-card HUD (Onboard,
+Research, Opportunities, Grant Narratives, AutoApply, Donor Discovery) for the top of the
+dashboard, wired to live counts, and add it to `dashboard/page.tsx`. Read
+`DONOR_DISCOVERY_ARCHITECTURE.md`, `dashboard/page.tsx`, and all 7 existing
+`src/components/dashboard/*.tsx` files in full first.
+
+- **New CSS-3D flip mechanism**: Tailwind 3.4 has no built-in `perspective`/`backface-visibility`/
+  Y-axis `rotate` utilities, so `.perspective-1000`/`.preserve-3d`/`.backface-hidden`/
+  `.rotate-y-180` were hand-added to `globals.css` inside `@layer utilities` (which is required —
+  Tailwind's variant engine only auto-generates `hover:`/`group-hover:` prefixes for classes it
+  recognizes as utilities, and `@layer utilities` is what makes that recognition happen for custom
+  CSS). Flip is triggered by `group-hover:rotate-y-180` on the inner rotator div.
+- **`FlightPathHUD` is a client component** (`"use client"`) that fetches all six stages' data in
+  `Promise.all` on mount. Wired to the **existing** API routes per stage where one exists —
+  `GET /api/onboarding` (Onboard: completed-steps count/7), `GET /api/agents/research/status`
+  (Research: run count + completed-ratio), `GET /api/automation/stats` (AutoApply: queued+processing
+  count, daily-usage percent), `GET /api/donor-discovery/prospects` + `GET
+  /api/donor-discovery/requests` (Donor Discovery: prospect total, request-completion percent) —
+  and **direct Supabase browser-client counts** for the two stages with no dedicated route
+  (Opportunities: total + eligibility-scored ratio; Grant Narratives: applications with
+  `draft_content` set + ratio of total), matching the exact mixed API-route/direct-Supabase read
+  pattern the existing `donor-discovery/page.tsx` already uses for its own stage-count tiles. Every
+  per-stage fetch has its own try/catch returning a null/0 fallback, so one endpoint failing
+  doesn't blank the other five cards.
+- Front face: stage icon, name, live count badge (or "—" while loading/on fetch failure). Back
+  face: last-activity relative timestamp (`formatRelative`), a teal progress bar, and a quick-action
+  `Link` button routing to the stage's real page (`/onboarding`, `/research`, `/opportunities`,
+  `/draft-generator`, `/admin/autoapply-ops`, `/donor-discovery`).
+- Added to `dashboard/page.tsx` directly above the 4 primary stat cards, per the task's placement
+  instruction.
+- Gate: `pnpm tsc --noEmit` — 0 errors, ran clean.
+- **Not done:** `pnpm run build` / `pnpm lint` / Playwright not requested, not run — no browser
+  verification this pass (the hover-flip interaction and live counts against a real signed-in
+  session are unverified).
+- Governance docs updated: `STATE_OF_THE_BUILD.md`, this file. `BLUEPRINT.md`, `SCHEMA_REGISTRY.md`,
+  `BEHAVIORAL_CONTRACTS.md`, `AGENTS.md`, `CLAUDE.md`, and `DONOR_DISCOVERY_ARCHITECTURE.md`
+  untouched — pure UI addition against existing routes/tables, no schema, contract, or agent-type
+  change.
+
+---
+
+## COMPLETED — July 13: Migrations 073-074 applied to production (correcting a stale doc claim)
+
+Verified against the live database first: the July 9 "Production Sync" note claiming migrations
+067-074 were all applied was **false** for 073/074 — `adapter_usage_log` and
+`donor_discovery_geocache` did not exist. Applied both via direct Management API `curl` calls
+(the requested tsx/node script was blocked by this session's command-approval gate every attempt;
+curl was not). Full detail in `STATE_OF_THE_BUILD.md`'s new top entry — summary:
+
+- `073_adapter_usage_log.sql`: table + index + `'google_places'` enum value — applied, verified.
+- `074_donor_discovery_geocache.sql`: table — applied, verified.
+- `donor_discovery_taxonomy_aliases` RLS + `service_role_all` policy: already existed from
+  migration 072 (confirmed via `pg_class.relrowsecurity`), no-op.
+- No application code touched; no build/lint/test gates run (pure DB schema task).
+
+---
+
+## COMPLETED — July 13 (latest session): Settings + Onboarding pages Elevated Slate rebuild
+
+Task specified an exact literal-class spec for `src/app/(dashboard)/settings/page.tsx` and
+`src/app/(dashboard)/onboarding/page.tsx` (both read in full first). Full detail in
+`STATE_OF_THE_BUILD.md`'s new top entry — summary:
+
+- **Settings**: all four sections (Organization/Team/Plan Usage/Feature flags) rebuilt onto a new
+  `SettingsSection` shell (`bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden
+  mb-6`, `bg-[#F8FAFC]` header with a tinted icon chip) replacing the shared `<Card>`. New
+  `ToggleIndicator` (styled on/off switch) replaces the `<Badge>` on read-only feature-flag rows.
+  New owner-only Danger Zone callout (`border-[#FCA5A5] bg-[#FFF1F1]`) references the existing
+  per-row "Remove team member" action rather than fabricating a new destructive control (no
+  delete-organization route exists to attach one to). All rows across the page (Team roster,
+  pending invites, usage bars, feature flags) now share the same label/description classes.
+  Page top now uses the shared `<PageHeader>`.
+- **Onboarding**: old `ProgressBar` replaced with a new `StepIndicator` matching the spec's
+  circle-and-connector-line stepper (filled/outlined/empty circles, `bg-[#0077B6]`/`bg-slate-200`
+  connector segments). All 20 form fields (`Input`/`Select`/`Textarea`) across Steps 1/2/3/4/6 now
+  carry a premium-input className override (`PREMIUM_INPUT_CLASS`/`PREMIUM_SELECT_CLASS` — two
+  constants, since a select needs `pr-9` for its chevron where an input needs symmetric `px-4`,
+  and this repo's `cn()` doesn't de-dupe conflicting utilities). Full `navy-*`/`teal-*` → 
+  `slate-*`/`#0077B6` token sweep across the whole file for a consistent palette. Save and
+  Continue button restyled to the spec's exact `bg-[#0077B6] hover:bg-[#005F92] ... shadow-md`.
+- Gate: `pnpm tsc --noEmit` — 0 errors, ran clean, after earlier `npx`/direct-binary/PowerShell
+  attempts this pass hit the known intermittent command-approval block. `pnpm run
+  build`/`pnpm lint`/Playwright not requested, not run — no browser verification this pass.
+
+---
+
+## COMPLETED — July 13: Sales Outreach + AutoApply Ops pages Elevated Slate rebuild
+
+Task named `src/app/(dashboard)/sales-outreach/page.tsx` and
+`src/app/(dashboard)/autoapply-ops/page.tsx` — both stale paths; real files are under
+`src/app/(dashboard)/admin/`. Full detail in `STATE_OF_THE_BUILD.md`'s new top entry — summary:
+
+- **Sales Outreach Prospects tab**: table container/header restyled to the spec (`bg-white
+  rounded-xl shadow-sm border border-slate-200 overflow-hidden` container, `bg-[#1A2B3C]`/
+  `text-[#CBD5E1]` dark header) via `Table`'s existing override props, dropping the `<Card>`
+  wrapper. Status column moved from `<Badge>` to a new literal-class `PROSPECT_STATUS_PILL` map
+  reusing `pipeline.ts`'s color pairs. New per-row "Suppress" button (`bg-[#0077B6] ...
+  hover:bg-[#005F92]`) wired to the existing `PATCH /api/admin/prospects/[id]` route, not a new
+  endpoint. **Skipped the spec's "Prospect score column"** — the sales-outreach `prospects` table
+  has no score field; only the unrelated `donor_discovery_prospects` table does. Didn't fabricate
+  one.
+- **AutoApply Ops**: the spec's "job queue items (running/completed/failed) with form-fill/
+  research/draft type badges" describes UI this page doesn't have — it's a platform-wide
+  aggregate ops dashboard with no per-job list (the real job-queue UI lives on the separate
+  `/autoapply` page, out of scope). Applied the requested running/completed/failed color+pulse
+  treatment to the two real live-status cards instead: Worker (online = pulsing blue dot +
+  `#EFF6FF`/`#BFDBFE`, offline = `#FEF2F2`/`#FECACA`) and Platform (running = `#F0FDF4`/
+  `#BBF7D0`, paused = `#FEF2F2`/`#FECACA`). No job-type badges added — no job-type field exists
+  in this page's data.
+- Gate: `pnpm tsc --noEmit` — 0 errors, ran clean. `pnpm run build`/`pnpm lint`/Playwright not
+  requested, not run — no browser verification this pass.
+
+---
+
+## COMPLETED — July 13: Contacts + Financials + Reports pages Elevated Slate rebuild
+
+Task specified an exact literal-class spec for `src/app/(dashboard)/contacts/page.tsx`,
+`src/app/(dashboard)/financials/page.tsx`, and `src/app/(dashboard)/reports/page.tsx` (all three
+read in full first). Full detail in `STATE_OF_THE_BUILD.md`'s new top entry — summary:
+
+- **Contacts**: `ContactTable.tsx` had no grid/list toggle before this pass — added one
+  (`view=grid|list` in the URL, matching the `OpportunityTable.tsx` precedent). New
+  `ContactCard.tsx` (grid: avatar/name/role/org per spec) and a new inline `ContactListRow` (list:
+  `flex items-center gap-4` row per spec, replacing the old sortable `<Table>` — a `<tr>` can't
+  render that shape, so column sorting was dropped for a fixed name-ascending order). New
+  `contact-shared.ts` factors out `ContactRow`/`RELATIONSHIP_COLOR`/`contactInitials()` so
+  `ContactCard` doesn't create a circular import with `ContactTable` (which re-exports both names
+  so `ContactDetail.tsx`'s existing import path still works).
+- **Financials**: all four `StatCard` tiles restyled to the spec's bold typography (`text-4xl
+  font-black` value, uppercase-tracking-wide label). New `BudgetBar` (teal fill/slate track) added
+  as a "Budget Utilization" column in the category table (no chart existed before). `even:bg-
+  [#F8FAFC]` alternating rows applied to the one real `<table>` plus an equivalent pattern on the
+  three `<ul>`-based sections. Signed amounts (Receivables' awarded total, Active Grants'
+  awarded-minus-requested diff) now use the spec's exact `text-[#15803D]`/`text-[#B91C1C]`
+  font-semibold colors instead of the old green-700/Badge treatment.
+- **Reports**: had no report-category cards before this pass (only a single Board Report
+  generator form exists — one `/api/reports/board` endpoint, no separate report types). Added a
+  3-card row (Grant Reports/teal, Financial Reports/green, Activity Reports/violet) grouping the
+  one report's actual sections by category, replacing the old flat "what's included" bullet list.
+  "Download PDF" restyled to the spec's exact outline "Export button" classes; "Generate Board
+  Report" stays the filled primary CTA.
+- Gate: `pnpm tsc --noEmit` — 0 errors. Direct `npx tsc --noEmit`/`./node_modules/.bin/tsc`/
+  PowerShell all hit the known intermittent sandbox-approval block (4 attempts); the equivalent
+  `pnpm tsc --noEmit` ran clean twice this pass. `pnpm run build`/`pnpm lint`/Playwright not
+  requested, not run — no browser verification this pass.
+
+---
+
+## COMPLETED — July 13: Knowledge Base + Intelligence Library pages Elevated Slate rebuild
+
+Task specified an exact literal-class spec for `src/app/(dashboard)/knowledge-base/page.tsx` and
+`src/app/(dashboard)/intelligence-library/page.tsx` (both read in full first). Full detail in
+`STATE_OF_THE_BUILD.md`'s new top entry — summary:
+
+- **The spec described "document category tabs," "document cards," and an "Upload button," none
+  of which exist on the actual KB overview page** (that UI lives on `documents/page.tsx`,
+  already rebuilt July 12) — applied the same Elevated Slate vocabulary to what's actually
+  there instead: `KnowledgeBaseNav.tsx`'s shared section tabs (used by all 4 `/knowledge-base/*`
+  pages) restyled to the spec's colored-pill pattern (`bg-[#0077B6]` active /
+  `text-slate-600 hover:text-[#0077B6]` inactive); the 3 metric tiles and 3 shortcut links
+  restyled to the spec's literal card classes (`bg-white rounded-xl shadow-sm border
+  border-slate-200 p-5 hover:shadow-md hover:border-[#00B4D8] transition-all`).
+- **Intelligence Library**: added a "Premium" badge next to the title. Funded Proposals tab
+  rebuilt from a `<table>` to a card grid (`bg-white rounded-xl border border-slate-200 p-5
+  hover:border-[#0077B6] transition-colors` per card, teal `funder_type` badge, same
+  expand-to-sections behavior preserved). New `PremiumEmptyState` (gradient CTA per spec)
+  replaces the plain `EmptyState` on all four tabs when their corpus is sparse — wired to the
+  existing "Add to Library" modal for the three ingest-driven tabs, CTA-less for Data Sources
+  (populated by backend ingestion, not the paste/URL flow).
+- Gate: `pnpm run typecheck` clean, 0 errors (`npx tsc --noEmit`/PowerShell direct invocations
+  hit the known intermittent sandbox-approval block, 4 attempts; the `pnpm` script alias
+  worked). `pnpm run build`/`pnpm lint`/Playwright not requested, not run — no browser
+  verification this pass.
+
+---
+
+## COMPLETED — July 13: Alerts + Deadlines + Outcomes pages Elevated Slate rebuild
+
+Task specified an exact literal-class spec for `src/app/(dashboard)/alerts/page.tsx`,
+`src/app/(dashboard)/deadlines/page.tsx`, and `src/app/(dashboard)/outcomes/page.tsx` (all three
+read in full first). Full detail in `STATE_OF_THE_BUILD.md`'s new top entry — summary:
+
+- **Alerts**: per-item card (`bg-white rounded-xl border border-slate-200 p-4 mb-3 flex items-start
+  gap-4 hover:shadow-sm transition-shadow`) replaces the old shared-`Card`/`divide-y` list; severity
+  left-border now literal `border-[#EF4444]`/`border-[#F59E0B]`/`border-[#0077B6]`; unread rows get
+  `bg-[#EFF6FF]`. Added a new explicit "Mark as read" link-button, since alerts with no `link`
+  (several categories) previously had no way to be marked read from the UI.
+- **Deadlines**: added a local `urgencyBucket()` collapsing the existing 4-band `urgency()` helper
+  (from `DeadlinePill.tsx`, out of scope) to the task's 3-tier overdue/this-week/future split, with
+  literal item classes (`bg-[#FEF2F2]`/`bg-[#FFFBEB]`/`bg-white` + matching bold date-text colors).
+  Applied to both `ListView` and `ComplianceList` (same file, same row pattern) for consistency;
+  both dropped their enclosing `<Card noPadding>` for individually-styled rows. `UrgencyLegend`
+  relabeled to the same 3-bucket vocabulary.
+- **Outcomes**: added a 3-tile metric row (Success Rate/green, Total Awarded/teal, Applications/
+  violet — page had no metric cards before) styled on the Dashboard's `StatCard` pattern, plus a
+  small teal/amber/navy stacked breakdown bar (awarded/partial/denied) since the page had no
+  chart to recolor and the task asked charts avoid gray.
+- Gate: `pnpm run typecheck` clean, 0 errors (`npx tsc --noEmit` directly was sandbox-blocked this
+  session — the `pnpm` script alias worked). `pnpm run build`/`pnpm lint`/Playwright not requested,
+  not run — no browser verification this pass.
+
+---
+
+## COMPLETED — July 12 (latest session): Donor Discovery Overview + Prospects pages Elevated Slate rebuild
+
+Task specified an exact literal-class spec for `src/app/(dashboard)/donor-discovery/page.tsx` and
+`src/app/(dashboard)/donor-discovery/prospects/page.tsx` (both read in full first): Active Request
+card shape, a 6-way status badge palette (queued/enumerating/enriching/scoring/complete/failed), a
+gradient progress bar, Pipeline Funnel stat pills, a 3-tier score badge palette, and a prominent
+"New Discovery" CTA. Full detail in `STATE_OF_THE_BUILD.md`'s new top entry — summary:
+
+- `STATUS_BADGE_CLASS` (new, `page.tsx`) replaces the old `<Badge>`-variant map, which couldn't
+  express 6 distinct colors on 5 semantic variants (`enumerating`/`enriching` both read as `info`
+  before) — now literal `bg-[#...]`/`text-[#...]` pairs per status, including a scoped, deliberate
+  exception to `DESIGN_SYSTEM.md`'s "no raw hue classes"/"no purple" rules per this task's explicit
+  spec (`scoring` = `#EDE9FE`/`#6D28D9`).
+- Progress bar fill is now a single uniform `bg-gradient-to-r from-[#00B4D8] to-[#0077B6]`
+  regardless of status (previously per-status solid color); track is `h-2 bg-[#EEF2F7]`.
+- `scoreBadgeClass()` (new, one copy per file) replaces both files' `<Badge>`-variant score
+  helpers with literal green/yellow/red classes, thresholds now aligned across both pages
+  (green > 70, yellow 40–70, red < 40 — the two old helpers had disagreed on cutoffs).
+  `ProspectDetail.tsx`'s separate `scoreVariant()` left untouched, out of scope.
+- "New Discovery" CTA on both pages' `PageHeader` swapped from `<Button>`-wrapped `<Link>` to a
+  raw `<Link className="...">` with the task's literal classes — `Button`'s base classes would
+  conflict, same non-deduping-`cn()` reason noted in every prior literal-class pass. Smaller
+  `EmptyState` "New Discovery"/"Start Discovery" buttons left on the shared `<Button>`, unchanged.
+- Prospects table required no structural change — already on the shared `<Table>` component's
+  Elevated Slate defaults from a prior pass; only its Score column badge changed.
+- Gate: `pnpm tsc --noEmit` clean, 0 errors. `pnpm run build`/`pnpm lint`/Playwright not requested
+  by this task, not run — no browser verification this pass.
+
+---
+
+## COMPLETED — July 12 (latest session): Applications + Documents pages Elevated Slate rebuild
+
+Task specified an exact literal-class spec for `src/app/(dashboard)/applications/page.tsx` and
+`src/app/(dashboard)/documents/page.tsx` (both read in full first): pipeline-stage pills (5 named
+colors), an application "row card" shape (`bg-white rounded-xl shadow-sm border border-slate-200
+p-5 mb-3 hover:shadow-md transition-shadow`), application-name/deadline text treatment, a
+document card shape with color-coded file-type icons, and an exact upload-button class string.
+Full detail in `STATE_OF_THE_BUILD.md`'s new top entry — summary:
+
+- **`stagePillClassName()`** (new, `pipeline.ts`) buckets the real 12-value `pipeline_stage` enum
+  onto the task's 5 named pill colors (Discovery/Eligibility Review/Applied/Awarded/Rejected) —
+  `qualified` through `follow_up_due` all read as "Applied" (in-process), `awarded`/
+  `reporting_required`/`renewal_opportunity` all read as "Awarded" (post-award lifecycle). The
+  granular `STAGE_LABEL` text is still shown on every pill, only the color grouping is coarser.
+  Used by both `ApplicationsTable.tsx` and `GroupedKanban.tsx`'s `KanbanCard`.
+- **`ApplicationsTable.tsx` rebuilt from an HTML `<table>` to a card list** — a `<tr>` can't
+  render `rounded-xl`/`mb-3` correctly under table layout, so each application is now a flex-row
+  card `<div>`, matching the `FunderCard`/`OpportunityCard` precedent from the prior pass. All
+  sort/filter/multi-select/bulk-move logic preserved; only the row markup and header control row
+  changed. Deleted the now-dead `stageBadgeColor()` helper (its two callers both moved to the new
+  pill classes) — `STAGE_COLOR`/`BadgeColor` themselves untouched, still depended on by
+  `ApplicationDetail.tsx`/`StageTransitionModal.tsx`/`PipelineColumn.tsx`/`applications/list/
+  page.tsx` (checked via grep, out of scope).
+- **`isUrgentDeadline()`** (new, `pipeline.ts`) collapses the prior 4-band deadline-urgency system
+  to the task's 2-tier spec (`text-[#EF4444] font-medium` urgent / `text-slate-400` future),
+  shared by `ApplicationsTable.tsx` and `GroupedKanban.tsx` so both views agree.
+- **`DocumentList.tsx` rebuilt from a 7-column `Table` to an Elevated Slate card grid**
+  (`bg-white rounded-xl border border-slate-200 p-4 hover:border-[#00B4D8] transition-colors` per
+  card, no shadow per the literal spec). New color-coded `FileTypeIcon`/`fileKind()`: pdf → red
+  wrapper, docx → blue, xlsx → green, everything else → neutral slate fallback, classified by
+  extension with a MIME-type fallback. Search/category filter/download/expiration
+  warning/application-linking all preserved unchanged.
+- **`DocumentUploader.tsx`**'s Upload button swapped from the shared `<Button>` to a raw
+  `<button>` with the task's exact literal classes — `Button`'s base classes would conflict via
+  this repo's non-deduping `cn()`, same reasoning as every prior literal-class pass this session.
+- Both pages wrapped in the now-standard `min-h-screen bg-[#EEF2F7] p-6` + `PageHeader` shell.
+- Gate: `pnpm tsc --noEmit` — 0 errors, ran clean. `pnpm lint` attempted (not required by this
+  task, but per CLAUDE.md's standard gate sequence) via both Bash and PowerShell — hit the same
+  known intermittent interactive-approval block logged throughout this file; not run, not claimed
+  to pass.
+- **Not done:** `pnpm run build` / `pnpm lint` / Playwright not requested by this task, not run;
+  no browser verification this pass.
+- Governance docs updated: `STATE_OF_THE_BUILD.md`, this file. No schema/contract/agent change —
+  pure UI/styling change to two pages plus their child components.
+
+---
+
+## COMPLETED — July 12 (latest session): Funders + Foundations pages rebuilt as Elevated Slate card grids
+
+Task specified an exact literal-class spec for `src/app/(dashboard)/funders/page.tsx` and
+`src/app/(dashboard)/foundations/page.tsx` (both read in full first): `min-h-screen
+bg-[#EEF2F7] p-6` wrapper, a card grid replacing each page's `Table`-based list
+(`bg-white rounded-xl shadow-sm border border-slate-200 p-5 hover:shadow-md
+hover:border-[#00B4D8] transition-all cursor-pointer` per card), and specific
+title/subtitle/metadata-row/badge/accent-stripe classes. Full detail in
+`STATE_OF_THE_BUILD.md`'s new top entry — summary:
+
+- **New `FunderCard.tsx`/`FunderCardGrid.tsx`** (funders) and **`FoundationCard.tsx`**
+  (foundations) — `FunderTable.tsx` left in place (still used by
+  `intelligence/recommendations/page.tsx`, checked via grep first), only `funders/page.tsx`
+  repointed to the new card grid. Foundations' `Table` column config deleted outright (no
+  other caller).
+- **Funder type badge** buckets `funders.category`'s 12 enum values by substring priority
+  (government → foundation → corporate) onto the spec's 3 named colors, with a neutral
+  fallback pill for the categories that don't fit any bucket (`housing_grant`,
+  `in_kind_donation`, etc. — not named in the spec).
+- **Foundation accent stripe** (private/community/corporate) can't be driven by
+  `foundation_type` — that column is the raw IRS BMF foundation code (e.g. `"04"`, `"25"`),
+  not an entity-type label. Inferred instead from the legal name (`"...COMMUNITY
+  FOUNDATION"`, a `CORP/COMPANY...FOUNDATION` regex, private as the default) — a documented
+  heuristic against the data actually on file, not a verified classification.
+- Search bars on both pages are raw `<input type="search">` elements with the spec's literal
+  classes, not the shared `SearchBar`/`Input` components — neither component's `className`
+  prop reaches the actual `<input>` (`SearchBar` applies it to the wrapper div; `Input` merges
+  via a non-deduping `cn()`).
+- AutoApply batch-selection, URL-synced search/category filters (funders), and bulk
+  select/import (foundations) all preserved from the pre-existing table implementation — only
+  the rendering changed, not the interaction logic.
+- Gate: `pnpm run typecheck` — 0 errors. Direct `npx tsc --noEmit` hit the same known
+  intermittent approval block logged throughout this file; the project's own `typecheck`
+  script (identical underlying command) ran clean.
+- **Not done:** `pnpm run build` / `pnpm lint` / Playwright not requested, not run; no browser
+  verification this pass.
+- Governance docs updated: `STATE_OF_THE_BUILD.md`, this file. No schema/contract/agent
+  change — pure UI/styling change to two pages plus three new page-local card components.
+
+---
+
+## COMPLETED — July 12: PageHeader rebuilt to a fixed literal-class spec
+
+Rebuilt `src/components/layout/PageHeader.tsx` (only match for `find . -name 'PageHeader*'`) to
+an exact spec: outer `mb-8`, content row `flex items-center justify-between`, `h1` `text-2xl
+font-bold text-slate-900 tracking-tight`, subtitle `p` `text-sm text-slate-500 mt-1`, actions in
+`flex items-center gap-3`, and a `border-l-4 border-[#0077B6] pl-4` left-accent on the title
+block. Full detail (including the primary-button enforcement logic and the removed
+`className`/`align` props) in `STATE_OF_THE_BUILD.md`'s new top entry — summary:
+
+- **Removed `className`/`align` props** — the component is now a fixed shape, not
+  per-page-configurable, superseding this session's earlier "`className` full-override" tweak
+  from the Opportunities-page pass below. Only caller using them
+  (`opportunities/page.tsx`) updated to drop both.
+- **New: recursive primary-button style enforcement** — `actions` children are walked
+  (`Children`/`cloneElement`, fragment- and `<Link>`-wrapper-aware) and any `Button` component
+  instance with `variant` unset or `"primary"` gets its `className` force-set to the spec's
+  exact string; secondary/ghost/danger `Button`s and non-`Button` nodes pass through.
+- Gate: `pnpm tsc --noEmit` — 0 errors, ran clean. All 8 `<PageHeader` call sites verified to
+  compile under the smaller prop type via a full-repo tsc run.
+- **Not done:** `pnpm run build` / `pnpm lint` / Playwright not requested, not run; no browser
+  verification this pass.
+- Governance docs updated: `STATE_OF_THE_BUILD.md`, this file. No schema/contract/agent change.
+
+---
+
+## COMPLETED — July 12 (latest session): Opportunities page visual overhaul (slate/hex table + tabs)
+
+Same treatment as this session's Dashboard/Header/Sidebar rebuilds (below), applied to
+`src/app/(dashboard)/opportunities/page.tsx` and every child component it imports (read in
+full first): page wrapper `min-h-screen bg-[#EEF2F7] p-6`, a white `PageHeader` card, the
+source-type filter tabs (`Government Federal 103`, etc.) restyled to
+active-`bg-[#0077B6]`/inactive-white-with-slate-border pill buttons, the opportunity table's
+container/header row/`th`/`tr` recolored to the slate palette, `Amount` values bolded
+(`font-semibold text-slate-900`), literal-class `Open` status and `Not Applied` application
+badges, and the `New opportunity` button restyled to `bg-[#0077B6]`/`hover:bg-[#005F92]`.
+
+- `PageHeader.tsx`'s `className` prop changed from "merged onto the base card classes" to "full
+  override when provided" (`className ?? <default>`) — no existing caller passed `className`
+  before this change (grepped first), so this is non-breaking; lets the opportunities page fully
+  own its header card look (`p-6 mb-6` etc.) without fighting the default `px-5 py-4` via
+  concatenated, non-deduped Tailwind classes (this repo's `cn()` is a plain-concat `clsx`, not
+  `tailwind-merge` — no de-dupe when two classes touch the same property).
+- `Table.tsx` (the shared `src/components/ui/Table` used by ~40 other pages) gained six new
+  **optional** override props (`containerClassName`/`tableClassName`/`theadClassName`/
+  `thClassName`/`tbodyClassName`/`rowClassName`), each defaulting to the exact previous
+  hardcoded class string via `?? <default>` — every other caller is unaffected since none pass
+  these props. Only `OpportunityTable.tsx` passes them, to get the literal slate/white classes
+  the task specified for the container/header row/`th`/row without touching the other ~40
+  tables app-wide.
+- `SourceTypeTabs.tsx`'s `TabButton` restyled directly (single call site, opportunities-only
+  component) — `rounded-full`→`rounded-lg`, `px-3 py-1.5`→`px-4 py-2`, active/inactive colors to
+  the spec's literal hex/slate classes.
+- `eligibility.tsx`'s `matchColor()` thresholds changed (this function's only caller is
+  `MatchBadge`, verified by grep): was green ≥80 / yellow 40-79 / red <40; now red only at
+  exactly 0%, green above 50%, yellow in between, per the task's literal "0% → red, >50% →
+  green" spec. `HIGH_PRIORITY_THRESHOLD`/`MISMATCH_REASON_THRESHOLD` constants (still exported,
+  still used by `OpportunityDetail.tsx` and `src/lib/agents/eligibility-scorer.ts`) were left
+  untouched — only `matchColor`'s own body changed.
+- The Open-status and Not-Applied badges are hand-written `<span>`s with the literal classes
+  from the spec rather than `Badge`-component overrides, because `Badge`'s base padding
+  (`py-0.5`/`font-medium`) differs from what was asked (`py-1`/`font-semibold`) and — same
+  `cn()`-has-no-dedupe reason as above — appending conflicting utility classes to `Badge`'s
+  `className` prop would have unpredictable results. Note the color values themselves
+  (`bg-[#DCFCE7]`/`text-[#15803D]`, `bg-[#FEE2E2]`/`text-[#B91C1C]`) already exactly match this
+  repo's `--color-success-*`/`--color-error-*` CSS-variable tokens (confirmed in
+  `globals.css`) — only the two structural properties needed a literal override.
+- Both `New opportunity` action sites (header actions + the empty-state CTA) changed from the
+  shared `<Button>` component wrapped in a `<Link>` to a `<Link>` carrying the literal spec
+  classes directly (same non-dedupe reasoning: `Button`'s base `h-10 px-4 font-medium
+  transition` would conflict with the spec's `py-2.5 px-5 font-semibold transition-colors`).
+  `Button` import removed from `page.tsx` (no longer used there); `EmptyState` import kept.
+- Gate: `pnpm tsc --noEmit` — 0 errors, ran clean (direct invocation this session, no
+  intermittent-approval issue this time).
+- **Not done:** `pnpm run build` / `pnpm lint` / Playwright not requested, not run; no browser
+  verification this pass.
+- Governance docs updated: `STATE_OF_THE_BUILD.md`, this file. No schema/contract/agent
+  change — pure UI/styling change to the opportunities page and its child components, plus two
+  narrowly-scoped, backward-compatible prop additions to shared `PageHeader`/`Table` components.
+
+---
+
+## COMPLETED — July 12 (latest session): Dashboard page visual overhaul (slate/hex stat cards)
+
+Task specified an exact set of literal Tailwind class strings for
+`src/app/(dashboard)/dashboard/page.tsx` (read in full first): page wrapper `min-h-screen
+bg-[#EEF2F7] p-6`, title block, 4-column primary stat-card grid with per-card hex left-accent
+bars (`#0077B6`/`#7C3AED`/`#F59E0B`/`#EF4444` for Total Opportunities/Applications
+Submitted/Drafts Generated/Deadlines This Week) and matching top-right icon chips at 10%
+accent opacity, a `bg-white` Pipeline section, a dark-header (`bg-slate-800`) Upcoming
+Deadlines panel, and a Recent Activity section — all hardcoded literal strings, same
+"exact-class, not theme-token" pattern as the July 12 Sidebar/Header rebuilds.
+
+- The 4 primary stat cards no longer use the shared `MetricCard` component (its `hue` prop
+  only maps to fixed Tailwind palette classes, not arbitrary hex at 10% opacity) — replaced
+  with a new local `StatCard` component defined in the page file, keyed by a `STAT_ACCENTS`
+  map of literal class strings per accent (`blue`/`violet`/`amber`/`red`) so Tailwind's
+  static scanner still picks up every `bg-[#...]`/`bg-[#...]/10`/`text-[#...]` string. The
+  secondary financial-metrics row (Total Requested/Total Awarded/Success Rate) and the Quick
+  Actions card were not in the task's spec — left on the existing `MetricCard`/`Card`
+  components, just re-spaced with `mb-8` to sit in the new layout rhythm.
+- `PageHeader` component dropped in favor of the spec's literal `h1`/`p` markup; Pipeline and
+  Recent Activity sections now hand-rolled `bg-white rounded-xl` divs instead of the shared
+  `Card` (which renders a `bg-surface-sunken` header bar, not what the spec asked for).
+- **`DeadlineWidget.tsx` also updated** (dashboard-only component, no other call site per
+  grep) — task asked for a 3-color dot indicator (red overdue / amber this-week / green
+  upcoming) on each deadline item; replaced the prior 4-band `Badge`-pill urgency system
+  with a plain colored dot + inline label text, collapsing `orange`/`yellow` into one
+  `this_week` band.
+- Gate: `pnpm tsc --noEmit` — 0 errors, ran clean.
+- **Not done:** `pnpm run build` / `pnpm lint` / Playwright not requested, not run; no
+  browser verification this pass.
+- Governance docs updated: `STATE_OF_THE_BUILD.md`, this file. No schema/contract/agent
+  change — pure UI/styling change to one page plus its two page-local child components.
+
+---
+
+## COMPLETED — July 12 (latest session): Header rebuilt with hardcoded Tailwind (no CSS-variable structure)
+
+Same treatment as the Sidebar rebuild immediately below, applied to
+`src/components/layout/Header.tsx` (read in full first): outer `<header>`, inner container,
+tab-nav container, active/inactive tab link, and mobile hamburger button all rewritten to
+the exact literal Tailwind strings specified, replacing the prior theme-token classes
+(`bg-surface`, `border-border`, `text-text-muted`, etc.). Active/inactive classes hoisted to
+`NAV_LINK_ACTIVE`/`NAV_LINK_INACTIVE` module constants, mirroring the Sidebar's
+`NAV_ITEM_ACTIVE`/`NAV_ITEM_INACTIVE` pattern. Also added a notification bell (new — wired
+to the existing `/api/notifications` route's `unread_count`, not a new endpoint) and made
+the organization name visible in the header bar next to the avatar, both requested as part
+of this rebuild's spec. Donor Discovery's `PERMANENT` header-nav comment and tab entry are
+untouched. Full detail in `STATE_OF_THE_BUILD.md`'s new top entry.
+
+- Gate: `pnpm tsc --noEmit` — 0 errors, ran clean.
+- **Not done:** `pnpm run build` / `pnpm lint` / Playwright not requested, not run; no
+  browser verification this pass.
+- Governance docs updated: `STATE_OF_THE_BUILD.md`, this file. No schema/contract/agent
+  change — pure UI/styling change to one existing component plus wiring to an
+  already-existing notifications route.
+
+---
+
+## COMPLETED — July 12: Sidebar rebuilt with hardcoded Tailwind (no CSS-variable structure)
+
+Task specified an exact set of literal Tailwind class strings for every structural piece of
+`src/components/layout/Sidebar.tsx` (outer wrapper, `<aside>` panel, logo area, nav section,
+active/inactive nav item, section labels, `NavBadge`, mobile backdrop, bottom settings area,
+tagline) — all hardcoded hex/arbitrary-value classes, deliberately not theme CSS-variable
+tokens (`bg-sidebar`, `text-slate-400`, `bg-primary`, `text-accent`, etc.), so the design
+can't be silently overridden by a theme change elsewhere. Read `Sidebar.tsx` and
+`nav-items.ts` in full first, then rewrote every className in `Sidebar.tsx` to the literal
+specified strings, hoisting the active/inactive item classes to two module-level constants
+reused across the main nav, Donor Discovery drilldown, Platform admin section, and Settings
+link. No logic changes (badge fetching, remembered-href resolution, `isActive()`, role
+gating all unchanged). Full detail in `STATE_OF_THE_BUILD.md`'s new top entry.
+
+- Gate: `pnpm tsc --noEmit` — 0 errors, confirmed via redirected-output file (empty on
+  completion) after the direct-invocation approval prompt behaved inconsistently this
+  session (same known intermittent gate-blocking issue logged in prior entries below).
+- **Not done:** `pnpm run build` / `pnpm lint` / Playwright not requested, not run; no
+  browser verification this pass.
+- Governance docs updated: `STATE_OF_THE_BUILD.md`, this file. No schema/contract/agent
+  change — pure UI/styling change to one existing component.
 
 ---
 
@@ -1247,4 +1807,29 @@ Sales Outreach real routes · AutoApply Follow-Ups 4 routes · Renewals route ·
 - Commit 03cb3ab pushed: DD Phases 2+3, enrichment pipeline, onboarding soft-gate (11/11 FORGE gates)
 - NOT YET RUN: pnpm seed:dd-taxonomy, pnpm enrich:990, pnpm enrich:web, DATAOCEAN backup, DD smoke test
 - Railway status of 03cb3ab UNVERIFIED; RESEND_API_KEY still unset on both platforms
+
+## Elevated Slate design-system pass on shared UI components (2026-07-13)
+- Standardized all 12 `src/components/ui/*.tsx` files to Elevated Slate tokens. `Badge` variants
+  (`success`/`warning`/`error`/`info`/`neutral`) now use literal `bg-[#hex]`/`text-[#hex]`/
+  `border-[#hex]` arbitrary classes instead of `bg-success-bg`-style CSS-variable utilities; added a
+  new `primary` variant. `Button` `secondary` and `danger` variants visually changed (secondary: white
+  bg + blue hover-border instead of gray chip; danger: solid `#EF4444`/`#B91C1C` instead of translucent
+  red). `Card` uses literal `bg-white ... border-slate-200`. `Input`/`Select`/`Textarea` rebuilt onto
+  the literal focus/border spec (`focus:border-[#0077B6] focus:ring-[#0077B6]/10`), replacing legacy
+  `navy-300`/`teal-500` alias classes. `EmptyState`/`LoadingSpinner`/`Modal`/`SearchBar` had their
+  remaining `navy-*`/`teal-*` legacy classes swapped for direct `slate-*`/`#0077B6` (same rendered
+  color via the compat layer — cosmetic cleanup, not a visual change). `ColorIcon` and `Table` left
+  untouched (ColorIcon's categorical hues are a documented exception; Table already had no legacy
+  tokens).
+- Full detail in STATE_OF_THE_BUILD.md under "Shared UI components standardized to Elevated Slate
+  literal hex tokens".
+- Gate run: `pnpm tsc --noEmit` only — 0 errors. `pnpm run build`, `pnpm lint`, and Playwright were NOT
+  run this session.
+
+### PENDING
+- [ ] Visual regression pass on `Button` `secondary`/`danger` and `Badge` `neutral` — real color changes
+      ripple to ~130+ consumer files that pass `variant=`/`color=` props; nothing broke at the type
+      level but no browser verification was done.
+- [ ] `pnpm run build` / `pnpm lint` / Playwright for this change
+- [ ] Commit and push not yet done — awaiting user confirmation
 

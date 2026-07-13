@@ -52,6 +52,49 @@ export const STAGE_COLOR: Record<PipelineStage, BadgeColor> = {
 };
 
 /**
+ * Elevated Slate stage pills for the Applications page. Every stage collapses
+ * into one of five lifecycle families (Discovery, Eligibility Review, Applied,
+ * Awarded, Rejected) so the pipeline reads as five colors, not twelve — the
+ * granular STAGE_LABEL text is still shown, only the color family is coarser.
+ */
+const STAGE_PILL_CLASSES: Record<PipelineStage, string> = {
+  discovered:
+    "bg-[#DBEAFE] text-[#1D4ED8] px-3 py-1 rounded-full text-xs font-semibold",
+  eligibility_review:
+    "bg-[#FEF3C7] text-[#92400E] px-3 py-1 rounded-full text-xs font-semibold",
+  qualified:
+    "bg-[#EDE9FE] text-[#6D28D9] px-3 py-1 rounded-full text-xs font-semibold",
+  drafting:
+    "bg-[#EDE9FE] text-[#6D28D9] px-3 py-1 rounded-full text-xs font-semibold",
+  awaiting_documents:
+    "bg-[#EDE9FE] text-[#6D28D9] px-3 py-1 rounded-full text-xs font-semibold",
+  ready_for_review:
+    "bg-[#EDE9FE] text-[#6D28D9] px-3 py-1 rounded-full text-xs font-semibold",
+  submitted:
+    "bg-[#EDE9FE] text-[#6D28D9] px-3 py-1 rounded-full text-xs font-semibold",
+  follow_up_due:
+    "bg-[#EDE9FE] text-[#6D28D9] px-3 py-1 rounded-full text-xs font-semibold",
+  awarded:
+    "bg-[#DCFCE7] text-[#15803D] px-3 py-1 rounded-full text-xs font-semibold",
+  reporting_required:
+    "bg-[#DCFCE7] text-[#15803D] px-3 py-1 rounded-full text-xs font-semibold",
+  renewal_opportunity:
+    "bg-[#DCFCE7] text-[#15803D] px-3 py-1 rounded-full text-xs font-semibold",
+  denied:
+    "bg-[#FEE2E2] text-[#B91C1C] px-3 py-1 rounded-full text-xs font-semibold",
+};
+
+/** Tailwind classes for a stage's Elevated Slate pill (color only — pair with STAGE_LABEL for text). */
+export function stagePillClassName(stage: PipelineStage): string {
+  return STAGE_PILL_CLASSES[stage];
+}
+
+/** True when a deadline is within a week (or past) — the "urgent" threshold for Elevated Slate deadline styling. */
+export function isUrgentDeadline(deadline: string): boolean {
+  return differenceInCalendarDays(new Date(deadline), new Date()) < 7;
+}
+
+/**
  * Conditions gating a forward transition (BEHAVIORAL_CONTRACTS §6). "manual"
  * conditions (compliance_check, report_submitted) have no stored field in the
  * MVP schema, so the modal requires an explicit confirmation instead of

@@ -2,9 +2,8 @@
 
 import { useRef, useState } from "react";
 import type { DragEvent } from "react";
-import { FileUp, UploadCloud, X } from "lucide-react";
+import { FileUp, Loader2, UploadCloud, X } from "lucide-react";
 
-import { Button } from "@/components/ui";
 import { recordAudit } from "@/lib/audit/client";
 import { createClient } from "@/lib/supabase/client";
 import { DOCUMENT_CATEGORIES, MAX_UPLOAD_BYTES } from "@/lib/utils/constants";
@@ -298,15 +297,19 @@ export function DocumentUploader({
           placeholder="Optional note"
           className="min-w-0 flex-1 rounded-md border border-navy-200 bg-white px-2.5 py-1.5 text-xs text-navy-700 placeholder:text-navy-400 focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
         />
-        <Button
-          size="sm"
+        <button
+          type="button"
           onClick={() => void handleUpload()}
           disabled={uploading || !file}
-          isLoading={uploading}
+          className="inline-flex items-center gap-2 rounded-lg bg-[#0077B6] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#005F92] disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {!uploading && <UploadCloud className="h-3.5 w-3.5" aria-hidden />}
+          {uploading ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+          ) : (
+            <UploadCloud className="h-3.5 w-3.5" aria-hidden />
+          )}
           Upload
-        </Button>
+        </button>
       </div>
 
       {error && (

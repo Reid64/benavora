@@ -2,11 +2,17 @@ import type { ReactNode } from "react";
 
 import { cn } from "@/lib/utils/cn";
 
-/** The only four semantic pairs a badge may render — bg is the 100-level
- * tint, text is the 700-level of the same hue (≥4.5:1 contrast), border is
- * the 200-level of the same hue, plus a neutral pair for non-semantic
- * labels. */
-export type BadgeVariant = "success" | "warning" | "error" | "info" | "neutral";
+/** The Elevated Slate semantic pairs a badge may render — bg is the light
+ * tint, text is the high-contrast readable tone of the same hue, border is
+ * the mid tint of the same hue, plus a neutral pair for non-semantic labels
+ * and a solid `primary` pair for brand-emphasis badges. */
+export type BadgeVariant =
+  | "success"
+  | "warning"
+  | "error"
+  | "info"
+  | "neutral"
+  | "primary";
 
 /**
  * Legacy color names — kept so the ~80 existing call sites don't need to
@@ -44,19 +50,21 @@ const COLOR_TO_VARIANT: Record<BadgeColor, BadgeVariant> = {
 };
 
 const VARIANT_CLASSES: Record<BadgeVariant, string> = {
-  success: "bg-success-bg text-success-text border border-success-border",
-  warning: "bg-warning-bg text-warning-text border border-warning-border",
-  error: "bg-error-bg text-error-text border border-error-border",
-  info: "bg-info-bg text-info-text border border-info-border",
-  neutral: "bg-surface-raised text-text-muted border border-border",
+  success: "bg-[#DCFCE7] text-[#15803D] border border-[#BBF7D0]",
+  warning: "bg-[#FEF3C7] text-[#B45309] border border-[#FDE68A]",
+  error: "bg-[#FEE2E2] text-[#B91C1C] border border-[#FECACA]",
+  info: "bg-[#E0F2FE] text-[#0369A1] border border-[#BAE6FD]",
+  neutral: "bg-[#F1F5F9] text-[#475569] border border-[#E2E8F0]",
+  primary: "bg-[#0077B6] text-white",
 };
 
 const DOT_CLASSES: Record<BadgeVariant, string> = {
-  success: "bg-success-text",
-  warning: "bg-warning-text",
-  error: "bg-error-text",
-  info: "bg-info-text",
-  neutral: "bg-text-muted",
+  success: "bg-[#15803D]",
+  warning: "bg-[#B45309]",
+  error: "bg-[#B91C1C]",
+  info: "bg-[#0369A1]",
+  neutral: "bg-[#475569]",
+  primary: "bg-white",
 };
 
 export type BadgeProps = {
@@ -87,7 +95,8 @@ export function Badge({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium",
+        "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold",
+        withDot && "gap-1.5",
         VARIANT_CLASSES[resolved],
         className,
       )}

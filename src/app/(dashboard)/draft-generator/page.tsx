@@ -788,64 +788,84 @@ export default function DraftGeneratorPage() {
             </div>
           )}
 
-          <Card title={<StepTitle step={1}>Choose an opportunity</StepTitle>}>
-            <div className="max-w-xl">
-              <Select
-                options={opportunityOptions}
-                value={opportunityId}
-                onChange={(e) => setOpportunityId(e.target.value)}
-                placeholder="Select an opportunity..."
+          <div className="bg-white rounded-2xl shadow-md border border-slate-200 p-8 space-y-8">
+            <div>
+              <h2 className="text-base font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-white">
+                  1
+                </span>
+                Choose an opportunity
+              </h2>
+              <div className="max-w-xl">
+                <Select
+                  options={opportunityOptions}
+                  value={opportunityId}
+                  onChange={(e) => setOpportunityId(e.target.value)}
+                  placeholder="Select an opportunity..."
+                  disabled={!editable || generating}
+                  aria-label="Opportunity"
+                />
+              </div>
+            </div>
+
+            <div>
+              <h2 className="text-base font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-white">
+                  2
+                </span>
+                Choose a template
+              </h2>
+              <TemplateSelector
+                value={templateType}
+                onChange={setTemplateType}
                 disabled={!editable || generating}
-                aria-label="Opportunity"
               />
             </div>
-          </Card>
 
-          <Card title={<StepTitle step={2}>Choose a template</StepTitle>}>
-            <TemplateSelector
-              value={templateType}
-              onChange={setTemplateType}
-              disabled={!editable || generating}
-            />
-          </Card>
-
-          {templateType === "budget_narrative" && (
-            <Card
-              title={<StepTitle step={3}>Choose a program</StepTitle>}
-              description="The budget will be scoped to this program's financial data and your Knowledge Base budget justification entries."
-            >
-              <div className="max-w-xl space-y-2">
-                <Select
-                  options={programOptions}
-                  value={programId}
-                  onChange={(e) => setProgramId(e.target.value)}
-                  placeholder="Select a program..."
-                  disabled={!editable || generating}
-                  aria-label="Program"
-                />
-                {programs.length === 0 && !loading && (
-                  <p className="text-sm text-navy-500">
-                    No programs found. Add programs in organization settings
-                    first.
-                  </p>
-                )}
+            {templateType === "budget_narrative" && (
+              <div>
+                <h2 className="text-base font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-white">
+                    3
+                  </span>
+                  Choose a program
+                </h2>
+                <p className="mb-3 text-sm text-navy-500">
+                  The budget will be scoped to this program&rsquo;s financial
+                  data and your Knowledge Base budget justification entries.
+                </p>
+                <div className="max-w-xl space-y-2">
+                  <Select
+                    options={programOptions}
+                    value={programId}
+                    onChange={(e) => setProgramId(e.target.value)}
+                    placeholder="Select a program..."
+                    disabled={!editable || generating}
+                    aria-label="Program"
+                  />
+                  {programs.length === 0 && !loading && (
+                    <p className="text-sm text-navy-500">
+                      No programs found. Add programs in organization settings
+                      first.
+                    </p>
+                  )}
+                </div>
               </div>
-            </Card>
-          )}
+            )}
 
-          <div className="flex justify-end">
-            <Button
+            <button
+              type="button"
               onClick={handleGenerate}
-              isLoading={generating}
-              disabled={!canGenerate}
+              disabled={!canGenerate || generating}
+              className="w-full bg-gradient-to-r from-[#00B4D8] to-[#0077B6] hover:from-[#0093AC] hover:to-[#005F92] text-white py-4 rounded-xl font-bold text-base shadow-lg transition-all disabled:cursor-not-allowed disabled:opacity-50 inline-flex items-center justify-center gap-2"
             >
-              <Sparkles className="h-4 w-4" aria-hidden />
+              <Sparkles className={`h-4 w-4 ${generating ? "animate-spin" : ""}`} aria-hidden />
               {generating
                 ? "Generating..."
                 : hasDraft
                   ? "Generate new version"
                   : "Generate draft"}
-            </Button>
+            </button>
           </div>
 
           {hasDraft && (

@@ -1,56 +1,62 @@
-import type { ReactNode } from "react";
+import { Children, cloneElement, isValidElement } from "react";
+import type { ReactElement, ReactNode } from "react";
 
-import { cn } from "@/lib/utils/cn";
+import { Button } from "@/components/ui/Button";
 
 export type PageHeaderProps = {
   title: ReactNode;
   description?: ReactNode;
   /** Right-aligned actions (buttons, widgets). */
   actions?: ReactNode;
-  /** Vertical alignment of the title block vs. actions. Defaults to "start"
-   * (safe for multi-button/widget action areas); use "center" when there's
-   * a single action the same height as the title. */
-  align?: "start" | "center";
-  className?: string;
 };
 
+type StyleableElement = ReactElement<{
+  variant?: string;
+  className?: string;
+  children?: ReactNode;
+}>;
+
+const PRIMARY_ACTION_CLASSES =
+  "bg-[#0077B6] hover:bg-[#005F92] text-white px-5 py-2.5 rounded-lg font-semibold text-sm shadow-sm transition-colors inline-flex items-center gap-2";
+
+function isStyleableElement(node: ReactNode): node is StyleableElement {
+  return isValidElement(node);
+}
+
 /**
- * White band with a bottom border, sitting at the top of every dashboard
- * page's content — the first of the three visible layers (gray canvas,
- * white header band, white cards).
+ * Recursively walks the actions tree and forces the primary action style
+ * onto every default/"primary" Button, no matter how deep it's wrapped
+ * (e.g. inside a next/link <Link>). Secondary/ghost/danger buttons and
+ * everything else pass through untouched.
  */
-export function PageHeader({
-  title,
-  description,
-  actions,
-  align = "start",
-  className,
-}: PageHeaderProps) {
+function withEnforcedPrimaryStyle(node: ReactNode): ReactNode {
+  if (!isStyleableElement(node)) return node;
+
+  if (node.type === Button && (node.props.variant === undefined || node.props.variant === "primary")) {
+    return cloneElement(node, { className: PRIMARY_ACTION_CLASSES });
+  }
+
+  if (node.props.children === undefined) return node;
+  return cloneElement(node, {
+    children: Children.map(node.props.children, withEnforcedPrimaryStyle),
+  });
+}
+
+/**
+ * Standard page header used at the top of every dashboard page: a
+ * left-accented title block with the page title and optional subtitle, and
+ * a right-hand actions slot. Fixed shape across the app.
+ */
+export function PageHeader({ title, description, actions }: PageHeaderProps) {
   return (
-    <div
-      className={cn(
-        "rounded-xl border border-slate-200 bg-surface px-5 py-4 shadow-sm",
-        className,
-      )}
-    >
-      <div
-        className={cn(
-          "flex flex-wrap justify-between gap-4",
-          align === "center" ? "items-center" : "items-start",
-        )}
-      >
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-text">
-            {title}
-          </h1>
-          {description && (
-            <p className="mt-1 text-sm text-text-muted">{description}</p>
-          )}
+    <div className="mb-8">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+        <div className="border-l-4 border-[#0077B6] pl-4">
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{title}</h1>
+          {description && <p className="text-sm text-slate-500 mt-1">{description}</p>}
         </div>
         {actions && (
-          <div className={cn("flex gap-3", align === "center" ? "items-center" : "items-start")}>
-            {actions}
-          </div>
+          <div className="flex flex-wrap items-center gap-3">{Children.map(actions, withEnforcedPrimaryStyle)}</div>
         )}
       </div>
     </div>

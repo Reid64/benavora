@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import type { LucideIcon } from "lucide-react";
 import {
   Award,
   CalendarClock,
@@ -14,8 +15,9 @@ import {
 } from "lucide-react";
 import { addDays, differenceInCalendarDays, format } from "date-fns";
 
+import { cn } from "@/lib/utils/cn";
 import { Card } from "@/components/ui";
-import { PageHeader } from "@/components/layout/PageHeader";
+import { FlightPathHUD } from "@/components/dashboard/FlightPathHUD";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import {
   DeadlineWidget,
@@ -70,6 +72,65 @@ function metricCount(n: number): string {
 
 function metricCurrency(n: number): string {
   return n === 0 ? "—" : formatCurrency(n);
+}
+
+type StatAccent = "blue" | "violet" | "amber" | "red";
+
+const STAT_ACCENTS: Record<
+  StatAccent,
+  { bar: string; iconBg: string; iconText: string }
+> = {
+  blue: {
+    bar: "absolute left-0 top-0 bottom-0 w-1 bg-[#0077B6] rounded-l-xl",
+    iconBg:
+      "absolute top-4 right-4 w-10 h-10 rounded-lg flex items-center justify-center bg-[#0077B6]/10",
+    iconText: "text-[#0077B6]",
+  },
+  violet: {
+    bar: "absolute left-0 top-0 bottom-0 w-1 bg-[#7C3AED] rounded-l-xl",
+    iconBg:
+      "absolute top-4 right-4 w-10 h-10 rounded-lg flex items-center justify-center bg-[#7C3AED]/10",
+    iconText: "text-[#7C3AED]",
+  },
+  amber: {
+    bar: "absolute left-0 top-0 bottom-0 w-1 bg-[#F59E0B] rounded-l-xl",
+    iconBg:
+      "absolute top-4 right-4 w-10 h-10 rounded-lg flex items-center justify-center bg-[#F59E0B]/10",
+    iconText: "text-[#F59E0B]",
+  },
+  red: {
+    bar: "absolute left-0 top-0 bottom-0 w-1 bg-[#EF4444] rounded-l-xl",
+    iconBg:
+      "absolute top-4 right-4 w-10 h-10 rounded-lg flex items-center justify-center bg-[#EF4444]/10",
+    iconText: "text-[#EF4444]",
+  },
+};
+
+/** One of the four primary dashboard stat tiles, accented by function (BLUEPRINT §4.1). */
+function StatCard({
+  label,
+  value,
+  icon: Icon,
+  accent,
+}: {
+  label: string;
+  value: string;
+  icon: LucideIcon;
+  accent: StatAccent;
+}) {
+  const styles = STAT_ACCENTS[accent];
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 relative overflow-hidden">
+      <div className={styles.bar} />
+      <div className={styles.iconBg}>
+        <Icon className={cn("h-5 w-5", styles.iconText)} aria-hidden />
+      </div>
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+        {label}
+      </p>
+      <p className="text-3xl font-bold text-slate-900 mt-2">{value}</p>
+    </div>
+  );
 }
 
 /**
@@ -214,11 +275,16 @@ export default async function DashboardPage() {
     outcomes.length === 0;
 
   return (
-    <div className="space-y-6">
-      <PageHeader title="Dashboard" description="Your funding pipeline at a glance." />
+    <div className="min-h-screen bg-[#EEF2F7] p-6">
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
+        <p className="text-slate-500 text-sm mt-1">
+          Your funding pipeline at a glance.
+        </p>
+      </div>
 
       {hasNoData && (
-        <div className="rounded-xl border border-teal-200 bg-teal-50 px-5 py-4">
+        <div className="mb-8 rounded-xl border border-teal-200 bg-teal-50 px-5 py-4">
           <h2 className="text-sm font-semibold text-teal-900">
             Welcome to Benavora
           </h2>
@@ -230,105 +296,102 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {/* Two-column layout: left = metrics + pipeline + activity, right = deadlines + actions */}
+      {/* Mission Control lifecycle HUD */}
+      <FlightPathHUD />
+
+      {/* 4 primary stat cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
+        <StatCard
+          label="Total Opportunities"
+          value={metricCount(totalOpportunities)}
+          icon={Search}
+          accent="blue"
+        />
+        <StatCard
+          label="Applications Submitted"
+          value={metricCount(submittedCount)}
+          icon={Send}
+          accent="violet"
+        />
+        <StatCard
+          label="Drafts Generated"
+          value={metricCount(draftsGenerated)}
+          icon={FileText}
+          accent="amber"
+        />
+        <StatCard
+          label="Deadlines This Week"
+          value={metricCount(deadlinesThisWeek)}
+          icon={CalendarClock}
+          accent="red"
+        />
+      </div>
+
+      {/* 3 financial metrics */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 mb-8">
+        <MetricCard
+          label="Total Requested"
+          value={metricCurrency(totalRequested)}
+          icon={DollarSign}
+          hue="emerald"
+        />
+        <MetricCard
+          label="Total Awarded"
+          value={metricCurrency(summary.totalAwarded)}
+          icon={Award}
+          hue="emerald"
+        />
+        <MetricCard
+          label="Success Rate"
+          value={successRateValue}
+          icon={Percent}
+          hue="violet"
+          hint={
+            summary.successRate != null
+              ? `${summary.awarded} awarded of ${summary.total}`
+              : `Needs ${MIN_OUTCOMES_FOR_RATE}+ outcomes`
+          }
+        />
+      </div>
+
+      {/* Pipeline */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-8">
+        <h2 className="text-lg font-semibold text-slate-900 mb-4">Pipeline</h2>
+        <PipelineSummary counts={pipelineCounts} />
+      </div>
+
+      {/* Two-column layout: left = activity, right = deadlines + actions */}
       <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[1fr_300px]">
         {/* ── Left column ── */}
         <div className="space-y-6">
-          {/* Row 1: 4 primary metrics */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <MetricCard
-              label="Total Opportunities"
-              value={metricCount(totalOpportunities)}
-              icon={Search}
-              hue="cyan"
-            />
-            <MetricCard
-              label="Applications Submitted"
-              value={metricCount(submittedCount)}
-              icon={Send}
-              hue="violet"
-            />
-            <MetricCard
-              label="Drafts Generated"
-              value={metricCount(draftsGenerated)}
-              icon={FileText}
-              hue="amber"
-            />
-            <MetricCard
-              label="Deadlines This Week"
-              value={metricCount(deadlinesThisWeek)}
-              icon={CalendarClock}
-              hue="rose"
-              trend={
-                deadlinesThisWeek > 0
-                  ? { direction: "neutral", label: "Next 7 days" }
-                  : undefined
-              }
-            />
-          </div>
-
-          {/* Row 2: 3 financial metrics */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <MetricCard
-              label="Total Requested"
-              value={metricCurrency(totalRequested)}
-              icon={DollarSign}
-              hue="emerald"
-            />
-            <MetricCard
-              label="Total Awarded"
-              value={metricCurrency(summary.totalAwarded)}
-              icon={Award}
-              hue="emerald"
-            />
-            <MetricCard
-              label="Success Rate"
-              value={successRateValue}
-              icon={Percent}
-              hue="violet"
-              hint={
-                summary.successRate != null
-                  ? `${summary.awarded} awarded of ${summary.total}`
-                  : `Needs ${MIN_OUTCOMES_FOR_RATE}+ outcomes`
-              }
-            />
-          </div>
-
-          {/* Pipeline summary */}
-          <Card
-            title="Pipeline"
-            description="Applications by stage."
-          >
-            <PipelineSummary counts={pipelineCounts} />
-          </Card>
-
           {/* Recent activity */}
-          <Card
-            title="Recent Activity"
-            description="Last 10 agent actions across your organization."
-          >
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <h2 className="text-lg font-semibold text-slate-900 mb-4">
+              Recent Activity
+            </h2>
             <RecentActivityFeed items={activityItems} />
-          </Card>
+          </div>
         </div>
 
         {/* ── Right column ── */}
         <div className="space-y-6">
           {/* Upcoming deadlines */}
-          <Card
-            className="border-l-4 border-l-amber-500"
-            title="Upcoming Deadlines"
-            description="Due in the next 7 days."
-            actions={
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="bg-slate-800 px-5 py-4 flex items-center justify-between">
+              <span className="text-white font-semibold text-sm">
+                Upcoming Deadlines
+              </span>
               <Link
                 href="/deadlines"
-                className="text-xs font-medium text-teal-600 hover:text-teal-700"
+                className="text-xs font-medium text-slate-300 hover:text-white"
               >
                 View all
               </Link>
-            }
-          >
-            <DeadlineWidget items={deadlineItems} />
-          </Card>
+            </div>
+            <div className="p-5">
+              <DeadlineWidget items={deadlineItems} />
+            </div>
+          </div>
 
           {/* Quick actions */}
           <Card className="border-l-4 border-l-cyan-500" title="Quick Actions">

@@ -2,7 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { BarChart3, Plus, Trophy } from "lucide-react";
+import {
+  BarChart3,
+  ClipboardList,
+  DollarSign,
+  Percent,
+  Plus,
+  Trophy,
+  type LucideIcon,
+} from "lucide-react";
 
 import {
   Badge,
@@ -13,12 +21,14 @@ import {
   Modal,
 } from "@/components/ui";
 import type { BadgeColor } from "@/components/ui";
+import { PageHeader } from "@/components/layout/PageHeader";
 import {
   OutcomeForm,
   type OutcomeApplicationContext,
 } from "@/components/outcomes/OutcomeForm";
 import { createClient } from "@/lib/supabase/client";
 import { canEdit, useProfile } from "@/lib/hooks/useProfile";
+import { cn } from "@/lib/utils/cn";
 import { formatCurrency, formatDate, humanizeEnum } from "@/lib/utils/formatters";
 import type { Enums, Tables } from "@/types/database";
 
@@ -39,6 +49,104 @@ const RESULT_COLOR: Record<OutcomeResult, BadgeColor> = {
 };
 
 type RecordedOutcome = Tables<"outcomes"> & { applicationLabel: string };
+
+type MetricAccent = "green" | "teal" | "violet";
+
+const METRIC_ACCENTS: Record<
+  MetricAccent,
+  { bar: string; iconBg: string; iconText: string }
+> = {
+  green: {
+    bar: "absolute left-0 top-0 bottom-0 w-1 bg-[#10B981] rounded-l-xl",
+    iconBg:
+      "absolute top-4 right-4 w-10 h-10 rounded-lg flex items-center justify-center bg-[#10B981]/10",
+    iconText: "text-[#10B981]",
+  },
+  teal: {
+    bar: "absolute left-0 top-0 bottom-0 w-1 bg-[#00B4D8] rounded-l-xl",
+    iconBg:
+      "absolute top-4 right-4 w-10 h-10 rounded-lg flex items-center justify-center bg-[#00B4D8]/10",
+    iconText: "text-[#00B4D8]",
+  },
+  violet: {
+    bar: "absolute left-0 top-0 bottom-0 w-1 bg-[#7C3AED] rounded-l-xl",
+    iconBg:
+      "absolute top-4 right-4 w-10 h-10 rounded-lg flex items-center justify-center bg-[#7C3AED]/10",
+    iconText: "text-[#7C3AED]",
+  },
+};
+
+/** One of the three outcome summary tiles, accented by function. */
+function OutcomeMetricCard({
+  label,
+  value,
+  hint,
+  icon: Icon,
+  accent,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  icon: LucideIcon;
+  accent: MetricAccent;
+}) {
+  const styles = METRIC_ACCENTS[accent];
+  return (
+    <div className="relative overflow-hidden rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className={styles.bar} />
+      <div className={styles.iconBg}>
+        <Icon className={cn("h-5 w-5", styles.iconText)} aria-hidden />
+      </div>
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+        {label}
+      </p>
+      <p className="mt-2 text-3xl font-bold text-slate-900">{value}</p>
+      {hint && <p className="mt-1 text-xs text-slate-500">{hint}</p>}
+    </div>
+  );
+}
+
+/** Awarded / partial / denied breakdown, teal / amber / navy (never gray). */
+function OutcomeBreakdownBar({ outcomes }: { outcomes: RecordedOutcome[] }) {
+  const total = outcomes.length;
+  if (total === 0) return null;
+
+  const awarded = outcomes.filter((o) => o.result === "awarded").length;
+  const partial = outcomes.filter((o) => o.result === "partial").length;
+  const denied = outcomes.filter((o) => o.result === "denied").length;
+  const pct = (n: number) => `${(n / total) * 100}%`;
+
+  const segments: { count: number; color: string; label: string }[] = [
+    { count: awarded, color: "bg-[#00B4D8]", label: `Awarded (${awarded})` },
+    { count: partial, color: "bg-[#F59E0B]", label: `Partial (${partial})` },
+    { count: denied, color: "bg-[#1a2744]", label: `Denied (${denied})` },
+  ];
+
+  return (
+    <div>
+      <div className="flex h-3 w-full overflow-hidden rounded-full bg-slate-100">
+        {segments
+          .filter((s) => s.count > 0)
+          .map((s) => (
+            <div
+              key={s.label}
+              className={s.color}
+              style={{ width: pct(s.count) }}
+              title={s.label}
+            />
+          ))}
+      </div>
+      <div className="mt-2 flex flex-wrap gap-4 text-xs text-slate-500">
+        {segments.map((s) => (
+          <span key={s.label} className="inline-flex items-center gap-1.5">
+            <span className={cn("h-2 w-2 rounded-full", s.color)} aria-hidden />
+            {s.label}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 /**
  * Outcomes recording + history (BLUEPRINT §4.10). Lists recorded outcomes and
@@ -147,12 +255,14 @@ export default function OutcomesPage() {
     !loading && !error && outcomes.length === 0 && eligible.length === 0;
 
   const totals = useMemo(() => {
+    const total = outcomes.length;
     const awarded = outcomes.filter((o) => o.result === "awarded").length;
     const totalAwarded = outcomes.reduce(
       (sum, o) => sum + (o.awarded_amount ?? 0),
       0,
     );
-    return { awarded, totalAwarded };
+    const successRate = total > 0 ? Math.round((awarded / total) * 100) : null;
+    return { total, awarded, totalAwarded, successRate };
   }, [outcomes]);
 
   function handleSaved() {
@@ -161,24 +271,19 @@ export default function OutcomesPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-navy-900">
-            Outcomes
-          </h1>
-          <p className="mt-1 text-sm text-navy-500">
-            Record awards and denials. Awarded narratives train the learning
-            system.
-          </p>
-        </div>
-        <Link href="/outcomes/analytics">
-          <Button variant="secondary">
-            <BarChart3 className="h-4 w-4" aria-hidden />
-            View analytics
-          </Button>
-        </Link>
-      </div>
+    <div className="min-h-screen space-y-6 bg-[#EEF2F7] p-6">
+      <PageHeader
+        title="Outcomes"
+        description="Record awards and denials. Awarded narratives train the learning system."
+        actions={
+          <Link href="/outcomes/analytics">
+            <Button variant="secondary">
+              <BarChart3 className="h-4 w-4" aria-hidden />
+              View analytics
+            </Button>
+          </Link>
+        }
+      />
 
       {error && (
         <div
@@ -204,6 +309,29 @@ export default function OutcomesPage() {
         />
       ) : (
         <>
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+            <OutcomeMetricCard
+              label="Success Rate"
+              value={totals.successRate != null ? `${totals.successRate}%` : "—"}
+              hint={`${totals.awarded} awarded of ${totals.total}`}
+              icon={Percent}
+              accent="green"
+            />
+            <OutcomeMetricCard
+              label="Total Awarded"
+              value={formatCurrency(totals.totalAwarded)}
+              icon={DollarSign}
+              accent="teal"
+            />
+            <OutcomeMetricCard
+              label="Applications"
+              value={String(totals.total)}
+              hint="outcomes recorded"
+              icon={ClipboardList}
+              accent="violet"
+            />
+          </div>
+
           {editable && (
             <Card
               title="Record an outcome"
@@ -214,17 +342,17 @@ export default function OutcomesPage() {
               }
             >
               {eligible.length > 0 ? (
-                <ul className="divide-y divide-navy-100">
+                <ul className="divide-y divide-slate-100">
                   {eligible.map((app) => (
                     <li
                       key={app.id}
                       className="flex items-center justify-between gap-4 py-3"
                     >
                       <div className="min-w-0">
-                        <div className="truncate text-sm font-medium text-navy-900">
+                        <div className="truncate text-sm font-medium text-slate-900">
                           {app.label}
                         </div>
-                        <div className="text-xs text-navy-500">
+                        <div className="text-xs text-slate-500">
                           Requested {formatCurrency(app.requestedAmount)}
                           {app.funderCategory
                             ? ` · ${humanizeEnum(app.funderCategory)}`
@@ -243,7 +371,7 @@ export default function OutcomesPage() {
                   ))}
                 </ul>
               ) : (
-                <p className="text-sm text-navy-500">
+                <p className="text-sm text-slate-500">
                   Move an application to the submitted, awarded, or denied stage
                   to record its outcome.
                 </p>
@@ -258,47 +386,49 @@ export default function OutcomesPage() {
                 ? `${totals.awarded} awarded · ${formatCurrency(totals.totalAwarded)} total awarded`
                 : undefined
             }
-            noPadding
           >
             {outcomes.length === 0 ? (
-              <p className="px-5 py-6 text-sm text-navy-500">
+              <p className="py-1 text-sm text-slate-500">
                 No outcomes recorded yet.
               </p>
             ) : (
-              <ul className="divide-y divide-navy-100">
-                {outcomes.map((o) => (
-                  <li
-                    key={o.id}
-                    className="flex flex-wrap items-center justify-between gap-3 px-5 py-3"
-                  >
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <Badge color={RESULT_COLOR[o.result]}>
-                          {humanizeEnum(o.result)}
-                        </Badge>
-                        <span className="truncate text-sm font-medium text-navy-900">
-                          {o.applicationLabel}
-                        </span>
-                      </div>
-                      {o.denial_reason && (
-                        <div className="mt-1 text-xs text-navy-500">
-                          Reason: {o.denial_reason}
+              <>
+                <OutcomeBreakdownBar outcomes={outcomes} />
+                <ul className="mt-5 divide-y divide-slate-100">
+                  {outcomes.map((o) => (
+                    <li
+                      key={o.id}
+                      className="flex flex-wrap items-center justify-between gap-3 py-3"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <Badge color={RESULT_COLOR[o.result]}>
+                            {humanizeEnum(o.result)}
+                          </Badge>
+                          <span className="truncate text-sm font-medium text-slate-900">
+                            {o.applicationLabel}
+                          </span>
                         </div>
-                      )}
-                    </div>
-                    <div className="text-right text-sm">
-                      <div className="font-medium text-navy-900">
-                        {o.result === "denied"
-                          ? "-"
-                          : formatCurrency(o.awarded_amount)}
+                        {o.denial_reason && (
+                          <div className="mt-1 text-xs text-slate-500">
+                            Reason: {o.denial_reason}
+                          </div>
+                        )}
                       </div>
-                      <div className="text-xs text-navy-400">
-                        {formatDate(o.recorded_at)}
+                      <div className="text-right text-sm">
+                        <div className="font-medium text-slate-900">
+                          {o.result === "denied"
+                            ? "-"
+                            : formatCurrency(o.awarded_amount)}
+                        </div>
+                        <div className="text-xs text-slate-400">
+                          {formatDate(o.recorded_at)}
+                        </div>
                       </div>
-                    </div>
-                  </li>
-                ))}
-              </ul>
+                    </li>
+                  ))}
+                </ul>
+              </>
             )}
           </Card>
         </>

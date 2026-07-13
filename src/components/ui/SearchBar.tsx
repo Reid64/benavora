@@ -49,7 +49,7 @@ export function SearchBar({
   return (
     <div className={cn("relative w-full", className)}>
       <Search
-        className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-navy-400"
+        className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
         aria-hidden
       />
       <input
@@ -58,13 +58,13 @@ export function SearchBar({
         onChange={(event) => setValue(event.target.value)}
         placeholder={placeholder}
         aria-label={ariaLabel}
-        className="block w-full rounded-lg border border-border bg-surface py-2 pl-9 pr-9 text-sm text-text shadow-sm transition placeholder:text-text-muted focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500 [&::-webkit-search-cancel-button]:hidden"
+        className="block w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-9 pr-9 text-sm text-slate-700 placeholder-slate-400 outline-none transition-colors focus:border-[#0077B6] focus:ring-2 focus:ring-[#0077B6]/10 [&::-webkit-search-cancel-button]:hidden"
       />
       {value && (
         <button
           type="button"
           onClick={() => setValue("")}
-          className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-navy-400 transition hover:bg-navy-100 hover:text-navy-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
+          className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0077B6]"
           aria-label="Clear search"
         >
           <X className="h-4 w-4" aria-hidden />

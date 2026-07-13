@@ -416,7 +416,7 @@ export default function FollowUpsPage() {
           </p>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-navy-200 bg-white">
+        <div className="overflow-x-auto rounded-xl border border-navy-200 bg-white">
           <table className="min-w-full divide-y divide-navy-100">
             <thead>
               <tr className="bg-navy-50">

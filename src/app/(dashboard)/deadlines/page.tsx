@@ -24,14 +24,14 @@ import {
   ShieldCheck,
 } from "lucide-react";
 
-import { Badge, Button, Card, EmptyState, LoadingSpinner } from "@/components/ui";
+import { Badge, Button, EmptyState, LoadingSpinner } from "@/components/ui";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { createClient } from "@/lib/supabase/client";
 import { canEdit, useProfile } from "@/lib/hooks/useProfile";
 import { useUrlState } from "@/lib/hooks/useUrlState";
 import { cn } from "@/lib/utils/cn";
 import { formatDate, humanizeEnum } from "@/lib/utils/formatters";
 import {
-  BAND_CLASSES,
   BAND_VARIANT,
   urgency,
   parentHref,
@@ -45,6 +45,28 @@ import type { ComplianceItem } from "@/app/api/compliance/route";
 type ViewMode = "calendar" | "week" | "list";
 type UrgencyBand = "overdue" | "orange" | "yellow" | "green";
 type PageTab = "deadlines" | "compliance";
+
+// Three-tier display bucket for deadline/compliance list rows (Elevated Slate):
+// the four-band urgency() output collapses to overdue / this-week / future.
+type UrgencyBucket = "overdue" | "week" | "future";
+
+function urgencyBucket(band: UrgencyBand): UrgencyBucket {
+  if (band === "overdue") return "overdue";
+  if (band === "green") return "future";
+  return "week";
+}
+
+const URGENCY_ITEM_CLASSES: Record<UrgencyBucket, string> = {
+  overdue: "bg-[#FEF2F2] border-l-4 border-[#EF4444] rounded-xl p-4 mb-3",
+  week: "bg-[#FFFBEB] border-l-4 border-[#F59E0B] rounded-xl p-4 mb-3",
+  future: "bg-white border border-slate-200 rounded-xl p-4 mb-3",
+};
+
+const URGENCY_DATE_CLASSES: Record<UrgencyBucket, string> = {
+  overdue: "text-[#EF4444] font-bold",
+  week: "text-[#F59E0B] font-bold",
+  future: "text-slate-500",
+};
 
 const DEADLINE_TYPES = [
   "application_deadline",
@@ -462,80 +484,74 @@ export default function DeadlinesPage() {
 
   // --- Render ---
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-navy-900">
-            Deadlines
-          </h1>
-          <p className="mt-1 text-sm text-navy-500">
-            Application, follow-up, reporting, renewal, and document-expiration
-            dates, color-coded by urgency.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          {calendarConnected && editable && (
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={syncAll}
-              isLoading={syncingAll}
-              disabled={Boolean(syncingId)}
-            >
-              <CalendarClock className="h-4 w-4" aria-hidden />
-              Sync to Calendar
-            </Button>
-          )}
-          <div className="inline-flex rounded-lg border border-navy-200 bg-white p-0.5 shadow-sm">
-            <button
-              type="button"
-              onClick={() => setParams({ view: null })}
-              aria-pressed={view === "calendar"}
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition",
-                view === "calendar"
-                  ? "bg-teal-600 text-white"
-                  : "text-navy-600 hover:bg-navy-50",
-              )}
-            >
-              <CalendarDays className="h-4 w-4" aria-hidden />
-              Month
-            </button>
-            <button
-              type="button"
-              onClick={() => setParams({ view: "week" })}
-              aria-pressed={view === "week"}
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition",
-                view === "week"
-                  ? "bg-teal-600 text-white"
-                  : "text-navy-600 hover:bg-navy-50",
-              )}
-            >
-              <ChevronRight className="h-4 w-4" aria-hidden />
-              Week
-            </button>
-            <button
-              type="button"
-              onClick={() => setParams({ view: "list" })}
-              aria-pressed={view === "list"}
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition",
-                view === "list"
-                  ? "bg-teal-600 text-white"
-                  : "text-navy-600 hover:bg-navy-50",
-              )}
-            >
-              <List className="h-4 w-4" aria-hidden />
-              List
-            </button>
+    <div className="min-h-screen space-y-6 bg-[#EEF2F7] p-6">
+      <PageHeader
+        title="Deadlines"
+        description="Application, follow-up, reporting, renewal, and document-expiration dates, color-coded by urgency."
+        actions={
+          <div className="flex flex-wrap items-center gap-3">
+            {calendarConnected && editable && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={syncAll}
+                isLoading={syncingAll}
+                disabled={Boolean(syncingId)}
+              >
+                <CalendarClock className="h-4 w-4" aria-hidden />
+                Sync to Calendar
+              </Button>
+            )}
+            <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 shadow-sm">
+              <button
+                type="button"
+                onClick={() => setParams({ view: null })}
+                aria-pressed={view === "calendar"}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition",
+                  view === "calendar"
+                    ? "bg-[#0077B6] text-white"
+                    : "text-slate-600 hover:bg-slate-50",
+                )}
+              >
+                <CalendarDays className="h-4 w-4" aria-hidden />
+                Month
+              </button>
+              <button
+                type="button"
+                onClick={() => setParams({ view: "week" })}
+                aria-pressed={view === "week"}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition",
+                  view === "week"
+                    ? "bg-[#0077B6] text-white"
+                    : "text-slate-600 hover:bg-slate-50",
+                )}
+              >
+                <ChevronRight className="h-4 w-4" aria-hidden />
+                Week
+              </button>
+              <button
+                type="button"
+                onClick={() => setParams({ view: "list" })}
+                aria-pressed={view === "list"}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition",
+                  view === "list"
+                    ? "bg-[#0077B6] text-white"
+                    : "text-slate-600 hover:bg-slate-50",
+                )}
+              >
+                <List className="h-4 w-4" aria-hidden />
+                List
+              </button>
+            </div>
           </div>
-        </div>
-      </div>
+        }
+      />
 
       {/* Page tab switcher */}
-      <div className="inline-flex rounded-lg border border-navy-200 bg-white p-0.5 shadow-sm">
+      <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 shadow-sm">
         <button
           type="button"
           onClick={() => setTab("deadlines")}
@@ -543,8 +559,8 @@ export default function DeadlinesPage() {
           className={cn(
             "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition",
             tab === "deadlines"
-              ? "bg-teal-600 text-white"
-              : "text-navy-600 hover:bg-navy-50",
+              ? "bg-[#0077B6] text-white"
+              : "text-slate-600 hover:bg-slate-50",
           )}
         >
           <CalendarDays className="h-4 w-4" aria-hidden />
@@ -557,8 +573,8 @@ export default function DeadlinesPage() {
           className={cn(
             "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition",
             tab === "compliance"
-              ? "bg-teal-600 text-white"
-              : "text-navy-600 hover:bg-navy-50",
+              ? "bg-[#0077B6] text-white"
+              : "text-slate-600 hover:bg-slate-50",
           )}
         >
           <ShieldCheck className="h-4 w-4" aria-hidden />
@@ -597,29 +613,29 @@ export default function DeadlinesPage() {
             <UrgencyLegend />
             <div className="flex flex-wrap items-center gap-4">
               {calendarConnected && editable && (
-                <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-navy-600">
+                <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-slate-600">
                   <input
                     type="checkbox"
                     checked={autoSync}
                     disabled={autoSyncSaving}
                     onChange={(e) => void toggleAutoSync(e.target.checked)}
-                    className="h-4 w-4 rounded border-navy-300 text-teal-600 focus:ring-teal-500"
+                    className="h-4 w-4 rounded border-slate-300 text-[#0077B6] focus:ring-[#0077B6]"
                   />
                   Auto-sync new deadlines
                 </label>
               )}
-              <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-navy-600">
+              <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-slate-600">
                 <input
                   type="checkbox"
                   checked={showCompleted}
                   onChange={(e) =>
                     setParams({ completed: e.target.checked ? "1" : null })
                   }
-                  className="h-4 w-4 rounded border-navy-300 text-teal-600 focus:ring-teal-500"
+                  className="h-4 w-4 rounded border-slate-300 text-[#0077B6] focus:ring-[#0077B6]"
                 />
                 Show completed
                 {completedCount > 0 && (
-                  <span className="text-navy-400">({completedCount})</span>
+                  <span className="text-slate-400">({completedCount})</span>
                 )}
               </label>
             </div>
@@ -627,15 +643,15 @@ export default function DeadlinesPage() {
 
           {/* Type filter */}
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-medium text-navy-500">Filter:</span>
+            <span className="text-xs font-medium text-slate-500">Filter:</span>
             <button
               type="button"
               onClick={() => setParams({ types: null })}
               className={cn(
                 "rounded-full px-3 py-1 text-xs font-medium transition",
                 activeTypes.size === DEADLINE_TYPES.length
-                  ? "bg-navy-800 text-white"
-                  : "border border-navy-200 text-navy-500 hover:border-navy-400 hover:text-navy-700",
+                  ? "bg-slate-800 text-white"
+                  : "border border-slate-200 text-slate-500 hover:border-slate-400 hover:text-slate-700",
               )}
             >
               All
@@ -648,8 +664,8 @@ export default function DeadlinesPage() {
                 className={cn(
                   "rounded-full px-3 py-1 text-xs font-medium transition",
                   activeTypes.has(type)
-                    ? "bg-teal-600 text-white"
-                    : "border border-navy-200 text-navy-500 hover:border-navy-400 hover:text-navy-700",
+                    ? "bg-[#0077B6] text-white"
+                    : "border border-slate-200 text-slate-500 hover:border-slate-400 hover:text-slate-700",
                 )}
               >
                 {TYPE_SHORT[type]}
@@ -723,93 +739,84 @@ function ComplianceList({ items }: { items: ComplianceItem[] }) {
 
   return (
     <div className="space-y-2">
-      <div className="flex flex-wrap items-center gap-3 pb-1 text-xs text-navy-500">
+      <div className="flex flex-wrap items-center gap-3 pb-1 text-xs text-slate-500">
         <UrgencyLegend />
       </div>
-      <Card noPadding>
-        <ul className="divide-y divide-navy-100">
-          {items.map((item) => {
-            const { band, label } = urgency(item.due_date);
-            const styles = BAND_CLASSES[band];
-            const isCompleted =
-              item.status === "completed" || item.status === "complete";
-            return (
-              <li
-                key={item.id}
-                className="flex flex-wrap items-center justify-between gap-3 px-5 py-3"
-              >
-                <div className="flex min-w-0 items-start gap-3">
-                  {!isCompleted && (
-                    <span
-                      className={cn(
-                        "mt-1.5 h-2 w-2 shrink-0 rounded-full",
-                        styles.dot,
-                      )}
-                      aria-hidden
-                    />
+      <div>
+        {items.map((item) => {
+          const { band, label } = urgency(item.due_date);
+          const bucket = urgencyBucket(band);
+          const isCompleted =
+            item.status === "completed" || item.status === "complete";
+          return (
+            <div
+              key={item.id}
+              className={cn(
+                "flex flex-wrap items-center justify-between gap-3",
+                isCompleted
+                  ? "mb-3 rounded-xl border border-slate-200 bg-white p-4"
+                  : URGENCY_ITEM_CLASSES[bucket],
+              )}
+            >
+              <div className="min-w-0">
+                <div
+                  className={cn(
+                    "truncate text-sm font-medium",
+                    isCompleted
+                      ? "text-slate-400 line-through"
+                      : "text-slate-900",
                   )}
-                  <div className="min-w-0">
-                    <div
-                      className={cn(
-                        "truncate text-sm font-medium",
-                        isCompleted
-                          ? "text-navy-400 line-through"
-                          : "text-navy-900",
-                      )}
-                    >
-                      {item.title}
-                    </div>
-                    <div className="mt-0.5 flex items-center gap-2 text-xs text-navy-500">
-                      <span>
-                        {COMPLIANCE_TYPE_LABEL[item.type] ?? item.type}
-                      </span>
+                >
+                  {item.title}
+                </div>
+                <div className="mt-0.5 flex items-center gap-2 text-xs text-slate-500">
+                  <span>
+                    {COMPLIANCE_TYPE_LABEL[item.type] ?? item.type}
+                  </span>
+                  <span>·</span>
+                  <span
+                    className={
+                      isCompleted ? undefined : URGENCY_DATE_CLASSES[bucket]
+                    }
+                  >
+                    {formatDate(item.due_date)}
+                  </span>
+                  {item.status && item.status !== "pending" && (
+                    <>
                       <span>·</span>
-                      <span>{formatDate(item.due_date)}</span>
-                      {item.status && item.status !== "pending" && (
-                        <>
-                          <span>·</span>
-                          <span className="capitalize">{humanizeEnum(item.status)}</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  {isCompleted ? (
-                    <span className="text-xs text-navy-400">Completed</span>
-                  ) : (
-                    <Badge variant={BAND_VARIANT[band]} className="shrink-0">
-                      {label}
-                    </Badge>
+                      <span className="capitalize">{humanizeEnum(item.status)}</span>
+                    </>
                   )}
                 </div>
-              </li>
-            );
-          })}
-        </ul>
-      </Card>
+              </div>
+              <div className="flex items-center gap-3">
+                {isCompleted ? (
+                  <span className="text-xs text-slate-400">Completed</span>
+                ) : (
+                  <Badge variant={BAND_VARIANT[band]} className="shrink-0">
+                    {label}
+                  </Badge>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
 
 function UrgencyLegend() {
-  const items: { band: UrgencyBand; label: string }[] = [
-    { band: "overdue", label: "Overdue" },
-    { band: "orange", label: "≤ 3 days" },
-    { band: "yellow", label: "≤ 7 days" },
-    { band: "green", label: "7+ days" },
+  const items: { bucket: UrgencyBucket; label: string; dot: string }[] = [
+    { bucket: "overdue", label: "Overdue", dot: "bg-[#EF4444]" },
+    { bucket: "week", label: "Due this week", dot: "bg-[#F59E0B]" },
+    { bucket: "future", label: "Future", dot: "bg-slate-400" },
   ];
   return (
-    <div className="flex flex-wrap items-center gap-3 text-xs text-navy-500">
+    <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
       {items.map((item) => (
-        <span key={item.band} className="inline-flex items-center gap-1.5">
-          <span
-            className={cn(
-              "h-2 w-2 rounded-full",
-              BAND_CLASSES[item.band].dot,
-            )}
-            aria-hidden
-          />
+        <span key={item.bucket} className="inline-flex items-center gap-1.5">
+          <span className={cn("h-2 w-2 rounded-full", item.dot)} aria-hidden />
           {item.label}
         </span>
       ))}
@@ -836,128 +843,122 @@ function ListView({
 }) {
   if (deadlines.length === 0) {
     return (
-      <Card>
-        <p className="py-4 text-center text-sm text-navy-500">
+      <div className="rounded-xl border border-slate-200 bg-white p-4">
+        <p className="py-4 text-center text-sm text-slate-500">
           No deadlines to show. Toggle &quot;Show completed&quot; to include
           finished ones, or adjust the type filter.
         </p>
-      </Card>
+      </div>
     );
   }
 
   return (
-    <Card noPadding>
-      <ul className="divide-y divide-navy-100">
-        {deadlines.map((d) => {
-          const completed = d.is_completed;
-          const synced = Boolean(d.google_calendar_event_id);
-          const { band, label } = urgency(d.due_date);
-          const styles = BAND_CLASSES[band];
-          const href = parentHref(d);
-          const isRenewal = d.source === "renewal";
-          return (
-            <li
-              key={d.id}
-              className="flex flex-wrap items-center justify-between gap-3 px-5 py-3"
-            >
-              <div className="flex min-w-0 items-start gap-3">
-                {!completed && (
-                  <span
-                    className={cn(
-                      "mt-1.5 h-2 w-2 shrink-0 rounded-full",
-                      styles.dot,
-                    )}
-                    aria-hidden
-                  />
+    <div>
+      {deadlines.map((d) => {
+        const completed = d.is_completed;
+        const synced = Boolean(d.google_calendar_event_id);
+        const { band, label } = urgency(d.due_date);
+        const bucket = urgencyBucket(band);
+        const href = parentHref(d);
+        const isRenewal = d.source === "renewal";
+        return (
+          <div
+            key={d.id}
+            className={cn(
+              "flex flex-wrap items-center justify-between gap-3",
+              completed
+                ? "mb-3 rounded-xl border border-slate-200 bg-white p-4"
+                : URGENCY_ITEM_CLASSES[bucket],
+            )}
+          >
+            <div className="min-w-0">
+              <div
+                className={cn(
+                  "truncate text-sm font-medium",
+                  completed ? "text-slate-400 line-through" : "text-slate-900",
                 )}
-                <div className="min-w-0">
-                  <div
-                    className={cn(
-                      "truncate text-sm font-medium",
-                      completed ? "text-navy-400 line-through" : "text-navy-900",
-                    )}
-                  >
-                    {href ? (
-                      <Link href={href} className="hover:underline">
-                        {d.title}
-                      </Link>
-                    ) : (
-                      d.title
-                    )}
-                  </div>
-                  <div className="mt-0.5 flex items-center gap-2 text-xs text-navy-500">
-                    <span>{humanizeEnum(d.deadline_type)}</span>
-                    <span>·</span>
-                    <span>{formatDate(d.due_date)}</span>
-                    {isRenewal && (
-                      <Badge variant="info">Renewal</Badge>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                {completed ? (
-                  <span className="text-xs text-navy-400">Completed</span>
+              >
+                {href ? (
+                  <Link href={href} className="hover:underline">
+                    {d.title}
+                  </Link>
                 ) : (
-                  <Badge variant={BAND_VARIANT[band]} className="shrink-0">
-                    {label}
-                  </Badge>
-                )}
-                {calendarConnected &&
-                  !isRenewal &&
-                  (synced ? (
-                    <span
-                      className="inline-flex items-center gap-1 text-xs text-teal-600"
-                      title="Synced to Google Calendar"
-                    >
-                      <CalendarCheck className="h-4 w-4" aria-hidden />
-                      On calendar
-                    </span>
-                  ) : (
-                    editable && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        disabled={syncingId === d.id}
-                        onClick={() => onSync(d)}
-                        aria-label="Add deadline to Google Calendar"
-                      >
-                        <CalendarPlus className="h-4 w-4" aria-hidden />
-                        Add to Calendar
-                      </Button>
-                    )
-                  ))}
-                {editable && !isRenewal && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    disabled={busyId === d.id}
-                    onClick={() => onToggle(d)}
-                    aria-label={
-                      completed
-                        ? "Mark deadline incomplete"
-                        : "Mark deadline complete"
-                    }
-                  >
-                    {completed ? (
-                      <>
-                        <RotateCcw className="h-4 w-4" aria-hidden />
-                        Reopen
-                      </>
-                    ) : (
-                      <>
-                        <Check className="h-4 w-4" aria-hidden />
-                        Complete
-                      </>
-                    )}
-                  </Button>
+                  d.title
                 )}
               </div>
-            </li>
-          );
-        })}
-      </ul>
-    </Card>
+              <div className="mt-0.5 flex items-center gap-2 text-xs text-slate-500">
+                <span>{humanizeEnum(d.deadline_type)}</span>
+                <span>·</span>
+                <span
+                  className={completed ? undefined : URGENCY_DATE_CLASSES[bucket]}
+                >
+                  {formatDate(d.due_date)}
+                </span>
+                {isRenewal && <Badge variant="info">Renewal</Badge>}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              {completed ? (
+                <span className="text-xs text-slate-400">Completed</span>
+              ) : (
+                <Badge variant={BAND_VARIANT[band]} className="shrink-0">
+                  {label}
+                </Badge>
+              )}
+              {calendarConnected &&
+                !isRenewal &&
+                (synced ? (
+                  <span
+                    className="inline-flex items-center gap-1 text-xs text-[#0077B6]"
+                    title="Synced to Google Calendar"
+                  >
+                    <CalendarCheck className="h-4 w-4" aria-hidden />
+                    On calendar
+                  </span>
+                ) : (
+                  editable && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={syncingId === d.id}
+                      onClick={() => onSync(d)}
+                      aria-label="Add deadline to Google Calendar"
+                    >
+                      <CalendarPlus className="h-4 w-4" aria-hidden />
+                      Add to Calendar
+                    </Button>
+                  )
+                ))}
+              {editable && !isRenewal && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={busyId === d.id}
+                  onClick={() => onToggle(d)}
+                  aria-label={
+                    completed
+                      ? "Mark deadline incomplete"
+                      : "Mark deadline complete"
+                  }
+                >
+                  {completed ? (
+                    <>
+                      <RotateCcw className="h-4 w-4" aria-hidden />
+                      Reopen
+                    </>
+                  ) : (
+                    <>
+                      <Check className="h-4 w-4" aria-hidden />
+                      Complete
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
   );
 }

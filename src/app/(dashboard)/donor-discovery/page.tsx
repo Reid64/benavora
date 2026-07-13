@@ -6,7 +6,6 @@ import { Loader2, Plug, Plus, Sparkles, Star, Telescope } from "lucide-react";
 
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Badge, Button, Card, EmptyState } from "@/components/ui";
-import type { BadgeVariant } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 import { formatRelative, humanizeEnum } from "@/lib/utils/formatters";
 import { cn } from "@/lib/utils/cn";
@@ -64,22 +63,13 @@ const FUNNEL_STAGES: DdFunnelStage[] = [
 
 const ACTIVE_STATUSES: DdRequestStatus[] = ["queued", "enumerating", "enriching", "scoring"];
 
-const STATUS_BADGE: Record<DdRequestStatus, BadgeVariant> = {
-  queued: "neutral",
-  enumerating: "info",
-  enriching: "info",
-  scoring: "warning",
-  complete: "success",
-  failed: "error",
-};
-
-const STATUS_BAR_CLASS: Record<DdRequestStatus, string> = {
-  queued: "bg-text-muted",
-  enumerating: "bg-info-text",
-  enriching: "bg-info-text",
-  scoring: "bg-warning-text",
-  complete: "bg-success-text",
-  failed: "bg-error-text",
+const STATUS_BADGE_CLASS: Record<DdRequestStatus, string> = {
+  queued: "bg-slate-100 text-slate-600",
+  enumerating: "bg-[#DBEAFE] text-[#1D4ED8]",
+  enriching: "bg-[#FEF3C7] text-[#92400E]",
+  scoring: "bg-[#EDE9FE] text-[#6D28D9]",
+  complete: "bg-[#DCFCE7] text-[#15803D]",
+  failed: "bg-[#FEE2E2] text-[#B91C1C]",
 };
 
 /** Coarse step progress by status — the queue doesn't expose a true percent,
@@ -119,11 +109,12 @@ function formatGeography(geography: unknown): string {
   return "—";
 }
 
-function scoreBadgeVariant(score: number | null): BadgeVariant {
-  if (score == null) return "neutral";
-  if (score > 70) return "success";
-  if (score >= 40) return "warning";
-  return "error";
+function scoreBadgeClass(score: number | null): string {
+  const shape = "px-2 py-0.5 rounded-full text-sm font-bold";
+  if (score == null) return cn(shape, "bg-slate-100 text-slate-500");
+  if (score > 70) return cn(shape, "bg-[#DCFCE7] text-[#15803D]");
+  if (score >= 40) return cn(shape, "bg-[#FEF3C7] text-[#92400E]");
+  return cn(shape, "bg-[#FEE2E2] text-[#B91C1C]");
 }
 
 export default function DonorDiscoveryPage() {
@@ -235,11 +226,12 @@ export default function DonorDiscoveryPage() {
                 Connectors
               </Button>
             </Link>
-            <Link href="/donor-discovery/new">
-              <Button>
-                <Plus className="h-4 w-4" aria-hidden />
-                New Discovery
-              </Button>
+            <Link
+              href="/donor-discovery/new"
+              className="inline-flex items-center gap-2 bg-[#0077B6] hover:bg-[#005F92] text-white px-6 py-3 rounded-xl font-bold text-sm shadow-md transition-colors"
+            >
+              <Plus className="h-4 w-4" aria-hidden />
+              New Discovery
             </Link>
           </>
         }
@@ -275,12 +267,17 @@ export default function DonorDiscoveryPage() {
               const shownTaxonomyIds = taxonomyIds.slice(0, 3);
               const extraTaxonomyCount = taxonomyIds.length - shownTaxonomyIds.length;
               return (
-                <div key={req.id} className="rounded-lg border border-border bg-surface p-4">
+                <div key={req.id} className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 mb-4">
                   <div className="flex items-start justify-between gap-2">
                     <p className="min-w-0 truncate text-sm font-semibold text-text">{req.name}</p>
-                    <Badge variant={STATUS_BADGE[req.status]} withDot className="shrink-0">
+                    <span
+                      className={cn(
+                        "inline-flex shrink-0 items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
+                        STATUS_BADGE_CLASS[req.status],
+                      )}
+                    >
                       {humanizeEnum(req.status)}
-                    </Badge>
+                    </span>
                   </div>
 
                   {shownTaxonomyIds.length > 0 && (
@@ -296,9 +293,9 @@ export default function DonorDiscoveryPage() {
 
                   <p className="mt-2 text-xs text-text-muted">{formatGeography(req.geography)}</p>
 
-                  <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-surface-sunken">
+                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#EEF2F7]">
                     <div
-                      className={cn("h-full rounded-full transition-all", STATUS_BAR_CLASS[req.status])}
+                      className="h-full rounded-full bg-gradient-to-r from-[#00B4D8] to-[#0077B6] transition-all"
                       style={{ width: `${STATUS_PROGRESS_PCT[req.status]}%` }}
                     />
                   </div>
@@ -321,10 +318,10 @@ export default function DonorDiscoveryPage() {
             <Link
               key={stage}
               href={`/donor-discovery/prospects?stage=${stage}`}
-              className="rounded-lg border border-border p-3 text-center transition hover:border-primary hover:bg-primary/5"
+              className="bg-white rounded-lg border border-slate-200 px-4 py-3 text-center hover:border-[#0077B6] cursor-pointer transition-colors"
             >
-              <p className="text-2xl font-bold text-text">{loading ? "—" : stageCounts[stage]}</p>
-              <p className="mt-1 text-xs font-medium text-text-muted">{humanizeEnum(stage)}</p>
+              <p className="text-2xl font-bold text-slate-900">{loading ? "—" : stageCounts[stage]}</p>
+              <p className="text-xs text-slate-400 mt-1">{humanizeEnum(stage)}</p>
             </Link>
           ))}
         </div>
@@ -355,9 +352,9 @@ export default function DonorDiscoveryPage() {
                     <p className="min-w-0 truncate text-sm font-semibold text-text">
                       {p.directory?.legal_name ?? "Unknown company"}
                     </p>
-                    <Badge variant={scoreBadgeVariant(p.score)} className="shrink-0">
+                    <span className={cn("shrink-0", scoreBadgeClass(p.score))}>
                       {p.score != null ? p.score : "—"}
-                    </Badge>
+                    </span>
                   </div>
                   {taxonomyLabel && (
                     <Badge color="teal" className="mt-2 self-start">

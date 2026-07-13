@@ -3,16 +3,16 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronRight } from "lucide-react";
-import { differenceInCalendarDays } from "date-fns";
 
 import { Badge } from "@/components/ui/Badge";
 import { StageTransitionModal } from "@/components/applications/StageTransitionModal";
 import {
   STAGE_LABEL,
+  isUrgentDeadline,
+  stagePillClassName,
   type EnrichedApplication,
   type PipelineStage,
 } from "@/components/applications/pipeline";
-import { stageBadgeColor } from "@/components/applications/ApplicationsTable";
 import { formatCurrency, formatDate } from "@/lib/utils/formatters";
 import { cn } from "@/lib/utils/cn";
 import type { Tables } from "@/types/database";
@@ -73,12 +73,8 @@ function stageGroupKey(stage: PipelineStage): GroupKey {
 // ── Deadline urgency ───────────────────────────────────────────────────────
 
 function deadlineClass(deadline: string | null): string {
-  if (!deadline) return "text-navy-400";
-  const days = differenceInCalendarDays(new Date(deadline), new Date());
-  if (days < 0) return "text-red-400 font-medium";
-  if (days < 7) return "text-warning-text font-medium";
-  if (days < 30) return "text-yellow-400";
-  return "text-navy-500";
+  if (!deadline) return "text-slate-400";
+  return isUrgentDeadline(deadline) ? "text-[#EF4444] font-medium" : "text-slate-400";
 }
 
 // ── Compact Kanban Card ────────────────────────────────────────────────────
@@ -115,24 +111,24 @@ function KanbanCard({
         }
       }}
       className={cn(
-        "rounded-lg border border-border bg-surface p-2.5 text-left transition",
-        "hover:border-border-hover hover:shadow-card-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent",
+        "rounded-lg border border-slate-200 bg-white p-2.5 text-left shadow-sm transition-shadow",
+        "hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0077B6]",
         draggable ? "cursor-grab active:cursor-grabbing" : "cursor-pointer",
       )}
     >
       {/* Line 1: opportunity name */}
-      <p className="truncate text-xs font-medium text-text-primary">
+      <p className="truncate text-xs font-medium text-slate-900">
         {app.opportunityName ?? "Untitled opportunity"}
       </p>
 
-      {/* Line 2: funder + sub-stage badge */}
+      {/* Line 2: funder + sub-stage pill */}
       <div className="mt-1 flex items-center justify-between gap-1">
-        <p className="truncate text-xs text-text-muted">
+        <p className="truncate text-xs text-slate-500">
           {app.funderName ?? "—"}
         </p>
-        <Badge color={stageBadgeColor(app.stage)} className="shrink-0 text-[10px]">
+        <span className={cn(stagePillClassName(app.stage), "shrink-0 !px-1.5 !py-0.5 !text-[10px]")}>
           {STAGE_LABEL[app.stage]}
-        </Badge>
+        </span>
       </div>
 
       {/* Line 3: amount + deadline */}
@@ -183,7 +179,7 @@ function KanbanColumn({
 
   return (
     <div
-      className="flex min-w-0 flex-1 flex-col"
+      className="flex w-64 shrink-0 flex-col sm:w-auto sm:min-w-0 sm:flex-1"
       onDragOver={(e) => {
         if (!interactive) return;
         e.preventDefault();
@@ -336,7 +332,7 @@ export function GroupedKanban({
 
   return (
     <>
-      <div className="grid grid-cols-4 gap-3">
+      <div className="flex gap-3 overflow-x-auto pb-2 sm:grid sm:grid-cols-2 sm:overflow-visible sm:pb-0 xl:grid-cols-4">
         {KANBAN_GROUPS.map((group) => (
           <KanbanColumn
             key={group.key}

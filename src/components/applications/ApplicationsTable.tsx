@@ -2,20 +2,15 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  ChevronDown,
-  ChevronUp,
-  ChevronsUpDown,
-  ExternalLink,
-} from "lucide-react";
-import { differenceInCalendarDays } from "date-fns";
+import { ChevronDown, ChevronUp, ChevronsUpDown, ExternalLink } from "lucide-react";
 
-import { Badge, type BadgeColor } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import {
   STAGE_LABEL,
   getTransitionRule,
   canMoveToStage,
+  isUrgentDeadline,
+  stagePillClassName,
   type EnrichedApplication,
   type PipelineStage,
   executeTransition,
@@ -59,57 +54,16 @@ function stageGroup(stage: PipelineStage): StageGroup {
   return "discovery";
 }
 
-export function stageBadgeColor(stage: PipelineStage): BadgeColor {
-  switch (stage) {
-    case "discovered":
-    case "eligibility_review":
-    case "qualified":
-      return "blue";
-    case "drafting":
-    case "awaiting_documents":
-    case "ready_for_review":
-      return "purple";
-    case "submitted":
-    case "follow_up_due":
-      return "green";
-    case "awarded":
-      return "green";
-    case "denied":
-      return "red";
-    case "reporting_required":
-      return "yellow";
-    case "renewal_opportunity":
-      return "teal";
-    default:
-      return "gray";
-  }
-}
-
 // ── Deadline urgency ───────────────────────────────────────────────────────
 
-function deadlineUrgency(
-  deadline: string | null,
-): "overdue" | "urgent" | "soon" | "normal" | null {
-  if (!deadline) return null;
-  const days = differenceInCalendarDays(new Date(deadline), new Date());
-  if (days < 0) return "overdue";
-  if (days < 7) return "urgent";
-  if (days < 30) return "soon";
-  return "normal";
-}
-
 function DeadlineCell({ deadline }: { deadline: string | null }) {
-  if (!deadline) return <span className="text-navy-400">—</span>;
-  const urgency = deadlineUrgency(deadline);
-  const cls =
-    urgency === "overdue"
-      ? "text-red-400 font-medium"
-      : urgency === "urgent"
-        ? "text-warning-text font-medium"
-        : urgency === "soon"
-          ? "text-yellow-400"
-          : "text-navy-600";
-  return <span className={cls}>{formatDate(deadline)}</span>;
+  if (!deadline) return <span className="text-slate-400">—</span>;
+  const urgent = isUrgentDeadline(deadline);
+  return (
+    <span className={urgent ? "text-[#EF4444] font-medium" : "text-slate-400"}>
+      {formatDate(deadline)}
+    </span>
+  );
 }
 
 // ── Sort ───────────────────────────────────────────────────────────────────
@@ -143,13 +97,13 @@ function sortValue(app: EnrichedApplication, key: SortKey): string | number {
 }
 
 function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
-  if (!active) return <ChevronsUpDown className="h-3.5 w-3.5 text-navy-300" aria-hidden />;
+  if (!active) return <ChevronsUpDown className="h-3.5 w-3.5 text-slate-300" aria-hidden />;
   return dir === "asc"
     ? <ChevronUp className="h-3.5 w-3.5" aria-hidden />
     : <ChevronDown className="h-3.5 w-3.5" aria-hidden />;
 }
 
-function Th({
+function SortHeader({
   label,
   sortKey,
   active,
@@ -165,19 +119,17 @@ function Th({
   className?: string;
 }) {
   return (
-    <th
-      scope="col"
-      className={cn("px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-navy-500", className)}
+    <button
+      type="button"
+      onClick={() => onClick(sortKey)}
+      className={cn(
+        "inline-flex items-center gap-1 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 transition hover:text-slate-700",
+        className,
+      )}
     >
-      <button
-        type="button"
-        onClick={() => onClick(sortKey)}
-        className="inline-flex items-center gap-1 transition hover:text-navy-700"
-      >
-        {label}
-        <SortIcon active={active} dir={dir} />
-      </button>
-    </th>
+      {label}
+      <SortIcon active={active} dir={dir} />
+    </button>
   );
 }
 
@@ -310,14 +262,14 @@ export function ApplicationsTable({
     onChanged();
   }
 
-  const thProps = { active: false, dir: sortDir, onClick: handleSort };
+  const sortProps = { dir: sortDir, onClick: handleSort };
 
   return (
     <div className="space-y-4">
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-3">
         {/* Group filter */}
-        <div className="inline-flex items-center gap-1 rounded-lg border border-navy-200 bg-white p-1">
+        <div className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
           {(["all", "discovery", "preparation", "active", "outcome"] as const).map((g) => {
             const label =
               g === "all"
@@ -334,8 +286,8 @@ export function ApplicationsTable({
                 className={cn(
                   "rounded-md px-3 py-1.5 text-sm font-medium transition",
                   groupFilter === g
-                    ? "bg-navy-900 text-white"
-                    : "text-navy-600 hover:bg-navy-50",
+                    ? "bg-[#0077B6] text-white"
+                    : "text-slate-600 hover:bg-slate-50",
                 )}
               >
                 {label}
@@ -346,14 +298,14 @@ export function ApplicationsTable({
 
         {/* Bulk action bar */}
         {selectedApps.length > 0 && (
-          <div className="flex items-center gap-2 rounded-lg border border-navy-200 bg-white px-3 py-1.5">
-            <span className="text-sm text-navy-600">
+          <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 shadow-sm">
+            <span className="text-sm text-slate-600">
               {selectedApps.length} selected
             </span>
             <select
               value={bulkTargetStage}
               onChange={(e) => setBulkTargetStage(e.target.value as PipelineStage | "")}
-              className="rounded border border-navy-200 bg-white px-2 py-1 text-sm text-navy-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
+              className="rounded border border-slate-200 bg-white px-2 py-1 text-sm text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0077B6]"
             >
               <option value="">Move to stage…</option>
               {(Object.keys(STAGE_LABEL) as PipelineStage[]).map((s) => (
@@ -376,7 +328,7 @@ export function ApplicationsTable({
 
       {/* Bulk results */}
       {bulkResults.length > 0 && (
-        <div className="rounded-lg border border-navy-200 bg-navy-50 px-4 py-3 text-sm">
+        <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
           {bulkResults.map((r, i) => (
             <p key={i} className={r.ok ? "text-green-700" : "text-red-700"}>
               {r.ok ? "✓" : "✗"} {r.name}
@@ -385,7 +337,7 @@ export function ApplicationsTable({
           ))}
           <button
             type="button"
-            className="mt-2 text-xs text-navy-500 underline"
+            className="mt-2 text-xs text-slate-500 underline"
             onClick={() => setBulkResults([])}
           >
             Dismiss
@@ -393,136 +345,94 @@ export function ApplicationsTable({
         </div>
       )}
 
-      {/* Table */}
-      <div className="overflow-x-auto rounded-xl border border-navy-200">
-        <table className="min-w-full divide-y divide-navy-200">
-          <thead className="bg-navy-50">
-            <tr>
-              <th scope="col" className="w-10 px-4 py-3">
-                <input
-                  type="checkbox"
-                  checked={allSelected}
-                  onChange={toggleAll}
-                  className="h-4 w-4 rounded border-navy-300 text-teal-600 focus:ring-teal-500"
-                  aria-label="Select all"
-                />
-              </th>
-              <Th
-                label="Opportunity"
-                sortKey="opportunityName"
-                {...thProps}
-                active={sortKey === "opportunityName"}
-              />
-              <Th
-                label="Funder"
-                sortKey="funderName"
-                {...thProps}
-                active={sortKey === "funderName"}
-              />
-              <Th
-                label="Amount"
-                sortKey="amount"
-                {...thProps}
-                active={sortKey === "amount"}
-                className="text-right"
-              />
-              <Th
-                label="Stage"
-                sortKey="stage"
-                {...thProps}
-                active={sortKey === "stage"}
-              />
-              <Th
-                label="Deadline"
-                sortKey="deadline"
-                {...thProps}
-                active={sortKey === "deadline"}
-              />
-              <Th
-                label="Updated"
-                sortKey="updatedAt"
-                {...thProps}
-                active={sortKey === "updatedAt"}
-              />
-              <th scope="col" className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-navy-500">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-navy-200 bg-white">
-            {filtered.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={8}
-                  className="px-4 py-12 text-center text-sm text-navy-500"
-                >
-                  No applications in this group.
-                </td>
-              </tr>
-            ) : (
-              filtered.map((app) => (
-                <tr
-                  key={app.id}
-                  onClick={() => router.push(`/applications/${app.id}`)}
-                  className="cursor-pointer transition hover:bg-navy-50"
-                >
-                  <td
-                    className="w-10 px-4 py-3"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selected.has(app.id)}
-                      onChange={() => toggleRow(app.id)}
-                      className="h-4 w-4 rounded border-navy-300 text-teal-600 focus:ring-teal-500"
-                      aria-label={`Select ${app.opportunityName ?? "application"}`}
-                    />
-                  </td>
-                  <td className="max-w-[220px] px-4 py-3">
-                    <p className="truncate text-sm font-medium text-navy-900">
-                      {app.opportunityName ?? "Untitled opportunity"}
-                    </p>
-                  </td>
-                  <td className="max-w-[160px] px-4 py-3">
-                    <p className="truncate text-sm text-navy-600">
-                      {app.funderName ?? <span className="text-navy-400">—</span>}
-                    </p>
-                  </td>
-                  <td className="px-4 py-3 text-right text-sm font-medium text-navy-700">
-                    {formatCurrency(app.requested_amount)}
-                  </td>
-                  <td className="px-4 py-3">
-                    <Badge color={stageBadgeColor(app.stage)} withDot>
-                      {STAGE_LABEL[app.stage]}
-                    </Badge>
-                  </td>
-                  <td className="px-4 py-3 text-sm">
-                    <DeadlineCell deadline={app.deadline} />
-                  </td>
-                  <td className="px-4 py-3 text-sm text-navy-500">
-                    {formatDate(app.updated_at)}
-                  </td>
-                  <td
-                    className="px-4 py-3"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => router.push(`/applications/${app.id}`)}
-                      className="inline-flex items-center gap-1 text-xs text-teal-600 transition hover:text-teal-700"
-                      aria-label="Open application"
-                    >
-                      <ExternalLink className="h-3.5 w-3.5" aria-hidden />
-                      View
-                    </button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      {/* Sort header */}
+      {filtered.length > 0 && (
+        <div className="flex items-center gap-4 rounded-xl border border-slate-200 bg-white px-5 py-2.5 shadow-sm">
+          <input
+            type="checkbox"
+            checked={allSelected}
+            onChange={toggleAll}
+            className="h-4 w-4 shrink-0 rounded border-slate-300 text-[#0077B6] focus:ring-[#0077B6]"
+            aria-label="Select all"
+          />
+          <SortHeader label="Opportunity" sortKey="opportunityName" {...sortProps} active={sortKey === "opportunityName"} className="min-w-0 flex-1" />
+          <SortHeader label="Funder" sortKey="funderName" {...sortProps} active={sortKey === "funderName"} className="hidden w-40 shrink-0 sm:inline-flex" />
+          <SortHeader label="Amount" sortKey="amount" {...sortProps} active={sortKey === "amount"} className="w-28 shrink-0 justify-end" />
+          <SortHeader label="Stage" sortKey="stage" {...sortProps} active={sortKey === "stage"} className="hidden w-44 shrink-0 md:inline-flex" />
+          <SortHeader label="Deadline" sortKey="deadline" {...sortProps} active={sortKey === "deadline"} className="hidden w-24 shrink-0 lg:inline-flex" />
+          <SortHeader label="Updated" sortKey="updatedAt" {...sortProps} active={sortKey === "updatedAt"} className="hidden w-24 shrink-0 lg:inline-flex" />
+          <span className="w-14 shrink-0" aria-hidden />
+        </div>
+      )}
 
+      {/* Row cards */}
+      {filtered.length === 0 ? (
+        <div className="rounded-xl border border-slate-200 bg-white p-12 text-center text-sm text-slate-500 shadow-sm">
+          No applications in this group.
+        </div>
+      ) : (
+        <div>
+          {filtered.map((app) => (
+            <div
+              key={app.id}
+              onClick={() => router.push(`/applications/${app.id}`)}
+              className="flex cursor-pointer items-center gap-4 rounded-xl border border-slate-200 bg-white p-5 mb-3 shadow-sm transition-shadow hover:shadow-md"
+            >
+              <input
+                type="checkbox"
+                checked={selected.has(app.id)}
+                onChange={() => toggleRow(app.id)}
+                onClick={(e) => e.stopPropagation()}
+                className="h-4 w-4 shrink-0 rounded border-slate-300 text-[#0077B6] focus:ring-[#0077B6]"
+                aria-label={`Select ${app.opportunityName ?? "application"}`}
+              />
+
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-base font-semibold text-slate-900">
+                  {app.opportunityName ?? "Untitled opportunity"}
+                </p>
+                <p className="mt-0.5 truncate text-sm text-slate-500 sm:hidden">
+                  {app.funderName ?? "—"}
+                </p>
+              </div>
+
+              <p className="hidden w-40 shrink-0 truncate text-sm text-slate-500 sm:block">
+                {app.funderName ?? <span className="text-slate-400">—</span>}
+              </p>
+
+              <p className="w-28 shrink-0 text-right text-sm font-medium text-slate-700">
+                {formatCurrency(app.requested_amount)}
+              </p>
+
+              <div className="hidden w-44 shrink-0 md:block">
+                <span className={stagePillClassName(app.stage)}>
+                  {STAGE_LABEL[app.stage]}
+                </span>
+              </div>
+
+              <div className="hidden w-24 shrink-0 text-sm lg:block">
+                <DeadlineCell deadline={app.deadline} />
+              </div>
+
+              <p className="hidden w-24 shrink-0 text-sm text-slate-400 lg:block">
+                {formatDate(app.updated_at)}
+              </p>
+
+              <div className="w-14 shrink-0 text-right" onClick={(e) => e.stopPropagation()}>
+                <button
+                  type="button"
+                  onClick={() => router.push(`/applications/${app.id}`)}
+                  className="inline-flex items-center gap-1 text-xs text-[#0077B6] transition hover:text-[#005F92]"
+                  aria-label="Open application"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+                  View
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

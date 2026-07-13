@@ -95,10 +95,10 @@ function TabButton({
       aria-selected={active}
       onClick={onClick}
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition",
+        "inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm transition",
         active
-          ? "border-teal-600 bg-teal-600 text-white"
-          : "border-navy-200 bg-white text-navy-600 hover:border-navy-300 hover:bg-navy-50",
+          ? "bg-[#0077B6] font-semibold text-white"
+          : "border border-slate-200 bg-white font-medium text-slate-600 hover:border-[#0077B6] hover:text-[#0077B6]",
       )}
     >
       {dotClass && (

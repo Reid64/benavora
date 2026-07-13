@@ -1078,7 +1078,7 @@ function PrepPanel({
           <p className="mb-2 text-xs font-medium uppercase tracking-wide text-navy-500">
             Pre-Filled Form Data
           </p>
-          <div className="overflow-hidden rounded-lg border border-navy-200 bg-white">
+          <div className="overflow-x-auto rounded-lg border border-navy-200 bg-white">
             <table className="min-w-full divide-y divide-navy-100 text-sm">
               <thead>
                 <tr className="bg-navy-50">

@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Library } from "lucide-react";
 
-import { Badge, Button, EmptyState, Input, LoadingSpinner, Select, Table } from "@/components/ui";
-import type { TableColumn } from "@/components/ui";
+import { Button, EmptyState, Input, LoadingSpinner, Select } from "@/components/ui";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { FoundationCard } from "@/components/foundations/FoundationCard";
 import { createClient } from "@/lib/supabase/client";
 import { useProfile } from "@/lib/hooks/useProfile";
 import type { Tables } from "@/types/database";
@@ -102,14 +103,6 @@ const NTEE_CATEGORIES: { value: string; label: string }[] = [
   { value: "Y", label: "Y – Mutual & Membership Benefit" },
 ];
 
-function formatCurrency(amount: number | null): string {
-  if (amount === null) return "—";
-  if (amount >= 1_000_000_000) return `$${(amount / 1_000_000_000).toFixed(1)}B`;
-  if (amount >= 1_000_000) return `$${(amount / 1_000_000).toFixed(1)}M`;
-  if (amount >= 1_000) return `$${(amount / 1_000).toFixed(0)}K`;
-  return `$${amount.toLocaleString()}`;
-}
-
 interface CoverageStats {
   total: number;
   enriched990: number;
@@ -118,10 +111,10 @@ interface CoverageStats {
 
 function StatCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
-    <div className="rounded-xl border border-navy-200 bg-white px-5 py-4">
-      <p className="text-xs font-medium uppercase tracking-wide text-navy-400">{label}</p>
-      <p className="mt-1 text-2xl font-semibold text-navy-900">{value}</p>
-      {sub && <p className="mt-0.5 text-xs text-navy-500">{sub}</p>}
+    <div className="rounded-xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
+      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</p>
+      <p className="mt-1 text-2xl font-semibold text-slate-900">{value}</p>
+      {sub && <p className="mt-0.5 text-xs text-slate-400">{sub}</p>}
     </div>
   );
 }
@@ -395,134 +388,23 @@ export default function FoundationsPage() {
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
-  const columns: TableColumn<FoundationRow>[] = [
-    {
-      key: "select",
-      header: (
-        <input
-          type="checkbox"
-          checked={allCurrentSelected}
-          onChange={toggleAll}
-          className="h-4 w-4 rounded border-navy-300 text-teal-500 accent-teal-500 focus:ring-teal-500"
-          aria-label="Select all on this page"
-        />
-      ),
-      render: (row) => (
-        <input
-          type="checkbox"
-          checked={selectedIds.has(row.id)}
-          onChange={() => toggleRow(row.id)}
-          className="h-4 w-4 rounded border-navy-300 text-teal-500 accent-teal-500 focus:ring-teal-500"
-          aria-label={`Select ${row.name}`}
-        />
-      ),
-      className: "w-10",
-    },
-    {
-      key: "name",
-      header: "Name",
-      render: (row) => (
-        <span className="font-medium text-navy-900">{row.name}</span>
-      ),
-      sortable: true,
-      sortValue: (row) => row.name,
-    },
-    {
-      key: "state",
-      header: "State",
-      render: (row) => row.state ?? "—",
-    },
-    {
-      key: "city",
-      header: "City",
-      render: (row) => row.city ?? "—",
-    },
-    {
-      key: "revenue",
-      header: "Revenue",
-      render: (row) => (
-        <span className="tabular-nums">{formatCurrency(row.revenue_amount)}</span>
-      ),
-      sortable: true,
-      sortValue: (row) => row.revenue_amount ?? 0,
-      align: "right",
-    },
-    {
-      key: "assets",
-      header: "Assets",
-      render: (row) => (
-        <span className="tabular-nums">{formatCurrency(row.asset_amount)}</span>
-      ),
-      sortable: true,
-      sortValue: (row) => row.asset_amount ?? 0,
-      align: "right",
-    },
-    {
-      key: "ntee_code",
-      header: "NTEE",
-      render: (row) =>
-        row.ntee_code ? (
-          <Badge color="navy">{row.ntee_code}</Badge>
-        ) : (
-          <span className="text-navy-400">—</span>
-        ),
-    },
-    {
-      key: "foundation_type",
-      header: "Foundation Type",
-      render: (row) =>
-        row.foundation_type ? (
-          <span className="text-xs text-navy-600">{row.foundation_type}</span>
-        ) : (
-          <span className="text-navy-400">—</span>
-        ),
-    },
-    {
-      key: "import",
-      header: "",
-      render: (row) => {
-        if (importedIds.has(row.id)) {
-          return <Badge color="green">Imported</Badge>;
-        }
-        return (
-          <Button
-            size="sm"
-            variant="secondary"
-            isLoading={importingIds.has(row.id)}
-            disabled={importingIds.has(row.id) || !profile?.organization_id}
-            onClick={() => importFoundation(row)}
-          >
-            Import as Funder
-          </Button>
-        );
-      },
-      align: "right",
-    },
-  ];
-
   return (
-    <div className="space-y-6">
-      {/* Page header */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-navy-900">
-            Foundation Directory
-          </h1>
-          <p className="mt-1 text-sm text-navy-500">
-            Browse IRS 990 foundation data. Import foundations as funders to
-            start tracking.
-          </p>
-        </div>
-        {selectedIds.size > 0 && (
-          <Button
-            isLoading={bulkImporting}
-            disabled={bulkImporting}
-            onClick={importSelected}
-          >
-            Import Selected ({selectedIds.size})
-          </Button>
-        )}
-      </div>
+    <div className="min-h-screen space-y-6 bg-[#EEF2F7] p-6">
+      <PageHeader
+        title="Foundation Directory"
+        description="Browse IRS 990 foundation data. Import foundations as funders to start tracking."
+        actions={
+          selectedIds.size > 0 && (
+            <Button
+              isLoading={bulkImporting}
+              disabled={bulkImporting}
+              onClick={importSelected}
+            >
+              Import Selected ({selectedIds.size})
+            </Button>
+          )
+        }
+      />
 
       {/* Enrichment coverage */}
       {coverage && (
@@ -544,10 +426,13 @@ export default function FoundationsPage() {
       {/* Filter bar */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <div className="xl:col-span-2">
-          <Input
+          <input
+            type="search"
             placeholder="Search name, city, state, EIN…"
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
+            aria-label="Search foundations"
+            className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-700 placeholder-slate-400 focus:border-[#0077B6] focus:ring-2 focus:ring-[#0077B6]/10 outline-none"
           />
         </div>
         <Select
@@ -588,16 +473,30 @@ export default function FoundationsPage() {
         />
       </div>
 
-      {/* Result count */}
+      {/* Result count + select all */}
       {!loading && !error && (
-        <p className="text-sm text-navy-500">
-          {total.toLocaleString()} foundation{total !== 1 ? "s" : ""} found
-          {selectedIds.size > 0 && (
-            <span className="ml-2 font-medium text-teal-600">
-              · {selectedIds.size} selected
-            </span>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-navy-500">
+            {total.toLocaleString()} foundation{total !== 1 ? "s" : ""} found
+            {selectedIds.size > 0 && (
+              <span className="ml-2 font-medium text-teal-600">
+                · {selectedIds.size} selected
+              </span>
+            )}
+          </p>
+          {foundations.length > 0 && (
+            <label className="flex items-center gap-2 text-sm text-navy-600">
+              <input
+                type="checkbox"
+                checked={allCurrentSelected}
+                onChange={toggleAll}
+                aria-label="Select all on this page"
+                className="h-4 w-4 rounded border-navy-300 text-[#0077B6] accent-[#0077B6] focus:ring-[#0077B6]"
+              />
+              Select all on this page
+            </label>
           )}
-        </p>
+        </div>
       )}
 
       {/* Error */}
@@ -617,15 +516,30 @@ export default function FoundationsPage() {
           title="No foundations found"
           description="Try adjusting your search or filters."
         />
+      ) : loading && foundations.length === 0 ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div
+              key={i}
+              className="h-48 animate-pulse rounded-xl border border-slate-200 bg-slate-50"
+            />
+          ))}
+        </div>
       ) : (
-        <Table
-          columns={columns}
-          data={foundations}
-          rowKey={(row) => row.id}
-          pageSize={0}
-          isLoading={loading}
-          emptyMessage="No foundations match your filters."
-        />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {foundations.map((foundation) => (
+            <FoundationCard
+              key={foundation.id}
+              foundation={foundation}
+              isImported={importedIds.has(foundation.id)}
+              isImporting={importingIds.has(foundation.id)}
+              isSelected={selectedIds.has(foundation.id)}
+              canImport={Boolean(profile?.organization_id)}
+              onToggleSelect={() => toggleRow(foundation.id)}
+              onImport={() => importFoundation(foundation)}
+            />
+          ))}
+        </div>
       )}
 
       {/* Pagination */}

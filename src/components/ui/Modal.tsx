@@ -83,7 +83,7 @@ export function Modal({
         ref={dialogRef}
         tabIndex={-1}
         className={cn(
-          "relative z-10 flex max-h-[calc(100vh-2rem)] w-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-surface shadow-lg outline-none",
+          "relative z-10 flex max-h-[calc(100vh-2rem)] w-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg outline-none",
           SIZE_CLASSES[size],
         )}
       >
@@ -104,7 +104,7 @@ export function Modal({
           <button
             type="button"
             onClick={onClose}
-            className="-mr-1.5 -mt-1.5 rounded-md p-1.5 text-slate-400 transition hover:bg-slate-200 hover:text-slate-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
+            className="-mr-1.5 -mt-1.5 rounded-md p-1.5 text-slate-400 transition hover:bg-slate-200 hover:text-slate-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0077B6]"
             aria-label="Close dialog"
           >
             <X className="h-5 w-5" aria-hidden />

@@ -262,7 +262,7 @@ export function QueuePanel() {
         }
       >
         {/* Stats bar */}
-        <div className="grid grid-cols-4 divide-x divide-navy-100 border-b border-navy-100">
+        <div className="grid grid-cols-2 divide-x divide-y divide-navy-100 border-b border-navy-100 sm:grid-cols-4 sm:divide-y-0">
           <div className="px-5 py-4">
             <p className="text-xs font-medium uppercase tracking-wide text-navy-400">Pending</p>
             <p className="mt-1 text-2xl font-semibold text-navy-900">{totalPending}</p>

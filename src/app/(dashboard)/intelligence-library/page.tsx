@@ -15,7 +15,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { Badge, Button, Card, EmptyState, LoadingSpinner } from "@/components/ui";
+import { Badge, Button, Card, LoadingSpinner } from "@/components/ui";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { IngestModal } from "@/components/intelligence/IngestModal";
 import {
@@ -208,9 +208,14 @@ export default function IntelligenceLibraryPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="min-h-screen space-y-6 bg-[#EEF2F7] p-6">
       <PageHeader
-        title="Intelligence Library"
+        title={
+          <span className="inline-flex items-center gap-2">
+            Intelligence Library
+            <Badge color="teal">Premium</Badge>
+          </span>
+        }
         description="Funded proposals, scoring rubrics, logic models, and evidence data powering the AI draft generator."
         actions={
           <Button onClick={() => setIngestOpen(true)}>
@@ -259,16 +264,16 @@ export default function IntelligenceLibraryPage() {
               placeholder="Search by funder name, program, or source…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-lg border border-navy-200 bg-white py-2 pl-9 pr-4 text-sm text-navy-900 placeholder:text-navy-400 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+              className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-4 text-sm text-slate-900 placeholder:text-slate-400 focus:border-[#0077B6] focus:outline-none focus:ring-1 focus:ring-[#0077B6]"
             />
           </div>
 
           {/* Tab bar */}
-          <div className="border-b border-navy-200">
+          <div className="border-b border-slate-200">
             <nav className="-mb-px flex gap-6" aria-label="Intelligence library tabs">
               <Link
                 href="/intelligence-library/dashboard"
-                className="whitespace-nowrap border-b-2 border-transparent pb-3 text-sm font-medium text-navy-500 transition hover:border-navy-300 hover:text-navy-700"
+                className="whitespace-nowrap border-b-2 border-transparent pb-3 text-sm font-medium text-slate-500 transition hover:border-slate-300 hover:text-slate-700"
               >
                 Dashboard
               </Link>
@@ -279,8 +284,8 @@ export default function IntelligenceLibraryPage() {
                   onClick={() => setActiveTab(tab.id)}
                   className={`whitespace-nowrap border-b-2 pb-3 text-sm font-medium transition ${
                     activeTab === tab.id
-                      ? "border-teal-500 text-teal-600"
-                      : "border-transparent text-navy-500 hover:border-navy-300 hover:text-navy-700"
+                      ? "border-[#0077B6] text-[#0077B6]"
+                      : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700"
                   }`}
                 >
                   {tab.label}
@@ -291,104 +296,114 @@ export default function IntelligenceLibraryPage() {
 
           {/* Tab content */}
           {activeTab === "funded-proposals" && (
-            <Card>
+            <>
               {filteredProposals.length === 0 ? (
-                <EmptyState
-                  icon={FileText}
+                <PremiumEmptyState
                   title="No funded proposals yet"
-                  description="Run the NIH ingestion pipeline to populate the funded proposal library."
+                  description="Ingest a winning proposal to start building your funded-proposal library — the AI draft generator draws on these for proven structure and language."
+                  ctaLabel="Add to Library"
+                  onCta={() => setIngestOpen(true)}
                 />
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-slate-200 text-sm">
-                    <thead>
-                      <tr className="bg-surface-sunken text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
-                        <th className="py-3 pl-4 pr-4" />
-                        <th className="py-3 pr-4">Funder</th>
-                        <th className="py-3 pr-4">Program</th>
-                        <th className="py-3 pr-4">Amount</th>
-                        <th className="py-3 pr-4">Year</th>
-                        <th className="py-3 pr-4">Categories</th>
-                        <th className="py-3 pr-4">Source</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-200">
-                      {filteredProposals.map((p) => (
-                        <Fragment key={p.id}>
-                          <tr
-                            id={`proposal-row-${p.id}`}
-                            onClick={() => void toggleProposal(p.id)}
-                            className="cursor-pointer hover:bg-slate-50"
-                          >
-                            <td className="py-3 pl-4 pr-4">
-                              {expandedId === p.id ? (
-                                <ChevronDown className="h-4 w-4 text-slate-400" aria-hidden />
-                              ) : (
-                                <ChevronRight className="h-4 w-4 text-slate-400" aria-hidden />
-                              )}
-                            </td>
-                            <td className="py-3 pr-4 font-medium text-slate-900">
-                              {p.funder_name ?? <span className="text-slate-400">—</span>}
-                            </td>
-                            <td className="py-3 pr-4 text-slate-600">
-                              {p.grant_program ?? <span className="text-slate-400">—</span>}
-                            </td>
-                            <td className="py-3 pr-4 text-slate-600">
-                              {p.award_amount != null
-                                ? formatCurrency(p.award_amount)
-                                : <span className="text-slate-400">—</span>}
-                            </td>
-                            <td className="py-3 pr-4 text-slate-600">
-                              {p.award_year ?? <span className="text-slate-400">—</span>}
-                            </td>
-                            <td className="py-3 pr-4">
-                              <div className="flex flex-wrap gap-1">
-                                {(p.category ?? []).slice(0, 3).map((cat) => (
-                                  <Badge key={cat} color="teal">
-                                    {cat}
-                                  </Badge>
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
+                  {filteredProposals.map((p) => {
+                    const isExpanded = expandedId === p.id;
+                    return (
+                      <div
+                        key={p.id}
+                        id={`proposal-row-${p.id}`}
+                        className="bg-white rounded-xl border border-slate-200 p-5 hover:border-[#0077B6] transition-colors"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => void toggleProposal(p.id)}
+                          className="flex w-full items-start justify-between gap-3 text-left"
+                        >
+                          <div className="min-w-0">
+                            {p.funder_type && (
+                              <Badge color="teal">{p.funder_type.replace(/_/g, " ")}</Badge>
+                            )}
+                            <h3 className="mt-1.5 truncate text-base font-semibold text-slate-900">
+                              {p.funder_name ?? "Unknown funder"}
+                            </h3>
+                            <p className="mt-0.5 truncate text-sm text-slate-500">
+                              {p.grant_program ?? "—"}
+                            </p>
+                          </div>
+                          <div className="shrink-0 pt-1">
+                            {isExpanded ? (
+                              <ChevronDown className="h-4 w-4 text-slate-400" aria-hidden />
+                            ) : (
+                              <ChevronRight className="h-4 w-4 text-slate-400" aria-hidden />
+                            )}
+                          </div>
+                        </button>
+
+                        <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                          <div>
+                            <dt className="font-semibold uppercase tracking-wide text-slate-400">
+                              Amount
+                            </dt>
+                            <dd className="mt-0.5 text-sm font-medium text-slate-700">
+                              {p.award_amount != null ? formatCurrency(p.award_amount) : "—"}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt className="font-semibold uppercase tracking-wide text-slate-400">
+                              Year
+                            </dt>
+                            <dd className="mt-0.5 text-sm font-medium text-slate-700">
+                              {p.award_year ?? "—"}
+                            </dd>
+                          </div>
+                        </dl>
+
+                        {(p.category ?? []).length > 0 && (
+                          <div className="mt-3 flex flex-wrap gap-1">
+                            {(p.category ?? []).slice(0, 3).map((cat) => (
+                              <Badge key={cat} color="teal">
+                                {cat}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+
+                        <p className="mt-3 text-xs text-slate-400">Source: {p.source}</p>
+
+                        {isExpanded && (
+                          <div className="mt-4 border-t border-slate-100 pt-4">
+                            {sectionsLoading && !sections[p.id] ? (
+                              <LoadingSpinner label="Loading sections…" />
+                            ) : (sections[p.id] ?? []).length === 0 ? (
+                              <p className="text-sm text-slate-400">No sections indexed for this proposal.</p>
+                            ) : (
+                              <div className="space-y-3">
+                                {(sections[p.id] ?? []).map((s) => (
+                                  <div
+                                    key={s.id}
+                                    className="rounded-lg border border-slate-200 bg-surface-sunken p-3"
+                                  >
+                                    <div className="mb-1.5 flex items-center justify-between gap-2">
+                                      <Badge color="navy">{s.section_type.replace(/_/g, " ")}</Badge>
+                                      {s.quality_score != null && (
+                                        <span className="text-xs text-slate-400">
+                                          Quality: {s.quality_score}/10
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p className="line-clamp-4 text-xs text-slate-600">{s.section_text}</p>
+                                  </div>
                                 ))}
                               </div>
-                            </td>
-                            <td className="py-3 pr-4 text-slate-500">{p.source}</td>
-                          </tr>
-                          {expandedId === p.id && (
-                            <tr>
-                              <td colSpan={7} className="bg-surface-sunken px-6 py-4">
-                                {sectionsLoading && !sections[p.id] ? (
-                                  <LoadingSpinner label="Loading sections…" />
-                                ) : (sections[p.id] ?? []).length === 0 ? (
-                                  <p className="text-sm text-slate-400">No sections indexed for this proposal.</p>
-                                ) : (
-                                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                                    {(sections[p.id] ?? []).map((s) => (
-                                      <div
-                                        key={s.id}
-                                        className="rounded-lg border border-slate-200 bg-white p-3"
-                                      >
-                                        <div className="mb-1.5 flex items-center justify-between gap-2">
-                                          <Badge color="navy">{s.section_type.replace(/_/g, " ")}</Badge>
-                                          {s.quality_score != null && (
-                                            <span className="text-xs text-slate-400">
-                                              Quality: {s.quality_score}/10
-                                            </span>
-                                          )}
-                                        </div>
-                                        <p className="line-clamp-4 text-xs text-slate-600">{s.section_text}</p>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-                              </td>
-                            </tr>
-                          )}
-                        </Fragment>
-                      ))}
-                    </tbody>
-                  </table>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
-            </Card>
+            </>
           )}
 
           {activeTab === "scoring-rubrics" && (
@@ -411,14 +426,15 @@ export default function IntelligenceLibraryPage() {
                 </select>
               </div>
 
-              <Card>
-                {filteredRubrics.length === 0 ? (
-                  <EmptyState
-                    icon={Target}
-                    title="No scoring rubrics yet"
-                    description="Rubrics are extracted from federal NOFOs and reviewer guides during the Night 2 build."
-                  />
-                ) : (
+              {filteredRubrics.length === 0 ? (
+                <PremiumEmptyState
+                  title="No scoring rubrics yet"
+                  description="Add a NOFO or reviewer guide to extract scoring dimensions and point breakdowns automatically."
+                  ctaLabel="Add to Library"
+                  onCta={() => setIngestOpen(true)}
+                />
+              ) : (
+                <Card>
                   <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-slate-200 text-sm">
                       <thead>
@@ -506,21 +522,20 @@ export default function IntelligenceLibraryPage() {
                       </tbody>
                     </table>
                   </div>
-                )}
-              </Card>
+                </Card>
+              )}
             </>
           )}
 
           {activeTab === "logic-models" && (
             <>
               {filteredLogicModels.length === 0 ? (
-                <Card>
-                  <EmptyState
-                    icon={BookOpen}
-                    title="No logic models yet"
-                    description="Logic model templates by program category are built during the Night 2 build."
-                  />
-                </Card>
+                <PremiumEmptyState
+                  title="No logic models yet"
+                  description="Logic model templates by program category populate here as your intelligence library grows."
+                  ctaLabel="Add to Library"
+                  onCta={() => setIngestOpen(true)}
+                />
               ) : (
                 Object.entries(logicModelsByCategory).map(([category, models]) => (
                   <div key={category}>
@@ -539,46 +554,80 @@ export default function IntelligenceLibraryPage() {
           )}
 
           {activeTab === "data-sources" && (
-            <Card>
+            <>
               {filteredNeedSources.length === 0 ? (
-                <EmptyState
-                  icon={Database}
+                <PremiumEmptyState
                   title="No data sources yet"
-                  description="Census, HUD, SAMHSA, BLS, and CDC data are ingested during the Night 3 build."
+                  description="Census, HUD, SAMHSA, BLS, and CDC evidence data populate here as it's ingested into your library."
                 />
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-slate-200 text-sm">
-                    <thead>
-                      <tr className="bg-surface-sunken text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
-                        <th className="py-3 pl-4 pr-4">Source</th>
-                        <th className="py-3 pr-4 text-right">Records</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-200">
-                      {filteredNeedSources.map((s) => (
-                        <tr key={s.source} className="hover:bg-slate-50">
-                          <td className="py-3 pl-4 pr-4 font-medium text-slate-900">{s.source}</td>
-                          <td className="py-3 pr-4 text-right tabular-nums text-slate-600">
-                            {s.count.toLocaleString()}
+                <Card>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-slate-200 text-sm">
+                      <thead>
+                        <tr className="bg-surface-sunken text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
+                          <th className="py-3 pl-4 pr-4">Source</th>
+                          <th className="py-3 pr-4 text-right">Records</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200">
+                        {filteredNeedSources.map((s) => (
+                          <tr key={s.source} className="hover:bg-slate-50">
+                            <td className="py-3 pl-4 pr-4 font-medium text-slate-900">{s.source}</td>
+                            <td className="py-3 pr-4 text-right tabular-nums text-slate-600">
+                              {s.count.toLocaleString()}
+                            </td>
+                          </tr>
+                        ))}
+                        <tr className="border-t-2 border-slate-200">
+                          <td className="py-3 pl-4 pr-4 text-sm font-semibold text-slate-700">Total</td>
+                          <td className="py-3 pr-4 text-right tabular-nums font-semibold text-slate-700">
+                            {filteredNeedSources
+                              .reduce((sum, s) => sum + s.count, 0)
+                              .toLocaleString()}
                           </td>
                         </tr>
-                      ))}
-                      <tr className="border-t-2 border-slate-200">
-                        <td className="py-3 pl-4 pr-4 text-sm font-semibold text-slate-700">Total</td>
-                        <td className="py-3 pr-4 text-right tabular-nums font-semibold text-slate-700">
-                          {filteredNeedSources
-                            .reduce((sum, s) => sum + s.count, 0)
-                            .toLocaleString()}
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
               )}
-            </Card>
+            </>
           )}
         </>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Premium call-to-action shown when a library tab's corpus is sparse
+ * (Elevated Slate design system). The CTA is omitted for tabs backed by
+ * background ingestion rather than the user-triggered "Add to Library" flow.
+ */
+function PremiumEmptyState({
+  title,
+  description,
+  ctaLabel,
+  onCta,
+}: {
+  title: string;
+  description: string;
+  ctaLabel?: string;
+  onCta?: () => void;
+}) {
+  return (
+    <div className="bg-gradient-to-br from-[#0077B6] to-[#00B4D8] rounded-2xl p-8 text-white text-center">
+      <h3 className="text-2xl font-bold text-white mb-2">{title}</h3>
+      <p className="text-[#BAE6FD] text-sm mb-6">{description}</p>
+      {ctaLabel && onCta && (
+        <button
+          type="button"
+          onClick={onCta}
+          className="bg-white text-[#0077B6] font-bold px-6 py-3 rounded-xl hover:shadow-lg transition-shadow"
+        >
+          {ctaLabel}
+        </button>
       )}
     </div>
   );

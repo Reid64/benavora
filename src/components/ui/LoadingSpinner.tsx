@@ -34,13 +34,13 @@ export function LoadingSpinner({
       role="status"
       aria-live="polite"
       className={cn(
-        "flex items-center gap-2 text-navy-500",
+        "flex items-center gap-2 text-slate-500",
         center && "min-h-40 w-full justify-center",
         className,
       )}
     >
       <Loader2
-        className={cn("animate-spin text-teal-600", SIZE_CLASSES[size])}
+        className={cn("animate-spin text-[#0077B6]", SIZE_CLASSES[size])}
         aria-hidden
       />
       {label && <span className="text-sm">{label}</span>}

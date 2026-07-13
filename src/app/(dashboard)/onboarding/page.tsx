@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import {
+  Fragment,
   Suspense,
   useCallback,
   useEffect,
@@ -140,6 +141,13 @@ const TAX_STATUS_OPTIONS = [
 
 const STORAGE_BUCKET = "documents";
 
+// Premium input style shared by every form field in the onboarding wizard.
+const PREMIUM_INPUT_CLASS =
+  "bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-700 placeholder-slate-400 focus:border-[#0077B6] focus:ring-2 focus:ring-[#0077B6]/10 outline-none";
+// Same treatment for <select> elements, keeping room on the right for the chevron icon.
+const PREMIUM_SELECT_CLASS =
+  "bg-white border border-slate-200 rounded-lg pl-4 pr-9 py-2.5 text-sm text-slate-700 focus:border-[#0077B6] focus:ring-2 focus:ring-[#0077B6]/10 outline-none";
+
 // Session cookie (no Max-Age) read by middleware to let a user browse the
 // dashboard before finishing the wizard. Cleared automatically when the
 // browser session ends, so a fresh login always lands on /onboarding again.
@@ -154,50 +162,49 @@ function makeKey() {
 }
 
 // ---------------------------------------------------------------------------
-// Progress bar
+// Step indicator
 // ---------------------------------------------------------------------------
 
-function ProgressBar({ step }: { step: number }) {
-  const pct = Math.round(((step - 1) / (TOTAL_STEPS - 1)) * 100);
+function StepIndicator({ step }: { step: number }) {
   return (
     <div className="mb-8">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-medium text-navy-600">
-          Step {step} of {TOTAL_STEPS}
-        </span>
-        <span className="text-sm text-navy-500">{pct}% complete</span>
-      </div>
-      <div className="w-full h-2 bg-navy-100 rounded-full overflow-hidden">
-        <div
-          className="h-full bg-teal-500 rounded-full transition-all duration-500"
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-      <div className="hidden sm:flex items-center justify-between mt-3">
-        {STEPS.map((s) => {
+      <p className="text-sm font-medium text-slate-600 mb-3">
+        Step {step} of {TOTAL_STEPS}
+      </p>
+      <div className="flex items-center gap-0">
+        {STEPS.map((s, idx) => {
           const done = step > s.id;
           const active = step === s.id;
           return (
-            <div key={s.id} className="flex flex-col items-center gap-1">
-              <div
-                className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold transition-colors ${
-                  done
-                    ? "bg-teal-500 text-white"
-                    : active
-                      ? "bg-navy-900 text-white"
-                      : "bg-navy-100 text-navy-400"
-                }`}
-              >
-                {done ? <Check className="h-3.5 w-3.5" /> : s.id}
+            <Fragment key={s.id}>
+              <div className="flex flex-col items-center gap-1.5">
+                <div
+                  className={
+                    done
+                      ? "w-8 h-8 rounded-full bg-[#0077B6] text-white flex items-center justify-center text-sm font-bold"
+                      : active
+                        ? "w-8 h-8 rounded-full border-2 border-[#0077B6] text-[#0077B6] flex items-center justify-center text-sm font-bold"
+                        : "w-8 h-8 rounded-full border-2 border-slate-200 text-slate-400 flex items-center justify-center text-sm"
+                  }
+                >
+                  {done ? <Check className="h-4 w-4" /> : s.id}
+                </div>
+                <span
+                  className={`text-[10px] font-medium hidden lg:block whitespace-nowrap ${
+                    active ? "text-slate-900" : done ? "text-[#0077B6]" : "text-slate-400"
+                  }`}
+                >
+                  {s.title}
+                </span>
               </div>
-              <span
-                className={`text-[10px] font-medium hidden lg:block ${
-                  active ? "text-navy-900" : done ? "text-teal-600" : "text-navy-400"
-                }`}
-              >
-                {s.title}
-              </span>
-            </div>
+              {idx < STEPS.length - 1 && (
+                <div
+                  className={`flex-1 h-0.5 mx-1 ${
+                    step > s.id ? "bg-[#0077B6]" : "bg-slate-200"
+                  }`}
+                />
+              )}
+            </Fragment>
           );
         })}
       </div>
@@ -219,8 +226,8 @@ function Step1({
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-xl font-semibold text-navy-900">Organization Profile</h2>
-        <p className="mt-1 text-sm text-navy-500">
+        <h2 className="text-xl font-semibold text-slate-900">Organization Profile</h2>
+        <p className="mt-1 text-sm text-slate-500">
           This information appears on grant applications. Funders use it to verify your
           eligibility and understand your organization.
         </p>
@@ -228,36 +235,39 @@ function Step1({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="sm:col-span-2">
-          <label className="block text-sm font-medium text-navy-700 mb-1">
+          <label className="block text-sm font-medium text-slate-700 mb-1">
             Legal Organization Name <span className="text-red-500">*</span>
           </label>
           <Input
             value={org.name}
             onChange={(e) => onChange("name", e.target.value)}
             placeholder="Full legal name as registered"
+            className={PREMIUM_INPUT_CLASS}
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-navy-700 mb-1">EIN</label>
+          <label className="block text-sm font-medium text-slate-700 mb-1">EIN</label>
           <Input
             value={org.ein}
             onChange={(e) => onChange("ein", e.target.value)}
             placeholder="XX-XXXXXXX"
+            className={PREMIUM_INPUT_CLASS}
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-navy-700 mb-1">Tax Status</label>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Tax Status</label>
           <Select
             value={org.tax_status}
             onChange={(e) => onChange("tax_status", e.target.value)}
             options={[{ value: "", label: "Select tax status..." }, ...TAX_STATUS_OPTIONS]}
+            className={PREMIUM_SELECT_CLASS}
           />
         </div>
 
         <div className="sm:col-span-2">
-          <label className="block text-sm font-medium text-navy-700 mb-1">
+          <label className="block text-sm font-medium text-slate-700 mb-1">
             Mission Statement
           </label>
           <Textarea
@@ -265,28 +275,31 @@ function Step1({
             onChange={(e) => onChange("mission_statement", e.target.value)}
             placeholder="Describe your organization's purpose in 1-3 sentences"
             rows={3}
+            className={PREMIUM_INPUT_CLASS}
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-navy-700 mb-1">
+          <label className="block text-sm font-medium text-slate-700 mb-1">
             Service Area
           </label>
           <Input
             value={org.service_area}
             onChange={(e) => onChange("service_area", e.target.value)}
             placeholder="e.g. Greater Phoenix, AZ or Statewide"
+            className={PREMIUM_INPUT_CLASS}
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-navy-700 mb-1">
+          <label className="block text-sm font-medium text-slate-700 mb-1">
             Target Population
           </label>
           <Input
             value={org.target_population}
             onChange={(e) => onChange("target_population", e.target.value)}
             placeholder="e.g. Low-income families, youth ages 12-18"
+            className={PREMIUM_INPUT_CLASS}
           />
         </div>
       </div>
@@ -323,8 +336,8 @@ function Step2({
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-xl font-semibold text-navy-900">Programs</h2>
-        <p className="mt-1 text-sm text-navy-500">
+        <h2 className="text-xl font-semibold text-slate-900">Programs</h2>
+        <p className="mt-1 text-sm text-slate-500">
           Add the programs your organization runs. Funders often restrict grants to specific
           program types, so detailed descriptions help the AI match you to the right
           opportunities.
@@ -332,10 +345,10 @@ function Step2({
       </div>
 
       {programs.length === 0 && (
-        <div className="rounded-lg border-2 border-dashed border-navy-200 p-8 text-center">
-          <FolderOpen className="mx-auto h-8 w-8 text-navy-300 mb-3" />
-          <p className="text-sm text-navy-500">No programs added yet.</p>
-          <p className="text-xs text-navy-400 mt-1">
+        <div className="rounded-lg border-2 border-dashed border-slate-200 p-8 text-center">
+          <FolderOpen className="mx-auto h-8 w-8 text-slate-300 mb-3" />
+          <p className="text-sm text-slate-500">No programs added yet.</p>
+          <p className="text-xs text-slate-400 mt-1">
             Add at least one program to continue.
           </p>
         </div>
@@ -343,31 +356,31 @@ function Step2({
 
       <div className="space-y-4">
         {programs.map((p, idx) => (
-          <div key={p.key} className="rounded-lg border border-navy-200 p-4">
+          <div key={p.key} className="rounded-lg border border-slate-200 p-4">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-medium text-navy-700">Program {idx + 1}</span>
+              <span className="text-sm font-medium text-slate-700">Program {idx + 1}</span>
               <button
                 type="button"
                 onClick={() => remove(p.key)}
-                className="text-navy-400 hover:text-red-500 transition-colors"
+                className="text-slate-400 hover:text-red-500 transition-colors"
               >
                 <Trash2 className="h-4 w-4" />
               </button>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="sm:col-span-2">
-                <label className="block text-xs font-medium text-navy-600 mb-1">
+                <label className="block text-xs font-medium text-slate-600 mb-1">
                   Program Name <span className="text-red-500">*</span>
                 </label>
                 <Input
                   value={p.name}
                   onChange={(e) => update(p.key, "name", e.target.value)}
                   placeholder="e.g. Youth Mentorship Initiative"
-                  className="text-sm"
+                  className={PREMIUM_INPUT_CLASS}
                 />
               </div>
               <div className="sm:col-span-2">
-                <label className="block text-xs font-medium text-navy-600 mb-1">
+                <label className="block text-xs font-medium text-slate-600 mb-1">
                   Description
                 </label>
                 <Textarea
@@ -375,11 +388,11 @@ function Step2({
                   onChange={(e) => update(p.key, "description", e.target.value)}
                   placeholder="What does this program do? Who does it serve?"
                   rows={2}
-                  className="text-sm"
+                  className={PREMIUM_INPUT_CLASS}
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-navy-600 mb-1">
+                <label className="block text-xs font-medium text-slate-600 mb-1">
                   Annual Budget ($)
                 </label>
                 <Input
@@ -387,11 +400,11 @@ function Step2({
                   value={p.budget}
                   onChange={(e) => update(p.key, "budget", e.target.value)}
                   placeholder="0"
-                  className="text-sm"
+                  className={PREMIUM_INPUT_CLASS}
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-navy-600 mb-1">
+                <label className="block text-xs font-medium text-slate-600 mb-1">
                   Beneficiaries Served / Year
                 </label>
                 <Input
@@ -399,7 +412,7 @@ function Step2({
                   value={p.beneficiaries_served}
                   onChange={(e) => update(p.key, "beneficiaries_served", e.target.value)}
                   placeholder="0"
-                  className="text-sm"
+                  className={PREMIUM_INPUT_CLASS}
                 />
               </div>
             </div>
@@ -434,14 +447,14 @@ function Step3({
     return (
       <div className="space-y-5">
         <div>
-          <h2 className="text-xl font-semibold text-navy-900">Knowledge Base — AI Draft</h2>
-          <p className="mt-1 text-sm text-navy-500">
+          <h2 className="text-xl font-semibold text-slate-900">Knowledge Base — AI Draft</h2>
+          <p className="mt-1 text-sm text-slate-500">
             Generating 7 grant-ready narrative drafts from your organization profile…
           </p>
         </div>
         <div className="flex flex-col items-center justify-center py-12 gap-4">
           <LoadingSpinner />
-          <p className="text-sm text-navy-500">This takes about 10–15 seconds…</p>
+          <p className="text-sm text-slate-500">This takes about 10–15 seconds…</p>
         </div>
       </div>
     );
@@ -451,8 +464,8 @@ function Step3({
     return (
       <div className="space-y-5">
         <div>
-          <h2 className="text-xl font-semibold text-navy-900">Knowledge Base — AI Draft</h2>
-          <p className="mt-1 text-sm text-navy-500">
+          <h2 className="text-xl font-semibold text-slate-900">Knowledge Base — AI Draft</h2>
+          <p className="mt-1 text-sm text-slate-500">
             We&apos;ll generate grant-ready narrative drafts from your profile data.
           </p>
         </div>
@@ -472,26 +485,26 @@ function Step3({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-semibold text-navy-900">Knowledge Base — AI Draft</h2>
-        <p className="mt-1 text-sm text-navy-500">
+        <h2 className="text-xl font-semibold text-slate-900">Knowledge Base — AI Draft</h2>
+        <p className="mt-1 text-sm text-slate-500">
           Review and edit these AI-generated narratives. They will be saved to your Knowledge
           Base and used to draft future grant applications. Replace any{" "}
-          <span className="font-mono text-xs bg-navy-100 px-1 py-0.5 rounded">[PLACEHOLDER]</span>{" "}
+          <span className="font-mono text-xs bg-slate-100 px-1 py-0.5 rounded">[PLACEHOLDER]</span>{" "}
           markers with your real data before submitting applications.
         </p>
       </div>
 
       <div className="space-y-4">
         {state.drafts.map((draft, idx) => (
-          <div key={draft.category} className="rounded-lg border border-navy-200 p-4">
-            <label className="block text-sm font-semibold text-navy-800 mb-2">
+          <div key={draft.category} className="rounded-lg border border-slate-200 p-4">
+            <label className="block text-sm font-semibold text-slate-800 mb-2">
               {draft.title}
             </label>
             <Textarea
               value={draft.content}
               onChange={(e) => onUpdateDraft(idx, e.target.value)}
               rows={5}
-              className="text-sm"
+              className={PREMIUM_INPUT_CLASS}
             />
           </div>
         ))}
@@ -499,8 +512,8 @@ function Step3({
 
       {state.keywords.length > 0 && (
         <div>
-          <p className="text-sm font-semibold text-navy-800 mb-1">Suggested Keywords</p>
-          <p className="text-xs text-navy-400 mb-2">
+          <p className="text-sm font-semibold text-slate-800 mb-1">Suggested Keywords</p>
+          <p className="text-xs text-slate-400 mb-2">
             These tags will be attached to your narratives to improve AI grant matching. Click × to
             remove any that don&apos;t apply.
           </p>
@@ -551,8 +564,8 @@ function Step4({
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-xl font-semibold text-navy-900">Board Members</h2>
-        <p className="mt-1 text-sm text-navy-500">
+        <h2 className="text-xl font-semibold text-slate-900">Board Members</h2>
+        <p className="mt-1 text-sm text-slate-500">
           Many grant applications require board member information. Add at least one
           board member to strengthen your applications. You can add more from the
           Settings page later.
@@ -560,53 +573,53 @@ function Step4({
       </div>
 
       {members.length === 0 && (
-        <div className="rounded-lg border-2 border-dashed border-navy-200 p-8 text-center">
-          <Users className="mx-auto h-8 w-8 text-navy-300 mb-3" />
-          <p className="text-sm text-navy-500">No board members added yet.</p>
-          <p className="text-xs text-navy-400 mt-1">Add at least one to continue.</p>
+        <div className="rounded-lg border-2 border-dashed border-slate-200 p-8 text-center">
+          <Users className="mx-auto h-8 w-8 text-slate-300 mb-3" />
+          <p className="text-sm text-slate-500">No board members added yet.</p>
+          <p className="text-xs text-slate-400 mt-1">Add at least one to continue.</p>
         </div>
       )}
 
       <div className="space-y-4">
         {members.map((m, idx) => (
-          <div key={m.key} className="rounded-lg border border-navy-200 p-4">
+          <div key={m.key} className="rounded-lg border border-slate-200 p-4">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-medium text-navy-700">
+              <span className="text-sm font-medium text-slate-700">
                 Board Member {idx + 1}
               </span>
               <button
                 type="button"
                 onClick={() => remove(m.key)}
-                className="text-navy-400 hover:text-red-500 transition-colors"
+                className="text-slate-400 hover:text-red-500 transition-colors"
               >
                 <Trash2 className="h-4 w-4" />
               </button>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
-                <label className="block text-xs font-medium text-navy-600 mb-1">
+                <label className="block text-xs font-medium text-slate-600 mb-1">
                   Full Name <span className="text-red-500">*</span>
                 </label>
                 <Input
                   value={m.name}
                   onChange={(e) => update(m.key, "name", e.target.value)}
                   placeholder="Jane Smith"
-                  className="text-sm"
+                  className={PREMIUM_INPUT_CLASS}
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-navy-600 mb-1">
+                <label className="block text-xs font-medium text-slate-600 mb-1">
                   Board Title
                 </label>
                 <Input
                   value={m.title}
                   onChange={(e) => update(m.key, "title", e.target.value)}
                   placeholder="Chair, Secretary, Treasurer..."
-                  className="text-sm"
+                  className={PREMIUM_INPUT_CLASS}
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-navy-600 mb-1">
+                <label className="block text-xs font-medium text-slate-600 mb-1">
                   Email
                 </label>
                 <Input
@@ -614,18 +627,18 @@ function Step4({
                   value={m.email}
                   onChange={(e) => update(m.key, "email", e.target.value)}
                   placeholder="jane@example.org"
-                  className="text-sm"
+                  className={PREMIUM_INPUT_CLASS}
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-navy-600 mb-1">
+                <label className="block text-xs font-medium text-slate-600 mb-1">
                   Short Bio
                 </label>
                 <Input
                   value={m.bio}
                   onChange={(e) => update(m.key, "bio", e.target.value)}
                   placeholder="Background, expertise..."
-                  className="text-sm"
+                  className={PREMIUM_INPUT_CLASS}
                 />
               </div>
             </div>
@@ -659,8 +672,8 @@ function Step5({
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-xl font-semibold text-navy-900">Document Upload</h2>
-        <p className="mt-1 text-sm text-navy-500">
+        <h2 className="text-xl font-semibold text-slate-900">Document Upload</h2>
+        <p className="mt-1 text-sm text-slate-500">
           Upload your key organizational documents. These are frequently requested in grant
           applications and stored securely in your document library. You can skip individual
           documents and upload them later from the Documents page.
@@ -669,17 +682,17 @@ function Step5({
 
       <div className="space-y-4">
         {slots.map((slot) => (
-          <div key={slot.key} className="rounded-lg border border-navy-200 p-4">
+          <div key={slot.key} className="rounded-lg border border-slate-200 p-4">
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1">
-                <p className="text-sm font-medium text-navy-800">{slot.label}</p>
-                <p className="text-xs text-navy-500 mt-0.5">
+                <p className="text-sm font-medium text-slate-800">{slot.label}</p>
+                <p className="text-xs text-slate-500 mt-0.5">
                   Category:{" "}
                   <span className="font-medium">{humanizeEnum(slot.category)}</span>
                 </p>
               </div>
               {slot.uploaded && (
-                <span className="inline-flex items-center gap-1 text-xs font-medium text-teal-600">
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-[#0077B6]">
                   <Check className="h-3.5 w-3.5" />
                   Uploaded
                 </span>
@@ -689,15 +702,15 @@ function Step5({
             {slot.file ? (
               <div className="mt-3 flex items-center gap-3">
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-navy-700 truncate">{slot.file.name}</p>
-                  <p className="text-xs text-navy-400">
+                  <p className="text-sm text-slate-700 truncate">{slot.file.name}</p>
+                  <p className="text-xs text-slate-400">
                     {(slot.file.size / 1024 / 1024).toFixed(2)} MB
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => handleFile(slot.key, null)}
-                  className="text-navy-400 hover:text-red-500 transition-colors flex-shrink-0"
+                  className="text-slate-400 hover:text-red-500 transition-colors flex-shrink-0"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -712,18 +725,18 @@ function Step5({
                     handleFile(slot.key, e.target.files?.[0] ?? null)
                   }
                 />
-                <span className="inline-flex items-center gap-1.5 text-sm text-teal-600 hover:text-teal-700 font-medium">
+                <span className="inline-flex items-center gap-1.5 text-sm text-[#0077B6] hover:text-[#005F92] font-medium">
                   <Upload className="h-4 w-4" />
                   Choose file
                 </span>
-                <span className="text-xs text-navy-400">PDF, Word, Excel - max 10 MB</span>
+                <span className="text-xs text-slate-400">PDF, Word, Excel - max 10 MB</span>
               </label>
             )}
           </div>
         ))}
       </div>
 
-      <p className="text-xs text-navy-400">
+      <p className="text-xs text-slate-400">
         All three documents are optional at this stage. You can upload them later from
         the Documents section.
       </p>
@@ -765,8 +778,8 @@ function Step6({
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-xl font-semibold text-navy-900">First Search Profile</h2>
-        <p className="mt-1 text-sm text-navy-500">
+        <h2 className="text-xl font-semibold text-slate-900">First Search Profile</h2>
+        <p className="mt-1 text-sm text-slate-500">
           Search profiles tell the AI what types of funding to look for. Set up your
           primary profile here - you can create more and fine-tune them from Search
           Profiles later.
@@ -775,21 +788,22 @@ function Step6({
 
       <div className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-navy-700 mb-1">
+          <label className="block text-sm font-medium text-slate-700 mb-1">
             Profile Name
           </label>
           <Input
             value={profile.name}
             onChange={(e) => onChange({ ...profile, name: e.target.value })}
             placeholder="e.g. Primary Grant Search"
+            className={PREMIUM_INPUT_CLASS}
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-navy-700 mb-1">
+          <label className="block text-sm font-medium text-slate-700 mb-1">
             Keywords <span className="text-red-500">*</span>
           </label>
-          <p className="text-xs text-navy-400 mb-2">
+          <p className="text-xs text-slate-400 mb-2">
             Enter words that describe the work you do and the funding you need.
           </p>
           <div className="flex gap-2">
@@ -803,6 +817,7 @@ function Step6({
                 }
               }}
               placeholder="youth, workforce, housing..."
+              className={PREMIUM_INPUT_CLASS}
             />
             <Button type="button" variant="secondary" onClick={addKeyword}>
               Add
@@ -827,7 +842,7 @@ function Step6({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-navy-700 mb-2">
+          <label className="block text-sm font-medium text-slate-700 mb-2">
             Funding Categories
           </label>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -840,8 +855,8 @@ function Step6({
                   onClick={() => toggleCategory(cat)}
                   className={`px-3 py-2 rounded-lg text-xs font-medium text-left transition-colors border ${
                     selected
-                      ? "bg-teal-50 border-teal-400 text-teal-700"
-                      : "bg-white border-navy-200 text-navy-600 hover:border-teal-300"
+                      ? "bg-[#EFF6FF] border-[#0077B6] text-[#0077B6]"
+                      : "bg-white border-slate-200 text-slate-600 hover:border-[#0077B6]/40"
                   }`}
                 >
                   {humanizeEnum(cat)}
@@ -852,19 +867,20 @@ function Step6({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-navy-700 mb-1">
+          <label className="block text-sm font-medium text-slate-700 mb-1">
             Geographic Scope
           </label>
           <Input
             value={profile.geographic_scope}
             onChange={(e) => onChange({ ...profile, geographic_scope: e.target.value })}
             placeholder="e.g. Arizona, National, or leave blank for any"
+            className={PREMIUM_INPUT_CLASS}
           />
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label className="block text-sm font-medium text-navy-700 mb-1">
+            <label className="block text-sm font-medium text-slate-700 mb-1">
               Minimum Grant Amount ($)
             </label>
             <Input
@@ -872,10 +888,11 @@ function Step6({
               value={profile.min_amount}
               onChange={(e) => onChange({ ...profile, min_amount: e.target.value })}
               placeholder="0"
+              className={PREMIUM_INPUT_CLASS}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-navy-700 mb-1">
+            <label className="block text-sm font-medium text-slate-700 mb-1">
               Maximum Grant Amount ($)
             </label>
             <Input
@@ -883,6 +900,7 @@ function Step6({
               value={profile.max_amount}
               onChange={(e) => onChange({ ...profile, max_amount: e.target.value })}
               placeholder="Leave blank for any"
+              className={PREMIUM_INPUT_CLASS}
             />
           </div>
         </div>
@@ -911,8 +929,8 @@ function Step7({
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-xl font-semibold text-navy-900">Choose Your Plan</h2>
-        <p className="mt-1 text-sm text-navy-500">
+        <h2 className="text-xl font-semibold text-slate-900">Choose Your Plan</h2>
+        <p className="mt-1 text-sm text-slate-500">
           Start with a free trial or choose a plan that matches your needs. You can
           upgrade or downgrade at any time from the Billing page.
         </p>
@@ -930,7 +948,7 @@ function Step7({
         ))}
       </div>
 
-      <div className="flex items-center justify-between pt-2 border-t border-navy-100 mt-6">
+      <div className="flex items-center justify-between pt-2 border-t border-slate-100 mt-6">
         <Button
           type="button"
           variant="secondary"
@@ -944,7 +962,7 @@ function Step7({
           type="button"
           onClick={onSkip}
           disabled={busy}
-          className="text-sm text-navy-500 hover:text-navy-700 underline underline-offset-2 disabled:opacity-50"
+          className="text-sm text-slate-500 hover:text-slate-700 underline underline-offset-2 disabled:opacity-50"
         >
           Skip for now - continue with Free plan
         </button>
@@ -1412,8 +1430,8 @@ function OnboardingPageInner() {
     <div className="max-w-3xl mx-auto py-8 px-4">
       <div className="mb-8 flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-navy-900">Welcome to Benavora</h1>
-          <p className="mt-2 text-navy-500">
+          <h1 className="text-3xl font-bold text-slate-900">Welcome to Benavora</h1>
+          <p className="mt-2 text-slate-500">
             Complete these steps to set up your account and start finding funding
             opportunities.
           </p>
@@ -1422,14 +1440,14 @@ function OnboardingPageInner() {
           <button
             type="button"
             onClick={handleExploreFirst}
-            className="shrink-0 whitespace-nowrap text-sm font-medium text-navy-500 underline underline-offset-2 hover:text-navy-700"
+            className="shrink-0 whitespace-nowrap text-sm font-medium text-slate-500 underline underline-offset-2 hover:text-slate-700"
           >
             Explore the platform first
           </button>
         )}
       </div>
 
-      <ProgressBar step={currentStep} />
+      <StepIndicator step={currentStep} />
 
       <form onSubmit={(e) => void handleNext(e)}>
         <Card>
@@ -1488,7 +1506,7 @@ function OnboardingPageInner() {
           )}
 
           {currentStep < TOTAL_STEPS && (
-            <div className="flex items-center justify-between mt-6 pt-5 border-t border-navy-100">
+            <div className="flex items-center justify-between mt-6 pt-5 border-t border-slate-100">
               <Button
                 type="button"
                 variant="secondary"
@@ -1499,7 +1517,12 @@ function OnboardingPageInner() {
                 Back
               </Button>
 
-              <Button type="submit" isLoading={saving} disabled={saving}>
+              <Button
+                type="submit"
+                isLoading={saving}
+                disabled={saving}
+                className="bg-[#0077B6] hover:bg-[#005F92] text-white px-8 py-3 rounded-xl font-bold text-sm shadow-md"
+              >
                 Save &amp; Continue
                 <ChevronRight className="h-4 w-4" />
               </Button>

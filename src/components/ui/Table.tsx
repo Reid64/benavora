@@ -50,6 +50,18 @@ export type TableProps<T> = {
   sort?: { key: string; direction: SortDirection } | null;
   onSortChange?: (sort: { key: string; direction: SortDirection }) => void;
   className?: string;
+  /** Override the outer bordered card's classes. Defaults to the standard table card look. */
+  containerClassName?: string;
+  /** Override the `<table>` element's classes (e.g. to drop the default row dividers). */
+  tableClassName?: string;
+  /** Override the `<thead>` row's classes. */
+  theadClassName?: string;
+  /** Override each `<th>`'s classes (alignment classes are still applied on top). */
+  thClassName?: string;
+  /** Override the `<tbody>`'s classes. */
+  tbodyClassName?: string;
+  /** Override each data row's classes, replacing the default hover/cursor treatment. */
+  rowClassName?: string;
 };
 
 const ALIGN_CLASSES = {
@@ -74,6 +86,12 @@ export function Table<T>({
   sort,
   onSortChange,
   className,
+  containerClassName,
+  tableClassName,
+  theadClassName,
+  thClassName,
+  tbodyClassName,
+  rowClassName,
 }: TableProps<T>) {
   const controlled = onSortChange != null;
   const [internalKey, setInternalKey] = useState<string | null>(
@@ -126,9 +144,14 @@ export function Table<T>({
 
   return (
     <div className={cn("w-full", className)}>
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-surface shadow-sm">
-        <table className="min-w-full divide-y divide-slate-200">
-          <thead className="bg-surface-sunken">
+      <div
+        className={
+          containerClassName ??
+          "overflow-x-auto rounded-xl border border-slate-200 bg-surface shadow-sm"
+        }
+      >
+        <table className={tableClassName ?? "min-w-full divide-y divide-slate-200"}>
+          <thead className={theadClassName ?? "bg-surface-sunken"}>
             <tr>
               {columns.map((column) => {
                 const isSorted = sortKey === column.key;
@@ -145,7 +168,8 @@ export function Table<T>({
                         : undefined
                     }
                     className={cn(
-                      "px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600",
+                      thClassName ??
+                        "px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600",
                       ALIGN_CLASSES[column.align ?? "left"],
                       column.className,
                     )}
@@ -178,7 +202,7 @@ export function Table<T>({
               })}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-200 bg-surface">
+          <tbody className={tbodyClassName ?? "divide-y divide-slate-200 bg-surface"}>
             {isLoading ? (
               <tr>
                 <td colSpan={colSpan} className="px-4 py-12">
@@ -199,10 +223,10 @@ export function Table<T>({
                 <tr
                   key={rowKey(row)}
                   onClick={onRowClick ? () => onRowClick(row) : undefined}
-                  className={cn(
-                    "transition",
-                    onRowClick && "cursor-pointer hover:bg-slate-50",
-                  )}
+                  className={
+                    rowClassName ??
+                    cn("transition", onRowClick && "cursor-pointer hover:bg-slate-50")
+                  }
                 >
                   {columns.map((column) => (
                     <td

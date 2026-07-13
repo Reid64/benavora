@@ -20,30 +20,28 @@ export function KnowledgeBaseNav() {
   const pathname = usePathname();
 
   return (
-    <div className="border-b border-navy-200">
-      <nav className="-mb-px flex gap-6 overflow-x-auto" aria-label="Knowledge base sections">
-        {TABS.map((tab) => {
-          const active =
-            tab.href === "/knowledge-base"
-              ? pathname === tab.href
-              : pathname.startsWith(tab.href);
-          return (
-            <Link
-              key={tab.href}
-              href={tab.href}
-              aria-current={active ? "page" : undefined}
-              className={cn(
-                "whitespace-nowrap border-b-2 px-1 py-3 text-sm font-medium transition",
-                active
-                  ? "border-teal-600 text-teal-600"
-                  : "border-transparent text-navy-500 hover:border-navy-300 hover:text-navy-700",
-              )}
-            >
-              {tab.label}
-            </Link>
-          );
-        })}
-      </nav>
-    </div>
+    <nav className="flex flex-wrap items-center gap-2" aria-label="Knowledge base sections">
+      {TABS.map((tab) => {
+        const active =
+          tab.href === "/knowledge-base"
+            ? pathname === tab.href
+            : pathname.startsWith(tab.href);
+        return (
+          <Link
+            key={tab.href}
+            href={tab.href}
+            aria-current={active ? "page" : undefined}
+            className={cn(
+              "whitespace-nowrap transition-colors",
+              active
+                ? "rounded-lg bg-[#0077B6] px-4 py-2 text-sm font-semibold text-white"
+                : "rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:text-[#0077B6]",
+            )}
+          >
+            {tab.label}
+          </Link>
+        );
+      })}
+    </nav>
   );
 }

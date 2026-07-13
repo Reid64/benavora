@@ -474,7 +474,7 @@ function CampaignsTab() {
             )}
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <Input
               label="Daily Send Target"
               type="number"
@@ -694,12 +694,15 @@ function DomainsTab() {
 // Tab: Prospects
 // ---------------------------------------------------------------------------
 
-const PROSPECT_STATUS_BADGE: Record<string, BadgeColor> = {
-  pending: "gray",
-  contacted: "blue",
-  replied: "green",
-  bounced: "red",
-  suppressed: "orange",
+// Elevated Slate pill classes, matching the pipeline color system used for
+// application stages (pipeline.ts's stagePillClassName) — same hex pairs per
+// semantic color family, just keyed by prospect status instead of stage.
+const PROSPECT_STATUS_PILL: Record<string, string> = {
+  pending: "bg-[#F1F5F9] text-[#64748B] px-3 py-1 rounded-full text-xs font-semibold",
+  contacted: "bg-[#DBEAFE] text-[#1D4ED8] px-3 py-1 rounded-full text-xs font-semibold",
+  replied: "bg-[#DCFCE7] text-[#15803D] px-3 py-1 rounded-full text-xs font-semibold",
+  bounced: "bg-[#FEE2E2] text-[#B91C1C] px-3 py-1 rounded-full text-xs font-semibold",
+  suppressed: "bg-[#FEF3C7] text-[#92400E] px-3 py-1 rounded-full text-xs font-semibold",
 };
 
 function ProspectsTab() {
@@ -708,6 +711,7 @@ function ProspectsTab() {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [suppressing, setSuppressing] = useState(false);
+  const [suppressingId, setSuppressingId] = useState<string | null>(null);
   const [showImport, setShowImport] = useState(false);
   const [importListName, setImportListName] = useState("");
   const [importing, setImporting] = useState(false);
@@ -793,6 +797,20 @@ function ProspectsTab() {
     }
   }
 
+  async function suppressOne(id: string) {
+    setSuppressingId(id);
+    try {
+      await fetch(`/api/admin/prospects/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ suppressed: true, suppressed_reason: "manual_suppress" }),
+      });
+      void load();
+    } finally {
+      setSuppressingId(null);
+    }
+  }
+
   function toggleSelect(id: string) {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -854,9 +872,9 @@ function ProspectsTab() {
       sortable: true,
       sortValue: (r) => r.status,
       render: (r) => (
-        <Badge color={PROSPECT_STATUS_BADGE[r.status] ?? "gray"}>
+        <span className={PROSPECT_STATUS_PILL[r.status] ?? PROSPECT_STATUS_PILL.pending}>
           {r.status.charAt(0).toUpperCase() + r.status.slice(1)}
-        </Badge>
+        </span>
       ),
     },
     {
@@ -878,6 +896,23 @@ function ProspectsTab() {
           <CheckCircle2 className="h-4 w-4 text-green-500" aria-label="Replied" />
         ) : (
           <X className="h-4 w-4 text-navy-300" aria-label="Not replied" />
+        ),
+    },
+    {
+      key: "actions",
+      header: "",
+      render: (r) =>
+        r.status === "suppressed" ? (
+          <span className="text-xs text-slate-400">—</span>
+        ) : (
+          <button
+            type="button"
+            onClick={() => void suppressOne(r.id)}
+            disabled={suppressingId === r.id}
+            className="bg-[#0077B6] text-white px-3 py-1 rounded-lg text-xs font-semibold hover:bg-[#005F92] transition-colors disabled:opacity-60"
+          >
+            {suppressingId === r.id ? "Suppressing…" : "Suppress"}
+          </button>
         ),
     },
   ];
@@ -925,15 +960,19 @@ function ProspectsTab() {
       {loading ? (
         <LoadingSpinner center label="Loading prospects…" />
       ) : (
-        <Card>
-          <Table
-            columns={columns}
-            data={filtered}
-            rowKey={(r) => r.id}
-            pageSize={25}
-            emptyMessage="No prospects match your search."
-          />
-        </Card>
+        <Table
+          columns={columns}
+          data={filtered}
+          rowKey={(r) => r.id}
+          pageSize={25}
+          emptyMessage="No prospects match your search."
+          containerClassName="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto"
+          tableClassName="min-w-[700px] divide-y divide-slate-200"
+          theadClassName="bg-[#1A2B3C]"
+          thClassName="bg-[#1A2B3C] text-[#CBD5E1] text-xs font-semibold uppercase tracking-wide px-4 py-3"
+          tbodyClassName="divide-y divide-slate-200 bg-white"
+          rowClassName="hover:bg-slate-50 transition-colors"
+        />
       )}
 
       <Modal isOpen={showImport} onClose={() => setShowImport(false)} title="Import Prospects">

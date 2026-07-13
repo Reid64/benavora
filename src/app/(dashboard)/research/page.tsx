@@ -162,6 +162,13 @@ function categoryLabel(cat: FunderCategory): string {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+/** Deadlines within 14 days (or already past) render in urgent red. */
+function isDeadlineUrgent(iso: string | null): boolean {
+  if (!iso) return false;
+  const days = (new Date(iso).getTime() - Date.now()) / (1000 * 60 * 60 * 24);
+  return days <= 14;
+}
+
 /**
  * Does a discovered opportunity belong to the given source card? Opportunities
  * carry a free-text `source` (usually a URL) and a `source_type` enum, so we
@@ -229,6 +236,8 @@ export default function ResearchPage() {
   const [runError, setRunError] = useState<string | null>(null);
   // Clicking a source card filters Discovered Opportunities to that source.
   const [activeSource, setActiveSource] = useState<string | null>(null);
+  // Free-text search across the discovered opportunities list.
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Applied-status (TASK 4) and historical awards (TASK 5).
   const [appsByOpp, setAppsByOpp] = useState<Record<string, AppliedInfo>>({});
@@ -252,6 +261,17 @@ export default function ResearchPage() {
   const activeSourceLabel = activeSource
     ? (SOURCES.find((s) => s.key === activeSource)?.label ?? activeSource)
     : null;
+
+  const searchedOpportunities = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return visibleOpportunities;
+    return visibleOpportunities.filter(
+      (o) =>
+        o.name.toLowerCase().includes(q) ||
+        (o.source ?? "").toLowerCase().includes(q) ||
+        categoryLabel(o.category).toLowerCase().includes(q),
+    );
+  }, [visibleOpportunities, searchQuery]);
 
   // Sources filtered to the org's recommended list once config is loaded.
   const displayedSources = useMemo(() => {
@@ -653,7 +673,7 @@ export default function ResearchPage() {
             Discovered Opportunities
             {!loading && (
               <span className="ml-2 text-sm font-normal text-navy-500">
-                ({visibleOpportunities.length})
+                ({searchedOpportunities.length})
               </span>
             )}
           </h2>
@@ -671,6 +691,26 @@ export default function ResearchPage() {
             </>
           )}
         </div>
+
+        <form
+          onSubmit={(e) => e.preventDefault()}
+          className="flex flex-col gap-3 sm:flex-row"
+        >
+          <input
+            type="search"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search discovered opportunities by name, source, or category..."
+            aria-label="Search discovered opportunities"
+            className="w-full bg-white border-2 border-slate-200 rounded-2xl px-6 py-4 text-base text-slate-700 placeholder-slate-400 focus:border-[#0077B6] focus:ring-4 focus:ring-[#0077B6]/10 outline-none shadow-sm"
+          />
+          <button
+            type="submit"
+            className="bg-[#0077B6] hover:bg-[#005F92] text-white px-6 py-4 rounded-2xl font-semibold shrink-0"
+          >
+            Search
+          </button>
+        </form>
 
         {loading ? (
           <div className="flex items-center justify-center rounded-xl border border-slate-200 bg-white p-10 text-sm text-slate-500">
@@ -692,93 +732,87 @@ export default function ResearchPage() {
               Show all sources
             </button>
           </div>
+        ) : searchedOpportunities.length === 0 ? (
+          <div className="rounded-xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500">
+            No discovered opportunities match &ldquo;{searchQuery}&rdquo;.{" "}
+            <button
+              onClick={() => setSearchQuery("")}
+              className="font-medium text-blue-600 hover:underline"
+            >
+              Clear search
+            </button>
+          </div>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-            <table className="min-w-full divide-y divide-slate-200">
-              <thead>
-                <tr className="bg-surface-sunken">
-                  {[
-                    "Name",
-                    "Source",
-                    "Category",
-                    "Amount Range",
-                    "Deadline",
-                    "Eligibility",
-                    "Discovered",
-                    "Status",
-                  ].map((col) => (
-                    <th
-                      key={col}
-                      className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600"
-                    >
-                      {col}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200">
-                {visibleOpportunities.map((opp) => {
-                  const badge = sourceBadgeProps(opp.source, opp.source_type);
-                  const applied = appsByOpp[opp.id];
-                  return (
-                    <tr
-                      key={opp.id}
-                      onClick={() => router.push(`/opportunities/${opp.id}`)}
-                      className="cursor-pointer hover:bg-slate-50 transition-colors"
-                    >
-                      <td className="max-w-[200px] truncate px-4 py-3 text-sm font-medium text-slate-900">
+          <div>
+            {searchedOpportunities.map((opp) => {
+              const badge = sourceBadgeProps(opp.source, opp.source_type);
+              const applied = appsByOpp[opp.id];
+              const urgent = isDeadlineUrgent(opp.deadline);
+              return (
+                <div
+                  key={opp.id}
+                  onClick={() => router.push(`/opportunities/${opp.id}`)}
+                  className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 mb-4 hover:shadow-md hover:border-[#00B4D8] transition-all cursor-pointer"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-base font-semibold text-slate-900 hover:text-[#0077B6]">
                         {opp.name}
-                      </td>
-                      <td className="px-4 py-3">
-                        <Badge variant={badge.variant}>{badge.label}</Badge>
-                      </td>
-                      <td className="px-4 py-3 text-xs text-slate-600">
-                        {categoryLabel(opp.category)}
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-xs text-slate-600">
-                        {formatAmount(opp.amount_min, opp.amount_max)}
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-xs text-slate-600">
-                        {formatDate(opp.deadline)}
-                      </td>
-                      <td className="px-4 py-3 text-xs text-slate-600">
-                        {opp.eligibility_score != null
-                          ? `${opp.eligibility_score}%`
-                          : "—"}
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-xs text-slate-500">
-                        {formatDate(opp.created_at)}
-                      </td>
-                      <td
-                        className="whitespace-nowrap px-4 py-3 text-xs"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {applied ? (
-                          <div className="flex flex-col items-start">
-                            <Badge variant="info">
-                              {applied.stage
-                                .replace(/_/g, " ")
-                                .replace(/\b\w/g, (c) => c.toUpperCase())}
-                            </Badge>
-                            <span className="mt-1 text-slate-500">
-                              Applied {formatDate(applied.created_at)}
-                            </span>
-                          </div>
-                        ) : (
-                          <Link
-                            href={`/applications/new?opportunityId=${opp.id}`}
-                            onClick={(e) => e.stopPropagation()}
-                            className="inline-flex items-center rounded-md bg-primary px-2.5 py-1 font-medium text-white shadow-sm hover:bg-primary-hover"
-                          >
-                            Apply
-                          </Link>
+                      </h3>
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <span className="bg-[#EFF6FF] text-[#1D4ED8] px-2.5 py-1 rounded-full text-xs font-medium">
+                          {badge.label}
+                        </span>
+                        <span className="text-xs text-slate-500">
+                          {categoryLabel(opp.category)}
+                        </span>
+                        {opp.eligibility_score != null && (
+                          <span className="text-xs text-slate-500">
+                            · Eligibility {opp.eligibility_score}%
+                          </span>
                         )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                      </div>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <p className="text-[#15803D] font-bold">
+                        {formatAmount(opp.amount_min, opp.amount_max)}
+                      </p>
+                      <p className={urgent ? "text-[#EF4444] font-medium" : "text-slate-400"}>
+                        {opp.deadline ? formatDate(opp.deadline) : "No deadline"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div
+                    className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <span className="text-xs text-slate-400">
+                      Discovered {formatDate(opp.created_at)}
+                    </span>
+                    {applied ? (
+                      <div className="flex flex-col items-end">
+                        <Badge variant="info">
+                          {applied.stage
+                            .replace(/_/g, " ")
+                            .replace(/\b\w/g, (c) => c.toUpperCase())}
+                        </Badge>
+                        <span className="mt-1 text-xs text-slate-500">
+                          Applied {formatDate(applied.created_at)}
+                        </span>
+                      </div>
+                    ) : (
+                      <Link
+                        href={`/applications/new?opportunityId=${opp.id}`}
+                        className="inline-flex items-center rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-white shadow-sm hover:bg-primary-hover"
+                      >
+                        Apply
+                      </Link>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </section>

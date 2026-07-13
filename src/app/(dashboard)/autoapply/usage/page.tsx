@@ -528,30 +528,32 @@ export default function UsagePage() {
           title="Cost Breakdown"
           description="API and infrastructure costs this billing period."
         >
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-navy-100 text-left text-xs font-medium uppercase tracking-wide text-navy-400">
-                <th className="pb-2 pr-4">Category</th>
-                <th className="pb-2 text-right">Cost</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-navy-50">
-              <CostRow label="Claude API" amount={usage?.api_cost_claude ?? 0} />
-              <CostRow label="OpenAI API" amount={usage?.api_cost_openai ?? 0} />
-              <CostRow label="Proxy Network" amount={usage?.proxy_cost ?? 0} />
-              <CostRow label="CAPTCHA Solving" amount={usage?.captcha_cost ?? 0} />
-            </tbody>
-            <tfoot>
-              <tr className="border-t-2 border-navy-200">
-                <td className="pt-3 text-sm font-semibold text-navy-900">
-                  Total
-                </td>
-                <td className="pt-3 text-right text-sm font-semibold text-navy-900">
-                  {fmtUsd(totalCost)}
-                </td>
-              </tr>
-            </tfoot>
-          </table>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-navy-100 text-left text-xs font-medium uppercase tracking-wide text-navy-400">
+                  <th className="pb-2 pr-4">Category</th>
+                  <th className="pb-2 text-right">Cost</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-navy-50">
+                <CostRow label="Claude API" amount={usage?.api_cost_claude ?? 0} />
+                <CostRow label="OpenAI API" amount={usage?.api_cost_openai ?? 0} />
+                <CostRow label="Proxy Network" amount={usage?.proxy_cost ?? 0} />
+                <CostRow label="CAPTCHA Solving" amount={usage?.captcha_cost ?? 0} />
+              </tbody>
+              <tfoot>
+                <tr className="border-t-2 border-navy-200">
+                  <td className="pt-3 text-sm font-semibold text-navy-900">
+                    Total
+                  </td>
+                  <td className="pt-3 text-right text-sm font-semibold text-navy-900">
+                    {fmtUsd(totalCost)}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
         </Card>
       )}
 

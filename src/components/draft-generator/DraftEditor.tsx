@@ -269,7 +269,7 @@ export function DraftEditor({
       {readOnly ? (
         // Read-only: plain div with inline clickable amber spans.
         <div
-          className="block min-h-[55vh] w-full flex-1 overflow-y-auto rounded-lg border border-navy-300 bg-navy-50 px-3 py-2 font-mono text-sm leading-relaxed text-navy-600 shadow-sm"
+          className="block min-h-[55vh] w-full flex-1 overflow-y-auto rounded-xl border border-slate-200 bg-[#F8FAFC] p-6 font-mono text-sm text-slate-700 leading-relaxed shadow-sm"
           style={{ whiteSpace: "pre-wrap" }}
         >
           {readOnlyNodes}
@@ -279,16 +279,16 @@ export function DraftEditor({
         // + flex-1 so the editor fills the available height instead of the
         // old fixed `rows={20}` (which the global `textarea{max-height:120px}`
         // base style clamped down to a few visible lines regardless).
-        <div className="relative flex min-h-[55vh] flex-1 flex-col rounded-lg border border-navy-300 bg-white shadow-sm transition focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-500">
+        <div className="relative flex min-h-[55vh] flex-1 flex-col rounded-xl border border-slate-200 bg-[#F8FAFC] shadow-sm transition focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-500">
           {/* Backdrop — plain transparent text, no gap highlighting. Gaps are
               visible as literal "[NEEDS INPUT: …]" text in the textarea layer. */}
           <div
-            className="pointer-events-none absolute inset-0 overflow-hidden rounded-lg"
+            className="pointer-events-none absolute inset-0 overflow-hidden rounded-xl"
             aria-hidden
           >
             <div
               ref={backdropInnerRef}
-              className="px-3 py-2 font-mono text-sm leading-relaxed"
+              className="p-6 font-mono text-sm leading-relaxed"
               style={{
                 whiteSpace: "pre-wrap",
                 wordBreak: "break-word",
@@ -307,7 +307,7 @@ export function DraftEditor({
             onScroll={syncScroll}
             aria-label={label}
             spellCheck
-            className="relative block h-full max-h-none w-full flex-1 resize-none rounded-lg bg-transparent px-3 py-2 font-mono text-sm leading-relaxed text-navy-900 placeholder:text-navy-400 focus:outline-none"
+            className="relative block h-full max-h-none w-full flex-1 resize-none rounded-xl bg-transparent p-6 font-mono text-sm leading-relaxed text-slate-700 placeholder:text-slate-400 focus:outline-none"
             placeholder="The generated draft will appear here. Edit freely before saving."
           />
         </div>

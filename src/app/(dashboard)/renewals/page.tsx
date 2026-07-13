@@ -190,7 +190,7 @@ export default function RenewalsPage() {
           }
         />
       ) : (
-        <div className="overflow-hidden rounded-xl border border-navy-200 bg-white shadow-sm">
+        <div className="overflow-x-auto rounded-xl border border-navy-200 bg-white shadow-sm">
           <table className="min-w-full divide-y divide-navy-100">
             <thead className="bg-navy-50">
               <tr>

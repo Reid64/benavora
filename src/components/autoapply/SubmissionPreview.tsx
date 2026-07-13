@@ -663,7 +663,7 @@ export function SubmissionPreview({
                         <Badge color="yellow">Login required</Badge>
                       )}
                     </div>
-                    <div className="overflow-hidden rounded-lg border border-navy-100">
+                    <div className="overflow-x-auto rounded-lg border border-navy-100">
                       <table className="min-w-full divide-y divide-navy-100 text-sm">
                         <thead>
                           <tr className="bg-navy-50">

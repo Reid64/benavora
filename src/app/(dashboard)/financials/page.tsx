@@ -5,7 +5,9 @@ import { DollarSign } from "lucide-react";
 
 import { Badge, Card, EmptyState, LoadingSpinner } from "@/components/ui";
 import type { BadgeColor } from "@/components/ui";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { createClient } from "@/lib/supabase/client";
+import { cn } from "@/lib/utils/cn";
 import { formatCurrency, formatDate, humanizeEnum } from "@/lib/utils/formatters";
 import type { Enums, Tables } from "@/types/database";
 
@@ -188,29 +190,39 @@ export default function FinancialsPage() {
       };
     }, [outcomes, applications, opportunityMap]);
 
-  if (loading) return <LoadingSpinner center label="Loading financials..." />;
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#EEF2F7] p-6">
+        <LoadingSpinner center label="Loading financials..." />
+      </div>
+    );
+  }
 
   if (error) {
     return (
-      <div
-        role="alert"
-        className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
-      >
-        {error}
+      <div className="min-h-screen space-y-6 bg-[#EEF2F7] p-6">
+        <div
+          role="alert"
+          className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+        >
+          {error}
+        </div>
       </div>
     );
   }
 
   const isEmpty = outcomes.length === 0 && applications.length === 0;
+  const maxCategoryAwarded = Math.max(
+    1,
+    ...categoryBreakdown.map((row) => row.totalAwarded),
+  );
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-navy-900">Financials</h1>
-        <p className="mt-1 text-sm text-navy-500">
-          Funding overview: requested vs awarded, outstanding receivables, and renewal risks.
-        </p>
-      </div>
+    <div className="min-h-screen space-y-6 bg-[#EEF2F7] p-6">
+      <PageHeader
+        title="Financials"
+        description="Funding overview: requested vs awarded, outstanding receivables, and renewal risks."
+      />
 
       {isEmpty ? (
         <EmptyState
@@ -225,16 +237,14 @@ export default function FinancialsPage() {
             <StatCard
               label="Total Awarded"
               value={formatCurrency(summaryStats.totalAwarded)}
-              colorClass="border-teal-200 bg-teal-50 text-teal-700"
+              colorClass="border-teal-200 bg-teal-50"
             />
             <StatCard label="Award Rate" value={`${summaryStats.awardRate}%`} />
             <StatCard
               label="Renewal at Risk"
               value={formatCurrency(summaryStats.renewalAtRisk)}
               colorClass={
-                summaryStats.renewalAtRisk > 0
-                  ? "border-amber-200 bg-amber-50 text-amber-700"
-                  : undefined
+                summaryStats.renewalAtRisk > 0 ? "border-amber-200 bg-amber-50" : undefined
               }
             />
           </div>
@@ -246,19 +256,20 @@ export default function FinancialsPage() {
             noPadding
           >
             {categoryBreakdown.length === 0 ? (
-              <p className="px-5 py-6 text-sm text-navy-500">No outcome data to display.</p>
+              <p className="px-5 py-6 text-sm text-slate-500">No outcome data to display.</p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-navy-100 text-left text-xs font-medium text-navy-500">
+                    <tr className="border-b border-slate-200 text-left text-xs font-medium text-slate-500">
                       <th className="px-5 py-3">Category</th>
                       <th className="px-5 py-3 text-right">Requested</th>
                       <th className="px-5 py-3 text-right">Awarded</th>
+                      <th className="px-5 py-3">Budget Utilization</th>
                       <th className="px-5 py-3 text-right">Win Rate</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-navy-100">
+                  <tbody className="divide-y divide-slate-100">
                     {categoryBreakdown.map((row) => {
                       const winRate =
                         row.totalCount > 0
@@ -266,19 +277,25 @@ export default function FinancialsPage() {
                           : 0;
                       const winColor: BadgeColor =
                         winRate >= 50 ? "green" : winRate >= 25 ? "yellow" : "red";
+                      const utilizationPct = Math.round(
+                        (row.totalAwarded / maxCategoryAwarded) * 100,
+                      );
                       return (
                         <tr
                           key={row.category ?? "__none__"}
-                          className="hover:bg-navy-50/50"
+                          className="even:bg-[#F8FAFC] hover:bg-slate-50"
                         >
-                          <td className="px-5 py-3 font-medium text-navy-900">
+                          <td className="px-5 py-3 font-medium text-slate-900">
                             {row.category ? humanizeEnum(row.category) : "Uncategorized"}
                           </td>
-                          <td className="px-5 py-3 text-right text-navy-700">
+                          <td className="px-5 py-3 text-right text-slate-700">
                             {formatCurrency(row.totalRequested)}
                           </td>
-                          <td className="px-5 py-3 text-right font-medium text-navy-900">
+                          <td className="px-5 py-3 text-right font-semibold text-[#15803D]">
                             {formatCurrency(row.totalAwarded)}
+                          </td>
+                          <td className="px-5 py-3">
+                            <BudgetBar percent={utilizationPct} />
                           </td>
                           <td className="px-5 py-3 text-right">
                             <Badge color={winColor}>{winRate}%</Badge>
@@ -305,23 +322,26 @@ export default function FinancialsPage() {
             noPadding
           >
             {receivables.length === 0 ? (
-              <p className="px-5 py-6 text-sm text-navy-500">No awarded grants on record.</p>
+              <p className="px-5 py-6 text-sm text-slate-500">No awarded grants on record.</p>
             ) : (
-              <ul className="divide-y divide-navy-100">
-                {receivables.map((r) => (
+              <ul className="divide-y divide-slate-100">
+                {receivables.map((r, i) => (
                   <li
                     key={r.outcomeId}
-                    className="flex items-center justify-between gap-4 px-5 py-3"
+                    className={cn(
+                      "flex items-center justify-between gap-4 px-5 py-3",
+                      i % 2 === 1 && "bg-[#F8FAFC]",
+                    )}
                   >
                     <div className="min-w-0">
-                      <div className="truncate text-sm font-medium text-navy-900">
+                      <div className="truncate text-sm font-medium text-slate-900">
                         {r.oppName}
                       </div>
-                      <div className="text-xs text-navy-500">
+                      <div className="text-xs text-slate-500">
                         Awarded {formatDate(r.recordedAt)}
                       </div>
                     </div>
-                    <div className="font-medium text-green-700">
+                    <div className="font-semibold text-[#15803D]">
                       {formatCurrency(r.awardedAmount)}
                     </div>
                   </li>
@@ -337,23 +357,24 @@ export default function FinancialsPage() {
             noPadding
           >
             {activeGrants.length === 0 ? (
-              <p className="px-5 py-6 text-sm text-navy-500">
+              <p className="px-5 py-6 text-sm text-slate-500">
                 No active grants in awarded or reporting stage.
               </p>
             ) : (
-              <ul className="divide-y divide-navy-100">
-                {activeGrants.map((g) => {
+              <ul className="divide-y divide-slate-100">
+                {activeGrants.map((g, i) => {
                   const bothKnown = g.awarded !== null && g.requested !== null;
                   const diff = bothKnown ? (g.awarded ?? 0) - (g.requested ?? 0) : null;
-                  const diffColor: BadgeColor =
-                    diff !== null && diff >= 0 ? "green" : "red";
                   return (
                     <li
                       key={g.appId}
-                      className="flex flex-wrap items-center justify-between gap-3 px-5 py-3"
+                      className={cn(
+                        "flex flex-wrap items-center justify-between gap-3 px-5 py-3",
+                        i % 2 === 1 && "bg-[#F8FAFC]",
+                      )}
                     >
                       <div className="min-w-0">
-                        <div className="truncate text-sm font-medium text-navy-900">
+                        <div className="truncate text-sm font-medium text-slate-900">
                           {g.oppName}
                         </div>
                         <div className="mt-1">
@@ -366,22 +387,27 @@ export default function FinancialsPage() {
                       </div>
                       <div className="flex items-center gap-6 text-sm">
                         <div className="text-right">
-                          <div className="text-xs text-navy-500">Requested</div>
-                          <div className="font-medium text-navy-700">
+                          <div className="text-xs text-slate-500">Requested</div>
+                          <div className="font-medium text-slate-700">
                             {formatCurrency(g.requested)}
                           </div>
                         </div>
                         <div className="text-right">
-                          <div className="text-xs text-navy-500">Awarded</div>
-                          <div className="font-medium text-navy-900">
+                          <div className="text-xs text-slate-500">Awarded</div>
+                          <div className="font-medium text-slate-900">
                             {formatCurrency(g.awarded)}
                           </div>
                         </div>
                         {diff !== null && (
-                          <Badge color={diffColor}>
+                          <div
+                            className={cn(
+                              "font-semibold",
+                              diff >= 0 ? "text-[#15803D]" : "text-[#B91C1C]",
+                            )}
+                          >
                             {diff >= 0 ? "+" : ""}
                             {formatCurrency(diff)}
-                          </Badge>
+                          </div>
                         )}
                       </div>
                     </li>
@@ -404,27 +430,30 @@ export default function FinancialsPage() {
             noPadding
           >
             {renewalRisks.length === 0 ? (
-              <p className="px-5 py-6 text-sm text-navy-500">No grants in renewal stage.</p>
+              <p className="px-5 py-6 text-sm text-slate-500">No grants in renewal stage.</p>
             ) : (
-              <ul className="divide-y divide-navy-100">
-                {renewalRisks.map((r) => (
+              <ul className="divide-y divide-slate-100">
+                {renewalRisks.map((r, i) => (
                   <li
                     key={r.appId}
-                    className="flex items-center justify-between gap-4 px-5 py-3"
+                    className={cn(
+                      "flex items-center justify-between gap-4 px-5 py-3",
+                      i % 2 === 1 && "bg-[#F8FAFC]",
+                    )}
                   >
                     <div className="min-w-0">
-                      <div className="truncate text-sm font-medium text-navy-900">
+                      <div className="truncate text-sm font-medium text-slate-900">
                         {r.oppName}
                       </div>
                       {r.renewalDeadline && (
-                        <div className="text-xs text-navy-500">
+                        <div className="text-xs text-slate-500">
                           Deadline: {formatDate(r.renewalDeadline)}
                         </div>
                       )}
                     </div>
                     <div className="text-right">
-                      <div className="mb-0.5 text-xs text-navy-500">Previously Awarded</div>
-                      <div className="font-medium text-amber-700">
+                      <div className="mb-0.5 text-xs text-slate-500">Previously Awarded</div>
+                      <div className="font-semibold text-amber-700">
                         {formatCurrency(r.originalAwarded)}
                       </div>
                     </div>
@@ -450,10 +479,31 @@ function StatCard({
 }) {
   return (
     <div
-      className={`rounded-xl border p-4 ${colorClass ?? "border-navy-100 bg-white"}`}
+      className={cn(
+        "bg-white rounded-xl shadow-sm border border-slate-200 p-5",
+        colorClass,
+      )}
     >
-      <div className="text-xs font-medium text-navy-500">{label}</div>
-      <div className="mt-1 text-xl font-semibold tracking-tight text-navy-900">{value}</div>
+      <div className="text-sm font-medium text-slate-400 uppercase tracking-wide">
+        {label}
+      </div>
+      <div className="mt-2 text-4xl font-black text-slate-900">{value}</div>
+    </div>
+  );
+}
+
+/** Horizontal budget bar: teal fill on a slate track (Elevated Slate design system). */
+function BudgetBar({ percent }: { percent: number }) {
+  const clamped = Math.max(0, Math.min(100, percent));
+  return (
+    <div className="flex items-center gap-2">
+      <div className="h-2 w-24 overflow-hidden rounded-full bg-slate-200">
+        <div
+          className="h-full rounded-full bg-[#0077B6]"
+          style={{ width: `${clamped}%` }}
+        />
+      </div>
+      <span className="text-xs font-medium text-slate-500">{clamped}%</span>
     </div>
   );
 }

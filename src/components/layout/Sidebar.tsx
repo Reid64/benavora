@@ -33,11 +33,18 @@ type SidebarProps = {
   onboardingCompleted: boolean;
 };
 
+const NAV_ITEM_ACTIVE =
+  "flex items-center gap-3 px-3 py-2.5 rounded-lg bg-[#0077B6] text-white font-medium text-sm border-l-4 border-[#00B4D8]";
+const NAV_ITEM_INACTIVE =
+  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#CBD5E1] hover:bg-[#243B55] hover:text-white transition-colors text-sm";
+const SECTION_LABEL =
+  "px-3 pt-5 pb-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-[#64748B]";
+
 function NavBadge({ count }: { count: number }) {
   if (count <= 0) return null;
   return (
     <span
-      className="ml-auto inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-xs font-semibold leading-none text-white"
+      className="ml-auto inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-[#EF4444] px-1.5 py-0.5 text-[10px] font-bold text-white"
       aria-label={`${count} ${count === 1 ? "item needs" : "items need"} attention`}
     >
       {count > 99 ? "99+" : count}
@@ -49,7 +56,7 @@ function NavBadge({ count }: { count: number }) {
  * Dashboard sidebar navigation — dark navy brand rail.
  * - Static rail on lg+ screens.
  * - Slide-in drawer with backdrop on mobile, controlled by `open`.
- * - The nav item whose route matches the current path is highlighted in teal.
+ * - The nav item whose route matches the current path is highlighted in blue.
  */
 export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarProps) {
   const pathname = usePathname();
@@ -115,178 +122,153 @@ export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarPro
       {/* Mobile backdrop */}
       {open && (
         <div
-          className="fixed inset-0 z-30 bg-navy-950/60 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 bg-[#0F172A]/60 backdrop-blur-sm z-40 lg:hidden"
           aria-hidden
           onClick={onClose}
         />
       )}
 
       <aside
-        className={`scrollbar-dark fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-white/10 bg-sidebar text-slate-400 transition-transform duration-200 ease-in-out lg:static lg:z-auto lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 w-64 bg-[#1A2B3C] shadow-2xl transition-transform duration-300 ease-in-out lg:static lg:z-auto lg:translate-x-0 lg:shadow-none ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
         aria-label="Primary navigation"
       >
-        {/* Brand + mobile close */}
-        <div className="flex items-center justify-between border-b border-white/10 px-5 py-3">
-          <Link href="/dashboard" aria-label="Benavora - go to dashboard">
-            {/* Desktop: full wordmark + tagline */}
-            <div className="hidden flex-col lg:flex">
-              <Logo />
-              <span className="mt-1 text-[10px] leading-tight tracking-wide text-slate-400">
-                Fund More. Do More. Change More.
-              </span>
-            </div>
-            {/* Mobile drawer: icon only, no tagline */}
-            <Logo size={32} showWordmark={false} className="lg:hidden" />
-          </Link>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md p-1.5 text-slate-400 transition hover:bg-white/10 hover:text-white lg:hidden"
-            aria-label="Close navigation"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        {/* Main nav links */}
-        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4" aria-label="Main navigation">
-          {pathname.startsWith("/donor-discovery") && (
-            <div className="mb-2 border-b border-white/10 pb-2">
-              <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
-                Donor Discovery
-              </p>
-              <Link
-                href={DONOR_DISCOVERY_DRILLDOWN.href}
-                onClick={onClose}
-                aria-current={isActive(DONOR_DISCOVERY_DRILLDOWN.href) ? "page" : undefined}
-                className={`flex items-center gap-3 rounded-lg border-l-[3px] px-3 py-2 text-xs font-medium uppercase tracking-widest transition ${
-                  isActive(DONOR_DISCOVERY_DRILLDOWN.href)
-                    ? "border-l-accent bg-primary text-white"
-                    : "border-l-transparent text-slate-500 hover:bg-sidebar-hover hover:text-white"
-                }`}
-              >
-                <Telescope className="h-5 w-5 shrink-0" aria-hidden />
-                <span className="truncate">{DONOR_DISCOVERY_DRILLDOWN.label}</span>
+        <div className="bg-[#1A2B3C] flex flex-col h-full">
+          {/* Brand + mobile close */}
+          <div className="px-6 py-5 border-b border-[#243B55]">
+            <div className="flex items-center justify-between">
+              <Link href="/dashboard" aria-label="Benavora - go to dashboard">
+                {/* Desktop: full wordmark + tagline */}
+                <div className="hidden flex-col lg:flex">
+                  <Logo />
+                  <span className="mt-1 text-[11px] text-[#64748B] font-medium tracking-wide">
+                    Fund More. Do More. Change More.
+                  </span>
+                </div>
+                {/* Mobile drawer: icon only, no tagline */}
+                <Logo size={32} showWordmark={false} className="lg:hidden" />
               </Link>
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-md p-1.5 text-[#CBD5E1] transition hover:bg-[#243B55] hover:text-white lg:hidden"
+                aria-label="Close navigation"
+              >
+                <X className="h-5 w-5" />
+              </button>
             </div>
-          )}
-          {navItems.map(({ label, href, icon: Icon, children }) => {
-            const active = isActive(href);
-            const badge = badgeByHref[href] ?? 0;
-            return (
-              <div key={href}>
+          </div>
+
+          {/* Main nav links */}
+          <nav className="flex-1 overflow-y-auto py-4 px-3" aria-label="Main navigation">
+            {pathname.startsWith("/donor-discovery") && (
+              <div className="mb-2">
+                <p className={SECTION_LABEL}>Donor Discovery</p>
+                <Link
+                  href={DONOR_DISCOVERY_DRILLDOWN.href}
+                  onClick={onClose}
+                  aria-current={isActive(DONOR_DISCOVERY_DRILLDOWN.href) ? "page" : undefined}
+                  className={isActive(DONOR_DISCOVERY_DRILLDOWN.href) ? NAV_ITEM_ACTIVE : NAV_ITEM_INACTIVE}
+                >
+                  <Telescope className="h-5 w-5 shrink-0" aria-hidden />
+                  <span className="truncate">{DONOR_DISCOVERY_DRILLDOWN.label}</span>
+                </Link>
+              </div>
+            )}
+            <div className="space-y-1">
+              {navItems.map(({ label, href, icon: Icon, children }) => {
+                const active = isActive(href);
+                const badge = badgeByHref[href] ?? 0;
+                return (
+                  <div key={href}>
+                    <Link
+                      href={hrefs[href] ?? href}
+                      onClick={onClose}
+                      aria-current={active ? "page" : undefined}
+                      className={active ? NAV_ITEM_ACTIVE : NAV_ITEM_INACTIVE}
+                    >
+                      <Icon className="h-5 w-5 shrink-0" aria-hidden />
+                      <span className="truncate">{label}</span>
+                      <NavBadge count={badge} />
+                    </Link>
+                    {active && children && children.length > 0 && (
+                      <div className="ml-9 mt-0.5 space-y-0.5">
+                        {children.map((child) => {
+                          const childActive = pathname === child.href;
+                          return (
+                            <Link
+                              key={child.href}
+                              href={child.href}
+                              onClick={onClose}
+                              aria-current={childActive ? "page" : undefined}
+                              className={`flex items-center rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                                childActive ? "text-[#00B4D8]" : "text-[#94A3B8] hover:text-white"
+                              }`}
+                            >
+                              {childActive && (
+                                <span
+                                  className="mr-2 inline-block h-1 w-1 rounded-full bg-[#00B4D8]"
+                                  aria-hidden
+                                />
+                              )}
+                              {child.label}
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Platform admin section */}
+            {isPlatformAdmin && (
+              <div className="mt-2">
+                <p className={SECTION_LABEL}>Platform</p>
+                <div className="space-y-1">
+                  {PLATFORM_NAV_ITEMS.map(({ label, href, icon: Icon }) => {
+                    const active = isActive(href);
+                    return (
+                      <Link
+                        key={href}
+                        href={href}
+                        onClick={onClose}
+                        aria-current={active ? "page" : undefined}
+                        className={active ? NAV_ITEM_ACTIVE : NAV_ITEM_INACTIVE}
+                      >
+                        <Icon className="h-5 w-5 shrink-0" aria-hidden />
+                        <span className="truncate">{label}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </nav>
+
+          {/* Settings — bottom, separated */}
+          <div className="border-t border-[#243B55] px-3 py-4">
+            {(() => {
+              const { label, href, icon: Icon } = SETTINGS_NAV_ITEM;
+              const active = isActive(href);
+              return (
                 <Link
                   href={hrefs[href] ?? href}
                   onClick={onClose}
                   aria-current={active ? "page" : undefined}
-                  className={`group relative flex items-center gap-3 rounded-lg border-l-[3px] px-3 py-2 text-xs font-medium uppercase tracking-widest transition ${
-                    active
-                      ? "border-l-accent bg-primary text-white"
-                      : "border-l-transparent text-slate-500 hover:bg-sidebar-hover hover:text-white"
-                  }`}
+                  className={active ? NAV_ITEM_ACTIVE : NAV_ITEM_INACTIVE}
                 >
-                  <Icon
-                    className={`h-5 w-5 shrink-0 transition ${
-                      active ? "text-white" : "text-slate-500 group-hover:text-white"
-                    }`}
-                    aria-hidden
-                  />
-                  <span className="truncate">{label}</span>
-                  <NavBadge count={badge} />
-                </Link>
-                {active && children && children.length > 0 && (
-                  <div className="ml-9 mt-0.5 space-y-0.5">
-                    {children.map((child) => {
-                      const childActive = pathname === child.href;
-                      return (
-                        <Link
-                          key={child.href}
-                          href={child.href}
-                          onClick={onClose}
-                          aria-current={childActive ? "page" : undefined}
-                          className={`flex items-center rounded-md px-3 py-1.5 text-xs font-medium transition ${
-                            childActive ? "text-accent" : "text-slate-400 hover:text-white"
-                          }`}
-                        >
-                          {childActive && (
-                            <span
-                              className="mr-2 inline-block h-1 w-1 rounded-full bg-accent"
-                              aria-hidden
-                            />
-                          )}
-                          {child.label}
-                        </Link>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </nav>
-
-        {/* Platform admin section */}
-        {isPlatformAdmin && (
-          <div className="border-t border-white/10 px-3 py-3">
-            <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
-              Platform
-            </p>
-            {PLATFORM_NAV_ITEMS.map(({ label, href, icon: Icon }) => {
-              const active = isActive(href);
-              return (
-                <Link
-                  key={href}
-                  href={href}
-                  onClick={onClose}
-                  aria-current={active ? "page" : undefined}
-                  className={`group relative flex items-center gap-3 rounded-lg border-l-[3px] px-3 py-2 text-xs font-medium uppercase tracking-widest transition ${
-                    active
-                      ? "border-l-accent bg-primary text-white"
-                      : "border-l-transparent text-slate-500 hover:bg-sidebar-hover hover:text-white"
-                  }`}
-                >
-                  <Icon
-                    className={`h-5 w-5 shrink-0 transition ${
-                      active ? "text-white" : "text-slate-500 group-hover:text-white"
-                    }`}
-                    aria-hidden
-                  />
+                  <Icon className="h-5 w-5 shrink-0" aria-hidden />
                   <span className="truncate">{label}</span>
                 </Link>
               );
-            })}
+            })()}
+            <p className="mt-3 px-3 text-[11px] text-[#64748B] font-medium tracking-wide">
+              Nonprofit funding automation
+            </p>
           </div>
-        )}
-
-        {/* Settings — bottom, separated */}
-        <div className="border-t border-white/10 px-3 py-3">
-          {(() => {
-            const { label, href, icon: Icon } = SETTINGS_NAV_ITEM;
-            const active = isActive(href);
-            return (
-              <Link
-                href={hrefs[href] ?? href}
-                onClick={onClose}
-                aria-current={active ? "page" : undefined}
-                className={`group relative flex items-center gap-3 rounded-lg border-l-[3px] px-3 py-2 text-xs font-medium uppercase tracking-widest transition ${
-                  active
-                    ? "border-l-accent bg-primary text-white"
-                    : "border-l-transparent text-slate-500 hover:bg-sidebar-hover hover:text-white"
-                }`}
-              >
-                <Icon
-                  className={`h-5 w-5 shrink-0 transition ${
-                    active ? "text-white" : "text-slate-500 group-hover:text-white"
-                  }`}
-                  aria-hidden
-                />
-                <span className="truncate">{label}</span>
-              </Link>
-            );
-          })()}
-          <p className="mt-3 px-3 text-xs text-slate-500">Nonprofit funding automation</p>
         </div>
       </aside>
     </>

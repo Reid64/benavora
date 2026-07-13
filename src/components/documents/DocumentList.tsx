@@ -1,18 +1,19 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { AlertTriangle, Download, Link2, Loader2 } from "lucide-react";
-
 import {
-  Badge,
-  Button,
-  Modal,
-  SearchBar,
-  Select,
-  Table,
-} from "@/components/ui";
-import type { TableColumn } from "@/components/ui";
+  AlertTriangle,
+  Download,
+  File,
+  FileSpreadsheet,
+  FileText,
+  Link2,
+  Loader2,
+} from "lucide-react";
+
+import { Badge, Button, Modal, SearchBar, Select } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
+import { cn } from "@/lib/utils/cn";
 import { DOCUMENT_CATEGORIES } from "@/lib/utils/constants";
 import { formatDate, humanizeEnum } from "@/lib/utils/formatters";
 import type { Tables, TablesInsert } from "@/types/database";
@@ -62,6 +63,52 @@ function isExpired(expiration: string | null): boolean {
   return new Date(`${expiration}T00:00:00`) < today;
 }
 
+type FileKind = "pdf" | "docx" | "xlsx" | "other";
+
+/** Classifies a document by extension (falling back to MIME type) for the color-coded file icon. */
+function fileKind(fileName: string, mimeType: string | null): FileKind {
+  const ext = fileName.split(".").pop()?.toLowerCase() ?? "";
+  if (ext === "pdf" || mimeType === "application/pdf") return "pdf";
+  if (ext === "doc" || ext === "docx" || mimeType?.includes("word")) return "docx";
+  if (
+    ext === "xls" ||
+    ext === "xlsx" ||
+    mimeType?.includes("sheet") ||
+    mimeType?.includes("excel")
+  ) {
+    return "xlsx";
+  }
+  return "other";
+}
+
+const FILE_ICON: Record<FileKind, { icon: typeof FileText; wrapperClass: string }> = {
+  pdf: { icon: FileText, wrapperClass: "bg-[#FEE2E2] text-[#DC2626]" },
+  docx: { icon: FileText, wrapperClass: "bg-[#DBEAFE] text-[#2563EB]" },
+  xlsx: { icon: FileSpreadsheet, wrapperClass: "bg-[#DCFCE7] text-[#16A34A]" },
+  other: { icon: File, wrapperClass: "bg-slate-100 text-slate-500" },
+};
+
+/** Color-coded file-type icon wrapper (Elevated Slate design system): PDF red, DOCX blue, XLSX green. */
+function FileTypeIcon({
+  fileName,
+  mimeType,
+}: {
+  fileName: string;
+  mimeType: string | null;
+}) {
+  const { icon: Icon, wrapperClass } = FILE_ICON[fileKind(fileName, mimeType)];
+  return (
+    <div
+      className={cn(
+        "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg",
+        wrapperClass,
+      )}
+    >
+      <Icon className="h-5 w-5" aria-hidden />
+    </div>
+  );
+}
+
 /**
  * Categorized document list with search, a category filter, download links,
  * expiration warnings, and application linking (BLUEPRINT §4.6).
@@ -101,6 +148,12 @@ export function DocumentList({
       );
     });
   }, [documents, query, category]);
+
+  // Most recently uploaded first, matching the previous table's default sort.
+  const sorted = useMemo(
+    () => [...filtered].sort((a, b) => (a.created_at < b.created_at ? 1 : -1)),
+    [filtered],
+  );
 
   async function handleDownload(doc: Tables<"documents">) {
     setError(null);
@@ -160,110 +213,6 @@ export function DocumentList({
     onChanged();
   }
 
-  const columns: TableColumn<Tables<"documents">>[] = [
-    {
-      key: "file_name",
-      header: "Name",
-      sortable: true,
-      sortValue: (row) => row.file_name.toLowerCase(),
-      render: (row) => (
-        <div>
-          <span className="font-medium text-navy-900">{row.file_name}</span>
-          {row.description && (
-            <span className="mt-0.5 block text-xs text-navy-500">
-              {row.description}
-            </span>
-          )}
-        </div>
-      ),
-    },
-    {
-      key: "category",
-      header: "Category",
-      sortable: true,
-      sortValue: (row) => row.category,
-      render: (row) => <Badge>{humanizeEnum(row.category)}</Badge>,
-    },
-    {
-      key: "size",
-      header: "Size",
-      render: (row) => (
-        <span className="text-navy-500">{formatBytes(row.file_size)}</span>
-      ),
-    },
-    {
-      key: "expiration",
-      header: "Expiration",
-      sortable: true,
-      sortValue: (row) => row.expiration_date ?? "",
-      render: (row) => {
-        if (!row.expiration_date)
-          return <span className="text-navy-400">-</span>;
-        if (isExpired(row.expiration_date)) {
-          return (
-            <Badge color="red" withDot>
-              <AlertTriangle className="h-3 w-3" aria-hidden />
-              Expired {formatDate(row.expiration_date)}
-            </Badge>
-          );
-        }
-        return (
-          <span className="text-navy-600">
-            {formatDate(row.expiration_date)}
-          </span>
-        );
-      },
-    },
-    {
-      key: "linked",
-      header: "Linked applications",
-      render: (row) => {
-        const links = linksByDocument[row.id] ?? [];
-        if (links.length === 0)
-          return <span className="text-navy-400">None</span>;
-        return (
-          <span className="text-navy-600">
-            {links.length === 1 ? links[0] : `${links.length} applications`}
-          </span>
-        );
-      },
-    },
-    {
-      key: "uploaded",
-      header: "Uploaded",
-      sortable: true,
-      sortValue: (row) => row.created_at,
-      render: (row) => formatDate(row.created_at),
-    },
-    {
-      key: "actions",
-      header: "",
-      render: (row) => (
-        <div className="flex items-center justify-end gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            isLoading={downloadingId === row.id}
-            onClick={() => handleDownload(row)}
-          >
-            <Download className="h-4 w-4" aria-hidden />
-            Download
-          </Button>
-          {editable && applications.length > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => openLinkModal(row)}
-            >
-              <Link2 className="h-4 w-4" aria-hidden />
-              Link
-            </Button>
-          )}
-        </div>
-      ),
-    },
-  ];
-
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -293,14 +242,101 @@ export function DocumentList({
         </div>
       )}
 
-      <Table
-        columns={columns}
-        data={filtered}
-        rowKey={(row) => row.id}
-        isLoading={isLoading}
-        initialSort={{ key: "uploaded", direction: "desc" }}
-        emptyMessage="No documents match your filters."
-      />
+      {isLoading ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div
+              key={i}
+              className="h-32 animate-pulse rounded-xl border border-slate-200 bg-slate-50"
+            />
+          ))}
+        </div>
+      ) : sorted.length === 0 ? (
+        <div className="rounded-xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500">
+          No documents match your filters.
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {sorted.map((doc) => {
+            const links = linksByDocument[doc.id] ?? [];
+            return (
+              <div
+                key={doc.id}
+                className="bg-white rounded-xl border border-slate-200 p-4 hover:border-[#00B4D8] transition-colors"
+              >
+                <div className="flex items-start gap-3">
+                  <FileTypeIcon fileName={doc.file_name} mimeType={doc.mime_type} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-slate-900">
+                      {doc.file_name}
+                    </p>
+                    {doc.description && (
+                      <p className="mt-0.5 truncate text-xs text-slate-500">
+                        {doc.description}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                  <Badge>{humanizeEnum(doc.category)}</Badge>
+                  {doc.expiration_date && isExpired(doc.expiration_date) && (
+                    <Badge color="red" withDot>
+                      <AlertTriangle className="h-3 w-3" aria-hidden />
+                      Expired {formatDate(doc.expiration_date)}
+                    </Badge>
+                  )}
+                </div>
+
+                <dl className="mt-3 space-y-1 text-xs text-slate-500">
+                  <div className="flex items-center justify-between">
+                    <dt>Size</dt>
+                    <dd>{formatBytes(doc.file_size)}</dd>
+                  </div>
+                  {doc.expiration_date && !isExpired(doc.expiration_date) && (
+                    <div className="flex items-center justify-between">
+                      <dt>Expires</dt>
+                      <dd>{formatDate(doc.expiration_date)}</dd>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between">
+                    <dt>Linked</dt>
+                    <dd>
+                      {links.length === 0
+                        ? "None"
+                        : links.length === 1
+                          ? links[0]
+                          : `${links.length} applications`}
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <dt>Uploaded</dt>
+                    <dd>{formatDate(doc.created_at)}</dd>
+                  </div>
+                </dl>
+
+                <div className="mt-4 flex items-center gap-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    isLoading={downloadingId === doc.id}
+                    onClick={() => handleDownload(doc)}
+                  >
+                    <Download className="h-4 w-4" aria-hidden />
+                    Download
+                  </Button>
+                  {editable && applications.length > 0 && (
+                    <Button variant="ghost" size="sm" onClick={() => openLinkModal(doc)}>
+                      <Link2 className="h-4 w-4" aria-hidden />
+                      Link
+                    </Button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       <Modal
         isOpen={linkTarget !== null}

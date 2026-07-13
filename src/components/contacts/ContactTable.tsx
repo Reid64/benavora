@@ -2,33 +2,32 @@
 
 import { useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { LayoutGrid, List } from "lucide-react";
 
-import { Badge, SearchBar, Select, Table } from "@/components/ui";
-import type { BadgeColor, SortDirection, TableColumn } from "@/components/ui";
+import { Badge, Select } from "@/components/ui";
+import { ContactCard } from "@/components/contacts/ContactCard";
+import {
+  contactInitials,
+  RELATIONSHIP_COLOR,
+  type ContactRow,
+} from "@/components/contacts/contact-shared";
 import { useUrlState } from "@/lib/hooks/useUrlState";
 import { CONTACT_RELATIONSHIPS } from "@/lib/utils/constants";
+import { cn } from "@/lib/utils/cn";
 import { formatDate, humanizeEnum } from "@/lib/utils/formatters";
-import type { Enums, Tables } from "@/types/database";
+import type { Enums } from "@/types/database";
+
+export type { ContactRow } from "@/components/contacts/contact-shared";
+export { RELATIONSHIP_COLOR } from "@/components/contacts/contact-shared";
 
 type ContactRelationship = Enums<"contact_relationship">;
-
-/** Badge colors per relationship stage - shared with the detail view. */
-export const RELATIONSHIP_COLOR: Record<ContactRelationship, BadgeColor> = {
-  cold: "gray",
-  warm: "yellow",
-  active: "blue",
-  champion: "green",
-};
-
-/** A contact row enriched with its funder's name for display and search. */
-export type ContactRow = Tables<"contacts"> & {
-  funderName: string;
-};
 
 export type ContactTableProps = {
   contacts: ContactRow[];
   isLoading?: boolean;
 };
+
+type ViewMode = "list" | "grid";
 
 const RELATIONSHIP_FILTER_OPTIONS = [
   { value: "all", label: "All relationships" },
@@ -38,19 +37,17 @@ const RELATIONSHIP_FILTER_OPTIONS = [
   })),
 ];
 
-const DEFAULT_SORT = { key: "name", direction: "asc" as SortDirection };
-
 /**
- * Sortable contact list with keyword search and a relationship filter
- * (BLUEPRINT §4.3). Filtering and sorting run client-side over the provided
- * rows. Clicking a row opens the contact detail page. Search, filter, and sort
- * are persisted to the URL so they survive sidebar navigation.
+ * Contact list with keyword search, a relationship filter, and a grid/list
+ * view toggle (Elevated Slate design system). Filtering runs client-side over
+ * the provided rows; clicking a card or row opens the contact detail page.
+ * Search, filter, and view state are persisted to the URL so they survive
+ * sidebar navigation.
  */
 export function ContactTable({ contacts, isLoading = false }: ContactTableProps) {
   const router = useRouter();
   const { searchParams, setParams } = useUrlState();
 
-  // State lives in the URL so it survives sidebar navigation and refresh.
   const query = searchParams.get("q") ?? "";
   const relationshipParam = searchParams.get("relationship");
   const relationship: ContactRelationship | "all" =
@@ -58,121 +55,41 @@ export function ContactTable({ contacts, isLoading = false }: ContactTableProps)
     (CONTACT_RELATIONSHIPS as readonly string[]).includes(relationshipParam)
       ? (relationshipParam as ContactRelationship)
       : "all";
-  const sort = {
-    key: searchParams.get("sort") ?? DEFAULT_SORT.key,
-    direction:
-      searchParams.get("dir") === "desc"
-        ? ("desc" as SortDirection)
-        : ("asc" as SortDirection),
-  };
-
-  function handleSortChange(next: { key: string; direction: SortDirection }) {
-    const isDefault =
-      next.key === DEFAULT_SORT.key && next.direction === DEFAULT_SORT.direction;
-    setParams({
-      sort: isDefault ? null : next.key,
-      dir: isDefault ? null : next.direction,
-    });
-  }
+  const view: ViewMode = searchParams.get("view") === "grid" ? "grid" : "list";
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return contacts.filter((contact) => {
-      if (relationship !== "all" && contact.relationship !== relationship) {
-        return false;
-      }
-      if (!q) return true;
-      return (
-        contact.name.toLowerCase().includes(q) ||
-        contact.funderName.toLowerCase().includes(q) ||
-        (contact.title?.toLowerCase().includes(q) ?? false) ||
-        (contact.email?.toLowerCase().includes(q) ?? false)
-      );
-    });
+    return contacts
+      .filter((contact) => {
+        if (relationship !== "all" && contact.relationship !== relationship) {
+          return false;
+        }
+        if (!q) return true;
+        return (
+          contact.name.toLowerCase().includes(q) ||
+          contact.funderName.toLowerCase().includes(q) ||
+          (contact.title?.toLowerCase().includes(q) ?? false) ||
+          (contact.email?.toLowerCase().includes(q) ?? false)
+        );
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
   }, [contacts, query, relationship]);
 
-  const columns: TableColumn<ContactRow>[] = [
-    {
-      key: "name",
-      header: "Name",
-      sortable: true,
-      sortValue: (row) => row.name.toLowerCase(),
-      render: (row) => (
-        <div>
-          <span className="font-medium text-navy-900">{row.name}</span>
-          {row.title && (
-            <span className="mt-0.5 block text-xs text-navy-500">
-              {row.title}
-            </span>
-          )}
-        </div>
-      ),
-    },
-    {
-      key: "funder",
-      header: "Funder",
-      sortable: true,
-      sortValue: (row) => row.funderName.toLowerCase(),
-      render: (row) => row.funderName,
-    },
-    {
-      key: "email",
-      header: "Email",
-      render: (row) =>
-        row.email ? (
-          <a
-            href={`mailto:${row.email}`}
-            onClick={(e) => e.stopPropagation()}
-            className="text-teal-600 hover:text-teal-700"
-          >
-            {row.email}
-          </a>
-        ) : (
-          <span className="text-navy-400">-</span>
-        ),
-    },
-    {
-      key: "phone",
-      header: "Phone",
-      render: (row) => row.phone ?? <span className="text-navy-400">-</span>,
-    },
-    {
-      key: "relationship",
-      header: "Relationship",
-      sortable: true,
-      sortValue: (row) => row.relationship ?? "",
-      render: (row) =>
-        row.relationship ? (
-          <Badge color={RELATIONSHIP_COLOR[row.relationship]}>
-            {humanizeEnum(row.relationship)}
-          </Badge>
-        ) : (
-          <span className="text-navy-400">-</span>
-        ),
-    },
-    {
-      key: "last_contacted",
-      header: "Last Contact",
-      sortable: true,
-      sortValue: (row) => row.last_contacted_at ?? "",
-      render: (row) =>
-        row.last_contacted_at ? (
-          formatDate(row.last_contacted_at)
-        ) : (
-          <span className="text-navy-400">Never</span>
-        ),
-    },
-  ];
+  function openContact(row: ContactRow) {
+    router.push(`/contacts/${row.id}`);
+  }
 
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="sm:max-w-xs sm:flex-1">
-          <SearchBar
+          <input
+            type="search"
             defaultValue={query}
-            onSearch={(value) => setParams({ q: value || null })}
+            onChange={(event) => setParams({ q: event.target.value || null })}
             placeholder="Search contacts..."
             aria-label="Search contacts"
+            className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 placeholder-slate-400 outline-none focus:border-[#0077B6] focus:ring-2 focus:ring-[#0077B6]/10"
           />
         </div>
         <div className="sm:w-56">
@@ -187,18 +104,169 @@ export function ContactTable({ contacts, isLoading = false }: ContactTableProps)
             }
           />
         </div>
+        <ViewToggle
+          view={view}
+          onChange={(v) => setParams({ view: v === "list" ? null : v })}
+        />
       </div>
 
-      <Table
-        columns={columns}
-        data={filtered}
-        rowKey={(row) => row.id}
-        isLoading={isLoading}
-        onRowClick={(row) => router.push(`/contacts/${row.id}`)}
-        sort={sort}
-        onSortChange={handleSortChange}
-        emptyMessage="No contacts match your filters."
-      />
+      {isLoading ? (
+        <LoadingPlaceholder view={view} />
+      ) : filtered.length === 0 ? (
+        <div className="rounded-xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500">
+          No contacts match your filters.
+        </div>
+      ) : view === "grid" ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {filtered.map((contact) => (
+            <ContactCard
+              key={contact.id}
+              contact={contact}
+              onClick={() => openContact(contact)}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+          {filtered.map((contact) => (
+            <ContactListRow
+              key={contact.id}
+              contact={contact}
+              onClick={() => openContact(contact)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ViewToggle({
+  view,
+  onChange,
+}: {
+  view: ViewMode;
+  onChange: (view: ViewMode) => void;
+}) {
+  return (
+    <div className="inline-flex shrink-0 rounded-lg border border-slate-200 bg-white p-0.5 shadow-sm">
+      <button
+        type="button"
+        onClick={() => onChange("list")}
+        aria-pressed={view === "list"}
+        className={cn(
+          "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition",
+          view === "list"
+            ? "bg-[#0077B6] text-white"
+            : "text-slate-600 hover:bg-slate-50",
+        )}
+      >
+        <List className="h-4 w-4" aria-hidden />
+        List
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange("grid")}
+        aria-pressed={view === "grid"}
+        className={cn(
+          "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition",
+          view === "grid"
+            ? "bg-[#0077B6] text-white"
+            : "text-slate-600 hover:bg-slate-50",
+        )}
+      >
+        <LayoutGrid className="h-4 w-4" aria-hidden />
+        Grid
+      </button>
+    </div>
+  );
+}
+
+function LoadingPlaceholder({ view }: { view: ViewMode }) {
+  if (view === "grid") {
+    return (
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div
+            key={i}
+            className="h-32 animate-pulse rounded-xl border border-slate-200 bg-slate-50"
+          />
+        ))}
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-2">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <div
+          key={i}
+          className="h-16 animate-pulse rounded-xl border border-slate-200 bg-slate-50"
+        />
+      ))}
+    </div>
+  );
+}
+
+function ContactListRow({
+  contact,
+  onClick,
+}: {
+  contact: ContactRow;
+  onClick: () => void;
+}) {
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onClick();
+        }
+      }}
+      className="bg-white border-b border-slate-100 last:border-b-0 px-5 py-4 flex items-center gap-4 hover:bg-[#F0F4F8] transition-colors cursor-pointer"
+    >
+      <div className="w-12 h-12 shrink-0 rounded-full bg-[#0077B6] text-white flex items-center justify-center text-lg font-bold">
+        {contactInitials(contact.name)}
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-base font-semibold text-slate-900">
+          {contact.name}
+        </div>
+        {contact.title && (
+          <div className="truncate text-sm text-[#0077B6] font-medium">
+            {contact.title}
+          </div>
+        )}
+        <div className="truncate text-xs text-slate-400">{contact.funderName}</div>
+      </div>
+
+      <div className="hidden shrink-0 flex-col items-end gap-1 text-right sm:flex">
+        {contact.email ? (
+          <a
+            href={`mailto:${contact.email}`}
+            onClick={(e) => e.stopPropagation()}
+            className="text-sm text-[#0077B6] hover:underline"
+          >
+            {contact.email}
+          </a>
+        ) : (
+          <span className="text-sm text-slate-400">No email</span>
+        )}
+        <span className="text-xs text-slate-400">
+          {contact.last_contacted_at
+            ? `Last contact ${formatDate(contact.last_contacted_at)}`
+            : "Never contacted"}
+        </span>
+      </div>
+
+      {contact.relationship && (
+        <Badge color={RELATIONSHIP_COLOR[contact.relationship]} className="shrink-0">
+          {humanizeEnum(contact.relationship)}
+        </Badge>
+      )}
     </div>
   );
 }

@@ -289,9 +289,20 @@ export default function AutoApplyOpsPage() {
 
       {/* Section 1: System Health */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {/* Worker */}
+        {/* Worker — the one long-running "job" this dashboard tracks live, so it
+            gets the running/failed job-status treatment: a pulsing indicator
+            while online, a failed-red card once the heartbeat goes stale. */}
         <Card title="Worker" description="Railway AutoApply worker">
-          <div className="flex items-center gap-3">
+          <div
+            className={
+              isOnline
+                ? "bg-[#EFF6FF] border border-[#BFDBFE] rounded-xl p-4 flex items-center gap-3"
+                : "bg-[#FEF2F2] border border-[#FECACA] rounded-xl p-4 flex items-center gap-3"
+            }
+          >
+            {isOnline && (
+              <span className="w-2 h-2 rounded-full bg-[#0077B6] animate-pulse shrink-0" aria-hidden />
+            )}
             <Server
               className={`h-8 w-8 ${isOnline ? "text-teal-400" : "text-red-400"}`}
               aria-hidden
@@ -331,9 +342,16 @@ export default function AutoApplyOpsPage() {
           </div>
         </Card>
 
-        {/* Platform state */}
+        {/* Platform state — running reads as a completed-style green card,
+            paused reads as the same failed-style red card as the Worker. */}
         <Card title="Platform" description="Global queue control state">
-          <div className="flex items-center justify-between">
+          <div
+            className={
+              data.platformPaused
+                ? "bg-[#FEF2F2] border border-[#FECACA] rounded-xl p-4 flex items-center justify-between"
+                : "bg-[#F0FDF4] border border-[#BBF7D0] rounded-xl p-4 flex items-center justify-between"
+            }
+          >
             <div className="flex items-center gap-3">
               {data.platformPaused ? (
                 <XCircle className="h-8 w-8 text-red-400" aria-hidden />

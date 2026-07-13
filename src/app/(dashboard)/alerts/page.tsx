@@ -16,7 +16,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { Badge, Button, Card, LoadingSpinner } from "@/components/ui";
+import { Badge, Button, LoadingSpinner } from "@/components/ui";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { useAlerts, type Alert } from "@/lib/hooks/useAlerts";
 import { type AlertSeverity, type AlertType } from "@/lib/alerts/alerts-service";
 import { createClient } from "@/lib/supabase/client";
@@ -91,10 +92,10 @@ const FILTERS: { key: FilterType; label: string }[] = [
   { key: "snoozed", label: "Snoozed" },
 ];
 
-const SEVERITY: Record<AlertSeverity, { accent: string; dot: string }> = {
-  critical: { accent: "border-l-red-500", dot: "bg-red-500" },
-  warning: { accent: "border-l-amber-500", dot: "bg-amber-500" },
-  info: { accent: "border-l-teal-500", dot: "bg-teal-500" },
+const SEVERITY: Record<AlertSeverity, { accent: string }> = {
+  critical: { accent: "border-l-4 border-[#EF4444]" },
+  warning: { accent: "border-l-4 border-[#F59E0B]" },
+  info: { accent: "border-l-4 border-[#0077B6]" },
 };
 
 const SNOOZE_OPTIONS: { label: string; ms: number }[] = [
@@ -193,35 +194,29 @@ export default function AlertsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-navy-900">
-            Alerts
-          </h1>
-          <p className="mt-1 text-sm text-navy-500">
-            Your daily action list — deadlines, new opportunities, applications
-            needing action, and drafts pending review.
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          {unreadCount > 0 && (
-            <Badge variant="error">
-              <Bell className="h-4 w-4" aria-hidden />
-              {unreadCount} unread
-            </Badge>
-          )}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={markAllRead}
-            disabled={unreadCount === 0}
-          >
-            Mark all read
-          </Button>
-        </div>
-      </div>
+    <div className="min-h-screen space-y-6 bg-[#EEF2F7] p-6">
+      <PageHeader
+        title="Alerts"
+        description="Your daily action list — deadlines, new opportunities, applications needing action, and drafts pending review."
+        actions={
+          <div className="flex items-center gap-3">
+            {unreadCount > 0 && (
+              <Badge variant="error">
+                <Bell className="h-4 w-4" aria-hidden />
+                {unreadCount} unread
+              </Badge>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={markAllRead}
+              disabled={unreadCount === 0}
+            >
+              Mark all read
+            </Button>
+          </div>
+        }
+      />
 
       {/* Filter pills */}
       <div className="flex flex-wrap gap-2">
@@ -233,8 +228,8 @@ export default function AlertsPage() {
             className={cn(
               "rounded-full px-3 py-1 text-sm font-medium transition",
               filter === f.key
-                ? "bg-navy-900 text-white"
-                : "bg-navy-100 text-navy-600 hover:bg-navy-200",
+                ? "bg-[#0077B6] text-white"
+                : "border border-slate-200 bg-white text-slate-600 hover:border-[#0077B6] hover:text-[#0077B6]",
             )}
           >
             {f.label}
@@ -254,7 +249,7 @@ export default function AlertsPage() {
       {loading ? (
         <LoadingSpinner center label="Loading alerts..." />
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {DISPLAY_CATEGORIES.map((cat) => {
             const catItems = filteredItems.filter((a) =>
               (cat.types as string[]).includes(a.type),
@@ -267,13 +262,13 @@ export default function AlertsPage() {
                 <button
                   type="button"
                   onClick={() => toggleCollapsed(cat.key)}
-                  className="flex w-full items-center gap-2 rounded-lg px-1 py-2 text-left transition hover:bg-navy-50"
+                  className="flex w-full items-center gap-2 rounded-lg px-1 py-2 text-left transition hover:bg-slate-100"
                 >
                   <Icon
-                    className="h-4 w-4 shrink-0 text-navy-400"
+                    className="h-4 w-4 shrink-0 text-slate-400"
                     aria-hidden
                   />
-                  <span className="flex-1 text-sm font-semibold text-navy-700">
+                  <span className="flex-1 text-sm font-semibold text-slate-700">
                     {cat.label}
                   </span>
                   {catItems.length > 0 && (
@@ -281,7 +276,7 @@ export default function AlertsPage() {
                   )}
                   <ChevronDown
                     className={cn(
-                      "h-4 w-4 text-navy-400 transition-transform duration-150",
+                      "h-4 w-4 text-slate-400 transition-transform duration-150",
                       isCollapsed && "-rotate-90",
                     )}
                     aria-hidden
@@ -289,18 +284,18 @@ export default function AlertsPage() {
                 </button>
 
                 {!isCollapsed && (
-                  <Card noPadding className="mt-1">
+                  <div className="mt-1">
                     {catItems.length === 0 ? (
-                      <div className="px-5 py-6 text-center">
-                        <p className="text-sm text-navy-500">
+                      <div className="rounded-xl border border-slate-200 bg-white px-5 py-6 text-center">
+                        <p className="text-sm text-slate-500">
                           {cat.description}
                         </p>
-                        <p className="mt-2 text-xs text-navy-400">
+                        <p className="mt-2 text-xs text-slate-400">
                           No alerts in this category.
                         </p>
                       </div>
                     ) : (
-                      <ul className="divide-y divide-navy-100">
+                      <ul>
                         {catItems.map((alert) => (
                           <AlertRow
                             key={alert.id}
@@ -313,7 +308,7 @@ export default function AlertsPage() {
                         ))}
                       </ul>
                     )}
-                  </Card>
+                  </div>
                 )}
               </section>
             );
@@ -353,31 +348,26 @@ function AlertRow({
   }, [snoozeOpen]);
 
   const message = (
-    <div className="flex min-w-0 items-start gap-3">
-      <span
-        className={cn("mt-1.5 h-2 w-2 shrink-0 rounded-full", styles.dot)}
-        aria-hidden
-      />
-      <div className="min-w-0">
-        <p
-          className={cn(
-            "truncate text-sm",
-            alert.is_read ? "text-navy-600" : "font-semibold text-navy-900",
-          )}
-        >
-          {alert.message}
-        </p>
-        <p className="mt-0.5 text-xs text-navy-400">
-          {formatRelative(alert.created_at)}
-        </p>
-      </div>
+    <div className="min-w-0">
+      <p
+        className={cn(
+          "truncate text-sm",
+          alert.is_read ? "text-slate-600" : "font-semibold text-slate-900",
+        )}
+      >
+        {alert.message}
+      </p>
+      <p className="mt-0.5 text-xs text-slate-400">
+        {formatRelative(alert.created_at)}
+      </p>
     </div>
   );
 
   return (
     <li
       className={cn(
-        "flex flex-wrap items-center justify-between gap-3 border-l-4 px-5 py-3",
+        "mb-3 flex items-start gap-4 rounded-xl border border-slate-200 p-4 transition-shadow hover:shadow-sm",
+        alert.is_read ? "bg-white" : "bg-[#EFF6FF]",
         styles.accent,
       )}
     >
@@ -390,7 +380,7 @@ function AlertRow({
           <span className="flex items-center gap-2">
             {message}
             <ChevronRight
-              className="h-4 w-4 shrink-0 text-navy-300 transition group-hover:text-navy-500"
+              className="h-4 w-4 shrink-0 text-slate-300 transition group-hover:text-slate-500"
               aria-hidden
             />
           </span>
@@ -399,7 +389,16 @@ function AlertRow({
         <div className="min-w-0 flex-1">{message}</div>
       )}
 
-      <div className="flex items-center gap-1.5">
+      <div className="flex shrink-0 items-center gap-3">
+        {!alert.is_read && (
+          <button
+            type="button"
+            onClick={onOpen}
+            className="text-xs font-medium text-[#0077B6] hover:underline"
+          >
+            Mark as read
+          </button>
+        )}
         <div className="relative" ref={menuRef}>
           <Button
             variant="ghost"
@@ -415,7 +414,7 @@ function AlertRow({
           {snoozeOpen && (
             <div
               role="menu"
-              className="absolute right-0 top-full z-10 mt-1 w-36 overflow-hidden rounded-lg border border-navy-200 bg-white py-1 shadow-lg"
+              className="absolute right-0 top-full z-10 mt-1 w-36 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
             >
               {SNOOZE_OPTIONS.map((opt) => (
                 <button
@@ -426,7 +425,7 @@ function AlertRow({
                     setSnoozeOpen(false);
                     onSnooze(opt.ms);
                   }}
-                  className="block w-full px-3 py-1.5 text-left text-sm text-navy-700 transition hover:bg-navy-50"
+                  className="block w-full px-3 py-1.5 text-left text-sm text-slate-700 transition hover:bg-slate-50"
                 >
                   {opt.label}
                 </button>

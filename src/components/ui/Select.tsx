@@ -65,7 +65,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
       {label && (
         <label
           htmlFor={selectId}
-          className="mb-1.5 block text-sm font-medium text-navy-700"
+          className="mb-1.5 block text-sm font-medium text-slate-700"
         >
           {label}
           {required && <span className="ml-0.5 text-red-500">*</span>}
@@ -81,10 +81,10 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
           value={value}
           defaultValue={resolvedDefault}
           className={cn(
-            "block w-full appearance-none rounded-lg border bg-surface py-2 pl-3 pr-9 text-sm text-text shadow-sm transition focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:bg-navy-50 disabled:text-navy-500",
+            "block w-full appearance-none bg-white border rounded-lg py-2.5 pl-3 pr-9 text-sm text-slate-700 outline-none transition-colors disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400",
             error
-              ? "border-red-300 focus:border-red-500 focus:ring-red-500"
-              : "border-border focus:border-teal-500 focus:ring-teal-500",
+              ? "border-red-300 focus:border-red-500 focus:ring-2 focus:ring-red-500/10"
+              : "border-slate-200 focus:border-[#0077B6] focus:ring-2 focus:ring-[#0077B6]/10",
             className,
           )}
           {...props}
@@ -106,7 +106,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
             ))}
         </select>
         <ChevronDown
-          className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-navy-400"
+          className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
           aria-hidden
         />
       </div>
@@ -115,7 +115,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
           {error}
         </p>
       ) : helperText ? (
-        <p id={`${selectId}-helper`} className="mt-1.5 text-sm text-navy-500">
+        <p id={`${selectId}-helper`} className="mt-1.5 text-sm text-slate-500">
           {helperText}
         </p>
       ) : null}

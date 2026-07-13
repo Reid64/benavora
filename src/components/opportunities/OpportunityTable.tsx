@@ -251,7 +251,9 @@ export function OpportunityTable({
       sortValue: (row) => row.amount_max ?? row.amount_available ?? 0,
       render: (row) =>
         row.amount_max != null || row.amount_available != null ? (
-          formatCurrency(row.amount_max ?? row.amount_available)
+          <span className="font-semibold text-slate-900">
+            {formatCurrency(row.amount_max ?? row.amount_available)}
+          </span>
         ) : (
           <span className="text-navy-400">-</span>
         ),
@@ -294,14 +296,21 @@ export function OpportunityTable({
       header: "Status",
       sortable: true,
       sortValue: (row) => row.status ?? "",
-      render: (row) =>
-        row.status ? (
+      render: (row) => {
+        if (!row.status) return <span className="text-navy-400">-</span>;
+        if (row.status === "open") {
+          return (
+            <span className="inline-flex items-center rounded-full bg-[#DCFCE7] px-2.5 py-1 text-xs font-semibold text-[#15803D]">
+              {humanizeEnum(row.status)}
+            </span>
+          );
+        }
+        return (
           <Badge variant={OPPORTUNITY_STATUS_VARIANT[row.status]}>
             {humanizeEnum(row.status)}
           </Badge>
-        ) : (
-          <span className="text-navy-400">-</span>
-        ),
+        );
+      },
     },
     {
       key: "application",
@@ -309,6 +318,13 @@ export function OpportunityTable({
       sortable: true,
       sortValue: (row) => row.applicationStage ?? "",
       render: (row) => {
+        if (!row.applicationStage) {
+          return (
+            <span className="rounded-full bg-[#F1F5F9] px-2.5 py-1 text-xs font-medium text-slate-500">
+              Not Applied
+            </span>
+          );
+        }
         const s = applicationStatusLabel(row.applicationStage);
         return <Badge variant={s.variant}>{s.label}</Badge>;
       },
@@ -348,6 +364,12 @@ export function OpportunityTable({
           onRowClick={(row) => router.push(`/opportunities/${row.id}`)}
           initialSort={{ key: "match", direction: "desc" }}
           emptyMessage="No opportunities match your filters."
+          containerClassName="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto"
+          tableClassName="min-w-[700px]"
+          theadClassName="bg-[#F8FAFC] border-b border-slate-200"
+          thClassName="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-400"
+          tbodyClassName="bg-white"
+          rowClassName="border-b border-slate-100 hover:bg-[#F0F4F8] transition-colors cursor-pointer"
         />
       )}
     </div>

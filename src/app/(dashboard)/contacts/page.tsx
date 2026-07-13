@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Plus, Users } from "lucide-react";
 
 import { Button, EmptyState } from "@/components/ui";
+import { PageHeader } from "@/components/layout/PageHeader";
 import {
   ContactTable,
   type ContactRow,
@@ -67,25 +68,21 @@ export default function ContactsPage() {
   const showEmpty = !loading && !error && contacts.length === 0;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-navy-900">
-            Contacts
-          </h1>
-          <p className="mt-1 text-sm text-navy-500">
-            People at your funders, with relationship status at a glance.
-          </p>
-        </div>
-        {editable && (
-          <Link href="/contacts/new">
-            <Button>
-              <Plus className="h-4 w-4" aria-hidden />
-              New contact
-            </Button>
-          </Link>
-        )}
-      </div>
+    <div className="min-h-screen space-y-6 bg-[#EEF2F7] p-6">
+      <PageHeader
+        title="Contacts"
+        description="People at your funders, with relationship status at a glance."
+        actions={
+          editable && (
+            <Link href="/contacts/new">
+              <Button>
+                <Plus className="h-4 w-4" aria-hidden />
+                New contact
+              </Button>
+            </Link>
+          )
+        }
+      />
 
       {error && (
         <div

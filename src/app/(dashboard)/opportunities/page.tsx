@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Plus, Search } from "lucide-react";
 
-import { Button, EmptyState } from "@/components/ui";
+import { EmptyState } from "@/components/ui";
 import { PageHeader } from "@/components/layout/PageHeader";
 import {
   OpportunityTable,
@@ -98,18 +98,18 @@ export default function OpportunitiesPage() {
   const showEmpty = !loading && !error && opportunities.length === 0;
 
   return (
-    <div className="space-y-6">
+    <div className="min-h-screen space-y-6 bg-[#EEF2F7] p-6">
       <PageHeader
         title="Opportunities"
         description="Grants, donation programs, and sponsorships you're tracking."
-        align="center"
         actions={
           editable && (
-            <Link href="/opportunities/new">
-              <Button>
-                <Plus className="h-4 w-4" aria-hidden />
-                New opportunity
-              </Button>
+            <Link
+              href="/opportunities/new"
+              className="flex items-center gap-2 rounded-lg bg-[#0077B6] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#005F92]"
+            >
+              <Plus className="h-4 w-4" aria-hidden />
+              New opportunity
             </Link>
           )
         }
@@ -131,11 +131,12 @@ export default function OpportunitiesPage() {
           description="Add your first funding opportunity to start tracking deadlines, eligibility, and applications."
           action={
             editable ? (
-              <Link href="/opportunities/new">
-                <Button>
-                  <Plus className="h-4 w-4" aria-hidden />
-                  New opportunity
-                </Button>
+              <Link
+                href="/opportunities/new"
+                className="flex items-center gap-2 rounded-lg bg-[#0077B6] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#005F92]"
+              >
+                <Plus className="h-4 w-4" aria-hidden />
+                New opportunity
               </Link>
             ) : undefined
           }

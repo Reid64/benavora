@@ -5,8 +5,11 @@ import {
   useEffect,
   useState,
   type FormEvent,
+  type ReactNode,
 } from "react";
 import {
+  AlertTriangle,
+  Building2,
   Check,
   Clock,
   Copy,
@@ -19,11 +22,11 @@ import {
   Users,
   X,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 import {
   Badge,
   Button,
-  Card,
   EmptyState,
   Input,
   LoadingSpinner,
@@ -31,6 +34,7 @@ import {
   Select,
 } from "@/components/ui";
 import type { BadgeColor } from "@/components/ui";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { recordAudit } from "@/lib/audit/client";
 import { createClient } from "@/lib/supabase/client";
 import { useProfile } from "@/lib/hooks/useProfile";
@@ -69,15 +73,11 @@ export default function SettingsPage() {
   const manage = canManageOrg(profile?.role);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-navy-900">
-          Settings
-        </h1>
-        <p className="mt-1 text-sm text-navy-500">
-          Manage your organization, team, and platform configuration.
-        </p>
-      </div>
+    <div>
+      <PageHeader
+        title="Settings"
+        description="Manage your organization, team, and platform configuration."
+      />
 
       {profileLoading ? (
         <LoadingSpinner center label="Loading settings..." />
@@ -91,8 +91,67 @@ export default function SettingsPage() {
           />
           <UsageDashboardSection />
           <FeatureFlagsSection />
+          {profile?.role === "owner" && <DangerZoneSection />}
         </>
       )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Shared section shell + row primitives
+// ---------------------------------------------------------------------------
+
+function SettingsSection({
+  icon: Icon,
+  title,
+  description,
+  actions,
+  bodyClassName = "px-6 py-5",
+  children,
+}: {
+  icon: LucideIcon;
+  title: string;
+  description?: string;
+  actions?: ReactNode;
+  /** Override the body's padding — pass "" when children are full-bleed setting rows. */
+  bodyClassName?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-6">
+      <div className="bg-[#F8FAFC] px-6 py-4 border-b border-slate-200 flex items-center gap-3">
+        <div className="w-8 h-8 rounded-lg bg-[#EFF6FF] flex items-center justify-center text-[#0077B6]">
+          <Icon className="h-4 w-4" aria-hidden />
+        </div>
+        <div className="min-w-0 flex-1">
+          <h3 className="text-base font-semibold text-slate-900">{title}</h3>
+          {description && (
+            <p className="text-xs text-slate-400 mt-0.5">{description}</p>
+          )}
+        </div>
+        {actions && <div className="shrink-0">{actions}</div>}
+      </div>
+      <div className={bodyClassName}>{children}</div>
+    </div>
+  );
+}
+
+/** Non-interactive on/off indicator styled as a toggle switch for read-only rows. */
+function ToggleIndicator({ enabled }: { enabled: boolean }) {
+  return (
+    <div
+      role="img"
+      aria-label={enabled ? "Enabled" : "Disabled"}
+      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
+        enabled ? "bg-[#0077B6]" : "bg-slate-200"
+      }`}
+    >
+      <span
+        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+          enabled ? "translate-x-6" : "translate-x-1"
+        }`}
+      />
     </div>
   );
 }
@@ -177,7 +236,8 @@ function OrganizationSection({ canManage }: { canManage: boolean }) {
   }
 
   return (
-    <Card
+    <SettingsSection
+      icon={Building2}
       title="Organization"
       description="Your organization's display name, used across the app and on applications."
     >
@@ -223,14 +283,18 @@ function OrganizationSection({ canManage }: { canManage: boolean }) {
                   Saved
                 </span>
               )}
-              <Button type="submit" isLoading={saving}>
+              <Button
+                type="submit"
+                isLoading={saving}
+                className="bg-[#0077B6] hover:bg-[#005F92] text-white px-6 py-2.5 rounded-lg font-semibold text-sm"
+              >
                 Save changes
               </Button>
             </div>
           )}
         </form>
       )}
-    </Card>
+    </SettingsSection>
   );
 }
 
@@ -353,14 +417,16 @@ function TeamSection({
   }
 
   return (
-    <Card
+    <SettingsSection
+      icon={Users}
       title="Team"
       description="People with access to this organization's workspace."
+      bodyClassName=""
     >
-      <div className="space-y-6">
+      <div>
         {canManage && (
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-sm text-navy-500">
+          <div className="px-6 py-4 flex items-center justify-between gap-3 border-b border-slate-100">
+            <p className="text-sm text-slate-500">
               Manage who can access your workspace and what they can do.
             </p>
             <Button onClick={() => setInviteOpen(true)}>
@@ -373,44 +439,48 @@ function TeamSection({
         {actionError && (
           <div
             role="alert"
-            className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+            className="mx-6 mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
           >
             {actionError}
           </div>
         )}
 
         {loading ? (
-          <LoadingSpinner center label="Loading team..." />
+          <div className="px-6 py-5">
+            <LoadingSpinner center label="Loading team..." />
+          </div>
         ) : loadError ? (
           <div
             role="alert"
-            className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+            className="mx-6 my-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
           >
             {loadError}
           </div>
         ) : users.length === 0 ? (
-          <EmptyState
-            icon={Users}
-            title="No team members"
-            description="Your team will appear here."
-          />
+          <div className="px-6 py-5">
+            <EmptyState
+              icon={Users}
+              title="No team members"
+              description="Your team will appear here."
+            />
+          </div>
         ) : (
-          <ul className="divide-y divide-navy-100">
+          <ul>
             {users.map((member) => (
               <li
                 key={member.id}
-                className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
+                className="px-6 py-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 last:border-0"
               >
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-medium text-navy-900">
+                    <p className="text-sm font-medium text-slate-700">
                       {member.full_name?.trim() || member.email}
                     </p>
                     {member.id === currentUserId && (
                       <Badge color="gray">You</Badge>
                     )}
                   </div>
-                  <p className="mt-0.5 text-sm text-navy-500">
+                  <p className="text-xs text-slate-400 mt-0.5">
                     {member.email}
                     {member.last_login_at
                       ? ` Â· last active ${formatRelative(member.last_login_at)}`
@@ -429,7 +499,7 @@ function TeamSection({
                           e.target.value as UserRole,
                         )
                       }
-                      className="rounded-lg border border-navy-300 bg-white py-1.5 pl-2.5 pr-7 text-sm text-navy-900 shadow-sm transition focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      className="rounded-lg border border-slate-300 bg-white py-1.5 pl-2.5 pr-7 text-sm text-slate-900 shadow-sm transition focus:border-[#0077B6] focus:outline-none focus:ring-2 focus:ring-[#0077B6]/10"
                     >
                       {/* Always include the member's current role so it shows
                           even when it isn't in the editor's assignable set. */}
@@ -457,7 +527,7 @@ function TeamSection({
                         type="button"
                         onClick={() => setRemoveTarget(member)}
                         aria-label={`Remove ${member.email}`}
-                        className="rounded-md p-1.5 text-navy-400 transition hover:bg-red-50 hover:text-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+                        className="rounded-md p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
                       >
                         <Trash2 className="h-4 w-4" aria-hidden />
                       </button>
@@ -469,11 +539,13 @@ function TeamSection({
         )}
 
         {canManage && (
-          <PendingInvites
-            invites={invites}
-            currentUserRole={currentUserRole}
-            onChanged={() => void load()}
-          />
+          <div className="px-6 py-5">
+            <PendingInvites
+              invites={invites}
+              currentUserRole={currentUserRole}
+              onChanged={() => void load()}
+            />
+          </div>
         )}
       </div>
 
@@ -505,12 +577,12 @@ function TeamSection({
           </>
         }
       >
-        <p className="text-sm text-navy-600">
+        <p className="text-sm text-slate-600">
           This permanently removes their account from your organization. This
           action cannot be undone.
         </p>
       </Modal>
-    </Card>
+    </SettingsSection>
   );
 }
 
@@ -563,10 +635,10 @@ function PendingInvites({
   if (invites.length === 0) return null;
 
   return (
-    <div className="rounded-lg border border-navy-200 bg-navy-50/40 p-4">
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
       <div className="flex items-center gap-2">
-        <Clock className="h-4 w-4 text-navy-500" aria-hidden />
-        <h4 className="text-sm font-semibold text-navy-800">
+        <Clock className="h-4 w-4 text-slate-500" aria-hidden />
+        <h4 className="text-sm font-semibold text-slate-800">
           Pending invitations
         </h4>
       </div>
@@ -580,7 +652,7 @@ function PendingInvites({
         </div>
       )}
 
-      <ul className="mt-3 divide-y divide-navy-100">
+      <ul className="mt-3 divide-y divide-slate-200">
         {invites.map((invite) => {
           const expired = new Date(invite.expires_at).getTime() < Date.now();
           // Admins can't manage an invitation for an owner role.
@@ -593,13 +665,13 @@ function PendingInvites({
             >
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <p className="font-medium text-navy-900">{invite.email}</p>
+                  <p className="text-sm font-medium text-slate-700">{invite.email}</p>
                   <Badge color={ROLE_BADGE[invite.role]}>
                     {humanizeEnum(invite.role)}
                   </Badge>
                   {expired && <Badge color="yellow">Expired</Badge>}
                 </div>
-                <p className="mt-0.5 text-sm text-navy-500">
+                <p className="text-xs text-slate-400 mt-0.5">
                   Invited {formatRelative(invite.created_at)} Â· expires{" "}
                   {formatDate(invite.expires_at)}
                 </p>
@@ -620,7 +692,7 @@ function PendingInvites({
                     onClick={() => void cancel(invite)}
                     disabled={busyId === invite.id}
                     aria-label={`Cancel invitation for ${invite.email}`}
-                    className="rounded-md p-1.5 text-navy-400 transition hover:bg-red-50 hover:text-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:opacity-50"
+                    className="rounded-md p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:opacity-50"
                   >
                     <X className="h-4 w-4" aria-hidden />
                   </button>
@@ -864,29 +936,33 @@ function UsageDashboardSection() {
   }, []);
 
   return (
-    <Card
+    <SettingsSection
+      icon={TrendingUp}
       title="Plan Usage"
       description="Your organization's current usage against tier limits. Resets monthly for drafts, applications, and opportunities; daily for agent runs."
+      bodyClassName=""
     >
       {loading ? (
-        <LoadingSpinner center label="Loading usage..." />
+        <div className="px-6 py-5">
+          <LoadingSpinner center label="Loading usage..." />
+        </div>
       ) : loadError ? (
         <div
           role="alert"
-          className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+          className="mx-6 my-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
         >
           {loadError}
         </div>
       ) : summary ? (
-        <div className="space-y-5">
-          <div className="flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 text-navy-500" aria-hidden />
-            <span className="text-sm font-medium text-navy-700 capitalize">
+        <div>
+          <div className="px-6 py-4 flex items-center gap-2 border-b border-slate-100">
+            <TrendingUp className="h-4 w-4 text-slate-500" aria-hidden />
+            <span className="text-sm font-medium text-slate-700 capitalize">
               {summary.tier} plan
             </span>
           </div>
 
-          <ul className="space-y-4">
+          <ul>
             {RESOURCE_ORDER.map((key) => {
               const resource = summary.resources[key];
               if (!resource) return null;
@@ -895,11 +971,14 @@ function UsageDashboardSection() {
               const unlimited = resource.limit === -1;
 
               return (
-                <li key={key}>
+                <li
+                  key={key}
+                  className="px-6 py-4 border-b border-slate-100 last:border-0"
+                >
                   <div className="mb-1.5 flex items-center justify-between gap-2">
-                    <span className="text-sm font-medium text-navy-800">
+                    <span className="text-sm font-medium text-slate-700">
                       {meta.label}
-                      <span className="ml-1.5 text-xs font-normal text-navy-400">
+                      <span className="ml-1.5 text-xs font-normal text-slate-400">
                         ({resource.period})
                       </span>
                     </span>
@@ -907,15 +986,15 @@ function UsageDashboardSection() {
                       className={`text-xs font-medium ${
                         !unlimited && pct >= 90
                           ? "text-red-600"
-                          : "text-navy-500"
+                          : "text-slate-400"
                       }`}
                     >
                       {formatValue(resource.current, resource.limit, meta.unit)}
                     </span>
                   </div>
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-navy-100">
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
                     {unlimited ? (
-                      <div className="h-full w-full rounded-full bg-navy-100" />
+                      <div className="h-full w-full rounded-full bg-slate-100" />
                     ) : (
                       <div
                         className={`h-full rounded-full transition-all ${barColor(pct)}`}
@@ -946,7 +1025,7 @@ function UsageDashboardSection() {
           </ul>
         </div>
       ) : null}
-    </Card>
+    </SettingsSection>
   );
 }
 
@@ -1012,27 +1091,33 @@ function FeatureFlagsSection() {
   }, []);
 
   return (
-    <Card
+    <SettingsSection
+      icon={ShieldCheck}
       title="Feature flags"
       description="Capabilities enabled for your organization. These roll out by phase and are managed by Benavora."
+      bodyClassName=""
     >
       {loading ? (
-        <LoadingSpinner center label="Loading feature flags..." />
+        <div className="px-6 py-5">
+          <LoadingSpinner center label="Loading feature flags..." />
+        </div>
       ) : loadError ? (
         <div
           role="alert"
-          className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+          className="mx-6 my-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
         >
           {loadError}
         </div>
       ) : flags.length === 0 ? (
-        <EmptyState
-          icon={ShieldCheck}
-          title="No feature flags"
-          description="Feature flags for your organization will appear here."
-        />
+        <div className="px-6 py-5">
+          <EmptyState
+            icon={ShieldCheck}
+            title="No feature flags"
+            description="Feature flags for your organization will appear here."
+          />
+        </div>
       ) : (
-        <ul className="divide-y divide-navy-100">
+        <ul>
           {flags.map((flag) => {
             const meta = FEATURE_FLAG_LABELS[flag.key];
             if (!meta) return null;
@@ -1040,21 +1125,45 @@ function FeatureFlagsSection() {
             return (
               <li
                 key={flag.key}
-                className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
+                className="px-6 py-4 flex items-center justify-between gap-3 border-b border-slate-100 last:border-0"
               >
                 <div className="min-w-0">
-                  <p className="font-medium text-navy-900">{meta.label}</p>
-                  <p className="mt-0.5 text-xs text-navy-400">{meta.phase}</p>
+                  <p className="text-sm font-medium text-slate-700">{meta.label}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">{meta.phase}</p>
                 </div>
-                <Badge color={enabled ? "green" : "gray"} withDot>
-                  {enabled ? "Enabled" : "Disabled"}
-                </Badge>
+                <ToggleIndicator enabled={enabled} />
               </li>
             );
           })}
         </ul>
       )}
-    </Card>
+    </SettingsSection>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Danger zone (owner only)
+// ---------------------------------------------------------------------------
+
+/**
+ * Owner-only callout for the organization's permanent, destructive action:
+ * removing a team member (wired in the Team section's per-row Remove
+ * button). No separate control here — this simply calls out the blast
+ * radius of that existing action per the Elevated Slate danger-zone pattern.
+ */
+function DangerZoneSection() {
+  return (
+    <div className="border border-[#FCA5A5] rounded-xl p-5 bg-[#FFF1F1] mb-6">
+      <div className="flex items-center gap-2">
+        <AlertTriangle className="h-4 w-4 text-[#B91C1C]" aria-hidden />
+        <h3 className="text-[#B91C1C] font-semibold">Danger zone</h3>
+      </div>
+      <p className="mt-2 text-sm text-slate-600">
+        Removing a team member in the Team section above is permanent and
+        immediately revokes their access to this organization. This action
+        cannot be undone.
+      </p>
+    </div>
   );
 }
 

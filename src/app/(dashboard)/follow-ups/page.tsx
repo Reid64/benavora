@@ -122,7 +122,7 @@ export default function FollowUpsPage() {
 
   return (
     <div className="space-y-6 p-8">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-text">Follow-Up Sequences</h1>
           <p className="mt-1 text-sm text-text-muted">

@@ -107,11 +107,12 @@ function ancestryLabel(node: TaxonomyNode, byId: Map<string, TaxonomyNode>): str
   return path.join(" › ");
 }
 
-function scoreVariant(score: number | null): BadgeVariant {
-  if (score == null) return "neutral";
-  if (score >= 70) return "success";
-  if (score >= 40) return "warning";
-  return "neutral";
+function scoreBadgeClass(score: number | null): string {
+  const shape = "px-2 py-0.5 rounded-full text-sm font-bold";
+  if (score == null) return `${shape} bg-slate-100 text-slate-500`;
+  if (score > 70) return `${shape} bg-[#DCFCE7] text-[#15803D]`;
+  if (score >= 40) return `${shape} bg-[#FEF3C7] text-[#92400E]`;
+  return `${shape} bg-[#FEE2E2] text-[#B91C1C]`;
 }
 
 const FETCH_LIMIT = 100;
@@ -522,10 +523,8 @@ export default function DonorDiscoveryProspectsPage() {
       sortable: true,
       sortValue: (row) => row.score ?? -1,
       render: (row) => (
-        <span title={row.score_rationale ?? undefined}>
-          <Badge variant={scoreVariant(row.score)}>
-            {row.score != null ? row.score : "Unscored"}
-          </Badge>
+        <span title={row.score_rationale ?? undefined} className={scoreBadgeClass(row.score)}>
+          {row.score != null ? row.score : "Unscored"}
         </span>
       ),
     },
@@ -568,8 +567,11 @@ export default function DonorDiscoveryProspectsPage() {
         title="Prospects"
         description="All prospects surfaced by your discovery requests, across every taxonomy and geography."
         actions={
-          <Link href="/donor-discovery/new">
-            <Button>New Discovery</Button>
+          <Link
+            href="/donor-discovery/new"
+            className="inline-flex items-center bg-[#0077B6] hover:bg-[#005F92] text-white px-6 py-3 rounded-xl font-bold text-sm shadow-md transition-colors"
+          >
+            New Discovery
           </Link>
         }
       />

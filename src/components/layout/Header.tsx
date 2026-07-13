@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ChevronDown, LogOut, Menu } from "lucide-react";
+import { Bell, LogOut, Menu } from "lucide-react";
 
 import { recordAuthEvent } from "@/lib/audit/client";
 import { createClient } from "@/lib/supabase/client";
-import { cn } from "@/lib/utils/cn";
 
 type HeaderProps = {
   /** Authenticated user's email, derived server-side from the session. */
@@ -25,12 +24,12 @@ type HeaderProps = {
 // item. Do not delete or relocate it without explicit user instruction.
 /** Primary tab links surfaced in the header. */
 const TABS = [
-  { label: "Dashboard", href: "/dashboard", premium: false },
-  { label: "Research", href: "/research", premium: false },
-  { label: "Opportunities", href: "/opportunities", premium: false },
-  { label: "AutoApply", href: "/autoapply", premium: true },
-  { label: "Draft Generator", href: "/draft-generator", premium: true },
-  { label: "Donor Discovery", href: "/donor-discovery", premium: false },
+  { label: "Dashboard", href: "/dashboard" },
+  { label: "Research", href: "/research" },
+  { label: "Opportunities", href: "/opportunities" },
+  { label: "AutoApply", href: "/autoapply" },
+  { label: "Draft Generator", href: "/draft-generator" },
+  { label: "Donor Discovery", href: "/donor-discovery" },
 ];
 
 /** Avatar-dropdown destinations (Log Out is rendered separately). */
@@ -41,6 +40,11 @@ const MENU_LINKS = [
   { label: "Audit Log", href: "/admin/audit-log" },
   { label: "AutoApply Ops", href: "/admin/autoapply-ops" },
 ];
+
+const NAV_LINK_ACTIVE =
+  "px-4 py-2 text-sm font-semibold text-[#0077B6] border-b-2 border-[#0077B6] rounded-none -mb-px";
+const NAV_LINK_INACTIVE =
+  "px-4 py-2 text-sm font-semibold text-slate-600 hover:text-[#0077B6] hover:bg-slate-50 rounded-lg transition-colors";
 
 /** Up-to-two-letter initials from the org name, falling back to the email. */
 function orgInitials(orgName: string, userEmail: string): string {
@@ -62,6 +66,7 @@ export function Header({ userEmail, orgName, orgLogoUrl, onMenuClick }: HeaderPr
   const pathname = usePathname();
   const [signingOut, setSigningOut] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Close the avatar dropdown on outside click.
@@ -75,6 +80,22 @@ export function Header({ userEmail, orgName, orgLogoUrl, onMenuClick }: HeaderPr
     document.addEventListener("mousedown", handleOutside);
     return () => document.removeEventListener("mousedown", handleOutside);
   }, [menuOpen]);
+
+  const fetchUnreadCount = useCallback(async () => {
+    try {
+      const res = await fetch("/api/notifications", { cache: "no-store" });
+      if (res.ok) {
+        const data = (await res.json()) as { unread_count: number };
+        setUnreadCount(data.unread_count ?? 0);
+      }
+    } catch {
+      // Non-fatal — badge simply stays at zero.
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchUnreadCount();
+  }, [fetchUnreadCount, pathname]);
 
   async function handleSignOut() {
     setSigningOut(true);
@@ -92,111 +113,124 @@ export function Header({ userEmail, orgName, orgLogoUrl, onMenuClick }: HeaderPr
   const initials = orgInitials(orgName, userEmail);
 
   return (
-    <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center gap-4 border-b border-border bg-surface px-4 sm:px-6">
-      <button
-        type="button"
-        onClick={onMenuClick}
-        className="rounded-md p-1.5 text-text-muted transition hover:bg-surface-raised hover:text-text lg:hidden"
-        aria-label="Open navigation"
-      >
-        <Menu className="h-5 w-5" />
-      </button>
-
-      {/* Header tab links */}
-      <nav className="hidden items-center gap-0.5 md:flex" aria-label="Primary sections">
-        {TABS.map((tab) => {
-          const active = isActiveTab(tab.href);
-          return (
-            <Link
-              key={tab.href}
-              href={tab.href}
-              aria-current={active ? "page" : undefined}
-              className={cn(
-                "relative rounded-lg px-3 py-1.5 text-sm font-semibold transition",
-                active
-                  ? "bg-primary/10 text-primary"
-                  : "text-text-muted hover:bg-surface-raised hover:text-text",
-              )}
-            >
-              {tab.label}
-              <span
-                className={cn(
-                  "absolute bottom-0.5 left-3 right-3 h-0.5 rounded-full transition",
-                  active ? "bg-primary" : tab.premium ? "bg-accent/35" : "bg-transparent",
-                )}
-                aria-hidden
-              />
-            </Link>
-          );
-        })}
-      </nav>
-
-      {/* Org avatar + dropdown */}
-      <div className="relative ml-auto" ref={menuRef}>
-        <button
-          type="button"
-          onClick={() => setMenuOpen((o) => !o)}
-          className="flex items-center gap-1.5 rounded-full p-0.5 pr-1.5 transition hover:bg-surface-raised focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-          aria-haspopup="menu"
-          aria-expanded={menuOpen}
-          aria-label="Organization menu"
-        >
-          {orgLogoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={orgLogoUrl}
-              alt={orgName || "Organization"}
-              className="h-9 w-9 rounded-full object-cover"
-            />
-          ) : (
-            <span
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-accent to-primary text-sm font-semibold text-white shadow-sm"
-              aria-hidden
-            >
-              {initials}
-            </span>
-          )}
-          <ChevronDown className="h-4 w-4 text-text-muted" aria-hidden />
-        </button>
-
-        {menuOpen && (
-          <div
-            role="menu"
-            className="absolute right-0 top-full z-30 mt-2 w-56 overflow-hidden rounded-xl border border-border bg-surface shadow-lg"
+    <header className="sticky top-0 z-30 bg-white border-b border-slate-200 shadow-sm">
+      <div className="flex items-center h-16 px-6">
+        <div className="mr-4">
+          <button
+            type="button"
+            onClick={onMenuClick}
+            className="p-2 rounded-lg text-slate-600 hover:bg-slate-100 lg:hidden"
+            aria-label="Open navigation"
           >
-            <div className="border-b border-border px-4 py-3">
-              <p className="truncate text-sm font-semibold text-text">
-                {orgName || "Your organization"}
-              </p>
-              <p className="truncate text-xs text-text-muted">{userEmail}</p>
-            </div>
-            <div className="py-1">
-              {MENU_LINKS.map((l) => (
-                <Link
-                  key={l.href}
-                  href={l.href}
-                  onClick={() => setMenuOpen(false)}
-                  role="menuitem"
-                  className="block px-4 py-2 text-sm text-text-muted transition hover:bg-surface-raised hover:text-text"
-                >
-                  {l.label}
-                </Link>
-              ))}
-            </div>
-            <div className="border-t border-border py-1">
-              <button
-                type="button"
-                onClick={handleSignOut}
-                disabled={signingOut}
-                role="menuitem"
-                className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-text-muted transition hover:bg-surface-raised hover:text-text disabled:cursor-not-allowed disabled:opacity-60"
+            <Menu className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* Header tab links */}
+        <nav className="flex items-center gap-1" aria-label="Primary sections">
+          {TABS.map((tab) => {
+            const active = isActiveTab(tab.href);
+            return (
+              <Link
+                key={tab.href}
+                href={tab.href}
+                aria-current={active ? "page" : undefined}
+                className={active ? NAV_LINK_ACTIVE : NAV_LINK_INACTIVE}
               >
-                <LogOut className="h-4 w-4" aria-hidden />
-                {signingOut ? "Signing out..." : "Log Out"}
-              </button>
-            </div>
+                {tab.label}
+              </Link>
+            );
+          })}
+        </nav>
+
+        <div className="ml-auto flex items-center gap-4">
+          {/* Notification bell */}
+          <Link
+            href="/notifications"
+            className="relative p-2 rounded-lg text-slate-600 hover:bg-slate-100"
+            aria-label={unreadCount > 0 ? `Notifications (${unreadCount} unread)` : "Notifications"}
+          >
+            <Bell className="h-5 w-5" />
+            {unreadCount > 0 && (
+              <span
+                className="absolute top-1 right-1 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white ring-2 ring-white"
+                aria-hidden
+              >
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </span>
+            )}
+          </Link>
+
+          {/* Org avatar + dropdown */}
+          <div className="relative" ref={menuRef}>
+            <button
+              type="button"
+              onClick={() => setMenuOpen((o) => !o)}
+              className="flex items-center gap-2 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0077B6]"
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+              aria-label="Organization menu"
+            >
+              <span className="hidden text-sm font-medium text-slate-700 sm:inline">
+                {orgName || "Your organization"}
+              </span>
+              {orgLogoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={orgLogoUrl}
+                  alt={orgName || "Organization"}
+                  className="w-9 h-9 rounded-full object-cover ring-2 ring-[#00B4D8] ring-offset-2"
+                />
+              ) : (
+                <span
+                  className="w-9 h-9 rounded-full bg-[#0077B6] text-white flex items-center justify-center text-sm font-bold ring-2 ring-[#00B4D8] ring-offset-2"
+                  aria-hidden
+                >
+                  {initials}
+                </span>
+              )}
+            </button>
+
+            {menuOpen && (
+              <div
+                role="menu"
+                className="absolute right-0 top-full z-30 mt-2 w-56 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
+              >
+                <div className="border-b border-slate-200 px-4 py-3">
+                  <p className="truncate text-sm font-semibold text-slate-900">
+                    {orgName || "Your organization"}
+                  </p>
+                  <p className="truncate text-xs text-slate-500">{userEmail}</p>
+                </div>
+                <div className="py-1">
+                  {MENU_LINKS.map((l) => (
+                    <Link
+                      key={l.href}
+                      href={l.href}
+                      onClick={() => setMenuOpen(false)}
+                      role="menuitem"
+                      className="block px-4 py-2 text-sm text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
+                    >
+                      {l.label}
+                    </Link>
+                  ))}
+                </div>
+                <div className="border-t border-slate-200 py-1">
+                  <button
+                    type="button"
+                    onClick={handleSignOut}
+                    disabled={signingOut}
+                    role="menuitem"
+                    className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <LogOut className="h-4 w-4" aria-hidden />
+                    {signingOut ? "Signing out..." : "Log Out"}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
     </header>
   );

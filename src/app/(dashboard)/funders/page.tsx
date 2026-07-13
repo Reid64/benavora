@@ -4,8 +4,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Building2, CheckCircle, Plus } from "lucide-react";
 
-import { Button, EmptyState } from "@/components/ui";
-import { FunderTable, type FunderRow } from "@/components/funders/FunderTable";
+import { EmptyState } from "@/components/ui";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { FunderCardGrid } from "@/components/funders/FunderCardGrid";
+import type { FunderRow } from "@/components/funders/FunderTable";
 import { createClient } from "@/lib/supabase/client";
 import { canEdit, useProfile } from "@/lib/hooks/useProfile";
 
@@ -132,25 +134,22 @@ export default function FundersPage() {
   const showEmpty = !loading && !error && funders.length === 0;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-navy-900">
-            Funders
-          </h1>
-          <p className="mt-1 text-sm text-navy-500">
-            Corporations, foundations, and agencies you track for funding.
-          </p>
-        </div>
-        {editable && (
-          <Link href="/funders/new">
-            <Button>
+    <div className="min-h-screen space-y-6 bg-[#EEF2F7] p-6">
+      <PageHeader
+        title="Funders"
+        description="Corporations, foundations, and agencies you track for funding."
+        actions={
+          editable && (
+            <Link
+              href="/funders/new"
+              className="flex items-center gap-2 rounded-lg bg-[#0077B6] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#005F92]"
+            >
               <Plus className="h-4 w-4" aria-hidden />
               New funder
-            </Button>
-          </Link>
-        )}
-      </div>
+            </Link>
+          )
+        }
+      />
 
       {error && (
         <div
@@ -168,17 +167,18 @@ export default function FundersPage() {
           description="Add your first funder to start tracking funding sources, contacts, and opportunities."
           action={
             editable ? (
-              <Link href="/funders/new">
-                <Button>
-                  <Plus className="h-4 w-4" aria-hidden />
-                  New funder
-                </Button>
+              <Link
+                href="/funders/new"
+                className="flex items-center gap-2 rounded-lg bg-[#0077B6] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#005F92]"
+              >
+                <Plus className="h-4 w-4" aria-hidden />
+                New funder
               </Link>
             ) : undefined
           }
         />
       ) : (
-        <FunderTable
+        <FunderCardGrid
           funders={funders}
           isLoading={loading}
           queuedFunderIds={queuedFunderIds}

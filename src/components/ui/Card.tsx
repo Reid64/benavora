@@ -31,7 +31,7 @@ export function Card({
   return (
     <div
       className={cn(
-        "rounded-xl border border-slate-200 bg-surface shadow-sm transition-shadow hover:shadow-md",
+        "bg-white rounded-xl shadow-sm border border-slate-200 transition-shadow hover:shadow-md",
         className,
       )}
     >

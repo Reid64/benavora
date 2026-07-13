@@ -109,9 +109,9 @@ export const HIGH_PRIORITY_THRESHOLD = 80;
 export const MISMATCH_REASON_THRESHOLD = 40;
 
 export function matchColor(percentage: number): ScoreColor {
-  if (percentage >= HIGH_PRIORITY_THRESHOLD) return "green";
-  if (percentage >= MISMATCH_REASON_THRESHOLD) return "yellow";
-  return "red";
+  if (percentage <= 0) return "red";
+  if (percentage > 50) return "green";
+  return "yellow";
 }
 
 const MATCH_BADGE_VARIANT: Record<ScoreColor, BadgeVariant> = {
