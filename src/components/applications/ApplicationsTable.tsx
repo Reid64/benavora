@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronUp, ChevronsUpDown, ExternalLink } from "lucide-react";
+import { ChevronDown, ChevronUp, ChevronsUpDown, Copy, ExternalLink } from "lucide-react";
 
 import { Button } from "@/components/ui/Button";
 import {
@@ -141,6 +141,8 @@ export type ApplicationsTableProps = {
   role: Tables<"profiles">["role"] | undefined;
   changedBy: string | null;
   onChanged: () => void;
+  /** Opens the clone-to-new-opportunity modal for this application. */
+  onClone?: (application: EnrichedApplication) => void;
 };
 
 export function ApplicationsTable({
@@ -148,6 +150,7 @@ export function ApplicationsTable({
   role,
   changedBy,
   onChanged,
+  onClone,
 }: ApplicationsTableProps) {
   const router = useRouter();
 
@@ -361,7 +364,7 @@ export function ApplicationsTable({
           <SortHeader label="Stage" sortKey="stage" {...sortProps} active={sortKey === "stage"} className="hidden w-44 shrink-0 md:inline-flex" />
           <SortHeader label="Deadline" sortKey="deadline" {...sortProps} active={sortKey === "deadline"} className="hidden w-24 shrink-0 lg:inline-flex" />
           <SortHeader label="Updated" sortKey="updatedAt" {...sortProps} active={sortKey === "updatedAt"} className="hidden w-24 shrink-0 lg:inline-flex" />
-          <span className="w-14 shrink-0" aria-hidden />
+          <span className="w-28 shrink-0" aria-hidden />
         </div>
       )}
 
@@ -418,7 +421,21 @@ export function ApplicationsTable({
                 {formatDate(app.updated_at)}
               </p>
 
-              <div className="w-14 shrink-0 text-right" onClick={(e) => e.stopPropagation()}>
+              <div
+                className="flex w-28 shrink-0 items-center justify-end gap-3 text-right"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {onClone && (
+                  <button
+                    type="button"
+                    onClick={() => onClone(app)}
+                    className="inline-flex items-center gap-1 text-xs text-slate-500 transition hover:text-[#0077B6]"
+                    aria-label="Clone application to a new opportunity"
+                  >
+                    <Copy className="h-3.5 w-3.5" aria-hidden />
+                    Clone
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => router.push(`/applications/${app.id}`)}

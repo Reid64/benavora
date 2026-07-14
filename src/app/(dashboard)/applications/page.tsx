@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { KanbanSquare, LayoutList, RefreshCw } from "lucide-react";
 
-import { Button, EmptyState, LoadingSpinner } from "@/components/ui";
+import { Button, EmptyState, LoadingSpinner, Modal, Select } from "@/components/ui";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ApplicationsTable } from "@/components/applications/ApplicationsTable";
 import { GroupedKanban } from "@/components/applications/GroupedKanban";
@@ -19,11 +20,21 @@ import { cn } from "@/lib/utils/cn";
 type ViewMode = "table" | "kanban";
 
 export default function ApplicationsPage() {
+  const router = useRouter();
   const { profile } = useProfile();
   const [applications, setApplications] = useState<EnrichedApplication[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<ViewMode>("table");
+
+  // Clone-to-new-opportunity modal.
+  const [cloneSource, setCloneSource] = useState<EnrichedApplication | null>(null);
+  const [opportunityOptions, setOpportunityOptions] = useState<
+    { id: string; name: string }[]
+  >([]);
+  const [targetOpportunityId, setTargetOpportunityId] = useState("");
+  const [cloning, setCloning] = useState(false);
+  const [cloneError, setCloneError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -41,6 +52,54 @@ export default function ApplicationsPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  async function openCloneModal(application: EnrichedApplication) {
+    setCloneError(null);
+    setTargetOpportunityId("");
+    setCloneSource(application);
+    if (opportunityOptions.length === 0) {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("opportunities")
+        .select("id, name")
+        .order("name");
+      setOpportunityOptions(
+        ((data ?? []) as { id: string; name: string }[]).map((o) => ({
+          id: o.id,
+          name: o.name,
+        })),
+      );
+    }
+  }
+
+  async function handleClone() {
+    if (!cloneSource || !targetOpportunityId) return;
+    setCloning(true);
+    setCloneError(null);
+    try {
+      const res = await fetch(`/api/applications/${cloneSource.id}/clone`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetOpportunityId }),
+      });
+      const payload = (await res.json().catch(() => ({}))) as {
+        newApplicationId?: string;
+        error?: string;
+      };
+      if (!res.ok) {
+        setCloneError(payload.error ?? "Could not clone this application.");
+        return;
+      }
+      setCloneSource(null);
+      if (payload.newApplicationId) {
+        router.push(`/applications/${payload.newApplicationId}`);
+      }
+    } catch {
+      setCloneError("Could not reach the server. Please try again.");
+    } finally {
+      setCloning(false);
+    }
+  }
 
   const editable = canEdit(profile?.role);
   const showEmpty = !loading && !error && applications.length === 0;
@@ -130,6 +189,7 @@ export default function ApplicationsPage() {
           role={profile?.role}
           changedBy={profile?.id ?? null}
           onChanged={load}
+          onClone={openCloneModal}
         />
       ) : (
         <GroupedKanban
@@ -140,6 +200,56 @@ export default function ApplicationsPage() {
           onChanged={load}
         />
       )}
+
+      {/* Clone application */}
+      <Modal
+        isOpen={cloneSource !== null}
+        onClose={() => {
+          if (!cloning) setCloneSource(null);
+        }}
+        title="Clone application"
+        description={
+          cloneSource
+            ? `The latest draft from "${cloneSource.opportunityName ?? "this application"}" will be adapted for the new opportunity.`
+            : undefined
+        }
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              onClick={() => setCloneSource(null)}
+              disabled={cloning}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleClone}
+              isLoading={cloning}
+              disabled={!targetOpportunityId}
+            >
+              Clone
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <Select
+            label="Target opportunity"
+            placeholder="Select an opportunity…"
+            value={targetOpportunityId}
+            onChange={(e) => setTargetOpportunityId(e.target.value)}
+            options={opportunityOptions.map((o) => ({
+              label: o.name,
+              value: o.id,
+            }))}
+          />
+          {cloneError && (
+            <p role="alert" className="text-sm text-red-600">
+              {cloneError}
+            </p>
+          )}
+        </div>
+      </Modal>
     </div>
   );
 }
