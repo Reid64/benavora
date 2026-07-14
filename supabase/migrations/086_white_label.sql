@@ -1,0 +1,21 @@
+-- Migration 086: consultant_client_access - links a consultant-tier
+-- organization to the client organizations it has been granted access to
+-- (White-Label Client Portal, BLUEPRINT §12 / Schema Registry §57).
+
+CREATE TABLE IF NOT EXISTS consultant_client_access (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  consultant_org_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  client_org_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  access_level text DEFAULT 'read',
+  granted_at timestamptz DEFAULT now(),
+  active boolean DEFAULT true
+);
+
+ALTER TABLE consultant_client_access ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "consultant_client_access_org" ON consultant_client_access
+  USING (consultant_org_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
+
+CREATE INDEX IF NOT EXISTS idx_consultant_client_access_consultant ON consultant_client_access(consultant_org_id);
+CREATE INDEX IF NOT EXISTS idx_consultant_client_access_client ON consultant_client_access(client_org_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_consultant_client_access_dedup ON consultant_client_access(consultant_org_id, client_org_id);

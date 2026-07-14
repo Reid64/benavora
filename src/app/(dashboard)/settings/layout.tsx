@@ -8,9 +8,11 @@ const NAV_ITEMS = [
   { label: "General", href: "/settings" },
   { label: "Organization Setup", href: "/settings/organization-setup" },
   { label: "Integrations", href: "/settings/integrations" },
+  { label: "Notifications", href: "/settings/notifications" },
   { label: "Branding", href: "/settings/branding" },
   { label: "Custom APIs", href: "/settings/custom-apis" },
   { label: "Scraping Targets", href: "/settings/scraping" },
+  { label: "White-Label", href: "/settings/white-label" },
 ] as const;
 
 export default function SettingsLayout({ children }: { children: ReactNode }) {

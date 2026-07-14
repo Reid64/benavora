@@ -4649,6 +4649,368 @@ export interface Database {
         };
         Relationships: [];
       };
+      // Migration 080: org_settings - per-org platform settings (autoapply_mode, etc).
+      org_settings: {
+        Row: {
+          id: string;
+          organization_id: string;
+          autoapply_mode: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          autoapply_mode?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          autoapply_mode?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "org_settings_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: true;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      // Migration 082: outreach_templates - reusable multi-channel outreach templates.
+      outreach_templates: {
+        Row: {
+          id: string;
+          organization_id: string;
+          name: string;
+          channel: string;
+          subject: string | null;
+          body: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          name: string;
+          channel: string;
+          subject?: string | null;
+          body: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          name?: string;
+          channel?: string;
+          subject?: string | null;
+          body?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "outreach_templates_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      // Migration 083: followup_sequences - multi-step post-submission follow-up sequences.
+      followup_sequences: {
+        Row: {
+          id: string;
+          organization_id: string;
+          name: string;
+          trigger_stage: string;
+          steps: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          name: string;
+          trigger_stage: string;
+          steps?: Json;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          name?: string;
+          trigger_stage?: string;
+          steps?: Json;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "followup_sequences_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      // Migration 083: followup_enrollments - per-application progress through a followup_sequence.
+      followup_enrollments: {
+        Row: {
+          id: string;
+          application_id: string;
+          sequence_id: string;
+          enrolled_at: string;
+          current_step: number;
+          status: string;
+        };
+        Insert: {
+          id?: string;
+          application_id: string;
+          sequence_id: string;
+          enrolled_at?: string;
+          current_step?: number;
+          status?: string;
+        };
+        Update: {
+          id?: string;
+          application_id?: string;
+          sequence_id?: string;
+          enrolled_at?: string;
+          current_step?: number;
+          status?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "followup_enrollments_application_id_fkey";
+            columns: ["application_id"];
+            isOneToOne: false;
+            referencedRelation: "applications";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "followup_enrollments_sequence_id_fkey";
+            columns: ["sequence_id"];
+            isOneToOne: false;
+            referencedRelation: "followup_sequences";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      // Migration 084: grant_budgets - per-application budget envelope for financial reconciliation.
+      grant_budgets: {
+        Row: {
+          id: string;
+          organization_id: string;
+          application_id: string | null;
+          total_budget: number;
+          personnel: number;
+          supplies: number;
+          equipment: number;
+          other: number;
+          period_start: string | null;
+          period_end: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          application_id?: string | null;
+          total_budget?: number;
+          personnel?: number;
+          supplies?: number;
+          equipment?: number;
+          other?: number;
+          period_start?: string | null;
+          period_end?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          application_id?: string | null;
+          total_budget?: number;
+          personnel?: number;
+          supplies?: number;
+          equipment?: number;
+          other?: number;
+          period_start?: string | null;
+          period_end?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "grant_budgets_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "grant_budgets_application_id_fkey";
+            columns: ["application_id"];
+            isOneToOne: false;
+            referencedRelation: "applications";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      // Migration 084: grant_expenses - expense line items against a grant_budgets envelope.
+      grant_expenses: {
+        Row: {
+          id: string;
+          organization_id: string;
+          budget_id: string | null;
+          category: string | null;
+          description: string | null;
+          amount: number;
+          expense_date: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          budget_id?: string | null;
+          category?: string | null;
+          description?: string | null;
+          amount: number;
+          expense_date?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          budget_id?: string | null;
+          category?: string | null;
+          description?: string | null;
+          amount?: number;
+          expense_date?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "grant_expenses_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "grant_expenses_budget_id_fkey";
+            columns: ["budget_id"];
+            isOneToOne: false;
+            referencedRelation: "grant_budgets";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      // Migration 085: compliance_requirements - manually tracked compliance obligations.
+      compliance_requirements: {
+        Row: {
+          id: string;
+          organization_id: string;
+          application_id: string | null;
+          requirement_type: string;
+          title: string;
+          due_date: string;
+          status: string;
+          notes: string | null;
+          submitted_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          application_id?: string | null;
+          requirement_type: string;
+          title: string;
+          due_date: string;
+          status?: string;
+          notes?: string | null;
+          submitted_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          application_id?: string | null;
+          requirement_type?: string;
+          title?: string;
+          due_date?: string;
+          status?: string;
+          notes?: string | null;
+          submitted_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "compliance_requirements_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "compliance_requirements_application_id_fkey";
+            columns: ["application_id"];
+            isOneToOne: false;
+            referencedRelation: "applications";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      // Migration 087: notification_preferences - per-user, per-event in_app/email toggles.
+      notification_preferences: {
+        Row: {
+          id: string;
+          organization_id: string;
+          user_id: string;
+          event_type: string;
+          in_app: boolean;
+          email: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          user_id: string;
+          event_type: string;
+          in_app?: boolean;
+          email?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          user_id?: string;
+          event_type?: string;
+          in_app?: boolean;
+          email?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "notification_preferences_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "notification_preferences_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: Record<string, never>;
     Functions: {

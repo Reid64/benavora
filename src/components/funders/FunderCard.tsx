@@ -36,6 +36,14 @@ function getFunderTypeBadge(category: FunderCategory) {
   return match ?? { label: humanizeEnum(category), className: "bg-slate-100 text-slate-600" };
 }
 
+/** Colored relationship-score pill: green 70+, amber 40-69, red below 40, gray when unscored. */
+function getScoreBadgeClassName(score: number | null): string {
+  if (score === null) return "bg-slate-100 text-slate-500";
+  if (score >= 70) return "bg-emerald-100 text-emerald-700";
+  if (score >= 40) return "bg-amber-100 text-amber-700";
+  return "bg-red-100 text-red-700";
+}
+
 export type FunderCardProps = {
   funder: FunderRow;
   onClick: () => void;
@@ -94,6 +102,17 @@ export function FunderCard({
             className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${typeBadge.className}`}
           >
             {typeBadge.label}
+          </span>
+          <span
+            title="Relationship score"
+            aria-label={
+              funder.relationshipScore !== null
+                ? `Relationship score ${funder.relationshipScore}`
+                : "No relationship score yet"
+            }
+            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${getScoreBadgeClassName(funder.relationshipScore)}`}
+          >
+            {funder.relationshipScore !== null ? funder.relationshipScore : "—"}
           </span>
         </div>
       </div>

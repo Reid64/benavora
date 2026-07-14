@@ -1,10 +1,90 @@
 # BENAVORA — STATE OF THE BUILD
-## Last updated: 2026-07-13 (Mobile responsiveness audit + fixes — see entry immediately below — on top of Research + Draft Generator pages Elevated Slate rebuild, FlightPathHUD Mission Control lifecycle dashboard, Migrations 073-074 applied to production, Settings + Onboarding pages Elevated Slate rebuild, Sales Outreach + AutoApply Ops pages Elevated Slate rebuild, Contacts + Financials + Reports pages Elevated Slate rebuild, Knowledge Base + Intelligence Library pages Elevated Slate rebuild, Alerts + Deadlines + Outcomes pages Elevated Slate rebuild, Donor Discovery Overview + Prospects pages Elevated Slate rebuild, Applications + Documents pages Elevated Slate rebuild, Funders + Foundations pages Elevated Slate card-grid rebuild, PageHeader rebuild, Opportunities page visual overhaul, Dashboard page visual overhaul, Header hardcoded-Tailwind rebuild, Sidebar hardcoded-Tailwind rebuild, Phase 2-4 completion audit, Apollo + Hunter §6 BYO-key connectors + run_connector_enrichment worker job, TX TDLR + land bank directory registry adapters + Donor Discovery Connectors page + connectors API + Prospect detail page rebuild + AutoApply handoff route + Donor Discovery Overview page rebuild + process_discovery_request worker job + requests API pagination + Claude-rationale donor-discovery scoring engine + SAM.gov registry adapter + ingest script + ProPublica financial enrichment adapter + script + IRS BMF full ingest script + Google Geocoding adapter + donor_discovery_geocache + Google Places cache-first registry adapter + adapter_usage_log + New Discovery wizard TaxonomyCombobox + taxonomy aliases + header nav placement fix + Phases 2+3 + Foundation Enrichment Pipeline + Onboarding soft-gate)
+## Last updated: 2026-07-14 (Funder relationship-score badge + Tier 6 inventory — see entry immediately below — on top of Mobile responsiveness audit + fixes, Research + Draft Generator pages Elevated Slate rebuild, FlightPathHUD Mission Control lifecycle dashboard, Migrations 073-074 applied to production, Settings + Onboarding pages Elevated Slate rebuild, Sales Outreach + AutoApply Ops pages Elevated Slate rebuild, Contacts + Financials + Reports pages Elevated Slate rebuild, Knowledge Base + Intelligence Library pages Elevated Slate rebuild, Alerts + Deadlines + Outcomes pages Elevated Slate rebuild, Donor Discovery Overview + Prospects pages Elevated Slate rebuild, Applications + Documents pages Elevated Slate rebuild, Funders + Foundations pages Elevated Slate card-grid rebuild, PageHeader rebuild, Opportunities page visual overhaul, Dashboard page visual overhaul, Header hardcoded-Tailwind rebuild, Sidebar hardcoded-Tailwind rebuild, Phase 2-4 completion audit, Apollo + Hunter §6 BYO-key connectors + run_connector_enrichment worker job, TX TDLR + land bank directory registry adapters + Donor Discovery Connectors page + connectors API + Prospect detail page rebuild + AutoApply handoff route + Donor Discovery Overview page rebuild + process_discovery_request worker job + requests API pagination + Claude-rationale donor-discovery scoring engine + SAM.gov registry adapter + ingest script + ProPublica financial enrichment adapter + script + IRS BMF full ingest script + Google Geocoding adapter + donor_discovery_geocache + Google Places cache-first registry adapter + adapter_usage_log + New Discovery wizard TaxonomyCombobox + taxonomy aliases + header nav placement fix + Phases 2+3 + Foundation Enrichment Pipeline + Onboarding soft-gate)
 ## Method: live codebase audit — every file path, route, agent, and migration counted directly from the filesystem; no assumptions carried from prior docs.
 
 ---
 
-## COMPLETED — July 13 (latest session): Mobile responsiveness audit + fixes
+## COMPLETED — July 14 (latest session): Funder relationship-score badge on the funder card grid
+
+Task: add a relationship-score display to the funders surface — colored badge, green 70+/amber
+40-69/red below 40/gray when unscored — without restructuring the existing page component.
+
+- **`funders/page.tsx` renders a card grid, not a table** (`FunderCardGrid` → `FunderCard`, since
+  the July 12 Elevated Slate rebuild documented above — `FunderTable.tsx` is dead for this page,
+  still only live via `intelligence/recommendations/page.tsx`). The task's literal "Score column
+  to table" phrasing doesn't map onto the current UI; the badge was added to `FunderCard.tsx`
+  instead, next to the existing category-type pill, since that's what's actually rendered.
+- **Reused existing data instead of adding a second fetch of the same table.** `funders/page.tsx`
+  already queries `funder_relationship_scores` (`funder_id, relationship_score, is_stale`) directly
+  via Supabase on page load and threads it into `FunderRow.relationshipScore`/`.isStale` — the
+  exact same rows `GET /api/funders/relationship-scores` would return, just server-mediated. Adding
+  a redundant client fetch of the API route for data already in state would have been a duplicate
+  network round-trip with no behavior change, so `getScoreBadgeClassName()` in `FunderCard.tsx`
+  reads `funder.relationshipScore` directly: `>=70` emerald, `40-69` amber, `<40` red, `null` (no
+  score row yet) gray with an em-dash.
+- Gate: `pnpm run typecheck` (`tsc --noEmit`) — 0 errors. `pnpm run build` — clean, 272/272 static
+  pages generated. `pnpm lint` (`next lint`) itself was blocked by the known interactive-approval
+  gate (see prior sessions' notes on this) both attempts, but `next build`'s own internal "Linting
+  and checking validity of types" step — the same ESLint config `next lint` runs — completed with
+  no errors reported as part of the build gate above.
+- Not done: no Playwright/browser verification this pass (not requested, no dev-server check).
+
+### Tier 6 feature inventory (live grep against BLUEPRINT.md §14's Phase A-E prompt list; this
+docs entry itself is the first time this file has cross-checked Tier 6 against BLUEPRINT.md/
+SCHEMA_REGISTRY.md — prior sessions built these pieces without a running scorecard)
+
+- **Phase A — Data source integrations:** Grants.gov (`grantsgov-client.ts`, `grantsgov-sync.ts`,
+  `api/sources/grantsgov`, `api/cron/grantsgov`) present. SAM.gov (`samgov-client.ts`,
+  `api/sources/samgov`) present. ProPublica 990 mining (`propublica-990-client.ts`,
+  `api/sources/propublica`, `scripts/enrich-propublica-batch.ts`) present. State portal framework
+  (`lib/sources/state-portals/{portal-config,portal-scraper}.ts`, `api/sources/state-portals`)
+  present. CSV import wizard (`api/import/csv`, `(dashboard)/import/page.tsx`) present. Custom API
+  connector (`api/integrations/custom-api*`, `settings/custom-apis/page.tsx`) present, predates
+  this session. Custom scraping targets (`api/integrations/scraping-targets*`) present, predates
+  this session. Integration settings UI (`settings/integrations/page.tsx`) present, predates this
+  session.
+- **Phase B — Batch automation:** automation queue + worker (`api/automation/{queue,process,stats}`)
+  present, predates this session. Semi-autonomous/autonomous mode selection
+  (`api/autoapply/mode`, `components/autoapply/ModeSelector.tsx`) present. 2Captcha
+  (`lib/autoapply/captcha-solver.ts`, `lib/services/captcha-solver.ts`) present, predates this
+  session. Automation monitor dashboard (`(dashboard)/admin/monitor/page.tsx`,
+  `api/admin/monitor`, `api/admin/jobs/[id]/retry`) present. Notification system
+  (`lib/notifications/notify.ts`, `settings/notifications/page.tsx`, `api/settings/notifications`)
+  present.
+- **Phase C — Intelligence:** giving-history extraction (`lib/agents/giving-history.ts`,
+  `api/agents/giving-history`) present, predates this session. Foundation giving-profile builder
+  (`lib/intelligence/foundation-profiler.ts`, `api/foundations/[id]/profile`) present. Success
+  probability scoring (`lib/intelligence/success-probability.ts`, `lib/agents/success-probability.ts`,
+  git history's "feat: success probability") present, predates this session. Funder relationship
+  scoring (`lib/intelligence/relationship-scorer.ts`, `api/funders/relationship-scores`,
+  `api/funders/[id]/relationship`, plus this session's card badge) present. Competitor intelligence
+  (`lib/intelligence/competitor-intel.ts`, `api/foundations/[id]/competitors`) present. Deadline
+  prediction (`lib/intelligence/deadline-predictor.ts`, `api/intelligence/deadline-predictions`)
+  present.
+- **Phase D — Post-submission automation:** follow-up sequences (`worker/jobs/process-followups.ts`,
+  `api/outreach/sequences`, `(dashboard)/outreach/sequences/page.tsx`, migration 083) present.
+  Financial reconciliation (`api/financials/{budgets,expenses}`, migration 084 `grant_financials`)
+  present. Compliance calendar (`(dashboard)/compliance/page.tsx`, `api/compliance` extended,
+  migration 085 `compliance_requirements`) present. Application cloning
+  (git history's "feat: application cloning", [[benavora-application-cloning-two-entry-points]] in
+  memory — two entry points, `api/agents/application-cloner` and `api/applications/[id]/clone`)
+  present, predates this session.
+- **Phase E — Advanced:** semantic funder matching (`lib/intelligence/semantic-matcher.ts`,
+  `api/match/foundations`, `(dashboard)/research/match/page.tsx`) present. Multi-channel outreach
+  (`api/outreach/templates`, `(dashboard)/outreach/templates/page.tsx`) present — templates exist
+  for multiple channels but **not independently verified this pass** whether LinkedIn/phone/mail
+  content generation is actually wired end-to-end vs. email-only; flagging rather than claiming.
+  White-label client portal (`(dashboard)/settings/white-label/page.tsx`,
+  `api/consultant/clients`, migration 086 `white_label_configs`) present.
+- **Caveat:** this inventory is presence-of-file, not depth-of-implementation — it confirms each
+  Tier 6 area has real routes/lib code/migrations behind it (no bare stubs found in the files
+  listed), but does not re-verify RLS correctness, error handling, or UI wiring per item the way
+  the [[benavora-deep-audit-2026-07-03]] full audit did. A repeat of that deep audit against the
+  now-much-larger Tier 6 surface would be the way to get a verified-not-just-present scorecard.
+
+---
+
+## COMPLETED — July 13: Mobile responsiveness audit + fixes
 
 Task: read `Sidebar.tsx`, `Header.tsx`, and the dashboard layout wrapper (`DashboardShell.tsx` —
 no separate `DashboardLayout.tsx` exists) in full, audit and fix mobile responsiveness against a

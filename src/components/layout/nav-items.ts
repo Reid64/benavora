@@ -13,9 +13,13 @@ import {
   Library,
   Mail,
   Megaphone,
+  MonitorDot,
+  Send,
   Settings,
   Shield,
+  ShieldCheck,
   Target,
+  Upload,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -60,6 +64,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Knowledge Base", href: "/knowledge-base", icon: Brain },
   { label: "Intelligence Library", href: "/intelligence-library", icon: BookOpen },
   { label: "Deadlines", href: "/deadlines", icon: Calendar },
+  { label: "Compliance", href: "/compliance", icon: ShieldCheck },
   { label: "Outcomes & Analytics", href: "/outcomes", icon: BarChart3 },
   { label: "Financials", href: "/financials", icon: DollarSign },
   { label: "Reports", href: "/reports", icon: FileBarChart2 },
@@ -74,6 +79,16 @@ export const NAV_ITEMS: NavItem[] = [
     ],
   },
   { label: "Email", href: "/email", icon: Mail },
+  {
+    label: "Outreach",
+    href: "/outreach",
+    icon: Send,
+    children: [
+      { label: "Campaigns", href: "/outreach/campaigns" },
+      { label: "Templates", href: "/outreach/templates" },
+      { label: "Sequences", href: "/outreach/sequences" },
+    ],
+  },
 ];
 
 /**
@@ -95,8 +110,10 @@ export const SETTINGS_NAV_ITEM: NavItem = {
 
 /** Platform admin section — shown only to owner/admin roles. */
 export const PLATFORM_NAV_ITEMS: NavItem[] = [
+  { label: "Import", href: "/import", icon: Upload },
   { label: "Sales Outreach", href: "/admin/sales-outreach", icon: Megaphone },
   { label: "AutoApply Ops", href: "/admin/autoapply-ops", icon: Bot },
+  { label: "Monitor", href: "/admin/monitor", icon: MonitorDot },
   { label: "Audit Log", href: "/admin/audit-log", icon: Shield },
 ];
 

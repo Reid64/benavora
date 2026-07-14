@@ -8,10 +8,12 @@ import {
   Calendar,
   CheckCircle2,
   ClipboardList,
+  Clock,
   Download,
   DollarSign,
   FileBarChart2,
   Loader2,
+  Trophy,
 } from "lucide-react";
 
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -24,6 +26,36 @@ function defaultDates(): { start: string; end: string } {
     start: start.toISOString().split("T")[0]!,
     end: end.toISOString().split("T")[0]!,
   };
+}
+
+interface BoardReportTopFunder {
+  funderId: string;
+  funderName: string;
+  applicationCount: number;
+}
+
+interface BoardReportUpcomingDeadline {
+  opportunityId: string;
+  name: string;
+  deadline: string;
+  funderName: string | null;
+}
+
+interface BoardReportSummary {
+  dateRange: { from: string; to: string };
+  opportunitiesCreated: number;
+  applicationsSubmitted: number;
+  totalAwarded: number;
+  topFunders: BoardReportTopFunder[];
+  upcomingDeadlines: BoardReportUpcomingDeadline[];
+}
+
+function formatCurrency(amount: number): string {
+  return amount.toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  });
 }
 
 type ReportAccent = "teal" | "green" | "violet";
@@ -123,6 +155,48 @@ export default function ReportsPage() {
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const [summaryStartDate, setSummaryStartDate] = useState(defaults.start);
+  const [summaryEndDate, setSummaryEndDate] = useState(defaults.end);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [summary, setSummary] = useState<BoardReportSummary | null>(null);
+
+  async function handleGenerateSummary() {
+    if (!summaryStartDate || !summaryEndDate) return;
+    if (summaryStartDate > summaryEndDate) {
+      setSummaryError("Start date must be before end date.");
+      return;
+    }
+
+    setSummaryLoading(true);
+    setSummaryError(null);
+    setSummary(null);
+
+    try {
+      const params = new URLSearchParams({
+        dateFrom: summaryStartDate,
+        dateTo: summaryEndDate,
+      });
+      const res = await fetch(`/api/reports/board-report?${params.toString()}`);
+
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        throw new Error(body.error ?? "Board report summary failed.");
+      }
+
+      const data = (await res.json()) as BoardReportSummary;
+      setSummary(data);
+    } catch (err) {
+      setSummaryError(
+        err instanceof Error ? err.message : "An unexpected error occurred.",
+      );
+    } finally {
+      setSummaryLoading(false);
+    }
+  }
 
   async function handleGenerate() {
     if (!startDate || !endDate) return;
@@ -321,6 +395,189 @@ export default function ReportsPage() {
             <p className="mt-2 text-xs text-teal-600">
               Download link expires in 1 hour.
             </p>
+          </div>
+        )}
+      </div>
+
+      <div className="mx-auto max-w-2xl">
+        {/* Board Report summary */}
+        <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
+          <div className="mb-5 flex items-center gap-2">
+            <FileBarChart2 className="h-4 w-4 text-[#0077B6]" />
+            <h2 className="text-sm font-semibold text-slate-700">
+              Board Report Summary
+            </h2>
+          </div>
+
+          <div className="mb-6 grid grid-cols-2 gap-4">
+            <div>
+              <label
+                htmlFor="summary_start_date"
+                className="mb-1 block text-xs font-medium text-slate-600"
+              >
+                Start Date
+              </label>
+              <input
+                id="summary_start_date"
+                type="date"
+                value={summaryStartDate}
+                onChange={(e) => {
+                  setSummaryStartDate(e.target.value);
+                  setSummaryError(null);
+                  setSummary(null);
+                }}
+                max={summaryEndDate}
+                disabled={summaryLoading}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:border-[#0077B6] focus:outline-none focus:ring-1 focus:ring-[#0077B6] disabled:opacity-50"
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="summary_end_date"
+                className="mb-1 block text-xs font-medium text-slate-600"
+              >
+                End Date
+              </label>
+              <input
+                id="summary_end_date"
+                type="date"
+                value={summaryEndDate}
+                onChange={(e) => {
+                  setSummaryEndDate(e.target.value);
+                  setSummaryError(null);
+                  setSummary(null);
+                }}
+                min={summaryStartDate}
+                disabled={summaryLoading}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:border-[#0077B6] focus:outline-none focus:ring-1 focus:ring-[#0077B6] disabled:opacity-50"
+              />
+            </div>
+          </div>
+
+          <button
+            onClick={handleGenerateSummary}
+            disabled={summaryLoading || !summaryStartDate || !summaryEndDate}
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#0077B6] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#005F92] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {summaryLoading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Generating Summary...
+              </>
+            ) : (
+              <>
+                <FileBarChart2 className="h-4 w-4" />
+                Generate Board Report
+              </>
+            )}
+          </button>
+        </div>
+
+        {/* Summary error state */}
+        {summaryError && (
+          <div className="mt-4 flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4">
+            <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-500" />
+            <div>
+              <p className="text-sm font-medium text-red-700">
+                Summary generation failed
+              </p>
+              <p className="mt-0.5 text-xs text-red-600">{summaryError}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Summary result */}
+        {summary && (
+          <div className="mt-4 space-y-4">
+            <div className="grid grid-cols-3 gap-3">
+              <div className="rounded-xl border border-border bg-surface p-4 text-center">
+                <p className="text-2xl font-semibold text-slate-900">
+                  {summary.opportunitiesCreated}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Opportunities Created
+                </p>
+              </div>
+              <div className="rounded-xl border border-border bg-surface p-4 text-center">
+                <p className="text-2xl font-semibold text-slate-900">
+                  {summary.applicationsSubmitted}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Applications Submitted
+                </p>
+              </div>
+              <div className="rounded-xl border border-border bg-surface p-4 text-center">
+                <p className="text-2xl font-semibold text-teal-600">
+                  {formatCurrency(summary.totalAwarded)}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">Total Awarded</p>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-border bg-surface p-5">
+              <div className="mb-3 flex items-center gap-2">
+                <Trophy className="h-4 w-4 text-amber-500" />
+                <h3 className="text-sm font-semibold text-slate-700">
+                  Top 5 Funders by Application Count
+                </h3>
+              </div>
+              {summary.topFunders.length > 0 ? (
+                <ul className="space-y-2">
+                  {summary.topFunders.map((funder, index) => (
+                    <li
+                      key={funder.funderId}
+                      className="flex items-center justify-between text-sm"
+                    >
+                      <span className="text-slate-600">
+                        {index + 1}. {funder.funderName}
+                      </span>
+                      <span className="font-medium text-slate-900">
+                        {funder.applicationCount} application
+                        {funder.applicationCount === 1 ? "" : "s"}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-xs text-slate-400">
+                  No funder applications in this period.
+                </p>
+              )}
+            </div>
+
+            <div className="rounded-xl border border-border bg-surface p-5">
+              <div className="mb-3 flex items-center gap-2">
+                <Clock className="h-4 w-4 text-[#0077B6]" />
+                <h3 className="text-sm font-semibold text-slate-700">
+                  Upcoming Deadlines (Next 90 Days)
+                </h3>
+              </div>
+              {summary.upcomingDeadlines.length > 0 ? (
+                <ul className="space-y-2">
+                  {summary.upcomingDeadlines.map((deadline) => (
+                    <li
+                      key={deadline.opportunityId}
+                      className="flex items-center justify-between text-sm"
+                    >
+                      <span className="text-slate-600">
+                        {deadline.name}
+                        {deadline.funderName ? ` - ${deadline.funderName}` : ""}
+                      </span>
+                      <span className="font-medium text-slate-900">
+                        {new Date(deadline.deadline).toLocaleDateString(
+                          "en-US",
+                          { month: "short", day: "numeric", year: "numeric" },
+                        )}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-xs text-slate-400">
+                  No upcoming deadlines in the next 90 days.
+                </p>
+              )}
+            </div>
           </div>
         )}
       </div>

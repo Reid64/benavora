@@ -20,6 +20,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useProfile } from "@/lib/hooks/useProfile";
 import type { Json } from "@/types/database";
 import { WorkerStatus } from "@/components/autoapply/WorkerStatus";
+import { ModeSelector } from "@/components/autoapply/ModeSelector";
 import { LiveSessionViewer } from "@/components/autoapply/LiveSessionViewer";
 import { QueueMetrics } from "@/components/autoapply/QueueMetrics";
 import { QueuePreview } from "@/components/autoapply/QueuePreview";
@@ -371,6 +372,9 @@ export default function AutoApplyPage() {
           {actionError}
         </div>
       )}
+
+      {/* MODE SELECTOR — Manual / Semi-Auto / Autonomous */}
+      <ModeSelector />
 
       {/* LIVE SESSION VIEWER — real-time worker stream */}
       <LiveSessionViewer />

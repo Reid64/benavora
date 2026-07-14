@@ -18,6 +18,24 @@ export type NotificationEventType =
 
 export type DigestMode = "per_event" | "hourly_digest" | "daily_summary";
 
+// Canonical event type list + labels, shared by the Settings > Notifications
+// preferences UI (src/app/(dashboard)/settings/notifications) and notify()
+// (src/lib/notifications/notify.ts) so both agree on what a user can toggle.
+export const NOTIFICATION_EVENT_TYPES: {
+  value: NotificationEventType;
+  label: string;
+}[] = [
+  { value: "automation_completed", label: "Automation completed" },
+  { value: "automation_failed", label: "Automation failed" },
+  { value: "automation_paused", label: "Automation paused" },
+  { value: "deadline_approaching", label: "Deadline approaching" },
+  { value: "agent_completed", label: "Agent completed" },
+  { value: "agent_failed", label: "Agent failed" },
+  { value: "key_expired", label: "Integration key expired" },
+  { value: "target_paused", label: "Scraping target paused" },
+  { value: "daily_limit_reached", label: "Daily limit reached" },
+];
+
 export interface DispatchOptions {
   event_type: NotificationEventType;
   title: string;
