@@ -170,7 +170,7 @@ export function QueuePreview() {
 
   if (configLoading) {
     return (
-      <div className="rounded-xl border border-navy-100 bg-white px-5 py-4 shadow-sm">
+      <div className="rounded-xl border border-border bg-surface px-5 py-4 shadow-sm">
         <p className="text-sm text-navy-400">Loading queue config…</p>
       </div>
     );
@@ -179,7 +179,7 @@ export function QueuePreview() {
   const isDisabled = config !== null && !config.enabled;
 
   return (
-    <div className="rounded-xl border border-navy-100 bg-white shadow-sm">
+    <div className="rounded-xl border border-border bg-surface shadow-sm">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-navy-100 px-5 py-4">
         <div className="flex items-center gap-2">
@@ -274,17 +274,17 @@ export function QueuePreview() {
               <div className="overflow-x-auto rounded-lg border border-navy-100">
                 <table className="min-w-full divide-y divide-navy-100 text-sm">
                   <thead>
-                    <tr className="bg-navy-50">
-                      <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                    <tr className="bg-sidebar">
+                      <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-white">
                         Funder
                       </th>
-                      <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                      <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-white">
                         Category
                       </th>
-                      <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                      <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-white">
                         Location
                       </th>
-                      <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                      <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-white">
                         Portal
                       </th>
                       <th className="w-8 px-4 py-2.5" />

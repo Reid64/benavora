@@ -463,7 +463,7 @@ export default function DraftQueuePage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-navy-900">
+          <h1 className="text-2xl font-bold tracking-tight text-primary">
             Draft Queue
           </h1>
           <p className="mt-1 text-sm text-navy-500">
@@ -613,8 +613,8 @@ export default function DraftQueuePage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-navy-100 text-left text-xs font-medium uppercase tracking-wide text-navy-400">
-                  <th className="pb-2 pr-3">
+                <tr className="bg-sidebar text-left text-xs font-medium uppercase tracking-wide text-white">
+                  <th className="py-2 pl-3 pr-3">
                     <input
                       type="checkbox"
                       checked={selected.size === items.length && items.length > 0}
@@ -623,15 +623,15 @@ export default function DraftQueuePage() {
                       className="rounded border-navy-300"
                     />
                   </th>
-                  <th className="pb-2 pr-3">Priority</th>
-                  <th className="pb-2 pr-3">Opportunity</th>
-                  <th className="pb-2 pr-3">Funder</th>
-                  <th className="pb-2 pr-3">Template</th>
-                  <th className="pb-2 pr-3">Deadline</th>
-                  <th className="pb-2 pr-3">Status</th>
-                  <th className="pb-2 pr-3">Confidence</th>
-                  <th className="pb-2 pr-3">Gaps</th>
-                  <th className="pb-2">Actions</th>
+                  <th className="py-2 pr-3">Priority</th>
+                  <th className="py-2 pr-3">Opportunity</th>
+                  <th className="py-2 pr-3">Funder</th>
+                  <th className="py-2 pr-3">Template</th>
+                  <th className="py-2 pr-3">Deadline</th>
+                  <th className="py-2 pr-3">Status</th>
+                  <th className="py-2 pr-3">Confidence</th>
+                  <th className="py-2 pr-3">Gaps</th>
+                  <th className="py-2">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-navy-50">
@@ -1059,7 +1059,7 @@ function StatCard({
   };
 
   return (
-    <div className="rounded-xl border border-navy-100 bg-white p-4">
+    <div className="rounded-xl border border-border bg-surface shadow-sm p-4">
       <p className="text-xs font-medium uppercase tracking-wide text-navy-400">
         {label}
       </p>

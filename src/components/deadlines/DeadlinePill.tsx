@@ -129,7 +129,7 @@ export function DeadlineDetailModal({ deadline, onClose }: ModalProps) {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="w-full max-w-sm rounded-xl border border-navy-200 bg-white shadow-xl">
+      <div className="w-full max-w-sm rounded-xl border border-border bg-surface shadow-xl">
         <div className="flex items-start justify-between border-b border-navy-100 px-5 py-4">
           <div className="min-w-0 pr-2">
             <p className="truncate text-base font-semibold text-navy-900">

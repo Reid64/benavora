@@ -46,7 +46,7 @@ export default function ApplicationsPage() {
   const showEmpty = !loading && !error && applications.length === 0;
 
   return (
-    <div className="min-h-screen space-y-6 bg-[#EEF2F7] p-6">
+    <div className="min-h-screen space-y-6 bg-page p-6">
       <PageHeader
         title="Applications"
         description={

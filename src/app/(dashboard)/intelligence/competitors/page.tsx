@@ -233,7 +233,7 @@ export default function CompetitorsPage() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-navy-900">
+          <h1 className="text-2xl font-bold tracking-tight text-primary">
             Competitor Intelligence
           </h1>
           <p className="mt-1 text-sm text-navy-500">
@@ -259,7 +259,7 @@ export default function CompetitorsPage() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-navy-900">
+          <h1 className="text-2xl font-bold tracking-tight text-primary">
             Competitor Intelligence
           </h1>
           <p className="mt-1 text-sm text-navy-500">
@@ -293,7 +293,7 @@ export default function CompetitorsPage() {
 
       {/* Run analysis section */}
       {editable && funders.length > 0 && (
-        <div className="rounded-xl border border-navy-200 bg-white p-6">
+        <div className="rounded-xl border border-border bg-surface shadow-sm p-6">
           <h2 className="mb-4 text-base font-semibold text-navy-900">
             Analyze a Funder
           </h2>
@@ -338,7 +338,7 @@ export default function CompetitorsPage() {
       {groups.map((group) => (
         <div
           key={group.funderId}
-          className="rounded-xl border border-navy-200 bg-white"
+          className="rounded-xl border border-border bg-surface shadow-sm"
         >
           {/* Funder header */}
           <button

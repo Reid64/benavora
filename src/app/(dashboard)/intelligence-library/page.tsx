@@ -312,7 +312,7 @@ export default function IntelligenceLibraryPage() {
                       <div
                         key={p.id}
                         id={`proposal-row-${p.id}`}
-                        className="bg-white rounded-xl border border-slate-200 p-5 hover:border-[#0077B6] transition-colors"
+                        className="bg-surface rounded-xl border border-border shadow-sm p-5 hover:border-[#0077B6] transition-colors"
                       >
                         <button
                           type="button"
@@ -438,7 +438,7 @@ export default function IntelligenceLibraryPage() {
                   <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-slate-200 text-sm">
                       <thead>
-                        <tr className="bg-surface-sunken text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
+                        <tr className="bg-sidebar text-left text-xs font-semibold uppercase tracking-wide text-white">
                           <th className="py-3 pl-4 pr-4" />
                           <th className="py-3 pr-4">Funder</th>
                           <th className="py-3 pr-4">Program</th>
@@ -565,7 +565,7 @@ export default function IntelligenceLibraryPage() {
                   <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-slate-200 text-sm">
                       <thead>
-                        <tr className="bg-surface-sunken text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
+                        <tr className="bg-sidebar text-left text-xs font-semibold uppercase tracking-wide text-white">
                           <th className="py-3 pl-4 pr-4">Source</th>
                           <th className="py-3 pr-4 text-right">Records</th>
                         </tr>
@@ -726,7 +726,7 @@ function RubricDimensionCard({ dimension }: { dimension: RubricDimension }) {
       : [];
 
   return (
-    <div className="rounded-lg border border-navy-200 bg-white p-3">
+    <div className="rounded-lg border border-border bg-surface shadow-sm p-3">
       <div className="mb-2 flex items-start justify-between gap-2">
         <p className="font-medium text-navy-900 leading-tight">
           {dimension.name ?? "Unnamed dimension"}

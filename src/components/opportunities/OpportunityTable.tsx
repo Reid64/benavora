@@ -364,12 +364,7 @@ export function OpportunityTable({
           onRowClick={(row) => router.push(`/opportunities/${row.id}`)}
           initialSort={{ key: "match", direction: "desc" }}
           emptyMessage="No opportunities match your filters."
-          containerClassName="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto"
-          tableClassName="min-w-[700px]"
-          theadClassName="bg-[#F8FAFC] border-b border-slate-200"
-          thClassName="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-400"
-          tbodyClassName="bg-white"
-          rowClassName="border-b border-slate-100 hover:bg-[#F0F4F8] transition-colors cursor-pointer"
+          tableClassName="min-w-[700px] divide-y divide-slate-200"
         />
       )}
     </div>
@@ -440,7 +435,7 @@ function CardGrid({
   }
   if (isEmpty) {
     return (
-      <div className="rounded-xl border border-navy-200 bg-white p-10 text-center text-sm text-navy-500">
+      <div className="rounded-xl border border-border bg-surface p-10 text-center text-sm text-navy-500 shadow-sm">
         No opportunities match your filters.
       </div>
     );

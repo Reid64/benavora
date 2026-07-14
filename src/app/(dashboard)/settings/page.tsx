@@ -119,7 +119,7 @@ function SettingsSection({
   children: ReactNode;
 }) {
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-6">
+    <div className="bg-surface rounded-xl shadow-sm border border-border overflow-hidden mb-6">
       <div className="bg-[#F8FAFC] px-6 py-4 border-b border-slate-200 flex items-center gap-3">
         <div className="w-8 h-8 rounded-lg bg-[#EFF6FF] flex items-center justify-center text-[#0077B6]">
           <Icon className="h-4 w-4" aria-hidden />

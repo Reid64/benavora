@@ -174,7 +174,7 @@ export default function EmailCampaignDetailPage() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-2xl font-semibold tracking-tight text-navy-900">
+            <h1 className="text-2xl font-bold tracking-tight text-primary">
               {sequence.name}
             </h1>
             <Badge color={STATUS_COLOR[status] ?? "gray"}>
@@ -241,7 +241,7 @@ export default function EmailCampaignDetailPage() {
           <div className="flex flex-wrap items-stretch gap-2">
             {funnel.map((f, idx) => (
               <div key={f.step_number} className="flex items-center gap-2">
-                <div className="min-w-0 rounded-lg border border-navy-200 bg-white px-4 py-3 text-center shadow-sm">
+                <div className="min-w-0 rounded-lg border border-border bg-surface px-4 py-3 text-center shadow-sm">
                   <p className="text-xs font-medium uppercase tracking-wide text-navy-400">
                     Step {f.step_number}
                   </p>
@@ -343,24 +343,24 @@ export default function EmailCampaignDetailPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-navy-100 bg-navy-50">
-                    <th className="px-4 py-3 text-left font-medium text-navy-600">
+                  <tr className="bg-sidebar">
+                    <th className="px-4 py-3 text-left font-medium text-white">
                       Email
                     </th>
-                    <th className="px-4 py-3 text-left font-medium text-navy-600">
+                    <th className="px-4 py-3 text-left font-medium text-white">
                       Status
                     </th>
-                    <th className="px-4 py-3 text-left font-medium text-navy-600">
+                    <th className="px-4 py-3 text-left font-medium text-white">
                       Step
                     </th>
-                    <th className="px-4 py-3 text-left font-medium text-navy-600">
+                    <th className="px-4 py-3 text-left font-medium text-white">
                       Last sent
                     </th>
-                    <th className="px-4 py-3 text-left font-medium text-navy-600">
+                    <th className="px-4 py-3 text-left font-medium text-white">
                       Reply
                     </th>
                     {editable && (
-                      <th className="px-4 py-3 text-left font-medium text-navy-600">
+                      <th className="px-4 py-3 text-left font-medium text-white">
                         Actions
                       </th>
                     )}

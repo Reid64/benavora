@@ -68,7 +68,7 @@ export function FunderCard({
           onClick();
         }
       }}
-      className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 hover:shadow-md hover:border-[#00B4D8] transition-all cursor-pointer"
+      className="bg-surface rounded-xl shadow-sm border border-border p-5 hover:shadow-md hover:border-[#00B4D8] transition-all cursor-pointer"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">

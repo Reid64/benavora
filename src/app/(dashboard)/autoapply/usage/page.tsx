@@ -190,7 +190,7 @@ function StatCard({
 }) {
   const isUnlimited = limit < 0;
   return (
-    <div className="rounded-lg border border-navy-100 bg-white p-4 shadow-sm">
+    <div className="rounded-lg border border-border bg-surface p-4 shadow-sm">
       <p className="text-xs font-medium uppercase tracking-wide text-navy-400">{label}</p>
       <div className="mt-2 flex items-baseline gap-1">
         <span className="text-2xl font-semibold text-navy-900">
@@ -449,7 +449,7 @@ export default function UsagePage() {
 
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-navy-900">
+          <h1 className="text-2xl font-bold tracking-tight text-primary">
             Usage &amp; Billing
           </h1>
           <p className="mt-1 text-sm text-navy-500">
@@ -531,9 +531,9 @@ export default function UsagePage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-navy-100 text-left text-xs font-medium uppercase tracking-wide text-navy-400">
-                  <th className="pb-2 pr-4">Category</th>
-                  <th className="pb-2 text-right">Cost</th>
+                <tr className="bg-sidebar text-left text-xs font-medium uppercase tracking-wide text-white">
+                  <th className="px-3 py-2 pr-4">Category</th>
+                  <th className="px-3 py-2 text-right">Cost</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-navy-50">

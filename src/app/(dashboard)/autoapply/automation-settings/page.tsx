@@ -240,7 +240,7 @@ export default function AutomationSettingsPage() {
 
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-navy-900">
+        <h1 className="text-2xl font-bold text-primary">
           Automation Level Settings
         </h1>
         <p className="mt-1 text-sm text-navy-500">
@@ -318,7 +318,7 @@ export default function AutomationSettingsPage() {
 
       {/* Bulk action bar — visible when rows are selected */}
       {selected.size > 0 && (
-        <div className="flex items-center gap-3 rounded-lg border border-navy-200 bg-white px-4 py-3 shadow-sm">
+        <div className="flex items-center gap-3 rounded-lg border border-border bg-surface px-4 py-3 shadow-sm">
           <span className="text-sm font-medium text-navy-700">
             {selected.size} selected
           </span>
@@ -382,7 +382,7 @@ export default function AutomationSettingsPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-navy-100 text-left text-xs font-medium uppercase tracking-wide text-navy-400">
+                <tr className="bg-sidebar text-left text-xs font-medium uppercase tracking-wide text-white">
                   <th className="px-4 py-3">
                     <input
                       type="checkbox"

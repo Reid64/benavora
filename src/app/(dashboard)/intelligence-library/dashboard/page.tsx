@@ -496,7 +496,7 @@ export default function IntelligenceLibraryDashboardPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-navy-900">
+        <h1 className="text-2xl font-bold tracking-tight text-primary">
           Intelligence Library
         </h1>
         <p className="mt-1 text-sm text-navy-500">
@@ -554,15 +554,15 @@ export default function IntelligenceLibraryDashboardPage() {
           >
             <div className="overflow-x-auto">
               <table className="min-w-full text-xs">
-                <thead>
+                <thead className="bg-sidebar">
                   <tr>
-                    <th className="py-2 pr-4 text-left font-semibold text-navy-400 whitespace-nowrap">
+                    <th className="py-2 pr-4 text-left font-semibold text-white whitespace-nowrap">
                       Category
                     </th>
                     {HEAT_COLS.map((col) => (
                       <th
                         key={col.key}
-                        className="py-2 px-2 text-center font-semibold text-navy-400 whitespace-nowrap"
+                        className="py-2 px-2 text-center font-semibold text-white whitespace-nowrap"
                       >
                         {col.label}
                       </th>

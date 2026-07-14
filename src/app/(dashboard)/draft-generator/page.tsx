@@ -745,7 +745,7 @@ export default function DraftGeneratorPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-navy-900">
+        <h1 className="text-2xl font-bold tracking-tight text-primary">
           Draft Generator
         </h1>
         <p className="mt-1 text-sm text-navy-500">
@@ -788,7 +788,7 @@ export default function DraftGeneratorPage() {
             </div>
           )}
 
-          <div className="bg-white rounded-2xl shadow-md border border-slate-200 p-8 space-y-8">
+          <div className="bg-surface rounded-2xl shadow-sm border border-border p-8 space-y-8">
             <div>
               <h2 className="text-base font-semibold text-slate-900 mb-4 flex items-center gap-2">
                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-white">

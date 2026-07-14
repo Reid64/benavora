@@ -196,7 +196,7 @@ export default function OutcomeAnalyticsPage() {
           <ArrowLeft className="h-4 w-4" aria-hidden />
           Back to outcomes
         </Link>
-        <h1 className="mt-2 text-2xl font-semibold tracking-tight text-navy-900">
+        <h1 className="mt-2 text-2xl font-bold tracking-tight text-primary">
           Outcomes &amp; Analytics
         </h1>
         <p className="mt-1 text-sm text-navy-500">
@@ -269,8 +269,8 @@ function TopNarrativesTable({ narratives }: { narratives: NarrativeRow[] }) {
       <Card noPadding>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-navy-100 text-left text-xs font-medium uppercase tracking-wide text-navy-400">
+            <thead className="bg-sidebar">
+              <tr className="text-left text-xs font-medium uppercase tracking-wide text-white">
                 <th className="px-4 py-3 w-10">#</th>
                 <th className="px-4 py-3">Narrative snippet</th>
                 <th className="px-4 py-3 hidden sm:table-cell">Section</th>

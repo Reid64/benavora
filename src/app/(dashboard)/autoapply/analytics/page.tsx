@@ -506,7 +506,7 @@ export default function AutoApplyAnalyticsPage() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-navy-900">
+          <h1 className="text-2xl font-bold tracking-tight text-primary">
             AutoApply Analytics
           </h1>
           <p className="mt-1 text-sm text-navy-500">
@@ -825,7 +825,7 @@ export default function AutoApplyAnalyticsPage() {
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-navy-100 text-sm">
               <thead>
-                <tr className="bg-navy-50">
+                <tr className="bg-sidebar">
                   {[
                     "Category",
                     "Variant",
@@ -836,14 +836,14 @@ export default function AutoApplyAnalyticsPage() {
                   ].map((h) => (
                     <th
                       key={h}
-                      className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500"
+                      className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-white"
                     >
                       {h}
                     </th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-navy-100 bg-white">
+              <tbody className="divide-y divide-navy-100 bg-surface">
                 {abRows.map((row, i) => {
                   const catRows = abRows.filter(
                     (r) => r.category === row.category,

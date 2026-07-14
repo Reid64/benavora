@@ -120,7 +120,7 @@ function StatCard({
 }) {
   const styles = STAT_ACCENTS[accent];
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 relative overflow-hidden">
+    <div className="bg-surface rounded-xl shadow-sm border border-border p-5 relative overflow-hidden">
       <div className={styles.bar} />
       <div className={styles.iconBg}>
         <Icon className={cn("h-5 w-5", styles.iconText)} aria-hidden />
@@ -275,9 +275,9 @@ export default async function DashboardPage() {
     outcomes.length === 0;
 
   return (
-    <div className="min-h-screen bg-[#EEF2F7] p-6">
+    <div className="min-h-screen bg-page p-6">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
+        <h1 className="text-2xl font-bold text-primary">Dashboard</h1>
         <p className="text-slate-500 text-sm mt-1">
           Your funding pipeline at a glance.
         </p>
@@ -355,7 +355,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Pipeline */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-8">
+      <div className="bg-surface rounded-xl shadow-sm border border-border p-6 mb-8">
         <h2 className="text-lg font-semibold text-slate-900 mb-4">Pipeline</h2>
         <PipelineSummary counts={pipelineCounts} />
       </div>
@@ -365,7 +365,7 @@ export default async function DashboardPage() {
         {/* ── Left column ── */}
         <div className="space-y-6">
           {/* Recent activity */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+          <div className="bg-surface rounded-xl shadow-sm border border-border p-6">
             <h2 className="text-lg font-semibold text-slate-900 mb-4">
               Recent Activity
             </h2>
@@ -376,7 +376,7 @@ export default async function DashboardPage() {
         {/* ── Right column ── */}
         <div className="space-y-6">
           {/* Upcoming deadlines */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="bg-surface rounded-xl shadow-sm border border-border overflow-hidden">
             <div className="bg-slate-800 px-5 py-4 flex items-center justify-between">
               <span className="text-white font-semibold text-sm">
                 Upcoming Deadlines

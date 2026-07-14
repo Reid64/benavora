@@ -576,21 +576,21 @@ export function ManualQueue({ onCountChange }: ManualQueueProps) {
           ) : (
             <table className="min-w-full divide-y divide-navy-100 text-sm">
               <thead>
-                <tr className="bg-navy-50">
+                <tr className="bg-sidebar">
                   <th className="w-8 px-4 py-3" />
-                  <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                  <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-white">
                     Funder
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-white">
                     Request Type
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-white">
                     Risk Score
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-white">
                     Risk Factors
                   </th>
-                  <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                  <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-white">
                     Added
                   </th>
                 </tr>
@@ -703,7 +703,7 @@ export function ManualQueue({ onCountChange }: ManualQueueProps) {
       {/* ── Mark Complete Modal ──────────────────────────────────────────────── */}
       {markCompleteItem !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-md rounded-xl border border-navy-200 bg-white p-6 shadow-2xl">
+          <div className="w-full max-w-md rounded-xl border border-border bg-surface p-6 shadow-2xl">
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-base font-semibold text-navy-900">
@@ -790,7 +790,7 @@ export function ManualQueue({ onCountChange }: ManualQueueProps) {
       {/* ── Skip Modal ───────────────────────────────────────────────────────── */}
       {skipItem !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-md rounded-xl border border-navy-200 bg-white p-6 shadow-2xl">
+          <div className="w-full max-w-md rounded-xl border border-border bg-surface p-6 shadow-2xl">
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-base font-semibold text-navy-900">
@@ -873,7 +873,7 @@ export function ManualQueue({ onCountChange }: ManualQueueProps) {
       {/* ── Convert to Auto Modal ────────────────────────────────────────────── */}
       {convertItem !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-md rounded-xl border border-navy-200 bg-white p-6 shadow-2xl">
+          <div className="w-full max-w-md rounded-xl border border-border bg-surface p-6 shadow-2xl">
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-base font-semibold text-navy-900">
@@ -945,7 +945,7 @@ export function ManualQueue({ onCountChange }: ManualQueueProps) {
       {/* ── Reassign Modal ───────────────────────────────────────────────────── */}
       {reassignItem !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-md rounded-xl border border-navy-200 bg-white p-6 shadow-2xl">
+          <div className="w-full max-w-md rounded-xl border border-border bg-surface p-6 shadow-2xl">
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-base font-semibold text-navy-900">
@@ -1078,14 +1078,14 @@ function PrepPanel({
           <p className="mb-2 text-xs font-medium uppercase tracking-wide text-navy-500">
             Pre-Filled Form Data
           </p>
-          <div className="overflow-x-auto rounded-lg border border-navy-200 bg-white">
+          <div className="overflow-x-auto rounded-lg border border-border bg-surface shadow-sm">
             <table className="min-w-full divide-y divide-navy-100 text-sm">
               <thead>
-                <tr className="bg-navy-50">
-                  <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-navy-400">
+                <tr className="bg-sidebar">
+                  <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-white">
                     Form Field
                   </th>
-                  <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-navy-400">
+                  <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-white">
                     Value
                   </th>
                   <th className="w-12 px-4 py-2" />

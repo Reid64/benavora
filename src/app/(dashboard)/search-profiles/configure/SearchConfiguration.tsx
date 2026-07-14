@@ -370,7 +370,7 @@ export function SearchConfiguration() {
             <ArrowLeft className="h-4 w-4" aria-hidden />
             Back to search profiles
           </Link>
-          <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight text-navy-900">
+          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight text-primary">
             <SlidersHorizontal className="h-6 w-6 text-teal-600" aria-hidden />
             {isEdit ? "Configure search profile" : "New search profile"}
           </h1>

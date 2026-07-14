@@ -261,7 +261,7 @@ export default function FinancialsPage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-slate-200 text-left text-xs font-medium text-slate-500">
+                    <tr className="bg-sidebar text-left text-xs font-medium text-white">
                       <th className="px-5 py-3">Category</th>
                       <th className="px-5 py-3 text-right">Requested</th>
                       <th className="px-5 py-3 text-right">Awarded</th>
@@ -480,7 +480,7 @@ function StatCard({
   return (
     <div
       className={cn(
-        "bg-white rounded-xl shadow-sm border border-slate-200 p-5",
+        "bg-surface rounded-xl shadow-sm border border-border p-5",
         colorClass,
       )}
     >

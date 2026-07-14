@@ -430,18 +430,18 @@ export function SuccessAnalytics() {
                   </p>
                   <div className="overflow-x-auto rounded-lg border border-navy-100">
                     <table className="min-w-full divide-y divide-navy-100 text-sm">
-                      <thead>
-                        <tr className="bg-navy-50">
-                          <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                      <thead className="bg-sidebar">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-white">
                             Region
                           </th>
-                          <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-navy-500">
+                          <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-white">
                             Submissions
                           </th>
-                          <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-navy-500">
+                          <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-white">
                             Successful
                           </th>
-                          <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-navy-500">
+                          <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-white">
                             Success Rate
                           </th>
                         </tr>

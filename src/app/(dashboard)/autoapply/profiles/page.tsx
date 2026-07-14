@@ -524,7 +524,7 @@ export default function RequestProfilesPage() {
 
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-navy-900">
+          <h1 className="text-2xl font-bold tracking-tight text-primary">
             Request Profiles
           </h1>
           <p className="mt-1 text-sm text-navy-500">
@@ -681,7 +681,9 @@ function ProfileCard({
   return (
     <div
       className={`rounded-xl border p-4 transition-opacity ${
-        profile.active ? "border-navy-200 bg-white" : "border-navy-100 bg-navy-50 opacity-60"
+        profile.active
+          ? "border-border bg-surface shadow-sm"
+          : "border-navy-100 bg-navy-50 opacity-60"
       }`}
     >
       {/* Top row: icon + badge + active toggle */}
@@ -1544,7 +1546,7 @@ function Step5Review({
       </div>
 
       {/* Activate toggle */}
-      <div className="flex items-center justify-between rounded-lg border border-navy-200 bg-white p-4">
+      <div className="flex items-center justify-between rounded-lg border border-border bg-surface shadow-sm p-4">
         <div>
           <p className="text-sm font-medium text-navy-900">Activate immediately</p>
           <p className="mt-0.5 text-xs text-navy-500">

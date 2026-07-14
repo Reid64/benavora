@@ -92,7 +92,7 @@ function OutcomeMetricCard({
 }) {
   const styles = METRIC_ACCENTS[accent];
   return (
-    <div className="relative overflow-hidden rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div className="relative overflow-hidden rounded-xl border border-border bg-surface p-5 shadow-sm">
       <div className={styles.bar} />
       <div className={styles.iconBg}>
         <Icon className={cn("h-5 w-5", styles.iconText)} aria-hidden />
@@ -271,7 +271,7 @@ export default function OutcomesPage() {
   }
 
   return (
-    <div className="min-h-screen space-y-6 bg-[#EEF2F7] p-6">
+    <div className="min-h-screen space-y-6 bg-page p-6">
       <PageHeader
         title="Outcomes"
         description="Record awards and denials. Awarded narratives train the learning system."

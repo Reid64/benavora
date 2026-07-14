@@ -275,7 +275,7 @@ export default function AutoApplyOpsPage() {
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-navy-900">
+          <h1 className="text-2xl font-bold tracking-tight text-primary">
             AutoApply Ops
           </h1>
           <p className="mt-1 text-sm text-navy-500">
@@ -551,22 +551,22 @@ export default function AutoApplyOpsPage() {
               <div className="overflow-x-auto rounded-lg border border-navy-100">
                 <table className="min-w-full divide-y divide-navy-100 text-sm">
                   <thead>
-                    <tr className="bg-navy-50">
-                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                    <tr className="bg-sidebar">
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-white">
                         Portal Domain
                       </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-navy-500">
+                      <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-white">
                         Submissions
                       </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-navy-500">
+                      <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-white">
                         Blocks
                       </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-navy-500">
+                      <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-white">
                         Block Rate
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-navy-100 bg-white">
+                  <tbody className="divide-y divide-navy-100 bg-surface">
                     {portalHealth.blockRates.map((r) => (
                       <tr key={r.domain} className="hover:bg-navy-50">
                         <td className="max-w-xs truncate px-4 py-2.5 font-medium text-navy-900">

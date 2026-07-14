@@ -66,7 +66,7 @@ export default function MatchesPage() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-navy-900">
+          <h1 className="text-2xl font-bold tracking-tight text-primary">
             Semantic Funder Matches
           </h1>
           <p className="mt-1 text-sm text-navy-500">
@@ -129,7 +129,7 @@ export default function MatchesPage() {
 
       {/* Results */}
       {matches.length > 0 && (
-        <div className="rounded-xl border border-navy-200 bg-white">
+        <div className="rounded-xl border border-border bg-surface shadow-sm">
           <div className="divide-y divide-navy-100">
             {matches.map((match, index) => (
               <div key={match.funderId} className="flex items-start gap-4 px-5 py-4">

@@ -94,7 +94,7 @@ function ReportCategoryCard({ category }: { category: ReportCategory }) {
   return (
     <div
       className={cn(
-        "bg-white rounded-xl shadow-sm border border-slate-200 p-5",
+        "bg-surface rounded-xl shadow-sm border border-border p-5",
         accent.border,
       )}
     >
@@ -199,7 +199,7 @@ export default function ReportsPage() {
 
       <div className="mx-auto max-w-2xl">
         {/* Date range form */}
-        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
           <div className="mb-5 flex items-center gap-2">
             <Calendar className="h-4 w-4 text-[#0077B6]" />
             <h2 className="text-sm font-semibold text-slate-700">Report Period</h2>

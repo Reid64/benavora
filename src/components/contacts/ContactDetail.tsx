@@ -173,7 +173,7 @@ export function ContactDetail({ contactId }: ContactDetailProps) {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-2xl font-semibold tracking-tight text-navy-900">
+            <h1 className="text-2xl font-bold tracking-tight text-primary">
               {contact.name}
             </h1>
             {contact.relationship && (

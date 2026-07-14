@@ -197,7 +197,7 @@ export default function SolicitationCompliancePage() {
       </div>
 
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-navy-900">
+        <h1 className="text-2xl font-bold tracking-tight text-primary">
           Solicitation Registrations
         </h1>
         <p className="mt-1 text-sm text-navy-500">
@@ -339,13 +339,13 @@ export default function SolicitationCompliancePage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-navy-100">
-                    <th className="pb-2 text-left text-xs font-medium uppercase tracking-wide text-navy-400">State</th>
-                    <th className="pb-2 text-left text-xs font-medium uppercase tracking-wide text-navy-400">Reg. Number</th>
-                    <th className="pb-2 text-left text-xs font-medium uppercase tracking-wide text-navy-400">Registered</th>
-                    <th className="pb-2 text-left text-xs font-medium uppercase tracking-wide text-navy-400">Expires</th>
-                    <th className="pb-2 text-left text-xs font-medium uppercase tracking-wide text-navy-400">Status</th>
-                    <th className="pb-2" />
+                  <tr className="bg-sidebar">
+                    <th className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wide text-white">State</th>
+                    <th className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wide text-white">Reg. Number</th>
+                    <th className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wide text-white">Registered</th>
+                    <th className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wide text-white">Expires</th>
+                    <th className="px-2 py-2 text-left text-xs font-medium uppercase tracking-wide text-white">Status</th>
+                    <th className="px-2 py-2" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-navy-50">
@@ -426,7 +426,7 @@ export default function SolicitationCompliancePage() {
           </div>
 
           {refInfo && (
-            <div className="rounded-lg border border-navy-200 bg-white p-4">
+            <div className="rounded-lg border border-border bg-surface shadow-sm p-4">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h3 className="text-base font-semibold text-navy-900">{refInfo.state}</h3>

@@ -196,7 +196,7 @@ export default function CampaignDetailPage() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-2xl font-semibold tracking-tight text-navy-900">
+            <h1 className="text-2xl font-bold tracking-tight text-primary">
               {campaign.name}
             </h1>
             <Badge color={STATUS_COLOR[status]}>{humanizeEnum(status)}</Badge>

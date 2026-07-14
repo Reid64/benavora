@@ -53,7 +53,7 @@ export function ApplicationCard({
         }
       }}
       className={
-        "group rounded-lg border border-navy-200 bg-white p-3 text-left shadow-sm transition hover:border-teal-300 hover:shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 " +
+        "group rounded-lg border border-border bg-surface p-3 text-left shadow-sm transition hover:border-teal-300 hover:shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 " +
         (draggable ? "cursor-grab active:cursor-grabbing" : "cursor-pointer")
       }
     >

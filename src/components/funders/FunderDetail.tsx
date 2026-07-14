@@ -304,7 +304,7 @@ export function FunderDetail({ funderId }: FunderDetailProps) {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-2xl font-semibold tracking-tight text-navy-900">
+            <h1 className="text-2xl font-bold tracking-tight text-primary">
               {funder.name}
             </h1>
             <Badge color="indigo">{humanizeEnum(funder.category)}</Badge>
@@ -1170,8 +1170,8 @@ function GivingHistorySection({
         {filings.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-navy-100 text-left text-xs font-semibold uppercase tracking-wide text-navy-500">
+              <thead className="bg-sidebar">
+                <tr className="text-left text-xs font-semibold uppercase tracking-wide text-white">
                   <th className="py-2 pr-4">Year</th>
                   <th className="py-2 pr-4">Grants Paid</th>
                   <th className="py-2 pr-4">Total Revenue</th>

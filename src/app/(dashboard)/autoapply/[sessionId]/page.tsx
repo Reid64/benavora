@@ -369,7 +369,7 @@ export default function AutomationSessionPage({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <div className="flex items-center gap-3">
-            <h1 className="truncate text-2xl font-semibold tracking-tight text-navy-900">
+            <h1 className="truncate text-2xl font-bold tracking-tight text-primary">
               {opportunityName ?? "Automation session"}
             </h1>
             <Badge color={STATUS_COLOR[session.status]} withDot>

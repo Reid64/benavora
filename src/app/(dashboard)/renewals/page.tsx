@@ -133,7 +133,7 @@ export default function RenewalsPage() {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-navy-900">
+          <h1 className="text-2xl font-bold tracking-tight text-primary">
             Applications
           </h1>
           <p className="mt-1 text-sm text-navy-500">
@@ -190,9 +190,9 @@ export default function RenewalsPage() {
           }
         />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-navy-200 bg-white shadow-sm">
+        <div className="overflow-x-auto rounded-xl border border-border bg-surface shadow-sm">
           <table className="min-w-full divide-y divide-navy-100">
-            <thead className="bg-navy-50">
+            <thead className="bg-sidebar">
               <tr>
                 {[
                   "Funder",
@@ -206,7 +206,7 @@ export default function RenewalsPage() {
                   <th
                     key={h}
                     scope="col"
-                    className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-navy-500"
+                    className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-white"
                   >
                     {h}
                   </th>

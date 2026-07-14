@@ -38,7 +38,7 @@ const SuccessAnalytics = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="rounded-lg border border-navy-100 bg-white p-5 text-sm text-navy-400">
+      <div className="rounded-lg border border-border bg-surface shadow-sm p-5 text-sm text-navy-400">
         Loading analytics…
       </div>
     ),
@@ -468,7 +468,7 @@ export default function AutoApplyPage() {
           ) : (
             <table className="min-w-full divide-y divide-navy-100 text-sm">
               <thead>
-                <tr className="bg-navy-50">
+                <tr className="bg-sidebar">
                   <th className="w-10 px-4 py-3">
                     <input
                       type="checkbox"
@@ -478,19 +478,19 @@ export default function AutoApplyPage() {
                       aria-label="Select all queue items"
                     />
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-white">
                     Funder
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-white">
                     Portal URL
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-white">
                     Priority
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-white">
                     Status
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-white">
                     Scheduled
                   </th>
                 </tr>
@@ -577,20 +577,20 @@ export default function AutoApplyPage() {
           ) : (
             <table className="min-w-full divide-y divide-navy-100 text-sm">
               <thead>
-                <tr className="bg-navy-50">
-                  <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                <tr className="bg-sidebar">
+                  <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-white">
                     Funder
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-white">
                     Portal URL
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-white">
                     Fields
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-white">
                     Last Verified
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-white">
                     Last Used
                   </th>
                   <th className="px-4 py-3" />

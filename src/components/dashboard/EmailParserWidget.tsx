@@ -188,7 +188,7 @@ export function EmailParserWidget() {
 
       {/* Result */}
       {parsed && (
-        <div className="rounded-md border border-navy-200 bg-white overflow-hidden">
+        <div className="rounded-md border border-border bg-surface overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 bg-navy-50 border-b border-navy-200">
             <div className="flex items-center gap-2">
               <CheckCircle className="h-4 w-4 text-teal-600" aria-hidden />

@@ -106,7 +106,7 @@ export default function KnowledgeBaseOverviewPage() {
   }, []);
 
   return (
-    <div className="min-h-screen space-y-6 bg-[#EEF2F7] p-6">
+    <div className="min-h-screen space-y-6 bg-page p-6">
       <PageHeader
         title="Knowledge Base"
         description="The verified organizational content the AI draws from - never fabricated beyond what you store here."
@@ -150,7 +150,7 @@ export default function KnowledgeBaseOverviewPage() {
               <Link
                 key={shortcut.href}
                 href={shortcut.href}
-                className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 hover:shadow-md hover:border-[#00B4D8] transition-all"
+                className="bg-surface rounded-xl shadow-sm border border-border p-5 hover:shadow-md hover:border-[#00B4D8] transition-all"
               >
                 <div className="flex items-center gap-2 text-slate-900">
                   <shortcut.icon className="h-5 w-5 text-[#0077B6]" aria-hidden />
@@ -165,7 +165,7 @@ export default function KnowledgeBaseOverviewPage() {
             ))}
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+          <div className="bg-surface rounded-xl shadow-sm border border-border p-5">
             <h3 className="text-base font-semibold text-slate-900">
               Proven narratives
             </h3>
@@ -238,7 +238,7 @@ function MetricCard({
   value: number;
 }) {
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 hover:shadow-md hover:border-[#00B4D8] transition-all">
+    <div className="bg-surface rounded-xl shadow-sm border border-border p-5 hover:shadow-md hover:border-[#00B4D8] transition-all">
       <div className="flex items-center gap-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#CAF0F8]">
           <Icon className="h-5 w-5 text-[#0077B6]" aria-hidden />

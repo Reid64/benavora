@@ -966,11 +966,11 @@ function ProspectsTab() {
           rowKey={(r) => r.id}
           pageSize={25}
           emptyMessage="No prospects match your search."
-          containerClassName="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto"
+          containerClassName="bg-surface rounded-xl shadow-sm border border-border overflow-x-auto"
           tableClassName="min-w-[700px] divide-y divide-slate-200"
-          theadClassName="bg-[#1A2B3C]"
-          thClassName="bg-[#1A2B3C] text-[#CBD5E1] text-xs font-semibold uppercase tracking-wide px-4 py-3"
-          tbodyClassName="divide-y divide-slate-200 bg-white"
+          theadClassName="bg-sidebar"
+          thClassName="bg-sidebar text-white text-xs font-semibold uppercase tracking-wide px-4 py-3"
+          tbodyClassName="divide-y divide-slate-200 bg-surface"
           rowClassName="hover:bg-slate-50 transition-colors"
         />
       )}
@@ -1322,10 +1322,10 @@ function AnalyticsTab() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-navy-100">
-                  <th className="pb-2 text-left text-xs font-medium text-navy-400">Domain</th>
-                  <th className="pb-2 text-right text-xs font-medium text-navy-400">Sent</th>
-                  <th className="pb-2 text-right text-xs font-medium text-navy-400">Bounce Rate</th>
+                <tr className="bg-sidebar">
+                  <th className="px-2 py-2 text-left text-xs font-medium text-white">Domain</th>
+                  <th className="px-2 py-2 text-right text-xs font-medium text-white">Sent</th>
+                  <th className="px-2 py-2 text-right text-xs font-medium text-white">Bounce Rate</th>
                 </tr>
               </thead>
               <tbody>
@@ -1441,7 +1441,7 @@ export default function SalesOutreachPage() {
   if (!isAdmin) {
     return (
       <div className="space-y-6">
-        <h1 className="text-2xl font-semibold tracking-tight text-navy-900">
+        <h1 className="text-2xl font-bold tracking-tight text-primary">
           Sales Outreach
         </h1>
         <Card>
@@ -1460,7 +1460,7 @@ export default function SalesOutreachPage() {
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-navy-900 flex items-center gap-2">
+          <h1 className="text-2xl font-bold tracking-tight text-primary flex items-center gap-2">
             <Megaphone className="h-6 w-6 text-teal-500" aria-hidden />
             Sales Outreach
           </h1>

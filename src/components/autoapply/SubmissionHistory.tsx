@@ -200,21 +200,21 @@ export function SubmissionHistory() {
             <>
               <table className="min-w-full divide-y divide-navy-100 text-sm">
                 <thead>
-                  <tr className="bg-navy-50">
+                  <tr className="bg-sidebar">
                     <th className="w-8 px-4 py-3" />
-                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-white">
                       Funder
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-white">
                       Status
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-white">
                       Request Type
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-white">
                       Submitted
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-white">
                       Confirmation #
                     </th>
                   </tr>

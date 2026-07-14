@@ -84,7 +84,7 @@ export function CalendarGrid({ month, deadlines, onPrev, onNext, onToday }: Prop
           </div>
         </div>
 
-        <div className="grid grid-cols-7 border-b border-navy-200 bg-navy-50 text-center text-xs font-medium text-navy-500">
+        <div className="grid grid-cols-7 border-b border-navy-200 bg-sidebar text-center text-xs font-medium text-white">
           {WEEKDAYS.map((day) => (
             <div key={day} className="px-2 py-2">
               {day}

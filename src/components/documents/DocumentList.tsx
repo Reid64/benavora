@@ -247,12 +247,12 @@ export function DocumentList({
           {Array.from({ length: 6 }).map((_, i) => (
             <div
               key={i}
-              className="h-32 animate-pulse rounded-xl border border-slate-200 bg-slate-50"
+              className="h-32 animate-pulse rounded-xl border border-border bg-surface-sunken"
             />
           ))}
         </div>
       ) : sorted.length === 0 ? (
-        <div className="rounded-xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500">
+        <div className="rounded-xl border border-border bg-surface shadow-sm p-10 text-center text-sm text-slate-500">
           No documents match your filters.
         </div>
       ) : (
@@ -262,7 +262,7 @@ export function DocumentList({
             return (
               <div
                 key={doc.id}
-                className="bg-white rounded-xl border border-slate-200 p-4 hover:border-[#00B4D8] transition-colors"
+                className="bg-surface rounded-xl shadow-sm border border-border p-4 hover:border-[#00B4D8] transition-colors"
               >
                 <div className="flex items-start gap-3">
                   <FileTypeIcon fileName={doc.file_name} mimeType={doc.mime_type} />

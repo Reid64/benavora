@@ -71,24 +71,24 @@ export function FieldReport({
 
       <div className="overflow-x-auto rounded-xl border border-navy-200">
         <table className="min-w-full divide-y divide-navy-200">
-          <thead className="bg-navy-50">
+          <thead className="bg-sidebar">
             <tr>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-navy-500">
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-white">
                 Field
               </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-navy-500">
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-white">
                 Detected type
               </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-navy-500">
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-white">
                 Mapped value
               </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-navy-500">
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-white">
                 Source
               </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-navy-500">
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-white">
                 Confidence
               </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-navy-500">
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-white">
                 Status
               </th>
             </tr>

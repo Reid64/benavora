@@ -59,7 +59,7 @@ function urgencyBucket(band: UrgencyBand): UrgencyBucket {
 const URGENCY_ITEM_CLASSES: Record<UrgencyBucket, string> = {
   overdue: "bg-[#FEF2F2] border-l-4 border-[#EF4444] rounded-xl p-4 mb-3",
   week: "bg-[#FFFBEB] border-l-4 border-[#F59E0B] rounded-xl p-4 mb-3",
-  future: "bg-white border border-slate-200 rounded-xl p-4 mb-3",
+  future: "bg-surface shadow-sm border border-border rounded-xl p-4 mb-3",
 };
 
 const URGENCY_DATE_CLASSES: Record<UrgencyBucket, string> = {
@@ -484,7 +484,7 @@ export default function DeadlinesPage() {
 
   // --- Render ---
   return (
-    <div className="min-h-screen space-y-6 bg-[#EEF2F7] p-6">
+    <div className="min-h-screen space-y-6 bg-page p-6">
       <PageHeader
         title="Deadlines"
         description="Application, follow-up, reporting, renewal, and document-expiration dates, color-coded by urgency."
@@ -754,7 +754,7 @@ function ComplianceList({ items }: { items: ComplianceItem[] }) {
               className={cn(
                 "flex flex-wrap items-center justify-between gap-3",
                 isCompleted
-                  ? "mb-3 rounded-xl border border-slate-200 bg-white p-4"
+                  ? "mb-3 rounded-xl border border-border bg-surface shadow-sm p-4"
                   : URGENCY_ITEM_CLASSES[bucket],
               )}
             >
@@ -843,7 +843,7 @@ function ListView({
 }) {
   if (deadlines.length === 0) {
     return (
-      <div className="rounded-xl border border-slate-200 bg-white p-4">
+      <div className="rounded-xl border border-border bg-surface shadow-sm p-4">
         <p className="py-4 text-center text-sm text-slate-500">
           No deadlines to show. Toggle &quot;Show completed&quot; to include
           finished ones, or adjust the type filter.

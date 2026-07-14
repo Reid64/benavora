@@ -113,7 +113,7 @@ export function ContactTable({ contacts, isLoading = false }: ContactTableProps)
       {isLoading ? (
         <LoadingPlaceholder view={view} />
       ) : filtered.length === 0 ? (
-        <div className="rounded-xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500">
+        <div className="rounded-xl border border-border bg-surface p-10 text-center text-sm text-slate-500">
           No contacts match your filters.
         </div>
       ) : view === "grid" ? (
@@ -127,7 +127,7 @@ export function ContactTable({ contacts, isLoading = false }: ContactTableProps)
           ))}
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+        <div className="overflow-hidden rounded-xl border border-border bg-surface">
           {filtered.map((contact) => (
             <ContactListRow
               key={contact.id}

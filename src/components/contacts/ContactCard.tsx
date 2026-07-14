@@ -23,7 +23,7 @@ export function ContactCard({ contact, onClick }: ContactCardProps) {
           onClick();
         }
       }}
-      className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 hover:shadow-md transition-shadow cursor-pointer"
+      className="bg-surface rounded-xl shadow-sm border border-border p-5 hover:shadow-md transition-shadow cursor-pointer"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="w-12 h-12 rounded-full bg-[#0077B6] text-white flex items-center justify-center text-lg font-bold">

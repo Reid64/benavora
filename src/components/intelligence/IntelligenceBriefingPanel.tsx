@@ -107,7 +107,7 @@ function CollapsibleSection({
   const [open, setOpen] = useState(!locked && items.length > 0);
 
   return (
-    <div className="rounded-lg border border-navy-200 bg-white overflow-hidden">
+    <div className="rounded-lg border border-border bg-surface shadow-sm overflow-hidden">
       <button
         type="button"
         onClick={() => { if (!locked) setOpen((prev) => !prev); }}

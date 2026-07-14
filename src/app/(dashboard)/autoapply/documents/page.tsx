@@ -256,7 +256,7 @@ export default function DocumentVaultPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-navy-900">Document Vault</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-primary">Document Vault</h1>
           <p className="mt-1 text-sm text-navy-500">
             Maintain your organization&apos;s documents for AutoApply form submissions. Required documents must be current.
           </p>
@@ -366,7 +366,7 @@ export default function DocumentVaultPage() {
           }
 
           return (
-            <div key={type} className="flex flex-col rounded-xl border border-navy-200 bg-white">
+            <div key={type} className="flex flex-col rounded-xl border border-border bg-surface shadow-sm">
               <div className="flex-1 p-4">
                 {/* Card header */}
                 <div className="flex items-start justify-between gap-2">
@@ -497,7 +497,7 @@ export default function DocumentVaultPage() {
       {/* Custom upload modal */}
       {showCustomUpload && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-xl border border-navy-200 bg-white p-6 shadow-xl">
+          <div className="w-full max-w-md rounded-xl border border-border bg-surface p-6 shadow-xl">
             <h2 className="text-base font-semibold text-navy-900">Upload Custom Document</h2>
             <p className="mt-1 text-sm text-navy-500">
               Upload a document that doesn&apos;t fit a standard category.

@@ -297,20 +297,20 @@ export function QueuePanel() {
           ) : (
             <table className="min-w-full divide-y divide-navy-100 text-sm">
               <thead>
-                <tr className="bg-navy-50">
-                  <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                <tr className="bg-sidebar">
+                  <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-white">
                     Funder
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-white">
                     Status
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-white">
                     Priority
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-white">
                     Scheduled
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-white">
                     Added
                   </th>
                   <th className="px-4 py-3" />

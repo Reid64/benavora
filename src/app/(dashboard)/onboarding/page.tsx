@@ -1430,7 +1430,7 @@ function OnboardingPageInner() {
     <div className="max-w-3xl mx-auto py-8 px-4">
       <div className="mb-8 flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Welcome to Benavora</h1>
+          <h1 className="text-3xl font-bold text-primary">Welcome to Benavora</h1>
           <p className="mt-2 text-slate-500">
             Complete these steps to set up your account and start finding funding
             opportunities.

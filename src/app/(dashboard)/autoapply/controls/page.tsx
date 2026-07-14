@@ -264,7 +264,7 @@ export default function QueueControlsPage() {
       </div>
 
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-navy-900">
+        <h1 className="text-2xl font-bold tracking-tight text-primary">
           Queue Control Plane
         </h1>
         <p className="mt-1 text-sm text-navy-500">
@@ -294,7 +294,7 @@ export default function QueueControlsPage() {
         className={`rounded-lg border-2 px-6 py-5 ${
           isPlatformPaused
             ? "border-red-400 bg-red-50"
-            : "border-red-200 bg-white"
+            : "border-red-200 bg-surface shadow-sm"
         }`}
       >
         <div className="flex items-start justify-between gap-4">
@@ -384,13 +384,13 @@ export default function QueueControlsPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-navy-100 text-left text-xs font-medium uppercase tracking-wide text-navy-400">
-                  <th className="pb-2 pr-4">Type</th>
-                  <th className="pb-2 pr-4">Target</th>
-                  <th className="pb-2 pr-4">Reason</th>
-                  <th className="pb-2 pr-4">Paused By</th>
-                  <th className="pb-2 pr-4">Paused At</th>
-                  <th className="pb-2" />
+                <tr className="bg-sidebar text-left text-xs font-medium uppercase tracking-wide text-white">
+                  <th className="px-2 py-2">Type</th>
+                  <th className="px-2 py-2">Target</th>
+                  <th className="px-2 py-2">Reason</th>
+                  <th className="px-2 py-2">Paused By</th>
+                  <th className="px-2 py-2">Paused At</th>
+                  <th className="px-2 py-2" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-navy-50">

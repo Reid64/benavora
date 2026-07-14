@@ -68,7 +68,7 @@ export function WelcomeStep({ orgName }: { orgName: string }) {
         {highlights.map(({ icon: Icon, title, body }) => (
           <div
             key={title}
-            className="flex gap-3 rounded-xl border border-navy-100 bg-white p-4 shadow-card"
+            className="flex gap-3 rounded-xl border border-border bg-surface p-4 shadow-sm"
           >
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-teal-50 text-teal-600">
               <Icon className="h-5 w-5" aria-hidden />

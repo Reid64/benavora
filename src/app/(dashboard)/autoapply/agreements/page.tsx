@@ -301,7 +301,7 @@ export default function AgreementsPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-navy-900">
+          <h1 className="text-2xl font-bold tracking-tight text-primary">
             Grant Agreements
           </h1>
           <p className="mt-1 text-sm text-navy-500">
@@ -418,32 +418,32 @@ export default function AgreementsPage() {
           ) : (
             <table className="min-w-full divide-y divide-navy-100 text-sm">
               <thead>
-                <tr className="bg-navy-50">
+                <tr className="bg-sidebar">
                   <th className="w-8 px-4 py-3" />
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-white">
                     Funder
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-white">
                     Amount
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-white">
                     Type
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-white">
                     Status
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-white">
                     Agreement Date
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-white">
                     Duration
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-white">
                     Reporting
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-navy-100 bg-white">
+              <tbody className="divide-y divide-navy-100 bg-surface">
                 {agreements.map((a) => {
                   const { color, label } = statusBadge(a.status);
                   const reportDue = getReportingDueDate(a.reporting_requirements);
@@ -523,7 +523,7 @@ export default function AgreementsPage() {
                                   Reporting Requirements
                                 </p>
                                 {a.reporting_requirements ? (
-                                  <pre className="overflow-auto rounded bg-white p-2 text-xs text-navy-600 ring-1 ring-navy-200">
+                                  <pre className="overflow-auto rounded bg-surface p-2 text-xs text-navy-600 shadow-sm border border-border">
                                     {jsonDisplay(a.reporting_requirements)}
                                   </pre>
                                 ) : (
@@ -535,7 +535,7 @@ export default function AgreementsPage() {
                                   Payment Schedule
                                 </p>
                                 {a.payment_schedule ? (
-                                  <pre className="overflow-auto rounded bg-white p-2 text-xs text-navy-600 ring-1 ring-navy-200">
+                                  <pre className="overflow-auto rounded bg-surface p-2 text-xs text-navy-600 shadow-sm border border-border">
                                     {jsonDisplay(a.payment_schedule)}
                                   </pre>
                                 ) : (

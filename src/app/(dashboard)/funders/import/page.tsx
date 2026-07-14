@@ -274,7 +274,7 @@ export default function FundersImportPage() {
           <Link href="/funders" className="text-sm text-text-muted hover:text-text transition-colors">
             &larr; Back to Funders
           </Link>
-          <h1 className="text-2xl font-semibold text-text mt-2">Import Funders from CSV</h1>
+          <h1 className="text-2xl font-bold text-primary mt-2">Import Funders from CSV</h1>
           <p className="text-text-muted mt-1">
             Bulk-import funders by uploading a CSV file with a header row.
           </p>
@@ -362,7 +362,7 @@ export default function FundersImportPage() {
           >
             &larr; Back
           </button>
-          <h1 className="text-2xl font-semibold text-text mt-2">Map Columns</h1>
+          <h1 className="text-2xl font-bold text-primary mt-2">Map Columns</h1>
           <p className="text-text-muted mt-1">
             Match your CSV columns to funder fields.{" "}
             <span className="text-text-muted text-sm font-mono">{csvFile?.name}</span>
@@ -451,7 +451,7 @@ export default function FundersImportPage() {
           >
             &larr; Back
           </button>
-          <h1 className="text-2xl font-semibold text-text mt-2">Preview Import</h1>
+          <h1 className="text-2xl font-bold text-primary mt-2">Preview Import</h1>
           <p className="text-text-muted mt-1">
             First {previewRows.length} row{previewRows.length !== 1 ? "s" : ""} with
             mapping applied. All {allRows.length} rows will be imported.
@@ -466,12 +466,12 @@ export default function FundersImportPage() {
         <div className="bg-surface border border-border rounded-lg overflow-hidden mb-6 shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-surface-raised">
+              <thead className="bg-sidebar">
                 <tr>
                   {mappedFields.map((f) => (
                     <th
                       key={f.key}
-                      className="px-4 py-3 text-left text-xs font-medium text-text-muted uppercase tracking-wide whitespace-nowrap"
+                      className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wide whitespace-nowrap"
                     >
                       {f.label}
                       {f.required && <span className="text-red-400 ml-1">*</span>}
@@ -542,7 +542,7 @@ export default function FundersImportPage() {
   if (step === "done" && result) {
     return (
       <div className="max-w-2xl mx-auto py-8 px-4">
-        <h1 className="text-2xl font-semibold text-text mb-6">Import Complete</h1>
+        <h1 className="text-2xl font-bold text-primary mb-6">Import Complete</h1>
         <StepIndicator current="done" />
         <div className="bg-surface border border-border rounded-lg p-6 shadow-sm">
           <div className="flex items-start gap-4 mb-4">

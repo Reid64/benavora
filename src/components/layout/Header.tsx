@@ -113,7 +113,7 @@ export function Header({ userEmail, orgName, orgLogoUrl, onMenuClick }: HeaderPr
   const initials = orgInitials(orgName, userEmail);
 
   return (
-    <header className="sticky top-0 z-30 bg-white border-b border-slate-200 shadow-sm">
+    <header className="sticky top-0 z-30 bg-surface border-b border-border shadow-sm">
       <div className="flex items-center h-16 px-6">
         <div className="mr-4">
           <button

@@ -414,7 +414,7 @@ export default function RecordingsPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-navy-900">
+          <h1 className="text-2xl font-bold tracking-tight text-primary">
             Session Recordings
           </h1>
           <p className="mt-1 text-sm text-navy-500">
@@ -534,7 +534,7 @@ export default function RecordingsPage() {
           ))}
         </div>
       ) : sorted.length === 0 ? (
-        <div className="rounded-xl border border-navy-100 bg-white p-10">
+        <div className="rounded-xl border border-border bg-surface shadow-sm p-10">
           <EmptyState
             icon={Film}
             title="No recordings found"
@@ -568,7 +568,7 @@ export default function RecordingsPage() {
               return (
                 <div
                   key={rec.id}
-                  className="group relative cursor-pointer overflow-hidden rounded-xl border border-navy-100 bg-white shadow-sm transition-shadow hover:shadow-md"
+                  className="group relative cursor-pointer overflow-hidden rounded-xl border border-border bg-surface shadow-sm transition-shadow hover:shadow-md"
                   onClick={() => void openRecording(rec)}
                   role="button"
                   tabIndex={0}

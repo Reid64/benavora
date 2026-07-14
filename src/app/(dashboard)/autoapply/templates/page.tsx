@@ -602,7 +602,7 @@ export default function FormTemplatesPage() {
 
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-navy-900">
+          <h1 className="text-2xl font-bold tracking-tight text-primary">
             Form Templates
           </h1>
           <p className="mt-1 text-sm text-navy-500">
@@ -702,7 +702,7 @@ export default function FormTemplatesPage() {
             return (
               <div
                 key={group.key}
-                className="overflow-hidden rounded-xl border border-navy-200 bg-white shadow-sm"
+                className="overflow-hidden rounded-xl border border-border bg-surface shadow-sm"
               >
                 {/* Card header — click to expand */}
                 <button
@@ -847,14 +847,14 @@ export default function FormTemplatesPage() {
                             <div className="mb-3 overflow-x-auto rounded-lg border border-navy-200">
                               <table className="min-w-full divide-y divide-navy-100 text-xs">
                                 <thead>
-                                  <tr className="bg-navy-50">
-                                    <th className="px-3 py-2 text-left font-medium uppercase tracking-wide text-navy-500">
+                                  <tr className="bg-sidebar">
+                                    <th className="px-3 py-2 text-left font-medium uppercase tracking-wide text-white">
                                       Field
                                     </th>
-                                    <th className="px-3 py-2 text-left font-medium uppercase tracking-wide text-navy-500">
+                                    <th className="px-3 py-2 text-left font-medium uppercase tracking-wide text-white">
                                       Type
                                     </th>
-                                    <th className="px-3 py-2 text-left font-medium uppercase tracking-wide text-navy-500">
+                                    <th className="px-3 py-2 text-left font-medium uppercase tracking-wide text-white">
                                       KB Mapping
                                     </th>
                                   </tr>
@@ -1054,11 +1054,11 @@ export default function FormTemplatesPage() {
                     <div className="overflow-auto rounded-lg border border-navy-200">
                       <table className="min-w-full divide-y divide-navy-100 text-sm">
                         <thead>
-                          <tr className="bg-navy-50">
-                            <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                          <tr className="bg-sidebar">
+                            <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-white">
                               Form Field
                             </th>
-                            <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                            <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-white">
                               KB Key
                             </th>
                           </tr>
@@ -1103,11 +1103,11 @@ export default function FormTemplatesPage() {
                   <div className="overflow-auto rounded-lg border border-navy-200">
                     <table className="min-w-full divide-y divide-navy-100 text-sm">
                       <thead>
-                        <tr className="bg-navy-50">
-                          <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                        <tr className="bg-sidebar">
+                          <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-white">
                             Form Field
                           </th>
-                          <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                          <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-white">
                             Value Used
                           </th>
                         </tr>
@@ -1299,23 +1299,23 @@ export default function FormTemplatesPage() {
               <div className="overflow-x-auto rounded-lg border border-navy-200">
                 <table className="min-w-full divide-y divide-navy-100 text-sm">
                   <thead>
-                    <tr className="bg-navy-50">
-                      <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                    <tr className="bg-sidebar">
+                      <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-white">
                         Form Field
                       </th>
-                      <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                      <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-white">
                         Type
                       </th>
-                      <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                      <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-white">
                         Required
                       </th>
-                      <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                      <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-white">
                         CSS Selector
                       </th>
-                      <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                      <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-white">
                         KB Field Mapping
                       </th>
-                      <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                      <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-white">
                         Skip
                       </th>
                     </tr>

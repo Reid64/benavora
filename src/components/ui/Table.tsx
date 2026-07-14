@@ -147,11 +147,11 @@ export function Table<T>({
       <div
         className={
           containerClassName ??
-          "overflow-x-auto rounded-xl border border-slate-200 bg-surface shadow-sm"
+          "overflow-x-auto rounded-xl border border-border bg-surface shadow-sm"
         }
       >
         <table className={tableClassName ?? "min-w-full divide-y divide-slate-200"}>
-          <thead className={theadClassName ?? "bg-surface-sunken"}>
+          <thead className={theadClassName ?? "bg-sidebar"}>
             <tr>
               {columns.map((column) => {
                 const isSorted = sortKey === column.key;
@@ -169,7 +169,7 @@ export function Table<T>({
                     }
                     className={cn(
                       thClassName ??
-                        "px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600",
+                        "px-4 py-3 text-xs font-semibold uppercase tracking-wide text-white",
                       ALIGN_CLASSES[column.align ?? "left"],
                       column.className,
                     )}
@@ -178,7 +178,7 @@ export function Table<T>({
                       <button
                         type="button"
                         onClick={() => handleSort(column)}
-                        className="inline-flex items-center gap-1 transition hover:text-slate-900 focus:outline-none focus-visible:text-slate-900"
+                        className="inline-flex items-center gap-1 transition hover:text-white/80 focus:outline-none focus-visible:text-white/80"
                       >
                         {column.header}
                         {isSorted ? (
@@ -189,7 +189,7 @@ export function Table<T>({
                           )
                         ) : (
                           <ChevronsUpDown
-                            className="h-3.5 w-3.5 text-slate-400"
+                            className="h-3.5 w-3.5 text-white/50"
                             aria-hidden
                           />
                         )}

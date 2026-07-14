@@ -618,10 +618,10 @@ export default function ResearchPage() {
                     setActiveSource((cur) => (cur === src.key ? null : src.key));
                   }
                 }}
-                className={`relative flex cursor-pointer flex-col overflow-hidden rounded-xl bg-white p-4 shadow-sm transition-colors ${
+                className={`relative flex cursor-pointer flex-col overflow-hidden rounded-xl bg-surface p-4 shadow-sm transition-colors ${
                   isActive
                     ? "border-2 border-blue-400 ring-1 ring-blue-200"
-                    : "border border-slate-200 hover:border-slate-300"
+                    : "border border-border hover:border-slate-300"
                 }`}
               >
                 <span className="absolute inset-x-0 top-0 h-[3px] bg-accent" aria-hidden />
@@ -713,17 +713,17 @@ export default function ResearchPage() {
         </form>
 
         {loading ? (
-          <div className="flex items-center justify-center rounded-xl border border-slate-200 bg-white p-10 text-sm text-slate-500">
+          <div className="flex items-center justify-center rounded-xl border border-border bg-surface p-10 text-sm text-slate-500">
             <Spinner className="mr-2 h-4 w-4 text-slate-400" />
             Loading opportunities...
           </div>
         ) : opportunities.length === 0 ? (
-          <div className="rounded-xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500">
+          <div className="rounded-xl border border-border bg-surface p-10 text-center text-sm text-slate-500">
             No discovered opportunities yet. Run a research agent above to find
             funding sources.
           </div>
         ) : visibleOpportunities.length === 0 ? (
-          <div className="rounded-xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500">
+          <div className="rounded-xl border border-border bg-surface p-10 text-center text-sm text-slate-500">
             No discovered opportunities from {activeSourceLabel} yet.{" "}
             <button
               onClick={() => setActiveSource(null)}
@@ -733,7 +733,7 @@ export default function ResearchPage() {
             </button>
           </div>
         ) : searchedOpportunities.length === 0 ? (
-          <div className="rounded-xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500">
+          <div className="rounded-xl border border-border bg-surface p-10 text-center text-sm text-slate-500">
             No discovered opportunities match &ldquo;{searchQuery}&rdquo;.{" "}
             <button
               onClick={() => setSearchQuery("")}
@@ -752,7 +752,7 @@ export default function ResearchPage() {
                 <div
                   key={opp.id}
                   onClick={() => router.push(`/opportunities/${opp.id}`)}
-                  className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 mb-4 hover:shadow-md hover:border-[#00B4D8] transition-all cursor-pointer"
+                  className="bg-surface rounded-xl shadow-sm border border-border p-5 mb-4 hover:shadow-md hover:border-[#00B4D8] transition-all cursor-pointer"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div className="min-w-0 flex-1">
@@ -850,20 +850,20 @@ export default function ResearchPage() {
         )}
 
         {historicalAwards.length === 0 ? (
-          <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
+          <div className="rounded-xl border border-border bg-surface p-8 text-center text-sm text-slate-500">
             No historical awards yet. Pull awards to see who actually received
             grants like the ones you pursue.
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+          <div className="overflow-x-auto rounded-xl border border-border bg-surface shadow-sm">
             <table className="min-w-full divide-y divide-slate-200">
               <thead>
-                <tr className="bg-surface-sunken">
+                <tr className="bg-sidebar">
                   {["Recipient", "Amount", "Agency", "Date", "Description"].map(
                     (col) => (
                       <th
                         key={col}
-                        className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600"
+                        className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-white"
                       >
                         {col}
                       </th>
