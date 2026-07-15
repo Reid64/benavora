@@ -69,12 +69,14 @@ export function MetricCard({
   hintClassName,
 }: MetricCardProps) {
   const TrendIcon = trend ? TREND_STYLES[trend.direction].icon : null;
+  const colored = Boolean(style);
 
   return (
     <div
       style={style}
       className={cn(
-        "group rounded-xl border border-border border-l-4 bg-white p-5 shadow-md transition-shadow hover:shadow-lg",
+        "group rounded-xl border border-border border-l-4 p-5 shadow-md transition-shadow hover:shadow-lg",
+        !colored && "bg-white",
         ICON_HUE_BORDER_CLASSES[hue],
         className,
       )}

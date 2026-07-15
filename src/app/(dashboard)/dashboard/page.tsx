@@ -322,21 +322,21 @@ export default async function DashboardPage() {
           value={metricCount(submittedCount)}
           icon={Send}
           accent="violet"
-          style={{ backgroundColor: "#7C3AED" }}
+          style={{ backgroundColor: "#00B4D8" }}
         />
         <StatCard
           label="Drafts Generated"
           value={metricCount(draftsGenerated)}
           icon={FileText}
           accent="amber"
-          style={{ backgroundColor: "#F59E0B" }}
+          style={{ backgroundColor: "#6B48CC" }}
         />
         <StatCard
           label="Deadlines This Week"
           value={metricCount(deadlinesThisWeek)}
           icon={CalendarClock}
           accent="red"
-          style={{ backgroundColor: "#EF4444" }}
+          style={{ backgroundColor: "#1A2B3C" }}
         />
       </div>
 
