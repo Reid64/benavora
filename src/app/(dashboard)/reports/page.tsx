@@ -126,7 +126,7 @@ function ReportCategoryCard({ category }: { category: ReportCategory }) {
   return (
     <div
       className={cn(
-        "bg-surface rounded-xl shadow-sm border border-border p-5",
+        "bg-white rounded-xl shadow-sm border border-border p-5",
         accent.border,
       )}
     >
@@ -273,7 +273,7 @@ export default function ReportsPage() {
 
       <div className="mx-auto max-w-2xl">
         {/* Date range form */}
-        <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
+        <div className="rounded-xl border border-border bg-white p-6 shadow-sm">
           <div className="mb-5 flex items-center gap-2">
             <Calendar className="h-4 w-4 text-[#0077B6]" />
             <h2 className="text-sm font-semibold text-slate-700">Report Period</h2>
@@ -401,7 +401,7 @@ export default function ReportsPage() {
 
       <div className="mx-auto max-w-2xl">
         {/* Board Report summary */}
-        <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
+        <div className="rounded-xl border border-border bg-white p-6 shadow-sm">
           <div className="mb-5 flex items-center gap-2">
             <FileBarChart2 className="h-4 w-4 text-[#0077B6]" />
             <h2 className="text-sm font-semibold text-slate-700">
@@ -490,7 +490,7 @@ export default function ReportsPage() {
         {summary && (
           <div className="mt-4 space-y-4">
             <div className="grid grid-cols-3 gap-3">
-              <div className="rounded-xl border border-border bg-surface p-4 text-center">
+              <div className="rounded-xl border border-border bg-white p-4 text-center">
                 <p className="text-2xl font-semibold text-slate-900">
                   {summary.opportunitiesCreated}
                 </p>
@@ -498,7 +498,7 @@ export default function ReportsPage() {
                   Opportunities Created
                 </p>
               </div>
-              <div className="rounded-xl border border-border bg-surface p-4 text-center">
+              <div className="rounded-xl border border-border bg-white p-4 text-center">
                 <p className="text-2xl font-semibold text-slate-900">
                   {summary.applicationsSubmitted}
                 </p>
@@ -506,7 +506,7 @@ export default function ReportsPage() {
                   Applications Submitted
                 </p>
               </div>
-              <div className="rounded-xl border border-border bg-surface p-4 text-center">
+              <div className="rounded-xl border border-border bg-white p-4 text-center">
                 <p className="text-2xl font-semibold text-teal-600">
                   {formatCurrency(summary.totalAwarded)}
                 </p>
@@ -514,7 +514,7 @@ export default function ReportsPage() {
               </div>
             </div>
 
-            <div className="rounded-xl border border-border bg-surface p-5">
+            <div className="rounded-xl border border-border bg-white p-5">
               <div className="mb-3 flex items-center gap-2">
                 <Trophy className="h-4 w-4 text-amber-500" />
                 <h3 className="text-sm font-semibold text-slate-700">
@@ -545,7 +545,7 @@ export default function ReportsPage() {
               )}
             </div>
 
-            <div className="rounded-xl border border-border bg-surface p-5">
+            <div className="rounded-xl border border-border bg-white p-5">
               <div className="mb-3 flex items-center gap-2">
                 <Clock className="h-4 w-4 text-[#0077B6]" />
                 <h3 className="text-sm font-semibold text-slate-700">

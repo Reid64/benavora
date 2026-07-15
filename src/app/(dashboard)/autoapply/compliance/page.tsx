@@ -426,7 +426,7 @@ export default function SolicitationCompliancePage() {
           </div>
 
           {refInfo && (
-            <div className="rounded-lg border border-border bg-surface shadow-sm p-4">
+            <div className="rounded-lg border border-border bg-white shadow-sm p-4">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h3 className="text-base font-semibold text-navy-900">{refInfo.state}</h3>

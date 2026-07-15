@@ -31,7 +31,7 @@ export function OpportunityCard({ opportunity }: OpportunityCardProps) {
   return (
     <Link
       href={`/opportunities/${opportunity.id}`}
-      className="group flex h-full flex-col gap-3 rounded-xl border border-border bg-surface p-4 shadow-sm transition hover:border-teal-300 hover:shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
+      className="group flex h-full flex-col gap-3 rounded-xl border border-border bg-white p-4 shadow-sm transition hover:border-teal-300 hover:shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
     >
       <div className="flex flex-wrap items-center gap-2">
         <MatchBadge percentage={opportunity.match_percentage} />

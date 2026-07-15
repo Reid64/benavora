@@ -408,7 +408,7 @@ export default function FollowUpsPage() {
           Loading follow-ups…
         </div>
       ) : followUps.length === 0 ? (
-        <div className="rounded-xl border border-border bg-surface shadow-sm py-14 text-center">
+        <div className="rounded-xl border border-border bg-white shadow-sm py-14 text-center">
           <MessageSquare className="mx-auto mb-3 h-10 w-10 text-navy-300" />
           <p className="text-sm font-medium text-navy-700">No follow-ups found</p>
           <p className="mt-1 text-xs text-navy-400">
@@ -416,7 +416,7 @@ export default function FollowUpsPage() {
           </p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-border bg-surface shadow-sm">
+        <div className="overflow-x-auto rounded-xl border border-border bg-white shadow-sm">
           <table className="min-w-full divide-y divide-navy-100">
             <thead>
               <tr className="bg-sidebar">
@@ -641,7 +641,7 @@ function ExpandedRow({
           Follow-Up Content
         </p>
         {f.content ? (
-          <div className="rounded-lg border border-border bg-surface shadow-sm p-3 text-sm leading-relaxed text-navy-700">
+          <div className="rounded-lg border border-border bg-white shadow-sm p-3 text-sm leading-relaxed text-navy-700">
             {f.content.length > 600 ? `${f.content.slice(0, 600)}…` : f.content}
           </div>
         ) : (
@@ -671,7 +671,7 @@ function ExpandedRow({
           <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-navy-400">
             Linked Submission
           </p>
-          <div className="rounded-lg border border-border bg-surface shadow-sm p-3 text-xs space-y-1.5">
+          <div className="rounded-lg border border-border bg-white shadow-sm p-3 text-xs space-y-1.5">
             <div className="flex justify-between">
               <span className="text-navy-400">Status</span>
               <span className="font-medium text-navy-700">

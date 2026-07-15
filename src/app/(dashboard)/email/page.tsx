@@ -265,7 +265,7 @@ export default function EmailPage() {
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto rounded-lg border border-border bg-surface shadow-sm">
+          <div className="flex-1 overflow-y-auto rounded-lg border border-border bg-white shadow-sm">
             {loading ? (
               <div className="flex items-center justify-center py-12">
                 <LoadingSpinner />
@@ -355,7 +355,7 @@ export default function EmailPage() {
           }`}
         >
           {!selectedThread ? (
-            <div className="flex flex-1 items-center justify-center rounded-lg border border-border bg-surface shadow-sm">
+            <div className="flex flex-1 items-center justify-center rounded-lg border border-border bg-white shadow-sm">
               <EmptyState
                 icon={Mail}
                 title="Select a thread"
@@ -363,7 +363,7 @@ export default function EmailPage() {
               />
             </div>
           ) : (
-            <div className="flex flex-1 flex-col overflow-hidden rounded-lg border border-border bg-surface shadow-sm">
+            <div className="flex flex-1 flex-col overflow-hidden rounded-lg border border-border bg-white shadow-sm">
               {/* Thread header */}
               <div className="border-b border-navy-100 px-5 py-4">
                 <div className="flex items-start justify-between gap-3">
@@ -540,7 +540,7 @@ export default function EmailPage() {
             {selectedThread ? (
               <>
                 {/* Linked entity */}
-                <div className="rounded-lg border border-border bg-surface shadow-sm p-4">
+                <div className="rounded-lg border border-border bg-white shadow-sm p-4">
                   <div className="mb-3 flex items-center justify-between">
                     <h3 className="text-sm font-semibold text-navy-700">Linked Entity</h3>
                     <button
@@ -574,7 +574,7 @@ export default function EmailPage() {
                 </div>
 
                 {/* Thread timeline */}
-                <div className="rounded-lg border border-border bg-surface shadow-sm p-4">
+                <div className="rounded-lg border border-border bg-white shadow-sm p-4">
                   <h3 className="mb-3 text-sm font-semibold text-navy-700">Timeline</h3>
                   {messages.length === 0 ? (
                     <p className="text-xs text-navy-400">Select a thread to see its timeline.</p>
@@ -598,7 +598,7 @@ export default function EmailPage() {
                 </div>
               </>
             ) : (
-              <div className="rounded-lg border border-border bg-surface shadow-sm p-4">
+              <div className="rounded-lg border border-border bg-white shadow-sm p-4">
                 <p className="text-sm text-navy-400">
                   Select a thread to view linked entities and timeline.
                 </p>

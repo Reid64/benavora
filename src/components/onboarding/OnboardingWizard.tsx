@@ -181,7 +181,7 @@ export function OnboardingWizard({ userId, snapshot }: OnboardingWizardProps) {
   if (finished) {
     return (
       <div className="mx-auto w-full max-w-xl">
-        <div className="rounded-2xl border border-border bg-surface p-8 text-center shadow-sm sm:p-10">
+        <div className="rounded-2xl border border-border bg-white p-8 text-center shadow-sm sm:p-10">
           <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-400 to-teal-600 text-white shadow-md shadow-teal-900/30">
             <PartyPopper className="h-7 w-7" aria-hidden />
           </span>
@@ -277,7 +277,7 @@ export function OnboardingWizard({ userId, snapshot }: OnboardingWizardProps) {
 
       {/* Step body */}
       <div className="min-w-0">
-        <div className="rounded-2xl border border-border bg-surface p-6 shadow-sm sm:p-8">
+        <div className="rounded-2xl border border-border bg-white p-6 shadow-sm sm:p-8">
           {step.id !== "welcome" && (
             <div className="mb-6">
               <h1 className="text-xl font-bold tracking-tight text-primary">

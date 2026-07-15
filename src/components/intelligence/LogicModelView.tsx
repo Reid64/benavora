@@ -36,9 +36,9 @@ const STAGES: StageConfig[] = [
     label: "Inputs",
     Icon: Package,
     headerColor: "text-text",
-    bgColor: "bg-surface-raised",
+    bgColor: "bg-white-raised",
     borderColor: "border-border",
-    chipColor: "bg-surface text-text border border-border",
+    chipColor: "bg-white text-text border border-border",
     iconColor: "text-text-muted",
   },
   {
@@ -48,7 +48,7 @@ const STAGES: StageConfig[] = [
     headerColor: "text-info-text",
     bgColor: "bg-info-bg",
     borderColor: "border-info-border",
-    chipColor: "bg-surface text-text border border-border",
+    chipColor: "bg-white text-text border border-border",
     iconColor: "text-info-text",
   },
   {
@@ -58,7 +58,7 @@ const STAGES: StageConfig[] = [
     headerColor: "text-success-text",
     bgColor: "bg-success-bg",
     borderColor: "border-success-border",
-    chipColor: "bg-surface text-text border border-border",
+    chipColor: "bg-white text-text border border-border",
     iconColor: "text-success-text",
   },
   {
@@ -68,7 +68,7 @@ const STAGES: StageConfig[] = [
     headerColor: "text-primary",
     bgColor: "bg-primary/10",
     borderColor: "border-primary/20",
-    chipColor: "bg-surface text-text border border-border",
+    chipColor: "bg-white text-text border border-border",
     iconColor: "text-primary",
   },
   {
@@ -78,7 +78,7 @@ const STAGES: StageConfig[] = [
     headerColor: "text-warning-text",
     bgColor: "bg-warning-bg",
     borderColor: "border-warning-border",
-    chipColor: "bg-surface text-text border border-border",
+    chipColor: "bg-white text-text border border-border",
     iconColor: "text-warning-text",
   },
 ];

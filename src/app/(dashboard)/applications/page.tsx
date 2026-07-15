@@ -105,7 +105,7 @@ export default function ApplicationsPage() {
   const showEmpty = !loading && !error && applications.length === 0;
 
   return (
-    <div className="min-h-screen space-y-6 bg-page p-6">
+    <div className="min-h-screen space-y-6 bg-[#CBD5E1] p-6">
       <PageHeader
         title="Applications"
         description={
@@ -171,7 +171,7 @@ export default function ApplicationsPage() {
 
       {/* Content */}
       {loading ? (
-        <LoadingSpinner center label="Loading pipeline…" />
+        <LoadingSpinner center label="Loading pipelineâ€¦" />
       ) : showEmpty ? (
         <EmptyState
           icon={KanbanSquare}
@@ -235,7 +235,7 @@ export default function ApplicationsPage() {
         <div className="space-y-4">
           <Select
             label="Target opportunity"
-            placeholder="Select an opportunity…"
+            placeholder="Select an opportunityâ€¦"
             value={targetOpportunityId}
             onChange={(e) => setTargetOpportunityId(e.target.value)}
             options={opportunityOptions.map((o) => ({

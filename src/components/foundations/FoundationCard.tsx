@@ -52,7 +52,7 @@ export function FoundationCard({
 
   return (
     <div
-      className={`bg-surface rounded-xl shadow-sm border border-border p-5 hover:shadow-md hover:border-[#00B4D8] transition-all cursor-pointer ${getAccentClass(foundation.name)}`}
+      className={`bg-white rounded-xl shadow-sm border border-border p-5 hover:shadow-md hover:border-[#00B4D8] transition-all cursor-pointer ${getAccentClass(foundation.name)}`}
     >
       <div className="flex items-start justify-between gap-3">
         <label className="flex items-center gap-2" onClick={(event) => event.stopPropagation()}>

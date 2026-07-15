@@ -59,7 +59,7 @@ function urgencyBucket(band: UrgencyBand): UrgencyBucket {
 const URGENCY_ITEM_CLASSES: Record<UrgencyBucket, string> = {
   overdue: "bg-[#FEF2F2] border-l-4 border-[#EF4444] rounded-xl p-4 mb-3",
   week: "bg-[#FFFBEB] border-l-4 border-[#F59E0B] rounded-xl p-4 mb-3",
-  future: "bg-surface shadow-sm border border-border rounded-xl p-4 mb-3",
+  future: "bg-white shadow-sm border border-border rounded-xl p-4 mb-3",
 };
 
 const URGENCY_DATE_CLASSES: Record<UrgencyBucket, string> = {
@@ -484,7 +484,7 @@ export default function DeadlinesPage() {
 
   // --- Render ---
   return (
-    <div className="min-h-screen space-y-6 bg-page p-6">
+    <div className="min-h-screen space-y-6 bg-[#CBD5E1] p-6">
       <PageHeader
         title="Deadlines"
         description="Application, follow-up, reporting, renewal, and document-expiration dates, color-coded by urgency."
@@ -754,7 +754,7 @@ function ComplianceList({ items }: { items: ComplianceItem[] }) {
               className={cn(
                 "flex flex-wrap items-center justify-between gap-3",
                 isCompleted
-                  ? "mb-3 rounded-xl border border-border bg-surface shadow-sm p-4"
+                  ? "mb-3 rounded-xl border border-border bg-white shadow-sm p-4"
                   : URGENCY_ITEM_CLASSES[bucket],
               )}
             >
@@ -773,7 +773,7 @@ function ComplianceList({ items }: { items: ComplianceItem[] }) {
                   <span>
                     {COMPLIANCE_TYPE_LABEL[item.type] ?? item.type}
                   </span>
-                  <span>·</span>
+                  <span>Â·</span>
                   <span
                     className={
                       isCompleted ? undefined : URGENCY_DATE_CLASSES[bucket]
@@ -783,7 +783,7 @@ function ComplianceList({ items }: { items: ComplianceItem[] }) {
                   </span>
                   {item.status && item.status !== "pending" && (
                     <>
-                      <span>·</span>
+                      <span>Â·</span>
                       <span className="capitalize">{humanizeEnum(item.status)}</span>
                     </>
                   )}
@@ -843,7 +843,7 @@ function ListView({
 }) {
   if (deadlines.length === 0) {
     return (
-      <div className="rounded-xl border border-border bg-surface shadow-sm p-4">
+      <div className="rounded-xl border border-border bg-white shadow-sm p-4">
         <p className="py-4 text-center text-sm text-slate-500">
           No deadlines to show. Toggle &quot;Show completed&quot; to include
           finished ones, or adjust the type filter.
@@ -888,7 +888,7 @@ function ListView({
               </div>
               <div className="mt-0.5 flex items-center gap-2 text-xs text-slate-500">
                 <span>{humanizeEnum(d.deadline_type)}</span>
-                <span>·</span>
+                <span>Â·</span>
                 <span
                   className={completed ? undefined : URGENCY_DATE_CLASSES[bucket]}
                 >

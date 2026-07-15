@@ -39,7 +39,7 @@ function urgencyColor(dueDate: string): UrgencyColor {
 const ITEM_CLASSES: Record<UrgencyColor, string> = {
   red: "bg-[#FEF2F2] border-l-4 border-[#EF4444] rounded-xl p-4",
   amber: "bg-[#FFFBEB] border-l-4 border-[#F59E0B] rounded-xl p-4",
-  green: "bg-surface shadow-sm border border-border rounded-xl p-4",
+  green: "bg-white shadow-sm border border-border rounded-xl p-4",
 };
 
 const DATE_CLASSES: Record<UrgencyColor, string> = {
@@ -159,7 +159,7 @@ export default function CompliancePage() {
                 className={cn(
                   "flex flex-wrap items-center justify-between gap-3",
                   isSubmitted
-                    ? "rounded-xl border border-border bg-surface p-4 shadow-sm"
+                    ? "rounded-xl border border-border bg-white p-4 shadow-sm"
                     : ITEM_CLASSES[color],
                 )}
               >

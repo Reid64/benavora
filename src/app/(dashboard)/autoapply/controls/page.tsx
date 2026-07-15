@@ -294,7 +294,7 @@ export default function QueueControlsPage() {
         className={`rounded-lg border-2 px-6 py-5 ${
           isPlatformPaused
             ? "border-red-400 bg-red-50"
-            : "border-red-200 bg-surface shadow-sm"
+            : "border-red-200 bg-white shadow-sm"
         }`}
       >
         <div className="flex items-start justify-between gap-4">

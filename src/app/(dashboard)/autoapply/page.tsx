@@ -39,7 +39,7 @@ const SuccessAnalytics = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="rounded-lg border border-border bg-surface shadow-sm p-5 text-sm text-navy-400">
+      <div className="rounded-lg border border-border bg-white shadow-sm p-5 text-sm text-navy-400">
         Loading analytics…
       </div>
     ),

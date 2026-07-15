@@ -435,7 +435,7 @@ function CardGrid({
   }
   if (isEmpty) {
     return (
-      <div className="rounded-xl border border-border bg-surface p-10 text-center text-sm text-navy-500 shadow-sm">
+      <div className="rounded-xl border border-border bg-white p-10 text-center text-sm text-navy-500 shadow-sm">
         No opportunities match your filters.
       </div>
     );

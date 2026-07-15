@@ -81,7 +81,7 @@ function StepIndicator({ current }: { current: 1 | 2 | 3 }) {
                 ? "bg-blue-600 text-white"
                 : s.n === current
                   ? "bg-blue-500 text-white"
-                  : "bg-surface-raised text-text-muted border border-border"
+                  : "bg-white-raised text-text-muted border border-border"
             }`}
           >
             {s.n < current ? (
@@ -286,7 +286,7 @@ export default function ImportPage() {
                       return next;
                     });
                   }}
-                  className="flex-1 bg-surface-raised border border-border text-text text-sm rounded-md px-3 py-2 focus:outline-none focus:border-blue-500"
+                  className="flex-1 bg-white-raised border border-border text-text text-sm rounded-md px-3 py-2 focus:outline-none focus:border-blue-500"
                 >
                   <option value="">— not mapped —</option>
                   {headers.map((h) => (

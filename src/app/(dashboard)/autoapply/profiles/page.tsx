@@ -682,7 +682,7 @@ function ProfileCard({
     <div
       className={`rounded-xl border p-4 transition-opacity ${
         profile.active
-          ? "border-border bg-surface shadow-sm"
+          ? "border-border bg-white shadow-sm"
           : "border-navy-100 bg-navy-50 opacity-60"
       }`}
     >
@@ -1546,7 +1546,7 @@ function Step5Review({
       </div>
 
       {/* Activate toggle */}
-      <div className="flex items-center justify-between rounded-lg border border-border bg-surface shadow-sm p-4">
+      <div className="flex items-center justify-between rounded-lg border border-border bg-white shadow-sm p-4">
         <div>
           <p className="text-sm font-medium text-navy-900">Activate immediately</p>
           <p className="mt-0.5 text-xs text-navy-500">

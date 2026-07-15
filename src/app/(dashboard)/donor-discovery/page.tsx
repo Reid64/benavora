@@ -267,7 +267,7 @@ export default function DonorDiscoveryPage() {
               const shownTaxonomyIds = taxonomyIds.slice(0, 3);
               const extraTaxonomyCount = taxonomyIds.length - shownTaxonomyIds.length;
               return (
-                <div key={req.id} className="bg-surface rounded-xl shadow-sm border border-border p-5 mb-4">
+                <div key={req.id} className="bg-white rounded-xl shadow-sm border border-border p-5 mb-4">
                   <div className="flex items-start justify-between gap-2">
                     <p className="min-w-0 truncate text-sm font-semibold text-text">{req.name}</p>
                     <span
@@ -318,7 +318,7 @@ export default function DonorDiscoveryPage() {
             <Link
               key={stage}
               href={`/donor-discovery/prospects?stage=${stage}`}
-              className="bg-surface shadow-sm rounded-lg border border-border px-4 py-3 text-center hover:border-[#0077B6] cursor-pointer transition-colors"
+              className="bg-white shadow-sm rounded-lg border border-border px-4 py-3 text-center hover:border-[#0077B6] cursor-pointer transition-colors"
             >
               <p className="text-2xl font-bold text-slate-900">{loading ? "—" : stageCounts[stage]}</p>
               <p className="text-xs text-slate-400 mt-1">{humanizeEnum(stage)}</p>
@@ -347,7 +347,7 @@ export default function DonorDiscoveryPage() {
                 ? taxonomyLabelByCode.get(taxonomyCode) ?? taxonomyCode
                 : null;
               return (
-                <div key={p.id} className="flex flex-col rounded-lg border border-border bg-surface p-4">
+                <div key={p.id} className="flex flex-col rounded-lg border border-border bg-white p-4">
                   <div className="flex items-start justify-between gap-2">
                     <p className="min-w-0 truncate text-sm font-semibold text-text">
                       {p.directory?.legal_name ?? "Unknown company"}

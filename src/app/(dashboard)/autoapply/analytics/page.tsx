@@ -300,7 +300,7 @@ function StatCard({
   trend?: "up" | "down" | "neutral";
 }) {
   return (
-    <div className="rounded-xl border border-border bg-surface-raised px-5 py-4">
+    <div className="rounded-xl border border-border bg-white-raised px-5 py-4">
       <p className="text-xs font-medium uppercase tracking-wide text-navy-400">
         {label}
       </p>
@@ -843,7 +843,7 @@ export default function AutoApplyAnalyticsPage() {
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-navy-100 bg-surface">
+              <tbody className="divide-y divide-navy-100 bg-white">
                 {abRows.map((row, i) => {
                   const catRows = abRows.filter(
                     (r) => r.category === row.category,

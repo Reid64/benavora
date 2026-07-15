@@ -111,7 +111,7 @@ function KanbanCard({
         }
       }}
       className={cn(
-        "rounded-lg border border-border bg-surface p-2.5 text-left shadow-sm transition-shadow",
+        "rounded-lg border border-border bg-white p-2.5 text-left shadow-sm transition-shadow",
         "hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0077B6]",
         draggable ? "cursor-grab active:cursor-grabbing" : "cursor-pointer",
       )}
@@ -220,7 +220,7 @@ function KanbanColumn({
             "flex flex-1 flex-col gap-1.5 rounded-lg border border-dashed p-2 transition min-h-[120px]",
             isDragOver && draggingFromElsewhere
               ? "border-accent bg-accent/5"
-              : "border-border bg-surface/50",
+              : "border-border bg-white/50",
           )}
         >
           {total === 0 ? (

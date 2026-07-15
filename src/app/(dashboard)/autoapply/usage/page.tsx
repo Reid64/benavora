@@ -190,7 +190,7 @@ function StatCard({
 }) {
   const isUnlimited = limit < 0;
   return (
-    <div className="rounded-lg border border-border bg-surface p-4 shadow-sm">
+    <div className="rounded-lg border border-border bg-white p-4 shadow-sm">
       <p className="text-xs font-medium uppercase tracking-wide text-navy-400">{label}</p>
       <div className="mt-2 flex items-baseline gap-1">
         <span className="text-2xl font-semibold text-navy-900">

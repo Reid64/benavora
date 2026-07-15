@@ -480,7 +480,7 @@ function StatCard({
   return (
     <div
       className={cn(
-        "bg-surface rounded-xl shadow-sm border border-border p-5",
+        "bg-white rounded-xl shadow-sm border border-border p-5",
         colorClass,
       )}
     >

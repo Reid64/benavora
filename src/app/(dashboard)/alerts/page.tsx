@@ -194,10 +194,10 @@ export default function AlertsPage() {
   }
 
   return (
-    <div className="min-h-screen space-y-6 bg-page p-6">
+    <div className="min-h-screen space-y-6 bg-[#CBD5E1] p-6">
       <PageHeader
         title="Alerts"
-        description="Your daily action list — deadlines, new opportunities, applications needing action, and drafts pending review."
+        description="Your daily action list â€” deadlines, new opportunities, applications needing action, and drafts pending review."
         actions={
           <div className="flex items-center gap-3">
             {unreadCount > 0 && (
@@ -286,7 +286,7 @@ export default function AlertsPage() {
                 {!isCollapsed && (
                   <div className="mt-1">
                     {catItems.length === 0 ? (
-                      <div className="rounded-xl border border-border bg-surface shadow-sm px-5 py-6 text-center">
+                      <div className="rounded-xl border border-border bg-white shadow-sm px-5 py-6 text-center">
                         <p className="text-sm text-slate-500">
                           {cat.description}
                         </p>

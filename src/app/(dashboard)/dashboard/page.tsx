@@ -65,13 +65,13 @@ type AgentRunRow = {
   created_at: string;
 };
 
-/** Returns "—" instead of "0" so empty metrics don't imply active tracking. */
+/** Returns "â€”" instead of "0" so empty metrics don't imply active tracking. */
 function metricCount(n: number): string {
-  return n === 0 ? "—" : String(n);
+  return n === 0 ? "â€”" : String(n);
 }
 
 function metricCurrency(n: number): string {
-  return n === 0 ? "—" : formatCurrency(n);
+  return n === 0 ? "â€”" : formatCurrency(n);
 }
 
 type StatAccent = "blue" | "violet" | "amber" | "red";
@@ -106,7 +106,7 @@ const STAT_ACCENTS: Record<
   },
 };
 
-/** One of the four primary dashboard stat tiles, accented by function (BLUEPRINT §4.1). */
+/** One of the four primary dashboard stat tiles, accented by function (BLUEPRINT Â§4.1). */
 function StatCard({
   label,
   value,
@@ -138,7 +138,7 @@ function StatCard({
 }
 
 /**
- * Main dashboard (BLUEPRINT §4.1). All data is read server-side via the
+ * Main dashboard (BLUEPRINT Â§4.1). All data is read server-side via the
  * session-bound Supabase client; organization_id derived from the authenticated
  * user's profile (never from a request body), with RLS as the second barrier.
  */
@@ -233,7 +233,7 @@ export default async function DashboardPage() {
   const analysis = analyzeOutcomes(outcomes);
   const { summary } = analysis;
   const successRateValue =
-    summary.successRate != null ? `${summary.successRate}%` : "—";
+    summary.successRate != null ? `${summary.successRate}%` : "â€”";
 
   // --- pipeline counts -------------------------------------------------------
   const pipelineCounts = PIPELINE_STAGES.reduce(
@@ -279,7 +279,7 @@ export default async function DashboardPage() {
     outcomes.length === 0;
 
   return (
-    <div className="min-h-screen bg-page p-6">
+    <div className="min-h-screen bg-[#CBD5E1] p-6">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-primary">Dashboard</h1>
         <p className="text-slate-500 text-sm mt-1">
@@ -359,17 +359,17 @@ export default async function DashboardPage() {
       </div>
 
       {/* Pipeline */}
-      <div className="bg-surface rounded-xl shadow-sm border border-border p-6 mb-8">
+      <div className="bg-white rounded-xl shadow-sm border border-border p-6 mb-8">
         <h2 className="text-lg font-semibold text-slate-900 mb-4">Pipeline</h2>
         <PipelineSummary counts={pipelineCounts} />
       </div>
 
       {/* Two-column layout: left = activity, right = deadlines + actions */}
       <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[1fr_300px]">
-        {/* ── Left column ── */}
+        {/* â”€â”€ Left column â”€â”€ */}
         <div className="space-y-6">
           {/* Recent activity */}
-          <div className="bg-surface rounded-xl shadow-sm border border-border p-6">
+          <div className="bg-white rounded-xl shadow-sm border border-border p-6">
             <h2 className="text-lg font-semibold text-slate-900 mb-4">
               Recent Activity
             </h2>
@@ -377,10 +377,10 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* ── Right column ── */}
+        {/* â”€â”€ Right column â”€â”€ */}
         <div className="space-y-6">
           {/* Upcoming deadlines */}
-          <div className="bg-surface rounded-xl shadow-sm border border-border overflow-hidden">
+          <div className="bg-white rounded-xl shadow-sm border border-border overflow-hidden">
             <div className="bg-slate-800 px-5 py-4 flex items-center justify-between">
               <span className="text-white font-semibold text-sm">
                 Upcoming Deadlines

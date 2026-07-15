@@ -534,7 +534,7 @@ export default function RecordingsPage() {
           ))}
         </div>
       ) : sorted.length === 0 ? (
-        <div className="rounded-xl border border-border bg-surface shadow-sm p-10">
+        <div className="rounded-xl border border-border bg-white shadow-sm p-10">
           <EmptyState
             icon={Film}
             title="No recordings found"
@@ -568,7 +568,7 @@ export default function RecordingsPage() {
               return (
                 <div
                   key={rec.id}
-                  className="group relative cursor-pointer overflow-hidden rounded-xl border border-border bg-surface shadow-sm transition-shadow hover:shadow-md"
+                  className="group relative cursor-pointer overflow-hidden rounded-xl border border-border bg-white shadow-sm transition-shadow hover:shadow-md"
                   onClick={() => void openRecording(rec)}
                   role="button"
                   tabIndex={0}

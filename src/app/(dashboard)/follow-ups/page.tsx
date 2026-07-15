@@ -236,7 +236,7 @@ function StepRow({ step, noteId, copied, onCopy }: StepRowProps) {
         </div>
         <button
           onClick={() => void onCopy(stepId, fullText)}
-          className="flex items-center gap-1 rounded px-2 py-1 text-xs text-text-muted transition-colors hover:bg-surface-raised hover:text-text"
+          className="flex items-center gap-1 rounded px-2 py-1 text-xs text-text-muted transition-colors hover:bg-white-raised hover:text-text"
           aria-label="Copy email to clipboard"
         >
           {isCopied ? (

@@ -121,7 +121,7 @@ export function QueueMetrics() {
         return (
           <div
             key={c.label}
-            className="rounded-xl border border-border bg-surface px-5 py-4 shadow-sm"
+            className="rounded-xl border border-border bg-white px-5 py-4 shadow-sm"
           >
             <div className="flex items-center justify-between">
               <p className="text-xs font-medium uppercase tracking-wide text-navy-400">

@@ -170,7 +170,7 @@ export function QueuePreview() {
 
   if (configLoading) {
     return (
-      <div className="rounded-xl border border-border bg-surface px-5 py-4 shadow-sm">
+      <div className="rounded-xl border border-border bg-white px-5 py-4 shadow-sm">
         <p className="text-sm text-navy-400">Loading queue config…</p>
       </div>
     );
@@ -179,7 +179,7 @@ export function QueuePreview() {
   const isDisabled = config !== null && !config.enabled;
 
   return (
-    <div className="rounded-xl border border-border bg-surface shadow-sm">
+    <div className="rounded-xl border border-border bg-white shadow-sm">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-navy-100 px-5 py-4">
         <div className="flex items-center gap-2">

@@ -703,7 +703,7 @@ export function ManualQueue({ onCountChange }: ManualQueueProps) {
       {/* ── Mark Complete Modal ──────────────────────────────────────────────── */}
       {markCompleteItem !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-md rounded-xl border border-border bg-surface p-6 shadow-2xl">
+          <div className="w-full max-w-md rounded-xl border border-border bg-white p-6 shadow-2xl">
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-base font-semibold text-navy-900">
@@ -790,7 +790,7 @@ export function ManualQueue({ onCountChange }: ManualQueueProps) {
       {/* ── Skip Modal ───────────────────────────────────────────────────────── */}
       {skipItem !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-md rounded-xl border border-border bg-surface p-6 shadow-2xl">
+          <div className="w-full max-w-md rounded-xl border border-border bg-white p-6 shadow-2xl">
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-base font-semibold text-navy-900">
@@ -873,7 +873,7 @@ export function ManualQueue({ onCountChange }: ManualQueueProps) {
       {/* ── Convert to Auto Modal ────────────────────────────────────────────── */}
       {convertItem !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-md rounded-xl border border-border bg-surface p-6 shadow-2xl">
+          <div className="w-full max-w-md rounded-xl border border-border bg-white p-6 shadow-2xl">
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-base font-semibold text-navy-900">
@@ -945,7 +945,7 @@ export function ManualQueue({ onCountChange }: ManualQueueProps) {
       {/* ── Reassign Modal ───────────────────────────────────────────────────── */}
       {reassignItem !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-md rounded-xl border border-border bg-surface p-6 shadow-2xl">
+          <div className="w-full max-w-md rounded-xl border border-border bg-white p-6 shadow-2xl">
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-base font-semibold text-navy-900">
@@ -1078,7 +1078,7 @@ function PrepPanel({
           <p className="mb-2 text-xs font-medium uppercase tracking-wide text-navy-500">
             Pre-Filled Form Data
           </p>
-          <div className="overflow-x-auto rounded-lg border border-border bg-surface shadow-sm">
+          <div className="overflow-x-auto rounded-lg border border-border bg-white shadow-sm">
             <table className="min-w-full divide-y divide-navy-100 text-sm">
               <thead>
                 <tr className="bg-sidebar">

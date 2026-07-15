@@ -285,7 +285,7 @@ export function TaxonomyCombobox({
                       disabled={isSelected}
                       className={cn(
                         "flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left",
-                        isHighlighted ? "bg-teal-50" : "hover:bg-surface-sunken",
+                        isHighlighted ? "bg-teal-50" : "hover:bg-white-sunken",
                         isSelected && "cursor-not-allowed opacity-50",
                       )}
                     >

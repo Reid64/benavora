@@ -147,7 +147,7 @@ export function Table<T>({
       <div
         className={
           containerClassName ??
-          "overflow-x-auto rounded-xl border border-border bg-surface shadow-sm"
+          "overflow-x-auto rounded-xl border border-border bg-white shadow-sm"
         }
       >
         <table className={tableClassName ?? "min-w-full divide-y divide-slate-200"}>
@@ -202,7 +202,7 @@ export function Table<T>({
               })}
             </tr>
           </thead>
-          <tbody className={tbodyClassName ?? "divide-y divide-slate-200 bg-surface"}>
+          <tbody className={tbodyClassName ?? "divide-y divide-slate-200 bg-white"}>
             {isLoading ? (
               <tr>
                 <td colSpan={colSpan} className="px-4 py-12">

@@ -1059,7 +1059,7 @@ function StatCard({
   };
 
   return (
-    <div className="rounded-xl border border-border bg-surface shadow-sm p-4">
+    <div className="rounded-xl border border-border bg-white shadow-sm p-4">
       <p className="text-xs font-medium uppercase tracking-wide text-navy-400">
         {label}
       </p>

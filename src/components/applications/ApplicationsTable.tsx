@@ -350,7 +350,7 @@ export function ApplicationsTable({
 
       {/* Sort header */}
       {filtered.length > 0 && (
-        <div className="flex items-center gap-4 rounded-xl border border-border bg-surface px-5 py-2.5 shadow-sm">
+        <div className="flex items-center gap-4 rounded-xl border border-border bg-white px-5 py-2.5 shadow-sm">
           <input
             type="checkbox"
             checked={allSelected}
@@ -370,7 +370,7 @@ export function ApplicationsTable({
 
       {/* Row cards */}
       {filtered.length === 0 ? (
-        <div className="rounded-xl border border-border bg-surface p-12 text-center text-sm text-slate-500 shadow-sm">
+        <div className="rounded-xl border border-border bg-white p-12 text-center text-sm text-slate-500 shadow-sm">
           No applications in this group.
         </div>
       ) : (
@@ -379,7 +379,7 @@ export function ApplicationsTable({
             <div
               key={app.id}
               onClick={() => router.push(`/applications/${app.id}`)}
-              className="flex cursor-pointer items-center gap-4 rounded-xl border border-border bg-surface p-5 mb-3 shadow-sm transition-shadow hover:shadow-md"
+              className="flex cursor-pointer items-center gap-4 rounded-xl border border-border bg-white p-5 mb-3 shadow-sm transition-shadow hover:shadow-md"
             >
               <input
                 type="checkbox"

@@ -47,7 +47,7 @@ export function DocumentsStep({
         {suggestions.map((s) => (
           <div
             key={s.title}
-            className="flex items-start gap-3 rounded-xl border border-border bg-surface p-4 shadow-sm"
+            className="flex items-start gap-3 rounded-xl border border-border bg-white p-4 shadow-sm"
           >
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/5 text-primary">
               <FileText className="h-5 w-5" aria-hidden />

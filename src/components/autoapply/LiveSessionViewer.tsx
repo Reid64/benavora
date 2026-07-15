@@ -338,7 +338,7 @@ export function LiveSessionViewer() {
   return (
     <>
       {!expanded && (
-        <div className="rounded-lg border border-border bg-surface p-5 shadow-sm">
+        <div className="rounded-lg border border-border bg-white p-5 shadow-sm">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <h3 className="text-sm font-semibold text-navy-900">

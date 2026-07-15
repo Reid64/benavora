@@ -263,7 +263,7 @@ export default function EmailTemplatesPage() {
 
                 {/* Inline preview */}
                 {previewId === t.id && (
-                  <div className="mt-3 rounded-lg border border-border bg-surface shadow-sm px-4 py-3">
+                  <div className="mt-3 rounded-lg border border-border bg-white shadow-sm px-4 py-3">
                     <p className="text-[11px] font-medium uppercase tracking-wide text-navy-400">
                       Preview (sample data)
                     </p>
@@ -505,7 +505,7 @@ function TemplateForm({
 
       {/* Live preview */}
       {(subject.trim() || body.trim()) && (
-        <div className="rounded-lg border border-border bg-surface shadow-sm px-4 py-3">
+        <div className="rounded-lg border border-border bg-white shadow-sm px-4 py-3">
           <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-navy-400">
             Preview (sample data)
           </p>

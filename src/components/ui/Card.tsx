@@ -31,12 +31,12 @@ export function Card({
   return (
     <div
       className={cn(
-        "bg-surface rounded-xl shadow-sm border border-border transition-shadow hover:shadow-md",
+        "bg-white rounded-xl shadow-sm border border-border transition-shadow hover:shadow-md",
         className,
       )}
     >
       {hasHeader && (
-        <div className="flex items-start justify-between gap-4 rounded-t-xl border-b border-border bg-surface-sunken px-5 py-4">
+        <div className="flex items-start justify-between gap-4 rounded-t-xl border-b border-border bg-white-sunken px-5 py-4">
           <div className="min-w-0">
             {title && (
               <h3 className="truncate text-base font-semibold text-text">

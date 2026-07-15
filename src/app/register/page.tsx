@@ -107,7 +107,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <main className="flex min-h-screen bg-surface">
+    <main className="flex min-h-screen bg-white">
       {/* Brand panel - large screens only */}
       <aside className="relative hidden w-1/2 flex-col justify-between overflow-hidden bg-navy-900 p-12 text-white lg:flex">
         <div

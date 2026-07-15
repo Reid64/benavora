@@ -548,7 +548,7 @@ export function CampaignBuilder({
                 )}
 
                 {(step.subject.trim() !== "" || step.body.trim() !== "") && (
-                  <div className="rounded-lg border border-border bg-surface px-3 py-2 shadow-sm">
+                  <div className="rounded-lg border border-border bg-white px-3 py-2 shadow-sm">
                     <p className="text-[11px] font-medium uppercase tracking-wide text-navy-400">
                       Preview · {chLabel} (sample data)
                     </p>

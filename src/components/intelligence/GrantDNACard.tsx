@@ -72,7 +72,7 @@ const DNARadarChart = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="h-[220px] animate-pulse rounded-lg bg-surface-raised" />
+      <div className="h-[220px] animate-pulse rounded-lg bg-white-raised" />
     ),
   },
 );
@@ -110,9 +110,9 @@ export function GrantDNACard({ result, scoring = false, onReScore }: Props) {
   }));
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-surface shadow-sm">
+    <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
       {/* Header */}
-      <div className="flex items-center justify-between gap-3 rounded-t-xl border-b border-slate-200 bg-surface-sunken px-5 py-4">
+      <div className="flex items-center justify-between gap-3 rounded-t-xl border-b border-slate-200 bg-white-sunken px-5 py-4">
         <div className="flex items-center gap-2">
           <Activity className="h-4 w-4 text-primary" aria-hidden />
           <h3 className="text-base font-semibold text-text">Grant DNA Score</h3>
@@ -164,7 +164,7 @@ export function GrantDNACard({ result, scoring = false, onReScore }: Props) {
             return (
               <div key={key} className="flex items-center gap-2">
                 <span className="w-20 shrink-0 text-xs text-text-muted">{label}</span>
-                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-raised">
+                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white-raised">
                   <div
                     className={`h-full rounded-full transition-all ${barColor}`}
                     style={{ width: `${pct}%` }}

@@ -318,7 +318,7 @@ export default function AutomationSettingsPage() {
 
       {/* Bulk action bar — visible when rows are selected */}
       {selected.size > 0 && (
-        <div className="flex items-center gap-3 rounded-lg border border-border bg-surface px-4 py-3 shadow-sm">
+        <div className="flex items-center gap-3 rounded-lg border border-border bg-white px-4 py-3 shadow-sm">
           <span className="text-sm font-medium text-navy-700">
             {selected.size} selected
           </span>

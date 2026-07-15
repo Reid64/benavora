@@ -293,7 +293,7 @@ export default function CompetitorsPage() {
 
       {/* Run analysis section */}
       {editable && funders.length > 0 && (
-        <div className="rounded-xl border border-border bg-surface shadow-sm p-6">
+        <div className="rounded-xl border border-border bg-white shadow-sm p-6">
           <h2 className="mb-4 text-base font-semibold text-navy-900">
             Analyze a Funder
           </h2>
@@ -338,7 +338,7 @@ export default function CompetitorsPage() {
       {groups.map((group) => (
         <div
           key={group.funderId}
-          className="rounded-xl border border-border bg-surface shadow-sm"
+          className="rounded-xl border border-border bg-white shadow-sm"
         >
           {/* Funder header */}
           <button

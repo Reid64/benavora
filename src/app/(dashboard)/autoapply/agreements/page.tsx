@@ -443,7 +443,7 @@ export default function AgreementsPage() {
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-navy-100 bg-surface">
+              <tbody className="divide-y divide-navy-100 bg-white">
                 {agreements.map((a) => {
                   const { color, label } = statusBadge(a.status);
                   const reportDue = getReportingDueDate(a.reporting_requirements);
@@ -523,7 +523,7 @@ export default function AgreementsPage() {
                                   Reporting Requirements
                                 </p>
                                 {a.reporting_requirements ? (
-                                  <pre className="overflow-auto rounded bg-surface p-2 text-xs text-navy-600 shadow-sm border border-border">
+                                  <pre className="overflow-auto rounded bg-white p-2 text-xs text-navy-600 shadow-sm border border-border">
                                     {jsonDisplay(a.reporting_requirements)}
                                   </pre>
                                 ) : (
@@ -535,7 +535,7 @@ export default function AgreementsPage() {
                                   Payment Schedule
                                 </p>
                                 {a.payment_schedule ? (
-                                  <pre className="overflow-auto rounded bg-surface p-2 text-xs text-navy-600 shadow-sm border border-border">
+                                  <pre className="overflow-auto rounded bg-white p-2 text-xs text-navy-600 shadow-sm border border-border">
                                     {jsonDisplay(a.payment_schedule)}
                                   </pre>
                                 ) : (

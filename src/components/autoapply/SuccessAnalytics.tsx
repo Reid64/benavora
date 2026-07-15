@@ -557,7 +557,7 @@ function StatCell({
   valueClass?: string;
 }) {
   return (
-    <div className="rounded-lg border border-border bg-surface-raised px-5 py-4">
+    <div className="rounded-lg border border-border bg-white-raised px-5 py-4">
       <p className="text-xs font-medium uppercase tracking-wide text-navy-400">
         {label}
       </p>

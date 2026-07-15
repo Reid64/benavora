@@ -966,11 +966,11 @@ function ProspectsTab() {
           rowKey={(r) => r.id}
           pageSize={25}
           emptyMessage="No prospects match your search."
-          containerClassName="bg-surface rounded-xl shadow-sm border border-border overflow-x-auto"
+          containerClassName="bg-white rounded-xl shadow-sm border border-border overflow-x-auto"
           tableClassName="min-w-[700px] divide-y divide-slate-200"
           theadClassName="bg-sidebar"
           thClassName="bg-sidebar text-white text-xs font-semibold uppercase tracking-wide px-4 py-3"
-          tbodyClassName="divide-y divide-slate-200 bg-surface"
+          tbodyClassName="divide-y divide-slate-200 bg-white"
           rowClassName="hover:bg-slate-50 transition-colors"
         />
       )}

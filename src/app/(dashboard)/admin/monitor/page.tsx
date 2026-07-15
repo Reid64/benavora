@@ -206,7 +206,7 @@ export default function AdminMonitorPage() {
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-navy-100 bg-surface">
+              <tbody className="divide-y divide-navy-100 bg-white">
                 {data.recent_failures.map((failure) => (
                   <tr key={failure.id} className="hover:bg-navy-50">
                     <td className="px-5 py-3 font-medium text-navy-900">

@@ -90,7 +90,7 @@ function FunderCard({
   }, [explanation, explanationLoading, rec.foundation_id]);
 
   return (
-    <div className="rounded-xl border border-border bg-surface shadow-sm">
+    <div className="rounded-xl border border-border bg-white shadow-sm">
       <div className="flex items-start gap-4 px-5 py-4">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
@@ -133,7 +133,7 @@ function FunderCard({
           </button>
           <button
             onClick={toggleExpanded}
-            className="rounded-lg p-1.5 text-text-muted transition hover:bg-surface-raised hover:text-text"
+            className="rounded-lg p-1.5 text-text-muted transition hover:bg-white-raised hover:text-text"
             aria-label={expanded ? "Collapse" : "Expand match reasoning"}
           >
             {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
@@ -176,7 +176,7 @@ function FunderCard({
 
 function OrgSummaryCard({ org }: { org: OrgSummary }) {
   return (
-    <div className="rounded-xl border border-border bg-surface p-5 shadow-sm">
+    <div className="rounded-xl border border-border bg-white p-5 shadow-sm">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-lg font-semibold text-text">{org.name ?? "Your organization"}</h2>
         <span className="text-xs text-text-muted">Recommendations are tailored to this profile</span>
@@ -295,7 +295,7 @@ export default function RecommendationsPage() {
       {org && <OrgSummaryCard org={org} />}
 
       {/* Filters */}
-      <div className="rounded-xl border border-border bg-surface p-4 shadow-sm">
+      <div className="rounded-xl border border-border bg-white p-4 shadow-sm">
         <div className="flex flex-wrap items-end gap-4">
           <div className="min-w-[200px] flex-1">
             <label className="mb-1.5 block text-xs font-medium text-text-muted" htmlFor="category-select">
@@ -305,7 +305,7 @@ export default function RecommendationsPage() {
               id="category-select"
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              className="w-full rounded-lg border border-border bg-surface-raised px-3 py-2 text-sm text-text focus:border-primary focus:outline-none"
+              className="w-full rounded-lg border border-border bg-white-raised px-3 py-2 text-sm text-text focus:border-primary focus:outline-none"
             >
               <option value="">All categories</option>
               {PROGRAM_CATEGORIES.map((c) => (
@@ -325,7 +325,7 @@ export default function RecommendationsPage() {
               min={0}
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              className="w-full rounded-lg border border-border bg-surface-raised px-3 py-2 text-sm text-text focus:border-primary focus:outline-none"
+              className="w-full rounded-lg border border-border bg-white-raised px-3 py-2 text-sm text-text focus:border-primary focus:outline-none"
               placeholder="50000"
             />
           </div>
@@ -341,7 +341,7 @@ export default function RecommendationsPage() {
                 setGeography(e.target.value);
                 setGeographyTouched(true);
               }}
-              className="w-full rounded-lg border border-border bg-surface-raised px-3 py-2 text-sm text-text focus:border-primary focus:outline-none"
+              className="w-full rounded-lg border border-border bg-white-raised px-3 py-2 text-sm text-text focus:border-primary focus:outline-none"
               placeholder="e.g. Texas"
             />
           </div>
@@ -369,7 +369,7 @@ export default function RecommendationsPage() {
 
       {/* Results */}
       {!loading && recommendations.length === 0 && !error && (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-border bg-surface py-20 text-center shadow-sm">
+        <div className="flex flex-col items-center justify-center rounded-xl border border-border bg-white py-20 text-center shadow-sm">
           <Search className="mb-4 h-10 w-10 text-text-muted" />
           <p className="text-base font-semibold text-text">No recommendations found</p>
           <p className="mt-2 max-w-sm text-sm text-text-muted">

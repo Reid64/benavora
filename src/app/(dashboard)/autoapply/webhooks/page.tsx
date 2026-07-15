@@ -329,7 +329,7 @@ export default function WebhooksPage() {
             return (
               <div
                 key={config.id}
-                className="rounded-xl border border-border bg-surface shadow-sm px-5 py-4"
+                className="rounded-xl border border-border bg-white shadow-sm px-5 py-4"
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0 flex-1 space-y-2">

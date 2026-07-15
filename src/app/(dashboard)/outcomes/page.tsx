@@ -34,7 +34,7 @@ import type { Enums, Tables } from "@/types/database";
 
 type OutcomeResult = Enums<"outcome_result">;
 
-// Stages from which an outcome may be recorded (Behavioral Contracts §10):
+// Stages from which an outcome may be recorded (Behavioral Contracts Â§10):
 // awarded, denied, or submitted (early denial).
 const ELIGIBLE_STAGES: Enums<"pipeline_stage">[] = [
   "submitted",
@@ -92,7 +92,7 @@ function OutcomeMetricCard({
 }) {
   const styles = METRIC_ACCENTS[accent];
   return (
-    <div className="relative overflow-hidden rounded-xl border border-border bg-surface p-5 shadow-sm">
+    <div className="relative overflow-hidden rounded-xl border border-border bg-white p-5 shadow-sm">
       <div className={styles.bar} />
       <div className={styles.iconBg}>
         <Icon className={cn("h-5 w-5", styles.iconText)} aria-hidden />
@@ -149,10 +149,10 @@ function OutcomeBreakdownBar({ outcomes }: { outcomes: RecordedOutcome[] }) {
 }
 
 /**
- * Outcomes recording + history (BLUEPRINT §4.10). Lists recorded outcomes and
+ * Outcomes recording + history (BLUEPRINT Â§4.10). Lists recorded outcomes and
  * lets editors record a new one for any application that reached an eligible
  * stage and doesn't already have an outcome (one outcome per application -
- * Contracts §10). Recording an awarded/partial outcome triggers the Recursive
+ * Contracts Â§10). Recording an awarded/partial outcome triggers the Recursive
  * Learning Agent. Reads are RLS-scoped to the organization.
  */
 export default function OutcomesPage() {
@@ -271,7 +271,7 @@ export default function OutcomesPage() {
   }
 
   return (
-    <div className="min-h-screen space-y-6 bg-page p-6">
+    <div className="min-h-screen space-y-6 bg-[#CBD5E1] p-6">
       <PageHeader
         title="Outcomes"
         description="Record awards and denials. Awarded narratives train the learning system."
@@ -312,7 +312,7 @@ export default function OutcomesPage() {
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
             <OutcomeMetricCard
               label="Success Rate"
-              value={totals.successRate != null ? `${totals.successRate}%` : "—"}
+              value={totals.successRate != null ? `${totals.successRate}%` : "â€”"}
               hint={`${totals.awarded} awarded of ${totals.total}`}
               icon={Percent}
               accent="green"
@@ -355,7 +355,7 @@ export default function OutcomesPage() {
                         <div className="text-xs text-slate-500">
                           Requested {formatCurrency(app.requestedAmount)}
                           {app.funderCategory
-                            ? ` · ${humanizeEnum(app.funderCategory)}`
+                            ? ` Â· ${humanizeEnum(app.funderCategory)}`
                             : ""}
                         </div>
                       </div>
@@ -383,7 +383,7 @@ export default function OutcomesPage() {
             title="Recorded outcomes"
             description={
               outcomes.length > 0
-                ? `${totals.awarded} awarded · ${formatCurrency(totals.totalAwarded)} total awarded`
+                ? `${totals.awarded} awarded Â· ${formatCurrency(totals.totalAwarded)} total awarded`
                 : undefined
             }
           >

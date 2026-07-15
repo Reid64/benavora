@@ -702,7 +702,7 @@ export default function FormTemplatesPage() {
             return (
               <div
                 key={group.key}
-                className="overflow-hidden rounded-xl border border-border bg-surface shadow-sm"
+                className="overflow-hidden rounded-xl border border-border bg-white shadow-sm"
               >
                 {/* Card header — click to expand */}
                 <button

@@ -788,7 +788,7 @@ export default function DraftGeneratorPage() {
             </div>
           )}
 
-          <div className="bg-surface rounded-2xl shadow-sm border border-border p-8 space-y-8">
+          <div className="bg-white rounded-2xl shadow-sm border border-border p-8 space-y-8">
             <div>
               <h2 className="text-base font-semibold text-slate-900 mb-4 flex items-center gap-2">
                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-white">
@@ -1057,12 +1057,12 @@ export default function DraftGeneratorPage() {
                       }}
                     />
                   ) : (
-                    <div className="rounded-xl border border-border bg-surface shadow-sm p-5">
+                    <div className="rounded-xl border border-border bg-white shadow-sm p-5">
                       <div className="mb-3 flex items-center gap-2">
                         <Dna className="h-4 w-4 animate-spin text-primary" aria-hidden />
                         <h3 className="text-base font-semibold text-text">Grant DNA Score</h3>
                       </div>
-                      <div className="h-[220px] animate-pulse rounded-lg bg-surface-raised" />
+                      <div className="h-[220px] animate-pulse rounded-lg bg-white-raised" />
                     </div>
                   )
                 )}

@@ -920,7 +920,7 @@ function CalendarCard({
                 type="checkbox"
                 checked={autoDeadlines}
                 onChange={(e) => onAutoDeadlinesChange(e.target.checked)}
-                className="mt-0.5 rounded border-border bg-surface accent-primary"
+                className="mt-0.5 rounded border-border bg-white accent-primary"
               />
               Automatically create calendar events for new deadlines
             </label>

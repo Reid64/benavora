@@ -188,7 +188,7 @@ export default function NotificationsPage() {
             type="button"
             onClick={markAllRead}
             disabled={busyId === "all"}
-            className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-text-muted transition hover:bg-surface-raised hover:text-text disabled:opacity-50"
+            className="rounded-lg border border-border bg-white px-3 py-1.5 text-sm text-text-muted transition hover:bg-white-raised hover:text-text disabled:opacity-50"
           >
             Mark all read
           </button>
@@ -208,7 +208,7 @@ export default function NotificationsPage() {
                 "px-3 py-1.5 capitalize transition",
                 readFilter === f
                   ? "bg-teal-600 text-white"
-                  : "text-text-muted hover:bg-surface-raised hover:text-text",
+                  : "text-text-muted hover:bg-white-raised hover:text-text",
               )}
             >
               {f}
@@ -222,7 +222,7 @@ export default function NotificationsPage() {
           onChange={(e) =>
             setTypeFilter(e.target.value as NotificationEventType | "all")
           }
-          className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-text focus:outline-none focus:ring-2 focus:ring-teal-500"
+          className="rounded-lg border border-border bg-white px-3 py-1.5 text-sm text-text focus:outline-none focus:ring-2 focus:ring-teal-500"
         >
           <option value="all">All types</option>
           {ALL_EVENT_TYPES.map((t) => (
@@ -243,12 +243,12 @@ export default function NotificationsPage() {
           {error}
         </div>
       ) : visible.length === 0 ? (
-        <div className="rounded-xl border border-border bg-surface py-16 text-center">
+        <div className="rounded-xl border border-border bg-white py-16 text-center">
           <Bell className="mx-auto mb-3 h-8 w-8 text-text-muted" />
           <p className="text-sm text-text-muted">No notifications match your filters.</p>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
+        <div className="overflow-hidden rounded-xl border border-border bg-white shadow-sm">
           {visible.map((n, idx) => {
             const meta = metaFor(n.event_type);
             const Icon = meta.icon;
@@ -265,7 +265,7 @@ export default function NotificationsPage() {
                 {/* Icon */}
                 <div
                   className={cn(
-                    "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-raised",
+                    "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white-raised",
                     meta.color,
                   )}
                 >
@@ -303,7 +303,7 @@ export default function NotificationsPage() {
                         type="button"
                         onClick={() => markRead(n.id)}
                         disabled={busyId === n.id}
-                        className="shrink-0 rounded-md px-2 py-1 text-xs text-text-muted transition hover:bg-surface-raised hover:text-text disabled:opacity-50"
+                        className="shrink-0 rounded-md px-2 py-1 text-xs text-text-muted transition hover:bg-white-raised hover:text-text disabled:opacity-50"
                       >
                         Mark read
                       </button>

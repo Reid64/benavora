@@ -124,12 +124,12 @@ export function FunderCardGrid({
           {Array.from({ length: 6 }).map((_, i) => (
             <div
               key={i}
-              className="h-32 animate-pulse rounded-xl border border-border bg-surface-sunken"
+              className="h-32 animate-pulse rounded-xl border border-border bg-white-sunken"
             />
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="rounded-xl border border-border bg-surface shadow-sm p-10 text-center text-sm text-slate-500">
+        <div className="rounded-xl border border-border bg-white shadow-sm p-10 text-center text-sm text-slate-500">
           No funders match your filters.
         </div>
       ) : (

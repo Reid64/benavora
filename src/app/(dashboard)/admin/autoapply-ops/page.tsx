@@ -495,7 +495,7 @@ export default function AutoApplyOpsPage() {
       {/* Section 3: Cost Tracking */}
       <Card title="Cost Tracking" description="Today's spend across all tenants">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div className="rounded-lg border border-border bg-surface-raised px-5 py-4">
+          <div className="rounded-lg border border-border bg-white-raised px-5 py-4">
             <p className="text-xs font-medium uppercase tracking-wide text-navy-400">
               Total Today
             </p>
@@ -503,7 +503,7 @@ export default function AutoApplyOpsPage() {
               {fmtCost(costs.totalToday)}
             </p>
           </div>
-          <div className="rounded-lg border border-border bg-surface-raised px-5 py-4">
+          <div className="rounded-lg border border-border bg-white-raised px-5 py-4">
             <p className="text-xs font-medium uppercase tracking-wide text-navy-400">
               Cost per Submission
             </p>
@@ -511,7 +511,7 @@ export default function AutoApplyOpsPage() {
               {fmtCost(costs.costPerSubmission)}
             </p>
           </div>
-          <div className="rounded-lg border border-border bg-surface-raised px-5 py-4">
+          <div className="rounded-lg border border-border bg-white-raised px-5 py-4">
             <p className="text-xs font-medium uppercase tracking-wide text-navy-400">
               Breakdown by Category
             </p>
@@ -566,7 +566,7 @@ export default function AutoApplyOpsPage() {
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-navy-100 bg-surface">
+                  <tbody className="divide-y divide-navy-100 bg-white">
                     {portalHealth.blockRates.map((r) => (
                       <tr key={r.domain} className="hover:bg-navy-50">
                         <td className="max-w-xs truncate px-4 py-2.5 font-medium text-navy-900">

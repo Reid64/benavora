@@ -41,7 +41,7 @@ export function PlanCard({ tier, currentTier, onSelect, busy }: PlanCardProps) {
   return (
     <div
       className={cn(
-        "flex flex-col rounded-xl border bg-surface p-5 shadow-sm",
+        "flex flex-col rounded-xl border bg-white p-5 shadow-sm",
         isCurrent ? "border-teal-400 ring-1 ring-teal-400" : "border-border",
       )}
     >

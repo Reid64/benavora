@@ -169,14 +169,14 @@ function TaxonomyCombobox({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label="Filter by taxonomy"
-        className="flex w-full items-center justify-between rounded-lg border border-border bg-surface py-2 pl-3 pr-3 text-left text-sm text-text shadow-sm transition focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500"
+        className="flex w-full items-center justify-between rounded-lg border border-border bg-white py-2 pl-3 pr-3 text-left text-sm text-text shadow-sm transition focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500"
       >
         <span className="truncate">{selectedLabel}</span>
         <ChevronDown className="ml-2 h-4 w-4 shrink-0 text-navy-400" aria-hidden />
       </button>
 
       {open && (
-        <div className="absolute z-20 mt-1 w-full rounded-lg border border-border bg-surface shadow-lg">
+        <div className="absolute z-20 mt-1 w-full rounded-lg border border-border bg-white shadow-lg">
           <div className="relative border-b border-border p-2">
             <Search
               className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-navy-400"
@@ -189,7 +189,7 @@ function TaxonomyCombobox({
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search taxonomies..."
               aria-label="Search taxonomies"
-              className="w-full rounded-md border border-border bg-surface py-1.5 pl-8 pr-2 text-sm text-text placeholder:text-text-muted focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+              className="w-full rounded-md border border-border bg-white py-1.5 pl-8 pr-2 text-sm text-text placeholder:text-text-muted focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
             />
           </div>
           <ul role="listbox" className="max-h-64 overflow-y-auto py-1">
@@ -204,7 +204,7 @@ function TaxonomyCombobox({
                   className={`block w-full px-3 py-1.5 text-left text-sm transition ${
                     value === clearOption.value
                       ? "bg-teal-50 font-medium text-teal-700"
-                      : "text-text hover:bg-surface-raised"
+                      : "text-text hover:bg-white-raised"
                   }`}
                 >
                   {clearOption.label}
@@ -226,7 +226,7 @@ function TaxonomyCombobox({
                     className={`block w-full truncate px-3 py-1.5 text-left text-sm transition ${
                       value === o.value
                         ? "bg-teal-50 font-medium text-teal-700"
-                        : "text-text hover:bg-surface-raised"
+                        : "text-text hover:bg-white-raised"
                     }`}
                   >
                     {o.label}

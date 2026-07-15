@@ -317,7 +317,7 @@ export function FlightPathHUD() {
               <Link
                 href={stage.href}
                 className={cn(
-                  "absolute inset-0 rounded-xl bg-surface shadow-sm border border-border flex flex-col items-center justify-center backface-hidden",
+                  "absolute inset-0 rounded-xl bg-white shadow-sm border border-border flex flex-col items-center justify-center backface-hidden",
                   stage.borderClass,
                 )}
               >
