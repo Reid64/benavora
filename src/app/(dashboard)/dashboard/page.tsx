@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import type { CSSProperties } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   Award,
@@ -89,27 +90,54 @@ function StatCard({
   value,
   icon: Icon,
   accent,
+  style,
 }: {
   label: string;
   value: string;
   icon: LucideIcon;
   accent: StatAccent;
+  style?: CSSProperties;
 }) {
   const styles = STAT_ACCENTS[accent];
+  const colored = Boolean(style);
   return (
-    <div className="bg-white rounded-xl shadow-md border border-slate-300 p-5 relative overflow-hidden">
+    <div
+      className={cn(
+        "rounded-xl shadow-md border border-slate-300 p-5 relative overflow-hidden",
+        !colored && "bg-white",
+      )}
+      style={style}
+    >
       <div
         className={cn(
           "absolute top-4 right-4 w-10 h-10 rounded-lg flex items-center justify-center",
-          styles.iconBg,
+          !colored && styles.iconBg,
         )}
       >
-        <Icon className={cn("h-5 w-5", styles.iconText)} aria-hidden />
+        <Icon
+          className={cn(
+            "h-5 w-5",
+            colored ? "text-white opacity-70" : styles.iconText,
+          )}
+          aria-hidden
+        />
       </div>
-      <p className="text-slate-500 text-xs font-semibold uppercase tracking-wide">
+      <p
+        className={cn(
+          "text-xs font-semibold uppercase tracking-wide",
+          colored ? "text-white" : "text-slate-500",
+        )}
+      >
         {label}
       </p>
-      <p className="text-slate-900 text-3xl font-bold mt-2">{value}</p>
+      <p
+        className={cn(
+          "text-3xl font-bold mt-2",
+          colored ? "text-white" : "text-slate-900",
+        )}
+      >
+        {value}
+      </p>
     </div>
   );
 }
@@ -287,24 +315,28 @@ export default async function DashboardPage() {
           value={metricCount(totalOpportunities)}
           icon={Search}
           accent="blue"
+          style={{ backgroundColor: "#0077B6" }}
         />
         <StatCard
           label="Applications Submitted"
           value={metricCount(submittedCount)}
           icon={Send}
           accent="violet"
+          style={{ backgroundColor: "#7C3AED" }}
         />
         <StatCard
           label="Drafts Generated"
           value={metricCount(draftsGenerated)}
           icon={FileText}
           accent="amber"
+          style={{ backgroundColor: "#F59E0B" }}
         />
         <StatCard
           label="Deadlines This Week"
           value={metricCount(deadlinesThisWeek)}
           icon={CalendarClock}
           accent="red"
+          style={{ backgroundColor: "#EF4444" }}
         />
       </div>
 
