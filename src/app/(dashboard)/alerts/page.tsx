@@ -94,9 +94,9 @@ const FILTERS: { key: FilterType; label: string }[] = [
 ];
 
 const SEVERITY: Record<AlertSeverity, { accent: string }> = {
-  critical: { accent: "border-l-4 border-[#EF4444]" },
-  warning: { accent: "border-l-4 border-[#F59E0B]" },
-  info: { accent: "border-l-4 border-[#0077B6]" },
+  critical: { accent: "border-l-4 border-[#EF4444] border-accent-red" },
+  warning: { accent: "border-l-4 border-[#F59E0B] border-accent-amber" },
+  info: { accent: "border-l-4 border-[#0077B6] border-accent-blue" },
 };
 
 const SEVERITY_STYLE: Record<AlertSeverity, CSSProperties> = {
@@ -201,7 +201,7 @@ export default function AlertsPage() {
   }
 
   return (
-    <div className="min-h-screen space-y-6 bg-[#CBD5E1] p-6">
+    <div className="min-h-screen space-y-6 bg-[#CBD5E1] p-6 page-bg">
       <PageHeader
         title="Alerts"
         description="Your daily action list â€” deadlines, new opportunities, applications needing action, and drafts pending review."

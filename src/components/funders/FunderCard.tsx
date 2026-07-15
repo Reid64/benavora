@@ -5,6 +5,7 @@ import { AlertTriangle, Building2 } from "lucide-react";
 
 import { Badge } from "@/components/ui";
 import { formatDate, humanizeEnum } from "@/lib/utils/formatters";
+import { cn } from "@/lib/utils/cn";
 import type { Enums } from "@/types/database";
 import type { FunderRow } from "@/components/funders/FunderTable";
 
@@ -43,9 +44,19 @@ const FUNDER_BORDER_COLOR: Record<string, string> = {
   Corporate: "#00B4D8",
 };
 
+const FUNDER_BORDER_CLASS: Record<string, string> = {
+  Government: "border-accent-blue",
+  Foundation: "border-accent-violet",
+  Corporate: "border-accent-cyan",
+};
+
 function getFunderBorderStyle(category: FunderCategory): CSSProperties | undefined {
   const color = FUNDER_BORDER_COLOR[getFunderTypeBadge(category).label];
   return color ? { borderLeft: `4px solid ${color}` } : undefined;
+}
+
+function getFunderBorderClass(category: FunderCategory): string | undefined {
+  return FUNDER_BORDER_CLASS[getFunderTypeBadge(category).label];
 }
 
 /** Colored relationship-score pill: green 70+, amber 40-69, red below 40, gray when unscored. */
@@ -88,7 +99,10 @@ export function FunderCard({
           onClick();
         }
       }}
-      className="bg-white rounded-xl shadow-sm border border-border p-5 hover:shadow-md hover:border-[#00B4D8] transition-all cursor-pointer"
+      className={cn(
+        "bg-white rounded-xl shadow-sm border border-border p-5 hover:shadow-md hover:border-[#00B4D8] transition-all cursor-pointer card-depth",
+        getFunderBorderClass(funder.category),
+      )}
       style={getFunderBorderStyle(funder.category)}
     >
       <div className="flex items-start justify-between gap-3">

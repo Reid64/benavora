@@ -68,7 +68,7 @@ export default function ContactsPage() {
   const showEmpty = !loading && !error && contacts.length === 0;
 
   return (
-    <div className="min-h-screen space-y-6 bg-[#EEF2F7] p-6">
+    <div className="min-h-screen space-y-6 bg-[#EEF2F7] p-6 page-bg">
       <PageHeader
         title="Contacts"
         description="People at your funders, with relationship status at a glance."

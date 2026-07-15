@@ -134,7 +134,7 @@ export default function FundersPage() {
   const showEmpty = !loading && !error && funders.length === 0;
 
   return (
-    <div className="min-h-screen space-y-6 bg-[#EEF2F7] p-6">
+    <div className="min-h-screen space-y-6 bg-[#EEF2F7] p-6 page-bg">
       <PageHeader
         title="Funders"
         description="Corporations, foundations, and agencies you track for funding."

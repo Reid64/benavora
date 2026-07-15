@@ -489,7 +489,7 @@ export default function ResearchPage() {
   }
 
   return (
-    <div className="space-y-8" style={{ backgroundColor: "#D6E4F0" }}>
+    <div className="space-y-8 page-bg" style={{ backgroundColor: "#D6E4F0" }}>
       {/* Header */}
       <PageHeader
         title="Research Command Center"
@@ -621,7 +621,7 @@ export default function ResearchPage() {
                 className={`relative flex cursor-pointer flex-col overflow-hidden rounded-xl bg-white p-4 shadow-sm transition-colors ${
                   isActive
                     ? "border-2 border-blue-400 ring-1 ring-blue-200"
-                    : "border border-border hover:border-slate-300"
+                    : "border border-border hover:border-slate-300 card-depth"
                 }`}
                 style={{
                   backgroundColor: "#FFFFFF",

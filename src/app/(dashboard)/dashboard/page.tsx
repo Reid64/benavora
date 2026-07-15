@@ -91,12 +91,14 @@ function StatCard({
   icon: Icon,
   accent,
   style,
+  className,
 }: {
   label: string;
   value: string;
   icon: LucideIcon;
   accent: StatAccent;
   style?: CSSProperties;
+  className?: string;
 }) {
   const styles = STAT_ACCENTS[accent];
   const colored = Boolean(style);
@@ -105,6 +107,7 @@ function StatCard({
       className={cn(
         "rounded-xl shadow-md border border-slate-300 p-5 relative overflow-hidden",
         !colored && "bg-white",
+        className,
       )}
       style={style}
     >
@@ -284,7 +287,7 @@ export default async function DashboardPage() {
     outcomes.length === 0;
 
   return (
-    <div className="min-h-screen p-6" style={{ backgroundColor: "#D6E4F0" }}>
+    <div className="min-h-screen p-6 page-bg" style={{ backgroundColor: "#D6E4F0" }}>
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-primary">Dashboard</h1>
         <p className="text-slate-500 text-sm mt-1">
@@ -316,6 +319,7 @@ export default async function DashboardPage() {
           icon={Search}
           accent="blue"
           style={{ backgroundColor: "#0077B6" }}
+          className="card-blue"
         />
         <StatCard
           label="Applications Submitted"
@@ -323,6 +327,7 @@ export default async function DashboardPage() {
           icon={Send}
           accent="violet"
           style={{ backgroundColor: "#00B4D8" }}
+          className="card-cyan"
         />
         <StatCard
           label="Drafts Generated"
@@ -330,6 +335,7 @@ export default async function DashboardPage() {
           icon={FileText}
           accent="amber"
           style={{ backgroundColor: "#6B48CC" }}
+          className="card-violet"
         />
         <StatCard
           label="Deadlines This Week"
@@ -337,6 +343,7 @@ export default async function DashboardPage() {
           icon={CalendarClock}
           accent="red"
           style={{ backgroundColor: "#1A2B3C" }}
+          className="card-navy"
         />
       </div>
 
@@ -352,6 +359,7 @@ export default async function DashboardPage() {
             border: "1px solid #CBD5E1",
             boxShadow: "0 1px 2px 0 rgba(0,0,0,0.05)",
           }}
+          className="card-depth"
         />
         <MetricCard
           label="Total Awarded"
@@ -363,6 +371,7 @@ export default async function DashboardPage() {
             border: "1px solid #CBD5E1",
             boxShadow: "0 1px 2px 0 rgba(0,0,0,0.05)",
           }}
+          className="card-depth"
         />
         <MetricCard
           label="Success Rate"
@@ -374,6 +383,7 @@ export default async function DashboardPage() {
             border: "1px solid #CBD5E1",
             boxShadow: "0 1px 2px 0 rgba(0,0,0,0.05)",
           }}
+          className="card-depth"
           hint={
             summary.successRate != null
               ? `${summary.awarded} awarded of ${summary.total}`

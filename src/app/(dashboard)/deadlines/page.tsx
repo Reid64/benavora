@@ -58,9 +58,9 @@ function urgencyBucket(band: UrgencyBand): UrgencyBucket {
 }
 
 const URGENCY_ITEM_CLASSES: Record<UrgencyBucket, string> = {
-  overdue: "bg-[#FEF2F2] border-l-4 border-[#EF4444] rounded-xl p-4 mb-3",
-  week: "bg-[#FFFBEB] border-l-4 border-[#F59E0B] rounded-xl p-4 mb-3",
-  future: "bg-white shadow-sm border border-border rounded-xl p-4 mb-3",
+  overdue: "bg-[#FEF2F2] border-l-4 border-[#EF4444] rounded-xl p-4 mb-3 border-accent-red",
+  week: "bg-[#FFFBEB] border-l-4 border-[#F59E0B] rounded-xl p-4 mb-3 border-accent-amber",
+  future: "bg-white shadow-sm border border-border rounded-xl p-4 mb-3 border-accent-green",
 };
 
 const URGENCY_ITEM_STYLE: Record<UrgencyBucket, CSSProperties> = {
@@ -491,7 +491,7 @@ export default function DeadlinesPage() {
 
   // --- Render ---
   return (
-    <div className="min-h-screen space-y-6 bg-[#CBD5E1] p-6">
+    <div className="min-h-screen space-y-6 bg-[#CBD5E1] p-6 page-bg">
       <PageHeader
         title="Deadlines"
         description="Application, follow-up, reporting, renewal, and document-expiration dates, color-coded by urgency."

@@ -300,7 +300,14 @@ export function OpportunityTable({
         if (!row.status) return <span className="text-navy-400">-</span>;
         if (row.status === "open") {
           return (
-            <span className="inline-flex items-center rounded-full bg-[#DCFCE7] px-2.5 py-1 text-xs font-semibold text-[#15803D]">
+            <span className="inline-flex items-center rounded-full bg-[#DCFCE7] px-2.5 py-1 text-xs font-semibold text-[#15803D] badge-green">
+              {humanizeEnum(row.status)}
+            </span>
+          );
+        }
+        if (row.status === "closed") {
+          return (
+            <span className="inline-flex items-center rounded-full bg-[#FEE2E2] px-2.5 py-1 text-xs font-semibold text-[#B91C1C] badge-red">
               {humanizeEnum(row.status)}
             </span>
           );
@@ -365,6 +372,7 @@ export function OpportunityTable({
           initialSort={{ key: "match", direction: "desc" }}
           emptyMessage="No opportunities match your filters."
           tableClassName="min-w-[700px] divide-y divide-slate-200"
+          theadClassName="bg-sidebar table-header-dark"
         />
       )}
     </div>

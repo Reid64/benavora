@@ -111,6 +111,30 @@ export function stagePillStyle(stage: PipelineStage): CSSProperties {
   return STAGE_PILL_STYLE[stage];
 }
 
+/**
+ * Premium-UI badge class per stage, matching the four named lifecycle families
+ * (Discovery/Applied/Awarded/Rejected). "Eligibility Review" has no requested
+ * color, so it gets none rather than an invented one.
+ */
+const STAGE_PILL_BADGE_CLASS: Partial<Record<PipelineStage, string>> = {
+  discovered: "badge-blue",
+  qualified: "badge-violet",
+  drafting: "badge-violet",
+  awaiting_documents: "badge-violet",
+  ready_for_review: "badge-violet",
+  submitted: "badge-violet",
+  follow_up_due: "badge-violet",
+  awarded: "badge-green",
+  reporting_required: "badge-green",
+  renewal_opportunity: "badge-green",
+  denied: "badge-red",
+};
+
+/** Premium-UI badge class for a stage's pill, or undefined if none is defined. */
+export function stagePillBadgeClass(stage: PipelineStage): string | undefined {
+  return STAGE_PILL_BADGE_CLASS[stage];
+}
+
 /** True when a deadline is within a week (or past) — the "urgent" threshold for Elevated Slate deadline styling. */
 export function isUrgentDeadline(deadline: string): boolean {
   return differenceInCalendarDays(new Date(deadline), new Date()) < 7;

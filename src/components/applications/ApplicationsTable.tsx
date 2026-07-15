@@ -12,6 +12,7 @@ import {
   isUrgentDeadline,
   stagePillClassName,
   stagePillStyle,
+  stagePillBadgeClass,
   type EnrichedApplication,
   type PipelineStage,
   executeTransition,
@@ -351,7 +352,7 @@ export function ApplicationsTable({
 
       {/* Sort header */}
       {filtered.length > 0 && (
-        <div className="flex items-center gap-4 rounded-xl border border-border bg-white px-5 py-2.5 shadow-sm">
+        <div className="flex items-center gap-4 rounded-xl border border-border bg-white px-5 py-2.5 shadow-sm table-header-dark">
           <input
             type="checkbox"
             checked={allSelected}
@@ -410,7 +411,7 @@ export function ApplicationsTable({
 
               <div className="hidden w-44 shrink-0 md:block">
                 <span
-                  className={stagePillClassName(app.stage)}
+                  className={cn(stagePillClassName(app.stage), stagePillBadgeClass(app.stage))}
                   style={stagePillStyle(app.stage)}
                 >
                   {STAGE_LABEL[app.stage]}

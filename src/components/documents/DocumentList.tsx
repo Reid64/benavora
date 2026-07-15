@@ -262,7 +262,7 @@ export function DocumentList({
             return (
               <div
                 key={doc.id}
-                className="bg-white rounded-xl shadow-sm border border-border p-4 hover:border-[#00B4D8] transition-colors"
+                className="bg-white rounded-xl shadow-sm border border-border p-4 hover:border-[#00B4D8] transition-colors card-depth"
               >
                 <div className="flex items-start gap-3">
                   <FileTypeIcon fileName={doc.file_name} mimeType={doc.mime_type} />

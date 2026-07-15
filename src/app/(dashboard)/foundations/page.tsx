@@ -389,7 +389,7 @@ export default function FoundationsPage() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
-    <div className="min-h-screen space-y-6 bg-[#EEF2F7] p-6">
+    <div className="min-h-screen space-y-6 bg-[#EEF2F7] p-6 page-bg">
       <PageHeader
         title="Foundation Directory"
         description="Browse IRS 990 foundation data. Import foundations as funders to start tracking."
