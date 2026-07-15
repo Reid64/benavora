@@ -78,31 +78,31 @@ type StatAccent = "blue" | "violet" | "amber" | "red";
 
 const STAT_ACCENTS: Record<
   StatAccent,
-  { bar: string; iconBg: string; iconText: string }
+  { bg: string; iconBg: string; iconText: string }
 > = {
   blue: {
-    bar: "absolute left-0 top-0 bottom-0 w-1 bg-[#0077B6] rounded-l-xl",
+    bg: "bg-[#0077B6]",
     iconBg:
-      "absolute top-4 right-4 w-10 h-10 rounded-lg flex items-center justify-center bg-[#0077B6]/10",
-    iconText: "text-[#0077B6]",
+      "absolute top-4 right-4 w-10 h-10 rounded-lg flex items-center justify-center bg-white/10",
+    iconText: "text-white/70",
   },
   violet: {
-    bar: "absolute left-0 top-0 bottom-0 w-1 bg-[#7C3AED] rounded-l-xl",
+    bg: "bg-[#005F92]",
     iconBg:
-      "absolute top-4 right-4 w-10 h-10 rounded-lg flex items-center justify-center bg-[#7C3AED]/10",
-    iconText: "text-[#7C3AED]",
+      "absolute top-4 right-4 w-10 h-10 rounded-lg flex items-center justify-center bg-white/10",
+    iconText: "text-white/70",
   },
   amber: {
-    bar: "absolute left-0 top-0 bottom-0 w-1 bg-[#F59E0B] rounded-l-xl",
+    bg: "bg-[#00B4D8]",
     iconBg:
-      "absolute top-4 right-4 w-10 h-10 rounded-lg flex items-center justify-center bg-[#F59E0B]/10",
-    iconText: "text-[#F59E0B]",
+      "absolute top-4 right-4 w-10 h-10 rounded-lg flex items-center justify-center bg-white/10",
+    iconText: "text-white/70",
   },
   red: {
-    bar: "absolute left-0 top-0 bottom-0 w-1 bg-[#EF4444] rounded-l-xl",
+    bg: "bg-[#023E8A]",
     iconBg:
-      "absolute top-4 right-4 w-10 h-10 rounded-lg flex items-center justify-center bg-[#EF4444]/10",
-    iconText: "text-[#EF4444]",
+      "absolute top-4 right-4 w-10 h-10 rounded-lg flex items-center justify-center bg-white/10",
+    iconText: "text-white/70",
   },
 };
 
@@ -120,15 +120,19 @@ function StatCard({
 }) {
   const styles = STAT_ACCENTS[accent];
   return (
-    <div className="bg-surface rounded-xl shadow-sm border border-border p-5 relative overflow-hidden">
-      <div className={styles.bar} />
+    <div
+      className={cn(
+        styles.bg,
+        "rounded-xl shadow-md p-5 relative overflow-hidden",
+      )}
+    >
       <div className={styles.iconBg}>
         <Icon className={cn("h-5 w-5", styles.iconText)} aria-hidden />
       </div>
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+      <p className="text-white/70 text-xs font-semibold uppercase tracking-wide">
         {label}
       </p>
-      <p className="text-3xl font-bold text-slate-900 mt-2">{value}</p>
+      <p className="text-white text-3xl font-bold mt-2">{value}</p>
     </div>
   );
 }
