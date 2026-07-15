@@ -1,5 +1,6 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import { AlertTriangle, Building2 } from "lucide-react";
 
 import { Badge } from "@/components/ui";
@@ -34,6 +35,17 @@ const FUNDER_TYPE_BADGES: {
 function getFunderTypeBadge(category: FunderCategory) {
   const match = FUNDER_TYPE_BADGES.find((entry) => entry.test(category));
   return match ?? { label: humanizeEnum(category), className: "bg-slate-100 text-slate-600" };
+}
+
+const FUNDER_BORDER_COLOR: Record<string, string> = {
+  Government: "#0077B6",
+  Foundation: "#6B48CC",
+  Corporate: "#00B4D8",
+};
+
+function getFunderBorderStyle(category: FunderCategory): CSSProperties | undefined {
+  const color = FUNDER_BORDER_COLOR[getFunderTypeBadge(category).label];
+  return color ? { borderLeft: `4px solid ${color}` } : undefined;
 }
 
 /** Colored relationship-score pill: green 70+, amber 40-69, red below 40, gray when unscored. */
@@ -77,6 +89,7 @@ export function FunderCard({
         }
       }}
       className="bg-white rounded-xl shadow-sm border border-border p-5 hover:shadow-md hover:border-[#00B4D8] transition-all cursor-pointer"
+      style={getFunderBorderStyle(funder.category)}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">

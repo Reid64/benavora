@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { CSSProperties } from "react";
 import Link from "next/link";
 import {
   addMonths,
@@ -60,6 +61,12 @@ const URGENCY_ITEM_CLASSES: Record<UrgencyBucket, string> = {
   overdue: "bg-[#FEF2F2] border-l-4 border-[#EF4444] rounded-xl p-4 mb-3",
   week: "bg-[#FFFBEB] border-l-4 border-[#F59E0B] rounded-xl p-4 mb-3",
   future: "bg-white shadow-sm border border-border rounded-xl p-4 mb-3",
+};
+
+const URGENCY_ITEM_STYLE: Record<UrgencyBucket, CSSProperties> = {
+  overdue: { borderLeft: "4px solid #EF4444", backgroundColor: "#FEF2F2" },
+  week: { borderLeft: "4px solid #F59E0B", backgroundColor: "#FFFBEB" },
+  future: { borderLeft: "4px solid #10B981", backgroundColor: "#F0FDF4" },
 };
 
 const URGENCY_DATE_CLASSES: Record<UrgencyBucket, string> = {
@@ -757,6 +764,7 @@ function ComplianceList({ items }: { items: ComplianceItem[] }) {
                   ? "mb-3 rounded-xl border border-border bg-white shadow-sm p-4"
                   : URGENCY_ITEM_CLASSES[bucket],
               )}
+              style={isCompleted ? undefined : URGENCY_ITEM_STYLE[bucket]}
             >
               <div className="min-w-0">
                 <div
@@ -870,6 +878,7 @@ function ListView({
                 ? "mb-3 rounded-xl border border-slate-200 bg-white p-4"
                 : URGENCY_ITEM_CLASSES[bucket],
             )}
+            style={completed ? undefined : URGENCY_ITEM_STYLE[bucket]}
           >
             <div className="min-w-0">
               <div

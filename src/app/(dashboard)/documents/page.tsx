@@ -94,7 +94,10 @@ export default function DocumentsPage() {
   const showEmpty = !loading && !error && documents.length === 0;
 
   return (
-    <div className="min-h-screen space-y-6 bg-[#EEF2F7] p-6">
+    <div
+      className="min-h-screen space-y-6 bg-[#EEF2F7] p-6"
+      style={{ backgroundColor: "#D6E4F0" }}
+    >
       <PageHeader
         title="Documents"
         description="Upload, categorize, and attach supporting files to applications."

@@ -1,5 +1,6 @@
 import { differenceInCalendarDays } from "date-fns";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { CSSProperties } from "react";
 
 import type { BadgeColor } from "@/components/ui";
 import { recordAudit } from "@/lib/audit/client";
@@ -87,6 +88,27 @@ const STAGE_PILL_CLASSES: Record<PipelineStage, string> = {
 /** Tailwind classes for a stage's Elevated Slate pill (color only — pair with STAGE_LABEL for text). */
 export function stagePillClassName(stage: PipelineStage): string {
   return STAGE_PILL_CLASSES[stage];
+}
+
+/** Inline-style equivalent of STAGE_PILL_CLASSES, guaranteed to render regardless of utility-class overrides. */
+const STAGE_PILL_STYLE: Record<PipelineStage, CSSProperties> = {
+  discovered: { backgroundColor: "#DBEAFE", color: "#1D4ED8" },
+  eligibility_review: { backgroundColor: "#FEF3C7", color: "#92400E" },
+  qualified: { backgroundColor: "#EDE9FE", color: "#6D28D9" },
+  drafting: { backgroundColor: "#EDE9FE", color: "#6D28D9" },
+  awaiting_documents: { backgroundColor: "#EDE9FE", color: "#6D28D9" },
+  ready_for_review: { backgroundColor: "#EDE9FE", color: "#6D28D9" },
+  submitted: { backgroundColor: "#EDE9FE", color: "#6D28D9" },
+  follow_up_due: { backgroundColor: "#EDE9FE", color: "#6D28D9" },
+  awarded: { backgroundColor: "#DCFCE7", color: "#15803D" },
+  reporting_required: { backgroundColor: "#DCFCE7", color: "#15803D" },
+  renewal_opportunity: { backgroundColor: "#DCFCE7", color: "#15803D" },
+  denied: { backgroundColor: "#FEE2E2", color: "#B91C1C" },
+};
+
+/** Inline style for a stage's pill background/text color (see STAGE_PILL_STYLE). */
+export function stagePillStyle(stage: PipelineStage): CSSProperties {
+  return STAGE_PILL_STYLE[stage];
 }
 
 /** True when a deadline is within a week (or past) — the "urgent" threshold for Elevated Slate deadline styling. */

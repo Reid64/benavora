@@ -851,7 +851,7 @@ function InviteModal({
 }
 
 // ---------------------------------------------------------------------------
-// Usage dashboard (Behavioral Contracts Â§25 / BLUEPRINT Phase 5)
+// Usage dashboard (Behavioral Contracts Â§25)
 // ---------------------------------------------------------------------------
 
 interface UsageResource {
@@ -1034,27 +1034,22 @@ function UsageDashboardSection() {
 // ---------------------------------------------------------------------------
 
 // Human labels for the feature.* flags seeded per organization (SCHEMA_REGISTRY
-// platform_config). Display-only in the MVP - the underlying phases ship later.
-const FEATURE_FLAG_LABELS: Record<string, { label: string; phase: string }> = {
+// platform_config). Display-only in the MVP - the underlying capabilities ship later.
+const FEATURE_FLAG_LABELS: Record<string, { label: string }> = {
   "feature.research_agents": {
     label: "Automated research agents",
-    phase: "Phase 2",
   },
   "feature.browser_automation": {
     label: "Browser automation (form filling)",
-    phase: "Phase 3",
   },
   "feature.email_integration": {
     label: "Email & calendar integration",
-    phase: "Phase 4",
   },
   "feature.cold_outreach_email": {
     label: "Cold outreach email sending",
-    phase: "Phase 4",
   },
   "feature.stripe_billing": {
     label: "Stripe subscription billing",
-    phase: "Phase 5",
   },
 };
 
@@ -1129,7 +1124,6 @@ function FeatureFlagsSection() {
               >
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-slate-700">{meta.label}</p>
-                  <p className="text-xs text-slate-400 mt-0.5">{meta.phase}</p>
                 </div>
                 <ToggleIndicator enabled={enabled} />
               </li>

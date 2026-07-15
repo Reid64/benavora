@@ -10,6 +10,7 @@ import {
   STAGE_LABEL,
   isUrgentDeadline,
   stagePillClassName,
+  stagePillStyle,
   type EnrichedApplication,
   type PipelineStage,
 } from "@/components/applications/pipeline";
@@ -126,7 +127,10 @@ function KanbanCard({
         <p className="truncate text-xs text-slate-500">
           {app.funderName ?? "—"}
         </p>
-        <span className={cn(stagePillClassName(app.stage), "shrink-0 !px-1.5 !py-0.5 !text-[10px]")}>
+        <span
+          className={cn(stagePillClassName(app.stage), "shrink-0 !px-1.5 !py-0.5 !text-[10px]")}
+          style={stagePillStyle(app.stage)}
+        >
           {STAGE_LABEL[app.stage]}
         </span>
       </div>

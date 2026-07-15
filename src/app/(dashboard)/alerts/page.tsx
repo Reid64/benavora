@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import Link from "next/link";
 import {
   AlarmClock,
@@ -96,6 +97,12 @@ const SEVERITY: Record<AlertSeverity, { accent: string }> = {
   critical: { accent: "border-l-4 border-[#EF4444]" },
   warning: { accent: "border-l-4 border-[#F59E0B]" },
   info: { accent: "border-l-4 border-[#0077B6]" },
+};
+
+const SEVERITY_STYLE: Record<AlertSeverity, CSSProperties> = {
+  critical: { borderLeft: "4px solid #EF4444" },
+  warning: { borderLeft: "4px solid #F59E0B" },
+  info: { borderLeft: "4px solid #0077B6" },
 };
 
 const SNOOZE_OPTIONS: { label: string; ms: number }[] = [
@@ -370,6 +377,7 @@ function AlertRow({
         alert.is_read ? "bg-white" : "bg-[#EFF6FF]",
         styles.accent,
       )}
+      style={SEVERITY_STYLE[alert.severity]}
     >
       {alert.link ? (
         <Link

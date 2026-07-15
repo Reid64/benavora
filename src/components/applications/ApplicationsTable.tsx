@@ -11,6 +11,7 @@ import {
   canMoveToStage,
   isUrgentDeadline,
   stagePillClassName,
+  stagePillStyle,
   type EnrichedApplication,
   type PipelineStage,
   executeTransition,
@@ -408,7 +409,10 @@ export function ApplicationsTable({
               </p>
 
               <div className="hidden w-44 shrink-0 md:block">
-                <span className={stagePillClassName(app.stage)}>
+                <span
+                  className={stagePillClassName(app.stage)}
+                  style={stagePillStyle(app.stage)}
+                >
                   {STAGE_LABEL[app.stage]}
                 </span>
               </div>

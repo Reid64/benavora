@@ -227,7 +227,10 @@ function ContactListRow({
       }}
       className="bg-white border-b border-slate-100 last:border-b-0 px-5 py-4 flex items-center gap-4 hover:bg-[#F0F4F8] transition-colors cursor-pointer"
     >
-      <div className="w-12 h-12 shrink-0 rounded-full bg-[#0077B6] text-white flex items-center justify-center text-lg font-bold">
+      <div
+        className="w-12 h-12 shrink-0 rounded-full bg-[#0077B6] text-white flex items-center justify-center text-lg font-bold"
+        style={{ backgroundColor: "#0077B6", color: "#FFFFFF" }}
+      >
         {contactInitials(contact.name)}
       </div>
 
