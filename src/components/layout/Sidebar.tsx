@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import type { CSSProperties } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Telescope, X } from "lucide-react";
@@ -39,6 +40,13 @@ const NAV_ITEM_INACTIVE =
   "flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#CBD5E1] hover:bg-[#243B55] hover:text-white transition-colors text-sm";
 const SECTION_LABEL =
   "px-3 pt-5 pb-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-[#64748B]";
+const NAV_ITEM_ACTIVE_STYLE: CSSProperties = {
+  backgroundColor: "#0077B6",
+  borderLeft: "3px solid #00B4D8",
+};
+const navLabelStyle = (active: boolean): CSSProperties => ({
+  color: active ? "#FFFFFF" : "#CBD5E1",
+});
 
 function NavBadge({ count }: { count: number }) {
   if (count <= 0) return null;
@@ -134,7 +142,10 @@ export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarPro
         }`}
         aria-label="Primary navigation"
       >
-        <div className="bg-[#1A2B3C] flex flex-col h-full">
+        <div
+          className="bg-[#1A2B3C] flex flex-col h-full"
+          style={{ backgroundColor: "#1A2B3C" }}
+        >
           {/* Brand + mobile close */}
           <div className="px-6 py-5 border-b border-[#243B55]">
             <div className="flex items-center justify-between">
@@ -170,9 +181,15 @@ export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarPro
                   onClick={onClose}
                   aria-current={isActive(DONOR_DISCOVERY_DRILLDOWN.href) ? "page" : undefined}
                   className={isActive(DONOR_DISCOVERY_DRILLDOWN.href) ? NAV_ITEM_ACTIVE : NAV_ITEM_INACTIVE}
+                  style={isActive(DONOR_DISCOVERY_DRILLDOWN.href) ? NAV_ITEM_ACTIVE_STYLE : undefined}
                 >
                   <Telescope className="h-5 w-5 shrink-0" aria-hidden />
-                  <span className="truncate">{DONOR_DISCOVERY_DRILLDOWN.label}</span>
+                  <span
+                    className="truncate"
+                    style={navLabelStyle(isActive(DONOR_DISCOVERY_DRILLDOWN.href))}
+                  >
+                    {DONOR_DISCOVERY_DRILLDOWN.label}
+                  </span>
                 </Link>
               </div>
             )}
@@ -187,9 +204,12 @@ export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarPro
                       onClick={onClose}
                       aria-current={active ? "page" : undefined}
                       className={active ? NAV_ITEM_ACTIVE : NAV_ITEM_INACTIVE}
+                      style={active ? NAV_ITEM_ACTIVE_STYLE : undefined}
                     >
                       <Icon className="h-5 w-5 shrink-0" aria-hidden />
-                      <span className="truncate">{label}</span>
+                      <span className="truncate" style={navLabelStyle(active)}>
+                        {label}
+                      </span>
                       <NavBadge count={badge} />
                     </Link>
                     {active && children && children.length > 0 && (
@@ -237,9 +257,12 @@ export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarPro
                         onClick={onClose}
                         aria-current={active ? "page" : undefined}
                         className={active ? NAV_ITEM_ACTIVE : NAV_ITEM_INACTIVE}
+                        style={active ? NAV_ITEM_ACTIVE_STYLE : undefined}
                       >
                         <Icon className="h-5 w-5 shrink-0" aria-hidden />
-                        <span className="truncate">{label}</span>
+                        <span className="truncate" style={navLabelStyle(active)}>
+                          {label}
+                        </span>
                       </Link>
                     );
                   })}
@@ -259,9 +282,12 @@ export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarPro
                   onClick={onClose}
                   aria-current={active ? "page" : undefined}
                   className={active ? NAV_ITEM_ACTIVE : NAV_ITEM_INACTIVE}
+                  style={active ? NAV_ITEM_ACTIVE_STYLE : undefined}
                 >
                   <Icon className="h-5 w-5 shrink-0" aria-hidden />
-                  <span className="truncate">{label}</span>
+                  <span className="truncate" style={navLabelStyle(active)}>
+                    {label}
+                  </span>
                 </Link>
               );
             })()}

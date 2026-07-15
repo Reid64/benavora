@@ -489,7 +489,7 @@ export default function ResearchPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8" style={{ backgroundColor: "#D6E4F0" }}>
       {/* Header */}
       <PageHeader
         title="Research Command Center"
@@ -623,6 +623,11 @@ export default function ResearchPage() {
                     ? "border-2 border-blue-400 ring-1 ring-blue-200"
                     : "border border-border hover:border-slate-300"
                 }`}
+                style={{
+                  backgroundColor: "#FFFFFF",
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                  ...(isActive ? {} : { border: "1px solid #CBD5E1" }),
+                }}
               >
                 <span className="absolute inset-x-0 top-0 h-[3px] bg-accent" aria-hidden />
                 <div className="flex items-start justify-between gap-2">
@@ -713,17 +718,38 @@ export default function ResearchPage() {
         </form>
 
         {loading ? (
-          <div className="flex items-center justify-center rounded-xl border border-border bg-white p-10 text-sm text-slate-500">
+          <div
+            className="flex items-center justify-center rounded-xl border border-border bg-white p-10 text-sm text-slate-500"
+            style={{
+              backgroundColor: "#FFFFFF",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+              border: "1px solid #CBD5E1",
+            }}
+          >
             <Spinner className="mr-2 h-4 w-4 text-slate-400" />
             Loading opportunities...
           </div>
         ) : opportunities.length === 0 ? (
-          <div className="rounded-xl border border-border bg-white p-10 text-center text-sm text-slate-500">
+          <div
+            className="rounded-xl border border-border bg-white p-10 text-center text-sm text-slate-500"
+            style={{
+              backgroundColor: "#FFFFFF",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+              border: "1px solid #CBD5E1",
+            }}
+          >
             No discovered opportunities yet. Run a research agent above to find
             funding sources.
           </div>
         ) : visibleOpportunities.length === 0 ? (
-          <div className="rounded-xl border border-border bg-white p-10 text-center text-sm text-slate-500">
+          <div
+            className="rounded-xl border border-border bg-white p-10 text-center text-sm text-slate-500"
+            style={{
+              backgroundColor: "#FFFFFF",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+              border: "1px solid #CBD5E1",
+            }}
+          >
             No discovered opportunities from {activeSourceLabel} yet.{" "}
             <button
               onClick={() => setActiveSource(null)}
@@ -733,7 +759,14 @@ export default function ResearchPage() {
             </button>
           </div>
         ) : searchedOpportunities.length === 0 ? (
-          <div className="rounded-xl border border-border bg-white p-10 text-center text-sm text-slate-500">
+          <div
+            className="rounded-xl border border-border bg-white p-10 text-center text-sm text-slate-500"
+            style={{
+              backgroundColor: "#FFFFFF",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+              border: "1px solid #CBD5E1",
+            }}
+          >
             No discovered opportunities match &ldquo;{searchQuery}&rdquo;.{" "}
             <button
               onClick={() => setSearchQuery("")}
@@ -753,6 +786,10 @@ export default function ResearchPage() {
                   key={opp.id}
                   onClick={() => router.push(`/opportunities/${opp.id}`)}
                   className="bg-white rounded-xl shadow-sm border border-border p-5 mb-4 hover:shadow-md hover:border-[#00B4D8] transition-all cursor-pointer"
+                  style={{
+                    backgroundColor: "#FFFFFF",
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                  }}
                 >
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div className="min-w-0 flex-1">
@@ -850,15 +887,32 @@ export default function ResearchPage() {
         )}
 
         {historicalAwards.length === 0 ? (
-          <div className="rounded-xl border border-border bg-white p-8 text-center text-sm text-slate-500">
+          <div
+            className="rounded-xl border border-border bg-white p-8 text-center text-sm text-slate-500"
+            style={{
+              backgroundColor: "#FFFFFF",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+              border: "1px solid #CBD5E1",
+            }}
+          >
             No historical awards yet. Pull awards to see who actually received
             grants like the ones you pursue.
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-border bg-white shadow-sm">
+          <div
+            className="overflow-x-auto rounded-xl border border-border bg-white shadow-sm"
+            style={{
+              backgroundColor: "#FFFFFF",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+              border: "1px solid #CBD5E1",
+            }}
+          >
             <table className="min-w-full divide-y divide-slate-200">
               <thead>
-                <tr className="bg-sidebar">
+                <tr
+                  className="bg-sidebar"
+                  style={{ backgroundColor: "#1A2B3C", color: "#FFFFFF" }}
+                >
                   {["Recipient", "Amount", "Agency", "Date", "Description"].map(
                     (col) => (
                       <th

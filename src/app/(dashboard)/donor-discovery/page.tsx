@@ -214,7 +214,7 @@ export default function DonorDiscoveryPage() {
   }, [hasActiveRequest, load]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" style={{ backgroundColor: "#D6E4F0" }}>
       <PageHeader
         title="Donor Discovery"
         description="Find and engage corporate donors matched to your mission."
@@ -267,7 +267,15 @@ export default function DonorDiscoveryPage() {
               const shownTaxonomyIds = taxonomyIds.slice(0, 3);
               const extraTaxonomyCount = taxonomyIds.length - shownTaxonomyIds.length;
               return (
-                <div key={req.id} className="bg-white rounded-xl shadow-sm border border-border p-5 mb-4">
+                <div
+                  key={req.id}
+                  className="bg-white rounded-xl shadow-sm border border-border p-5 mb-4"
+                  style={{
+                    backgroundColor: "#FFFFFF",
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                    border: "1px solid #CBD5E1",
+                  }}
+                >
                   <div className="flex items-start justify-between gap-2">
                     <p className="min-w-0 truncate text-sm font-semibold text-text">{req.name}</p>
                     <span
@@ -319,6 +327,10 @@ export default function DonorDiscoveryPage() {
               key={stage}
               href={`/donor-discovery/prospects?stage=${stage}`}
               className="bg-white shadow-sm rounded-lg border border-border px-4 py-3 text-center hover:border-[#0077B6] cursor-pointer transition-colors"
+              style={{
+                backgroundColor: "#FFFFFF",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+              }}
             >
               <p className="text-2xl font-bold text-slate-900">{loading ? "—" : stageCounts[stage]}</p>
               <p className="text-xs text-slate-400 mt-1">{humanizeEnum(stage)}</p>
@@ -347,7 +359,15 @@ export default function DonorDiscoveryPage() {
                 ? taxonomyLabelByCode.get(taxonomyCode) ?? taxonomyCode
                 : null;
               return (
-                <div key={p.id} className="flex flex-col rounded-lg border border-border bg-white p-4">
+                <div
+                  key={p.id}
+                  className="flex flex-col rounded-lg border border-border bg-white p-4"
+                  style={{
+                    backgroundColor: "#FFFFFF",
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                    border: "1px solid #CBD5E1",
+                  }}
+                >
                   <div className="flex items-start justify-between gap-2">
                     <p className="min-w-0 truncate text-sm font-semibold text-text">
                       {p.directory?.legal_name ?? "Unknown company"}

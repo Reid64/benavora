@@ -743,7 +743,7 @@ export default function DraftGeneratorPage() {
     confidence != null && confidence < AI_CONFIDENCE_THRESHOLD;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" style={{ backgroundColor: "#D6E4F0" }}>
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-primary">
           Draft Generator
@@ -788,7 +788,14 @@ export default function DraftGeneratorPage() {
             </div>
           )}
 
-          <div className="bg-white rounded-2xl shadow-sm border border-border p-8 space-y-8">
+          <div
+            className="bg-white rounded-2xl shadow-sm border border-border p-8 space-y-8"
+            style={{
+              backgroundColor: "#FFFFFF",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+              border: "1px solid #CBD5E1",
+            }}
+          >
             <div>
               <h2 className="text-base font-semibold text-slate-900 mb-4 flex items-center gap-2">
                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-white">
@@ -1057,7 +1064,14 @@ export default function DraftGeneratorPage() {
                       }}
                     />
                   ) : (
-                    <div className="rounded-xl border border-border bg-white shadow-sm p-5">
+                    <div
+                      className="rounded-xl border border-border bg-white shadow-sm p-5"
+                      style={{
+                        backgroundColor: "#FFFFFF",
+                        boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                        border: "1px solid #CBD5E1",
+                      }}
+                    >
                       <div className="mb-3 flex items-center gap-2">
                         <Dna className="h-4 w-4 animate-spin text-primary" aria-hidden />
                         <h3 className="text-base font-semibold text-text">Grant DNA Score</h3>

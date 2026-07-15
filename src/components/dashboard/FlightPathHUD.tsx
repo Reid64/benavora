@@ -323,7 +323,7 @@ export function FlightPathHUD() {
               >
                 <Icon className="h-6 w-6 text-slate-500" aria-hidden />
                 <p
-                  className="text-lg font-bold uppercase tracking-wide mt-2"
+                  className="text-base font-bold uppercase tracking-wide mt-2"
                   style={{ color: "#00B4D8" }}
                 >
                   {stage.label}

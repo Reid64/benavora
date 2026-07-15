@@ -39,7 +39,14 @@ const SuccessAnalytics = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="rounded-lg border border-border bg-white shadow-sm p-5 text-sm text-navy-400">
+      <div
+        className="rounded-lg border border-border bg-white shadow-sm p-5 text-sm text-navy-400"
+        style={{
+          backgroundColor: "#FFFFFF",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+          border: "1px solid #CBD5E1",
+        }}
+      >
         Loading analytics…
       </div>
     ),
@@ -342,7 +349,7 @@ export default function AutoApplyPage() {
   const allFundersSelected = funders.length > 0 && selectedFunderIds.size === funders.length;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8" style={{ backgroundColor: "#D6E4F0" }}>
       {/* Header */}
       <PageHeader
         title="AutoApply"
@@ -472,7 +479,10 @@ export default function AutoApplyPage() {
           ) : (
             <table className="min-w-full divide-y divide-navy-100 text-sm">
               <thead>
-                <tr className="bg-sidebar">
+                <tr
+                  className="bg-sidebar"
+                  style={{ backgroundColor: "#1A2B3C", color: "#FFFFFF" }}
+                >
                   <th className="w-10 px-4 py-3">
                     <input
                       type="checkbox"
@@ -581,7 +591,10 @@ export default function AutoApplyPage() {
           ) : (
             <table className="min-w-full divide-y divide-navy-100 text-sm">
               <thead>
-                <tr className="bg-sidebar">
+                <tr
+                  className="bg-sidebar"
+                  style={{ backgroundColor: "#1A2B3C", color: "#FFFFFF" }}
+                >
                   <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-white">
                     Funder
                   </th>

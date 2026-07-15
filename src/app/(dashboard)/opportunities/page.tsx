@@ -98,7 +98,10 @@ export default function OpportunitiesPage() {
   const showEmpty = !loading && !error && opportunities.length === 0;
 
   return (
-    <div className="min-h-screen space-y-6 bg-[#EEF2F7] p-6">
+    <div
+      className="min-h-screen space-y-6 bg-[#EEF2F7] p-6"
+      style={{ backgroundColor: "#D6E4F0" }}
+    >
       <PageHeader
         title="Opportunities"
         description="Grants, donation programs, and sponsorships you're tracking."

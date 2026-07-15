@@ -284,7 +284,7 @@ export default async function DashboardPage() {
     outcomes.length === 0;
 
   return (
-    <div className="min-h-screen p-6" style={{ backgroundColor: "#C4D0DC" }}>
+    <div className="min-h-screen p-6" style={{ backgroundColor: "#D6E4F0" }}>
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-primary">Dashboard</h1>
         <p className="text-slate-500 text-sm mt-1">
@@ -347,28 +347,33 @@ export default async function DashboardPage() {
           value={metricCurrency(totalRequested)}
           icon={DollarSign}
           hue="blue"
-          style={{ backgroundColor: "#0077B6" }}
-          labelClassName="text-xs font-medium text-white/80"
-          valueClassName="mt-3 text-2xl font-bold tracking-tight text-white"
+          style={{
+            backgroundColor: "#FFFFFF",
+            border: "1px solid #CBD5E1",
+            boxShadow: "0 1px 2px 0 rgba(0,0,0,0.05)",
+          }}
         />
         <MetricCard
           label="Total Awarded"
           value={metricCurrency(summary.totalAwarded)}
           icon={Award}
           hue="indigo"
-          style={{ backgroundColor: "#1B4F72" }}
-          labelClassName="text-xs font-medium text-white/80"
-          valueClassName="mt-3 text-2xl font-bold tracking-tight text-white"
+          style={{
+            backgroundColor: "#FFFFFF",
+            border: "1px solid #CBD5E1",
+            boxShadow: "0 1px 2px 0 rgba(0,0,0,0.05)",
+          }}
         />
         <MetricCard
           label="Success Rate"
           value={successRateValue}
           icon={Percent}
           hue="emerald"
-          style={{ backgroundColor: "#117A65" }}
-          labelClassName="text-xs font-medium text-white/80"
-          valueClassName="mt-3 text-2xl font-bold tracking-tight text-white"
-          hintClassName="mt-2 text-xs text-white/80"
+          style={{
+            backgroundColor: "#FFFFFF",
+            border: "1px solid #CBD5E1",
+            boxShadow: "0 1px 2px 0 rgba(0,0,0,0.05)",
+          }}
           hint={
             summary.successRate != null
               ? `${summary.awarded} awarded of ${summary.total}`
@@ -378,7 +383,14 @@ export default async function DashboardPage() {
       </div>
 
       {/* Pipeline */}
-      <div className="bg-white rounded-xl shadow-sm border border-border p-6 mb-8">
+      <div
+        className="bg-white rounded-xl shadow-sm border border-border p-6 mb-8"
+        style={{
+          backgroundColor: "#FFFFFF",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+          border: "1px solid #CBD5E1",
+        }}
+      >
         <h2 className="text-lg font-semibold text-slate-900 mb-4">Pipeline</h2>
         <PipelineSummary counts={pipelineCounts} />
       </div>
@@ -388,7 +400,14 @@ export default async function DashboardPage() {
         {/* -- Left column -- */}
         <div className="space-y-6">
           {/* Recent activity */}
-          <div className="bg-white rounded-xl shadow-sm border border-border p-6">
+          <div
+            className="bg-white rounded-xl shadow-sm border border-border p-6"
+            style={{
+              backgroundColor: "#FFFFFF",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+              border: "1px solid #CBD5E1",
+            }}
+          >
             <h2 className="text-lg font-semibold text-slate-900 mb-4">
               Recent Activity
             </h2>
@@ -399,7 +418,14 @@ export default async function DashboardPage() {
         {/* -- Right column -- */}
         <div className="space-y-6">
           {/* Upcoming deadlines */}
-          <div className="bg-white rounded-xl shadow-sm border border-border overflow-hidden">
+          <div
+            className="bg-white rounded-xl shadow-sm border border-border overflow-hidden"
+            style={{
+              backgroundColor: "#FFFFFF",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+              border: "1px solid #CBD5E1",
+            }}
+          >
             <div className="bg-slate-800 px-5 py-4 flex items-center justify-between">
               <span className="text-white font-semibold text-sm">
                 Upcoming Deadlines
