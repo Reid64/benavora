@@ -31,6 +31,14 @@ export type MetricCardProps = {
   /** Optional supporting line under the value (when no trend is shown). */
   hint?: string;
   className?: string;
+  /** Optional inline style on the root card, e.g. a solid custom background color. */
+  style?: React.CSSProperties;
+  /** Full replacement for the label's default classes (not merged). */
+  labelClassName?: string;
+  /** Full replacement for the value's default classes (not merged). */
+  valueClassName?: string;
+  /** Full replacement for the hint's default classes (not merged). */
+  hintClassName?: string;
 };
 
 const TREND_STYLES: Record<
@@ -55,11 +63,16 @@ export function MetricCard({
   trend,
   hint,
   className,
+  style,
+  labelClassName,
+  valueClassName,
+  hintClassName,
 }: MetricCardProps) {
   const TrendIcon = trend ? TREND_STYLES[trend.direction].icon : null;
 
   return (
     <div
+      style={style}
       className={cn(
         "group rounded-xl border border-border border-l-4 bg-white p-5 shadow-md transition-shadow hover:shadow-lg",
         ICON_HUE_BORDER_CLASSES[hue],
@@ -67,10 +80,16 @@ export function MetricCard({
       )}
     >
       <div className="flex items-center justify-between gap-3">
-        <span className="text-xs font-medium text-text-muted">{label}</span>
+        <span className={labelClassName ?? "text-xs font-medium text-text-muted"}>
+          {label}
+        </span>
         {Icon && <ColorIcon icon={Icon} hue={hue} size="sm" />}
       </div>
-      <div className="mt-3 text-2xl font-bold tracking-tight text-text">
+      <div
+        className={
+          valueClassName ?? "mt-3 text-2xl font-bold tracking-tight text-text"
+        }
+      >
         {value}
       </div>
       {trend && TrendIcon ? (
@@ -84,7 +103,11 @@ export function MetricCard({
           {trend.label}
         </div>
       ) : (
-        hint && <p className="mt-2 text-xs text-text-muted">{hint}</p>
+        hint && (
+          <p className={hintClassName ?? "mt-2 text-xs text-text-muted"}>
+            {hint}
+          </p>
+        )
       )}
     </div>
   );

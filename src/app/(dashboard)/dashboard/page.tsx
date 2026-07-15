@@ -65,48 +65,25 @@ type AgentRunRow = {
   created_at: string;
 };
 
-/** Returns "â€”" instead of "0" so empty metrics don't imply active tracking. */
+/** Returns "-" instead of "0" so empty metrics don't imply active tracking. */
 function metricCount(n: number): string {
-  return n === 0 ? "â€”" : String(n);
+  return n === 0 ? "-" : String(n);
 }
 
 function metricCurrency(n: number): string {
-  return n === 0 ? "â€”" : formatCurrency(n);
+  return n === 0 ? "-" : formatCurrency(n);
 }
 
 type StatAccent = "blue" | "violet" | "amber" | "red";
 
-const STAT_ACCENTS: Record<
-  StatAccent,
-  { bg: string; iconBg: string; iconText: string }
-> = {
-  blue: {
-    bg: "bg-[#0077B6]",
-    iconBg:
-      "absolute top-4 right-4 w-10 h-10 rounded-lg flex items-center justify-center bg-white/10",
-    iconText: "text-white/70",
-  },
-  violet: {
-    bg: "bg-[#005F92]",
-    iconBg:
-      "absolute top-4 right-4 w-10 h-10 rounded-lg flex items-center justify-center bg-white/10",
-    iconText: "text-white/70",
-  },
-  amber: {
-    bg: "bg-[#00B4D8]",
-    iconBg:
-      "absolute top-4 right-4 w-10 h-10 rounded-lg flex items-center justify-center bg-white/10",
-    iconText: "text-white/70",
-  },
-  red: {
-    bg: "bg-[#023E8A]",
-    iconBg:
-      "absolute top-4 right-4 w-10 h-10 rounded-lg flex items-center justify-center bg-white/10",
-    iconText: "text-white/70",
-  },
+const STAT_ACCENTS: Record<StatAccent, { iconBg: string; iconText: string }> = {
+  blue: { iconBg: "bg-blue-100", iconText: "text-blue-600" },
+  violet: { iconBg: "bg-violet-100", iconText: "text-violet-600" },
+  amber: { iconBg: "bg-amber-100", iconText: "text-amber-600" },
+  red: { iconBg: "bg-red-100", iconText: "text-red-600" },
 };
 
-/** One of the four primary dashboard stat tiles, accented by function (BLUEPRINT Â§4.1). */
+/** One of the four primary dashboard stat tiles, accented by function (BLUEPRINT §4.1). */
 function StatCard({
   label,
   value,
@@ -120,25 +97,25 @@ function StatCard({
 }) {
   const styles = STAT_ACCENTS[accent];
   return (
-    <div
-      className={cn(
-        styles.bg,
-        "rounded-xl shadow-md p-5 relative overflow-hidden",
-      )}
-    >
-      <div className={styles.iconBg}>
+    <div className="bg-white rounded-xl shadow-md border border-slate-300 p-5 relative overflow-hidden">
+      <div
+        className={cn(
+          "absolute top-4 right-4 w-10 h-10 rounded-lg flex items-center justify-center",
+          styles.iconBg,
+        )}
+      >
         <Icon className={cn("h-5 w-5", styles.iconText)} aria-hidden />
       </div>
-      <p className="text-white/70 text-xs font-semibold uppercase tracking-wide">
+      <p className="text-slate-500 text-xs font-semibold uppercase tracking-wide">
         {label}
       </p>
-      <p className="text-white text-3xl font-bold mt-2">{value}</p>
+      <p className="text-slate-900 text-3xl font-bold mt-2">{value}</p>
     </div>
   );
 }
 
 /**
- * Main dashboard (BLUEPRINT Â§4.1). All data is read server-side via the
+ * Main dashboard (BLUEPRINT §4.1). All data is read server-side via the
  * session-bound Supabase client; organization_id derived from the authenticated
  * user's profile (never from a request body), with RLS as the second barrier.
  */
@@ -233,7 +210,7 @@ export default async function DashboardPage() {
   const analysis = analyzeOutcomes(outcomes);
   const { summary } = analysis;
   const successRateValue =
-    summary.successRate != null ? `${summary.successRate}%` : "â€”";
+    summary.successRate != null ? `${summary.successRate}%` : "-";
 
   // --- pipeline counts -------------------------------------------------------
   const pipelineCounts = PIPELINE_STAGES.reduce(
@@ -279,7 +256,7 @@ export default async function DashboardPage() {
     outcomes.length === 0;
 
   return (
-    <div className="min-h-screen bg-[#CBD5E1] p-6">
+    <div className="min-h-screen p-6" style={{ backgroundColor: "#C4D0DC" }}>
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-primary">Dashboard</h1>
         <p className="text-slate-500 text-sm mt-1">
@@ -337,19 +314,29 @@ export default async function DashboardPage() {
           label="Total Requested"
           value={metricCurrency(totalRequested)}
           icon={DollarSign}
-          hue="emerald"
+          hue="blue"
+          style={{ backgroundColor: "#0077B6" }}
+          labelClassName="text-xs font-medium text-white/80"
+          valueClassName="mt-3 text-2xl font-bold tracking-tight text-white"
         />
         <MetricCard
           label="Total Awarded"
           value={metricCurrency(summary.totalAwarded)}
           icon={Award}
-          hue="emerald"
+          hue="indigo"
+          style={{ backgroundColor: "#1B4F72" }}
+          labelClassName="text-xs font-medium text-white/80"
+          valueClassName="mt-3 text-2xl font-bold tracking-tight text-white"
         />
         <MetricCard
           label="Success Rate"
           value={successRateValue}
           icon={Percent}
-          hue="violet"
+          hue="emerald"
+          style={{ backgroundColor: "#117A65" }}
+          labelClassName="text-xs font-medium text-white/80"
+          valueClassName="mt-3 text-2xl font-bold tracking-tight text-white"
+          hintClassName="mt-2 text-xs text-white/80"
           hint={
             summary.successRate != null
               ? `${summary.awarded} awarded of ${summary.total}`
@@ -366,7 +353,7 @@ export default async function DashboardPage() {
 
       {/* Two-column layout: left = activity, right = deadlines + actions */}
       <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[1fr_300px]">
-        {/* â”€â”€ Left column â”€â”€ */}
+        {/* -- Left column -- */}
         <div className="space-y-6">
           {/* Recent activity */}
           <div className="bg-white rounded-xl shadow-sm border border-border p-6">
@@ -377,7 +364,7 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* â”€â”€ Right column â”€â”€ */}
+        {/* -- Right column -- */}
         <div className="space-y-6">
           {/* Upcoming deadlines */}
           <div className="bg-white rounded-xl shadow-sm border border-border overflow-hidden">
