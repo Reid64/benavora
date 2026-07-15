@@ -279,7 +279,7 @@ export default async function DashboardPage() {
     outcomes.length === 0;
 
   return (
-    <div className="min-h-screen bg-[#C4D0DC] p-6">
+    <div className="min-h-screen bg-[#CBD5E1] p-6">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-primary">Dashboard</h1>
         <p className="text-slate-500 text-sm mt-1">
