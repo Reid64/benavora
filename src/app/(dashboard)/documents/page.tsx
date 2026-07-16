@@ -96,7 +96,7 @@ export default function DocumentsPage() {
   return (
     <div
       className="min-h-screen space-y-6 bg-[#EEF2F7] p-6 page-bg"
-      style={{ backgroundColor: "#D6E4F0" }}
+      style={{ backgroundColor: "#0F1117" }}
     >
       <PageHeader
         title="Documents"

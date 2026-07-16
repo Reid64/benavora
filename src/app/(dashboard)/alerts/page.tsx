@@ -374,7 +374,7 @@ function AlertRow({
     <li
       className={cn(
         "mb-3 flex items-start gap-4 rounded-xl border border-slate-200 p-4 transition-shadow hover:shadow-sm",
-        alert.is_read ? "bg-white" : "bg-[#EFF6FF]",
+        alert.is_read ? "bg-white" : "bg-[#0077B6]/[0.08]",
         styles.accent,
       )}
       style={SEVERITY_STYLE[alert.severity]}

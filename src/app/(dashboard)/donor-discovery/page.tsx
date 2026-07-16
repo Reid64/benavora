@@ -214,7 +214,7 @@ export default function DonorDiscoveryPage() {
   }, [hasActiveRequest, load]);
 
   return (
-    <div className="space-y-6" style={{ backgroundColor: "#D6E4F0" }}>
+    <div className="space-y-6" style={{ backgroundColor: "#0F1117" }}>
       <PageHeader
         title="Donor Discovery"
         description="Find and engage corporate donors matched to your mission."
@@ -271,9 +271,9 @@ export default function DonorDiscoveryPage() {
                   key={req.id}
                   className="bg-white rounded-xl shadow-sm border border-border p-5 mb-4"
                   style={{
-                    backgroundColor: "#FFFFFF",
-                    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-                    border: "1px solid #CBD5E1",
+                    backgroundColor: "#1A1D27",
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.35)",
+                    border: "1px solid #2E3345",
                   }}
                 >
                   <div className="flex items-start justify-between gap-2">
@@ -301,7 +301,7 @@ export default function DonorDiscoveryPage() {
 
                   <p className="mt-2 text-xs text-text-muted">{formatGeography(req.geography)}</p>
 
-                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#EEF2F7]">
+                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#2E3345]">
                     <div
                       className="h-full rounded-full bg-gradient-to-r from-[#00B4D8] to-[#0077B6] transition-all"
                       style={{ width: `${STATUS_PROGRESS_PCT[req.status]}%` }}
@@ -328,8 +328,8 @@ export default function DonorDiscoveryPage() {
               href={`/donor-discovery/prospects?stage=${stage}`}
               className="bg-white shadow-sm rounded-lg border border-border px-4 py-3 text-center hover:border-[#0077B6] cursor-pointer transition-colors"
               style={{
-                backgroundColor: "#FFFFFF",
-                boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                backgroundColor: "#1A1D27",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.35)",
               }}
             >
               <p className="text-2xl font-bold text-slate-900">{loading ? "—" : stageCounts[stage]}</p>
@@ -363,9 +363,9 @@ export default function DonorDiscoveryPage() {
                   key={p.id}
                   className="flex flex-col rounded-lg border border-border bg-white p-4"
                   style={{
-                    backgroundColor: "#FFFFFF",
-                    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-                    border: "1px solid #CBD5E1",
+                    backgroundColor: "#1A1D27",
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.35)",
+                    border: "1px solid #2E3345",
                   }}
                 >
                   <div className="flex items-start justify-between gap-2">

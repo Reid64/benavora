@@ -743,7 +743,7 @@ export default function DraftGeneratorPage() {
     confidence != null && confidence < AI_CONFIDENCE_THRESHOLD;
 
   return (
-    <div className="space-y-6" style={{ backgroundColor: "#D6E4F0" }}>
+    <div className="space-y-6" style={{ backgroundColor: "#0F1117" }}>
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-primary">
           Draft Generator
@@ -791,9 +791,9 @@ export default function DraftGeneratorPage() {
           <div
             className="bg-white rounded-2xl shadow-sm border border-border p-8 space-y-8"
             style={{
-              backgroundColor: "#FFFFFF",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-              border: "1px solid #CBD5E1",
+              backgroundColor: "#1A1D27",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.35)",
+              border: "1px solid #2E3345",
             }}
           >
             <div>
@@ -1067,9 +1067,9 @@ export default function DraftGeneratorPage() {
                     <div
                       className="rounded-xl border border-border bg-white shadow-sm p-5"
                       style={{
-                        backgroundColor: "#FFFFFF",
-                        boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-                        border: "1px solid #CBD5E1",
+                        backgroundColor: "#1A1D27",
+                        boxShadow: "0 2px 8px rgba(0,0,0,0.35)",
+                        border: "1px solid #2E3345",
                       }}
                     >
                       <div className="mb-3 flex items-center gap-2">
