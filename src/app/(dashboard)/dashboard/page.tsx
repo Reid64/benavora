@@ -271,7 +271,7 @@ export default async function DashboardPage() {
     outcomes.length === 0;
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: "#D6E4F0", padding: "32px" }}>
+    <div className="min-h-screen" style={{ backgroundColor: "#C8D8E8", padding: "32px" }}>
       <div style={{ marginBottom: "32px" }}>
         <h1 style={{ fontSize: "28px", fontWeight: 800, color: "#0F172A", letterSpacing: "-0.02em" }}>
           Dashboard
@@ -333,10 +333,10 @@ export default async function DashboardPage() {
           icon={DollarSign}
           hue="blue"
           style={{
-            backgroundColor: "#FFFFFF",
+            backgroundColor: "#F0F4F8",
             borderRadius: "16px",
             padding: "24px",
-            boxShadow: "0 4px 16px rgba(0,0,0,0.10)",
+            boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
             border: "1px solid #B8C9D9",
           }}
           labelClassName="text-[13px] font-semibold text-[#64748B] uppercase tracking-[0.05em]"
@@ -349,10 +349,10 @@ export default async function DashboardPage() {
           icon={Award}
           hue="indigo"
           style={{
-            backgroundColor: "#FFFFFF",
+            backgroundColor: "#F0F4F8",
             borderRadius: "16px",
             padding: "24px",
-            boxShadow: "0 4px 16px rgba(0,0,0,0.10)",
+            boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
             border: "1px solid #B8C9D9",
           }}
           labelClassName="text-[13px] font-semibold text-[#64748B] uppercase tracking-[0.05em]"
@@ -365,10 +365,10 @@ export default async function DashboardPage() {
           icon={Percent}
           hue="emerald"
           style={{
-            backgroundColor: "#FFFFFF",
+            backgroundColor: "#F0F4F8",
             borderRadius: "16px",
             padding: "24px",
-            boxShadow: "0 4px 16px rgba(0,0,0,0.10)",
+            boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
             border: "1px solid #B8C9D9",
           }}
           labelClassName="text-[13px] font-semibold text-[#64748B] uppercase tracking-[0.05em]"
