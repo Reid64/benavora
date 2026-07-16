@@ -73,14 +73,7 @@ export function MetricCard({
 
   return (
     <div
-      style={{
-        backgroundColor: "#FFFFFF",
-        borderRadius: "16px",
-        padding: "24px",
-        boxShadow: "0 4px 16px rgba(0,0,0,0.10)",
-        border: "1px solid #B8C9D9",
-        ...style,
-      }}
+      style={style}
       className={cn(
         "group rounded-xl border border-border border-l-4 p-5 shadow-md transition-shadow hover:shadow-lg",
         !colored && "bg-white",
@@ -89,27 +82,12 @@ export function MetricCard({
       )}
     >
       <div className="flex items-center justify-between gap-3">
-        <span
-          style={{
-            fontSize: "12px",
-            fontWeight: 700,
-            color: "#64748B",
-            textTransform: "uppercase",
-            letterSpacing: "0.06em",
-          }}
-          className={labelClassName ?? "text-xs font-medium text-text-muted"}
-        >
+        <span className={labelClassName ?? "text-xs font-medium text-text-muted"}>
           {label}
         </span>
         {Icon && <ColorIcon icon={Icon} hue={hue} size="sm" />}
       </div>
       <div
-        style={{
-          fontSize: "32px",
-          fontWeight: 800,
-          color: "#0F172A",
-          marginTop: "8px",
-        }}
         className={
           valueClassName ?? "mt-3 text-2xl font-bold tracking-tight text-text"
         }
