@@ -13,7 +13,6 @@ import {
 import { addDays, differenceInCalendarDays, format } from "date-fns";
 
 import { FlightPathHUD } from "@/components/dashboard/FlightPathHUD";
-import { MetricCard } from "@/components/dashboard/MetricCard";
 import {
   DeadlineWidget,
   type DeadlineWidgetItem,
@@ -67,66 +66,6 @@ function metricCount(n: number): string {
 
 function metricCurrency(n: number): string {
   return n === 0 ? "-" : formatCurrency(n);
-}
-
-type StatAccent = "blue" | "cyan" | "violet" | "navy";
-
-const STAT_ACCENTS: Record<StatAccent, { bg: string; shadow: string }> = {
-  blue: { bg: "#0077B6", shadow: "0 8px 24px rgba(0,119,182,0.3)" },
-  cyan: { bg: "#00B4D8", shadow: "0 8px 24px rgba(0,180,216,0.3)" },
-  violet: { bg: "#6B48CC", shadow: "0 8px 24px rgba(107,72,204,0.3)" },
-  navy: { bg: "#1A2B3C", shadow: "0 8px 24px rgba(26,43,60,0.3)" },
-};
-
-/** One of the four primary dashboard stat tiles, accented by function (BLUEPRINT §4.1). */
-function StatCard({
-  label,
-  value,
-  icon: Icon,
-  accent,
-}: {
-  label: string;
-  value: string;
-  icon: LucideIcon;
-  accent: StatAccent;
-}) {
-  const { bg, shadow } = STAT_ACCENTS[accent];
-  return (
-    <div
-      style={{
-        backgroundColor: bg,
-        borderRadius: "16px",
-        padding: "24px",
-        boxShadow: shadow,
-        color: "#FFFFFF",
-      }}
-    >
-      <div className="flex items-center justify-between">
-        <div
-          style={{
-            fontSize: "11px",
-            fontWeight: 700,
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
-            opacity: 0.8,
-          }}
-        >
-          {label}
-        </div>
-        <Icon className="h-5 w-5" style={{ opacity: 0.7 }} aria-hidden />
-      </div>
-      <div
-        style={{
-          fontSize: "40px",
-          fontWeight: 900,
-          lineHeight: 1,
-          marginTop: "12px",
-        }}
-      >
-        {value}
-      </div>
-    </div>
-  );
 }
 
 /**
@@ -270,19 +209,95 @@ export default async function DashboardPage() {
     deadlines.length === 0 &&
     outcomes.length === 0;
 
+  const statCards: Array<{ label: string; value: string; icon: LucideIcon; accent: string }> = [
+    { label: "Total Opportunities", value: metricCount(totalOpportunities), icon: Search, accent: "#0077B6" },
+    { label: "Applications Submitted", value: metricCount(submittedCount), icon: Send, accent: "#0096C7" },
+    { label: "Drafts Generated", value: metricCount(draftsGenerated), icon: FileText, accent: "#6B48CC" },
+    { label: "Deadlines This Week", value: metricCount(deadlinesThisWeek), icon: CalendarClock, accent: "#1A2B3C" },
+  ];
+
+  const metricCards: Array<{
+    label: string;
+    value: string;
+    icon: LucideIcon;
+    accent: string;
+    hint?: string;
+  }> = [
+    { label: "Total Requested", value: metricCurrency(totalRequested), icon: DollarSign, accent: "#0077B6" },
+    { label: "Total Awarded", value: metricCurrency(summary.totalAwarded), icon: Award, accent: "#00B4D8" },
+    {
+      label: "Success Rate",
+      value: successRateValue,
+      icon: Percent,
+      accent: "#4C3D8F",
+      hint:
+        summary.successRate != null
+          ? `${summary.awarded} awarded of ${summary.total}`
+          : `Needs ${MIN_OUTCOMES_FOR_RATE}+ outcomes`,
+    },
+  ];
+
+  const fundingSummaryRows = [
+    { label: "Total Requested", value: metricCurrency(totalRequested) },
+    { label: "Total Awarded", value: metricCurrency(summary.totalAwarded) },
+    { label: "Success Rate", value: successRateValue },
+  ];
+
   return (
-    <div className="min-h-screen" style={{ backgroundColor: "#C8D8E8", padding: "32px" }}>
-      <div style={{ marginBottom: "32px" }}>
-        <h1 style={{ fontSize: "28px", fontWeight: 800, color: "#0F172A", letterSpacing: "-0.02em" }}>
-          Dashboard
-        </h1>
-        <p style={{ fontSize: "14px", color: "#64748B", marginTop: "4px" }}>
-          Your funding pipeline at a glance.
-        </p>
+    <div style={{ backgroundColor: "#C8D4DC", minHeight: "100vh", padding: "32px" }}>
+      {/* Hero banner */}
+      <div
+        style={{
+          background: "linear-gradient(135deg, #1A2B3C 0%, #0077B6 100%)",
+          borderRadius: "20px",
+          padding: "32px 40px",
+          marginBottom: "28px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          boxShadow: "0 8px 32px rgba(0,0,0,0.20)",
+        }}
+      >
+        <div>
+          <h1 style={{ fontSize: "28px", fontWeight: 800, color: "#FFFFFF", letterSpacing: "-0.02em", margin: 0 }}>
+            Your Funding Command Center
+          </h1>
+          <p style={{ fontSize: "14px", color: "rgba(255,255,255,0.65)", marginTop: "6px" }}>
+            Faith Foundation &middot; {format(now, "MMMM d, yyyy")}
+          </p>
+        </div>
+        <div className="flex gap-3">
+          <div
+            style={{
+              backgroundColor: "rgba(255,255,255,0.12)",
+              border: "1px solid rgba(255,255,255,0.2)",
+              borderRadius: "999px",
+              padding: "8px 16px",
+              fontSize: "13px",
+              fontWeight: 600,
+              color: "#FFFFFF",
+            }}
+          >
+            {totalOpportunities} Active Opportunities
+          </div>
+          <div
+            style={{
+              backgroundColor: "rgba(255,255,255,0.12)",
+              border: "1px solid rgba(255,255,255,0.2)",
+              borderRadius: "999px",
+              padding: "8px 16px",
+              fontSize: "13px",
+              fontWeight: 600,
+              color: "#FFFFFF",
+            }}
+          >
+            {deadlinesThisWeek} Deadlines This Week
+          </div>
+        </div>
       </div>
 
       {hasNoData && (
-        <div className="mb-8 rounded-xl border border-teal-200 bg-teal-50 px-5 py-4">
+        <div className="mb-7 rounded-xl border border-teal-200 bg-teal-50 px-5 py-4">
           <h2 className="text-sm font-semibold text-teal-900">
             Welcome to Benavora
           </h2>
@@ -297,132 +312,215 @@ export default async function DashboardPage() {
       {/* Mission Control lifecycle HUD */}
       <FlightPathHUD />
 
-      {/* 4 primary stat cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
-        <StatCard
-          label="Total Opportunities"
-          value={metricCount(totalOpportunities)}
-          icon={Search}
-          accent="blue"
-        />
-        <StatCard
-          label="Applications Submitted"
-          value={metricCount(submittedCount)}
-          icon={Send}
-          accent="cyan"
-        />
-        <StatCard
-          label="Drafts Generated"
-          value={metricCount(draftsGenerated)}
-          icon={FileText}
-          accent="violet"
-        />
-        <StatCard
-          label="Deadlines This Week"
-          value={metricCount(deadlinesThisWeek)}
-          icon={CalendarClock}
-          accent="navy"
-        />
-      </div>
-
-      {/* 3 financial metrics */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 mb-8">
-        <MetricCard
-          label="Total Requested"
-          value={metricCurrency(totalRequested)}
-          icon={DollarSign}
-          hue="blue"
-          style={{
-            backgroundColor: "#F0F4F8",
-            borderRadius: "16px",
-            padding: "24px",
-            boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
-            border: "1px solid #B8C9D9",
-          }}
-          labelClassName="text-[13px] font-semibold text-[#64748B] uppercase tracking-[0.05em]"
-          valueClassName="mt-2 text-[32px] font-extrabold text-[#0F172A]"
-          hintClassName="mt-2 text-xs text-[#6B7280]"
-        />
-        <MetricCard
-          label="Total Awarded"
-          value={metricCurrency(summary.totalAwarded)}
-          icon={Award}
-          hue="indigo"
-          style={{
-            backgroundColor: "#F0F4F8",
-            borderRadius: "16px",
-            padding: "24px",
-            boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
-            border: "1px solid #B8C9D9",
-          }}
-          labelClassName="text-[13px] font-semibold text-[#64748B] uppercase tracking-[0.05em]"
-          valueClassName="mt-2 text-[32px] font-extrabold text-[#0F172A]"
-          hintClassName="mt-2 text-xs text-[#6B7280]"
-        />
-        <MetricCard
-          label="Success Rate"
-          value={successRateValue}
-          icon={Percent}
-          hue="emerald"
-          style={{
-            backgroundColor: "#F0F4F8",
-            borderRadius: "16px",
-            padding: "24px",
-            boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
-            border: "1px solid #B8C9D9",
-          }}
-          labelClassName="text-[13px] font-semibold text-[#64748B] uppercase tracking-[0.05em]"
-          valueClassName="mt-2 text-[32px] font-extrabold text-[#0F172A]"
-          hintClassName="mt-2 text-xs text-[#6B7280]"
-          hint={
-            summary.successRate != null
-              ? `${summary.awarded} awarded of ${summary.total}`
-              : `Needs ${MIN_OUTCOMES_FOR_RATE}+ outcomes`
-          }
-        />
-      </div>
-
-      {/* Pipeline */}
-      <div
-        style={{
-          backgroundColor: "#FFFFFF",
-          borderRadius: "16px",
-          padding: "28px",
-          boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
-          border: "1px solid #B8C9D9",
-          marginTop: "24px",
-          marginBottom: "32px",
-        }}
-      >
-        <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#0F172A", marginBottom: "16px" }}>
-          Pipeline
-        </h2>
-        <PipelineSummary counts={pipelineCounts} />
-      </div>
-
-      {/* Two-column layout: left = activity, right = deadlines + actions */}
-      <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[1fr_300px]">
+      {/* Two-column layout */}
+      <div style={{ display: "flex", gap: "24px", alignItems: "flex-start", marginTop: "24px" }}>
         {/* -- Left column -- */}
-        <div className="space-y-6">
-          {/* Recent activity */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "24px" }}>
+          {/* Stat cards tray */}
           <div
             style={{
-              backgroundColor: "#FFFFFF",
-              borderRadius: "16px",
-              padding: "28px",
-              boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
-              border: "1px solid #B8C9D9",
+              backgroundColor: "#B8C4CC",
+              borderRadius: "20px",
+              padding: "20px",
+              boxShadow: "inset 0 2px 8px rgba(0,0,0,0.12)",
             }}
           >
-            <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#0F172A", marginBottom: "16px" }}>
-              Recent Activity
-            </h2>
-            <RecentActivityFeed items={activityItems} />
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px" }}>
+              {statCards.map((card) => {
+                const Icon = card.icon;
+                return (
+                  <div
+                    key={card.label}
+                    style={{
+                      borderRadius: "16px",
+                      overflow: "hidden",
+                      boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
+                      backgroundColor: "#FFFFFF",
+                    }}
+                  >
+                    <div style={{ height: "8px", backgroundColor: card.accent }} />
+                    <div style={{ padding: "24px" }}>
+                      <div className="flex items-center justify-between">
+                        <div
+                          style={{
+                            fontSize: "11px",
+                            fontWeight: 700,
+                            letterSpacing: "0.08em",
+                            textTransform: "uppercase",
+                            color: "#64748B",
+                          }}
+                        >
+                          {card.label}
+                        </div>
+                        <Icon className="h-5 w-5" style={{ color: card.accent }} aria-hidden />
+                      </div>
+                      <div
+                        style={{
+                          fontSize: "40px",
+                          fontWeight: 900,
+                          color: "#0F172A",
+                          lineHeight: 1,
+                          marginTop: "12px",
+                        }}
+                      >
+                        {card.value}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Metric cards tray */}
+          <div
+            style={{
+              backgroundColor: "#B8C4CC",
+              borderRadius: "20px",
+              padding: "20px",
+              boxShadow: "inset 0 2px 8px rgba(0,0,0,0.12)",
+            }}
+          >
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "16px" }}>
+              {metricCards.map((card) => {
+                const Icon = card.icon;
+                return (
+                  <div
+                    key={card.label}
+                    style={{
+                      borderRadius: "16px",
+                      overflow: "hidden",
+                      boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
+                      backgroundColor: "#FFFFFF",
+                    }}
+                  >
+                    <div style={{ height: "8px", backgroundColor: card.accent }} />
+                    <div style={{ padding: "24px" }}>
+                      <div className="flex items-center justify-between">
+                        <div
+                          style={{
+                            fontSize: "11px",
+                            fontWeight: 700,
+                            letterSpacing: "0.08em",
+                            textTransform: "uppercase",
+                            color: "#64748B",
+                          }}
+                        >
+                          {card.label}
+                        </div>
+                        <Icon className="h-5 w-5" style={{ color: card.accent }} aria-hidden />
+                      </div>
+                      <div
+                        style={{
+                          fontSize: "40px",
+                          fontWeight: 900,
+                          color: "#0F172A",
+                          lineHeight: 1,
+                          marginTop: "12px",
+                        }}
+                      >
+                        {card.value}
+                      </div>
+                      {card.hint && (
+                        <p style={{ marginTop: "8px", fontSize: "12px", color: "#6B7280" }}>
+                          {card.hint}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Pipeline tray */}
+          <div
+            style={{
+              backgroundColor: "#B8C4CC",
+              borderRadius: "20px",
+              padding: "20px",
+              boxShadow: "inset 0 2px 8px rgba(0,0,0,0.12)",
+            }}
+          >
+            <div
+              style={{
+                backgroundColor: "#FFFFFF",
+                borderRadius: "16px",
+                padding: "28px",
+                boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
+              }}
+            >
+              <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#0F172A", marginBottom: "16px" }}>
+                Pipeline
+              </h2>
+              <PipelineSummary counts={pipelineCounts} />
+            </div>
+          </div>
+
+          {/* Recent activity tray */}
+          <div
+            style={{
+              backgroundColor: "#B8C4CC",
+              borderRadius: "20px",
+              padding: "20px",
+              boxShadow: "inset 0 2px 8px rgba(0,0,0,0.12)",
+            }}
+          >
+            <div
+              style={{
+                backgroundColor: "#FFFFFF",
+                borderRadius: "16px",
+                padding: "28px",
+                boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
+              }}
+            >
+              <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#0F172A", marginBottom: "16px" }}>
+                Recent Activity
+              </h2>
+              <RecentActivityFeed items={activityItems} />
+            </div>
           </div>
         </div>
 
         {/* -- Right column -- */}
-        <div className="space-y-6">
+        <div style={{ width: "320px", flexShrink: 0, display: "flex", flexDirection: "column", gap: "16px" }}>
+          {/* Funding summary chip card */}
+          <div
+            style={{
+              backgroundColor: "#FFFFFF",
+              borderRadius: "16px",
+              padding: "20px",
+              boxShadow: "0 4px 16px rgba(0,0,0,0.10)",
+              borderLeft: "4px solid #00B4D8",
+            }}
+          >
+            {fundingSummaryRows.map((row, i) => (
+              <div
+                key={row.label}
+                style={{
+                  paddingTop: i === 0 ? 0 : "10px",
+                  paddingBottom: i === fundingSummaryRows.length - 1 ? 0 : "10px",
+                  borderBottom: i === fundingSummaryRows.length - 1 ? "none" : "1px solid #F1F5F9",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: "11px",
+                    fontWeight: 700,
+                    letterSpacing: "0.05em",
+                    textTransform: "uppercase",
+                    color: "#64748B",
+                  }}
+                >
+                  {row.label}
+                </div>
+                <div style={{ fontSize: "20px", fontWeight: 800, color: "#0F172A", marginTop: "4px" }}>
+                  {row.value}
+                </div>
+              </div>
+            ))}
+          </div>
+
           {/* Upcoming deadlines */}
           <div
             style={{
