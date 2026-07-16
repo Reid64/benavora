@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { redirect } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -248,6 +249,7 @@ export default async function DashboardPage() {
       {/* Hero banner */}
       <div
         style={{
+          position: "relative",
           background: "linear-gradient(135deg, #1A2B3C 0%, #0077B6 100%)",
           borderRadius: "20px",
           padding: "32px 40px",
@@ -265,6 +267,25 @@ export default async function DashboardPage() {
           <p style={{ fontSize: "14px", color: "rgba(255,255,255,0.65)", marginTop: "6px" }}>
             Faith Foundation &middot; {format(now, "MMMM d, yyyy")}
           </p>
+        </div>
+        <div
+          style={{
+            position: "absolute",
+            right: "180px",
+            bottom: "0",
+            height: "100%",
+            display: "flex",
+            alignItems: "flex-end",
+            pointerEvents: "none",
+          }}
+        >
+          <Image
+            src="/hero-illustration.png"
+            alt="Funding manager at work"
+            width={280}
+            height={200}
+            style={{ objectFit: "contain", objectPosition: "bottom" }}
+          />
         </div>
         <div className="flex gap-3">
           <div
