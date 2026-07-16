@@ -449,7 +449,7 @@ export default async function DashboardPage() {
                 <Link
                   href="/deadlines"
                   className="text-xs font-medium"
-                  style={{ color: "#9CA3AF" }}
+                  style={{ color: "#FFFFFF" }}
                 >
                   View all
                 </Link>
