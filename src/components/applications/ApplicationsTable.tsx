@@ -352,7 +352,7 @@ export function ApplicationsTable({
 
       {/* Sort header */}
       {filtered.length > 0 && (
-        <div className="flex items-center gap-4 rounded-xl border border-border bg-white px-5 py-2.5 shadow-sm table-header-dark table-dark">
+        <div className="flex items-center gap-4 rounded-xl border border-border bg-white px-5 py-2.5 shadow-sm table-header-dark">
           <input
             type="checkbox"
             checked={allSelected}

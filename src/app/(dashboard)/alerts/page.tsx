@@ -94,9 +94,9 @@ const FILTERS: { key: FilterType; label: string }[] = [
 ];
 
 const SEVERITY: Record<AlertSeverity, { accent: string }> = {
-  critical: { accent: "border-l-4 border-[#EF4444] border-accent-red border-l-red" },
-  warning: { accent: "border-l-4 border-[#F59E0B] border-accent-amber border-l-amber" },
-  info: { accent: "border-l-4 border-[#0077B6] border-accent-blue border-l-blue" },
+  critical: { accent: "border-l-4 border-[#EF4444] border-accent-red" },
+  warning: { accent: "border-l-4 border-[#F59E0B] border-accent-amber" },
+  info: { accent: "border-l-4 border-[#0077B6] border-accent-blue" },
 };
 
 const SEVERITY_STYLE: Record<AlertSeverity, CSSProperties> = {

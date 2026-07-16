@@ -45,9 +45,9 @@ const FUNDER_BORDER_COLOR: Record<string, string> = {
 };
 
 const FUNDER_BORDER_CLASS: Record<string, string> = {
-  Government: "border-accent-blue border-l-blue",
-  Foundation: "border-accent-violet border-l-violet",
-  Corporate: "border-accent-cyan border-l-cyan",
+  Government: "border-accent-blue",
+  Foundation: "border-accent-violet",
+  Corporate: "border-accent-cyan",
 };
 
 function getFunderBorderStyle(category: FunderCategory): CSSProperties | undefined {

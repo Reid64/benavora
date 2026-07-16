@@ -58,9 +58,9 @@ function urgencyBucket(band: UrgencyBand): UrgencyBucket {
 }
 
 const URGENCY_ITEM_CLASSES: Record<UrgencyBucket, string> = {
-  overdue: "bg-[#FEF2F2] border-l-4 border-[#EF4444] rounded-xl p-4 mb-3 border-accent-red border-l-red",
-  week: "bg-[#FFFBEB] border-l-4 border-[#F59E0B] rounded-xl p-4 mb-3 border-accent-amber border-l-amber",
-  future: "bg-white shadow-sm border border-border rounded-xl p-4 mb-3 border-accent-green border-l-green",
+  overdue: "bg-[#FEF2F2] border-l-4 border-[#EF4444] rounded-xl p-4 mb-3 border-accent-red",
+  week: "bg-[#FFFBEB] border-l-4 border-[#F59E0B] rounded-xl p-4 mb-3 border-accent-amber",
+  future: "bg-white shadow-sm border border-border rounded-xl p-4 mb-3 border-accent-green",
 };
 
 const URGENCY_ITEM_STYLE: Record<UrgencyBucket, CSSProperties> = {
