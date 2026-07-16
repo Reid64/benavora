@@ -34,6 +34,12 @@ export function Card({
         "bg-white rounded-xl shadow-sm border border-border transition-shadow hover:shadow-md",
         className,
       )}
+      style={{
+        backgroundColor: "#FFFFFF",
+        boxShadow: "0 4px 12px rgba(0,0,0,0.10)",
+        border: "1px solid #B8C9D9",
+        borderRadius: "12px",
+      }}
     >
       {hasHeader && (
         <div className="flex items-start justify-between gap-4 rounded-t-xl border-b border-border bg-white-sunken px-5 py-4">

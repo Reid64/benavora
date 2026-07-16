@@ -42,9 +42,9 @@ const SuccessAnalytics = dynamic(
       <div
         className="rounded-lg border border-border bg-white shadow-sm p-5 text-sm text-navy-400"
         style={{
-          backgroundColor: "#1A1D27",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.35)",
-          border: "1px solid #2E3345",
+          backgroundColor: "#FFFFFF",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+          border: "1px solid #CBD5E1",
         }}
       >
         Loading analytics…
@@ -349,7 +349,7 @@ export default function AutoApplyPage() {
   const allFundersSelected = funders.length > 0 && selectedFunderIds.size === funders.length;
 
   return (
-    <div className="space-y-8" style={{ backgroundColor: "#0F1117" }}>
+    <div className="space-y-8" style={{ backgroundColor: "#D6E4F0" }}>
       {/* Header */}
       <PageHeader
         title="AutoApply"

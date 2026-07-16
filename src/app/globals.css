@@ -5,13 +5,11 @@
 @tailwind utilities;
 
 /**
- * Benavora — premium dark theme (on-brand navy/cyan, not the earlier
- * off-brand purple/emerald "podcast" template that was replaced in
- * ed302f4/8ac9d50/8f7fcf4 — this keeps that fix, only the canvas flips dark).
+ * Benavora — nonprofit grant management brand theme.
  *
- * Palette: charcoal surfaces (#0f1117 page → #1a1d27 surface → #242835
- * elevated), the SAME navy-cyan brand primary (#0077B6) and cyan secondary
- * (#00B4D8) used throughout the product, high-contrast light text.
+ * Palette: light neutral surfaces (#EEF2F7 page → #FFFFFF surface → #F8FAFC
+ * elevated), deep navy-cyan primary (#0077B6), bright cyan secondary
+ * (#00B4D8), slate-navy sidebar (#1A2B3C), slate text.
  *
  * Strategy: CSS custom properties define the semantic tokens. Tailwind theme
  * extensions reference them. The COMPATIBILITY LAYER remaps legacy utility
@@ -25,62 +23,63 @@
 :root {
   /* Canonical layered palette — tailwind.config.ts colors MUST reference these
      same variables, never restate the literal hex, so the two files can't drift. */
-  --color-background: #0f1117;
-  --color-surface: #1a1d27;
-  --color-surface-raised: #242835;
-  --color-surface-sunken: #14161d;
-  --color-sidebar: #10121a;
-  --color-sidebar-active: rgba(0, 180, 216, 0.14);
-  --color-sidebar-hover: #1c1f2b;
+  --color-background: #eef2f7;
+  --color-surface: #ffffff;
+  --color-surface-raised: #f8fafc;
+  --color-surface-sunken: #f1f5f9;
+  --color-sidebar: #1a2b3c;
+  --color-sidebar-active: rgba(0, 180, 216, 0.12);
+  --color-sidebar-hover: #243b55;
   --color-primary: #0077b6;
   --color-accent: #00b4d8;
-  --color-text: #f0f1f5;
-  --color-text-muted: #7d8598;
-  --color-border: #2e3345;
+  --color-text: #0f172a;
+  --color-text-muted: #94a3b8;
+  --color-border: #e2e8f0;
 
-  /* Semantic status pairs — bg is a translucent tint of the hue, text a light
-     tint of the same hue (≥4.5:1 contrast against the dark surfaces above),
-     border a mid tint of the same hue for definition. Used by <Badge>. */
-  --color-success-bg: rgba(16, 185, 129, 0.14);
-  --color-success-text: #6ee7b7;
-  --color-success-border: rgba(16, 185, 129, 0.35);
-  --color-warning-bg: rgba(245, 158, 11, 0.14);
-  --color-warning-text: #fcd34d;
-  --color-warning-border: rgba(245, 158, 11, 0.35);
-  --color-error-bg: rgba(239, 68, 68, 0.14);
-  --color-error-text: #fca5a5;
-  --color-error-border: rgba(239, 68, 68, 0.35);
-  --color-info-bg: rgba(0, 180, 216, 0.14);
-  --color-info-text: #67e8f9;
-  --color-info-border: rgba(0, 180, 216, 0.35);
+  /* Semantic status pairs — bg is always the light (100-level) tint, text the
+     700-level of the same hue (≥4.5:1 contrast on the paired bg), border the
+     200-level of the same hue for definition. Used by <Badge>. */
+  --color-success-bg: #dcfce7;
+  --color-success-text: #15803d;
+  --color-success-border: #bbf7d0;
+  --color-warning-bg: #fef3c7;
+  --color-warning-text: #b45309;
+  --color-warning-border: #fde68a;
+  --color-error-bg: #fee2e2;
+  --color-error-text: #b91c1c;
+  --color-error-border: #fecaca;
+  --color-info-bg: #e0f2fe;
+  --color-info-text: #0369a1;
+  --color-info-border: #bae6fd;
 
   /* ── Legacy aliases — existing classes/CSS keep working, now sourced from
      the canonical tokens above so there is exactly one place values live. */
   --color-page: var(--color-background);
   --color-surface-elevated: var(--color-surface-raised);
-  --color-border-hover: #404660;
+  --color-border-hover: #cbd5e1;
 
   --color-text-primary: var(--color-text);
-  --color-text-secondary: #c8cad8;
+  --color-text-secondary: #334155;
 
-  --color-accent-hover: #0093ac;
+  --color-accent-hover: #005f92;
   --color-secondary: var(--color-accent);
-  --color-secondary-hover: #22c9e8;
+  --color-secondary-hover: #0093ac;
 
   /* CTA gradient (secondary → primary) */
   --color-cta-from: var(--color-accent);
   --color-cta-to: var(--color-primary);
   --color-cta: var(--color-primary);
-  --color-cta-hover: #0093c9;
+  --color-cta-hover: #005f92;
 
   --color-sidebar-text: #f8fafc;
   --color-sidebar-border: rgba(248, 250, 252, 0.08);
+  --color-sidebar-hover: rgba(248, 250, 252, 0.06);
 
   /* Status (solid-color uses — buttons, dots — distinct from the bg/text
      tint pairs above) */
-  --color-danger: #ef4444;
-  --color-danger-hover: #dc2626;
-  --color-warning: #f59e0b;
+  --color-danger: #dc2626;
+  --color-danger-hover: #b91c1c;
+  --color-warning: #d97706;
   --color-info: var(--color-accent);
 
   /* Legacy aliases for existing var(--background) / var(--foreground) usage */
@@ -97,12 +96,13 @@ html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 body {
   color: var(--color-text-primary);
-  background-color: var(--color-page) !important;
+  background-color: var(--color-page);
+  background-color: #D6E4F0 !important;
   font-family:
     var(--font-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI",
     Roboto, sans-serif;
@@ -432,32 +432,29 @@ textarea {
 
 /* Surfaces ------------------------------------------------------------------ */
 .bg-white {
-  background-color: var(--color-surface) !important;
+  background-color: #FFFFFF !important;
 }
 .bg-surface {
   background-color: var(--color-surface) !important;
 }
-.bg-white-sunken {
-  background-color: var(--color-surface-sunken) !important;
-}
 .bg-navy-50 {
-  background-color: rgba(255, 255, 255, 0.03) !important;
+  background-color: rgba(0, 119, 182, 0.04) !important;
 }
 .bg-navy-100 {
-  background-color: rgba(255, 255, 255, 0.06) !important;
+  background-color: rgba(0, 119, 182, 0.08) !important;
 }
 .bg-navy-50\/50,
 .bg-navy-50\/30 {
-  background-color: rgba(255, 255, 255, 0.025) !important;
+  background-color: rgba(0, 119, 182, 0.03) !important;
 }
 .hover\:bg-navy-50:hover {
-  background-color: rgba(255, 255, 255, 0.05) !important;
+  background-color: rgba(0, 119, 182, 0.06) !important;
 }
 .hover\:bg-navy-100:hover {
-  background-color: rgba(255, 255, 255, 0.08) !important;
+  background-color: rgba(0, 119, 182, 0.1) !important;
 }
 .disabled\:bg-navy-50:disabled {
-  background-color: rgba(255, 255, 255, 0.02) !important;
+  background-color: rgba(0, 119, 182, 0.03) !important;
 }
 .disabled\:text-navy-500:disabled {
   color: var(--color-text-muted) !important;
@@ -472,10 +469,10 @@ textarea {
   color: var(--color-text-primary) !important;
 }
 .text-navy-800 {
-  color: #e2e4ea !important;
+  color: #1e293b !important;
 }
 .text-navy-700 {
-  color: #c8cad8 !important;
+  color: #334155 !important;
 }
 .text-navy-600 {
   color: var(--color-text-secondary) !important;
@@ -487,7 +484,7 @@ textarea {
   color: var(--color-text-muted) !important;
 }
 .text-navy-300 {
-  color: #565d6e !important;
+  color: #94a3b8 !important;
 }
 .hover\:text-navy-900:hover,
 .hover\:text-navy-800:hover {
@@ -495,15 +492,15 @@ textarea {
 }
 .hover\:text-navy-700:hover,
 .hover\:text-navy-600:hover {
-  color: #c8cad8 !important;
+  color: #334155 !important;
 }
 .focus-visible\:text-navy-700:focus-visible {
-  color: #c8cad8 !important;
+  color: #334155 !important;
 }
 
 /* Borders + dividers -------------------------------------------------------- */
 .border-navy-100 {
-  border-color: rgba(46, 51, 69, 0.7) !important;
+  border-color: rgba(226, 232, 240, 0.7) !important;
 }
 .border-navy-200 {
   border-color: var(--color-border) !important;
@@ -513,7 +510,7 @@ textarea {
 }
 .hover\:border-navy-300:hover,
 .hover\:border-navy-400:hover {
-  border-color: var(--color-border-hover) !important;
+  border-color: #94a3b8 !important;
 }
 .divide-navy-100 > :not([hidden]) ~ :not([hidden]) {
   border-color: var(--color-border) !important;
@@ -524,21 +521,21 @@ textarea {
 
 /* Cyan accents (secondary) --------------------------------------------------- */
 .text-teal-600 {
-  color: #22d3ee !important;
+  color: #0089a8 !important;
 }
 .text-teal-700 {
-  color: #67e8f9 !important;
+  color: #006e87 !important;
 }
 .hover\:text-teal-700:hover {
-  color: #a5f3fc !important;
+  color: #005a6e !important;
 }
 .bg-teal-50,
 .bg-teal-50\/60,
 .bg-teal-50\/50 {
-  background-color: rgba(0, 180, 216, 0.12) !important;
+  background-color: rgba(0, 180, 216, 0.08) !important;
 }
 .border-teal-200 {
-  border-color: rgba(0, 180, 216, 0.35) !important;
+  border-color: rgba(0, 180, 216, 0.3) !important;
 }
 .border-teal-300,
 .hover\:border-teal-300:hover {
@@ -547,13 +544,13 @@ textarea {
 
 /* Navy-ink highlights (formerly plum/purple) --------------------------------- */
 .bg-plum-50 {
-  background-color: rgba(255, 255, 255, 0.04) !important;
+  background-color: rgba(15, 23, 42, 0.05) !important;
 }
 .border-plum-200 {
-  border-color: rgba(255, 255, 255, 0.15) !important;
+  border-color: rgba(15, 23, 42, 0.15) !important;
 }
 .text-plum-600 {
-  color: #c8cad8 !important;
+  color: #1e293b !important;
 }
 .text-plum-700,
 .text-plum-800,
@@ -563,165 +560,61 @@ textarea {
 
 /* Alert / status tints ------------------------------------------------------ */
 .bg-red-50 {
-  background-color: rgba(239, 68, 68, 0.12) !important;
+  background-color: rgba(220, 38, 38, 0.08) !important;
 }
 .border-red-200 {
-  border-color: rgba(239, 68, 68, 0.3) !important;
+  border-color: rgba(220, 38, 38, 0.25) !important;
 }
 .text-red-600,
 .text-red-500 {
-  color: #f87171 !important;
+  color: #dc2626 !important;
 }
 .text-red-700,
 .text-red-800,
 .text-red-900 {
-  color: #fca5a5 !important;
+  color: #991b1b !important;
 }
 
 .bg-yellow-50,
 .bg-amber-50 {
-  background-color: rgba(245, 158, 11, 0.12) !important;
+  background-color: rgba(217, 119, 6, 0.08) !important;
 }
 .border-yellow-200,
 .border-yellow-300,
 .border-amber-200 {
-  border-color: rgba(245, 158, 11, 0.3) !important;
+  border-color: rgba(217, 119, 6, 0.25) !important;
 }
 .text-yellow-700,
 .text-yellow-800,
 .text-yellow-900,
 .text-amber-700,
 .text-amber-800 {
-  color: #fcd34d !important;
+  color: #b45309 !important;
 }
 
 .bg-green-50,
 .bg-emerald-50 {
-  background-color: rgba(16, 185, 129, 0.12) !important;
+  background-color: rgba(5, 150, 105, 0.08) !important;
 }
 .border-green-200,
 .border-emerald-200 {
-  border-color: rgba(16, 185, 129, 0.3) !important;
+  border-color: rgba(5, 150, 105, 0.25) !important;
 }
 .text-green-700,
 .text-green-800,
 .text-emerald-700 {
-  color: #6ee7b7 !important;
+  color: #047857 !important;
 }
 
 .bg-blue-50 {
-  background-color: rgba(0, 119, 182, 0.14) !important;
+  background-color: rgba(0, 119, 182, 0.08) !important;
 }
 .border-blue-200 {
-  border-color: rgba(0, 119, 182, 0.3) !important;
+  border-color: rgba(0, 119, 182, 0.25) !important;
 }
 .text-blue-700,
 .text-blue-800 {
-  color: #7dd3fc !important;
-}
-
-/* Raw Tailwind slate/gray scale — used directly (not via the text-navy-* alias)
-   in ~100+ files for body text, headings, borders, and panel backgrounds.
-   Left unmapped, dark text-900/800/700 renders illegibly on the new dark
-   surfaces (dark-on-dark). Same remap technique as text-navy-* above: darker
-   shades (900-600) become light text, light shades (50-300) become dark
-   surfaces/borders. */
-.text-slate-900,
-.text-gray-900 {
-  color: var(--color-text-primary) !important;
-}
-.text-slate-800,
-.text-gray-800 {
-  color: #e2e4ea !important;
-}
-.text-slate-700,
-.text-gray-700 {
-  color: #c8cad8 !important;
-}
-.text-slate-600,
-.text-gray-600 {
-  color: var(--color-text-secondary) !important;
-}
-.text-slate-500,
-.text-gray-500 {
-  color: var(--color-text-muted) !important;
-}
-.text-slate-400,
-.text-gray-400 {
-  color: #8b93a5 !important;
-}
-.text-slate-300,
-.text-gray-300 {
-  color: #565d6e !important;
-}
-.hover\:text-slate-900:hover,
-.hover\:text-slate-800:hover {
-  color: var(--color-text-primary) !important;
-}
-.hover\:text-slate-700:hover {
-  color: #c8cad8 !important;
-}
-.hover\:text-slate-600:hover {
-  color: var(--color-text-secondary) !important;
-}
-.hover\:text-slate-500:hover {
-  color: var(--color-text-muted) !important;
-}
-.disabled\:text-slate-400:disabled {
-  color: var(--color-text-muted) !important;
-}
-.placeholder-slate-400::placeholder {
-  color: var(--color-text-muted) !important;
-}
-
-.border-slate-100 {
-  border-color: rgba(46, 51, 69, 0.5) !important;
-}
-.border-slate-200,
-.border-gray-200 {
-  border-color: var(--color-border) !important;
-}
-.border-slate-300,
-.border-slate-700 {
-  border-color: var(--color-border-hover) !important;
-}
-.hover\:border-slate-300:hover,
-.hover\:border-slate-400:hover {
-  border-color: var(--color-border-hover) !important;
-}
-.divide-slate-100 > :not([hidden]) ~ :not([hidden]),
-.divide-slate-200 > :not([hidden]) ~ :not([hidden]) {
-  border-color: var(--color-border) !important;
-}
-
-.bg-slate-50,
-.bg-gray-50 {
-  background-color: var(--color-surface-sunken) !important;
-}
-.bg-slate-100 {
-  background-color: rgba(255, 255, 255, 0.05) !important;
-}
-.bg-slate-200 {
-  background-color: rgba(255, 255, 255, 0.08) !important;
-}
-.bg-slate-400 {
-  background-color: #565d6e !important;
-}
-.bg-slate-800 {
-  background-color: var(--color-sidebar) !important;
-}
-.bg-slate-900 {
-  background-color: var(--color-page) !important;
-}
-.hover\:bg-slate-50:hover,
-.hover\:bg-slate-100:hover {
-  background-color: rgba(255, 255, 255, 0.05) !important;
-}
-.hover\:bg-slate-200:hover {
-  background-color: rgba(255, 255, 255, 0.08) !important;
-}
-.disabled\:bg-slate-50:disabled {
-  background-color: rgba(255, 255, 255, 0.02) !important;
+  color: var(--color-primary) !important;
 }
 
 /* =============================================================================
@@ -734,17 +627,30 @@ textarea {
 .card-navy { background-color: #1A2B3C !important; color: #FFFFFF !important; }
 .card-green { background-color: #10B981 !important; color: #FFFFFF !important; }
 .card-amber { background-color: #F59E0B !important; color: #FFFFFF !important; }
-.card-depth { background-color: #1A1D27 !important; box-shadow: 0 4px 16px rgba(0,0,0,0.45) !important; border: 1px solid #2E3345 !important; border-radius: 12px !important; }
+.card-depth { background-color: #FFFFFF !important; box-shadow: 0 4px 16px rgba(0,0,0,0.12) !important; border: 1px solid #B8C9D9 !important; border-radius: 12px !important; }
 .border-accent-blue { border-left: 4px solid #0077B6 !important; }
 .border-accent-cyan { border-left: 4px solid #00B4D8 !important; }
 .border-accent-violet { border-left: 4px solid #6B48CC !important; }
 .border-accent-green { border-left: 4px solid #10B981 !important; }
 .border-accent-red { border-left: 4px solid #EF4444 !important; }
 .border-accent-amber { border-left: 4px solid #F59E0B !important; }
-.badge-blue { background-color: rgba(0, 119, 182, 0.16) !important; color: #7dd3fc !important; border-radius: 9999px !important; padding: 2px 10px !important; font-size: 12px !important; font-weight: 600 !important; }
-.badge-green { background-color: rgba(16, 185, 129, 0.16) !important; color: #6ee7b7 !important; border-radius: 9999px !important; padding: 2px 10px !important; font-size: 12px !important; font-weight: 600 !important; }
-.badge-red { background-color: rgba(239, 68, 68, 0.16) !important; color: #fca5a5 !important; border-radius: 9999px !important; padding: 2px 10px !important; font-size: 12px !important; font-weight: 600 !important; }
-.badge-amber { background-color: rgba(245, 158, 11, 0.16) !important; color: #fcd34d !important; border-radius: 9999px !important; padding: 2px 10px !important; font-size: 12px !important; font-weight: 600 !important; }
-.badge-violet { background-color: rgba(107, 72, 204, 0.2) !important; color: #c4b5fd !important; border-radius: 9999px !important; padding: 2px 10px !important; font-size: 12px !important; font-weight: 600 !important; }
+.badge-blue { background-color: #DBEAFE !important; color: #1D4ED8 !important; border-radius: 9999px !important; padding: 2px 10px !important; font-size: 12px !important; font-weight: 600 !important; }
+.badge-green { background-color: #DCFCE7 !important; color: #15803D !important; border-radius: 9999px !important; padding: 2px 10px !important; font-size: 12px !important; font-weight: 600 !important; }
+.badge-red { background-color: #FEE2E2 !important; color: #B91C1C !important; border-radius: 9999px !important; padding: 2px 10px !important; font-size: 12px !important; font-weight: 600 !important; }
+.badge-amber { background-color: #FEF3C7 !important; color: #92400E !important; border-radius: 9999px !important; padding: 2px 10px !important; font-size: 12px !important; font-weight: 600 !important; }
+.badge-violet { background-color: #EDE9FE !important; color: #6D28D9 !important; border-radius: 9999px !important; padding: 2px 10px !important; font-size: 12px !important; font-weight: 600 !important; }
 .table-header-dark { background-color: #1A2B3C !important; color: #FFFFFF !important; }
-.page-bg { background-color: #0F1117 !important; }
+.page-bg { background-color: #D6E4F0 !important; }
+
+
+body{background-color:#D6E4F0!important;}
+.card-blue{background-color:#0077B6!important;color:#FFFFFF!important;}
+.card-cyan{background-color:#00B4D8!important;color:#FFFFFF!important;}
+.card-violet{background-color:#6B48CC!important;color:#FFFFFF!important;}
+.card-navy{background-color:#1A2B3C!important;color:#FFFFFF!important;}
+.card-depth{background-color:#FFFFFF!important;box-shadow:0 4px 16px rgba(0,0,0,0.12)!important;border:1px solid #B8C9D9!important;border-radius:12px!important;}
+.border-l-blue{border-left:4px solid #0077B6!important;}
+.border-l-violet{border-left:4px solid #6B48CC!important;}
+.border-l-cyan{border-left:4px solid #00B4D8!important;}
+.table-dark thead tr{background-color:#1A2B3C!important;color:#FFFFFF!important;}
+.table-dark thead th{color:#FFFFFF!important;}

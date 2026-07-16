@@ -489,7 +489,7 @@ export default function ResearchPage() {
   }
 
   return (
-    <div className="space-y-8 page-bg" style={{ backgroundColor: "#0F1117" }}>
+    <div className="space-y-8 page-bg" style={{ backgroundColor: "#D6E4F0" }}>
       {/* Header */}
       <PageHeader
         title="Research Command Center"
@@ -624,9 +624,9 @@ export default function ResearchPage() {
                     : "border border-border hover:border-slate-300 card-depth"
                 }`}
                 style={{
-                  backgroundColor: "#1A1D27",
-                  boxShadow: "0 2px 8px rgba(0,0,0,0.35)",
-                  ...(isActive ? {} : { border: "1px solid #2E3345" }),
+                  backgroundColor: "#FFFFFF",
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                  ...(isActive ? {} : { border: "1px solid #CBD5E1" }),
                 }}
               >
                 <span className="absolute inset-x-0 top-0 h-[3px] bg-accent" aria-hidden />
@@ -721,9 +721,9 @@ export default function ResearchPage() {
           <div
             className="flex items-center justify-center rounded-xl border border-border bg-white p-10 text-sm text-slate-500"
             style={{
-              backgroundColor: "#1A1D27",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.35)",
-              border: "1px solid #2E3345",
+              backgroundColor: "#FFFFFF",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+              border: "1px solid #CBD5E1",
             }}
           >
             <Spinner className="mr-2 h-4 w-4 text-slate-400" />
@@ -733,9 +733,9 @@ export default function ResearchPage() {
           <div
             className="rounded-xl border border-border bg-white p-10 text-center text-sm text-slate-500"
             style={{
-              backgroundColor: "#1A1D27",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.35)",
-              border: "1px solid #2E3345",
+              backgroundColor: "#FFFFFF",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+              border: "1px solid #CBD5E1",
             }}
           >
             No discovered opportunities yet. Run a research agent above to find
@@ -745,9 +745,9 @@ export default function ResearchPage() {
           <div
             className="rounded-xl border border-border bg-white p-10 text-center text-sm text-slate-500"
             style={{
-              backgroundColor: "#1A1D27",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.35)",
-              border: "1px solid #2E3345",
+              backgroundColor: "#FFFFFF",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+              border: "1px solid #CBD5E1",
             }}
           >
             No discovered opportunities from {activeSourceLabel} yet.{" "}
@@ -762,9 +762,9 @@ export default function ResearchPage() {
           <div
             className="rounded-xl border border-border bg-white p-10 text-center text-sm text-slate-500"
             style={{
-              backgroundColor: "#1A1D27",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.35)",
-              border: "1px solid #2E3345",
+              backgroundColor: "#FFFFFF",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+              border: "1px solid #CBD5E1",
             }}
           >
             No discovered opportunities match &ldquo;{searchQuery}&rdquo;.{" "}
@@ -787,8 +787,8 @@ export default function ResearchPage() {
                   onClick={() => router.push(`/opportunities/${opp.id}`)}
                   className="bg-white rounded-xl shadow-sm border border-border p-5 mb-4 hover:shadow-md hover:border-[#00B4D8] transition-all cursor-pointer"
                   style={{
-                    backgroundColor: "#1A1D27",
-                    boxShadow: "0 2px 8px rgba(0,0,0,0.35)",
+                    backgroundColor: "#FFFFFF",
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
                   }}
                 >
                   <div className="flex flex-wrap items-start justify-between gap-4">
@@ -890,9 +890,9 @@ export default function ResearchPage() {
           <div
             className="rounded-xl border border-border bg-white p-8 text-center text-sm text-slate-500"
             style={{
-              backgroundColor: "#1A1D27",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.35)",
-              border: "1px solid #2E3345",
+              backgroundColor: "#FFFFFF",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+              border: "1px solid #CBD5E1",
             }}
           >
             No historical awards yet. Pull awards to see who actually received
@@ -902,9 +902,9 @@ export default function ResearchPage() {
           <div
             className="overflow-x-auto rounded-xl border border-border bg-white shadow-sm"
             style={{
-              backgroundColor: "#1A1D27",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.35)",
-              border: "1px solid #2E3345",
+              backgroundColor: "#FFFFFF",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+              border: "1px solid #CBD5E1",
             }}
           >
             <table className="min-w-full divide-y divide-slate-200">
