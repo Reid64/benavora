@@ -319,8 +319,8 @@ export function FlightPathHUD() {
                   backgroundColor: "#FFFFFF",
                   borderRadius: "12px",
                   padding: "20px",
-                  boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-                  border: "1px solid #CBD5E1",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.10)",
+                  border: "1px solid #B8C9D9",
                   textAlign: "center",
                 }}
               >

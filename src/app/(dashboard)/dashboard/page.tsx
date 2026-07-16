@@ -336,10 +336,10 @@ export default async function DashboardPage() {
             backgroundColor: "#FFFFFF",
             borderRadius: "16px",
             padding: "24px",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-            border: "1px solid #CBD5E1",
+            boxShadow: "0 4px 16px rgba(0,0,0,0.10)",
+            border: "1px solid #B8C9D9",
           }}
-          labelClassName="text-[13px] font-semibold text-[#64748B]"
+          labelClassName="text-[13px] font-semibold text-[#64748B] uppercase tracking-[0.05em]"
           valueClassName="mt-2 text-[32px] font-extrabold text-[#0F172A]"
           hintClassName="mt-2 text-xs text-[#6B7280]"
         />
@@ -352,10 +352,10 @@ export default async function DashboardPage() {
             backgroundColor: "#FFFFFF",
             borderRadius: "16px",
             padding: "24px",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-            border: "1px solid #CBD5E1",
+            boxShadow: "0 4px 16px rgba(0,0,0,0.10)",
+            border: "1px solid #B8C9D9",
           }}
-          labelClassName="text-[13px] font-semibold text-[#64748B]"
+          labelClassName="text-[13px] font-semibold text-[#64748B] uppercase tracking-[0.05em]"
           valueClassName="mt-2 text-[32px] font-extrabold text-[#0F172A]"
           hintClassName="mt-2 text-xs text-[#6B7280]"
         />
@@ -368,10 +368,10 @@ export default async function DashboardPage() {
             backgroundColor: "#FFFFFF",
             borderRadius: "16px",
             padding: "24px",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-            border: "1px solid #CBD5E1",
+            boxShadow: "0 4px 16px rgba(0,0,0,0.10)",
+            border: "1px solid #B8C9D9",
           }}
-          labelClassName="text-[13px] font-semibold text-[#64748B]"
+          labelClassName="text-[13px] font-semibold text-[#64748B] uppercase tracking-[0.05em]"
           valueClassName="mt-2 text-[32px] font-extrabold text-[#0F172A]"
           hintClassName="mt-2 text-xs text-[#6B7280]"
           hint={
@@ -388,8 +388,8 @@ export default async function DashboardPage() {
           backgroundColor: "#FFFFFF",
           borderRadius: "16px",
           padding: "28px",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-          border: "1px solid #CBD5E1",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+          border: "1px solid #B8C9D9",
           marginTop: "24px",
           marginBottom: "32px",
         }}
@@ -410,8 +410,8 @@ export default async function DashboardPage() {
               backgroundColor: "#FFFFFF",
               borderRadius: "16px",
               padding: "28px",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-              border: "1px solid #CBD5E1",
+              boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+              border: "1px solid #B8C9D9",
             }}
           >
             <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#0F172A", marginBottom: "16px" }}>

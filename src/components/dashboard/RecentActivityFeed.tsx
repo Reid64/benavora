@@ -128,14 +128,22 @@ export function RecentActivityFeed({ items }: { items: RecentActivityItem[] }) {
   }
 
   return (
-    <ul className="divide-y divide-navy-50">
+    <ul>
       {items.map((item) => {
         const Icon = AGENT_ICON[item.agentType] ?? Bot;
         const label = AGENT_LABEL[item.agentType] ?? humanize(item.agentType);
         const failed = item.status === "failed";
 
         return (
-          <li key={item.id} className="flex items-start gap-3 py-2.5">
+          <li
+            key={item.id}
+            className="flex items-start gap-3 py-2.5"
+            style={{
+              borderBottom: "1px solid #F1F5F9",
+              paddingBottom: "12px",
+              marginBottom: "12px",
+            }}
+          >
             <span
               className={cn(
                 "mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md",
