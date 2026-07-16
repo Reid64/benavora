@@ -306,7 +306,6 @@ export function FlightPathHUD() {
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
       {STAGES.map((stage) => {
         const stageData = data[stage.id];
-        const Icon = stage.icon;
         const badge = loading ? "—" : (stageData.count ?? "—");
 
         return (
@@ -315,25 +314,31 @@ export function FlightPathHUD() {
               {/* Front face */}
               <Link
                 href={stage.href}
-                className="absolute inset-0 rounded-lg flex flex-col items-center justify-center backface-hidden overflow-hidden"
+                className="absolute inset-0 flex flex-col items-center justify-center backface-hidden overflow-hidden"
                 style={{
                   backgroundColor: "#FFFFFF",
-                  border: "1px solid #E5E7EB",
-                  boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
+                  borderRadius: "12px",
+                  padding: "20px",
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                  border: "1px solid #CBD5E1",
+                  textAlign: "center",
                 }}
               >
-                <span
-                  className="absolute inset-x-0 top-0 h-[3px]"
-                  style={{ backgroundColor: stage.accentColor }}
-                  aria-hidden
-                />
-                <Icon className="h-5 w-5" style={{ color: stage.accentColor }} aria-hidden />
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-[#6B7280] mt-2 text-center px-2">
+                <div
+                  style={{
+                    fontSize: "11px",
+                    fontWeight: 700,
+                    color: "#00B4D8",
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                    marginBottom: "8px",
+                  }}
+                >
                   {stage.label}
-                </p>
-                <p className="text-2xl font-bold tracking-tight text-[#0A0E1A] tabular-nums">
+                </div>
+                <div style={{ fontSize: "28px", fontWeight: 900, color: "#0F172A" }}>
                   {badge}
-                </p>
+                </div>
               </Link>
 
               {/* Back face */}

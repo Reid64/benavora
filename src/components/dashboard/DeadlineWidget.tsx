@@ -41,20 +41,93 @@ function urgency(dueDate: string): { band: UrgencyBand; label: string } {
   return { band: "upcoming", label };
 }
 
+const DARK_DATE_COLOR: Record<UrgencyBand, string> = {
+  overdue: "#EF4444",
+  this_week: "#F59E0B",
+  upcoming: "#94A3B8",
+};
+
 /**
  * Upcoming deadlines widget (BLUEPRINT §4.1 / §4.9): deadlines due within the
  * next 7 days plus anything overdue, color-coded by urgency. Data is loaded
  * server-side (incomplete deadlines only) and passed in, sorted by due date.
+ *
+ * `dark` renders each row for a dark navy panel (title/date colors flip to
+ * light-on-dark) instead of the default light-surface treatment.
  */
-export function DeadlineWidget({ items }: { items: DeadlineWidgetItem[] }) {
+export function DeadlineWidget({
+  items,
+  dark = false,
+}: {
+  items: DeadlineWidgetItem[];
+  dark?: boolean;
+}) {
   if (items.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-8 text-center">
-        <CalendarCheck className="h-6 w-6 text-navy-300" aria-hidden />
-        <p className="mt-2 text-sm text-navy-500">
+        <CalendarCheck
+          className={cn("h-6 w-6", dark ? "text-white/30" : "text-navy-300")}
+          aria-hidden
+        />
+        <p className={cn("mt-2 text-sm", dark ? "text-white/50" : "text-navy-500")}>
           Nothing due in the next 7 days.
         </p>
       </div>
+    );
+  }
+
+  if (dark) {
+    return (
+      <ul>
+        {items.map((item) => {
+          const { band, label } = urgency(item.dueDate);
+          const row = (
+            <div
+              style={{
+                padding: "16px 24px",
+                borderBottom: "1px solid rgba(255,255,255,0.06)",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: "12px",
+              }}
+            >
+              <span
+                style={{
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  color: "#F1F5F9",
+                }}
+                className="truncate"
+              >
+                {item.title}
+              </span>
+              <span
+                style={{
+                  fontSize: "12px",
+                  color: DARK_DATE_COLOR[band],
+                  fontWeight: 600,
+                }}
+                className="shrink-0"
+              >
+                {label}
+              </span>
+            </div>
+          );
+
+          return (
+            <li key={item.id}>
+              {item.href ? (
+                <Link href={item.href} className="block transition hover:bg-white/[0.04]">
+                  {row}
+                </Link>
+              ) : (
+                row
+              )}
+            </li>
+          );
+        })}
+      </ul>
     );
   }
 

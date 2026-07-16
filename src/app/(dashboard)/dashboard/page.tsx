@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 import { addDays, differenceInCalendarDays, format } from "date-fns";
 
-import { cn } from "@/lib/utils/cn";
 import { FlightPathHUD } from "@/components/dashboard/FlightPathHUD";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import {
@@ -75,17 +74,11 @@ function metricCurrency(n: number): string {
 
 type StatAccent = "blue" | "cyan" | "violet" | "navy";
 
-// Restrained fintech treatment: every card is the same crisp white surface —
-// color signals live only in the thin top bar and the small icon chip, not
-// as a full-bleed background. Confidence comes from the number, not the tile.
-const STAT_ACCENTS: Record<
-  StatAccent,
-  { topBar: string; chipBg: string; chipText: string }
-> = {
-  blue: { topBar: "bg-[#0077B6]", chipBg: "bg-[#EAF3FA]", chipText: "text-[#0077B6]" },
-  cyan: { topBar: "bg-[#00B4D8]", chipBg: "bg-[#E6F8FC]", chipText: "text-[#0089A8]" },
-  violet: { topBar: "bg-[#6B48CC]", chipBg: "bg-[#F1EDFB]", chipText: "text-[#6B48CC]" },
-  navy: { topBar: "bg-[#1A2B3C]", chipBg: "bg-[#ECEEF1]", chipText: "text-[#1A2B3C]" },
+const STAT_ACCENTS: Record<StatAccent, { bg: string; shadow: string }> = {
+  blue: { bg: "#0077B6", shadow: "0 8px 24px rgba(0,119,182,0.3)" },
+  cyan: { bg: "#00B4D8", shadow: "0 8px 24px rgba(0,180,216,0.3)" },
+  violet: { bg: "#6B48CC", shadow: "0 8px 24px rgba(107,72,204,0.3)" },
+  navy: { bg: "#1A2B3C", shadow: "0 8px 24px rgba(26,43,60,0.3)" },
 };
 
 /** One of the four primary dashboard stat tiles, accented by function (BLUEPRINT §4.1). */
@@ -100,35 +93,41 @@ function StatCard({
   icon: LucideIcon;
   accent: StatAccent;
 }) {
-  const styles = STAT_ACCENTS[accent];
+  const { bg, shadow } = STAT_ACCENTS[accent];
   return (
     <div
-      className="relative overflow-hidden rounded-lg border border-[#E5E7EB] p-5"
       style={{
-        backgroundColor: "#FFFFFF",
-        boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
+        backgroundColor: bg,
+        borderRadius: "16px",
+        padding: "24px",
+        boxShadow: shadow,
+        color: "#FFFFFF",
       }}
     >
-      <span
-        className={cn("absolute inset-x-0 top-0 h-[3px]", styles.topBar)}
-        aria-hidden
-      />
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-[#6B7280]">
-          {label}
-        </span>
-        <span
-          className={cn(
-            "flex h-8 w-8 shrink-0 items-center justify-center rounded-md",
-            styles.chipBg,
-          )}
+      <div className="flex items-center justify-between">
+        <div
+          style={{
+            fontSize: "11px",
+            fontWeight: 700,
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+            opacity: 0.8,
+          }}
         >
-          <Icon className={cn("h-4 w-4", styles.chipText)} aria-hidden />
-        </span>
+          {label}
+        </div>
+        <Icon className="h-5 w-5" style={{ opacity: 0.7 }} aria-hidden />
       </div>
-      <p className="mt-3 text-[32px] font-bold leading-none tracking-tight text-[#0A0E1A] tabular-nums">
+      <div
+        style={{
+          fontSize: "40px",
+          fontWeight: 900,
+          lineHeight: 1,
+          marginTop: "12px",
+        }}
+      >
         {value}
-      </p>
+      </div>
     </div>
   );
 }
@@ -275,18 +274,12 @@ export default async function DashboardPage() {
     outcomes.length === 0;
 
   return (
-    <div
-      className="min-h-screen p-6"
-      style={{ backgroundColor: "#F7F8FA" }}
-    >
-      <div className="mb-8">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-[#6B7280]">
-          Overview
-        </p>
-        <h1 className="mt-1 text-[28px] font-bold leading-tight tracking-tight text-[#0A0E1A]">
+    <div className="min-h-screen" style={{ backgroundColor: "#D6E4F0", padding: "32px" }}>
+      <div style={{ marginBottom: "32px" }}>
+        <h1 style={{ fontSize: "28px", fontWeight: 800, color: "#0F172A", letterSpacing: "-0.02em" }}>
           Dashboard
         </h1>
-        <p className="mt-1 text-sm text-[#6B7280]">
+        <p style={{ fontSize: "14px", color: "#64748B", marginTop: "4px" }}>
           Your funding pipeline at a glance.
         </p>
       </div>
@@ -344,11 +337,13 @@ export default async function DashboardPage() {
           hue="blue"
           style={{
             backgroundColor: "#FFFFFF",
-            border: "1px solid #E5E7EB",
-            boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
+            borderRadius: "16px",
+            padding: "24px",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+            border: "1px solid #CBD5E1",
           }}
-          labelClassName="text-[11px] font-semibold uppercase tracking-wider text-[#6B7280]"
-          valueClassName="mt-3 text-[26px] font-bold leading-none tracking-tight text-[#0A0E1A] tabular-nums"
+          labelClassName="text-[13px] font-semibold text-[#64748B]"
+          valueClassName="mt-2 text-[32px] font-extrabold text-[#0F172A]"
           hintClassName="mt-2 text-xs text-[#6B7280]"
         />
         <MetricCard
@@ -358,11 +353,13 @@ export default async function DashboardPage() {
           hue="indigo"
           style={{
             backgroundColor: "#FFFFFF",
-            border: "1px solid #E5E7EB",
-            boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
+            borderRadius: "16px",
+            padding: "24px",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+            border: "1px solid #CBD5E1",
           }}
-          labelClassName="text-[11px] font-semibold uppercase tracking-wider text-[#6B7280]"
-          valueClassName="mt-3 text-[26px] font-bold leading-none tracking-tight text-[#0A0E1A] tabular-nums"
+          labelClassName="text-[13px] font-semibold text-[#64748B]"
+          valueClassName="mt-2 text-[32px] font-extrabold text-[#0F172A]"
           hintClassName="mt-2 text-xs text-[#6B7280]"
         />
         <MetricCard
@@ -372,11 +369,13 @@ export default async function DashboardPage() {
           hue="emerald"
           style={{
             backgroundColor: "#FFFFFF",
-            border: "1px solid #E5E7EB",
-            boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
+            borderRadius: "16px",
+            padding: "24px",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+            border: "1px solid #CBD5E1",
           }}
-          labelClassName="text-[11px] font-semibold uppercase tracking-wider text-[#6B7280]"
-          valueClassName="mt-3 text-[26px] font-bold leading-none tracking-tight text-[#0A0E1A] tabular-nums"
+          labelClassName="text-[13px] font-semibold text-[#64748B]"
+          valueClassName="mt-2 text-[32px] font-extrabold text-[#0F172A]"
           hintClassName="mt-2 text-xs text-[#6B7280]"
           hint={
             summary.successRate != null
@@ -388,18 +387,18 @@ export default async function DashboardPage() {
 
       {/* Pipeline */}
       <div
-        className="rounded-lg p-6 mb-8"
         style={{
           backgroundColor: "#FFFFFF",
-          border: "1px solid #E5E7EB",
-          boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
+          borderRadius: "16px",
+          padding: "28px",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+          border: "1px solid #CBD5E1",
+          marginTop: "24px",
+          marginBottom: "32px",
         }}
       >
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-[#6B7280] mb-1">
+        <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#0F172A", marginBottom: "16px" }}>
           Pipeline
-        </p>
-        <h2 className="text-lg font-bold tracking-tight text-[#0A0E1A] mb-4">
-          Applications by stage
         </h2>
         <PipelineSummary counts={pipelineCounts} />
       </div>
@@ -410,17 +409,15 @@ export default async function DashboardPage() {
         <div className="space-y-6">
           {/* Recent activity */}
           <div
-            className="rounded-lg p-6"
             style={{
               backgroundColor: "#FFFFFF",
-              border: "1px solid #E5E7EB",
-              boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
+              borderRadius: "16px",
+              padding: "28px",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+              border: "1px solid #CBD5E1",
             }}
           >
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-[#6B7280] mb-1">
-              Activity
-            </p>
-            <h2 className="text-lg font-bold tracking-tight text-[#0A0E1A] mb-4">
+            <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#0F172A", marginBottom: "16px" }}>
               Recent Activity
             </h2>
             <RecentActivityFeed items={activityItems} />
@@ -431,61 +428,109 @@ export default async function DashboardPage() {
         <div className="space-y-6">
           {/* Upcoming deadlines */}
           <div
-            className="rounded-lg overflow-hidden"
             style={{
-              backgroundColor: "#FFFFFF",
-              border: "1px solid #E5E7EB",
-              boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
+              backgroundColor: "#1A2B3C",
+              borderRadius: "16px",
+              padding: "0",
+              overflow: "hidden",
+              boxShadow: "0 4px 16px rgba(26,43,60,0.2)",
             }}
           >
-            <div className="bg-[#0A0E1A] px-5 py-4 flex items-center justify-between">
-              <span className="text-white font-semibold text-sm">
-                Upcoming Deadlines
-              </span>
-              <Link
-                href="/deadlines"
-                className="text-xs font-medium text-[#9CA3AF] hover:text-white"
-              >
-                View all
-              </Link>
+            <div style={{ padding: "20px 24px", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
+              <div className="flex items-center justify-between">
+                <h2
+                  style={{
+                    fontSize: "14px",
+                    fontWeight: 700,
+                    color: "#FFFFFF",
+                    letterSpacing: "0.05em",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Upcoming Deadlines
+                </h2>
+                <Link
+                  href="/deadlines"
+                  className="text-xs font-medium"
+                  style={{ color: "#9CA3AF" }}
+                >
+                  View all
+                </Link>
+              </div>
             </div>
-            <div className="p-5">
-              <DeadlineWidget items={deadlineItems} />
+            <div style={{ padding: "8px 0" }}>
+              <DeadlineWidget items={deadlineItems} dark />
             </div>
           </div>
 
           {/* Quick actions */}
           <div
-            className="rounded-lg p-5"
             style={{
-              backgroundColor: "#FFFFFF",
-              border: "1px solid #E5E7EB",
-              boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
+              backgroundColor: "#0077B6",
+              borderRadius: "16px",
+              padding: "24px",
+              boxShadow: "0 4px 16px rgba(0,119,182,0.3)",
             }}
           >
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-[#6B7280] mb-3">
+            <h3 style={{ fontSize: "14px", fontWeight: 700, color: "#FFFFFF", marginBottom: "16px" }}>
               Quick Actions
-            </p>
-            <div className="space-y-2">
+            </h3>
+            <div>
               <Link
                 href="/research"
-                className="flex w-full items-center gap-3 rounded-md border border-[#E5E7EB] px-4 py-3 text-sm font-medium text-[#1F2937] transition hover:border-[#00B4D8] hover:bg-[#E6F8FC]"
+                style={{
+                  display: "block",
+                  width: "100%",
+                  padding: "12px 16px",
+                  backgroundColor: "rgba(255,255,255,0.15)",
+                  borderRadius: "8px",
+                  color: "#FFFFFF",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  marginBottom: "8px",
+                  border: "1px solid rgba(255,255,255,0.2)",
+                  cursor: "pointer",
+                  textAlign: "left",
+                }}
               >
-                <Zap className="h-4 w-4 shrink-0 text-[#00B4D8]" aria-hidden />
                 Run Research
               </Link>
               <Link
                 href="/draft-generator"
-                className="flex w-full items-center gap-3 rounded-md border border-[#E5E7EB] px-4 py-3 text-sm font-medium text-[#1F2937] transition hover:border-[#0077B6] hover:bg-[#EAF3FA]"
+                style={{
+                  display: "block",
+                  width: "100%",
+                  padding: "12px 16px",
+                  backgroundColor: "rgba(255,255,255,0.15)",
+                  borderRadius: "8px",
+                  color: "#FFFFFF",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  marginBottom: "8px",
+                  border: "1px solid rgba(255,255,255,0.2)",
+                  cursor: "pointer",
+                  textAlign: "left",
+                }}
               >
-                <PenLine className="h-4 w-4 shrink-0 text-[#0077B6]" aria-hidden />
                 Generate Drafts
               </Link>
               <Link
                 href="/draft-generator/queue"
-                className="flex w-full items-center gap-3 rounded-md border border-[#E5E7EB] px-4 py-3 text-sm font-medium text-[#1F2937] transition hover:border-[#10B981] hover:bg-[#ECFDF5]"
+                style={{
+                  display: "block",
+                  width: "100%",
+                  padding: "12px 16px",
+                  backgroundColor: "rgba(255,255,255,0.15)",
+                  borderRadius: "8px",
+                  color: "#FFFFFF",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  marginBottom: "8px",
+                  border: "1px solid rgba(255,255,255,0.2)",
+                  cursor: "pointer",
+                  textAlign: "left",
+                }}
               >
-                <ClipboardList className="h-4 w-4 shrink-0 text-[#10B981]" aria-hidden />
                 Review Queue
               </Link>
             </div>
