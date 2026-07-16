@@ -303,7 +303,16 @@ export function FlightPathHUD() {
   }, []);
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+    <div
+      style={{
+        backgroundColor: "#B8C4CC",
+        borderRadius: "20px",
+        padding: "20px",
+        marginBottom: "32px",
+        boxShadow: "inset 0 2px 8px rgba(0,0,0,0.15), 0 4px 16px rgba(0,0,0,0.10)",
+      }}
+    >
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
       {STAGES.map((stage) => {
         const stageData = data[stage.id];
         const badge = loading ? "—" : (stageData.count ?? "—");
@@ -375,6 +384,7 @@ export function FlightPathHUD() {
           </div>
         );
       })}
+      </div>
     </div>
   );
 }
