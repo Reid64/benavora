@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import type { CSSProperties } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   Award,
@@ -17,7 +16,6 @@ import {
 import { addDays, differenceInCalendarDays, format } from "date-fns";
 
 import { cn } from "@/lib/utils/cn";
-import { Card } from "@/components/ui";
 import { FlightPathHUD } from "@/components/dashboard/FlightPathHUD";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import {
@@ -75,13 +73,19 @@ function metricCurrency(n: number): string {
   return n === 0 ? "-" : formatCurrency(n);
 }
 
-type StatAccent = "blue" | "violet" | "amber" | "red";
+type StatAccent = "blue" | "cyan" | "violet" | "navy";
 
-const STAT_ACCENTS: Record<StatAccent, { iconBg: string; iconText: string }> = {
-  blue: { iconBg: "bg-blue-100", iconText: "text-blue-600" },
-  violet: { iconBg: "bg-violet-100", iconText: "text-violet-600" },
-  amber: { iconBg: "bg-amber-100", iconText: "text-amber-600" },
-  red: { iconBg: "bg-red-100", iconText: "text-red-600" },
+// Restrained fintech treatment: every card is the same crisp white surface —
+// color signals live only in the thin top bar and the small icon chip, not
+// as a full-bleed background. Confidence comes from the number, not the tile.
+const STAT_ACCENTS: Record<
+  StatAccent,
+  { topBar: string; chipBg: string; chipText: string }
+> = {
+  blue: { topBar: "bg-[#0077B6]", chipBg: "bg-[#EAF3FA]", chipText: "text-[#0077B6]" },
+  cyan: { topBar: "bg-[#00B4D8]", chipBg: "bg-[#E6F8FC]", chipText: "text-[#0089A8]" },
+  violet: { topBar: "bg-[#6B48CC]", chipBg: "bg-[#F1EDFB]", chipText: "text-[#6B48CC]" },
+  navy: { topBar: "bg-[#1A2B3C]", chipBg: "bg-[#ECEEF1]", chipText: "text-[#1A2B3C]" },
 };
 
 /** One of the four primary dashboard stat tiles, accented by function (BLUEPRINT §4.1). */
@@ -90,55 +94,39 @@ function StatCard({
   value,
   icon: Icon,
   accent,
-  style,
-  className,
 }: {
   label: string;
   value: string;
   icon: LucideIcon;
   accent: StatAccent;
-  style?: CSSProperties;
-  className?: string;
 }) {
   const styles = STAT_ACCENTS[accent];
-  const colored = Boolean(style);
   return (
     <div
-      className={cn(
-        "rounded-xl shadow-md border border-slate-300 p-5 relative overflow-hidden",
-        !colored && "bg-white",
-        className,
-      )}
-      style={style}
+      className="relative overflow-hidden rounded-lg border border-[#E5E7EB] p-5"
+      style={{
+        backgroundColor: "#FFFFFF",
+        boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
+      }}
     >
-      <div
-        className={cn(
-          "absolute top-4 right-4 w-10 h-10 rounded-lg flex items-center justify-center",
-          !colored && styles.iconBg,
-        )}
-      >
-        <Icon
+      <span
+        className={cn("absolute inset-x-0 top-0 h-[3px]", styles.topBar)}
+        aria-hidden
+      />
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-[#6B7280]">
+          {label}
+        </span>
+        <span
           className={cn(
-            "h-5 w-5",
-            colored ? "text-white opacity-70" : styles.iconText,
+            "flex h-8 w-8 shrink-0 items-center justify-center rounded-md",
+            styles.chipBg,
           )}
-          aria-hidden
-        />
+        >
+          <Icon className={cn("h-4 w-4", styles.chipText)} aria-hidden />
+        </span>
       </div>
-      <p
-        className={cn(
-          "text-xs font-semibold uppercase tracking-wide",
-          colored ? "text-white" : "text-slate-500",
-        )}
-      >
-        {label}
-      </p>
-      <p
-        className={cn(
-          "text-3xl font-bold mt-2",
-          colored ? "text-white" : "text-slate-900",
-        )}
-      >
+      <p className="mt-3 text-[32px] font-bold leading-none tracking-tight text-[#0A0E1A] tabular-nums">
         {value}
       </p>
     </div>
@@ -287,10 +275,18 @@ export default async function DashboardPage() {
     outcomes.length === 0;
 
   return (
-    <div className="min-h-screen p-6 page-bg" style={{ backgroundColor: "#E4E9F0" }}>
+    <div
+      className="min-h-screen p-6"
+      style={{ backgroundColor: "#F7F8FA" }}
+    >
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-primary">Dashboard</h1>
-        <p className="text-slate-500 text-sm mt-1">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-[#6B7280]">
+          Overview
+        </p>
+        <h1 className="mt-1 text-[28px] font-bold leading-tight tracking-tight text-[#0A0E1A]">
+          Dashboard
+        </h1>
+        <p className="mt-1 text-sm text-[#6B7280]">
           Your funding pipeline at a glance.
         </p>
       </div>
@@ -312,54 +308,48 @@ export default async function DashboardPage() {
       <FlightPathHUD />
 
       {/* 4 primary stat cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
         <StatCard
           label="Total Opportunities"
           value={metricCount(totalOpportunities)}
           icon={Search}
           accent="blue"
-          style={{ backgroundColor: "#0077B6" }}
-          className="card-blue"
         />
         <StatCard
           label="Applications Submitted"
           value={metricCount(submittedCount)}
           icon={Send}
-          accent="violet"
-          style={{ backgroundColor: "#00B4D8" }}
-          className="card-cyan"
+          accent="cyan"
         />
         <StatCard
           label="Drafts Generated"
           value={metricCount(draftsGenerated)}
           icon={FileText}
-          accent="amber"
-          style={{ backgroundColor: "#6B48CC" }}
-          className="card-violet"
+          accent="violet"
         />
         <StatCard
           label="Deadlines This Week"
           value={metricCount(deadlinesThisWeek)}
           icon={CalendarClock}
-          accent="red"
-          style={{ backgroundColor: "#1A2B3C" }}
-          className="card-navy"
+          accent="navy"
         />
       </div>
 
       {/* 3 financial metrics */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 mb-8">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 mb-8">
         <MetricCard
           label="Total Requested"
           value={metricCurrency(totalRequested)}
           icon={DollarSign}
           hue="blue"
           style={{
-            backgroundColor: "#F7F5F1",
-            border: "1px solid #D9D3C5",
-            boxShadow: "0 1px 2px 0 rgba(0,0,0,0.05)",
+            backgroundColor: "#FFFFFF",
+            border: "1px solid #E5E7EB",
+            boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
           }}
-          className="card-depth"
+          labelClassName="text-[11px] font-semibold uppercase tracking-wider text-[#6B7280]"
+          valueClassName="mt-3 text-[26px] font-bold leading-none tracking-tight text-[#0A0E1A] tabular-nums"
+          hintClassName="mt-2 text-xs text-[#6B7280]"
         />
         <MetricCard
           label="Total Awarded"
@@ -367,11 +357,13 @@ export default async function DashboardPage() {
           icon={Award}
           hue="indigo"
           style={{
-            backgroundColor: "#F7F5F1",
-            border: "1px solid #D9D3C5",
-            boxShadow: "0 1px 2px 0 rgba(0,0,0,0.05)",
+            backgroundColor: "#FFFFFF",
+            border: "1px solid #E5E7EB",
+            boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
           }}
-          className="card-depth"
+          labelClassName="text-[11px] font-semibold uppercase tracking-wider text-[#6B7280]"
+          valueClassName="mt-3 text-[26px] font-bold leading-none tracking-tight text-[#0A0E1A] tabular-nums"
+          hintClassName="mt-2 text-xs text-[#6B7280]"
         />
         <MetricCard
           label="Success Rate"
@@ -379,11 +371,13 @@ export default async function DashboardPage() {
           icon={Percent}
           hue="emerald"
           style={{
-            backgroundColor: "#F7F5F1",
-            border: "1px solid #D9D3C5",
-            boxShadow: "0 1px 2px 0 rgba(0,0,0,0.05)",
+            backgroundColor: "#FFFFFF",
+            border: "1px solid #E5E7EB",
+            boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
           }}
-          className="card-depth"
+          labelClassName="text-[11px] font-semibold uppercase tracking-wider text-[#6B7280]"
+          valueClassName="mt-3 text-[26px] font-bold leading-none tracking-tight text-[#0A0E1A] tabular-nums"
+          hintClassName="mt-2 text-xs text-[#6B7280]"
           hint={
             summary.successRate != null
               ? `${summary.awarded} awarded of ${summary.total}`
@@ -394,14 +388,19 @@ export default async function DashboardPage() {
 
       {/* Pipeline */}
       <div
-        className="bg-white rounded-xl shadow-sm border border-border p-6 mb-8"
+        className="rounded-lg p-6 mb-8"
         style={{
-          backgroundColor: "#F7F5F1",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-          border: "1px solid #D9D3C5",
+          backgroundColor: "#FFFFFF",
+          border: "1px solid #E5E7EB",
+          boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
         }}
       >
-        <h2 className="text-lg font-semibold text-slate-900 mb-4">Pipeline</h2>
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-[#6B7280] mb-1">
+          Pipeline
+        </p>
+        <h2 className="text-lg font-bold tracking-tight text-[#0A0E1A] mb-4">
+          Applications by stage
+        </h2>
         <PipelineSummary counts={pipelineCounts} />
       </div>
 
@@ -411,14 +410,17 @@ export default async function DashboardPage() {
         <div className="space-y-6">
           {/* Recent activity */}
           <div
-            className="bg-white rounded-xl shadow-sm border border-border p-6"
+            className="rounded-lg p-6"
             style={{
-              backgroundColor: "#F7F5F1",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-              border: "1px solid #D9D3C5",
+              backgroundColor: "#FFFFFF",
+              border: "1px solid #E5E7EB",
+              boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
             }}
           >
-            <h2 className="text-lg font-semibold text-slate-900 mb-4">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-[#6B7280] mb-1">
+              Activity
+            </p>
+            <h2 className="text-lg font-bold tracking-tight text-[#0A0E1A] mb-4">
               Recent Activity
             </h2>
             <RecentActivityFeed items={activityItems} />
@@ -429,20 +431,20 @@ export default async function DashboardPage() {
         <div className="space-y-6">
           {/* Upcoming deadlines */}
           <div
-            className="bg-white rounded-xl shadow-sm border border-border overflow-hidden"
+            className="rounded-lg overflow-hidden"
             style={{
-              backgroundColor: "#F7F5F1",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-              border: "1px solid #D9D3C5",
+              backgroundColor: "#FFFFFF",
+              border: "1px solid #E5E7EB",
+              boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
             }}
           >
-            <div className="bg-slate-800 px-5 py-4 flex items-center justify-between">
+            <div className="bg-[#0A0E1A] px-5 py-4 flex items-center justify-between">
               <span className="text-white font-semibold text-sm">
                 Upcoming Deadlines
               </span>
               <Link
                 href="/deadlines"
-                className="text-xs font-medium text-slate-300 hover:text-white"
+                className="text-xs font-medium text-[#9CA3AF] hover:text-white"
               >
                 View all
               </Link>
@@ -453,37 +455,41 @@ export default async function DashboardPage() {
           </div>
 
           {/* Quick actions */}
-          <Card className="border-l-4 border-l-cyan-500" title="Quick Actions">
+          <div
+            className="rounded-lg p-5"
+            style={{
+              backgroundColor: "#FFFFFF",
+              border: "1px solid #E5E7EB",
+              boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
+            }}
+          >
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-[#6B7280] mb-3">
+              Quick Actions
+            </p>
             <div className="space-y-2">
               <Link
                 href="/research"
-                className="flex w-full items-center gap-3 rounded-lg border border-navy-100 px-4 py-3 text-sm font-medium text-navy-700 transition hover:border-teal-300 hover:bg-teal-50 hover:text-teal-700"
+                className="flex w-full items-center gap-3 rounded-md border border-[#E5E7EB] px-4 py-3 text-sm font-medium text-[#1F2937] transition hover:border-[#00B4D8] hover:bg-[#E6F8FC]"
               >
-                <Zap className="h-4 w-4 shrink-0 text-teal-500" aria-hidden />
+                <Zap className="h-4 w-4 shrink-0 text-[#00B4D8]" aria-hidden />
                 Run Research
               </Link>
               <Link
                 href="/draft-generator"
-                className="flex w-full items-center gap-3 rounded-lg border border-navy-100 px-4 py-3 text-sm font-medium text-navy-700 transition hover:border-primary/30 hover:bg-primary/5 hover:text-primary"
+                className="flex w-full items-center gap-3 rounded-md border border-[#E5E7EB] px-4 py-3 text-sm font-medium text-[#1F2937] transition hover:border-[#0077B6] hover:bg-[#EAF3FA]"
               >
-                <PenLine
-                  className="h-4 w-4 shrink-0 text-primary"
-                  aria-hidden
-                />
+                <PenLine className="h-4 w-4 shrink-0 text-[#0077B6]" aria-hidden />
                 Generate Drafts
               </Link>
               <Link
                 href="/draft-generator/queue"
-                className="flex w-full items-center gap-3 rounded-lg border border-navy-100 px-4 py-3 text-sm font-medium text-navy-700 transition hover:border-success-text/30 hover:bg-success-bg hover:text-success-text"
+                className="flex w-full items-center gap-3 rounded-md border border-[#E5E7EB] px-4 py-3 text-sm font-medium text-[#1F2937] transition hover:border-[#10B981] hover:bg-[#ECFDF5]"
               >
-                <ClipboardList
-                  className="h-4 w-4 shrink-0 text-success-text"
-                  aria-hidden
-                />
+                <ClipboardList className="h-4 w-4 shrink-0 text-[#10B981]" aria-hidden />
                 Review Queue
               </Link>
             </div>
-          </Card>
+          </div>
         </div>
       </div>
     </div>

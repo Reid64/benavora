@@ -12,7 +12,6 @@ import {
   Target,
 } from "lucide-react";
 
-import { cn } from "@/lib/utils/cn";
 import { createClient } from "@/lib/supabase/client";
 import { formatRelative } from "@/lib/utils/formatters";
 
@@ -37,7 +36,7 @@ type StageConfig = {
   id: StageId;
   label: string;
   icon: LucideIcon;
-  borderClass: string;
+  accentColor: string;
   href: string;
   actionLabel: string;
 };
@@ -47,7 +46,7 @@ const STAGES: StageConfig[] = [
     id: "onboard",
     label: "Onboard",
     icon: ClipboardCheck,
-    borderClass: "border-t-4 border-[#0077B6]",
+    accentColor: "#0077B6",
     href: "/onboarding",
     actionLabel: "Continue Setup",
   },
@@ -55,7 +54,7 @@ const STAGES: StageConfig[] = [
     id: "research",
     label: "Research",
     icon: Search,
-    borderClass: "border-t-4 border-[#7C3AED]",
+    accentColor: "#7C3AED",
     href: "/research",
     actionLabel: "Run Research",
   },
@@ -63,7 +62,7 @@ const STAGES: StageConfig[] = [
     id: "opportunities",
     label: "Opportunities",
     icon: Target,
-    borderClass: "border-t-4 border-[#F59E0B]",
+    accentColor: "#F59E0B",
     href: "/opportunities",
     actionLabel: "View Opportunities",
   },
@@ -71,7 +70,7 @@ const STAGES: StageConfig[] = [
     id: "narratives",
     label: "Grant Narratives",
     icon: PenLine,
-    borderClass: "border-t-4 border-[#10B981]",
+    accentColor: "#10B981",
     href: "/draft-generator",
     actionLabel: "Generate Drafts",
   },
@@ -79,7 +78,7 @@ const STAGES: StageConfig[] = [
     id: "autoapply",
     label: "AutoApply",
     icon: Send,
-    borderClass: "border-t-4 border-[#00B4D8]",
+    accentColor: "#00B4D8",
     href: "/admin/autoapply-ops",
     actionLabel: "View Queue",
   },
@@ -87,7 +86,7 @@ const STAGES: StageConfig[] = [
     id: "donorDiscovery",
     label: "Donor Discovery",
     icon: HeartHandshake,
-    borderClass: "border-t-4 border-[#EF4444]",
+    accentColor: "#EF4444",
     href: "/donor-discovery",
     actionLabel: "Discover Donors",
   },
@@ -316,23 +315,29 @@ export function FlightPathHUD() {
               {/* Front face */}
               <Link
                 href={stage.href}
-                className={cn(
-                  "absolute inset-0 rounded-xl bg-white shadow-sm border border-border flex flex-col items-center justify-center backface-hidden",
-                  stage.borderClass,
-                )}
+                className="absolute inset-0 rounded-lg flex flex-col items-center justify-center backface-hidden overflow-hidden"
+                style={{
+                  backgroundColor: "#FFFFFF",
+                  border: "1px solid #E5E7EB",
+                  boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
+                }}
               >
-                <Icon className="h-6 w-6 text-slate-500" aria-hidden />
-                <p
-                  className="text-base font-bold uppercase tracking-wide mt-2"
-                  style={{ color: "#00B4D8" }}
-                >
+                <span
+                  className="absolute inset-x-0 top-0 h-[3px]"
+                  style={{ backgroundColor: stage.accentColor }}
+                  aria-hidden
+                />
+                <Icon className="h-5 w-5" style={{ color: stage.accentColor }} aria-hidden />
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-[#6B7280] mt-2 text-center px-2">
                   {stage.label}
                 </p>
-                <p className="text-2xl font-black text-slate-900">{badge}</p>
+                <p className="text-2xl font-bold tracking-tight text-[#0A0E1A] tabular-nums">
+                  {badge}
+                </p>
               </Link>
 
               {/* Back face */}
-              <div className="absolute inset-0 rounded-xl bg-[#1A2B3C] flex flex-col items-center justify-center backface-hidden rotate-y-180 p-4">
+              <div className="absolute inset-0 rounded-lg bg-[#0A0E1A] flex flex-col items-center justify-center backface-hidden rotate-y-180 p-4">
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-white/60">
                   Last Activity
                 </p>
@@ -342,8 +347,11 @@ export function FlightPathHUD() {
 
                 <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-white/15">
                   <div
-                    className="h-full rounded-full bg-[#00B4D8] transition-all"
-                    style={{ width: `${loading ? 0 : stageData.percent}%` }}
+                    className="h-full rounded-full transition-all"
+                    style={{
+                      width: `${loading ? 0 : stageData.percent}%`,
+                      backgroundColor: stage.accentColor,
+                    }}
                   />
                 </div>
                 <p className="mt-1 text-[10px] text-white/60">
@@ -352,7 +360,8 @@ export function FlightPathHUD() {
 
                 <Link
                   href={stage.href}
-                  className="bg-[#0077B6] text-white px-3 py-1.5 rounded-lg text-xs font-semibold mt-2"
+                  className="text-white px-3 py-1.5 rounded-md text-xs font-semibold mt-2"
+                  style={{ backgroundColor: stage.accentColor }}
                 >
                   {stage.actionLabel}
                 </Link>
