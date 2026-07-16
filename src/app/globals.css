@@ -1,12 +1,24 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-body{background-color:#D6E4F0;}
+/**
+ * Benavora — nonprofit grant management brand theme (refined premium pass).
+ *
+ * Palette: soft slate-blue canvas (#E4E9F0, deeper than the old near-white
+ * #EEF2F7/#D6E4F0) → warm ivory surface (#F7F5F1, not stark #FFFFFF) → warm
+ * elevated (#FBFAF7), deep navy-cyan primary (#0077B6), bright cyan secondary
+ * (#00B4D8), slate-navy sidebar (#1A2B3C), slate text.
+ *
+ * Strategy: CSS custom properties define the semantic tokens. Tailwind theme
 
-.card-blue{background-color:#0077B6!important;color:#FFFFFF!important;}
-.card-cyan{background-color:#00B4D8!important;color:#FFFFFF!important;}
-.card-violet{background-color:#6B48CC!important;color:#FFFFFF!important;}
-.card-navy{background-color:#1A2B3C!important;color:#FFFFFF!important;}
-.table-dark thead{background-color:#1A2B3C!important;color:#FFFFFF!important;}
-.table-dark th{color:#FFFFFF!important;}
+body { background-color: #D6E4F0; }
+
+.card-blue { background-color: #0077B6 !important; color: #FFFFFF !important; }
+.card-cyan { background-color: #00B4D8 !important; color: #FFFFFF !important; }
+.card-violet { background-color: #6B48CC !important; color: #FFFFFF !important; }
+.card-navy { background-color: #1A2B3C !important; color: #FFFFFF !important; }
+.table-dark thead { background-color: #1A2B3C !important; color: #FFFFFF !important; }
+.table-dark th { color: #FFFFFF !important; }
