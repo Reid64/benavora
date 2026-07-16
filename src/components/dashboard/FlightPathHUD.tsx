@@ -316,11 +316,11 @@ export function FlightPathHUD() {
                 href={stage.href}
                 className="absolute inset-0 flex flex-col items-center justify-center backface-hidden overflow-hidden"
                 style={{
-                  backgroundColor: "#FFFFFF",
+                  backgroundColor: stage.accentColor,
                   borderRadius: "12px",
                   padding: "20px",
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.10)",
-                  border: "1px solid #B8C9D9",
+                  boxShadow: "0 6px 20px rgba(0,0,0,0.18)",
+                  border: "none",
                   textAlign: "center",
                 }}
               >
@@ -328,7 +328,7 @@ export function FlightPathHUD() {
                   style={{
                     fontSize: "11px",
                     fontWeight: 700,
-                    color: "#00B4D8",
+                    color: "rgba(255,255,255,0.75)",
                     letterSpacing: "0.08em",
                     textTransform: "uppercase",
                     marginBottom: "8px",
@@ -336,7 +336,7 @@ export function FlightPathHUD() {
                 >
                   {stage.label}
                 </div>
-                <div style={{ fontSize: "28px", fontWeight: 900, color: "#0F172A" }}>
+                <div style={{ fontSize: "28px", fontWeight: 900, color: "#FFFFFF" }}>
                   {badge}
                 </div>
               </Link>

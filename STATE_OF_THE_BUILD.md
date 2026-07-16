@@ -57,9 +57,13 @@ pass, and no claim here is carried over from a prior session's self-report.
   build/tsc/lint gate in this session; treat as unverified. Per [[benavora-ui-claims-need-visual-proof]],
   none of this window's ~30 commits have confirmed pixel-level browser verification recorded anywhere in
   this file — only source-level class/style inspection backs the claims above.
-- **Not done:** no browser verification this session (docs-only, no code changed); FlightPathHUD colored
-  front-face rewrite not implemented, only identified and flagged above; `SCHEMA_REGISTRY.md` not
+- **Not done:** no browser verification this session (docs-only, no code changed); `SCHEMA_REGISTRY.md` not
   reconciled against the current 89-migration schema.
+- **FlightPathHUD front face: each stage card now renders with its accentColor background and white text.
+  July 16 2026.** (`FlightPathHUD.tsx` front-face `Link`, ~line 319: `backgroundColor` swapped from
+  `#FFFFFF` to `stage.accentColor`, `border` removed, shadow deepened to `0 6px 20px rgba(0,0,0,0.18)`;
+  label color changed to `rgba(255,255,255,0.75)`, count color changed to `#FFFFFF`. `pnpm build`
+  confirmed passing after the change.)
 - Governance docs updated: this file, `SESSION_STATE.md`. `governance/SCHEMA_REGISTRY.md` was read but not
   edited this pass (staleness flagged above, not fixed). `BLUEPRINT.md`, `BEHAVIORAL_CONTRACTS.md`,
   `AGENTS.md`, `CLAUDE.md`, `DONOR_DISCOVERY_ARCHITECTURE.md` untouched.
