@@ -1,6 +1,68 @@
 # BENAVORA — STATE OF THE BUILD
-## Last updated: 2026-07-14 (Funder relationship-score badge + Tier 6 inventory — see entry immediately below — on top of Mobile responsiveness audit + fixes, Research + Draft Generator pages Elevated Slate rebuild, FlightPathHUD Mission Control lifecycle dashboard, Migrations 073-074 applied to production, Settings + Onboarding pages Elevated Slate rebuild, Sales Outreach + AutoApply Ops pages Elevated Slate rebuild, Contacts + Financials + Reports pages Elevated Slate rebuild, Knowledge Base + Intelligence Library pages Elevated Slate rebuild, Alerts + Deadlines + Outcomes pages Elevated Slate rebuild, Donor Discovery Overview + Prospects pages Elevated Slate rebuild, Applications + Documents pages Elevated Slate rebuild, Funders + Foundations pages Elevated Slate card-grid rebuild, PageHeader rebuild, Opportunities page visual overhaul, Dashboard page visual overhaul, Header hardcoded-Tailwind rebuild, Sidebar hardcoded-Tailwind rebuild, Phase 2-4 completion audit, Apollo + Hunter §6 BYO-key connectors + run_connector_enrichment worker job, TX TDLR + land bank directory registry adapters + Donor Discovery Connectors page + connectors API + Prospect detail page rebuild + AutoApply handoff route + Donor Discovery Overview page rebuild + process_discovery_request worker job + requests API pagination + Claude-rationale donor-discovery scoring engine + SAM.gov registry adapter + ingest script + ProPublica financial enrichment adapter + script + IRS BMF full ingest script + Google Geocoding adapter + donor_discovery_geocache + Google Places cache-first registry adapter + adapter_usage_log + New Discovery wizard TaxonomyCombobox + taxonomy aliases + header nav placement fix + Phases 2+3 + Foundation Enrichment Pipeline + Onboarding soft-gate)
+## Last updated: 2026-07-16 (Governance doc catch-up: UI redesign thrashing reconciled, deployment + auth info recorded — see entry immediately below — on top of Funder relationship-score badge + Tier 6 inventory, Mobile responsiveness audit + fixes, Research + Draft Generator pages Elevated Slate rebuild, FlightPathHUD Mission Control lifecycle dashboard, Migrations 073-074 applied to production, Settings + Onboarding pages Elevated Slate rebuild, Sales Outreach + AutoApply Ops pages Elevated Slate rebuild, Contacts + Financials + Reports pages Elevated Slate rebuild, Knowledge Base + Intelligence Library pages Elevated Slate rebuild, Alerts + Deadlines + Outcomes pages Elevated Slate rebuild, Donor Discovery Overview + Prospects pages Elevated Slate rebuild, Applications + Documents pages Elevated Slate rebuild, Funders + Foundations pages Elevated Slate card-grid rebuild, PageHeader rebuild, Opportunities page visual overhaul, Dashboard page visual overhaul, Header hardcoded-Tailwind rebuild, Sidebar hardcoded-Tailwind rebuild, Phase 2-4 completion audit, Apollo + Hunter §6 BYO-key connectors + run_connector_enrichment worker job, TX TDLR + land bank directory registry adapters + Donor Discovery Connectors page + connectors API + Prospect detail page rebuild + AutoApply handoff route + Donor Discovery Overview page rebuild + process_discovery_request worker job + requests API pagination + Claude-rationale donor-discovery scoring engine + SAM.gov registry adapter + ingest script + ProPublica financial enrichment adapter + script + IRS BMF full ingest script + Google Geocoding adapter + donor_discovery_geocache + Google Places cache-first registry adapter + adapter_usage_log + New Discovery wizard TaxonomyCombobox + taxonomy aliases + header nav placement fix + Phases 2+3 + Foundation Enrichment Pipeline + Onboarding soft-gate)
 ## Method: live codebase audit — every file path, route, agent, and migration counted directly from the filesystem; no assumptions carried from prior docs.
+
+---
+
+## GOVERNANCE UPDATE — July 16: UI redesign thrashing reconciled, deployment + auth info recorded
+
+Two days of UI-only work (July 15-16, ~30 commits) landed on `main` after the July 14 entry below without
+ever being logged in this file. This is a documentation-only pass reconciling the docs against
+`git log --oneline --date=short -30` and a direct read of the current file state — no code changed in this
+pass, and no claim here is carried over from a prior session's self-report.
+
+- **Deployment**: live at **www.benavora.com** (Vercel). Current auth credentials in active use:
+  **info@benavora.com** and **info@faithfoundationsf.org** — real org-scoped accounts, not seed/dev-only
+  placeholders.
+- **Dashboard 4 primary stat cards — confirmed working.** `dashboard/page.tsx`'s local `StatCard` component
+  (`STAT_ACCENTS`: blue `#0077B6` / cyan `#00B4D8` / violet `#6B48CC` / navy `#1A2B3C`, one per tile —
+  Total Opportunities / Applications Submitted / Drafts Generated / Deadlines This Week) renders its
+  background via inline `style` props, not Tailwind utility classes. That's precisely why these four cards
+  survived the compatibility-layer churn described below untouched: CSS `!important` stylesheet rules beat
+  inline `style` only when the *same element* also carries the class being remapped, and `StatCard` carries
+  no `bg-white`/legacy color class for the compat layer to grab onto.
+- **FlightPathHUD needs the same colored-card treatment — not yet done.** `FlightPathHUD.tsx` (the 6-stage
+  Mission Control flip HUD rendered directly above the stat-card row) already defines a real per-stage
+  `accentColor` (blue/violet/amber/green/cyan/red, one per stage), but today it's applied only to the
+  back-face progress bar and action button. The front face — the side visible by default — is hardcoded to
+  a plain white card (`backgroundColor: "#FFFFFF"`, line ~319) with a small cyan label; next to the now
+  vividly-colored stat row beneath it, the HUD reads flat and undifferentiated. The fix is mechanical
+  (swap the front face's hardcoded white for `stage.accentColor`, matching the stat cards' visual
+  language) but has not been applied as of this entry.
+- **`globals.css` compatibility layer — restored, and deliberately so.** The file carries a ~220-line
+  "COMPATIBILITY LAYER" section (lines ~428-646) remapping legacy Tailwind class names (`bg-white`,
+  `text-navy-*`, `bg-teal-*`, `border-plum-*`, status-tint classes, etc.) onto the current brand palette via
+  `!important`. By CSS cascade rules, an `!important` stylesheet rule beats even an inline `style` attribute
+  on the same element/property — so any component pairing a new inline color with an old legacy class name
+  gets silently overridden back to the compat-layer color, which is exactly what blocked several redesign
+  attempts this window. The commit sequence: `f363c14` "clean globals.css no compatibility layer" removed
+  the layer outright; `36bea38` "dashboard depth polish" layered new changes on top assuming it was gone;
+  removing the layer broke other pages still depending on the class-based remap (never migrated to inline
+  styles or literal classes), so both were reverted (`030f186`, `8f986d0`); `7ac3844` "restore working
+  globals.css" put the full compatibility layer back as the final, currently-live state. Net effect: the
+  layer is back **on purpose**, not an oversight — any future inline-style redesign work (like the dashboard
+  stat cards above) must either avoid pairing new inline styles with the old legacy class names on the same
+  element, or migrate that component off the legacy classes first. See
+  [[benavora-design-history-dark-vs-light]] for the parallel dark/light flip-flop this same window
+  ultimately settled on the light slate-blue/ivory palette documented at the top of `globals.css`.
+- **Tier 6 feature inventory** — unchanged from the July 14 audit two entries below; this was a pure
+  CSS/UI window, no backend/schema/agent-type work landed.
+- **Current filesystem counts** (re-counted directly this pass, not carried from prior entries): 99
+  `page.tsx` files, 208 `route.ts` files under `src/app`, 89 migration files in `supabase/migrations/`
+  (through `087_notification_preferences.sql`). `governance/SCHEMA_REGISTRY.md` is stale against this —
+  it's dated June 13, 2026 and documents only through table 58; **not reconciled in this pass**, flagged
+  for a future session rather than guessed at.
+- Gate: **not run this session** — documentation-only pass, no code changed, no gate applies. The most
+  recent code-changing commit (`7ac3844`, restoring `globals.css`) has not been re-verified against a fresh
+  build/tsc/lint gate in this session; treat as unverified. Per [[benavora-ui-claims-need-visual-proof]],
+  none of this window's ~30 commits have confirmed pixel-level browser verification recorded anywhere in
+  this file — only source-level class/style inspection backs the claims above.
+- **Not done:** no browser verification this session (docs-only, no code changed); FlightPathHUD colored
+  front-face rewrite not implemented, only identified and flagged above; `SCHEMA_REGISTRY.md` not
+  reconciled against the current 89-migration schema.
+- Governance docs updated: this file, `SESSION_STATE.md`. `governance/SCHEMA_REGISTRY.md` was read but not
+  edited this pass (staleness flagged above, not fixed). `BLUEPRINT.md`, `BEHAVIORAL_CONTRACTS.md`,
+  `AGENTS.md`, `CLAUDE.md`, `DONOR_DISCOVERY_ARCHITECTURE.md` untouched.
 
 ---
 

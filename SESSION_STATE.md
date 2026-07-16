@@ -1,7 +1,35 @@
 # BENAVORA — SESSION STATE
-## Last updated: 2026-07-13
+## Last updated: 2026-07-16
 ## Current branch: main
-## Last commit: fix: permanent Donor Discovery header nav placement (uncommitted work on top, see below)
+## Last commit: fix: restore working globals.css (7ac3844)
+
+---
+
+## GOVERNANCE UPDATE — July 16 (latest session): UI redesign thrashing reconciled, deployment + auth info recorded
+
+Documentation-only pass — no code changed. Reconciled `STATE_OF_THE_BUILD.md` and this file against
+`git log` for the ~30 UI-only commits (July 15-16) that landed after the July 14 entry below without ever
+being logged. Full detail in `STATE_OF_THE_BUILD.md`'s new top entry — summary:
+
+- **Deployment**: live at **www.benavora.com**. Active auth credentials: **info@benavora.com** and
+  **info@faithfoundationsf.org**.
+- **Dashboard's 4 primary stat cards confirmed working** — `dashboard/page.tsx`'s `StatCard` uses inline
+  `style` props (blue/cyan/violet/navy accents), which is why they survived the compatibility-layer
+  churn below: inline styles only lose to `!important` class rules when the element also carries the
+  class being remapped, and `StatCard` carries none.
+- **FlightPathHUD still needs a colored front-face rewrite** — each stage already has a real
+  `accentColor`, used today only on the back face; the front face (default-visible side) is hardcoded
+  plain white. Not fixed this pass, only flagged.
+- **`globals.css`'s ~220-line compatibility layer (legacy-class → brand-palette `!important` remap) is
+  back in place, deliberately.** It was removed (`f363c14`), built on top of as if gone
+  (`36bea38`), both reverted (`030f186`, `8f986d0`) after breaking pages still depending on it, and
+  restored (`7ac3844`) as the final state. Any inline-style redesign work must avoid pairing new inline
+  colors with the old legacy class names it remaps.
+- **Tier 6 inventory unchanged** — pure CSS/UI window, no backend/schema/agent work.
+- **Filesystem counts** (re-counted): 99 `page.tsx`, 208 `route.ts`, 89 migrations (through 087).
+  `governance/SCHEMA_REGISTRY.md` is stale (dated June 13, only through table 58) — flagged, not fixed.
+- Gate: not run — no code changed this pass. `7ac3844` itself is unverified against a fresh gate/browser
+  check in this session.
 
 ---
 
