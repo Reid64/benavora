@@ -287,7 +287,7 @@ export default async function DashboardPage() {
     outcomes.length === 0;
 
   return (
-    <div className="min-h-screen p-6 page-bg" style={{ backgroundColor: "#D6E4F0" }}>
+    <div className="min-h-screen p-6 page-bg" style={{ backgroundColor: "#E4E9F0" }}>
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-primary">Dashboard</h1>
         <p className="text-slate-500 text-sm mt-1">
@@ -355,8 +355,8 @@ export default async function DashboardPage() {
           icon={DollarSign}
           hue="blue"
           style={{
-            backgroundColor: "#FFFFFF",
-            border: "1px solid #CBD5E1",
+            backgroundColor: "#F7F5F1",
+            border: "1px solid #D9D3C5",
             boxShadow: "0 1px 2px 0 rgba(0,0,0,0.05)",
           }}
           className="card-depth"
@@ -367,8 +367,8 @@ export default async function DashboardPage() {
           icon={Award}
           hue="indigo"
           style={{
-            backgroundColor: "#FFFFFF",
-            border: "1px solid #CBD5E1",
+            backgroundColor: "#F7F5F1",
+            border: "1px solid #D9D3C5",
             boxShadow: "0 1px 2px 0 rgba(0,0,0,0.05)",
           }}
           className="card-depth"
@@ -379,8 +379,8 @@ export default async function DashboardPage() {
           icon={Percent}
           hue="emerald"
           style={{
-            backgroundColor: "#FFFFFF",
-            border: "1px solid #CBD5E1",
+            backgroundColor: "#F7F5F1",
+            border: "1px solid #D9D3C5",
             boxShadow: "0 1px 2px 0 rgba(0,0,0,0.05)",
           }}
           className="card-depth"
@@ -396,9 +396,9 @@ export default async function DashboardPage() {
       <div
         className="bg-white rounded-xl shadow-sm border border-border p-6 mb-8"
         style={{
-          backgroundColor: "#FFFFFF",
+          backgroundColor: "#F7F5F1",
           boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-          border: "1px solid #CBD5E1",
+          border: "1px solid #D9D3C5",
         }}
       >
         <h2 className="text-lg font-semibold text-slate-900 mb-4">Pipeline</h2>
@@ -413,9 +413,9 @@ export default async function DashboardPage() {
           <div
             className="bg-white rounded-xl shadow-sm border border-border p-6"
             style={{
-              backgroundColor: "#FFFFFF",
+              backgroundColor: "#F7F5F1",
               boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-              border: "1px solid #CBD5E1",
+              border: "1px solid #D9D3C5",
             }}
           >
             <h2 className="text-lg font-semibold text-slate-900 mb-4">
@@ -431,9 +431,9 @@ export default async function DashboardPage() {
           <div
             className="bg-white rounded-xl shadow-sm border border-border overflow-hidden"
             style={{
-              backgroundColor: "#FFFFFF",
+              backgroundColor: "#F7F5F1",
               boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-              border: "1px solid #CBD5E1",
+              border: "1px solid #D9D3C5",
             }}
           >
             <div className="bg-slate-800 px-5 py-4 flex items-center justify-between">

@@ -24,7 +24,7 @@ test("light theme is applied globally, not dark mode", async ({ page }) => {
   const bodyBg = await page.evaluate(
     () => getComputedStyle(document.body).backgroundColor,
   );
-  expect(bodyBg).toBe("rgb(214, 228, 240)");
+  expect(bodyBg).toBe("rgb(228, 233, 240)");
 });
 
 /** 19. Sidebar renders with the logo and a highlighted active item. */
