@@ -309,7 +309,17 @@ export function FlightPathHUD() {
         const badge = loading ? "—" : (stageData.count ?? "—");
 
         return (
-          <div key={stage.id} className="relative h-36 cursor-pointer perspective-1000 group">
+          <div
+            key={stage.id}
+            className="relative h-36 cursor-pointer perspective-1000 group"
+            style={{
+              backgroundColor: "#FFFFFF",
+              borderRadius: "12px",
+              padding: "20px",
+              boxShadow: "0 4px 16px rgba(0,0,0,0.10)",
+              border: "1px solid #B8C9D9",
+            }}
+          >
             <div className="relative h-full w-full preserve-3d transition-transform duration-500 group-hover:rotate-y-180">
               {/* Front face */}
               <Link
