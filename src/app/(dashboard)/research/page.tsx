@@ -618,10 +618,10 @@ export default function ResearchPage() {
                     setActiveSource((cur) => (cur === src.key ? null : src.key));
                   }
                 }}
-                className={`relative flex cursor-pointer flex-col overflow-hidden rounded-xl bg-white p-4 shadow-sm transition-colors ${
+                className={`relative flex cursor-pointer flex-col overflow-hidden rounded-xl bg-white p-4 shadow-sm transition-colors card-depth ${
                   isActive
                     ? "border-2 border-blue-400 ring-1 ring-blue-200"
-                    : "border border-border hover:border-slate-300 card-depth"
+                    : "border border-border hover:border-slate-300"
                 }`}
                 style={{
                   backgroundColor: "#FFFFFF",
