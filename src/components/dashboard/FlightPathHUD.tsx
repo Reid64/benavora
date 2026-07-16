@@ -305,7 +305,7 @@ export function FlightPathHUD() {
   return (
     <div
       style={{
-        backgroundColor: "#B8C4CC",
+        backgroundColor: "#8A9BAD",
         borderRadius: "20px",
         padding: "20px",
         marginBottom: "32px",
