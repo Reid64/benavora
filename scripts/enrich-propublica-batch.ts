@@ -1,10 +1,20 @@
 // ============================================================================
 // BENAVORA — foundation_directory ProPublica batch enrichment
 //
-// Reads up to 1000 foundation_directory rows with asset_amount IS NULL,
-// queries ProPublica's free /organizations/{ein}.json endpoint
-// (src/lib/sources/propublica-990-client.ts) for each EIN with a 300ms delay
-// between calls, and upserts asset_amount / revenue_amount back by ein.
+// Reads foundation_directory rows where enrichment->>'propublica_enriched_at'
+// IS NULL AND ein IS NOT NULL, calls enrichFoundationFromProPublica() (in
+// src/lib/sources/propublica-990-client.ts) for each EIN with a 350ms delay
+// between calls, and upserts the result into that row's enrichment jsonb —
+// nested under enrichment.propublica (sibling to whatever other enrichment
+// sources have already written there, e.g. the 990/web scripts' own keys),
+// stamping enrichment.propublica_enriched_at.
+//
+// Processed in batches of 200. Since propublica_enriched_at flips from null
+// to a timestamp as soon as a row is written, an already-enriched row drops
+// out of the WHERE filter on the very next query — no separate on-disk
+// checkpoint is needed to resume a killed run, the database IS the
+// checkpoint. A row ProPublica has no record for is left unstamped and will
+// be retried on the next invocation.
 //
 //   pnpm enrich:propublica-batch
 // ============================================================================
@@ -14,7 +24,7 @@ import dotenv from "dotenv";
 dotenv.config({ path: ".env.local" });
 
 import { createAdminClient } from "../src/lib/supabase/admin";
-import { fetchProPublicaFinancials } from "../src/lib/sources/propublica-990-client";
+import { enrichFoundationFromProPublica } from "../src/lib/sources/propublica-990-client";
 
 function ok(step: string, detail: string) {
   console.log(`  ✓ ${step}: ${detail}`);
@@ -30,8 +40,9 @@ function fatal(message: string): never {
   process.exit(1);
 }
 
-const BATCH_LIMIT = 1000;
-const DELAY_MS = 300;
+const BATCH_SIZE = 200;
+const DELAY_MS = 350;
+const LOG_EVERY = 50;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -40,6 +51,25 @@ function sleep(ms: number): Promise<void> {
 interface FoundationRow {
   id: string;
   ein: string;
+  enrichment: Record<string, unknown> | null;
+}
+
+async function fetchNextBatch(
+  admin: ReturnType<typeof createAdminClient>,
+): Promise<FoundationRow[]> {
+  const { data, error } = await admin
+    .from("foundation_directory")
+    .select("id, ein, enrichment")
+    .is("enrichment->>propublica_enriched_at", null)
+    .not("ein", "is", null)
+    .order("id", { ascending: true })
+    .limit(BATCH_SIZE);
+
+  if (error) {
+    fatal(`could not query foundation_directory: ${error.message}`);
+  }
+
+  return (data ?? []) as FoundationRow[];
 }
 
 async function main() {
@@ -51,61 +81,69 @@ async function main() {
 
   const admin = createAdminClient();
 
-  const { data, error } = await admin
-    .from("foundation_directory")
-    .select("id, ein")
-    .is("asset_amount", null)
-    .limit(BATCH_LIMIT);
+  console.log("ProPublica batch enrichment — foundation_directory");
+  console.log("Population: enrichment->>'propublica_enriched_at' IS NULL AND ein IS NOT NULL");
+  console.log(`Batch size: ${BATCH_SIZE}\n`);
 
-  if (error) {
-    fatal(`could not query foundation_directory: ${error.message}`);
-  }
-
-  const rows = (data ?? []) as FoundationRow[];
-  console.log(`ProPublica batch enrichment — foundation_directory`);
-  console.log(`Population: asset_amount IS NULL, limit ${BATCH_LIMIT}`);
-  console.log(`Rows to process: ${rows.length}\n`);
-
+  let scanned = 0;
   let enriched = 0;
   let noRecord = 0;
   let failed = 0;
 
-  for (const row of rows) {
-    try {
-      const financials = await fetchProPublicaFinancials(row.ein);
-      if (!financials) {
-        noRecord++;
-        continue;
-      }
+  for (;;) {
+    const batch = await fetchNextBatch(admin);
+    if (batch.length === 0) break;
 
-      const { error: updateError } = await admin
-        .from("foundation_directory")
-        .update({
-          asset_amount: financials.totalAssets,
-          revenue_amount: financials.totalRevenue,
-        })
-        .eq("id", row.id);
+    for (const row of batch) {
+      scanned++;
 
-      if (updateError) {
+      try {
+        const result = await enrichFoundationFromProPublica(row.ein);
+
+        if (!result) {
+          noRecord++;
+        } else {
+          const existingEnrichment = row.enrichment ?? {};
+          const nowIso = new Date().toISOString();
+          const enrichment = {
+            ...existingEnrichment,
+            propublica: result,
+            propublica_enriched_at: nowIso,
+          };
+
+          const { error: updateError } = await admin
+            .from("foundation_directory")
+            .update({ enrichment })
+            .eq("id", row.id);
+
+          if (updateError) {
+            failed++;
+            fail(`update EIN ${row.ein}`, updateError);
+          } else {
+            enriched++;
+            ok(row.ein, `revenue=${result.totrevenue ?? "n/a"} assets=${result.totassetsend ?? "n/a"}`);
+          }
+        }
+      } catch (err) {
         failed++;
-        fail(`update EIN ${row.ein}`, updateError);
-      } else {
-        enriched++;
-        ok(row.ein, `assets=${financials.totalAssets ?? "n/a"} revenue=${financials.totalRevenue ?? "n/a"}`);
+        fail(`enrich EIN ${row.ein}`, err);
       }
-    } catch (err) {
-      failed++;
-      fail(`enrich EIN ${row.ein}`, err);
-    }
 
-    await sleep(DELAY_MS);
+      if (scanned % LOG_EVERY === 0) {
+        console.log(
+          `  … scanned ${scanned}, enriched ${enriched}, no-record ${noRecord}, failed ${failed}`,
+        );
+      }
+
+      await sleep(DELAY_MS);
+    }
   }
 
   console.log("\nDone.");
-  console.log(`  Rows processed: ${rows.length}`);
-  console.log(`  Enriched:       ${enriched}`);
-  console.log(`  No ProPublica record: ${noRecord}`);
-  console.log(`  Failed:         ${failed}`);
+  console.log(`  Rows scanned:          ${scanned}`);
+  console.log(`  Enriched:              ${enriched}`);
+  console.log(`  No ProPublica record:  ${noRecord}`);
+  console.log(`  Failed:                ${failed}`);
 }
 
 main().catch((error) => {
