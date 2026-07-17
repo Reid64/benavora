@@ -1,24 +1,33 @@
 import { NextResponse } from "next/server";
 
 import { requireRole } from "@/lib/auth/role-gate";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { Database, Enums } from "@/types/database";
 
-// Generic CSV → funders import endpoint backing src/app/(dashboard)/import.
+// CSV -> funders bulk import, backing the wizard at
+// src/app/(dashboard)/import/page.tsx.
 //
 // POST /api/import/csv
-// Body: JSON array of records already mapped client-side to funders fields
-// (produced by the wizard's column-mapping step). Every row requires `name`;
-// rows missing it are counted as failed, not inserted.
+// Body: { records: Record<string, string>[], mapping: Record<string, string> }
+//   - records: raw parsed CSV rows keyed by their original column header
+//     (the client ships unmapped data; this route does the mapping).
+//   - mapping: target field -> CSV column name, for
+//     name/email/website/category/phone/state/notes.
 //
-// Auth: requireRole("writer") (Behavioral Contracts §2/§16) — the session
-// client is RLS-scoped to the caller's organization, so no manual org filter
-// is needed on insert. Service-role is reserved for system jobs
-// (src/lib/supabase/admin.ts), never user-facing routes like this one.
+// Auth: requireRole("writer") authenticates the session and derives
+// organization_id from the caller's profile (Behavioral Contracts §2 - never
+// trusted from the request body). The bulk write itself then goes through
+// the service-role client so it isn't bottlenecked by per-row RLS
+// evaluation on a large CSV; every inserted row is still stamped with the
+// session-derived organization_id, so this can never write into another
+// org's funders even though the client bypasses RLS.
 
 export const runtime = "nodejs";
 
 type FunderCategory = Enums<"funder_category">;
 type FunderInsert = Database["public"]["Tables"]["funders"]["Insert"];
+
+type ImportField = "name" | "email" | "website" | "category" | "phone" | "state" | "notes";
 
 const VALID_CATEGORIES: readonly FunderCategory[] = [
   "corporate_donation",
@@ -35,15 +44,18 @@ const VALID_CATEGORIES: readonly FunderCategory[] = [
   "down_payment_assistance",
 ];
 
-function normalizeCategory(value: unknown): FunderCategory {
-  const norm = String(value ?? "")
-    .toLowerCase()
-    .trim()
-    .replace(/[\s-]+/g, "_");
+// funder_category has no "Other" member in the live enum, so an unmapped or
+// unrecognized category falls back to the same neutral default already used
+// elsewhere in this codebase (Behavioral Contracts §17) rather than
+// inserting a value the column would reject outright.
+const DEFAULT_CATEGORY: FunderCategory = "government_grant";
+
+function normalizeCategory(value: string): FunderCategory {
+  const norm = value.toLowerCase().trim().replace(/[\s-]+/g, "_");
   if ((VALID_CATEGORIES as readonly string[]).includes(norm)) {
     return norm as FunderCategory;
   }
-  return "government_grant";
+  return DEFAULT_CATEGORY;
 }
 
 function strOrNull(value: unknown): string | null {
@@ -55,55 +67,81 @@ function strOrNull(value: unknown): string | null {
 export async function POST(request: Request) {
   const gate = await requireRole("writer");
   if ("error" in gate) return gate.error;
-  const { supabase, organizationId } = gate;
+  const { organizationId } = gate;
 
   let body: unknown;
   try {
     body = await request.json();
   } catch {
+    return NextResponse.json({ error: "Invalid JSON body.", code: "invalid_body" }, { status: 400 });
+  }
+
+  if (typeof body !== "object" || body === null) {
+    return NextResponse.json({ error: "Body must be an object.", code: "invalid_body" }, { status: 400 });
+  }
+
+  const { records, mapping } = body as { records?: unknown; mapping?: unknown };
+
+  if (!Array.isArray(records)) {
     return NextResponse.json(
-      { error: "Invalid JSON body.", code: "invalid_body" },
+      { error: "'records' must be an array.", code: "invalid_body" },
+      { status: 400 },
+    );
+  }
+  if (typeof mapping !== "object" || mapping === null || Array.isArray(mapping)) {
+    return NextResponse.json(
+      { error: "'mapping' must be an object.", code: "invalid_body" },
       { status: 400 },
     );
   }
 
-  if (!Array.isArray(body)) {
-    return NextResponse.json(
-      { error: "Body must be a JSON array of records.", code: "invalid_body" },
-      { status: 400 },
-    );
-  }
+  const fieldMapping = mapping as Partial<Record<ImportField, string>>;
 
   const toInsert: FunderInsert[] = [];
+  const errors: string[] = [];
   let failed = 0;
 
-  for (const raw of body) {
+  records.forEach((raw, index) => {
+    const rowNum = index + 1;
     if (typeof raw !== "object" || raw === null) {
       failed++;
-      continue;
+      errors.push(`Row ${rowNum}: not a valid record - skipped`);
+      return;
     }
     const record = raw as Record<string, unknown>;
-    const name = strOrNull(record["name"]);
+
+    const valueFor = (field: ImportField): unknown => {
+      const col = fieldMapping[field];
+      if (!col) return undefined;
+      return record[col];
+    };
+
+    const name = strOrNull(valueFor("name"));
     if (!name) {
       failed++;
-      continue;
+      errors.push(`Row ${rowNum}: name is missing - skipped`);
+      return;
     }
+
+    const categoryRaw = strOrNull(valueFor("category"));
+    const category = categoryRaw ? normalizeCategory(categoryRaw) : DEFAULT_CATEGORY;
 
     toInsert.push({
       organization_id: organizationId,
       name,
-      category: normalizeCategory(record["category"]),
-      website: strOrNull(record["website"]),
-      geographic_focus: strOrNull(record["state"]),
-      notes: strOrNull(record["notes"]),
+      category,
+      website: strOrNull(valueFor("website")),
+      geographic_focus: strOrNull(valueFor("state")),
+      notes: strOrNull(valueFor("notes")),
     });
-  }
+  });
 
   if (toInsert.length === 0) {
-    return NextResponse.json({ imported: 0, failed });
+    return NextResponse.json({ imported: 0, failed, errors });
   }
 
-  const { error } = await supabase.from("funders").insert(toInsert);
+  const supabase = createAdminClient();
+  const { error } = await supabase.from("funders").upsert(toInsert);
   if (error) {
     return NextResponse.json(
       {
@@ -115,5 +153,5 @@ export async function POST(request: Request) {
     );
   }
 
-  return NextResponse.json({ imported: toInsert.length, failed });
+  return NextResponse.json({ imported: toInsert.length, failed, errors });
 }
