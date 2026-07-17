@@ -1,7 +1,42 @@
 # BENAVORA — SESSION STATE
 ## Last updated: 2026-07-17
 ## Current branch: main
-## Last commit: feat: grant financial reconciliation (57e5dba)
+## Last commit: feat: compliance calendar (ee24c74)
+
+---
+
+## COMPLETED — July 17 (latest session): Compliance calendar (compliance_events table + events API + page section)
+
+Task asked for a new `compliance_events` table (literal spec used `org_id`, path
+`src/supabase/migrations/087_...`), `/api/compliance/events` (GET/POST) +
+`/api/compliance/events/[id]` (PATCH/DELETE), and a compliance page update showing
+events grouped by month with type badges, application links, Mark Complete, and a
+New Event form. Full detail in `STATE_OF_THE_BUILD.md`'s new top entry — summary:
+
+- Deviated from two literal instructions after checking actual repo state first:
+  `087` is already `087_notification_preferences.sql` and the real migrations
+  directory is `supabase/migrations/` (not `src/supabase/migrations/`, a stray
+  duplicate flagged as dead clutter in a prior audit) — used `090` (next free
+  number) at the real path instead. Used `organization_id` (FK + RLS), not the
+  literal `org_id`, matching every other table in this schema.
+- New `supabase/migrations/090_compliance_calendar.sql`, `src/app/api/compliance/
+  events/route.ts`, `src/app/api/compliance/events/[id]/route.ts` — same
+  `requireRole`/org-scoping/error-shape conventions as the existing
+  `/api/compliance/route.ts`.
+- `(dashboard)/compliance/page.tsx` **updated, not replaced** — the page already
+  had a real, working aggregator section (`/api/compliance`, spanning deadlines/
+  renewals/documents/compliance_requirements); added a new month-grouped
+  compliance_events section above it (4-color red/amber/blue/green scheme per
+  the task spec) and kept the existing section below under "Other Tracked
+  Requirements."
+- Gate: `pnpm tsc --noEmit` — clean, 0 errors, via a bare (non-chained) invocation.
+- **Migration NOT applied to production this session** — no Management API PAT
+  accessible in this sandbox; `npx supabase`/`curl` both blocked pending approval
+  that never came; a newly-surfaced `claude.ai Supabase` MCP connector needed a
+  separate ungranted permission and was not used. File-only, pending Reid.
+- **Not done:** `pnpm run build` / `pnpm lint` / Playwright not requested, not run;
+  no browser verification.
+- Committed `ee24c74` and pushed to `origin/main`.
 
 ---
 
