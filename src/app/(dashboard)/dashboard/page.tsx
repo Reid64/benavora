@@ -1,16 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
 import { redirect } from "next/navigation";
-import type { LucideIcon } from "lucide-react";
-import {
-  Award,
-  CalendarClock,
-  DollarSign,
-  FileText,
-  Percent,
-  Search,
-  Send,
-} from "lucide-react";
 import { addDays, differenceInCalendarDays, format } from "date-fns";
 
 import { FlightPathHUD } from "@/components/dashboard/FlightPathHUD";
@@ -19,17 +9,13 @@ import {
   type DeadlineWidgetItem,
 } from "@/components/dashboard/DeadlineWidget";
 import { PipelineSummary } from "@/components/dashboard/PipelineSummary";
-import {
-  RecentActivityFeed,
-  type RecentActivityItem,
-} from "@/components/dashboard/RecentActivityFeed";
 import type { PipelineStage } from "@/components/applications/pipeline";
 import { createClient } from "@/lib/supabase/server";
 import {
   analyzeOutcomes,
   type OutcomeInput,
 } from "@/lib/ai/learning/outcome-analyzer";
-import { MIN_OUTCOMES_FOR_RATE, PIPELINE_STAGES } from "@/lib/utils/constants";
+import { PIPELINE_STAGES } from "@/lib/utils/constants";
 import { formatCurrency } from "@/lib/utils/formatters";
 
 // Dashboard reflects live session-scoped data; never cache (CLAUDE.md).
@@ -50,14 +36,6 @@ type DeadlineRow = {
   due_date: string;
   application_id: string | null;
   opportunity_id: string | null;
-};
-
-type AgentRunRow = {
-  id: string;
-  agent_type: string;
-  status: string | null;
-  output_summary: string | null;
-  created_at: string;
 };
 
 /** Returns "-" instead of "0" so empty metrics don't imply active tracking. */
@@ -102,49 +80,37 @@ export default async function DashboardPage() {
   const now = new Date();
   const horizon = format(addDays(now, 7), "yyyy-MM-dd");
 
-  const [
-    oppCountRes,
-    applicationsRes,
-    deadlinesRes,
-    outcomesRes,
-    agentRunsRes,
-  ] = await Promise.all([
-    supabase
-      .from("opportunities")
-      .select("id", { count: "exact", head: true })
-      .eq("organization_id", orgId),
-    supabase
-      .from("applications")
-      .select("id, stage, requested_amount, submitted_at, draft_content")
-      .eq("organization_id", orgId),
-    supabase
-      .from("deadlines")
-      .select(
-        "id, title, deadline_type, due_date, application_id, opportunity_id",
-      )
-      .eq("organization_id", orgId)
-      .or("is_completed.is.null,is_completed.eq.false")
-      .lte("due_date", horizon)
-      .order("due_date", { ascending: true }),
-    supabase
-      .from("outcomes")
-      .select(
-        "result, awarded_amount, requested_amount, funder_category, opportunity_category, denial_reason, recorded_at",
-      )
-      .eq("organization_id", orgId),
-    supabase
-      .from("agent_runs")
-      .select("id, agent_type, status, output_summary, created_at")
-      .eq("organization_id", orgId)
-      .order("created_at", { ascending: false })
-      .limit(10),
-  ]);
+  const [oppCountRes, applicationsRes, deadlinesRes, outcomesRes] =
+    await Promise.all([
+      supabase
+        .from("opportunities")
+        .select("id", { count: "exact", head: true })
+        .eq("organization_id", orgId),
+      supabase
+        .from("applications")
+        .select("id, stage, requested_amount, submitted_at, draft_content")
+        .eq("organization_id", orgId),
+      supabase
+        .from("deadlines")
+        .select(
+          "id, title, deadline_type, due_date, application_id, opportunity_id",
+        )
+        .eq("organization_id", orgId)
+        .or("is_completed.is.null,is_completed.eq.false")
+        .lte("due_date", horizon)
+        .order("due_date", { ascending: true }),
+      supabase
+        .from("outcomes")
+        .select(
+          "result, awarded_amount, requested_amount, funder_category, opportunity_category, denial_reason, recorded_at",
+        )
+        .eq("organization_id", orgId),
+    ]);
 
   const totalOpportunities = oppCountRes.count ?? 0;
   const applications = (applicationsRes.data ?? []) as ApplicationRow[];
   const deadlines = (deadlinesRes.data ?? []) as DeadlineRow[];
   const outcomes = (outcomesRes.data ?? []) as OutcomeInput[];
-  const agentRuns = (agentRunsRes.data ?? []) as AgentRunRow[];
 
   // --- metrics ---------------------------------------------------------------
   const submittedCount = applications.filter(
@@ -196,46 +162,27 @@ export default async function DashboardPage() {
           : "/deadlines",
     }));
 
-  const activityItems: RecentActivityItem[] = agentRuns.map((r) => ({
-    id: r.id,
-    agentType: r.agent_type,
-    status: r.status,
-    outputSummary: r.output_summary,
-    createdAt: r.created_at,
-  }));
-
   const hasNoData =
     totalOpportunities === 0 &&
     applications.length === 0 &&
     deadlines.length === 0 &&
     outcomes.length === 0;
 
-  const statCards: Array<{ label: string; value: string; icon: LucideIcon; accent: string }> = [
-    { label: "Total Opportunities", value: metricCount(totalOpportunities), icon: Search, accent: "#0077B6" },
-    { label: "Applications Submitted", value: metricCount(submittedCount), icon: Send, accent: "#0096C7" },
-    { label: "Drafts Generated", value: metricCount(draftsGenerated), icon: FileText, accent: "#6B48CC" },
-    { label: "Deadlines This Week", value: metricCount(deadlinesThisWeek), icon: CalendarClock, accent: "#1A2B3C" },
+  const heroChips = [
+    { label: "Opportunities", value: metricCount(totalOpportunities) },
+    { label: "Submitted", value: metricCount(submittedCount) },
+    { label: "Drafts", value: metricCount(draftsGenerated) },
+    { label: "Deadlines", value: metricCount(deadlinesThisWeek) },
   ];
 
-  const metricCards: Array<{
-    label: string;
-    value: string;
-    icon: LucideIcon;
-    accent: string;
-    hint?: string;
-  }> = [
-    { label: "Total Requested", value: metricCurrency(totalRequested), icon: DollarSign, accent: "#0077B6" },
-    { label: "Total Awarded", value: metricCurrency(summary.totalAwarded), icon: Award, accent: "#00B4D8" },
-    {
-      label: "Success Rate",
-      value: successRateValue,
-      icon: Percent,
-      accent: "#4C3D8F",
-      hint:
-        summary.successRate != null
-          ? `${summary.awarded} awarded of ${summary.total}`
-          : `Needs ${MIN_OUTCOMES_FOR_RATE}+ outcomes`,
-    },
+  const actionItems = [
+    { dot: "#EF4444", text: "Parsed emails awaiting review", count: "-" },
+    { dot: "#F59E0B", text: "New opportunities discovered", count: metricCount(totalOpportunities) },
+    { dot: "#6B48CC", text: "Drafts needing attention", count: metricCount(draftsGenerated) },
+    { dot: "#0077B6", text: "Deadlines approaching", count: metricCount(deadlinesThisWeek) },
+    { dot: "#0096C7", text: "Applications missing documents", count: "-" },
+    { dot: "#10B981", text: "AutoApply gates awaiting approval", count: "-" },
+    { dot: "#1A2B3C", text: "Research runs completed", count: metricCount(submittedCount) },
   ];
 
   const fundingSummaryRows = [
@@ -244,85 +191,99 @@ export default async function DashboardPage() {
     { label: "Success Rate", value: successRateValue },
   ];
 
+  const sectionHeaderStyle = {
+    fontSize: "13px",
+    fontWeight: 700,
+    color: "#0F172A",
+    marginBottom: "16px",
+    textTransform: "uppercase" as const,
+    letterSpacing: "0.05em",
+  };
+
+  const trayStyle = {
+    backgroundColor: "#B8C4CC",
+    borderRadius: "16px",
+    padding: "16px",
+    boxShadow: "inset 0 2px 8px rgba(0,0,0,0.10)",
+  };
+
   return (
     <div style={{ backgroundColor: "#C8D4DC", minHeight: "100vh", padding: "32px" }}>
       {/* Hero banner */}
       <div
         style={{
-          position: "relative",
           background: "linear-gradient(135deg, #1A2B3C 0%, #0077B6 100%)",
           borderRadius: "20px",
-          padding: "32px 40px",
-          marginBottom: "28px",
+          padding: "0",
+          marginBottom: "20px",
           display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
+          alignItems: "stretch",
+          overflow: "hidden",
+          height: "200px",
           boxShadow: "0 8px 32px rgba(0,0,0,0.20)",
+          position: "relative",
         }}
       >
-        <div>
-          <h1 style={{ fontSize: "28px", fontWeight: 800, color: "#FFFFFF", letterSpacing: "-0.02em", margin: 0 }}>
-            Your Funding Command Center
-          </h1>
-          <p style={{ fontSize: "14px", color: "rgba(255,255,255,0.65)", marginTop: "6px" }}>
-            Faith Foundation &middot; {format(now, "MMMM d, yyyy")}
-          </p>
-        </div>
-        <div
-          style={{
-            position: "absolute",
-            right: "180px",
-            bottom: "0",
-            height: "100%",
-            display: "flex",
-            alignItems: "flex-end",
-            pointerEvents: "none",
-          }}
-        >
+        <div style={{ width: "280px", flexShrink: 0, position: "relative", overflow: "hidden" }}>
           <Image
             src="/hero-illustration.png"
-            alt="Funding manager at work"
-            width={280}
-            height={200}
-            style={{ objectFit: "contain", objectPosition: "bottom" }}
+            alt="Funding manager"
+            fill
+            style={{ objectFit: "cover", objectPosition: "center bottom" }}
           />
         </div>
-        <div className="flex gap-3">
-          <div
-            style={{
-              backgroundColor: "rgba(255,255,255,0.12)",
-              border: "1px solid rgba(255,255,255,0.2)",
-              borderRadius: "999px",
-              padding: "8px 16px",
-              fontSize: "13px",
-              fontWeight: 600,
-              color: "#FFFFFF",
-            }}
-          >
-            {totalOpportunities} Active Opportunities
-          </div>
-          <div
-            style={{
-              backgroundColor: "rgba(255,255,255,0.12)",
-              border: "1px solid rgba(255,255,255,0.2)",
-              borderRadius: "999px",
-              padding: "8px 16px",
-              fontSize: "13px",
-              fontWeight: 600,
-              color: "#FFFFFF",
-            }}
-          >
-            {deadlinesThisWeek} Deadlines This Week
+        <div style={{ flex: 1, padding: "32px 40px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+          <h1 style={{ fontSize: "24px", fontWeight: 800, color: "#FFFFFF", letterSpacing: "-0.02em", margin: "0 0 4px 0" }}>
+            Your Task Management Area
+          </h1>
+          <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.65)", margin: "0 0 20px 0" }}>
+            Faith Foundation &middot; {format(now, "MMMM d, yyyy")}
+          </p>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", maxWidth: "360px" }}>
+            {heroChips.map((chip) => (
+              <div
+                key={chip.label}
+                style={{
+                  backgroundColor: "rgba(255,255,255,0.12)",
+                  border: "1px solid rgba(255,255,255,0.2)",
+                  borderRadius: "10px",
+                  padding: "10px 14px",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: "10px",
+                    fontWeight: 700,
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                    color: "rgba(255,255,255,0.6)",
+                  }}
+                >
+                  {chip.label}
+                </div>
+                <div style={{ fontSize: "20px", fontWeight: 900, color: "#FFFFFF", lineHeight: 1, marginTop: "2px" }}>
+                  {chip.value}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
 
       {hasNoData && (
-        <div className="mb-7 rounded-xl border border-teal-200 bg-teal-50 px-5 py-4">
-          <h2 className="text-sm font-semibold text-teal-900">
+        <div
+          style={{
+            backgroundColor: "#F0FDFA",
+            border: "1px solid #99F6E4",
+            borderRadius: "12px",
+            padding: "16px 20px",
+            marginBottom: "20px",
+          }}
+        >
+          <h2 style={{ fontSize: "14px", fontWeight: 600, color: "#134E4A", margin: 0 }}>
             Welcome to Benavora
           </h2>
-          <p className="mt-1 text-sm text-teal-700">
+          <p style={{ fontSize: "14px", color: "#0F766E", marginTop: "4px" }}>
             You don&rsquo;t have any data yet. Start by adding a funding
             opportunity or completing your organization profile in the Knowledge
             Base &mdash; the metrics and charts below fill in as you work.
@@ -333,323 +294,185 @@ export default async function DashboardPage() {
       {/* Mission Control lifecycle HUD */}
       <FlightPathHUD />
 
-      {/* Two-column layout */}
-      <div style={{ display: "flex", gap: "24px", alignItems: "flex-start", marginTop: "24px" }}>
-        {/* -- Left column -- */}
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "24px" }}>
-          {/* Stat cards tray */}
-          <div
-            style={{
-              backgroundColor: "#B8C4CC",
-              borderRadius: "20px",
-              padding: "20px",
-              boxShadow: "inset 0 2px 8px rgba(0,0,0,0.12)",
-            }}
-          >
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px" }}>
-              {statCards.map((card) => {
-                const Icon = card.icon;
-                return (
-                  <div
-                    key={card.label}
-                    style={{
-                      borderRadius: "16px",
-                      overflow: "hidden",
-                      boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
-                      backgroundColor: "#FFFFFF",
-                    }}
-                  >
-                    <div style={{ height: "8px", backgroundColor: card.accent }} />
-                    <div style={{ padding: "24px" }}>
-                      <div className="flex items-center justify-between">
-                        <div
-                          style={{
-                            fontSize: "11px",
-                            fontWeight: 700,
-                            letterSpacing: "0.08em",
-                            textTransform: "uppercase",
-                            color: "#64748B",
-                          }}
-                        >
-                          {card.label}
-                        </div>
-                        <Icon className="h-5 w-5" style={{ color: card.accent }} aria-hidden />
-                      </div>
-                      <div
-                        style={{
-                          fontSize: "40px",
-                          fontWeight: 900,
-                          color: "#0F172A",
-                          lineHeight: 1,
-                          marginTop: "12px",
-                        }}
-                      >
-                        {card.value}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Metric cards tray */}
-          <div
-            style={{
-              backgroundColor: "#B8C4CC",
-              borderRadius: "20px",
-              padding: "20px",
-              boxShadow: "inset 0 2px 8px rgba(0,0,0,0.12)",
-            }}
-          >
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "16px" }}>
-              {metricCards.map((card) => {
-                const Icon = card.icon;
-                return (
-                  <div
-                    key={card.label}
-                    style={{
-                      borderRadius: "16px",
-                      overflow: "hidden",
-                      boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
-                      backgroundColor: "#FFFFFF",
-                    }}
-                  >
-                    <div style={{ height: "8px", backgroundColor: card.accent }} />
-                    <div style={{ padding: "24px" }}>
-                      <div className="flex items-center justify-between">
-                        <div
-                          style={{
-                            fontSize: "11px",
-                            fontWeight: 700,
-                            letterSpacing: "0.08em",
-                            textTransform: "uppercase",
-                            color: "#64748B",
-                          }}
-                        >
-                          {card.label}
-                        </div>
-                        <Icon className="h-5 w-5" style={{ color: card.accent }} aria-hidden />
-                      </div>
-                      <div
-                        style={{
-                          fontSize: "40px",
-                          fontWeight: 900,
-                          color: "#0F172A",
-                          lineHeight: 1,
-                          marginTop: "12px",
-                        }}
-                      >
-                        {card.value}
-                      </div>
-                      {card.hint && (
-                        <p style={{ marginTop: "8px", fontSize: "12px", color: "#6B7280" }}>
-                          {card.hint}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Pipeline tray */}
-          <div
-            style={{
-              backgroundColor: "#B8C4CC",
-              borderRadius: "20px",
-              padding: "20px",
-              boxShadow: "inset 0 2px 8px rgba(0,0,0,0.12)",
-            }}
-          >
-            <div
-              style={{
-                backgroundColor: "#FFFFFF",
-                borderRadius: "16px",
-                padding: "28px",
-                boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
-              }}
-            >
-              <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#0F172A", marginBottom: "16px" }}>
-                Pipeline
-              </h2>
-              <PipelineSummary counts={pipelineCounts} />
-            </div>
-          </div>
-
-          {/* Recent activity tray */}
-          <div
-            style={{
-              backgroundColor: "#B8C4CC",
-              borderRadius: "20px",
-              padding: "20px",
-              boxShadow: "inset 0 2px 8px rgba(0,0,0,0.12)",
-            }}
-          >
-            <div
-              style={{
-                backgroundColor: "#FFFFFF",
-                borderRadius: "16px",
-                padding: "28px",
-                boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
-              }}
-            >
-              <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#0F172A", marginBottom: "16px" }}>
-                Recent Activity
-              </h2>
-              <RecentActivityFeed items={activityItems} />
-            </div>
-          </div>
-        </div>
-
-        {/* -- Right column -- */}
-        <div style={{ width: "320px", flexShrink: 0, display: "flex", flexDirection: "column", gap: "16px" }}>
-          {/* Funding summary chip card */}
-          <div
-            style={{
-              backgroundColor: "#FFFFFF",
-              borderRadius: "16px",
-              padding: "20px",
-              boxShadow: "0 4px 16px rgba(0,0,0,0.10)",
-              borderLeft: "4px solid #00B4D8",
-            }}
-          >
-            {fundingSummaryRows.map((row, i) => (
+      {/* Three column grid: action items | pipeline | upcoming deadlines */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "16px", marginBottom: "16px" }}>
+        {/* Today's Action Items */}
+        <div style={trayStyle}>
+          <div style={{ backgroundColor: "#FFFFFF", borderRadius: "12px", padding: "20px", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}>
+            <div style={sectionHeaderStyle}>Today&rsquo;s Action Items</div>
+            {actionItems.map((item) => (
               <div
-                key={row.label}
+                key={item.text}
                 style={{
-                  paddingTop: i === 0 ? 0 : "10px",
-                  paddingBottom: i === fundingSummaryRows.length - 1 ? 0 : "10px",
-                  borderBottom: i === fundingSummaryRows.length - 1 ? "none" : "1px solid #F1F5F9",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  padding: "10px 0",
+                  borderBottom: "1px solid #F1F5F9",
                 }}
               >
+                <div style={{ width: "8px", height: "8px", borderRadius: "50%", flexShrink: 0, backgroundColor: item.dot }} />
+                <div style={{ flex: 1, fontSize: "13px", color: "#334155" }}>{item.text}</div>
                 <div
                   style={{
                     fontSize: "11px",
                     fontWeight: 700,
-                    letterSpacing: "0.05em",
-                    textTransform: "uppercase",
-                    color: "#64748B",
+                    color: "#FFFFFF",
+                    backgroundColor: item.dot,
+                    borderRadius: "999px",
+                    padding: "2px 8px",
                   }}
                 >
-                  {row.label}
-                </div>
-                <div style={{ fontSize: "20px", fontWeight: 800, color: "#0F172A", marginTop: "4px" }}>
-                  {row.value}
+                  {item.count}
                 </div>
               </div>
             ))}
           </div>
+        </div>
 
-          {/* Upcoming deadlines */}
-          <div
-            style={{
-              backgroundColor: "#1A2B3C",
-              borderRadius: "16px",
-              padding: "0",
-              overflow: "hidden",
-              boxShadow: "0 4px 16px rgba(26,43,60,0.2)",
-            }}
-          >
-            <div style={{ padding: "20px 24px", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
-              <div className="flex items-center justify-between">
-                <h2
-                  style={{
-                    fontSize: "14px",
-                    fontWeight: 700,
-                    color: "#FFFFFF",
-                    letterSpacing: "0.05em",
-                    textTransform: "uppercase",
-                  }}
-                >
-                  Upcoming Deadlines
-                </h2>
-                <Link
-                  href="/deadlines"
-                  className="text-xs font-medium"
-                  style={{ color: "#FFFFFF" }}
-                >
-                  View all
-                </Link>
-              </div>
-            </div>
-            <div style={{ padding: "8px 0" }}>
-              <DeadlineWidget items={deadlineItems} dark />
+        {/* Pipeline (compact) */}
+        <div style={trayStyle}>
+          <div style={{ backgroundColor: "#FFFFFF", borderRadius: "12px", padding: "20px", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}>
+            <div style={sectionHeaderStyle}>Pipeline</div>
+            <PipelineSummary counts={pipelineCounts} />
+          </div>
+        </div>
+
+        {/* Upcoming deadlines */}
+        <div
+          style={{
+            backgroundColor: "#1A2B3C",
+            borderRadius: "16px",
+            padding: "0",
+            overflow: "hidden",
+            boxShadow: "0 4px 16px rgba(26,43,60,0.2)",
+          }}
+        >
+          <div style={{ padding: "20px 24px", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
+            <div className="flex items-center justify-between">
+              <h2
+                style={{
+                  fontSize: "14px",
+                  fontWeight: 700,
+                  color: "#FFFFFF",
+                  letterSpacing: "0.05em",
+                  textTransform: "uppercase",
+                }}
+              >
+                Upcoming Deadlines
+              </h2>
+              <Link
+                href="/deadlines"
+                className="text-xs font-medium"
+                style={{ color: "#FFFFFF" }}
+              >
+                View all
+              </Link>
             </div>
           </div>
+          <div style={{ padding: "8px 0" }}>
+            <DeadlineWidget items={deadlineItems} dark />
+          </div>
+        </div>
+      </div>
 
-          {/* Quick actions */}
-          <div
-            style={{
-              backgroundColor: "#0077B6",
-              borderRadius: "16px",
-              padding: "24px",
-              boxShadow: "0 4px 16px rgba(0,119,182,0.3)",
-            }}
-          >
-            <h3 style={{ fontSize: "14px", fontWeight: 700, color: "#FFFFFF", marginBottom: "16px" }}>
-              Quick Actions
-            </h3>
-            <div>
-              <Link
-                href="/research"
-                style={{
-                  display: "block",
-                  width: "100%",
-                  padding: "12px 16px",
-                  backgroundColor: "rgba(255,255,255,0.15)",
-                  borderRadius: "8px",
-                  color: "#FFFFFF",
-                  fontSize: "13px",
-                  fontWeight: 600,
-                  marginBottom: "8px",
-                  border: "1px solid rgba(255,255,255,0.2)",
-                  cursor: "pointer",
-                  textAlign: "left",
-                }}
-              >
-                Run Research
-              </Link>
-              <Link
-                href="/draft-generator"
-                style={{
-                  display: "block",
-                  width: "100%",
-                  padding: "12px 16px",
-                  backgroundColor: "rgba(255,255,255,0.15)",
-                  borderRadius: "8px",
-                  color: "#FFFFFF",
-                  fontSize: "13px",
-                  fontWeight: 600,
-                  marginBottom: "8px",
-                  border: "1px solid rgba(255,255,255,0.2)",
-                  cursor: "pointer",
-                  textAlign: "left",
-                }}
-              >
-                Generate Drafts
-              </Link>
-              <Link
-                href="/draft-generator/queue"
-                style={{
-                  display: "block",
-                  width: "100%",
-                  padding: "12px 16px",
-                  backgroundColor: "rgba(255,255,255,0.15)",
-                  borderRadius: "8px",
-                  color: "#FFFFFF",
-                  fontSize: "13px",
-                  fontWeight: 600,
-                  marginBottom: "8px",
-                  border: "1px solid rgba(255,255,255,0.2)",
-                  cursor: "pointer",
-                  textAlign: "left",
-                }}
-              >
-                Review Queue
-              </Link>
-            </div>
+      {/* Bottom two column grid: quick actions | funding summary */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+        {/* Quick actions */}
+        <div
+          style={{
+            backgroundColor: "#0077B6",
+            borderRadius: "16px",
+            padding: "24px",
+            boxShadow: "0 4px 16px rgba(0,119,182,0.3)",
+          }}
+        >
+          <h3 style={{ fontSize: "14px", fontWeight: 700, color: "#FFFFFF", marginBottom: "16px" }}>
+            Quick Actions
+          </h3>
+          <div>
+            <Link
+              href="/research"
+              style={{
+                display: "block",
+                width: "100%",
+                padding: "12px 16px",
+                backgroundColor: "rgba(255,255,255,0.15)",
+                borderRadius: "8px",
+                color: "#FFFFFF",
+                fontSize: "13px",
+                fontWeight: 600,
+                marginBottom: "8px",
+                border: "1px solid rgba(255,255,255,0.2)",
+                cursor: "pointer",
+                textAlign: "left",
+              }}
+            >
+              Run Research
+            </Link>
+            <Link
+              href="/draft-generator"
+              style={{
+                display: "block",
+                width: "100%",
+                padding: "12px 16px",
+                backgroundColor: "rgba(255,255,255,0.15)",
+                borderRadius: "8px",
+                color: "#FFFFFF",
+                fontSize: "13px",
+                fontWeight: 600,
+                marginBottom: "8px",
+                border: "1px solid rgba(255,255,255,0.2)",
+                cursor: "pointer",
+                textAlign: "left",
+              }}
+            >
+              Generate Drafts
+            </Link>
+            <Link
+              href="/draft-generator/queue"
+              style={{
+                display: "block",
+                width: "100%",
+                padding: "12px 16px",
+                backgroundColor: "rgba(255,255,255,0.15)",
+                borderRadius: "8px",
+                color: "#FFFFFF",
+                fontSize: "13px",
+                fontWeight: 600,
+                marginBottom: "8px",
+                border: "1px solid rgba(255,255,255,0.2)",
+                cursor: "pointer",
+                textAlign: "left",
+              }}
+            >
+              Review Queue
+            </Link>
+          </div>
+        </div>
+
+        {/* Funding Summary (compact) */}
+        <div style={trayStyle}>
+          <div style={{ backgroundColor: "#FFFFFF", borderRadius: "12px", padding: "20px" }}>
+            <div style={sectionHeaderStyle}>Funding Summary</div>
+            {fundingSummaryRows.map((row) => (
+              <div key={row.label}>
+                <div
+                  style={{
+                    fontSize: "11px",
+                    fontWeight: 700,
+                    color: "#64748B",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em",
+                  }}
+                >
+                  {row.label}
+                </div>
+                <div style={{ fontSize: "22px", fontWeight: 800, color: "#0F172A", marginTop: "2px", marginBottom: "12px" }}>
+                  {row.value}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
