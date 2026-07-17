@@ -1,8 +1,31 @@
-import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+import { headers } from "next/headers";
+import { NextResponse } from "next/server";
+
+import { createClient } from "@/lib/supabase/server";
+import { computeSuccessProbability } from "@/lib/intelligence/success-probability";
+
+export async function GET(
+  req: Request,
+  { params }: { params: { id: string } },
+) {
   const supabase = createClient();
-  const { data } = await supabase.from('opportunities').select('eligibility_score').eq('id', params.id).single();
-  const score = (data as { eligibility_score?: number } | null)?.eligibility_score ?? 50;
-  return NextResponse.json({ opportunityId: params.id, score, confidence: score > 70 ? 'high' : score > 40 ? 'medium' : 'low' });
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const orgId = headers().get("x-organization-id");
+
+  if (!user || !orgId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const result = await computeSuccessProbability(orgId, params.id, supabase);
+    return NextResponse.json(result);
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Failed to compute success probability." },
+      { status: 404 },
+    );
+  }
 }

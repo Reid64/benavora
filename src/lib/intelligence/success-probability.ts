@@ -8,186 +8,148 @@
 // result directly rather than writing to a table.
 //
 // Factor weights (sum to 100%):
-//   1. Opportunity eligibility_score        30%
-//   2. Org's win rate in the same category  25%
-//   3. Deadline is 30+ days out             20%
-//   4. Count of proven KB narratives         25%
-// Missing data for a factor falls back to a neutral midpoint (50) rather
-// than zeroing the score out.
+//   1. Opportunity eligibility_score              30%
+//   2. Org's win rate in the same funder_category  25%
+//   3. Deadline proximity                          20%
+//   4. Knowledge base completeness                 25%
+// Each factor's `value` is normalized 0-1; `contribution` is weight * value *
+// 100 (points toward the final 0-100 score). Missing data for a factor falls
+// back to a neutral 0.5 rather than zeroing the score out.
+//
+// Note: there is no `knowledge_base_entries` table in this schema — the real
+// table is `knowledge_base` (migration 001), so factor 4 queries that.
 
-import { differenceInCalendarDays } from 'date-fns'
-import type { SupabaseClient } from '@supabase/supabase-js'
+import { differenceInCalendarDays } from "date-fns";
 
-const NEUTRAL = 50
+const NEUTRAL = 0.5;
 
 export interface SuccessProbabilityFactor {
-  name: string
-  weight: number
-  score: number
-  detail: string
+  name: string;
+  weight: number;
+  value: number;
+  contribution: number;
 }
 
 export interface SuccessProbabilityResult {
-  score: number
-  confidence: 'high' | 'medium' | 'low'
-  factors: SuccessProbabilityFactor[]
+  score: number;
+  confidence: "high" | "medium" | "low";
+  factors: SuccessProbabilityFactor[];
 }
 
 export async function computeSuccessProbability(
   orgId: string,
   opportunityId: string,
-  supabase: SupabaseClient,
+  supabase: any,
 ): Promise<SuccessProbabilityResult> {
   const { data: opportunity, error: opportunityError } = await supabase
-    .from('opportunities')
-    .select('id, category, deadline, eligibility_score')
-    .eq('id', opportunityId)
-    .eq('organization_id', orgId)
-    .maybeSingle()
+    .from("opportunities")
+    .select("id, category, deadline, eligibility_score")
+    .eq("id", opportunityId)
+    .eq("organization_id", orgId)
+    .maybeSingle();
 
   if (opportunityError || !opportunity) {
-    throw new Error('Opportunity not found.')
+    throw new Error("Opportunity not found.");
   }
 
-  const category = opportunity.category as string | null
+  const category = opportunity.category as string | null;
 
-  const [outcomesRes, narrativesRes] = await Promise.all([
+  const [outcomesRes, kbRes] = await Promise.all([
     category
       ? supabase
-          .from('outcomes')
-          .select('result')
-          .eq('organization_id', orgId)
-          .eq('opportunity_category', category)
+          .from("outcomes")
+          .select("result")
+          .eq("organization_id", orgId)
+          .eq("funder_category", category)
       : Promise.resolve({ data: null as { result: string }[] | null }),
-    category
-      ? supabase
-          .from('knowledge_base')
-          .select('id', { count: 'exact', head: true })
-          .eq('organization_id', orgId)
-          .eq('is_proven', true)
-          .contains('funder_categories', [category])
-      : supabase
-          .from('knowledge_base')
-          .select('id', { count: 'exact', head: true })
-          .eq('organization_id', orgId)
-          .eq('is_proven', true),
-  ])
+    supabase
+      .from("knowledge_base")
+      .select("id", { count: "exact", head: true })
+      .eq("organization_id", orgId),
+  ]);
 
-  const eligibilityFactor = scoreEligibility(opportunity.eligibility_score as number | null)
-  const categoryFactor = scoreCategorySuccessRate(outcomesRes.data as { result: string }[] | null)
-  const deadlineFactor = scoreDeadline(opportunity.deadline as string | null)
-  const narrativeFactor = scoreNarratives(
-    (narrativesRes as { count: number | null }).count,
-  )
+  const outcomes = (outcomesRes.data ?? null) as { result: string }[] | null;
+  const kbCount = ((kbRes as { count: number | null }).count ?? 0) as number;
+
+  const eligibility = scoreEligibility(
+    opportunity.eligibility_score as number | null,
+  );
+  const categorySuccessRate = scoreCategorySuccessRate(outcomes);
+  const deadlineProximity = scoreDeadlineProximity(
+    opportunity.deadline as string | null,
+  );
+  const kbCompleteness = scoreKnowledgeBaseCompleteness(kbCount);
 
   const factors: SuccessProbabilityFactor[] = [
-    eligibilityFactor,
-    categoryFactor,
-    deadlineFactor,
-    narrativeFactor,
-  ]
+    eligibility,
+    categorySuccessRate,
+    deadlineProximity,
+    kbCompleteness,
+  ];
 
-  const score = Math.round(
-    factors.reduce((sum, factor) => sum + factor.score * factor.weight, 0),
-  )
-
-  const dataPointsPresent = [
+  const realDataCount = [
     opportunity.eligibility_score != null,
-    (outcomesRes.data?.length ?? 0) > 0,
+    (outcomes?.length ?? 0) > 0,
     opportunity.deadline != null,
-    ((narrativesRes as { count: number | null }).count ?? 0) > 0,
-  ].filter(Boolean).length
+    kbCount > 0,
+  ].filter(Boolean).length;
 
-  const confidence: SuccessProbabilityResult['confidence'] =
-    dataPointsPresent >= 3 ? 'high' : dataPointsPresent >= 1 ? 'medium' : 'low'
+  const confidence: SuccessProbabilityResult["confidence"] =
+    realDataCount === 4 ? "high" : realDataCount >= 2 ? "medium" : "low";
 
+  const score = Math.max(
+    0,
+    Math.min(
+      100,
+      Math.round(factors.reduce((sum, f) => sum + f.contribution, 0)),
+    ),
+  );
+
+  return { score, confidence, factors };
+}
+
+function factor(
+  name: string,
+  weight: number,
+  value: number,
+): SuccessProbabilityFactor {
+  const clamped = Math.max(0, Math.min(1, value));
   return {
-    score: Math.max(0, Math.min(100, score)),
-    confidence,
-    factors,
-  }
+    name,
+    weight,
+    value: clamped,
+    contribution: weight * clamped * 100,
+  };
 }
 
 function scoreEligibility(raw: number | null): SuccessProbabilityFactor {
-  if (raw == null) {
-    return {
-      name: 'eligibility_score',
-      weight: 0.3,
-      score: NEUTRAL,
-      detail: 'No eligibility score yet; using midpoint.',
-    }
-  }
-  return {
-    name: 'eligibility_score',
-    weight: 0.3,
-    score: raw,
-    detail: `Eligibility score ${raw}/100.`,
-  }
+  const value = raw == null ? NEUTRAL : raw / 100;
+  return factor("eligibility_score", 0.3, value);
 }
 
 function scoreCategorySuccessRate(
   outcomes: { result: string }[] | null,
 ): SuccessProbabilityFactor {
   if (!outcomes || outcomes.length === 0) {
-    return {
-      name: 'category_success_rate',
-      weight: 0.25,
-      score: NEUTRAL,
-      detail: 'No recorded outcomes for this category; using midpoint.',
-    }
+    return factor("category_success_rate", 0.25, NEUTRAL);
   }
-  const awarded = outcomes.filter((o) => o.result === 'awarded').length
-  const rate = (awarded / outcomes.length) * 100
-  return {
-    name: 'category_success_rate',
-    weight: 0.25,
-    score: Math.round(rate),
-    detail: `${awarded}/${outcomes.length} awarded in this category (${Math.round(rate)}%).`,
-  }
+  const awarded = outcomes.filter((o) => o.result === "awarded").length;
+  return factor("category_success_rate", 0.25, awarded / outcomes.length);
 }
 
-function scoreDeadline(deadline: string | null): SuccessProbabilityFactor {
+function scoreDeadlineProximity(
+  deadline: string | null,
+): SuccessProbabilityFactor {
   if (!deadline) {
-    return {
-      name: 'deadline_proximity',
-      weight: 0.2,
-      score: NEUTRAL,
-      detail: 'No deadline set; using midpoint.',
-    }
+    return factor("deadline_proximity", 0.2, NEUTRAL);
   }
-  const days = differenceInCalendarDays(new Date(deadline), new Date())
-  if (days >= 30) {
-    return {
-      name: 'deadline_proximity',
-      weight: 0.2,
-      score: 100,
-      detail: `${days} days until deadline (30+ days out).`,
-    }
-  }
-  const score = Math.max(0, Math.round((days / 30) * 100))
-  return {
-    name: 'deadline_proximity',
-    weight: 0.2,
-    score,
-    detail: `${days} day${days === 1 ? '' : 's'} until deadline (under 30 days).`,
-  }
+  const days = differenceInCalendarDays(new Date(deadline), new Date());
+  const value = days >= 30 ? 1.0 : days >= 15 ? 0.5 : 0.0;
+  return factor("deadline_proximity", 0.2, value);
 }
 
-function scoreNarratives(count: number | null): SuccessProbabilityFactor {
-  const narrativeCount = count ?? 0
-  if (narrativeCount === 0) {
-    return {
-      name: 'proven_narratives',
-      weight: 0.25,
-      score: NEUTRAL,
-      detail: 'No proven narratives on file; using midpoint.',
-    }
-  }
-  const score = Math.min(narrativeCount * 20, 100)
-  return {
-    name: 'proven_narratives',
-    weight: 0.25,
-    score,
-    detail: `${narrativeCount} proven narrative${narrativeCount === 1 ? '' : 's'} on file.`,
-  }
+function scoreKnowledgeBaseCompleteness(
+  count: number,
+): SuccessProbabilityFactor {
+  return factor("knowledge_base_completeness", 0.25, count / 10);
 }

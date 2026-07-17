@@ -39,6 +39,7 @@ import {
 import { IntelligenceBriefingPanel } from "@/components/intelligence/IntelligenceBriefingPanel";
 import { OpportunityForm } from "@/components/opportunities/OpportunityForm";
 import { SourceTypeBadge } from "@/components/opportunities/SourceTypeBadge";
+import { SuccessProbabilityCard } from "@/components/opportunities/SuccessProbabilityCard";
 import { ValidationBadge } from "@/components/opportunities/ValidationBadge";
 import {
   computeConsensus,
@@ -871,6 +872,8 @@ function EligibilityTab({
           />
         )}
       </Card>
+
+      <SuccessProbabilityCard opportunityId={opportunity.id} />
 
       <Card title="Recommendation">
         {opportunity.recommendation ? (
