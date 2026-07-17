@@ -80,37 +80,55 @@ export default async function DashboardPage() {
   const now = new Date();
   const horizon = format(addDays(now, 7), "yyyy-MM-dd");
 
-  const [oppCountRes, applicationsRes, deadlinesRes, outcomesRes] =
-    await Promise.all([
-      supabase
-        .from("opportunities")
-        .select("id", { count: "exact", head: true })
-        .eq("organization_id", orgId),
-      supabase
-        .from("applications")
-        .select("id, stage, requested_amount, submitted_at, draft_content")
-        .eq("organization_id", orgId),
-      supabase
-        .from("deadlines")
-        .select(
-          "id, title, deadline_type, due_date, application_id, opportunity_id",
-        )
-        .eq("organization_id", orgId)
-        .or("is_completed.is.null,is_completed.eq.false")
-        .lte("due_date", horizon)
-        .order("due_date", { ascending: true }),
-      supabase
-        .from("outcomes")
-        .select(
-          "result, awarded_amount, requested_amount, funder_category, opportunity_category, denial_reason, recorded_at",
-        )
-        .eq("organization_id", orgId),
-    ]);
+  const [
+    oppCountRes,
+    applicationsRes,
+    deadlinesRes,
+    outcomesRes,
+    discoveryMatchesRes,
+    reputationAlertsRes,
+  ] = await Promise.all([
+    supabase
+      .from("opportunities")
+      .select("id", { count: "exact", head: true })
+      .eq("organization_id", orgId),
+    supabase
+      .from("applications")
+      .select("id, stage, requested_amount, submitted_at, draft_content")
+      .eq("organization_id", orgId),
+    supabase
+      .from("deadlines")
+      .select(
+        "id, title, deadline_type, due_date, application_id, opportunity_id",
+      )
+      .eq("organization_id", orgId)
+      .or("is_completed.is.null,is_completed.eq.false")
+      .lte("due_date", horizon)
+      .order("due_date", { ascending: true }),
+    supabase
+      .from("outcomes")
+      .select(
+        "result, awarded_amount, requested_amount, funder_category, opportunity_category, denial_reason, recorded_at",
+      )
+      .eq("organization_id", orgId),
+    supabase
+      .from("discovery_matches")
+      .select("id", { count: "exact", head: true })
+      .eq("organization_id", orgId)
+      .eq("status", "pending"),
+    supabase
+      .from("reputation_alerts")
+      .select("id", { count: "exact", head: true })
+      .eq("org_id", orgId)
+      .eq("status", "unread"),
+  ]);
 
   const totalOpportunities = oppCountRes.count ?? 0;
   const applications = (applicationsRes.data ?? []) as ApplicationRow[];
   const deadlines = (deadlinesRes.data ?? []) as DeadlineRow[];
   const outcomes = (outcomesRes.data ?? []) as OutcomeInput[];
+  const discoveryMatchesCount = discoveryMatchesRes.count ?? 0;
+  const reputationAlertsCount = reputationAlertsRes.count ?? 0;
 
   // --- metrics ---------------------------------------------------------------
   const submittedCount = applications.filter(
@@ -177,12 +195,13 @@ export default async function DashboardPage() {
 
   const actionItems = [
     { dot: "#EF4444", text: "Parsed emails awaiting review", count: "-", href: "/emails" },
-    { dot: "#F59E0B", text: "New opportunities discovered", count: metricCount(totalOpportunities), href: "/opportunities" },
+    { dot: "#F59E0B", text: "New opportunities discovered", count: metricCount(discoveryMatchesCount), href: "/opportunities" },
     { dot: "#6B48CC", text: "Drafts needing attention", count: metricCount(draftsGenerated), href: "/draft-generator" },
     { dot: "#0077B6", text: "Deadlines approaching", count: metricCount(deadlinesThisWeek), href: "/deadlines" },
     { dot: "#0096C7", text: "Applications missing documents", count: "-", href: "/applications" },
     { dot: "#10B981", text: "AutoApply gates awaiting approval", count: "-", href: "/admin/autoapply-ops" },
     { dot: "#1A2B3C", text: "Research runs completed", count: metricCount(submittedCount), href: "/research" },
+    { dot: "#0EA5E9", text: "Funder alerts requiring review", count: metricCount(reputationAlertsCount), href: "/alerts" },
   ];
 
   const fundingSummaryRows = [
