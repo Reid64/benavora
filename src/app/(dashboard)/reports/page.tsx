@@ -13,6 +13,7 @@ import {
   DollarSign,
   FileBarChart2,
   Loader2,
+  Printer,
   Trophy,
 } from "lucide-react";
 
@@ -22,6 +23,15 @@ import { cn } from "@/lib/utils/cn";
 function defaultDates(): { start: string; end: string } {
   const end = new Date();
   const start = new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
+  return {
+    start: start.toISOString().split("T")[0]!,
+    end: end.toISOString().split("T")[0]!,
+  };
+}
+
+function defaultFiscalYearDates(): { start: string; end: string } {
+  const end = new Date();
+  const start = new Date(end.getFullYear(), 0, 1);
   return {
     start: start.toISOString().split("T")[0]!,
     end: end.toISOString().split("T")[0]!,
@@ -46,8 +56,12 @@ interface BoardReportSummary {
   opportunitiesCreated: number;
   applicationsSubmitted: number;
   totalAwarded: number;
+  outcomesRecorded: number;
+  outcomesAwarded: number;
+  successRate: number;
   topFunders: BoardReportTopFunder[];
   upcomingDeadlines: BoardReportUpcomingDeadline[];
+  narrativeSummary: string;
 }
 
 function formatCurrency(amount: number): string {
@@ -156,8 +170,11 @@ export default function ReportsPage() {
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const [summaryStartDate, setSummaryStartDate] = useState(defaults.start);
-  const [summaryEndDate, setSummaryEndDate] = useState(defaults.end);
+  const fiscalYearDefaults = defaultFiscalYearDates();
+  const [summaryStartDate, setSummaryStartDate] = useState(
+    fiscalYearDefaults.start,
+  );
+  const [summaryEndDate, setSummaryEndDate] = useState(fiscalYearDefaults.end);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [summary, setSummary] = useState<BoardReportSummary | null>(null);
@@ -237,6 +254,10 @@ export default function ReportsPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  function handlePrint() {
+    window.print();
   }
 
   const rangeLabel = (() => {
@@ -488,8 +509,24 @@ export default function ReportsPage() {
 
         {/* Summary result */}
         {summary && (
-          <div className="mt-4 space-y-4">
-            <div className="grid grid-cols-3 gap-3">
+          <div className="mt-4 space-y-4 print:space-y-3">
+            <div className="flex items-center justify-end print:hidden">
+              <button
+                onClick={handlePrint}
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:border-[#0077B6] hover:text-[#0077B6]"
+              >
+                <Printer className="h-4 w-4" />
+                Print / Export
+              </button>
+            </div>
+
+            <div className="rounded-xl border border-border bg-white p-5">
+              <p className="text-sm leading-relaxed text-slate-600">
+                {summary.narrativeSummary}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <div className="rounded-xl border border-border bg-white p-4 text-center">
                 <p className="text-2xl font-semibold text-slate-900">
                   {summary.opportunitiesCreated}
@@ -512,6 +549,14 @@ export default function ReportsPage() {
                 </p>
                 <p className="mt-1 text-xs text-slate-500">Total Awarded</p>
               </div>
+              <div className="rounded-xl border border-border bg-white p-4 text-center">
+                <p className="text-2xl font-semibold text-slate-900">
+                  {Math.round(summary.successRate * 100)}%
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Success Rate ({summary.outcomesAwarded}/{summary.outcomesRecorded})
+                </p>
+              </div>
             </div>
 
             <div className="rounded-xl border border-border bg-white p-5">
@@ -522,22 +567,28 @@ export default function ReportsPage() {
                 </h3>
               </div>
               {summary.topFunders.length > 0 ? (
-                <ul className="space-y-2">
-                  {summary.topFunders.map((funder, index) => (
-                    <li
-                      key={funder.funderId}
-                      className="flex items-center justify-between text-sm"
-                    >
-                      <span className="text-slate-600">
-                        {index + 1}. {funder.funderName}
-                      </span>
-                      <span className="font-medium text-slate-900">
-                        {funder.applicationCount} application
-                        {funder.applicationCount === 1 ? "" : "s"}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-left text-xs text-slate-400">
+                      <th className="pb-2 font-medium">#</th>
+                      <th className="pb-2 font-medium">Funder</th>
+                      <th className="pb-2 text-right font-medium">Applications</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {summary.topFunders.map((funder, index) => (
+                      <tr key={funder.funderId}>
+                        <td className="py-2 text-slate-400">{index + 1}</td>
+                        <td className="py-2 text-slate-600">
+                          {funder.funderName}
+                        </td>
+                        <td className="py-2 text-right font-medium text-slate-900">
+                          {funder.applicationCount}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               ) : (
                 <p className="text-xs text-slate-400">
                   No funder applications in this period.

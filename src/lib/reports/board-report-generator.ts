@@ -18,8 +18,12 @@ export interface BoardReportSummary {
   opportunitiesCreated: number;
   applicationsSubmitted: number;
   totalAwarded: number;
+  outcomesRecorded: number;
+  outcomesAwarded: number;
+  successRate: number;
   topFunders: TopFunder[];
   upcomingDeadlines: UpcomingDeadline[];
+  narrativeSummary: string;
 }
 
 type FunderJoinRow = {
@@ -37,6 +41,62 @@ type DeadlineRow = {
   funders: { name: string } | null;
 };
 
+type OutcomeRow = {
+  result: string;
+  awarded_amount: number | null;
+};
+
+function formatMoney(amount: number): string {
+  return amount.toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  });
+}
+
+function buildNarrativeSummary(input: {
+  dateFrom: string;
+  dateTo: string;
+  opportunitiesCreated: number;
+  applicationsSubmitted: number;
+  totalAwarded: number;
+  outcomesRecorded: number;
+  successRate: number;
+  topFunders: TopFunder[];
+  upcomingDeadlines: UpcomingDeadline[];
+}): string {
+  const {
+    dateFrom,
+    dateTo,
+    opportunitiesCreated,
+    applicationsSubmitted,
+    totalAwarded,
+    outcomesRecorded,
+    successRate,
+    topFunders,
+    upcomingDeadlines,
+  } = input;
+
+  const successRatePct = Math.round(successRate * 100);
+
+  const outcomesSentence =
+    outcomesRecorded > 0
+      ? `${outcomesRecorded} outcome${outcomesRecorded === 1 ? " was" : "s were"} recorded during this period, resulting in ${formatMoney(totalAwarded)} awarded and a ${successRatePct}% success rate.`
+      : `No outcomes were recorded during this period.`;
+
+  const topFunderSentence =
+    topFunders.length > 0
+      ? `${topFunders[0]!.funderName} led funder engagement with ${topFunders[0]!.applicationCount} application${topFunders[0]!.applicationCount === 1 ? "" : "s"}.`
+      : `No funder applications were recorded in this period.`;
+
+  const deadlineSentence =
+    upcomingDeadlines.length > 0
+      ? `${upcomingDeadlines.length} deadline${upcomingDeadlines.length === 1 ? "" : "s"} fall${upcomingDeadlines.length === 1 ? "s" : ""} within the next 90 days.`
+      : `No deadlines fall within the next 90 days.`;
+
+  return `Between ${dateFrom} and ${dateTo}, the organization identified ${opportunitiesCreated} new funding ${opportunitiesCreated === 1 ? "opportunity" : "opportunities"} and submitted ${applicationsSubmitted} application${applicationsSubmitted === 1 ? "" : "s"}. ${outcomesSentence} ${topFunderSentence} ${deadlineSentence}`;
+}
+
 export async function generateBoardReport(
   orgId: string,
   dateFrom: string,
@@ -52,6 +112,7 @@ export async function generateBoardReport(
   const [
     opportunitiesRes,
     applicationsRes,
+    outcomesRes,
     topFundersRes,
     upcomingDeadlinesRes,
   ] = await Promise.all([
@@ -64,11 +125,18 @@ export async function generateBoardReport(
 
     supabase
       .from("applications")
-      .select("id, awarded_amount")
+      .select("id", { count: "exact" })
       .eq("organization_id", orgId)
       .not("submitted_at", "is", null)
       .gte("submitted_at", dateFrom)
       .lte("submitted_at", rangeEnd),
+
+    supabase
+      .from("outcomes")
+      .select("result, awarded_amount")
+      .eq("organization_id", orgId)
+      .gte("recorded_at", dateFrom)
+      .lte("recorded_at", rangeEnd),
 
     supabase
       .from("applications")
@@ -87,14 +155,15 @@ export async function generateBoardReport(
       .order("deadline", { ascending: true }),
   ]);
 
-  const applications = (applicationsRes.data ?? []) as Array<{
-    id: string;
-    awarded_amount: number | null;
-  }>;
-  const totalAwarded = applications.reduce(
-    (sum, a) => sum + (a.awarded_amount ?? 0),
+  const outcomes = (outcomesRes.data ?? []) as OutcomeRow[];
+  const outcomesRecorded = outcomes.length;
+  const outcomesAwarded = outcomes.filter((o) => o.result === "awarded").length;
+  const totalAwarded = outcomes.reduce(
+    (sum, o) => sum + (o.awarded_amount ?? 0),
     0,
   );
+  const successRate =
+    outcomesRecorded > 0 ? outcomesAwarded / outcomesRecorded : 0;
 
   const funderCounts = new Map<
     string,
@@ -128,12 +197,31 @@ export async function generateBoardReport(
     funderName: row.funders?.name ?? null,
   }));
 
-  return {
-    dateRange: { from: dateFrom, to: dateTo },
-    opportunitiesCreated: opportunitiesRes.count ?? 0,
-    applicationsSubmitted: applications.length,
+  const opportunitiesCreated = opportunitiesRes.count ?? 0;
+  const applicationsSubmitted = applicationsRes.count ?? 0;
+
+  const narrativeSummary = buildNarrativeSummary({
+    dateFrom,
+    dateTo,
+    opportunitiesCreated,
+    applicationsSubmitted,
     totalAwarded,
+    outcomesRecorded,
+    successRate,
     topFunders,
     upcomingDeadlines,
+  });
+
+  return {
+    dateRange: { from: dateFrom, to: dateTo },
+    opportunitiesCreated,
+    applicationsSubmitted,
+    totalAwarded,
+    outcomesRecorded,
+    outcomesAwarded,
+    successRate,
+    topFunders,
+    upcomingDeadlines,
+    narrativeSummary,
   };
 }
