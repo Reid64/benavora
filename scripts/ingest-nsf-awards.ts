@@ -196,18 +196,34 @@ async function main() {
 
     if (rows.length > 0) {
       const sourceUrls = rows.map((r) => r.source_url);
-      const { data: existing, error: existingError } = await supabase
-        .from("intelligence_funded_proposals")
-        .select("source_url")
-        .in("source_url", sourceUrls);
+      const grantPrograms = rows.map((r) => r.grant_program).filter((p): p is string => !!p);
+
+      const [{ data: existingByUrl, error: existingUrlError }, { data: existingByTitle, error: existingTitleError }] =
+        await Promise.all([
+          supabase.from("intelligence_funded_proposals").select("source_url").in("source_url", sourceUrls),
+          grantPrograms.length > 0
+            ? supabase
+                .from("intelligence_funded_proposals")
+                .select("grant_program")
+                .eq("funder_name", "NSF")
+                .in("grant_program", grantPrograms)
+            : Promise.resolve({ data: [], error: null }),
+        ]);
+
+      const existingError = existingUrlError ?? existingTitleError;
 
       if (existingError) {
         fail(`page ${page} dedup check`, existingError);
         totalFailed += rows.length;
         totalSkipped += skippedNoText;
       } else {
-        const existingUrls = new Set((existing ?? []).map((e: { source_url: string }) => e.source_url));
-        const newRows = rows.filter((r) => !existingUrls.has(r.source_url));
+        const existingUrls = new Set((existingByUrl ?? []).map((e: { source_url: string }) => e.source_url));
+        const existingTitles = new Set(
+          (existingByTitle ?? []).map((e: { grant_program: string | null }) => e.grant_program),
+        );
+        const newRows = rows.filter(
+          (r) => !existingUrls.has(r.source_url) && !(r.grant_program && existingTitles.has(r.grant_program)),
+        );
         const duplicateCount = rows.length - newRows.length;
         totalSkipped += skippedNoText + duplicateCount;
 
