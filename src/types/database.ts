@@ -4801,6 +4801,7 @@ export interface Database {
         ];
       };
       // Migration 084: grant_budgets - per-application budget envelope for financial reconciliation.
+      // Migration 089 added line_items/total_approved/updated_at.
       grant_budgets: {
         Row: {
           id: string;
@@ -4813,7 +4814,10 @@ export interface Database {
           other: number;
           period_start: string | null;
           period_end: string | null;
+          line_items: unknown;
+          total_approved: number | null;
           created_at: string;
+          updated_at: string | null;
         };
         Insert: {
           id?: string;
@@ -4826,7 +4830,10 @@ export interface Database {
           other?: number;
           period_start?: string | null;
           period_end?: string | null;
+          line_items?: unknown;
+          total_approved?: number | null;
           created_at?: string;
+          updated_at?: string | null;
         };
         Update: {
           id?: string;
@@ -4839,7 +4846,10 @@ export interface Database {
           other?: number;
           period_start?: string | null;
           period_end?: string | null;
+          line_items?: unknown;
+          total_approved?: number | null;
           created_at?: string;
+          updated_at?: string | null;
         };
         Relationships: [
           {
@@ -4859,35 +4869,42 @@ export interface Database {
         ];
       };
       // Migration 084: grant_expenses - expense line items against a grant_budgets envelope.
+      // Migration 089 added application_id/receipt_url.
       grant_expenses: {
         Row: {
           id: string;
           organization_id: string;
           budget_id: string | null;
+          application_id: string | null;
           category: string | null;
           description: string | null;
           amount: number;
           expense_date: string | null;
+          receipt_url: string | null;
           created_at: string;
         };
         Insert: {
           id?: string;
           organization_id: string;
           budget_id?: string | null;
+          application_id?: string | null;
           category?: string | null;
           description?: string | null;
           amount: number;
           expense_date?: string | null;
+          receipt_url?: string | null;
           created_at?: string;
         };
         Update: {
           id?: string;
           organization_id?: string;
           budget_id?: string | null;
+          application_id?: string | null;
           category?: string | null;
           description?: string | null;
           amount?: number;
           expense_date?: string | null;
+          receipt_url?: string | null;
           created_at?: string;
         };
         Relationships: [
@@ -4903,6 +4920,63 @@ export interface Database {
             columns: ["budget_id"];
             isOneToOne: false;
             referencedRelation: "grant_budgets";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "grant_expenses_application_id_fkey";
+            columns: ["application_id"];
+            isOneToOne: false;
+            referencedRelation: "applications";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      // Migration 089: grant_reconciliation_reports - persisted budget-vs-actual
+      // variance snapshot per application, upserted by /api/applications/[id]/reconcile.
+      grant_reconciliation_reports: {
+        Row: {
+          id: string;
+          organization_id: string;
+          application_id: string;
+          total_budget: number | null;
+          total_spent: number | null;
+          variance: number | null;
+          compliance_status: string | null;
+          generated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          application_id: string;
+          total_budget?: number | null;
+          total_spent?: number | null;
+          variance?: number | null;
+          compliance_status?: string | null;
+          generated_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          application_id?: string;
+          total_budget?: number | null;
+          total_spent?: number | null;
+          variance?: number | null;
+          compliance_status?: string | null;
+          generated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "grant_reconciliation_reports_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "grant_reconciliation_reports_application_id_fkey";
+            columns: ["application_id"];
+            isOneToOne: false;
+            referencedRelation: "applications";
             referencedColumns: ["id"];
           },
         ];

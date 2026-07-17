@@ -18,6 +18,8 @@ type Application = Pick<
   "id" | "stage" | "opportunity_id" | "requested_amount" | "awarded_amount"
 >;
 type Opportunity = Pick<Tables<"opportunities">, "id" | "name" | "deadline">;
+type GrantBudget = Pick<Tables<"grant_budgets">, "application_id" | "total_budget" | "created_at">;
+type GrantExpense = Pick<Tables<"grant_expenses">, "application_id" | "amount">;
 
 interface CategorySummary {
   category: FunderCategory | null;
@@ -49,10 +51,22 @@ interface RenewalRisk {
   originalAwarded: number | null;
 }
 
+interface ReconciliationRow {
+  appId: string;
+  oppName: string;
+  awarded: number | null;
+  totalBudgeted: number;
+  totalSpent: number;
+  variance: number;
+  hasBudget: boolean;
+}
+
 export default function FinancialsPage() {
   const [outcomes, setOutcomes] = useState<Outcome[]>([]);
   const [applications, setApplications] = useState<Application[]>([]);
   const [opportunityMap, setOpportunityMap] = useState<Map<string, Opportunity>>(new Map());
+  const [budgets, setBudgets] = useState<GrantBudget[]>([]);
+  const [expenses, setExpenses] = useState<GrantExpense[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -61,15 +75,26 @@ export default function FinancialsPage() {
     setError(null);
     const supabase = createClient();
 
-    const [outcomesRes, appsRes, oppsRes] = await Promise.all([
+    const [outcomesRes, appsRes, oppsRes, budgetsRes, expensesRes] = await Promise.all([
       supabase.from("outcomes").select("*").order("recorded_at", { ascending: false }),
       supabase
         .from("applications")
         .select("id, stage, opportunity_id, requested_amount, awarded_amount"),
       supabase.from("opportunities").select("id, name, deadline"),
+      supabase
+        .from("grant_budgets")
+        .select("application_id, total_budget, created_at")
+        .order("created_at", { ascending: false }),
+      supabase.from("grant_expenses").select("application_id, amount"),
     ]);
 
-    if (outcomesRes.error || appsRes.error || oppsRes.error) {
+    if (
+      outcomesRes.error ||
+      appsRes.error ||
+      oppsRes.error ||
+      budgetsRes.error ||
+      expensesRes.error
+    ) {
       setError("Could not load financial data.");
       setLoading(false);
       return;
@@ -82,6 +107,8 @@ export default function FinancialsPage() {
     setOutcomes(outcomesRes.data ?? []);
     setApplications(appsRes.data ?? []);
     setOpportunityMap(oppMap);
+    setBudgets(budgetsRes.data ?? []);
+    setExpenses(expensesRes.data ?? []);
     setLoading(false);
   }, []);
 
@@ -89,13 +116,50 @@ export default function FinancialsPage() {
     void load();
   }, [load]);
 
-  const { summaryStats, categoryBreakdown, receivables, activeGrants, renewalRisks } =
-    useMemo(() => {
+  const {
+    summaryStats,
+    categoryBreakdown,
+    receivables,
+    activeGrants,
+    renewalRisks,
+    reconciliationRows,
+  } = useMemo(() => {
       const appOppName = new Map<string, string>();
       for (const app of applications) {
         const opp = opportunityMap.get(app.opportunity_id);
         appOppName.set(app.id, opp?.name ?? "Unnamed Grant");
       }
+
+      // Reconciliation: most recent budget per application, summed expenses per application.
+      const latestBudgetByApp = new Map<string, GrantBudget>();
+      for (const b of budgets) {
+        if (!b.application_id) continue;
+        const existing = latestBudgetByApp.get(b.application_id);
+        if (!existing || (b.created_at ?? "") > (existing.created_at ?? "")) {
+          latestBudgetByApp.set(b.application_id, b);
+        }
+      }
+      const spentByApp = new Map<string, number>();
+      for (const e of expenses) {
+        if (!e.application_id) continue;
+        spentByApp.set(e.application_id, (spentByApp.get(e.application_id) ?? 0) + (e.amount ?? 0));
+      }
+      const reconciliationRows: ReconciliationRow[] = applications
+        .filter((a) => a.stage === "awarded" || a.stage === "reporting_required")
+        .map((a) => {
+          const budget = latestBudgetByApp.get(a.id);
+          const totalSpent = spentByApp.get(a.id) ?? 0;
+          const totalBudgeted = budget?.total_budget ?? a.awarded_amount ?? 0;
+          return {
+            appId: a.id,
+            oppName: appOppName.get(a.id) ?? "Unnamed Grant",
+            awarded: a.awarded_amount,
+            totalBudgeted,
+            totalSpent,
+            variance: totalBudgeted - totalSpent,
+            hasBudget: budget !== undefined,
+          };
+        });
 
       const outcomeByAppId = new Map<string, Outcome>();
       for (const o of outcomes) {
@@ -187,8 +251,9 @@ export default function FinancialsPage() {
         receivables,
         activeGrants,
         renewalRisks,
+        reconciliationRows,
       };
-    }, [outcomes, applications, opportunityMap]);
+    }, [outcomes, applications, opportunityMap, budgets, expenses]);
 
   if (loading) {
     return (
@@ -409,6 +474,66 @@ export default function FinancialsPage() {
                             {formatCurrency(diff)}
                           </div>
                         )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </Card>
+
+          {/* Section 3b: Grant Budget Reconciliation */}
+          <Card
+            title="Grant Budget Reconciliation"
+            description="Awarded grants: budgeted vs. actual spend, with variance."
+            noPadding
+          >
+            {reconciliationRows.length === 0 ? (
+              <p className="px-5 py-6 text-sm text-slate-500">
+                No awarded grants to reconcile yet.
+              </p>
+            ) : (
+              <ul className="divide-y divide-slate-100">
+                {reconciliationRows.map((r, i) => {
+                  const overBudget = r.variance < 0;
+                  const variancePercent =
+                    r.totalBudgeted > 0
+                      ? Math.round((r.variance / r.totalBudgeted) * 100)
+                      : 0;
+                  return (
+                    <li
+                      key={r.appId}
+                      className={cn(
+                        "flex flex-wrap items-center justify-between gap-3 px-5 py-3",
+                        i % 2 === 1 && "bg-[#F8FAFC]",
+                      )}
+                    >
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-medium text-slate-900">
+                          {r.oppName}
+                        </div>
+                        <div className="text-xs text-slate-500">
+                          Awarded {formatCurrency(r.awarded)}
+                          {!r.hasBudget && " · no budget entered"}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-6 text-sm">
+                        <div className="text-right">
+                          <div className="text-xs text-slate-500">Budgeted</div>
+                          <div className="font-medium text-slate-700">
+                            {formatCurrency(r.totalBudgeted)}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-xs text-slate-500">Spent</div>
+                          <div className="font-medium text-slate-900">
+                            {formatCurrency(r.totalSpent)}
+                          </div>
+                        </div>
+                        <Badge color={overBudget ? "red" : "green"}>
+                          {overBudget ? "Over budget" : "Under budget"}
+                          {r.totalBudgeted > 0 && ` (${variancePercent >= 0 ? "+" : ""}${variancePercent}%)`}
+                        </Badge>
                       </div>
                     </li>
                   );
