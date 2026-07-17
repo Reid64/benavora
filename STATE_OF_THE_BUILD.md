@@ -1,6 +1,65 @@
 # BENAVORA — STATE OF THE BUILD
-## Last updated: 2026-07-16 (Dashboard page.tsx fully redesigned — see entry immediately below — on top of Governance doc catch-up: UI redesign thrashing reconciled, deployment + auth info recorded, Funder relationship-score badge + Tier 6 inventory, Mobile responsiveness audit + fixes, Research + Draft Generator pages Elevated Slate rebuild, FlightPathHUD Mission Control lifecycle dashboard, Migrations 073-074 applied to production, Settings + Onboarding pages Elevated Slate rebuild, Sales Outreach + AutoApply Ops pages Elevated Slate rebuild, Contacts + Financials + Reports pages Elevated Slate rebuild, Knowledge Base + Intelligence Library pages Elevated Slate rebuild, Alerts + Deadlines + Outcomes pages Elevated Slate rebuild, Donor Discovery Overview + Prospects pages Elevated Slate rebuild, Applications + Documents pages Elevated Slate rebuild, Funders + Foundations pages Elevated Slate card-grid rebuild, PageHeader rebuild, Opportunities page visual overhaul, Dashboard page visual overhaul, Header hardcoded-Tailwind rebuild, Sidebar hardcoded-Tailwind rebuild, Phase 2-4 completion audit, Apollo + Hunter §6 BYO-key connectors + run_connector_enrichment worker job, TX TDLR + land bank directory registry adapters + Donor Discovery Connectors page + connectors API + Prospect detail page rebuild + AutoApply handoff route + Donor Discovery Overview page rebuild + process_discovery_request worker job + requests API pagination + Claude-rationale donor-discovery scoring engine + SAM.gov registry adapter + ingest script + ProPublica financial enrichment adapter + script + IRS BMF full ingest script + Google Geocoding adapter + donor_discovery_geocache + Google Places cache-first registry adapter + adapter_usage_log + New Discovery wizard TaxonomyCombobox + taxonomy aliases + header nav placement fix + Phases 2+3 + Foundation Enrichment Pipeline + Onboarding soft-gate)
+## Last updated: 2026-07-16 (Intelligence Library page + proposals API rebuilt — see entry immediately below — on top of: Dashboard page.tsx fully redesigned, Governance doc catch-up: UI redesign thrashing reconciled, deployment + auth info recorded, Funder relationship-score badge + Tier 6 inventory, Mobile responsiveness audit + fixes, Research + Draft Generator pages Elevated Slate rebuild, FlightPathHUD Mission Control lifecycle dashboard, Migrations 073-074 applied to production, Settings + Onboarding pages Elevated Slate rebuild, Sales Outreach + AutoApply Ops pages Elevated Slate rebuild, Contacts + Financials + Reports pages Elevated Slate rebuild, Knowledge Base + Intelligence Library pages Elevated Slate rebuild, Alerts + Deadlines + Outcomes pages Elevated Slate rebuild, Donor Discovery Overview + Prospects pages Elevated Slate rebuild, Applications + Documents pages Elevated Slate rebuild, Funders + Foundations pages Elevated Slate card-grid rebuild, PageHeader rebuild, Opportunities page visual overhaul, Dashboard page visual overhaul, Header hardcoded-Tailwind rebuild, Sidebar hardcoded-Tailwind rebuild, Phase 2-4 completion audit, Apollo + Hunter §6 BYO-key connectors + run_connector_enrichment worker job, TX TDLR + land bank directory registry adapters + Donor Discovery Connectors page + connectors API + Prospect detail page rebuild + AutoApply handoff route + Donor Discovery Overview page rebuild + process_discovery_request worker job + requests API pagination + Claude-rationale donor-discovery scoring engine + SAM.gov registry adapter + ingest script + ProPublica financial enrichment adapter + script + IRS BMF full ingest script + Google Geocoding adapter + donor_discovery_geocache + Google Places cache-first registry adapter + adapter_usage_log + New Discovery wizard TaxonomyCombobox + taxonomy aliases + header nav placement fix + Phases 2+3 + Foundation Enrichment Pipeline + Onboarding soft-gate)
 ## Method: live codebase audit — every file path, route, agent, and migration counted directly from the filesystem; no assumptions carried from prior docs.
+
+---
+
+## COMPLETED — July 16 (latest session): Intelligence Library page rebuilt as a paginated proposals browser + new proposals API (Directive 3)
+
+Task: rewrite `intelligence-library/page.tsx` (the correct file — `intelligence/page.tsx` is an
+unrelated redirect to `/intelligence/competitors`) to show corpus stats, a search bar, source
+filter tabs, a paginated results grid, and back it with a new `GET /api/intelligence/proposals`
+route instead of the old client-side Supabase query capped at 100 rows.
+
+- **Schema read first, not guessed**: `intelligence_funded_proposals` (migration
+  `048_grant_intelligence.sql`) has no RLS policy and no `title`/`abstract`/`organization` columns
+  — `grant_program` holds the title, `full_text` holds title+abstract concatenated, and
+  `organization` (recipient/awardee name) lives inside the `metadata` jsonb, per the convention
+  established by all four real ingestion scripts (`scripts/ingest-nih-reporter.ts`,
+  `ingest-nsf-awards.ts`, `ingest-federal-register.ts`, `ingest-samhsa-hrsa.ts`) plus
+  `src/scripts/ingest-nih-proposals.ts` (the NIAID sample-application scraper). Confirmed the real
+  `source` column values directly from those five scripts rather than guessing: `NIH_REPORTER`,
+  `NSF_AWARDS`, `FEDERAL_REGISTER`, `USASPENDING`, `NIH_NIAID` — matches the task's five named
+  source tabs exactly (the task's "NIH" tab maps to `NIH_REPORTER`; `NIH_NIAID` is a genuinely
+  distinct source, the NIAID sample-application corpus, not a duplicate of NIH_REPORTER).
+- **New `src/app/api/intelligence/proposals/route.ts`** — `GET ?source=&search=&page=`,
+  `requireRole("viewer")` gated (this table has no RLS, so the app-level gate is the only access
+  control, matching the existing `api/intelligence/search` route's posture). 20/page via
+  `.range()`. Search filters `grant_program`/`funder_name`/`full_text` via a sanitized
+  `.or(...ilike...)` (strips `,()%` since PostgREST's `.or()` filter uses commas/parens as its own
+  syntax). Corpus stats (`totalProposals`, `totalSources`, `earliestYear`/`latestYear` from
+  `award_year`, `lastIngestionAt` from `created_at`) are computed **unfiltered** — a separate
+  `Promise.all` alongside the paginated query — so the header reflects the whole library, not just
+  the current filter/search result set.
+- **Page rewritten in full inline styles**, no Tailwind classes, per
+  `STANDING_DIRECTIVES.md` Directive 4's "Only Method That Works" mandate (this page predates that
+  directive and was still on Tailwind arbitrary-value classes). Hex values pulled from the current
+  live `globals.css` tokens (`--color-background: #e4e9f0`, `--color-primary: #0077b6`,
+  `--color-accent: #00b4d8`), not from the directive doc's stated `#D6E4F0` canvas spec or older
+  memory notes — per [[benavora-design-history-dark-vs-light]], live source wins over any written
+  hex value when they disagree.
+- **Scope decision, not silently done**: the old page's Scoring Rubrics / Logic Models / Data
+  Sources tabs and the "Add to Library" `IngestModal` flow were removed, not preserved behind a
+  toggle or second route. The task's spec ("Rewrite the page to show: (1)...(5)...") enumerates
+  the full intended content of this page with no mention of those three tabs, matching the same
+  full-replacement precedent used throughout this file's other literal-spec page rebuilds (e.g.
+  the July 13 Reports page rebuild dropped its old flat bullet list outright). `IngestModal.tsx`
+  itself was left in place (not deleted) since deleting a component file wasn't asked for and it's
+  a self-contained, harmless dead file if unused. **This is a real, visible feature removal** —
+  Scoring Rubrics (`intelligence_scoring_rubrics`), Logic Models (`intelligence_logic_models`), and
+  the Data Sources need-data breakdown (`intelligence_need_data`) are no longer reachable from any
+  page in the app as of this commit. Flagging for Reid rather than assuming it's fine.
+- Gate: `pnpm tsc --noEmit` — 0 errors, ran clean (empty output file), no interactive-approval
+  block this session.
+- **Not done:** `pnpm run build` / `pnpm lint` / Playwright not requested by this task (only tsc
+  was named), not run — no browser verification this pass. Committed (`29c646f`) and pushed to
+  `origin/main` per the task's explicit instruction; only the two touched files were staged (not
+  `git add -A`) since the working tree had unrelated pre-existing dirty `.claude/worktrees/*`
+  submodule entries from before this session.
+- Governance docs updated: this file, `SESSION_STATE.md`. `BLUEPRINT.md`, `SCHEMA_REGISTRY.md`,
+  `BEHAVIORAL_CONTRACTS.md`, `AGENTS.md`, `CLAUDE.md`, `DONOR_DISCOVERY_ARCHITECTURE.md`, and
+  `STANDING_DIRECTIVES.md` untouched — no schema or contract change (writes through the existing
+  table), no new migration.
 
 ---
 

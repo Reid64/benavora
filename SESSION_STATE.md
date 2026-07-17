@@ -1,7 +1,41 @@
 # BENAVORA — SESSION STATE
 ## Last updated: 2026-07-16
 ## Current branch: main
-## Last commit: fix: restore working globals.css (7ac3844)
+## Last commit: feat: intelligence library UI overhaul + proposals API (29c646f)
+
+---
+
+## COMPLETED — July 16 (latest session): Intelligence Library page rebuilt as a paginated proposals browser + new proposals API
+
+Task: rewrite `intelligence-library/page.tsx` to show corpus stats (total proposals, total
+sources, date range, last ingestion), a search bar, ALL/NIH/NSF/FEDERAL_REGISTER/USASPENDING/
+NIH_NIAID source tabs, a 20-per-page results grid, and back it with a new
+`GET /api/intelligence/proposals` route. Full detail in `STATE_OF_THE_BUILD.md`'s new top entry
+— summary:
+
+- Confirmed `intelligence_funded_proposals`'s real schema and `source` column values directly
+  from the four/five real ingestion scripts (`scripts/ingest-nih-reporter.ts`,
+  `ingest-nsf-awards.ts`, `ingest-federal-register.ts`, `ingest-samhsa-hrsa.ts`,
+  `src/scripts/ingest-nih-proposals.ts`) rather than guessing — `NIH_NIAID` is a real, distinct
+  source (NIAID sample-application scraper), not a duplicate of `NIH_REPORTER`.
+- New `api/intelligence/proposals/route.ts`: `requireRole("viewer")` gated (table has no RLS),
+  paginated 20/page, search across `grant_program`/`funder_name`/`full_text`, corpus stats
+  computed unfiltered so the header reflects the whole library regardless of the active filter.
+- Page rewritten entirely in inline styles (no Tailwind), per `STANDING_DIRECTIVES.md` Directive
+  4 — hex values pulled from the live `globals.css` tokens, not the directive doc's stated spec
+  (live source wins per [[benavora-design-history-dark-vs-light]]).
+- **Real feature removal, flagged not hidden**: the old page's Scoring Rubrics / Logic Models /
+  Data Sources tabs and the "Add to Library" ingest flow were dropped — the task's spec fully
+  enumerates the new page's content with no mention of them, matching this repo's established
+  full-replacement precedent for literal-spec rebuilds. Those three tabs' underlying tables
+  (`intelligence_scoring_rubrics`, `intelligence_logic_models`, `intelligence_need_data`) are no
+  longer reachable from any page as of this commit.
+- Gate: `pnpm tsc --noEmit` — 0 errors, ran clean.
+- **Not done:** `pnpm run build` / `pnpm lint` / Playwright not requested, not run — no browser
+  verification this pass.
+- Committed `29c646f` (page + route only — pre-existing dirty `.claude/worktrees/*` submodule
+  entries in the working tree were left unstaged, not swept in with `git add -A`) and pushed to
+  `origin/main`.
 
 ---
 
