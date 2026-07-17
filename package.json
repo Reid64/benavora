@@ -14,6 +14,7 @@
         "test:unit": "vitest run",
         "test:watch": "vitest",
         "test:coverage": "vitest run --coverage",
+        "test:smoke": "vitest run src/__tests__/smoke",
         "test:e2e": "playwright test",
         "seed-demo": "node seed-demo.mjs",
         "seed:beta": "tsx scripts/seed-beta-users.ts",
