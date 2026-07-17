@@ -39,12 +39,12 @@ export async function GET() {
   }
 
   const clientOrgIds = (grants ?? []).map((g) => g.client_org_id as string);
-  let orgsById: Record<string, { id: string; name: string }> = {};
+  let orgsById: Record<string, { id: string; name: string; subscription_tier: string | null }> = {};
 
   if (clientOrgIds.length > 0) {
     const { data: orgs, error: orgsError } = await admin
       .from("organizations")
-      .select("id, name")
+      .select("id, name, subscription_tier")
       .in("id", clientOrgIds);
 
     if (orgsError) {
@@ -52,7 +52,10 @@ export async function GET() {
     }
 
     orgsById = Object.fromEntries(
-      (orgs ?? []).map((o) => [o.id as string, o as { id: string; name: string }]),
+      (orgs ?? []).map((o) => [
+        o.id as string,
+        o as { id: string; name: string; subscription_tier: string | null },
+      ]),
     );
   }
 
@@ -123,4 +126,34 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({ client: data }, { status: 201 });
+}
+
+export async function DELETE(request: Request) {
+  const gate = await requireRole("admin");
+  if ("error" in gate) return gate.error;
+  const { organizationId } = gate;
+
+  const id = new URL(request.url).searchParams.get("id");
+  if (!id) {
+    return jsonError("id is required.", "missing_field", 400);
+  }
+
+  const admin = createAdminClient();
+
+  const { data, error } = await admin
+    .from("consultant_client_access")
+    .delete()
+    .eq("id", id)
+    .eq("consultant_org_id", organizationId)
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    return jsonError("Failed to remove client access.", "remove_failed", 500);
+  }
+  if (!data) {
+    return jsonError("Client access grant not found.", "not_found", 404);
+  }
+
+  return NextResponse.json({ removed: true });
 }

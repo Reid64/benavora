@@ -26,7 +26,7 @@ type ConsultantClient = {
   access_level: string;
   granted_at: string;
   active: boolean;
-  organization: { id: string; name: string } | null;
+  organization: { id: string; name: string; subscription_tier: string | null } | null;
 };
 
 /**
@@ -42,6 +42,7 @@ export default function WhiteLabelPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [removingId, setRemovingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -64,6 +65,23 @@ export default function WhiteLabelPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const handleRemove = useCallback(
+    async (id: string) => {
+      setRemovingId(id);
+      try {
+        const res = await fetch(`/api/consultant/clients?id=${encodeURIComponent(id)}`, {
+          method: "DELETE",
+        });
+        if (res.ok) {
+          void load();
+        }
+      } finally {
+        setRemovingId(null);
+      }
+    },
+    [load],
+  );
 
   return (
     <div className="space-y-6">
@@ -112,9 +130,11 @@ export default function WhiteLabelPage() {
             <thead>
               <tr className="border-b border-border text-left text-xs font-medium uppercase tracking-wide text-navy-500">
                 <th className="px-4 py-3">Organization</th>
+                <th className="px-4 py-3">Plan</th>
                 <th className="px-4 py-3">Access Level</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Granted</th>
+                {canManage && <th className="px-4 py-3" />}
               </tr>
             </thead>
             <tbody>
@@ -122,6 +142,9 @@ export default function WhiteLabelPage() {
                 <tr key={client.id} className="border-b border-border last:border-0">
                   <td className="px-4 py-3 font-medium text-navy-900">
                     {client.organization?.name ?? "Unknown organization"}
+                  </td>
+                  <td className="px-4 py-3 text-navy-600 capitalize">
+                    {client.organization?.subscription_tier ?? "—"}
                   </td>
                   <td className="px-4 py-3 text-navy-600">
                     {client.access_level}
@@ -134,6 +157,18 @@ export default function WhiteLabelPage() {
                   <td className="px-4 py-3 text-navy-500">
                     {formatRelative(client.granted_at)}
                   </td>
+                  {canManage && (
+                    <td className="px-4 py-3 text-right">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        isLoading={removingId === client.id}
+                        onClick={() => void handleRemove(client.id)}
+                      >
+                        Remove
+                      </Button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

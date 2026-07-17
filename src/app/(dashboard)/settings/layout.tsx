@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
+import { useProfile } from "@/lib/hooks/useProfile";
+
 const NAV_ITEMS = [
   { label: "General", href: "/settings" },
   { label: "Organization Setup", href: "/settings/organization-setup" },
@@ -12,11 +14,13 @@ const NAV_ITEMS = [
   { label: "Branding", href: "/settings/branding" },
   { label: "Custom APIs", href: "/settings/custom-apis" },
   { label: "Scraping Targets", href: "/settings/scraping" },
-  { label: "White-Label", href: "/settings/white-label" },
+  { label: "White-Label", href: "/settings/white-label", ownerOnly: true },
 ] as const;
 
 export default function SettingsLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const { profile } = useProfile();
+  const isOwner = profile?.role === "owner";
 
   return (
     <div className="space-y-6">
@@ -24,7 +28,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
         className="flex gap-1 overflow-x-auto border-b border-border"
         aria-label="Settings navigation"
       >
-        {NAV_ITEMS.map(({ label, href }) => {
+        {NAV_ITEMS.filter((item) => !("ownerOnly" in item && item.ownerOnly) || isOwner).map(({ label, href }) => {
           const active =
             href === "/settings"
               ? pathname === "/settings"
