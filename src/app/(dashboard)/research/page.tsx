@@ -3,30 +3,21 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Search } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { SearchConfiguration } from "@/app/(dashboard)/search-profiles/configure/SearchConfiguration";
 import type { AgentType } from "@/types/agents";
 import type { Enums } from "@/types/database";
-import type { ResearchConfig } from "@/lib/research/org-research-config";
 import { Badge, type BadgeVariant } from "@/components/ui/Badge";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { ColorIcon } from "@/components/ui/ColorIcon";
+import {
+  RESEARCH_RESOURCES,
+  RESOURCE_CATEGORIES,
+  type ResourceDefinition,
+} from "@/lib/research/resource-registry";
 
 type FunderCategory = Enums<"funder_category">;
 type OppSourceType = Enums<"opportunity_source_type">;
 type RunStatus = Enums<"agent_run_status">;
-
-interface SourceConfig {
-  key: string;
-  label: string;
-  agentType: AgentType;
-}
-
-interface SourceStats {
-  lastRunAt: string | null;
-  itemsFound: number | null;
-}
 
 interface AgentRunRow {
   id: string;
@@ -68,37 +59,6 @@ interface HistoricalAwardRow {
   awarding_agency: string | null;
   description: string | null;
 }
-
-const SOURCES: SourceConfig[] = [
-  { key: "grants_gov", label: "Grants.gov", agentType: "grants_gov_research" },
-  { key: "sam_gov", label: "SAM.gov", agentType: "sam_gov_research" },
-  { key: "simpler_grants", label: "Simpler Grants", agentType: "government_research" },
-  { key: "hud", label: "HUD", agentType: "government_research" },
-  { key: "tdhca", label: "TDHCA", agentType: "state_portal" },
-  { key: "state_scrapers", label: "State Scrapers", agentType: "state_portal" },
-  { key: "corporate", label: "Corporate", agentType: "corporate_research" },
-  { key: "foundation_finder", label: "Foundation Finder", agentType: "foundation_research" },
-  { key: "housing_specific", label: "Housing Funders", agentType: "government_research" },
-];
-
-// Sources whose visibility is driven by the org's research_config. Sources NOT
-// in this set (e.g. the foundation/housing scrapers) are always shown.
-const CONFIG_MANAGED_SOURCES = new Set<string>([
-  "grants_gov",
-  "sam_gov",
-  "simpler_grants",
-  "hud",
-  "tdhca",
-  "state_scrapers",
-  "corporate",
-]);
-
-// Source key -> dedicated agent route. Anything not listed uses /api/agents/research.
-const SOURCE_ROUTE_MAP: Record<string, string> = {
-  state_scrapers: "/api/agents/state-scrapers",
-  foundation_finder: "/api/agents/foundation-finder",
-  housing_specific: "/api/agents/housing-specific",
-};
 
 const RESEARCH_AGENT_TYPES: AgentType[] = [
   "grants_gov_research",
@@ -169,34 +129,374 @@ function isDeadlineUrgent(iso: string | null): boolean {
   return days <= 14;
 }
 
-/**
- * Does a discovered opportunity belong to the given source card? Opportunities
- * carry a free-text `source` (usually a URL) and a `source_type` enum, so we
- * match on the source host/text, with corporate falling back to source_type.
- */
-function opportunityMatchesSource(opp: OpportunityRow, sourceKey: string): boolean {
-  const src = (opp.source ?? "").toLowerCase();
-  switch (sourceKey) {
-    case "grants_gov":
-      return src.includes("grants.gov") || src.includes("grants_gov");
-    case "sam_gov":
-      return src.includes("sam.gov") || src.includes("sam_gov");
-    case "simpler_grants":
-      return src.includes("simpler");
-    case "hud":
-      return src.includes("hud");
-    case "tdhca":
-      return src.includes("tdhca");
-    case "state_scrapers":
-      return (
-        opp.source_type === "government_state" &&
-        !src.includes("tdhca")
-      );
-    case "corporate":
-      return opp.source_type === "corporate_giving" || src.includes("corporate");
+/** Colored top-band accent per resource category: federal/registry = blue, health = teal, foundation/funder = purple, everything else (financial/statistical/registry data) = navy. */
+function resourceAccentColor(category: string): string {
+  const c = category.toLowerCase();
+  if (c.includes("foundation") || c.includes("funder")) return "#6B48CC";
+  if (c.includes("health")) return "#00B4D8";
+  if (c.includes("federal") || c.includes("registry")) return "#0077B6";
+  return "#1A2B3C";
+}
+
+function freshnessLabel(freshness: ResourceDefinition["dataFreshness"]): string {
+  switch (freshness) {
+    case "daily":
+      return "Updated daily";
+    case "weekly":
+      return "Updated weekly";
+    case "monthly":
+      return "Updated monthly";
+    case "static":
+      return "Static reference";
     default:
-      return false;
+      return "";
   }
+}
+
+function ResourceCard({ resource }: { resource: ResourceDefinition }) {
+  const accent = resourceAccentColor(resource.category);
+  return (
+    <div
+      style={{
+        position: "relative",
+        display: "flex",
+        flexDirection: "column",
+        backgroundColor: "#FFFFFF",
+        borderRadius: 12,
+        padding: 16,
+        boxShadow: "0 1px 3px rgba(15,23,42,0.08)",
+        overflow: "hidden",
+      }}
+    >
+      <span
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 6,
+          backgroundColor: accent,
+        }}
+      />
+      <span style={{ marginTop: 6, fontSize: 14, fontWeight: 700, color: "#0F172A" }}>
+        {resource.name}
+      </span>
+      <span
+        style={{
+          display: "inline-block",
+          marginTop: 6,
+          alignSelf: "flex-start",
+          backgroundColor: "#F1F5F9",
+          color: "#475569",
+          fontSize: 10,
+          fontWeight: 600,
+          padding: "2px 8px",
+          borderRadius: 9999,
+        }}
+      >
+        {resource.category}
+      </span>
+      <p style={{ fontSize: 12, color: "#64748B", marginTop: 8, lineHeight: 1.4, flex: 1 }}>
+        {resource.description}
+      </p>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+        {resource.apiAvailable && (
+          <span
+            style={{
+              backgroundColor: "#DCFCE7",
+              color: "#15803D",
+              fontSize: 10,
+              fontWeight: 700,
+              padding: "2px 8px",
+              borderRadius: 9999,
+            }}
+          >
+            API Available
+          </span>
+        )}
+        <span style={{ fontSize: 10, color: "#94A3B8" }}>
+          {freshnessLabel(resource.dataFreshness)}
+        </span>
+      </div>
+      <a
+        href={resource.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{
+          marginTop: 12,
+          display: "inline-block",
+          textAlign: "center",
+          backgroundColor: "#0077B6",
+          color: "#FFFFFF",
+          fontSize: 12,
+          fontWeight: 600,
+          padding: "6px 0",
+          borderRadius: 8,
+          textDecoration: "none",
+        }}
+      >
+        Visit
+      </a>
+    </div>
+  );
+}
+
+function ResourcesSection() {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("All");
+  const [showAll, setShowAll] = useState(false);
+
+  const query = searchQuery.trim().toLowerCase();
+  const isSearching = query.length > 0;
+
+  const pinnedResources = useMemo(
+    () => RESEARCH_RESOURCES.filter((r) => r.isPinned),
+    [],
+  );
+  const additionalResources = useMemo(
+    () => RESEARCH_RESOURCES.filter((r) => !r.isPinned),
+    [],
+  );
+
+  const matchesQuery = (r: ResourceDefinition) =>
+    !query ||
+    r.name.toLowerCase().includes(query) ||
+    r.category.toLowerCase().includes(query);
+
+  const searchResults = useMemo(() => {
+    if (!isSearching) return [];
+    return RESEARCH_RESOURCES.filter(
+      (r) =>
+        matchesQuery(r) &&
+        (selectedCategory === "All" || r.category === selectedCategory),
+    ).sort((a, b) => a.name.localeCompare(b.name));
+  }, [isSearching, query, selectedCategory]);
+
+  const groupedAdditional = useMemo(() => {
+    const filtered = additionalResources
+      .filter((r) => selectedCategory === "All" || r.category === selectedCategory)
+      .sort((a, b) => a.name.localeCompare(b.name));
+    const groups: Record<string, ResourceDefinition[]> = {};
+    for (const r of filtered) {
+      (groups[r.category] ??= []).push(r);
+    }
+    return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
+  }, [additionalResources, selectedCategory]);
+
+  return (
+    <section style={{ marginTop: 8 }}>
+      <div style={{ marginBottom: 16 }}>
+        <h2 style={{ fontSize: 18, fontWeight: 600, color: "#0F172A", margin: 0 }}>
+          Research Resources
+        </h2>
+        <p style={{ fontSize: 13, color: "#64748B", marginTop: 4 }}>
+          Authoritative data sources powering your grant research
+        </p>
+      </div>
+
+      <div style={{ marginBottom: 20 }}>
+        <input
+          type="search"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search resources..."
+          aria-label="Search research resources"
+          style={{
+            width: "100%",
+            maxWidth: 480,
+            backgroundColor: "#FFFFFF",
+            border: "1px solid #E2E8F0",
+            borderRadius: 12,
+            padding: "10px 16px",
+            fontSize: 14,
+            color: "#334155",
+            outline: "none",
+            boxShadow: "0 1px 2px rgba(15,23,42,0.05)",
+          }}
+        />
+      </div>
+
+      {!isSearching && (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
+            gap: 16,
+            marginBottom: 32,
+          }}
+        >
+          {pinnedResources.map((r) => (
+            <ResourceCard key={r.id} resource={r} />
+          ))}
+        </div>
+      )}
+
+      {isSearching && (
+        <div style={{ marginBottom: 32 }}>
+          <p style={{ fontSize: 12, color: "#64748B", marginBottom: 12 }}>
+            {searchResults.length} resource{searchResults.length === 1 ? "" : "s"} match
+            &ldquo;{searchQuery}&rdquo;
+          </p>
+          {searchResults.length === 0 ? (
+            <div
+              style={{
+                backgroundColor: "#FFFFFF",
+                borderRadius: 12,
+                padding: 24,
+                textAlign: "center",
+                color: "#64748B",
+                fontSize: 13,
+                boxShadow: "0 1px 3px rgba(15,23,42,0.08)",
+              }}
+            >
+              No resources match &ldquo;{searchQuery}&rdquo;.
+            </div>
+          ) : (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+                gap: 16,
+              }}
+            >
+              {searchResults.map((r) => (
+                <ResourceCard key={r.id} resource={r} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {!isSearching && (
+        <div>
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+              marginBottom: 12,
+            }}
+          >
+            <h3 style={{ fontSize: 15, fontWeight: 600, color: "#0F172A", margin: 0 }}>
+              All Resources
+            </h3>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                aria-label="Filter resources by category"
+                style={{
+                  backgroundColor: "#FFFFFF",
+                  border: "1px solid #E2E8F0",
+                  borderRadius: 8,
+                  padding: "6px 10px",
+                  fontSize: 12,
+                  color: "#334155",
+                }}
+              >
+                <option value="All">All categories</option>
+                {RESOURCE_CATEGORIES.slice()
+                  .sort((a, b) => a.localeCompare(b))
+                  .map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => setShowAll((v) => !v)}
+                style={{
+                  backgroundColor: "#0077B6",
+                  color: "#FFFFFF",
+                  border: "none",
+                  borderRadius: 8,
+                  padding: "6px 14px",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                {showAll ? "Hide" : `Browse all ${additionalResources.length} resources`}
+              </button>
+            </div>
+          </div>
+
+          {showAll && (
+            <div
+              style={{
+                backgroundColor: "#FFFFFF",
+                borderRadius: 12,
+                boxShadow: "0 1px 3px rgba(15,23,42,0.08)",
+                padding: 16,
+              }}
+            >
+              {groupedAdditional.length === 0 ? (
+                <p style={{ fontSize: 13, color: "#64748B", margin: 0 }}>
+                  No resources in this category.
+                </p>
+              ) : (
+                groupedAdditional.map(([category, items]) => (
+                  <div key={category} style={{ marginBottom: 16 }}>
+                    <p
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.05em",
+                        color: "#94A3B8",
+                        marginBottom: 8,
+                      }}
+                    >
+                      {category}
+                    </p>
+                    {items.map((r) => (
+                      <div
+                        key={r.id}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: 12,
+                          padding: "8px 0",
+                          borderBottom: "1px solid #F1F5F9",
+                        }}
+                      >
+                        <div style={{ minWidth: 0 }}>
+                          <span style={{ fontSize: 13, fontWeight: 500, color: "#0F172A" }}>
+                            {r.name}
+                          </span>
+                          <span style={{ fontSize: 12, color: "#94A3B8", marginLeft: 8 }}>
+                            {r.category}
+                          </span>
+                        </div>
+                        <a
+                          href={r.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            fontSize: 12,
+                            fontWeight: 600,
+                            color: "#0077B6",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          Visit →
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </section>
+  );
 }
 
 function Spinner({ className = "" }: { className?: string }) {
@@ -227,15 +527,9 @@ function Spinner({ className = "" }: { className?: string }) {
 export default function ResearchPage() {
   const router = useRouter();
   const [view, setView] = useState<"research" | "config">("research");
-  const [sourceStats, setSourceStats] = useState<Record<string, SourceStats>>({});
   const [opportunities, setOpportunities] = useState<OpportunityRow[]>([]);
   const [agentRuns, setAgentRuns] = useState<AgentRunRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [runningAll, setRunningAll] = useState(false);
-  const [runningSources, setRunningSources] = useState<Set<string>>(new Set());
-  const [runError, setRunError] = useState<string | null>(null);
-  // Clicking a source card filters Discovered Opportunities to that source.
-  const [activeSource, setActiveSource] = useState<string | null>(null);
   // Free-text search across the discovered opportunities list.
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -245,63 +539,16 @@ export default function ResearchPage() {
   const [pullingAwards, setPullingAwards] = useState(false);
   const [awardsError, setAwardsError] = useState<string | null>(null);
 
-  // Org-specific research configuration from platform_config.
-  const [researchConfig, setResearchConfig] = useState<ResearchConfig | null>(null);
-  const [configFetched, setConfigFetched] = useState(false);
-  const [configuringResearch, setConfiguringResearch] = useState(false);
-  const [configureError, setConfigureError] = useState<string | null>(null);
-
-  const visibleOpportunities = useMemo(
-    () =>
-      activeSource
-        ? opportunities.filter((o) => opportunityMatchesSource(o, activeSource))
-        : opportunities,
-    [opportunities, activeSource],
-  );
-  const activeSourceLabel = activeSource
-    ? (SOURCES.find((s) => s.key === activeSource)?.label ?? activeSource)
-    : null;
-
   const searchedOpportunities = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return visibleOpportunities;
-    return visibleOpportunities.filter(
+    if (!q) return opportunities;
+    return opportunities.filter(
       (o) =>
         o.name.toLowerCase().includes(q) ||
         (o.source ?? "").toLowerCase().includes(q) ||
         categoryLabel(o.category).toLowerCase().includes(q),
     );
-  }, [visibleOpportunities, searchQuery]);
-
-  // Sources filtered to the org's recommended list once config is loaded.
-  const displayedSources = useMemo(() => {
-    if (!configFetched || !researchConfig) return SOURCES;
-    const recommended = new Set(researchConfig.recommended_sources as string[]);
-    // Filter only the config-managed federal/state set; always show the others.
-    return SOURCES.filter(
-      (s) => !CONFIG_MANAGED_SOURCES.has(s.key) || recommended.has(s.key),
-    );
-  }, [configFetched, researchConfig]);
-
-  const loadConfig = useCallback(async () => {
-    const supabase = createClient();
-    const { data } = await supabase
-      .from("platform_config")
-      .select("value")
-      .eq("key", "research_config")
-      .maybeSingle();
-    const row = data as { value: string } | null;
-    if (row?.value) {
-      try {
-        setResearchConfig(JSON.parse(row.value) as ResearchConfig);
-      } catch {
-        setResearchConfig(null);
-      }
-    } else {
-      setResearchConfig(null);
-    }
-    setConfigFetched(true);
-  }, []);
+  }, [opportunities, searchQuery]);
 
   const load = useCallback(async (initial = false) => {
     if (initial) setLoading(true);
@@ -341,15 +588,6 @@ export default function ResearchPage() {
 
     if (!runsRes.error && runsRes.data) {
       const rows = runsRes.data as AgentRunRow[];
-      const stats: Record<string, SourceStats> = {};
-      for (const src of SOURCES) {
-        const latest = rows.find((r) => r.agent_type === src.agentType);
-        stats[src.key] = {
-          lastRunAt: latest?.started_at ?? null,
-          itemsFound: latest?.items_found ?? null,
-        };
-      }
-      setSourceStats(stats);
       setAgentRuns(rows.slice(0, 10));
     }
 
@@ -383,8 +621,7 @@ export default function ResearchPage() {
 
   useEffect(() => {
     void load(true);
-    void loadConfig();
-  }, [load, loadConfig]);
+  }, [load]);
 
   const hasLiveRun = agentRuns.some(
     (r) => r.status === "running" || r.status === "pending",
@@ -395,82 +632,6 @@ export default function ResearchPage() {
     const timer = setInterval(() => void load(), POLL_INTERVAL_MS);
     return () => clearInterval(timer);
   }, [hasLiveRun, load]);
-
-  async function handleRunAll() {
-    setRunningAll(true);
-    setRunError(null);
-    try {
-      const res = await fetch("/api/agents/research", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ sources: ["all"] }),
-      });
-      const payload = (await res.json().catch(() => ({}))) as { error?: string };
-      if (!res.ok) {
-        setRunError(payload.error ?? "Research run failed. Please try again.");
-      }
-    } catch {
-      setRunError("Could not reach the research agent. Please try again.");
-    }
-    setRunningAll(false);
-    await load();
-  }
-
-  async function handleRunSource(src: SourceConfig) {
-    setRunningSources((prev) => {
-      const next = new Set(prev);
-      next.add(src.key);
-      return next;
-    });
-    setRunError(null);
-    try {
-      const customUrl = SOURCE_ROUTE_MAP[src.key];
-      const url = customUrl ?? "/api/agents/research";
-      const body = customUrl ? {} : { sources: [src.key] };
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const payload = (await res.json().catch(() => ({}))) as { error?: string };
-      if (!res.ok) {
-        setRunError(payload.error ?? `${src.label} run failed. Please try again.`);
-      }
-    } catch {
-      setRunError(`Could not reach the ${src.label} agent. Please try again.`);
-    }
-    setRunningSources((prev) => {
-      const next = new Set(prev);
-      next.delete(src.key);
-      return next;
-    });
-    await load();
-    // Running a single source auto-focuses its results (requirement 4).
-    setActiveSource(src.key);
-  }
-
-  async function handleConfigureResearch() {
-    setConfiguringResearch(true);
-    setConfigureError(null);
-    try {
-      const res = await fetch("/api/agents/research-config", { method: "POST" });
-      const payload = (await res.json().catch(() => ({}))) as {
-        error?: string;
-        config?: ResearchConfig;
-      };
-      if (!res.ok) {
-        setConfigureError(
-          payload.error ?? "Configuration failed. Please try again.",
-        );
-      } else if (payload.config) {
-        setResearchConfig(payload.config);
-        setConfigFetched(true);
-      }
-    } catch {
-      setConfigureError("Could not reach the configuration service. Please try again.");
-    }
-    setConfiguringResearch(false);
-  }
 
   async function handlePullAwards() {
     setPullingAwards(true);
@@ -527,149 +688,7 @@ export default function ResearchPage() {
 
       {view === "research" && (
         <>
-      {runError && (
-        <div
-          role="alert"
-          className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
-        >
-          {runError}
-        </div>
-      )}
-
-      {configureError && (
-        <div
-          role="alert"
-          className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
-        >
-          {configureError}
-        </div>
-      )}
-
-      {/* Banner shown when no org-specific config exists yet */}
-      {configFetched && !researchConfig && (
-        <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <p className="text-sm text-blue-700">
-              <strong>Showing all research sources.</strong> Run source
-              configuration to customize which sources are most relevant for
-              your organization.
-            </p>
-            <button
-              onClick={() => void handleConfigureResearch()}
-              disabled={configuringResearch}
-              className="shrink-0 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-60 transition-colors"
-            >
-              {configuringResearch && <Spinner className="h-3 w-3" />}
-              {configuringResearch ? "Analyzing..." : "Configure Research Sources"}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* CONTROL PANEL */}
-      <section className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <h2 className="text-lg font-semibold text-navy-900">Control Panel</h2>
-            {configFetched && researchConfig && (
-              <button
-                onClick={() => void handleConfigureResearch()}
-                disabled={configuringResearch}
-                className="text-xs font-medium text-blue-600 hover:underline disabled:opacity-60"
-              >
-                {configuringResearch ? "Analyzing..." : "Reconfigure Sources"}
-              </button>
-            )}
-          </div>
-          <button
-            onClick={handleRunAll}
-            disabled={runningAll}
-            className="inline-flex items-center gap-2 rounded-lg bg-navy-900 px-4 py-2 text-sm font-medium text-white hover:bg-navy-800 disabled:opacity-60 transition-colors"
-          >
-            {runningAll && <Spinner className="h-4 w-4" />}
-            {runningAll ? "Running..." : "Run All Research Agents"}
-          </button>
-        </div>
-
-        {configFetched && researchConfig && (
-          <p className="text-xs text-navy-500">
-            Showing {displayedSources.length} of {SOURCES.length} recommended
-            sources for your organization
-          </p>
-        )}
-
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-7">
-          {displayedSources.map((src) => {
-            const stats = sourceStats[src.key];
-            const isRunning = runningSources.has(src.key);
-            const isActive = activeSource === src.key;
-            return (
-              <div
-                key={src.key}
-                role="button"
-                tabIndex={0}
-                aria-pressed={isActive}
-                onClick={() =>
-                  setActiveSource((cur) => (cur === src.key ? null : src.key))
-                }
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    setActiveSource((cur) => (cur === src.key ? null : src.key));
-                  }
-                }}
-                className={`relative flex cursor-pointer flex-col overflow-hidden rounded-xl bg-white p-4 shadow-sm transition-colors ${
-                  isActive
-                    ? "border-2 border-blue-400 ring-1 ring-blue-200"
-                    : "border border-border hover:border-slate-300 card-depth"
-                }`}
-                style={{
-                  backgroundColor: "#F7F5F1",
-                  boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-                  ...(isActive ? {} : { border: "1px solid #D9D3C5" }),
-                }}
-              >
-                <span className="absolute inset-x-0 top-0 h-[3px] bg-accent" aria-hidden />
-                <div className="flex items-start justify-between gap-2">
-                  <ColorIcon icon={Search} hue="cyan" size="sm" />
-                  {isRunning && <Spinner className="h-4 w-4 shrink-0 text-blue-500" />}
-                </div>
-                <span className="mt-2 text-sm font-semibold text-slate-900 leading-tight">
-                  {src.label}
-                </span>
-
-                <div className="mt-2 flex-1 space-y-1">
-                  <p className="text-xs text-slate-500">
-                    Last run:{" "}
-                    <span className="font-medium">
-                      {stats?.lastRunAt ? formatDate(stats.lastRunAt) : "Never"}
-                    </span>
-                  </p>
-                  <p className="text-xs text-slate-500">
-                    Found:{" "}
-                    <span className="font-medium">
-                      {stats?.itemsFound != null
-                        ? stats.itemsFound.toLocaleString()
-                        : "—"}
-                    </span>
-                  </p>
-                </div>
-
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    void handleRunSource(src);
-                  }}
-                  disabled={isRunning || runningAll}
-                  className="mt-3 w-full rounded-md bg-primary px-2 py-1.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-primary-hover disabled:opacity-50"
-                >
-                  {isRunning ? "Running..." : "Run"}
-                </button>
-              </div>
-            );
-          })}
-        </div>
-      </section>
+      <ResourcesSection />
 
       {/* DISCOVERED OPPORTUNITIES */}
       <section className="space-y-4">
@@ -682,19 +701,6 @@ export default function ResearchPage() {
               </span>
             )}
           </h2>
-          {activeSource && (
-            <>
-              <Badge variant="info">
-                Filtered by {activeSourceLabel}
-              </Badge>
-              <button
-                onClick={() => setActiveSource(null)}
-                className="text-xs font-medium text-blue-600 underline-offset-2 hover:underline"
-              >
-                Show All
-              </button>
-            </>
-          )}
         </div>
 
         <form
@@ -740,23 +746,6 @@ export default function ResearchPage() {
           >
             No discovered opportunities yet. Run a research agent above to find
             funding sources.
-          </div>
-        ) : visibleOpportunities.length === 0 ? (
-          <div
-            className="rounded-xl border border-border bg-white p-10 text-center text-sm text-slate-500"
-            style={{
-              backgroundColor: "#F7F5F1",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-              border: "1px solid #D9D3C5",
-            }}
-          >
-            No discovered opportunities from {activeSourceLabel} yet.{" "}
-            <button
-              onClick={() => setActiveSource(null)}
-              className="font-medium text-blue-600 hover:underline"
-            >
-              Show all sources
-            </button>
           </div>
         ) : searchedOpportunities.length === 0 ? (
           <div
