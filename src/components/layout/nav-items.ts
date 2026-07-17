@@ -14,6 +14,7 @@ import {
   Mail,
   Megaphone,
   MonitorDot,
+  Radar,
   Send,
   Settings,
   Shield,
@@ -114,6 +115,7 @@ export const SETTINGS_NAV_ITEM: NavItem = {
 
 /** Platform admin section — shown only to owner/admin roles. */
 export const PLATFORM_NAV_ITEMS: NavItem[] = [
+  { label: "Command Center", href: "/command-center", icon: Radar },
   { label: "Import", href: "/import", icon: Upload },
   { label: "Sales Outreach", href: "/admin/sales-outreach", icon: Megaphone },
   { label: "AutoApply Ops", href: "/admin/autoapply-ops", icon: Bot },

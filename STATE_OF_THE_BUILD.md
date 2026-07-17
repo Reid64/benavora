@@ -2,6 +2,95 @@
 ## AFS — Current Build Status
 **Updated by FORGE at the end of every prompt run from actual codebase audit.**
 
+> **NOTE (2026-07-17):** Everything below this note through the end of this
+> file is stale content from an unrelated project ("AFS", a metal
+> fabrication RFQ platform — pricing engine, drawing tool, Gunmetal theme).
+> It does not describe Benavora and predates this session. Left in place
+> rather than deleted per governance file-handling rules; flagged for Reid
+> to decide whether to purge it. The section immediately below is the real,
+> verified Benavora status.
+
+---
+
+## Overnight Build Session July 17 2026 — Platform Vision Phase 1
+
+Audited directly against `git log`, migration files, and route/component
+existence on 2026-07-17 — not copied from the prompt queue's assumptions.
+
+### Prompts run this session (newest-first commit order)
+
+| Commit | Prompt | Status |
+|---|---|---|
+| `f3fef6b` | Knowledge engine query UI | ✅ PASS — `/intelligence/knowledge` page + `/api/intelligence/knowledge-query` route |
+| `1014cf9` | Knowledge engine RAG infrastructure | ✅ PASS — migration 096 (`knowledge_patterns`, `knowledge_queries`), canonical path |
+| `39010ed` | Disaster response dashboard UI | ⚠️ CODE PASS, SCHEMA AT RISK — see caveat below |
+| `a458eea` | FEMA disaster response engine | ⚠️ CODE PASS, SCHEMA AT RISK — see caveat below |
+| `3892cf3` | Reputation intelligence UI | ⚠️ CODE PASS, SCHEMA AT RISK — see caveat below |
+| `ef1172c` | Morning digest notification system | ✅ PASS — `/api/agents/morning-digest` |
+| `72f1c91` | Opportunity discovery engine | ✅ PASS — `/api/agents/discovery` |
+| `499f87a` | Agent marketplace UI | ✅ PASS — `/settings/agents` page |
+| `ca77529` | Agent registry seed and API | ✅ PASS — `/api/agents/registry` (+ `/configure`) |
+| `f238f89` | Digital twin builder service | ✅ PASS — `src/lib/intelligence/digital-twin-builder.ts` |
+| `9169deb` | Probability scores on opportunities page | ✅ PASS |
+| `1bca132` | Grant probability API and batch scorer | ✅ PASS — `/api/agents/success-probability` |
+| `80ce510` | Grant probability scoring engine | ✅ PASS — `src/lib/intelligence/grant-probability-engine.ts` |
+| `d460e18` | Forecast and board advisor migrations | ❌ SCHEMA ONLY, WRONG PATH, NO APP CODE — see caveat below |
+| `6381a3b` | Agent marketplace and discovery migrations | ✅ PASS — migrations 094/095, canonical path (see below) |
+| `2d9eefd` | Digital twin and probability score migrations | ✅ PASS — migration 093, canonical path |
+| *(uncommitted)* | Executive Command Center + nav wiring | ⏳ IN PROGRESS as of session start — `/command-center` page + `nav-items.ts` changes were sitting uncommitted; folded into this session's commit below once build was verified |
+
+### Critical finding: migration directory split
+
+This repo has **two** migration directories: `supabase/migrations/` (canonical —
+the only one the Management API apply step reads, per this project's
+established convention) and a stray `src/supabase/migrations/` that a prior
+prompt in this same FORGE run wrote to by mistake, using colliding numbers
+(072–079) that don't match canonical numbering.
+
+Migration 094 (`agent_registry`) itself documents catching this mid-session:
+it explicitly notes the stray `075_agent_marketplace.sql` was dead and
+re-does the schema correctly at canonical path/number 094. **The same
+correction was never applied to reputation, disaster response, forecast,
+board advisor, or the intelligence graph** — their `CREATE TABLE` statements
+(`reputation_signals`, `reputation_alerts`, `disaster_declarations`,
+`disaster_emergency_funds`, `funding_forecasts`, `board_meeting_packets`,
+`pig_nodes`, `pig_edges`, etc.) exist **only** in
+`src/supabase/migrations/076–079`, which was never applied to the live
+database.
+
+Practical effect: the Reputation Intelligence and Disaster Response pages
+and API routes are real, committed, working TypeScript — but will very
+likely 500 at runtime against production until someone copies those five
+stray files into `supabase/migrations/` at the next free numbers and
+applies them via the Management API (per this project's DDL process). This
+was **not** run as part of this task — applying DDL to prod needs an
+explicit go-ahead, not a drive-by fix bundled into a docs update.
+
+### Platform Vision Phase 1 — feature completion (8 targeted pillars)
+
+| Pillar | Status |
+|---|---|
+| Digital Twin (6) | ✅ Complete — builder service + migration, canonical |
+| Grant Probability Engine (5) | ✅ Complete — engine, API, batch scorer, UI |
+| Agent Marketplace (17) | ✅ Complete — registry, config API, settings UI |
+| Opportunity Discovery (2) | ✅ Complete — discovery engine + morning digest |
+| Knowledge Engine foundation (18) | ✅ Complete — RAG infra + query UI |
+| Executive Command Center (16) | ✅ Built, was uncommitted at session start (see below) |
+| Reputation Intelligence (15) | ⚠️ App code complete, schema unapplied |
+| Disaster Response Engine (10) | ⚠️ App code complete, schema unapplied |
+
+**6 of 8 fully verified end-to-end. 2 of 8 blocked on a schema-application
+gap, not an app-code gap.** Forecast (11) and Board Advisor (12) got
+migrations only (also stuck in the stray directory) with no agent/API/UI
+built against them yet — not part of the 8 claimed-complete features, and
+correctly absent from that list.
+
+**Overall Platform Vision completion (all 14 pillars): ~43% fully shipped,
+~14% code-complete pending a schema fix, ~14% schema-drafted only,
+~29% not started** (Marketplace/Pillar 9, Relationship Builder/Pillar 4,
+Impact Simulator/Pillar 13, Intelligence Graph/Pillar 1 beyond its stray
+migration).
+
 ---
 
 ## OVERALL STATUS

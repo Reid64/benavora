@@ -1,14 +1,23 @@
 # BENAVORA — Session State
-## Last Updated: July 17, 2026
+## Last Updated: July 17, 2026 (overnight run)
 ## Mode: Active Development
 
 ---
 
 ## Current Session
 
-**Date:** July 17, 2026
-**Focus:** Governance documentation suite v2.0 + Platform Vision architecture
-**Status:** Documentation complete. Tonight's FORGE queue ready.
+**Date:** July 17, 2026 — overnight FORGE run, Platform Vision Phase 1
+**Focus:** Digital Twin, Grant Probability Engine, Agent Marketplace,
+Opportunity Discovery, Reputation Intelligence, Disaster Response Engine,
+Knowledge Engine foundation, Executive Command Center.
+**Status:** 6 of 8 features fully verified (code + schema, canonical
+migration path). Reputation Intelligence and Disaster Response have
+complete, working app code, but their tables were only ever migrated to a
+stray `src/supabase/migrations/` directory and were never applied to the
+live database — schema fix required before those two are actually
+functional in production. See STATE_OF_THE_BUILD.md for full detail.
+
+### Previous session (documentation)
 
 ---
 
@@ -82,12 +91,15 @@ cd "C:\Users\manag\Documents\benavora"; npx vercel deploy --prod
 
 ## Next Session Priorities
 
-1. UI redesign continuation — one component per CC session
-2. Run intelligence ingestion scripts (NIH, NSF, Federal Register, SAMHSA)
-3. Run ProPublica batch enrichment against 133K foundations
-4. Back up enrichment-output/ to DATAOCEAN — CRITICAL
-5. Platform Vision Phase 2 FORGE queue (nights 3-5)
-6. Fix duplicate Faith Foundation org records
+1. **Fix reputation/disaster schema gap** — copy `src/supabase/migrations/076_reputation_intelligence.sql` and `079_disaster_response.sql` into `supabase/migrations/` at the next free canonical numbers and apply via the Management API. Blocks both features in production until done.
+2. UI redesign continuation — one component per CC session
+3. Run batch probability scoring across all active opportunities (AG-15 nightly job — not yet run at scale)
+4. Run digital twin builds for all orgs (AG-16 — built this session, not yet executed against real org data)
+5. Run intelligence ingestion scripts (NIH, NSF, Federal Register, SAMHSA)
+6. Run ProPublica batch enrichment against 133K foundations
+7. Back up enrichment-output/ to DATAOCEAN — CRITICAL
+8. Platform Vision Phase 2 FORGE queue (nights 3-5)
+9. Fix duplicate Faith Foundation org records
 
 ---
 
