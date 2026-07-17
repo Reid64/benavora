@@ -1,6 +1,62 @@
 # BENAVORA — STATE OF THE BUILD
-## Last updated: 2026-07-17 (Funder relationship scoring — migration 091 applied to production, event-sourced scorer verified — see entry immediately below — on top of: Compliance calendar — compliance_events table + events API + month-grouped page section — see entry immediately below — on top of: Grant financial reconciliation — per-application budget/expense/reconcile routes — see entry immediately below — on top of: Foundation profile builder — migrations 081+088 confirmed applied to production, CSV import wizard rebuilt to inline-style spec, Intelligence Library page + proposals API rebuilt, Dashboard page.tsx fully redesigned, Governance doc catch-up: UI redesign thrashing reconciled, deployment + auth info recorded, Funder relationship-score badge + Tier 6 inventory, Mobile responsiveness audit + fixes, Research + Draft Generator pages Elevated Slate rebuild, FlightPathHUD Mission Control lifecycle dashboard, Migrations 073-074 applied to production, Settings + Onboarding pages Elevated Slate rebuild, Sales Outreach + AutoApply Ops pages Elevated Slate rebuild, Contacts + Financials + Reports pages Elevated Slate rebuild, Knowledge Base + Intelligence Library pages Elevated Slate rebuild, Alerts + Deadlines + Outcomes pages Elevated Slate rebuild, Donor Discovery Overview + Prospects pages Elevated Slate rebuild, Applications + Documents pages Elevated Slate rebuild, Funders + Foundations pages Elevated Slate card-grid rebuild, PageHeader rebuild, Opportunities page visual overhaul, Dashboard page visual overhaul, Header hardcoded-Tailwind rebuild, Sidebar hardcoded-Tailwind rebuild, Phase 2-4 completion audit, Apollo + Hunter §6 BYO-key connectors + run_connector_enrichment worker job, TX TDLR + land bank directory registry adapters + Donor Discovery Connectors page + connectors API + Prospect detail page rebuild + AutoApply handoff route + Donor Discovery Overview page rebuild + process_discovery_request worker job + requests API pagination + Claude-rationale donor-discovery scoring engine + SAM.gov registry adapter + ingest script + ProPublica financial enrichment adapter + script + IRS BMF full ingest script + Google Geocoding adapter + donor_discovery_geocache + Google Places cache-first registry adapter + adapter_usage_log + New Discovery wizard TaxonomyCombobox + taxonomy aliases + header nav placement fix + Phases 2+3 + Foundation Enrichment Pipeline + Onboarding soft-gate)
+## Last updated: 2026-07-17 (Notification preferences event-type extension — see entry immediately below — on top of: Funder relationship scoring — migration 091 applied to production, event-sourced scorer verified — see entry immediately below — on top of: Compliance calendar — compliance_events table + events API + month-grouped page section — see entry immediately below — on top of: Grant financial reconciliation — per-application budget/expense/reconcile routes — see entry immediately below — on top of: Foundation profile builder — migrations 081+088 confirmed applied to production, CSV import wizard rebuilt to inline-style spec, Intelligence Library page + proposals API rebuilt, Dashboard page.tsx fully redesigned, Governance doc catch-up: UI redesign thrashing reconciled, deployment + auth info recorded, Funder relationship-score badge + Tier 6 inventory, Mobile responsiveness audit + fixes, Research + Draft Generator pages Elevated Slate rebuild, FlightPathHUD Mission Control lifecycle dashboard, Migrations 073-074 applied to production, Settings + Onboarding pages Elevated Slate rebuild, Sales Outreach + AutoApply Ops pages Elevated Slate rebuild, Contacts + Financials + Reports pages Elevated Slate rebuild, Knowledge Base + Intelligence Library pages Elevated Slate rebuild, Alerts + Deadlines + Outcomes pages Elevated Slate rebuild, Donor Discovery Overview + Prospects pages Elevated Slate rebuild, Applications + Documents pages Elevated Slate rebuild, Funders + Foundations pages Elevated Slate card-grid rebuild, PageHeader rebuild, Opportunities page visual overhaul, Dashboard page visual overhaul, Header hardcoded-Tailwind rebuild, Sidebar hardcoded-Tailwind rebuild, Phase 2-4 completion audit, Apollo + Hunter §6 BYO-key connectors + run_connector_enrichment worker job, TX TDLR + land bank directory registry adapters + Donor Discovery Connectors page + connectors API + Prospect detail page rebuild + AutoApply handoff route + Donor Discovery Overview page rebuild + process_discovery_request worker job + requests API pagination + Claude-rationale donor-discovery scoring engine + SAM.gov registry adapter + ingest script + ProPublica financial enrichment adapter + script + IRS BMF full ingest script + Google Geocoding adapter + donor_discovery_geocache + Google Places cache-first registry adapter + adapter_usage_log + New Discovery wizard TaxonomyCombobox + taxonomy aliases + header nav placement fix + Phases 2+3 + Foundation Enrichment Pipeline + Onboarding soft-gate)
 ## Method: live codebase audit — every file path, route, agent, and migration counted directly from the filesystem; no assumptions carried from prior docs.
+
+---
+
+## COMPLETED — July 17 (latest session): Notification preferences event-type extension
+
+Task asked to create `src/supabase/migrations/090_notification_preferences.sql`,
+`src/lib/notifications/notify.ts`, `src/app/api/settings/notifications/route.ts`, a Settings >
+Notifications page with toggles for 6 named event types, and a sidebar link. **All of this
+already existed**, built and committed in an earlier session (`b75b25e`/`ad36934`) without a
+matching entry in this file — verified via `git log` before touching anything, not assumed:
+
+- **Did not create the requested migration.** `src/supabase/migrations/` is the known stray
+  duplicate directory (already flagged in the July 10 Phase 2-4 audit entry above as "confusing
+  dead clutter that should be deleted, not committed") — the real migrations directory is
+  `supabase/migrations/`, where `090` is already taken (`090_compliance_calendar.sql`) and the
+  `notification_preferences` table already exists via `087_notification_preferences.sql`
+  (`organization_id`/`user_id`/`event_type`/`in_app`/`email`, RLS, proper FKs — a superset of the
+  task's literal spec, which used `org_id` and no RLS). Creating a second, colliding table
+  definition in the wrong directory would only have added to the exact clutter already flagged as
+  a cleanup item. Per [[benavora-task-migration-specs-collide]], deviated and documented rather
+  than following the literal path/number into a collision.
+- **Migration 087 is not confirmed applied to production.** A background audit (this session)
+  found the docs never state "087 applied" the way they explicitly do for 081/088/091 — only
+  091 (funder relationship events, July 17) is the latest confirmed-applied migration. This
+  session has no Supabase management PAT or direct DB connection string available locally (only
+  `SUPABASE_SERVICE_ROLE_KEY`, which is PostgREST-only and cannot run DDL) — **087 was not applied
+  this session**, flagged rather than fabricated. Whoever next has the `sbp_` PAT should apply it.
+- **`notify()`, the settings API route, and the settings page were all already correct and
+  functional** against the real `alerts` table schema (verified column-for-column) — no changes
+  needed to any of the three.
+- **Real gap found and fixed:** `NOTIFICATION_EVENT_TYPES` (`notification-dispatcher.ts`) only
+  had 9 agent/automation-centric event types (`automation_completed`, `key_expired`, etc.) — none
+  of the 6 business events the task named (New Opportunity, Deadline Approaching, Application
+  Submitted, Award Received, Research Complete, AutoApply Complete) existed under any name. A
+  background audit confirmed **zero call sites for `dispatchNotification()`** anywhere in `src/`
+  (dead code) and only 2 call sites for `notify()` (`automation-worker.ts`, for
+  `automation_completed`/`automation_failed`). Added the 5 missing values (`new_opportunity`,
+  `application_submitted`, `award_received`, `research_complete`, `autoapply_complete` —
+  `deadline_approaching` already existed) to the `NotificationEventType` union and
+  `NOTIFICATION_EVENT_TYPES` array, **extending rather than replacing** the existing 9 — replacing
+  would have broken `automation-worker.ts`'s two real, already-wired `notify()` calls. The
+  Settings > Notifications page reads this array through the API route dynamically, so no page
+  change was needed for the 5 new toggles to appear.
+- **Not done, out of this task's file scope:** nothing in `src/` actually calls `notify()` for
+  the 5 new event types yet (no code fires on opportunity creation, application submission, award
+  recording, research completion, or AutoApply completion) — the task's file list named only the
+  migration/notify.ts/route/page/sidebar-link, not wiring 5 separate trigger points across
+  opportunities/applications/outcomes/research/autoapply subsystems. Toggling these preferences on
+  is currently a no-op until those call sites are added; flagged, not silently implied as working.
+- Gate: `pnpm tsc --noEmit` — 0 errors, ran clean, no interactive-approval block this session.
+- **Not done:** migration 087 not applied to production (see above); `pnpm run build` /
+  `pnpm lint` / Playwright not requested by this task, not run; no browser verification.
+- Governance docs updated: this file, `SESSION_STATE.md`. `BLUEPRINT.md`, `SCHEMA_REGISTRY.md`,
+  `BEHAVIORAL_CONTRACTS.md`, `AGENTS.md`, `CLAUDE.md`, and `DONOR_DISCOVERY_ARCHITECTURE.md`
+  untouched — no schema or contract change; the one code change is additive (5 new enum values on
+  an existing type union), not a new table, route, or agent-type definition.
 
 ---
 

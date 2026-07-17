@@ -1,11 +1,42 @@
 # BENAVORA — SESSION STATE
 ## Last updated: 2026-07-17
 ## Current branch: main
-## Last commit: feat: funder relationship scoring (656b96f, already pushed)
+## Last commit: feat: notification preferences (this session)
 
 ---
 
-## COMPLETED — July 17 (latest session): Funder relationship scoring — migration 091 applied to production
+## COMPLETED — July 17 (latest session): Notification preferences event-type extension
+
+Task asked to build the notification-preferences migration/table/notify()/settings-route/page —
+**all already existed**, committed in an earlier session with no matching doc entry (verified via
+`git log`, not assumed). Did not create the requested `src/supabase/migrations/090_...sql` — that
+directory is the known stray duplicate (flagged for deletion in the July 10 audit entry), the real
+`supabase/migrations/090` slot is taken (`compliance_calendar`), and the table already exists via
+real migration `087_notification_preferences.sql` (superset of the task's literal spec — proper
+FKs + RLS vs. the task's bare `org_id`/no-RLS ask). Migration 087 itself is **not confirmed applied
+to production** (only 091 is, per the docs) and this session has no Supabase management PAT or DB
+connection string to apply it — flagged, not fabricated.
+
+Real gap found: `NOTIFICATION_EVENT_TYPES` only had 9 agent/automation event types; none of the
+task's 6 named business events existed. `dispatchNotification()` has zero callers anywhere in
+`src/` (dead code); `notify()` has exactly 2 (`automation-worker.ts`, for
+`automation_completed`/`automation_failed`). Added the 5 missing values (`new_opportunity`,
+`application_submitted`, `award_received`, `research_complete`, `autoapply_complete` —
+`deadline_approaching` already existed) to `notification-dispatcher.ts`'s type union and array,
+**extending, not replacing**, so the automation-worker's two existing calls keep working. The
+settings page reads this list dynamically via the API route, so no page/route/notify.ts edits were
+needed. **Not wired:** nothing yet calls `notify()` for the 5 new event types at their real trigger
+points (opportunity creation, application submission, award recording, research/AutoApply
+completion) — out of this task's named file scope, flagged as a no-op toggle until a future pass
+adds those call sites.
+
+Gate: `pnpm tsc --noEmit` — 0 errors, clean. `pnpm run build`/`pnpm lint`/Playwright not requested,
+not run. Governance docs updated: this file, `STATE_OF_THE_BUILD.md`. No schema/contract/agent-type
+change — one additive enum extension.
+
+---
+
+## COMPLETED — July 17: Funder relationship scoring — migration 091 applied to production
 
 Code was already written, committed, and pushed in a prior session (`656b96f`) — `migrations/
 091_funder_relationship_events.sql`, `src/lib/intelligence/relationship-scorer.ts`,

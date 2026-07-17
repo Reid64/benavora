@@ -14,7 +14,12 @@ export type NotificationEventType =
   | "agent_failed"
   | "key_expired"
   | "target_paused"
-  | "daily_limit_reached";
+  | "daily_limit_reached"
+  | "new_opportunity"
+  | "application_submitted"
+  | "award_received"
+  | "research_complete"
+  | "autoapply_complete";
 
 export type DigestMode = "per_event" | "hourly_digest" | "daily_summary";
 
@@ -34,6 +39,11 @@ export const NOTIFICATION_EVENT_TYPES: {
   { value: "key_expired", label: "Integration key expired" },
   { value: "target_paused", label: "Scraping target paused" },
   { value: "daily_limit_reached", label: "Daily limit reached" },
+  { value: "new_opportunity", label: "New Opportunity" },
+  { value: "application_submitted", label: "Application Submitted" },
+  { value: "award_received", label: "Award Received" },
+  { value: "research_complete", label: "Research Complete" },
+  { value: "autoapply_complete", label: "AutoApply Complete" },
 ];
 
 export interface DispatchOptions {
