@@ -68,6 +68,23 @@ interface DiscoverProspect {
   lng: number | null;
 }
 
+interface LaunchedProspectDirectory {
+  legal_name: string;
+  dba_name: string | null;
+  website: string | null;
+  enrichment: Record<string, unknown> | null;
+}
+
+interface LaunchedProspect {
+  id: string;
+  directory: LaunchedProspectDirectory | null;
+}
+
+interface RouteResult {
+  ok: boolean;
+  message: string;
+}
+
 export default function DiscoverPage() {
   const router = useRouter();
   const { profile } = useProfile();
@@ -93,6 +110,19 @@ export default function DiscoverPage() {
     null,
   );
 
+  // Post-launch — real persisted prospects (with ids) for the AutoApply /
+  // Email Campaign routing actions. Preview-stage prospects are raw Google
+  // Places results with no database row yet, so routing only becomes
+  // possible once a discovery run has actually been launched.
+  const [launchedProspects, setLaunchedProspects] = useState<LaunchedProspect[] | null>(null);
+  const [loadingLaunchedProspects, setLoadingLaunchedProspects] = useState(false);
+  const [selectedProspectIds, setSelectedProspectIds] = useState<Set<string>>(new Set());
+  const [busyProspectIds, setBusyProspectIds] = useState<Set<string>>(new Set());
+  const [rowFeedback, setRowFeedback] = useState<Record<string, RouteResult>>({});
+  const [batchAutoApplyLoading, setBatchAutoApplyLoading] = useState(false);
+  const [batchEmailLoading, setBatchEmailLoading] = useState(false);
+  const [batchFeedback, setBatchFeedback] = useState<string | null>(null);
+
   const categories = useMemo(() => Object.entries(NAICS_CATEGORIES), []);
 
   const step1Valid = selectedCode !== null;
@@ -109,6 +139,10 @@ export default function DiscoverPage() {
     setPreviewError(null);
     setLaunchError(null);
     setLaunchResult(null);
+    setLaunchedProspects(null);
+    setSelectedProspectIds(new Set());
+    setRowFeedback({});
+    setBatchFeedback(null);
     try {
       const res = await fetch("/api/donor-discovery/discover", {
         method: "POST",
@@ -169,10 +203,124 @@ export default function DiscoverPage() {
         return;
       }
       setLaunchResult({ requestId: payload.requestId, prospectsCreated: payload.prospectsCreated ?? 0 });
+      await loadLaunchedProspects(payload.requestId);
     } catch {
       setLaunchError("Could not reach the server. Please try again.");
     }
     setLaunching(false);
+  }
+
+  async function loadLaunchedProspects(requestId: string) {
+    setLoadingLaunchedProspects(true);
+    try {
+      const res = await fetch(
+        `/api/donor-discovery/prospects?request_id=${encodeURIComponent(requestId)}&limit=100`,
+      );
+      const payload = (await res.json().catch(() => ({}))) as { data?: LaunchedProspect[] };
+      setLaunchedProspects(res.ok ? (payload.data ?? []) : []);
+    } catch {
+      setLaunchedProspects([]);
+    }
+    setLoadingLaunchedProspects(false);
+  }
+
+  function toggleProspectSelected(id: string) {
+    setSelectedProspectIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }
+
+  async function routeProspectToAutoApply(id: string): Promise<RouteResult> {
+    try {
+      const res = await fetch(`/api/donor-discovery/prospects/${id}/route-to-autoapply`, {
+        method: "POST",
+      });
+      const payload = (await res.json().catch(() => ({}))) as {
+        queued?: boolean;
+        reason?: string;
+        error?: string;
+      };
+      if (!res.ok) return { ok: false, message: payload.error ?? "Failed to queue this prospect." };
+      if (payload.queued) return { ok: true, message: "Queued in AutoApply." };
+      return {
+        ok: false,
+        message:
+          payload.reason === "no_giving_form"
+            ? "No donation form found for this business."
+            : "Could not queue this prospect.",
+      };
+    } catch {
+      return { ok: false, message: "Could not reach the server." };
+    }
+  }
+
+  async function routeProspectToEmail(id: string): Promise<RouteResult> {
+    try {
+      const res = await fetch(`/api/donor-discovery/prospects/${id}/route-to-email`, {
+        method: "POST",
+      });
+      const payload = (await res.json().catch(() => ({}))) as { campaignId?: string; error?: string };
+      if (!res.ok || !payload.campaignId) {
+        return { ok: false, message: payload.error ?? "Failed to add this prospect to a campaign." };
+      }
+      return { ok: true, message: "Added to email campaign." };
+    } catch {
+      return { ok: false, message: "Could not reach the server." };
+    }
+  }
+
+  async function handleRowAction(id: string, action: "autoapply" | "email") {
+    setBusyProspectIds((prev) => new Set(prev).add(id));
+    const result = action === "autoapply" ? await routeProspectToAutoApply(id) : await routeProspectToEmail(id);
+    setRowFeedback((prev) => ({ ...prev, [id]: result }));
+    setBusyProspectIds((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  }
+
+  async function handleBatchRoute(action: "autoapply" | "email") {
+    const ids = [...selectedProspectIds];
+    if (ids.length === 0) return;
+    const setLoading = action === "autoapply" ? setBatchAutoApplyLoading : setBatchEmailLoading;
+    setLoading(true);
+    setBatchFeedback(null);
+    setBusyProspectIds((prev) => new Set([...prev, ...ids]));
+
+    const results = await Promise.all(
+      ids.map(async (id) => ({
+        id,
+        result: action === "autoapply" ? await routeProspectToAutoApply(id) : await routeProspectToEmail(id),
+      })),
+    );
+
+    setRowFeedback((prev) => {
+      const next = { ...prev };
+      for (const { id, result } of results) next[id] = result;
+      return next;
+    });
+    setBusyProspectIds((prev) => {
+      const next = new Set(prev);
+      for (const { id } of results) next.delete(id);
+      return next;
+    });
+
+    const succeeded = results.filter((r) => r.result.ok).length;
+    const failed = results.length - succeeded;
+    setBatchFeedback(
+      action === "autoapply"
+        ? `${succeeded} prospect${succeeded === 1 ? "" : "s"} sent to AutoApply${failed ? `, ${failed} skipped` : ""}.`
+        : `${succeeded} prospect${succeeded === 1 ? "" : "s"} added to the email campaign${failed ? `, ${failed} skipped` : ""}.`,
+    );
+    setSelectedProspectIds(new Set());
+    setLoading(false);
   }
 
   return (
@@ -395,6 +543,117 @@ export default function DiscoverPage() {
               )}
             </div>
           ) : null}
+        </Card>
+      )}
+
+      {/* Step 3: route new prospects into AutoApply / an email campaign */}
+      {step === 3 && launchResult && (
+        <Card
+          title="Route your new prospects"
+          description="Send businesses with a donation form straight to AutoApply, or add any of them to a cold-outreach email campaign."
+        >
+          {loadingLaunchedProspects ? (
+            <div className="flex items-center justify-center py-8 text-sm text-slate-500">
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+              Loading your new prospects…
+            </div>
+          ) : launchedProspects && launchedProspects.length > 0 ? (
+            <div className="space-y-3 pb-16">
+              {batchFeedback && (
+                <div className="rounded-lg border border-[#BBF7D0] bg-[#F0FDF4] px-4 py-3 text-sm text-[#15803D]">
+                  {batchFeedback}
+                </div>
+              )}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {launchedProspects.map((p) => {
+                  const directory = p.directory;
+                  const name = directory?.dba_name?.trim() || directory?.legal_name || "Unknown business";
+                  const enrichment = directory?.enrichment ?? {};
+                  const hasDonationForm = enrichment.has_donation_form === true;
+                  const isBusy = busyProspectIds.has(p.id);
+                  const feedback = rowFeedback[p.id];
+
+                  return (
+                    <div
+                      key={p.id}
+                      className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-4"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedProspectIds.has(p.id)}
+                        onChange={() => toggleProspectSelected(p.id)}
+                        aria-label={`Select ${name}`}
+                        className="mt-1 h-4 w-4 rounded border-slate-300 text-[#0077B6] focus:ring-[#0077B6]/30"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-slate-900">{name}</p>
+                        {directory?.website && (
+                          <p className="mt-0.5 truncate text-xs text-slate-400">{directory.website}</p>
+                        )}
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {hasDonationForm && (
+                            <button
+                              type="button"
+                              onClick={() => void handleRowAction(p.id, "autoapply")}
+                              disabled={isBusy}
+                              className="rounded-lg bg-[#0077B6] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#005F92] disabled:opacity-60"
+                            >
+                              Add to AutoApply Queue
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => void handleRowAction(p.id, "email")}
+                            disabled={isBusy}
+                            className="rounded-lg bg-[#00B4D8] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#0093AC] disabled:opacity-60"
+                          >
+                            Add to Email Campaign
+                          </button>
+                        </div>
+                        {feedback && (
+                          <p className={cn("mt-2 text-xs font-medium", feedback.ok ? "text-[#15803D]" : "text-slate-500")}>
+                            {feedback.message}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {selectedProspectIds.size > 0 && (
+                <div className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-4 rounded-xl bg-slate-900 px-6 py-3 shadow-xl">
+                  <span className="text-sm font-medium text-white">
+                    {selectedProspectIds.size} selected
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => void handleBatchRoute("autoapply")}
+                    disabled={batchAutoApplyLoading || batchEmailLoading}
+                    className="rounded-lg bg-[#0077B6] px-4 py-1.5 text-sm font-medium text-white transition hover:bg-[#005F92] disabled:opacity-60"
+                  >
+                    {batchAutoApplyLoading
+                      ? "Sending…"
+                      : `Send ${selectedProspectIds.size} to AutoApply`}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleBatchRoute("email")}
+                    disabled={batchAutoApplyLoading || batchEmailLoading}
+                    className="rounded-lg bg-[#00B4D8] px-4 py-1.5 text-sm font-medium text-white transition hover:bg-[#0093AC] disabled:opacity-60"
+                  >
+                    {batchEmailLoading
+                      ? "Adding…"
+                      : `Add ${selectedProspectIds.size} to Email Campaign`}
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="py-6 text-center text-sm text-slate-500">
+              No new prospects were added to your pipeline this run.
+            </p>
+          )}
         </Card>
       )}
 
