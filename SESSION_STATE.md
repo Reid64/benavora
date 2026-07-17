@@ -1,7 +1,25 @@
 # BENAVORA — SESSION STATE
 ## Last updated: 2026-07-16
 ## Current branch: main
-## Last commit: feat: CSV import wizard (982d266)
+## Last commit: feat: foundation profile builder (7443ee3)
+
+---
+
+## VERIFIED — July 16 (later session): Foundation profile builder migrations 081+088 confirmed applied to production
+
+Task asked to build the foundation profile builder (migration, `foundation-profiler.ts`, the
+`/api/foundations/[id]/profile` route, and the foundation detail page) — all of it already existed from
+the immediately preceding commit `7443ee3`, already pushed to `origin/main`. No new code needed. Verified
+directly against production (`information_schema.columns` + `pg_constraint` on ref
+`vbjplpquqxxfbpazyalt`) that migrations 081+088 — which that commit's own message flagged as "not yet
+applied" — are now genuinely live: the `foundation_profiles` table exists with all 8 requested columns
+plus the `foundation_id` UNIQUE constraint. Did not create a migration at the requested
+`src/supabase/migrations/085_foundation_profiles.sql` path — that's the stray duplicate migrations
+directory a 2026-07-10 audit already flagged for deletion, and `085` collides with the real
+`085_compliance_requirements.sql`. Full detail in `STATE_OF_THE_BUILD.md`'s new top entry.
+
+- Gate: `pnpm tsc --noEmit` — 0 errors.
+- Nothing committed this session — no code changed, only these two governance docs.
 
 ---
 

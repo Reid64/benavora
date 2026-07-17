@@ -1,6 +1,38 @@
 # BENAVORA — STATE OF THE BUILD
-## Last updated: 2026-07-16 (CSV import wizard rebuilt to inline-style spec — see entry immediately below — on top of: Intelligence Library page + proposals API rebuilt, Dashboard page.tsx fully redesigned, Governance doc catch-up: UI redesign thrashing reconciled, deployment + auth info recorded, Funder relationship-score badge + Tier 6 inventory, Mobile responsiveness audit + fixes, Research + Draft Generator pages Elevated Slate rebuild, FlightPathHUD Mission Control lifecycle dashboard, Migrations 073-074 applied to production, Settings + Onboarding pages Elevated Slate rebuild, Sales Outreach + AutoApply Ops pages Elevated Slate rebuild, Contacts + Financials + Reports pages Elevated Slate rebuild, Knowledge Base + Intelligence Library pages Elevated Slate rebuild, Alerts + Deadlines + Outcomes pages Elevated Slate rebuild, Donor Discovery Overview + Prospects pages Elevated Slate rebuild, Applications + Documents pages Elevated Slate rebuild, Funders + Foundations pages Elevated Slate card-grid rebuild, PageHeader rebuild, Opportunities page visual overhaul, Dashboard page visual overhaul, Header hardcoded-Tailwind rebuild, Sidebar hardcoded-Tailwind rebuild, Phase 2-4 completion audit, Apollo + Hunter §6 BYO-key connectors + run_connector_enrichment worker job, TX TDLR + land bank directory registry adapters + Donor Discovery Connectors page + connectors API + Prospect detail page rebuild + AutoApply handoff route + Donor Discovery Overview page rebuild + process_discovery_request worker job + requests API pagination + Claude-rationale donor-discovery scoring engine + SAM.gov registry adapter + ingest script + ProPublica financial enrichment adapter + script + IRS BMF full ingest script + Google Geocoding adapter + donor_discovery_geocache + Google Places cache-first registry adapter + adapter_usage_log + New Discovery wizard TaxonomyCombobox + taxonomy aliases + header nav placement fix + Phases 2+3 + Foundation Enrichment Pipeline + Onboarding soft-gate)
+## Last updated: 2026-07-16 (Foundation profile builder — migrations 081+088 confirmed applied to production — see entry immediately below — on top of: CSV import wizard rebuilt to inline-style spec, Intelligence Library page + proposals API rebuilt, Dashboard page.tsx fully redesigned, Governance doc catch-up: UI redesign thrashing reconciled, deployment + auth info recorded, Funder relationship-score badge + Tier 6 inventory, Mobile responsiveness audit + fixes, Research + Draft Generator pages Elevated Slate rebuild, FlightPathHUD Mission Control lifecycle dashboard, Migrations 073-074 applied to production, Settings + Onboarding pages Elevated Slate rebuild, Sales Outreach + AutoApply Ops pages Elevated Slate rebuild, Contacts + Financials + Reports pages Elevated Slate rebuild, Knowledge Base + Intelligence Library pages Elevated Slate rebuild, Alerts + Deadlines + Outcomes pages Elevated Slate rebuild, Donor Discovery Overview + Prospects pages Elevated Slate rebuild, Applications + Documents pages Elevated Slate rebuild, Funders + Foundations pages Elevated Slate card-grid rebuild, PageHeader rebuild, Opportunities page visual overhaul, Dashboard page visual overhaul, Header hardcoded-Tailwind rebuild, Sidebar hardcoded-Tailwind rebuild, Phase 2-4 completion audit, Apollo + Hunter §6 BYO-key connectors + run_connector_enrichment worker job, TX TDLR + land bank directory registry adapters + Donor Discovery Connectors page + connectors API + Prospect detail page rebuild + AutoApply handoff route + Donor Discovery Overview page rebuild + process_discovery_request worker job + requests API pagination + Claude-rationale donor-discovery scoring engine + SAM.gov registry adapter + ingest script + ProPublica financial enrichment adapter + script + IRS BMF full ingest script + Google Geocoding adapter + donor_discovery_geocache + Google Places cache-first registry adapter + adapter_usage_log + New Discovery wizard TaxonomyCombobox + taxonomy aliases + header nav placement fix + Phases 2+3 + Foundation Enrichment Pipeline + Onboarding soft-gate)
 ## Method: live codebase audit — every file path, route, agent, and migration counted directly from the filesystem; no assumptions carried from prior docs.
+
+---
+
+## VERIFIED — July 16 (later session): Foundation profile builder migrations 081+088 confirmed applied to production
+
+This session was assigned a task that specified creating `src/supabase/migrations/085_foundation_profiles.sql`,
+`src/lib/intelligence/foundation-profiler.ts`, `src/app/api/foundations/[id]/profile/route.ts`, and
+`src/app/(dashboard)/foundations/[id]/page.tsx` — but every one of these already existed, built in the
+immediately preceding commit (`7443ee3 feat: foundation profile builder`), already pushed to `origin/main`.
+No new code was written this pass; this was a verification-only session.
+
+- **Queried production directly** (`information_schema.columns` + `pg_constraint` against
+  `foundation_profiles` on ref `vbjplpquqxxfbpazyalt`) rather than trusting the prior commit's own
+  message, which said migration 081 was "not yet applied." **It is now applied** — the table exists live
+  with all 8 columns (`id`, `foundation_id`, `avg_grant_size`, `geographic_focus text[]`,
+  `funding_categories text[]`, `computed_at`, `total_grants_made`, `top_recipients jsonb`) and the
+  `foundation_profiles_foundation_id_key` UNIQUE constraint from migration 088, matching the requested
+  schema exactly. (Likely applied as part of the July 9 "Production Sync" or a later untracked sync pass —
+  not re-derivable from git history alone, flagged rather than guessed at.)
+- **Did not create `src/supabase/migrations/085_foundation_profiles.sql` as literally requested** — that
+  path is the stray duplicate migrations directory a 2026-07-10 audit flagged as dead clutter ("not
+  referenced by any tsconfig, Supabase config, or code... should be deleted, not committed"), and `085` is
+  already taken in the real `supabase/migrations/` directory by `085_compliance_requirements.sql`. Since the
+  real table already exists, correctly numbered (`081_foundation_profiles.sql` +
+  `088_foundation_profiles_enrichment.sql`), and is now confirmed live, creating a third redundant migration
+  at a flagged-for-deletion path would have been pure clutter, not a fix.
+- Gate: `pnpm tsc --noEmit` — 0 errors, ran clean.
+- **Not done:** no browser verification of the foundation detail page's Profile section this pass (not
+  requested beyond the tsc gate); `src/supabase/` (the stray duplicate directory) still exists on disk,
+  unresolved from the 2026-07-10 audit finding — still flagged, still not deleted, out of this session's
+  scope.
+- Governance docs updated: this file, `SESSION_STATE.md`. No code changed — nothing else touched.
 
 ---
 
