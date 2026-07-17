@@ -1,763 +1,512 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useState } from "react";
-import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import {
-  BookOpen,
-  ChevronDown,
+  Building2,
+  Calendar,
+  ChevronLeft,
   ChevronRight,
+  Clock,
   Database,
+  ExternalLink,
   FileText,
-  GitBranch,
-  Plus,
   Search,
-  Target,
-  type LucideIcon,
 } from "lucide-react";
 
-import { Badge, Button, Card, LoadingSpinner } from "@/components/ui";
-import { PageHeader } from "@/components/layout/PageHeader";
-import { IngestModal } from "@/components/intelligence/IngestModal";
-import {
-  ColorIcon,
-  ICON_HUE_BORDER_CLASSES,
-  type IconHue,
-} from "@/components/ui/ColorIcon";
-import { createClient } from "@/lib/supabase/client";
-import { cn } from "@/lib/utils/cn";
-import { formatCurrency, formatDate } from "@/lib/utils/formatters";
-import type { Tables } from "@/types/database";
-
-type FundedProposal = Tables<"intelligence_funded_proposals">;
-type ProposalSection = Tables<"intelligence_proposal_sections">;
-type ScoringRubric = Tables<"intelligence_scoring_rubrics">;
-type LogicModel = Tables<"intelligence_logic_models">;
-
-type RubricDimension = {
-  name?: string;
-  max_points?: number;
-  description?: string;
-  common_deductions?: string | string[];
+const COLORS = {
+  background: "#E4E9F0",
+  surface: "#FFFFFF",
+  surfaceSunken: "#F7F9FC",
+  primary: "#0077B6",
+  primaryHover: "#005F92",
+  accent: "#00B4D8",
+  navy: "#1A2B3C",
+  text: "#0F172A",
+  textMuted: "#64748B",
+  textFaint: "#94A3B8",
+  border: "#E2E8F0",
+  green: "#15803D",
+  greenBg: "#DCFCE7",
 };
 
-type Stats = {
-  proposalCount: number;
-  sectionCount: number;
-  rubricCount: number;
-  logicModelCount: number;
-  lastIngestionAt: string | null;
-};
+type SourceKey = "ALL" | "NIH_REPORTER" | "NSF_AWARDS" | "FEDERAL_REGISTER" | "USASPENDING" | "NIH_NIAID";
 
-type NeedDataSource = {
-  source: string;
-  count: number;
-};
-
-type Tab = "funded-proposals" | "scoring-rubrics" | "logic-models" | "data-sources";
-
-const TABS: { id: Tab; label: string }[] = [
-  { id: "funded-proposals", label: "Funded Proposals" },
-  { id: "scoring-rubrics", label: "Scoring Rubrics" },
-  { id: "logic-models", label: "Logic Models" },
-  { id: "data-sources", label: "Data Sources" },
+const SOURCE_TABS: { key: SourceKey; label: string }[] = [
+  { key: "ALL", label: "All" },
+  { key: "NIH_REPORTER", label: "NIH" },
+  { key: "NSF_AWARDS", label: "NSF" },
+  { key: "FEDERAL_REGISTER", label: "Federal Register" },
+  { key: "USASPENDING", label: "USASpending" },
+  { key: "NIH_NIAID", label: "NIH NIAID" },
 ];
 
+interface ProposalCard {
+  id: string;
+  source: string;
+  sourceUrl: string | null;
+  funderName: string | null;
+  title: string | null;
+  awardAmount: number | null;
+  awardYear: number | null;
+  organizationName: string | null;
+  abstract: string | null;
+  createdAt: string;
+}
+
+interface CorpusStats {
+  totalProposals: number;
+  totalSources: number;
+  earliestYear: number | null;
+  latestYear: number | null;
+  lastIngestionAt: string | null;
+}
+
+interface ProposalsResponse {
+  results: ProposalCard[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  stats: CorpusStats;
+}
+
+function formatCurrency(amount: number | null): string {
+  if (amount === null) return "—";
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
+
+function formatDate(value: string | null): string {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+function truncate(value: string | null, max: number): string {
+  if (!value) return "—";
+  const trimmed = value.trim();
+  return trimmed.length > max ? `${trimmed.slice(0, max).trimEnd()}…` : trimmed;
+}
+
 export default function IntelligenceLibraryPage() {
-  const [activeTab, setActiveTab] = useState<Tab>("funded-proposals");
+  const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
+  const [source, setSource] = useState<SourceKey>("ALL");
+  const [page, setPage] = useState(1);
+  const [data, setData] = useState<ProposalsResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [ingestOpen, setIngestOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const [proposals, setProposals] = useState<FundedProposal[]>([]);
-  const [rubrics, setRubrics] = useState<ScoringRubric[]>([]);
-  const [logicModels, setLogicModels] = useState<LogicModel[]>([]);
-  const [needSources, setNeedSources] = useState<NeedDataSource[]>([]);
+  // Debounce the search box 300ms before it drives a fetch.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearch(searchInput.trim());
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
 
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [sections, setSections] = useState<Record<string, ProposalSection[]>>({});
-  const [sectionsLoading, setSectionsLoading] = useState(false);
-
-  const [expandedRubricId, setExpandedRubricId] = useState<string | null>(null);
-  const [rubricSourceFilter, setRubricSourceFilter] = useState<string>("all");
-
-  const loadData = useCallback(async () => {
+  useEffect(() => {
+    let cancelled = false;
     setLoading(true);
-    const supabase = createClient();
+    setError(null);
 
-    const [proposalsRes, sectionsCountRes, rubricCountRes, logicModelCountRes, proposalData, rubricData, logicData, needSourceData] =
-      await Promise.all([
-        supabase.from("intelligence_funded_proposals").select("id", { count: "exact", head: true }),
-        supabase.from("intelligence_proposal_sections").select("id", { count: "exact", head: true }),
-        supabase.from("intelligence_scoring_rubrics").select("id", { count: "exact", head: true }),
-        supabase.from("intelligence_logic_models").select("id", { count: "exact", head: true }),
-        supabase
-          .from("intelligence_funded_proposals")
-          .select("*")
-          .order("created_at", { ascending: false })
-          .limit(100),
-        supabase.from("intelligence_scoring_rubrics").select("*").order("created_at", { ascending: false }),
-        supabase.from("intelligence_logic_models").select("*").order("category"),
-        supabase.from("intelligence_need_data").select("source"),
-      ]);
+    const params = new URLSearchParams();
+    if (source !== "ALL") params.set("source", source);
+    if (search) params.set("search", search);
+    params.set("page", String(page));
 
-    // Aggregate need data by source
-    const sourceCounts: Record<string, number> = {};
-    for (const row of needSourceData.data ?? []) {
-      sourceCounts[row.source] = (sourceCounts[row.source] ?? 0) + 1;
-    }
-    const sources: NeedDataSource[] = Object.entries(sourceCounts)
-      .sort((a, b) => b[1] - a[1])
-      .map(([source, count]) => ({ source, count }));
+    fetch(`/api/intelligence/proposals?${params.toString()}`)
+      .then(async (res) => {
+        if (!res.ok) {
+          const body = await res.json().catch(() => null);
+          throw new Error(body?.error ?? `Request failed (${res.status}).`);
+        }
+        return res.json() as Promise<ProposalsResponse>;
+      })
+      .then((body) => {
+        if (!cancelled) setData(body);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load proposals.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
 
-    // Last ingestion from most recent proposal
-    const lastAt = (proposalData.data ?? [])[0]?.created_at ?? null;
+    return () => {
+      cancelled = true;
+    };
+  }, [source, search, page]);
 
-    setStats({
-      proposalCount: proposalsRes.count ?? 0,
-      sectionCount: sectionsCountRes.count ?? 0,
-      rubricCount: rubricCountRes.count ?? 0,
-      logicModelCount: logicModelCountRes.count ?? 0,
-      lastIngestionAt: lastAt,
-    });
-    setProposals(proposalData.data ?? []);
-    setRubrics(rubricData.data ?? []);
-    setLogicModels(logicData.data ?? []);
-    setNeedSources(sources);
-    setLoading(false);
-  }, []);
-
-  useEffect(() => {
-    void loadData();
-  }, [loadData]);
-
-  async function toggleProposal(proposalId: string, forceExpand = false) {
-    if (!forceExpand && expandedId === proposalId) {
-      setExpandedId(null);
-      return;
-    }
-    setExpandedId(proposalId);
-    if (sections[proposalId]) return;
-
-    setSectionsLoading(true);
-    const supabase = createClient();
-    const { data } = await supabase
-      .from("intelligence_proposal_sections")
-      .select("*")
-      .eq("proposal_id", proposalId)
-      .order("section_type");
-    setSections((prev) => ({ ...prev, [proposalId]: data ?? [] }));
-    setSectionsLoading(false);
-  }
-
-  // Deep-link support: /intelligence-library?proposal={id} opens and scrolls to that proposal.
-  useEffect(() => {
-    if (loading) return;
-    const proposalId = new URLSearchParams(window.location.search).get("proposal");
-    if (!proposalId) return;
-    setActiveTab("funded-proposals");
-    void toggleProposal(proposalId, true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading]);
-
-  useEffect(() => {
-    if (!expandedId) return;
-    if (new URLSearchParams(window.location.search).get("proposal") !== expandedId) return;
-    document
-      .getElementById(`proposal-row-${expandedId}`)
-      ?.scrollIntoView({ behavior: "smooth", block: "center" });
-  }, [expandedId]);
-
-  const q = search.trim().toLowerCase();
-
-  const filteredProposals = proposals.filter((p) =>
-    !q ||
-    p.funder_name?.toLowerCase().includes(q) ||
-    p.grant_program?.toLowerCase().includes(q) ||
-    p.source?.toLowerCase().includes(q) ||
-    p.funder_type?.toLowerCase().includes(q),
-  );
-
-  const filteredRubrics = rubrics.filter((r) => {
-    const matchesSearch =
-      !q ||
-      r.funder_name?.toLowerCase().includes(q) ||
-      r.grant_program?.toLowerCase().includes(q) ||
-      r.source?.toLowerCase().includes(q);
-    const matchesSource =
-      rubricSourceFilter === "all" || r.source === rubricSourceFilter;
-    return matchesSearch && matchesSource;
-  });
-
-  const filteredLogicModels = logicModels.filter((m) =>
-    !q ||
-    m.category?.toLowerCase().includes(q) ||
-    m.subcategory?.toLowerCase().includes(q),
-  );
-
-  const filteredNeedSources = needSources.filter((s) =>
-    !q || s.source.toLowerCase().includes(q),
-  );
-
-  // Group logic models by category
-  const logicModelsByCategory: Record<string, LogicModel[]> = {};
-  for (const m of filteredLogicModels) {
-    const key = m.category;
-    if (!logicModelsByCategory[key]) logicModelsByCategory[key] = [];
-    logicModelsByCategory[key].push(m);
-  }
+  const stats = data?.stats;
+  const dateRangeLabel = useMemo(() => {
+    if (!stats || stats.earliestYear === null || stats.latestYear === null) return "—";
+    return stats.earliestYear === stats.latestYear
+      ? String(stats.earliestYear)
+      : `${stats.earliestYear}–${stats.latestYear}`;
+  }, [stats]);
 
   return (
-    <div className="min-h-screen space-y-6 bg-[#EEF2F7] p-6">
-      <PageHeader
-        title={
-          <span className="inline-flex items-center gap-2">
-            Intelligence Library
-            <Badge color="teal">Premium</Badge>
-          </span>
-        }
-        description="Funded proposals, scoring rubrics, logic models, and evidence data powering the AI draft generator."
-        actions={
-          <Button onClick={() => setIngestOpen(true)}>
-            <Plus className="h-4 w-4" aria-hidden />
-            Add to Library
-          </Button>
-        }
-      />
+    <div style={{ minHeight: "100vh", background: COLORS.background, padding: 24 }}>
+      {/* Header */}
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 24, fontWeight: 700, color: COLORS.text, margin: 0 }}>
+          Intelligence Library
+        </h1>
+        <p style={{ fontSize: 14, color: COLORS.textMuted, marginTop: 4 }}>
+          Funded proposals sourced from NIH, NSF, Federal Register NOFAs, and USASpending — reference
+          material for the AI draft generator.
+        </p>
+      </div>
 
-      <IngestModal
-        isOpen={ingestOpen}
-        onClose={() => setIngestOpen(false)}
-        onSuccess={() => {
-          setIngestOpen(false);
-          void loadData();
+      {/* Corpus stats */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+          gap: 16,
+          marginBottom: 24,
         }}
-      />
+      >
+        <StatTile icon={FileText} accent={COLORS.primary} label="Total proposals" value={stats ? stats.totalProposals.toLocaleString() : "—"} />
+        <StatTile icon={Database} accent={COLORS.accent} label="Sources" value={stats ? String(stats.totalSources) : "—"} />
+        <StatTile icon={Calendar} accent="#7C3AED" label="Date range" value={dateRangeLabel} />
+        <StatTile icon={Clock} accent="#F59E0B" label="Last ingestion" value={stats ? formatDate(stats.lastIngestionAt) : "—"} />
+      </div>
 
-      {loading ? (
-        <LoadingSpinner center label="Loading intelligence library..." />
+      {/* Search */}
+      <div style={{ position: "relative", marginBottom: 16 }}>
+        <Search
+          size={16}
+          color={COLORS.textFaint}
+          style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)" }}
+        />
+        <input
+          type="search"
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          placeholder="Search by title, funder, or keyword…"
+          style={{
+            width: "100%",
+            boxSizing: "border-box",
+            background: COLORS.surface,
+            border: `1px solid ${COLORS.border}`,
+            borderRadius: 10,
+            padding: "10px 14px 10px 38px",
+            fontSize: 14,
+            color: COLORS.text,
+            outline: "none",
+          }}
+        />
+      </div>
+
+      {/* Source tabs */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 24 }}>
+        {SOURCE_TABS.map((tab) => {
+          const active = source === tab.key;
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => {
+                setSource(tab.key);
+                setPage(1);
+              }}
+              style={{
+                padding: "8px 16px",
+                borderRadius: 8,
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: "pointer",
+                border: active ? `1px solid ${COLORS.primary}` : `1px solid ${COLORS.border}`,
+                background: active ? COLORS.primary : COLORS.surface,
+                color: active ? "#FFFFFF" : COLORS.textMuted,
+              }}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Results */}
+      {error ? (
+        <div
+          style={{
+            background: "#FEF2F2",
+            border: "1px solid #FECACA",
+            borderRadius: 12,
+            padding: 20,
+            color: "#B91C1C",
+            fontSize: 14,
+          }}
+        >
+          {error}
+        </div>
+      ) : loading && !data ? (
+        <div style={{ textAlign: "center", padding: 48, color: COLORS.textMuted, fontSize: 14 }}>
+          Loading proposals…
+        </div>
+      ) : !data || data.results.length === 0 ? (
+        <div
+          style={{
+            background: COLORS.surface,
+            border: `1px solid ${COLORS.border}`,
+            borderRadius: 12,
+            padding: 48,
+            textAlign: "center",
+          }}
+        >
+          <p style={{ fontSize: 16, fontWeight: 600, color: COLORS.text, margin: 0 }}>
+            No proposals found
+          </p>
+          <p style={{ fontSize: 14, color: COLORS.textMuted, marginTop: 8 }}>
+            {search || source !== "ALL"
+              ? "Try a different search term or source filter."
+              : "The proposal corpus is empty — ingestion scripts populate this library on schedule."}
+          </p>
+        </div>
       ) : (
         <>
-          {/* Stats cards */}
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-            <StatCard icon={FileText} label="Funded proposals" value={stats?.proposalCount ?? 0} hue="blue" />
-            <StatCard icon={GitBranch} label="Sections indexed" value={stats?.sectionCount ?? 0} hue="violet" />
-            <StatCard icon={Target} label="Scoring rubrics" value={stats?.rubricCount ?? 0} hue="indigo" />
-            <StatCard icon={BookOpen} label="Logic models" value={stats?.logicModelCount ?? 0} hue="cyan" />
-            <StatCard
-              icon={Database}
-              label="Last ingestion"
-              value={stats?.lastIngestionAt ? formatDate(stats.lastIngestionAt) : "—"}
-              hue="amber"
-              isText
-            />
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
+              gap: 16,
+              opacity: loading ? 0.6 : 1,
+              transition: "opacity 150ms",
+            }}
+          >
+            {data.results.map((proposal) => (
+              <ProposalCardView key={proposal.id} proposal={proposal} />
+            ))}
           </div>
 
-          {/* Search */}
-          <div className="relative">
-            <Search
-              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-navy-400"
-              aria-hidden
-            />
-            <input
-              type="search"
-              placeholder="Search by funder name, program, or source…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-4 text-sm text-slate-900 placeholder:text-slate-400 focus:border-[#0077B6] focus:outline-none focus:ring-1 focus:ring-[#0077B6]"
-            />
+          {/* Pagination */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginTop: 24,
+              padding: "12px 4px",
+            }}
+          >
+            <span style={{ fontSize: 13, color: COLORS.textMuted }}>
+              {data.total.toLocaleString()} proposal{data.total === 1 ? "" : "s"} · Page {data.page} of{" "}
+              {data.totalPages}
+            </span>
+            <div style={{ display: "flex", gap: 8 }}>
+              <PageButton
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                icon={ChevronLeft}
+                label="Previous"
+              />
+              <PageButton
+                disabled={page >= data.totalPages}
+                onClick={() => setPage((p) => Math.min(data.totalPages, p + 1))}
+                icon={ChevronRight}
+                label="Next"
+                iconTrailing
+              />
+            </div>
           </div>
-
-          {/* Tab bar */}
-          <div className="border-b border-slate-200">
-            <nav className="-mb-px flex gap-6" aria-label="Intelligence library tabs">
-              <Link
-                href="/intelligence-library/dashboard"
-                className="whitespace-nowrap border-b-2 border-transparent pb-3 text-sm font-medium text-slate-500 transition hover:border-slate-300 hover:text-slate-700"
-              >
-                Dashboard
-              </Link>
-              {TABS.map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`whitespace-nowrap border-b-2 pb-3 text-sm font-medium transition ${
-                    activeTab === tab.id
-                      ? "border-[#0077B6] text-[#0077B6]"
-                      : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700"
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </nav>
-          </div>
-
-          {/* Tab content */}
-          {activeTab === "funded-proposals" && (
-            <>
-              {filteredProposals.length === 0 ? (
-                <PremiumEmptyState
-                  title="No funded proposals yet"
-                  description="Ingest a winning proposal to start building your funded-proposal library — the AI draft generator draws on these for proven structure and language."
-                  ctaLabel="Add to Library"
-                  onCta={() => setIngestOpen(true)}
-                />
-              ) : (
-                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
-                  {filteredProposals.map((p) => {
-                    const isExpanded = expandedId === p.id;
-                    return (
-                      <div
-                        key={p.id}
-                        id={`proposal-row-${p.id}`}
-                        className="bg-white rounded-xl border border-border shadow-sm p-5 hover:border-[#0077B6] transition-colors"
-                      >
-                        <button
-                          type="button"
-                          onClick={() => void toggleProposal(p.id)}
-                          className="flex w-full items-start justify-between gap-3 text-left"
-                        >
-                          <div className="min-w-0">
-                            {p.funder_type && (
-                              <Badge color="teal">{p.funder_type.replace(/_/g, " ")}</Badge>
-                            )}
-                            <h3 className="mt-1.5 truncate text-base font-semibold text-slate-900">
-                              {p.funder_name ?? "Unknown funder"}
-                            </h3>
-                            <p className="mt-0.5 truncate text-sm text-slate-500">
-                              {p.grant_program ?? "—"}
-                            </p>
-                          </div>
-                          <div className="shrink-0 pt-1">
-                            {isExpanded ? (
-                              <ChevronDown className="h-4 w-4 text-slate-400" aria-hidden />
-                            ) : (
-                              <ChevronRight className="h-4 w-4 text-slate-400" aria-hidden />
-                            )}
-                          </div>
-                        </button>
-
-                        <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                          <div>
-                            <dt className="font-semibold uppercase tracking-wide text-slate-400">
-                              Amount
-                            </dt>
-                            <dd className="mt-0.5 text-sm font-medium text-slate-700">
-                              {p.award_amount != null ? formatCurrency(p.award_amount) : "—"}
-                            </dd>
-                          </div>
-                          <div>
-                            <dt className="font-semibold uppercase tracking-wide text-slate-400">
-                              Year
-                            </dt>
-                            <dd className="mt-0.5 text-sm font-medium text-slate-700">
-                              {p.award_year ?? "—"}
-                            </dd>
-                          </div>
-                        </dl>
-
-                        {(p.category ?? []).length > 0 && (
-                          <div className="mt-3 flex flex-wrap gap-1">
-                            {(p.category ?? []).slice(0, 3).map((cat) => (
-                              <Badge key={cat} color="teal">
-                                {cat}
-                              </Badge>
-                            ))}
-                          </div>
-                        )}
-
-                        <p className="mt-3 text-xs text-slate-400">Source: {p.source}</p>
-
-                        {isExpanded && (
-                          <div className="mt-4 border-t border-slate-100 pt-4">
-                            {sectionsLoading && !sections[p.id] ? (
-                              <LoadingSpinner label="Loading sections…" />
-                            ) : (sections[p.id] ?? []).length === 0 ? (
-                              <p className="text-sm text-slate-400">No sections indexed for this proposal.</p>
-                            ) : (
-                              <div className="space-y-3">
-                                {(sections[p.id] ?? []).map((s) => (
-                                  <div
-                                    key={s.id}
-                                    className="rounded-lg border border-slate-200 bg-white-sunken p-3"
-                                  >
-                                    <div className="mb-1.5 flex items-center justify-between gap-2">
-                                      <Badge color="navy">{s.section_type.replace(/_/g, " ")}</Badge>
-                                      {s.quality_score != null && (
-                                        <span className="text-xs text-slate-400">
-                                          Quality: {s.quality_score}/10
-                                        </span>
-                                      )}
-                                    </div>
-                                    <p className="line-clamp-4 text-xs text-slate-600">{s.section_text}</p>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </>
-          )}
-
-          {activeTab === "scoring-rubrics" && (
-            <>
-              {/* Source filter */}
-              <div className="flex items-center gap-3">
-                <label htmlFor="rubric-source-filter" className="text-sm font-medium text-slate-600">
-                  Source type:
-                </label>
-                <select
-                  id="rubric-source-filter"
-                  value={rubricSourceFilter}
-                  onChange={(e) => setRubricSourceFilter(e.target.value)}
-                  className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
-                >
-                  <option value="all">All sources</option>
-                  <option value="nofa_parse">NOFA Parse</option>
-                  <option value="reviewer_guide">Reviewer Guide</option>
-                  <option value="inferred">Inferred</option>
-                </select>
-              </div>
-
-              {filteredRubrics.length === 0 ? (
-                <PremiumEmptyState
-                  title="No scoring rubrics yet"
-                  description="Add a NOFO or reviewer guide to extract scoring dimensions and point breakdowns automatically."
-                  ctaLabel="Add to Library"
-                  onCta={() => setIngestOpen(true)}
-                />
-              ) : (
-                <Card>
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-slate-200 text-sm">
-                      <thead>
-                        <tr className="bg-sidebar text-left text-xs font-semibold uppercase tracking-wide text-white">
-                          <th className="py-3 pl-4 pr-4" />
-                          <th className="py-3 pr-4">Funder</th>
-                          <th className="py-3 pr-4">Program</th>
-                          <th className="py-3 pr-4">Source</th>
-                          <th className="py-3 pr-4 text-right">Dimensions</th>
-                          <th className="py-3 pr-4 text-right">Total pts</th>
-                          <th className="py-3 pr-4">Added</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-200">
-                        {filteredRubrics.map((r) => {
-                          const dims = Array.isArray(r.dimensions)
-                            ? (r.dimensions as RubricDimension[])
-                            : [];
-                          const totalPoints = dims.reduce(
-                            (sum, d) => sum + (d.max_points ?? 0),
-                            0,
-                          );
-                          const isExpanded = expandedRubricId === r.id;
-                          return (
-                            <Fragment key={r.id}>
-                              <tr
-                                onClick={() =>
-                                  setExpandedRubricId(isExpanded ? null : r.id)
-                                }
-                                className="cursor-pointer hover:bg-slate-50"
-                              >
-                                <td className="py-3 pl-4 pr-4">
-                                  {isExpanded ? (
-                                    <ChevronDown className="h-4 w-4 text-slate-400" aria-hidden />
-                                  ) : (
-                                    <ChevronRight className="h-4 w-4 text-slate-400" aria-hidden />
-                                  )}
-                                </td>
-                                <td className="py-3 pr-4 font-medium text-slate-900">
-                                  {r.funder_name ?? <span className="text-slate-400">—</span>}
-                                </td>
-                                <td className="py-3 pr-4 text-slate-600">
-                                  {r.grant_program ?? <span className="text-slate-400">—</span>}
-                                </td>
-                                <td className="py-3 pr-4">
-                                  {r.source ? (
-                                    <Badge color="navy">{r.source.replace(/_/g, " ")}</Badge>
-                                  ) : (
-                                    <span className="text-slate-400">—</span>
-                                  )}
-                                </td>
-                                <td className="py-3 pr-4 text-right tabular-nums text-slate-600">
-                                  {dims.length > 0 ? dims.length : <span className="text-slate-400">—</span>}
-                                </td>
-                                <td className="py-3 pr-4 text-right tabular-nums text-slate-600">
-                                  {totalPoints > 0 ? totalPoints : <span className="text-slate-400">—</span>}
-                                </td>
-                                <td className="py-3 pr-4 text-slate-500">
-                                  {formatDate(r.created_at)}
-                                </td>
-                              </tr>
-                              {isExpanded && (
-                                <tr>
-                                  <td colSpan={7} className="bg-white-sunken px-6 py-4">
-                                    {dims.length === 0 ? (
-                                      <p className="text-sm text-slate-400">No dimensions recorded for this rubric.</p>
-                                    ) : (
-                                      <div className="space-y-3">
-                                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                          Scoring Dimensions
-                                        </p>
-                                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                                          {dims.map((d, i) => (
-                                            <RubricDimensionCard key={i} dimension={d} />
-                                          ))}
-                                        </div>
-                                      </div>
-                                    )}
-                                  </td>
-                                </tr>
-                              )}
-                            </Fragment>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </Card>
-              )}
-            </>
-          )}
-
-          {activeTab === "logic-models" && (
-            <>
-              {filteredLogicModels.length === 0 ? (
-                <PremiumEmptyState
-                  title="No logic models yet"
-                  description="Logic model templates by program category populate here as your intelligence library grows."
-                  ctaLabel="Add to Library"
-                  onCta={() => setIngestOpen(true)}
-                />
-              ) : (
-                Object.entries(logicModelsByCategory).map(([category, models]) => (
-                  <div key={category}>
-                    <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-navy-500">
-                      {category}
-                    </h3>
-                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                      {models.map((m) => (
-                        <LogicModelCard key={m.id} model={m} />
-                      ))}
-                    </div>
-                  </div>
-                ))
-              )}
-            </>
-          )}
-
-          {activeTab === "data-sources" && (
-            <>
-              {filteredNeedSources.length === 0 ? (
-                <PremiumEmptyState
-                  title="No data sources yet"
-                  description="Census, HUD, SAMHSA, BLS, and CDC evidence data populate here as it's ingested into your library."
-                />
-              ) : (
-                <Card>
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-slate-200 text-sm">
-                      <thead>
-                        <tr className="bg-sidebar text-left text-xs font-semibold uppercase tracking-wide text-white">
-                          <th className="py-3 pl-4 pr-4">Source</th>
-                          <th className="py-3 pr-4 text-right">Records</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-200">
-                        {filteredNeedSources.map((s) => (
-                          <tr key={s.source} className="hover:bg-slate-50">
-                            <td className="py-3 pl-4 pr-4 font-medium text-slate-900">{s.source}</td>
-                            <td className="py-3 pr-4 text-right tabular-nums text-slate-600">
-                              {s.count.toLocaleString()}
-                            </td>
-                          </tr>
-                        ))}
-                        <tr className="border-t-2 border-slate-200">
-                          <td className="py-3 pl-4 pr-4 text-sm font-semibold text-slate-700">Total</td>
-                          <td className="py-3 pr-4 text-right tabular-nums font-semibold text-slate-700">
-                            {filteredNeedSources
-                              .reduce((sum, s) => sum + s.count, 0)
-                              .toLocaleString()}
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </Card>
-              )}
-            </>
-          )}
         </>
       )}
     </div>
   );
 }
 
-/**
- * Premium call-to-action shown when a library tab's corpus is sparse
- * (Elevated Slate design system). The CTA is omitted for tabs backed by
- * background ingestion rather than the user-triggered "Add to Library" flow.
- */
-function PremiumEmptyState({
-  title,
-  description,
-  ctaLabel,
-  onCta,
-}: {
-  title: string;
-  description: string;
-  ctaLabel?: string;
-  onCta?: () => void;
-}) {
-  return (
-    <div className="bg-gradient-to-br from-[#0077B6] to-[#00B4D8] rounded-2xl p-8 text-white text-center">
-      <h3 className="text-2xl font-bold text-white mb-2">{title}</h3>
-      <p className="text-[#BAE6FD] text-sm mb-6">{description}</p>
-      {ctaLabel && onCta && (
-        <button
-          type="button"
-          onClick={onCta}
-          className="bg-white text-[#0077B6] font-bold px-6 py-3 rounded-xl hover:shadow-lg transition-shadow"
-        >
-          {ctaLabel}
-        </button>
-      )}
-    </div>
-  );
-}
-
-function StatCard({
+function StatTile({
   icon: Icon,
+  accent,
   label,
   value,
-  hue = "blue",
-  isText = false,
 }: {
-  icon: LucideIcon;
+  icon: typeof FileText;
+  accent: string;
   label: string;
-  value: number | string;
-  hue?: IconHue;
-  isText?: boolean;
+  value: string;
 }) {
   return (
-    <Card className={cn("border-l-4", ICON_HUE_BORDER_CLASSES[hue])}>
-      <div className="flex items-center gap-3">
-        <ColorIcon icon={Icon} hue={hue} />
-        <div className="min-w-0">
-          {isText ? (
-            <p className="truncate text-sm font-semibold text-navy-900">{value}</p>
-          ) : (
-            <p className="text-2xl font-semibold text-navy-900">{value}</p>
-          )}
-          <p className="text-xs text-navy-500">{label}</p>
-        </div>
+    <div
+      style={{
+        background: COLORS.surface,
+        border: `1px solid ${COLORS.border}`,
+        borderRadius: 12,
+        padding: 16,
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        borderLeft: `4px solid ${accent}`,
+      }}
+    >
+      <div
+        style={{
+          width: 36,
+          height: 36,
+          borderRadius: 8,
+          background: `${accent}1A`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+        }}
+      >
+        <Icon size={18} color={accent} />
       </div>
-    </Card>
-  );
-}
-
-function LogicModelCard({ model }: { model: LogicModel }) {
-  const inputs = toStringArray(model.inputs);
-  const activities = toStringArray(model.activities);
-  const outputs = toStringArray(model.outputs);
-  const outcomes = toStringArray(model.outcomes);
-  const impact = toStringArray(model.impact);
-
-  return (
-    <Card>
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <h4 className="font-medium text-navy-900">
-          {model.subcategory ?? model.category}
-        </h4>
-        {model.is_template && (
-          <Badge color="teal">Template</Badge>
-        )}
-      </div>
-      <div className="space-y-2 text-xs">
-        <LogicRow label="Inputs" items={inputs} color="bg-sky-50 text-sky-700" />
-        <LogicRow label="Activities" items={activities} color="bg-teal-50 text-teal-700" />
-        <LogicRow label="Outputs" items={outputs} color="bg-green-50 text-green-700" />
-        <LogicRow label="Outcomes" items={outcomes} color="bg-info-bg text-info-text" />
-        <LogicRow label="Impact" items={impact} color="bg-amber-50 text-amber-700" />
-      </div>
-    </Card>
-  );
-}
-
-function LogicRow({
-  label,
-  items,
-  color,
-}: {
-  label: string;
-  items: string[];
-  color: string;
-}) {
-  return (
-    <div className="flex gap-2">
-      <span className={`w-20 shrink-0 rounded px-1.5 py-0.5 text-center font-semibold ${color}`}>
-        {label}
-      </span>
-      <span className="text-navy-600">
-        {items.length > 0 ? items.slice(0, 3).join("; ") : "—"}
-        {items.length > 3 && ` +${items.length - 3} more`}
-      </span>
-    </div>
-  );
-}
-
-function toStringArray(value: unknown): string[] {
-  if (Array.isArray(value)) return value.filter((v): v is string => typeof v === "string");
-  return [];
-}
-
-function RubricDimensionCard({ dimension }: { dimension: RubricDimension }) {
-  const deductions = Array.isArray(dimension.common_deductions)
-    ? dimension.common_deductions
-    : dimension.common_deductions
-      ? [dimension.common_deductions]
-      : [];
-
-  return (
-    <div className="rounded-lg border border-border bg-white shadow-sm p-3">
-      <div className="mb-2 flex items-start justify-between gap-2">
-        <p className="font-medium text-navy-900 leading-tight">
-          {dimension.name ?? "Unnamed dimension"}
+      <div style={{ minWidth: 0 }}>
+        <p style={{ fontSize: 18, fontWeight: 700, color: COLORS.text, margin: 0, lineHeight: 1.2 }}>
+          {value}
         </p>
-        {dimension.max_points != null && (
-          <Badge variant="info" className="shrink-0 font-semibold">
-            {dimension.max_points} pts
-          </Badge>
-        )}
+        <p style={{ fontSize: 12, color: COLORS.textMuted, margin: 0 }}>{label}</p>
       </div>
-      {dimension.description && (
-        <p className="mb-2 text-xs text-navy-600 line-clamp-3">{dimension.description}</p>
-      )}
-      {deductions.length > 0 && (
-        <div className="mt-2 border-t border-navy-100 pt-2">
-          <p className="mb-1 text-xs font-semibold text-navy-400 uppercase tracking-wide">
-            Common deductions
+    </div>
+  );
+}
+
+function ProposalCardView({ proposal }: { proposal: ProposalCard }) {
+  const sourceLabel = SOURCE_TABS.find((t) => t.key === proposal.source)?.label ?? proposal.source;
+
+  return (
+    <div
+      style={{
+        background: COLORS.surface,
+        border: `1px solid ${COLORS.border}`,
+        borderRadius: 12,
+        padding: 20,
+        display: "flex",
+        flexDirection: "column",
+        gap: 10,
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+        <h3 style={{ fontSize: 15, fontWeight: 600, color: COLORS.text, margin: 0, lineHeight: 1.35 }}>
+          {truncate(proposal.title, 80)}
+        </h3>
+      </div>
+
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+        <span
+          style={{
+            fontSize: 11,
+            fontWeight: 600,
+            padding: "3px 8px",
+            borderRadius: 999,
+            background: "#EFF6FF",
+            color: COLORS.primary,
+          }}
+        >
+          {proposal.funderName ?? "Unknown funder"}
+        </span>
+        <span
+          style={{
+            fontSize: 11,
+            fontWeight: 600,
+            padding: "3px 8px",
+            borderRadius: 999,
+            background: COLORS.surfaceSunken,
+            color: COLORS.textMuted,
+          }}
+        >
+          {sourceLabel}
+        </span>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, fontSize: 12 }}>
+        <div>
+          <p style={{ margin: 0, color: COLORS.textFaint, fontWeight: 600, textTransform: "uppercase", fontSize: 10 }}>
+            Amount
           </p>
-          <ul className="space-y-0.5">
-            {deductions.slice(0, 3).map((d, i) => (
-              <li key={i} className="flex gap-1.5 text-xs text-navy-600">
-                <span className="mt-0.5 shrink-0 text-red-400">−</span>
-                <span>{d}</span>
-              </li>
-            ))}
-            {deductions.length > 3 && (
-              <li className="text-xs text-navy-400">+{deductions.length - 3} more</li>
-            )}
-          </ul>
+          <p style={{ margin: "2px 0 0", color: COLORS.green, fontWeight: 700 }}>
+            {formatCurrency(proposal.awardAmount)}
+          </p>
         </div>
+        <div>
+          <p style={{ margin: 0, color: COLORS.textFaint, fontWeight: 600, textTransform: "uppercase", fontSize: 10 }}>
+            Fiscal year
+          </p>
+          <p style={{ margin: "2px 0 0", color: COLORS.text, fontWeight: 600 }}>
+            {proposal.awardYear ?? "—"}
+          </p>
+        </div>
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: COLORS.textMuted }}>
+        <Building2 size={13} color={COLORS.textFaint} />
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {proposal.organizationName ?? "Organization not recorded"}
+        </span>
+      </div>
+
+      <p style={{ fontSize: 13, color: COLORS.textMuted, margin: 0, lineHeight: 1.5 }}>
+        {truncate(proposal.abstract, 150)}
+      </p>
+
+      {proposal.sourceUrl && (
+        <a
+          href={proposal.sourceUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 4,
+            fontSize: 12,
+            fontWeight: 600,
+            color: COLORS.primary,
+            textDecoration: "none",
+            marginTop: 4,
+          }}
+        >
+          View source <ExternalLink size={12} />
+        </a>
       )}
     </div>
+  );
+}
+
+function PageButton({
+  disabled,
+  onClick,
+  icon: Icon,
+  label,
+  iconTrailing,
+}: {
+  disabled: boolean;
+  onClick: () => void;
+  icon: typeof ChevronLeft;
+  label: string;
+  iconTrailing?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 4,
+        padding: "8px 14px",
+        borderRadius: 8,
+        fontSize: 13,
+        fontWeight: 600,
+        border: `1px solid ${COLORS.border}`,
+        background: disabled ? COLORS.surfaceSunken : COLORS.surface,
+        color: disabled ? COLORS.textFaint : COLORS.text,
+        cursor: disabled ? "not-allowed" : "pointer",
+      }}
+    >
+      {!iconTrailing && <Icon size={14} />}
+      {label}
+      {iconTrailing && <Icon size={14} />}
+    </button>
   );
 }
