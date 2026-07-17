@@ -30,7 +30,8 @@
         "enrich:propublica-batch": "tsx scripts/enrich-propublica-batch.ts",
         "ingest:tdlr": "tsx scripts/ingest-tx-tdlr.ts",
         "ingest:landbanks": "tsx scripts/ingest-land-banks.ts",
-        "ingest:federal-register": "tsx scripts/ingest-federal-register.ts"
+        "ingest:federal-register": "tsx scripts/ingest-federal-register.ts",
+        "ingest:samhsa-hrsa": "tsx scripts/ingest-samhsa-hrsa.ts"
     },
     "dependencies": {
         "@2captcha/captcha-solver": "^1.3.6",
