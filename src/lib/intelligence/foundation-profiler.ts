@@ -3,8 +3,10 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 export interface FoundationProfile {
   foundation_id: string
   avg_grant_size: number | null
-  geographic_focus: string | null
+  geographic_focus: string[]
   funding_categories: string[]
+  total_grants_made: number | null
+  top_recipients: unknown | null
 }
 
 function toStringArray(raw: unknown): string[] {
@@ -24,9 +26,11 @@ function parseGrantRangeMidpoint(raw: unknown): number | null {
 /**
  * Computes a foundation's profile from foundation_directory's giving_total
  * and its 990-derived `enrichment` jsonb (grant_count, typical_grant_range,
- * program_priorities — see scripts/enrich-foundations-990.ts). Falls back to
- * the enrichment's typical_grant_range midpoint when grant_count/giving_total
- * aren't both available.
+ * program_priorities, geographic_focus, top_recipients — see
+ * scripts/enrich-foundations-990.ts). Falls back to the enrichment's
+ * typical_grant_range midpoint when grant_count/giving_total aren't both
+ * available, and to the directory's own geographic_focus column when the
+ * enrichment doesn't carry one.
  */
 export async function computeFoundationProfile(
   foundationId: string,
@@ -55,10 +59,26 @@ export async function computeFoundationProfile(
     ]),
   )
 
+  const enrichmentGeoFocus = toStringArray(enrichment['geographic_focus'])
+  const geographicFocus =
+    enrichmentGeoFocus.length > 0
+      ? enrichmentGeoFocus
+      : foundation?.geographic_focus
+        ? [foundation.geographic_focus as string]
+        : []
+
+  const totalGrantsMade = givingTotal
+
+  const topRecipients = Array.isArray(enrichment['top_recipients'])
+    ? enrichment['top_recipients']
+    : null
+
   return {
     foundation_id: foundationId,
     avg_grant_size: avgGrantSize,
-    geographic_focus: foundation?.geographic_focus ?? null,
+    geographic_focus: geographicFocus,
     funding_categories: fundingCategories,
+    total_grants_made: totalGrantsMade,
+    top_recipients: topRecipients,
   }
 }

@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { Badge, Button } from "@/components/ui";
 import type { Tables } from "@/types/database";
 
@@ -71,7 +73,13 @@ export function FoundationCard({
         {foundation.ntee_code && <Badge color="navy">{foundation.ntee_code}</Badge>}
       </div>
 
-      <h3 className="text-base font-semibold text-slate-900 mt-2 truncate">{foundation.name}</h3>
+      <Link
+        href={`/foundations/${foundation.id}`}
+        onClick={(event) => event.stopPropagation()}
+        className="mt-2 block truncate text-base font-semibold text-slate-900 hover:text-[#0077B6] hover:underline"
+      >
+        {foundation.name}
+      </Link>
       <p className="text-sm text-slate-400 mt-0.5">{location || "Location unknown"}</p>
 
       <div className="flex items-center gap-4 mt-3 text-xs text-slate-400">
