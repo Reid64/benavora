@@ -23,6 +23,7 @@ import {
   List,
   RotateCcw,
   ShieldCheck,
+  Sparkles,
 } from "lucide-react";
 
 import { Badge, Button, EmptyState, LoadingSpinner } from "@/components/ui";
@@ -105,6 +106,20 @@ type DbDeadline = Pick<
   | "google_calendar_event_id"
 >;
 
+type PredictedDeadline = {
+  opportunityId: string;
+  opportunityTitle: string;
+  predictedDeadline: string;
+  confidence: number;
+  basis: string;
+};
+
+function confidenceBadgeVariant(confidence: number): "success" | "warning" | "neutral" {
+  if (confidence >= 0.6) return "success";
+  if (confidence >= 0.3) return "warning";
+  return "neutral";
+}
+
 type RenewalRow = {
   id: string;
   application_id: string;
@@ -178,6 +193,11 @@ export default function DeadlinesPage() {
   const [renewalItems, setRenewalItems] = useState<DeadlineItem[]>([]);
   const [complianceItems, setComplianceItems] = useState<ComplianceItem[]>([]);
   const [complianceLoading, setComplianceLoading] = useState(false);
+  const [predictions, setPredictions] = useState<PredictedDeadline[]>([]);
+  const [predictionsLoading, setPredictionsLoading] = useState(true);
+  const [addingPredictionId, setAddingPredictionId] = useState<string | null>(
+    null,
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -340,6 +360,28 @@ export default function DeadlinesPage() {
     };
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const res = await fetch("/api/intelligence/deadline-predictions");
+        if (active && res.ok) {
+          const data = (await res.json()) as {
+            predictions?: PredictedDeadline[];
+          };
+          setPredictions(data.predictions ?? []);
+        }
+      } catch {
+        // Leave predictions empty on failure
+      } finally {
+        if (active) setPredictionsLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const editable = canEdit(profile?.role);
 
   // --- Derived data ---
@@ -487,6 +529,29 @@ export default function DeadlinesPage() {
       ),
     );
     setBusyId(null);
+  }
+
+  async function addPredictionToCalendar(prediction: PredictedDeadline) {
+    if (!editable || !profile?.organization_id || addingPredictionId) return;
+    setAddingPredictionId(prediction.opportunityId);
+    const supabase = createClient();
+    const { error: insertError } = await supabase.from("deadlines").insert({
+      organization_id: profile.organization_id,
+      opportunity_id: prediction.opportunityId,
+      deadline_type: "application_deadline",
+      due_date: prediction.predictedDeadline,
+      title: prediction.opportunityTitle,
+    });
+    if (insertError) {
+      setError("Could not add the predicted deadline. Please try again.");
+      setAddingPredictionId(null);
+      return;
+    }
+    setPredictions((prev) =>
+      prev.filter((p) => p.opportunityId !== prediction.opportunityId),
+    );
+    setAddingPredictionId(null);
+    await load();
   }
 
   // --- Render ---
@@ -721,8 +786,84 @@ export default function DeadlinesPage() {
               onSync={syncOne}
             />
           )}
+
+          <PredictedDeadlines
+            predictions={predictions}
+            loading={predictionsLoading}
+            editable={editable}
+            addingId={addingPredictionId}
+            onAdd={addPredictionToCalendar}
+          />
         </>
       )}
+    </div>
+  );
+}
+
+function PredictedDeadlines({
+  predictions,
+  loading,
+  editable,
+  addingId,
+  onAdd,
+}: {
+  predictions: PredictedDeadline[];
+  loading: boolean;
+  editable: boolean;
+  addingId: string | null;
+  onAdd: (prediction: PredictedDeadline) => void;
+}) {
+  if (loading || predictions.length === 0) return null;
+
+  return (
+    <div className="space-y-3 pt-2">
+      <div className="flex items-center gap-2">
+        <Sparkles className="h-4 w-4 text-[#0077B6]" aria-hidden />
+        <h2 className="text-sm font-semibold text-slate-900">
+          Predicted Deadlines
+        </h2>
+        <span className="text-xs text-slate-400">
+          AI-estimated for opportunities without a confirmed date
+        </span>
+      </div>
+      <div>
+        {predictions.map((p) => (
+          <div
+            key={p.opportunityId}
+            className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed border-slate-300 bg-white p-4"
+          >
+            <div className="min-w-0">
+              <div className="truncate text-sm font-medium text-slate-900">
+                {p.opportunityTitle}
+              </div>
+              <div className="mt-0.5 flex items-center gap-2 text-xs text-slate-500">
+                <span>{formatDate(p.predictedDeadline)}</span>
+                <span>-</span>
+                <span className="truncate">{p.basis}</span>
+              </div>
+            </div>
+            <div className="flex shrink-0 items-center gap-3">
+              <Badge
+                variant={confidenceBadgeVariant(p.confidence)}
+                className="shrink-0"
+              >
+                {Math.round(p.confidence * 100)}% confidence
+              </Badge>
+              {editable && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={addingId === p.opportunityId}
+                  onClick={() => onAdd(p)}
+                >
+                  <CalendarPlus className="h-4 w-4" aria-hidden />
+                  Add to Calendar
+                </Button>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

@@ -1,27 +1,30 @@
-import { NextResponse } from 'next/server'
+import { headers } from "next/headers";
+import { NextResponse } from "next/server";
 
-import { requireRole } from '@/lib/auth/role-gate'
-import { predictDeadlines } from '@/lib/intelligence/deadline-predictor'
+import { createClient } from "@/lib/supabase/server";
+import { predictDeadlines } from "@/lib/intelligence/deadline-predictor";
 
-// GET /api/intelligence/deadline-predictions?funderId=<uuid>
+// GET /api/intelligence/deadline-predictions
+// org_id comes from the x-organization-id header, which middleware.ts injects
+// after re-deriving it server-side from the authenticated user's profile row
+// (never trusted from client input - Behavioral Contracts §2).
 
-function jsonError(message: string, code: string, status: number) {
-  return NextResponse.json({ error: message, code }, { status })
-}
+export async function GET() {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-export async function GET(request: Request) {
-  const gate = await requireRole('viewer')
-  if ('error' in gate) return gate.error
-  const { supabase } = gate
+  const orgId = headers().get("x-organization-id");
 
-  const { searchParams } = new URL(request.url)
-  const funderId = searchParams.get('funderId')
-
-  if (!funderId) {
-    return jsonError('funderId is required.', 'missing_funder_id', 400)
+  if (!user || !orgId) {
+    return NextResponse.json(
+      { error: "Authentication required.", code: "unauthenticated" },
+      { status: 401 },
+    );
   }
 
-  const predictions = await predictDeadlines(funderId, supabase)
+  const predictions = await predictDeadlines(orgId, supabase);
 
-  return NextResponse.json({ predictions })
+  return NextResponse.json({ predictions });
 }
