@@ -1,6 +1,39 @@
 # BENAVORA — STATE OF THE BUILD
-## Last updated: 2026-07-16 (Governance doc catch-up: UI redesign thrashing reconciled, deployment + auth info recorded — see entry immediately below — on top of Funder relationship-score badge + Tier 6 inventory, Mobile responsiveness audit + fixes, Research + Draft Generator pages Elevated Slate rebuild, FlightPathHUD Mission Control lifecycle dashboard, Migrations 073-074 applied to production, Settings + Onboarding pages Elevated Slate rebuild, Sales Outreach + AutoApply Ops pages Elevated Slate rebuild, Contacts + Financials + Reports pages Elevated Slate rebuild, Knowledge Base + Intelligence Library pages Elevated Slate rebuild, Alerts + Deadlines + Outcomes pages Elevated Slate rebuild, Donor Discovery Overview + Prospects pages Elevated Slate rebuild, Applications + Documents pages Elevated Slate rebuild, Funders + Foundations pages Elevated Slate card-grid rebuild, PageHeader rebuild, Opportunities page visual overhaul, Dashboard page visual overhaul, Header hardcoded-Tailwind rebuild, Sidebar hardcoded-Tailwind rebuild, Phase 2-4 completion audit, Apollo + Hunter §6 BYO-key connectors + run_connector_enrichment worker job, TX TDLR + land bank directory registry adapters + Donor Discovery Connectors page + connectors API + Prospect detail page rebuild + AutoApply handoff route + Donor Discovery Overview page rebuild + process_discovery_request worker job + requests API pagination + Claude-rationale donor-discovery scoring engine + SAM.gov registry adapter + ingest script + ProPublica financial enrichment adapter + script + IRS BMF full ingest script + Google Geocoding adapter + donor_discovery_geocache + Google Places cache-first registry adapter + adapter_usage_log + New Discovery wizard TaxonomyCombobox + taxonomy aliases + header nav placement fix + Phases 2+3 + Foundation Enrichment Pipeline + Onboarding soft-gate)
+## Last updated: 2026-07-16 (Dashboard page.tsx fully redesigned — see entry immediately below — on top of Governance doc catch-up: UI redesign thrashing reconciled, deployment + auth info recorded, Funder relationship-score badge + Tier 6 inventory, Mobile responsiveness audit + fixes, Research + Draft Generator pages Elevated Slate rebuild, FlightPathHUD Mission Control lifecycle dashboard, Migrations 073-074 applied to production, Settings + Onboarding pages Elevated Slate rebuild, Sales Outreach + AutoApply Ops pages Elevated Slate rebuild, Contacts + Financials + Reports pages Elevated Slate rebuild, Knowledge Base + Intelligence Library pages Elevated Slate rebuild, Alerts + Deadlines + Outcomes pages Elevated Slate rebuild, Donor Discovery Overview + Prospects pages Elevated Slate rebuild, Applications + Documents pages Elevated Slate rebuild, Funders + Foundations pages Elevated Slate card-grid rebuild, PageHeader rebuild, Opportunities page visual overhaul, Dashboard page visual overhaul, Header hardcoded-Tailwind rebuild, Sidebar hardcoded-Tailwind rebuild, Phase 2-4 completion audit, Apollo + Hunter §6 BYO-key connectors + run_connector_enrichment worker job, TX TDLR + land bank directory registry adapters + Donor Discovery Connectors page + connectors API + Prospect detail page rebuild + AutoApply handoff route + Donor Discovery Overview page rebuild + process_discovery_request worker job + requests API pagination + Claude-rationale donor-discovery scoring engine + SAM.gov registry adapter + ingest script + ProPublica financial enrichment adapter + script + IRS BMF full ingest script + Google Geocoding adapter + donor_discovery_geocache + Google Places cache-first registry adapter + adapter_usage_log + New Discovery wizard TaxonomyCombobox + taxonomy aliases + header nav placement fix + Phases 2+3 + Foundation Enrichment Pipeline + Onboarding soft-gate)
 ## Method: live codebase audit — every file path, route, agent, and migration counted directly from the filesystem; no assumptions carried from prior docs.
+
+---
+
+## COMPLETED — July 16: Dashboard page.tsx full premium redesign v1.0
+
+**Dashboard page.tsx fully redesigned July 16 2026 — hero banner, unified card palette, section
+trays, two-column layout, stat/metric cards with colored top bands.**
+
+- Only `dashboard/page.tsx`'s return block and `FlightPathHUD.tsx`'s `STAGES` accent-color values
+  changed; all server-side data fetching, queries, and type definitions in `page.tsx` were left
+  untouched.
+- New hero banner (navy→blue gradient) with org name, live date, and two live-data pill chips
+  (active opportunities / deadlines this week — bound to the same `totalOpportunities` /
+  `deadlinesThisWeek` server-computed values already on the page, not hardcoded).
+- 4 stat cards + 3 financial metric cards rewritten as white cards with a colored 8px top band
+  (accent per card) inside darker "tray" wrappers, replacing the old solid-color `StatCard` and
+  bordered-white `MetricCard` usages.
+- **Dead code removed to keep the lint gate green:** the local `StatCard` component + `STAT_ACCENTS`
+  map (page.tsx) and the `MetricCard` import both became fully unreferenced once the new card
+  markup replaced them; `@typescript-eslint/no-unused-vars` is `"error"` in this repo's ESLint
+  config, so `next build` fails on dead references — removed them rather than leave the build red.
+- **Known deviation from spec:** the Recent Activity row hover (`onMouseEnter`/`onMouseLeave` +
+  React state, `#F8FAFC`/`#FFFFFF` toggle) was not implemented as literally specified —
+  `dashboard/page.tsx` is an async Server Component (no hooks/event handlers allowed), and adding a
+  client subcomponent would have required a new import, which was out of scope. `RecentActivityFeed`
+  (unchanged) is still used as-is; its rows already have a `1px solid #F1F5F9` bottom border.
+- Gate: `pnpm build` run twice this session — first attempt failed on the two unused-var errors
+  above; second attempt after removing the dead code passed clean (exit 0, no lint/type errors, all
+  272 routes generated).
+- Committed `97603f9` (dashboard canvas/metric-card color tweaks, prior task) then `c9c22bf`
+  (this redesign) and pushed to `origin/main`. No browser/visual verification performed this
+  session — per [[benavora-ui-claims-need-visual-proof]], build success confirms it compiles and
+  lints, not that it renders as intended.
 
 ---
 

@@ -145,6 +145,12 @@ interface IndexRow {
   orgName: string;
 }
 
+// Fallback positional indices (zero-indexed) for the IRS 2025 990 index CSV,
+// used only when header-name lookup fails (e.g. trailing \r on header names).
+const EIN_FALLBACK_IDX = 1;
+const OBJECT_ID_FALLBACK_IDX = 7;
+const XML_BATCH_ID_FALLBACK_IDX = 8;
+
 async function* streamIndexRows(indexUrl: string): AsyncGenerator<IndexRow> {
   const res = await fetch(indexUrl);
   if (!res.ok || !res.body) {
@@ -157,30 +163,43 @@ async function* streamIndexRows(indexUrl: string): AsyncGenerator<IndexRow> {
   });
 
   let headers: string[] | null = null;
+  let loggedEinCount = 0;
   for await (const line of rl) {
     if (!line.trim()) continue;
-    const cols = line.split(",");
+    const cols = line.split(",").map((c) => c.trim().replace(/^"|"$/g, ""));
 
     if (!headers) {
       headers = cols.map((h) => h.trim().replace(/^"|"$/g, "").toLowerCase());
       continue;
     }
 
-    const einIdx = headers.indexOf("ein");
-    if (einIdx < 0) continue;
+    let einIdx = headers.indexOf("ein");
+    if (einIdx < 0) einIdx = EIN_FALLBACK_IDX;
     const ein = (cols[einIdx] ?? "").replace(/\D/g, "");
-    if (!ein) continue;
+    if (!ein || !/^\d+$/.test(ein)) continue;
 
     const urlIdx = headers.indexOf("url");
-    const objectIdIdx = headers.indexOf("object_id");
+    let objectIdIdx = headers.indexOf("object_id");
+    if (objectIdIdx < 0) objectIdIdx = OBJECT_ID_FALLBACK_IDX;
+    let xmlBatchIdIdx = headers.indexOf("xml_batch_id");
+    if (xmlBatchIdIdx < 0) xmlBatchIdIdx = XML_BATCH_ID_FALLBACK_IDX;
     const nameIdx = headers.indexOf("taxpayer_name");
 
-    const objectId = objectIdIdx >= 0 ? (cols[objectIdIdx] ?? "").trim().replace(/^"|"$/g, "") : "";
+    const objectId = (cols[objectIdIdx] ?? "").trim().replace(/^"|"$/g, "");
+    const xmlBatchId = (cols[xmlBatchIdIdx] ?? "").trim().replace(/^"|"$/g, "");
     let xmlUrl = urlIdx >= 0 ? (cols[urlIdx] ?? "").trim().replace(/^"|"$/g, "") : "";
     if (!xmlUrl && objectId) {
       xmlUrl = `https://s3.amazonaws.com/irs-form-990/${objectId}_public.xml`;
     }
+    if (!xmlUrl && xmlBatchId) {
+      xmlUrl = `https://s3.amazonaws.com/irs-form-990/${xmlBatchId}_public.xml`;
+    }
     if (!xmlUrl) continue;
+
+    if (loggedEinCount < 3) {
+      console.log(`  [debug] parsed EIN #${loggedEinCount + 1}: ${ein}`);
+      loggedEinCount++;
+    }
 
     const orgName = nameIdx >= 0 ? (cols[nameIdx] ?? "").trim().replace(/^"|"$/g, "") : "";
     yield { ein, objectId, xmlUrl, orgName };
