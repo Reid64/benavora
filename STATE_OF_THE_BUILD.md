@@ -1,6 +1,69 @@
 # BENAVORA — STATE OF THE BUILD
-## Last updated: 2026-07-16 (Foundation profile builder — migrations 081+088 confirmed applied to production — see entry immediately below — on top of: CSV import wizard rebuilt to inline-style spec, Intelligence Library page + proposals API rebuilt, Dashboard page.tsx fully redesigned, Governance doc catch-up: UI redesign thrashing reconciled, deployment + auth info recorded, Funder relationship-score badge + Tier 6 inventory, Mobile responsiveness audit + fixes, Research + Draft Generator pages Elevated Slate rebuild, FlightPathHUD Mission Control lifecycle dashboard, Migrations 073-074 applied to production, Settings + Onboarding pages Elevated Slate rebuild, Sales Outreach + AutoApply Ops pages Elevated Slate rebuild, Contacts + Financials + Reports pages Elevated Slate rebuild, Knowledge Base + Intelligence Library pages Elevated Slate rebuild, Alerts + Deadlines + Outcomes pages Elevated Slate rebuild, Donor Discovery Overview + Prospects pages Elevated Slate rebuild, Applications + Documents pages Elevated Slate rebuild, Funders + Foundations pages Elevated Slate card-grid rebuild, PageHeader rebuild, Opportunities page visual overhaul, Dashboard page visual overhaul, Header hardcoded-Tailwind rebuild, Sidebar hardcoded-Tailwind rebuild, Phase 2-4 completion audit, Apollo + Hunter §6 BYO-key connectors + run_connector_enrichment worker job, TX TDLR + land bank directory registry adapters + Donor Discovery Connectors page + connectors API + Prospect detail page rebuild + AutoApply handoff route + Donor Discovery Overview page rebuild + process_discovery_request worker job + requests API pagination + Claude-rationale donor-discovery scoring engine + SAM.gov registry adapter + ingest script + ProPublica financial enrichment adapter + script + IRS BMF full ingest script + Google Geocoding adapter + donor_discovery_geocache + Google Places cache-first registry adapter + adapter_usage_log + New Discovery wizard TaxonomyCombobox + taxonomy aliases + header nav placement fix + Phases 2+3 + Foundation Enrichment Pipeline + Onboarding soft-gate)
+## Last updated: 2026-07-17 (Grant financial reconciliation — per-application budget/expense/reconcile routes — see entry immediately below — on top of: Foundation profile builder — migrations 081+088 confirmed applied to production, CSV import wizard rebuilt to inline-style spec, Intelligence Library page + proposals API rebuilt, Dashboard page.tsx fully redesigned, Governance doc catch-up: UI redesign thrashing reconciled, deployment + auth info recorded, Funder relationship-score badge + Tier 6 inventory, Mobile responsiveness audit + fixes, Research + Draft Generator pages Elevated Slate rebuild, FlightPathHUD Mission Control lifecycle dashboard, Migrations 073-074 applied to production, Settings + Onboarding pages Elevated Slate rebuild, Sales Outreach + AutoApply Ops pages Elevated Slate rebuild, Contacts + Financials + Reports pages Elevated Slate rebuild, Knowledge Base + Intelligence Library pages Elevated Slate rebuild, Alerts + Deadlines + Outcomes pages Elevated Slate rebuild, Donor Discovery Overview + Prospects pages Elevated Slate rebuild, Applications + Documents pages Elevated Slate rebuild, Funders + Foundations pages Elevated Slate card-grid rebuild, PageHeader rebuild, Opportunities page visual overhaul, Dashboard page visual overhaul, Header hardcoded-Tailwind rebuild, Sidebar hardcoded-Tailwind rebuild, Phase 2-4 completion audit, Apollo + Hunter §6 BYO-key connectors + run_connector_enrichment worker job, TX TDLR + land bank directory registry adapters + Donor Discovery Connectors page + connectors API + Prospect detail page rebuild + AutoApply handoff route + Donor Discovery Overview page rebuild + process_discovery_request worker job + requests API pagination + Claude-rationale donor-discovery scoring engine + SAM.gov registry adapter + ingest script + ProPublica financial enrichment adapter + script + IRS BMF full ingest script + Google Geocoding adapter + donor_discovery_geocache + Google Places cache-first registry adapter + adapter_usage_log + New Discovery wizard TaxonomyCombobox + taxonomy aliases + header nav placement fix + Phases 2+3 + Foundation Enrichment Pipeline + Onboarding soft-gate)
 ## Method: live codebase audit — every file path, route, agent, and migration counted directly from the filesystem; no assumptions carried from prior docs.
+
+---
+
+## COMPLETED — July 17: Grant financial reconciliation (per-application budget/expense/reconcile)
+
+Task asked to create `src/supabase/migrations/086_financial_reconciliation.sql` with fresh
+`grant_budgets`/`grant_expenses`/`grant_reconciliation_reports` tables, plus new
+`/api/applications/[id]/{budget,expenses,reconcile}` routes and a financials-page update.
+Before writing anything, checked the current migrations directory and found the task's premise
+was stale: **`grant_budgets`/`grant_expenses` already exist** (migration 084, from the earlier
+"Financial reconciliation" Phase D entry below), migration number **086 is already taken**
+(`086_white_label.sql`), and the real migrations directory is `supabase/migrations/`, not
+`src/supabase/migrations/` (same stray-path pattern flagged in a July 10 audit entry below).
+Built against reality instead of recreating tables:
+
+- **New `supabase/migrations/089_financial_reconciliation.sql`** (next free number) — additive,
+  not destructive: `ALTER TABLE grant_budgets ADD COLUMN IF NOT EXISTS line_items jsonb,
+  total_approved numeric, updated_at timestamptz` and `ALTER TABLE grant_expenses ADD COLUMN IF
+  NOT EXISTS application_id uuid REFERENCES applications(id), receipt_url text` (migration 084's
+  `grant_expenses` only linked to `applications` indirectly via `budget_id → grant_budgets →
+  application_id`; backfilled the new column from that join for any pre-existing rows), plus a
+  genuinely new `grant_reconciliation_reports` table (`UNIQUE(organization_id, application_id)`
+  for upsert) since that table didn't exist anywhere yet. `src/types/database.ts` updated to
+  match (this file is hand-maintained, not `supabase gen types` output — extended in place,
+  same convention as every other migration's block).
+- **New `src/app/api/applications/[id]/budget/route.ts`** — GET returns the application's most
+  recent `grant_budgets` row (or null); POST accepts `line_items` (array of
+  `{category, label?, amount}`), computing `total_requested` from the line items when not given
+  explicitly, and upserts (select-existing-then-update, else insert — no DB-level unique
+  constraint was added on `application_id` since pre-existing rows from the org-wide
+  `/api/financials/budgets` route couldn't be guaranteed unique per application without a live
+  check, and adding one now risked failing the migration on data that may already violate it).
+  Application ownership (`organization_id` match) verified server-side before every read/write.
+- **New `src/app/api/applications/[id]/expenses/route.ts`** — GET/POST scoped by the new
+  `application_id` column directly (no need to resolve a `budget_id` first); `budget_id` is left
+  null on inserts through this route, which the existing schema already allows (nullable FK).
+- **New `src/app/api/applications/[id]/reconcile/route.ts`** — GET computes
+  `total_budget` (latest `grant_budgets.total_budget`, falling back to the application's
+  `awarded_amount`/`requested_amount` when no budget has been entered), `total_spent` (sum of
+  `grant_expenses.amount` for that application), `variance`, and a `compliance_status`
+  (`under_budget`/`on_budget`/`over_budget`/`no_budget_set`), then upserts the result into
+  `grant_reconciliation_reports` keyed by `(organization_id, application_id)`.
+- **`financials/page.tsx`** — added a new "Grant Budget Reconciliation" section (awarded/
+  reporting-stage applications only, matching the existing "Active Grant Budget vs Actual"
+  section's stage filter) showing budgeted vs. spent per application with a green "Under
+  budget" / red "Over budget" `Badge` and a variance percentage. Followed the page's existing
+  convention of direct client-side Supabase queries (added `grant_budgets`/`grant_expenses` to
+  the existing `Promise.all` fetch) rather than calling the new API routes from the browser —
+  consistent with every other section on this page, and avoids an N+1 fetch per application.
+- Gate: `pnpm tsc --noEmit` — 0 errors. `pnpm lint` was attempted (both Bash and PowerShell) and
+  blocked by this session's interactive-approval gate every time — **not run, not claimed to
+  pass**, per [[benavora-gate-commands-need-approval]].
+- **Migration 089 has NOT been applied to production.** No Supabase Management API PAT
+  (`sbp_...`) was present in this session's environment, `npx supabase migration list` was
+  blocked by the same approval gate, and the Supabase MCP connector (`list_projects`) returned a
+  permission error rather than a live prompt. This is file-only, same status as several other
+  recent migrations before their own apply-day — do not treat it as live until confirmed.
+- Not done: no browser verification of the new Financials page section; no test coverage added
+  (none existed for this page before).
+- Governance docs updated: this file, `SESSION_STATE.md`. `BLUEPRINT.md`, `SCHEMA_REGISTRY.md`
+  (stale since June 13, not reconciled — flagged in a prior entry, not fixed here),
+  `BEHAVIORAL_CONTRACTS.md`, `AGENTS.md`, `CLAUDE.md` untouched — no new agent type, and the one
+  new table extends an already-documented Tier 6 feature area rather than introducing a new one.
 
 ---
 

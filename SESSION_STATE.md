@@ -1,7 +1,34 @@
 # BENAVORA — SESSION STATE
-## Last updated: 2026-07-16
+## Last updated: 2026-07-17
 ## Current branch: main
-## Last commit: feat: foundation profile builder (7443ee3)
+## Last commit: feat: grant financial reconciliation (57e5dba)
+
+---
+
+## COMPLETED — July 17: Grant financial reconciliation (per-application budget/expense/reconcile)
+
+Full detail in `STATE_OF_THE_BUILD.md`'s new top entry — summary:
+
+- Discovered `grant_budgets`/`grant_expenses` already existed (migration 084) before writing
+  anything; migration `086` was already taken (`086_white_label.sql`) and the real migrations
+  path is `supabase/migrations/`, not `src/supabase/migrations/` as the task specified. Built
+  additively at `supabase/migrations/089_financial_reconciliation.sql` instead of recreating
+  tables: added `line_items`/`total_approved`/`updated_at` to `grant_budgets`,
+  `application_id`/`receipt_url` to `grant_expenses` (backfilled from the existing `budget_id`
+  join), and a new `grant_reconciliation_reports` table.
+- New routes: `GET/POST /api/applications/[id]/budget`, `GET/POST
+  /api/applications/[id]/expenses`, `GET /api/applications/[id]/reconcile` (computes variance,
+  upserts into `grant_reconciliation_reports`). All org/application-ownership-scoped via
+  `requireRole`.
+- `financials/page.tsx` gained a "Grant Budget Reconciliation" section (awarded/reporting-stage
+  applications, green/red variance badge), following the page's existing direct-Supabase-query
+  convention rather than calling the new API routes from the browser.
+- Gate: `pnpm tsc --noEmit` clean, 0 errors. `pnpm lint` blocked by this session's interactive-
+  approval gate (both Bash and PowerShell) — not run, not claimed to pass.
+- **Migration 089 is file-only — NOT applied to production.** No Management API PAT in this
+  session's env, `npx supabase` blocked, Supabase MCP connector returned a permission error. Do
+  not treat the new tables/columns as live until someone applies it with the `sbp_` PAT path.
+- Committed `57e5dba` and pushed to `origin/main`.
 
 ---
 
