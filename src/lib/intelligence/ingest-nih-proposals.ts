@@ -98,14 +98,34 @@ export async function ingestNihProposals(): Promise<NihIngestionResult> {
 
   for (const project of withText.slice(0, 10)) {
     const sourceKey = `nih:${project.appl_id}`
+    const sourceUrl = `https://reporter.nih.gov/project-details/${project.appl_id}`
+    const grantProgram = project.pref_terms?.split(';')[0]?.trim() ?? null
+    const funderName = 'NIH'
 
-    const { data: existing } = await supabase
+    const { data: existingBySource } = await supabase
       .from('intelligence_funded_proposals')
       .select('id')
       .eq('source', sourceKey)
       .maybeSingle()
 
-    if (existing) { skipped++; continue }
+    const { data: existingByUrl } = await supabase
+      .from('intelligence_funded_proposals')
+      .select('id')
+      .eq('source_url', sourceUrl)
+      .maybeSingle()
+
+    let existingByTitle: { id: string } | null = null
+    if (grantProgram) {
+      const { data } = await supabase
+        .from('intelligence_funded_proposals')
+        .select('id')
+        .eq('grant_program', grantProgram)
+        .eq('funder_name', funderName)
+        .maybeSingle()
+      existingByTitle = data
+    }
+
+    if (existingBySource || existingByUrl || existingByTitle) { skipped++; continue }
 
     const fullText = [project.project_title, project.abstract_text].filter(Boolean).join('\n\n')
 
@@ -131,10 +151,10 @@ export async function ingestNihProposals(): Promise<NihIngestionResult> {
       .from('intelligence_funded_proposals')
       .insert({
         source: sourceKey,
-        source_url: `https://reporter.nih.gov/project-details/${project.appl_id}`,
+        source_url: sourceUrl,
         full_text: fullText.slice(0, 100_000),
-        funder_name: 'NIH',
-        grant_program: project.pref_terms?.split(';')[0]?.trim() ?? null,
+        funder_name: funderName,
+        grant_program: grantProgram,
         award_amount: project.award_amount ?? null,
         award_year: startYear,
         metadata: {
@@ -149,24 +169,37 @@ export async function ingestNihProposals(): Promise<NihIngestionResult> {
 
     if (insertErr || !proposalRow) { skipped++; continue }
 
-    const sectionRows = await Promise.all(
-      Object.entries(sections).map(async ([sectionType, sectionText]) => {
-        let embedding: number[] | null = null
-        try {
-          embedding = await generateEmbedding(sectionText.slice(0, 8_000))
-        } catch {
-          // embedding optional — store without it
-        }
-        return {
-          proposal_id: proposalRow.id as string,
-          section_type: sectionType,
-          content: sectionText,
-          embedding,
-        }
-      }),
+    const { data: existingSections } = await supabase
+      .from('intelligence_proposal_sections')
+      .select('section_type')
+      .eq('proposal_id', proposalRow.id)
+
+    const existingSectionTypes = new Set((existingSections ?? []).map((s) => s.section_type))
+
+    const sectionRows = (
+      await Promise.all(
+        Object.entries(sections)
+          .filter(([sectionType]) => !existingSectionTypes.has(sectionType))
+          .map(async ([sectionType, sectionText]) => {
+            let embedding: number[] | null = null
+            try {
+              embedding = await generateEmbedding(sectionText.slice(0, 8_000))
+            } catch {
+              // embedding optional — store without it
+            }
+            return {
+              proposal_id: proposalRow.id as string,
+              section_type: sectionType,
+              content: sectionText,
+              embedding,
+            }
+          }),
+      )
     )
 
-    await supabase.from('intelligence_proposal_sections').insert(sectionRows)
+    if (sectionRows.length > 0) {
+      await supabase.from('intelligence_proposal_sections').insert(sectionRows)
+    }
     ingested++
   }
 

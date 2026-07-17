@@ -193,6 +193,40 @@ async function main(): Promise<void> {
   });
   const anthropic = new Anthropic({ apiKey: anthropicKey });
 
+  // Clear out prior NIH_NIAID rows before re-running, so a re-ingest starts
+  // clean rather than accumulating duplicates from earlier runs.
+  log('Clearing existing NIH_NIAID proposals before re-ingesting...');
+  const { data: staleProposals, error: staleProposalsError } = await supabase
+    .from('intelligence_funded_proposals')
+    .select('id')
+    .eq('source', 'NIH_NIAID');
+  if (staleProposalsError) {
+    process.stderr.write(`Error reading stale NIH_NIAID proposals: ${staleProposalsError.message}\n`);
+    process.exit(1);
+  }
+  const staleProposalIds = (staleProposals ?? []).map((p) => p.id);
+  if (staleProposalIds.length > 0) {
+    const { error: delSectionsErr } = await supabase
+      .from('intelligence_proposal_sections')
+      .delete()
+      .in('proposal_id', staleProposalIds);
+    if (delSectionsErr) {
+      process.stderr.write(`Error deleting stale sections: ${delSectionsErr.message}\n`);
+      process.exit(1);
+    }
+    const { error: delProposalsErr } = await supabase
+      .from('intelligence_funded_proposals')
+      .delete()
+      .eq('source', 'NIH_NIAID');
+    if (delProposalsErr) {
+      process.stderr.write(`Error deleting stale proposals: ${delProposalsErr.message}\n`);
+      process.exit(1);
+    }
+    log(`Deleted ${staleProposalIds.length} stale NIH_NIAID proposal(s) and their sections.`);
+  } else {
+    log('No existing NIH_NIAID proposals found.');
+  }
+
   log('Fetching NIH NIAID sample applications page...');
   const pdfLinks = await fetchPdfLinks();
   log(`Found ${pdfLinks.length} PDF link(s) on the page`);
@@ -208,19 +242,35 @@ async function main(): Promise<void> {
     log(`\nProcessing proposal ${i + 1}/${toProcess.length}: ${link.title}`);
 
     try {
-      // Dedup guard: skip if a proposal with this source_url already exists.
-      // Checked before download/parse/Claude so re-runs are cheap and idempotent.
-      const { data: existing, error: existingError } = await supabase
+      // Dedup guard: skip if a proposal with this source_url, or the same
+      // (title, funder_name) pair, already exists. Checked before
+      // download/parse/Claude so re-runs are cheap and idempotent.
+      const { data: existingByUrl, error: existingUrlError } = await supabase
         .from('intelligence_funded_proposals')
         .select('id')
         .eq('source_url', link.url)
         .maybeSingle();
-      if (existingError) {
+      if (existingUrlError) {
         process.stderr.write(
-          `  Error checking for existing proposal: ${existingError.message}\n`,
+          `  Error checking for existing proposal: ${existingUrlError.message}\n`,
         );
         continue;
       }
+
+      const { data: existingByTitle, error: existingTitleError } = await supabase
+        .from('intelligence_funded_proposals')
+        .select('id')
+        .eq('grant_program', link.title)
+        .eq('funder_name', 'NIH / NIAID')
+        .maybeSingle();
+      if (existingTitleError) {
+        process.stderr.write(
+          `  Error checking for existing proposal: ${existingTitleError.message}\n`,
+        );
+        continue;
+      }
+
+      const existing = existingByUrl ?? existingByTitle;
       if (existing) {
         log(`  Skipping: already ingested (proposal ${existing.id})`);
         continue;
@@ -252,7 +302,7 @@ async function main(): Promise<void> {
       const { data: proposal, error: proposalError } = await supabase
         .from('intelligence_funded_proposals')
         .insert({
-          source: 'NIH',
+          source: 'NIH_NIAID',
           source_url: link.url,
           funder_name: 'NIH / NIAID',
           funder_type: 'government',
@@ -299,10 +349,34 @@ async function main(): Promise<void> {
         continue;
       }
 
+      // Dedup guard: drop any section whose (proposal_id, section_type) pair
+      // has already been inserted (e.g. a prior partial run of this proposal).
+      const { data: existingSectionRows, error: existingSectionsError } = await supabase
+        .from('intelligence_proposal_sections')
+        .select('section_type')
+        .eq('proposal_id', proposal.id);
+      if (existingSectionsError) {
+        process.stderr.write(
+          `  Error checking for existing sections: ${existingSectionsError.message}\n`,
+        );
+        continue;
+      }
+      const existingSectionTypes = new Set(
+        (existingSectionRows ?? []).map((s) => s.section_type),
+      );
+      const newSectionInserts = sectionInserts.filter(
+        (s) => !existingSectionTypes.has(s.section_type),
+      );
+
+      if (newSectionInserts.length === 0) {
+        log('  All sections already ingested — skipping embedding step');
+        continue;
+      }
+
       // Step 4 (cont): insert sections
       const { data: insertedSections, error: sectionsError } = await supabase
         .from('intelligence_proposal_sections')
-        .insert(sectionInserts)
+        .insert(newSectionInserts)
         .select('id, section_text');
 
       if (sectionsError || !insertedSections) {

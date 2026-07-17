@@ -104,6 +104,39 @@ export async function POST(request: Request) {
   const awardYear = typeof proposalMeta.award_year === 'number' ? proposalMeta.award_year : null
   const category = Array.isArray(proposalMeta.category) ? (proposalMeta.category as string[]) : null
 
+  const dedupSourceUrl = source === 'url' ? (url as string) : null
+  if (dedupSourceUrl) {
+    const { data: existingByUrl } = await supabase
+      .from('intelligence_funded_proposals')
+      .select('id')
+      .eq('source_url', dedupSourceUrl)
+      .maybeSingle()
+    if (existingByUrl) {
+      return NextResponse.json({
+        success: true,
+        skipped: true,
+        proposal_id: existingByUrl.id,
+        reason: 'duplicate_source_url',
+      })
+    }
+  }
+  if (funderName && grantProgram) {
+    const { data: existingByTitle } = await supabase
+      .from('intelligence_funded_proposals')
+      .select('id')
+      .eq('grant_program', grantProgram)
+      .eq('funder_name', funderName)
+      .maybeSingle()
+    if (existingByTitle) {
+      return NextResponse.json({
+        success: true,
+        skipped: true,
+        proposal_id: existingByTitle.id,
+        reason: 'duplicate_title_funder',
+      })
+    }
+  }
+
   const { data: proposalRow, error: proposalError } = await supabase
     .from('intelligence_funded_proposals')
     .insert({
@@ -128,6 +161,14 @@ export async function POST(request: Request) {
   let sectionsExtracted = 0
 
   for (const [sectionType, sectionText] of sectionEntries) {
+    const { data: existingSection } = await supabase
+      .from('intelligence_proposal_sections')
+      .select('id')
+      .eq('proposal_id', proposalId)
+      .eq('section_type', sectionType)
+      .maybeSingle()
+    if (existingSection) continue
+
     let embedding: number[]
     try {
       embedding = await generateEmbedding(sectionText)
