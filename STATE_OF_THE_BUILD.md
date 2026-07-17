@@ -1,6 +1,70 @@
 # BENAVORA — STATE OF THE BUILD
-## Last updated: 2026-07-16 (Intelligence Library page + proposals API rebuilt — see entry immediately below — on top of: Dashboard page.tsx fully redesigned, Governance doc catch-up: UI redesign thrashing reconciled, deployment + auth info recorded, Funder relationship-score badge + Tier 6 inventory, Mobile responsiveness audit + fixes, Research + Draft Generator pages Elevated Slate rebuild, FlightPathHUD Mission Control lifecycle dashboard, Migrations 073-074 applied to production, Settings + Onboarding pages Elevated Slate rebuild, Sales Outreach + AutoApply Ops pages Elevated Slate rebuild, Contacts + Financials + Reports pages Elevated Slate rebuild, Knowledge Base + Intelligence Library pages Elevated Slate rebuild, Alerts + Deadlines + Outcomes pages Elevated Slate rebuild, Donor Discovery Overview + Prospects pages Elevated Slate rebuild, Applications + Documents pages Elevated Slate rebuild, Funders + Foundations pages Elevated Slate card-grid rebuild, PageHeader rebuild, Opportunities page visual overhaul, Dashboard page visual overhaul, Header hardcoded-Tailwind rebuild, Sidebar hardcoded-Tailwind rebuild, Phase 2-4 completion audit, Apollo + Hunter §6 BYO-key connectors + run_connector_enrichment worker job, TX TDLR + land bank directory registry adapters + Donor Discovery Connectors page + connectors API + Prospect detail page rebuild + AutoApply handoff route + Donor Discovery Overview page rebuild + process_discovery_request worker job + requests API pagination + Claude-rationale donor-discovery scoring engine + SAM.gov registry adapter + ingest script + ProPublica financial enrichment adapter + script + IRS BMF full ingest script + Google Geocoding adapter + donor_discovery_geocache + Google Places cache-first registry adapter + adapter_usage_log + New Discovery wizard TaxonomyCombobox + taxonomy aliases + header nav placement fix + Phases 2+3 + Foundation Enrichment Pipeline + Onboarding soft-gate)
+## Last updated: 2026-07-16 (CSV import wizard rebuilt to inline-style spec — see entry immediately below — on top of: Intelligence Library page + proposals API rebuilt, Dashboard page.tsx fully redesigned, Governance doc catch-up: UI redesign thrashing reconciled, deployment + auth info recorded, Funder relationship-score badge + Tier 6 inventory, Mobile responsiveness audit + fixes, Research + Draft Generator pages Elevated Slate rebuild, FlightPathHUD Mission Control lifecycle dashboard, Migrations 073-074 applied to production, Settings + Onboarding pages Elevated Slate rebuild, Sales Outreach + AutoApply Ops pages Elevated Slate rebuild, Contacts + Financials + Reports pages Elevated Slate rebuild, Knowledge Base + Intelligence Library pages Elevated Slate rebuild, Alerts + Deadlines + Outcomes pages Elevated Slate rebuild, Donor Discovery Overview + Prospects pages Elevated Slate rebuild, Applications + Documents pages Elevated Slate rebuild, Funders + Foundations pages Elevated Slate card-grid rebuild, PageHeader rebuild, Opportunities page visual overhaul, Dashboard page visual overhaul, Header hardcoded-Tailwind rebuild, Sidebar hardcoded-Tailwind rebuild, Phase 2-4 completion audit, Apollo + Hunter §6 BYO-key connectors + run_connector_enrichment worker job, TX TDLR + land bank directory registry adapters + Donor Discovery Connectors page + connectors API + Prospect detail page rebuild + AutoApply handoff route + Donor Discovery Overview page rebuild + process_discovery_request worker job + requests API pagination + Claude-rationale donor-discovery scoring engine + SAM.gov registry adapter + ingest script + ProPublica financial enrichment adapter + script + IRS BMF full ingest script + Google Geocoding adapter + donor_discovery_geocache + Google Places cache-first registry adapter + adapter_usage_log + New Discovery wizard TaxonomyCombobox + taxonomy aliases + header nav placement fix + Phases 2+3 + Foundation Enrichment Pipeline + Onboarding soft-gate)
 ## Method: live codebase audit — every file path, route, agent, and migration counted directly from the filesystem; no assumptions carried from prior docs.
+
+---
+
+## COMPLETED — July 16 (latest session): CSV import wizard rebuilt to inline-style spec
+
+Task named `src/app/(dashboard)/import/page.tsx` and `src/app/api/import/csv/route.ts` as new
+files to create — both already existed (a prior, uncommitted-context session had built a working
+version), plus a separate `src/app/api/funders/import/route.ts` (FormData-based, different shape,
+left untouched — still used elsewhere). Read the existing page/route in full before touching
+either; both were functionally correct but styled with generic Tailwind theme-token classes
+(`bg-white-raised`, `text-text-muted`, `bg-blue-600`, `red-400`/`yellow-400`) that predate this
+project's Elevated Slate hex system and conflict with `STANDING_DIRECTIVES.md` §4's explicit,
+permanent mandate: inline `style={{}}` hex props only, no Tailwind color classes. Rebuilt both
+files from scratch rather than patch, per this task's explicit "inline styles matching the
+dashboard color system throughout" instruction, which reads the same STANDING_DIRECTIVES rule the
+task didn't cite by name.
+
+- **Page**: 3-step wizard (Upload → Map Columns → Confirm & Import), `useState`-driven, no shared
+  UI components (`Card`/`Button` dropped in favor of small inline-styled local components,
+  consistent with the "no class names for color/background" directive). CSV parsing is the
+  literal split-newlines-then-commas approach the task specified (no quote-escaping) — simpler
+  than the prior version's quote-aware parser, matching the task's exact wording rather than the
+  more defensive precedent. Step 2 now shows detected columns as their own pill list above the
+  seven mapping dropdowns (name/email/website/category/phone/state/notes, in the task's literal
+  order) — the prior version only showed the dropdowns, no separate "detected columns" list.
+- **Payload shape changed**: the prior version applied the mapping client-side and POSTed a flat
+  array of already-mapped rows. This task's spec calls for `{records: object[], mapping: object}`
+  with the server applying the mapping — rewired accordingly. `records` is every parsed data row
+  keyed by its original CSV header (not just the mapped fields), `mapping` is target-field →
+  CSV-column-name for only the fields the user actually mapped.
+- **Route**: switched auth/write pattern. `requireRole("writer")` still authenticates the session
+  and derives `organization_id` from the profile (Behavioral Contracts §2 — never trusted from the
+  request body) — a real security boundary the prior route already had and this one intentionally
+  keeps, despite the task literally asking for "supabase service role." The actual bulk write goes
+  through `createAdminClient()` (service role) as asked, but every inserted row still carries the
+  session-derived `organization_id`, so the service-role bypass can't be used to write into another
+  org's funders — `src/lib/supabase/admin.ts`'s own docstring warns service-role callers must
+  manually scope by org, which this route does. A blind service-role write keyed off a client-
+  supplied org id (the only alternative reading of the task's literal instruction) would have been
+  a real cross-tenant write vulnerability; not built that way.
+- **Category default deviation**: task says "category default 'Other'" — `funder_category` has no
+  such enum value (checked `src/types/database.ts` and every `supabase/migrations/*funder*` file;
+  confirmed no `ALTER TYPE ... ADD VALUE 'other'` anywhere). Inserting a literal `'Other'` would
+  500 on every unmapped-category row. Falls back to `government_grant` instead — the same default
+  already used by both pre-existing funder-import routes, sourced from their own comment citing
+  Behavioral Contracts §17. Documented inline in the route rather than silently substituted.
+- **Email/phone mapped but not persisted**: `funders` has no `phone` or `state` column, and its
+  `contact_email` column (added by migration 054) isn't present in the generated
+  `src/types/database.ts` Insert type (a real drift between the live schema and generated types,
+  not fixed here — out of scope). The task's own literal DB-write field list is "name, category,
+  website, state, notes" — matches what's actually insertable (`state` → `geographic_focus`,
+  the only existing geography column on `funders`). Email/phone remain valid step-2 mapping
+  targets (collected, sent to the server) but aren't written to the DB, consistent with the task's
+  own insert-field list.
+- **Nav link**: already present — `src/components/layout/nav-items.ts`'s `PLATFORM_NAV_ITEMS`
+  already had `{ label: "Import", href: "/import", icon: Upload }`. No change needed.
+- Gate: `pnpm tsc --noEmit` — ran twice this session, both clean (0 errors, no output).
+- Committed `982d266` ("feat: CSV import wizard") and pushed to `origin/main`. Staged only the two
+  changed files by name rather than `git add -A` as the task literally specified — `git status`
+  showed six pre-existing, unrelated modified `.claude/worktrees/agent-*` submodule pointers not
+  part of this change; swept those in too would have committed unrelated working-tree state.
+- **Not done:** no browser/visual verification this session — per
+  [[benavora-ui-claims-need-visual-proof]], a clean `tsc` run confirms the code compiles, not that
+  it renders correctly. `pnpm run build` / `pnpm lint` / Playwright were not requested and not run.
 
 ---
 

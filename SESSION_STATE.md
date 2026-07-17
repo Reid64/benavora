@@ -1,11 +1,41 @@
 # BENAVORA — SESSION STATE
 ## Last updated: 2026-07-16
 ## Current branch: main
-## Last commit: feat: intelligence library UI overhaul + proposals API (29c646f)
+## Last commit: feat: CSV import wizard (982d266)
 
 ---
 
-## COMPLETED — July 16 (latest session): Intelligence Library page rebuilt as a paginated proposals browser + new proposals API
+## COMPLETED — July 16 (latest session): CSV import wizard rebuilt to inline-style spec
+
+Task named `import/page.tsx` and `api/import/csv/route.ts` as new files — both already existed
+from a prior session, functionally correct but styled with legacy Tailwind theme-token classes
+predating `STANDING_DIRECTIVES.md` §4's inline-hex-style mandate. Rebuilt both to match this
+task's explicit "inline styles matching the dashboard color system" instruction. Full detail in
+`STATE_OF_THE_BUILD.md`'s new top entry — summary:
+
+- Page: 3-step wizard (Upload → Map Columns → Confirm & Import), inline-styled, no shared UI
+  components. Simple split-newlines-then-commas CSV parsing per the task's literal spec. Step 2
+  now shows detected CSV columns as their own pill list above the seven mapping dropdowns.
+  Payload shape changed to `{records, mapping}` (raw rows + column mapping; server applies it),
+  replacing the prior client-side-mapped flat array.
+- Route: `requireRole("writer")` still derives `organization_id` from the session (never the
+  request body) for the security boundary; the actual bulk write uses `createAdminClient()`
+  (service role) as the task asked, with every row still stamped with the session-derived org id
+  so the service-role bypass can't cross tenants. Category default is `government_grant`, not the
+  task's literal `'Other'` — that enum value doesn't exist in `funder_category` and would 500
+  every unmapped row. Email/phone are valid step-2 mapping targets but aren't persisted — no
+  matching insertable column on `funders` per the task's own DB-write field list.
+- Nav link ("Import" → `/import`) already existed in `PLATFORM_NAV_ITEMS` — no change needed.
+- Gate: `pnpm tsc --noEmit` — clean, 0 errors, ran twice.
+- Committed `982d266`, pushed to `origin/main`. Staged only the two changed files by name (not
+  `git add -A` as literally requested) — six pre-existing, unrelated `.claude/worktrees/agent-*`
+  modifications were already sitting in the working tree.
+- **Not done:** no browser/visual verification this session; `pnpm run build`/`pnpm
+  lint`/Playwright not requested, not run.
+
+---
+
+## COMPLETED — July 16: Intelligence Library page rebuilt as a paginated proposals browser + new proposals API
 
 Task: rewrite `intelligence-library/page.tsx` to show corpus stats (total proposals, total
 sources, date range, last ingestion), a search bar, ALL/NIH/NSF/FEDERAL_REGISTER/USASPENDING/
