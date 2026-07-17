@@ -169,20 +169,20 @@ export default async function DashboardPage() {
     outcomes.length === 0;
 
   const heroChips = [
-    { label: "Opportunities", value: metricCount(totalOpportunities) },
+    { label: "Active Apps", value: metricCount(applications.length) },
     { label: "Submitted", value: metricCount(submittedCount) },
     { label: "Drafts", value: metricCount(draftsGenerated) },
     { label: "Deadlines", value: metricCount(deadlinesThisWeek) },
   ];
 
   const actionItems = [
-    { dot: "#EF4444", text: "Parsed emails awaiting review", count: "-" },
-    { dot: "#F59E0B", text: "New opportunities discovered", count: metricCount(totalOpportunities) },
-    { dot: "#6B48CC", text: "Drafts needing attention", count: metricCount(draftsGenerated) },
-    { dot: "#0077B6", text: "Deadlines approaching", count: metricCount(deadlinesThisWeek) },
-    { dot: "#0096C7", text: "Applications missing documents", count: "-" },
-    { dot: "#10B981", text: "AutoApply gates awaiting approval", count: "-" },
-    { dot: "#1A2B3C", text: "Research runs completed", count: metricCount(submittedCount) },
+    { dot: "#EF4444", text: "Parsed emails awaiting review", count: "-", href: "/emails" },
+    { dot: "#F59E0B", text: "New opportunities discovered", count: metricCount(totalOpportunities), href: "/opportunities" },
+    { dot: "#6B48CC", text: "Drafts needing attention", count: metricCount(draftsGenerated), href: "/draft-generator" },
+    { dot: "#0077B6", text: "Deadlines approaching", count: metricCount(deadlinesThisWeek), href: "/deadlines" },
+    { dot: "#0096C7", text: "Applications missing documents", count: "-", href: "/applications" },
+    { dot: "#10B981", text: "AutoApply gates awaiting approval", count: "-", href: "/admin/autoapply-ops" },
+    { dot: "#1A2B3C", text: "Research runs completed", count: metricCount(submittedCount), href: "/research" },
   ];
 
   const fundingSummaryRows = [
@@ -224,12 +224,13 @@ export default async function DashboardPage() {
           position: "relative",
         }}
       >
-        <div style={{ width: "280px", flexShrink: 0, position: "relative", overflow: "hidden" }}>
+        <div style={{ width: "260px", flexShrink: 0, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "0 0 0 16px" }}>
           <Image
             src="/hero-illustration.png"
             alt="Funding manager"
-            fill
-            style={{ objectFit: "cover", objectPosition: "center bottom" }}
+            width={240}
+            height={190}
+            style={{ objectFit: "contain", objectPosition: "bottom center" }}
           />
         </div>
         <div style={{ flex: 1, padding: "32px 40px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
@@ -298,34 +299,49 @@ export default async function DashboardPage() {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "16px", marginBottom: "16px" }}>
         {/* Today's Action Items */}
         <div style={trayStyle}>
-          <div style={{ backgroundColor: "#FFFFFF", borderRadius: "12px", padding: "20px", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}>
-            <div style={sectionHeaderStyle}>Today&rsquo;s Action Items</div>
+          <div style={{ backgroundColor: "#FFFFFF", borderRadius: "12px", overflow: "hidden", padding: "20px", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}>
+            <div
+              style={{
+                fontSize: "13px",
+                fontWeight: 700,
+                color: "#FFFFFF",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                backgroundColor: "#6B48CC",
+                padding: "14px 20px",
+                margin: "0",
+              }}
+            >
+              Today&rsquo;s Action Items
+            </div>
             {actionItems.map((item) => (
-              <div
-                key={item.text}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "10px",
-                  padding: "10px 0",
-                  borderBottom: "1px solid #F1F5F9",
-                }}
-              >
-                <div style={{ width: "8px", height: "8px", borderRadius: "50%", flexShrink: 0, backgroundColor: item.dot }} />
-                <div style={{ flex: 1, fontSize: "13px", color: "#334155" }}>{item.text}</div>
+              <Link key={item.text} href={item.href} style={{ textDecoration: "none", display: "block" }}>
                 <div
                   style={{
-                    fontSize: "11px",
-                    fontWeight: 700,
-                    color: "#FFFFFF",
-                    backgroundColor: item.dot,
-                    borderRadius: "999px",
-                    padding: "2px 8px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "10px",
+                    padding: "10px 0",
+                    borderBottom: "1px solid #F1F5F9",
+                    cursor: "pointer",
                   }}
                 >
-                  {item.count}
+                  <div style={{ width: "8px", height: "8px", borderRadius: "50%", flexShrink: 0, backgroundColor: item.dot }} />
+                  <div style={{ flex: 1, fontSize: "13px", color: "#334155" }}>{item.text}</div>
+                  <div
+                    style={{
+                      fontSize: "11px",
+                      fontWeight: 700,
+                      color: "#FFFFFF",
+                      backgroundColor: item.dot,
+                      borderRadius: "999px",
+                      padding: "2px 8px",
+                    }}
+                  >
+                    {item.count}
+                  </div>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         </div>
