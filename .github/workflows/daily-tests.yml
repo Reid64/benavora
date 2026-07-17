@@ -3,8 +3,7 @@ name: Daily Test Suite
 on:
   schedule:
     - cron: '0 5 * * *'
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 jobs:
   test:
