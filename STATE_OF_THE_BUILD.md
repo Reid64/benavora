@@ -1,6 +1,75 @@
 # BENAVORA — STATE OF THE BUILD
-## Last updated: 2026-07-17 (API smoke tests + GitHub Actions CI workflows — see entry immediately below — on top of: Notification preferences event-type extension — see entry immediately below — on top of: Funder relationship scoring — migration 091 applied to production, event-sourced scorer verified — see entry immediately below — on top of: Compliance calendar — compliance_events table + events API + month-grouped page section — see entry immediately below — on top of: Grant financial reconciliation — per-application budget/expense/reconcile routes — see entry immediately below — on top of: Foundation profile builder — migrations 081+088 confirmed applied to production, CSV import wizard rebuilt to inline-style spec, Intelligence Library page + proposals API rebuilt, Dashboard page.tsx fully redesigned, Governance doc catch-up: UI redesign thrashing reconciled, deployment + auth info recorded, Funder relationship-score badge + Tier 6 inventory, Mobile responsiveness audit + fixes, Research + Draft Generator pages Elevated Slate rebuild, FlightPathHUD Mission Control lifecycle dashboard, Migrations 073-074 applied to production, Settings + Onboarding pages Elevated Slate rebuild, Sales Outreach + AutoApply Ops pages Elevated Slate rebuild, Contacts + Financials + Reports pages Elevated Slate rebuild, Knowledge Base + Intelligence Library pages Elevated Slate rebuild, Alerts + Deadlines + Outcomes pages Elevated Slate rebuild, Donor Discovery Overview + Prospects pages Elevated Slate rebuild, Applications + Documents pages Elevated Slate rebuild, Funders + Foundations pages Elevated Slate card-grid rebuild, PageHeader rebuild, Opportunities page visual overhaul, Dashboard page visual overhaul, Header hardcoded-Tailwind rebuild, Sidebar hardcoded-Tailwind rebuild, Phase 2-4 completion audit, Apollo + Hunter §6 BYO-key connectors + run_connector_enrichment worker job, TX TDLR + land bank directory registry adapters + Donor Discovery Connectors page + connectors API + Prospect detail page rebuild + AutoApply handoff route + Donor Discovery Overview page rebuild + process_discovery_request worker job + requests API pagination + Claude-rationale donor-discovery scoring engine + SAM.gov registry adapter + ingest script + ProPublica financial enrichment adapter + script + IRS BMF full ingest script + Google Geocoding adapter + donor_discovery_geocache + Google Places cache-first registry adapter + adapter_usage_log + New Discovery wizard TaxonomyCombobox + taxonomy aliases + header nav placement fix + Phases 2+3 + Foundation Enrichment Pipeline + Onboarding soft-gate)
+## Last updated: 2026-07-17 (Research page: Research Resources enterprise directory (Standing Directive 5) wired in, replacing the Control Panel agent-trigger cards — see entry immediately below — on top of: API smoke tests + GitHub Actions CI workflows — see entry immediately below — on top of: Notification preferences event-type extension — see entry immediately below — on top of: Funder relationship scoring — migration 091 applied to production, event-sourced scorer verified — see entry immediately below — on top of: Compliance calendar — compliance_events table + events API + month-grouped page section — see entry immediately below — on top of: Grant financial reconciliation — per-application budget/expense/reconcile routes — see entry immediately below — on top of: Foundation profile builder — migrations 081+088 confirmed applied to production, CSV import wizard rebuilt to inline-style spec, Intelligence Library page + proposals API rebuilt, Dashboard page.tsx fully redesigned, Governance doc catch-up: UI redesign thrashing reconciled, deployment + auth info recorded, Funder relationship-score badge + Tier 6 inventory, Mobile responsiveness audit + fixes, Research + Draft Generator pages Elevated Slate rebuild, FlightPathHUD Mission Control lifecycle dashboard, Migrations 073-074 applied to production, Settings + Onboarding pages Elevated Slate rebuild, Sales Outreach + AutoApply Ops pages Elevated Slate rebuild, Contacts + Financials + Reports pages Elevated Slate rebuild, Knowledge Base + Intelligence Library pages Elevated Slate rebuild, Alerts + Deadlines + Outcomes pages Elevated Slate rebuild, Donor Discovery Overview + Prospects pages Elevated Slate rebuild, Applications + Documents pages Elevated Slate rebuild, Funders + Foundations pages Elevated Slate card-grid rebuild, PageHeader rebuild, Opportunities page visual overhaul, Dashboard page visual overhaul, Header hardcoded-Tailwind rebuild, Sidebar hardcoded-Tailwind rebuild, Phase 2-4 completion audit, Apollo + Hunter §6 BYO-key connectors + run_connector_enrichment worker job, TX TDLR + land bank directory registry adapters + Donor Discovery Connectors page + connectors API + Prospect detail page rebuild + AutoApply handoff route + Donor Discovery Overview page rebuild + process_discovery_request worker job + requests API pagination + Claude-rationale donor-discovery scoring engine + SAM.gov registry adapter + ingest script + ProPublica financial enrichment adapter + script + IRS BMF full ingest script + Google Geocoding adapter + donor_discovery_geocache + Google Places cache-first registry adapter + adapter_usage_log + New Discovery wizard TaxonomyCombobox + taxonomy aliases + header nav placement fix + Phases 2+3 + Foundation Enrichment Pipeline + Onboarding soft-gate)
 ## Method: live codebase audit — every file path, route, agent, and migration counted directly from the filesystem; no assumptions carried from prior docs.
+
+---
+
+## COMPLETED — July 17: Research Resources enterprise directory (Standing Directive 5)
+
+Task: wire `src/lib/research/resource-registry.ts` (a fully-populated but previously **unused**
+21-pinned + ~30-additional external resource catalog, built in a prior session per Directive 5's
+spec) into `src/app/(dashboard)/research/page.tsx`. Read both files in full first, then located
+"where research source cards are currently rendered" and replaced that section with a new inline
+`ResourcesSection` component.
+
+- **Significant, deliberate scope decision — flagged rather than silently done:** the only
+  candidate for "research source cards currently rendered on the research page" was the
+  **Control Panel** section (`SOURCES` array — Grants.gov/SAM.gov/Simpler Grants/HUD/TDHCA/State
+  Scrapers/Corporate/Foundation Finder/Housing Funders, 9 cards) — real, functional agent-trigger
+  cards wired to `handleRunAll`/`handleRunSource` (`POST /api/agents/research` and friends),
+  showing live last-run/items-found stats from `agent_runs`, and driving the `activeSource` filter
+  on Discovered Opportunities below. This is **not** cosmetically the same thing as Directive 5's
+  "Research Resources" (a static directory of 21 external authoritative websites like
+  Grants.gov/NIH RePORTER/Census Bureau/ProPublica) — but Directive 5's own text says explicitly
+  *"Replace the current research resources list with a premium enterprise UI,"* and the Control
+  Panel grid was the only "resources list" on the page for that language to refer to (the real
+  resource-registry catalog was never rendered anywhere before this pass). Went with the literal,
+  explicit instruction: **the Control Panel section — heading, "Run All Research Agents" button,
+  the org-recommended-sources banner, and all 9 per-source Run cards — was removed entirely**, not
+  just restyled, and replaced with `ResourcesSection`. Manual per-source/run-all agent triggering
+  from this page is gone; the underlying research agents themselves are untouched and still run on
+  schedule via `/api/cron/research` (daily 6am) — this only removes the *manual* UI trigger,
+  not the agents.
+- **Cascading cleanup**, since the removed Control Panel was the sole consumer: deleted
+  `SourceConfig`/`SourceStats` interfaces, `SOURCES`/`CONFIG_MANAGED_SOURCES`/`SOURCE_ROUTE_MAP`
+  consts, `opportunityMatchesSource()`, the `sourceStats`/`runningAll`/`runningSources`/
+  `activeSource`/`researchConfig`/`configFetched`/`configuringResearch`/`configureError` state,
+  `displayedSources`/`visibleOpportunities`/`activeSourceLabel` memos, `loadConfig()`,
+  `handleRunAll()`, `handleRunSource()`, `handleConfigureResearch()`, and the now-orphaned
+  "Filtered by X / Show All" badge and "no opportunities from X" empty-state branch on Discovered
+  Opportunities (which can no longer be triggered with no way left to set `activeSource`).
+  Discovered Opportunities' search/list rendering itself is unchanged, just now filters
+  `opportunities` directly instead of a `visibleOpportunities` intermediate. The `ColorIcon`/
+  `Search` (lucide) imports were dropped as newly-unused. `RESEARCH_AGENT_TYPES` and `agentRuns`/
+  `hasLiveRun` (still driving the page's 30s auto-refresh + "Auto-refreshing" indicator) were kept.
+- **New `ResourcesSection`** (defined inline in `page.tsx`, matching the task's literal request):
+  `useState` for `searchQuery`/`selectedCategory`/`showAll`. Header ("Research Resources" /
+  "Authoritative data sources powering your grant research"), one search input (filters by name or
+  category across all 51 resources). When `searchQuery` is empty: renders the 21 pinned resources
+  as a `repeat(7, 1fr)` grid (3×7 per the directive's exact table) of `ResourceCard`s, plus a
+  collapsed-by-default "All Resources" section (`showAll` toggle) listing the ~30 non-pinned
+  resources alphabetically grouped by category, with a `selectedCategory` dropdown filter. When
+  `searchQuery` is non-empty: the pinned grid hides and a unified search-results grid (pinned +
+  additional together) renders instead, so typing a query doesn't just hide the catalog.
+  `resourceAccentColor()` buckets each of the registry's 25 categories onto the directive's 4 named
+  hues by keyword match (foundation/funder → purple `#6B48CC`, health → teal `#00B4D8`,
+  federal/registry → blue `#0077B6`, everything else — 990/statistical/registry/state/
+  international/etc. — → navy `#1A2B3C` as the catch-all "financial" bucket). Every element is an
+  inline `style` object per the task's explicit "All inline styles. No Tailwind color classes"
+  instruction — no CSS-variable or Tailwind hue class anywhere in the new component.
+- Gate: `pnpm tsc --noEmit` — 0 errors, ran clean directly (no interactive-approval block this
+  pass). `pnpm run build` / `pnpm lint` / Playwright not requested by this task (which named only
+  the tsc gate), not run.
+- **Not done:** no browser verification this pass — the search/category-filter/showAll toggle
+  interactions and the 7-column grid's real rendered layout (21 cards at `repeat(7, 1fr)` on a
+  typical viewport may be visually cramped — no responsive breakpoint was added, since inline
+  styles can't express a `@media` rule without extra machinery and none was requested) are
+  unverified in a live browser. Per [[benavora-ui-claims-need-visual-proof]], tsc passing confirms
+  compilation, not that it renders as intended.
+- Governance docs updated: this file, `SESSION_STATE.md`. `BLUEPRINT.md`, `SCHEMA_REGISTRY.md`,
+  `BEHAVIORAL_CONTRACTS.md`, `AGENTS.md`, `CLAUDE.md`, `DONOR_DISCOVERY_ARCHITECTURE.md` untouched
+  — no schema, contract, or agent-type change; `resource-registry.ts` itself (pure static data) was
+  not modified, only newly wired into the page that renders it.
 
 ---
 

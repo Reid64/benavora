@@ -1,11 +1,46 @@
 # BENAVORA — SESSION STATE
 ## Last updated: 2026-07-17
 ## Current branch: main
-## Last commit: feat: smoke tests and GitHub Actions daily workflow (fb02912)
+## Last commit: feat: research resources enterprise UI 3x7 grid (02469c6)
 
 ---
 
-## COMPLETED — July 17 (latest session): API smoke tests + GitHub Actions daily/deploy workflows
+## COMPLETED — July 17 (latest session): Research Resources enterprise directory (Standing Directive 5)
+
+Wired the previously-unused `src/lib/research/resource-registry.ts` (21 pinned + ~30 additional
+external resources) into `src/app/(dashboard)/research/page.tsx` via a new inline `ResourcesSection`
+component (`useState` for `searchQuery`/`selectedCategory`/`showAll`). Full detail in
+`STATE_OF_THE_BUILD.md`'s new top entry — key points:
+
+- **Replaced the Control Panel section wholesale** (the 9 real agent-trigger cards —
+  Grants.gov/SAM.gov/etc. — plus "Run All Research Agents", the reconfigure-sources banner, and
+  all related state/handlers), not just restyled it. This was the only candidate for "research
+  source cards currently rendered" per the task, and Directive 5 itself says "Replace the current
+  research resources list" — read as referring to this section since the real resource-registry
+  catalog was never rendered anywhere. **Manual per-source/run-all agent triggering from this page
+  is now gone** — the underlying research agents are unaffected and still run via the daily
+  `/api/cron/research` cron, only the manual UI trigger was removed.
+- Cascading cleanup of now-dead code: `SOURCES`/`SourceConfig`/`SourceStats`/
+  `CONFIG_MANAGED_SOURCES`/`SOURCE_ROUTE_MAP`, `opportunityMatchesSource()`,
+  `handleRunAll`/`handleRunSource`/`handleConfigureResearch`/`loadConfig`, and the
+  `activeSource`-driven "Filtered by X" badge on Discovered Opportunities (nothing can set it
+  anymore). Discovered Opportunities' own search/list rendering is otherwise unchanged.
+- `ResourcesSection`: 3×7 pinned grid (21 cards, `ResourceCard` — colored 6px top band per category
+  bucket: purple=foundation, teal=health, blue=federal, navy=everything else, per the task's exact
+  4-color spec) shown when the search box is empty; a collapsible alphabetical "All Resources" list
+  (category dropdown filter) below it; typing in the search box replaces the grid with a unified
+  pinned+additional results list instead of just hiding results. All inline `style` objects, no
+  Tailwind color classes, per the task's explicit instruction.
+- Gate: `pnpm tsc --noEmit` — 0 errors, ran clean. `pnpm run build`/`pnpm lint`/Playwright not
+  requested, not run — no browser verification this pass.
+- Committed `02469c6` and pushed to `origin/main`. Only the one changed file was staged
+  (`git add` by path, not `-A`) — six `.claude/worktrees/*` gitlink entries were already modified
+  in the working tree at session start (unrelated to this task) and were deliberately left
+  unstaged.
+
+---
+
+## COMPLETED — July 17: API smoke tests + GitHub Actions daily/deploy workflows
 
 First step toward Standing Directive 6 (comprehensive daily test suite) — only the smoke-test file
 and two CI workflows, not the full multi-type suite/`test_runs` table/dashboard that directive
