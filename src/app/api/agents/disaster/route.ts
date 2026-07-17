@@ -2,13 +2,15 @@
 // AGENTS_v2.md AG-25).
 //
 // GET  — polls FEMA for recent declarations, inserts any not yet seen into
-//        disaster_declarations, and returns how many were new.
+//        disaster_declarations, then returns the most recent declarations on
+//        record (shared, non-org-scoped table) for the Disaster Response
+//        dashboard feed.
 // POST — deploys a disaster response for the caller's org against one
 //        declaration. organization_id is always derived server-side from the
 //        caller's profile (Behavioral Contracts §2), never from the body.
 //
 // Body (POST): { declarationId: string }
-// Response (GET):  { newDeclarations: number }
+// Response (GET):  { newDeclarations: number, declarations: DisasterDeclaration[] }
 // Response (POST): { declarationId, orgId, matchedFunds, alertCreated }
 
 import { NextRequest, NextResponse } from "next/server";
@@ -33,7 +35,17 @@ export async function GET() {
 
   try {
     const newDeclarations = await pollFEMADeclarations(supabase);
-    return NextResponse.json({ newDeclarations });
+    const { data: declarations, error } = await supabase
+      .from("disaster_declarations")
+      .select(
+        "id, fema_disaster_number, disaster_type, incident_type, affected_states, declaration_date, incident_begin_date, response_deployed, response_deployed_at",
+      )
+      .order("declaration_date", { ascending: false })
+      .limit(20);
+    if (error) {
+      return jsonError(error.message, "fetch_failed", 500);
+    }
+    return NextResponse.json({ newDeclarations, declarations: declarations ?? [] });
   } catch (err) {
     const message =
       err instanceof Error ? err.message : "FEMA poll failed.";

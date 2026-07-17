@@ -78,6 +78,7 @@ export const NAV_ITEMS: NavItem[] = [
       { label: "Competitors", href: "/intelligence/competitors" },
       { label: "Semantic Matches", href: "/intelligence/matches" },
       { label: "Reputation", href: "/intelligence/reputation" },
+      { label: "Disaster Response", href: "/intelligence/disaster" },
     ],
   },
   { label: "Email", href: "/email", icon: Mail },
