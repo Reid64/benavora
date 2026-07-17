@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import type { CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { LayoutGrid, List } from "lucide-react";
 
@@ -43,7 +44,30 @@ export type OpportunityRow = Tables<"opportunities"> & {
   funderName: string | null;
   /** Stage of the most recent application for this opportunity, if any. */
   applicationStage?: string | null;
+  /** Grant Probability Engine score (opportunity_probability_scores.overall_score), 0-100. */
+  probabilityScore?: number | null;
 };
+
+const PROBABILITY_BADGE_STYLE: Record<"green" | "amber" | "red" | "gray", CSSProperties> = {
+  green: { backgroundColor: "#10B981", color: "#FFFFFF" },
+  amber: { backgroundColor: "#F59E0B", color: "#FFFFFF" },
+  red: { backgroundColor: "#EF4444", color: "#FFFFFF" },
+  gray: { backgroundColor: "#9CA3AF", color: "#FFFFFF" },
+};
+
+/** Colored badge for a Grant Probability Engine score (green 70+, amber 40-69, red <40, gray unscored). */
+export function ProbabilityBadge({ score }: { score: number | null | undefined }) {
+  const tone: "green" | "amber" | "red" | "gray" =
+    score == null ? "gray" : score >= 70 ? "green" : score >= 40 ? "amber" : "red";
+  return (
+    <span
+      className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold"
+      style={PROBABILITY_BADGE_STYLE[tone]}
+    >
+      {score == null ? "Not scored" : `${Math.round(score)}%`}
+    </span>
+  );
+}
 
 /** Map an application stage to a coarse application-status label + variant. */
 function applicationStatusLabel(stage: string | null | undefined): {
@@ -60,6 +84,8 @@ function applicationStatusLabel(stage: string | null | undefined): {
 export type OpportunityTableProps = {
   opportunities: OpportunityRow[];
   isLoading?: boolean;
+  /** Initial/forced sort column and direction. Defaults to Probability, High to Low. */
+  defaultSort?: { key: string; direction: "asc" | "desc" };
 };
 
 type ViewMode = "table" | "cards";
@@ -76,9 +102,12 @@ function deadlineDay(deadline: string | null): string {
  * sorting run client-side over the provided rows; selecting a row/card opens
  * detail. All filter + view state lives in the URL so it survives navigation.
  */
+const DEFAULT_SORT = { key: "probability", direction: "desc" as const };
+
 export function OpportunityTable({
   opportunities,
   isLoading = false,
+  defaultSort = DEFAULT_SORT,
 }: OpportunityTableProps) {
   const router = useRouter();
   const { searchParams, setParams } = useUrlState();
@@ -184,17 +213,15 @@ export function OpportunityTable({
     });
   }, [opportunities, filters]);
 
-  // The card grid has no per-column sort, so sort by match percentage descending
-  // (unscored last) to match the table's default order.
-  const sortedForCards = useMemo(
-    () =>
-      [...filtered].sort(
-        (a, b) => (b.match_percentage ?? -1) - (a.match_percentage ?? -1),
-      ),
-    [filtered],
-  );
-
   const columns: TableColumn<OpportunityRow>[] = [
+    {
+      key: "probability",
+      header: "Probability",
+      sortable: true,
+      // Unscored rows sort below scored ones.
+      sortValue: (row) => row.probabilityScore ?? -1,
+      render: (row) => <ProbabilityBadge score={row.probabilityScore} />,
+    },
     {
       key: "name",
       header: "Name",
@@ -338,6 +365,23 @@ export function OpportunityTable({
     },
   ];
 
+  // The card grid has no per-column sort, so it mirrors the table's current
+  // default sort column (Probability, High to Low unless overridden).
+  const sortedForCards = useMemo(() => {
+    const column = columns.find((c) => c.key === defaultSort.key);
+    if (!column?.sortValue) return filtered;
+    const accessor = column.sortValue;
+    const factor = defaultSort.direction === "asc" ? 1 : -1;
+    return [...filtered].sort((a, b) => {
+      const av = accessor(a);
+      const bv = accessor(b);
+      if (av < bv) return -1 * factor;
+      if (av > bv) return 1 * factor;
+      return 0;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtered, defaultSort.key, defaultSort.direction]);
+
   return (
     <div className="space-y-4">
       <SourceTypeTabs
@@ -369,7 +413,7 @@ export function OpportunityTable({
           rowKey={(row) => row.id}
           isLoading={isLoading}
           onRowClick={(row) => router.push(`/opportunities/${row.id}`)}
-          initialSort={{ key: "match", direction: "desc" }}
+          initialSort={defaultSort}
           emptyMessage="No opportunities match your filters."
           tableClassName="min-w-[700px] divide-y divide-slate-200"
           theadClassName="bg-sidebar table-header-dark"

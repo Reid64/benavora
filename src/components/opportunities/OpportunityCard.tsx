@@ -12,7 +12,7 @@ import {
   RecommendationBadge,
 } from "@/components/opportunities/eligibility";
 import { SourceTypeBadge } from "@/components/opportunities/SourceTypeBadge";
-import type { OpportunityRow } from "@/components/opportunities/OpportunityTable";
+import { ProbabilityBadge, type OpportunityRow } from "@/components/opportunities/OpportunityTable";
 import { decodeHtmlEntities, formatCurrency, formatDate, humanizeEnum } from "@/lib/utils/formatters";
 
 export type OpportunityCardProps = {
@@ -34,6 +34,7 @@ export function OpportunityCard({ opportunity }: OpportunityCardProps) {
       className="group flex h-full flex-col gap-3 rounded-xl border border-border bg-white p-4 shadow-sm transition hover:border-teal-300 hover:shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
     >
       <div className="flex flex-wrap items-center gap-2">
+        <ProbabilityBadge score={opportunity.probabilityScore} />
         <MatchBadge percentage={opportunity.match_percentage} />
         {opportunity.is_high_priority && <HighPriorityBadge />}
         <SourceTypeBadge sourceType={opportunity.source_type} />
