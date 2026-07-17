@@ -1,6 +1,41 @@
 # BENAVORA — STATE OF THE BUILD
-## Last updated: 2026-07-17 (Compliance calendar — compliance_events table + events API + month-grouped page section — see entry immediately below — on top of: Grant financial reconciliation — per-application budget/expense/reconcile routes — see entry immediately below — on top of: Foundation profile builder — migrations 081+088 confirmed applied to production, CSV import wizard rebuilt to inline-style spec, Intelligence Library page + proposals API rebuilt, Dashboard page.tsx fully redesigned, Governance doc catch-up: UI redesign thrashing reconciled, deployment + auth info recorded, Funder relationship-score badge + Tier 6 inventory, Mobile responsiveness audit + fixes, Research + Draft Generator pages Elevated Slate rebuild, FlightPathHUD Mission Control lifecycle dashboard, Migrations 073-074 applied to production, Settings + Onboarding pages Elevated Slate rebuild, Sales Outreach + AutoApply Ops pages Elevated Slate rebuild, Contacts + Financials + Reports pages Elevated Slate rebuild, Knowledge Base + Intelligence Library pages Elevated Slate rebuild, Alerts + Deadlines + Outcomes pages Elevated Slate rebuild, Donor Discovery Overview + Prospects pages Elevated Slate rebuild, Applications + Documents pages Elevated Slate rebuild, Funders + Foundations pages Elevated Slate card-grid rebuild, PageHeader rebuild, Opportunities page visual overhaul, Dashboard page visual overhaul, Header hardcoded-Tailwind rebuild, Sidebar hardcoded-Tailwind rebuild, Phase 2-4 completion audit, Apollo + Hunter §6 BYO-key connectors + run_connector_enrichment worker job, TX TDLR + land bank directory registry adapters + Donor Discovery Connectors page + connectors API + Prospect detail page rebuild + AutoApply handoff route + Donor Discovery Overview page rebuild + process_discovery_request worker job + requests API pagination + Claude-rationale donor-discovery scoring engine + SAM.gov registry adapter + ingest script + ProPublica financial enrichment adapter + script + IRS BMF full ingest script + Google Geocoding adapter + donor_discovery_geocache + Google Places cache-first registry adapter + adapter_usage_log + New Discovery wizard TaxonomyCombobox + taxonomy aliases + header nav placement fix + Phases 2+3 + Foundation Enrichment Pipeline + Onboarding soft-gate)
+## Last updated: 2026-07-17 (Funder relationship scoring — migration 091 applied to production, event-sourced scorer verified — see entry immediately below — on top of: Compliance calendar — compliance_events table + events API + month-grouped page section — see entry immediately below — on top of: Grant financial reconciliation — per-application budget/expense/reconcile routes — see entry immediately below — on top of: Foundation profile builder — migrations 081+088 confirmed applied to production, CSV import wizard rebuilt to inline-style spec, Intelligence Library page + proposals API rebuilt, Dashboard page.tsx fully redesigned, Governance doc catch-up: UI redesign thrashing reconciled, deployment + auth info recorded, Funder relationship-score badge + Tier 6 inventory, Mobile responsiveness audit + fixes, Research + Draft Generator pages Elevated Slate rebuild, FlightPathHUD Mission Control lifecycle dashboard, Migrations 073-074 applied to production, Settings + Onboarding pages Elevated Slate rebuild, Sales Outreach + AutoApply Ops pages Elevated Slate rebuild, Contacts + Financials + Reports pages Elevated Slate rebuild, Knowledge Base + Intelligence Library pages Elevated Slate rebuild, Alerts + Deadlines + Outcomes pages Elevated Slate rebuild, Donor Discovery Overview + Prospects pages Elevated Slate rebuild, Applications + Documents pages Elevated Slate rebuild, Funders + Foundations pages Elevated Slate card-grid rebuild, PageHeader rebuild, Opportunities page visual overhaul, Dashboard page visual overhaul, Header hardcoded-Tailwind rebuild, Sidebar hardcoded-Tailwind rebuild, Phase 2-4 completion audit, Apollo + Hunter §6 BYO-key connectors + run_connector_enrichment worker job, TX TDLR + land bank directory registry adapters + Donor Discovery Connectors page + connectors API + Prospect detail page rebuild + AutoApply handoff route + Donor Discovery Overview page rebuild + process_discovery_request worker job + requests API pagination + Claude-rationale donor-discovery scoring engine + SAM.gov registry adapter + ingest script + ProPublica financial enrichment adapter + script + IRS BMF full ingest script + Google Geocoding adapter + donor_discovery_geocache + Google Places cache-first registry adapter + adapter_usage_log + New Discovery wizard TaxonomyCombobox + taxonomy aliases + header nav placement fix + Phases 2+3 + Foundation Enrichment Pipeline + Onboarding soft-gate)
 ## Method: live codebase audit — every file path, route, agent, and migration counted directly from the filesystem; no assumptions carried from prior docs.
+
+---
+
+## COMPLETED — July 17: Funder relationship scoring — migration 091 applied to production
+
+Code (`funder_relationship_events` migration file, `src/lib/intelligence/relationship-scorer.ts`,
+`api/funders/[id]/relationship`, `api/funders/relationship-scores`) was already written and
+committed/pushed in a prior session (`656b96f`) — this session verified it against the live repo
+rather than rewriting it, then completed the one step that hadn't been done: applying the
+migration to production.
+
+- **Task-given spec deviations, already handled correctly by the prior session** (documented
+  in the migration file's own header comment): path corrected from the task's
+  `src/supabase/migrations/088_relationship_scores.sql` (a known stray, unread directory) to the
+  real `supabase/migrations/091_funder_relationship_events.sql` (088-090 already taken);
+  `org_id` → `organization_id` (this schema's universal convention); and — the important one —
+  the task's literal `CREATE TABLE IF NOT EXISTS funder_relationship_scores (...)` was **not**
+  issued, because that table already exists (migration 038/039, a different shape, actively
+  maintained by the decay-based Funder Relationship Agent and read by `FunderCard.tsx`'s score
+  badge) — re-running it verbatim would have silently no-op'd (`IF NOT EXISTS`) while the task's
+  new columns never got created. Only the new `funder_relationship_events` log table was created;
+  the new scorer computes on read from that log rather than writing into the existing scores
+  table, so it doesn't fight Agent 23's model for the same row. Two scoring systems now coexist
+  by design: the old decay-based one (`funder_relationship_scores`) and this new event-sourced one
+  (`funder_relationship_events` + `relationship-scorer.ts`, exposed via the two new routes).
+- **This session's contribution**: verified via PostgREST that `funder_relationship_events` did
+  **not** exist in production (`PGRST205`) despite the migration file being committed — confirming
+  it really was file-only, consistent with this project's established pattern of migrations
+  landing in git before being applied. Applied it via the Management API (`sbp_` PAT, ASCII-only
+  SQL, same path used since migration 011) and re-verified with a PostgREST read afterward
+  (empty result, no error — table is live and RLS-gated).
+- Gate: `pnpm tsc --noEmit` — 0 errors, ran clean.
+- Governance docs updated: this file, `SESSION_STATE.md`. No schema/contract/agent-type change
+  beyond the one additive table — `BLUEPRINT.md`, `SCHEMA_REGISTRY.md`, `BEHAVIORAL_CONTRACTS.md`,
+  `AGENTS.md`, `CLAUDE.md` untouched.
 
 ---
 

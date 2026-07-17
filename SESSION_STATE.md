@@ -1,7 +1,24 @@
 # BENAVORA — SESSION STATE
 ## Last updated: 2026-07-17
 ## Current branch: main
-## Last commit: feat: compliance calendar (ee24c74)
+## Last commit: feat: funder relationship scoring (656b96f, already pushed)
+
+---
+
+## COMPLETED — July 17 (latest session): Funder relationship scoring — migration 091 applied to production
+
+Code was already written, committed, and pushed in a prior session (`656b96f`) — `migrations/
+091_funder_relationship_events.sql`, `src/lib/intelligence/relationship-scorer.ts`,
+`api/funders/[id]/relationship`, `api/funders/relationship-scores`, all correctly adapted to
+real schema conventions (see the migration file's own header for the org_id/path/table-collision
+deviations from the task-given spec). This session verified the code against the live repo, found
+the migration was file-only in production (confirmed via a PostgREST 404 on the table), and
+applied it via the Management API (`sbp_` PAT). Re-verified with a PostgREST read afterward —
+table now live, RLS-gated, empty as expected. `pnpm tsc --noEmit` — 0 errors. No new commit was
+needed (no code changed this session, only a production DDL apply); `git status` confirmed nothing
+outstanding beyond pre-existing worktree submodule diffs unrelated to this task.
+
+Full detail in `STATE_OF_THE_BUILD.md`'s new top entry.
 
 ---
 
