@@ -1,87 +1,110 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
+// Keyword-overlap foundation matcher — scores foundation_directory records
+// against an org's mission statement via Jaccard similarity of tokenized
+// text (mission vs. foundation name + enrichment.funding_categories), not a
+// real embeddings/semantic search. foundation_directory (migration 046) is
+// shared public reference data with no organization_id column, so this
+// function is intentionally org-unscoped; the API route still derives and
+// logs organization_id from the session per Contracts §2, it's just not
+// used to filter this particular query.
 
-export interface FoundationMatch {
+export interface MatchFundersFilters {
+  minGrant?: number
+  maxGrant?: number
+  state?: string
+}
+
+export interface FoundationMatchResult {
   id: string
   name: string
   ein: string
-  asset_amount: number | null
-  state: string | null
+  asset_amount: number
+  state: string
   score: number
+  matchReasons: string[]
 }
 
-export interface MatchFundersFilters {
-  minGrant?: number | null
-  maxGrant?: number | null
-  state?: string | null
-}
+const STOPWORDS = new Set(['the', 'a', 'an', 'of', 'for', 'to', 'in', 'and', 'or'])
 
-const STOPWORDS = new Set([
-  'the', 'a', 'an', 'and', 'or', 'of', 'to', 'for', 'in', 'on', 'at', 'with',
-  'by', 'is', 'are', 'we', 'our', 'that', 'this', 'inc', 'foundation', 'fund',
-])
+const STATE_MATCH_BONUS = 0.15
 
 function tokenize(text: string): Set<string> {
-  const words = text
-    .toLowerCase()
-    .split(/[^a-z0-9]+/)
-    .filter((w) => w.length > 1 && !STOPWORDS.has(w))
-  return new Set(words)
+  return new Set(
+    text
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter((word) => word.length > 0 && !STOPWORDS.has(word)),
+  )
 }
 
-function jaccardScore(a: Set<string>, b: Set<string>): number {
-  if (a.size === 0 || b.size === 0) return 0
-  let intersection = 0
-  for (const word of a) {
-    if (b.has(word)) intersection++
+function toStringArray(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return []
+  return raw.filter((v): v is string => typeof v === 'string')
+}
+
+function jaccardSimilarity(a: Set<string>, b: Set<string>): { score: number; shared: string[] } {
+  const shared = [...a].filter((word) => b.has(word))
+  const unionSize = a.size + b.size - shared.length
+  return { score: unionSize === 0 ? 0 : shared.length / unionSize, shared }
+}
+
+function buildMatchReasons(sharedWords: string[], stateMatched: boolean, state: string | null): string[] {
+  const reasons: string[] = []
+  const keywordSlots = stateMatched ? 2 : 3
+
+  for (const word of sharedWords.slice(0, keywordSlots)) {
+    reasons.push(`Shares keyword "${word}" with your mission`)
   }
-  const union = a.size + b.size - intersection
-  return union === 0 ? 0 : intersection / union
+  if (stateMatched && state) {
+    reasons.push(`Located in your target state (${state})`)
+  }
+  if (reasons.length === 0) {
+    reasons.push('Limited keyword overlap with your mission statement')
+  }
+
+  return reasons.slice(0, 3)
 }
 
-/**
- * Scores foundation_directory records against an org's mission statement by
- * keyword overlap (Jaccard similarity of the tokenized mission vs. each
- * foundation's name) — a keyword-overlap approximation, not an embeddings
- * search, per the build task's explicit scoring spec. `orgId` is accepted
- * for parity with the caller's session context but unused here:
- * foundation_directory (migration 046) is a shared, unscoped reference
- * table with no organization_id column.
- */
 export async function matchFunders(
   orgMission: string,
-  orgId: string,
-  supabase: SupabaseClient,
-  filters?: MatchFundersFilters,
-): Promise<FoundationMatch[]> {
-  void orgId
-
+  filters: MatchFundersFilters,
+  supabase: any,
+): Promise<FoundationMatchResult[]> {
   let query = supabase
     .from('foundation_directory')
-    .select('id, name, ein, asset_amount, state, giving_total')
-    .limit(500)
+    .select('id, name, ein, asset_amount, state, enrichment')
+    .not('asset_amount', 'is', null)
+    .limit(1000)
 
-  if (filters?.state) {
-    query = query.eq('state', filters.state)
+  if (typeof filters.minGrant === 'number') {
+    query = query.gte('asset_amount', filters.minGrant)
   }
-  if (filters?.minGrant !== undefined && filters.minGrant !== null) {
-    query = query.gte('giving_total', filters.minGrant)
-  }
-  if (filters?.maxGrant !== undefined && filters.maxGrant !== null) {
-    query = query.lte('giving_total', filters.maxGrant)
+  if (typeof filters.maxGrant === 'number') {
+    query = query.lte('asset_amount', filters.maxGrant)
   }
 
   const { data } = await query
 
-  const missionWords = tokenize(orgMission)
+  const missionTokens = tokenize(orgMission)
+  const targetState = filters.state ? filters.state.trim().toUpperCase() : null
 
-  const scored: FoundationMatch[] = (data ?? []).map((f) => ({
-    id: f.id,
-    name: f.name,
-    ein: f.ein,
-    asset_amount: f.asset_amount,
-    state: f.state,
-    score: jaccardScore(missionWords, tokenize(f.name)),
-  }))
+  const scored: FoundationMatchResult[] = (data ?? []).map((f: Record<string, unknown>) => {
+    const fundingCategories = toStringArray((f.enrichment as Record<string, unknown> | null)?.['funding_categories'])
+    const foundationTokens = tokenize([f.name as string, ...fundingCategories].join(' '))
+    const { score: keywordScore, shared } = jaccardSimilarity(missionTokens, foundationTokens)
+
+    const stateMatched = targetState !== null && (f.state as string | null)?.toUpperCase() === targetState
+    const score = Math.min(1, keywordScore + (stateMatched ? STATE_MATCH_BONUS : 0))
+
+    return {
+      id: f.id as string,
+      name: f.name as string,
+      ein: f.ein as string,
+      asset_amount: f.asset_amount as number,
+      state: f.state as string,
+      score,
+      matchReasons: buildMatchReasons(shared, stateMatched, targetState),
+    }
+  })
 
   return scored.sort((a, b) => b.score - a.score).slice(0, 50)
 }

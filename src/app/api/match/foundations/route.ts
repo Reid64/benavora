@@ -4,10 +4,11 @@ import { requireRole } from '@/lib/auth/role-gate'
 import { matchFunders } from '@/lib/intelligence/semantic-matcher'
 
 // POST /api/match/foundations
-// Body: { orgId, mission, minGrant, maxGrant, state }
-// `orgId` is accepted for compatibility with the request shape but ignored -
-// organization_id is always derived from the session (Contracts §2), never
-// trusted from the body.
+// Body: { mission, minGrant, maxGrant, state }
+// organization_id is derived from the session (Contracts §2), never trusted
+// from the body — foundation_directory itself is shared, unscoped reference
+// data (migration 046), so organizationId isn't passed into matchFunders,
+// but requireRole() still authenticates the caller before anything runs.
 
 function jsonError(message: string, code: string, status: number) {
   return NextResponse.json({ error: message, code }, { status })
@@ -16,7 +17,7 @@ function jsonError(message: string, code: string, status: number) {
 export async function POST(request: Request) {
   const gate = await requireRole('viewer')
   if ('error' in gate) return gate.error
-  const { supabase, organizationId } = gate
+  const { supabase } = gate
 
   let body: unknown
   try {
@@ -35,15 +36,11 @@ export async function POST(request: Request) {
     return jsonError('mission is required.', 'missing_mission', 400)
   }
 
-  const minGrant = typeof record['minGrant'] === 'number' ? record['minGrant'] : null
-  const maxGrant = typeof record['maxGrant'] === 'number' ? record['maxGrant'] : null
-  const state = typeof record['state'] === 'string' && record['state'].trim() ? record['state'].trim() : null
+  const minGrant = typeof record['minGrant'] === 'number' ? record['minGrant'] : undefined
+  const maxGrant = typeof record['maxGrant'] === 'number' ? record['maxGrant'] : undefined
+  const state = typeof record['state'] === 'string' && record['state'].trim() ? record['state'].trim() : undefined
 
-  const results = await matchFunders(mission, organizationId, supabase, {
-    minGrant,
-    maxGrant,
-    state,
-  })
+  const results = await matchFunders(mission, { minGrant, maxGrant, state }, supabase)
 
   return NextResponse.json({ results })
 }
