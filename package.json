@@ -24,6 +24,7 @@
         "enrich:propublica": "tsx scripts/enrich-nonprofits-propublica.ts",
         "ingest:bmf": "tsx scripts/ingest-irs-bmf-full.ts",
         "ingest:samgov": "tsx scripts/ingest-samgov.ts",
+        "ingest:nih-reporter": "tsx scripts/ingest-nih-reporter.ts",
         "poll:grantsgov": "tsx scripts/poll-grantsgov.ts",
         "enrich:propublica-batch": "tsx scripts/enrich-propublica-batch.ts",
         "ingest:tdlr": "tsx scripts/ingest-tx-tdlr.ts",
