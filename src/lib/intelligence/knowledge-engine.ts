@@ -12,6 +12,7 @@ export interface KnowledgePattern {
 export interface KnowledgeProposal {
   id: string
   source: string
+  source_url: string | null
   funder_name: string | null
   grant_program: string | null
   award_amount: number | null
@@ -67,7 +68,7 @@ export async function queryKnowledgeEngine(
 
   let proposalsQuery = supabase
     .from('intelligence_funded_proposals')
-    .select('id, source, funder_name, grant_program, award_amount, award_year')
+    .select('id, source, source_url, funder_name, grant_program, award_amount, award_year')
     .order('created_at', { ascending: false })
     .limit(10)
 

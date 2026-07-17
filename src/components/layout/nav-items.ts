@@ -74,6 +74,7 @@ export const NAV_ITEMS: NavItem[] = [
     icon: Target,
     children: [
       { label: "Digital Twin", href: "/intelligence/twin" },
+      { label: "Knowledge Engine", href: "/intelligence/knowledge" },
       { label: "Recommendations", href: "/intelligence/recommendations" },
       { label: "Competitors", href: "/intelligence/competitors" },
       { label: "Semantic Matches", href: "/intelligence/matches" },
