@@ -35,7 +35,8 @@ import { Readable } from "node:stream";
 
 dotenv.config({ path: ".env.local" });
 
-import { createAdminClient } from "../src/lib/supabase/admin";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import ws from "ws";
 
 const STATES = [
   "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA",
@@ -146,7 +147,7 @@ function rowToNonprofit(cols: string[]): NonprofitRecord | null {
 // Batch upsert
 // ----------------------------------------------------------------------------
 async function upsertBatch(
-  supabase: ReturnType<typeof createAdminClient>,
+  supabase: SupabaseClient,
   batch: NonprofitRecord[],
 ): Promise<{ inserted: number; failed: number }> {
   if (batch.length === 0) return { inserted: 0, failed: 0 };
@@ -163,7 +164,7 @@ async function upsertBatch(
 // Per-state streaming
 // ----------------------------------------------------------------------------
 async function processState(
-  supabase: ReturnType<typeof createAdminClient>,
+  supabase: SupabaseClient,
   state: string,
   totals: { scanned: number; inserted: number; skipped: number; failed: number },
 ): Promise<void> {
@@ -231,8 +232,24 @@ async function processState(
 // ----------------------------------------------------------------------------
 // Main
 // ----------------------------------------------------------------------------
+function fatal(message: string): never {
+  console.error(`\nFATAL: ${message}`);
+  process.exit(1);
+}
+
 async function main() {
-  const supabase = createAdminClient();
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceRoleKey) {
+    fatal("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+  }
+
+  const supabase = createClient(supabaseUrl, serviceRoleKey, {
+    // ws's WebSocket type isn't structurally identical to realtime-js's
+    // WebSocketLikeConstructor (event handler signatures differ); runtime
+    // behavior is unaffected. Same pattern as scripts/batch-score-opportunities.ts.
+    realtime: { transport: ws as any },
+  });
 
   console.log("IRS BMF nonprofit import — nonprofits table");
   console.log(`States: ${STATES.length} (${STATES.join(", ")})`);

@@ -35,7 +35,9 @@ import dotenv from "dotenv";
 
 dotenv.config({ path: ".env.local" });
 
-import { createAdminClient } from "../src/lib/supabase/admin";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import ws from "ws";
+
 import { enrichFoundationFromProPublica } from "../src/lib/sources/propublica-990-client";
 
 function ok(step: string, detail: string) {
@@ -70,7 +72,7 @@ interface FoundationRow {
 }
 
 async function fetchNextBatch(
-  admin: ReturnType<typeof createAdminClient>,
+  admin: SupabaseClient,
 ): Promise<FoundationRow[]> {
   const { data, error } = await admin
     .from("foundation_directory")
@@ -94,7 +96,12 @@ async function main() {
     fatal("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
   }
 
-  const admin = createAdminClient();
+  const admin = createClient(supabaseUrl, serviceRoleKey, {
+    // ws's WebSocket type isn't structurally identical to realtime-js's
+    // WebSocketLikeConstructor (event handler signatures differ); runtime
+    // behavior is unaffected. Same pattern as scripts/batch-score-opportunities.ts.
+    realtime: { transport: ws as any },
+  });
 
   console.log("ProPublica full-corpus enrichment — foundation_directory");
   console.log("Population: enrichment->>'propublica_enriched_at' IS NULL AND ein IS NOT NULL");

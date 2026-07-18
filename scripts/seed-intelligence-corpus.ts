@@ -17,7 +17,9 @@ import dotenv from "dotenv";
 
 dotenv.config({ path: ".env.local" });
 
-import { createAdminClient } from "../src/lib/supabase/admin";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import ws from "ws";
+
 import { seedIntelligenceCorpus } from "./lib/seed-intelligence-corpus-data";
 
 function fatal(message: string): never {
@@ -26,12 +28,18 @@ function fatal(message: string): never {
 }
 
 async function main() {
-  let supabase: ReturnType<typeof createAdminClient>;
-  try {
-    supabase = createAdminClient();
-  } catch (error) {
-    fatal(error instanceof Error ? error.message : String(error));
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceRoleKey) {
+    fatal("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
   }
+
+  const supabase: SupabaseClient = createClient(supabaseUrl, serviceRoleKey, {
+    // ws's WebSocket type isn't structurally identical to realtime-js's
+    // WebSocketLikeConstructor (event handler signatures differ); runtime
+    // behavior is unaffected. Same pattern as scripts/batch-score-opportunities.ts.
+    realtime: { transport: ws as any },
+  });
 
   await seedIntelligenceCorpus(supabase);
 }
