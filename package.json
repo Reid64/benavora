@@ -63,6 +63,7 @@
         "@supabase/ssr": "^0.5.2",
         "@supabase/supabase-js": "^2.45.4",
         "@types/recharts": "^2.0.1",
+        "@types/unzipper": "^0.10.11",
         "archiver": "^8.0.0",
         "cheerio": "^1.2.0",
         "date-fns": "^3.6.0",
@@ -87,6 +88,7 @@
         "resend": "^6.12.4",
         "robots-parser": "^3.0.1",
         "stripe": "^22.2.0",
+        "unzipper": "^0.12.5",
         "ws": "^8.21.0",
         "xlsx": "^0.18.5"
     },
