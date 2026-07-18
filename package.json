@@ -36,9 +36,12 @@
         "ingest:federal-register": "tsx scripts/ingest-federal-register.ts",
         "ingest:samhsa-hrsa": "tsx scripts/ingest-samhsa-hrsa.ts",
         "score:opportunities": "tsx scripts/batch-score-opportunities.ts",
+        "score:eligibility": "tsx scripts/batch-score-eligibility.ts",
         "seed:intelligence": "tsx scripts/seed-intelligence-corpus.ts",
         "seed:patterns": "tsx scripts/seed-knowledge-patterns.ts",
-        "ingest:nonprofits": "tsx scripts/ingest-nonprofit-bmf.ts"
+        "ingest:nonprofits": "tsx scripts/ingest-nonprofit-bmf.ts",
+        "build:twins": "tsx scripts/build-digital-twins.ts",
+        "run:morning-digest": "tsx scripts/run-morning-digest.ts"
     },
     "dependencies": {
         "@2captcha/captcha-solver": "^1.3.6",
