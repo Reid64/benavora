@@ -89,17 +89,22 @@ cd "C:\Users\manag\Documents\benavora"; npx vercel deploy --prod
 
 ---
 
+## Next Action
+
+1. Run `pnpm populate:all` — seed baseline Faith Foundation data (nothing populated yet as of this update)
+2. Run `pnpm enrich:propublica-foundations` overnight — long-running ProPublica foundation enrichment batch (note: NOT `pnpm enrich:propublica`, which points to a different pre-existing script — see STATE_OF_THE_BUILD.md)
+3. Run `pnpm ingest:nonprofits` — 1.8M-record IRS BMF import (note: NOT `pnpm ingest:bmf`, which points to `ingest-irs-bmf-full.ts`, the script with the known scrambled-column bug)
+
 ## Next Session Priorities
 
 1. **Fix reputation/disaster schema gap** — copy `src/supabase/migrations/076_reputation_intelligence.sql` and `079_disaster_response.sql` into `supabase/migrations/` at the next free canonical numbers and apply via the Management API. Blocks both features in production until done.
 2. UI redesign continuation — one component per CC session
 3. Run batch probability scoring across all active opportunities (AG-15 nightly job — not yet run at scale)
-4. Run digital twin builds for all orgs (AG-16 — built this session, not yet executed against real org data)
-5. Run intelligence ingestion scripts (NIH, NSF, Federal Register, SAMHSA)
-6. Run ProPublica batch enrichment against 133K foundations
-7. Back up enrichment-output/ to DATAOCEAN — CRITICAL
-8. Platform Vision Phase 2 FORGE queue (nights 3-5)
-9. Fix duplicate Faith Foundation org records
+4. Run digital twin builds for all orgs (`pnpm build:twins` — built this session, not yet executed against real org data)
+5. Run intelligence ingestion scripts (NIH, NSF, Federal Register, SAMHSA) and `pnpm seed:intelligence` / `pnpm seed:patterns`
+6. Back up enrichment-output/ to DATAOCEAN — CRITICAL
+7. Platform Vision Phase 2 FORGE queue (nights 3-5)
+8. Fix duplicate Faith Foundation org records
 
 ---
 

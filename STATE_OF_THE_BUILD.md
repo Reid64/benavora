@@ -12,6 +12,48 @@
 
 ---
 
+## Data Population Infrastructure July 17 2026
+
+Twelve CLI scripts built this session under `scripts/`, all wired to
+`package.json` run commands. None have been executed yet — this is
+infrastructure only, no data has been populated or enriched.
+
+| Script | Command | Purpose |
+|---|---|---|
+| `populate-all-data.ts` | `pnpm populate:all` | Master orchestration — seeds baseline Faith Foundation data across core tables |
+| `enrich-foundations-propublica.ts` | `pnpm enrich:propublica-foundations` | ProPublica enrichment pass over `foundation_directory` |
+| `enrich-foundations-websites.ts` | `pnpm enrich:websites` | Website scraper enrichment over `foundation_directory` |
+| `ingest-nonprofit-bmf.ts` | `pnpm ingest:nonprofits` | IRS BMF import into `nonprofits` table (Directive 2, Phase A) |
+| `batch-score-eligibility.ts` | `pnpm score:eligibility` | Batch eligibility scoring (AG-02) across open opportunities |
+| `build-digital-twins.ts` | `pnpm build:twins` | AG-16 Digital Twin Builder run against real org data |
+| `run-morning-digest.ts` | `pnpm run:morning-digest` | AG-17 pipeline tail — sends morning digest notification |
+| `run-discovery.ts` | `pnpm run:discovery` | AG-17 Opportunity Discovery Agent, on-demand invocation |
+| `poll-federal-grants.ts` | `pnpm poll:federal` | Federal source polling (Grants.gov/SAM.gov/Federal Register) |
+| `acquire-corporate-prospects.ts` | `pnpm acquire:prospects` | Corporate prospect acquisition adapters (NAICS-driven) |
+| `seed-intelligence-corpus.ts` | `pnpm seed:intelligence` | Seeds `intelligence_funded_proposals` corpus |
+| `seed-knowledge-patterns.ts` | `pnpm seed:patterns` | Seeds `knowledge_patterns` aggregate table |
+
+**Naming collision flagged, not fixed:** two `package.json` commands already
+existed pointing to *different, pre-existing* scripts with similar names:
+`pnpm enrich:propublica` → `enrich-nonprofits-propublica.ts` (not this
+session's `enrich-foundations-propublica.ts`, which is
+`enrich:propublica-foundations`), and `pnpm ingest:bmf` →
+`ingest-irs-bmf-full.ts` (the script with the confirmed scrambled-column bug
+— see Known Bugs — not this session's `ingest-nonprofit-bmf.ts`, which is
+`ingest:nonprofits`). Do not run `enrich:propublica` or `ingest:bmf` expecting
+this session's scripts to execute.
+
+**Status: none of the 12 scripts have been run.** No Faith Foundation data
+has been populated, no foundations enriched, no BMF records imported. All 12
+are code-complete and build-gated only.
+
+**Run order (once approved to execute against live data):**
+1. `pnpm populate:all` — seed baseline Faith Foundation data first; everything downstream depends on this
+2. `pnpm enrich:propublica-foundations` — run overnight, long-running batch
+3. `pnpm ingest:nonprofits` — 1.8M-record BMF import, run last (longest runtime)
+
+---
+
 ## Overnight Build Session July 17 2026 — Platform Vision Phase 1
 
 Audited directly against `git log`, migration files, and route/component
