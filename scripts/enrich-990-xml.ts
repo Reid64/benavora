@@ -1,9 +1,9 @@
 // ============================================================================
 // BENAVORA — IRS 990 XML ZIP bulk enrichment (tier 1) for the nonprofits table
 //
-// Downloads the full-year IRS TEOS 990 XML ZIP bundles for 2023
-// (https://apps.irs.gov/pub/epostcard/990/xml/2023/2023_TEOS_XML_{01..12}{A,B}.zip
-// — 24 archives), extracts each bundle's XML filings with 'unzipper', parses
+// Reads IRS TEOS 990 XML ZIP bundles from a local folder
+// (C:\Users\manag\Downloads\Recent Downloads\irs-990-zips\, processed in
+// filename order), extracts each bundle's XML filings with 'unzipper', parses
 // each with fast-xml-parser, matches by EIN to the nonprofits table
 // (migration 098/099), and upserts extracted fields.
 //
@@ -27,13 +27,9 @@ import ws from "ws";
 import { XMLParser } from "fast-xml-parser";
 import unzipper from "unzipper";
 
-const YEAR = 2023;
-const MONTHS = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"];
-const HALVES = ["A", "B"];
-const ZIP_BASE_URL = `https://apps.irs.gov/pub/epostcard/990/xml/${YEAR}`;
+const LOCAL_ZIP_DIR = "C:\\Users\\manag\\Downloads\\Recent Downloads\\irs-990-zips";
 const WORK_DIR = "C:\\Users\\manag\\AppData\\Local\\Temp\\irs-990";
 const PROGRESS_FILE = path.join(WORK_DIR, "progress.json");
-const DOWNLOAD_TIMEOUT_MS = 120_000;
 const MAX_MISSION_LENGTH = 500;
 
 function ok(step: string, detail: string) {
@@ -52,7 +48,7 @@ function fatal(message: string): never {
 
 interface ZipTarget {
   name: string;
-  url: string;
+  path: string;
 }
 
 interface NonprofitRow {
@@ -94,14 +90,19 @@ function saveProgress(progress: Progress) {
 }
 
 function buildZipTargets(): ZipTarget[] {
-  const targets: ZipTarget[] = [];
-  for (const month of MONTHS) {
-    for (const half of HALVES) {
-      const name = `${YEAR}_TEOS_XML_${month}${half}`;
-      targets.push({ name, url: `${ZIP_BASE_URL}/${name}.zip` });
-    }
+  if (!fs.existsSync(LOCAL_ZIP_DIR)) {
+    fatal(`Local ZIP folder not found: ${LOCAL_ZIP_DIR}`);
   }
-  return targets;
+
+  const zipFiles = fs
+    .readdirSync(LOCAL_ZIP_DIR)
+    .filter((file) => file.toLowerCase().endsWith(".zip"))
+    .sort((a, b) => a.localeCompare(b));
+
+  return zipFiles.map((file) => ({
+    name: path.basename(file, path.extname(file)),
+    path: path.join(LOCAL_ZIP_DIR, file),
+  }));
 }
 
 function asString(value: unknown): string | null {
@@ -145,17 +146,6 @@ function extractFields(parsed: any): ExtractedFields {
   const mission = rawMission ? rawMission.slice(0, MAX_MISSION_LENGTH) : null;
 
   return { ein, name, website, officer_name, officer_title, revenue, assets, employee_count, mission };
-}
-
-async function downloadZip(target: ZipTarget, destPath: string): Promise<boolean> {
-  const res = await fetch(target.url, { signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS) });
-  if (res.status === 404) return false;
-  if (!res.ok) {
-    throw new Error(`HTTP ${res.status}`);
-  }
-  const buffer = Buffer.from(await res.arrayBuffer());
-  fs.writeFileSync(destPath, buffer);
-  return true;
 }
 
 async function extractZip(zipPath: string, extractDir: string): Promise<string[]> {
@@ -209,7 +199,7 @@ async function processZip(
   admin: SupabaseClient,
   target: ZipTarget,
 ): Promise<{ parsed: number; matched: number; updated: number }> {
-  const zipPath = path.join(WORK_DIR, `${target.name}.zip`);
+  const zipPath = target.path;
   const extractDir = path.join(WORK_DIR, target.name);
 
   let parsed = 0;
@@ -218,12 +208,6 @@ async function processZip(
   let xmlFiles: string[] = [];
 
   try {
-    const downloaded = await downloadZip(target, zipPath);
-    if (!downloaded) {
-      console.log(`  [${target.name}] not found (404) — skipping`);
-      return { parsed, matched, updated };
-    }
-
     xmlFiles = await extractZip(zipPath, extractDir);
     console.log(`  [${target.name}] extracted ${xmlFiles.length} XML files`);
 
@@ -291,11 +275,6 @@ async function processZip(
     } catch {
       // best-effort cleanup
     }
-    try {
-      if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
-    } catch {
-      // best-effort cleanup
-    }
   }
 
   return { parsed, matched, updated };
@@ -317,7 +296,8 @@ async function main() {
 
   fs.mkdirSync(WORK_DIR, { recursive: true });
 
-  console.log(`IRS 990 XML ZIP bulk enrichment — nonprofits table (tier 1), year ${YEAR}`);
+  console.log(`IRS 990 XML ZIP bulk enrichment — nonprofits table (tier 1)`);
+  console.log(`Source dir: ${LOCAL_ZIP_DIR}`);
   console.log(`Work dir: ${WORK_DIR}\n`);
 
   const progress = loadProgress();
@@ -335,7 +315,7 @@ async function main() {
   let totalUpdated = 0;
 
   for (const target of targets) {
-    console.log(`[${target.name}] downloading…`);
+    console.log(`[${target.name}] processing…`);
     try {
       const { parsed, matched, updated } = await processZip(admin, target);
       totalParsed += parsed;
