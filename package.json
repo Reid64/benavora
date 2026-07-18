@@ -44,7 +44,8 @@
         "run:morning-digest": "tsx scripts/run-morning-digest.ts",
         "run:discovery": "tsx scripts/run-discovery.ts",
         "poll:federal": "tsx scripts/poll-federal-grants.ts",
-        "acquire:prospects": "tsx scripts/acquire-corporate-prospects.ts"
+        "acquire:prospects": "tsx scripts/acquire-corporate-prospects.ts",
+        "populate:all": "tsx scripts/populate-all-data.ts"
     },
     "dependencies": {
         "@2captcha/captcha-solver": "^1.3.6",
