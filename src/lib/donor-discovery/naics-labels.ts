@@ -27,6 +27,22 @@ export const NAICS_FRIENDLY_LABELS: Record<string, string> = {
   "562": "Waste Management Companies",
   "811": "Auto Repair Shops",
   "812": "Personal Care Services",
+
+  // Corporate prospect acquisition (scripts/acquire-corporate-prospects.ts)
+  // — additional codes needed so acquireFromGooglePlaces's internal
+  // `naicsLabel(naicsCode)` query text is meaningful for these categories.
+  "236220": "Construction Companies",
+  "238160": "Roofing Contractors",
+  "238210": "Electrical Contractors",
+  "441110": "Auto Dealers",
+  "442110": "Furniture Dealers",
+  "443142": "Computer Retailers",
+  "423450": "Medical Equipment Suppliers",
+  "424410": "Grocery Distributors",
+  "561320": "Staffing Agencies",
+  "488510": "Logistics Companies",
+  "622110": "Healthcare Systems",
+  "541511": "Technology Companies",
 };
 
 export interface NaicsCategory {
