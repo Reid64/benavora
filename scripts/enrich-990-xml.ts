@@ -37,14 +37,10 @@ function fail(step: string, error: unknown) {
 }
 
 interface IndexFiling {
-  EIN: string | number;
-  URL: string;
-  IsAvailable?: boolean;
-  FormType?: string;
-}
-
-interface IndexResponse {
-  Filings: IndexFiling[];
+  ein: string;
+  formType: string;
+  url: string;
+  isAvailable: boolean;
 }
 
 interface ExtractedFields {
@@ -101,15 +97,46 @@ function extractFields(ein: string, parsed: any): ExtractedFields {
 }
 
 async function fetchIndex(year: number): Promise<IndexFiling[]> {
-  const url = `https://apps.irs.gov/pub/epostcard/990/xml/${year}/index_${year}.json`;
+  const url = `https://apps.irs.gov/pub/epostcard/990/xml/${year}/index_${year}.csv`;
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
     if (!res.ok) {
       fail(`fetch index ${year}`, `HTTP ${res.status}`);
       return [];
     }
-    const data = (await res.json()) as IndexResponse;
-    return data.Filings ?? [];
+    const csv = await res.text();
+    const lines = csv.split("\n");
+    const filings: IndexFiling[] = [];
+
+    // Column layout (positional, no header lookup):
+    //   0 ObjectId          5 OrganizationName
+    //   1 IsElectronic       6 FormType
+    //   2 EIN                7 ObjectId (duplicate)
+    //   3 TaxPeriod (YYYYMM) 8 LastUpdated
+    //   4 Year               9 URL (unused — constructed from ObjectId/Year instead)
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+
+      const cols = line.split(",");
+      const objectId = (cols[0] ?? "").trim();
+      const isAvailable = (cols[1] ?? "").trim() === "EFILE";
+      const ein = (cols[2] ?? "").trim();
+      const rowYear = (cols[4] ?? "").trim();
+      const formType = (cols[6] ?? "").trim();
+
+      if (!formType.startsWith("990")) continue;
+      if (!isAvailable) continue;
+
+      filings.push({
+        ein,
+        formType,
+        url: `https://apps.irs.gov/pub/epostcard/990/xml/${rowYear}/${objectId}_public.xml`,
+        isAvailable,
+      });
+    }
+
+    return filings;
   } catch (err) {
     fail(`fetch index ${year}`, err);
     return [];
@@ -117,9 +144,9 @@ async function fetchIndex(year: number): Promise<IndexFiling[]> {
 }
 
 async function fetchAndExtract(filing: IndexFiling): Promise<ExtractedFields> {
-  const ein = String(filing.EIN).trim();
+  const ein = filing.ein.trim();
 
-  const res = await fetch(filing.URL, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+  const res = await fetch(filing.url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
   if (!res.ok) {
     throw new Error(`HTTP ${res.status}`);
   }
@@ -154,10 +181,7 @@ async function main() {
 
   for (const year of INDEX_YEARS) {
     console.log(`\n[${year}] fetching index…`);
-    const filings = await fetchIndex(year);
-    const eligible = filings.filter(
-      (f) => f.IsAvailable === true && typeof f.FormType === "string" && f.FormType.startsWith("990"),
-    );
+    const eligible = await fetchIndex(year);
     console.log(`[${year}] ${eligible.length} available 990-family filings`);
 
     await Promise.all(
@@ -188,7 +212,7 @@ async function main() {
             }
           } catch (err) {
             failed++;
-            fail(`filing EIN ${filing.EIN}`, err);
+            fail(`filing EIN ${filing.ein}`, err);
           }
 
           processed++;
