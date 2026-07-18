@@ -33,7 +33,8 @@
         "ingest:landbanks": "tsx scripts/ingest-land-banks.ts",
         "ingest:federal-register": "tsx scripts/ingest-federal-register.ts",
         "ingest:samhsa-hrsa": "tsx scripts/ingest-samhsa-hrsa.ts",
-        "score:opportunities": "tsx scripts/batch-score-opportunities.ts"
+        "score:opportunities": "tsx scripts/batch-score-opportunities.ts",
+        "seed:intelligence": "tsx scripts/seed-intelligence-corpus.ts"
     },
     "dependencies": {
         "@2captcha/captcha-solver": "^1.3.6",
