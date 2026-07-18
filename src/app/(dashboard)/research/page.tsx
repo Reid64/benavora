@@ -14,6 +14,12 @@ import {
   RESOURCE_CATEGORIES,
   type ResourceDefinition,
 } from "@/lib/research/resource-registry";
+import {
+  FUNDING_SOURCES,
+  type FundingSource,
+  type FundingSourceCategory,
+  type FundingSourceType,
+} from "@/lib/sources/funding-source-registry";
 
 type FunderCategory = Enums<"funder_category">;
 type OppSourceType = Enums<"opportunity_source_type">;
@@ -499,6 +505,353 @@ function ResourcesSection() {
   );
 }
 
+/**
+ * Grouping labels for the Funding Source Directory.
+ *
+ * Deviation from the task's literal 6-group list (Federal, State and Local,
+ * Private Foundations, Corporate, Faith-Based, Research Databases): the real
+ * FUNDING_SOURCES array (funding-source-registry.ts) has no state/local
+ * entries and no "foundation" entries that aren't also faith_based — that
+ * data lives in a separate, differently-shaped registry
+ * (state-sources-registry.ts, never seeded into the DB) which is out of
+ * scope here. Grouping instead by the 5 source_type values that actually
+ * exist in FUNDING_SOURCES, per this project's established practice of
+ * reflecting real data over a literal spec (see funding-source-registry.ts
+ * and migrations 093-097 for prior instances).
+ */
+const FUNDING_SOURCE_TYPE_LABELS: Record<FundingSourceType, string> = {
+  federal: "Federal",
+  nonprofit_intermediary: "Housing & Community Intermediaries",
+  foundation: "Faith-Based Foundations",
+  corporate: "Corporate",
+  directory: "Research Databases",
+};
+
+const FUNDING_SOURCE_TYPE_ORDER: FundingSourceType[] = [
+  "federal",
+  "nonprofit_intermediary",
+  "foundation",
+  "corporate",
+  "directory",
+];
+
+function fundingCategoryBadgeLabel(category: FundingSourceCategory): string {
+  return category.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+interface FundingSourcePollingRow {
+  name: string;
+  polling_enabled: boolean | null;
+  active: boolean | null;
+}
+
+function FundingSourceDirectorySection() {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [pollingByName, setPollingByName] = useState<Record<string, boolean>>({});
+  const [polling, setPolling] = useState(false);
+  const [pollMessage, setPollMessage] = useState<string | null>(null);
+  const [pollError, setPollError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("funding_sources")
+        .select("name, polling_enabled, active");
+      if (!isMounted || !data) return;
+      const map: Record<string, boolean> = {};
+      for (const row of data as unknown as FundingSourcePollingRow[]) {
+        map[row.name] = Boolean(row.polling_enabled) && row.active !== false;
+      }
+      setPollingByName(map);
+    })();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const query = searchQuery.trim().toLowerCase();
+
+  const filteredSources = useMemo(
+    () =>
+      query
+        ? FUNDING_SOURCES.filter((s) => s.name.toLowerCase().includes(query))
+        : FUNDING_SOURCES,
+    [query],
+  );
+
+  const groupedSources = useMemo(() => {
+    const groups: Record<string, FundingSource[]> = {};
+    for (const source of filteredSources) {
+      (groups[source.source_type] ??= []).push(source);
+    }
+    return FUNDING_SOURCE_TYPE_ORDER.map((t) => ({
+      type: t,
+      label: FUNDING_SOURCE_TYPE_LABELS[t],
+      sources: (groups[t] ?? []).slice().sort((a, b) => a.name.localeCompare(b.name)),
+    })).filter((group) => group.sources.length > 0);
+  }, [filteredSources]);
+
+  function toggleGroup(type: string) {
+    setCollapsed((prev) => ({ ...prev, [type]: !prev[type] }));
+  }
+
+  async function handlePollNow() {
+    setPolling(true);
+    setPollMessage(null);
+    setPollError(null);
+    try {
+      const res = await fetch("/api/sources/poll", { method: "POST" });
+      const payload = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        setPollError(payload.error ?? "Could not poll funding sources.");
+      } else {
+        setPollMessage("Poll complete. New opportunities will appear below shortly.");
+      }
+    } catch {
+      setPollError("Could not reach the sources poll agent. Please try again.");
+    }
+    setPolling(false);
+  }
+
+  return (
+    <section style={{ marginTop: 8 }}>
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          alignItems: "flex-end",
+          justifyContent: "space-between",
+          gap: 12,
+          marginBottom: 16,
+        }}
+      >
+        <div>
+          <h2 style={{ fontSize: 18, fontWeight: 600, color: "#0F172A", margin: 0 }}>
+            Funding Source Directory
+          </h2>
+          <p style={{ fontSize: 13, color: "#64748B", marginTop: 4 }}>
+            {FUNDING_SOURCES.length} funding sources monitored
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => void handlePollNow()}
+          disabled={polling}
+          style={{
+            backgroundColor: "#0077B6",
+            color: "#FFFFFF",
+            border: "none",
+            borderRadius: 8,
+            padding: "8px 16px",
+            fontSize: 13,
+            fontWeight: 600,
+            cursor: polling ? "default" : "pointer",
+            opacity: polling ? 0.7 : 1,
+          }}
+        >
+          {polling ? "Polling..." : "Poll Now"}
+        </button>
+      </div>
+
+      {pollMessage && (
+        <div
+          role="status"
+          style={{
+            marginBottom: 12,
+            fontSize: 12,
+            color: "#15803D",
+            backgroundColor: "#DCFCE7",
+            borderRadius: 8,
+            padding: "8px 12px",
+          }}
+        >
+          {pollMessage}
+        </div>
+      )}
+      {pollError && (
+        <div
+          role="alert"
+          style={{
+            marginBottom: 12,
+            fontSize: 12,
+            color: "#B91C1C",
+            backgroundColor: "#FEE2E2",
+            borderRadius: 8,
+            padding: "8px 12px",
+          }}
+        >
+          {pollError}
+        </div>
+      )}
+
+      <div style={{ marginBottom: 20 }}>
+        <input
+          type="search"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search funding sources by name..."
+          aria-label="Search funding source directory"
+          style={{
+            width: "100%",
+            maxWidth: 480,
+            backgroundColor: "#FFFFFF",
+            border: "1px solid #E2E8F0",
+            borderRadius: 12,
+            padding: "10px 16px",
+            fontSize: 14,
+            color: "#334155",
+            outline: "none",
+            boxShadow: "0 1px 2px rgba(15,23,42,0.05)",
+          }}
+        />
+      </div>
+
+      {groupedSources.length === 0 ? (
+        <div
+          style={{
+            backgroundColor: "#FFFFFF",
+            borderRadius: 12,
+            padding: 24,
+            textAlign: "center",
+            color: "#64748B",
+            fontSize: 13,
+            boxShadow: "0 1px 3px rgba(15,23,42,0.08)",
+          }}
+        >
+          No funding sources match &ldquo;{searchQuery}&rdquo;.
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {groupedSources.map((group) => {
+            const isCollapsed = Boolean(collapsed[group.type]);
+            return (
+              <div
+                key={group.type}
+                style={{
+                  backgroundColor: "#FFFFFF",
+                  borderRadius: 12,
+                  boxShadow: "0 1px 3px rgba(15,23,42,0.08)",
+                  overflow: "hidden",
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(group.type)}
+                  aria-expanded={!isCollapsed}
+                  style={{
+                    width: "100%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "14px 16px",
+                    backgroundColor: "#F8FAFC",
+                    border: "none",
+                    cursor: "pointer",
+                    textAlign: "left",
+                  }}
+                >
+                  <span style={{ fontSize: 14, fontWeight: 700, color: "#0F172A" }}>
+                    {group.label}
+                    <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 600, color: "#64748B" }}>
+                      ({group.sources.length})
+                    </span>
+                  </span>
+                  <span style={{ fontSize: 12, color: "#64748B" }}>
+                    {isCollapsed ? "Show ▾" : "Hide ▴"}
+                  </span>
+                </button>
+                {!isCollapsed && (
+                  <div>
+                    {group.sources.map((source) => {
+                      const link = source.website_url ?? source.api_url ?? null;
+                      const isPolling = Boolean(pollingByName[source.name]);
+                      return (
+                        <div
+                          key={source.name}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: 12,
+                            padding: "10px 16px",
+                            borderTop: "1px solid #F1F5F9",
+                          }}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                            <span
+                              aria-hidden="true"
+                              title={isPolling ? "Polling enabled" : "Polling inactive"}
+                              style={{
+                                width: 8,
+                                height: 8,
+                                borderRadius: "50%",
+                                backgroundColor: isPolling ? "#22C55E" : "#CBD5E1",
+                                flexShrink: 0,
+                              }}
+                            />
+                            <span
+                              style={{
+                                fontSize: 13,
+                                fontWeight: 600,
+                                color: "#0F172A",
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                              }}
+                            >
+                              {source.name}
+                            </span>
+                            <span
+                              style={{
+                                fontSize: 10,
+                                fontWeight: 600,
+                                backgroundColor: "#F1F5F9",
+                                color: "#475569",
+                                padding: "2px 8px",
+                                borderRadius: 9999,
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {fundingCategoryBadgeLabel(source.category)}
+                            </span>
+                          </div>
+                          {link ? (
+                            <a
+                              href={link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{
+                                fontSize: 12,
+                                fontWeight: 600,
+                                color: "#0077B6",
+                                whiteSpace: "nowrap",
+                                flexShrink: 0,
+                              }}
+                            >
+                              Visit →
+                            </a>
+                          ) : (
+                            <span style={{ fontSize: 12, color: "#94A3B8", flexShrink: 0 }}>
+                              No link
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
+
 function Spinner({ className = "" }: { className?: string }) {
   return (
     <svg
@@ -689,6 +1042,8 @@ export default function ResearchPage() {
       {view === "research" && (
         <>
       <ResourcesSection />
+
+      <FundingSourceDirectorySection />
 
       {/* DISCOVERED OPPORTUNITIES */}
       <section className="space-y-4">
