@@ -37,7 +37,8 @@
         "ingest:samhsa-hrsa": "tsx scripts/ingest-samhsa-hrsa.ts",
         "score:opportunities": "tsx scripts/batch-score-opportunities.ts",
         "seed:intelligence": "tsx scripts/seed-intelligence-corpus.ts",
-        "seed:patterns": "tsx scripts/seed-knowledge-patterns.ts"
+        "seed:patterns": "tsx scripts/seed-knowledge-patterns.ts",
+        "ingest:nonprofits": "tsx scripts/ingest-nonprofit-bmf.ts"
     },
     "dependencies": {
         "@2captcha/captcha-solver": "^1.3.6",
