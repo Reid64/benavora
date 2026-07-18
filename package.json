@@ -29,12 +29,14 @@
         "ingest:nsf": "tsx scripts/ingest-nsf-awards.ts",
         "poll:grantsgov": "tsx scripts/poll-grantsgov.ts",
         "enrich:propublica-batch": "tsx scripts/enrich-propublica-batch.ts",
+        "enrich:propublica-foundations": "tsx scripts/enrich-foundations-propublica.ts",
         "ingest:tdlr": "tsx scripts/ingest-tx-tdlr.ts",
         "ingest:landbanks": "tsx scripts/ingest-land-banks.ts",
         "ingest:federal-register": "tsx scripts/ingest-federal-register.ts",
         "ingest:samhsa-hrsa": "tsx scripts/ingest-samhsa-hrsa.ts",
         "score:opportunities": "tsx scripts/batch-score-opportunities.ts",
-        "seed:intelligence": "tsx scripts/seed-intelligence-corpus.ts"
+        "seed:intelligence": "tsx scripts/seed-intelligence-corpus.ts",
+        "seed:patterns": "tsx scripts/seed-knowledge-patterns.ts"
     },
     "dependencies": {
         "@2captcha/captcha-solver": "^1.3.6",
