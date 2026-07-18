@@ -17,8 +17,9 @@ import dotenv from "dotenv";
 dotenv.config({ path: ".env.local" });
 
 import { subDays } from "date-fns";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import ws from "ws";
 
-import { createAdminClient } from "../src/lib/supabase/admin";
 import { computeGrantProbability } from "../src/lib/intelligence/grant-probability-engine";
 
 const PAGE_SIZE = 1000;
@@ -46,7 +47,7 @@ interface ScoreRow {
 }
 
 async function fetchAllOpportunities(
-  admin: ReturnType<typeof createAdminClient>,
+  admin: SupabaseClient,
 ): Promise<OpportunityRow[]> {
   const rows: OpportunityRow[] = [];
   let from = 0;
@@ -73,7 +74,7 @@ async function fetchAllOpportunities(
 }
 
 async function fetchAllScores(
-  admin: ReturnType<typeof createAdminClient>,
+  admin: SupabaseClient,
 ): Promise<Map<string, string | null>> {
   const scores = new Map<string, string | null>();
   let from = 0;
@@ -108,7 +109,13 @@ async function main() {
     fatal("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
   }
 
-  const admin = createAdminClient();
+  const admin = createClient(supabaseUrl, serviceRoleKey, {
+    // ws's WebSocket type isn't structurally identical to realtime-js's
+    // WebSocketLikeConstructor (event handler signatures differ); runtime
+    // behavior is unaffected. Same pattern as the load-bearing `as any`
+    // casts on the googleapis/google-auth-library boundary elsewhere.
+    realtime: { transport: ws as any },
+  });
 
   console.log("Batch grant probability scoring — all organizations");
   console.log(

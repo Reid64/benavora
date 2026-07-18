@@ -41,7 +41,9 @@
         "seed:patterns": "tsx scripts/seed-knowledge-patterns.ts",
         "ingest:nonprofits": "tsx scripts/ingest-nonprofit-bmf.ts",
         "build:twins": "tsx scripts/build-digital-twins.ts",
-        "run:morning-digest": "tsx scripts/run-morning-digest.ts"
+        "run:morning-digest": "tsx scripts/run-morning-digest.ts",
+        "run:discovery": "tsx scripts/run-discovery.ts",
+        "poll:federal": "tsx scripts/poll-federal-grants.ts"
     },
     "dependencies": {
         "@2captcha/captcha-solver": "^1.3.6",
