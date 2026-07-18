@@ -22,6 +22,7 @@
         "seed:dd-aliases": "tsx scripts/seed-dd-aliases.ts",
         "enrich:990": "tsx scripts/enrich-foundations-990.ts",
         "enrich:web": "tsx scripts/enrich-foundations-web.ts",
+        "enrich:websites": "tsx scripts/enrich-foundations-websites.ts",
         "enrich:propublica": "tsx scripts/enrich-nonprofits-propublica.ts",
         "ingest:bmf": "tsx scripts/ingest-irs-bmf-full.ts",
         "ingest:samgov": "tsx scripts/ingest-samgov.ts",
