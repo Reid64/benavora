@@ -185,3 +185,51 @@ Sections 1\-16 remain as defined in BEHAVIORAL\_CONTRACTS\.md v1\.0\. This docum
 - Rate limit coordination: worker tracks API call counts in agent\_runs\. If approaching any service limit, skip until next cycle\.
 - Health check endpoint: /api/worker/health returns last heartbeat timestamp\. Alert if >15 minutes stale\.
 
+# __34\. Autonomous Agent Contracts__
+
+### Hard Limits \(absolute — no exceptions, no operator overrides\)
+
+- Autonomous agents NEVER submit applications or forms to external funders without explicit human approval
+- Autonomous agents NEVER send emails to external parties without human approval
+- Autonomous agents NEVER delete user data of any kind
+- Autonomous agents NEVER modify governance files
+- Autonomous agents NEVER exceed org max\_auto\_drafts\_per\_night limit
+- Autonomous agents NEVER access data outside org scope \(organization\_id isolation enforced equally\)
+- All of the above are enforced as TypeScript constants in AUTONOMOUS\_HARD\_LIMITS and as behavioral patterns in every agent class
+
+### Decision Logging Requirements
+
+- Every autonomous decision MUST create an agent\_decisions record BEFORE executing the action
+- decision\_type, reasoning, confidence\_score, and action\_taken are required on every record
+- Any action with requiredHumanReview=true creates a blocking notification immediately
+- Decisions with confidence\_score < 60 automatically set requiredHumanReview=true
+
+### Chain Contract
+
+- Agent chaining is one\-directional: AG\-17 \-> AG\-15 \-> AG\-05 \(never circular\)
+- A chained agent only fires if the upstream agent completed successfully
+- Maximum chain depth: 3 \(discovery \-> scoring \-> drafting\)
+- Chain payload always includes the triggering agent's run\_id for full traceability
+
+### Human Review Gates
+
+- All auto\-generated drafts: auto\_generated=true, pending\_review=true
+- A pending\_review=true application cannot advance past 'drafting' stage \(API enforces this\)
+- Only owner or admin role can clear pending\_review
+- Clearing pending\_review creates a pipeline\_history record: 'Autonomous draft approved by \{user\}'
+
+### Notification Contracts
+
+- Morning digest fires at 7:00 AM CST regardless of pipeline activity
+- CRITICAL reputation alerts fire immediately \(not batched\)
+- Maximum 1 digest notification per org per day
+- All autonomous notifications link to the relevant review page
+
+# __35\. Autonomous Configuration Contracts__
+
+- org\_autonomous\_config created with all flags=false on org creation \(opt\-in default\)
+- auto\_draft\_threshold below 50 is blocked by API validation
+- Disabling auto\_research\_enabled also disables auto\_score\_enabled and auto\_draft\_enabled
+- Only owner role can modify autonomous config
+- Config changes take effect at the next nightly pipeline run
+
