@@ -129,6 +129,7 @@ class DdRequestProcessor {
         }
         return data ?? null;
     }
+    /** Runs the full enumerate -> enrich -> link foundations -> score pipeline for one request. */
     async processItem(item) {
         // --- Resolve taxonomy_ids -> NAICS codes (Phase 1: Google Places only) ---
         const { data: taxonomyRows, error: taxonomyError } = await this.supabase

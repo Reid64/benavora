@@ -44,7 +44,6 @@ function markBudgetLimited(result) {
 // pattern, so one domain-scoped limiter is dedicated to the Places host.
 const PLACES_HOST = "maps.googleapis.com";
 const placesRateLimiter = new crawler_core_1.DomainRateLimiter(5_000); // 1 req / 5s
-const KM_PER_MILE = 1.60934;
 /**
  * Whether a `donor_discovery_geo_within_postgis(p_ids uuid[], p_lat, p_lng,
  * p_radius_m)` RPC exists in this database. No such function or PostGIS

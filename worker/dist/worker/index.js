@@ -42,6 +42,8 @@ const ws_1 = __importDefault(require("ws"));
 const heartbeat = __importStar(require("./heartbeat.js"));
 const queueProcessor = __importStar(require("./queue-processor.js"));
 const ddRequestProcessor = __importStar(require("./dd-request-processor.js"));
+const scheduler = __importStar(require("./scheduler.js"));
+const autonomous_orchestrator_js_1 = require("./autonomous-orchestrator.js");
 const stream_server_js_1 = require("./stream-server.js");
 // --- Environment validation ---
 function validateEnv() {
@@ -75,6 +77,7 @@ exports.supabase = (0, supabase_js_1.createClient)(env.supabaseUrl, env.serviceR
 });
 // --- Graceful shutdown ---
 let shuttingDown = false;
+let agentQueueDone = Promise.resolve();
 async function shutdown(signal) {
     if (shuttingDown)
         return;
@@ -82,9 +85,15 @@ async function shutdown(signal) {
     console.log(`[Worker] ${signal} received — shutting down`);
     queueProcessor.stop();
     ddRequestProcessor.stop();
+    scheduler.stop();
+    (0, autonomous_orchestrator_js_1.stopAgentQueueProcessor)();
     const FIVE_MINUTES_MS = 5 * 60 * 1000;
     await Promise.race([
-        Promise.all([queueProcessor.waitForIdle(), ddRequestProcessor.waitForIdle()]),
+        Promise.all([
+            queueProcessor.waitForIdle(),
+            ddRequestProcessor.waitForIdle(),
+            agentQueueDone,
+        ]),
         new Promise((resolve) => setTimeout(resolve, FIVE_MINUTES_MS)),
     ]);
     heartbeat.stop();
@@ -127,6 +136,10 @@ async function main() {
     heartbeat.start(exports.supabase, env.workerId);
     queueProcessor.start(exports.supabase, env.workerId, streamServer);
     ddRequestProcessor.start(exports.supabase);
+    scheduler.start(exports.supabase);
+    agentQueueDone = (0, autonomous_orchestrator_js_1.processAgentQueue)(exports.supabase).catch((err) => {
+        console.error('[Worker] Agent queue processor crashed:', err);
+    });
     console.log(`[Worker] AutoApply Worker started — id=${env.workerId} at ${new Date().toISOString()}`);
 }
 void main().catch((error) => {

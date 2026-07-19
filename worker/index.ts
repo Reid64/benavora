@@ -3,6 +3,11 @@ import ws from 'ws';
 import * as heartbeat from './heartbeat.js';
 import * as queueProcessor from './queue-processor.js';
 import * as ddRequestProcessor from './dd-request-processor.js';
+import * as scheduler from './scheduler.js';
+import {
+  processAgentQueue,
+  stopAgentQueueProcessor,
+} from './autonomous-orchestrator.js';
 import { StreamServer } from './stream-server.js';
 
 // --- Environment validation ---
@@ -54,6 +59,7 @@ export const supabase: SupabaseClient = createClient(
 // --- Graceful shutdown ---
 
 let shuttingDown = false;
+let agentQueueDone: Promise<void> = Promise.resolve();
 
 async function shutdown(signal: string): Promise<void> {
   if (shuttingDown) return;
@@ -63,10 +69,16 @@ async function shutdown(signal: string): Promise<void> {
 
   queueProcessor.stop();
   ddRequestProcessor.stop();
+  scheduler.stop();
+  stopAgentQueueProcessor();
 
   const FIVE_MINUTES_MS = 5 * 60 * 1000;
   await Promise.race([
-    Promise.all([queueProcessor.waitForIdle(), ddRequestProcessor.waitForIdle()]),
+    Promise.all([
+      queueProcessor.waitForIdle(),
+      ddRequestProcessor.waitForIdle(),
+      agentQueueDone,
+    ]),
     new Promise<void>((resolve) => setTimeout(resolve, FIVE_MINUTES_MS)),
   ]);
 
@@ -120,6 +132,10 @@ async function main(): Promise<void> {
   heartbeat.start(supabase, env.workerId);
   queueProcessor.start(supabase, env.workerId, streamServer);
   ddRequestProcessor.start(supabase);
+  scheduler.start(supabase);
+  agentQueueDone = processAgentQueue(supabase).catch((err: unknown) => {
+    console.error('[Worker] Agent queue processor crashed:', err);
+  });
 
   console.log(
     `[Worker] AutoApply Worker started — id=${env.workerId} at ${new Date().toISOString()}`,

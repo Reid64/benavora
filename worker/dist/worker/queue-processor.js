@@ -67,6 +67,7 @@ const ab_testing_js_1 = require("../src/lib/autoapply/ab-testing.js");
 const node_fs_1 = require("node:fs");
 const enrich_donor_prospect_js_1 = require("../src/worker/jobs/enrich-donor-prospect.js");
 const score_donor_prospect_js_1 = require("../src/worker/jobs/score-donor-prospect.js");
+const run_connector_enrichment_js_1 = require("../src/worker/jobs/run-connector-enrichment.js");
 // --- constants ---------------------------------------------------------------
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 const SLEEP_MS = 15_000;
@@ -191,6 +192,13 @@ class QueueProcessor {
                 // dd-request-processor.ts's own inline scoring stage.
                 await this.runScoreDonorProspectJob().catch((e) => {
                     console.warn('[QueueProcessor] score_donor_prospect job failed:', e instanceof Error ? e.message : String(e));
+                });
+                // Idle-cycle background work: donor_discovery §6 BYO-key connector
+                // enrichment (run_connector_enrichment job type). Same opportunistic
+                // posture as the two jobs above — see
+                // runRunConnectorEnrichmentJob's doc comment.
+                await this.runRunConnectorEnrichmentJob().catch((e) => {
+                    console.warn('[QueueProcessor] run_connector_enrichment job failed:', e instanceof Error ? e.message : String(e));
                 });
                 console.log('[QueueProcessor] Queue empty, sleeping 15s');
                 await sleep(SLEEP_MS);
@@ -320,6 +328,25 @@ class QueueProcessor {
         console.log(`[QueueProcessor] score_donor_prospect: processing prospect ${job.prospectId}`);
         const { result } = await (0, score_donor_prospect_js_1.handleScoreDonorProspectJob)(this.supabase, job);
         console.log(`[QueueProcessor] score_donor_prospect: prospect ${job.prospectId} â€” score=${result.score}`);
+    }
+    /**
+     * Wires the `run_connector_enrichment` job type
+     * (DONOR_DISCOVERY_ARCHITECTURE.md Â§6) into this processor's idle cycle,
+     * same posture as `runEnrichDonorProspectJob`/`runScoreDonorProspectJob`
+     * above. Picks up one (prospect, provider) pair at a time for orgs with an
+     * active Apollo/Hunter connector whose prospect hasn't been enriched by
+     * that provider yet, decrypts the org's stored key, calls the connector,
+     * and merges the result into `donor_discovery_prospects.enrichment_private`
+     * (tenant-scoped, migration 079) â€” never the shared directory row.
+     */
+    async runRunConnectorEnrichmentJob() {
+        const job = await (0, run_connector_enrichment_js_1.claimNextRunConnectorEnrichmentJob)(this.supabase);
+        if (job === null)
+            return;
+        console.log(`[QueueProcessor] run_connector_enrichment: processing prospect ${job.prospectId} via ${job.connectorProvider}`);
+        const result = await (0, run_connector_enrichment_js_1.handleRunConnectorEnrichmentJob)(this.supabase, job);
+        console.log(`[QueueProcessor] run_connector_enrichment: prospect ${job.prospectId} â€” ` +
+            `${result.enrichment.contacts.length} decision-maker contact(s) found via ${job.connectorProvider}`);
     }
     async processItem(item) {
         const { funder_id: funderId, organization_id: orgId, id: queueItemId } = item;
