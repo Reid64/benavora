@@ -33,6 +33,14 @@
 //   requested FitAnalysisAgent           -> exists (src/lib/agents/fit-analysis-agent.ts,
 //     BaseAgent pattern) but wiring it into this orchestrator is out of scope
 //     for the AG-08..AG-12 task this file was last updated for. Not wired.
+//   requested AG-40 StrategicAdvisorAgent -> StrategicAdvisorAgent (AG-40, exact match)
+//     src/lib/agents/strategic-advisor-agent.ts. The spec that added this
+//     asked for "weekly Sunday 5:00 AM CST" — there is no such cron slot
+//     anywhere in this worker (scheduler.ts fires exactly two fixed jobs:
+//     2AM nightly, 7AM digest — see the module note above this one). Wired
+//     into the same isSundayChicago() gate as AG-09/AG-11 below instead,
+//     inside the single 2AM nightly sweep, matching how AG-08..AG-12 already
+//     approximate their own monthly/weekly cadence with no dedicated cron.
 //
 // "Queue-only" agents are event-driven (e.g. FunderRelationshipAgent scores
 // one specific event like "awarded" against one funder) with no meaningful
@@ -611,6 +619,27 @@ async function runSearchProfileOptimizerStep(
   }
 }
 
+async function runStrategicAdvisorStep(
+  supabase: SupabaseClient,
+  orgId: string,
+  log: string[],
+): Promise<boolean> {
+  try {
+    const { StrategicAdvisorAgent } = await import(
+      '../src/lib/agents/strategic-advisor-agent.js'
+    );
+    const agent = new StrategicAdvisorAgent(orgId, supabase);
+    const result = await agent.run('schedule');
+    log.push(
+      `strategic_advisor: ${result.itemsProcessed} recommendation(s) generated`,
+    );
+    return result.itemsProcessed > 0;
+  } catch (err) {
+    log.push(`strategic_advisor: FAILED - ${errMsg(err)}`);
+    return false;
+  }
+}
+
 // --- per-org run -----------------------------------------------------------------
 
 async function runOrgPipeline(
@@ -681,6 +710,8 @@ async function runOrgPipeline(
       (await runOutcomeAnalyzerStep(supabase, org.id, log)) || hadActivity;
     hadActivity =
       (await runKnowledgeGapStep(supabase, org.id, log)) || hadActivity;
+    hadActivity =
+      (await runStrategicAdvisorStep(supabase, org.id, log)) || hadActivity;
   }
 
   if (runId) {
