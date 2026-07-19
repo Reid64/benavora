@@ -1,667 +1,1071 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 
-// AUTO-GENERATED from benavora-marketing-v15.html. Preserves the original
-// inline CSS, markup, animations, and JavaScript (CTAs/footer wired to real
-// routes). Markup + CSS render via dangerouslySetInnerHTML; the original
-// inline <script> is injected once after mount so its querySelectors find DOM.
+// ─── Brand Tokens ─────────────────────────────────────────────────────────────
+const B = {
+  // Canvas
+  bg:         "#080C14",   // near-black with blue undertone
+  bgCard:     "#0D1424",   // card surface
+  bgRaised:   "#111B2E",   // elevated card
+  bgHighlight:"#162040",   // featured/highlighted
+  // Brand blues
+  blue:       "#0EA5E9",   // primary — logo wordmark blue
+  blueDark:   "#1E6FD9",   // deep logo blue
+  blueGlow:   "rgba(14,165,233,0.12)",
+  // Brand purples
+  purple:     "#8B5CF6",   // paper plane / heart
+  purpleGlow: "rgba(139,92,246,0.12)",
+  // Teal
+  teal:       "#06B6D4",   // logo bottom gradient
+  // Utility
+  green:      "#10B981",
+  amber:      "#F59E0B",
+  red:        "#EF4444",
+  // Text
+  textPrimary:"#F0F6FF",
+  textSecond: "#8BA3C0",
+  textMuted:  "#4E6A8A",
+  // Borders
+  border:     "rgba(14,165,233,0.12)",
+  borderFaint:"rgba(255,255,255,0.06)",
+};
 
-const CSS = `*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Inter',-apple-system,sans-serif;background:var(--color-sidebar);color:#e2e8f0;overflow-x:hidden}
-a{color:var(--color-accent);text-decoration:none}
-a:hover{color:#33c2e0}
-.container{max-width:1200px;margin:0 auto;padding:0 24px}
+const sans    = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
+const display = "'Plus Jakarta Sans', 'Inter', sans-serif";
 
-/* Nav */
-nav{display:flex;justify-content:space-between;align-items:center;padding:16px 40px 16px 24px;max-width:1400px;margin:0 auto}
-nav img{height:36px}
-.nav-links{display:flex;gap:32px;align-items:center}
-.nav-links a{font-size:14px;color:#94a3b8;transition:color 200ms}
-.nav-links a:hover{color:#e2e8f0}
-.btn-primary{padding:14px 32px;border-radius:10px;border:none;background:var(--color-primary);color:#fff;font-size:15px;font-weight:600;cursor:pointer;transition:all 200ms}
-.btn-primary:hover{background:var(--color-cta-hover);transform:translateY(-1px)}
-.btn-sm{padding:10px 24px;font-size:14px}
-.btn-secondary{padding:14px 32px;border-radius:10px;border:2px solid var(--color-primary);background:transparent;color:var(--color-accent);font-size:15px;font-weight:600;cursor:pointer;transition:all 200ms}
-.btn-secondary:hover{background:rgba(0,119,182,0.13)}
+// ─── Animated Counter ─────────────────────────────────────────────────────────
+function Counter({ target, suffix = "", decimals = 0 }: { target: number; suffix?: string; decimals?: number }) {
+  const [val, setVal] = useState(0);
+  const started = useRef(false);
+  const el = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    const obs = new IntersectionObserver(([e]) => {
+      if (e?.isIntersecting && !started.current) {
+        started.current = true;
+        const t0 = Date.now();
+        const tick = () => {
+          const p = Math.min((Date.now() - t0) / 2000, 1);
+          const eased = 1 - Math.pow(1 - p, 3);
+          setVal(parseFloat((eased * target).toFixed(decimals)));
+          if (p < 1) requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      }
+    }, { threshold: 0.3 });
+    if (el.current) obs.observe(el.current);
+    return () => obs.disconnect();
+  }, [target, decimals]);
+  return <span ref={el}>{decimals > 0 ? val.toFixed(decimals) : val.toLocaleString()}{suffix}</span>;
+}
 
-/* Hero */
-.hero{position:relative;text-align:center;padding:100px 24px 60px;max-width:900px;margin:0 auto}
-.hero::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:800px;height:800px;background:radial-gradient(circle,rgba(0,119,182,0.08) 0%,transparent 70%);pointer-events:none}
-.hero h1{font-size:54px;font-weight:800;line-height:1.08;margin-bottom:20px;background:linear-gradient(135deg,var(--color-primary),var(--color-accent),var(--color-primary));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.hero p{font-size:19px;color:#94a3b8;max-width:660px;margin:0 auto 36px;line-height:1.65}
-.hero-cta{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
+// ─── SVG Icons ────────────────────────────────────────────────────────────────
+const IconCheck = ({ color = B.blue }: { color?: string } = {}) => (
+  <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style={{ flexShrink: 0, marginTop: 1 }}>
+    <circle cx="9" cy="9" r="9" fill={color} fillOpacity="0.12" />
+    <path d="M5.5 9L7.8 11.5L12.5 6.5" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+const IconLock = () => (
+  <svg width="18" height="18" viewBox="0 0 18 18" fill="none" style={{ flexShrink: 0, marginTop: 1 }}>
+    <circle cx="9" cy="9" r="9" fill="#fff" fillOpacity="0.04" />
+    <rect x="5" y="8" width="8" height="6" rx="1.5" stroke={B.textMuted} strokeWidth="1.5"/>
+    <path d="M6.5 8V6.5a2.5 2.5 0 015 0V8" stroke={B.textMuted} strokeWidth="1.5" strokeLinecap="round"/>
+  </svg>
+);
+const IconArrow = ({ color = "currentColor" }: { color?: string } = {}) => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+    <path d="M3 8h10M9 4l4 4-4 4" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+const IconStar = () => (
+  <svg width="14" height="14" viewBox="0 0 14 14" fill={B.amber}>
+    <path d="M7 1l1.55 3.13L12 4.63l-2.5 2.44.59 3.43L7 8.9l-3.09 1.6.59-3.43L2 4.63l3.45-.5L7 1z"/>
+  </svg>
+);
 
-/* Stats */
-.stats{display:flex;justify-content:center;gap:64px;padding:48px 24px 72px;flex-wrap:wrap}
-.stat{text-align:center}
-.stat-num{font-size:40px;font-weight:800;background:linear-gradient(135deg,var(--color-primary),var(--color-accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.stat-label{font-size:13px;color:#64748b;margin-top:4px;letter-spacing:0.5px}
+// ─── Data ─────────────────────────────────────────────────────────────────────
+type Tier = {
+  name: string;
+  monthly: number;
+  annual: number;
+  annualTotal: number;
+  tagline: string;
+  seats: string;
+  badge: string | null;
+  highlight: boolean;
+  accentColor: string;
+  cta: string;
+  ctaNote: string;
+  features: [boolean, string][];
+};
 
-/* How it works */
-.how-section{padding:60px 24px 80px}
-.how-section h2{text-align:center;font-size:36px;font-weight:700;margin-bottom:48px}
-.how-grid{display:grid;grid-template-columns:1fr 40px 1fr 40px 1fr;align-items:center;max-width:1000px;margin:0 auto;gap:0}
-.how-step{background:#1a1a2e;border-radius:16px;padding:32px 28px;border:1px solid #2a2a4a;text-align:center}
-.how-num{width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,var(--color-primary),var(--color-accent));display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;margin:0 auto 16px;color:#fff}
-.how-step h3{font-size:18px;font-weight:600;margin-bottom:8px}
-.how-step p{font-size:13px;color:#94a3b8;line-height:1.5}
-.how-arrow{text-align:center;color:var(--color-primary);font-size:24px}
+const TIERS: Tier[] = [
+  {
+    name: "Starter",
+    monthly: 397,
+    annual: 317,
+    annualTotal: 3804,
+    tagline: "For nonprofits entering competitive funding markets.",
+    seats: "2 users · 1 organization",
+    badge: null,
+    highlight: false,
+    accentColor: B.teal,
+    cta: "Start Free Trial",
+    ctaNote: "14 days · No credit card required",
+    features: [
+      [true,  "Grant opportunity research & discovery"],
+      [true,  "AI eligibility scoring (0–100)"],
+      [true,  "10 AI-generated grant drafts / month"],
+      [true,  "Knowledge Base with proven narratives"],
+      [true,  "NOFA document parsing & inline viewer"],
+      [true,  "Application pipeline tracking"],
+      [true,  "Deadline management & alerts"],
+      [true,  "Outcome tracking & recursive learning"],
+      [false, "50 AI drafts per month"],
+      [false, "AutoApply browser automation"],
+      [false, "Multi-tenant client management"],
+    ],
+  },
+  {
+    name: "Professional",
+    monthly: 897,
+    annual: 717,
+    annualTotal: 8604,
+    tagline: "For development teams managing serious funding pipelines.",
+    seats: "5 users · 1 organization",
+    badge: null,
+    highlight: false,
+    accentColor: B.blue,
+    cta: "Start Free Trial",
+    ctaNote: "14 days · No credit card required",
+    features: [
+      [true,  "Everything in Starter"],
+      [true,  "50 AI-generated drafts / month"],
+      [true,  "Document assembly engine"],
+      [true,  "NOFA parsing with auto-enrichment"],
+      [true,  "Budget narrative generator"],
+      [true,  "Funder intelligence reports"],
+      [true,  "Compliance pre-check"],
+      [true,  "Board report generator"],
+      [true,  "Priority email support"],
+      [false, "AutoApply browser automation"],
+      [false, "Multi-tenant client management"],
+    ],
+  },
+  {
+    name: "Enterprise",
+    monthly: 2497,
+    annual: 1997,
+    annualTotal: 23964,
+    tagline: "For large organizations automating funding operations at scale.",
+    seats: "25 users · 1 organization",
+    badge: "Most Capable",
+    highlight: true,
+    accentColor: B.purple,
+    cta: "Contact Sales",
+    ctaNote: "Demo call required",
+    features: [
+      [true,  "Everything in Professional"],
+      [true,  "Unlimited AI-generated drafts"],
+      [true,  "AutoApply: Manual & Batch modes"],
+      [true,  "Playwright browser automation"],
+      [true,  "AI form analysis & auto-fill"],
+      [true,  "Screenshot capture & confirmation logs"],
+      [true,  "1.97M+ nonprofit database (IRS BMF)"],
+      [true,  "Three-model consensus validation"],
+      [true,  "Custom research agent profiles"],
+      [true,  "Dedicated onboarding specialist"],
+      [true,  "Priority support with SLA"],
+    ],
+  },
+];
 
-/* Section headers */
-.sh{text-align:center;padding:60px 24px 40px}
-.sh h2{font-size:36px;font-weight:700;margin-bottom:12px}
-.sh p{font-size:16px;color:#94a3b8;max-width:600px;margin:0 auto}
+const FAQS: [string, string][] = [
+  ["What does the setup fee cover?", "Hands-on onboarding: Knowledge Base population with your mission, programs, financials, and board data; document upload and organization; research agent configuration. For Enterprise and above, AutoApply template analysis for your top target funders. Starter is fully self-service with no setup fee."],
+  ["How does AutoApply actually work?", "AutoApply uses browser automation to visit corporate giving portals, analyze their donation request forms using AI, and fill them with your organization's verified profile data. It captures screenshots before and after each submission. Enterprise gets Manual and Batch modes. Consultant gets Full Autonomous — queue hundreds of submissions overnight."],
+  ["What's the difference between grants and AutoApply targets?", "Grant applications are formal legal documents requiring reviewed AI narratives, budgets, and compliance checks — your team always approves before submission. AutoApply handles corporate donation request forms: cash, in-kind, equipment, land, and sponsorships. These are simpler web forms appropriate for autonomous submission."],
+  ["Can I bring my own AI API keys?", "Benavora includes Claude for all generation and analysis. If you want three-model consensus validation (adding OpenAI and Gemini), you provide your own API keys — we configure and test them during setup at no additional charge. You pay those providers directly."],
+  ["Can I switch tiers later?", "Yes — upgrade anytime with immediate effect. Your Knowledge Base, proven narratives, and all historical data carry over. Downgrades take effect at the end of your billing cycle. Setup fees are one-time and non-refundable."],
+  ["Is there a free trial?", "14 days on Starter or Professional, no credit card required. Enterprise and Consultant tiers begin with a demo call so we can configure the platform appropriately before you start."],
+];
 
-/* Two tools */
-.tools{display:grid;grid-template-columns:1fr 1fr;gap:28px;padding:0 24px 40px;max-width:1200px;margin:0 auto}
-.tool{background:#1a1a2e;border-radius:16px;padding:36px 32px;border:1px solid #2a2a4a;transition:border-color 300ms}
-.tool:hover{border-color:rgba(0,119,182,0.33)}
-.tool-badge{display:inline-block;font-size:11px;font-weight:600;padding:5px 14px;border-radius:9999px;margin-bottom:16px}
-.tool h3{font-size:24px;font-weight:700;margin-bottom:10px}
-.tool>p{font-size:15px;color:#94a3b8;line-height:1.65;margin-bottom:20px}
-.tool ul{list-style:none}
-.tool li{font-size:14px;padding:7px 0;display:flex;align-items:flex-start;gap:10px;color:#cbd5e1}
-.tool li::before{content:"✓";color:#22c55e;font-weight:700;flex-shrink:0;margin-top:1px}
+const BILLING_OPTIONS: [string, boolean][] = [["Monthly", false], ["Annual — save 20%", true]];
 
-/* ===== REALISTIC LAPTOP ANIMATION ===== */
-.anim-wrap{max-width:1200px;margin:0 auto;padding:0 24px 80px}
-.anim-container{background:#0f0f23;border-radius:20px;padding:48px 32px;border:1px solid #1e1e38;position:relative;overflow:hidden}
-.anim-container::before{content:'';position:absolute;top:-100px;left:50%;transform:translateX(-50%);width:600px;height:400px;background:radial-gradient(ellipse,rgba(0,119,182,0.06),transparent 70%);pointer-events:none}
-.anim-title{text-align:center;font-size:14px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:2px;margin-bottom:32px}
+// ─── Shared component: gradient text ─────────────────────────────────────────
+const GradText = ({ children, style = {} }: { children: React.ReactNode; style?: React.CSSProperties }) => (
+  <span style={{
+    background: `linear-gradient(135deg, ${B.blue} 0%, ${B.purple} 100%)`,
+    WebkitBackgroundClip: "text",
+    WebkitTextFillColor: "transparent",
+    backgroundClip: "text",
+    ...style,
+  }}>{children}</span>
+);
 
-
-/* Pulsating LIVE dot */
-.live-dot{width:12px;height:12px;border-radius:50%;background:#22c55e;position:relative;animation:livePulse 2s infinite}
-.live-dot::after{content:'';position:absolute;top:-5px;left:-5px;width:22px;height:22px;border-radius:50%;border:2px solid #22c55e;animation:livePulseRing 2s infinite}
-@keyframes livePulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.7;transform:scale(0.85)}}
-@keyframes livePulseRing{0%{opacity:0.6;transform:scale(1)}100%{opacity:0;transform:scale(1.8)}}
-
-/* Connection line animation */
-.conn-line{stroke:#ffffff;stroke-width:2;stroke-dasharray:10 6;fill:none;opacity:0.45}
-@keyframes dashFlow{to{stroke-dashoffset:-20}}
-.conn-line.active{animation:dashFlow 1.5s linear infinite;opacity:0.55}
-
-/* Center laptop */
-.claptop{width:240px;margin:0 auto}
-.claptop-bezel{background:#2d2d3d;border-radius:10px 10px 0 0;padding:6px 6px 4px;border:1px solid #3a3a4a;border-bottom:none;position:relative}
-.claptop-cam{width:4px;height:4px;border-radius:50%;background:#555;margin:0 auto 4px}
-.claptop-screen{background:#0f0f1a;border-radius:4px;overflow:hidden;height:180px}
-.claptop-base{background:linear-gradient(to bottom,#3a3a4a,#2d2d3d);height:10px;border-radius:0 0 4px 4px;position:relative}
-.claptop-notch{width:60px;height:4px;background:#444;border-radius:0 0 4px 4px;margin:0 auto;position:relative;top:-1px}
-
-/* Remote realistic laptops */
-.rlaptop{width:280px}
-.rlaptop-bezel{background:linear-gradient(to bottom,#c0c0c8,#a8a8b0);border-radius:8px 8px 0 0;padding:4px 4px 3px;position:relative;box-shadow:0 2px 8px rgba(0,0,0,0.3)}
-.rlaptop-cam{width:3px;height:3px;border-radius:50%;background:#888;margin:0 auto 3px}
-.rlaptop-screen{background:#ffffff;border-radius:3px;overflow:hidden;height:180px;position:relative}
-.rlaptop-base{background:linear-gradient(to bottom,#b0b0b8,#a0a0a8);height:8px;border-radius:0 0 6px 6px;position:relative}
-.rlaptop-hinge{width:50px;height:3px;background:#999;border-radius:0 0 3px 3px;margin:0 auto;position:relative;top:-1px}
-
-/* Form inside white screen */
-.rform-header{padding:6px 10px;font-size:9px;font-weight:700;color:#fff;display:flex;align-items:center;gap:4px}
-.rform-header::before{content:'';width:8px;height:8px;border-radius:2px;background:rgba(255,255,255,0.3);flex-shrink:0}
-.rform-body{padding:6px 10px}
-.rform-field{margin-bottom:5px}
-.rform-label{font-size:7px;color:#666;margin-bottom:1px;font-weight:600}
-.rform-input{height:16px;border:1px solid #ddd;border-radius:2px;background:#fafafa;font-size:8px;color:#333;padding:0 6px;line-height:16px;overflow:hidden;white-space:nowrap;width:100%;display:block}
-.rform-input.typing{border-color:var(--color-primary);background:#eaf6fb}
-.rform-input.done{border-color:#22c55e;background:#f0fdf4}
-.rform-submit{margin-top:8px;padding:4px 0;background:#e5e7eb;color:#9ca3af;font-size:7px;font-weight:600;text-align:center;border-radius:2px;transition:all 0.3s}
-.rform-submit.active{background:#22c55e;color:#fff;cursor:pointer}
-.rform-success{position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(255,255,255,0.95);display:flex;flex-direction:column;align-items:center;justify-content:center;opacity:0;transition:opacity 0.4s;z-index:2}
-.rform-success.show{opacity:1}
-.rform-success-icon{width:32px;height:32px;border-radius:50%;background:#22c55e;display:flex;align-items:center;justify-content:center;margin-bottom:6px;color:#fff;font-size:16px;font-weight:700}
-.rform-success-text{font-size:8px;color:#22c55e;font-weight:600}
-.rform-success-sub{font-size:6px;color:#94a3b8;margin-top:2px}
-
-/* Counter */
-.anim-counter{display:flex;justify-content:center;gap:40px;margin-top:32px;flex-wrap:wrap}
-.counter-item{text-align:center}
-.counter-num{font-size:38px;font-weight:800}
-.counter-num.submitted{color:#22c55e}
-.counter-num.pending{color:var(--color-primary)}
-.counter-num.confirmed{color:var(--color-accent)}
-.counter-label{font-size:12px;font-weight:600;color:#64748b;margin-top:2px;text-transform:uppercase;letter-spacing:1px}
-.counter-period{text-align:center;font-size:11px;color:#475569;margin-top:12px}
-
-/* Bento features */
-.bento{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:auto;gap:20px;max-width:1200px;margin:0 auto;padding:0 24px 80px}
-.bento-card{background:#1a1a2e;border-radius:14px;padding:28px 24px;border:1px solid #2a2a4a;transition:all 300ms}
-.bento-card:hover{border-color:rgba(0,119,182,0.27);transform:translateY(-2px)}
-.bento-card.large{grid-column:span 2;display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:center}
-.bento-card.large .bento-visual{background:#0f0f23;border-radius:10px;height:160px;display:flex;align-items:center;justify-content:center;border:1px solid #1e1e38}
-.bento-icon{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;margin-bottom:14px;flex-shrink:0}
-.bento-card h4{font-size:16px;font-weight:600;margin-bottom:8px}
-.bento-card p{font-size:13px;color:#94a3b8;line-height:1.55}
-.icon-svg{width:22px;height:22px}
-
-/* Pricing */
-.billing-toggle{display:inline-flex;background:#1a1a2e;border-radius:9999px;padding:4px;margin-bottom:48px}
-.billing-toggle button{padding:10px 24px;border-radius:9999px;border:none;cursor:pointer;font-size:14px;font-weight:500;transition:all 200ms;font-family:inherit}
-.bt-active{background:var(--color-primary);color:#fff}
-.bt-inactive{background:transparent;color:#94a3b8}
-.pricing-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;max-width:1200px;margin:0 auto;padding:0 24px 80px}
-.price-card{background:#1a1a2e;border-radius:16px;padding:32px;border:1px solid #2a2a4a;display:flex;flex-direction:column;position:relative;transition:all 300ms}
-.price-card:hover{border-color:rgba(0,119,182,0.33)}
-.price-card.feat{border:2px solid var(--color-primary)}
-.card-badge{position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:var(--color-primary);color:#fff;font-size:11px;font-weight:600;padding:4px 16px;border-radius:9999px;white-space:nowrap}
-.price-card h3{font-size:22px;font-weight:600;margin-bottom:6px}
-.price-card .desc{font-size:13px;color:#94a3b8;margin-bottom:20px;min-height:40px}
-.price{font-size:44px;font-weight:700}
-.price-sub{font-size:14px;color:#94a3b8}
-.price-ann{font-size:12px;color:#22c55e;margin-bottom:4px;min-height:18px}
-.price-meta{font-size:12px;color:#64748b;margin-bottom:20px}
-.price-card .cta{width:100%;padding:12px;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;margin-bottom:24px;transition:all 200ms;font-family:inherit}
-.fl{flex:1}
-.fi{display:flex;align-items:flex-start;gap:10px;margin-bottom:10px;font-size:13px}
-.fi.inc{color:#e2e8f0}
-.fi.lck{color:#475569;opacity:0.5}
-
-/* FAQ */
-.faq{max-width:800px;margin:0 auto;padding:0 24px 80px}
-.faq-item{background:#1a1a2e;border-radius:12px;margin-bottom:12px;border:1px solid #2a2a4a;overflow:hidden}
-.faq-q{width:100%;padding:18px 20px;background:transparent;border:none;color:#e2e8f0;font-size:15px;font-weight:500;text-align:left;cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-family:inherit}
-.faq-q:hover{background:#1e1e38}
-.faq-tog{color:var(--color-primary);font-size:22px;transition:transform 200ms}
-.faq-a{padding:0 20px 18px;font-size:14px;color:#94a3b8;line-height:1.7;display:none}
-.faq-item.open .faq-a{display:block}
-.faq-item.open .faq-tog{transform:rotate(45deg)}
-
-/* Bottom CTA */
-.bottom-cta{text-align:center;padding:80px 24px;background:#0f0f23;position:relative}
-.bottom-cta::before{content:'';position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:600px;height:400px;background:radial-gradient(ellipse,rgba(0,119,182,0.06),transparent 70%);pointer-events:none}
-.bottom-cta h2{font-size:36px;font-weight:700;margin-bottom:12px}
-.bottom-cta p{font-size:16px;color:#94a3b8;margin-bottom:36px}
-footer{text-align:center;padding:40px 24px;font-size:12px;color:#475569}
-
-@media(max-width:900px){
-.hero h1{font-size:34px}
-.tools,.bento,.pricing-grid{grid-template-columns:1fr}
-.bento-card.large{grid-column:span 1;grid-template-columns:1fr}
-.how-grid{grid-template-columns:1fr;gap:16px}
-.how-arrow{transform:rotate(90deg)}
-.anim-grid{flex-direction:column;gap:24px}
-.remote-group{flex-direction:row}
-.stats{gap:32px}
-}`;
-
-const BODY = `
-<!-- Nav -->
-<nav>
-  <img src="data:image/png;base64,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" alt="Benavora" style="height:160px">
-  <div class="nav-links">
-    <a href="#how">How It Works</a>
-    <a href="#features">Features</a>
-    <a href="#pricing">Pricing</a>
-    <a href="#faq">FAQ</a>
-    <a href="/for-consultants">For Agencies</a>
-    <a href="/login" style="font-size:14px;color:#94a3b8;text-decoration:none">Login</a><a href="/login" class="btn-primary btn-sm" style="display:inline-block;text-decoration:none">Start Free Trial</a>
+// ─── Shared: pill badge ───────────────────────────────────────────────────────
+const Eyebrow = ({ children }: { children: React.ReactNode }) => (
+  <div style={{
+    display: "inline-flex", alignItems: "center", gap: 8,
+    background: `linear-gradient(135deg, ${B.blueGlow}, ${B.purpleGlow})`,
+    border: `1px solid ${B.border}`,
+    borderRadius: 9999, padding: "6px 16px", marginBottom: 28,
+  }}>
+    <div style={{
+      width: 6, height: 6, borderRadius: "50%",
+      background: `linear-gradient(135deg, ${B.blue}, ${B.purple})`,
+    }} />
+    <span style={{ fontSize: 13, color: B.blue, fontWeight: 600, letterSpacing: "0.04em" }}>
+      {children}
+    </span>
   </div>
-</nav>
+);
 
-<!-- Hero -->
-<section class="hero">
-  <h1>Win More Grants. Apply to More Funders. On Autopilot.</h1>
-  <p>Benavora discovers funding opportunities, writes tailored applications with AI, and submits corporate donation requests autonomously — so your team can focus on the mission, not the paperwork.</p>
-  <div class="hero-cta">
-    <a href="/login" class="btn-primary" style="display:inline-block;text-decoration:none">Start Your Free Trial</a>
-    <button class="btn-secondary">Watch Demo</button>
-  </div>
-</section>
+// ─── Main ─────────────────────────────────────────────────────────────────────
+export default function BenavoraMarketing() {
+  const [annual, setAnnual]   = useState(true);
+  const [clients, setClients] = useState(10);
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [_hovered, setHovered] = useState<number | null>(null);
 
-<!-- Stats -->
-<div class="stats">
-  <div class="stat"><div class="stat-num">90,000+</div><div class="stat-label">Foundations in Database</div></div>
-  <div class="stat"><div class="stat-num">400+</div><div class="stat-label">Auto-Submissions Per Night</div></div>
-  <div class="stat"><div class="stat-num">88%</div><div class="stat-label">Avg Draft Confidence</div></div>
-  <div class="stat"><div class="stat-num">10x</div><div class="stat-label">Capacity Multiplier</div></div>
-</div>
+  const consultBase    = annual ? 3997 : 4997;
+  const consultPerClient = annual ? 397 : 497;
+  const consultTotal   = consultBase + consultPerClient * clients;
+  const perClientMo    = Math.round(consultTotal / clients);
 
-<!-- How It Works -->
-<section class="how-section" id="how">
-  <h2>How It Works</h2>
-  <div class="how-grid">
-    <div class="how-step">
-      <div class="how-num">1</div>
-      <h3>Discover</h3>
-      <p>AI agents scan federal, state, and foundation databases 24/7. Relevant opportunities appear in your dashboard automatically, scored for eligibility.</p>
-    </div>
-    <div class="how-arrow">→</div>
-    <div class="how-step">
-      <div class="how-num">2</div>
-      <h3>Draft</h3>
-      <p>Select an opportunity, and the AI generates a tailored narrative using your Knowledge Base and proven winning patterns. Review, edit, submit.</p>
-    </div>
-    <div class="how-arrow">→</div>
-    <div class="how-step">
-      <div class="how-num">3</div>
-      <h3>AutoApply</h3>
-      <p>Queue corporate giving portals. The browser engine fills forms, uploads documents, and submits requests overnight — hundreds at a time.</p>
-    </div>
-  </div>
-</section>
+  return (
+    <div style={{ backgroundColor: B.bg, color: B.textPrimary, fontFamily: sans, minHeight: "100vh", overflowX: "hidden" }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap');
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        ::selection { background: ${B.blue}; color: #fff; }
+        body { -webkit-font-smoothing: antialiased; }
+        a { text-decoration: none; color: inherit; }
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(24px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes glow {
+          0%, 100% { opacity: 0.5; }
+          50%       { opacity: 1; }
+        }
+        .fu  { animation: fadeUp 0.7s ease both; }
+        .fu1 { animation: fadeUp 0.7s 0.12s ease both; }
+        .fu2 { animation: fadeUp 0.7s 0.24s ease both; }
+        .fu3 { animation: fadeUp 0.7s 0.38s ease both; }
+        .tc  { transition: all 200ms ease; }
+        .card-hover { transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease; }
+        .card-hover:hover { transform: translateY(-4px); }
+        .btn-primary:hover  { filter: brightness(1.12); }
+        .btn-outline:hover  { background: ${B.blueGlow} !important; }
+        .faq-row:hover { background: ${B.bgRaised} !important; }
+      `}</style>
 
-<!-- Two Core Tools -->
-<div class="sh">
-  <h2>Two Powerful Engines. One Platform.</h2>
-  <p>Grant applications and corporate outreach — each with the right level of automation for its risk profile.</p>
-</div>
-<div class="tools container">
-  <div class="tool">
-    <span class="tool-badge" style="background:rgba(0,180,216,0.13);color:var(--color-accent)">AI-Assisted</span>
-    <h3>Grant Application Pipeline</h3>
-    <p>AI-drafted narratives, budgets, and compliance packages for federal, state, and foundation grants. You review and approve — the system handles the heavy lifting.</p>
-    <ul>
-      <li>NOFA document parsing with inline PDF viewing</li>
-      <li>AI draft generation using your proven narratives</li>
-      <li>Confidence scoring with gap detection</li>
-      <li>Budget narrative generator</li>
-      <li>Compliance pre-check before submission</li>
-      <li>Recursive learning — drafts improve with every outcome</li>
-      <li>Human review checkpoint on every submission</li>
-    </ul>
-  </div>
-  <div class="tool" style="border-color:rgba(0,119,182,0.27)">
-    <span class="tool-badge" style="background:rgba(0,119,182,0.13);color:var(--color-primary)">Fully Autonomous</span>
-    <h3>AutoApply Engine</h3>
-    <p>AI-powered browser automation visits corporate giving portals, analyzes forms, fills them with your org data, and submits donation requests — hundreds per night, zero manual work.</p>
-    <ul>
-      <li>AI-powered autonomous browser automation</li>
-      <li>Intelligent form analysis and field mapping</li>
-      <li>Supports donations, materials, land, vehicles, sponsorships</li>
-      <li>Screenshot capture before and after submission</li>
-      <li>Batch queue processing — 400+ submissions overnight</li>
-      <li>CAPTCHA detection and resolution</li>
-      <li>Full audit trail with confirmation logging</li>
-    </ul>
-  </div>
-</div>
-
-<!-- LAPTOP ANIMATION -->
-<div class="anim-wrap">
-  <div class="anim-container">
-    <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:36px"><div class="live-dot"></div><div class="anim-title" style="margin-bottom:0">AutoApply In Action</div></div>
-    <div style="display:grid;grid-template-columns:1fr 280px 1fr;gap:80px;align-items:center;max-width:1100px;margin:0 auto">
-      <!-- Left laptops -->
-      <div style="display:flex;flex-direction:column;gap:24px">
-        <div class="rlaptop" id="rl1" data-company="Target Foundation" data-color="#cc0000" data-fields='["Organization Name|Horizon Housing Alliance","Tax ID (EIN)|47-XXXXXXX","Contact Email|grants@horizonhousing.org","Project Description|Emergency housing assistance for rural Texas families"]'></div>
-        <div class="rlaptop" id="rl2" data-company="Home Depot Foundation" data-color="#f96302" data-fields='["Organization Name|Cornerstone Community Dev","Nonprofit Status|501(c)(3)","Describe Your Need|Transitional housing materials for 12-unit facility","Requested Amount|$25,000"]'></div>
+      {/* ═══ Ambient background glow ═══ */}
+      <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0, overflow: "hidden" }}>
+        <div style={{
+          position: "absolute", top: "-20%", left: "50%", transform: "translateX(-50%)",
+          width: 900, height: 600,
+          background: `radial-gradient(ellipse, rgba(14,165,233,0.08) 0%, transparent 70%)`,
+          animation: "glow 6s ease-in-out infinite",
+        }} />
+        <div style={{
+          position: "absolute", top: "30%", right: "-10%",
+          width: 600, height: 600,
+          background: `radial-gradient(ellipse, rgba(139,92,246,0.06) 0%, transparent 70%)`,
+        }} />
       </div>
-      <!-- Center laptop -->
-      <div>
-        <div class="claptop">
-          <div class="claptop-bezel">
-            <div class="claptop-cam"></div>
-            <div class="claptop-screen">
-              <div style="background:linear-gradient(135deg,var(--color-primary),#005f92);padding:8px 12px;border-radius:4px 4px 0 0;display:flex;align-items:center;gap:6px">
-                <img src="data:image/png;base64,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" alt="Benavora" style="height:40px"><span style="font-size:13px;font-weight:700;color:#fff;display:none">benavora</span>
-                <div style="margin-left:auto;font-size:7px;color:#a3e9f7">AutoApply Queue</div>
+
+      <div style={{ position: "relative", zIndex: 1 }}>
+
+        {/* ═══ Nav ═══ */}
+        <nav style={{
+          position: "sticky", top: 0, zIndex: 200,
+          backgroundColor: "rgba(8,12,20,0.85)",
+          backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
+          borderBottom: `1px solid ${B.borderFaint}`,
+          padding: "0 48px", height: 68,
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+        }}>
+          {/* Logo lockup */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/benavora_logo.png" alt="Benavora" style={{ height: 36, width: "auto", objectFit: "contain" }} />
+          <div style={{ display: "flex", alignItems: "center", gap: 28 }}>
+            {["Product", "For Consultants", "Pricing"].map(l => (
+              <a key={l} href={l === "Pricing" ? "#pricing" : "#"} style={{ fontSize: 14, color: B.textSecond, fontWeight: 500 }}
+                className="tc">{l}</a>
+            ))}
+            <a href="#" style={{
+              fontSize: 14, fontWeight: 600, color: B.textPrimary,
+              padding: "8px 20px", borderRadius: 8,
+              border: `1px solid ${B.border}`,
+            }} className="tc btn-outline">Sign In</a>
+            <a href="#pricing" style={{
+              fontSize: 14, fontWeight: 600, color: "#fff",
+              padding: "8px 20px", borderRadius: 8,
+              background: `linear-gradient(135deg, ${B.blue}, ${B.blueDark})`,
+              boxShadow: `0 0 20px rgba(14,165,233,0.25)`,
+            }} className="tc btn-primary">Get Started</a>
+          </div>
+        </nav>
+
+        {/* ═══ Hero ═══ */}
+        <section style={{ maxWidth: 1000, margin: "0 auto", padding: "120px 48px 100px", textAlign: "center" }}>
+          <div className="fu">
+            <Eyebrow>AI-Powered Nonprofit Funding Platform</Eyebrow>
+          </div>
+
+          <h1 className="fu1" style={{
+            fontFamily: display, fontSize: "clamp(46px, 6.5vw, 76px)",
+            fontWeight: 800, lineHeight: 1.06, letterSpacing: "-0.03em",
+            marginBottom: 28,
+          }}>
+            Your mission deserves<br />
+            <GradText>every dollar available to it.</GradText>
+          </h1>
+
+          <p className="fu2" style={{
+            fontSize: 20, lineHeight: 1.65, color: B.textSecond,
+            maxWidth: 580, margin: "0 auto 52px",
+          }}>
+            Benavora finds the grants you're missing, writes the applications your team doesn't have time for, and submits corporate donation requests — autonomously, overnight, while you sleep.
+          </p>
+
+          <div className="fu3" style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap", alignItems: "center" }}>
+            <a href="#pricing" className="tc btn-primary" style={{
+              display: "inline-flex", alignItems: "center", gap: 8,
+              background: `linear-gradient(135deg, ${B.blue}, ${B.blueDark})`,
+              color: "#fff", fontSize: 16, fontWeight: 700,
+              padding: "15px 32px", borderRadius: 10,
+              boxShadow: `0 0 32px rgba(14,165,233,0.3)`,
+            }}>
+              Start Free Trial <IconArrow color="#fff" />
+            </a>
+            <a href="#" className="tc" style={{
+              display: "inline-flex", alignItems: "center", gap: 8,
+              color: B.textSecond, fontSize: 15, fontWeight: 500,
+              padding: "15px 20px", borderRadius: 10,
+              border: `1px solid ${B.borderFaint}`,
+            }}>
+              Watch a demo →
+            </a>
+          </div>
+
+          {/* Trust badges */}
+          <div className="fu3" style={{
+            display: "flex", gap: 8, justifyContent: "center",
+            flexWrap: "wrap", marginTop: 44,
+          }}>
+            {[
+              "14-day free trial",
+              "No credit card required",
+              "SOC 2 compliant",
+              "Data never used for training",
+            ].map(b => (
+              <div key={b} style={{
+                display: "flex", alignItems: "center", gap: 6,
+                padding: "6px 14px", borderRadius: 9999,
+                backgroundColor: B.bgCard, border: `1px solid ${B.borderFaint}`,
+                fontSize: 13, color: B.textSecond,
+              }}>
+                <IconCheck color={B.teal} />
+                {b}
               </div>
-              <div style="padding:8px;font-size:7px;color:#94a3b8">
-                <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:#22c55e;font-weight:600">● Live</span><span>4 active</span></div>
-                <div class="q-row" style="background:#16a34a22;border-left:2px solid #22c55e;padding:3px 6px;margin-bottom:3px;border-radius:2px;color:#22c55e;font-size:6px">Target Corp — Submitting...</div>
-                <div class="q-row" style="background:rgba(0,119,182,0.13);border-left:2px solid var(--color-primary);padding:3px 6px;margin-bottom:3px;border-radius:2px;color:var(--color-primary);font-size:6px">Home Depot — Filling form...</div>
-                <div class="q-row" style="background:rgba(0,119,182,0.13);border-left:2px solid var(--color-primary);padding:3px 6px;margin-bottom:3px;border-radius:2px;color:var(--color-primary);font-size:6px">Lowe's — Analyzing form...</div>
-                <div class="q-row" style="background:#64748b22;border-left:2px solid #64748b;padding:3px 6px;margin-bottom:3px;border-radius:2px;color:#64748b;font-size:6px">Wells Fargo — Queued</div>
-                <div class="q-row" style="background:#64748b22;border-left:2px solid #64748b;padding:3px 6px;margin-bottom:3px;border-radius:2px;color:#64748b;font-size:6px">Bank of America — Queued</div>
+            ))}
+          </div>
+        </section>
+
+        {/* ═══ Stats — The Problem ═══ */}
+        <section style={{
+          background: `linear-gradient(180deg, ${B.bg} 0%, ${B.bgCard} 50%, ${B.bg} 100%)`,
+          borderTop: `1px solid ${B.borderFaint}`,
+          borderBottom: `1px solid ${B.borderFaint}`,
+        }}>
+          <div style={{ maxWidth: 1200, margin: "0 auto", padding: "80px 48px" }}>
+            <p style={{
+              textAlign: "center", fontSize: 13, fontWeight: 600,
+              letterSpacing: "0.12em", textTransform: "uppercase",
+              color: B.textMuted, marginBottom: 56,
+            }}>
+              The nonprofit funding reality in 2026
+            </p>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 1, backgroundColor: B.borderFaint }}>
+              {[
+                { n: 93,  s: "%",  d: 0, label: "of nonprofits say grant writing consumes more staff time than any other function", color: B.blue },
+                { n: 40,  s: " hrs", d: 0, label: "average hours spent per grant application — research, draft, compliance, submit", color: B.purple },
+                { n: 14,  s: "%",  d: 0, label: "average success rate on unsolicited grant applications filed by US nonprofits", color: B.teal },
+                { n: 2.1, s: "M+", d: 1, label: "active US nonprofits competing for the same constrained pool of philanthropic dollars", color: B.amber },
+              ].map((stat, i) => (
+                <div key={i} style={{
+                  backgroundColor: B.bgCard,
+                  padding: "44px 36px",
+                  position: "relative", overflow: "hidden",
+                }}>
+                  <div style={{
+                    position: "absolute", top: 0, left: 0, right: 0, height: 2,
+                    background: `linear-gradient(90deg, ${stat.color}, transparent)`,
+                  }} />
+                  <div style={{
+                    fontFamily: display, fontSize: 52, fontWeight: 800,
+                    color: stat.color, lineHeight: 1, marginBottom: 14,
+                    letterSpacing: "-0.02em",
+                  }}>
+                    <Counter target={stat.n} suffix={stat.s} decimals={stat.d} />
+                  </div>
+                  <p style={{ fontSize: 13.5, lineHeight: 1.65, color: B.textSecond, maxWidth: 200 }}>
+                    {stat.label}
+                  </p>
+                </div>
+              ))}
+            </div>
+            <p style={{
+              textAlign: "center", marginTop: 44,
+              fontFamily: display, fontSize: 20, fontWeight: 600,
+              color: B.textSecond,
+            }}>
+              The problem isn't your mission.{" "}
+              <GradText>It's the infrastructure around it.</GradText>
+            </p>
+          </div>
+        </section>
+
+        {/* ═══ Four Engines ═══ */}
+        <section style={{ maxWidth: 1200, margin: "0 auto", padding: "100px 48px" }}>
+          <div style={{ textAlign: "center", marginBottom: 64 }}>
+            <Eyebrow>The Platform</Eyebrow>
+            <h2 style={{
+              fontFamily: display, fontSize: "clamp(32px, 4vw, 48px)",
+              fontWeight: 800, letterSpacing: "-0.02em", lineHeight: 1.15,
+            }}>
+              Four engines working in parallel —<br />
+              <GradText>day and night.</GradText>
+            </h2>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+            {[
+              {
+                n: "01", title: "Grant Intelligence Engine",
+                color: B.teal,
+                body: "Continuously monitors Grants.gov, SAM.gov, federal registers, 133K+ foundation profiles, and state portals. Scores every opportunity against your organization's profile and surfaces only the ones worth your time.",
+                tags: ["Eligibility scoring", "Deadline alerts", "Source categorization", "Funder intelligence"],
+              },
+              {
+                n: "02", title: "Autonomous Proposal Factory",
+                color: B.blue,
+                body: "Generates complete, compliant grant applications from your Knowledge Base of proven narratives, financials, and program data. Every draft learns from your outcomes — wins and losses — and gets sharper over time.",
+                tags: ["AI draft generation", "Budget narratives", "Logic model builder", "Compliance pre-check"],
+              },
+              {
+                n: "03", title: "AutoApply Automation",
+                color: B.purple,
+                body: "Browser automation that visits corporate giving portals, analyzes their forms with AI, fills them with your verified data, and submits — capturing screenshots at every step. Queue hundreds of submissions to run overnight.",
+                tags: ["Corporate portals", "In-kind & cash requests", "Sponsorships", "Full audit trail"],
+              },
+              {
+                n: "04", title: "Organizational Digital Twin",
+                color: B.amber,
+                body: "A living AI model of your organization — mission, programs, financials, board, impact history. The deeper it knows you, the sharper every draft, eligibility score, funder match, and recommendation becomes.",
+                tags: ["Digital twin", "Relationship intelligence", "Donor discovery", "Funding forecast"],
+              },
+            ].map((item, i) => (
+              <div key={i} className="card-hover" style={{
+                backgroundColor: B.bgCard,
+                borderRadius: 16, padding: "44px 40px",
+                border: `1px solid ${B.borderFaint}`,
+                position: "relative", overflow: "hidden",
+              }}>
+                <div style={{
+                  position: "absolute", top: 0, left: 0, right: 0, height: 2,
+                  background: `linear-gradient(90deg, ${item.color}, transparent)`,
+                }} />
+                <div style={{
+                  display: "inline-flex", alignItems: "center", justifyContent: "center",
+                  width: 40, height: 40, borderRadius: 10,
+                  backgroundColor: `${item.color}18`,
+                  border: `1px solid ${item.color}30`,
+                  fontFamily: display, fontSize: 14, fontWeight: 700, color: item.color,
+                  marginBottom: 20,
+                }}>{item.n}</div>
+                <h3 style={{
+                  fontFamily: display, fontSize: 22, fontWeight: 700,
+                  color: B.textPrimary, marginBottom: 14, lineHeight: 1.3,
+                }}>{item.title}</h3>
+                <p style={{ fontSize: 15, lineHeight: 1.7, color: B.textSecond, marginBottom: 24 }}>
+                  {item.body}
+                </p>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {item.tags.map(t => (
+                    <span key={t} style={{
+                      fontSize: 12, fontWeight: 600, color: item.color,
+                      backgroundColor: `${item.color}12`,
+                      border: `1px solid ${item.color}25`,
+                      padding: "4px 10px", borderRadius: 6,
+                    }}>{t}</span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ═══ The Math ═══ */}
+        <section style={{
+          backgroundColor: B.bgCard,
+          borderTop: `1px solid ${B.borderFaint}`,
+          borderBottom: `1px solid ${B.borderFaint}`,
+          padding: "90px 48px",
+        }}>
+          <div style={{ maxWidth: 1060, margin: "0 auto" }}>
+            <div style={{ textAlign: "center", marginBottom: 60 }}>
+              <Eyebrow>The Math</Eyebrow>
+              <h2 style={{
+                fontFamily: display, fontSize: "clamp(30px, 4vw, 46px)",
+                fontWeight: 800, letterSpacing: "-0.02em",
+              }}>
+                One grant award covers <GradText>years of Benavora.</GradText>
+              </h2>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 52px 1fr", alignItems: "center", gap: 0 }}>
+              {/* Without */}
+              <div style={{
+                backgroundColor: B.bgRaised, borderRadius: 16, padding: "36px 32px",
+                border: `1px solid ${B.borderFaint}`,
+              }}>
+                <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: B.textMuted, marginBottom: 24 }}>
+                  Without Benavora
+                </div>
+                {[
+                  ["Grant writer salary (FTE)", "$62,000 / yr"],
+                  ["Benefits & overhead (28%)", "$17,360 / yr"],
+                  ["Hours on research alone", "~480 hrs / yr"],
+                  ["Applications submitted / year", "12–18"],
+                  ["Average win rate", "~14%"],
+                  ["Expected awards / year", "2–3"],
+                ].map(([l, v], i) => (
+                  <div key={i} style={{
+                    display: "flex", justifyContent: "space-between",
+                    padding: "10px 0", borderBottom: `1px solid ${B.borderFaint}`,
+                    fontSize: 14,
+                  }}>
+                    <span style={{ color: B.textSecond }}>{l}</span>
+                    <span style={{ fontWeight: 600, color: B.textPrimary }}>{v}</span>
+                  </div>
+                ))}
+                <div style={{
+                  marginTop: 20, paddingTop: 16,
+                  borderTop: `2px solid rgba(239,68,68,0.3)`,
+                  display: "flex", justifyContent: "space-between", alignItems: "baseline",
+                }}>
+                  <span style={{ fontSize: 14, fontWeight: 600 }}>Annual cost</span>
+                  <span style={{ fontFamily: display, fontSize: 30, fontWeight: 800, color: B.red }}>$79,360</span>
+                </div>
+              </div>
+
+              {/* VS */}
+              <div style={{ textAlign: "center", fontSize: 14, fontWeight: 600, color: B.textMuted }}>vs.</div>
+
+              {/* With */}
+              <div style={{
+                borderRadius: 16, padding: "36px 32px",
+                background: `linear-gradient(160deg, ${B.bgHighlight} 0%, ${B.bgRaised} 100%)`,
+                border: `1px solid ${B.border}`,
+                position: "relative", overflow: "hidden",
+              }}>
+                <div style={{
+                  position: "absolute", top: 0, left: 0, right: 0, height: 2,
+                  background: `linear-gradient(90deg, ${B.blue}, ${B.purple})`,
+                }} />
+                <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: B.blue, marginBottom: 24 }}>
+                  With Benavora Professional
+                </div>
+                {[
+                  ["Platform subscription", "$897 / mo → $10,764 / yr"],
+                  ["Hours on research", "~40 hrs / yr (agent-assisted)"],
+                  ["Opportunities monitored", "Continuous · all sources"],
+                  ["Applications submitted / year", "60–120+"],
+                  ["AutoApply submissions / night", "400+ capable"],
+                  ["Expected awards / year", "8–15"],
+                ].map(([l, v], i) => (
+                  <div key={i} style={{
+                    display: "flex", justifyContent: "space-between",
+                    padding: "10px 0", borderBottom: `1px solid ${B.borderFaint}`,
+                    fontSize: 14,
+                  }}>
+                    <span style={{ color: B.textSecond }}>{l}</span>
+                    <span style={{ fontWeight: 600, color: B.textPrimary }}>{v}</span>
+                  </div>
+                ))}
+                <div style={{
+                  marginTop: 20, paddingTop: 16,
+                  borderTop: `2px solid ${B.border}`,
+                  display: "flex", justifyContent: "space-between", alignItems: "baseline",
+                }}>
+                  <span style={{ fontSize: 14, fontWeight: 600 }}>Annual cost</span>
+                  <span style={{ fontFamily: display, fontSize: 30, fontWeight: 800, color: B.blue }}>$10,764</span>
+                </div>
+                <div style={{
+                  marginTop: 14, borderRadius: 8, padding: "12px 16px", textAlign: "center",
+                  background: `linear-gradient(135deg, ${B.blueGlow}, ${B.purpleGlow})`,
+                  border: `1px solid ${B.border}`,
+                }}>
+                  <span style={{ fontSize: 13, color: B.blue, fontWeight: 600 }}>
+                    $68,596 in annual savings. One foundation grant covers 5+ years of the platform.
+                  </span>
+                </div>
               </div>
             </div>
           </div>
-          <div class="claptop-base"><div class="claptop-notch"></div></div>
-        </div>
+        </section>
+
+        {/* ═══ Pricing ═══ */}
+        <section id="pricing" style={{ maxWidth: 1220, margin: "0 auto", padding: "100px 48px" }}>
+          <div style={{ textAlign: "center", marginBottom: 56 }}>
+            <Eyebrow>Pricing</Eyebrow>
+            <h2 style={{
+              fontFamily: display, fontSize: "clamp(30px, 4vw, 46px)",
+              fontWeight: 800, letterSpacing: "-0.02em", marginBottom: 32,
+            }}>
+              Straightforward. <GradText>No surprises.</GradText>
+            </h2>
+
+            {/* Toggle */}
+            <div style={{
+              display: "inline-flex",
+              backgroundColor: B.bgCard,
+              border: `1px solid ${B.borderFaint}`,
+              borderRadius: 12, padding: 4, gap: 4,
+            }}>
+              {BILLING_OPTIONS.map(([label, val]) => (
+                <button key={label} className="tc" onClick={() => setAnnual(val)} style={{
+                  padding: "9px 22px", borderRadius: 9, border: "none",
+                  fontSize: 14, fontWeight: 600, cursor: "pointer",
+                  background: annual === val
+                    ? `linear-gradient(135deg, ${B.blue}, ${B.blueDark})`
+                    : "transparent",
+                  color: annual === val ? "#fff" : B.textSecond,
+                  boxShadow: annual === val ? `0 0 16px rgba(14,165,233,0.2)` : "none",
+                }}>{label}</button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+            {TIERS.map((tier, i) => {
+              const price = annual ? tier.annual : tier.monthly;
+              const hl = tier.highlight;
+              return (
+                <div key={tier.name} className="card-hover"
+                  onMouseEnter={() => setHovered(i)}
+                  onMouseLeave={() => setHovered(null)}
+                  style={{
+                    borderRadius: 16, padding: "36px 28px",
+                    display: "flex", flexDirection: "column",
+                    position: "relative", overflow: "hidden",
+                    background: hl
+                      ? `linear-gradient(160deg, ${B.bgHighlight} 0%, ${B.bgRaised} 100%)`
+                      : B.bgCard,
+                    border: hl
+                      ? `1px solid ${B.border}`
+                      : `1px solid ${B.borderFaint}`,
+                    boxShadow: hl
+                      ? `0 0 60px rgba(14,165,233,0.12), 0 0 100px rgba(139,92,246,0.08)`
+                      : "none",
+                  }}>
+                  {/* Top accent bar */}
+                  <div style={{
+                    position: "absolute", top: 0, left: 0, right: 0, height: 2,
+                    background: hl
+                      ? `linear-gradient(90deg, ${B.blue}, ${B.purple})`
+                      : `linear-gradient(90deg, ${tier.accentColor}, transparent)`,
+                  }} />
+
+                  {tier.badge && (
+                    <div style={{
+                      position: "absolute", top: 16, right: 20,
+                      background: `linear-gradient(135deg, ${B.blue}, ${B.purple})`,
+                      color: "#fff", fontSize: 11, fontWeight: 700,
+                      letterSpacing: "0.06em", textTransform: "uppercase",
+                      padding: "4px 12px", borderRadius: 9999,
+                    }}>{tier.badge}</div>
+                  )}
+
+                  <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: tier.accentColor, marginBottom: 8 }}>
+                    {tier.name}
+                  </div>
+
+                  <div style={{ marginBottom: 8 }}>
+                    <span style={{ fontFamily: display, fontSize: 50, fontWeight: 800, color: B.textPrimary, letterSpacing: "-0.02em" }}>
+                      ${price}
+                    </span>
+                    <span style={{ fontSize: 14, color: B.textMuted }}> /mo</span>
+                  </div>
+
+                  {annual && (
+                    <div style={{ fontSize: 12, color: B.green, fontWeight: 600, marginBottom: 8 }}>
+                      Billed annually · ${tier.annualTotal.toLocaleString()} / yr
+                    </div>
+                  )}
+
+                  <p style={{ fontSize: 13.5, lineHeight: 1.55, color: B.textSecond, marginBottom: 14 }}>
+                    {tier.tagline}
+                  </p>
+                  <div style={{ fontSize: 12, color: B.textMuted, marginBottom: 28 }}>
+                    {tier.seats}
+                  </div>
+
+                  <button className="tc btn-primary" style={{
+                    width: "100%", padding: "13px 0", borderRadius: 9,
+                    fontSize: 14, fontWeight: 700, cursor: "pointer", marginBottom: 28,
+                    background: hl
+                      ? `linear-gradient(135deg, ${B.blue}, ${B.blueDark})`
+                      : "transparent",
+                    color: hl ? "#fff" : tier.accentColor,
+                    border: hl ? "none" : `1.5px solid ${tier.accentColor}40`,
+                    boxShadow: hl ? `0 0 24px rgba(14,165,233,0.25)` : "none",
+                  }}>{tier.cta}</button>
+
+                  <div style={{ flex: 1 }}>
+                    {tier.features.map(([yes, text], j) => (
+                      <div key={j} style={{
+                        display: "flex", alignItems: "flex-start", gap: 10,
+                        marginBottom: 11, opacity: yes ? 1 : 0.35,
+                      }}>
+                        {yes ? <IconCheck color={tier.accentColor} /> : <IconLock />}
+                        <span style={{ fontSize: 13.5, lineHeight: 1.45, color: yes ? B.textPrimary : B.textMuted }}>
+                          {text}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{ marginTop: 20, fontSize: 12, color: B.textMuted, textAlign: "center" }}>
+                    {tier.ctaNote}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Competitor context */}
+          <div style={{
+            marginTop: 20, padding: "16px 24px", borderRadius: 10,
+            backgroundColor: B.bgCard, border: `1px solid ${B.borderFaint}`,
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 32,
+            flexWrap: "wrap",
+          }}>
+            <span style={{ fontSize: 13, color: B.textMuted }}>How we compare:</span>
+            {[
+              ["Instrumentl Full Lifecycle", "$999/mo", "discovery + tracking only, bolt-on AI editing"],
+              ["SmartSimple", "$500+/mo", "no AI, complex implementation, high consulting cost"],
+              ["Benavora Enterprise", "$2,497/mo", "AutoApply + AI factory + 1.97M database + digital twin"],
+            ].map(([name, price, note], i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: i === 2 ? B.blue : B.textSecond }}>{name}</span>
+                <span style={{ fontSize: 13, color: i === 2 ? B.blue : B.textMuted }}>{price}</span>
+                <span style={{ fontSize: 12, color: B.textMuted }}>· {note}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ═══ Consultant Tier ═══ */}
+        <section style={{ maxWidth: 1220, margin: "0 auto", padding: "0 48px 80px" }}>
+          <div style={{
+            borderRadius: 20, padding: "56px 52px",
+            background: `linear-gradient(160deg, ${B.bgHighlight} 0%, ${B.bgCard} 100%)`,
+            border: `1px solid ${B.border}`,
+            position: "relative", overflow: "hidden",
+            boxShadow: `0 0 80px rgba(139,92,246,0.1)`,
+          }}>
+            <div style={{
+              position: "absolute", top: 0, left: 0, right: 0, height: 3,
+              background: `linear-gradient(90deg, ${B.purple}, ${B.blue}, ${B.teal})`,
+            }} />
+            <div style={{
+              position: "absolute", top: -100, right: -100,
+              width: 400, height: 400,
+              background: `radial-gradient(ellipse, rgba(139,92,246,0.08) 0%, transparent 70%)`,
+              pointerEvents: "none",
+            }} />
+
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
+              <div style={{
+                width: 8, height: 8, borderRadius: "50%",
+                background: `linear-gradient(135deg, ${B.purple}, ${B.blue})`,
+              }} />
+              <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: B.purple }}>
+                For Agencies & Grant Consultants
+              </span>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 64, alignItems: "start" }}>
+              <div>
+                <h3 style={{ fontFamily: display, fontSize: 40, fontWeight: 800, letterSpacing: "-0.02em", marginBottom: 12, lineHeight: 1.1 }}>
+                  Consultant
+                </h3>
+                <p style={{ fontSize: 15, color: B.textSecond, lineHeight: 1.65, marginBottom: 32 }}>
+                  For grant writing firms managing multiple nonprofit clients. Full autonomous operation at scale — one platform, every client, overnight submissions. At $100–$200/hour billing rates, Benavora pays for itself in the first week of the month.
+                </p>
+
+                <div style={{ marginBottom: 6 }}>
+                  <span style={{ fontFamily: display, fontSize: 48, fontWeight: 800, letterSpacing: "-0.02em", color: B.textPrimary }}>
+                    ${annual ? "3,997" : "4,997"}
+                  </span>
+                  <span style={{ fontSize: 14, color: B.textMuted }}> / month base</span>
+                </div>
+                <p style={{ fontSize: 15, color: B.purple, fontWeight: 600, marginBottom: 4 }}>
+                  + ${annual ? "397" : "497"} / month per client organization
+                </p>
+                <p style={{ fontSize: 12, color: B.textMuted, marginBottom: 32 }}>
+                  Setup: $7,997 base + $997 per client org (one-time)
+                </p>
+
+                {/* Calculator */}
+                <div style={{
+                  backgroundColor: B.bg, borderRadius: 12, padding: "24px",
+                  border: `1px solid ${B.borderFaint}`, marginBottom: 28,
+                }}>
+                  <label style={{ fontSize: 13, fontWeight: 600, color: B.textSecond, display: "block", marginBottom: 14 }}>
+                    How many client organizations?
+                  </label>
+                  <input type="range" min={1} max={50} value={clients}
+                    onChange={e => setClients(+e.target.value)}
+                    style={{ width: "100%", marginBottom: 10, accentColor: B.blue }}
+                  />
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: B.textMuted, marginBottom: 20 }}>
+                    <span>1 client</span>
+                    <span style={{ color: B.blue, fontWeight: 700, fontSize: 16 }}>{clients} clients</span>
+                    <span>50 clients</span>
+                  </div>
+                  <div style={{
+                    borderRadius: 10, padding: "16px 20px",
+                    background: `linear-gradient(135deg, ${B.bgHighlight}, ${B.bgRaised})`,
+                    border: `1px solid ${B.border}`,
+                    display: "flex", justifyContent: "space-between", alignItems: "center",
+                  }}>
+                    <div>
+                      <div style={{ fontSize: 12, color: B.textMuted, marginBottom: 3 }}>Your monthly total</div>
+                      <div style={{ fontSize: 12, color: B.textSecond }}>
+                        ${perClientMo.toLocaleString()} / client / month
+                      </div>
+                    </div>
+                    <div style={{
+                      fontFamily: display, fontSize: 36, fontWeight: 800,
+                      letterSpacing: "-0.02em",
+                      background: `linear-gradient(135deg, ${B.blue}, ${B.purple})`,
+                      WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
+                    }}>
+                      ${consultTotal.toLocaleString()}
+                    </div>
+                  </div>
+                  <div style={{
+                    marginTop: 10, fontSize: 12, color: B.textSecond,
+                    padding: "10px 14px", borderRadius: 8,
+                    backgroundColor: `${B.green}0D`, border: `1px solid ${B.green}20`,
+                  }}>
+                    💡 At $150/hr billing, {clients} clients generates ~${(clients * 20 * 150).toLocaleString()}/mo in potential fees. Benavora is {Math.round((consultTotal / (clients * 20 * 150)) * 100)}% of your monthly revenue.
+                  </div>
+                </div>
+
+                <button className="tc btn-primary" style={{
+                  width: "100%", padding: "16px 0",
+                  background: `linear-gradient(135deg, ${B.purple}, ${B.blue})`,
+                  color: "#fff", border: "none", borderRadius: 10,
+                  fontSize: 16, fontWeight: 700, cursor: "pointer",
+                  boxShadow: `0 0 32px rgba(139,92,246,0.25)`,
+                }}>
+                  Schedule a Demo Call
+                </button>
+              </div>
+
+              <div style={{ paddingTop: 4 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: B.textMuted, marginBottom: 20 }}>
+                  Everything Included
+                </div>
+                {[
+                  "Everything in Enterprise",
+                  "Multi-tenant client management dashboard",
+                  "Per-client Knowledge Bases & research profiles",
+                  "AutoApply: Full Autonomous overnight mode",
+                  "Overnight batch processing (400+ submissions/night)",
+                  "Cross-client analytics & performance reporting",
+                  "White-label options available",
+                  "Unified consultant command center",
+                  "Dedicated account manager",
+                  "Custom API integrations",
+                  "Priority SLA with 4-hour response",
+                ].map((f, i) => (
+                  <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 14 }}>
+                    <IconCheck color={B.purple} />
+                    <span style={{ fontSize: 14, color: B.textPrimary, lineHeight: 1.45 }}>{f}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ═══ Testimonials ═══ */}
+        <section style={{
+          backgroundColor: B.bgCard,
+          borderTop: `1px solid ${B.borderFaint}`,
+          borderBottom: `1px solid ${B.borderFaint}`,
+          padding: "80px 48px",
+        }}>
+          <div style={{ maxWidth: 1160, margin: "0 auto" }}>
+            <div style={{ textAlign: "center", marginBottom: 48 }}>
+              <div style={{ display: "flex", justifyContent: "center", gap: 2, marginBottom: 12 }}>
+                {[...Array(5)].map((_, i) => <IconStar key={i} />)}
+              </div>
+              <p style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: B.textMuted }}>
+                What development directors say
+              </p>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+              {[
+                { q: "We submitted 43 corporate donation requests in one week. Previously that would have consumed my entire quarter.", name: "Executive Director", org: "Housing nonprofit, Texas", color: B.teal },
+                { q: "The eligibility scoring alone saved us from two weeks on a grant we had no shot at. That's measurable, documented ROI on day one.", name: "Development Director", org: "Community foundation, Ohio", color: B.blue },
+                { q: "Our grant writer was spending 60% of her time on research. Now she focuses entirely on relationship strategy and we're submitting 4x as many proposals.", name: "Chief Operating Officer", org: "Youth services org, Georgia", color: B.purple },
+              ].map((t, i) => (
+                <div key={i} className="card-hover" style={{
+                  backgroundColor: B.bgRaised, borderRadius: 14, padding: "32px 28px",
+                  border: `1px solid ${B.borderFaint}`,
+                  position: "relative", overflow: "hidden",
+                }}>
+                  <div style={{
+                    position: "absolute", top: 0, left: 0, right: 0, height: 2,
+                    background: `linear-gradient(90deg, ${t.color}, transparent)`,
+                  }} />
+                  <div style={{ fontFamily: display, fontSize: 40, color: t.color, lineHeight: 1, marginBottom: 16, opacity: 0.6 }}>"</div>
+                  <p style={{ fontSize: 15, lineHeight: 1.7, color: B.textPrimary, marginBottom: 24 }}>{t.q}</p>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: B.textSecond }}>{t.name}</div>
+                  <div style={{ fontSize: 12, color: B.textMuted, marginTop: 2 }}>{t.org}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ═══ FAQ ═══ */}
+        <section style={{ maxWidth: 760, margin: "0 auto", padding: "90px 48px" }}>
+          <h2 style={{
+            fontFamily: display, fontSize: "clamp(28px, 3.5vw, 40px)",
+            fontWeight: 800, letterSpacing: "-0.02em",
+            textAlign: "center", marginBottom: 52,
+          }}>
+            Common <GradText>questions</GradText>
+          </h2>
+          {FAQS.map(([q, a], i) => (
+            <div key={i} className="faq-row tc" style={{
+              borderBottom: `1px solid ${B.borderFaint}`,
+              borderRadius: i === 0 ? "10px 10px 0 0" : i === FAQS.length - 1 ? "0 0 10px 10px" : 0,
+            }}>
+              <button onClick={() => setOpenFaq(openFaq === i ? null : i)} style={{
+                width: "100%", padding: "20px 16px", backgroundColor: "transparent",
+                border: "none", color: B.textPrimary, fontSize: 16, fontWeight: 500,
+                textAlign: "left", cursor: "pointer",
+                display: "flex", justifyContent: "space-between", alignItems: "center",
+                fontFamily: sans,
+              }}>
+                <span>{q}</span>
+                <span style={{
+                  width: 28, height: 28, borderRadius: 8,
+                  backgroundColor: openFaq === i ? B.blueGlow : "transparent",
+                  border: `1px solid ${openFaq === i ? B.border : B.borderFaint}`,
+                  color: openFaq === i ? B.blue : B.textMuted,
+                  fontSize: 20, fontWeight: 300, flexShrink: 0, marginLeft: 16,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  transform: openFaq === i ? "rotate(45deg)" : "none",
+                  transition: "transform 200ms ease, background 200ms ease",
+                }}>+</span>
+              </button>
+              {openFaq === i && (
+                <div style={{ padding: "0 16px 20px", fontSize: 15, color: B.textSecond, lineHeight: 1.72 }}>
+                  {a}
+                </div>
+              )}
+            </div>
+          ))}
+        </section>
+
+        {/* ═══ Final CTA ═══ */}
+        <section style={{
+          backgroundColor: B.bgCard,
+          borderTop: `1px solid ${B.borderFaint}`,
+          padding: "100px 48px",
+          textAlign: "center",
+          position: "relative", overflow: "hidden",
+        }}>
+          <div style={{
+            position: "absolute", top: "50%", left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: 800, height: 400,
+            background: `radial-gradient(ellipse, rgba(14,165,233,0.07) 0%, rgba(139,92,246,0.05) 50%, transparent 70%)`,
+            pointerEvents: "none",
+          }} />
+          <div style={{ maxWidth: 620, margin: "0 auto", position: "relative" }}>
+            <div style={{
+              display: "inline-flex", alignItems: "center", gap: 8,
+              marginBottom: 32, padding: "8px 20px", borderRadius: 9999,
+              background: `linear-gradient(135deg, ${B.blueGlow}, ${B.purpleGlow})`,
+              border: `1px solid ${B.border}`,
+            }}>
+              <div style={{ width: 6, height: 6, borderRadius: "50%", background: `linear-gradient(135deg, ${B.blue}, ${B.purple})` }} />
+              <span style={{ fontSize: 13, color: B.blue, fontWeight: 600 }}>Start free · No credit card · 5-minute setup</span>
+            </div>
+            <h2 style={{
+              fontFamily: display, fontSize: "clamp(36px, 5vw, 54px)",
+              fontWeight: 800, letterSpacing: "-0.02em", lineHeight: 1.1,
+              marginBottom: 20,
+            }}>
+              Your mission is too important<br />
+              <GradText>to leave funding to chance.</GradText>
+            </h2>
+            <p style={{ fontSize: 18, color: B.textSecond, lineHeight: 1.65, marginBottom: 44 }}>
+              Discover your first opportunities in under five minutes. Fourteen days free.
+            </p>
+            <div style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap", alignItems: "center" }}>
+              <a href="#pricing" className="tc btn-primary" style={{
+                display: "inline-flex", alignItems: "center", gap: 8,
+                background: `linear-gradient(135deg, ${B.blue}, ${B.blueDark})`,
+                color: "#fff", fontSize: 16, fontWeight: 700,
+                padding: "16px 36px", borderRadius: 10,
+                boxShadow: `0 0 40px rgba(14,165,233,0.3)`,
+              }}>
+                Start Free Trial <IconArrow color="#fff" />
+              </a>
+              <a href="#" className="tc" style={{
+                display: "inline-flex", alignItems: "center", gap: 8,
+                color: B.textSecond, fontSize: 15, fontWeight: 500,
+                padding: "16px 20px", borderRadius: 10,
+                border: `1px solid ${B.borderFaint}`,
+              }}>
+                Schedule a demo →
+              </a>
+            </div>
+          </div>
+        </section>
+
+        {/* ═══ Footer ═══ */}
+        <footer style={{
+          backgroundColor: B.bg,
+          borderTop: `1px solid ${B.borderFaint}`,
+          padding: "28px 48px",
+          display: "flex", justifyContent: "space-between", alignItems: "center",
+        }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/benavora_logo.png" alt="Benavora" style={{ height: 24, width: "auto", objectFit: "contain", opacity: 0.7 }} />
+          <div style={{ display: "flex", gap: 28, alignItems: "center" }}>
+            {["Privacy", "Terms", "Security", "Contact"].map(l => (
+              <a key={l} href="#" style={{ fontSize: 13, color: B.textMuted }}>{l}</a>
+            ))}
+          </div>
+          <span style={{ fontSize: 13, color: B.textMuted }}>© 2026 Benavora</span>
+        </footer>
       </div>
-      <!-- Right laptops -->
-      <div style="display:flex;flex-direction:column;gap:24px">
-        <div class="rlaptop" id="rl3" data-company="Lowe's Community Partners" data-color="#004990" data-fields='["Applicant Name|New Beginnings Outreach","Address|1420 Cedar Lane, Greenfield TX","Mission Statement|Providing emergency and transitional housing for families in crisis","Amount Requested|$15,000"]'></div>
-        <div class="rlaptop" id="rl4" data-company="Wells Fargo Foundation" data-color="#d71e28" data-fields='["Legal Organization Name|Bridgepoint Services Inc","501(c)(3) / 501(c)(3)|501(c)(3)","Program Description|Rural housing rehabilitation and reentry support","Grant Request|$50,000"]'></div>
-      </div>
     </div>
-
-    <!-- Connection lines SVG overlay -->
-    <svg style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0" id="connSvg">
-      <defs>
-        <linearGradient id="lineGrad" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#0077B6" stop-opacity="0.1"/><stop offset="50%" stop-color="#0077B6" stop-opacity="0.4"/><stop offset="100%" stop-color="#0077B6" stop-opacity="0.1"/></linearGradient>
-      </defs>
-    </svg>
-
-    <!-- Live Counter -->
-    <div class="anim-counter">
-      <div class="counter-item"><div class="counter-num submitted" id="cSubmitted">0</div><div class="counter-label">Submitted</div></div>
-      <div class="counter-item"><div class="counter-num pending" id="cPending">0</div><div class="counter-label">Pending</div></div>
-      <div class="counter-item"><div class="counter-num confirmed" id="cConfirmed">0</div><div class="counter-label">Confirmed</div></div>
-    </div>
-    <div class="counter-period">Last 24 hours</div>
-  </div>
-</div>
-
-<!-- Bento Features -->
-<div class="sh" id="features"><h2>Everything You Need to Fund Your Mission</h2><p>From discovery to award, Benavora automates the entire funding lifecycle.</p></div>
-<div class="bento container">
-  <!-- Row 1: Large AI Draft + Smart Discovery -->
-  <div class="bento-card large">
-    <div>
-      <div class="bento-icon" style="background:rgba(0,180,216,0.13)"><svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
-      <h4>AI Draft Generation with Humanizer</h4>
-      <p>Tailored grant narratives built from your Knowledge Base and proven winning patterns. Confidence scoring tells you exactly what needs attention. Drafts improve with every funded outcome through recursive learning.</p>
-    </div>
-    <div class="bento-visual"><div style="text-align:center"><div style="font-size:48px;font-weight:800;background:linear-gradient(135deg,#22c55e,#4ade80);-webkit-background-clip:text;-webkit-text-fill-color:transparent">88%</div><div style="font-size:12px;color:#64748b;margin-top:4px">Confidence Score</div><div style="width:160px;height:6px;background:#1e1e38;border-radius:3px;margin:12px auto 0;overflow:hidden"><div style="width:88%;height:100%;background:linear-gradient(90deg,#22c55e,#4ade80);border-radius:3px"></div></div></div></div>
-  </div>
-  <div class="bento-card">
-    <div class="bento-icon" style="background:rgba(0,119,182,0.13)"><svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
-    <h4>Smart Discovery</h4>
-    <p>Research agents scan Grants.gov, SAM.gov, state agencies, and foundation databases around the clock. Opportunities scored and delivered to your dashboard.</p>
-  </div>
-  <!-- Row 2: Eligibility + NOFA Parsing + Document Management (MOVED UP) -->
-  <div class="bento-card">
-    <div class="bento-icon" style="background:#22c55e22"><svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
-    <h4>Eligibility Scoring</h4>
-    <p>Every opportunity scored 0-100 against your profile. Apply to what fits. Skip what doesn't. No more guessing.</p>
-  </div>
-  <div class="bento-card">
-    <div class="bento-icon" style="background:#3b82f622"><svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
-    <h4>NOFA Parsing</h4>
-    <p>Federal grant PDFs downloaded, stored, and parsed. Eligibility, deadlines, and amounts extracted automatically and viewable inline.</p>
-  </div>
-  <div class="bento-card">
-    <div class="bento-icon" style="background:rgba(0,180,216,0.13)"><svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="2"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg></div>
-    <h4>Document Management</h4>
-    <p>Tax letters, 990s, and program docs organized and auto-pulled when assembling application packages.</p>
-  </div>
-  <!-- Row 3: Large AutoApply + Deadline -->
-  <div class="bento-card large">
-    <div>
-      <div class="bento-icon" style="background:rgba(0,119,182,0.13)"><svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div>
-      <h4>AutoApply Automation</h4>
-      <p>Queue corporate giving portals. The AI-powered browser engine analyzes forms, fills fields with your org data, uploads documents, captures screenshots, and submits — hundreds per night while you sleep.</p>
-    </div>
-    <div class="bento-visual"><div style="text-align:center"><div style="font-size:14px;color:var(--color-primary);font-weight:600;margin-bottom:8px">Tonight's Queue</div><div style="display:flex;gap:8px;justify-content:center"><div style="width:12px;height:40px;background:#22c55e;border-radius:2px;opacity:0.8"></div><div style="width:12px;height:32px;background:#22c55e;border-radius:2px;opacity:0.7;margin-top:8px"></div><div style="width:12px;height:36px;background:#22c55e;border-radius:2px;opacity:0.75;margin-top:4px"></div><div style="width:12px;height:28px;background:var(--color-primary);border-radius:2px;opacity:0.6;margin-top:12px"></div><div style="width:12px;height:20px;background:#64748b;border-radius:2px;opacity:0.4;margin-top:20px"></div><div style="width:12px;height:16px;background:#64748b;border-radius:2px;opacity:0.3;margin-top:24px"></div></div><div style="font-size:10px;color:#64748b;margin-top:8px">■ Submitted ■ Processing ■ Queued</div></div></div>
-  </div>
-  <div class="bento-card">
-    <div class="bento-icon" style="background:#ec489922"><svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="#ec4899" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
-    <h4>Deadline Intelligence</h4>
-    <p>Color-coded calendar with automated reminders at 30, 14, 7, 3, and 1 day before every deadline.</p>
-  </div>
-  <!-- Row 4: Analytics + Inline NOFA Viewer with realistic PDF page renders -->
-  <div class="bento-card">
-    <div class="bento-icon" style="background:#06b6d422"><svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="#06b6d4" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
-    <h4>Analytics Dashboard</h4>
-    <p>Success rates, dollars won, narrative performance, and funder response trends — all in real time.</p>
-  </div>
-  <div class="bento-card large" style="padding:24px;overflow:hidden">
-    <div>
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
-        <div class="bento-icon" style="background:#f43f5e22;margin-bottom:0"><svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="#f43f5e" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
-        <div><h4 style="margin-bottom:2px">Inline NOFA Document Viewer</h4><p style="font-size:12px;color:#94a3b8;margin:0">Real federal grant PDFs rendered directly inside Benavora</p></div>
-      </div>
-    </div>
-    <div style="display:flex;gap:16px;justify-content:center;align-items:flex-start">
-      <!-- Page 1: Application Guide Cover -->
-      <div style="width:180px;background:#fff;border-radius:4px;box-shadow:0 4px 20px rgba(0,0,0,0.5);overflow:hidden;flex-shrink:0">
-        <div style="background:linear-gradient(135deg,#2d5016,#4a7c28);height:90px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden">
-          <div style="position:absolute;top:0;left:0;right:0;bottom:0;background:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22100%22><rect fill=%22%234a7c28%22 width=%22200%22 height=%22100%22/><circle cx=%2230%22 cy=%2260%22 r=%2240%22 fill=%22%23558832%22 opacity=%220.3%22/><circle cx=%22120%22 cy=%2230%22 r=%2250%22 fill=%22%23558832%22 opacity=%220.2%22/><circle cx=%22170%22 cy=%2280%22 r=%2235%22 fill=%22%23558832%22 opacity=%220.25%22/></svg>');background-size:cover"></div>
-          <div style="position:relative;text-align:center;z-index:1"><div style="font-size:5px;color:#fff;opacity:0.8;letter-spacing:1px">USDA RURAL DEVELOPMENT</div><div style="font-size:7px;color:#fff;font-weight:700;margin-top:3px;line-height:1.3">Community Connect<br>Grant Program</div><div style="font-size:5px;color:#ffd700;margin-top:3px">Application Guide FY 2026</div></div>
-        </div>
-        <div style="padding:8px;background:#1a365d;text-align:center"><div style="font-size:4px;color:#fff;opacity:0.7;letter-spacing:0.5px">Together, America Prospers</div></div>
-        <div style="padding:8px 10px;font-size:5px;color:#333;line-height:1.6;font-family:serif">
-          <div style="font-weight:700;font-size:5.5px;margin-bottom:4px;color:#1a365d">Table of Contents</div>
-          <div>Introduction ........................... 3</div>
-          <div>Important Updates ................. 5</div>
-          <div>Applying for a Grant .............. 7</div>
-          <div>Grant Application .................. 10</div>
-          <div>Required Schedules .............. 13</div>
-        </div>
-      </div>
-      <!-- Page 2: NOFA First Page -->
-      <div style="width:180px;background:#fff;border-radius:4px;box-shadow:0 4px 20px rgba(0,0,0,0.5);overflow:hidden;flex-shrink:0">
-        <div style="padding:10px 12px;font-family:serif">
-          <div style="text-align:center;font-size:7px;font-weight:700;color:#1a365d;border-bottom:1.5px solid #1a365d;padding-bottom:4px;margin-bottom:6px">Community Connect Grant Program</div>
-          <div style="font-size:7px;font-weight:700;color:#333;margin-bottom:2px">Fiscal Year 2026</div>
-          <div style="font-size:6.5px;font-weight:600;color:#555;margin-bottom:8px">Notice of Funding Opportunity</div>
-          <div style="font-size:5px;color:#666;line-height:1.5;margin-bottom:4px"><span style="color:#1a365d;font-weight:600">Funding Opportunity Number:</span> RDRUS-CC-2026</div>
-          <div style="font-size:5px;color:#666;line-height:1.5;margin-bottom:4px"><span style="color:#1a365d;font-weight:600">Application Due:</span> June 29, 2026</div>
-          <div style="font-size:5px;color:#666;line-height:1.5;margin-bottom:8px"><span style="color:#1a365d;font-weight:600">CFDA:</span> 10.863</div>
-          <div style="width:100%;height:1px;background:#ddd;margin-bottom:6px"></div>
-          <table style="font-size:4.5px;color:#555;border-collapse:collapse;width:100%">
-            <tr><td style="padding:2px 0;font-weight:600;color:#1a365d">Award Ceiling</td><td style="padding:2px 0;text-align:right">$5,000,000</td></tr>
-            <tr><td style="padding:2px 0;font-weight:600;color:#1a365d">Award Floor</td><td style="padding:2px 0;text-align:right">$100,000</td></tr>
-            <tr><td style="padding:2px 0;font-weight:600;color:#1a365d">Total Funding</td><td style="padding:2px 0;text-align:right">$17,000,000</td></tr>
-            <tr><td style="padding:2px 0;font-weight:600;color:#1a365d">Expected Awards</td><td style="padding:2px 0;text-align:right">5</td></tr>
-            <tr><td style="padding:2px 0;font-weight:600;color:#1a365d">Cost Sharing</td><td style="padding:2px 0;text-align:right">Required</td></tr>
-          </table>
-        </div>
-      </div>
-    </div>
-  </div>
-
-</div>
-
-<!-- Pricing -->
-<div class="sh" id="pricing"><h2>Simple, Transparent Pricing</h2><p>Start free. Scale as you grow. No hidden fees.</p></div>
-<div style="text-align:center">
-  <div class="billing-toggle" id="billingToggle">
-    <button class="bt-inactive" onclick="setBilling(false)">Monthly</button>
-    <button class="bt-active" onclick="setBilling(true)">Annual <span style="color:#22c55e;font-size:11px;margin-left:4px">Save 20%</span></button>
-  </div>
-</div>
-<div class="pricing-grid" id="pricingGrid"></div>
-
-<!-- Agency CTA -->
-<div style="max-width:800px;margin:0 auto;padding:0 24px 80px;text-align:center">
-  <div style="background:#1a1a2e;border-radius:16px;padding:40px 32px;border:1px solid rgba(0,119,182,0.27)">
-    <h3 style="font-size:22px;margin-bottom:8px">Managing Multiple Nonprofits?</h3>
-    <p style="font-size:15px;color:#94a3b8;margin-bottom:24px">Our Consultant tier gives you multi-tenant management, full autonomous AutoApply, and white-label options. Built for grant writing firms operating at scale.</p>
-    <a href="/for-consultants"><button class="btn-primary">Learn About Agency Pricing →</button></a>
-  </div>
-</div>
-
-<!-- FAQ -->
-<div class="sh" id="faq"><h2>Frequently Asked Questions</h2></div>
-<div class="faq" id="faqList"></div>
-
-<!-- Bottom CTA -->
-<section class="bottom-cta">
-  <h2>Ready to automate your funding pipeline?</h2>
-  <p>Start discovering opportunities in minutes. No credit card required.</p>
-  <a href="/login" class="btn-primary" style="padding:16px 48px;font-size:17px;display:inline-block;text-decoration:none">Start Your Free Trial</a>
-</section>
-
-<footer>&copy; 2026 Benavora. All rights reserved. &nbsp;|&nbsp; <a href="/privacy" style="color:#64748b">Privacy Policy</a> &nbsp;|&nbsp; <a href="/terms" style="color:#64748b">Terms of Service</a> &nbsp;|&nbsp; <a href="/for-consultants" style="color:#64748b">For Agencies</a> &nbsp;|&nbsp; <a href="mailto:support@benavora.com" style="color:#64748b">support@benavora.com</a></footer>
-`;
-
-const SCRIPT = `/* Billing toggle & pricing */
-let isAnnual=true;
-const D=()=>isAnnual?0.8:1;
-const tiers=[
-{name:"Starter",price:249,setup:null,setupLabel:"No setup fee",badge:null,desc:"For small nonprofits getting started with AI-powered grant management.",seats:"2 users",orgs:"1 organization",
-features:[[1,"Grant opportunity research & discovery"],[1,"AI eligibility scoring (0-100)"],[1,"10 AI-generated drafts per month"],[1,"Knowledge Base with proven narratives"],[1,"NOFA document parsing & viewing"],[1,"Application pipeline tracking"],[1,"Deadline management & alerts"],[1,"Outcome tracking & recursive learning"],[0,"50 AI drafts per month"],[0,"Document assembly engine"],[0,"AutoApply browser automation"]],cta:"Start Free Trial",pri:0},
-{name:"Professional",price:599,setup:999,setupLabel:"$999 one-time setup",badge:null,desc:"For established nonprofits managing multiple funding streams.",seats:"5 users",orgs:"1 organization",
-features:[[1,"Everything in Starter"],[1,"50 AI-generated drafts per month"],[1,"Document assembly engine"],[1,"NOFA parsing with auto-enrichment"],[1,"Budget narrative generator"],[1,"Funder intelligence reports"],[1,"Compliance pre-check"],[1,"Board report generator"],[1,"Priority email support"],[0,"AutoApply browser automation"],[0,"Multi-tenant management"]],cta:"Start Free Trial",pri:0},
-{name:"Enterprise",price:1999,setup:2999,setupLabel:"$2,999 one-time setup",badge:"Most Popular",desc:"For large organizations with high-volume grant programs and corporate engagement.",seats:"25 users",orgs:"1 organization",
-features:[[1,"Everything in Professional"],[1,"Unlimited AI-generated drafts"],[1,"AutoApply: Manual & Batch modes"],[1,"AI-powered browser automation"],[1,"Intelligent form analysis & auto-fill"],[1,"Screenshot & confirmation logging"],[1,"90,000+ foundation database"],[1,"Three-model consensus validation"],[1,"Custom research agent profiles"],[1,"Dedicated onboarding specialist"],[1,"Priority support with SLA"]],cta:"Contact Sales",pri:1}
-];
-
-function renderPricing(){
-const d=D();
-document.getElementById('pricingGrid').innerHTML=tiers.map(t=>\`
-<div class="price-card \${t.badge?'feat':''}">
-\${t.badge?\`<div class="card-badge">\${t.badge}</div>\`:''}
-<h3>\${t.name}</h3><p class="desc">\${t.desc}</p>
-<div><span class="price">$\${Math.round(t.price*d).toLocaleString()}</span><span class="price-sub">/month</span></div>
-<div class="price-ann">\${isAnnual?\`Billed annually ($\${(Math.round(t.price*d*12)).toLocaleString()}/yr)\`:''}</div>
-<div class="price-meta">\${t.setupLabel} · \${t.seats} · \${t.orgs}</div>
-<button class="cta \${t.pri?'btn-primary':'btn-secondary'}" style="width:100%;margin-bottom:24px">\${t.cta}</button>
-<div class="fl">\${t.features.map(([i,x])=>\`<div class="fi \${i?'inc':'lck'}"><span>\${i?'✓':'🔒'}</span><span>\${x}</span></div>\`).join('')}</div>
-</div>\`).join('');
-}
-
-function setBilling(a){
-isAnnual=a;
-const b=document.querySelectorAll('.billing-toggle button');
-b[0].className=a?'bt-inactive':'bt-active';
-b[1].className=a?'bt-active':'bt-inactive';
-renderPricing();
-}
-
-/* FAQ */
-const faqs=[
-["What does the setup fee cover?","The setup fee covers hands-on onboarding: Knowledge Base population (your mission, programs, financials, board info), document upload and organization, research agent configuration, and for Enterprise, AutoApply form template analysis for your top target funders. Starter tier is fully self-service with no setup fee."],
-["What if I need my own API keys?","Benavora includes AI for all draft generation and analysis. If you want multi-model consensus validation, you provide your own additional API keys — we configure and test them during setup at no extra cost."],
-["How does AutoApply work?","AutoApply uses AI-powered browser automation to visit corporate giving portals, analyze their donation request forms, and fill them out using your organization's data. It captures screenshots before and after every submission for your records."],
-["What types of donations can AutoApply handle?","Monetary donations, materials, land, vehicles, in-kind contributions, sponsorships, volunteer partnerships — any corporate giving program with a web form."],
-["Can I switch tiers?","Yes, upgrade anytime. Your data, Knowledge Base, and proven narratives carry over. Downgrade at the end of your billing cycle. Setup fees are one-time and non-refundable."],
-["Is there a free trial?","Yes — 14 days on Starter or Professional, no credit card required. Enterprise starts with a personalized demo."],
-["Where does the foundation database come from?","We import the complete IRS 990-PF public dataset — every private foundation in the United States. Names, giving amounts, geographic focus, and grantee histories. Updated quarterly. No third-party subscription fees."],
-];
-document.getElementById('faqList').innerHTML=faqs.map(([q,a])=>\`<div class="faq-item" onclick="this.classList.toggle('open')"><button class="faq-q">\${q}<span class="faq-tog">+</span></button><div class="faq-a">\${a}</div></div>\`).join('');
-
-renderPricing();
-
-/* ===== REALISTIC LAPTOP ANIMATION ===== */
-// Build remote laptop HTML
-document.querySelectorAll('.rlaptop').forEach(el=>{
-const company=el.dataset.company;
-const color=el.dataset.color;
-const fields=JSON.parse(el.dataset.fields);
-el.innerHTML=\`
-<div class="rlaptop-bezel">
-<div class="rlaptop-cam"></div>
-<div class="rlaptop-screen">
-<div class="rform-header" style="background:\${color}">\${company}</div>
-<div class="rform-body">
-\${fields.map((f,i)=>{const[label,value]=f.split('|');return\`
-<div class="rform-field"><div class="rform-label">\${label}</div><div class="rform-input" data-value="\${value}" id="\${el.id}_f\${i}"></div></div>\`;}).join('')}
-<div class="rform-submit" id="\${el.id}_btn">Submit Application</div>
-</div>
-<div class="rform-success" id="\${el.id}_ok"><div class="rform-success-icon">✓</div><div class="rform-success-text">Application Submitted</div><div class="rform-success-sub">Confirmation #\${Math.random().toString(36).substring(2,8).toUpperCase()}</div></div>
-</div>
-</div>
-<div class="rlaptop-base"><div class="rlaptop-hinge"></div></div>\`;
-});
-
-// Typing animation per laptop
-function animateRealisticLaptop(elId,delay){
-const fields=document.querySelectorAll(\`#\${elId} .rform-input\`);
-const btn=document.getElementById(\`\${elId}_btn\`);
-const ok=document.getElementById(\`\${elId}_ok\`);
-function run(){
-// Reset
-fields.forEach(f=>{f.textContent='';f.className='rform-input'});
-btn.className='rform-submit';
-ok.className='rform-success';
-let fieldIdx=0;
-function typeField(){
-if(fieldIdx>=fields.length){
-btn.className='rform-submit active';
-setTimeout(()=>{
-ok.className='rform-success show';
-setTimeout(()=>{run()},3000);
-},800);
-return;
-}
-const f=fields[fieldIdx];
-const val=f.dataset.value;
-f.className='rform-input typing';
-let charIdx=0;
-function typeChar(){
-if(charIdx<=val.length){
-f.textContent=val.substring(0,charIdx);
-charIdx++;
-setTimeout(typeChar,30+Math.random()*40);
-}else{
-f.className='rform-input done';
-fieldIdx++;
-setTimeout(typeField,200);
-}
-}
-typeChar();
-}
-typeField();
-}
-setTimeout(run,delay);
-}
-animateRealisticLaptop('rl1',0);
-animateRealisticLaptop('rl2',3000);
-animateRealisticLaptop('rl3',1500);
-animateRealisticLaptop('rl4',4500);
-
-
-// Draw connection lines from edges of center laptop to edges of remote laptops
-function drawConnections(){
-const svg=document.getElementById('connSvg');
-if(!svg)return;
-const grid=svg.parentElement;
-const gr=grid.getBoundingClientRect();
-const center=grid.querySelector('.claptop');
-const cr=center.getBoundingClientRect();
-// Center laptop edge points
-const cLeft=cr.left-gr.left;
-const cRight=cr.right-gr.left;
-const cTop=cr.top-gr.top;
-const cBottom=cr.bottom-gr.top;
-const cMidY=cTop+(cr.height/2);
-const cMidX=cLeft+(cr.width/2);
-svg.innerHTML='<defs><filter id="glow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>';
-['rl1','rl2','rl3','rl4'].forEach((id,i)=>{
-const el=document.getElementById(id);
-const er=el.getBoundingClientRect();
-// Determine which edge of center to emit from
-const isLeft=er.right<cr.left;
-const startX=isLeft?cLeft:cRight;
-// Start from vertical position matching the remote laptop
-const remMidY=er.top+er.height/2-gr.top;
-const startY=Math.max(cTop,Math.min(cBottom,remMidY));
-// End at the near edge of the remote laptop
-const endX=isLeft?(er.right-gr.left):(er.left-gr.left);
-const endY=remMidY;
-const line=document.createElementNS('http://www.w3.org/2000/svg','line');
-line.setAttribute('x1',startX);line.setAttribute('y1',startY);
-line.setAttribute('x2',endX);line.setAttribute('y2',endY);
-line.setAttribute('class','conn-line active');
-line.setAttribute('filter','url(#glow)');
-line.style.animationDelay=(i*0.3)+'s';
-svg.appendChild(line);
-});
-}
-setTimeout(drawConnections,500);
-window.addEventListener('resize',drawConnections);
-
-/* Counter animation */
-let submitted=0,pending=0,confirmed=0;
-const targetSub=156,targetPen=119,targetCon=37;
-function animateCounters(){
-const dur=3000,steps=60,interval=dur/steps;
-let i=0;
-const timer=setInterval(()=>{
-i++;
-submitted=Math.round((i/steps)*targetSub);
-pending=Math.round((i/steps)*targetPen);
-confirmed=Math.round((i/steps)*targetCon);
-document.getElementById('cSubmitted').textContent=submitted;
-document.getElementById('cPending').textContent=pending;
-document.getElementById('cConfirmed').textContent=confirmed;
-if(i>=steps)clearInterval(timer);
-},interval);
-}
-// Trigger on scroll into view
-const obs=new IntersectionObserver((entries)=>{
-entries.forEach(e=>{if(e.isIntersecting){animateCounters();obs.disconnect()}})
-},{threshold:0.5});
-obs.observe(document.querySelector('.anim-counter'));`;
-
-export default function MarketingLanding() {
-  const ran = useRef(false);
-  useEffect(() => {
-    if (ran.current) return;
-    ran.current = true;
-    const s = document.createElement("script");
-    s.textContent = SCRIPT;
-    document.body.appendChild(s);
-  }, []);
-  return (
-    <>
-      <style dangerouslySetInnerHTML={{ __html: CSS }} />
-      <div dangerouslySetInnerHTML={{ __html: BODY }} />
-    </>
   );
 }
