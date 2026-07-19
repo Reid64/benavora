@@ -2,16 +2,57 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ClipboardCheck, Plus, Search, Zap } from "lucide-react";
+import { differenceInCalendarDays, isThisMonth } from "date-fns";
+import { Plus, Search } from "lucide-react";
 
-import { Button, EmptyState, Select } from "@/components/ui";
-import { PageHeader } from "@/components/layout/PageHeader";
-import {
-  OpportunityTable,
-  type OpportunityRow,
-} from "@/components/opportunities/OpportunityTable";
 import { createClient } from "@/lib/supabase/client";
 import { canEdit, useProfile } from "@/lib/hooks/useProfile";
+import { OPPORTUNITY_STATUSES } from "@/lib/utils/constants";
+import { decodeHtmlEntities, formatCurrency, formatDate, humanizeEnum } from "@/lib/utils/formatters";
+import type { Enums, Tables } from "@/types/database";
+
+type OpportunitySourceType = Enums<"opportunity_source_type">;
+type OpportunityStatus = Enums<"opportunity_status">;
+
+type OpportunityRow = Tables<"opportunities"> & {
+  funderName: string | null;
+  probabilityScore: number | null;
+};
+
+type SourceBucket = "federal" | "foundation" | "corporate" | "state";
+
+// The real opportunity_source_type enum (migration 010) has 8 values, finer
+// grained than the 4-bucket badge spec here. Government tiers other than
+// federal/state and faith-based/international sources fall back to a neutral
+// badge rather than being forced into one of the 4 colors.
+const SOURCE_BUCKET_MAP: Partial<Record<OpportunitySourceType, SourceBucket>> = {
+  government_federal: "federal",
+  government_state: "state",
+  government_local: "state",
+  private_foundation: "foundation",
+  community_foundation: "foundation",
+  corporate_giving: "corporate",
+};
+
+const SOURCE_BADGE_STYLE: Record<SourceBucket, { label: string; color: string; bg: string }> = {
+  federal: { label: "Federal", color: "#1D4ED8", bg: "#EFF6FF" },
+  foundation: { label: "Foundation", color: "#7C3AED", bg: "#F5F3FF" },
+  corporate: { label: "Corporate", color: "#0891B2", bg: "#ECFEFF" },
+  state: { label: "State", color: "#16A34A", bg: "#F0FDF4" },
+};
+
+const SOURCE_FILTER_OPTIONS: { value: "all" | SourceBucket; label: string }[] = [
+  { value: "all", label: "All Sources" },
+  { value: "federal", label: "Federal" },
+  { value: "foundation", label: "Foundation" },
+  { value: "corporate", label: "Corporate" },
+  { value: "state", label: "State" },
+];
+
+const STATUS_FILTER_OPTIONS: { value: "all" | OpportunityStatus; label: string }[] = [
+  { value: "all", label: "All Statuses" },
+  ...OPPORTUNITY_STATUSES.map((s) => ({ value: s, label: humanizeEnum(s) })),
+];
 
 type SortOption =
   | "probability-desc"
@@ -21,375 +62,540 @@ type SortOption =
   | "eligibility-desc"
   | "name-asc";
 
-const SORT_OPTIONS: { value: SortOption; label: string; key: string; direction: "asc" | "desc" }[] = [
-  { value: "probability-desc", label: "Probability (High to Low)", key: "probability", direction: "desc" },
-  { value: "probability-asc", label: "Probability (Low to High)", key: "probability", direction: "asc" },
-  { value: "deadline-asc", label: "Deadline (Soonest First)", key: "deadline", direction: "asc" },
-  { value: "amount-desc", label: "Amount (Highest First)", key: "amount", direction: "desc" },
-  { value: "eligibility-desc", label: "Eligibility (Highest First)", key: "eligibility", direction: "desc" },
-  { value: "name-asc", label: "Name (A-Z)", key: "name", direction: "asc" },
+const SORT_OPTIONS: { value: SortOption; label: string }[] = [
+  { value: "probability-desc", label: "Probability (High to Low)" },
+  { value: "probability-asc", label: "Probability (Low to High)" },
+  { value: "deadline-asc", label: "Deadline (Soonest First)" },
+  { value: "amount-desc", label: "Amount (Highest First)" },
+  { value: "eligibility-desc", label: "Eligibility (Highest First)" },
+  { value: "name-asc", label: "Name (A-Z)" },
 ];
 
-type ThresholdOption = "all" | "70" | "50" | "custom";
+function sourceBucket(sourceType: OpportunitySourceType | null): SourceBucket | null {
+  return sourceType ? (SOURCE_BUCKET_MAP[sourceType] ?? null) : null;
+}
 
-const THRESHOLD_OPTIONS: { value: ThresholdOption; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "70", label: "70%+" },
-  { value: "50", label: "50%+" },
-  { value: "custom", label: "Custom" },
-];
+function deadlineColor(deadline: string | null): string {
+  if (!deadline) return "#94A3B8";
+  const days = differenceInCalendarDays(new Date(deadline), new Date());
+  if (days <= 14) return "#EF4444";
+  if (days <= 30) return "#F59E0B";
+  return "#334155";
+}
+
+function scoreTone(score: number | null | undefined): { color: string; bg: string; label: string } {
+  if (score == null) return { color: "#64748B", bg: "#F1F5F9", label: "Not scored" };
+  if (score >= 70) return { color: "#FFFFFF", bg: "#10B981", label: `${Math.round(score)}%` };
+  if (score >= 50) return { color: "#FFFFFF", bg: "#F59E0B", label: `${Math.round(score)}%` };
+  return { color: "#FFFFFF", bg: "#EF4444", label: `${Math.round(score)}%` };
+}
 
 /**
  * Opportunity list (BLUEPRINT §4.4). Reads are RLS-scoped to the organization,
- * so no organization_id filter is needed client-side. Keyword tags (from the
- * opportunity_keywords many-to-many table) and funder names are joined in for
- * search and display.
+ * so no organization_id filter is needed client-side.
  */
 export default function OpportunitiesPage() {
   const { profile } = useProfile();
   const [opportunities, setOpportunities] = useState<OpportunityRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [search, setSearch] = useState("");
+  const [sourceFilter, setSourceFilter] = useState<"all" | SourceBucket>("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | OpportunityStatus>("all");
   const [sort, setSort] = useState<SortOption>("probability-desc");
-  const [threshold, setThreshold] = useState<ThresholdOption>("all");
-  const [customThreshold, setCustomThreshold] = useState("");
-  const [isScoring, setIsScoring] = useState(false);
-  const [scoringError, setScoringError] = useState<string | null>(null);
-  const [isScoringEligibility, setIsScoringEligibility] = useState(false);
-  const [eligibilityScoringError, setEligibilityScoringError] = useState<
-    string | null
-  >(null);
-
-  async function loadOpportunities() {
-    setLoading(true);
-    setError(null);
-
-    const supabase = createClient();
-
-    const [oppsRes, fundersRes, keywordsRes, appsRes, probabilityRes] = await Promise.all([
-      supabase
-        .from("opportunities")
-        .select("*")
-        .order("match_percentage", { ascending: false, nullsFirst: false })
-        .limit(1000),
-      supabase.from("funders").select("id, name"),
-      supabase
-        .from("opportunity_keywords")
-        .select("opportunity_id, keyword"),
-      supabase
-        .from("applications")
-        .select("opportunity_id, stage, created_at"),
-      // opportunity_probability_scores (migration 093) - Grant Probability Engine
-      // (PLATFORM_VISION_ARCHITECTURE.md Pillar 5). RLS-scoped like the rest.
-      supabase
-        .from("opportunity_probability_scores")
-        .select("opportunity_id, overall_score"),
-    ]);
-
-    if (oppsRes.error) {
-      setError("Could not load opportunities.");
-      setLoading(false);
-      return;
-    }
-
-    const funderNames = new Map<string, string>();
-    for (const f of fundersRes.data ?? []) {
-      funderNames.set(f.id, f.name);
-    }
-
-    const keywordsByOpp = new Map<string, string[]>();
-    for (const row of keywordsRes.data ?? []) {
-      const list = keywordsByOpp.get(row.opportunity_id) ?? [];
-      list.push(row.keyword);
-      keywordsByOpp.set(row.opportunity_id, list);
-    }
-
-    // Most-recent application stage per opportunity (TASK 9).
-    const stageByOpp = new Map<string, { stage: string; created_at: string }>();
-    for (const a of appsRes.data ?? []) {
-      const prev = stageByOpp.get(a.opportunity_id);
-      if (!prev || a.created_at > prev.created_at) {
-        stageByOpp.set(a.opportunity_id, { stage: a.stage, created_at: a.created_at });
-      }
-    }
-
-    const probabilityByOpp = new Map<string, number | null>();
-    for (const p of (probabilityRes.data ?? []) as {
-      opportunity_id: string;
-      overall_score: number | null;
-    }[]) {
-      probabilityByOpp.set(p.opportunity_id, p.overall_score);
-    }
-
-    const rows: OpportunityRow[] = (oppsRes.data ?? []).map((opp) => ({
-      ...opp,
-      keywords: keywordsByOpp.get(opp.id) ?? [],
-      funderName: opp.funder_id
-        ? (funderNames.get(opp.funder_id) ?? null)
-        : null,
-      applicationStage: stageByOpp.get(opp.id)?.stage ?? null,
-      probabilityScore: probabilityByOpp.get(opp.id) ?? null,
-    }));
-
-    setOpportunities(rows);
-    setLoading(false);
-  }
 
   useEffect(() => {
     let active = true;
+
+    async function loadOpportunities() {
+      setLoading(true);
+      setError(null);
+
+      const supabase = createClient();
+
+      const [oppsRes, fundersRes, probabilityRes] = await Promise.all([
+        supabase.from("opportunities").select("*").order("created_at", { ascending: false }).limit(1000),
+        supabase.from("funders").select("id, name"),
+        // opportunity_probability_scores (migration 093) - Grant Probability Engine.
+        supabase.from("opportunity_probability_scores").select("opportunity_id, overall_score"),
+      ]);
+
+      if (!active) return;
+
+      if (oppsRes.error) {
+        setError("Could not load opportunities.");
+        setLoading(false);
+        return;
+      }
+
+      const funderNames = new Map<string, string>();
+      for (const f of fundersRes.data ?? []) {
+        funderNames.set(f.id, f.name);
+      }
+
+      const probabilityByOpp = new Map<string, number | null>();
+      for (const p of (probabilityRes.data ?? []) as { opportunity_id: string; overall_score: number | null }[]) {
+        probabilityByOpp.set(p.opportunity_id, p.overall_score);
+      }
+
+      const rows: OpportunityRow[] = (oppsRes.data ?? []).map((opp) => ({
+        ...opp,
+        funderName: opp.funder_id ? (funderNames.get(opp.funder_id) ?? null) : null,
+        probabilityScore: probabilityByOpp.get(opp.id) ?? null,
+      }));
+
+      setOpportunities(rows);
+      setLoading(false);
+    }
+
     loadOpportunities().catch(() => {
       if (active) {
         setError("Could not load opportunities.");
         setLoading(false);
       }
     });
+
     return () => {
       active = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const editable = canEdit(profile?.role);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return opportunities.filter((opp) => {
+      if (sourceFilter !== "all" && sourceBucket(opp.source_type) !== sourceFilter) return false;
+      if (statusFilter !== "all" && opp.status !== statusFilter) return false;
+      if (!q) return true;
+      return (
+        opp.name.toLowerCase().includes(q) ||
+        (opp.description?.toLowerCase().includes(q) ?? false) ||
+        (opp.funderName?.toLowerCase().includes(q) ?? false)
+      );
+    });
+  }, [opportunities, search, sourceFilter, statusFilter]);
+
+  const sorted = useMemo(() => {
+    const rows = [...filtered];
+    switch (sort) {
+      case "probability-desc":
+        return rows.sort((a, b) => (b.probabilityScore ?? -1) - (a.probabilityScore ?? -1));
+      case "probability-asc":
+        return rows.sort((a, b) => (a.probabilityScore ?? -1) - (b.probabilityScore ?? -1));
+      case "deadline-asc":
+        return rows.sort((a, b) => (a.deadline ?? "9999") .localeCompare(b.deadline ?? "9999"));
+      case "amount-desc":
+        return rows.sort(
+          (a, b) => (b.amount_max ?? b.amount_available ?? 0) - (a.amount_max ?? a.amount_available ?? 0),
+        );
+      case "eligibility-desc":
+        return rows.sort((a, b) => (b.eligibility_score ?? -1) - (a.eligibility_score ?? -1));
+      case "name-asc":
+        return rows.sort((a, b) => decodeHtmlEntities(a.name).localeCompare(decodeHtmlEntities(b.name)));
+      default:
+        return rows;
+    }
+  }, [filtered, sort]);
+
+  const stats = useMemo(() => {
+    const total = filtered.length;
+    const highProbability = filtered.filter((o) => (o.probabilityScore ?? 0) >= 70).length;
+    const closingThisMonth = filtered.filter((o) => o.deadline && isThisMonth(new Date(o.deadline))).length;
+    const totalValue = filtered.reduce((sum, o) => sum + (o.amount_max ?? o.amount_available ?? 0), 0);
+    return { total, highProbability, closingThisMonth, totalValue };
+  }, [filtered]);
+
   const showEmpty = !loading && !error && opportunities.length === 0;
 
-  const selectedSort =
-    SORT_OPTIONS.find((o) => o.value === sort) ?? SORT_OPTIONS[0]!;
-
-  const thresholdValue: number | null =
-    threshold === "all"
-      ? null
-      : threshold === "custom"
-        ? (customThreshold.trim() === "" ? null : Number(customThreshold))
-        : Number(threshold);
-
-  const displayedOpportunities = useMemo(() => {
-    if (thresholdValue == null || Number.isNaN(thresholdValue)) return opportunities;
-    return opportunities.filter(
-      (opp) => opp.probabilityScore != null && opp.probabilityScore >= thresholdValue,
-    );
-  }, [opportunities, thresholdValue]);
-
-  async function handleRunScoring() {
-    setIsScoring(true);
-    setScoringError(null);
-
-    const results = await Promise.allSettled(
-      displayedOpportunities.map((opp) =>
-        fetch("/api/intelligence/grant-probability", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ opportunityId: opp.id }),
-        }).then((res) => {
-          if (!res.ok) throw new Error(`Failed to score ${opp.id}`);
-          return res.json();
-        }),
-      ),
-    );
-
-    const failures = results.filter((r) => r.status === "rejected").length;
-    if (failures > 0) {
-      setScoringError(
-        `${failures} of ${displayedOpportunities.length} opportunities could not be scored.`,
-      );
-    }
-
-    setIsScoring(false);
-    await loadOpportunities();
-  }
-
-  // "Score All" — Eligibility Scoring Agent (AGENTS.md Agent 02).
-  //
-  // Deviation from the task-given spec (POST /api/autonomous/trigger with
-  // agentId "ag-02-eligibility"), checked against real code rather than
-  // applied literally:
-  //   - "ag-02" (the autonomous EligibilityScoringAgent's agentId, see
-  //     src/lib/agents/eligibility-scoring-agent.ts) was never added to the
-  //     agent_type enum (verified: absent from every src/supabase/migrations
-  //     file) — AutonomousAgent.startRun() would fail on every single run
-  //     before scoring anything. AGENTS_v2.md §1.2 documents this as a known,
-  //     unfixed gap.
-  //   - /api/autonomous/trigger only inserts a bare agent_queue row with no
-  //     opportunityId in its payload, but the queue processor's
-  //     'eligibility_scoring' case (worker/autonomous-orchestrator.ts) requires
-  //     one per item — it scores a single opportunity, not "all".
-  // Instead this mirrors handleRunScoring above: fan out client-side to the
-  // real, working per-opportunity route (/api/agents/eligibility, backed by
-  // the live EligibilityScorer — the same class scripts/batch-score-eligibility.ts
-  // and pnpm score:eligibility already use), scoped to opportunities that have
-  // never been scored.
-  const unscoredOpportunities = useMemo(
-    () => opportunities.filter((opp) => opp.eligibility_score == null),
-    [opportunities],
-  );
-
-  async function handleScoreAllEligibility() {
-    setIsScoringEligibility(true);
-    setEligibilityScoringError(null);
-
-    const results = await Promise.allSettled(
-      unscoredOpportunities.map((opp) =>
-        fetch("/api/agents/eligibility", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ opportunityId: opp.id }),
-        }).then((res) => {
-          if (!res.ok) throw new Error(`Failed to score ${opp.id}`);
-          return res.json();
-        }),
-      ),
-    );
-
-    const failures = results.filter((r) => r.status === "rejected").length;
-    if (failures > 0) {
-      setEligibilityScoringError(
-        `${failures} of ${unscoredOpportunities.length} opportunities could not be scored.`,
-      );
-    }
-
-    setIsScoringEligibility(false);
-    await loadOpportunities();
-  }
-
   return (
-    <div
-      className="min-h-screen space-y-6 bg-[#EEF2F7] p-6 page-bg"
-      style={{ backgroundColor: "#E4E9F0" }}
-    >
-      <PageHeader
-        title="Opportunities"
-        description="Grants, donation programs, and sponsorships you're tracking."
-        actions={
-          editable && (
-            <>
-              <Button
-                variant="secondary"
-                onClick={handleScoreAllEligibility}
-                disabled={isScoringEligibility || unscoredOpportunities.length === 0}
-              >
-                <ClipboardCheck className="h-4 w-4" aria-hidden />
-                {isScoringEligibility
-                  ? "Scoring..."
-                  : `Score All${unscoredOpportunities.length > 0 ? ` (${unscoredOpportunities.length})` : ""}`}
-              </Button>
-              <Link
-                href="/opportunities/new"
-                className="flex items-center gap-2 rounded-lg bg-[#0077B6] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#005F92]"
-              >
-                <Plus className="h-4 w-4" aria-hidden />
-                New opportunity
-              </Link>
-            </>
-          )
-        }
-      />
+    <div style={{ backgroundColor: "#D6E4F0", minHeight: "100vh", padding: "32px" }}>
+      {/* Header */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: "16px",
+          marginBottom: "24px",
+        }}
+      >
+        <div>
+          <h1 style={{ fontSize: "28px", fontWeight: 700, color: "#1A2B3C", margin: 0, letterSpacing: "-0.02em" }}>
+            Opportunities
+          </h1>
+          <p style={{ fontSize: "14px", color: "#6B7280", margin: "4px 0 0 0" }}>
+            Grants, donation programs, and sponsorships you&rsquo;re tracking.
+          </p>
+        </div>
+        {editable && (
+          <Link
+            href="/opportunities/new"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "8px",
+              backgroundColor: "#0EA5E9",
+              color: "#FFFFFF",
+              padding: "10px 20px",
+              borderRadius: "10px",
+              fontSize: "14px",
+              fontWeight: 600,
+              boxShadow: "0 2px 8px rgba(14,165,233,0.35)",
+              textDecoration: "none",
+            }}
+          >
+            <Plus size={16} aria-hidden />
+            New Opportunity
+          </Link>
+        )}
+      </div>
 
       {error && (
         <div
           role="alert"
-          className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+          style={{
+            backgroundColor: "#FEF2F2",
+            border: "1px solid #FECACA",
+            borderRadius: "10px",
+            padding: "12px 16px",
+            fontSize: "14px",
+            color: "#B91C1C",
+            marginBottom: "20px",
+          }}
         >
           {error}
         </div>
       )}
 
-      {scoringError && (
-        <div
-          role="alert"
-          className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
-        >
-          {scoringError}
-        </div>
-      )}
-
-      {eligibilityScoringError && (
-        <div
-          role="alert"
-          className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
-        >
-          {eligibilityScoringError}
-        </div>
-      )}
-
       {!showEmpty && (
-        <div className="flex flex-col gap-3 rounded-xl border border-border bg-white p-4 shadow-sm sm:flex-row sm:items-end sm:justify-between">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-            <div className="sm:w-64">
-              <label className="mb-1.5 block text-xs font-medium text-text-muted">
-                Sort by
-              </label>
-              <Select
-                aria-label="Sort opportunities"
-                value={sort}
-                onChange={(e) => setSort(e.target.value as SortOption)}
-                options={SORT_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+        <>
+          {/* Filter bar */}
+          <div
+            style={{
+              backgroundColor: "#FFFFFF",
+              borderRadius: "14px",
+              padding: "16px 20px",
+              boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
+              marginBottom: "20px",
+              display: "flex",
+              flexWrap: "wrap",
+              alignItems: "center",
+              gap: "12px",
+            }}
+          >
+            <div style={{ position: "relative", flex: "1 1 240px", minWidth: "220px" }}>
+              <Search
+                size={16}
+                color="#94A3B8"
+                aria-hidden
+                style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)" }}
+              />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search opportunities, funders..."
+                aria-label="Search opportunities"
+                style={{
+                  width: "100%",
+                  padding: "9px 14px 9px 36px",
+                  borderRadius: "999px",
+                  border: "1px solid #E2E8F0",
+                  fontSize: "13px",
+                  color: "#1A2B3C",
+                  backgroundColor: "#F8FAFC",
+                }}
               />
             </div>
-            <div className="sm:w-44">
-              <label className="mb-1.5 block text-xs font-medium text-text-muted">
-                Min probability
-              </label>
-              <Select
-                aria-label="Filter by probability threshold"
-                value={threshold}
-                onChange={(e) => setThreshold(e.target.value as ThresholdOption)}
-                options={THRESHOLD_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
-              />
-            </div>
-            {threshold === "custom" && (
-              <div className="sm:w-32">
-                <label className="mb-1.5 block text-xs font-medium text-text-muted">
-                  Threshold %
-                </label>
-                <input
-                  type="number"
-                  min={0}
-                  max={100}
-                  value={customThreshold}
-                  onChange={(e) => setCustomThreshold(e.target.value)}
-                  placeholder="0-100"
-                  aria-label="Custom probability threshold"
-                  className="block w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-text shadow-sm transition placeholder:text-text-muted focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500"
-                />
-              </div>
-            )}
+
+            <select
+              aria-label="Filter by source"
+              value={sourceFilter}
+              onChange={(e) => setSourceFilter(e.target.value as "all" | SourceBucket)}
+              style={{
+                borderRadius: "999px",
+                border: "1px solid #E2E8F0",
+                padding: "9px 14px",
+                fontSize: "13px",
+                fontWeight: 600,
+                color: "#334155",
+                backgroundColor: "#F8FAFC",
+              }}
+            >
+              {SOURCE_FILTER_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+
+            <select
+              aria-label="Filter by status"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as "all" | OpportunityStatus)}
+              style={{
+                borderRadius: "999px",
+                border: "1px solid #E2E8F0",
+                padding: "9px 14px",
+                fontSize: "13px",
+                fontWeight: 600,
+                color: "#334155",
+                backgroundColor: "#F8FAFC",
+              }}
+            >
+              {STATUS_FILTER_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+
+            <select
+              aria-label="Sort opportunities"
+              value={sort}
+              onChange={(e) => setSort(e.target.value as SortOption)}
+              style={{
+                borderRadius: "999px",
+                border: "1px solid #E2E8F0",
+                padding: "9px 14px",
+                fontSize: "13px",
+                fontWeight: 600,
+                color: "#334155",
+                backgroundColor: "#F8FAFC",
+              }}
+            >
+              {SORT_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
           </div>
 
-          <Button
-            variant="secondary"
-            onClick={handleRunScoring}
-            disabled={isScoring || displayedOpportunities.length === 0}
+          {/* Stats row */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(4, 1fr)",
+              gap: "16px",
+              marginBottom: "20px",
+            }}
           >
-            <Zap className="h-4 w-4" aria-hidden />
-            {isScoring ? "Scoring..." : "Run Probability Scoring"}
-          </Button>
-        </div>
+            <StatCard label="Total Opportunities" value={String(stats.total)} band="#0EA5E9" />
+            <StatCard label="High Probability" value={String(stats.highProbability)} band="#10B981" />
+            <StatCard label="Closing This Month" value={String(stats.closingThisMonth)} band="#F59E0B" />
+            <StatCard label="Total Value" value={formatCurrency(stats.totalValue)} band="#8B5CF6" />
+          </div>
+
+          {/* Table */}
+          <div
+            style={{
+              backgroundColor: "#FFFFFF",
+              borderRadius: "14px",
+              boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
+              overflow: "hidden",
+            }}
+          >
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "900px" }}>
+                <thead>
+                  <tr style={{ backgroundColor: "#1A2B3C" }}>
+                    {["Title", "Source", "Funder", "Amount", "Deadline", "Probability", "Eligibility", "Actions"].map(
+                      (col, i) => (
+                        <th
+                          key={col}
+                          style={{
+                            textAlign: i === 3 ? "right" : "left",
+                            padding: "12px 20px",
+                            fontSize: "11px",
+                            fontWeight: 700,
+                            color: "#FFFFFF",
+                            textTransform: "uppercase",
+                            letterSpacing: "0.05em",
+                          }}
+                        >
+                          {col}
+                        </th>
+                      ),
+                    )}
+                  </tr>
+                </thead>
+                <tbody>
+                  {loading ? (
+                    <tr>
+                      <td colSpan={8} style={{ padding: "40px", textAlign: "center", fontSize: "13px", color: "#94A3B8" }}>
+                        Loading opportunities...
+                      </td>
+                    </tr>
+                  ) : sorted.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} style={{ padding: "40px", textAlign: "center", fontSize: "13px", color: "#94A3B8" }}>
+                        No opportunities match your filters.
+                      </td>
+                    </tr>
+                  ) : (
+                    sorted.map((opp) => {
+                      const bucket = sourceBucket(opp.source_type);
+                      const sourceStyle = bucket ? SOURCE_BADGE_STYLE[bucket] : null;
+                      const probTone = scoreTone(opp.probabilityScore);
+                      const eligTone = scoreTone(opp.eligibility_score);
+                      const dLineColor = deadlineColor(opp.deadline);
+                      return (
+                        <tr key={opp.id} style={{ borderTop: "1px solid #F1F5F9" }}>
+                          <td style={{ padding: "14px 20px", fontSize: "13px", fontWeight: 600, color: "#1A2B3C", maxWidth: "260px" }}>
+                            {decodeHtmlEntities(opp.name)}
+                          </td>
+                          <td style={{ padding: "14px 20px" }}>
+                            {sourceStyle ? (
+                              <span
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  fontSize: "11px",
+                                  fontWeight: 700,
+                                  color: sourceStyle.color,
+                                  backgroundColor: sourceStyle.bg,
+                                  borderRadius: "999px",
+                                  padding: "3px 10px",
+                                }}
+                              >
+                                {sourceStyle.label}
+                              </span>
+                            ) : (
+                              <span style={{ fontSize: "12px", color: "#94A3B8" }}>
+                                {opp.source_type ? humanizeEnum(opp.source_type) : "-"}
+                              </span>
+                            )}
+                          </td>
+                          <td style={{ padding: "14px 20px", fontSize: "13px", color: "#475569" }}>
+                            {opp.funderName ?? <span style={{ color: "#94A3B8" }}>-</span>}
+                          </td>
+                          <td style={{ padding: "14px 20px", fontSize: "13px", fontWeight: 600, color: "#1A2B3C", textAlign: "right" }}>
+                            {opp.amount_max != null || opp.amount_available != null
+                              ? formatCurrency(opp.amount_max ?? opp.amount_available)
+                              : <span style={{ color: "#94A3B8", fontWeight: 400 }}>-</span>}
+                          </td>
+                          <td style={{ padding: "14px 20px", fontSize: "13px", fontWeight: 600, color: dLineColor }}>
+                            {opp.deadline ? formatDate(opp.deadline) : <span style={{ color: "#94A3B8", fontWeight: 400 }}>-</span>}
+                          </td>
+                          <td style={{ padding: "14px 20px" }}>
+                            <span
+                              style={{
+                                display: "inline-flex",
+                                fontSize: "11px",
+                                fontWeight: 700,
+                                color: probTone.color,
+                                backgroundColor: probTone.bg,
+                                borderRadius: "999px",
+                                padding: "3px 10px",
+                              }}
+                            >
+                              {probTone.label}
+                            </span>
+                          </td>
+                          <td style={{ padding: "14px 20px" }}>
+                            <span
+                              style={{
+                                display: "inline-flex",
+                                fontSize: "11px",
+                                fontWeight: 700,
+                                color: eligTone.color,
+                                backgroundColor: eligTone.bg,
+                                borderRadius: "999px",
+                                padding: "3px 10px",
+                              }}
+                            >
+                              {eligTone.label}
+                            </span>
+                          </td>
+                          <td style={{ padding: "14px 20px" }}>
+                            <Link
+                              href={`/opportunities/${opp.id}`}
+                              style={{ fontSize: "12px", fontWeight: 700, color: "#0EA5E9", textDecoration: "none" }}
+                            >
+                              View →
+                            </Link>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
       )}
 
-      {showEmpty ? (
-        <EmptyState
-          icon={Search}
-          title="No opportunities yet"
-          description="Add your first funding opportunity to start tracking deadlines, eligibility, and applications."
-          action={
-            editable ? (
-              <Link
-                href="/opportunities/new"
-                className="flex items-center gap-2 rounded-lg bg-[#0077B6] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#005F92]"
-              >
-                <Plus className="h-4 w-4" aria-hidden />
-                New opportunity
-              </Link>
-            ) : undefined
-          }
-        />
-      ) : (
-        <OpportunityTable
-          key={sort}
-          opportunities={displayedOpportunities}
-          isLoading={loading}
-          defaultSort={{ key: selectedSort.key, direction: selectedSort.direction }}
-        />
+      {showEmpty && (
+        <div
+          style={{
+            backgroundColor: "#FFFFFF",
+            borderRadius: "14px",
+            boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
+            padding: "56px 24px",
+            textAlign: "center",
+          }}
+        >
+          <Search size={28} color="#94A3B8" aria-hidden style={{ margin: "0 auto 12px" }} />
+          <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#1A2B3C", margin: 0 }}>No opportunities yet</h2>
+          <p style={{ fontSize: "13px", color: "#6B7280", margin: "6px 0 20px" }}>
+            Add your first funding opportunity to start tracking deadlines, eligibility, and applications.
+          </p>
+          {editable && (
+            <Link
+              href="/opportunities/new"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+                backgroundColor: "#0EA5E9",
+                color: "#FFFFFF",
+                padding: "10px 20px",
+                borderRadius: "10px",
+                fontSize: "14px",
+                fontWeight: 600,
+                textDecoration: "none",
+              }}
+            >
+              <Plus size={16} aria-hidden />
+              New Opportunity
+            </Link>
+          )}
+        </div>
       )}
+    </div>
+  );
+}
+
+function StatCard({ label, value, band }: { label: string; value: string; band: string }) {
+  return (
+    <div
+      style={{
+        backgroundColor: "#FFFFFF",
+        borderRadius: "14px",
+        boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
+        overflow: "hidden",
+      }}
+    >
+      <div style={{ height: "6px", backgroundColor: band }} />
+      <div style={{ padding: "18px 20px" }}>
+        <div
+          style={{
+            fontSize: "11px",
+            fontWeight: 700,
+            color: "#64748B",
+            textTransform: "uppercase",
+            letterSpacing: "0.06em",
+          }}
+        >
+          {label}
+        </div>
+        <div style={{ fontSize: "28px", fontWeight: 800, color: "#1A2B3C", marginTop: "4px" }}>{value}</div>
+      </div>
     </div>
   );
 }
