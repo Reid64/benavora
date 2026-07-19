@@ -224,14 +224,8 @@ const Eyebrow = ({ children }: { children: React.ReactNode }) => (
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function BenavoraMarketing() {
   const [annual, setAnnual]   = useState(true);
-  const [clients, setClients] = useState(10);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [_hovered, setHovered] = useState<number | null>(null);
-
-  const consultBase    = annual ? 3997 : 4997;
-  const consultPerClient = annual ? 397 : 497;
-  const consultTotal   = consultBase + consultPerClient * clients;
-  const perClientMo    = Math.round(consultTotal / clients);
 
   return (
     <div style={{ backgroundColor: B.bg, color: B.textPrimary, fontFamily: sans, minHeight: "100vh", overflowX: "hidden" }}>
@@ -289,8 +283,7 @@ export default function BenavoraMarketing() {
           display: "flex", alignItems: "center", justifyContent: "space-between",
         }}>
           {/* Logo lockup */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/benavora_logo.png" alt="Benavora" style={{ height: 36, width: "auto", objectFit: "contain" }} />
+          <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 20, fontWeight: 800, background: "linear-gradient(135deg, #0EA5E9, #8B5CF6)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>benavora</span>
           <div style={{ display: "flex", alignItems: "center", gap: 28 }}>
             {["Product", "For Consultants", "Pricing"].map(l => (
               <a key={l} href={l === "Pricing" ? "#pricing" : "#"} style={{ fontSize: 14, color: B.textSecond, fontWeight: 500 }}
@@ -312,6 +305,10 @@ export default function BenavoraMarketing() {
 
         {/* ═══ Hero ═══ */}
         <section style={{ maxWidth: 1000, margin: "0 auto", padding: "120px 48px 100px", textAlign: "center" }}>
+          <div className="fu" style={{ display: "flex", justifyContent: "center", marginBottom: 40 }}>
+            <img src="/benavora_logo.png" alt="Benavora" style={{ height: 80, width: "auto", objectFit: "contain" }} />
+          </div>
+
           <div className="fu">
             <Eyebrow>AI-Powered Nonprofit Funding Platform</Eyebrow>
           </div>
@@ -771,143 +768,6 @@ export default function BenavoraMarketing() {
           </div>
         </section>
 
-        {/* ═══ Consultant Tier ═══ */}
-        <section style={{ maxWidth: 1220, margin: "0 auto", padding: "0 48px 80px" }}>
-          <div style={{
-            borderRadius: 20, padding: "56px 52px",
-            background: `linear-gradient(160deg, ${B.bgHighlight} 0%, ${B.bgCard} 100%)`,
-            border: `1px solid ${B.border}`,
-            position: "relative", overflow: "hidden",
-            boxShadow: `0 0 80px rgba(139,92,246,0.1)`,
-          }}>
-            <div style={{
-              position: "absolute", top: 0, left: 0, right: 0, height: 3,
-              background: `linear-gradient(90deg, ${B.purple}, ${B.blue}, ${B.teal})`,
-            }} />
-            <div style={{
-              position: "absolute", top: -100, right: -100,
-              width: 400, height: 400,
-              background: `radial-gradient(ellipse, rgba(139,92,246,0.08) 0%, transparent 70%)`,
-              pointerEvents: "none",
-            }} />
-
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
-              <div style={{
-                width: 8, height: 8, borderRadius: "50%",
-                background: `linear-gradient(135deg, ${B.purple}, ${B.blue})`,
-              }} />
-              <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: B.purple }}>
-                For Agencies & Grant Consultants
-              </span>
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 64, alignItems: "start" }}>
-              <div>
-                <h3 style={{ fontFamily: display, fontSize: 40, fontWeight: 800, letterSpacing: "-0.02em", marginBottom: 12, lineHeight: 1.1 }}>
-                  Consultant
-                </h3>
-                <p style={{ fontSize: 15, color: B.textSecond, lineHeight: 1.65, marginBottom: 32 }}>
-                  For grant writing firms managing multiple nonprofit clients. Full autonomous operation at scale — one platform, every client, overnight submissions. At $100–$200/hour billing rates, Benavora pays for itself in the first week of the month.
-                </p>
-
-                <div style={{ marginBottom: 6 }}>
-                  <span style={{ fontFamily: display, fontSize: 48, fontWeight: 800, letterSpacing: "-0.02em", color: B.textPrimary }}>
-                    ${annual ? "3,997" : "4,997"}
-                  </span>
-                  <span style={{ fontSize: 14, color: B.textMuted }}> / month base</span>
-                </div>
-                <p style={{ fontSize: 15, color: B.purple, fontWeight: 600, marginBottom: 4 }}>
-                  + ${annual ? "397" : "497"} / month per client organization
-                </p>
-                <p style={{ fontSize: 12, color: B.textMuted, marginBottom: 32 }}>
-                  Setup: $7,997 base + $997 per client org (one-time)
-                </p>
-
-                {/* Calculator */}
-                <div style={{
-                  backgroundColor: B.bg, borderRadius: 12, padding: "24px",
-                  border: `1px solid ${B.borderFaint}`, marginBottom: 28,
-                }}>
-                  <label style={{ fontSize: 13, fontWeight: 600, color: B.textSecond, display: "block", marginBottom: 14 }}>
-                    How many client organizations?
-                  </label>
-                  <input type="range" min={1} max={50} value={clients}
-                    onChange={e => setClients(+e.target.value)}
-                    style={{ width: "100%", marginBottom: 10, accentColor: B.blue }}
-                  />
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: B.textMuted, marginBottom: 20 }}>
-                    <span>1 client</span>
-                    <span style={{ color: B.blue, fontWeight: 700, fontSize: 16 }}>{clients} clients</span>
-                    <span>50 clients</span>
-                  </div>
-                  <div style={{
-                    borderRadius: 10, padding: "16px 20px",
-                    background: `linear-gradient(135deg, ${B.bgHighlight}, ${B.bgRaised})`,
-                    border: `1px solid ${B.border}`,
-                    display: "flex", justifyContent: "space-between", alignItems: "center",
-                  }}>
-                    <div>
-                      <div style={{ fontSize: 12, color: B.textMuted, marginBottom: 3 }}>Your monthly total</div>
-                      <div style={{ fontSize: 12, color: B.textSecond }}>
-                        ${perClientMo.toLocaleString()} / client / month
-                      </div>
-                    </div>
-                    <div style={{
-                      fontFamily: display, fontSize: 36, fontWeight: 800,
-                      letterSpacing: "-0.02em",
-                      background: `linear-gradient(135deg, ${B.blue}, ${B.purple})`,
-                      WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
-                    }}>
-                      ${consultTotal.toLocaleString()}
-                    </div>
-                  </div>
-                  <div style={{
-                    marginTop: 10, fontSize: 12, color: B.textSecond,
-                    padding: "10px 14px", borderRadius: 8,
-                    backgroundColor: `${B.green}0D`, border: `1px solid ${B.green}20`,
-                  }}>
-                    💡 At $150/hr billing, {clients} clients generates ~${(clients * 20 * 150).toLocaleString()}/mo in potential fees. Benavora is {Math.round((consultTotal / (clients * 20 * 150)) * 100)}% of your monthly revenue.
-                  </div>
-                </div>
-
-                <button className="tc btn-primary" style={{
-                  width: "100%", padding: "16px 0",
-                  background: `linear-gradient(135deg, ${B.purple}, ${B.blue})`,
-                  color: "#fff", border: "none", borderRadius: 10,
-                  fontSize: 16, fontWeight: 700, cursor: "pointer",
-                  boxShadow: `0 0 32px rgba(139,92,246,0.25)`,
-                }}>
-                  Schedule a Demo Call
-                </button>
-              </div>
-
-              <div style={{ paddingTop: 4 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: B.textMuted, marginBottom: 20 }}>
-                  Everything Included
-                </div>
-                {[
-                  "Everything in Enterprise",
-                  "Multi-tenant client management dashboard",
-                  "Per-client Knowledge Bases & research profiles",
-                  "AutoApply: Full Autonomous overnight mode",
-                  "Overnight batch processing (400+ submissions/night)",
-                  "Cross-client analytics & performance reporting",
-                  "White-label options available",
-                  "Unified consultant command center",
-                  "Dedicated account manager",
-                  "Custom API integrations",
-                  "Priority SLA with 4-hour response",
-                ].map((f, i) => (
-                  <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 14 }}>
-                    <IconCheck color={B.purple} />
-                    <span style={{ fontSize: 14, color: B.textPrimary, lineHeight: 1.45 }}>{f}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-
         {/* ═══ Testimonials ═══ */}
         <section style={{
           backgroundColor: B.bgCard,
@@ -1056,8 +916,7 @@ export default function BenavoraMarketing() {
           padding: "28px 48px",
           display: "flex", justifyContent: "space-between", alignItems: "center",
         }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/benavora_logo.png" alt="Benavora" style={{ height: 24, width: "auto", objectFit: "contain", opacity: 0.7 }} />
+          <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 16, fontWeight: 800, background: "linear-gradient(135deg, #0EA5E9, #8B5CF6)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", opacity: 0.7 }}>benavora</span>
           <div style={{ display: "flex", gap: 28, alignItems: "center" }}>
             {["Privacy", "Terms", "Security", "Contact"].map(l => (
               <a key={l} href="#" style={{ fontSize: 13, color: B.textMuted }}>{l}</a>
