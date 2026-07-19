@@ -429,6 +429,14 @@ export interface Database {
           draft_confidence_score: number | null;
           draft_knowledge_sources: Json | null;
           notes: string | null;
+          // Migration 080 (autonomous_agent_infrastructure) - previously missing
+          // from these generated types even though already applied to prod.
+          auto_generated: boolean | null;
+          pending_review: boolean | null;
+          draft_source: string | null;
+          budget_data: Json | null;
+          compliance_check_result: Json | null;
+          fit_analysis: Json | null;
           created_at: string;
           updated_at: string;
         };
@@ -446,6 +454,12 @@ export interface Database {
           draft_confidence_score?: number | null;
           draft_knowledge_sources?: Json | null;
           notes?: string | null;
+          auto_generated?: boolean | null;
+          pending_review?: boolean | null;
+          draft_source?: string | null;
+          budget_data?: Json | null;
+          compliance_check_result?: Json | null;
+          fit_analysis?: Json | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -463,6 +477,12 @@ export interface Database {
           draft_confidence_score?: number | null;
           draft_knowledge_sources?: Json | null;
           notes?: string | null;
+          auto_generated?: boolean | null;
+          pending_review?: boolean | null;
+          draft_source?: string | null;
+          budget_data?: Json | null;
+          compliance_check_result?: Json | null;
+          fit_analysis?: Json | null;
           created_at?: string;
           updated_at?: string;
         };

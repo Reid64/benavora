@@ -12,20 +12,20 @@
 // prompt: match required_documents to attached documents by `category`
 // alone (no fuzzy text matching, no AI review).
 //
-// Deviations from the task-given spec, checked against real schema
-// (src/types/database.ts) rather than applied literally:
-//   - `applications` has no `compliance_check_result` column (confirmed:
-//     Row/Insert/Update list id, organization_id, opportunity_id, stage,
-//     assigned_user_id, requested_amount, submitted_at, awarded_amount,
-//     draft_content, draft_template_type, draft_confidence_score,
-//     draft_knowledge_sources, notes, created_at, updated_at - no jsonb slot
-//     for this). The existing ComplianceChecker (BaseAgent Agent 07) never
-//     persisted its result to the applications table either - it only
-//     returns/logs it. Following that same precedent, the compliance result
-//     here is persisted exclusively via logDecision's actionPayload
-//     (agent_decisions, jsonb) rather than a nonexistent column.
-//   - `applications` has no `confidence_score` column - the real field is
-//     `draft_confidence_score`.
+// Deviation from the task-given spec, checked against real schema rather
+// than applied literally: `applications` has no `confidence_score` column -
+// the real field is `draft_confidence_score`.
+//
+// Note on compliance_check_result: src/types/database.ts's generated
+// applications type did NOT list this column, but migration 080
+// (supabase/migrations/080_autonomous_agent_infrastructure.sql line 104)
+// adds `compliance_check_result jsonb DEFAULT '{}'`, and a leftover
+// migrate-autonomous.json scratch file from an earlier session confirms
+// that exact ALTER TABLE was already applied to production via the
+// Management API. The generated types were simply stale (also missing
+// auto_generated, pending_review, draft_source, budget_data, fit_analysis
+// from the same migration) - fixed in database.ts alongside this agent
+// rather than routed around.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -198,6 +198,18 @@ export class ComplianceCheckAgent extends AutonomousAgent {
         needsInputCount,
         checkedAt: new Date().toISOString(),
       };
+
+      const { error: updateError } = await this.supabase
+        .from("applications")
+        .update({ compliance_check_result: result })
+        .eq("id", applicationId)
+        .eq("organization_id", this.orgId);
+
+      if (updateError) {
+        throw new Error(
+          `Failed to persist compliance_check_result: ${updateError.message}`,
+        );
+      }
 
       decisions.push(
         await this.logDecision({
