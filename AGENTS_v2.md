@@ -1212,3 +1212,515 @@ worker/index.ts (Railway worker process)
 which will queue, claim, fail, retry 3x, and land in `failed` with a visible
 `Unknown agent_queue agent_id` error message, visible on `/settings` autonomous decision log
 (`/api/autonomous/decisions`, `/api/autonomous/queue`).
+
+---
+
+## Phase 2-5 Agent Specifications (Planned)
+
+Every agent below is scoped in `AUTONOMOUS_PLATFORM_VISION.md` (Phases 2-5) and/or
+`FEATURE_REGISTRY_v2.md` features 217-228. **None of these agents exist in `src/lib/agents/` today**
+??? no file, no class, no `agent_type`/`agent_id` literal, no migration beyond what Section 6's schema
+tables already define for the handful that reuse Phase 1 tables (`impact_simulations`,
+`board_meeting_packets`). Every field below is a design commitment carried over from
+`AUTONOMOUS_PLATFORM_VISION.md` ??7's FORGE queue blueprint table, not a live call site. Treat this
+section the same way Section 5 treats AG-10/AG-20/AG-21/AG-23/AG-26/AG-27/AG-29/AG-30: PLANNED means
+PLANNED, and nothing here should be read as "wired" until a future edition of this document says so
+from an actual audit of `src/lib/agents/` and `worker/`.
+
+**Numbering note ??? read before cross-referencing against `AUTONOMOUS_PLATFORM_VISION.md`:** the
+task that produced this section numbered the twelve agents below AG-29 through AG-40 sequentially in
+request order. `AUTONOMOUS_PLATFORM_VISION.md` ??7's own blueprint tables independently assign new
+agent numbers to roughly the same feature set, and the two schemes disagree on five of twelve:
+
+| This section | Feature | `AUTONOMOUS_PLATFORM_VISION.md` ??7 calls it |
+|---|---|---|
+| AG-29 | Fundability Scorer | No new number ??? "Extend AG-15; new narrow-mode AG-06 invocation" |
+| AG-30 | Donor Intent Monitor | **AG-31** (Donor Intent Agent) |
+| AG-31 | National Forecast Agent | **AG-32** (National Forecast Agent) |
+| AG-32 | Relationship Graph Builder | No new number ??? "Extends AG-23 (Relationship Mapper)" |
+| AG-36 | Learning Network Aggregator | No new number ??? "Extends AG-29" (Knowledge Engine Indexer) |
+| AG-37 | Simulation Agent | No new number ??? "Extends AG-28" (Impact Simulation Agent); the vision doc's own **AG-37** is Multi-Agent Negotiation, not this |
+| AG-38 | Self-Improvement Agent | Vision doc calls this **AG-36** (Autonomous Continuous Improvement Engine); the vision doc's own **AG-38** is Community Resource Graph, not this |
+
+**AG-29 is additionally a hard collision, not just a cross-doc mismatch:** Section 5 of this same
+document already defines **AG-29 as the Knowledge Engine Indexer Agent** (embedding model, pgvector,
+`text-embedding-3-small`, PLANNED, Pillar 18). This section's AG-29 (Fundability Scorer) is a
+completely different agent that happens to reuse the same number because it was next-free in this
+task's sequential numbering rather than checked against Section 5's existing roster. Do not write
+`agent_type = 'ag-29'` into any future schema or code for either agent without first resolving this
+collision ??? follow the precedent of Section 1.4/4 above (real code wins, doc numbering is
+descriptive, not authoritative) and renumber one of the two before implementation.
+
+The specs below use the task-assigned AG-29???AG-40 numbers as headers for traceability to the request
+that produced them; each spec's Dependencies line states the correct source agent(s) per
+`AUTONOMOUS_PLATFORM_VISION.md` ??7 so the collision above doesn't propagate into a wrong build.
+
+---
+
+### AG-29: Fundability Scorer
+
+- **Phase:** 2
+- **Status:** PLANNED
+- **Purpose:** Extends the Grant Probability Engine's bare 0-100 score into a diagnostic tool by
+  decomposing any below-threshold score into the specific deficiency behind it (weak mission-fit
+  language, incomplete budget history, missing logic model, Digital Twin gaps). Where the
+  deficiency is a KB/Twin completeness gap rather than a structural mismatch, it offers a one-click
+  auto-fix that queues a targeted KB entry for human approval rather than auto-publishing it.
+- **Type:** analysis
+- **Model:** claude-sonnet-4-6
+- **Estimated tokens per run:** ~3,500 input (opportunity + existing 11-factor breakdown + KB
+  index) / ~1,200 output (deficiency array + remediation text) per opportunity scored.
+- **Tier gate:** professional (extends AG-15, itself professional-gated).
+- **Trigger:** chain ??? fires whenever `grant-probability-engine.ts` computes a score below the
+  org's `auto_draft_threshold` / apply recommendation cutoff; also callable on-demand from the
+  opportunity detail page's factor breakdown UI.
+- **Input sources:** `opportunity_probability_scores` (existing 11-factor breakdown),
+  `organizational_digital_twins`, `knowledge_base_entries`, `applications.compliance_check_result`.
+- **Output:** `opportunity_probability_scores.deficiencies` (jsonb array of
+  `{factor_name, current_value, target_value, fix_type, auto_fixable}`); for `kb_gap`-type
+  deficiencies, a `fundability_autofix_runs` row with `generated_content` awaiting approval.
+- **Chains to:** AG-06 (Draft Generator Agent) in narrow mode, to draft the missing KB entry only
+  ??? never to draft the application narrative itself.
+- **Hard limits:** never auto-publishes a generated KB entry ??? every `fundability_autofix_runs` row
+  is `status = 'pending'` until a human approves it; never overrides a `structural` deficiency
+  (funder/geography/mission mismatch) as if it were fixable ??? those are reported, not auto-fixed.
+- **Dependencies:** requires AG-15 (Grant Probability Agent) actually reachable in production first
+  ??? currently blocked by the `agent_type` enum gap (??1.2) and the `routeQueueItem()` chain gap
+  (??1.3). Building AG-29 against a AG-15 that has never successfully completed a run would have no
+  real score to decompose.
+- **FORGE queue:** not yet scoped into a `queue.yaml`. Blueprint only exists in
+  `AUTONOMOUS_PLATFORM_VISION.md` ??7 ("Fundability Intelligence Score" row, Phase 2 table):
+  schema migration (alter `opportunity_probability_scores`, add `fundability_autofix_runs`),
+  `/api/intelligence/grant-probability/auto-fix` route, opportunity detail UI badge.
+
+---
+
+### AG-30: Donor Intent Monitor
+
+- **Phase:** 2
+- **Status:** PLANNED
+- **Purpose:** Continuously monitors press releases, CSR/ESG reports, SEC filings, hiring-trend
+  deltas, and facility-expansion signals for corporate prospects and foundations, and scores the
+  probability that each entity announces a giving initiative in the next 30-90 days. Moves
+  Reputation Intelligence (AG-18) and the Relationship Builder concept (AG-19) from reactive
+  (detecting a scandal after it's public) to predictive (detecting intent before an announcement).
+- **Type:** monitoring
+- **Model:** claude-sonnet-4-6
+- **Estimated tokens per run:** ~2,000 input / ~800 output per entity (per
+  `AUTONOMOUS_PLATFORM_VISION.md`'s own estimate for the reputation-agent pattern it extends);
+  batch-processed nightly, not per-org.
+- **Tier gate:** professional (extends AG-18/AG-20/AG-21, all professional-gated corporate
+  intelligence agents).
+- **Trigger:** schedule ??? nightly, as a new step in `worker/enrichment-processor.ts`'s
+  `runCorporateEnrichmentBatch()`.
+- **Input sources:** `corporate_prospects.enrichment`, `reputation_signals`,
+  `corporate_monitoring_events`, plus new signal feeds not yet built (hiring-trend feed, SEC EDGAR
+  full-text search, facility-permit monitoring) ??? see Dependencies.
+- **Output:** `donor_intent_scores` (new table: `intent_score` 0-100, `predicted_window`,
+  `signal_basis` jsonb array of `{signal_type, weight, evidence, source_url}`, `confidence`).
+- **Chains to:** none designed ??? surfaces on the Corporate Intelligence monitoring feed as a
+  "Predicted Intent" badge for a human to act on (e.g., route to AG-24/Cold Outreach).
+- **Hard limits:** `AUTONOMOUS_HARD_LIMITS.NEVER_SEND_EMAIL_WITHOUT_APPROVAL` ??? a predicted-intent
+  badge is a signal, never a trigger for automatic outreach; never asserts intent as fact ??? every
+  score carries `confidence` and cites `evidence`/`source_url` per signal.
+- **Dependencies:** requires new EA-series enrichment sub-agents (hiring-trend feed, SEC EDGAR
+  search, facility-permit monitoring) that don't exist yet ??? AG-20 (Corporate Giving Detector) and
+  AG-21 (Executive Biography Analyzer) are themselves still PLANNED with no file found (Section 5).
+  AG-30 cannot be built before at least one of its named signal sources exists.
+- **FORGE queue:** not yet scoped into a `queue.yaml`. Blueprint in
+  `AUTONOMOUS_PLATFORM_VISION.md` ??7 ("AI Donor Intent Engine" row, Phase 2 table): new
+  `donor_intent_scores` table, `donor-intent-scorer.ts` module, `/api/intelligence/donor-intent/[prospectId]`
+  route, monitoring feed UI badge.
+
+---
+
+### AG-31: National Forecast Agent
+
+- **Phase:** 2
+- **Status:** PLANNED
+- **Purpose:** Extends the org-level Predictive Funding Forecast (Pillar 11, `funding_forecasts`)
+  with a macro-level layer: ingests congressional appropriations bills, FEMA spending patterns, and
+  HUD/USDA/state budget cycles to project category-level funding trend direction and magnitude 12
+  months out. Surfaces as a leading indicator (e.g. "Texas housing grants projected to increase 18%
+  next year") before individual opportunities post to Grants.gov/SAM.gov.
+- **Type:** analysis
+- **Model:** claude-sonnet-4-6
+- **Estimated tokens per run:** ~4,000 input (bill text summaries + historical appropriations
+  data per category) / ~1,500 output (trend direction + magnitude + evidence), per category per
+  monthly run.
+- **Tier gate:** professional (extends AG-26, itself professional-gated).
+- **Trigger:** schedule ??? monthly, alongside the existing `runFundingForecast()` slot in
+  `worker/scheduler.ts`.
+- **Input sources:** Congress.gov bill-tracking API, historical appropriations data per funding
+  category, `funding_forecasts` (org-level, for cross-reference).
+- **Output:** `market_forecasts` (new table: `category`, `geography`, `forecast_period`,
+  `trend_direction`, `trend_magnitude`, `evidence text[]`) ??? distinct from the existing org-scoped
+  `funding_forecasts` table.
+- **Chains to:** none designed.
+- **Hard limits:** never presents a projection as certainty ??? every row carries `evidence` citing
+  the specific bill/budget document driving the projection; never advises an org to apply/skip
+  based on this alone ??? it is macro context, not a substitute for AG-15's opportunity-level score.
+- **Dependencies:** `market_forecasts` is specified in `PLATFORM_VISION_ARCHITECTURE.md` Pillar 11
+  but, per `AUTONOMOUS_PLATFORM_VISION.md` ??7 itself, is **not yet present** in
+  `SCHEMA_REGISTRY_v2.md` ??? the migration must first reconcile the two documents before this agent
+  can write anywhere. AG-26 (Funding Forecast Agent) it extends is itself still PLANNED with no file
+  found (Section 5).
+- **FORGE queue:** not yet scoped into a `queue.yaml`. Blueprint in
+  `AUTONOMOUS_PLATFORM_VISION.md` ??7 ("Predictive National Opportunity Forecasting" row, Phase 2
+  table): new `market_forecasts` table, `national-forecast-agent.ts`, monthly scheduler entry,
+  `/api/intelligence/market-forecast` route, `/reports/forecast` market-trend panel.
+
+---
+
+### AG-32: Relationship Graph Builder
+
+- **Phase:** 3
+- **Status:** PLANNED
+- **Purpose:** Discovers and maps relationship edges between corporate entities, foundations, board
+  members, and nonprofits ??? board overlaps, alumni networks, shared past employers, family
+  foundation ties ??? into `pig_nodes`/`pig_edges`, surfacing warm introduction pathways in place of
+  cold outreach. Full build-out of Pillar 1 (Philanthropic Intelligence Graph), including the
+  force-directed `/research/graph` explorer and shortest-path finder specified but not yet built.
+- **Type:** analysis
+- **Model:** claude-sonnet-4-6
+- **Estimated tokens per run:** ~2,500 input / ~1,000 output per entity pair evaluated; run as a
+  weekly full-graph rebuild rather than per-entity, per `AUTONOMOUS_PLATFORM_VISION.md`'s own
+  Phase 3 blueprint ("AG-23 full weekly rebuild").
+- **Tier gate:** enterprise (Pillar 1 / PIG is the same enterprise-gated feature AG-23 already
+  targets, per `PRD_v2.md` ??12 pricing table).
+- **Trigger:** schedule ??? weekly full-graph rebuild.
+- **Input sources:** `corporate_relationships`, `corporate_relationship_people`, `funders`,
+  `contacts`, `foundation_directory`, `board_members` (org's own board, for self-referencing edges).
+- **Output:** `pig_nodes` / `pig_edges` rows (relationship_type values extended beyond the current
+  set to cover board-overlap/alumni/family-foundation edges); indexes for graph-query performance.
+- **Chains to:** none designed.
+- **Hard limits:** never asserts an edge without `evidence`; `verified boolean` defaults false and
+  is never silently flipped true without a documented source.
+- **Dependencies:** this is explicitly the same agent as AG-23 (Relationship Mapper Agent,
+  Section 5), which is itself PLANNED with no file found. `pig_nodes`/`pig_edges` exist (migration
+  094, per Section 6 table 59-60) but are unpopulated. Per `AUTONOMOUS_PLATFORM_VISION.md` ??7,
+  this feature has **no new agent number** ??? it is an extension of AG-23, not a distinct agent;
+  see the Numbering note above before assigning `AG-32` in any schema.
+- **FORGE queue:** not yet scoped into a `queue.yaml`. Blueprint in
+  `AUTONOMOUS_PLATFORM_VISION.md` ??7, Phase 3 table, two rows: "Corporate Relationship Graph"
+  (extends `pig_edges` with new `relationship_type` values, `/api/intelligence/relationship-paths`,
+  `/research/graph` node expansion panel) and "Philanthropic Intelligence Graph (full)" (graph-query
+  indexes, `/api/intelligence/graph/shortest-path`, `/research/graph` force-directed explorer + PDF
+  export).
+
+---
+
+### AG-33: Partnership Discovery Agent
+
+- **Phase:** 3
+- **Status:** PLANNED
+- **Purpose:** Identifies coalition grant opportunities between nonprofits with complementary
+  missions ??? funders that favor multi-org applications, or two orgs whose service areas and
+  program types combine to meet a funder's stated priorities. Surfaces potential partner orgs from
+  both the Benavora subscriber base and `foundation_directory`/BMF data.
+- **Type:** analysis
+- **Model:** claude-sonnet-4-6
+- **Estimated tokens per run:** ~3,000 input (both orgs' Digital Twins + candidate opportunity) /
+  ~1,000 output (match rationale + suggested coalition structure) per candidate pair.
+- **Tier gate:** enterprise (net-new Phase 3 relationship-intelligence feature, same tier band as
+  AG-32/Pillar 1).
+- **Trigger:** schedule ??? designed as a periodic sweep against active `search_profiles` and
+  co-located/complementary-mission orgs; exact cadence not specified in
+  `AUTONOMOUS_PLATFORM_VISION.md`.
+- **Input sources:** `organizational_digital_twins` (own + candidate partner org), `opportunities`
+  (coalition-friendly funders), `foundation_directory`, other subscriber orgs' anonymized mission/
+  program metadata.
+- **Output:** `partnership_matches` (new table, per `AUTONOMOUS_PLATFORM_VISION.md` ??7's Phase 3
+  blueprint table).
+- **Chains to:** none designed ??? surfaces on `/intelligence/twin` as a partnership suggestions
+  panel for a human to initiate contact.
+- **Hard limits:** `AUTONOMOUS_HARD_LIMITS.NEVER_SEND_EMAIL_WITHOUT_APPROVAL` ??? never contacts a
+  candidate partner org directly; never exposes one subscriber org's non-public Digital Twin detail
+  to another org beyond what's needed for a match rationale (cross-org data leakage boundary per
+  `PRD_v2.md` ??"Security": "No cross-org data leakage except anonymized aggregate patterns").
+- **Dependencies:** requires the Philanthropic Intelligence Graph (AG-32/AG-23) populated first ???
+  partnership discovery is described in `AUTONOMOUS_PLATFORM_VISION.md` Phase 3 as building on the
+  same relationship-graph substrate. Also requires cross-org anonymization architecture that Phase 5
+  (Moat 4) describes as not yet built (`benchmark_aggregates` is explicitly "not yet active").
+- **FORGE queue:** not yet scoped into a `queue.yaml`. Blueprint in
+  `AUTONOMOUS_PLATFORM_VISION.md` ??7, Phase 3 table: new `partnership_matches` table, new AG-33,
+  `/api/intelligence/partnerships` route, partnership suggestions panel on `/intelligence/twin`.
+
+---
+
+### AG-34: Personalization Engine
+
+- **Phase:** 3
+- **Status:** PLANNED
+- **Purpose:** Adapts the public marketing site and outbound communications by detected visitor/
+  donor type ??? corporate executive, church donor, family foundation, government reviewer ??? using
+  the same Digital Twin and Corporate Giving DNA data already computed for corporate prospects.
+  Not org-scoped in the usual sense: this operates on Benavora's own marketing surface and,
+  per-org, on each subscriber's public-facing content.
+- **Type:** generation
+- **Model:** claude-sonnet-4-6
+- **Estimated tokens per run:** ~1,500 input (visitor signal + persona candidates) / ~2,000 output
+  (content variant) per persona per page, cached rather than regenerated per visit.
+- **Tier gate:** professional (content personalization is a lighter-weight generation feature than
+  the enterprise-gated relationship/graph agents in this phase).
+- **Trigger:** event ??? fires on detected visitor-type signal (referral source, UTM parameters,
+  self-identification in a form) rather than on a schedule.
+- **Input sources:** `visitor_personas` (new table, public marketing site, not org-scoped),
+  `organizational_digital_twins`, `corporate_prospects.giving_dna` (for corporate-visitor variants).
+- **Output:** persona-specific content variants served by the public site's component layer.
+- **Chains to:** none designed.
+- **Hard limits:** never fabricates a claim about the visiting org/person it hasn't verified; never
+  stores personally identifying visitor data beyond what's needed for persona classification
+  (privacy boundary implied by `PRD_v2.md` ??"Security" but not explicitly stated for this feature ???
+  flag for legal review before build, per this document's own precedent of not guessing on
+  ambiguity, CLAUDE.md ??"AUTONOMOUS OPERATION RULES").
+- **Dependencies:** `visitor_personas` table does not exist. Corporate Giving DNA
+  (`corporate_prospects.giving_dna` jsonb column exists per Section 6 table 36, but per Pillar 3's
+  own PLANNED status in `FEATURE_REGISTRY_v2.md` #92, is not yet populated for any real prospect.
+- **FORGE queue:** not yet scoped into a `queue.yaml`. Blueprint in
+  `AUTONOMOUS_PLATFORM_VISION.md` ??7, Phase 3 table: new `visitor_personas` table, new AG-34,
+  `/api/marketing/personalize` route, public site component variants by detected persona.
+
+---
+
+### AG-35: Community Need Predictor
+
+- **Phase:** 3
+- **Status:** PLANNED
+- **Purpose:** Ingests census data, housing prices, employment trends, eviction filings, weather
+  patterns, school enrollment, and migration data to forecast service demand before it materializes.
+  Directly extends the Faith Foundation pilot use case (rural Texas emergency/transitional housing)
+  ??? anticipating need spikes ahead of a funding cycle rather than reacting to them.
+- **Type:** analysis
+- **Model:** claude-sonnet-4-6
+- **Estimated tokens per run:** ~3,000 input (multi-source signal digest per service area) /
+  ~1,200 output (need forecast + confidence + contributing signals) per monitored service area.
+- **Tier gate:** enterprise (net-new Phase 3 predictive feature, same tier band as
+  AG-32/AG-33/Pillar 1).
+- **Trigger:** schedule ??? designed as a periodic (monthly, unconfirmed cadence) sweep per org's
+  `service_areas` (from `organizations.service_areas`).
+- **Input sources:** census data, housing-price indices, employment-trend data, eviction-filing
+  records, weather/disaster data (overlaps `disaster_declarations`), school enrollment data,
+  migration data ??? none of these external feeds are currently wired into any ingestion script.
+- **Output:** `community_need_signals` (new table, per `AUTONOMOUS_PLATFORM_VISION.md` ??7's Phase 3
+  blueprint table).
+- **Chains to:** none designed ??? surfaces as a needs-forecast card on the `/intelligence` hub.
+- **Hard limits:** never asserts a need forecast without citing its contributing signals and their
+  recency; never auto-generates a grant application from a predicted need ??? this is intelligence
+  for a human to act on, structurally analogous to AG-25 (Disaster Response)'s "surfaces, never
+  submits" pattern.
+- **Dependencies:** every listed input source (census, housing, employment, eviction, weather,
+  school enrollment, migration) requires a new ingestion adapter ??? none exist today. This is the
+  most infrastructure-heavy agent in this section; realistically gated behind building at least 2-3
+  of those seven feeds first.
+- **FORGE queue:** not yet scoped into a `queue.yaml`. Blueprint in
+  `AUTONOMOUS_PLATFORM_VISION.md` ??7, Phase 3 table: new `community_need_signals` table, new AG-35,
+  `/api/intelligence/community-need` route, needs forecast card on `/intelligence` hub.
+
+---
+
+### AG-36: Learning Network Aggregator
+
+- **Phase:** 4
+- **Status:** PLANNED
+- **Purpose:** Anonymizes and aggregates successful grant patterns (language, budget structure,
+  narrative, keywords, timing) across every Benavora subscriber org, feeding the results back into
+  `knowledge_patterns` so every org's Knowledge Engine (Pillar 18) benefits from outcomes it never
+  personally generated. This is Moat 1's compounding mechanism made concrete.
+- **Type:** analysis
+- **Model:** none directly for the aggregation pass (per `AUTONOMOUS_PLATFORM_VISION.md`'s own
+  description of AG-29/Knowledge Engine Indexer using an embedding model, not Claude, for its core
+  function) ??? claude-sonnet-4-6 is used only for the pattern-description text written into
+  `knowledge_patterns.pattern_description`.
+- **Estimated tokens per run:** ~500 output tokens per newly detected pattern (description text
+  only); embedding/aggregation cost is not a Claude token cost.
+- **Tier gate:** platform-internal ??? this agent writes to the shared `knowledge_patterns` table
+  that benefits all tiers indirectly (per Pillar 18's `FKE-05`: "the knowledge engine improves
+  automatically as more data is ingested"); it has no standalone org-facing UI or tier gate of its
+  own.
+- **Trigger:** schedule ??? designed as a nightly aggregation pass, extending AG-29's (Knowledge
+  Engine Indexer) existing embedding-population responsibility.
+- **Input sources:** `outcomes` (award/denial results across all orgs), `drafts` (content),
+  `intelligence_funded_proposals`, `organizational_digital_twins` (structural metadata only, never
+  narrative content that could re-identify a specific org).
+- **Output:** `knowledge_patterns` rows with `sample_count`/`confidence` incremented as more
+  cross-org data accumulates; no client-facing route of its own ??? results surface through the
+  existing `/api/intelligence/knowledge-query` and `/intelligence/knowledge` UI.
+- **Chains to:** none designed.
+- **Hard limits:** `AUTONOMOUS_HARD_LIMITS.NEVER_MODIFY_GOVERNANCE_FILES` (n/a, doesn't touch
+  governance files) plus a feature-specific hard limit stated explicitly in
+  `AUTONOMOUS_PLATFORM_VISION.md`'s Phase 5 benchmarking design: aggregate tables are
+  service-role-only with **no `org_id` in client-facing responses** ??? this agent must never expose
+  an org-identifiable pattern back to a different org.
+- **Dependencies:** requires AG-29 (Knowledge Engine Indexer Agent, Section 5) built and running
+  first ??? that agent is itself PLANNED with no file found, and `intelligence_funded_proposals` has
+  only 11 records against a 2,000+ target (per `FEATURE_REGISTRY_v2.md` #166-169 and this document's
+  Moat 1 analysis). Per `AUTONOMOUS_PLATFORM_VISION.md` ??7, this feature has **no new agent
+  number** ??? it is explicitly "Extends AG-29," not a distinct agent; see the Numbering note above.
+- **FORGE queue:** not yet scoped into a `queue.yaml`. Blueprint in
+  `AUTONOMOUS_PLATFORM_VISION.md` ??7, Phase 4 table ("Global Learning Network" row): extends
+  `knowledge_patterns` with a cross-org aggregation flag, extends AG-29, internal only ??? no
+  client-facing route.
+
+---
+
+### AG-37: Simulation Agent
+
+- **Phase:** 4
+- **Status:** PLANNED
+- **Purpose:** Extends the single-scenario Impact Simulator (AG-28, Section 5) into comparative
+  multi-scenario modeling ??? running several what-if scenarios (receive/lose a grant, open a
+  location, hire staff, serve more beneficiaries) side by side and projecting revenue, capacity,
+  probability, and ROI for each so a board can compare options rather than evaluate one at a time.
+- **Type:** analysis
+- **Model:** claude-sonnet-4-6
+- **Estimated tokens per run:** ~4,000 input (org financial profile + N scenario parameter sets) /
+  ~2,500 output (comparative projection table + risk assessment per scenario), scaling with
+  scenario count.
+- **Tier gate:** enterprise (extends AG-28, itself enterprise-gated per Section 5).
+- **Trigger:** manual ??? user-initiated scenario comparison request from `/intelligence/simulate`.
+- **Input sources:** `organizational_digital_twins` (financial_profile), `impact_simulations`
+  (individual scenario results already computed by AG-28), user-specified scenario parameter sets.
+- **Output:** `impact_simulations.scenario_comparison_id` groups multiple individual simulation
+  rows into one comparison set; a synthesized comparative summary.
+- **Chains to:** none designed.
+- **Hard limits:** the global hard limits (Section 0) apply; a simulation is read-only by
+  definition ??? never writes to live financial/pipeline data, matching AG-28's own hard limit.
+- **Dependencies:** requires AG-28 (Impact Simulation Agent) built first ??? it is itself PLANNED
+  with no file found (Section 5), though its schema (`impact_simulations`) exists (migration,
+  Section 6 table 67). Per `AUTONOMOUS_PLATFORM_VISION.md` ??7, this feature has **no new agent
+  number** ??? it is explicitly "Extends AG-28," not a distinct agent. Note also that the vision
+  doc's own **AG-37** names a completely different agent (Autonomous Multi-Agent Negotiation,
+  extending AG-12/AutoApply) ??? see the Numbering note above before using "AG-37" in any schema.
+- **FORGE queue:** not yet scoped into a `queue.yaml`. Blueprint in
+  `AUTONOMOUS_PLATFORM_VISION.md` ??7, Phase 4 table ("Predictive Fundraising Simulator" row):
+  extends `impact_simulations` with `scenario_comparison_id`, extends AG-28,
+  `/api/intelligence/simulate/compare` route, multi-scenario comparison view on
+  `/intelligence/simulate`.
+
+---
+
+### AG-38: Self-Improvement Agent
+
+- **Phase:** 4
+- **Status:** PLANNED
+- **Purpose:** Nightly meta-agent that reviews every other agent's `agent_runs` outcomes ??? what
+  worked, what failed, which agents underperformed, which prompts improved results ??? and proposes
+  enhancements. Validates proposals in staging and A/B tests before presenting high-confidence
+  improvements for human approval; the first agent in the roster permitted to propose changes to
+  other agents' prompts.
+- **Type:** optimization
+- **Model:** claude-sonnet-4-6
+- **Estimated tokens per run:** large ??? reads `agent_runs` output across the full roster nightly;
+  estimated 15,000+ input tokens per run (no independent estimate given in source docs; scaled from
+  the scope of "every agent in the roster" against typical `agent_runs` row volume).
+- **Tier gate:** platform-internal ??? this is an admin/platform-owner tool (`/admin/monitor`
+  approval queue per its blueprint), not an org-facing agent with a subscription tier gate.
+- **Trigger:** schedule ??? nightly self-assessment pass.
+- **Input sources:** `agent_runs` (all agents, all orgs, aggregated), `agent_decisions`,
+  `outcomes` (to correlate agent behavior with actual award/denial results).
+- **Output:** `agent_improvement_proposals` (new table) ??? a proposed prompt/logic change with
+  supporting evidence, staged for validation before any live agent is modified.
+- **Chains to:** AG-39 (ROI Optimizer) ??? per `AUTONOMOUS_PLATFORM_VISION.md` Phase 4: "ROI
+  Optimization Engine ??? feeds directly into the Continuous Improvement Engine above," i.e. the
+  data flow is bidirectional between the two.
+  **Numbering note:** the vision doc's own agent numbered **AG-36** is this exact agent
+  (Autonomous Continuous Improvement Engine); its own **AG-38** is a different, unrelated agent
+  (Community Resource Graph). See the Numbering note above before using "AG-38" in any schema.
+- **Hard limits:** `AUTONOMOUS_HARD_LIMITS.NEVER_MODIFY_GOVERNANCE_FILES` applies literally ??? this
+  agent proposes changes to *other agents' prompts*, never to CLAUDE.md/BLUEPRINT_v2.md/
+  SCHEMA_REGISTRY_v2.md/BEHAVIORAL_CONTRACTS.md/STATE_OF_THE_BUILD.md/SESSION_STATE.md; every
+  proposal requires human approval before deployment ??? "validates in staging, A/B tests, and
+  presents high-confidence improvements for human approval" is explicit in its own design, it does
+  not self-deploy.
+- **Dependencies:** requires a meaningful volume of `agent_runs`/`agent_decisions` history across
+  multiple agents in live production use ??? per `AUTONOMOUS_PLATFORM_VISION.md`'s own Phase 1
+  gating note, "no later phase should be scheduled until Phase 1's discovery???probability???draft
+  loop is running unattended for real subscriber orgs." This agent is the least buildable of the
+  twelve until that data exists.
+- **FORGE queue:** not yet scoped into a `queue.yaml`. Blueprint in
+  `AUTONOMOUS_PLATFORM_VISION.md` ??7, Phase 4 table ("Autonomous Continuous Improvement Engine"
+  row): new `agent_improvement_proposals` table, new agent (numbered AG-36 in the source doc,
+  reads `agent_runs`), `/api/admin/agent-improvements` route, approval queue on `/admin/monitor`.
+
+---
+
+### AG-39: ROI Optimizer
+
+- **Phase:** 5
+- **Status:** PLANNED
+- **Purpose:** Tracks every submission variable ??? prompt version, attachment type, submission day,
+  wording choices, contact person ??? against outcome, running a continuous optimization loop that
+  identifies which variable combinations correlate with higher award rates.
+- **Type:** optimization
+- **Model:** claude-sonnet-4-6
+- **Estimated tokens per run:** ~2,000 input / ~800 output per variable-outcome correlation batch;
+  run continuously against new `outcomes` rows rather than on a fixed schedule.
+- **Tier gate:** enterprise.
+- **Trigger:** event ??? fires on new `outcomes` inserts, correlating the outcome back to the
+  submission variables recorded for that application.
+- **Input sources:** `submission_variable_outcomes` (new table), `outcomes`, `applications`
+  (draft_source, auto_generated), `submission_queue` (submission day/time, portal_trust_score).
+- **Output:** `submission_variable_outcomes` rows with correlation strength per variable;
+  aggregate ROI trend data.
+- **Chains to:** AG-38 (Self-Improvement Agent) ??? "feeds AG-36" per
+  `AUTONOMOUS_PLATFORM_VISION.md` ??7's own Phase 4 table entry (using the vision doc's numbering
+  for the Self-Improvement Agent; see the Numbering note above).
+- **Hard limits:** the global hard limits (Section 0) apply; never adjusts a live submission's
+  variables mid-flight based on its own findings ??? optimization recommendations feed the
+  Self-Improvement Agent's human-approved proposal pipeline, they don't self-apply.
+- **Dependencies:** requires AutoApply Full Autonomous Mode (Phase 2, extends AG-12) shipped first
+  so there's submission volume to analyze ??? at 400+ overnight submissions per
+  `AUTONOMOUS_PLATFORM_VISION.md` Phase 2 ??4, this agent has a real signal; at today's manual/
+  semi-autonomous submission volume it would have too little data to correlate meaningfully.
+- **FORGE queue:** not yet scoped into a `queue.yaml`. Blueprint in
+  `AUTONOMOUS_PLATFORM_VISION.md` ??7, Phase 4 table ("ROI Optimization Engine" row): new
+  `submission_variable_outcomes` table, new AG-39 (feeds AG-36), `/api/admin/roi-optimization`
+  route, ROI trend dashboard on `/admin/monitor`.
+
+---
+
+### AG-40: Strategic Advisor
+
+- **Phase:** 5
+- **Status:** PLANNED
+- **Purpose:** The capstone agent ??? reads the output of every other agent in the roster (AG-01
+  through AG-39) and synthesizes a single prioritized action list of proactive, unsolicited
+  strategic recommendations: "Apply for these 12 grants next month," "Postpone this application,"
+  "This foundation funded exactly your profile 3 times in the last 2 years."
+- **Type:** analysis
+- **Model:** claude-sonnet-4-6
+- **Estimated tokens per run:** large ??? synthesizes across the full agent roster's recent output
+  per org; no independent token estimate given in source docs, expected to be the single most
+  expensive per-org nightly step once built, comparable in scale to AG-18's "single most expensive
+  nightly step" caveat today but across far more input sources.
+- **Tier gate:** enterprise.
+- **Trigger:** schedule ??? designed as a nightly per-org synthesis pass, surfaced on next login.
+- **Input sources:** `agent_runs`, `agent_decisions`, `opportunity_probability_scores`,
+  `donor_intent_scores`, `market_forecasts`, `reputation_signals`, `relationship_recommendations`,
+  `funding_forecasts`, `community_need_signals` ??? effectively every intelligence table this
+  document and its two predecessor phases define.
+- **Output:** `strategic_recommendations` (new table) ??? a prioritized, human-readable action list
+  with rationale per item.
+- **Chains to:** none ??? this is the terminal synthesis agent; nothing chains from it.
+- **Hard limits:** `AUTONOMOUS_HARD_LIMITS.NEVER_SUBMIT_EXTERNALLY` /
+  `NEVER_SEND_EMAIL_WITHOUT_APPROVAL` apply to every recommendation it might otherwise be tempted to
+  auto-execute ??? it recommends, it never acts; never asserts a recommendation without traceable
+  provenance back to the specific upstream agent output that produced it (a "black box" priority
+  list would be a governance regression from every other agent's decision-logging standard).
+- **Dependencies:** by design, this agent depends on nearly everything else in this document ???
+  it is explicitly the last agent built, per Phase 5's position as "Month 49+" in
+  `AUTONOMOUS_PLATFORM_VISION.md`. Realistically gated behind AG-15/AG-17/AG-18/AG-19 first reaching
+  ENABLED-and-actually-running status (currently blocked per ??1.2/??1.3), plus at least the Phase 2
+  agents (AG-29 through AG-31) shipping so there's more than the Phase 1 signal set to synthesize.
+- **FORGE queue:** not yet scoped into a `queue.yaml`. Blueprint in
+  `AUTONOMOUS_PLATFORM_VISION.md` ??7, Phase 5 table ("AI Strategic Advisor" row): new
+  `strategic_recommendations` table, new AG-40 (reads output of AG-01 through AG-39),
+  `/api/intelligence/strategic-advisor` route, dashboard "Today's Priorities" hero panel.
+
+---
+
+*Phase 2-5 Agent Specifications section added July 19, 2026, from a read of
+`AUTONOMOUS_PLATFORM_VISION.md` (full) and `FEATURE_REGISTRY_v2.md` features 217-228 ??? no code
+audit was performed for this section since none of these twelve agents have any code to audit yet.
+Re-verify against `src/lib/agents/` before treating any status above as anything but PLANNED.*
