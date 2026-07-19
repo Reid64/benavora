@@ -655,4 +655,14 @@ export async function executeTransition({
       }),
     }).catch(() => undefined);
   }
+
+  // Track AG-39 (ROI Optimizer Agent) submission variables on submission.
+  // Best-effort - a failure here must never block the stage transition itself.
+  if (target === "submitted") {
+    void fetch("/api/autonomous/track-submission", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ applicationId: application.id }),
+    }).catch(() => undefined);
+  }
 }
