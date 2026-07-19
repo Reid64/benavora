@@ -205,6 +205,7 @@ async function processZip(
   let parsed = 0;
   let matched = 0;
   let updated = 0;
+  let updateFailed = 0;
   let xmlFiles: string[] = [];
 
   try {
@@ -226,6 +227,10 @@ async function processZip(
         fail(`parse ${path.basename(xmlPath)}`, err);
       }
     }
+
+    console.log(
+      `  [${target.name}] parsed ${parsed} filings, ${extractedByEin.size} distinct EINs extracted`,
+    );
 
     const eins = Array.from(extractedByEin.keys());
     const existingRows = await fetchExistingRows(admin, eins);
@@ -258,10 +263,18 @@ async function processZip(
 
       if (updateError) {
         fail(`update EIN ${ein}`, updateError);
+        updateFailed++;
       } else {
         updated++;
       }
     }
+
+    console.log(
+      `  [${target.name}] matched ${matched} EINs against existing nonprofits records`,
+    );
+    console.log(
+      `  [${target.name}] updated ${updated} records${updateFailed > 0 ? ` (${updateFailed} update failures)` : ""}`,
+    );
   } finally {
     for (const xmlPath of xmlFiles) {
       try {
@@ -271,7 +284,7 @@ async function processZip(
       }
     }
     try {
-      if (fs.existsSync(extractDir)) fs.rmdirSync(extractDir, { recursive: true });
+      if (fs.existsSync(extractDir)) fs.rmSync(extractDir, { recursive: true, force: true });
     } catch {
       // best-effort cleanup
     }

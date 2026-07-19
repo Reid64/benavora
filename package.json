@@ -49,7 +49,8 @@
         "enrich:990xml": "tsx scripts/enrich-990-xml.ts",
         "enrich:nonprofit-websites": "tsx scripts/enrich-website-contacts.ts",
         "enrich:nonprofits-pp": "tsx scripts/enrich-nonprofits-bmf-propublica.ts",
-        "enrich:nonprofits-parallel": "tsx scripts/enrich-nonprofits-parallel.ts"
+        "enrich:nonprofits-parallel": "tsx scripts/enrich-nonprofits-parallel.ts",
+        "check:enrichment": "tsx scripts/check-enrichment-detailed.ts"
     },
     "dependencies": {
         "@2captcha/captcha-solver": "^1.3.6",
