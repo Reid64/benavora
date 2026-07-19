@@ -36,7 +36,8 @@ export default function FundersPage() {
         supabase
           .from("funders")
           .select("*")
-          .order("name", { ascending: true }),
+          .order("name", { ascending: true })
+          .limit(1000),
         supabase.from("contacts").select("funder_id"),
         supabase
           .from("opportunities")

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import {
   ArrowLeft,
   BookOpen,
@@ -11,7 +12,6 @@ import {
 } from "lucide-react";
 
 import { Badge, Button, Card, EmptyState, LoadingSpinner } from "@/components/ui";
-import { AnalyticsDashboard } from "@/components/outcomes/AnalyticsDashboard";
 import { createClient } from "@/lib/supabase/client";
 import {
   SUBSCRIPTION_TIERS,
@@ -26,6 +26,17 @@ import type {
   OutcomeRow,
 } from "@/lib/analytics/dashboard";
 import type { SuccessPatternAnalysis, SuccessPatternEntry } from "@/types/ai";
+
+// Lazy-loaded: AnalyticsDashboard statically imports the full recharts
+// library, which inflates this route's first-load JS. It renders below the
+// fold, so defer it to a client-only chunk fetched after initial paint.
+const AnalyticsDashboard = dynamic(
+  () =>
+    import("@/components/outcomes/AnalyticsDashboard").then(
+      (m) => m.AnalyticsDashboard,
+    ),
+  { ssr: false },
+);
 
 type DashboardData = {
   outcomes: OutcomeRow[];

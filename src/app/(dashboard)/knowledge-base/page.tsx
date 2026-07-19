@@ -75,7 +75,8 @@ export default function KnowledgeBaseOverviewPage() {
         supabase
           .from("proven_narratives")
           .select("*")
-          .order("effectiveness_score", { ascending: false, nullsFirst: false }),
+          .order("effectiveness_score", { ascending: false, nullsFirst: false })
+          .limit(1000),
       ]);
 
       if (!active) return;

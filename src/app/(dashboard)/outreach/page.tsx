@@ -31,7 +31,8 @@ export default function OutreachPage() {
     const { data, error: loadError } = await supabase
       .from("outreach_contacts")
       .select("*")
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .limit(1000);
 
     if (loadError) {
       setError("Could not load outreach contacts.");

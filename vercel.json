@@ -9,6 +9,9 @@
     "src/app/api/intelligence/reputation/**/*.ts": {
       "maxDuration": 300
     },
+    "src/app/api/reports/simulate/**/*.ts": {
+      "maxDuration": 300
+    },
     "src/app/api/cron/**/*.ts": {
       "maxDuration": 120
     }
@@ -20,5 +23,21 @@
     { "path": "/api/cron/campaigns", "schedule": "0 */2 * * *" },
     { "path": "/api/cron/autoapply", "schedule": "0 2 * * *" },
     { "path": "/api/cron/domain-warmup", "schedule": "0 6 * * *" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "X-XSS-Protection", "value": "1; mode=block" }
+      ]
+    },
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store" }
+      ]
+    }
   ]
 }

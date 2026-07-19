@@ -70,7 +70,8 @@ export default function OpportunitiesPage() {
       supabase
         .from("opportunities")
         .select("*")
-        .order("match_percentage", { ascending: false, nullsFirst: false }),
+        .order("match_percentage", { ascending: false, nullsFirst: false })
+        .limit(1000),
       supabase.from("funders").select("id, name"),
       supabase
         .from("opportunity_keywords")

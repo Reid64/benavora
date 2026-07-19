@@ -41,7 +41,8 @@ export default function DocumentsPage() {
         supabase
           .from("documents")
           .select("*")
-          .order("created_at", { ascending: false }),
+          .order("created_at", { ascending: false })
+          .limit(1000),
         supabase.from("applications").select("id, opportunity_id"),
         supabase.from("opportunities").select("id, name"),
         supabase

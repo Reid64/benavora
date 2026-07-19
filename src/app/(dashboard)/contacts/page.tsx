@@ -33,7 +33,11 @@ export default function ContactsPage() {
       setError(null);
 
       const [contactsRes, fundersRes] = await Promise.all([
-        supabase.from("contacts").select("*").order("name", { ascending: true }),
+        supabase
+          .from("contacts")
+          .select("*")
+          .order("name", { ascending: true })
+          .limit(1000),
         supabase.from("funders").select("id, name"),
       ]);
 
