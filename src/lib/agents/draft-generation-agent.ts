@@ -53,8 +53,10 @@ import {
   type AutonomousAgentResult,
 } from "@/lib/agents/autonomous-base";
 import { callClaude, DEFAULT_MODEL } from "@/lib/ai/claude";
+import type { Enums } from "@/types/database";
 
 type TriggerSource = "autonomous" | "manual" | "chain" | "schedule";
+type FunderCategory = Enums<"funder_category">;
 
 interface TriggerPayload {
   opportunityId: string;
@@ -87,6 +89,20 @@ interface OpportunityRow {
   funder_id: string | null;
 }
 
+// platform_learning_patterns (migration 083) has no generated types yet --
+// same manual-cast convention as learning-network-aggregator-agent.ts.
+// funder_category/ntee_code are plain `text` columns at the DB level (not
+// FK/enum-typed), narrowed to FunderCategory here for readability only.
+interface PlatformLearningPatternRow {
+  id: string;
+  pattern_type: string;
+  funder_category: FunderCategory | null;
+  ntee_code: string | null;
+  pattern_content: string;
+  success_rate: number | null;
+  sample_count: number;
+}
+
 // Knowledge Base categories that feed a grant narrative draft — mirrors
 // TEMPLATE_KB_CATEGORIES.grant_narrative in src/lib/drafts/generator.ts.
 const GRANT_NARRATIVE_KB_CATEGORIES = [
@@ -102,6 +118,17 @@ const GRANT_NARRATIVE_KB_CATEGORIES = [
   "budget_justification",
 ];
 
+// Platform Learning Network (AG-36 / migration 083) tuning constants.
+const PLATFORM_PATTERN_LIMIT = 10;
+// success_rate on platform_learning_patterns is a corroboration-confidence
+// proxy in [0,1] (see learning-network-aggregator-agent.ts's
+// computeConfidenceProxy) -- 0.7+ means at least ~14 independent awarded
+// outcomes have corroborated the pattern, which is the bar for "high
+// confidence" used here.
+const HIGH_CONFIDENCE_SUCCESS_RATE = 0.7;
+const CONFIDENCE_BOOST_PER_HIGH_CONFIDENCE_PATTERN = 5;
+const MAX_PLATFORM_PATTERN_CONFIDENCE_BOOST = 20;
+
 function countNeedsInput(draftText: string): number {
   return (draftText.match(/\[NEEDS INPUT/gi) ?? []).length;
 }
@@ -109,6 +136,7 @@ function countNeedsInput(draftText: string): number {
 function computeConfidence(
   needsInputCount: number,
   provenNarrativesUsed: number,
+  highConfidencePatternsApplied: number,
 ): number {
   let confidence: number;
   if (needsInputCount === 0) confidence = 90;
@@ -116,6 +144,12 @@ function computeConfidence(
   else confidence = 60;
 
   if (provenNarrativesUsed === 0) confidence -= 10;
+
+  const platformPatternBoost = Math.min(
+    highConfidencePatternsApplied * CONFIDENCE_BOOST_PER_HIGH_CONFIDENCE_PATTERN,
+    MAX_PLATFORM_PATTERN_CONFIDENCE_BOOST,
+  );
+  confidence += platformPatternBoost;
 
   return Math.max(0, Math.min(100, confidence));
 }
@@ -287,6 +321,31 @@ export class DraftGenerationAgent extends AutonomousAgent {
       const knowledgeEntries = (kbRows ?? []) as KnowledgeBaseEntry[];
       const provenNarratives = (provenRows ?? []) as ProvenNarrativeRow[];
 
+      // Platform Learning Network (AG-36 / migration 083): anonymized
+      // cross-org patterns from awarded outcomes elsewhere on the platform,
+      // matched to this opportunity's funder category. `organizations` has
+      // no ntee_code column (confirmed absent from every migration and
+      // src/types/database.ts -- the same gap
+      // learning-network-aggregator-agent.ts already hit on the write side
+      // and left null rather than guessing). With no org-side NTEE value to
+      // match against, this only surfaces platform-wide patterns
+      // (ntee_code IS NULL) instead of fabricating an NTEE match.
+      const { data: patternRows } = await this.supabase
+        .from("platform_learning_patterns")
+        .select(
+          "id, pattern_type, funder_category, ntee_code, pattern_content, success_rate, sample_count",
+        )
+        .eq("funder_category", opportunity.category)
+        .is("ntee_code", null)
+        .order("success_rate", { ascending: false, nullsFirst: false })
+        .limit(PLATFORM_PATTERN_LIMIT);
+
+      const platformPatterns = (patternRows ??
+        []) as PlatformLearningPatternRow[];
+      const highConfidencePatternsApplied = platformPatterns.filter(
+        (p) => (p.success_rate ?? 0) >= HIGH_CONFIDENCE_SUCCESS_RATE,
+      ).length;
+
       const orgName = (orgProfile?.name as string | undefined) ?? "the organization";
 
       // Step 6: Claude call — system persona + user context, per spec.
@@ -312,6 +371,23 @@ export class DraftGenerationAgent extends AutonomousAgent {
               .join("\n\n")
           : "No proven narratives available for this funder category yet.";
 
+      const patternsSection =
+        platformPatterns.length > 0
+          ? platformPatterns
+              .map((p) => {
+                const rate =
+                  p.success_rate != null
+                    ? `${Math.round(p.success_rate * 100)}%`
+                    : "N/A";
+                return (
+                  `[${p.pattern_type}] ${p.pattern_content} ` +
+                  `(success rate: ${rate}, based on ${p.sample_count} ` +
+                  `corroborating outcome${p.sample_count === 1 ? "" : "s"})`
+                );
+              })
+              .join("\n")
+          : null;
+
       const userPrompt = [
         `OPPORTUNITY: ${opportunity.name}`,
         `Funder: ${(funderData?.name as string | null | undefined) ?? "Unknown"}`,
@@ -336,6 +412,13 @@ export class DraftGenerationAgent extends AutonomousAgent {
         "PROVEN NARRATIVES (high-weight examples from previously successful applications):",
         provenSection,
         "",
+        ...(patternsSection
+          ? [
+              "PLATFORM LEARNING PATTERNS (from anonymized successful grants):",
+              patternsSection,
+              "",
+            ]
+          : []),
         "Write a complete grant narrative draft for this opportunity.",
       ].join("\n");
 
@@ -346,12 +429,16 @@ export class DraftGenerationAgent extends AutonomousAgent {
         maxTokens: 4000,
       });
 
-      // Step 7: confidence scoring.
+      // Step 7: confidence scoring. Platform learning patterns add up to
+      // +20 on top of the base KB/proven-narrative score (see
+      // computeConfidence's platformPatternBoost).
       const needsInputCount = countNeedsInput(response.text);
       const confidence = computeConfidence(
         needsInputCount,
         provenNarratives.length,
+        highConfidencePatternsApplied,
       );
+      const patternsApplied = platformPatterns.length;
 
       // HARD LIMIT: Never submit externally. Never call AutoApply. Never set submitted_at.
       // HARD LIMIT: Always set pending_review=true and auto_generated=true on created applications.
@@ -366,6 +453,7 @@ export class DraftGenerationAgent extends AutonomousAgent {
           auto_generated: true,
           pending_review: true,
           draft_source: "autonomous",
+          platform_patterns_applied: patternsApplied,
         })
         .select("id")
         .single();
@@ -387,7 +475,8 @@ export class DraftGenerationAgent extends AutonomousAgent {
         entityId: newAppId,
         reasoning:
           `Auto-generated draft for ${title} (probability: ${score ?? "N/A"}%). ` +
-          `Confidence: ${confidence}%.`,
+          `Confidence: ${confidence}%. Platform learning patterns applied: ` +
+          `${patternsApplied} (${highConfidencePatternsApplied} high-confidence).`,
         confidenceScore: confidence,
         actionTaken: "created_draft_pending_review",
         requiredHumanReview: true,
@@ -412,6 +501,7 @@ export class DraftGenerationAgent extends AutonomousAgent {
           applicationId: newAppId,
           confidence,
           requiresReview: true,
+          patternsApplied,
         }),
         itemsFound: 1,
         itemsProcessed: 1,
