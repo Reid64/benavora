@@ -38,6 +38,12 @@ type DeadlineRow = {
   opportunity_id: string | null;
 };
 
+type UpcomingOpportunityRow = {
+  id: string;
+  name: string;
+  deadline: string;
+};
+
 /** Returns "-" instead of "0" so empty metrics don't imply active tracking. */
 function metricCount(n: number): string {
   return n === 0 ? "-" : String(n);
@@ -45,6 +51,10 @@ function metricCount(n: number): string {
 
 function metricCurrency(n: number): string {
   return n === 0 ? "-" : formatCurrency(n);
+}
+
+function truncate(s: string, max: number): string {
+  return s.length > max ? `${s.slice(0, max)}…` : s;
 }
 
 /**
@@ -87,6 +97,7 @@ export default async function DashboardPage() {
     outcomesRes,
     discoveryMatchesRes,
     reputationAlertsRes,
+    upcomingOpportunitiesRes,
   ] = await Promise.all([
     supabase
       .from("opportunities")
@@ -121,6 +132,14 @@ export default async function DashboardPage() {
       .select("id", { count: "exact", head: true })
       .eq("org_id", orgId)
       .eq("status", "unread"),
+    supabase
+      .from("opportunities")
+      .select("id, name, deadline")
+      .eq("organization_id", orgId)
+      .not("deadline", "is", null)
+      .gte("deadline", format(now, "yyyy-MM-dd"))
+      .order("deadline", { ascending: true })
+      .limit(3),
   ]);
 
   const totalOpportunities = oppCountRes.count ?? 0;
@@ -129,6 +148,8 @@ export default async function DashboardPage() {
   const outcomes = (outcomesRes.data ?? []) as OutcomeInput[];
   const discoveryMatchesCount = discoveryMatchesRes.count ?? 0;
   const reputationAlertsCount = reputationAlertsRes.count ?? 0;
+  const upcomingOpportunities = (upcomingOpportunitiesRes.data ??
+    []) as UpcomingOpportunityRow[];
 
   // --- metrics ---------------------------------------------------------------
   const submittedCount = applications.filter(
@@ -370,6 +391,75 @@ export default async function DashboardPage() {
           <div style={{ backgroundColor: "#FFFFFF", borderRadius: "12px", padding: "20px", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}>
             <div style={sectionHeaderStyle}>Pipeline</div>
             <PipelineSummary counts={pipelineCounts} />
+
+            <div style={{ marginTop: "16px" }}>
+              <div style={sectionHeaderStyle}>Upcoming Opportunities</div>
+              {upcomingOpportunities.length === 0 ? (
+                <p style={{ fontSize: "13px", color: "#64748B" }}>
+                  No open opportunities — run Research to discover funding.
+                </p>
+              ) : (
+                upcomingOpportunities.map((opp) => {
+                  const daysOut = differenceInCalendarDays(
+                    new Date(opp.deadline),
+                    now,
+                  );
+                  const deadlineColor =
+                    daysOut <= 14
+                      ? "#EF4444"
+                      : daysOut <= 30
+                        ? "#F59E0B"
+                        : "#64748B";
+                  return (
+                    <div
+                      key={opp.id}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: "12px",
+                        padding: "8px 0",
+                        borderBottom: "1px solid #F1F5F9",
+                      }}
+                    >
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div
+                          style={{
+                            fontSize: "13px",
+                            color: "#334155",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {truncate(opp.name, 40)}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: "11px",
+                            fontWeight: 700,
+                            color: deadlineColor,
+                          }}
+                        >
+                          {format(new Date(opp.deadline), "MMM d")}
+                        </div>
+                      </div>
+                      <Link
+                        href={`/opportunities/${opp.id}`}
+                        style={{
+                          fontSize: "12px",
+                          fontWeight: 600,
+                          color: "#0077B6",
+                          flexShrink: 0,
+                        }}
+                      >
+                        View
+                      </Link>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
         </div>
 
