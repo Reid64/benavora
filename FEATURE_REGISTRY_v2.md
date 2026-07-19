@@ -300,6 +300,66 @@
 
 ---
 
+### Autonomous Agent Infrastructure
+| # | Feature | Status | Notes |
+|---|---|---|---|
+| 187 | Autonomous Infrastructure Schema | BUILT | autonomous_triggers, agent_queue, agent_decisions, org_autonomous_config. Migration this session. |
+| 188 | AutonomousAgent Base Class | BUILT | src/lib/agents/autonomous-base.ts. AUTONOMOUS_HARD_LIMITS. Decision logging. Chain support. |
+| 189 | Autonomous Orchestrator (Railway) | BUILT | worker/autonomous-orchestrator.ts. 2AM nightly per-org pipeline. |
+| 190 | Agent Queue Processor | BUILT | Continuous poll. Priority ordering. Retry logic with max_retries. |
+| 191 | Autonomous Config API | BUILT | GET/PATCH /api/autonomous/config |
+| 192 | Decision Log API | BUILT | GET/PATCH /api/autonomous/decisions |
+| 193 | Queue Management API | BUILT | GET/DELETE /api/autonomous/queue |
+| 194 | Manual Trigger API | BUILT | POST /api/autonomous/trigger |
+
+### Autonomous Agents (18 agents upgraded)
+| # | Feature | Status | Notes |
+|---|---|---|---|
+| 195 | AG-17 Autonomous Discovery | BUILT | Nightly. Decision log. Chains to AG-15. |
+| 196 | AG-15 Autonomous Probability Scoring | BUILT | Post-discovery or scheduled. Threshold gate chains to AG-05. |
+| 197 | AG-05 Autonomous Draft Generation | BUILT | Auto-drafts above threshold. pending_review=true. Never submits. |
+| 198 | Autonomous Morning Digest | BUILT | 7AM AI briefing of overnight activity. |
+| 199 | AG-18 Autonomous Reputation Intelligence | BUILT | Severity classification. Instant CRITICAL alerts. Auto memory entries. |
+| 200 | AG-19 Autonomous Relationship Builder | BUILT | Nightly scoring + momentum. AI recommendations when score >= 40. |
+| 201 | AG-25 Autonomous Deadline Prediction | BUILT | Pattern detection. Auto-creates projected opportunities at 90-day horizon. |
+| 202 | AG-28 Autonomous Follow-Up Generator | BUILT | Event-driven on stage transitions. Never sends directly. |
+| 203 | AG-02 Autonomous Eligibility Scoring | BUILT | Auto-scores new discoveries. Chains qualified opps to AG-15. |
+| 204 | AG-03 Autonomous Deadline Extraction | BUILT | Creates deadline records for all new opportunities. |
+| 205 | AG-07 Autonomous Compliance Check | BUILT | Event-driven on ready_for_review. Blocks non-compliant applications. |
+| 206 | AG-04 Autonomous Fit Analysis | BUILT | Fires at eligibility >= 70. Creates discovered-stage application. |
+| 207 | AG-06 Autonomous Budget Builder | BUILT | Event-driven on drafting stage. Generates budget for human review. |
+| 208 | AG-08 Renewal Tracker | BUILT | Monthly. Auto-creates renewal opportunity records for recurring grants. |
+| 209 | AG-09 Outcome Analyzer | BUILT | Weekly + event-driven. Updates analytics and proven narrative status. |
+| 210 | AG-10 Document Expiry Monitor | BUILT | Nightly. 30-day expiry notifications. |
+| 211 | AG-11 Knowledge Gap Detector | BUILT | Weekly. Identifies missing KB categories with specific fill-in prompts. |
+| 212 | AG-12 Search Profile Optimizer | BUILT | Monthly. Performance analysis and keyword improvement suggestions. |
+
+### Autonomous UI
+| # | Feature | Status | Notes |
+|---|---|---|---|
+| 213 | Autonomous Settings Panel | BUILT | /settings/agents — per-org toggle controls + threshold slider. |
+| 214 | Decision Log UI | BUILT | Timeline view, approve/reject interface, pagination. |
+| 215 | Dashboard 24h Activity Feed | BUILT | Live autonomous activity panel on main dashboard. |
+| 216 | Autonomous Draft Review Page | BUILT | /draft-generator/autonomous — pending review queue. |
+
+### Post-Launch Vision (Phases 2-5)
+| # | Feature | Status | Notes |
+|---|---|---|---|
+| 217 | Fundability Intelligence Score | PLANNED | Phase 2. AUTONOMOUS_PLATFORM_VISION.md. |
+| 218 | AI Donor Intent Engine | PLANNED | Phase 2. Corporate signal monitoring. |
+| 219 | AutoApply Full Autonomous Mode | PLANNED | Phase 2. 400+ overnight submissions. |
+| 220 | Corporate Relationship Graph | PLANNED | Phase 3. Warm introduction pathways. |
+| 221 | Donor Personalization Engine | PLANNED | Phase 3. Adaptive content by visitor type. |
+| 222 | Community Need Prediction | PLANNED | Phase 3. Census + housing + employment signals. |
+| 223 | Global Learning Network | PLANNED | Phase 4. Cross-org anonymized pattern learning. |
+| 224 | Predictive Fundraising Simulator | PLANNED | Phase 4. What-if modeling. |
+| 225 | Autonomous Continuous Improvement Engine | PLANNED | Phase 4. Nightly self-optimization. |
+| 226 | Community Resource Graph | PLANNED | Phase 4. Need-to-resource pathfinding. |
+| 227 | ROI Optimization Engine | PLANNED | Phase 5. Submission variable optimization. |
+| 228 | AI Strategic Advisor | PLANNED | Phase 5. Proactive unsolicited recommendations. |
+
+---
+
 ## Data Pipeline Features (Separate from UI Features)
 
 | # | Feature | Status | Notes |
