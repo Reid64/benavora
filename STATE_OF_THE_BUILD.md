@@ -281,3 +281,30 @@ AUTONOMOUS_PLATFORM_VISION.md is the canonical roadmap for Phases 2-5. Every FOR
 4. Run pnpm score:eligibility
 5. Faith Foundation org dedup in Supabase
 6. GoDaddy DNS configuration for benavora.com
+
+---
+
+## Unit Test Coverage — Autonomous Agent Hard Limits — July 19, 2026
+
+### What Was Added
+- `tests/unit/autonomous-base.test.ts` — covers `src/lib/agents/autonomous-base.ts` via a minimal concrete `TestAgent` subclass (the class is abstract):
+  - `AUTONOMOUS_HARD_LIMITS` constants are all set to their locked values.
+  - `logDecision()` force-overrides `required_human_review=true` when `confidenceScore < MIN_CONFIDENCE_TO_ACT` (60), even if the caller explicitly passed `false`.
+  - `logDecision()` respects the caller's `requiredHumanReview` once confidence meets the threshold.
+  - `startRun()` inserts an `agent_runs` row with `status: "running"`.
+  - `completeRun()` updates the `agent_runs` row to `status: "completed"` with the summary fields provided.
+- `tests/unit/draft-generation.test.ts` — covers `src/lib/agents/draft-generation-agent.ts` (`ag-05-draft`) with `callClaude` mocked:
+  - The created `applications` row never has a `submitted_at` key (HARD LIMIT: never submit externally).
+  - The created row always has `pending_review: true` and `auto_generated: true`.
+  - The daily draft cap (`org_autonomous_config.max_auto_drafts_per_night`) stops the run before it reads `agent_queue`/`opportunities` — asserted by the mock throwing if the agent touches those tables, not just by call counts.
+- Both suites run under the existing `vitest` harness (`vitest.config.ts` already globs `tests/**/*.test.ts`); no new config needed. `@vitest/ui` added as a devDependency (pinned `^2.1.9` to match the existing `vitest@2.1.9` — the default `pnpm add -D @vitest/ui` resolves `4.x`, which is a peer-dependency mismatch and must not be used here).
+- Added `test:all` npm script (`vitest run && playwright test --reporter=list`). `test:unit` already existed.
+
+### Result
+`pnpm run test:unit`: 251 passed, 13 todo, 1 pre-existing failure unrelated to this work (`tests/api/donor-discovery-requests.test.ts` — `src/app/api/donor-discovery/requests/route.ts` throws on a mocked `Request` missing `.url`; not touched this session). `pnpm tsc --noEmit`: zero errors.
+
+### Next Session Priorities
+1. Investigate the pre-existing `donor-discovery-requests.test.ts` failure (mock `Request` object needs a `.url`, or the route needs a guard).
+2. Extend hard-limit unit coverage to the other autonomous agents (AG-02–AG-04, AG-06–AG-12, AG-15, AG-17–AG-19, AG-25, AG-28) using the same `TestAgent`-subclass + table-mock pattern established here.
+3. Enable auto_research_enabled + auto_score_enabled for Faith Foundation org and monitor first autonomous run (carried over).
+4. Faith Foundation org dedup in Supabase (carried over).

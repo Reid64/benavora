@@ -12,6 +12,7 @@
         "typecheck": "tsc --noEmit",
         "test": "playwright test --reporter=list",
         "test:unit": "vitest run",
+        "test:all": "vitest run && playwright test --reporter=list",
         "test:watch": "vitest",
         "test:coverage": "vitest run --coverage",
         "test:smoke": "vitest run src/__tests__/smoke",
@@ -105,6 +106,7 @@
         "@typescript-eslint/eslint-plugin": "^8.61.0",
         "@typescript-eslint/parser": "^8.61.0",
         "@vitest/coverage-v8": "^2.0.0",
+        "@vitest/ui": "^2.1.9",
         "autoprefixer": "^10.4.20",
         "eslint": "^8.57.1",
         "eslint-config-next": "^14.2.13",
@@ -114,7 +116,7 @@
         "tsc-alias": "^1.9.0",
         "tsx": "^4.23.0",
         "typescript": "^5.6.2",
-        "vitest": "^2.0.0"
+        "vitest": "^2.1.9"
     },
     "packageManager": "pnpm@9.0.0",
     "engines": {
