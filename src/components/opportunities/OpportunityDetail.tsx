@@ -36,6 +36,7 @@ import {
   OPPORTUNITY_STATUS_VARIANT,
   RecommendationBadge,
 } from "@/components/opportunities/eligibility";
+import { FundabilityPanel } from "@/components/opportunities/FundabilityPanel";
 import { IntelligenceBriefingPanel } from "@/components/intelligence/IntelligenceBriefingPanel";
 import { OpportunityForm } from "@/components/opportunities/OpportunityForm";
 import { SourceTypeBadge } from "@/components/opportunities/SourceTypeBadge";
@@ -891,6 +892,8 @@ function EligibilityTab({
           </p>
         )}
       </Card>
+
+      <FundabilityPanel opportunityId={opportunity.id} />
     </div>
   );
 }

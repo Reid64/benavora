@@ -345,7 +345,7 @@
 ### Post-Launch Vision (Phases 2-5)
 | # | Feature | Status | Notes |
 |---|---|---|---|
-| 217 | Fundability Intelligence Score | PLANNED | Phase 2. AUTONOMOUS_PLATFORM_VISION.md. |
+| 217 | Fundability Intelligence Score | BUILT | Phase 2. AG-29 FundabilityScorerAgent, /api/intelligence/fundability, opportunity detail Fundability Intelligence panel. |
 | 218 | AI Donor Intent Engine | PLANNED | Phase 2. Corporate signal monitoring. |
 | 219 | AutoApply Full Autonomous Mode | PLANNED | Phase 2. 400+ overnight submissions. |
 | 220 | Corporate Relationship Graph | PLANNED | Phase 3. Warm introduction pathways. |

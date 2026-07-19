@@ -144,6 +144,7 @@ export default async function DashboardPage() {
     upcomingOpportunitiesRes,
     agentDecisionsRes,
     strategicRecommendationsRes,
+    organizationRes,
   ] = await Promise.all([
     supabase
       .from("opportunities")
@@ -200,6 +201,7 @@ export default async function DashboardPage() {
       .select("urgency")
       .eq("org_id", orgId)
       .eq("status", "pending"),
+    supabase.from("organizations").select("name").eq("id", orgId).single(),
   ]);
 
   const totalOpportunities = oppCountRes.count ?? 0;
@@ -213,6 +215,9 @@ export default async function DashboardPage() {
   const agentDecisions = (agentDecisionsRes.data ?? []) as AgentDecisionRow[];
   const strategicRecommendations = (strategicRecommendationsRes.data ??
     []) as StrategicRecommendationUrgencyRow[];
+  const orgName =
+    (organizationRes.data as { name: string } | null)?.name ??
+    "Your Organization";
 
   const strategicUrgencyCounts = strategicRecommendations.reduce(
     (acc, r) => {
@@ -319,7 +324,7 @@ export default async function DashboardPage() {
   };
 
   return (
-    <div style={{ backgroundColor: "#C8D4DC", minHeight: "100vh", padding: "32px" }}>
+    <div style={{ backgroundColor: "#D6E4F0", minHeight: "100vh", padding: "32px" }}>
       {/* Hero banner */}
       <div
         style={{
@@ -346,10 +351,10 @@ export default async function DashboardPage() {
         </div>
         <div style={{ flex: 1, padding: "32px 40px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
           <h1 style={{ fontSize: "24px", fontWeight: 800, color: "#FFFFFF", letterSpacing: "-0.02em", margin: "0 0 4px 0" }}>
-            Your Task Management Area
+            {orgName}
           </h1>
           <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.65)", margin: "0 0 20px 0" }}>
-            Faith Foundation &middot; {format(now, "MMMM d, yyyy")}
+            {format(now, "MMMM d, yyyy")}
           </p>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", maxWidth: "360px" }}>
             {heroChips.map((chip) => (
