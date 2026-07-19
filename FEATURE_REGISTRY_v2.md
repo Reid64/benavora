@@ -350,7 +350,7 @@
 | 219 | AutoApply Full Autonomous Mode | PLANNED | Phase 2. 400+ overnight submissions. |
 | 220 | Corporate Relationship Graph | PLANNED | Phase 3. Warm introduction pathways. |
 | 221 | Donor Personalization Engine | PLANNED | Phase 3. Adaptive content by visitor type. |
-| 222 | Community Need Prediction | PLANNED | Phase 3. Census + housing + employment signals. |
+| 222 | Community Need Prediction | BUILT | Phase 3. AG-35 agent + /api/intelligence/community-need + /intelligence/community-need UI. |
 | 223 | Global Learning Network | BUILT | AG-36 aggregator writes platform_learning_patterns (migration 083); draft-generation-agent.ts now queries it pre-draft, injects matched patterns into the Claude prompt, tracks applications.platform_patterns_applied (migration 084), and boosts confidence up to +20 for high-confidence patterns. /intelligence/learning-network dashboard (stats + pattern table) reads it via GET /api/intelligence/learning-network. Org-side NTEE matching not possible yet -- organizations has no ntee_code column, so matching is funder_category + platform-wide (ntee_code IS NULL) patterns only. AG-36 itself remains blocked at runtime by the agent_type enum gap (AGENTS_v2.md S1.2) until that migration lands. |
 | 224 | Predictive Fundraising Simulator | BUILT | Phase 4. Scenario builder + 3-year projection UI at /reports/simulate, backed by /api/reports/simulate (AG-37 SimulationAgent). |
 | 225 | Autonomous Continuous Improvement Engine | BUILT | Phase 4. AG-38 (src/lib/agents/self-improvement-agent.ts) + /admin/improvements review UI + agent_performance_metrics dashboard. |
