@@ -231,6 +231,51 @@ All state portals, corporate foundations, community foundations, international f
 
 ---
 
+## DIRECTIVE-016: Governance Sync Before Every FORGE Run
+
+### Rule
+Before every FORGE pipeline launch (forge.ps1 or forge-orchestrator.ps1), all governance .md files must be synced from the repo root to the FORGE projects folder. This is non-negotiable and must never be skipped.
+
+### Why
+FORGE injects governance docs from C:\Users\manag\Documents\FORGE\projects\benavora\ — not from the repo. If new .md files exist in the repo but not in the FORGE projects folder, FORGE silently skips them and Claude Code operates without that context.
+
+### Canonical Sync Command (run before every FORGE launch)
+```
+$repo = "C:\Users\manag\Documents\benavora"
+$forge = "C:\Users\manag\Documents\FORGE\projects\benavora"
+Get-ChildItem "$repo\*.md" | ForEach-Object { Copy-Item $_.FullName "$forge\$($_.Name)" -Force }
+```
+
+### Canonical FORGE Launch Sequence (always use this full sequence)
+```
+$repo = "C:\Users\manag\Documents\benavora"
+$forge = "C:\Users\manag\Documents\FORGE\projects\benavora"
+Get-ChildItem "$repo\*.md" | ForEach-Object { Copy-Item $_.FullName "$forge\$($_.Name)" -Force }
+cd C:\Users\manag\Documents\FORGE
+$env:NODE_OPTIONS="--max-old-space-size=8192"
+$env:ANTHROPIC_API_KEY=$null
+$env:DANGEROUSLY_SKIP_PERMISSIONS=1
+powershell -ExecutionPolicy Bypass -File .\forge.ps1 -project benavora -startFrom 0
+```
+
+### Canonical Orchestrator Launch Sequence
+```
+$repo = "C:\Users\manag\Documents\benavora"
+$forge = "C:\Users\manag\Documents\FORGE\projects\benavora"
+Get-ChildItem "$repo\*.md" | ForEach-Object { Copy-Item $_.FullName "$forge\$($_.Name)" -Force }
+cd C:\Users\manag\Documents\FORGE
+$env:NODE_OPTIONS="--max-old-space-size=8192"
+$env:ANTHROPIC_API_KEY=$null
+$env:DANGEROUSLY_SKIP_PERMISSIONS=1
+powershell -ExecutionPolicy Bypass -File .\forge-orchestrator.ps1 -project benavora
+```
+
+### Queue File Requirement
+Every queue file's first prompt must include as its very first instruction:
+"Copy all *.md files from C:\Users\manag\Documents\benavora\ to C:\Users\manag\Documents\FORGE\projects\benavora\ using Get-ChildItem piped to Copy-Item."
+
+---
+
 ## Governance Update Requirements
 
 Every session that touches any Directive above must update:
