@@ -18,6 +18,7 @@
 import { naicsLabel } from "@/lib/donor-discovery/naics-labels";
 
 const PLACES_TEXT_SEARCH_URL = "https://maps.googleapis.com/maps/api/place/textsearch/json";
+const PLACES_DETAILS_URL = "https://maps.googleapis.com/maps/api/place/details/json";
 const SAM_GOV_ENTITY_URL = "https://api.sam.gov/entity-information/v3/entities";
 
 interface GooglePlaceResult {
@@ -53,6 +54,37 @@ function extractState(formattedAddress: string | undefined): string | null {
   if (!stateZip) return null;
   const match = /^([A-Z]{2})\s+\d{5}(-\d{4})?$/.exec(stateZip);
   return match?.[1] ?? null;
+}
+
+// Legacy Text Search never returns `website`/`formatted_phone_number` (those
+// require the Details endpoint's `fields` mask) — fetched once per newly
+// discovered place only, to keep quota cost proportional to new records
+// rather than to search volume.
+async function fetchPlaceDetails(
+  placeId: string,
+  apiKey: string,
+): Promise<{ website: string | null; phone: string | null }> {
+  const params = new URLSearchParams({
+    place_id: placeId,
+    fields: "website,formatted_phone_number",
+    key: apiKey,
+  });
+  try {
+    const response = await fetch(`${PLACES_DETAILS_URL}?${params.toString()}`, {
+      method: "GET",
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!response.ok) return { website: null, phone: null };
+    const body = (await response.json()) as {
+      result?: { website?: string; formatted_phone_number?: string };
+    };
+    return {
+      website: body.result?.website ?? null,
+      phone: body.result?.formatted_phone_number ?? null,
+    };
+  } catch {
+    return { website: null, phone: null };
+  }
 }
 
 /**
@@ -111,14 +143,19 @@ export async function acquireFromGooglePlaces(
       .maybeSingle();
     if (existing) continue;
 
+    const details = await fetchPlaceDetails(placeId, apiKey);
+
     const { error } = await supabase.from("corporate_prospects").insert({
       legal_name: name,
+      website: details.website,
+      phone: details.phone,
       address_street: result.formatted_address ?? null,
       address_city: extractCity(result.formatted_address),
       address_state: extractState(result.formatted_address),
       address_lat: result.geometry?.location?.lat ?? null,
       address_lng: result.geometry?.location?.lng ?? null,
       naics_code: naicsCode,
+      industry_category: naicsLabel(naicsCode),
       source_adapters: ["google_places"],
       enrichment: {
         google_place_id: placeId,

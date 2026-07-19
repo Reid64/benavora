@@ -4,8 +4,18 @@
 // Drives src/lib/sources/corporate-acquisition-adapter.ts's
 // acquireFromGooglePlaces() across the 20 NAICS categories most likely to
 // yield donation-capable corporate prospects for the shared
-// `corporate_prospects` table (SCHEMA_REGISTRY_v2.md #36), statewide across
-// Texas (Faith Foundation's primary service geography — BLUEPRINT_v2.md §1).
+// `corporate_prospects` table (SCHEMA_REGISTRY_v2.md #36).
+//
+// Iterates every onboarded organization (onboarding_completed = true) and
+// searches near that org's own service area rather than a single hardcoded
+// region, so the sweep covers every subscriber's geography. Falls back to
+// the org's city/state, then "United States", when service_area is blank.
+//
+// corporate_prospects has no organization_id column (it's a shared,
+// cross-org table by design — SCHEMA_REGISTRY_v2.md #36, confirmed against
+// the adapter's own doc comment) — acquired prospects are not tagged to the
+// org whose service area drove the search; they land in the shared pool for
+// every org to draw from, same as every other adapter in this file.
 //
 // acquireFromGooglePlaces builds its own Google Places query text from
 // naicsLabel(naicsCode) — it does not accept a custom search string — so
@@ -25,119 +35,22 @@ import { createClient } from "@supabase/supabase-js";
 import ws from "ws";
 
 import { acquireFromGooglePlaces } from "../src/lib/sources/corporate-acquisition-adapter";
+import {
+  ACQUISITION_RADIUS_METERS,
+  TARGET_SEARCHES,
+  locationForOrg,
+} from "../src/lib/sources/corporate-prospect-categories";
 
-const LOCATION = "Texas";
-const RADIUS_METERS = 50_000;
+const RADIUS_METERS = ACQUISITION_RADIUS_METERS;
 const DELAY_BETWEEN_CALLS_MS = 200;
 
-interface TargetSearch {
-  naicsCode: string;
-  friendlyName: string;
-  searchTerms: string[];
+interface OnboardedOrg {
+  id: string;
+  name: string;
+  service_area: string | null;
+  city: string | null;
+  state: string | null;
 }
-
-const TARGET_SEARCHES: TargetSearch[] = [
-  {
-    naicsCode: "236220",
-    friendlyName: "Construction Companies",
-    searchTerms: ["construction company", "general contractor", "commercial builder"],
-  },
-  {
-    naicsCode: "444180",
-    friendlyName: "Building Material Suppliers",
-    searchTerms: ["building material supplier", "lumber yard", "building supply store"],
-  },
-  {
-    naicsCode: "238160",
-    friendlyName: "Roofing Contractors",
-    searchTerms: ["roofing contractor", "roofing company"],
-  },
-  {
-    naicsCode: "238220",
-    friendlyName: "Plumbing Contractors",
-    searchTerms: ["plumbing contractor", "plumbing company"],
-  },
-  {
-    naicsCode: "238210",
-    friendlyName: "Electrical Contractors",
-    searchTerms: ["electrical contractor", "electrician company"],
-  },
-  {
-    naicsCode: "441110",
-    friendlyName: "Auto Dealers",
-    searchTerms: ["car dealership", "auto dealer"],
-  },
-  {
-    naicsCode: "442110",
-    friendlyName: "Furniture Dealers",
-    searchTerms: ["furniture store", "furniture dealer"],
-  },
-  {
-    naicsCode: "443142",
-    friendlyName: "Computer Retailers",
-    searchTerms: ["computer store", "electronics retailer"],
-  },
-  {
-    naicsCode: "423450",
-    friendlyName: "Medical Equipment Suppliers",
-    searchTerms: ["medical equipment supplier", "medical supply company"],
-  },
-  {
-    naicsCode: "311",
-    friendlyName: "Food Manufacturers",
-    searchTerms: ["food manufacturer", "food production company"],
-  },
-  {
-    naicsCode: "424410",
-    friendlyName: "Grocery Distributors",
-    searchTerms: ["grocery distributor", "food wholesaler"],
-  },
-  {
-    naicsCode: "522",
-    friendlyName: "Banks",
-    searchTerms: ["bank", "community bank", "credit union"],
-  },
-  {
-    naicsCode: "524",
-    friendlyName: "Insurance Companies",
-    searchTerms: ["insurance company", "insurance agency"],
-  },
-  {
-    naicsCode: "531",
-    friendlyName: "Real Estate Companies",
-    searchTerms: ["real estate company", "real estate brokerage"],
-  },
-  {
-    naicsCode: "561320",
-    friendlyName: "Staffing Agencies",
-    searchTerms: ["staffing agency", "employment agency"],
-  },
-  {
-    naicsCode: "562",
-    friendlyName: "Waste Management Companies",
-    searchTerms: ["waste management company", "trash removal service"],
-  },
-  {
-    naicsCode: "488510",
-    friendlyName: "Logistics Companies",
-    searchTerms: ["logistics company", "freight company"],
-  },
-  {
-    naicsCode: "622110",
-    friendlyName: "Healthcare Systems",
-    searchTerms: ["hospital system", "healthcare system"],
-  },
-  {
-    naicsCode: "541511",
-    friendlyName: "Technology Companies",
-    searchTerms: ["technology company", "software company"],
-  },
-  {
-    naicsCode: "541",
-    friendlyName: "Professional Services Firms",
-    searchTerms: ["professional services firm", "consulting firm"],
-  },
-];
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -155,7 +68,8 @@ async function main() {
     fatal("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
   }
   if (!process.env.GOOGLE_PLACES_API_KEY) {
-    fatal("Missing GOOGLE_PLACES_API_KEY");
+    console.warn("\nWARNING: GOOGLE_PLACES_API_KEY is not set — skipping acquisition run.");
+    return;
   }
 
   const admin = createClient(supabaseUrl, serviceRoleKey, {
@@ -165,37 +79,54 @@ async function main() {
     realtime: { transport: ws as any },
   });
 
+  const { data: orgs, error: orgsError } = await admin
+    .from("organizations")
+    .select("id, name, service_area, city, state")
+    .eq("onboarding_completed", true);
+
+  if (orgsError) {
+    fatal(`Failed to load onboarded organizations: ${orgsError.message}`);
+  }
+  if (!orgs || orgs.length === 0) {
+    console.log("No onboarded organizations found (onboarding_completed = true) — nothing to do.");
+    return;
+  }
+
   console.log("Corporate prospect acquisition — Google Places\n");
-  console.log(`  Categories: ${TARGET_SEARCHES.length}`);
-  console.log(`  Location:   ${LOCATION} (radius ${RADIUS_METERS}m)\n`);
+  console.log(`  Organizations: ${orgs.length}`);
+  console.log(`  Categories:    ${TARGET_SEARCHES.length} (radius ${RADIUS_METERS}m)\n`);
 
   let totalAcquired = 0;
 
-  for (const [index, search] of TARGET_SEARCHES.entries()) {
-    const position = `${index + 1}/${TARGET_SEARCHES.length}`;
-    try {
-      const inserted = await acquireFromGooglePlaces(
-        search.naicsCode,
-        LOCATION,
-        RADIUS_METERS,
-        admin,
-      );
-      totalAcquired += inserted;
-      console.log(
-        `  [${position}] ✓ ${search.friendlyName} (${search.naicsCode}): ${inserted} new prospects`,
-      );
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      console.error(`  [${position}] ✗ ${search.friendlyName} (${search.naicsCode}): ${message}`);
-    }
+  for (const [orgIndex, org] of (orgs as OnboardedOrg[]).entries()) {
+    const location = locationForOrg(org);
+    console.log(`Org [${orgIndex + 1}/${orgs.length}] ${org.name} — searching near ${location}`);
 
-    if (index < TARGET_SEARCHES.length - 1) {
+    for (const [index, search] of TARGET_SEARCHES.entries()) {
+      const position = `${index + 1}/${TARGET_SEARCHES.length}`;
+      try {
+        const inserted = await acquireFromGooglePlaces(
+          search.naicsCode,
+          location,
+          RADIUS_METERS,
+          admin,
+        );
+        totalAcquired += inserted;
+        console.log(
+          `  [${position}] ✓ ${search.friendlyName} (${search.naicsCode}): ${inserted} new prospects`,
+        );
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(`  [${position}] ✗ ${search.friendlyName} (${search.naicsCode}): ${message}`);
+      }
+
       await sleep(DELAY_BETWEEN_CALLS_MS);
     }
   }
 
   console.log("\nDone.");
-  console.log(`  Categories processed: ${TARGET_SEARCHES.length}`);
+  console.log(`  Organizations processed: ${orgs.length}`);
+  console.log(`  Categories per org:      ${TARGET_SEARCHES.length}`);
   console.log(`  Total prospects acquired: ${totalAcquired}`);
 }
 
