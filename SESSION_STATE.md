@@ -1,24 +1,37 @@
 # BENAVORA — Session State
-## Last Updated: July 18-19, 2026
+## Last Updated: July 19, 2026
 ## Mode: Active Development
 
 ---
 
 ## Current Session
 
-**Date:** July 18-19, 2026 — autonomous agent infrastructure build
-**Focus:** Autonomous agent infrastructure — schema (autonomous_triggers,
-agent_queue, agent_decisions, org_autonomous_config), autonomous-base.ts,
+**Date:** July 19, 2026 — governance sync
+**Focus:** Synchronized PRD_v2.md, BLUEPRINT_v2.md, and AGENTS_v2.md with the
+Phase 2-5 post-launch vision. PRD_v2.md gained 18 post-launch capabilities
+(user stories + acceptance criteria + success metrics) and a pricing
+correction (Section 29: $397/$897/$2,497 tiers). BLUEPRINT_v2.md now
+integrates the Phase 2-5 architecture and formally establishes
+AUTONOMOUS_PLATFORM_VISION.md as the canonical post-launch reference.
+AGENTS_v2.md gained planned specs for AG-29 through AG-40. All queue yaml
+files updated to list AUTONOMOUS_PLATFORM_VISION.md in their governance
+doc sets.
+**Status:** Governance stack fully synchronized with the autonomous build
+session and the post-launch roadmap. AUTONOMOUS_PLATFORM_VISION.md is now
+the authoritative Phase 2-5 reference — read it first before any post-launch
+feature work. See STATE_OF_THE_BUILD.md "Governance Sync Session — July 19,
+2026" for full detail.
+
+### Previous session (July 18-19, 2026 — autonomous agent infrastructure build)
+Autonomous agent infrastructure — schema (autonomous_triggers, agent_queue,
+agent_decisions, org_autonomous_config), autonomous-base.ts,
 worker/autonomous-orchestrator.ts, queue processor, /api/autonomous/*
 routes, 18 agents upgraded to autonomous mode, core discovery -> probability
 -> draft chain wired end-to-end, hard limits enforced, Settings/Decision
-Log/Activity Feed/Draft Review UI, full governance doc sync.
-**Status:** Build = autonomous agent infrastructure complete. 18 agents
-upgraded. Core chain operational. Next = first live test run with Faith
-Foundation, then Command Center redesign. See STATE_OF_THE_BUILD.md for
-full detail.
+Log/Activity Feed/Draft Review UI, full governance doc sync. 18 agents
+upgraded, core chain operational.
 
-### Previous session (July 17, 2026 overnight FORGE run — Platform Vision Phase 1)
+### Prior session (July 17, 2026 overnight FORGE run — Platform Vision Phase 1)
 Digital Twin, Grant Probability Engine, Agent Marketplace, Opportunity
 Discovery, Reputation Intelligence, Disaster Response Engine, Knowledge
 Engine foundation, Executive Command Center. 6 of 8 features fully
@@ -108,14 +121,20 @@ cd "C:\Users\manag\Documents\benavora"; npx vercel deploy --prod
 
 ## Next Session Priorities
 
-1. **Fix reputation/disaster schema gap** — copy `src/supabase/migrations/076_reputation_intelligence.sql` and `079_disaster_response.sql` into `supabase/migrations/` at the next free canonical numbers and apply via the Management API. Blocks both features in production until done.
-2. UI redesign continuation — one component per CC session
-3. Run batch probability scoring across all active opportunities (AG-15 nightly job — not yet run at scale)
-4. Run digital twin builds for all orgs (`pnpm build:twins` — built this session, not yet executed against real org data)
-5. Run intelligence ingestion scripts (NIH, NSF, Federal Register, SAMHSA) and `pnpm seed:intelligence` / `pnpm seed:patterns`
-6. Back up enrichment-output/ to DATAOCEAN — CRITICAL
-7. Platform Vision Phase 2 FORGE queue (nights 3-5)
-8. Fix duplicate Faith Foundation org records
+1. Write library queue files for UI redesign (queue-ui-flightpath-hud.yaml, queue-ui-command-center.yaml)
+2. Test autonomous pipeline with Faith Foundation — enable auto_research_enabled in org config
+3. Fix BEHAVIORAL_CONTRACTS.md (was missing after last FORGE run)
+4. Run pnpm score:eligibility
+5. Faith Foundation org dedup in Supabase
+6. GoDaddy DNS configuration for benavora.com
+
+### Carried over from prior session (still outstanding)
+- **Fix reputation/disaster schema gap** — copy `src/supabase/migrations/076_reputation_intelligence.sql` and `079_disaster_response.sql` into `supabase/migrations/` at the next free canonical numbers and apply via the Management API. Blocks both features in production until done.
+- Run batch probability scoring across all active opportunities (AG-15 nightly job — not yet run at scale)
+- Run digital twin builds for all orgs (`pnpm build:twins` — built this session, not yet executed against real org data)
+- Run intelligence ingestion scripts (NIH, NSF, Federal Register, SAMHSA) and `pnpm seed:intelligence` / `pnpm seed:patterns`
+- Back up enrichment-output/ to DATAOCEAN — CRITICAL
+- Platform Vision Phase 2 FORGE queue (nights 3-5)
 
 ---
 

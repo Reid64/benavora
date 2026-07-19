@@ -253,3 +253,31 @@ AGENTS_v2.md (complete rewrite with autonomous specs), BEHAVIORAL_CONTRACTS.md (
 4. Run pnpm score:eligibility
 5. Run pnpm acquire:prospects
 6. Faith Foundation org dedup in Supabase (still pending)
+
+---
+
+## Governance Sync Session — July 19, 2026
+
+### What Was Updated
+- PRD_v2.md: Phase 2-5 post-launch specs added (18 capabilities, full user stories + acceptance criteria + success metrics). Section 29 pricing corrected to $397/$897/$2,497 tiers.
+- BLUEPRINT_v2.md: Post-launch Phase 2-5 architecture integrated. AUTONOMOUS_PLATFORM_VISION.md established as canonical post-launch reference.
+- AGENTS_v2.md: AG-29 through AG-40 planned agent specs added (Phase 2-5).
+- All queue yaml files: AUTONOMOUS_PLATFORM_VISION.md added to governance lists.
+
+### Authoritative Post-Launch Document
+AUTONOMOUS_PLATFORM_VISION.md is the canonical roadmap for Phases 2-5. Every FORGE queue for Phase 2+ features must include it in the governance list. Every session working on post-launch features must read it first.
+
+### Current Platform State
+- 18 autonomous agents operational (AG-02 through AG-28 upgraded)
+- Core autonomous chain: AG-17 -> AG-15 -> AG-05 -> pending_review notification
+- All governance docs fully synchronized with autonomous build session
+- FORGE library orchestrator installed and operational
+- Enrichment: ~551K nonprofits enriched, 1.4M remaining
+
+### Next Session Priorities
+1. Write library queue files for UI redesign (queue-ui-flightpath-hud.yaml, queue-ui-command-center.yaml)
+2. Test autonomous pipeline with Faith Foundation — enable auto_research_enabled in org config
+3. Fix BEHAVIORAL_CONTRACTS.md (was missing after last FORGE run)
+4. Run pnpm score:eligibility
+5. Faith Foundation org dedup in Supabase
+6. GoDaddy DNS configuration for benavora.com
