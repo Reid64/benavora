@@ -10,6 +10,8 @@ export async function GET() {
   } = await supabase.auth.getUser();
 
   const orgId = headers().get("x-organization-id");
+  const userRole = headers().get("x-user-role");
+  const isPlatformAdmin = userRole === "owner" || userRole === "admin";
 
   if (!user || !orgId) {
     return NextResponse.json(
@@ -19,6 +21,8 @@ export async function GET() {
         documents: 0,
         deadlines: 0,
         autonomousDrafts: 0,
+        strategicRecommendations: 0,
+        improvementsProposed: 0,
       },
       { headers: { "Cache-Control": "private, no-store" } },
     );
@@ -29,7 +33,15 @@ export async function GET() {
   thirtyDaysOut.setDate(thirtyDaysOut.getDate() + 30);
   const todayStr = now.toISOString().split("T")[0];
 
-  const [alertsRes, appsRes, docsRes, deadlinesRes, autonomousDraftsRes] = await Promise.all([
+  const [
+    alertsRes,
+    appsRes,
+    docsRes,
+    deadlinesRes,
+    autonomousDraftsRes,
+    strategicRecommendationsRes,
+    improvementsRes,
+  ] = await Promise.all([
     supabase
       .from("alerts")
       .select("id", { count: "exact", head: true })
@@ -65,6 +77,20 @@ export async function GET() {
       .eq("organization_id", orgId)
       .eq("auto_generated", true)
       .eq("pending_review", true),
+    supabase
+      .from("strategic_recommendations")
+      .select("id", { count: "exact", head: true })
+      .eq("org_id", orgId)
+      .eq("status", "pending"),
+    // improvement_proposals is platform-wide with no organization_id / RLS
+    // (migration 087_continuous_improvement.sql) — only queried for
+    // owner/admin, matching the Platform section's own role gate in Sidebar.
+    isPlatformAdmin
+      ? supabase
+          .from("improvement_proposals")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "proposed")
+      : Promise.resolve({ count: 0 }),
   ]);
 
   return NextResponse.json(
@@ -74,6 +100,8 @@ export async function GET() {
       documents: docsRes.count ?? 0,
       deadlines: deadlinesRes.count ?? 0,
       autonomousDrafts: autonomousDraftsRes.count ?? 0,
+      strategicRecommendations: strategicRecommendationsRes.count ?? 0,
+      improvementsProposed: improvementsRes.count ?? 0,
     },
     { headers: { "Cache-Control": "private, max-age=60" } },
   );

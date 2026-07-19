@@ -21,6 +21,8 @@ type NavCounts = {
   applications: number;
   documents: number;
   deadlines: number;
+  strategicRecommendations: number;
+  improvementsProposed: number;
 };
 
 type SidebarProps = {
@@ -77,6 +79,8 @@ export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarPro
     applications: 0,
     documents: 0,
     deadlines: 0,
+    strategicRecommendations: 0,
+    improvementsProposed: 0,
   });
 
   const fetchCounts = useCallback(async () => {
@@ -119,6 +123,17 @@ export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarPro
     "/applications": navCounts.applications,
     "/documents": navCounts.documents,
     "/deadlines": navCounts.deadlines,
+  };
+
+  // Child (sub-nav) badges — separate map since NavChild has no badge field
+  // of its own; only the Strategic Advisor sub-link needs one today.
+  const childBadgeByHref: Record<string, number> = {
+    "/intelligence/strategic-advisor": navCounts.strategicRecommendations,
+  };
+
+  // Platform admin section badges — separate map, same reasoning as above.
+  const platformBadgeByHref: Record<string, number> = {
+    "/admin/improvements": navCounts.improvementsProposed,
   };
 
   function isActive(href: string): boolean {
@@ -216,6 +231,7 @@ export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarPro
                       <div className="ml-9 mt-0.5 space-y-0.5">
                         {children.map((child) => {
                           const childActive = pathname === child.href;
+                          const childBadge = childBadgeByHref[child.href] ?? 0;
                           return (
                             <Link
                               key={child.href}
@@ -232,7 +248,8 @@ export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarPro
                                   aria-hidden
                                 />
                               )}
-                              {child.label}
+                              <span className="truncate">{child.label}</span>
+                              <NavBadge count={childBadge} />
                             </Link>
                           );
                         })}
@@ -250,6 +267,7 @@ export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarPro
                 <div className="space-y-1">
                   {PLATFORM_NAV_ITEMS.map(({ label, href, icon: Icon }) => {
                     const active = isActive(href);
+                    const badge = platformBadgeByHref[href] ?? 0;
                     return (
                       <Link
                         key={href}
@@ -263,6 +281,7 @@ export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarPro
                         <span className="truncate" style={navLabelStyle(active)}>
                           {label}
                         </span>
+                        <NavBadge count={badge} />
                       </Link>
                     );
                   })}

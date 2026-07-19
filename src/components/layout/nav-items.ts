@@ -11,6 +11,7 @@ import {
   FolderOpen,
   KanbanSquare,
   Library,
+  Lightbulb,
   Mail,
   Megaphone,
   MonitorDot,
@@ -68,7 +69,12 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Compliance", href: "/compliance", icon: ShieldCheck },
   { label: "Outcomes & Analytics", href: "/outcomes", icon: BarChart3 },
   { label: "Financials", href: "/financials", icon: DollarSign },
-  { label: "Reports", href: "/reports", icon: FileBarChart2 },
+  {
+    label: "Reports",
+    href: "/reports",
+    icon: FileBarChart2,
+    children: [{ label: "Simulator", href: "/reports/simulate" }],
+  },
   {
     label: "Intelligence",
     href: "/intelligence",
@@ -81,6 +87,7 @@ export const NAV_ITEMS: NavItem[] = [
       { label: "Semantic Matches", href: "/intelligence/matches" },
       { label: "Reputation", href: "/intelligence/reputation" },
       { label: "Disaster Response", href: "/intelligence/disaster" },
+      { label: "Strategic Advisor", href: "/intelligence/strategic-advisor" },
     ],
   },
   { label: "Email", href: "/email", icon: Mail },
@@ -120,6 +127,7 @@ export const PLATFORM_NAV_ITEMS: NavItem[] = [
   { label: "Sales Outreach", href: "/admin/sales-outreach", icon: Megaphone },
   { label: "AutoApply Ops", href: "/admin/autoapply-ops", icon: Bot },
   { label: "Monitor", href: "/admin/monitor", icon: MonitorDot },
+  { label: "Improvements", href: "/admin/improvements", icon: Lightbulb },
   { label: "Audit Log", href: "/admin/audit-log", icon: Shield },
 ];
 

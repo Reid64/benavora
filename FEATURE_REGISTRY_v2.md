@@ -352,11 +352,11 @@
 | 221 | Donor Personalization Engine | PLANNED | Phase 3. Adaptive content by visitor type. |
 | 222 | Community Need Prediction | PLANNED | Phase 3. Census + housing + employment signals. |
 | 223 | Global Learning Network | BUILT | AG-36 aggregator writes platform_learning_patterns (migration 083); draft-generation-agent.ts now queries it pre-draft, injects matched patterns into the Claude prompt, tracks applications.platform_patterns_applied (migration 084), and boosts confidence up to +20 for high-confidence patterns. /intelligence/learning-network dashboard (stats + pattern table) reads it via GET /api/intelligence/learning-network. Org-side NTEE matching not possible yet -- organizations has no ntee_code column, so matching is funder_category + platform-wide (ntee_code IS NULL) patterns only. AG-36 itself remains blocked at runtime by the agent_type enum gap (AGENTS_v2.md S1.2) until that migration lands. |
-| 224 | Predictive Fundraising Simulator | PLANNED | Phase 4. What-if modeling. |
-| 225 | Autonomous Continuous Improvement Engine | PLANNED | Phase 4. Nightly self-optimization. |
+| 224 | Predictive Fundraising Simulator | BUILT | Phase 4. Scenario builder + 3-year projection UI at /reports/simulate, backed by /api/reports/simulate (AG-37 SimulationAgent). |
+| 225 | Autonomous Continuous Improvement Engine | BUILT | Phase 4. AG-38 (src/lib/agents/self-improvement-agent.ts) + /admin/improvements review UI + agent_performance_metrics dashboard. |
 | 226 | Community Resource Graph | PLANNED | Phase 4. Need-to-resource pathfinding. |
 | 227 | ROI Optimization Engine | PLANNED | Phase 5. Submission variable optimization. |
-| 228 | AI Strategic Advisor | PLANNED | Phase 5. Proactive unsolicited recommendations. |
+| 228 | AI Strategic Advisor | BUILT | Phase 5. Command center at /intelligence/strategic-advisor, backed by /api/intelligence/strategic-advisor (AG-40 StrategicAdvisorAgent). Dashboard widget + nav badge wired. |
 
 ---
 
@@ -412,10 +412,10 @@
 | Tier 4 Browser Automation | 7 | 7 | 0 | 0 | 0 |
 | Tier 5 SaaS Layer | 6 | 6 | 0 | 0 | 0 |
 | Tier 6 Full Autonomous | 26 | 17 | 5 | 0 | 4 |
-| Platform Vision Pillars | 93 | 8 | 2 | 35 | 48 |
+| Platform Vision Pillars | 93 | 9 | 2 | 35 | 47 |
 | Data Pipeline | 7 | 1 | 3 | 0 | 3 |
 | Testing | 8 | 3 | 0 | 0 | 5 |
-| **TOTAL** | **186** | **81** | **10** | **35** | **60** |
+| **TOTAL** | **186** | **82** | **10** | **35** | **59** |
 
 **Infrastructure:**
 - Database tables: 67 (097 migrations applied or queued)

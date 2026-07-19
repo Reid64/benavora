@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { redirect } from "next/navigation";
 import { addDays, differenceInCalendarDays, format } from "date-fns";
+import { Sparkles } from "lucide-react";
 
 import { FlightPathHUD } from "@/components/dashboard/FlightPathHUD";
 import {
@@ -42,6 +43,19 @@ type UpcomingOpportunityRow = {
   id: string;
   name: string;
   deadline: string;
+};
+
+// strategic_recommendations (migration 086_strategic_advisor.sql) is
+// org_id-scoped, not organization_id — see AG-40 Strategic Advisor.
+type StrategicRecommendationUrgencyRow = {
+  urgency: "immediate" | "urgent" | "normal" | "low";
+};
+
+const URGENCY_COLOR: Record<string, string> = {
+  immediate: "#DC2626",
+  urgent: "#F59E0B",
+  normal: "#0EA5E9",
+  low: "#6B7280",
 };
 
 // agent_decisions.agent_id (migration 080) — real ids are suffixed forms
@@ -129,6 +143,7 @@ export default async function DashboardPage() {
     reputationAlertsRes,
     upcomingOpportunitiesRes,
     agentDecisionsRes,
+    strategicRecommendationsRes,
   ] = await Promise.all([
     supabase
       .from("opportunities")
@@ -180,6 +195,11 @@ export default async function DashboardPage() {
       .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
       .order("created_at", { ascending: false })
       .limit(8),
+    supabase
+      .from("strategic_recommendations")
+      .select("urgency")
+      .eq("org_id", orgId)
+      .eq("status", "pending"),
   ]);
 
   const totalOpportunities = oppCountRes.count ?? 0;
@@ -191,6 +211,16 @@ export default async function DashboardPage() {
   const upcomingOpportunities = (upcomingOpportunitiesRes.data ??
     []) as UpcomingOpportunityRow[];
   const agentDecisions = (agentDecisionsRes.data ?? []) as AgentDecisionRow[];
+  const strategicRecommendations = (strategicRecommendationsRes.data ??
+    []) as StrategicRecommendationUrgencyRow[];
+
+  const strategicUrgencyCounts = strategicRecommendations.reduce(
+    (acc, r) => {
+      acc[r.urgency] = (acc[r.urgency] ?? 0) + 1;
+      return acc;
+    },
+    {} as Record<string, number>,
+  );
 
   // --- metrics ---------------------------------------------------------------
   const submittedCount = applications.filter(
@@ -752,6 +782,65 @@ export default async function DashboardPage() {
           </div>
         )}
       </div>
+
+      {/* Strategic Advisor — pending strategic_recommendations (AG-40) */}
+      <Link
+        href="/intelligence/strategic-advisor"
+        style={{ textDecoration: "none", display: "block", marginTop: "16px", maxWidth: "360px" }}
+      >
+        <div
+          style={{
+            backgroundColor: "#FFFFFF",
+            borderRadius: "12px",
+            padding: "20px",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+            cursor: "pointer",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: "10px",
+            }}
+          >
+            <span style={{ fontSize: "13px", fontWeight: 700, color: "#1A2B3C" }}>
+              Strategic Advisor
+            </span>
+            <Sparkles size={16} color="#8B5CF6" aria-hidden />
+          </div>
+          <div style={{ fontSize: "32px", fontWeight: 900, color: "#0F172A", lineHeight: 1 }}>
+            {metricCount(strategicRecommendations.length)}
+          </div>
+          <div style={{ fontSize: "12px", color: "#64748B", margin: "4px 0 12px" }}>
+            pending recommendation{strategicRecommendations.length === 1 ? "" : "s"}
+          </div>
+          {strategicRecommendations.length > 0 && (
+            <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+              {(["immediate", "urgent", "normal", "low"] as const)
+                .filter((urgency) => (strategicUrgencyCounts[urgency] ?? 0) > 0)
+                .map((urgency) => (
+                  <span
+                    key={urgency}
+                    style={{
+                      fontSize: "10px",
+                      fontWeight: 700,
+                      color: "#FFFFFF",
+                      backgroundColor: URGENCY_COLOR[urgency],
+                      borderRadius: "999px",
+                      padding: "2px 10px",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.03em",
+                    }}
+                  >
+                    {urgency}: {strategicUrgencyCounts[urgency]}
+                  </span>
+                ))}
+            </div>
+          )}
+        </div>
+      </Link>
     </div>
   );
 }
