@@ -13,7 +13,13 @@ export async function GET() {
 
   if (!user || !orgId) {
     return NextResponse.json(
-      { alerts: 0, applications: 0, documents: 0, deadlines: 0 },
+      {
+        alerts: 0,
+        applications: 0,
+        documents: 0,
+        deadlines: 0,
+        autonomousDrafts: 0,
+      },
       { headers: { "Cache-Control": "private, no-store" } },
     );
   }
@@ -23,7 +29,7 @@ export async function GET() {
   thirtyDaysOut.setDate(thirtyDaysOut.getDate() + 30);
   const todayStr = now.toISOString().split("T")[0];
 
-  const [alertsRes, appsRes, docsRes, deadlinesRes] = await Promise.all([
+  const [alertsRes, appsRes, docsRes, deadlinesRes, autonomousDraftsRes] = await Promise.all([
     supabase
       .from("alerts")
       .select("id", { count: "exact", head: true })
@@ -53,6 +59,12 @@ export async function GET() {
       .eq("organization_id", orgId)
       .lt("due_date", todayStr)
       .not("is_completed", "eq", true),
+    supabase
+      .from("applications")
+      .select("id", { count: "exact", head: true })
+      .eq("organization_id", orgId)
+      .eq("auto_generated", true)
+      .eq("pending_review", true),
   ]);
 
   return NextResponse.json(
@@ -61,6 +73,7 @@ export async function GET() {
       applications: appsRes.count ?? 0,
       documents: docsRes.count ?? 0,
       deadlines: deadlinesRes.count ?? 0,
+      autonomousDrafts: autonomousDraftsRes.count ?? 0,
     },
     { headers: { "Cache-Control": "private, max-age=60" } },
   );

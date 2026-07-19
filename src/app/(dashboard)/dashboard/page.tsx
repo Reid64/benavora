@@ -16,7 +16,7 @@ import {
   type OutcomeInput,
 } from "@/lib/ai/learning/outcome-analyzer";
 import { PIPELINE_STAGES } from "@/lib/utils/constants";
-import { formatCurrency } from "@/lib/utils/formatters";
+import { formatCurrency, formatRelative, humanizeEnum } from "@/lib/utils/formatters";
 
 // Dashboard reflects live session-scoped data; never cache (CLAUDE.md).
 export const dynamic = "force-dynamic";
@@ -44,6 +44,20 @@ type UpcomingOpportunityRow = {
   deadline: string;
 };
 
+// agent_decisions.agent_id (migration 080) — real ids are suffixed forms
+// of each agent's short number (see e.g. draft-generation-agent.ts's
+// "ag-05-draft", opportunity-discovery-agent.ts's "ag-17-discovery"), so
+// this matches by prefix rather than exact string.
+type AgentDecisionRow = {
+  id: string;
+  agent_id: string;
+  decision_type: string;
+  reasoning: string;
+  confidence_score: number | null;
+  action_taken: string;
+  created_at: string;
+};
+
 /** Returns "-" instead of "0" so empty metrics don't imply active tracking. */
 function metricCount(n: number): string {
   return n === 0 ? "-" : String(n);
@@ -55,6 +69,22 @@ function metricCurrency(n: number): string {
 
 function truncate(s: string, max: number): string {
   return s.length > max ? `${s.slice(0, max)}…` : s;
+}
+
+function decisionDotColor(agentId: string): string {
+  if (agentId.startsWith("ag-17")) return "#06B6D4";
+  if (agentId.startsWith("ag-15")) return "#0EA5E9";
+  if (agentId.startsWith("ag-05")) return "#8B5CF6";
+  if (agentId.startsWith("ag-18")) return "#F59E0B";
+  if (agentId.startsWith("ag-19")) return "#10B981";
+  return "#6B7280";
+}
+
+function confidenceBadgeColor(score: number | null): string {
+  if (score == null) return "#6B7280";
+  if (score >= 70) return "#10B981";
+  if (score >= 50) return "#F59E0B";
+  return "#EF4444";
 }
 
 /**
@@ -98,6 +128,7 @@ export default async function DashboardPage() {
     discoveryMatchesRes,
     reputationAlertsRes,
     upcomingOpportunitiesRes,
+    agentDecisionsRes,
   ] = await Promise.all([
     supabase
       .from("opportunities")
@@ -140,6 +171,15 @@ export default async function DashboardPage() {
       .gte("deadline", format(now, "yyyy-MM-dd"))
       .order("deadline", { ascending: true })
       .limit(3),
+    supabase
+      .from("agent_decisions")
+      .select(
+        "id, agent_id, decision_type, reasoning, confidence_score, action_taken, created_at",
+      )
+      .eq("org_id", orgId)
+      .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+      .order("created_at", { ascending: false })
+      .limit(8),
   ]);
 
   const totalOpportunities = oppCountRes.count ?? 0;
@@ -150,6 +190,7 @@ export default async function DashboardPage() {
   const reputationAlertsCount = reputationAlertsRes.count ?? 0;
   const upcomingOpportunities = (upcomingOpportunitiesRes.data ??
     []) as UpcomingOpportunityRow[];
+  const agentDecisions = (agentDecisionsRes.data ?? []) as AgentDecisionRow[];
 
   // --- metrics ---------------------------------------------------------------
   const submittedCount = applications.filter(
@@ -600,6 +641,116 @@ export default async function DashboardPage() {
             ))}
           </div>
         </div>
+      </div>
+
+      {/* Autonomous activity — last 24 hours of agent_decisions (migration 080) */}
+      <div
+        style={{
+          backgroundColor: "#FFFFFF",
+          borderRadius: "12px",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+          padding: "24px",
+          marginTop: "16px",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            marginBottom: "16px",
+          }}
+        >
+          <span style={{ fontSize: "14px", fontWeight: 700, color: "#1A2B3C" }}>
+            AI Working For You — Last 24 Hours
+          </span>
+          {agentDecisions.length > 0 && (
+            <span
+              className="animate-pulse"
+              style={{
+                width: "8px",
+                height: "8px",
+                borderRadius: "50%",
+                backgroundColor: "#10B981",
+              }}
+              aria-hidden
+            />
+          )}
+        </div>
+
+        {agentDecisions.length === 0 ? (
+          <p
+            style={{
+              fontSize: "13px",
+              color: "#6B7280",
+              textAlign: "center",
+              padding: "32px 0",
+            }}
+          >
+            No autonomous activity yet. Enable agents in Settings &gt; Agents
+            to activate your AI pipeline.
+          </p>
+        ) : (
+          <div>
+            {agentDecisions.map((decision) => (
+              <div
+                key={decision.id}
+                style={{
+                  display: "flex",
+                  gap: "12px",
+                  padding: "10px 0",
+                  borderBottom: "1px solid #F3F4F6",
+                }}
+              >
+                <div
+                  style={{
+                    width: "8px",
+                    height: "8px",
+                    borderRadius: "50%",
+                    backgroundColor: decisionDotColor(decision.agent_id),
+                    marginTop: "5px",
+                    flexShrink: 0,
+                  }}
+                />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ fontSize: "13px", fontWeight: 700, color: "#1A2B3C" }}>
+                    {humanizeEnum(decision.decision_type)}
+                  </span>
+                  <span style={{ fontSize: "12px", color: "#6B7280", marginLeft: "6px" }}>
+                    {truncate(decision.reasoning, 80)}
+                  </span>
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "flex-end",
+                    gap: "4px",
+                    flexShrink: 0,
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: "11px",
+                      fontWeight: 700,
+                      color: "#FFFFFF",
+                      backgroundColor: confidenceBadgeColor(decision.confidence_score),
+                      borderRadius: "999px",
+                      padding: "2px 8px",
+                    }}
+                  >
+                    {decision.confidence_score != null
+                      ? `${decision.confidence_score}%`
+                      : "-"}
+                  </span>
+                  <span style={{ fontSize: "11px", color: "#9CA3AF" }}>
+                    {formatRelative(decision.created_at)}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

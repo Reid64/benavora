@@ -32,6 +32,15 @@ const TABS = [
   { label: "Donor Discovery", href: "/donor-discovery" },
 ];
 
+// Draft Generator has no sidebar entry (it's a header tab — see comment on
+// nav-items.ts's NAV_ITEMS), so it has no `children` array to attach an
+// "AI Drafts Ready" link to the way Sidebar attaches children. Instead this
+// renders as a badge on the tab plus a slim sub-link row shown while the
+// user is anywhere under /draft-generator, mirroring Sidebar's
+// active-parent-reveals-children pattern in the header's own idiom.
+const DRAFT_GENERATOR_HREF = "/draft-generator";
+const AUTONOMOUS_DRAFTS_HREF = "/draft-generator/autonomous";
+
 /** Avatar-dropdown destinations (Log Out is rendered separately). */
 const MENU_LINKS = [
   { label: "Settings", href: "/settings" },
@@ -67,6 +76,7 @@ export function Header({ userEmail, orgName, orgLogoUrl, onMenuClick }: HeaderPr
   const [signingOut, setSigningOut] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [autonomousDraftsCount, setAutonomousDraftsCount] = useState(0);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Close the avatar dropdown on outside click.
@@ -96,6 +106,22 @@ export function Header({ userEmail, orgName, orgLogoUrl, onMenuClick }: HeaderPr
   useEffect(() => {
     void fetchUnreadCount();
   }, [fetchUnreadCount, pathname]);
+
+  const fetchAutonomousDraftsCount = useCallback(async () => {
+    try {
+      const res = await fetch("/api/nav-counts", { cache: "no-store" });
+      if (res.ok) {
+        const data = (await res.json()) as { autonomousDrafts?: number };
+        setAutonomousDraftsCount(data.autonomousDrafts ?? 0);
+      }
+    } catch {
+      // Non-fatal — badge simply stays at zero.
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchAutonomousDraftsCount();
+  }, [fetchAutonomousDraftsCount, pathname]);
 
   async function handleSignOut() {
     setSigningOut(true);
@@ -127,21 +153,55 @@ export function Header({ userEmail, orgName, orgLogoUrl, onMenuClick }: HeaderPr
         </div>
 
         {/* Header tab links */}
-        <nav className="flex items-center gap-1" aria-label="Primary sections">
-          {TABS.map((tab) => {
-            const active = isActiveTab(tab.href);
-            return (
+        <div className="flex flex-col">
+          <nav className="flex items-center gap-1" aria-label="Primary sections">
+            {TABS.map((tab) => {
+              const active = isActiveTab(tab.href);
+              const isDraftGenerator = tab.href === DRAFT_GENERATOR_HREF;
+              return (
+                <Link
+                  key={tab.href}
+                  href={tab.href}
+                  aria-current={active ? "page" : undefined}
+                  className={active ? NAV_LINK_ACTIVE : NAV_LINK_INACTIVE}
+                  style={{ position: "relative" }}
+                >
+                  {tab.label}
+                  {isDraftGenerator && autonomousDraftsCount > 0 && (
+                    <span
+                      className="absolute -top-1 -right-1 inline-flex min-w-[1.1rem] items-center justify-center rounded-full text-[10px] font-bold"
+                      style={{ backgroundColor: "#EF4444", color: "#FFFFFF", padding: "1px 5px" }}
+                      aria-label={`${autonomousDraftsCount} AI drafts ready for review`}
+                    >
+                      {autonomousDraftsCount > 99 ? "99+" : autonomousDraftsCount}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
+          </nav>
+          {pathname.startsWith(DRAFT_GENERATOR_HREF) && (
+            <div className="pl-4">
               <Link
-                key={tab.href}
-                href={tab.href}
-                aria-current={active ? "page" : undefined}
-                className={active ? NAV_LINK_ACTIVE : NAV_LINK_INACTIVE}
+                href={AUTONOMOUS_DRAFTS_HREF}
+                className="inline-flex items-center gap-1.5 text-xs font-medium"
+                style={{
+                  color: pathname === AUTONOMOUS_DRAFTS_HREF ? "#0077B6" : "#64748B",
+                }}
               >
-                {tab.label}
+                AI Drafts Ready
+                {autonomousDraftsCount > 0 && (
+                  <span
+                    className="inline-flex min-w-[1.1rem] items-center justify-center rounded-full text-[10px] font-bold"
+                    style={{ backgroundColor: "#EF4444", color: "#FFFFFF", padding: "1px 5px" }}
+                  >
+                    {autonomousDraftsCount > 99 ? "99+" : autonomousDraftsCount}
+                  </span>
+                )}
               </Link>
-            );
-          })}
-        </nav>
+            </div>
+          )}
+        </div>
 
         <div className="ml-auto flex items-center gap-4">
           {/* Notification bell */}
