@@ -585,6 +585,38 @@ export async function runAutonomousPipeline(
   console.log('[AutonomousOrchestrator] Nightly pipeline complete.');
 }
 
+/**
+ * Morning digest pipeline: runs AutonomousDigestAgent (an AI-written summary
+ * of overnight agent_decisions activity — see
+ * src/lib/agents/autonomous-digest-agent.ts) for every active org. Separate
+ * from the plain sendMorningDigest() call at the end of runAutonomousPipeline
+ * above, which is a no-Claude alerts rollup, not an agent_runs-logged agent.
+ */
+export async function runDigestPipeline(supabase: SupabaseClient): Promise<void> {
+  const orgs = await getActiveOrgs(supabase);
+  console.log(
+    `[AutonomousOrchestrator] Morning digest pipeline starting for ${orgs.length} active org(s).`,
+  );
+
+  for (const org of orgs) {
+    try {
+      const { AutonomousDigestAgent } = await import(
+        '../src/lib/agents/autonomous-digest-agent.js'
+      );
+      const agent = new AutonomousDigestAgent(org.id, supabase);
+      await agent.run('schedule');
+    } catch (err) {
+      console.error(
+        `[AutonomousOrchestrator] Digest agent failed for org ${org.id}:`,
+        errMsg(err),
+      );
+    }
+    await sleep(SLEEP_BETWEEN_ORGS_MS);
+  }
+
+  console.log('[AutonomousOrchestrator] Morning digest pipeline complete.');
+}
+
 // --- agent_queue processor --------------------------------------------------------
 
 interface AgentQueueRow {
