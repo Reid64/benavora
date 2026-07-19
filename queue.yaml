@@ -3,6 +3,7 @@ governance:
 - BLUEPRINT.md
 - STATE_OF_THE_BUILD.md
 - SESSION_STATE.md
+- AUTONOMOUS_PLATFORM_VISION.md
 prompts:
 - id: placeholder-001
   name: Next queue placeholder

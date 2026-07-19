@@ -13,6 +13,7 @@ governance:
   - AUTOAPPLY_ARCHITECTURE.md
   - WORKER_ARCHITECTURE.md
   - GRANT_INTELLIGENCE_ARCHITECTURE.md
+  - AUTONOMOUS_PLATFORM_VISION.md
 
 settings:
   max_retries_per_prompt: 3

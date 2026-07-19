@@ -64,6 +64,7 @@ ACTIVATION:    6–12 months post-launch. See PRICING_ENGINE.md activation check
 | STATE_OF_THE_BUILD.md | This file | Updated by FORGE |
 | SESSION_STATE.md | Active | Session log |
 | MASTER_DOCUMENT_REGISTRY.md | Complete | Document index |
+| AUTONOMOUS_PLATFORM_VISION.md | Complete | Post-launch Phase 2-5 roadmap |
 
 ---
 
@@ -158,6 +159,7 @@ Phase 8 — Integrations + Deploy:       NOT STARTED
 | STATE_OF_THE_BUILD.md | This file | Updated by FORGE |
 | SESSION_STATE.md | Active | Session log |
 | MASTER_DOCUMENT_REGISTRY.md | Complete | Document index |
+| AUTONOMOUS_PLATFORM_VISION.md | Complete | Post-launch Phase 2-5 roadmap |
 
 ---
 

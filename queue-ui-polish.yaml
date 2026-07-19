@@ -8,6 +8,7 @@ governance:
   - BLUEPRINT.md
   - SCHEMA_REGISTRY.md
   - DESIGN_SYSTEM.md
+  - AUTONOMOUS_PLATFORM_VISION.md
 
 settings:
   max_retries_per_prompt: 3
