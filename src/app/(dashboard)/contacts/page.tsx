@@ -72,7 +72,7 @@ export default function ContactsPage() {
   const showEmpty = !loading && !error && contacts.length === 0;
 
   return (
-    <div className="min-h-screen space-y-6 bg-[#EEF2F7] p-6 page-bg">
+    <div style={{ backgroundColor: "#D6E4F0", minHeight: "100vh" }} className="space-y-6 p-6">
       <PageHeader
         title="Contacts"
         description="People at your funders, with relationship status at a glance."
@@ -91,28 +91,34 @@ export default function ContactsPage() {
       {error && (
         <div
           role="alert"
-          className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+          style={{ border: "1px solid #FECACA", backgroundColor: "#FEF2F2", color: "#B91C1C" }}
+          className="rounded-lg px-4 py-3 text-sm"
         >
           {error}
         </div>
       )}
 
       {showEmpty ? (
-        <EmptyState
-          icon={Users}
-          title="No contacts yet"
-          description="Add your first contact and link it to a funder to start tracking relationships."
-          action={
-            editable ? (
-              <Link href="/contacts/new">
-                <Button>
-                  <Plus className="h-4 w-4" aria-hidden />
-                  New contact
-                </Button>
-              </Link>
-            ) : undefined
-          }
-        />
+        <div
+          style={{ backgroundColor: "#FFFFFF", borderRadius: "16px", boxShadow: "0 4px 20px rgba(0,0,0,0.08)" }}
+          className="p-10"
+        >
+          <EmptyState
+            icon={Users}
+            title="No contacts yet"
+            description="Add your first contact and link it to a funder to start tracking relationships."
+            action={
+              editable ? (
+                <Link href="/contacts/new">
+                  <Button>
+                    <Plus className="h-4 w-4" aria-hidden />
+                    New contact
+                  </Button>
+                </Link>
+              ) : undefined
+            }
+          />
+        </div>
       ) : (
         <ContactTable contacts={contacts} isLoading={loading} />
       )}

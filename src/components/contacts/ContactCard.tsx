@@ -1,7 +1,12 @@
 "use client";
 
 import { Badge } from "@/components/ui";
-import { contactInitials, RELATIONSHIP_COLOR, type ContactRow } from "@/components/contacts/contact-shared";
+import {
+  avatarColorForName,
+  contactInitials,
+  RELATIONSHIP_COLOR,
+  type ContactRow,
+} from "@/components/contacts/contact-shared";
 import { humanizeEnum } from "@/lib/utils/formatters";
 
 export type ContactCardProps = {
@@ -23,12 +28,13 @@ export function ContactCard({ contact, onClick }: ContactCardProps) {
           onClick();
         }
       }}
-      className="bg-white rounded-xl shadow-sm border border-border p-5 hover:shadow-md transition-shadow cursor-pointer card-depth"
+      style={{ backgroundColor: "#FFFFFF", borderRadius: "16px", boxShadow: "0 4px 20px rgba(0,0,0,0.08)" }}
+      className="p-5 hover:shadow-md transition-shadow cursor-pointer"
     >
       <div className="flex items-start justify-between gap-3">
         <div
-          className="w-12 h-12 rounded-full bg-[#0077B6] text-white flex items-center justify-center text-lg font-bold card-blue"
-          style={{ backgroundColor: "#0077B6", color: "#FFFFFF" }}
+          style={{ backgroundColor: avatarColorForName(contact.name), color: "#FFFFFF" }}
+          className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold"
         >
           {contactInitials(contact.name)}
         </div>
@@ -39,11 +45,11 @@ export function ContactCard({ contact, onClick }: ContactCardProps) {
         )}
       </div>
 
-      <h3 className="text-base font-semibold text-slate-900 mt-3">{contact.name}</h3>
+      <h3 style={{ color: "#0F172A" }} className="text-base font-semibold mt-3">{contact.name}</h3>
       {contact.title && (
-        <p className="text-sm text-[#0077B6] font-medium">{contact.title}</p>
+        <p style={{ color: "#0077B6" }} className="text-sm font-medium">{contact.title}</p>
       )}
-      <p className="text-xs text-slate-400">{contact.funderName}</p>
+      <p style={{ color: "#94A3B8" }} className="text-xs">{contact.funderName}</p>
     </div>
   );
 }

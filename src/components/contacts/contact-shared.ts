@@ -23,3 +23,31 @@ export function contactInitials(name: string): string {
   const last = parts.length > 1 ? (parts[parts.length - 1]?.charAt(0) ?? "") : "";
   return (first + last).toUpperCase() || "?";
 }
+
+/** Premium fintech-toned palette used to color avatar circles by first letter. */
+const AVATAR_PALETTE = [
+  "#0077B6",
+  "#6B48CC",
+  "#0F766E",
+  "#B45309",
+  "#BE185D",
+  "#4C3D8F",
+  "#0369A1",
+  "#15803D",
+  "#9333EA",
+  "#C2410C",
+  "#0891B2",
+  "#DB2777",
+  "#4338CA",
+  "#059669",
+  "#7C3AED",
+  "#0EA5E9",
+];
+
+/** Deterministic avatar background color keyed on the contact's first-name letter. */
+export function avatarColorForName(name: string): string {
+  const letter = name.trim().charAt(0).toUpperCase();
+  const code = letter ? letter.charCodeAt(0) - 65 : 0;
+  const idx = ((code % AVATAR_PALETTE.length) + AVATAR_PALETTE.length) % AVATAR_PALETTE.length;
+  return AVATAR_PALETTE[idx]!;
+}

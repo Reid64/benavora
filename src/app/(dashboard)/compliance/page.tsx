@@ -2,11 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import Link from "next/link";
-import { CalendarClock, Plus, ShieldCheck } from "lucide-react";
+import { CalendarClock, CheckCircle2, Plus, ShieldCheck, XCircle } from "lucide-react";
 
 import { PageHeader } from "@/components/layout/PageHeader";
 import {
-  Badge,
   Button,
   EmptyState,
   Input,
@@ -16,9 +15,8 @@ import {
   Textarea,
 } from "@/components/ui";
 import { canEdit, useProfile } from "@/lib/hooks/useProfile";
-import { cn } from "@/lib/utils/cn";
 import { formatDate, humanizeEnum } from "@/lib/utils/formatters";
-import { BAND_VARIANT, urgency } from "@/components/deadlines/DeadlinePill";
+import { urgency } from "@/components/deadlines/DeadlinePill";
 import type { ComplianceItem } from "@/app/api/compliance/route";
 import type { ComplianceEvent } from "@/app/api/compliance/events/route";
 
@@ -43,65 +41,36 @@ const RECURRENCE_OPTIONS = [
   { value: "annual", label: "Annual" },
 ];
 
-const EVENT_TYPE_BADGE_VARIANT: Record<ComplianceEvent["event_type"], "info" | "warning" | "success" | "neutral"> = {
-  report: "info",
-  audit: "warning",
-  renewal: "success",
-  meeting: "neutral",
+const CANVAS = "#D6E4F0";
+const CARD = "#FFFFFF";
+const TEXT_PRIMARY = "#0F172A";
+const TEXT_MUTED = "#94A3B8";
+const ACCENT = "#0077B6";
+const GREEN = "#15803D";
+const AMBER = "#B45309";
+const RED = "#B91C1C";
+const SHADOW = "0 4px 20px rgba(0,0,0,0.08)";
+
+const EVENT_TYPE_TINT: Record<ComplianceEvent["event_type"], { bg: string; text: string }> = {
+  report: { bg: "#E0F2FE", text: "#0369A1" },
+  audit: { bg: "#FEF3C7", text: AMBER },
+  renewal: { bg: "#DCFCE7", text: GREEN },
+  meeting: { bg: "#F1F5F9", text: "#475569" },
 };
 
-type UrgencyColor = "red" | "amber" | "green";
+type StatusColor = "red" | "amber" | "green";
 
-function urgencyColor(dueDate: string): UrgencyColor {
+function statusColorFor(dueDate: string): StatusColor {
   const { band } = urgency(dueDate);
   if (band === "overdue") return "red";
   if (band === "green") return "green";
   return "amber";
 }
 
-const ITEM_CLASSES: Record<UrgencyColor, string> = {
-  red: "bg-[#FEF2F2] border-l-4 border-[#EF4444] rounded-xl p-4",
-  amber: "bg-[#FFFBEB] border-l-4 border-[#F59E0B] rounded-xl p-4",
-  green: "bg-white shadow-sm border border-border rounded-xl p-4",
-};
-
-const DATE_CLASSES: Record<UrgencyColor, string> = {
-  red: "text-[#EF4444] font-bold",
-  amber: "text-[#F59E0B] font-bold",
-  green: "text-slate-500",
-};
-
-type EventColor = "red" | "amber" | "blue" | "green";
-
-function eventColor(event: ComplianceEvent): EventColor {
-  if (event.completed_at) return "green";
-  const dueMs = new Date(event.due_date).getTime();
-  const daysUntil = (dueMs - Date.now()) / (1000 * 60 * 60 * 24);
-  if (daysUntil < 0) return "red";
-  if (daysUntil <= 7) return "amber";
-  return "blue";
-}
-
-const EVENT_ITEM_CLASSES: Record<EventColor, string> = {
-  red: "bg-[#FEF2F2] border-l-4 border-[#EF4444] rounded-xl p-4",
-  amber: "bg-[#FFFBEB] border-l-4 border-[#F59E0B] rounded-xl p-4",
-  blue: "bg-[#EFF6FF] border-l-4 border-[#0077B6] rounded-xl p-4",
-  green: "bg-[#F0FDF4] border-l-4 border-[#10B981] rounded-xl p-4",
-};
-
-const EVENT_DATE_CLASSES: Record<EventColor, string> = {
-  red: "text-[#EF4444] font-bold",
-  amber: "text-[#F59E0B] font-bold",
-  blue: "text-[#0077B6] font-medium",
-  green: "text-[#10B981]",
-};
-
-const EVENT_LABEL: Record<EventColor, string> = {
-  red: "Overdue",
-  amber: "Due this week",
-  blue: "Upcoming",
-  green: "Complete",
-};
+const STATUS_HEX: Record<StatusColor, string> = { red: RED, amber: AMBER, green: "#0F766E" };
+const STATUS_BG: Record<StatusColor, string> = { red: "#FEF2F2", amber: "#FFFBEB", green: CARD };
+const STATUS_BORDER: Record<StatusColor, string> = { red: "#EF4444", amber: "#F59E0B", green: "#E2E8F0" };
+const STATUS_LABEL: Record<StatusColor, string> = { red: "Overdue", amber: "Due Soon", green: "On Track" };
 
 function monthKey(dateStr: string): string {
   const d = new Date(dateStr);
@@ -121,6 +90,8 @@ function monthLabel(key: string): string {
  * meetings) grouped by month, plus manually tracked obligations
  * (matching funds, regulatory filings) from compliance_requirements and
  * deadlines/renewals/document expirations aggregated via /api/compliance.
+ * An overall compliance score is computed live from real completion state
+ * — never a placeholder.
  */
 export default function CompliancePage() {
   const { profile } = useProfile();
@@ -224,29 +195,62 @@ export default function CompliancePage() {
       .map(([key, list]) => ({ key, label: monthLabel(key), events: list }));
   }, [events]);
 
+  const groupedRequirements = useMemo(() => {
+    const groups = new Map<string, ComplianceItem[]>();
+    for (const item of items) {
+      const key = item.type;
+      const list = groups.get(key) ?? [];
+      list.push(item);
+      groups.set(key, list);
+    }
+    return Array.from(groups.entries()).map(([key, list]) => ({
+      key,
+      label: humanizeEnum(key),
+      items: list,
+    }));
+  }, [items]);
+
+  // Overall compliance score: share of tracked obligations (events + requirements)
+  // that are resolved (completed/submitted), computed live from real records.
+  const score = useMemo(() => {
+    const totalEvents = events.length;
+    const doneEvents = events.filter((e) => Boolean(e.completed_at)).length;
+    const totalItems = items.length;
+    const doneItems = items.filter(
+      (i) => i.status === "submitted" || i.status === "completed",
+    ).length;
+    const total = totalEvents + totalItems;
+    if (total === 0) return null;
+    return Math.round(((doneEvents + doneItems) / total) * 100);
+  }, [events, items]);
+
   const showEmpty = !loading && !error && items.length === 0;
   const showEventsEmpty = !eventsLoading && !eventsError && events.length === 0;
 
   return (
-    <div className="space-y-8">
-      <PageHeader
-        title="Compliance Calendar"
-        description="Reports, audits, renewals, and meetings tracked across all active grants, plus reporting deadlines, matching funds, regulatory filings, and document expirations."
-        actions={
-          editable && (
-            <Button onClick={() => setCreatingEvent(true)}>
-              <CalendarClock className="h-4 w-4" aria-hidden />
-              New Event
-            </Button>
-          )
-        }
-      />
+    <div style={{ backgroundColor: CANVAS, minHeight: "100vh" }} className="space-y-8 p-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <PageHeader
+          title="Compliance Calendar"
+          description="Reports, audits, renewals, and meetings tracked across all active grants, plus reporting deadlines, matching funds, regulatory filings, and document expirations."
+          actions={
+            editable && (
+              <Button onClick={() => setCreatingEvent(true)}>
+                <CalendarClock className="h-4 w-4" aria-hidden />
+                New Event
+              </Button>
+            )
+          }
+        />
+        {score !== null && <ScoreBadge score={score} />}
+      </div>
 
       <section className="space-y-3">
         {eventsError && (
           <div
             role="alert"
-            className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+            style={{ border: "1px solid #FECACA", backgroundColor: "#FEF2F2", color: RED }}
+            className="rounded-lg px-4 py-3 text-sm"
           >
             {eventsError}
           </div>
@@ -255,79 +259,90 @@ export default function CompliancePage() {
         {eventsLoading ? (
           <LoadingSpinner center label="Loading compliance events..." />
         ) : showEventsEmpty ? (
-          <EmptyState
-            icon={CalendarClock}
-            title="No compliance events"
-            description="Reports, audits, renewals, and meetings you schedule will appear here, grouped by month."
-            action={
-              editable ? (
-                <Button onClick={() => setCreatingEvent(true)}>
-                  <Plus className="h-4 w-4" aria-hidden />
-                  New Event
-                </Button>
-              ) : undefined
-            }
-          />
+          <div style={{ backgroundColor: CARD, borderRadius: "16px", boxShadow: SHADOW }} className="p-10">
+            <EmptyState
+              icon={CalendarClock}
+              title="No compliance events"
+              description="Reports, audits, renewals, and meetings you schedule will appear here, grouped by month."
+              action={
+                editable ? (
+                  <Button onClick={() => setCreatingEvent(true)}>
+                    <Plus className="h-4 w-4" aria-hidden />
+                    New Event
+                  </Button>
+                ) : undefined
+              }
+            />
+          </div>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-5">
             {groupedEvents.map((group) => (
-              <div key={group.key}>
-                <h2 className="mb-2 text-sm font-semibold text-slate-900">{group.label}</h2>
-                <div className="space-y-3">
-                  {group.events.map((event) => {
-                    const color = eventColor(event);
+              <div
+                key={group.key}
+                style={{ backgroundColor: CARD, borderRadius: "16px", boxShadow: SHADOW }}
+                className="overflow-hidden"
+              >
+                <div style={{ borderBottom: "1px solid #EEF2F7" }} className="px-6 py-4">
+                  <h2 style={{ color: TEXT_PRIMARY }} className="text-sm font-semibold">
+                    {group.label}
+                  </h2>
+                </div>
+                <ul>
+                  {group.events.map((event, idx) => {
                     const isComplete = Boolean(event.completed_at);
+                    const status: StatusColor = isComplete
+                      ? "green"
+                      : statusColorFor(event.due_date);
+                    const tint = EVENT_TYPE_TINT[event.event_type];
                     return (
-                      <div
+                      <li
                         key={event.id}
-                        className={cn(
-                          "flex flex-wrap items-center justify-between gap-3",
-                          EVENT_ITEM_CLASSES[color],
-                        )}
+                        style={{
+                          borderBottom:
+                            idx === group.events.length - 1 ? "none" : "1px solid #F1F5F9",
+                        }}
+                        className="flex flex-wrap items-center justify-between gap-3 px-6 py-4"
                       >
-                        <div className="min-w-0">
-                          <div
-                            className={cn(
-                              "truncate text-sm font-medium",
-                              isComplete ? "text-slate-400 line-through" : "text-slate-900",
-                            )}
-                          >
-                            {event.title}
-                          </div>
-                          <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                            <Badge variant={EVENT_TYPE_BADGE_VARIANT[event.event_type]}>
-                              {humanizeEnum(event.event_type)}
-                            </Badge>
-                            <span>·</span>
-                            <span className={EVENT_DATE_CLASSES[color]}>{formatDate(event.due_date)}</span>
-                            {event.recurrence && (
-                              <>
-                                <span>·</span>
-                                <span>{humanizeEnum(event.recurrence)}</span>
-                              </>
-                            )}
-                            {event.application_id && (
-                              <>
-                                <span>·</span>
+                        <div className="flex min-w-0 items-center gap-3">
+                          <ChecklistStatusIcon complete={isComplete} status={status} />
+                          <div className="min-w-0">
+                            <div
+                              style={{ color: isComplete ? TEXT_MUTED : TEXT_PRIMARY }}
+                              className={`truncate text-sm font-medium ${isComplete ? "line-through" : ""}`}
+                            >
+                              {event.title}
+                            </div>
+                            <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs">
+                              <span
+                                style={{ backgroundColor: tint.bg, color: tint.text }}
+                                className="inline-flex items-center rounded-full px-2 py-0.5 font-semibold"
+                              >
+                                {humanizeEnum(event.event_type)}
+                              </span>
+                              <span style={{ color: STATUS_HEX[status] }} className="font-semibold">
+                                {formatDate(event.due_date)}
+                              </span>
+                              {event.recurrence && (
+                                <span style={{ color: TEXT_MUTED }}>{humanizeEnum(event.recurrence)}</span>
+                              )}
+                              {event.application_id && (
                                 <Link
                                   href={`/applications/${event.application_id}`}
-                                  className="text-[#0077B6] hover:underline"
+                                  style={{ color: ACCENT }}
+                                  className="hover:underline"
                                 >
                                   {event.application_title ?? "View application"}
                                 </Link>
-                              </>
-                            )}
+                              )}
+                            </div>
                           </div>
                         </div>
                         <div className="flex shrink-0 items-center gap-3">
-                          <span
-                            className={cn(
-                              "text-xs",
-                              color === "blue" || color === "green" ? EVENT_DATE_CLASSES[color] : "text-slate-500",
-                            )}
-                          >
-                            {EVENT_LABEL[color]}
-                          </span>
+                          {!isComplete && (
+                            <span style={{ color: STATUS_HEX[status] }} className="text-xs font-semibold">
+                              {STATUS_LABEL[status]}
+                            </span>
+                          )}
                           {editable && !isComplete && (
                             <Button
                               variant="secondary"
@@ -340,19 +355,21 @@ export default function CompliancePage() {
                             </Button>
                           )}
                         </div>
-                      </div>
+                      </li>
                     );
                   })}
-                </div>
+                </ul>
               </div>
             ))}
           </div>
         )}
       </section>
 
-      <section className="space-y-3 border-t border-border pt-6">
+      <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-slate-900">Other Tracked Requirements</h2>
+          <h2 style={{ color: TEXT_PRIMARY }} className="text-sm font-semibold">
+            Other Tracked Requirements
+          </h2>
           {editable && (
             <Button variant="secondary" size="sm" onClick={() => setCreating(true)}>
               <Plus className="h-4 w-4" aria-hidden />
@@ -364,7 +381,8 @@ export default function CompliancePage() {
         {error && (
           <div
             role="alert"
-            className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+            style={{ border: "1px solid #FECACA", backgroundColor: "#FEF2F2", color: RED }}
+            className="rounded-lg px-4 py-3 text-sm"
           >
             {error}
           </div>
@@ -373,83 +391,100 @@ export default function CompliancePage() {
         {loading ? (
           <LoadingSpinner center label="Loading compliance obligations..." />
         ) : showEmpty ? (
-          <EmptyState
-            icon={ShieldCheck}
-            title="No compliance obligations"
-            description="Reporting deadlines, renewal compliance reports, document expirations, and manually tracked requirements will appear here."
-            action={
-              editable ? (
-                <Button onClick={() => setCreating(true)}>
-                  <Plus className="h-4 w-4" aria-hidden />
-                  Add Requirement
-                </Button>
-              ) : undefined
-            }
-          />
+          <div style={{ backgroundColor: CARD, borderRadius: "16px", boxShadow: SHADOW }} className="p-10">
+            <EmptyState
+              icon={ShieldCheck}
+              title="No compliance obligations"
+              description="Reporting deadlines, renewal compliance reports, document expirations, and manually tracked requirements will appear here."
+              action={
+                editable ? (
+                  <Button onClick={() => setCreating(true)}>
+                    <Plus className="h-4 w-4" aria-hidden />
+                    Add Requirement
+                  </Button>
+                ) : undefined
+              }
+            />
+          </div>
         ) : (
-          <div className="space-y-3">
-            {items.map((item) => {
-              const isSubmitted = item.status === "submitted" || item.status === "completed";
-              const color = urgencyColor(item.due_date);
-              const { label } = urgency(item.due_date);
-              const canMarkSubmitted =
-                editable && item.entity_type === "requirement" && !isSubmitted;
-              return (
-                <div
-                  key={item.id}
-                  className={cn(
-                    "flex flex-wrap items-center justify-between gap-3",
-                    isSubmitted
-                      ? "rounded-xl border border-border bg-white p-4 shadow-sm"
-                      : ITEM_CLASSES[color],
-                  )}
-                >
-                  <div className="min-w-0">
-                    <div
-                      className={cn(
-                        "truncate text-sm font-medium",
-                        isSubmitted ? "text-slate-400 line-through" : "text-slate-900",
-                      )}
-                    >
-                      {item.title}
-                    </div>
-                    <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                      <span>{humanizeEnum(item.type)}</span>
-                      <span>·</span>
-                      <span className={isSubmitted ? undefined : DATE_CLASSES[color]}>
-                        {formatDate(item.due_date)}
-                      </span>
-                      {item.notes && (
-                        <>
-                          <span>·</span>
-                          <span className="truncate">{item.notes}</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-3">
-                    {isSubmitted ? (
-                      <span className="text-xs text-slate-400">
-                        {item.status === "submitted" ? "Submitted" : "Completed"}
-                      </span>
-                    ) : (
-                      <Badge variant={BAND_VARIANT[urgency(item.due_date).band]}>{label}</Badge>
-                    )}
-                    {canMarkSubmitted && (
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        disabled={submittingId === item.entity_id}
-                        isLoading={submittingId === item.entity_id}
-                        onClick={() => markSubmitted(item)}
-                      >
-                        Mark Submitted
-                      </Button>
-                    )}
-                  </div>
+          <div className="space-y-5">
+            {groupedRequirements.map((group) => (
+              <div
+                key={group.key}
+                style={{ backgroundColor: CARD, borderRadius: "16px", boxShadow: SHADOW }}
+                className="overflow-hidden"
+              >
+                <div style={{ borderBottom: "1px solid #EEF2F7" }} className="px-6 py-4">
+                  <h3 style={{ color: TEXT_PRIMARY }} className="text-sm font-semibold">
+                    {group.label}
+                  </h3>
                 </div>
-              );
-            })}
+                <ul>
+                  {group.items.map((item, idx) => {
+                    const isSubmitted = item.status === "submitted" || item.status === "completed";
+                    const status: StatusColor = isSubmitted ? "green" : statusColorFor(item.due_date);
+                    const canMarkSubmitted =
+                      editable && item.entity_type === "requirement" && !isSubmitted;
+                    return (
+                      <li
+                        key={item.id}
+                        style={{
+                          borderBottom: idx === group.items.length - 1 ? "none" : "1px solid #F1F5F9",
+                        }}
+                        className="flex flex-wrap items-center justify-between gap-3 px-6 py-4"
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
+                          <ChecklistStatusIcon complete={isSubmitted} status={status} />
+                          <div className="min-w-0">
+                            <div
+                              style={{ color: isSubmitted ? TEXT_MUTED : TEXT_PRIMARY }}
+                              className={`truncate text-sm font-medium ${isSubmitted ? "line-through" : ""}`}
+                            >
+                              {item.title}
+                            </div>
+                            <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs">
+                              <span
+                                style={{ color: isSubmitted ? TEXT_MUTED : STATUS_HEX[status] }}
+                                className="font-semibold"
+                              >
+                                {formatDate(item.due_date)}
+                              </span>
+                              {item.notes && (
+                                <span style={{ color: TEXT_MUTED }} className="truncate">
+                                  {item.notes}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-3">
+                          {isSubmitted ? (
+                            <span style={{ color: TEXT_MUTED }} className="text-xs">
+                              {item.status === "submitted" ? "Submitted" : "Completed"}
+                            </span>
+                          ) : (
+                            <span style={{ color: STATUS_HEX[status] }} className="text-xs font-semibold">
+                              {STATUS_LABEL[status]}
+                            </span>
+                          )}
+                          {canMarkSubmitted && (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              disabled={submittingId === item.entity_id}
+                              isLoading={submittingId === item.entity_id}
+                              onClick={() => markSubmitted(item)}
+                            >
+                              Mark Submitted
+                            </Button>
+                          )}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))}
           </div>
         )}
       </section>
@@ -474,6 +509,53 @@ export default function CompliancePage() {
         />
       </Modal>
     </div>
+  );
+}
+
+/** Overall compliance score badge: green/amber/red circular pill driven by real completion data. */
+function ScoreBadge({ score }: { score: number }) {
+  const color = score >= 80 ? GREEN : score >= 50 ? AMBER : RED;
+  const bg = score >= 80 ? "#DCFCE7" : score >= 50 ? "#FEF3C7" : "#FEE2E2";
+  const ring = score >= 80 ? "#BBF7D0" : score >= 50 ? "#FDE68A" : "#FECACA";
+  return (
+    <div
+      style={{ backgroundColor: CARD, borderRadius: "16px", boxShadow: SHADOW }}
+      className="flex items-center gap-4 px-5 py-4"
+    >
+      <div
+        style={{ backgroundColor: bg, border: `3px solid ${ring}`, color }}
+        className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full text-xl font-black"
+      >
+        {score}%
+      </div>
+      <div>
+        <div style={{ color: TEXT_MUTED }} className="text-xs font-bold uppercase tracking-wide">
+          Compliance Score
+        </div>
+        <div style={{ color }} className="text-sm font-semibold">
+          {score >= 80 ? "On Track" : score >= 50 ? "Needs Attention" : "At Risk"}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ChecklistStatusIcon({ complete, status }: { complete: boolean; status: StatusColor }) {
+  if (complete) {
+    return <CheckCircle2 className="h-5 w-5 shrink-0" style={{ color: GREEN }} aria-hidden />;
+  }
+  if (status === "red") {
+    return <XCircle className="h-5 w-5 shrink-0" style={{ color: RED }} aria-hidden />;
+  }
+  return (
+    <span
+      style={{
+        backgroundColor: STATUS_BG[status],
+        border: `2px solid ${STATUS_BORDER[status]}`,
+      }}
+      className="h-5 w-5 shrink-0 rounded-full"
+      aria-hidden
+    />
   );
 }
 
@@ -532,7 +614,8 @@ function RequirementForm({
       {error && (
         <div
           role="alert"
-          className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+          style={{ border: "1px solid #FECACA", backgroundColor: "#FEF2F2", color: RED }}
+          className="rounded-lg px-3 py-2 text-sm"
         >
           {error}
         </div>
@@ -571,7 +654,7 @@ function RequirementForm({
         rows={3}
       />
 
-      <div className="flex justify-end gap-2 border-t border-navy-200 pt-4">
+      <div style={{ borderTop: "1px solid #E2E8F0" }} className="flex justify-end gap-2 pt-4">
         <Button type="button" variant="secondary" onClick={onCancel} disabled={saving}>
           Cancel
         </Button>
@@ -638,7 +721,8 @@ function EventForm({
       {error && (
         <div
           role="alert"
-          className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+          style={{ border: "1px solid #FECACA", backgroundColor: "#FEF2F2", color: RED }}
+          className="rounded-lg px-3 py-2 text-sm"
         >
           {error}
         </div>
@@ -676,7 +760,7 @@ function EventForm({
         onChange={(e) => setRecurrence(e.target.value)}
       />
 
-      <div className="flex justify-end gap-2 border-t border-navy-200 pt-4">
+      <div style={{ borderTop: "1px solid #E2E8F0" }} className="flex justify-end gap-2 pt-4">
         <Button type="button" variant="secondary" onClick={onCancel} disabled={saving}>
           Cancel
         </Button>

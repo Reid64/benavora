@@ -3,11 +3,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { DollarSign } from "lucide-react";
 
-import { Badge, Card, EmptyState, LoadingSpinner } from "@/components/ui";
-import type { BadgeColor } from "@/components/ui";
+import { EmptyState, LoadingSpinner } from "@/components/ui";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { createClient } from "@/lib/supabase/client";
-import { cn } from "@/lib/utils/cn";
 import { formatCurrency, formatDate, humanizeEnum } from "@/lib/utils/formatters";
 import type { Enums, Tables } from "@/types/database";
 
@@ -60,6 +58,18 @@ interface ReconciliationRow {
   variance: number;
   hasBudget: boolean;
 }
+
+const CANVAS = "#D6E4F0";
+const CARD = "#FFFFFF";
+const TEXT_PRIMARY = "#0F172A";
+const TEXT_SECONDARY = "#64748B";
+const TEXT_MUTED = "#94A3B8";
+const NAVY = "#1A2B3C";
+const ACCENT = "#0077B6";
+const GREEN = "#15803D";
+const AMBER = "#B45309";
+const RED = "#B91C1C";
+const SHADOW = "0 4px 20px rgba(0,0,0,0.08)";
 
 export default function FinancialsPage() {
   const [outcomes, setOutcomes] = useState<Outcome[]>([]);
@@ -257,7 +267,7 @@ export default function FinancialsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#EEF2F7] p-6">
+      <div style={{ backgroundColor: CANVAS, minHeight: "100vh" }} className="p-6">
         <LoadingSpinner center label="Loading financials..." />
       </div>
     );
@@ -265,10 +275,11 @@ export default function FinancialsPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen space-y-6 bg-[#EEF2F7] p-6">
+      <div style={{ backgroundColor: CANVAS, minHeight: "100vh" }} className="space-y-6 p-6">
         <div
           role="alert"
-          className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+          style={{ border: "1px solid #FECACA", backgroundColor: "#FEF2F2", color: RED }}
+          className="rounded-lg px-4 py-3 text-sm"
         >
           {error}
         </div>
@@ -281,89 +292,100 @@ export default function FinancialsPage() {
     1,
     ...categoryBreakdown.map((row) => row.totalAwarded),
   );
+  const totalReceivable = receivables.reduce((s, r) => s + (r.awardedAmount ?? 0), 0);
 
   return (
-    <div className="min-h-screen space-y-6 bg-[#EEF2F7] p-6">
+    <div style={{ backgroundColor: CANVAS, minHeight: "100vh" }} className="space-y-6 p-6">
       <PageHeader
         title="Financials"
         description="Funding overview: requested vs awarded, outstanding receivables, and renewal risks."
       />
 
       {isEmpty ? (
-        <EmptyState
-          icon={DollarSign}
-          title="No financial data yet"
-          description="Record outcomes for submitted applications to see funding summaries, receivables, and renewal risk."
-        />
+        <div style={{ backgroundColor: CARD, borderRadius: "16px", boxShadow: SHADOW }} className="p-10">
+          <EmptyState
+            icon={DollarSign}
+            title="No financial data yet"
+            description="Record outcomes for submitted applications to see funding summaries, receivables, and renewal risk."
+          />
+        </div>
       ) : (
         <>
+          {/* Summary cards row */}
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <StatCard label="Total Requested" value={formatCurrency(summaryStats.totalRequested)} />
-            <StatCard
-              label="Total Awarded"
-              value={formatCurrency(summaryStats.totalAwarded)}
-              colorClass="border-teal-200 bg-teal-50"
-            />
-            <StatCard label="Award Rate" value={`${summaryStats.awardRate}%`} />
+            <StatCard label="Total Requested" value={formatCurrency(summaryStats.totalRequested)} band={ACCENT} />
+            <StatCard label="Total Awarded" value={formatCurrency(summaryStats.totalAwarded)} band={GREEN} />
+            <StatCard label="Award Rate" value={`${summaryStats.awardRate}%`} band="#6B48CC" />
             <StatCard
               label="Renewal at Risk"
               value={formatCurrency(summaryStats.renewalAtRisk)}
-              colorClass={
-                summaryStats.renewalAtRisk > 0 ? "border-amber-200 bg-amber-50" : undefined
-              }
+              band={summaryStats.renewalAtRisk > 0 ? AMBER : "#94A3B8"}
             />
           </div>
 
           {/* Section 1: Requested vs Awarded by Category */}
-          <Card
-            title="Requested vs Awarded by Category"
-            description="Funding performance across grant types based on recorded outcomes."
-            noPadding
-          >
+          <div style={{ backgroundColor: CARD, borderRadius: "16px", boxShadow: SHADOW }} className="overflow-hidden">
+            <div style={{ borderBottom: "1px solid #EEF2F7" }} className="px-6 py-5">
+              <h3 style={{ color: TEXT_PRIMARY }} className="text-base font-semibold">
+                Requested vs Awarded by Category
+              </h3>
+              <p style={{ color: TEXT_MUTED }} className="mt-0.5 text-xs">
+                Funding performance across grant types based on recorded outcomes.
+              </p>
+            </div>
             {categoryBreakdown.length === 0 ? (
-              <p className="px-5 py-6 text-sm text-slate-500">No outcome data to display.</p>
+              <p style={{ color: TEXT_SECONDARY }} className="px-6 py-6 text-sm">
+                No outcome data to display.
+              </p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="bg-sidebar text-left text-xs font-medium text-white">
-                      <th className="px-5 py-3">Category</th>
-                      <th className="px-5 py-3 text-right">Requested</th>
-                      <th className="px-5 py-3 text-right">Awarded</th>
-                      <th className="px-5 py-3">Budget Utilization</th>
-                      <th className="px-5 py-3 text-right">Win Rate</th>
+                    <tr style={{ backgroundColor: NAVY }} className="text-left text-xs font-medium text-white">
+                      <th className="px-6 py-3">Category</th>
+                      <th className="px-6 py-3 text-right">Requested</th>
+                      <th className="px-6 py-3 text-right">Awarded</th>
+                      <th className="px-6 py-3">Budget Utilization</th>
+                      <th className="px-6 py-3 text-right">Win Rate</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {categoryBreakdown.map((row) => {
+                  <tbody>
+                    {categoryBreakdown.map((row, i) => {
                       const winRate =
                         row.totalCount > 0
                           ? Math.round((row.awardCount / row.totalCount) * 100)
                           : 0;
-                      const winColor: BadgeColor =
-                        winRate >= 50 ? "green" : winRate >= 25 ? "yellow" : "red";
+                      const winColor =
+                        winRate >= 50 ? GREEN : winRate >= 25 ? AMBER : RED;
+                      const winBg =
+                        winRate >= 50 ? "#DCFCE7" : winRate >= 25 ? "#FEF3C7" : "#FEE2E2";
                       const utilizationPct = Math.round(
                         (row.totalAwarded / maxCategoryAwarded) * 100,
                       );
                       return (
                         <tr
                           key={row.category ?? "__none__"}
-                          className="even:bg-[#F8FAFC] hover:bg-slate-50"
+                          style={{ backgroundColor: i % 2 === 1 ? "#F8FAFC" : CARD, borderBottom: "1px solid #F1F5F9" }}
                         >
-                          <td className="px-5 py-3 font-medium text-slate-900">
+                          <td style={{ color: TEXT_PRIMARY }} className="px-6 py-3 font-medium">
                             {row.category ? humanizeEnum(row.category) : "Uncategorized"}
                           </td>
-                          <td className="px-5 py-3 text-right text-slate-700">
+                          <td style={{ color: TEXT_SECONDARY }} className="px-6 py-3 text-right">
                             {formatCurrency(row.totalRequested)}
                           </td>
-                          <td className="px-5 py-3 text-right font-semibold text-[#15803D]">
+                          <td style={{ color: GREEN }} className="px-6 py-3 text-right font-semibold">
                             {formatCurrency(row.totalAwarded)}
                           </td>
-                          <td className="px-5 py-3">
+                          <td className="px-6 py-3">
                             <BudgetBar percent={utilizationPct} />
                           </td>
-                          <td className="px-5 py-3 text-right">
-                            <Badge color={winColor}>{winRate}%</Badge>
+                          <td className="px-6 py-3 text-right">
+                            <span
+                              style={{ backgroundColor: winBg, color: winColor }}
+                              className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold"
+                            >
+                              {winRate}%
+                            </span>
                           </td>
                         </tr>
                       );
@@ -372,104 +394,116 @@ export default function FinancialsPage() {
                 </table>
               </div>
             )}
-          </Card>
+          </div>
 
-          {/* Section 2: Outstanding Receivables */}
-          <Card
-            title="Outstanding Receivables"
-            description={
-              receivables.length > 0
-                ? `${receivables.length} awarded grant${receivables.length !== 1 ? "s" : ""} · ${formatCurrency(
-                    receivables.reduce((s, r) => s + (r.awardedAmount ?? 0), 0),
-                  )} total`
-                : "Confirmed awards awaiting receipt."
-            }
-            noPadding
-          >
+          {/* Section 2: Outstanding Receivables — awards timeline */}
+          <div style={{ backgroundColor: CARD, borderRadius: "16px", boxShadow: SHADOW }} className="overflow-hidden">
+            <div style={{ borderBottom: "1px solid #EEF2F7" }} className="px-6 py-5">
+              <h3 style={{ color: TEXT_PRIMARY }} className="text-base font-semibold">
+                Outstanding Receivables
+              </h3>
+              <p style={{ color: TEXT_MUTED }} className="mt-0.5 text-xs">
+                {receivables.length > 0
+                  ? `${receivables.length} awarded grant${receivables.length !== 1 ? "s" : ""} · ${formatCurrency(totalReceivable)} total`
+                  : "Confirmed awards awaiting receipt."}
+              </p>
+            </div>
             {receivables.length === 0 ? (
-              <p className="px-5 py-6 text-sm text-slate-500">No awarded grants on record.</p>
+              <p style={{ color: TEXT_SECONDARY }} className="px-6 py-6 text-sm">
+                No awarded grants on record.
+              </p>
             ) : (
-              <ul className="divide-y divide-slate-100">
-                {receivables.map((r, i) => (
-                  <li
-                    key={r.outcomeId}
-                    className={cn(
-                      "flex items-center justify-between gap-4 px-5 py-3",
-                      i % 2 === 1 && "bg-[#F8FAFC]",
-                    )}
-                  >
-                    <div className="min-w-0">
-                      <div className="truncate text-sm font-medium text-slate-900">
-                        {r.oppName}
-                      </div>
-                      <div className="text-xs text-slate-500">
-                        Awarded {formatDate(r.recordedAt)}
+              <div className="px-6 py-5">
+                <div className="relative">
+                  <div
+                    style={{ backgroundColor: "#E2E8F0", left: "5px" }}
+                    className="absolute top-1 bottom-1 w-0.5"
+                    aria-hidden
+                  />
+                  {receivables.map((r) => (
+                    <div key={r.outcomeId} className="relative mb-5 flex items-start gap-4 pl-0 last:mb-0">
+                      <span
+                        style={{ backgroundColor: GREEN, boxShadow: "0 0 0 3px #FFFFFF" }}
+                        className="relative z-10 mt-1 h-2.5 w-2.5 shrink-0 rounded-full"
+                        aria-hidden
+                      />
+                      <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-3 pl-2">
+                        <div className="min-w-0">
+                          <div style={{ color: TEXT_PRIMARY }} className="truncate text-sm font-medium">
+                            {r.oppName}
+                          </div>
+                          <div style={{ color: TEXT_MUTED }} className="text-xs">
+                            Awarded {formatDate(r.recordedAt)}
+                          </div>
+                        </div>
+                        <div style={{ color: GREEN }} className="font-semibold">
+                          {formatCurrency(r.awardedAmount)}
+                        </div>
                       </div>
                     </div>
-                    <div className="font-semibold text-[#15803D]">
-                      {formatCurrency(r.awardedAmount)}
-                    </div>
-                  </li>
-                ))}
-              </ul>
+                  ))}
+                </div>
+              </div>
             )}
-          </Card>
+          </div>
 
           {/* Section 3: Active Grant Budget vs Actual */}
-          <Card
-            title="Active Grant Budget vs Actual"
-            description="Applications in the awarded or reporting stage showing requested vs actual amounts."
-            noPadding
-          >
+          <div style={{ backgroundColor: CARD, borderRadius: "16px", boxShadow: SHADOW }} className="overflow-hidden">
+            <div style={{ borderBottom: "1px solid #EEF2F7" }} className="px-6 py-5">
+              <h3 style={{ color: TEXT_PRIMARY }} className="text-base font-semibold">
+                Active Grant Budget vs Actual
+              </h3>
+              <p style={{ color: TEXT_MUTED }} className="mt-0.5 text-xs">
+                Applications in the awarded or reporting stage showing requested vs actual amounts.
+              </p>
+            </div>
             {activeGrants.length === 0 ? (
-              <p className="px-5 py-6 text-sm text-slate-500">
+              <p style={{ color: TEXT_SECONDARY }} className="px-6 py-6 text-sm">
                 No active grants in awarded or reporting stage.
               </p>
             ) : (
-              <ul className="divide-y divide-slate-100">
+              <ul>
                 {activeGrants.map((g, i) => {
                   const bothKnown = g.awarded !== null && g.requested !== null;
                   const diff = bothKnown ? (g.awarded ?? 0) - (g.requested ?? 0) : null;
+                  const reporting = g.stage === "reporting_required";
                   return (
                     <li
                       key={g.appId}
-                      className={cn(
-                        "flex flex-wrap items-center justify-between gap-3 px-5 py-3",
-                        i % 2 === 1 && "bg-[#F8FAFC]",
-                      )}
+                      style={{ backgroundColor: i % 2 === 1 ? "#F8FAFC" : CARD, borderBottom: "1px solid #F1F5F9" }}
+                      className="flex flex-wrap items-center justify-between gap-3 px-6 py-4 last:border-0"
                     >
                       <div className="min-w-0">
-                        <div className="truncate text-sm font-medium text-slate-900">
+                        <div style={{ color: TEXT_PRIMARY }} className="truncate text-sm font-medium">
                           {g.oppName}
                         </div>
                         <div className="mt-1">
-                          <Badge
-                            color={g.stage === "reporting_required" ? "yellow" : "teal"}
+                          <span
+                            style={{
+                              backgroundColor: reporting ? "#FEF3C7" : "#CCFBF1",
+                              color: reporting ? AMBER : "#0F766E",
+                            }}
+                            className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold"
                           >
                             {humanizeEnum(g.stage)}
-                          </Badge>
+                          </span>
                         </div>
                       </div>
                       <div className="flex items-center gap-6 text-sm">
                         <div className="text-right">
-                          <div className="text-xs text-slate-500">Requested</div>
-                          <div className="font-medium text-slate-700">
+                          <div style={{ color: TEXT_MUTED }} className="text-xs">Requested</div>
+                          <div style={{ color: TEXT_SECONDARY }} className="font-medium">
                             {formatCurrency(g.requested)}
                           </div>
                         </div>
                         <div className="text-right">
-                          <div className="text-xs text-slate-500">Awarded</div>
-                          <div className="font-medium text-slate-900">
+                          <div style={{ color: TEXT_MUTED }} className="text-xs">Awarded</div>
+                          <div style={{ color: TEXT_PRIMARY }} className="font-medium">
                             {formatCurrency(g.awarded)}
                           </div>
                         </div>
                         {diff !== null && (
-                          <div
-                            className={cn(
-                              "font-semibold",
-                              diff >= 0 ? "text-[#15803D]" : "text-[#B91C1C]",
-                            )}
-                          >
+                          <div style={{ color: diff >= 0 ? GREEN : RED }} className="font-semibold">
                             {diff >= 0 ? "+" : ""}
                             {formatCurrency(diff)}
                           </div>
@@ -480,22 +514,30 @@ export default function FinancialsPage() {
                 })}
               </ul>
             )}
-          </Card>
+          </div>
 
-          {/* Section 3b: Grant Budget Reconciliation */}
-          <Card
-            title="Grant Budget Reconciliation"
-            description="Awarded grants: budgeted vs. actual spend, with variance."
-            noPadding
-          >
+          {/* Section 3b: Grant Budget Reconciliation — budget breakdown */}
+          <div style={{ backgroundColor: CARD, borderRadius: "16px", boxShadow: SHADOW }} className="overflow-hidden">
+            <div style={{ borderBottom: "1px solid #EEF2F7" }} className="px-6 py-5">
+              <h3 style={{ color: TEXT_PRIMARY }} className="text-base font-semibold">
+                Grant Budget Reconciliation
+              </h3>
+              <p style={{ color: TEXT_MUTED }} className="mt-0.5 text-xs">
+                Awarded grants: budgeted vs. actual spend, with variance.
+              </p>
+            </div>
             {reconciliationRows.length === 0 ? (
-              <p className="px-5 py-6 text-sm text-slate-500">
+              <p style={{ color: TEXT_SECONDARY }} className="px-6 py-6 text-sm">
                 No awarded grants to reconcile yet.
               </p>
             ) : (
-              <ul className="divide-y divide-slate-100">
+              <ul>
                 {reconciliationRows.map((r, i) => {
                   const overBudget = r.variance < 0;
+                  const spentPct =
+                    r.totalBudgeted > 0
+                      ? Math.min(100, Math.round((r.totalSpent / r.totalBudgeted) * 100))
+                      : 0;
                   const variancePercent =
                     r.totalBudgeted > 0
                       ? Math.round((r.variance / r.totalBudgeted) * 100)
@@ -503,82 +545,103 @@ export default function FinancialsPage() {
                   return (
                     <li
                       key={r.appId}
-                      className={cn(
-                        "flex flex-wrap items-center justify-between gap-3 px-5 py-3",
-                        i % 2 === 1 && "bg-[#F8FAFC]",
-                      )}
+                      style={{ backgroundColor: i % 2 === 1 ? "#F8FAFC" : CARD, borderBottom: "1px solid #F1F5F9" }}
+                      className="px-6 py-4 last:border-0"
                     >
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-medium text-slate-900">
-                          {r.oppName}
+                      <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <div style={{ color: TEXT_PRIMARY }} className="truncate text-sm font-medium">
+                            {r.oppName}
+                          </div>
+                          <div style={{ color: TEXT_MUTED }} className="text-xs">
+                            Awarded {formatCurrency(r.awarded)}
+                            {!r.hasBudget && " · no budget entered"}
+                          </div>
                         </div>
-                        <div className="text-xs text-slate-500">
-                          Awarded {formatCurrency(r.awarded)}
-                          {!r.hasBudget && " · no budget entered"}
+                        <div className="flex items-center gap-6 text-sm">
+                          <div className="text-right">
+                            <div style={{ color: TEXT_MUTED }} className="text-xs">Budgeted</div>
+                            <div style={{ color: TEXT_SECONDARY }} className="font-medium">
+                              {formatCurrency(r.totalBudgeted)}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div style={{ color: TEXT_MUTED }} className="text-xs">Spent</div>
+                            <div style={{ color: TEXT_PRIMARY }} className="font-medium">
+                              {formatCurrency(r.totalSpent)}
+                            </div>
+                          </div>
+                          <span
+                            style={{
+                              backgroundColor: overBudget ? "#FEE2E2" : "#DCFCE7",
+                              color: overBudget ? RED : GREEN,
+                            }}
+                            className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold"
+                          >
+                            {overBudget ? "Over budget" : "Under budget"}
+                            {r.totalBudgeted > 0 && ` (${variancePercent >= 0 ? "+" : ""}${variancePercent}%)`}
+                          </span>
                         </div>
                       </div>
-                      <div className="flex items-center gap-6 text-sm">
-                        <div className="text-right">
-                          <div className="text-xs text-slate-500">Budgeted</div>
-                          <div className="font-medium text-slate-700">
-                            {formatCurrency(r.totalBudgeted)}
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-xs text-slate-500">Spent</div>
-                          <div className="font-medium text-slate-900">
-                            {formatCurrency(r.totalSpent)}
-                          </div>
-                        </div>
-                        <Badge color={overBudget ? "red" : "green"}>
-                          {overBudget ? "Over budget" : "Under budget"}
-                          {r.totalBudgeted > 0 && ` (${variancePercent >= 0 ? "+" : ""}${variancePercent}%)`}
-                        </Badge>
+                      <div style={{ backgroundColor: "#F1F5F9" }} className="h-2.5 w-full overflow-hidden rounded-full">
+                        <div
+                          style={{
+                            width: `${spentPct}%`,
+                            backgroundColor: overBudget ? "#EF4444" : ACCENT,
+                          }}
+                          className="h-full rounded-full transition-all"
+                        />
                       </div>
                     </li>
                   );
                 })}
               </ul>
             )}
-          </Card>
+          </div>
 
           {/* Section 4: Renewal Revenue at Risk */}
-          <Card
-            title="Renewal Revenue at Risk"
-            description={
-              renewalRisks.length > 0
-                ? `${renewalRisks.length} grant${renewalRisks.length !== 1 ? "s" : ""} pending renewal · ${formatCurrency(
-                    renewalRisks.reduce((s, r) => s + (r.originalAwarded ?? 0), 0),
-                  )} at risk`
-                : "Grants in the renewal opportunity stage."
-            }
-            noPadding
-          >
+          <div style={{ backgroundColor: CARD, borderRadius: "16px", boxShadow: SHADOW }} className="overflow-hidden">
+            <div style={{ borderBottom: "1px solid #EEF2F7" }} className="px-6 py-5">
+              <h3 style={{ color: TEXT_PRIMARY }} className="text-base font-semibold">
+                Renewal Revenue at Risk
+              </h3>
+              <p style={{ color: TEXT_MUTED }} className="mt-0.5 text-xs">
+                {renewalRisks.length > 0
+                  ? `${renewalRisks.length} grant${renewalRisks.length !== 1 ? "s" : ""} pending renewal · ${formatCurrency(
+                      renewalRisks.reduce((s, r) => s + (r.originalAwarded ?? 0), 0),
+                    )} at risk`
+                  : "Grants in the renewal opportunity stage."}
+              </p>
+            </div>
             {renewalRisks.length === 0 ? (
-              <p className="px-5 py-6 text-sm text-slate-500">No grants in renewal stage.</p>
+              <p style={{ color: TEXT_SECONDARY }} className="px-6 py-6 text-sm">
+                No grants in renewal stage.
+              </p>
             ) : (
-              <ul className="divide-y divide-slate-100">
+              <ul>
                 {renewalRisks.map((r, i) => (
                   <li
                     key={r.appId}
-                    className={cn(
-                      "flex items-center justify-between gap-4 px-5 py-3",
-                      i % 2 === 1 && "bg-[#F8FAFC]",
-                    )}
+                    style={{
+                      backgroundColor: "#FFFBEB",
+                      borderLeft: "4px solid #F59E0B",
+                      borderBottom: i === renewalRisks.length - 1 ? "none" : "1px solid #FDE68A",
+                    }}
+                    className="flex items-center justify-between gap-4 px-6 py-4"
                   >
                     <div className="min-w-0">
-                      <div className="truncate text-sm font-medium text-slate-900">
+                      <div style={{ color: TEXT_PRIMARY }} className="truncate text-sm font-medium">
                         {r.oppName}
                       </div>
                       {r.renewalDeadline && (
-                        <div className="text-xs text-slate-500">
+                        <div style={{ color: TEXT_SECONDARY }} className="text-xs">
                           Deadline: {formatDate(r.renewalDeadline)}
                         </div>
                       )}
                     </div>
                     <div className="text-right">
-                      <div className="mb-0.5 text-xs text-slate-500">Previously Awarded</div>
-                      <div className="font-semibold text-amber-700">
+                      <div style={{ color: TEXT_MUTED }} className="mb-0.5 text-xs">Previously Awarded</div>
+                      <div style={{ color: AMBER }} className="font-semibold">
                         {formatCurrency(r.originalAwarded)}
                       </div>
                     </div>
@@ -586,7 +649,7 @@ export default function FinancialsPage() {
                 ))}
               </ul>
             )}
-          </Card>
+          </div>
         </>
       )}
     </div>
@@ -596,39 +659,41 @@ export default function FinancialsPage() {
 function StatCard({
   label,
   value,
-  colorClass,
+  band,
 }: {
   label: string;
   value: string;
-  colorClass?: string;
+  band: string;
 }) {
   return (
     <div
-      className={cn(
-        "bg-white rounded-xl shadow-sm border border-border p-5",
-        colorClass,
-      )}
+      style={{ backgroundColor: CARD, borderRadius: "16px", boxShadow: SHADOW, overflow: "hidden" }}
     >
-      <div className="text-sm font-medium text-slate-400 uppercase tracking-wide">
-        {label}
+      <div style={{ backgroundColor: band, height: "6px" }} />
+      <div className="p-5">
+        <div style={{ color: TEXT_MUTED }} className="text-xs font-bold uppercase tracking-wide">
+          {label}
+        </div>
+        <div style={{ color: TEXT_PRIMARY }} className="mt-2 text-4xl font-black">
+          {value}
+        </div>
       </div>
-      <div className="mt-2 text-4xl font-black text-slate-900">{value}</div>
     </div>
   );
 }
 
-/** Horizontal budget bar: teal fill on a slate track (Elevated Slate design system). */
+/** Horizontal budget bar: ocean-blue fill on a light track. */
 function BudgetBar({ percent }: { percent: number }) {
   const clamped = Math.max(0, Math.min(100, percent));
   return (
     <div className="flex items-center gap-2">
-      <div className="h-2 w-24 overflow-hidden rounded-full bg-slate-200">
+      <div style={{ backgroundColor: "#E2E8F0" }} className="h-2 w-24 overflow-hidden rounded-full">
         <div
-          className="h-full rounded-full bg-[#0077B6]"
-          style={{ width: `${clamped}%` }}
+          style={{ width: `${clamped}%`, backgroundColor: ACCENT }}
+          className="h-full rounded-full"
         />
       </div>
-      <span className="text-xs font-medium text-slate-500">{clamped}%</span>
+      <span style={{ color: TEXT_MUTED }} className="text-xs font-medium">{clamped}%</span>
     </div>
   );
 }

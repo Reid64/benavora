@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { CSSProperties } from "react";
 import Link from "next/link";
 import {
   AlarmClock,
@@ -17,12 +16,11 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { Badge, Button, LoadingSpinner } from "@/components/ui";
+import { Button, LoadingSpinner } from "@/components/ui";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { useAlerts, type Alert } from "@/lib/hooks/useAlerts";
 import { type AlertSeverity, type AlertType } from "@/lib/alerts/alerts-service";
 import { createClient } from "@/lib/supabase/client";
-import { cn } from "@/lib/utils/cn";
 import { formatRelative } from "@/lib/utils/formatters";
 
 type FilterType = "all" | "unread" | "urgent" | "snoozed";
@@ -33,7 +31,16 @@ interface DisplayCategory {
   Icon: LucideIcon;
   description: string;
   types: AlertType[];
+  dot: string;
 }
+
+const CANVAS = "#D6E4F0";
+const CARD = "#FFFFFF";
+const TEXT_PRIMARY = "#0F172A";
+const TEXT_SECONDARY = "#64748B";
+const TEXT_MUTED = "#94A3B8";
+const ACCENT = "#0077B6";
+const SHADOW = "0 4px 20px rgba(0,0,0,0.08)";
 
 const DISPLAY_CATEGORIES: DisplayCategory[] = [
   {
@@ -43,6 +50,7 @@ const DISPLAY_CATEGORIES: DisplayCategory[] = [
     description:
       "Application deadlines, follow-up dates, and reporting deadlines approaching or overdue.",
     types: ["deadline_due"],
+    dot: "#0077B6",
   },
   {
     key: "opportunity",
@@ -51,6 +59,7 @@ const DISPLAY_CATEGORIES: DisplayCategory[] = [
     description:
       "Recently discovered opportunities matching your search profile and eligibility criteria.",
     types: ["new_opportunity"],
+    dot: "#6B48CC",
   },
   {
     key: "submission",
@@ -59,6 +68,7 @@ const DISPLAY_CATEGORIES: DisplayCategory[] = [
     description:
       "AutoApply submission confirmations, failures, and items needing attention.",
     types: ["application_action", "draft_review"],
+    dot: "#0F766E",
   },
   {
     key: "email",
@@ -67,6 +77,7 @@ const DISPLAY_CATEGORIES: DisplayCategory[] = [
     description:
       "Funder replies detected in synced email threads requiring follow-up.",
     types: [],
+    dot: "#B45309",
   },
   {
     key: "document",
@@ -75,6 +86,7 @@ const DISPLAY_CATEGORIES: DisplayCategory[] = [
     description:
       "Documents expiring soon or missing from pending applications.",
     types: [],
+    dot: "#B91C1C",
   },
   {
     key: "system",
@@ -83,6 +95,7 @@ const DISPLAY_CATEGORIES: DisplayCategory[] = [
     description:
       "Agent run results, usage limit warnings, and platform updates.",
     types: ["system"],
+    dot: "#475569",
   },
 ];
 
@@ -93,16 +106,10 @@ const FILTERS: { key: FilterType; label: string }[] = [
   { key: "snoozed", label: "Snoozed" },
 ];
 
-const SEVERITY: Record<AlertSeverity, { accent: string }> = {
-  critical: { accent: "border-l-4 border-[#EF4444] border-accent-red" },
-  warning: { accent: "border-l-4 border-[#F59E0B] border-accent-amber" },
-  info: { accent: "border-l-4 border-[#0077B6] border-accent-blue" },
-};
-
-const SEVERITY_STYLE: Record<AlertSeverity, CSSProperties> = {
-  critical: { borderLeft: "4px solid #EF4444" },
-  warning: { borderLeft: "4px solid #F59E0B" },
-  info: { borderLeft: "4px solid #0077B6" },
+const SEVERITY_BORDER: Record<AlertSeverity, string> = {
+  critical: "#EF4444",
+  warning: "#F59E0B",
+  info: "#0077B6",
 };
 
 const SNOOZE_OPTIONS: { label: string; ms: number }[] = [
@@ -201,53 +208,65 @@ export default function AlertsPage() {
   }
 
   return (
-    <div className="min-h-screen space-y-6 bg-[#CBD5E1] p-6 page-bg">
+    <div style={{ backgroundColor: CANVAS, minHeight: "100vh" }} className="space-y-6 p-6">
       <PageHeader
         title="Alerts"
-        description="Your daily action list â€” deadlines, new opportunities, applications needing action, and drafts pending review."
+        description="Your daily action list — deadlines, new opportunities, applications needing action, and drafts pending review."
         actions={
           <div className="flex items-center gap-3">
             {unreadCount > 0 && (
-              <Badge variant="error">
-                <Bell className="h-4 w-4" aria-hidden />
+              <span
+                style={{ backgroundColor: "#FEE2E2", color: "#B91C1C" }}
+                className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold"
+              >
+                <Bell className="h-3.5 w-3.5" aria-hidden />
                 {unreadCount} unread
-              </Badge>
+              </span>
             )}
-            <Button
-              variant="ghost"
-              size="sm"
+            <button
+              type="button"
               onClick={markAllRead}
               disabled={unreadCount === 0}
+              style={{
+                backgroundColor: unreadCount === 0 ? "#F1F5F9" : ACCENT,
+                color: unreadCount === 0 ? "#94A3B8" : "#FFFFFF",
+                cursor: unreadCount === 0 ? "not-allowed" : "pointer",
+              }}
+              className="rounded-lg px-4 py-2 text-sm font-semibold transition"
             >
               Mark all read
-            </Button>
+            </button>
           </div>
         }
       />
 
       {/* Filter pills */}
       <div className="flex flex-wrap gap-2">
-        {FILTERS.map((f) => (
-          <button
-            key={f.key}
-            type="button"
-            onClick={() => setFilter(f.key)}
-            className={cn(
-              "rounded-full px-3 py-1 text-sm font-medium transition",
-              filter === f.key
-                ? "bg-[#0077B6] text-white"
-                : "border border-slate-200 bg-white text-slate-600 hover:border-[#0077B6] hover:text-[#0077B6]",
-            )}
-          >
-            {f.label}
-          </button>
-        ))}
+        {FILTERS.map((f) => {
+          const isActive = filter === f.key;
+          return (
+            <button
+              key={f.key}
+              type="button"
+              onClick={() => setFilter(f.key)}
+              style={{
+                backgroundColor: isActive ? ACCENT : CARD,
+                color: isActive ? "#FFFFFF" : TEXT_SECONDARY,
+                border: isActive ? "none" : "1px solid #E2E8F0",
+              }}
+              className="rounded-full px-3 py-1 text-sm font-medium transition"
+            >
+              {f.label}
+            </button>
+          );
+        })}
       </div>
 
       {(error || actionError) && (
         <div
           role="alert"
-          className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+          style={{ border: "1px solid #FECACA", backgroundColor: "#FEF2F2", color: "#B91C1C" }}
+          className="rounded-lg px-4 py-3 text-sm"
         >
           {actionError ?? error}
         </div>
@@ -269,23 +288,28 @@ export default function AlertsPage() {
                 <button
                   type="button"
                   onClick={() => toggleCollapsed(cat.key)}
-                  className="flex w-full items-center gap-2 rounded-lg px-1 py-2 text-left transition hover:bg-slate-100"
+                  className="flex w-full items-center gap-2 rounded-lg px-1 py-2 text-left transition hover:bg-white/40"
                 >
-                  <Icon
-                    className="h-4 w-4 shrink-0 text-slate-400"
+                  <span
+                    style={{ backgroundColor: cat.dot }}
+                    className="h-2 w-2 shrink-0 rounded-full"
                     aria-hidden
                   />
-                  <span className="flex-1 text-sm font-semibold text-slate-700">
+                  <Icon className="h-4 w-4 shrink-0" style={{ color: TEXT_MUTED }} aria-hidden />
+                  <span style={{ color: TEXT_PRIMARY }} className="flex-1 text-sm font-semibold">
                     {cat.label}
                   </span>
                   {catItems.length > 0 && (
-                    <Badge variant="neutral">{catItems.length}</Badge>
+                    <span
+                      style={{ backgroundColor: "#F1F5F9", color: "#475569" }}
+                      className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold"
+                    >
+                      {catItems.length}
+                    </span>
                   )}
                   <ChevronDown
-                    className={cn(
-                      "h-4 w-4 text-slate-400 transition-transform duration-150",
-                      isCollapsed && "-rotate-90",
-                    )}
+                    style={{ color: TEXT_MUTED }}
+                    className={`h-4 w-4 transition-transform duration-150 ${isCollapsed ? "-rotate-90" : ""}`}
                     aria-hidden
                   />
                 </button>
@@ -293,11 +317,14 @@ export default function AlertsPage() {
                 {!isCollapsed && (
                   <div className="mt-1">
                     {catItems.length === 0 ? (
-                      <div className="rounded-xl border border-border bg-white shadow-sm px-5 py-6 text-center">
-                        <p className="text-sm text-slate-500">
+                      <div
+                        style={{ backgroundColor: CARD, borderRadius: "16px", boxShadow: SHADOW }}
+                        className="px-5 py-6 text-center"
+                      >
+                        <p style={{ color: TEXT_SECONDARY }} className="text-sm">
                           {cat.description}
                         </p>
-                        <p className="mt-2 text-xs text-slate-400">
+                        <p style={{ color: TEXT_MUTED }} className="mt-2 text-xs">
                           No alerts in this category.
                         </p>
                       </div>
@@ -307,6 +334,7 @@ export default function AlertsPage() {
                           <AlertRow
                             key={alert.id}
                             alert={alert}
+                            dotColor={cat.dot}
                             busy={busyId === alert.id}
                             onDismiss={() => dismiss(alert)}
                             onSnooze={(ms) => snooze(alert, ms)}
@@ -328,12 +356,14 @@ export default function AlertsPage() {
 
 function AlertRow({
   alert,
+  dotColor,
   busy,
   onDismiss,
   onSnooze,
   onOpen,
 }: {
   alert: Alert;
+  dotColor: string;
   busy: boolean;
   onDismiss: () => void;
   onSnooze: (ms: number) => void;
@@ -341,7 +371,6 @@ function AlertRow({
 }) {
   const [snoozeOpen, setSnoozeOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-  const styles = SEVERITY[alert.severity];
 
   useEffect(() => {
     if (!snoozeOpen) return;
@@ -355,29 +384,35 @@ function AlertRow({
   }, [snoozeOpen]);
 
   const message = (
-    <div className="min-w-0">
-      <p
-        className={cn(
-          "truncate text-sm",
-          alert.is_read ? "text-slate-600" : "font-semibold text-slate-900",
-        )}
-      >
-        {alert.message}
-      </p>
-      <p className="mt-0.5 text-xs text-slate-400">
-        {formatRelative(alert.created_at)}
-      </p>
+    <div className="flex min-w-0 items-start gap-2.5">
+      <span
+        style={{ backgroundColor: dotColor }}
+        className="mt-1.5 h-2 w-2 shrink-0 rounded-full"
+        aria-hidden
+      />
+      <div className="min-w-0">
+        <p
+          style={{ color: alert.is_read ? TEXT_SECONDARY : TEXT_PRIMARY }}
+          className={`truncate text-sm ${alert.is_read ? "" : "font-semibold"}`}
+        >
+          {alert.message}
+        </p>
+        <p style={{ color: TEXT_MUTED }} className="mt-0.5 text-xs">
+          {formatRelative(alert.created_at)}
+        </p>
+      </div>
     </div>
   );
 
   return (
     <li
-      className={cn(
-        "mb-3 flex items-start gap-4 rounded-xl border border-slate-200 p-4 transition-shadow hover:shadow-sm",
-        alert.is_read ? "bg-white" : "bg-[#EFF6FF]",
-        styles.accent,
-      )}
-      style={SEVERITY_STYLE[alert.severity]}
+      style={{
+        backgroundColor: alert.is_read ? CARD : "#EFF6FF",
+        borderLeft: `4px solid ${SEVERITY_BORDER[alert.severity]}`,
+        borderRadius: "12px",
+        boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+      }}
+      className="mb-3 flex items-start gap-4 p-4 transition-shadow hover:shadow-md"
     >
       {alert.link ? (
         <Link
@@ -388,7 +423,8 @@ function AlertRow({
           <span className="flex items-center gap-2">
             {message}
             <ChevronRight
-              className="h-4 w-4 shrink-0 text-slate-300 transition group-hover:text-slate-500"
+              style={{ color: "#CBD5E1" }}
+              className="h-4 w-4 shrink-0 transition group-hover:opacity-70"
               aria-hidden
             />
           </span>
@@ -402,7 +438,8 @@ function AlertRow({
           <button
             type="button"
             onClick={onOpen}
-            className="text-xs font-medium text-[#0077B6] hover:underline"
+            style={{ color: ACCENT }}
+            className="text-xs font-medium hover:underline"
           >
             Mark as read
           </button>
@@ -422,7 +459,8 @@ function AlertRow({
           {snoozeOpen && (
             <div
               role="menu"
-              className="absolute right-0 top-full z-10 mt-1 w-36 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
+              style={{ border: "1px solid #E2E8F0", backgroundColor: CARD, boxShadow: "0 8px 24px rgba(0,0,0,0.12)" }}
+              className="absolute right-0 top-full z-10 mt-1 w-36 overflow-hidden rounded-lg py-1"
             >
               {SNOOZE_OPTIONS.map((opt) => (
                 <button
@@ -433,7 +471,8 @@ function AlertRow({
                     setSnoozeOpen(false);
                     onSnooze(opt.ms);
                   }}
-                  className="block w-full px-3 py-1.5 text-left text-sm text-slate-700 transition hover:bg-slate-50"
+                  style={{ color: TEXT_SECONDARY }}
+                  className="block w-full px-3 py-1.5 text-left text-sm transition hover:bg-slate-50"
                 >
                   {opt.label}
                 </button>
@@ -441,16 +480,17 @@ function AlertRow({
             </div>
           )}
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
+        <button
+          type="button"
           disabled={busy}
           onClick={onDismiss}
           aria-label="Dismiss alert"
+          style={{ color: TEXT_MUTED, opacity: busy ? 0.5 : 1 }}
+          className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium transition hover:bg-red-50 hover:text-red-600"
         >
           <X className="h-4 w-4" aria-hidden />
           Dismiss
-        </Button>
+        </button>
       </div>
     </li>
   );

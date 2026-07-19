@@ -7,13 +7,13 @@ import { LayoutGrid, List } from "lucide-react";
 import { Badge, Select } from "@/components/ui";
 import { ContactCard } from "@/components/contacts/ContactCard";
 import {
+  avatarColorForName,
   contactInitials,
   RELATIONSHIP_COLOR,
   type ContactRow,
 } from "@/components/contacts/contact-shared";
 import { useUrlState } from "@/lib/hooks/useUrlState";
 import { CONTACT_RELATIONSHIPS } from "@/lib/utils/constants";
-import { cn } from "@/lib/utils/cn";
 import { formatDate, humanizeEnum } from "@/lib/utils/formatters";
 import type { Enums } from "@/types/database";
 
@@ -89,7 +89,8 @@ export function ContactTable({ contacts, isLoading = false }: ContactTableProps)
             onChange={(event) => setParams({ q: event.target.value || null })}
             placeholder="Search contacts..."
             aria-label="Search contacts"
-            className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 placeholder-slate-400 outline-none focus:border-[#0077B6] focus:ring-2 focus:ring-[#0077B6]/10"
+            style={{ border: "1px solid #E2E8F0", backgroundColor: "#FFFFFF", color: "#334155" }}
+            className="w-full rounded-lg px-4 py-2.5 text-sm outline-none"
           />
         </div>
         <div className="sm:w-56">
@@ -113,7 +114,10 @@ export function ContactTable({ contacts, isLoading = false }: ContactTableProps)
       {isLoading ? (
         <LoadingPlaceholder view={view} />
       ) : filtered.length === 0 ? (
-        <div className="rounded-xl border border-border bg-white p-10 text-center text-sm text-slate-500">
+        <div
+          style={{ backgroundColor: "#FFFFFF", borderRadius: "16px", boxShadow: "0 4px 20px rgba(0,0,0,0.08)", color: "#64748B" }}
+          className="p-10 text-center text-sm"
+        >
           No contacts match your filters.
         </div>
       ) : view === "grid" ? (
@@ -127,12 +131,16 @@ export function ContactTable({ contacts, isLoading = false }: ContactTableProps)
           ))}
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-border bg-white">
-          {filtered.map((contact) => (
+        <div
+          style={{ backgroundColor: "#FFFFFF", borderRadius: "16px", boxShadow: "0 4px 20px rgba(0,0,0,0.08)" }}
+          className="overflow-hidden"
+        >
+          {filtered.map((contact, i) => (
             <ContactListRow
               key={contact.id}
               contact={contact}
               onClick={() => openContact(contact)}
+              isLast={i === filtered.length - 1}
             />
           ))}
         </div>
@@ -149,17 +157,19 @@ function ViewToggle({
   onChange: (view: ViewMode) => void;
 }) {
   return (
-    <div className="inline-flex shrink-0 rounded-lg border border-slate-200 bg-white p-0.5 shadow-sm">
+    <div
+      style={{ border: "1px solid #E2E8F0", backgroundColor: "#FFFFFF" }}
+      className="inline-flex shrink-0 rounded-lg p-0.5 shadow-sm"
+    >
       <button
         type="button"
         onClick={() => onChange("list")}
         aria-pressed={view === "list"}
-        className={cn(
-          "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition",
-          view === "list"
-            ? "bg-[#0077B6] text-white"
-            : "text-slate-600 hover:bg-slate-50",
-        )}
+        style={{
+          backgroundColor: view === "list" ? "#0077B6" : "transparent",
+          color: view === "list" ? "#FFFFFF" : "#475569",
+        }}
+        className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition"
       >
         <List className="h-4 w-4" aria-hidden />
         List
@@ -168,12 +178,11 @@ function ViewToggle({
         type="button"
         onClick={() => onChange("grid")}
         aria-pressed={view === "grid"}
-        className={cn(
-          "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition",
-          view === "grid"
-            ? "bg-[#0077B6] text-white"
-            : "text-slate-600 hover:bg-slate-50",
-        )}
+        style={{
+          backgroundColor: view === "grid" ? "#0077B6" : "transparent",
+          color: view === "grid" ? "#FFFFFF" : "#475569",
+        }}
+        className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition"
       >
         <LayoutGrid className="h-4 w-4" aria-hidden />
         Grid
@@ -189,7 +198,8 @@ function LoadingPlaceholder({ view }: { view: ViewMode }) {
         {Array.from({ length: 6 }).map((_, i) => (
           <div
             key={i}
-            className="h-32 animate-pulse rounded-xl border border-slate-200 bg-slate-50"
+            style={{ backgroundColor: "#F1F5F9" }}
+            className="h-32 animate-pulse rounded-xl"
           />
         ))}
       </div>
@@ -200,7 +210,8 @@ function LoadingPlaceholder({ view }: { view: ViewMode }) {
       {Array.from({ length: 5 }).map((_, i) => (
         <div
           key={i}
-          className="h-16 animate-pulse rounded-xl border border-slate-200 bg-slate-50"
+          style={{ backgroundColor: "#F1F5F9" }}
+          className="h-16 animate-pulse rounded-xl"
         />
       ))}
     </div>
@@ -210,9 +221,11 @@ function LoadingPlaceholder({ view }: { view: ViewMode }) {
 function ContactListRow({
   contact,
   onClick,
+  isLast = false,
 }: {
   contact: ContactRow;
   onClick: () => void;
+  isLast?: boolean;
 }) {
   return (
     <div
@@ -225,25 +238,26 @@ function ContactListRow({
           onClick();
         }
       }}
-      className="bg-white border-b border-slate-100 last:border-b-0 px-5 py-4 flex items-center gap-4 hover:bg-[#F0F4F8] transition-colors cursor-pointer"
+      style={{ backgroundColor: "#FFFFFF", borderBottom: isLast ? "none" : "1px solid #F1F5F9" }}
+      className="px-5 py-4 flex items-center gap-4 hover:bg-[#F8FAFC] transition-colors cursor-pointer"
     >
       <div
-        className="w-12 h-12 shrink-0 rounded-full bg-[#0077B6] text-white flex items-center justify-center text-lg font-bold card-blue"
-        style={{ backgroundColor: "#0077B6", color: "#FFFFFF" }}
+        style={{ backgroundColor: avatarColorForName(contact.name), color: "#FFFFFF" }}
+        className="w-12 h-12 shrink-0 rounded-full flex items-center justify-center text-lg font-bold"
       >
         {contactInitials(contact.name)}
       </div>
 
       <div className="min-w-0 flex-1">
-        <div className="truncate text-base font-semibold text-slate-900">
+        <div style={{ color: "#0F172A" }} className="truncate text-base font-semibold">
           {contact.name}
         </div>
         {contact.title && (
-          <div className="truncate text-sm text-[#0077B6] font-medium">
+          <div style={{ color: "#0077B6" }} className="truncate text-sm font-medium">
             {contact.title}
           </div>
         )}
-        <div className="truncate text-xs text-slate-400">{contact.funderName}</div>
+        <div style={{ color: "#94A3B8" }} className="truncate text-xs">{contact.funderName}</div>
       </div>
 
       <div className="hidden shrink-0 flex-col items-end gap-1 text-right sm:flex">
@@ -251,14 +265,15 @@ function ContactListRow({
           <a
             href={`mailto:${contact.email}`}
             onClick={(e) => e.stopPropagation()}
-            className="text-sm text-[#0077B6] hover:underline"
+            style={{ color: "#0077B6" }}
+            className="text-sm hover:underline"
           >
             {contact.email}
           </a>
         ) : (
-          <span className="text-sm text-slate-400">No email</span>
+          <span style={{ color: "#94A3B8" }} className="text-sm">No email</span>
         )}
-        <span className="text-xs text-slate-400">
+        <span style={{ color: "#94A3B8" }} className="text-xs">
           {contact.last_contacted_at
             ? `Last contact ${formatDate(contact.last_contacted_at)}`
             : "Never contacted"}

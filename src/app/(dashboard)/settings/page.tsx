@@ -50,6 +50,15 @@ type OrgUser = Pick<
   "id" | "email" | "full_name" | "role" | "last_login_at"
 >;
 
+const CANVAS = "#D6E4F0";
+const CARD = "#FFFFFF";
+const ACCENT = "#0077B6";
+const TOGGLE_BLUE = "#0EA5E9";
+const BORDER = "#DCE6ED";
+const TEXT_PRIMARY = "#0F172A";
+const TEXT_SECONDARY = "#64748B";
+const TEXT_MUTED = "#94A3B8";
+
 const ROLE_BADGE: Record<UserRole, BadgeColor> = {
   owner: "indigo",
   admin: "blue",
@@ -57,13 +66,22 @@ const ROLE_BADGE: Record<UserRole, BadgeColor> = {
   viewer: "gray",
 };
 
-/** Owners and admins manage org settings; writers/viewers cannot (BLUEPRINT Â§3.2). */
+/** Owners and admins manage org settings; writers/viewers cannot (BLUEPRINT §3.2). */
 function canManageOrg(role: UserRole | undefined): boolean {
   return role === "owner" || role === "admin";
 }
 
+type SectionId = "organization" | "team" | "usage" | "flags" | "danger";
+
+interface NavItem {
+  id: SectionId;
+  label: string;
+  icon: LucideIcon;
+  danger?: boolean;
+}
+
 /**
- * Organization settings (BLUEPRINT Â§3.2 / PRD US-03). Owners and admins can edit
+ * Organization settings (BLUEPRINT §3.2 / PRD US-03). Owners and admins can edit
  * the organization name, invite users, and review the team roster. Feature flags
  * (seeded per organization in platform_config) are surfaced read-only so the
  * operator can see which phases are enabled.
@@ -71,28 +89,102 @@ function canManageOrg(role: UserRole | undefined): boolean {
 export default function SettingsPage() {
   const { profile, loading: profileLoading } = useProfile();
   const manage = canManageOrg(profile?.role);
+  const isOwner = profile?.role === "owner";
+
+  const navItems: NavItem[] = [
+    { id: "organization", label: "Organization", icon: Building2 },
+    { id: "team", label: "Team", icon: Users },
+    { id: "usage", label: "Plan Usage", icon: TrendingUp },
+    { id: "flags", label: "Feature Flags", icon: ShieldCheck },
+    ...(isOwner
+      ? [{ id: "danger" as SectionId, label: "Danger Zone", icon: AlertTriangle, danger: true }]
+      : []),
+  ];
+
+  const [active, setActive] = useState<SectionId>("organization");
 
   return (
-    <div>
+    <div style={{ backgroundColor: CANVAS, minHeight: "100vh" }} className="p-6">
       <PageHeader
         title="Settings"
         description="Manage your organization, team, and platform configuration."
       />
 
       {profileLoading ? (
-        <LoadingSpinner center label="Loading settings..." />
+        <div
+          style={{ backgroundColor: CARD, borderRadius: "16px", boxShadow: "0 4px 20px rgba(0,0,0,0.08)" }}
+          className="p-10"
+        >
+          <LoadingSpinner center label="Loading settings..." />
+        </div>
       ) : (
-        <>
-          <OrganizationSection canManage={manage} />
-          <TeamSection
-            canManage={manage}
-            currentUserRole={profile?.role}
-            currentUserId={profile?.id ?? null}
-          />
-          <UsageDashboardSection />
-          <FeatureFlagsSection />
-          {profile?.role === "owner" && <DangerZoneSection />}
-        </>
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
+          {/* Sidebar nav */}
+          <div
+            style={{
+              backgroundColor: CARD,
+              borderRadius: "16px",
+              boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
+              width: "220px",
+              flexShrink: 0,
+            }}
+            className="w-full overflow-hidden lg:w-[220px]"
+          >
+            <nav className="p-2">
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = active === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setActive(item.id)}
+                    style={{
+                      backgroundColor: isActive
+                        ? item.danger
+                          ? "#FEF2F2"
+                          : "#EFF6FF"
+                        : "transparent",
+                      color: isActive
+                        ? item.danger
+                          ? "#B91C1C"
+                          : ACCENT
+                        : item.danger
+                          ? "#B91C1C"
+                          : TEXT_SECONDARY,
+                    }}
+                    className="mb-1 flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors last:mb-0"
+                  >
+                    <Icon className="h-4 w-4 shrink-0" aria-hidden />
+                    {item.label}
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
+
+          {/* Content pane */}
+          <div
+            style={{
+              backgroundColor: CARD,
+              borderRadius: "16px",
+              boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
+            }}
+            className="min-w-0 flex-1 overflow-hidden"
+          >
+            {active === "organization" && <OrganizationSection canManage={manage} />}
+            {active === "team" && (
+              <TeamSection
+                canManage={manage}
+                currentUserRole={profile?.role}
+                currentUserId={profile?.id ?? null}
+              />
+            )}
+            {active === "usage" && <UsageDashboardSection />}
+            {active === "flags" && <FeatureFlagsSection />}
+            {active === "danger" && isOwner && <DangerZoneSection />}
+          </div>
+        </div>
       )}
     </div>
   );
@@ -119,15 +211,25 @@ function SettingsSection({
   children: ReactNode;
 }) {
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-border overflow-hidden mb-6">
-      <div className="bg-[#F8FAFC] px-6 py-4 border-b border-slate-200 flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-[#EFF6FF] flex items-center justify-center text-[#0077B6]">
+    <div>
+      <div
+        style={{ backgroundColor: "#F8FAFC", borderBottom: `1px solid ${BORDER}` }}
+        className="px-6 py-4 flex items-center gap-3"
+      >
+        <div
+          style={{ backgroundColor: "#EFF6FF", color: ACCENT }}
+          className="w-8 h-8 rounded-lg flex items-center justify-center"
+        >
           <Icon className="h-4 w-4" aria-hidden />
         </div>
         <div className="min-w-0 flex-1">
-          <h3 className="text-base font-semibold text-slate-900">{title}</h3>
+          <h3 style={{ color: TEXT_PRIMARY }} className="text-base font-semibold">
+            {title}
+          </h3>
           {description && (
-            <p className="text-xs text-slate-400 mt-0.5">{description}</p>
+            <p style={{ color: TEXT_MUTED }} className="text-xs mt-0.5">
+              {description}
+            </p>
           )}
         </div>
         {actions && <div className="shrink-0">{actions}</div>}
@@ -137,22 +239,42 @@ function SettingsSection({
   );
 }
 
-/** Non-interactive on/off indicator styled as a toggle switch for read-only rows. */
+/** Toggle-switch styled indicator. Active state uses the premium toggle blue. */
 function ToggleIndicator({ enabled }: { enabled: boolean }) {
   return (
     <div
       role="img"
       aria-label={enabled ? "Enabled" : "Disabled"}
-      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
-        enabled ? "bg-[#0077B6]" : "bg-slate-200"
-      }`}
+      style={{ backgroundColor: enabled ? TOGGLE_BLUE : "#E2E8F0" }}
+      className="relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors"
     >
       <span
-        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+        style={{ backgroundColor: "#FFFFFF" }}
+        className={`inline-block h-4 w-4 transform rounded-full shadow transition-transform ${
           enabled ? "translate-x-6" : "translate-x-1"
         }`}
       />
     </div>
+  );
+}
+
+/** Full-row toggle treatment for the feature flags list (blue #0EA5E9 active state). */
+function ToggleRow({ label, enabled }: { label: string; enabled: boolean }) {
+  return (
+    <li
+      style={{
+        borderBottom: `1px solid #F1F5F9`,
+        backgroundColor: enabled ? "#F0F9FF" : "transparent",
+      }}
+      className="px-6 py-4 flex items-center justify-between gap-3 last:border-0"
+    >
+      <div className="min-w-0">
+        <p style={{ color: TEXT_PRIMARY }} className="text-sm font-medium">
+          {label}
+        </p>
+      </div>
+      <ToggleIndicator enabled={enabled} />
+    </li>
   );
 }
 
@@ -226,7 +348,7 @@ function OrganizationSection({ canManage }: { canManage: boolean }) {
     setName((data as Tables<"organizations">).name ?? "");
     setSaved(true);
 
-    // Audit the settings change (Behavioral Contracts Â§24).
+    // Audit the settings change (Behavioral Contracts §24).
     void recordAudit({
       action: "update",
       entityType: "organization",
@@ -254,7 +376,8 @@ function OrganizationSection({ canManage }: { canManage: boolean }) {
           {saveError && (
             <div
               role="alert"
-              className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+              style={{ border: "1px solid #FECACA", backgroundColor: "#FEF2F2", color: "#B91C1C" }}
+              className="rounded-lg px-4 py-3 text-sm"
             >
               {saveError}
             </div>
@@ -278,7 +401,7 @@ function OrganizationSection({ canManage }: { canManage: boolean }) {
           {canManage && (
             <div className="flex items-center justify-end gap-3">
               {saved && (
-                <span className="inline-flex items-center gap-1.5 text-sm text-green-600">
+                <span style={{ color: "#16A34A" }} className="inline-flex items-center gap-1.5 text-sm">
                   <Check className="h-4 w-4" aria-hidden />
                   Saved
                 </span>
@@ -286,7 +409,8 @@ function OrganizationSection({ canManage }: { canManage: boolean }) {
               <Button
                 type="submit"
                 isLoading={saving}
-                className="bg-[#0077B6] hover:bg-[#005F92] text-white px-6 py-2.5 rounded-lg font-semibold text-sm"
+                style={{ backgroundColor: ACCENT, color: "#FFFFFF" }}
+                className="px-6 py-2.5 rounded-lg font-semibold text-sm"
               >
                 Save changes
               </Button>
@@ -311,15 +435,15 @@ type PendingInvite = {
   created_at: string;
 };
 
-/** Roles an editor may ASSIGN when changing a member's role (BLUEPRINT Â§3.2). */
+/** Roles an editor may ASSIGN when changing a member's role (BLUEPRINT §3.2). */
 function assignableEditRoles(editorRole: UserRole | undefined): UserRole[] {
-  // Owners can set any role; admins are limited to writer/viewer (task Â§4).
+  // Owners can set any role; admins are limited to writer/viewer (task §4).
   if (editorRole === "owner") return [...USER_ROLES];
   if (editorRole === "admin") return ["writer", "viewer"];
   return [];
 }
 
-/** Roles an inviter may grant. Admins cannot mint owners (Contracts Â§23). */
+/** Roles an inviter may grant. Admins cannot mint owners (Contracts §23). */
 function assignableInviteRoles(inviterRole: UserRole | undefined): UserRole[] {
   if (inviterRole === "owner") return [...USER_ROLES];
   if (inviterRole === "admin") return ["admin", "writer", "viewer"];
@@ -425,11 +549,14 @@ function TeamSection({
     >
       <div>
         {canManage && (
-          <div className="px-6 py-4 flex items-center justify-between gap-3 border-b border-slate-100">
-            <p className="text-sm text-slate-500">
+          <div
+            style={{ borderBottom: "1px solid #F1F5F9" }}
+            className="px-6 py-4 flex items-center justify-between gap-3"
+          >
+            <p style={{ color: TEXT_SECONDARY }} className="text-sm">
               Manage who can access your workspace and what they can do.
             </p>
-            <Button onClick={() => setInviteOpen(true)}>
+            <Button onClick={() => setInviteOpen(true)} style={{ backgroundColor: ACCENT, color: "#FFFFFF" }}>
               <UserPlus className="h-4 w-4" aria-hidden />
               Invite user
             </Button>
@@ -439,7 +566,8 @@ function TeamSection({
         {actionError && (
           <div
             role="alert"
-            className="mx-6 mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+            style={{ border: "1px solid #FECACA", backgroundColor: "#FEF2F2", color: "#B91C1C" }}
+            className="mx-6 mt-4 rounded-lg px-4 py-3 text-sm"
           >
             {actionError}
           </div>
@@ -452,7 +580,8 @@ function TeamSection({
         ) : loadError ? (
           <div
             role="alert"
-            className="mx-6 my-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+            style={{ border: "1px solid #FECACA", backgroundColor: "#FEF2F2", color: "#B91C1C" }}
+            className="mx-6 my-4 rounded-lg px-4 py-3 text-sm"
           >
             {loadError}
           </div>
@@ -469,22 +598,23 @@ function TeamSection({
             {users.map((member) => (
               <li
                 key={member.id}
-                className="px-6 py-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 last:border-0"
+                style={{ borderBottom: "1px solid #F1F5F9" }}
+                className="px-6 py-4 flex flex-wrap items-center justify-between gap-3 last:border-0"
               >
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-sm font-medium text-slate-700">
+                    <p style={{ color: TEXT_PRIMARY }} className="text-sm font-medium">
                       {member.full_name?.trim() || member.email}
                     </p>
                     {member.id === currentUserId && (
                       <Badge color="gray">You</Badge>
                     )}
                   </div>
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <p style={{ color: TEXT_MUTED }} className="text-xs mt-0.5">
                     {member.email}
                     {member.last_login_at
-                      ? ` Â· last active ${formatRelative(member.last_login_at)}`
-                      : " Â· invite pending"}
+                      ? ` · last active ${formatRelative(member.last_login_at)}`
+                      : " · invite pending"}
                   </p>
                 </div>
 
@@ -499,7 +629,8 @@ function TeamSection({
                           e.target.value as UserRole,
                         )
                       }
-                      className="rounded-lg border border-slate-300 bg-white py-1.5 pl-2.5 pr-7 text-sm text-slate-900 shadow-sm transition focus:border-[#0077B6] focus:outline-none focus:ring-2 focus:ring-[#0077B6]/10"
+                      style={{ border: `1px solid #CBD5E1`, backgroundColor: "#FFFFFF", color: TEXT_PRIMARY }}
+                      className="rounded-lg py-1.5 pl-2.5 pr-7 text-sm shadow-sm transition focus:outline-none"
                     >
                       {/* Always include the member's current role so it shows
                           even when it isn't in the editor's assignable set. */}
@@ -527,7 +658,8 @@ function TeamSection({
                         type="button"
                         onClick={() => setRemoveTarget(member)}
                         aria-label={`Remove ${member.email}`}
-                        className="rounded-md p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+                        style={{ color: TEXT_MUTED }}
+                        className="rounded-md p-1.5 transition hover:bg-red-50 hover:text-red-600 focus:outline-none"
                       >
                         <Trash2 className="h-4 w-4" aria-hidden />
                       </button>
@@ -577,7 +709,7 @@ function TeamSection({
           </>
         }
       >
-        <p className="text-sm text-slate-600">
+        <p style={{ color: TEXT_SECONDARY }} className="text-sm">
           This permanently removes their account from your organization. This
           action cannot be undone.
         </p>
@@ -618,7 +750,7 @@ function PendingInvites({
   async function cancel(invite: PendingInvite) {
     setError(null);
     setBusyId(invite.id);
-    // Cancelled invitations can no longer be accepted (Contracts Â§23).
+    // Cancelled invitations can no longer be accepted (Contracts §23).
     const supabase = createClient();
     const { error: cancelError } = await supabase
       .from("user_invitations")
@@ -635,10 +767,10 @@ function PendingInvites({
   if (invites.length === 0) return null;
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+    <div style={{ border: "1px solid #E2E8F0", backgroundColor: "#F8FAFC" }} className="rounded-lg p-4">
       <div className="flex items-center gap-2">
-        <Clock className="h-4 w-4 text-slate-500" aria-hidden />
-        <h4 className="text-sm font-semibold text-slate-800">
+        <Clock className="h-4 w-4" style={{ color: TEXT_SECONDARY }} aria-hidden />
+        <h4 style={{ color: TEXT_PRIMARY }} className="text-sm font-semibold">
           Pending invitations
         </h4>
       </div>
@@ -646,13 +778,14 @@ function PendingInvites({
       {error && (
         <div
           role="alert"
-          className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+          style={{ border: "1px solid #FECACA", backgroundColor: "#FEF2F2", color: "#B91C1C" }}
+          className="mt-3 rounded-lg px-3 py-2 text-sm"
         >
           {error}
         </div>
       )}
 
-      <ul className="mt-3 divide-y divide-slate-200">
+      <ul style={{ borderTop: "1px solid transparent" }} className="mt-3 divide-y divide-slate-200">
         {invites.map((invite) => {
           const expired = new Date(invite.expires_at).getTime() < Date.now();
           // Admins can't manage an invitation for an owner role.
@@ -665,14 +798,14 @@ function PendingInvites({
             >
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-sm font-medium text-slate-700">{invite.email}</p>
+                  <p style={{ color: TEXT_PRIMARY }} className="text-sm font-medium">{invite.email}</p>
                   <Badge color={ROLE_BADGE[invite.role]}>
                     {humanizeEnum(invite.role)}
                   </Badge>
                   {expired && <Badge color="yellow">Expired</Badge>}
                 </div>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Invited {formatRelative(invite.created_at)} Â· expires{" "}
+                <p style={{ color: TEXT_MUTED }} className="text-xs mt-0.5">
+                  Invited {formatRelative(invite.created_at)} · expires{" "}
                   {formatDate(invite.expires_at)}
                 </p>
               </div>
@@ -692,7 +825,8 @@ function PendingInvites({
                     onClick={() => void cancel(invite)}
                     disabled={busyId === invite.id}
                     aria-label={`Cancel invitation for ${invite.email}`}
-                    className="rounded-md p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:opacity-50"
+                    style={{ color: TEXT_MUTED }}
+                    className="rounded-md p-1.5 transition hover:bg-red-50 hover:text-red-600 focus:outline-none disabled:opacity-50"
                   >
                     <X className="h-4 w-4" aria-hidden />
                   </button>
@@ -800,7 +934,8 @@ function InviteModal({
         <div className="space-y-3">
           <div
             role="status"
-            className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700"
+            style={{ border: "1px solid #BBF7D0", backgroundColor: "#F0FDF4", color: "#15803D" }}
+            className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm"
           >
             <Mail className="h-4 w-4 shrink-0" aria-hidden />
             {result.emailed
@@ -826,7 +961,8 @@ function InviteModal({
           {error && (
             <div
               role="alert"
-              className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+              style={{ border: "1px solid #FECACA", backgroundColor: "#FEF2F2", color: "#B91C1C" }}
+              className="rounded-lg px-3 py-2 text-sm"
             >
               {error}
             </div>
@@ -851,7 +987,7 @@ function InviteModal({
 }
 
 // ---------------------------------------------------------------------------
-// Usage dashboard (Behavioral Contracts Â§25)
+// Usage dashboard (Behavioral Contracts §25)
 // ---------------------------------------------------------------------------
 
 interface UsageResource {
@@ -891,9 +1027,9 @@ function usagePercent(current: number, limit: number): number {
 }
 
 function barColor(pct: number): string {
-  if (pct >= 90) return "bg-red-500";
-  if (pct >= 75) return "bg-yellow-400";
-  return "bg-teal-500";
+  if (pct >= 90) return "#EF4444";
+  if (pct >= 75) return "#F59E0B";
+  return "#14B8A6";
 }
 
 function formatValue(current: number, limit: number, unit?: string): string {
@@ -949,15 +1085,16 @@ function UsageDashboardSection() {
       ) : loadError ? (
         <div
           role="alert"
-          className="mx-6 my-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+          style={{ border: "1px solid #FECACA", backgroundColor: "#FEF2F2", color: "#B91C1C" }}
+          className="mx-6 my-4 rounded-lg px-4 py-3 text-sm"
         >
           {loadError}
         </div>
       ) : summary ? (
         <div>
-          <div className="px-6 py-4 flex items-center gap-2 border-b border-slate-100">
-            <TrendingUp className="h-4 w-4 text-slate-500" aria-hidden />
-            <span className="text-sm font-medium text-slate-700 capitalize">
+          <div style={{ borderBottom: "1px solid #F1F5F9" }} className="px-6 py-4 flex items-center gap-2">
+            <TrendingUp className="h-4 w-4" style={{ color: TEXT_SECONDARY }} aria-hidden />
+            <span style={{ color: TEXT_PRIMARY }} className="text-sm font-medium capitalize">
               {summary.tier} plan
             </span>
           </div>
@@ -973,32 +1110,30 @@ function UsageDashboardSection() {
               return (
                 <li
                   key={key}
-                  className="px-6 py-4 border-b border-slate-100 last:border-0"
+                  style={{ borderBottom: "1px solid #F1F5F9" }}
+                  className="px-6 py-4 last:border-0"
                 >
                   <div className="mb-1.5 flex items-center justify-between gap-2">
-                    <span className="text-sm font-medium text-slate-700">
+                    <span style={{ color: TEXT_PRIMARY }} className="text-sm font-medium">
                       {meta.label}
-                      <span className="ml-1.5 text-xs font-normal text-slate-400">
+                      <span style={{ color: TEXT_MUTED }} className="ml-1.5 text-xs font-normal">
                         ({resource.period})
                       </span>
                     </span>
                     <span
-                      className={`text-xs font-medium ${
-                        !unlimited && pct >= 90
-                          ? "text-red-600"
-                          : "text-slate-400"
-                      }`}
+                      style={{ color: !unlimited && pct >= 90 ? "#DC2626" : TEXT_MUTED }}
+                      className="text-xs font-medium"
                     >
                       {formatValue(resource.current, resource.limit, meta.unit)}
                     </span>
                   </div>
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                  <div style={{ backgroundColor: "#F1F5F9" }} className="h-2 w-full overflow-hidden rounded-full">
                     {unlimited ? (
-                      <div className="h-full w-full rounded-full bg-slate-100" />
+                      <div style={{ backgroundColor: "#F1F5F9" }} className="h-full w-full rounded-full" />
                     ) : (
                       <div
-                        className={`h-full rounded-full transition-all ${barColor(pct)}`}
-                        style={{ width: `${pct}%` }}
+                        style={{ width: `${pct}%`, backgroundColor: barColor(pct) }}
+                        className="h-full rounded-full transition-all"
                         role="progressbar"
                         aria-valuenow={pct}
                         aria-valuemin={0}
@@ -1008,12 +1143,9 @@ function UsageDashboardSection() {
                     )}
                   </div>
                   {!unlimited && !resource.allowed && (
-                    <p className="mt-1 text-xs text-red-600">
+                    <p style={{ color: "#DC2626" }} className="mt-1 text-xs">
                       Limit reached.{" "}
-                      <a
-                        href="/billing"
-                        className="underline underline-offset-2 hover:text-red-700"
-                      >
+                      <a href="/billing" style={{ color: "#DC2626" }} className="underline underline-offset-2">
                         Upgrade your plan
                       </a>{" "}
                       to continue.
@@ -1099,7 +1231,8 @@ function FeatureFlagsSection() {
       ) : loadError ? (
         <div
           role="alert"
-          className="mx-6 my-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+          style={{ border: "1px solid #FECACA", backgroundColor: "#FEF2F2", color: "#B91C1C" }}
+          className="mx-6 my-4 rounded-lg px-4 py-3 text-sm"
         >
           {loadError}
         </div>
@@ -1117,17 +1250,7 @@ function FeatureFlagsSection() {
             const meta = FEATURE_FLAG_LABELS[flag.key];
             if (!meta) return null;
             const enabled = flag.value === "true";
-            return (
-              <li
-                key={flag.key}
-                className="px-6 py-4 flex items-center justify-between gap-3 border-b border-slate-100 last:border-0"
-              >
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-slate-700">{meta.label}</p>
-                </div>
-                <ToggleIndicator enabled={enabled} />
-              </li>
-            );
+            return <ToggleRow key={flag.key} label={meta.label} enabled={enabled} />;
           })}
         </ul>
       )}
@@ -1147,17 +1270,21 @@ function FeatureFlagsSection() {
  */
 function DangerZoneSection() {
   return (
-    <div className="border border-[#FCA5A5] rounded-xl p-5 bg-[#FFF1F1] mb-6">
-      <div className="flex items-center gap-2">
-        <AlertTriangle className="h-4 w-4 text-[#B91C1C]" aria-hidden />
-        <h3 className="text-[#B91C1C] font-semibold">Danger zone</h3>
+    <div className="p-6">
+      <div
+        style={{ border: "1px solid #FCA5A5", backgroundColor: "#FFF1F1", borderRadius: "12px" }}
+        className="p-5"
+      >
+        <div className="flex items-center gap-2">
+          <AlertTriangle className="h-4 w-4" style={{ color: "#B91C1C" }} aria-hidden />
+          <h3 style={{ color: "#B91C1C" }} className="font-semibold">Danger zone</h3>
+        </div>
+        <p style={{ color: TEXT_SECONDARY }} className="mt-2 text-sm">
+          Removing a team member in the Team section is permanent and
+          immediately revokes their access to this organization. This action
+          cannot be undone.
+        </p>
       </div>
-      <p className="mt-2 text-sm text-slate-600">
-        Removing a team member in the Team section above is permanent and
-        immediately revokes their access to this organization. This action
-        cannot be undone.
-      </p>
     </div>
   );
 }
-
