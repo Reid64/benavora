@@ -1,0 +1,42 @@
+-- 088_self_improvement_agent.sql
+-- AG-38 Self-Improvement Agent (AUTONOMOUS_PLATFORM_VISION.md Phase 4,
+-- "Autonomous Continuous Improvement Engine" -- the vision doc's own
+-- numbering calls this AG-36; AGENTS_v2.md section 5's Phase 2-5 spec
+-- assigns it AG-38 instead and documents the collision in its own
+-- Numbering note. This migration follows AGENTS_v2.md's AG-38 spec).
+--
+-- AG-38 is a platform-wide meta-agent: it runs once nightly (not per-org,
+-- unlike every other AutonomousAgent) and reviews agent_runs/agent_decisions
+-- across every organization to propose prompt/threshold/workflow
+-- improvements into improvement_proposals (migration 087) for a human
+-- platform owner to approve. Per BEHAVIORAL_CONTRACTS.md section 34's hard
+-- limits and AUTONOMOUS_HARD_LIMITS.NEVER_MODIFY_GOVERNANCE_FILES, it never
+-- edits another agent's prompt or config directly -- it only proposes.
+--
+-- 1. agent_type enum: agent_runs.agent_type is a strict Postgres enum
+--    (migration 001). AutonomousAgent-style agents insert
+--    agent_type = <their own id> directly and unconditionally at the start
+--    of every run, so an id that isn't a valid enum member fails at the
+--    very first agent_runs insert (AGENTS_v2.md section 1.2's documented
+--    gap). Adding this value up front follows the precedent set in
+--    082_ag08_ag12_autonomous_agents.sql and 086_strategic_advisor.sql.
+ALTER TYPE agent_type ADD VALUE IF NOT EXISTS 'ag-38-self-improvement';
+
+-- 2. agent_runs.organization_id has been `uuid NOT NULL REFERENCES
+--    organizations(id)` since migration 001 -- every other agent_runs row
+--    is scoped to exactly one org. AG-38 is the first agent in this
+--    codebase whose run is genuinely platform-wide rather than per-org
+--    (matching agent_performance_metrics and improvement_proposals,
+--    migration 087, which are themselves platform-wide with no org_id
+--    column at all). Loosen the constraint so a platform-level run can be
+--    logged honestly as belonging to no single org, instead of being
+--    falsely attributed to one.
+--
+--    This is safe for every existing reader: agent_runs' RLS policy
+--    (migration 001) is `organization_id = public.current_org_id()`, and a
+--    NULL organization_id never equals any org's id under SQL's NULL
+--    comparison semantics -- so a platform-level row stays invisible to
+--    every org-scoped query and is reachable only via the service-role
+--    client the worker already uses. No existing per-org query filters by
+--    `.eq('organization_id', orgId)` differently because of this change.
+ALTER TABLE agent_runs ALTER COLUMN organization_id DROP NOT NULL;

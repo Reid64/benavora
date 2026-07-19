@@ -41,6 +41,12 @@
 //     into the same isSundayChicago() gate as AG-09/AG-11 below instead,
 //     inside the single 2AM nightly sweep, matching how AG-08..AG-12 already
 //     approximate their own monthly/weekly cadence with no dedicated cron.
+//   requested AG-38 SelfImprovementAgent -> SelfImprovementAgent (AG-38, exact match)
+//     src/lib/agents/self-improvement-agent.ts. Platform-wide, not per-org —
+//     runs once via runSelfImprovementPipeline() below. Its own task spec
+//     asked for a dedicated 4:00 AM CST slot, so unlike AG-40 above this one
+//     gets a real third entry in worker/scheduler.ts's jobs array rather
+//     than being folded into the 2AM sweep.
 //
 // "Queue-only" agents are event-driven (e.g. FunderRelationshipAgent scores
 // one specific event like "awarded" against one funder) with no meaningful
@@ -807,6 +813,34 @@ export async function runDigestPipeline(supabase: SupabaseClient): Promise<void>
   }
 
   console.log('[AutonomousOrchestrator] Morning digest pipeline complete.');
+}
+
+/**
+ * AG-38 Self-Improvement Agent pipeline: unlike every step above, this runs
+ * ONCE at the platform level, not per-org (src/lib/agents/self-improvement-
+ * agent.ts's own header explains why it doesn't extend AutonomousAgent).
+ * Wired into its own fixed 4:00 AM CST scheduler slot (worker/scheduler.ts)
+ * rather than folded into the 2AM per-org sweep, per this agent's explicit
+ * task spec — the first agent in this worker with a dedicated cron slot of
+ * its own since the original 2AM/7AM pair.
+ */
+export async function runSelfImprovementPipeline(
+  supabase: SupabaseClient,
+): Promise<void> {
+  console.log('[AutonomousOrchestrator] AG-38 self-improvement pipeline starting.');
+  try {
+    const { SelfImprovementAgent } = await import(
+      '../src/lib/agents/self-improvement-agent.js'
+    );
+    const agent = new SelfImprovementAgent(supabase);
+    const result = await agent.run('schedule');
+    console.log(
+      `[AutonomousOrchestrator] AG-38 complete: ${result.itemsFound} metric row(s) calculated, ` +
+        `${result.itemsProcessed} proposal(s) generated, success=${result.success}.`,
+    );
+  } catch (err) {
+    console.error('[AutonomousOrchestrator] AG-38 self-improvement pipeline failed:', errMsg(err));
+  }
 }
 
 // --- agent_queue processor --------------------------------------------------------

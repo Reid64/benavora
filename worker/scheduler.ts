@@ -47,6 +47,16 @@ const jobs: ScheduledJob[] = [
         runDigestPipeline(supabase),
       ),
   },
+  {
+    name: 'AG-38 self-improvement pipeline',
+    hour: 4,
+    minute: 0,
+    lastFiredOnDateKey: null,
+    run: (supabase) =>
+      import('./autonomous-orchestrator.js').then(
+        ({ runSelfImprovementPipeline }) => runSelfImprovementPipeline(supabase),
+      ),
+  },
 ];
 
 let intervalId: ReturnType<typeof setInterval> | null = null;
