@@ -93,3 +93,66 @@ export async function callClaude(req: ClaudeRequest): Promise<ClaudeResponse> {
     stopReason: message.stop_reason,
   };
 }
+
+export interface ClaudeWebSearchResponse extends ClaudeResponse {
+  /** True if Claude actually issued a web_search tool call for this turn. */
+  usedWebSearch: boolean;
+}
+
+/**
+ * Same contract as {@link callClaude}, but grants Claude the server-side
+ * web_search tool so responses can cite live data instead of training-data
+ * recall. web_search_20250305 is a real, GA Anthropic tool served under the
+ * standard `anthropic-version: 2023-06-01` header this SDK always sends (see
+ * @anthropic-ai/sdk@0.30.1's core.js) - no anthropic-beta header required.
+ * The pinned SDK predates this tool's TS types (no WebSearchTool variant in
+ * its `Tool` union), so the tool object is cast around the stale type the
+ * same way the pinned google-auth-library/googleapis mismatch is cast
+ * elsewhere in this codebase - the wire format is correct even though the
+ * local type declarations haven't caught up.
+ */
+export async function callClaudeWithWebSearch(
+  req: ClaudeRequest & { maxSearches?: number },
+): Promise<ClaudeWebSearchResponse> {
+  const model = req.model ?? DEFAULT_MODEL;
+  const maxTokens = req.maxTokens ?? DEFAULT_MAX_TOKENS;
+
+  const webSearchTool = {
+    type: "web_search_20250305",
+    name: "web_search",
+    max_uses: req.maxSearches ?? 5,
+  } as unknown as Anthropic.Tool;
+
+  const message = await getClient().messages.create({
+    model,
+    max_tokens: maxTokens,
+    ...(req.system ? { system: req.system } : {}),
+    ...(req.temperature !== undefined ? { temperature: req.temperature } : {}),
+    messages: [{ role: "user", content: req.prompt }],
+    tools: [webSearchTool],
+  });
+
+  const text = message.content
+    .filter((block): block is Anthropic.TextBlock => block.type === "text")
+    .map((block) => block.text)
+    .join("");
+
+  const usedWebSearch = message.content.some(
+    (block) => (block as { type: string }).type === "server_tool_use",
+  );
+
+  const inputTokens = message.usage.input_tokens;
+  const outputTokens = message.usage.output_tokens;
+
+  return {
+    text,
+    usage: {
+      inputTokens,
+      outputTokens,
+      totalTokens: inputTokens + outputTokens,
+    },
+    model: message.model,
+    stopReason: message.stop_reason,
+    usedWebSearch,
+  };
+}
