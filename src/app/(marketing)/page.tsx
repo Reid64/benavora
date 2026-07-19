@@ -304,7 +304,7 @@ export default function BenavoraMarketing() {
 
         {/* ═══ Hero ═══ */}
         <section style={{ maxWidth: 1000, margin: "0 auto", padding: "120px 48px 100px", textAlign: "center" }}>
-          <div className="fu" style={{ display: "flex", justifyContent: "flex-start", marginBottom: 48, paddingLeft: 0 }}>
+          <div className="fu" style={{ display: "flex", justifyContent: "center", marginBottom: 48, paddingLeft: 0 }}>
             <img src="/benavora_logo.png" alt="Benavora" style={{ height: 320, width: "auto", objectFit: "contain" }} />
           </div>
 
