@@ -821,6 +821,17 @@ async function routeQueueItem(
       await sendMorningDigest(orgId, supabase);
       return 'morning_digest completed';
     }
+    case 'ag-28-followup': {
+      // AG-28, src/lib/agents/followup-generator-agent.ts - event-driven off
+      // a pipeline stage transition (/api/autonomous/followup-trigger).
+      // Distinct from the 'follow_up_generator' case above.
+      const { FollowupGeneratorAgent } = await import(
+        '../src/lib/agents/followup-generator-agent.js'
+      );
+      const agent = new FollowupGeneratorAgent(orgId, supabase);
+      const result = await agent.run('event');
+      return `ag-28-followup completed (itemsQueued=${result.itemsQueued})`;
+    }
     default:
       throw new Error(`Unknown agent_queue agent_id: "${item.agent_id}".`);
   }

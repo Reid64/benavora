@@ -641,4 +641,18 @@ export async function executeTransition({
       }
     })();
   }
+
+  // Trigger AG-28 (Followup Generator Agent) on submitted/awarded/denied.
+  // Best-effort - a failure here must never block the stage transition itself.
+  if (target === "submitted" || target === "awarded" || target === "denied") {
+    void fetch("/api/autonomous/followup-trigger", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        applicationId: application.id,
+        newStage: target,
+        previousStage: application.stage,
+      }),
+    }).catch(() => undefined);
+  }
 }

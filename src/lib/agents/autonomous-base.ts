@@ -64,7 +64,11 @@ const SAFE_DEFAULT_CONFIG: OrgAutonomousConfig = {
   max_auto_drafts_per_night: 10,
 };
 
-type TriggerSource = "autonomous" | "manual" | "chain" | "schedule";
+// "event" added for genuinely event-driven agents (e.g. FollowupGeneratorAgent,
+// fired by a pipeline stage transition rather than autonomous/manual/chain/
+// schedule) - migration 081 widened agent_queue/agent_runs.trigger_source's
+// CHECK constraint to match.
+type TriggerSource = "autonomous" | "manual" | "chain" | "schedule" | "event";
 
 export abstract class AutonomousAgent {
   protected orgId: string;
