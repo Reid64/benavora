@@ -2,7 +2,7 @@
 ## Supersedes: SCHEMA_REGISTRY.md v1.0
 ## Date: July 17, 2026
 ## Status: CANONICAL — All migrations listed here are the authoritative source of truth.
-## Current migration count: 097 applied or queued
+## Current migration count: 099 applied or queued
 
 ---
 
@@ -121,6 +121,7 @@ Primary tenant entity. All other org-scoped tables reference this.
 | stripe_subscription_status | text | |
 | subscription_tier | text DEFAULT 'free' | starter/professional/enterprise |
 | onboarding_completed | boolean DEFAULT false | Controls middleware gate |
+| analytics | jsonb DEFAULT '{}' | Aggregated computed metrics (win rate, pipeline value, agent activity) for dashboards |
 | created_at | timestamptz DEFAULT now() | |
 | updated_at | timestamptz DEFAULT now() | |
 
@@ -250,6 +251,12 @@ Grant applications in the 12-stage pipeline.
 | submitted_at | timestamptz | |
 | portal_submission_url | text | |
 | cloned_from_id | uuid | FK → applications(id) — source if cloned |
+| auto_generated | boolean DEFAULT false | True if created autonomously by the agent pipeline without user action |
+| pending_review | boolean DEFAULT false | Awaiting human approval before the pipeline proceeds (autonomous mode) |
+| draft_source | text | manual/ai_generated/cloned |
+| budget_data | jsonb DEFAULT '{}' | Structured budget snapshot for quick reads (grant_budgets remains source of truth) |
+| compliance_check_result | jsonb DEFAULT '{}' | Compliance Pre-Check agent output |
+| fit_analysis | jsonb DEFAULT '{}' | Fit Analysis Agent (AG-04) output |
 | created_at | timestamptz DEFAULT now() | |
 | updated_at | timestamptz DEFAULT now() | |
 
@@ -508,6 +515,11 @@ All agent execution logs.
 | tokens_used | integer | |
 | duration_ms | integer | |
 | triggered_by | uuid | FK → profiles(id), null if automated |
+| trigger_source | text | manual/scheduled/chain/event |
+| next_action | text | Description of the follow-on agent/action this run queued, if any |
+| confidence_score | integer | 0-100, autonomous decision confidence for this run |
+| items_queued | integer DEFAULT 0 | Count of agent_queue rows this run enqueued |
+| chained_from_run_id | uuid | FK → agent_runs(id) — parent run if this run was chain-triggered |
 | started_at | timestamptz | |
 | completed_at | timestamptz | |
 | created_at | timestamptz DEFAULT now() | |
@@ -1296,6 +1308,95 @@ What-if scenario modeling results.
 
 ---
 
+## Tables — Autonomous Infrastructure (Migrations 098-099)
+
+### 68. autonomous_triggers
+Defines what conditions cause one agent's output to fire another agent, per org.
+
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid PK | |
+| org_id | uuid NOT NULL | |
+| trigger_type | text NOT NULL | schedule/event/chain |
+| source_agent_id | text | FK → agent_registry(agent_id) — agent whose completion fires this trigger |
+| target_agent_id | text NOT NULL | FK → agent_registry(agent_id) — agent to enqueue |
+| condition | jsonb DEFAULT '{}' | e.g. {min_probability_score: 40, status: 'completed'} |
+| enabled | boolean DEFAULT true | |
+| last_fired_at | timestamptz | |
+| fire_count | integer DEFAULT 0 | |
+| created_at | timestamptz DEFAULT now() | |
+| updated_at | timestamptz DEFAULT now() | |
+
+**Indexes:** idx_autonomous_triggers_org ON (org_id), idx_autonomous_triggers_source ON (source_agent_id)
+
+### 69. agent_queue
+Chaining queue — lets one agent's completion enqueue the next agent's invocation outside fixed nightly cron slots. Drained by the Agent Queue Processor (see WORKER_ARCHITECTURE_v2.md §11).
+
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid PK | |
+| org_id | uuid NOT NULL | |
+| agent_id | text NOT NULL | FK → agent_registry(agent_id) |
+| status | text DEFAULT 'pending' | pending/processing/completed/failed |
+| priority | integer DEFAULT 5 | 1 (highest) to 10 (lowest) |
+| input_params | jsonb DEFAULT '{}' | |
+| chained_from_run_id | uuid | FK → agent_runs(id) — parent run, null if root trigger |
+| trigger_source | text | schedule/chain/manual/event |
+| attempts | integer DEFAULT 0 | |
+| max_attempts | integer DEFAULT 3 | |
+| error_message | text | |
+| scheduled_for | timestamptz DEFAULT now() | |
+| started_at | timestamptz | |
+| completed_at | timestamptz | |
+| created_at | timestamptz DEFAULT now() | |
+
+**Indexes:** idx_agent_queue_status ON (status, priority, created_at), idx_agent_queue_org ON (org_id)
+
+### 70. agent_decisions
+Decision log — every autonomous action an agent takes or defers, surfaced on the dashboard decision log UI.
+
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid PK | |
+| org_id | uuid NOT NULL | |
+| agent_run_id | uuid | FK → agent_runs(id) |
+| agent_id | text NOT NULL | FK → agent_registry(agent_id) |
+| decision_type | text NOT NULL | auto_apply/auto_draft/auto_queue/skip |
+| entity_type | text | opportunity/application/funder/etc |
+| entity_id | uuid | |
+| action_taken | text NOT NULL | Human-readable description |
+| confidence_score | integer | 0-100 |
+| reasoning | text | |
+| requires_review | boolean DEFAULT false | |
+| reviewed_by | uuid | FK → profiles(id) |
+| reviewed_at | timestamptz | |
+| review_outcome | text | approved/rejected/modified |
+| created_at | timestamptz DEFAULT now() | |
+
+**Indexes:** idx_agent_decisions_org ON (org_id, created_at), idx_agent_decisions_review ON (org_id, requires_review)
+
+### 71. org_autonomous_config
+Per-org autonomous mode settings — the toggles and confidence threshold slider on the autonomous settings panel.
+
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid PK | |
+| org_id | uuid NOT NULL UNIQUE | |
+| autonomous_mode_enabled | boolean DEFAULT false | Master toggle |
+| auto_apply_enabled | boolean DEFAULT false | |
+| auto_draft_enabled | boolean DEFAULT false | |
+| confidence_threshold | integer DEFAULT 70 | 0-100, minimum confidence to act without review |
+| max_auto_actions_per_day | integer DEFAULT 10 | |
+| require_review_above_amount | numeric(12,2) | Dollar threshold above which review is always required |
+| notification_preferences | jsonb DEFAULT '{}' | |
+| last_updated_by | uuid | FK → profiles(id) |
+| created_at | timestamptz DEFAULT now() | |
+| updated_at | timestamptz DEFAULT now() | |
+
+**Unique:** (org_id)
+
+---
+
 ## Migration Index
 
 | Migration | Description | Status |
@@ -1318,6 +1419,8 @@ What-if scenario modeling results.
 | 095 | Forecast + Board Advisor | QUEUED (tonight) |
 | 096 | Disaster Response Engine | QUEUED (tonight) |
 | 097 | Knowledge Engine (pgvector, patterns, queries) | QUEUED (tonight) |
+| 098 | Autonomous triggers + agent queue (chaining infrastructure) | QUEUED |
+| 099 | Agent decisions + org autonomous config | QUEUED |
 
 ---
 

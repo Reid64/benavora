@@ -113,6 +113,8 @@ Controls the nightly agent pipeline. Uses node-cron for scheduling.
 ### Nightly Schedule (CST)
 
 ```
+2:00 AM  — Autonomous Orchestrator: runs the full per-org agent pipeline below for
+           every org with autonomous_mode_enabled (see Section 11)
 2:00 AM  — runOpportunityDiscovery() for all active orgs
 2:30 AM  — batchScoreOpportunities() for all active opps
 3:00 AM  — runCorporateEnrichmentBatch() (500 records)
@@ -124,12 +126,15 @@ Controls the nightly agent pipeline. Uses node-cron for scheduling.
 6:00 AM  — runKnowledgeEngineIndexer() (embed new proposals)
 6:30 AM  — runFundingForecast() (monthly only, skip if not first of month)
 7:00 AM  — sendMorningDigest() for all active orgs
+7:00 AM  — Autonomous Digest Agent: morning summary of auto-actions taken overnight
+           and items awaiting review (see Section 11)
 ```
 
 ### Schedule Configuration
 ```typescript
 import cron from 'node-cron';
 
+cron.schedule('0 8 * * *',  () => runAutonomousOrchestrator(), { timezone: 'America/Chicago' });
 cron.schedule('0 8 * * *',  () => runOpportunityDiscovery(), { timezone: 'America/Chicago' });
 cron.schedule('30 8 * * *', () => batchScoreOpportunities(), { timezone: 'America/Chicago' });
 cron.schedule('0 9 * * *',  () => runCorporateEnrichmentBatch(), { timezone: 'America/Chicago' });
@@ -140,6 +145,7 @@ cron.schedule('0 11 * * *', () => pollFEMADeclarations(), { timezone: 'America/C
 cron.schedule('30 11 * * *',() => runRelationshipMapper(), { timezone: 'America/Chicago' });
 cron.schedule('0 12 * * *', () => runKnowledgeEngineIndexer(), { timezone: 'America/Chicago' });
 cron.schedule('0 13 * * *', () => sendMorningDigest(), { timezone: 'America/Chicago' });
+cron.schedule('0 13 * * *', () => runAutonomousDigestAgent(), { timezone: 'America/Chicago' });
 cron.schedule('0 11 * * 0', () => runWeeklyChangeMonitor(), { timezone: 'America/Chicago' });
 cron.schedule('0 */6 * * *',() => pollFEMADeclarations(), { timezone: 'America/Chicago' });
 ```
@@ -395,7 +401,66 @@ The `/admin/monitor` dashboard marks worker as `stale` if `last_heartbeat_at` > 
 
 ---
 
-## 11. Job Handler Architecture
+## 11. Autonomous Pipeline Architecture
+
+Enables benavora agents to act without a human initiating each step: one agent's output can enqueue the next agent's input, culminating either in an autonomous action (e.g. an AI-generated draft application) or a `pending_review` item surfaced on the dashboard. Governed per-org by `org_autonomous_config` and per-agent by `agent_configurations`; every step is logged to `agent_decisions`.
+
+### Autonomous Orchestrator (`worker/autonomous-orchestrator.ts`)
+
+**Purpose:** Single entry point for the nightly autonomous pipeline. Replaces ad-hoc scheduling of individual agent functions with a per-org, config-driven execution loop.
+
+**Per-org execution order** (an org is skipped entirely if `org_autonomous_config.autonomous_mode_enabled = false`):
+1. Read `org_autonomous_config` and `agent_configurations` for the org — skip any agent not `enabled`
+2. AG-17 Opportunity Discovery — discovers new opportunities, writes `discovery_matches`
+3. AG-15 Grant Probability (batch) — scores discovered and existing open opportunities
+4. AG-02 Eligibility Scoring — re-scores any opportunity missing a current `eligibility_score`
+5. AG-05 Research / AG-06 Draft Generator — for opportunities scoring above the org's `confidence_threshold`, auto-creates an `applications` row (`auto_generated = true`) and a draft (`draft_source = 'ai_generated'`)
+6. AG-04 Fit Analysis — writes `fit_analysis` onto the new application
+7. Compliance Pre-Check — writes `compliance_check_result` onto the new application
+8. Decision gate — if `confidence_score >= confidence_threshold` AND (`requested_amount <= require_review_above_amount` or no ceiling is set): leave `pending_review = false` and proceed toward the AutoApply queue. Otherwise set `pending_review = true` and create an alert.
+9. Every step writes an `agent_decisions` row with `confidence_score` and `reasoning`, whether or not it acted autonomously
+
+**Failure isolation:** identical pattern to `runAgentForAllOrgs` in Section 7 (Agent Runner) — one org's step failure is logged to `agent_runs`/`agent_decisions` with `error_message`, and the orchestrator moves to the next org. A failure inside one org's pipeline (e.g. step 5 throws) halts only that org's remaining steps for the night; it never aborts other orgs or the overall run.
+
+**Timing:** triggered by the scheduler at 2:00 AM CST, the same slot as `runOpportunityDiscovery()`. Sequences steps 2-9 per org before moving to the next org, so wall-clock time scales with (orgs × steps) rather than the fixed flat cron slots used elsewhere. A max per-org budget (default 10 minutes) prevents one org's pipeline from consuming the whole nightly window — if exceeded, the org's remaining steps are handed off to `agent_queue` for pickup by the Agent Queue Processor instead of running inline.
+
+### Agent Queue Processor (`worker/agent-queue-processor.ts`)
+
+**Purpose:** Drains `agent_queue`, the table that lets one agent's completion enqueue the next agent's invocation (chaining) independent of fixed nightly cron slots. Used both by the Autonomous Orchestrator (to hand off overflow work) and by any agent that wants to trigger a follow-on agent outside its own scheduled slot.
+
+- **Polling interval:** every 15 seconds — matches the AutoApply queue-processor cadence in Section 5; `agent_queue` is lower-volume than `submission_queue`
+- **Priority ordering:** `ORDER BY priority ASC, created_at ASC` (1 = highest priority, 10 = lowest), the same convention as `submission_queue`
+- **Claim pattern:** `SELECT ... WHERE status='pending' AND scheduled_for <= NOW() ... FOR UPDATE SKIP LOCKED`, identical locking strategy to the AutoApply processor, so multiple workers can safely drain the queue concurrently
+- **Retry logic:** increments `attempts` on failure; retries while `attempts < max_attempts` (default 3) using the same backoff as Section 13's Failed Job Retry Logic (5 min → 30 min → `permanently_failed`)
+- **Chain handling:** when an agent run completes and its output should trigger another agent, it writes `next_action` and increments `items_queued` on its own `agent_runs` row, then inserts one row per queued item into `agent_queue` with `chained_from_run_id` set to the parent `agent_runs.id` and `trigger_source = 'chain'`. The processor reads `agent_queue.agent_id`, invokes the matching handler from the Section 12 registry, and creates a new `agent_runs` row with `trigger_source = 'chain'` and `chained_from_run_id` pointing back to the parent run.
+
+### Chain Diagram
+
+```
+AG-17 (Opportunity Discovery)
+  -> writes discovery_matches, enqueues agent_queue row(s) for AG-15
+
+AG-15 (Grant Probability)
+  -> scores opportunity; if score >= org confidence_threshold,
+     enqueues agent_queue row for AG-05
+
+AG-05 (Research / Draft Generator)
+  -> auto-generates application + draft
+     (auto_generated=true, draft_source='ai_generated')
+  -> if confidence_score < org_autonomous_config.confidence_threshold:
+     sets pending_review=true
+
+pending_review notification
+  -> writes an alerts row + an agent_decisions row (requires_review=true)
+
+dashboard
+  -> surfaces the item on /draft-generator/autonomous review queue
+     and the 24h activity feed
+```
+
+---
+
+## 12. Job Handler Architecture
 
 The worker exposes job handlers that can be triggered both by the scheduler AND by Vercel API routes (for on-demand execution).
 
@@ -453,7 +518,7 @@ Worker polls this table every 5 seconds and executes pending jobs immediately (h
 
 ---
 
-## 12. Error Handling and Recovery
+## 13. Error Handling and Recovery
 
 ### Never Abort the Pipeline
 One org failing an agent never stops the pipeline. Every agent run catches errors per-org and continues.
@@ -480,7 +545,7 @@ If an external API returns errors on 5 consecutive calls:
 
 ---
 
-## 13. Railway Deployment
+## 14. Railway Deployment
 
 ### `railway.json`
 ```json
@@ -544,7 +609,7 @@ Committed at `fbcc1d0`. Required for TypeScript path aliases (`@/lib/...`) to re
 
 ---
 
-## 14. Monitoring Dashboard (`/admin/monitor`)
+## 15. Monitoring Dashboard (`/admin/monitor`)
 
 ### Live Panels
 - **Worker Status:** Online/Offline/Stale indicator with last heartbeat timestamp
@@ -563,7 +628,7 @@ Supabase Realtime subscriptions on:
 
 ---
 
-## 15. Known Issues and Fixes Applied
+## 16. Known Issues and Fixes Applied
 
 | Issue | Fix | Commit |
 |---|---|---|
@@ -575,7 +640,7 @@ Supabase Realtime subscriptions on:
 
 ---
 
-## 16. Build Sequence for New Agent Handlers
+## 17. Build Sequence for New Agent Handlers
 
 When adding a new agent to the nightly pipeline:
 
