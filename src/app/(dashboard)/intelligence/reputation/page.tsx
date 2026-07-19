@@ -18,9 +18,19 @@ import {
   ShieldAlert,
 } from "lucide-react";
 
-import { Button, EmptyState, Input, LoadingSpinner, Select } from "@/components/ui";
-import { PageHeader } from "@/components/layout/PageHeader";
+import { Input, Select } from "@/components/ui";
 import { canEdit, useProfile } from "@/lib/hooks/useProfile";
+
+const CANVAS = "#D6E4F0";
+const CARD_BG = "#FFFFFF";
+const BORDER = "#C3D3E2";
+const TEXT_PRIMARY = "#0F172A";
+const TEXT_SECONDARY = "#64748B";
+const TEXT_MUTED = "#94A3B8";
+const ERROR_BG = "#FEE2E2";
+const ERROR_BORDER = "#FECACA";
+const ERROR_TEXT = "#B91C1C";
+const ACCENT = "#0077B6";
 
 type Severity = "critical" | "high" | "medium" | "low" | "positive";
 
@@ -34,11 +44,14 @@ const SEVERITY_LABELS: Record<Severity, string> = {
   positive: "Positive",
 };
 
+// Per CURRENT TASK spec: CRITICAL=#DC2626, HIGH=#F59E0B, MEDIUM=#0EA5E9, LOW=#6B7280.
+// "positive" isn't in the task's 4-tier spec but is a real reputation_signals.severity
+// value (migration 076) — kept with its own color so those rows aren't miscolored.
 const SEVERITY_COLORS: Record<Severity, string> = {
   critical: "#DC2626",
-  high: "#EA580C",
-  medium: "#D97706",
-  low: "#2563EB",
+  high: "#F59E0B",
+  medium: "#0EA5E9",
+  low: "#6B7280",
   positive: "#16A34A",
 };
 
@@ -120,6 +133,7 @@ export default function ReputationIntelligencePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dismissing, setDismissing] = useState<Set<string>>(new Set());
+  const [activeTab, setActiveTab] = useState<Severity | "all">("all");
 
   const [entityName, setEntityName] = useState("");
   const [entityType, setEntityType] = useState("funder");
@@ -251,36 +265,61 @@ export default function ReputationIntelligencePage() {
     }
   }
 
-  const grouped = SEVERITY_ORDER.map((severity) => ({
-    severity,
-    items: items.filter((item) => item.severity === severity),
-  })).filter((group) => group.items.length > 0);
+  const tabCounts: Record<Severity | "all", number> = {
+    all: items.length,
+    critical: 0,
+    high: 0,
+    medium: 0,
+    low: 0,
+    positive: 0,
+  };
+  for (const item of items) tabCounts[item.severity] += 1;
 
-  const showEmpty = !loading && !error && items.length === 0;
+  const visibleItems = activeTab === "all" ? items : items.filter((i) => i.severity === activeTab);
+
+  const grouped =
+    activeTab === "all"
+      ? SEVERITY_ORDER.map((severity) => ({
+          severity,
+          items: items.filter((item) => item.severity === severity),
+        })).filter((group) => group.items.length > 0)
+      : [{ severity: activeTab, items: visibleItems }].filter((g) => g.items.length > 0);
+
+  const showEmpty = !loading && !error && visibleItems.length === 0;
 
   return (
-    <div className="min-h-screen space-y-6 bg-[#EEF2F7] p-6 page-bg">
-      <PageHeader
-        title="Reputation Intelligence"
-        description="Monitor your funders and donors for reputation risks before investing time in applications."
-      />
+    <div className="min-h-screen space-y-6 p-6" style={{ backgroundColor: CANVAS }}>
+      <div style={{ borderLeft: `4px solid ${ACCENT}`, paddingLeft: "1rem" }}>
+        <h1 className="text-2xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>
+          Reputation Intelligence
+        </h1>
+        <p className="mt-1 text-sm" style={{ color: TEXT_SECONDARY }}>
+          Monitor your funders and donors for reputation risks before investing time in applications.
+        </p>
+      </div>
 
       {error && (
         <div
           role="alert"
-          className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+          className="rounded-lg px-4 py-3 text-sm"
+          style={{ border: `1px solid ${ERROR_BORDER}`, backgroundColor: ERROR_BG, color: ERROR_TEXT }}
         >
           {error}
         </div>
       )}
 
       {editable && (
-        <div className="bg-white rounded-xl shadow-sm border border-border p-5">
-          <div className="flex items-center gap-2 text-slate-900">
-            <Search className="h-5 w-5 text-[#0077B6]" aria-hidden />
-            <h3 className="text-base font-semibold text-slate-900">Add Entity to Monitor</h3>
+        <div
+          className="rounded-xl p-5"
+          style={{ backgroundColor: CARD_BG, border: `1px solid ${BORDER}`, boxShadow: "0 4px 20px rgba(15,23,42,0.08)" }}
+        >
+          <div className="flex items-center gap-2">
+            <Search className="h-5 w-5" style={{ color: ACCENT }} aria-hidden />
+            <h3 className="text-base font-semibold" style={{ color: TEXT_PRIMARY }}>
+              Add Entity to Monitor
+            </h3>
           </div>
-          <p className="mt-0.5 text-sm text-slate-500">
+          <p className="mt-0.5 text-sm" style={{ color: TEXT_SECONDARY }}>
             Runs an on-demand search for lawsuits, fraud, leadership changes, and other
             reputation signals tied to this name.
           </p>
@@ -304,47 +343,92 @@ export default function ReputationIntelligencePage() {
                 disabled={checking}
               />
             </div>
-            <Button type="submit" isLoading={checking}>
+            <button
+              type="submit"
+              disabled={checking}
+              className="inline-flex h-10 items-center gap-2 rounded-lg px-4 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60"
+              style={{ backgroundColor: ACCENT, color: "#FFFFFF" }}
+            >
               <Search className="h-4 w-4" aria-hidden />
-              Check Now
-            </Button>
+              {checking ? "Checking…" : "Check Now"}
+            </button>
           </form>
 
-          {checkError && <p className="mt-3 text-sm text-red-600">{checkError}</p>}
+          {checkError && (
+            <p className="mt-3 text-sm" style={{ color: ERROR_TEXT }}>
+              {checkError}
+            </p>
+          )}
           {checkNotice && !checkError && (
-            <p className="mt-3 text-sm text-slate-500">{checkNotice}</p>
+            <p className="mt-3 text-sm" style={{ color: TEXT_SECONDARY }}>
+              {checkNotice}
+            </p>
           )}
         </div>
       )}
 
+      {/* Severity filter tabs */}
+      <div className="flex flex-wrap gap-2">
+        {(["all", ...SEVERITY_ORDER] as const).map((tab) => {
+          const isActive = activeTab === tab;
+          const color = tab === "all" ? ACCENT : SEVERITY_COLORS[tab];
+          return (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className="rounded-full px-4 py-1.5 text-sm font-semibold transition"
+              style={{
+                backgroundColor: isActive ? color : CARD_BG,
+                color: isActive ? "#FFFFFF" : color,
+                border: `1px solid ${color}`,
+              }}
+            >
+              {tab === "all" ? "All" : SEVERITY_LABELS[tab]} ({tabCounts[tab]})
+            </button>
+          );
+        })}
+      </div>
+
       {loading ? (
-        <LoadingSpinner center label="Loading reputation alerts..." />
+        <div className="flex min-h-40 w-full items-center justify-center gap-2 text-sm" style={{ color: TEXT_SECONDARY }}>
+          Loading reputation alerts...
+        </div>
       ) : showEmpty ? (
-        <EmptyState
-          icon={ShieldAlert}
-          title="No reputation alerts"
-          description="Nothing needs your attention right now. Add a funder or donor above to run a reputation check."
-        />
+        <div
+          className="flex flex-col items-center justify-center rounded-xl px-6 py-12 text-center"
+          style={{ border: `1px dashed ${BORDER}`, backgroundColor: "#EDF3F9" }}
+        >
+          <ShieldAlert className="h-10 w-10" style={{ color: TEXT_MUTED }} aria-hidden />
+          <h3 className="mt-4 text-sm font-semibold" style={{ color: TEXT_PRIMARY }}>
+            No reputation alerts
+          </h3>
+          <p className="mt-1 max-w-sm text-sm" style={{ color: TEXT_SECONDARY }}>
+            Nothing needs your attention right now. Add a funder or donor above to run a reputation check.
+          </p>
+        </div>
       ) : (
         <div className="space-y-6">
           {grouped.map((group) => (
             <div key={group.severity} className="space-y-3">
-              <div className="flex items-center gap-2">
-                <span
-                  className="h-2.5 w-2.5 rounded-full"
-                  style={{ backgroundColor: SEVERITY_COLORS[group.severity] }}
-                  aria-hidden
-                />
-                <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-                  {SEVERITY_LABELS[group.severity]} ({group.items.length})
-                </h2>
-              </div>
+              {activeTab === "all" && (
+                <div className="flex items-center gap-2">
+                  <span
+                    className="h-2.5 w-2.5 rounded-full"
+                    style={{ backgroundColor: SEVERITY_COLORS[group.severity] }}
+                    aria-hidden
+                  />
+                  <h2 className="text-sm font-semibold uppercase tracking-wide" style={{ color: TEXT_SECONDARY }}>
+                    {SEVERITY_LABELS[group.severity]} ({group.items.length})
+                  </h2>
+                </div>
+              )}
 
               <div className="space-y-3">
                 {group.items.map((item) => (
                   <div
                     key={item.key}
-                    className="flex overflow-hidden rounded-xl border border-border bg-white shadow-sm"
+                    className="flex overflow-hidden rounded-xl"
+                    style={{ backgroundColor: CARD_BG, border: `1px solid ${BORDER}`, boxShadow: "0 2px 10px rgba(15,23,42,0.06)" }}
                   >
                     <div
                       className="w-1.5 shrink-0"
@@ -354,7 +438,9 @@ export default function ReputationIntelligencePage() {
                     <div className="flex flex-1 flex-wrap items-start justify-between gap-4 p-4">
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-bold text-slate-900">{item.entityName}</span>
+                          <span className="font-bold" style={{ color: TEXT_PRIMARY }}>
+                            {item.entityName}
+                          </span>
                           <span
                             className="rounded-full px-2 py-0.5 text-xs font-medium"
                             style={{
@@ -365,13 +451,15 @@ export default function ReputationIntelligencePage() {
                             {item.signalType.replace(/_/g, " ")}
                           </span>
                         </div>
-                        <p className="mt-1.5 text-sm font-medium text-slate-800">
+                        <p className="mt-1.5 text-sm font-medium" style={{ color: TEXT_PRIMARY }}>
                           {item.headline}
                         </p>
                         {item.summary && (
-                          <p className="mt-1 text-sm text-slate-500">{item.summary}</p>
+                          <p className="mt-1 text-sm" style={{ color: TEXT_SECONDARY }}>
+                            {item.summary}
+                          </p>
                         )}
-                        <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-400">
+                        <div className="mt-2 flex flex-wrap items-center gap-3 text-xs" style={{ color: TEXT_MUTED }}>
                           {item.signalDate && (
                             <span>
                               {new Date(item.signalDate).toLocaleDateString("en-US", {
@@ -384,7 +472,8 @@ export default function ReputationIntelligencePage() {
                               href={item.sourceUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 text-[#0077B6] hover:underline"
+                              className="inline-flex items-center gap-1 hover:underline"
+                              style={{ color: ACCENT }}
                             >
                               Source
                               <ExternalLink className="h-3 w-3" aria-hidden />
@@ -393,15 +482,15 @@ export default function ReputationIntelligencePage() {
                         </div>
                       </div>
 
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        isLoading={dismissing.has(item.key)}
+                      <button
                         onClick={() => handleMarkRead(item)}
+                        disabled={dismissing.has(item.key)}
+                        className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-3 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-60"
+                        style={{ backgroundColor: "#FFFFFF", border: `1px solid ${BORDER}`, color: TEXT_PRIMARY }}
                       >
                         <CheckCircle2 className="h-4 w-4" aria-hidden />
-                        Mark Read
-                      </Button>
+                        {dismissing.has(item.key) ? "Marking…" : "Mark Read"}
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -411,8 +500,11 @@ export default function ReputationIntelligencePage() {
         </div>
       )}
 
-      {!loading && !showEmpty && items.some((i) => i.severity === "critical") && (
-        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+      {!loading && items.some((i) => i.severity === "critical") && (
+        <div
+          className="flex items-center gap-2 rounded-lg px-4 py-3 text-sm"
+          style={{ border: `1px solid ${ERROR_BORDER}`, backgroundColor: ERROR_BG, color: ERROR_TEXT }}
+        >
           <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
           One or more critical reputation risks need attention.
         </div>

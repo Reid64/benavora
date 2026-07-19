@@ -1,11 +1,59 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { ChevronDown, ChevronUp, Plus, Search, AlertCircle } from "lucide-react";
+// Funder Recommendations — ranked matches from FunderRecommender
+// (src/lib/intelligence/funder-recommender.ts), scored by geographic fit,
+// program alignment, and award size (match_score 0-100). This page has no
+// urgency/status field of its own (that model belongs to the separate,
+// unbuilt relationship_recommendations table — see AGENTS_v2.md AG-19 dead
+// twin note) — so the requested "urgency bar" palette is applied to
+// match_score priority tiers instead: a high score means "act on this while
+// it's hot" (urgent), not an alarm. "Mark Done" has no separate persisted
+// state to flip; the real terminal action is "Add to Funders" (inserts a
+// real funders row), which already renders an "Added" indicator once done.
+// "Dismiss" hides a card from the current view only — there's no
+// dismissed_at column to persist it against.
 
-import { Badge } from "@/components/ui/Badge";
+import { useState, useEffect, useCallback } from "react";
+import { ChevronDown, ChevronUp, Plus, Search, AlertCircle, X } from "lucide-react";
+
 import { useProfile } from "@/lib/hooks/useProfile";
 import { createClient } from "@/lib/supabase/client";
+
+const CANVAS = "#D6E4F0";
+const CARD_BG = "#FFFFFF";
+const BORDER = "#C3D3E2";
+const TEXT_PRIMARY = "#0F172A";
+const TEXT_SECONDARY = "#64748B";
+const TEXT_MUTED = "#94A3B8";
+const ACCENT = "#0077B6";
+const ERROR_BG = "#FEE2E2";
+const ERROR_BORDER = "#FECACA";
+const ERROR_TEXT = "#B91C1C";
+const SUCCESS_BG = "#DCFCE7";
+const SUCCESS_TEXT = "#15803D";
+const CHIP_BG = "#E0F2FE";
+const CHIP_TEXT = "#0369A1";
+
+// Priority tiers per CURRENT TASK spec: urgent=#DC2626, normal=#0EA5E9, low=#6B7280.
+// Mapped onto match_score: a strong match is "urgent" (pursue while relevant),
+// a mid match is "normal" priority, a weak match is "low" priority.
+type Priority = "urgent" | "normal" | "low";
+const PRIORITY_COLORS: Record<Priority, string> = {
+  urgent: "#DC2626",
+  normal: "#0EA5E9",
+  low: "#6B7280",
+};
+const PRIORITY_LABELS: Record<Priority, string> = {
+  urgent: "High Priority",
+  normal: "Worth Pursuing",
+  low: "Low Priority",
+};
+
+function priorityFromScore(score: number): Priority {
+  if (score >= 70) return "urgent";
+  if (score >= 40) return "normal";
+  return "low";
+}
 
 interface FunderRecommendation {
   foundation_id: string;
@@ -49,24 +97,26 @@ const PROGRAM_CATEGORIES = [
   "Social Services",
 ];
 
-function ScoreBadge({ score }: { score: number }) {
-  const variant = score < 40 ? "error" : score < 60 ? "warning" : "success";
-  return <Badge variant={variant}>{score}%</Badge>;
-}
-
 function FunderCard({
   rec,
   onAdd,
+  onDismiss,
   isAdding,
+  isAdded,
 }: {
   rec: FunderRecommendation;
   onAdd: (rec: FunderRecommendation) => void;
+  onDismiss: (id: string) => void;
   isAdding: boolean;
+  isAdded: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [explanation, setExplanation] = useState<string | null>(null);
   const [explanationLoading, setExplanationLoading] = useState(false);
   const [explanationError, setExplanationError] = useState<string | null>(null);
+
+  const priority = priorityFromScore(rec.match_score);
+  const color = PRIORITY_COLORS[priority];
 
   const toggleExpanded = useCallback(() => {
     setExpanded((v) => {
@@ -90,113 +140,174 @@ function FunderCard({
   }, [explanation, explanationLoading, rec.foundation_id]);
 
   return (
-    <div className="rounded-xl border border-border bg-white shadow-sm">
-      <div className="flex items-start gap-4 px-5 py-4">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="font-semibold text-text">{rec.name}</p>
-            <ScoreBadge score={rec.match_score} />
-            {rec.ein && (
-              <span className="text-xs text-text-muted">EIN {rec.ein}</span>
-            )}
-          </div>
-          <div className="mt-2 flex flex-wrap gap-3 text-xs text-text-muted">
-            {rec.avg_award_amount !== null && (
-              <span>Avg award: ${rec.avg_award_amount.toLocaleString()}</span>
-            )}
-            {rec.total_annual_giving !== null && (
-              <span>Annual giving: ${(rec.total_annual_giving / 1_000_000).toFixed(1)}M</span>
-            )}
-            {rec.geographic_focus.length > 0 && (
-              <span>Geo: {rec.geographic_focus.slice(0, 2).join(", ")}</span>
-            )}
-          </div>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {rec.match_reasons.slice(0, 3).map((reason, i) => (
+    <div
+      className="flex overflow-hidden rounded-xl"
+      style={{ backgroundColor: CARD_BG, border: `1px solid ${BORDER}`, boxShadow: "0 2px 10px rgba(15,23,42,0.06)" }}
+    >
+      <div className="w-1.5 shrink-0" style={{ backgroundColor: color }} aria-hidden />
+      <div className="flex-1">
+        <div className="flex items-start gap-4 px-5 py-4">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="font-semibold" style={{ color: TEXT_PRIMARY }}>
+                {rec.name}
+              </p>
               <span
-                key={i}
-                className="rounded-md bg-info-bg px-2 py-0.5 text-xs text-info-text"
+                className="rounded-full px-2.5 py-0.5 text-xs font-bold"
+                style={{ backgroundColor: `${color}1A`, color }}
               >
-                {reason}
+                {PRIORITY_LABELS[priority]} · {rec.match_score}%
               </span>
-            ))}
-          </div>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <button
-            onClick={() => onAdd(rec)}
-            disabled={isAdding}
-            className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <Plus className="h-3 w-3" />
-            {isAdding ? "Adding…" : "Add to Funders"}
-          </button>
-          <button
-            onClick={toggleExpanded}
-            className="rounded-lg p-1.5 text-text-muted transition hover:bg-white-raised hover:text-text"
-            aria-label={expanded ? "Collapse" : "Expand match reasoning"}
-          >
-            {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-          </button>
-        </div>
-      </div>
-      {expanded && (
-        <div className="border-t border-border px-5 py-4 space-y-3">
-          <div>
-            <p className="mb-1.5 text-xs font-medium text-text-muted uppercase tracking-wide">Match reasoning</p>
-            <ul className="space-y-1">
-              {rec.match_reasons.map((reason, i) => (
-                <li key={i} className="text-sm text-text">• {reason}</li>
-              ))}
-            </ul>
-          </div>
-          <div>
-            <p className="mb-1.5 text-xs font-medium text-text-muted uppercase tracking-wide">AI explanation</p>
-            {explanationLoading && <p className="text-sm text-text-muted">Generating explanation…</p>}
-            {explanationError && <p className="text-sm text-error-text">{explanationError}</p>}
-            {explanation && <p className="text-sm text-text">{explanation}</p>}
-          </div>
-          {rec.program_priorities.length > 0 && (
-            <div>
-              <p className="mb-1 text-xs font-medium text-text-muted uppercase tracking-wide">Program priorities</p>
-              <div className="flex flex-wrap gap-1.5">
-                {rec.program_priorities.map((p, i) => (
-                  <Badge key={i} variant="neutral">
-                    {p}
-                  </Badge>
-                ))}
-              </div>
+              {rec.ein && (
+                <span className="text-xs" style={{ color: TEXT_MUTED }}>
+                  EIN {rec.ein}
+                </span>
+              )}
             </div>
-          )}
+            <div className="mt-2 flex flex-wrap gap-3 text-xs" style={{ color: TEXT_MUTED }}>
+              {rec.avg_award_amount !== null && <span>Avg award: ${rec.avg_award_amount.toLocaleString()}</span>}
+              {rec.total_annual_giving !== null && (
+                <span>Annual giving: ${(rec.total_annual_giving / 1_000_000).toFixed(1)}M</span>
+              )}
+              {rec.geographic_focus.length > 0 && <span>Geo: {rec.geographic_focus.slice(0, 2).join(", ")}</span>}
+            </div>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {rec.match_reasons.slice(0, 3).map((reason, i) => (
+                <span
+                  key={i}
+                  className="rounded-md px-2 py-0.5 text-xs"
+                  style={{ backgroundColor: CHIP_BG, color: CHIP_TEXT }}
+                >
+                  {reason}
+                </span>
+              ))}
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            {isAdded ? (
+              <span
+                className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold"
+                style={{ backgroundColor: SUCCESS_BG, color: SUCCESS_TEXT }}
+              >
+                <Plus className="h-3 w-3" />
+                Done
+              </span>
+            ) : (
+              <button
+                onClick={() => onAdd(rec)}
+                disabled={isAdding}
+                className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-60"
+                style={{ backgroundColor: ACCENT, color: "#FFFFFF" }}
+              >
+                <Plus className="h-3 w-3" />
+                {isAdding ? "Adding…" : "Add to Funders"}
+              </button>
+            )}
+            <button
+              onClick={() => onDismiss(rec.foundation_id)}
+              className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium transition"
+              style={{ backgroundColor: "#FFFFFF", border: `1px solid ${BORDER}`, color: TEXT_SECONDARY }}
+            >
+              <X className="h-3 w-3" />
+              Dismiss
+            </button>
+            <button
+              onClick={toggleExpanded}
+              className="rounded-lg p-1.5 transition"
+              style={{ color: TEXT_MUTED }}
+              aria-label={expanded ? "Collapse" : "Expand match reasoning"}
+            >
+              {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </button>
+          </div>
         </div>
-      )}
+        {expanded && (
+          <div className="px-5 py-4 space-y-3" style={{ borderTop: `1px solid ${BORDER}` }}>
+            <div>
+              <p className="mb-1.5 text-xs font-medium uppercase tracking-wide" style={{ color: TEXT_MUTED }}>
+                Match reasoning
+              </p>
+              <ul className="space-y-1">
+                {rec.match_reasons.map((reason, i) => (
+                  <li key={i} className="text-sm" style={{ color: TEXT_PRIMARY }}>
+                    • {reason}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <p className="mb-1.5 text-xs font-medium uppercase tracking-wide" style={{ color: TEXT_MUTED }}>
+                AI explanation
+              </p>
+              {explanationLoading && (
+                <p className="text-sm" style={{ color: TEXT_SECONDARY }}>
+                  Generating explanation…
+                </p>
+              )}
+              {explanationError && (
+                <p className="text-sm" style={{ color: ERROR_TEXT }}>
+                  {explanationError}
+                </p>
+              )}
+              {explanation && (
+                <p className="text-sm" style={{ color: TEXT_PRIMARY }}>
+                  {explanation}
+                </p>
+              )}
+            </div>
+            {rec.program_priorities.length > 0 && (
+              <div>
+                <p className="mb-1 text-xs font-medium uppercase tracking-wide" style={{ color: TEXT_MUTED }}>
+                  Program priorities
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {rec.program_priorities.map((p, i) => (
+                    <span
+                      key={i}
+                      className="rounded-full px-2.5 py-0.5 text-xs font-semibold"
+                      style={{ backgroundColor: "#F1F5F9", color: "#475569" }}
+                    >
+                      {p}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
 function OrgSummaryCard({ org }: { org: OrgSummary }) {
   return (
-    <div className="rounded-xl border border-border bg-white p-5 shadow-sm">
+    <div className="rounded-xl p-5" style={{ backgroundColor: CARD_BG, border: `1px solid ${BORDER}`, boxShadow: "0 4px 20px rgba(15,23,42,0.08)" }}>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-lg font-semibold text-text">{org.name ?? "Your organization"}</h2>
-        <span className="text-xs text-text-muted">Recommendations are tailored to this profile</span>
+        <h2 className="text-lg font-semibold" style={{ color: TEXT_PRIMARY }}>
+          {org.name ?? "Your organization"}
+        </h2>
+        <span className="text-xs" style={{ color: TEXT_MUTED }}>
+          Recommendations are tailored to this profile
+        </span>
       </div>
       {org.mission_statement && (
-        <p className="mt-1.5 text-sm text-text-muted">{org.mission_statement}</p>
+        <p className="mt-1.5 text-sm" style={{ color: TEXT_SECONDARY }}>
+          {org.mission_statement}
+        </p>
       )}
-      <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1.5 text-xs text-text-muted">
+      <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1.5 text-xs" style={{ color: TEXT_SECONDARY }}>
         <span>
-          <span className="text-text-muted">Service area:</span>{" "}
-          {org.service_area ?? org.state ?? "Not specified"}
+          <span style={{ color: TEXT_MUTED }}>Service area:</span> {org.service_area ?? org.state ?? "Not specified"}
         </span>
         {org.target_population && (
           <span>
-            <span className="text-text-muted">Target population:</span> {org.target_population}
+            <span style={{ color: TEXT_MUTED }}>Target population:</span> {org.target_population}
           </span>
         )}
         {org.annual_budget !== null && (
           <span>
-            <span className="text-text-muted">Annual budget:</span> ${org.annual_budget.toLocaleString()}
+            <span style={{ color: TEXT_MUTED }}>Annual budget:</span> ${org.annual_budget.toLocaleString()}
           </span>
         )}
       </div>
@@ -214,6 +325,7 @@ export default function RecommendationsPage() {
   const [geographyTouched, setGeographyTouched] = useState(false);
   const [org, setOrg] = useState<OrgSummary | null>(null);
   const [recommendations, setRecommendations] = useState<FunderRecommendation[]>([]);
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
@@ -234,6 +346,7 @@ export default function RecommendationsPage() {
         setError(data.error ?? "Failed to load recommendations.");
       } else {
         setRecommendations(data.recommendations ?? []);
+        setDismissedIds(new Set());
         if (data.organization) {
           setOrg(data.organization);
           if (!geographyTouched) setGeography(data.organization.default_geography);
@@ -279,33 +392,37 @@ export default function RecommendationsPage() {
     }
   }
 
+  function handleDismiss(foundationId: string) {
+    setDismissedIds((prev) => new Set(prev).add(foundationId));
+  }
+
+  const visibleRecommendations = recommendations.filter((r) => !dismissedIds.has(r.foundation_id));
+
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-primary">
+    <div className="min-h-screen space-y-8 p-6" style={{ backgroundColor: CANVAS }}>
+      <div style={{ borderLeft: `4px solid ${ACCENT}`, paddingLeft: "1rem" }}>
+        <h1 className="text-2xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>
           Funder Recommendations
         </h1>
-        <p className="mt-1 text-sm text-text-muted">
+        <p className="mt-1 text-sm" style={{ color: TEXT_SECONDARY }}>
           Ranked funder matches based on geographic fit, program alignment, and award size.
         </p>
       </div>
 
-      {/* Org profile summary */}
       {org && <OrgSummaryCard org={org} />}
 
-      {/* Filters */}
-      <div className="rounded-xl border border-border bg-white p-4 shadow-sm">
+      <div className="rounded-xl p-4" style={{ backgroundColor: CARD_BG, border: `1px solid ${BORDER}`, boxShadow: "0 2px 10px rgba(15,23,42,0.06)" }}>
         <div className="flex flex-wrap items-end gap-4">
           <div className="min-w-[200px] flex-1">
-            <label className="mb-1.5 block text-xs font-medium text-text-muted" htmlFor="category-select">
+            <label className="mb-1.5 block text-xs font-medium" style={{ color: TEXT_SECONDARY }} htmlFor="category-select">
               Program Category
             </label>
             <select
               id="category-select"
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              className="w-full rounded-lg border border-border bg-white-raised px-3 py-2 text-sm text-text focus:border-primary focus:outline-none"
+              className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none"
+              style={{ border: `1px solid ${BORDER}`, backgroundColor: "#FFFFFF", color: TEXT_PRIMARY }}
             >
               <option value="">All categories</option>
               {PROGRAM_CATEGORIES.map((c) => (
@@ -316,7 +433,7 @@ export default function RecommendationsPage() {
             </select>
           </div>
           <div className="min-w-[160px]">
-            <label className="mb-1.5 block text-xs font-medium text-text-muted" htmlFor="amount-input">
+            <label className="mb-1.5 block text-xs font-medium" style={{ color: TEXT_SECONDARY }} htmlFor="amount-input">
               Grant Amount ($)
             </label>
             <input
@@ -325,12 +442,13 @@ export default function RecommendationsPage() {
               min={0}
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              className="w-full rounded-lg border border-border bg-white-raised px-3 py-2 text-sm text-text focus:border-primary focus:outline-none"
+              className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none"
+              style={{ border: `1px solid ${BORDER}`, backgroundColor: "#FFFFFF", color: TEXT_PRIMARY }}
               placeholder="50000"
             />
           </div>
           <div className="min-w-[180px] flex-1">
-            <label className="mb-1.5 block text-xs font-medium text-text-muted" htmlFor="geography-input">
+            <label className="mb-1.5 block text-xs font-medium" style={{ color: TEXT_SECONDARY }} htmlFor="geography-input">
               Geographic Scope
             </label>
             <input
@@ -341,14 +459,16 @@ export default function RecommendationsPage() {
                 setGeography(e.target.value);
                 setGeographyTouched(true);
               }}
-              className="w-full rounded-lg border border-border bg-white-raised px-3 py-2 text-sm text-text focus:border-primary focus:outline-none"
+              className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none"
+              style={{ border: `1px solid ${BORDER}`, backgroundColor: "#FFFFFF", color: TEXT_PRIMARY }}
               placeholder="e.g. Texas"
             />
           </div>
           <button
             onClick={() => void fetchRecommendations()}
             disabled={loading || !orgId}
-            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60"
+            style={{ backgroundColor: ACCENT, color: "#FFFFFF" }}
           >
             <Search className="h-4 w-4" />
             {loading ? "Searching…" : "Find Matches"}
@@ -356,40 +476,46 @@ export default function RecommendationsPage() {
         </div>
       </div>
 
-      {/* Error */}
       {error && (
         <div
           role="alert"
-          className="flex items-start gap-2 rounded-lg border border-error-border bg-error-bg px-4 py-3 text-sm text-error-text"
+          className="flex items-start gap-2 rounded-lg px-4 py-3 text-sm"
+          style={{ border: `1px solid ${ERROR_BORDER}`, backgroundColor: ERROR_BG, color: ERROR_TEXT }}
         >
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
           {error}
         </div>
       )}
 
-      {/* Results */}
-      {!loading && recommendations.length === 0 && !error && (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-border bg-white py-20 text-center shadow-sm">
-          <Search className="mb-4 h-10 w-10 text-text-muted" />
-          <p className="text-base font-semibold text-text">No recommendations found</p>
-          <p className="mt-2 max-w-sm text-sm text-text-muted">
+      {!loading && visibleRecommendations.length === 0 && !error && (
+        <div
+          className="flex flex-col items-center justify-center rounded-xl py-20 text-center"
+          style={{ border: `1px solid ${BORDER}`, backgroundColor: CARD_BG }}
+        >
+          <Search className="mb-4 h-10 w-10" style={{ color: TEXT_MUTED }} />
+          <p className="text-base font-semibold" style={{ color: TEXT_PRIMARY }}>
+            No recommendations found
+          </p>
+          <p className="mt-2 max-w-sm text-sm" style={{ color: TEXT_SECONDARY }}>
             Adjust the filters or add more grantmaker profiles to the intelligence library to improve matches.
           </p>
         </div>
       )}
 
-      {recommendations.length > 0 && (
+      {visibleRecommendations.length > 0 && (
         <div className="space-y-3">
-          <p className="text-sm text-text-muted">{recommendations.length} matches found</p>
-          {recommendations.map((rec) => (
-            <div key={rec.foundation_id} className="relative">
-              {addedIds.has(rec.foundation_id) && (
-                <div className="absolute right-14 top-4 z-10 rounded-md bg-success-bg px-2 py-0.5 text-xs text-success-text">
-                  Added
-                </div>
-              )}
-              <FunderCard rec={rec} onAdd={handleAdd} isAdding={addingId === rec.foundation_id} />
-            </div>
+          <p className="text-sm" style={{ color: TEXT_SECONDARY }}>
+            {visibleRecommendations.length} match{visibleRecommendations.length !== 1 ? "es" : ""} found
+          </p>
+          {visibleRecommendations.map((rec) => (
+            <FunderCard
+              key={rec.foundation_id}
+              rec={rec}
+              onAdd={handleAdd}
+              onDismiss={handleDismiss}
+              isAdding={addingId === rec.foundation_id}
+              isAdded={addedIds.has(rec.foundation_id)}
+            />
           ))}
         </div>
       )}

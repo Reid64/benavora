@@ -35,7 +35,7 @@ export async function GET() {
     { count: activeCount },
     { count: completedToday },
     { count: failedToday },
-    { data: failedRows },
+    { data: recentRows },
   ] = await Promise.all([
     admin
       .from("automation_queue")
@@ -51,26 +51,32 @@ export async function GET() {
       .select("*", { count: "exact", head: true })
       .eq("status", "failed")
       .gte("created_at", todayStart.toISOString()),
+    // Mixed-status recent activity — powers both the "Recent Failures" list
+    // and the "Recent Activity" agent-runs-style table on the same page,
+    // so a single query covers both rather than one per status.
     admin
       .from("automation_queue")
-      .select("id, application_id, error_log, created_at")
-      .eq("status", "failed")
+      .select("id, application_id, status, error_log, created_at, started_at, completed_at")
       .order("created_at", { ascending: false })
-      .limit(10),
+      .limit(20),
   ]);
 
-  type FailedRow = {
+  type RecentRow = {
     id: string;
     application_id: string;
+    status: string;
     error_log: unknown;
     created_at: string;
+    started_at: string | null;
+    completed_at: string | null;
   };
-  const failed = (failedRows ?? []) as FailedRow[];
+  const recent = (recentRows ?? []) as RecentRow[];
+  const failed = recent.filter((r) => r.status === "failed");
 
   // Resolve funder names: automation_queue.application_id -> applications ->
   // opportunities -> funders. Done as three batched lookups rather than a
   // nested PostgREST embed since the chain is three tables deep.
-  const appIds = Array.from(new Set(failed.map((r) => r.application_id)));
+  const appIds = Array.from(new Set(recent.map((r) => r.application_id)));
   const appToOpp = new Map<string, string>();
   if (appIds.length > 0) {
     const { data: apps } = await admin
@@ -110,22 +116,42 @@ export async function GET() {
     }
   }
 
-  const recent_failures = failed.map((row) => {
+  function resolveFunderName(row: RecentRow): string {
     const oppId = appToOpp.get(row.application_id);
     const funderId = oppId ? oppToFunder.get(oppId) : undefined;
-    const funderName = funderId ? funderNames.get(funderId) : undefined;
-    return {
-      id: row.id,
-      funder_name: funderName ?? "Unknown funder",
-      error_message: lastErrorMessage(row.error_log) ?? "No error message recorded.",
-      created_at: row.created_at,
-    };
-  });
+    return (funderId ? funderNames.get(funderId) : undefined) ?? "Unknown funder";
+  }
+
+  // running covers queued/processing/paused — automation_queue has no
+  // separate "running" status, so this collapses to the closest match of
+  // the 3-state completed/failed/running model the Monitor UI renders.
+  function displayStatus(status: string): "completed" | "failed" | "running" {
+    if (status === "completed") return "completed";
+    if (status === "failed") return "failed";
+    return "running";
+  }
+
+  const recent_failures = failed.slice(0, 10).map((row) => ({
+    id: row.id,
+    funder_name: resolveFunderName(row),
+    error_message: lastErrorMessage(row.error_log) ?? "No error message recorded.",
+    created_at: row.created_at,
+  }));
+
+  const recent_activity = recent.slice(0, 15).map((row) => ({
+    id: row.id,
+    funder_name: resolveFunderName(row),
+    status: displayStatus(row.status),
+    error_message: row.status === "failed" ? lastErrorMessage(row.error_log) : null,
+    created_at: row.created_at,
+    updated_at: row.completed_at ?? row.started_at ?? row.created_at,
+  }));
 
   return NextResponse.json({
     active_count: activeCount ?? 0,
     completed_today: completedToday ?? 0,
     failed_today: failedToday ?? 0,
     recent_failures,
+    recent_activity,
   });
 }
