@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Plus, Search, Zap } from "lucide-react";
+import { ClipboardCheck, Plus, Search, Zap } from "lucide-react";
 
 import { Button, EmptyState, Select } from "@/components/ui";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -55,6 +55,10 @@ export default function OpportunitiesPage() {
   const [customThreshold, setCustomThreshold] = useState("");
   const [isScoring, setIsScoring] = useState(false);
   const [scoringError, setScoringError] = useState<string | null>(null);
+  const [isScoringEligibility, setIsScoringEligibility] = useState(false);
+  const [eligibilityScoringError, setEligibilityScoringError] = useState<
+    string | null
+  >(null);
 
   async function loadOpportunities() {
     setLoading(true);
@@ -192,6 +196,59 @@ export default function OpportunitiesPage() {
     await loadOpportunities();
   }
 
+  // "Score All" — Eligibility Scoring Agent (AGENTS.md Agent 02).
+  //
+  // Deviation from the task-given spec (POST /api/autonomous/trigger with
+  // agentId "ag-02-eligibility"), checked against real code rather than
+  // applied literally:
+  //   - "ag-02" (the autonomous EligibilityScoringAgent's agentId, see
+  //     src/lib/agents/eligibility-scoring-agent.ts) was never added to the
+  //     agent_type enum (verified: absent from every src/supabase/migrations
+  //     file) — AutonomousAgent.startRun() would fail on every single run
+  //     before scoring anything. AGENTS_v2.md §1.2 documents this as a known,
+  //     unfixed gap.
+  //   - /api/autonomous/trigger only inserts a bare agent_queue row with no
+  //     opportunityId in its payload, but the queue processor's
+  //     'eligibility_scoring' case (worker/autonomous-orchestrator.ts) requires
+  //     one per item — it scores a single opportunity, not "all".
+  // Instead this mirrors handleRunScoring above: fan out client-side to the
+  // real, working per-opportunity route (/api/agents/eligibility, backed by
+  // the live EligibilityScorer — the same class scripts/batch-score-eligibility.ts
+  // and pnpm score:eligibility already use), scoped to opportunities that have
+  // never been scored.
+  const unscoredOpportunities = useMemo(
+    () => opportunities.filter((opp) => opp.eligibility_score == null),
+    [opportunities],
+  );
+
+  async function handleScoreAllEligibility() {
+    setIsScoringEligibility(true);
+    setEligibilityScoringError(null);
+
+    const results = await Promise.allSettled(
+      unscoredOpportunities.map((opp) =>
+        fetch("/api/agents/eligibility", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ opportunityId: opp.id }),
+        }).then((res) => {
+          if (!res.ok) throw new Error(`Failed to score ${opp.id}`);
+          return res.json();
+        }),
+      ),
+    );
+
+    const failures = results.filter((r) => r.status === "rejected").length;
+    if (failures > 0) {
+      setEligibilityScoringError(
+        `${failures} of ${unscoredOpportunities.length} opportunities could not be scored.`,
+      );
+    }
+
+    setIsScoringEligibility(false);
+    await loadOpportunities();
+  }
+
   return (
     <div
       className="min-h-screen space-y-6 bg-[#EEF2F7] p-6 page-bg"
@@ -202,13 +259,25 @@ export default function OpportunitiesPage() {
         description="Grants, donation programs, and sponsorships you're tracking."
         actions={
           editable && (
-            <Link
-              href="/opportunities/new"
-              className="flex items-center gap-2 rounded-lg bg-[#0077B6] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#005F92]"
-            >
-              <Plus className="h-4 w-4" aria-hidden />
-              New opportunity
-            </Link>
+            <>
+              <Button
+                variant="secondary"
+                onClick={handleScoreAllEligibility}
+                disabled={isScoringEligibility || unscoredOpportunities.length === 0}
+              >
+                <ClipboardCheck className="h-4 w-4" aria-hidden />
+                {isScoringEligibility
+                  ? "Scoring..."
+                  : `Score All${unscoredOpportunities.length > 0 ? ` (${unscoredOpportunities.length})` : ""}`}
+              </Button>
+              <Link
+                href="/opportunities/new"
+                className="flex items-center gap-2 rounded-lg bg-[#0077B6] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#005F92]"
+              >
+                <Plus className="h-4 w-4" aria-hidden />
+                New opportunity
+              </Link>
+            </>
           )
         }
       />
@@ -228,6 +297,15 @@ export default function OpportunitiesPage() {
           className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
         >
           {scoringError}
+        </div>
+      )}
+
+      {eligibilityScoringError && (
+        <div
+          role="alert"
+          className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+        >
+          {eligibilityScoringError}
         </div>
       )}
 
