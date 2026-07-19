@@ -217,3 +217,37 @@ Phase 8 — Integrations + Deploy:       NOT STARTED
 ---
 
 *STATE_OF_THE_BUILD.md | Updated by FORGE after each run. Do not edit manually.*
+
+---
+
+## Autonomous Agent Build Session — July 18-19, 2026
+
+### Infrastructure
+Schema: autonomous_triggers, agent_queue, agent_decisions, org_autonomous_config tables. agent_runs extended with trigger_source, next_action, confidence_score, items_queued, chained_from_run_id. applications extended with auto_generated, pending_review, draft_source, budget_data, compliance_check_result, fit_analysis.
+Base class: src/lib/agents/autonomous-base.ts with AUTONOMOUS_HARD_LIMITS and full decision logging.
+Orchestrator: worker/autonomous-orchestrator.ts — nightly 2AM per-org pipeline.
+Queue processor: continuous poll with priority ordering and retry logic.
+API routes: /api/autonomous/config, /decisions, /queue, /trigger, /followup-trigger.
+
+### Agents Upgraded to Autonomous (18 total)
+AG-02, AG-03, AG-04, AG-05, AG-06, AG-07, AG-08, AG-09, AG-10, AG-11, AG-12, AG-15, AG-17, AG-18, AG-19, AG-25, AG-28, plus Autonomous Digest Agent.
+
+### Core Chain
+AG-17 (Discovery) -> agent_queue -> AG-15 (Probability, threshold gate) -> agent_queue -> AG-05 (Draft, pending_review=true) -> notification -> dashboard.
+
+### Hard Limits Enforced Permanently
+NEVER_SUBMIT_EXTERNALLY. NEVER_SEND_EMAIL_WITHOUT_APPROVAL. NEVER_DELETE_USER_DATA. NEVER_MODIFY_GOVERNANCE_FILES.
+
+### UI
+Autonomous Settings Panel (/settings/agents), Decision Log (same page), 24h Activity Feed (dashboard), Draft Review Page (/draft-generator/autonomous).
+
+### Governance Created/Updated
+AGENTS_v2.md (complete rewrite with autonomous specs), BEHAVIORAL_CONTRACTS.md (sections 16-17), SCHEMA_REGISTRY_v2.md (all new tables), WORKER_ARCHITECTURE_v2.md (section 11), FEATURE_REGISTRY_v2.md (features 187-228), AUTONOMOUS_PLATFORM_VISION.md (created — Phases 1-5 roadmap with FORGE blueprints).
+
+### Next Session Priorities
+1. Enable auto_research_enabled + auto_score_enabled for Faith Foundation org and monitor first autonomous run
+2. Verify agent_decisions table populates correctly
+3. Command Center UI redesign (color scheme + platform-owner-scoped data)
+4. Run pnpm score:eligibility
+5. Run pnpm acquire:prospects
+6. Faith Foundation org dedup in Supabase (still pending)
