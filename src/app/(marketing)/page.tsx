@@ -282,8 +282,7 @@ export default function BenavoraMarketing() {
           padding: "0 48px", height: 68,
           display: "flex", alignItems: "center", justifyContent: "space-between",
         }}>
-          {/* Logo lockup */}
-          <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 20, fontWeight: 800, background: "linear-gradient(135deg, #0EA5E9, #8B5CF6)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>benavora</span>
+          <div />
           <div style={{ display: "flex", alignItems: "center", gap: 28 }}>
             {["Product", "For Consultants", "Pricing"].map(l => (
               <a key={l} href={l === "Pricing" ? "#pricing" : "#"} style={{ fontSize: 14, color: B.textSecond, fontWeight: 500 }}
@@ -305,8 +304,8 @@ export default function BenavoraMarketing() {
 
         {/* ═══ Hero ═══ */}
         <section style={{ maxWidth: 1000, margin: "0 auto", padding: "120px 48px 100px", textAlign: "center" }}>
-          <div className="fu" style={{ display: "flex", justifyContent: "center", marginBottom: 40 }}>
-            <img src="/benavora_logo.png" alt="Benavora" style={{ height: 80, width: "auto", objectFit: "contain" }} />
+          <div className="fu" style={{ display: "flex", justifyContent: "flex-start", marginBottom: 48, paddingLeft: 0 }}>
+            <img src="/benavora_logo.png" alt="Benavora" style={{ height: 320, width: "auto", objectFit: "contain" }} />
           </div>
 
           <div className="fu">
@@ -916,7 +915,7 @@ export default function BenavoraMarketing() {
           padding: "28px 48px",
           display: "flex", justifyContent: "space-between", alignItems: "center",
         }}>
-          <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 16, fontWeight: 800, background: "linear-gradient(135deg, #0EA5E9, #8B5CF6)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", opacity: 0.7 }}>benavora</span>
+          <img src="/benavora_logo.png" alt="Benavora" style={{ height: 32, width: "auto", objectFit: "contain", opacity: 0.7 }} />
           <div style={{ display: "flex", gap: 28, alignItems: "center" }}>
             {["Privacy", "Terms", "Security", "Contact"].map(l => (
               <a key={l} href="#" style={{ fontSize: 13, color: B.textMuted }}>{l}</a>
