@@ -3,11 +3,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowUpRight, CheckCircle, ChevronDown, Search, Telescope } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowUpRight,
+  Building2,
+  CheckCircle,
+  ChevronDown,
+  MapPin,
+  Search,
+  Send,
+  Sparkles,
+  Telescope,
+} from "lucide-react";
 
 import { PageHeader } from "@/components/layout/PageHeader";
-import { Badge, Button, EmptyState, Input, Select, Table } from "@/components/ui";
-import type { BadgeVariant, TableColumn } from "@/components/ui";
+import { Button, EmptyState, Input, Select, Table } from "@/components/ui";
+import type { TableColumn } from "@/components/ui";
 import { useUrlState } from "@/lib/hooks/useUrlState";
 import { canEdit, useProfile } from "@/lib/hooks/useProfile";
 import { createClient } from "@/lib/supabase/client";
@@ -32,15 +43,20 @@ const PIPELINE_STAGES: DdPipelineStage[] = [
   "archived",
 ];
 
-const STAGE_BADGE: Record<DdPipelineStage, BadgeVariant> = {
-  new: "neutral",
-  reviewing: "info",
-  contacted: "info",
-  applied: "warning",
-  received: "success",
-  rejected: "error",
-  archived: "neutral",
+// Elevated Slate stage palette — light tint background derived from the same
+// hex at render time (see ColorBadge), never a raw Tailwind hue class.
+const STAGE_COLORS: Record<DdPipelineStage, string> = {
+  new: "#64748B",
+  reviewing: "#0EA5E9",
+  contacted: "#0077B6",
+  applied: "#F59E0B",
+  received: "#10B981",
+  rejected: "#EF4444",
+  archived: "#94A3B8",
 };
+
+// Prospects actively past initial contact — backs the "Contacted" stat card.
+const ENGAGED_STAGES: DdPipelineStage[] = ["contacted", "applied", "received"];
 
 interface TaxonomyNode {
   id: string;
@@ -115,6 +131,68 @@ function scoreBadgeClass(score: number | null): string {
   return `${shape} bg-[#FEE2E2] text-[#B91C1C]`;
 }
 
+// Industry badge coloring — a best-effort keyword heuristic over the real
+// taxonomy label (donor_discovery_directory has no dedicated "industry"
+// column), not a fabricated classification. Anything unmatched falls back to
+// DEFAULT_INDUSTRY_COLOR rather than guessing.
+const INDUSTRY_COLOR_RULES: Array<{ test: RegExp; hex: string }> = [
+  { test: /tech|software|computer|internet|telecom|it services|data/i, hex: "#0EA5E9" },
+  { test: /retail|store|shop|apparel|grocery|dealer|merchandis/i, hex: "#8B5CF6" },
+  { test: /health|medical|hospital|pharma|clinic|dental|care/i, hex: "#10B981" },
+  { test: /financ|bank|insurance|invest|credit/i, hex: "#F59E0B" },
+  { test: /manufactur|industrial|construction|contractor|factory|plumbing|electrical|roofing|building material/i, hex: "#6B7280" },
+];
+const DEFAULT_INDUSTRY_COLOR = "#64748B";
+
+function industryColorFor(label: string): string {
+  return INDUSTRY_COLOR_RULES.find((rule) => rule.test.test(label))?.hex ?? DEFAULT_INDUSTRY_COLOR;
+}
+
+/** Light-tint pill in an arbitrary hex — used where the color is computed
+ * from data (industry keyword match, pipeline stage) and can't be a static
+ * Tailwind class. Mirrors the tint-bg/solid-text/mid-border shape of the
+ * shared Badge component. */
+function ColorBadge({ label, hex, title }: { label: string; hex: string; title?: string }) {
+  return (
+    <span
+      title={title}
+      style={{ backgroundColor: `${hex}1A`, color: hex, borderColor: `${hex}40` }}
+      className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold"
+    >
+      {label}
+    </span>
+  );
+}
+
+function StatCard({
+  icon: Icon,
+  label,
+  value,
+  accent,
+}: {
+  icon: typeof Building2;
+  label: string;
+  value: React.ReactNode;
+  accent: string;
+}) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex items-center gap-3">
+        <span
+          style={{ backgroundColor: `${accent}1A`, color: accent }}
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
+        >
+          <Icon className="h-5 w-5" aria-hidden />
+        </span>
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+          <div className="mt-0.5 text-xl font-bold text-navy-900">{value}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const FETCH_LIMIT = 100;
 
 type ComboboxOption = { value: string; label: string };
@@ -168,18 +246,19 @@ function TaxonomyCombobox({
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        aria-label="Filter by taxonomy"
-        className="flex w-full items-center justify-between rounded-lg border border-border bg-white py-2 pl-3 pr-3 text-left text-sm text-text shadow-sm transition focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500"
+        aria-label="Filter by industry"
+        className="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white py-2 pl-3 pr-3 text-left text-sm text-slate-700 shadow-sm transition focus:outline-none focus:ring-2"
+        style={{ borderColor: open ? "#0077B6" : undefined }}
       >
         <span className="truncate">{selectedLabel}</span>
-        <ChevronDown className="ml-2 h-4 w-4 shrink-0 text-navy-400" aria-hidden />
+        <ChevronDown className="ml-2 h-4 w-4 shrink-0 text-slate-400" aria-hidden />
       </button>
 
       {open && (
-        <div className="absolute z-20 mt-1 w-full rounded-lg border border-border bg-white shadow-lg">
-          <div className="relative border-b border-border p-2">
+        <div className="absolute z-20 mt-1 w-full rounded-lg border border-slate-200 bg-white shadow-lg">
+          <div className="relative border-b border-slate-200 p-2">
             <Search
-              className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-navy-400"
+              className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
               aria-hidden
             />
             <input
@@ -187,9 +266,9 @@ function TaxonomyCombobox({
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search taxonomies..."
-              aria-label="Search taxonomies"
-              className="w-full rounded-md border border-border bg-white py-1.5 pl-8 pr-2 text-sm text-text placeholder:text-text-muted focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+              placeholder="Search industries..."
+              aria-label="Search industries"
+              className="w-full rounded-md border border-slate-200 bg-white py-1.5 pl-8 pr-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-1"
             />
           </div>
           <ul role="listbox" className="max-h-64 overflow-y-auto py-1">
@@ -201,18 +280,19 @@ function TaxonomyCombobox({
                     onChange(clearOption.value);
                     setOpen(false);
                   }}
-                  className={`block w-full px-3 py-1.5 text-left text-sm transition ${
+                  style={
                     value === clearOption.value
-                      ? "bg-teal-50 font-medium text-teal-700"
-                      : "text-text hover:bg-white-raised"
-                  }`}
+                      ? { backgroundColor: "#E0F2FE", color: "#0369A1" }
+                      : undefined
+                  }
+                  className="block w-full px-3 py-1.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50"
                 >
                   {clearOption.label}
                 </button>
               </li>
             )}
             {filtered.length === 0 ? (
-              <li className="px-3 py-2 text-sm text-navy-400">No matches</li>
+              <li className="px-3 py-2 text-sm text-slate-400">No matches</li>
             ) : (
               filtered.map((o) => (
                 <li key={o.value} role="option" aria-selected={value === o.value}>
@@ -223,11 +303,10 @@ function TaxonomyCombobox({
                       setOpen(false);
                     }}
                     title={o.label}
-                    className={`block w-full truncate px-3 py-1.5 text-left text-sm transition ${
-                      value === o.value
-                        ? "bg-teal-50 font-medium text-teal-700"
-                        : "text-text hover:bg-white-raised"
-                    }`}
+                    style={
+                      value === o.value ? { backgroundColor: "#E0F2FE", color: "#0369A1" } : undefined
+                    }
+                    className="block w-full truncate px-3 py-1.5 text-left text-sm text-slate-700 transition hover:bg-slate-50"
                   >
                     {o.label}
                   </button>
@@ -257,6 +336,13 @@ export default function DonorDiscoveryProspectsPage() {
   const [targetStage, setTargetStage] = useState<DdPipelineStage>("reviewing");
   const [bulkUpdating, setBulkUpdating] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [outreachLoadingId, setOutreachLoadingId] = useState<string | null>(null);
+
+  // Client-side refinements over the currently loaded (server-filtered) page
+  // — no dedicated search/location column exists on donor_discovery_directory
+  // to filter server-side, so these narrow what's already on screen.
+  const [searchQuery, setSearchQuery] = useState("");
+  const [locationQuery, setLocationQuery] = useState("");
 
   const taxonomyId = searchParams.get("taxonomy_id") ?? "";
   const requestId = searchParams.get("request_id") ?? "";
@@ -342,7 +428,7 @@ export default function DonorDiscoveryProspectsPage() {
 
   const taxonomyOptions = useMemo(
     () => [
-      { value: "", label: "All taxonomies" },
+      { value: "", label: "All industries" },
       ...nodes
         .slice()
         .sort((a, b) => a.label.localeCompare(b.label))
@@ -361,7 +447,7 @@ export default function DonorDiscoveryProspectsPage() {
 
   const stageOptions = useMemo(
     () => [
-      { value: "", label: "All stages" },
+      { value: "", label: "All statuses" },
       ...PIPELINE_STAGES.map((s) => ({ value: s, label: humanizeEnum(s) })),
     ],
     [],
@@ -382,11 +468,52 @@ export default function DonorDiscoveryProspectsPage() {
     return badges;
   }
 
-  const hasActiveFilters = Boolean(taxonomyId || requestId || stage || minScoreParam);
+  const visibleProspects = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    const loc = locationQuery.trim().toLowerCase();
+    if (!q && !loc) return prospects;
+    return prospects.filter((p) => {
+      if (q) {
+        const name = `${p.directory?.legal_name ?? ""} ${p.directory?.dba_name ?? ""}`.toLowerCase();
+        if (!name.includes(q)) return false;
+      }
+      if (loc) {
+        const address = (p.directory?.hq_address ?? "").toLowerCase();
+        if (!address.includes(loc)) return false;
+      }
+      return true;
+    });
+  }, [prospects, searchQuery, locationQuery]);
+
+  const topIndustries = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const p of prospects) {
+      const primary = categoryBadges(p.directory)[0]?.label;
+      if (!primary) continue;
+      counts.set(primary, (counts.get(primary) ?? 0) + 1);
+    }
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prospects, naicsLabelByCode, civicLabelByCode]);
+
+  const engagedCount = useMemo(
+    () => prospects.filter((p) => ENGAGED_STAGES.includes(p.pipeline_stage)).length,
+    [prospects],
+  );
+  const highScoreCount = useMemo(
+    () => prospects.filter((p) => p.score != null && p.score >= 70).length,
+    [prospects],
+  );
+
+  const hasActiveFilters = Boolean(
+    taxonomyId || requestId || stage || minScoreParam || searchQuery || locationQuery,
+  );
 
   const editable = canEdit(profile?.role);
 
-  const selectableIds = useMemo(() => prospects.map((p) => p.id), [prospects]);
+  const selectableIds = useMemo(() => visibleProspects.map((p) => p.id), [visibleProspects]);
   const allVisibleSelected =
     selectableIds.length > 0 && selectableIds.every((id) => selectedIds.has(id));
   const someVisibleSelected =
@@ -413,6 +540,11 @@ export default function DonorDiscoveryProspectsPage() {
     });
   }
 
+  function showToast(message: string) {
+    setToast(message);
+    setTimeout(() => setToast(null), 4000);
+  }
+
   async function handleBulkAdvance() {
     const ids = Array.from(selectedIds);
     if (ids.length === 0) return;
@@ -429,13 +561,26 @@ export default function DonorDiscoveryProspectsPage() {
     const failed = results.filter((r) => !r.ok).length;
     setBulkUpdating(false);
     setSelectedIds(new Set());
-    setToast(
+    showToast(
       failed > 0
         ? `Moved ${ids.length - failed} of ${ids.length} — ${failed} failed.`
         : `Moved ${ids.length} prospect${ids.length === 1 ? "" : "s"} to ${humanizeEnum(targetStage)}.`,
     );
-    setTimeout(() => setToast(null), 4000);
     await load();
+  }
+
+  async function handleAddToOutreach(id: string) {
+    setOutreachLoadingId(id);
+    try {
+      const res = await fetch(`/api/donor-discovery/prospects/${id}/route-to-email`, {
+        method: "POST",
+      });
+      const payload = (await res.json().catch(() => ({}))) as { error?: string };
+      showToast(res.ok ? "Added to your outreach campaign." : payload.error ?? "Could not add this prospect to outreach.");
+    } catch {
+      showToast("Could not reach the server.");
+    }
+    setOutreachLoadingId(null);
   }
 
   const columns: TableColumn<DdProspectRow>[] = [
@@ -454,7 +599,8 @@ export default function DonorDiscoveryProspectsPage() {
                 onChange={toggleSelectAll}
                 onClick={(e) => e.stopPropagation()}
                 disabled={selectableIds.length === 0}
-                className="h-4 w-4 rounded border-navy-300 text-teal-600 focus:ring-teal-500 disabled:opacity-40"
+                className="h-4 w-4 rounded border-slate-300 disabled:opacity-40"
+                style={{ accentColor: "#0077B6" }}
               />
             ),
             render: (row: DdProspectRow) => (
@@ -464,7 +610,8 @@ export default function DonorDiscoveryProspectsPage() {
                 checked={selectedIds.has(row.id)}
                 onChange={() => toggleProspect(row.id)}
                 onClick={(e) => e.stopPropagation()}
-                className="h-4 w-4 rounded border-navy-300 text-teal-600 focus:ring-teal-500"
+                className="h-4 w-4 rounded border-slate-300"
+                style={{ accentColor: "#0077B6" }}
               />
             ),
             className: "w-10",
@@ -473,7 +620,7 @@ export default function DonorDiscoveryProspectsPage() {
       : []),
     {
       key: "name",
-      header: "Name",
+      header: "Company",
       sortable: true,
       sortValue: (row) => (row.directory?.legal_name ?? "").toLowerCase(),
       render: (row) => (
@@ -481,40 +628,34 @@ export default function DonorDiscoveryProspectsPage() {
           <p className="font-medium text-navy-900">
             {row.directory?.legal_name ?? "Unknown company"}
           </p>
-          {row.directory?.website && (
-            <p className="text-xs text-navy-400">
-              {row.directory.website.replace(/^https?:\/\//, "")}
-            </p>
+          {row.directory?.dba_name && (
+            <p className="text-xs text-slate-500">dba {row.directory.dba_name}</p>
           )}
         </div>
       ),
     },
     {
       key: "category",
-      header: "Category",
+      header: "Industry",
       render: (row) => {
         const badges = categoryBadges(row.directory);
-        if (badges.length === 0) return <span className="text-navy-400">—</span>;
-        const shown = badges.slice(0, 2);
-        const extra = badges.length - shown.length;
+        const primary = badges[0];
+        if (!primary) return <span className="text-slate-400">—</span>;
+        const extra = badges.length - 1;
         return (
-          <div className="flex flex-wrap gap-1">
-            {shown.map((b) => (
-              <Badge key={b.key} color="teal">
-                {b.label}
-              </Badge>
-            ))}
-            {extra > 0 && <Badge color="gray">+{extra}</Badge>}
+          <div className="flex flex-wrap items-center gap-1">
+            <ColorBadge label={primary.label} hex={industryColorFor(primary.label)} />
+            {extra > 0 && <ColorBadge label={`+${extra}`} hex={DEFAULT_INDUSTRY_COLOR} />}
           </div>
         );
       },
     },
     {
       key: "geography",
-      header: "Geography",
+      header: "Location",
       sortable: true,
       sortValue: (row) => row.directory?.hq_address ?? "",
-      render: (row) => row.directory?.hq_address ?? <span className="text-navy-400">—</span>,
+      render: (row) => row.directory?.hq_address ?? <span className="text-slate-400">—</span>,
     },
     {
       key: "score",
@@ -529,32 +670,74 @@ export default function DonorDiscoveryProspectsPage() {
       ),
     },
     {
+      key: "website",
+      header: "Website",
+      render: (row) =>
+        row.directory?.website ? (
+          <a
+            href={row.directory.website}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            style={{ color: "#0077B6" }}
+            className="text-sm font-medium hover:underline"
+          >
+            {row.directory.website.replace(/^https?:\/\//, "")}
+          </a>
+        ) : (
+          <span className="text-slate-400">—</span>
+        ),
+    },
+    {
       key: "stage",
-      header: "Stage",
+      header: "Status",
       sortable: true,
       sortValue: (row) => row.pipeline_stage,
-      render: (row) => <Badge variant={STAGE_BADGE[row.pipeline_stage]}>{humanizeEnum(row.pipeline_stage)}</Badge>,
+      render: (row) => (
+        <ColorBadge label={humanizeEnum(row.pipeline_stage)} hex={STAGE_COLORS[row.pipeline_stage]} />
+      ),
     },
     {
       key: "actions",
       header: "",
       align: "right",
       render: (row) => (
-        <Link
-          href={`/donor-discovery/prospects/${row.id}`}
-          onClick={(e) => e.stopPropagation()}
-          className="inline-flex items-center gap-1 text-sm font-medium text-teal-600 hover:text-teal-700"
-        >
-          View
-          <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
-        </Link>
+        <div className="flex items-center justify-end gap-2">
+          <Link
+            href={`/donor-discovery/prospects/${row.id}`}
+            onClick={(e) => e.stopPropagation()}
+            style={{ color: "#0077B6" }}
+            className="inline-flex items-center gap-1 text-sm font-medium hover:underline"
+          >
+            View
+            <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
+          </Link>
+          {editable && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                void handleAddToOutreach(row.id);
+              }}
+              disabled={outreachLoadingId === row.id}
+              style={{ backgroundColor: "#8B5CF6" }}
+              className="inline-flex items-center gap-1 whitespace-nowrap rounded-lg px-2.5 py-1 text-xs font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
+            >
+              <Send className="h-3 w-3" aria-hidden />
+              {outreachLoadingId === row.id ? "Adding…" : "Add to Outreach"}
+            </button>
+          )}
+        </div>
       ),
-      className: "w-20",
+      className: "w-56",
     },
   ];
 
   return (
-    <div className="space-y-6">
+    <div
+      className="-m-4 min-h-full space-y-6 p-4 sm:-m-6 sm:p-6 lg:-m-8 lg:p-8"
+      style={{ backgroundColor: "#D6E4F0" }}
+    >
       <Link
         href="/donor-discovery"
         className="inline-flex items-center gap-1.5 text-sm text-navy-500 transition hover:text-navy-700"
@@ -564,14 +747,24 @@ export default function DonorDiscoveryProspectsPage() {
       </Link>
 
       <PageHeader
-        title="Prospects"
-        description="All prospects surfaced by your discovery requests, across every taxonomy and geography."
+        title={
+          <span className="inline-flex items-center gap-3">
+            Prospects
+            <span
+              style={{ backgroundColor: "#0077B6" }}
+              className="inline-flex min-w-[1.75rem] items-center justify-center rounded-full px-2 py-0.5 text-xs font-bold text-white"
+            >
+              {total}
+            </span>
+          </span>
+        }
+        description="All prospects surfaced by your discovery requests, across every industry and geography."
         actions={
           <Link
             href="/donor-discovery/new"
             className="inline-flex items-center bg-[#0077B6] hover:bg-[#005F92] text-white px-6 py-3 rounded-xl font-bold text-sm shadow-md transition-colors"
           >
-            New Discovery
+            Discover More
           </Link>
         }
       />
@@ -583,32 +776,76 @@ export default function DonorDiscoveryProspectsPage() {
       )}
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <TaxonomyCombobox
-          options={taxonomyOptions}
-          value={taxonomyId}
-          onChange={(value) => setParams({ taxonomy_id: value || null })}
+        <StatCard icon={Building2} label="Total Prospects" value={total} accent="#0077B6" />
+        <StatCard
+          icon={Sparkles}
+          label="Top Industries"
+          accent="#8B5CF6"
+          value={
+            topIndustries.length === 0 ? (
+              <span className="text-base font-medium text-slate-400">—</span>
+            ) : (
+              <div className="mt-1 flex flex-wrap gap-1">
+                {topIndustries.map(([label, count]) => (
+                  <ColorBadge key={label} label={`${label} (${count})`} hex={industryColorFor(label)} />
+                ))}
+              </div>
+            )
+          }
         />
-        <Select
-          aria-label="Filter by request"
-          options={requestSelectOptions}
-          value={requestId}
-          onChange={(e) => setParams({ request_id: e.target.value || null })}
-        />
-        <Input
-          type="number"
-          min={0}
-          max={100}
-          aria-label="Minimum score"
-          placeholder="Min score"
-          value={minScoreInput}
-          onChange={(e) => setMinScoreInput(e.target.value)}
-        />
-        <Select
-          aria-label="Filter by stage"
-          options={stageOptions}
-          value={stage}
-          onChange={(e) => setParams({ stage: e.target.value || null })}
-        />
+        <StatCard icon={CheckCircle} label="High Score (70+)" value={highScoreCount} accent="#10B981" />
+        <StatCard icon={Send} label="Contacted" value={engagedCount} accent="#F59E0B" />
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+          <TaxonomyCombobox
+            options={taxonomyOptions}
+            value={taxonomyId}
+            onChange={(value) => setParams({ taxonomy_id: value || null })}
+          />
+          <Select
+            aria-label="Filter by request"
+            options={requestSelectOptions}
+            value={requestId}
+            onChange={(e) => setParams({ request_id: e.target.value || null })}
+          />
+          <Select
+            aria-label="Filter by status"
+            options={stageOptions}
+            value={stage}
+            onChange={(e) => setParams({ stage: e.target.value || null })}
+          />
+          <Input
+            type="number"
+            min={0}
+            max={100}
+            aria-label="Minimum score"
+            placeholder="Min score"
+            value={minScoreInput}
+            onChange={(e) => setMinScoreInput(e.target.value)}
+          />
+          <div className="relative">
+            <MapPin className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden />
+            <Input
+              aria-label="Filter by city"
+              placeholder="City / location"
+              value={locationQuery}
+              onChange={(e) => setLocationQuery(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden />
+            <Input
+              aria-label="Search prospects"
+              placeholder="Search company name..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+        </div>
       </div>
 
       {!loading && total > prospects.length && (
@@ -617,7 +854,7 @@ export default function DonorDiscoveryProspectsPage() {
         </p>
       )}
 
-      {!loading && prospects.length === 0 ? (
+      {!loading && visibleProspects.length === 0 ? (
         hasActiveFilters ? (
           <EmptyState
             icon={Telescope}
@@ -625,7 +862,7 @@ export default function DonorDiscoveryProspectsPage() {
             description="Adjust or clear your filters, or launch a new discovery request to find more prospects."
             action={
               <Link href="/donor-discovery/new">
-                <Button size="sm">New Discovery</Button>
+                <Button size="sm">Discover More</Button>
               </Link>
             }
           />
@@ -636,7 +873,7 @@ export default function DonorDiscoveryProspectsPage() {
             description="Launch a discovery request to find corporate donors matched to your mission."
             action={
               <Link href="/donor-discovery/new">
-                <Button size="lg">Start Discovery</Button>
+                <Button size="lg">Discover More</Button>
               </Link>
             }
           />
@@ -644,7 +881,7 @@ export default function DonorDiscoveryProspectsPage() {
       ) : (
         <Table
           columns={columns}
-          data={prospects}
+          data={visibleProspects}
           rowKey={(row) => row.id}
           isLoading={loading}
           onRowClick={(row) => router.push(`/donor-discovery/prospects/${row.id}`)}
@@ -655,7 +892,10 @@ export default function DonorDiscoveryProspectsPage() {
       )}
 
       {editable && selectedIds.size > 0 && (
-        <div className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-4 rounded-xl bg-navy-900 px-6 py-3 shadow-xl">
+        <div
+          style={{ backgroundColor: "#1A2B3C" }}
+          className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-4 rounded-xl px-6 py-3 shadow-xl"
+        >
           <span className="text-sm font-medium text-white">
             {selectedIds.size} selected
           </span>
@@ -671,7 +911,8 @@ export default function DonorDiscoveryProspectsPage() {
             type="button"
             onClick={() => void handleBulkAdvance()}
             disabled={bulkUpdating}
-            className="rounded-lg bg-teal-600 px-4 py-1.5 text-sm font-medium text-white transition hover:bg-teal-500 disabled:opacity-60"
+            style={{ backgroundColor: "#0077B6" }}
+            className="rounded-lg px-4 py-1.5 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-60"
           >
             {bulkUpdating ? "Moving…" : "Move to stage"}
           </button>
@@ -682,7 +923,8 @@ export default function DonorDiscoveryProspectsPage() {
         <div
           role="status"
           aria-live="polite"
-          className="fixed right-6 top-6 z-50 flex items-center gap-2 rounded-xl bg-success-text px-5 py-3 text-sm font-medium text-white shadow-xl"
+          style={{ backgroundColor: "#10B981" }}
+          className="fixed right-6 top-6 z-50 flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-medium text-white shadow-xl"
         >
           <CheckCircle className="h-4 w-4 flex-shrink-0" aria-hidden />
           {toast}
