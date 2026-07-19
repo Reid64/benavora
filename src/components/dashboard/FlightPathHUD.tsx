@@ -2,18 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import type { LucideIcon } from "lucide-react";
-import {
-  ClipboardCheck,
-  HeartHandshake,
-  PenLine,
-  Search,
-  Send,
-  Target,
-} from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
-import { formatRelative } from "@/lib/utils/formatters";
 
 type StageId =
   | "onboard"
@@ -23,84 +13,30 @@ type StageId =
   | "autoapply"
   | "donorDiscovery";
 
-type StageData = {
-  /** Live count for the front-face badge, or null while loading/unavailable. */
-  count: number | null;
-  /** ISO timestamp of the most recent activity in this stage, or null. */
-  lastActivity: string | null;
-  /** 0-100 completion percentage for the back-face progress bar. */
-  percent: number;
-};
-
 type StageConfig = {
   id: StageId;
+  number: string;
   label: string;
-  icon: LucideIcon;
-  accentColor: string;
+  color: string;
   href: string;
-  actionLabel: string;
 };
 
 const STAGES: StageConfig[] = [
-  {
-    id: "onboard",
-    label: "Onboard",
-    icon: ClipboardCheck,
-    accentColor: "#1A2B3C",
-    href: "/onboarding",
-    actionLabel: "Continue Setup",
-  },
-  {
-    id: "research",
-    label: "Research",
-    icon: Search,
-    accentColor: "#0077B6",
-    href: "/research",
-    actionLabel: "Run Research",
-  },
-  {
-    id: "opportunities",
-    label: "Opportunities",
-    icon: Target,
-    accentColor: "#0096C7",
-    href: "/opportunities",
-    actionLabel: "View Opportunities",
-  },
-  {
-    id: "narratives",
-    label: "Grant Narratives",
-    icon: PenLine,
-    accentColor: "#6B48CC",
-    href: "/draft-generator",
-    actionLabel: "Generate Drafts",
-  },
-  {
-    id: "autoapply",
-    label: "AutoApply",
-    icon: Send,
-    accentColor: "#023E8A",
-    href: "/admin/autoapply-ops",
-    actionLabel: "View Queue",
-  },
-  {
-    id: "donorDiscovery",
-    label: "Donor Discovery",
-    icon: HeartHandshake,
-    accentColor: "#4C3D8F",
-    href: "/donor-discovery",
-    actionLabel: "Discover Donors",
-  },
+  { id: "onboard", number: "01", label: "Onboard", color: "#06B6D4", href: "/onboarding" },
+  { id: "research", number: "02", label: "Research", color: "#0EA5E9", href: "/research" },
+  { id: "opportunities", number: "03", label: "Opportunities", color: "#8B5CF6", href: "/opportunities" },
+  { id: "narratives", number: "04", label: "Grant Narratives", color: "#F59E0B", href: "/draft-generator" },
+  { id: "autoapply", number: "05", label: "AutoApply", color: "#10B981", href: "/admin/autoapply-ops" },
+  { id: "donorDiscovery", number: "06", label: "Donor Discovery", color: "#EC4899", href: "/donor-discovery" },
 ];
 
-const EMPTY_STAGE_DATA: StageData = { count: null, lastActivity: null, percent: 0 };
-
-const EMPTY_STATE: Record<StageId, StageData> = {
-  onboard: EMPTY_STAGE_DATA,
-  research: EMPTY_STAGE_DATA,
-  opportunities: EMPTY_STAGE_DATA,
-  narratives: EMPTY_STAGE_DATA,
-  autoapply: EMPTY_STAGE_DATA,
-  donorDiscovery: EMPTY_STAGE_DATA,
+const EMPTY_COUNTS: Record<StageId, number> = {
+  onboard: 0,
+  research: 0,
+  opportunities: 0,
+  narratives: 0,
+  autoapply: 0,
+  donorDiscovery: 0,
 };
 
 type OnboardingResponse = {
@@ -108,191 +44,117 @@ type OnboardingResponse = {
   progress: { completed_steps?: string[] } | null;
 };
 
-async function fetchOnboard(): Promise<StageData> {
+async function fetchOnboardCount(): Promise<number> {
   try {
     const res = await fetch("/api/onboarding", { cache: "no-store" });
-    if (!res.ok) return EMPTY_STAGE_DATA;
+    if (!res.ok) return 0;
     const data = (await res.json()) as OnboardingResponse;
-    const completedSteps = data.progress?.completed_steps?.length ?? 0;
-    const percent = data.completed ? 100 : Math.round((completedSteps / 7) * 100);
-    return { count: completedSteps, lastActivity: null, percent };
+    return data.progress?.completed_steps?.length ?? 0;
   } catch {
-    return EMPTY_STAGE_DATA;
+    return 0;
   }
 }
 
-type ResearchRun = { status: string; created_at: string };
-type ResearchStatusResponse = { runs: ResearchRun[] };
+type ResearchStatusResponse = { runs: Array<{ status: string }> };
 
-async function fetchResearch(): Promise<StageData> {
+async function fetchResearchCount(): Promise<number> {
   try {
     const res = await fetch("/api/agents/research/status?limit=50", { cache: "no-store" });
-    if (!res.ok) return EMPTY_STAGE_DATA;
+    if (!res.ok) return 0;
     const data = (await res.json()) as ResearchStatusResponse;
-    const runs = data.runs ?? [];
-    const completed = runs.filter((r) => r.status === "completed").length;
-    const percent = runs.length > 0 ? Math.round((completed / runs.length) * 100) : 0;
-    return {
-      count: runs.length,
-      lastActivity: runs[0]?.created_at ?? null,
-      percent,
-    };
+    return data.runs?.length ?? 0;
   } catch {
-    return EMPTY_STAGE_DATA;
+    return 0;
   }
 }
 
-async function fetchOpportunities(
+async function fetchOpportunitiesCount(
   supabase: ReturnType<typeof createClient>,
-): Promise<StageData> {
+): Promise<number> {
   try {
-    const [totalRes, scoredRes, recentRes] = await Promise.all([
-      supabase.from("opportunities").select("id", { count: "exact", head: true }),
-      supabase
-        .from("opportunities")
-        .select("id", { count: "exact", head: true })
-        .not("eligibility_score", "is", null),
-      supabase
-        .from("opportunities")
-        .select("discovered_at")
-        .order("discovered_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-    ]);
-
-    const total = totalRes.count ?? 0;
-    const scored = scoredRes.count ?? 0;
-    const percent = total > 0 ? Math.round((scored / total) * 100) : 0;
-    return {
-      count: total,
-      lastActivity: (recentRes.data as { discovered_at: string } | null)?.discovered_at ?? null,
-      percent,
-    };
+    const { count } = await supabase
+      .from("opportunities")
+      .select("id", { count: "exact", head: true });
+    return count ?? 0;
   } catch {
-    return EMPTY_STAGE_DATA;
+    return 0;
   }
 }
 
-async function fetchNarratives(
+async function fetchNarrativesCount(
   supabase: ReturnType<typeof createClient>,
-): Promise<StageData> {
+): Promise<number> {
   try {
-    const [totalRes, draftedRes, recentRes] = await Promise.all([
-      supabase.from("applications").select("id", { count: "exact", head: true }),
-      supabase
-        .from("applications")
-        .select("id", { count: "exact", head: true })
-        .not("draft_content", "is", null),
-      supabase
-        .from("applications")
-        .select("updated_at")
-        .not("draft_content", "is", null)
-        .order("updated_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-    ]);
-
-    const total = totalRes.count ?? 0;
-    const drafted = draftedRes.count ?? 0;
-    const percent = total > 0 ? Math.round((drafted / total) * 100) : 0;
-    return {
-      count: drafted,
-      lastActivity: (recentRes.data as { updated_at: string } | null)?.updated_at ?? null,
-      percent,
-    };
+    const { count } = await supabase
+      .from("applications")
+      .select("id", { count: "exact", head: true })
+      .not("draft_content", "is", null);
+    return count ?? 0;
   } catch {
-    return EMPTY_STAGE_DATA;
+    return 0;
   }
 }
 
-type AutomationStatsResponse = {
-  stats: Record<string, number>;
-  daily: { used: number; limit: number };
-};
+type AutomationStatsResponse = { stats: Record<string, number> };
 
-async function fetchAutoApply(): Promise<StageData> {
+async function fetchAutoApplyCount(): Promise<number> {
   try {
     const res = await fetch("/api/automation/stats", { cache: "no-store" });
-    if (!res.ok) return EMPTY_STAGE_DATA;
+    if (!res.ok) return 0;
     const data = (await res.json()) as AutomationStatsResponse;
-    const active = (data.stats.queued ?? 0) + (data.stats.processing ?? 0);
-    const percent =
-      data.daily.limit > 0
-        ? Math.min(100, Math.round((data.daily.used / data.daily.limit) * 100))
-        : 0;
-    return { count: active, lastActivity: null, percent };
+    return (data.stats.queued ?? 0) + (data.stats.processing ?? 0);
   } catch {
-    return EMPTY_STAGE_DATA;
+    return 0;
   }
 }
 
 type DdProspectsResponse = { total: number };
-type DdRequestsResponse = { requests: Array<{ status: string; created_at: string }>; total: number };
 
-async function fetchDonorDiscovery(): Promise<StageData> {
+async function fetchDonorDiscoveryCount(): Promise<number> {
   try {
-    const [prospectsRes, requestsRes] = await Promise.all([
-      fetch("/api/donor-discovery/prospects?limit=1", { cache: "no-store" }),
-      fetch("/api/donor-discovery/requests?limit=25", { cache: "no-store" }),
-    ]);
-
-    const prospects = prospectsRes.ok
-      ? ((await prospectsRes.json()) as DdProspectsResponse)
-      : { total: 0 };
-    const requestsData = requestsRes.ok
-      ? ((await requestsRes.json()) as DdRequestsResponse)
-      : { requests: [], total: 0 };
-
-    const requests = requestsData.requests ?? [];
-    const completeCount = requests.filter((r) => r.status === "complete").length;
-    const percent = requests.length > 0 ? Math.round((completeCount / requests.length) * 100) : 0;
-
-    return {
-      count: prospects.total ?? 0,
-      lastActivity: requests[0]?.created_at ?? null,
-      percent,
-    };
+    const res = await fetch("/api/donor-discovery/prospects?limit=1", { cache: "no-store" });
+    if (!res.ok) return 0;
+    const data = (await res.json()) as DdProspectsResponse;
+    return data.total ?? 0;
   } catch {
-    return EMPTY_STAGE_DATA;
+    return 0;
   }
 }
 
-async function loadAllStages(
+async function loadAllStageCounts(
   supabase: ReturnType<typeof createClient>,
-): Promise<Record<StageId, StageData>> {
+): Promise<Record<StageId, number>> {
   const [onboard, research, opportunities, narratives, autoapply, donorDiscovery] =
     await Promise.all([
-      fetchOnboard(),
-      fetchResearch(),
-      fetchOpportunities(supabase),
-      fetchNarratives(supabase),
-      fetchAutoApply(),
-      fetchDonorDiscovery(),
+      fetchOnboardCount(),
+      fetchResearchCount(),
+      fetchOpportunitiesCount(supabase),
+      fetchNarrativesCount(supabase),
+      fetchAutoApplyCount(),
+      fetchDonorDiscoveryCount(),
     ]);
 
   return { onboard, research, opportunities, narratives, autoapply, donorDiscovery };
 }
 
-/**
- * Mission Control lifecycle HUD (DONOR_DISCOVERY_ARCHITECTURE.md nav order):
- * six flip cards, one per pipeline stage, each showing a live count on the
- * front and last-activity/completion/quick-action on the back. Data is
- * fetched client-side from each stage's existing API route (or a direct
- * Supabase count for the two stages — Opportunities, Grant Narratives —
- * that have no dedicated route), matching the read pattern already used on
- * the Donor Discovery Overview page.
- */
-export function FlightPathHUD() {
-  const [data, setData] = useState<Record<StageId, StageData>>(EMPTY_STATE);
-  const [loading, setLoading] = useState(true);
+interface FlightPathHUDProps {
+  stageCounts?: Record<string, number>;
+  activeStage?: string;
+}
+
+export function FlightPathHUD({ stageCounts, activeStage }: FlightPathHUDProps) {
+  const [liveCounts, setLiveCounts] = useState<Record<StageId, number>>(EMPTY_COUNTS);
+  const [loading, setLoading] = useState(!stageCounts);
 
   useEffect(() => {
+    if (stageCounts) return;
+
     let cancelled = false;
     const supabase = createClient();
 
-    void loadAllStages(supabase).then((result) => {
+    void loadAllStageCounts(supabase).then((result) => {
       if (!cancelled) {
-        setData(result);
+        setLiveCounts(result);
         setLoading(false);
       }
     });
@@ -300,91 +162,122 @@ export function FlightPathHUD() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [stageCounts]);
 
   return (
     <div
       style={{
-        backgroundColor: "#8A9BAD",
-        borderRadius: "20px",
-        padding: "20px",
+        display: "flex",
+        flexWrap: "wrap",
+        gap: "16px",
         marginBottom: "32px",
-        boxShadow: "inset 0 2px 8px rgba(0,0,0,0.15), 0 4px 16px rgba(0,0,0,0.10)",
       }}
     >
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
       {STAGES.map((stage) => {
-        const stageData = data[stage.id];
-        const badge = loading ? "—" : (stageData.count ?? "—");
+        const count = stageCounts
+          ? (stageCounts[stage.id] ?? 0)
+          : loading
+            ? null
+            : liveCounts[stage.id];
+        const isActive = activeStage === stage.id;
 
         return (
-          <div key={stage.id} className="relative h-36 cursor-pointer perspective-1000 group">
-            <div className="relative h-full w-full preserve-3d transition-transform duration-500 group-hover:rotate-y-180">
-              {/* Front face */}
-              <Link
-                href={stage.href}
-                className="absolute inset-0 flex flex-col items-center justify-center backface-hidden overflow-hidden"
-                style={{
-                  backgroundColor: stage.accentColor,
-                  borderRadius: "12px",
-                  padding: "20px",
-                  boxShadow: "0 6px 20px rgba(0,0,0,0.18)",
-                  border: "none",
-                  textAlign: "center",
-                }}
-              >
+          <Link
+            key={stage.id}
+            href={stage.href}
+            style={{
+              display: "block",
+              textDecoration: "none",
+              minWidth: "200px",
+              flex: "1 1 200px",
+              height: "160px",
+              backgroundColor: "#FFFFFF",
+              borderRadius: "14px",
+              boxShadow: isActive
+                ? `0 4px 20px ${stage.color}55`
+                : "0 4px 16px rgba(0,0,0,0.10)",
+              border: isActive ? `1px solid ${stage.color}` : "1px solid transparent",
+              overflow: "hidden",
+              position: "relative",
+            }}
+          >
+            <div
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                height: "4px",
+                backgroundColor: stage.color,
+              }}
+            />
+            <div
+              style={{
+                padding: "20px",
+                height: "100%",
+                boxSizing: "border-box",
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "space-between",
+              }}
+            >
+              <div>
                 <div
                   style={{
                     fontSize: "11px",
                     fontWeight: 700,
-                    color: "rgba(255,255,255,0.75)",
                     letterSpacing: "0.08em",
                     textTransform: "uppercase",
+                    color: stage.color,
                     marginBottom: "8px",
+                  }}
+                >
+                  {stage.number}
+                </div>
+                <div
+                  style={{
+                    fontSize: "15px",
+                    fontWeight: 700,
+                    color: "#1A2B3C",
                   }}
                 >
                   {stage.label}
                 </div>
-                <div style={{ fontSize: "28px", fontWeight: 900, color: "#FFFFFF" }}>
-                  {badge}
-                </div>
-              </Link>
+              </div>
 
-              {/* Back face */}
-              <div className="absolute inset-0 rounded-lg bg-[#0A0E1A] flex flex-col items-center justify-center backface-hidden rotate-y-180 p-4">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-white/60">
-                  Last Activity
-                </p>
-                <p className="text-xs font-medium text-white mt-0.5">
-                  {loading ? "—" : formatRelative(stageData.lastActivity)}
-                </p>
-
-                <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-white/15">
-                  <div
-                    className="h-full rounded-full transition-all"
-                    style={{
-                      width: `${loading ? 0 : stageData.percent}%`,
-                      backgroundColor: stage.accentColor,
-                    }}
-                  />
-                </div>
-                <p className="mt-1 text-[10px] text-white/60">
-                  {loading ? "—" : `${stageData.percent}% complete`}
-                </p>
-
-                <Link
-                  href={stage.href}
-                  className="text-white px-3 py-1.5 rounded-md text-xs font-semibold mt-2"
-                  style={{ backgroundColor: stage.accentColor }}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: "13px",
+                    fontWeight: 700,
+                    color: "#FFFFFF",
+                    backgroundColor: stage.color,
+                    borderRadius: "999px",
+                    padding: "3px 12px",
+                  }}
                 >
-                  {stage.actionLabel}
-                </Link>
+                  {count === null ? "—" : count}
+                </div>
+                <span
+                  style={{
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    color: stage.color,
+                  }}
+                >
+                  View All
+                </span>
               </div>
             </div>
-          </div>
+          </Link>
         );
       })}
-      </div>
     </div>
   );
 }
