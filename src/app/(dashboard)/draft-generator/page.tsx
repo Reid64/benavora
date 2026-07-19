@@ -46,6 +46,30 @@ import type { Json, Tables } from "@/types/database";
 type OpportunityOption = { id: string; name: string; category: string };
 type ProgramOption = { id: string; name: string };
 
+type DraftStats = {
+  totalDrafts: number;
+  aiPending: number;
+  draftsThisMonth: number;
+  avgConfidence: number | null;
+};
+
+type RecentDraftRow = {
+  id: string;
+  opportunityId: string;
+  opportunityName: string;
+  templateType: DraftTemplateType;
+  confidenceScore: number | null;
+  source: string;
+  createdAt: string;
+};
+
+function confidenceBadgeColor(score: number | null): "green" | "yellow" | "red" | "gray" {
+  if (score == null) return "gray";
+  if (score >= 80) return "green";
+  if (score >= 60) return "yellow";
+  return "red";
+}
+
 /** Client-side confidence re-score — same algorithm as /api/ai/draft's computeConfidence. */
 function computeRescoreConfidence(
   text: string,
@@ -225,6 +249,10 @@ export default function DraftGeneratorPage() {
   const [programs, setPrograms] = useState<ProgramOption[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [stats, setStats] = useState<DraftStats | null>(null);
+  const [recentDrafts, setRecentDrafts] = useState<RecentDraftRow[]>([]);
+  const [recentDraftsLoading, setRecentDraftsLoading] = useState(true);
+
   const [opportunityId, setOpportunityId] = useState("");
   const [programId, setProgramId] = useState("");
   const [templateType, setTemplateType] = useState<DraftTemplateType | null>(
@@ -385,6 +413,77 @@ export default function DraftGeneratorPage() {
     };
   }, [requestedOpportunityId]);
 
+  // Header stats row + recent drafts table — org-wide, independent of the
+  // opportunity currently selected in the generator below.
+  const loadStatsAndRecent = useCallback(async () => {
+    setRecentDraftsLoading(true);
+    const supabase = createClient();
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+
+    const [totalRes, monthRes, pendingRes, confidenceRes, recentRes] = await Promise.all([
+      supabase.from("draft_versions").select("id", { count: "exact", head: true }),
+      supabase
+        .from("draft_versions")
+        .select("id", { count: "exact", head: true })
+        .gte("created_at", startOfMonth),
+      supabase
+        .from("applications")
+        .select("id", { count: "exact", head: true })
+        .eq("auto_generated", true)
+        .eq("pending_review", true),
+      supabase.from("draft_versions").select("confidence_score"),
+      supabase
+        .from("draft_versions")
+        .select("id, opportunity_id, template_type, confidence_score, source, created_at, opportunities(name)")
+        .order("created_at", { ascending: false })
+        .limit(8),
+    ]);
+
+    const confidenceScores = (
+      (confidenceRes.data ?? []) as Array<{ confidence_score: number | null }>
+    )
+      .map((row) => row.confidence_score)
+      .filter((score): score is number => score != null);
+    const avgConfidence =
+      confidenceScores.length > 0
+        ? Math.round(confidenceScores.reduce((sum, s) => sum + s, 0) / confidenceScores.length)
+        : null;
+
+    setStats({
+      totalDrafts: totalRes.count ?? 0,
+      draftsThisMonth: monthRes.count ?? 0,
+      aiPending: pendingRes.count ?? 0,
+      avgConfidence,
+    });
+
+    const recent = (
+      (recentRes.data ?? []) as unknown as Array<{
+        id: string;
+        opportunity_id: string;
+        template_type: DraftTemplateType;
+        confidence_score: number | null;
+        source: string;
+        created_at: string;
+        opportunities: { name: string } | null;
+      }>
+    ).map((row) => ({
+      id: row.id,
+      opportunityId: row.opportunity_id,
+      opportunityName: row.opportunities?.name ?? "Unknown opportunity",
+      templateType: row.template_type,
+      confidenceScore: row.confidence_score,
+      source: row.source,
+      createdAt: row.created_at,
+    }));
+    setRecentDrafts(recent);
+    setRecentDraftsLoading(false);
+  }, []);
+
+  useEffect(() => {
+    void loadStatsAndRecent();
+  }, [loadStatsAndRecent]);
+
   // When the opportunity changes, load its history and latest draft, and reset
   // any budget-specific state from the previous opportunity.
   useEffect(() => {
@@ -511,6 +610,7 @@ export default function DraftGeneratorPage() {
         );
         setActiveVersionId(budget.savedVersion?.id ?? null);
         await loadVersions(opportunityId, false);
+        void loadStatsAndRecent();
         const budgetCategory = opportunities.find((o) => o.id === opportunityId)?.category ?? "default";
         void runDNAScore(budget.budget_narrative, budgetCategory, "budget_narrative");
         return;
@@ -550,6 +650,7 @@ export default function DraftGeneratorPage() {
       setLogicModel(payload.logicModel ?? null);
       // Refresh the history panel to include the just-saved version.
       await loadVersions(opportunityId, false);
+      void loadStatsAndRecent();
       const draftCategory = opportunities.find((o) => o.id === opportunityId)?.category ?? "default";
       void runDNAScore(payload.content, draftCategory, templateType ?? undefined);
     } catch {
@@ -558,7 +659,7 @@ export default function DraftGeneratorPage() {
       generatingRef.current = false;
       setGenerating(false);
     }
-  }, [opportunityId, templateType, programId, loadVersions, opportunities, runDNAScore]);
+  }, [opportunityId, templateType, programId, loadVersions, opportunities, runDNAScore, loadStatsAndRecent]);
 
   // Second pass: rewrite the current draft for an authentic human voice
   // (anti-detection). The endpoint appends a new humanized version and returns
@@ -742,8 +843,27 @@ export default function DraftGeneratorPage() {
   const belowThreshold =
     confidence != null && confidence < AI_CONFIDENCE_THRESHOLD;
 
+  const statCardStyle = {
+    backgroundColor: "#F7F5F1",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+    border: "1px solid #D9D3C5",
+  };
+  const statLabelStyle = {
+    fontSize: "11px",
+    fontWeight: 700 as const,
+    color: "#64748B",
+    textTransform: "uppercase" as const,
+    letterSpacing: "0.08em",
+  };
+  const statValueStyle = {
+    fontSize: "28px",
+    fontWeight: 900 as const,
+    color: "#0F172A",
+    marginTop: "6px",
+  };
+
   return (
-    <div className="space-y-6" style={{ backgroundColor: "#E4E9F0" }}>
+    <div className="space-y-6" style={{ backgroundColor: "#D6E4F0", padding: "24px", borderRadius: "16px" }}>
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-primary">
           Draft Generator
@@ -752,6 +872,41 @@ export default function DraftGeneratorPage() {
           Generate an application draft from your Knowledge Base. The AI never
           invents organizational facts - gaps are flagged for your input.
         </p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-xl p-5" style={statCardStyle}>
+          <p style={statLabelStyle}>Total Drafts</p>
+          <p style={statValueStyle}>{stats ? stats.totalDrafts : "—"}</p>
+        </div>
+        <div className="rounded-xl p-5" style={statCardStyle}>
+          <div className="flex items-center justify-between">
+            <p style={statLabelStyle}>AI Drafts Pending</p>
+            <span
+              style={{
+                backgroundColor: "#F59E0B",
+                color: "#FFFFFF",
+                fontSize: "10px",
+                fontWeight: 700,
+                borderRadius: "999px",
+                padding: "2px 8px",
+              }}
+            >
+              AI
+            </span>
+          </div>
+          <p style={statValueStyle}>{stats ? stats.aiPending : "—"}</p>
+        </div>
+        <div className="rounded-xl p-5" style={statCardStyle}>
+          <p style={statLabelStyle}>Drafts This Month</p>
+          <p style={statValueStyle}>{stats ? stats.draftsThisMonth : "—"}</p>
+        </div>
+        <div className="rounded-xl p-5" style={statCardStyle}>
+          <p style={statLabelStyle}>Avg Confidence</p>
+          <p style={statValueStyle}>
+            {stats && stats.avgConfidence != null ? `${stats.avgConfidence}/100` : "—"}
+          </p>
+        </div>
       </div>
 
       {error && (
@@ -864,7 +1019,8 @@ export default function DraftGeneratorPage() {
               type="button"
               onClick={handleGenerate}
               disabled={!canGenerate || generating}
-              className="w-full bg-gradient-to-r from-[#00B4D8] to-[#0077B6] hover:from-[#0093AC] hover:to-[#005F92] text-white py-4 rounded-xl font-bold text-base shadow-lg transition-all disabled:cursor-not-allowed disabled:opacity-50 inline-flex items-center justify-center gap-2"
+              style={{ backgroundColor: "#8B5CF6" }}
+              className="w-full hover:bg-[#7C3AED] text-white py-4 rounded-xl font-bold text-base shadow-lg transition-all disabled:cursor-not-allowed disabled:opacity-50 inline-flex items-center justify-center gap-2"
             >
               <Sparkles className={`h-4 w-4 ${generating ? "animate-spin" : ""}`} aria-hidden />
               {generating
@@ -873,6 +1029,102 @@ export default function DraftGeneratorPage() {
                   ? "Generate new version"
                   : "Generate draft"}
             </button>
+          </div>
+
+          <div className="rounded-xl overflow-hidden" style={statCardStyle}>
+            <div
+              style={{
+                fontSize: "13px",
+                fontWeight: 700,
+                color: "#FFFFFF",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                backgroundColor: "#1A2B3C",
+                padding: "14px 20px",
+              }}
+            >
+              Recent Drafts
+            </div>
+            {recentDraftsLoading ? (
+              <div className="p-5 text-sm text-navy-400">Loading recent drafts…</div>
+            ) : recentDrafts.length === 0 ? (
+              <div className="p-5 text-sm text-navy-400">
+                No drafts generated yet. Generate one above to see it here.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-navy-100 text-sm">
+                  <thead>
+                    <tr style={{ backgroundColor: "#F1F5F9" }}>
+                      <th className="px-5 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                        Opportunity
+                      </th>
+                      <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                        Template
+                      </th>
+                      <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                        Confidence
+                      </th>
+                      <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                        Source
+                      </th>
+                      <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                        Created
+                      </th>
+                      <th className="px-4 py-2.5" />
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-navy-100 bg-white">
+                    {recentDrafts.map((draft) => (
+                      <tr key={draft.id} className="hover:bg-navy-50">
+                        <td className="px-5 py-3 max-w-xs truncate font-medium text-navy-900">
+                          {draft.opportunityName}
+                        </td>
+                        <td className="px-4 py-3 text-navy-600">
+                          {humanizeEnum(draft.templateType)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <Badge color={confidenceBadgeColor(draft.confidenceScore)}>
+                            {draft.confidenceScore != null ? `${draft.confidenceScore}/100` : "—"}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3">
+                          {draft.source === "generated" ? (
+                            <span
+                              style={{
+                                backgroundColor: "#EDE9FE",
+                                color: "#6D28D9",
+                                fontSize: "11px",
+                                fontWeight: 700,
+                                borderRadius: "999px",
+                                padding: "2px 8px",
+                              }}
+                            >
+                              AI Generated
+                            </span>
+                          ) : (
+                            <span className="text-xs text-navy-400">{humanizeEnum(draft.source)}</span>
+                          )}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 text-navy-400">
+                          {new Date(draft.createdAt).toLocaleDateString()}
+                        </td>
+                        <td className="px-4 py-3">
+                          <button
+                            type="button"
+                            onClick={() => setOpportunityId(draft.opportunityId)}
+                            className="text-xs font-medium"
+                            style={{ color: "#0077B6" }}
+                          >
+                            Open
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
 
           {hasDraft && (

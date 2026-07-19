@@ -125,6 +125,7 @@ export default function DonorDiscoveryPage() {
     () => Object.fromEntries(FUNNEL_STAGES.map((s) => [s, 0])) as Record<DdFunnelStage, number>,
   );
   const [topProspects, setTopProspects] = useState<DdProspectRow[]>([]);
+  const [avgScore, setAvgScore] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -135,7 +136,7 @@ export default function DonorDiscoveryPage() {
     try {
       const supabase = createClient();
 
-      const [requestsRes, topProspectsRes, stageResults] = await Promise.all([
+      const [requestsRes, topProspectsRes, stageResults, scoreRes] = await Promise.all([
         fetch("/api/donor-discovery/requests", { cache: "no-store" }),
         fetch(`/api/donor-discovery/prospects?stage=new&limit=${TOP_PROSPECTS_LIMIT}`, {
           cache: "no-store",
@@ -148,7 +149,13 @@ export default function DonorDiscoveryPage() {
               .eq("pipeline_stage", stage),
           ),
         ),
+        supabase.from("donor_discovery_prospects").select("score").not("score", "is", null),
       ]);
+
+      const scores = ((scoreRes.data ?? []) as Array<{ score: number | null }>)
+        .map((row) => row.score)
+        .filter((s): s is number => s != null);
+      setAvgScore(scores.length > 0 ? Math.round(scores.reduce((sum, s) => sum + s, 0) / scores.length) : null);
 
       let requestRows: DdRequestRow[] = [];
       if (!requestsRes.ok) {
@@ -206,6 +213,9 @@ export default function DonorDiscoveryPage() {
   }, [load]);
 
   const hasActiveRequest = requests.some((r) => ACTIVE_STATUSES.includes(r.status));
+  const activeRequestsCount = requests.filter((r) => ACTIVE_STATUSES.includes(r.status)).length;
+  const totalProspects = Object.values(stageCounts).reduce((sum, n) => sum + n, 0);
+  const highValueCount = stageCounts.new + stageCounts.reviewing;
 
   useEffect(() => {
     if (!hasActiveRequest) return;
@@ -213,8 +223,27 @@ export default function DonorDiscoveryPage() {
     return () => clearInterval(timer);
   }, [hasActiveRequest, load]);
 
+  const statCardStyle = {
+    backgroundColor: "#F7F5F1",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+    border: "1px solid #D9D3C5",
+  };
+  const statLabelStyle = {
+    fontSize: "11px",
+    fontWeight: 700 as const,
+    color: "#64748B",
+    textTransform: "uppercase" as const,
+    letterSpacing: "0.08em",
+  };
+  const statValueStyle = {
+    fontSize: "28px",
+    fontWeight: 900 as const,
+    color: "#0F172A",
+    marginTop: "6px",
+  };
+
   return (
-    <div className="space-y-6" style={{ backgroundColor: "#E4E9F0" }}>
+    <div className="space-y-6" style={{ backgroundColor: "#D6E4F0", padding: "24px", borderRadius: "16px" }}>
       <PageHeader
         title="Donor Discovery"
         description="Find and engage corporate donors matched to your mission."
@@ -228,14 +257,34 @@ export default function DonorDiscoveryPage() {
             </Link>
             <Link
               href="/donor-discovery/new"
-              className="inline-flex items-center gap-2 bg-[#0077B6] hover:bg-[#005F92] text-white px-6 py-3 rounded-xl font-bold text-sm shadow-md transition-colors"
+              style={{ backgroundColor: "#EC4899" }}
+              className="inline-flex items-center gap-2 hover:bg-[#DB2777] text-white px-6 py-3 rounded-xl font-bold text-sm shadow-md transition-colors"
             >
               <Plus className="h-4 w-4" aria-hidden />
-              New Discovery
+              Discover Prospects
             </Link>
           </>
         }
       />
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-xl p-5" style={statCardStyle}>
+          <p style={statLabelStyle}>Total Prospects</p>
+          <p style={statValueStyle}>{loading ? "—" : totalProspects}</p>
+        </div>
+        <div className="rounded-xl p-5" style={statCardStyle}>
+          <p style={statLabelStyle}>Active Requests</p>
+          <p style={statValueStyle}>{loading ? "—" : activeRequestsCount}</p>
+        </div>
+        <div className="rounded-xl p-5" style={statCardStyle}>
+          <p style={statLabelStyle}>Avg Score</p>
+          <p style={statValueStyle}>{loading || avgScore == null ? "—" : avgScore}</p>
+        </div>
+        <div className="rounded-xl p-5" style={statCardStyle}>
+          <p style={statLabelStyle}>New &amp; Reviewing</p>
+          <p style={statValueStyle}>{loading ? "—" : highValueCount}</p>
+        </div>
+      </div>
 
       {error && (
         <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">

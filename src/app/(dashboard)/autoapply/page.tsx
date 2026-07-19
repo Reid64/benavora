@@ -12,8 +12,6 @@ import {
   Settings,
 } from "lucide-react";
 
-import { Badge } from "@/components/ui/Badge";
-import type { BadgeColor } from "@/components/ui/Badge";
 import { Button, Card, EmptyState, Modal } from "@/components/ui";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { createClient } from "@/lib/supabase/client";
@@ -80,20 +78,22 @@ interface FunderOption {
   giving_portal_url: string;
 }
 
-function queueStatusBadge(status: string): { color: BadgeColor; label: string } {
+/** Exact hex-coded status pill for the session list — completed/failed/running
+ * per the AutoApply design spec, distinct from the Badge component's palette. */
+function sessionStatusHex(status: string): { bg: string; text: string; label: string } {
   switch (status) {
     case "pending":
     case "queued":
-      return { color: "gray", label: "Queued" };
+      return { bg: "#F1F5F9", text: "#475569", label: "Queued" };
     case "processing":
     case "running":
-      return { color: "yellow", label: "Processing" };
+      return { bg: "#F59E0B", text: "#FFFFFF", label: "Running" };
     case "completed":
-      return { color: "teal", label: "Completed" };
+      return { bg: "#10B981", text: "#FFFFFF", label: "Completed" };
     case "failed":
-      return { color: "red", label: "Failed" };
+      return { bg: "#DC2626", text: "#FFFFFF", label: "Failed" };
     default:
-      return { color: "gray", label: status };
+      return { bg: "#F1F5F9", text: "#475569", label: status };
   }
 }
 
@@ -348,8 +348,32 @@ export default function AutoApplyPage() {
   const allQueueSelected = queue.length > 0 && selectedQueueIds.size === queue.length;
   const allFundersSelected = funders.length > 0 && selectedFunderIds.size === funders.length;
 
+  const runningCount = queue.filter((q) => q.status === "processing" || q.status === "running").length;
+  const completedCount = queue.filter((q) => q.status === "completed").length;
+  const failedCount = queue.filter((q) => q.status === "failed").length;
+  const isRunning = runningCount > 0;
+
+  const statCardStyle = {
+    backgroundColor: "#F7F5F1",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+    border: "1px solid #D9D3C5",
+  };
+  const statLabelStyle = {
+    fontSize: "11px",
+    fontWeight: 700 as const,
+    color: "#64748B",
+    textTransform: "uppercase" as const,
+    letterSpacing: "0.08em",
+  };
+  const statValueStyle = {
+    fontSize: "28px",
+    fontWeight: 900 as const,
+    color: "#0F172A",
+    marginTop: "6px",
+  };
+
   return (
-    <div className="space-y-8" style={{ backgroundColor: "#E4E9F0" }}>
+    <div className="space-y-8" style={{ backgroundColor: "#D6E4F0", padding: "24px", borderRadius: "16px" }}>
       {/* Header */}
       <PageHeader
         title="AutoApply"
@@ -363,13 +387,72 @@ export default function AutoApplyPage() {
                 Settings
               </Button>
             </Link>
-            <Button onClick={() => void openAddToQueue()}>
+            <Button onClick={() => void openAddToQueue()} variant="secondary">
               <Plus className="mr-1.5 h-4 w-4" />
               Add to Queue
             </Button>
+            <button
+              type="button"
+              onClick={() => void openAddToQueue()}
+              style={{ backgroundColor: "#10B981" }}
+              className="hover:bg-[#059669] text-white px-5 py-2.5 rounded-lg font-semibold text-sm shadow-sm transition-colors inline-flex items-center gap-2"
+            >
+              <Plus className="h-4 w-4" aria-hidden />
+              New Session
+            </button>
           </>
         }
       />
+
+      {/* STATUS BANNER — pulsing green while a session is actively running, gray if idle */}
+      <div
+        className="flex items-center gap-3 rounded-xl px-5 py-4"
+        style={{
+          backgroundColor: isRunning ? "#ECFDF5" : "#F1F5F9",
+          border: `1px solid ${isRunning ? "#A7F3D0" : "#E2E8F0"}`,
+        }}
+      >
+        <span
+          className={isRunning ? "animate-pulse" : undefined}
+          style={{
+            width: "10px",
+            height: "10px",
+            borderRadius: "50%",
+            backgroundColor: isRunning ? "#10B981" : "#94A3B8",
+            flexShrink: 0,
+          }}
+          aria-hidden
+        />
+        <span style={{ fontSize: "13px", fontWeight: 700, color: isRunning ? "#065F46" : "#475569" }}>
+          {isRunning
+            ? `AutoApply is running — ${runningCount} session${runningCount === 1 ? "" : "s"} in progress`
+            : "AutoApply is idle — no sessions currently running"}
+        </span>
+      </div>
+
+      {/* STATS ROW */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-xl p-5" style={statCardStyle}>
+          <p style={statLabelStyle}>Total in Queue</p>
+          <p style={statValueStyle}>{queueLoading ? "—" : queue.length}</p>
+        </div>
+        <div className="rounded-xl p-5" style={statCardStyle}>
+          <p style={statLabelStyle}>Running</p>
+          <p style={{ ...statValueStyle, color: runningCount > 0 ? "#F59E0B" : "#0F172A" }}>
+            {queueLoading ? "—" : runningCount}
+          </p>
+        </div>
+        <div className="rounded-xl p-5" style={statCardStyle}>
+          <p style={statLabelStyle}>Completed</p>
+          <p style={{ ...statValueStyle, color: "#10B981" }}>{queueLoading ? "—" : completedCount}</p>
+        </div>
+        <div className="rounded-xl p-5" style={statCardStyle}>
+          <p style={statLabelStyle}>Failed</p>
+          <p style={{ ...statValueStyle, color: failedCount > 0 ? "#DC2626" : "#0F172A" }}>
+            {queueLoading ? "—" : failedCount}
+          </p>
+        </div>
+      </div>
 
       {actionError && (
         <div
@@ -432,10 +515,10 @@ export default function AutoApplyPage() {
         )}
       </div>
 
-      {/* QUEUE SECTION */}
+      {/* QUEUE SECTION / SESSION LIST */}
       <Card
-        title="Queue"
-        description="Funders pending automated form submission"
+        title="Session List"
+        description="Funders pending or processed by automated form submission"
         noPadding
         actions={
           selectedQueueIds.size > 0 ? (
@@ -511,7 +594,7 @@ export default function AutoApplyPage() {
               </thead>
               <tbody className="divide-y divide-navy-100 bg-white">
                 {queue.map((item) => {
-                  const { color, label } = queueStatusBadge(item.status);
+                  const statusHex = sessionStatusHex(item.status);
                   const portalUrl = item.funders?.giving_portal_url ?? null;
                   return (
                     <tr key={item.id} className="hover:bg-navy-50">
@@ -547,7 +630,19 @@ export default function AutoApplyPage() {
                       </td>
                       <td className="px-4 py-3 text-navy-600">{item.priority}</td>
                       <td className="px-4 py-3">
-                        <Badge color={color}>{label}</Badge>
+                        <span
+                          style={{
+                            backgroundColor: statusHex.bg,
+                            color: statusHex.text,
+                            fontSize: "11px",
+                            fontWeight: 700,
+                            borderRadius: "999px",
+                            padding: "3px 10px",
+                            display: "inline-block",
+                          }}
+                        >
+                          {statusHex.label}
+                        </span>
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 text-navy-400">
                         {item.scheduled_for
