@@ -14,12 +14,21 @@ export default function OpportunityDetailPage({
   params: { id: string };
 }) {
   return (
-    <div className="space-y-6">
+    <div style={{ minHeight: "100vh", backgroundColor: "#D6E4F0", padding: "24px" }}>
       <Link
         href="/opportunities"
-        className="inline-flex items-center gap-1.5 text-sm text-navy-500 transition hover:text-navy-700"
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "6px",
+          marginBottom: "16px",
+          fontSize: "14px",
+          fontWeight: 600,
+          color: "#0F172A",
+          textDecoration: "none",
+        }}
       >
-        <ArrowLeft className="h-4 w-4" aria-hidden />
+        <ArrowLeft style={{ height: "16px", width: "16px" }} aria-hidden />
         Back to opportunities
       </Link>
       <OpportunityDetail opportunityId={params.id} />

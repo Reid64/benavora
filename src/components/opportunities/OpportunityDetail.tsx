@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -9,6 +9,7 @@ import {
   ExternalLink,
   FileText,
   Gauge,
+  Loader2,
   MessageSquare,
   Pencil,
   Search,
@@ -109,6 +110,7 @@ export function OpportunityDetail({ opportunityId }: OpportunityDetailProps) {
   const [deleting, setDeleting] = useState(false);
   const [parseLoading, setParseLoading] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
+  const [probabilityScore, setProbabilityScore] = useState<number | null>(null);
 
   const load = useCallback(async (opts?: { silent?: boolean }) => {
     const silent = opts?.silent ?? false;
@@ -182,6 +184,26 @@ export function OpportunityDetail({ opportunityId }: OpportunityDetailProps) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadProbability() {
+      try {
+        const res = await fetch(
+          `/api/opportunities/${encodeURIComponent(opportunityId)}/probability`,
+        );
+        if (!res.ok) return;
+        const json = (await res.json()) as { score: number };
+        if (!cancelled) setProbabilityScore(json.score);
+      } catch {
+        // Non-critical — the metric grid falls back to "Not scored".
+      }
+    }
+    void loadProbability();
+    return () => {
+      cancelled = true;
+    };
+  }, [opportunityId]);
 
   async function handleDelete() {
     if (!data) return;
@@ -260,65 +282,130 @@ export function OpportunityDetail({ opportunityId }: OpportunityDetailProps) {
   // Most-recent application for this opportunity (load() orders by updated_at).
   const applicationId = applications[0]?.id ?? null;
 
+  const amountValue =
+    opportunity.amount_max ?? opportunity.amount_available ?? null;
+  const eligibilityScore = opportunity.eligibility_score;
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-2xl font-bold tracking-tight text-primary">
-              {decodeHtmlEntities(opportunity.name)}
-            </h1>
-            <MatchBadge percentage={opportunity.match_percentage} />
-            {opportunity.is_high_priority && <HighPriorityBadge />}
-            <SourceTypeBadge sourceType={opportunity.source_type} />
-            <Badge variant="neutral">{humanizeEnum(opportunity.category)}</Badge>
-            {opportunity.status && (
-              <Badge variant={OPPORTUNITY_STATUS_VARIANT[opportunity.status]}>
-                {humanizeEnum(opportunity.status)}
-              </Badge>
-            )}
-            <ValidationBadge rows={validations} hideUntilValidated />
-          </div>
-          <p className="mt-1 text-sm text-navy-500">
-            {funder ? (
-              <Link
-                href={`/funders/${funder.id}`}
-                className="text-teal-600 hover:text-teal-700"
+      <div
+        style={{
+          borderRadius: "18px",
+          backgroundColor: "#FFFFFF",
+          boxShadow: "0 4px 20px rgba(0,0,0,0.10)",
+          padding: "28px",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            gap: "16px",
+          }}
+        >
+          <div style={{ minWidth: 0 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "10px" }}>
+              <h1
+                style={{
+                  margin: 0,
+                  fontSize: "26px",
+                  fontWeight: 800,
+                  letterSpacing: "-0.02em",
+                  color: "#0F172A",
+                }}
               >
-                {funder.name}
-              </Link>
-            ) : (
-              "No linked funder"
-            )}
-            {opportunity.deadline && ` · Due ${formatDate(opportunity.deadline)}`}
-          </p>
+                {decodeHtmlEntities(opportunity.name)}
+              </h1>
+              <SourceTypeBadge sourceType={opportunity.source_type} />
+              <MatchBadge percentage={opportunity.match_percentage} />
+              {opportunity.is_high_priority && <HighPriorityBadge />}
+              {opportunity.status && (
+                <Badge variant={OPPORTUNITY_STATUS_VARIANT[opportunity.status]}>
+                  {humanizeEnum(opportunity.status)}
+                </Badge>
+              )}
+              <ValidationBadge rows={validations} hideUntilValidated />
+            </div>
+            <p style={{ margin: "8px 0 0", fontSize: "14px", color: "#64748B" }}>
+              {funder ? (
+                <Link
+                  href={`/funders/${funder.id}`}
+                  style={{ color: "#0077B6", fontWeight: 600, textDecoration: "none" }}
+                >
+                  {funder.name}
+                </Link>
+              ) : (
+                "No linked funder"
+              )}
+              {" "}
+              <span style={{ color: "#94A3B8" }}>
+                {humanizeEnum(opportunity.category)}
+              </span>
+            </p>
+          </div>
         </div>
+
+        {/* 4-metric grid */}
+        <div
+          style={{
+            marginTop: "24px",
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+            gap: "16px",
+            alignItems: "start",
+          }}
+        >
+          <MetricTile label="Amount" value={formatCurrency(amountValue)} />
+          <MetricTile
+            label="Deadline"
+            value={opportunity.deadline ? formatDate(opportunity.deadline) : "-"}
+          />
+          <ProbabilityMetricTile score={probabilityScore} />
+          <MetricTile
+            label="Eligibility"
+            value={eligibilityScore != null ? `${eligibilityScore}` : "-"}
+            valueColor={eligibilityScore != null ? metricColor(eligibilityScore) : undefined}
+          />
+        </div>
+
+        {/* Action buttons row */}
         {editable && (
-          <div className="flex shrink-0 flex-col items-end gap-2">
-            <div className="flex items-center gap-2">
+          <div style={{ marginTop: "24px" }}>
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "10px" }}>
               <ApplyAction opportunity={opportunity} applicationId={applicationId} />
-              <Button
+              <ActionButton
                 variant="secondary"
                 onClick={handleParseNofa}
                 isLoading={parseLoading}
               >
                 <Sparkles className="h-4 w-4" aria-hidden />
                 Parse NOFA
-              </Button>
-              <Button variant="secondary" onClick={() => setEditing(true)}>
+              </ActionButton>
+              <ActionButton variant="secondary" onClick={() => setEditing(true)}>
                 <Pencil className="h-4 w-4" aria-hidden />
                 Edit
-              </Button>
-              <Button variant="danger" onClick={() => setConfirmDelete(true)}>
+              </ActionButton>
+              <ActionButton variant="danger" onClick={() => setConfirmDelete(true)}>
                 <Trash2 className="h-4 w-4" aria-hidden />
                 Delete
-              </Button>
+              </ActionButton>
             </div>
             {parseError && (
               <div
                 role="alert"
-                className="max-w-sm rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+                style={{
+                  marginTop: "10px",
+                  maxWidth: "420px",
+                  borderRadius: "10px",
+                  border: "1px solid #FECACA",
+                  backgroundColor: "#FEE2E2",
+                  padding: "10px 14px",
+                  fontSize: "13px",
+                  color: "#B91C1C",
+                }}
               >
                 {parseError}
               </div>
@@ -328,8 +415,8 @@ export function OpportunityDetail({ opportunityId }: OpportunityDetailProps) {
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-navy-200">
-        <nav className="-mb-px flex gap-6 overflow-x-auto" aria-label="Tabs">
+      <div style={{ borderBottom: "1px solid #E2E8F0" }}>
+        <nav style={{ display: "flex", gap: "24px", overflowX: "auto" }} aria-label="Tabs">
           {TABS.map((t) => {
             const count =
               t.key === "applications"
@@ -344,12 +431,17 @@ export function OpportunityDetail({ opportunityId }: OpportunityDetailProps) {
                 type="button"
                 onClick={() => setTab(t.key)}
                 aria-current={active ? "page" : undefined}
-                className={
-                  "whitespace-nowrap border-b-2 px-1 py-3 text-sm font-medium transition " +
-                  (active
-                    ? "border-teal-600 text-teal-600"
-                    : "border-transparent text-navy-500 hover:border-navy-300 hover:text-navy-700")
-                }
+                style={{
+                  whiteSpace: "nowrap",
+                  borderBottom: active ? "2px solid #0077B6" : "2px solid transparent",
+                  marginBottom: "-1px",
+                  padding: "12px 2px",
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  color: active ? "#0077B6" : "#64748B",
+                  background: "none",
+                  cursor: "pointer",
+                }}
               >
                 {t.label}
                 {count != null && (
@@ -464,9 +556,172 @@ export function OpportunityDetail({ opportunityId }: OpportunityDetailProps) {
   );
 }
 
-// Inline styles (not Tailwind classes) because cn() has no tailwind-merge and the
-// Button variants target the dark theme; the brand primary reads cleanly on white.
-const APPLY_CTA_STYLE = { backgroundColor: "var(--color-primary)", color: "#ffffff" } as const;
+// Inline hardcoded-hex button system (BLUEPRINT §7.5) shared by ApplyAction
+// and the header's action buttons row.
+type ActionVariant = "primary" | "secondary" | "danger";
+type ActionSize = "sm" | "md";
+
+const ACTION_VARIANT_STYLE: Record<
+  ActionVariant,
+  { background: string; color: string; border?: string }
+> = {
+  primary: { background: "#0077B6", color: "#FFFFFF" },
+  secondary: { background: "#FFFFFF", color: "#1A2B3C", border: "1px solid #B8C9D9" },
+  danger: { background: "#EF4444", color: "#FFFFFF" },
+};
+
+function actionButtonStyle(
+  variant: ActionVariant,
+  size: ActionSize,
+  disabled?: boolean,
+): CSSProperties {
+  const v = ACTION_VARIANT_STYLE[variant];
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "8px",
+    borderRadius: "10px",
+    border: v.border ?? "none",
+    backgroundColor: v.background,
+    color: v.color,
+    padding: size === "sm" ? "8px 14px" : "10px 18px",
+    fontSize: size === "sm" ? "13px" : "14px",
+    fontWeight: 700,
+    cursor: disabled ? "not-allowed" : "pointer",
+    opacity: disabled ? 0.6 : 1,
+    textDecoration: "none",
+  };
+}
+
+/** Action button with the inline hardcoded-hex variant/size system above. */
+function ActionButton({
+  variant = "primary",
+  size = "md",
+  onClick,
+  isLoading,
+  disabled,
+  children,
+}: {
+  variant?: ActionVariant;
+  size?: ActionSize;
+  onClick?: () => void;
+  isLoading?: boolean;
+  disabled?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled || isLoading}
+      style={actionButtonStyle(variant, size, disabled || isLoading)}
+    >
+      {isLoading && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
+      {children}
+    </button>
+  );
+}
+
+/** Green/yellow/red hex by score threshold, shared by the metric grid and probability circle. */
+function metricColor(score: number): string {
+  if (score >= 70) return "#10B981";
+  if (score >= 40) return "#F59E0B";
+  return "#EF4444";
+}
+
+/** A single tile in the header's 4-metric grid. */
+function MetricTile({
+  label,
+  value,
+  valueColor,
+}: {
+  label: string;
+  value: ReactNode;
+  valueColor?: string;
+}) {
+  return (
+    <div
+      style={{
+        borderRadius: "12px",
+        backgroundColor: "#F8FAFC",
+        border: "1px solid #E2E8F0",
+        padding: "14px 16px",
+      }}
+    >
+      <p
+        style={{
+          margin: 0,
+          fontSize: "11px",
+          fontWeight: 700,
+          letterSpacing: "0.08em",
+          textTransform: "uppercase",
+          color: "#94A3B8",
+        }}
+      >
+        {label}
+      </p>
+      <p
+        style={{
+          margin: "8px 0 0",
+          fontSize: "18px",
+          fontWeight: 800,
+          color: valueColor ?? "#0F172A",
+        }}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
+
+/** The 120px probability circle metric tile — border 4px colored by score, 36px bold score inside. */
+function ProbabilityMetricTile({ score }: { score: number | null }) {
+  const color = score == null ? "#94A3B8" : metricColor(score);
+  return (
+    <div
+      style={{
+        borderRadius: "12px",
+        backgroundColor: "#F8FAFC",
+        border: "1px solid #E2E8F0",
+        padding: "14px 16px",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: "10px",
+      }}
+    >
+      <p
+        style={{
+          margin: 0,
+          alignSelf: "flex-start",
+          fontSize: "11px",
+          fontWeight: 700,
+          letterSpacing: "0.08em",
+          textTransform: "uppercase",
+          color: "#94A3B8",
+        }}
+      >
+        Probability
+      </p>
+      <div
+        style={{
+          height: "120px",
+          width: "120px",
+          borderRadius: "50%",
+          border: `4px solid ${color}`,
+          backgroundColor: "#FFFFFF",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <span style={{ fontSize: "36px", fontWeight: 800, color }}>
+          {score == null ? "-" : `${score}%`}
+        </span>
+      </div>
+    </div>
+  );
+}
 
 /**
  * Primary "Apply Now" CTA with lifecycle states. Precedence:
@@ -493,44 +748,28 @@ function ApplyAction({
 
   if (applicationId) {
     return (
-      <Link href={`/applications/${applicationId}`}>
-        <Button
-          variant="ghost"
-          size={size}
-          className="hover:brightness-110"
-          style={APPLY_CTA_STYLE}
-        >
-          <ArrowRight className="h-4 w-4" aria-hidden />
-          View Application
-        </Button>
+      <Link href={`/applications/${applicationId}`} style={actionButtonStyle("primary", size)}>
+        <ArrowRight className="h-4 w-4" aria-hidden />
+        View Application
       </Link>
     );
   }
 
   if (status === "closed" || status === "expired") {
     return (
-      <Button
-        variant="ghost"
-        size={size}
-        disabled
-        style={{ backgroundColor: "#e5e7eb", color: "#6b7280" }}
-      >
+      <span style={actionButtonStyle("secondary", size, true)}>
         {status === "closed" ? "Closed" : "Expired"}
-      </Button>
+      </span>
     );
   }
 
   return (
-    <Link href={`/draft-generator?opportunity=${opportunity.id}`}>
-      <Button
-        variant="ghost"
-        size={size}
-        className="hover:brightness-110"
-        style={APPLY_CTA_STYLE}
-      >
-        <ArrowRight className="h-4 w-4" aria-hidden />
-        Apply Now
-      </Button>
+    <Link
+      href={`/draft-generator?opportunity=${opportunity.id}`}
+      style={actionButtonStyle("primary", size)}
+    >
+      <ArrowRight className="h-4 w-4" aria-hidden />
+      Apply Now
     </Link>
   );
 }

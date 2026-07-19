@@ -3,21 +3,69 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { KanbanSquare, LayoutList, RefreshCw } from "lucide-react";
+import {
+  Building2,
+  CalendarClock,
+  Clock,
+  Copy,
+  RefreshCw,
+  Sparkles,
+} from "lucide-react";
 
 import { Button, EmptyState, LoadingSpinner, Modal, Select } from "@/components/ui";
-import { PageHeader } from "@/components/layout/PageHeader";
-import { ApplicationsTable } from "@/components/applications/ApplicationsTable";
-import { GroupedKanban } from "@/components/applications/GroupedKanban";
 import {
+  daysInStage,
   loadPipelineApplications,
+  STAGE_LABEL,
   type EnrichedApplication,
+  type PipelineStage,
 } from "@/components/applications/pipeline";
 import { createClient } from "@/lib/supabase/client";
 import { canEdit, useProfile } from "@/lib/hooks/useProfile";
-import { cn } from "@/lib/utils/cn";
+import { formatCurrency, formatDate } from "@/lib/utils/formatters";
 
-type ViewMode = "table" | "kanban";
+type Family = "discovery" | "drafting" | "submitted" | "awarded" | "denied";
+type FilterKey = "all" | Family;
+
+/** Collapses the 12-value pipeline_stage enum into the 5 families the tab row shows. */
+const STAGE_FAMILY: Record<PipelineStage, Family> = {
+  discovered: "discovery",
+  eligibility_review: "discovery",
+  qualified: "discovery",
+  drafting: "drafting",
+  awaiting_documents: "drafting",
+  ready_for_review: "drafting",
+  submitted: "submitted",
+  follow_up_due: "submitted",
+  awarded: "awarded",
+  reporting_required: "awarded",
+  renewal_opportunity: "awarded",
+  denied: "denied",
+};
+
+const FAMILY_COLOR: Record<Family, string> = {
+  discovery: "#06B6D4",
+  drafting: "#8B5CF6",
+  submitted: "#0EA5E9",
+  awarded: "#10B981",
+  denied: "#EF4444",
+};
+
+const FAMILY_LABEL: Record<Family, string> = {
+  discovery: "Discovery",
+  drafting: "Drafting",
+  submitted: "Submitted",
+  awarded: "Awarded",
+  denied: "Denied",
+};
+
+const FAMILY_ORDER: Family[] = ["discovery", "drafting", "submitted", "awarded", "denied"];
+
+function probabilityColor(score: number): string {
+  if (score >= 70) return "#10B981";
+  if (score >= 40) return "#F59E0B";
+  return "#EF4444";
+}
 
 export default function ApplicationsPage() {
   const router = useRouter();
@@ -25,7 +73,7 @@ export default function ApplicationsPage() {
   const [applications, setApplications] = useState<EnrichedApplication[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [view, setView] = useState<ViewMode>("table");
+  const [filter, setFilter] = useState<FilterKey>("all");
 
   // Clone-to-new-opportunity modal.
   const [cloneSource, setCloneSource] = useState<EnrichedApplication | null>(null);
@@ -102,68 +150,146 @@ export default function ApplicationsPage() {
   }
 
   const editable = canEdit(profile?.role);
-  const showEmpty = !loading && !error && applications.length === 0;
+
+  const counts: Record<FilterKey, number> = {
+    all: applications.length,
+    discovery: 0,
+    drafting: 0,
+    submitted: 0,
+    awarded: 0,
+    denied: 0,
+  };
+  for (const app of applications) {
+    counts[STAGE_FAMILY[app.stage]] += 1;
+  }
+
+  const filtered =
+    filter === "all"
+      ? applications
+      : applications.filter((app) => STAGE_FAMILY[app.stage] === filter);
+
+  const showEmpty = !loading && !error && filtered.length === 0;
 
   return (
-    <div className="min-h-screen space-y-6 bg-[#CBD5E1] p-6 page-bg">
-      <PageHeader
-        title="Applications"
-        description={
-          view === "table"
-            ? "Sort, filter, and bulk-move applications through the funding pipeline."
-            : "Drag cards between groups to move applications to a new phase."
-        }
-        actions={
-          <div className="flex items-center gap-3">
-            {/* Renewals link */}
-            <Link
-              href="/renewals"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:bg-slate-50"
-            >
-              <RefreshCw className="h-4 w-4" aria-hidden />
-              Renewals
-            </Link>
+    <div style={{ minHeight: "100vh", backgroundColor: "#D6E4F0", padding: "24px" }}>
+      {/* Header */}
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          gap: "16px",
+          marginBottom: "20px",
+        }}
+      >
+        <div>
+          <h1
+            style={{
+              margin: 0,
+              fontSize: "28px",
+              fontWeight: 800,
+              letterSpacing: "-0.02em",
+              color: "#0F172A",
+            }}
+          >
+            Applications
+          </h1>
+          <p style={{ margin: "4px 0 0", fontSize: "14px", color: "#64748B" }}>
+            Track every application through the funding pipeline.
+          </p>
+        </div>
+        <Link
+          href="/renewals"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "6px",
+            borderRadius: "10px",
+            border: "1px solid #B8C9D9",
+            backgroundColor: "#FFFFFF",
+            padding: "10px 16px",
+            fontSize: "14px",
+            fontWeight: 600,
+            color: "#1A2B3C",
+            textDecoration: "none",
+          }}
+        >
+          <RefreshCw style={{ height: "16px", width: "16px" }} aria-hidden />
+          Renewals
+        </Link>
+      </div>
 
-            {/* View toggle */}
-            <div className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
-              <button
-                type="button"
-                onClick={() => setView("table")}
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition",
-                  view === "table"
-                    ? "bg-[#0077B6] text-white"
-                    : "text-slate-600 hover:bg-slate-50",
-                )}
-                aria-current={view === "table" ? "true" : undefined}
+      {/* Pipeline stage tabs */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "20px" }}>
+        {(["all", ...FAMILY_ORDER] as FilterKey[]).map((key) => {
+          const active = filter === key;
+          const label = key === "all" ? "All" : FAMILY_LABEL[key];
+          const dotColor = key === "all" ? "#1A2B3C" : FAMILY_COLOR[key];
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setFilter(key)}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+                borderRadius: "10px",
+                border: active ? "1px solid #1A2B3C" : "1px solid #B8C9D9",
+                backgroundColor: active ? "#1A2B3C" : "#FFFFFF",
+                color: active ? "#FFFFFF" : "#1A2B3C",
+                padding: "10px 16px",
+                fontSize: "14px",
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              <span
+                aria-hidden
+                style={{
+                  height: "8px",
+                  width: "8px",
+                  borderRadius: "999px",
+                  backgroundColor: dotColor,
+                }}
+              />
+              {label}
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  minWidth: "22px",
+                  height: "22px",
+                  padding: "0 6px",
+                  borderRadius: "999px",
+                  fontSize: "12px",
+                  fontWeight: 800,
+                  backgroundColor: active ? "rgba(255,255,255,0.2)" : "#F1F5F9",
+                  color: active ? "#FFFFFF" : "#475569",
+                }}
               >
-                <LayoutList className="h-4 w-4" aria-hidden />
-                Table
-              </button>
-              <button
-                type="button"
-                onClick={() => setView("kanban")}
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition",
-                  view === "kanban"
-                    ? "bg-[#0077B6] text-white"
-                    : "text-slate-600 hover:bg-slate-50",
-                )}
-                aria-current={view === "kanban" ? "true" : undefined}
-              >
-                <KanbanSquare className="h-4 w-4" aria-hidden />
-                Kanban
-              </button>
-            </div>
-          </div>
-        }
-      />
+                {counts[key]}
+              </span>
+            </button>
+          );
+        })}
+      </div>
 
       {/* Error */}
       {error && (
         <div
           role="alert"
-          className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+          style={{
+            marginBottom: "16px",
+            borderRadius: "10px",
+            border: "1px solid #FECACA",
+            backgroundColor: "#FEE2E2",
+            padding: "12px 16px",
+            fontSize: "14px",
+            color: "#B91C1C",
+          }}
         >
           {error}
         </div>
@@ -171,34 +297,33 @@ export default function ApplicationsPage() {
 
       {/* Content */}
       {loading ? (
-        <LoadingSpinner center label="Loading pipelineâ€¦" />
+        <LoadingSpinner center label="Loading pipeline…" />
       ) : showEmpty ? (
         <EmptyState
-          icon={KanbanSquare}
-          title="No applications yet"
-          description="Create an application from a qualified opportunity to start tracking it through the pipeline."
+          icon={Sparkles}
+          title="No applications"
+          description={
+            filter === "all"
+              ? "Create an application from a qualified opportunity to start tracking it through the pipeline."
+              : `No applications in ${FAMILY_LABEL[filter as Family]} right now.`
+          }
           action={
             <Link href="/opportunities">
               <Button variant="secondary">Browse opportunities</Button>
             </Link>
           }
         />
-      ) : view === "table" ? (
-        <ApplicationsTable
-          applications={applications}
-          role={profile?.role}
-          changedBy={profile?.id ?? null}
-          onChanged={load}
-          onClone={openCloneModal}
-        />
       ) : (
-        <GroupedKanban
-          applications={applications}
-          interactive={editable}
-          role={profile?.role}
-          changedBy={profile?.id ?? null}
-          onChanged={load}
-        />
+        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+          {filtered.map((app) => (
+            <ApplicationRow
+              key={app.id}
+              application={app}
+              cloneable={editable}
+              onClone={() => openCloneModal(app)}
+            />
+          ))}
+        </div>
       )}
 
       {/* Clone application */}
@@ -235,7 +360,7 @@ export default function ApplicationsPage() {
         <div className="space-y-4">
           <Select
             label="Target opportunity"
-            placeholder="Select an opportunityâ€¦"
+            placeholder="Select an opportunity…"
             value={targetOpportunityId}
             onChange={(e) => setTargetOpportunityId(e.target.value)}
             options={opportunityOptions.map((o) => ({
@@ -250,6 +375,210 @@ export default function ApplicationsPage() {
           )}
         </div>
       </Modal>
+    </div>
+  );
+}
+
+function ApplicationRow({
+  application,
+  cloneable,
+  onClone,
+}: {
+  application: EnrichedApplication;
+  cloneable: boolean;
+  onClone: () => void;
+}) {
+  const router = useRouter();
+  const family = STAGE_FAMILY[application.stage];
+  const accentColor = FAMILY_COLOR[family];
+  const days = daysInStage(application.stageEnteredAt);
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => router.push(`/applications/${application.id}`)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          router.push(`/applications/${application.id}`);
+        }
+      }}
+      style={{
+        position: "relative",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: "16px",
+        borderRadius: "14px",
+        backgroundColor: "#FFFFFF",
+        boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
+        padding: "16px 20px 16px 24px",
+        cursor: "pointer",
+        overflow: "hidden",
+      }}
+    >
+      <span
+        aria-hidden
+        style={{
+          position: "absolute",
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: "6px",
+          backgroundColor: accentColor,
+        }}
+      />
+
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "8px" }}>
+          <p
+            style={{
+              margin: 0,
+              maxWidth: "440px",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              fontSize: "15px",
+              fontWeight: 700,
+              color: "#0F172A",
+            }}
+          >
+            {application.opportunityName ?? "Untitled opportunity"}
+          </p>
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              borderRadius: "999px",
+              padding: "2px 10px",
+              fontSize: "11px",
+              fontWeight: 700,
+              backgroundColor: `${accentColor}1A`,
+              color: accentColor,
+            }}
+          >
+            {STAGE_LABEL[application.stage]}
+          </span>
+          {application.auto_generated && (
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                borderRadius: "999px",
+                padding: "2px 10px",
+                fontSize: "11px",
+                fontWeight: 700,
+                backgroundColor: "#8B5CF6",
+                color: "#FFFFFF",
+              }}
+            >
+              AI Draft
+            </span>
+          )}
+          {application.pending_review && (
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                borderRadius: "999px",
+                padding: "2px 10px",
+                fontSize: "11px",
+                fontWeight: 700,
+                backgroundColor: "#F59E0B",
+                color: "#FFFFFF",
+              }}
+            >
+              Review Needed
+            </span>
+          )}
+        </div>
+
+        {application.funderName && (
+          <p
+            style={{
+              margin: "6px 0 0",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              fontSize: "13px",
+              color: "#64748B",
+            }}
+          >
+            <Building2 style={{ height: "14px", width: "14px" }} aria-hidden />
+            {application.funderName}
+          </p>
+        )}
+
+        <div
+          style={{
+            marginTop: "8px",
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "center",
+            gap: "16px",
+            fontSize: "13px",
+            color: "#475569",
+          }}
+        >
+          <span style={{ fontWeight: 700, color: "#0F172A" }}>
+            {formatCurrency(application.requested_amount)}
+          </span>
+          {application.deadline && (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}>
+              <CalendarClock style={{ height: "14px", width: "14px" }} aria-hidden />
+              {formatDate(application.deadline)}
+            </span>
+          )}
+          <span style={{ display: "inline-flex", alignItems: "center", gap: "5px", color: "#94A3B8" }}>
+            <Clock style={{ height: "14px", width: "14px" }} aria-hidden />
+            {days === 0 ? "In stage today" : `${days} day${days === 1 ? "" : "s"} in stage`}
+          </span>
+        </div>
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", gap: "12px", flexShrink: 0 }}>
+        {application.probabilityScore != null && (
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              borderRadius: "999px",
+              padding: "4px 12px",
+              fontSize: "12px",
+              fontWeight: 800,
+              backgroundColor: `${probabilityColor(application.probabilityScore)}1A`,
+              color: probabilityColor(application.probabilityScore),
+            }}
+          >
+            {application.probabilityScore}%
+          </span>
+        )}
+        {cloneable && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onClone();
+            }}
+            title="Clone this application"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              height: "34px",
+              width: "34px",
+              borderRadius: "10px",
+              border: "1px solid #B8C9D9",
+              backgroundColor: "#FFFFFF",
+              color: "#1A2B3C",
+              cursor: "pointer",
+            }}
+          >
+            <Copy style={{ height: "16px", width: "16px" }} aria-hidden />
+          </button>
+        )}
+      </div>
     </div>
   );
 }

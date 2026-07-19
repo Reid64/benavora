@@ -3,8 +3,7 @@
 import { useEffect, useState } from "react";
 import { TrendingUp } from "lucide-react";
 
-import { Badge, Card, LoadingSpinner } from "@/components/ui";
-import type { BadgeVariant } from "@/components/ui";
+import { Card, LoadingSpinner } from "@/components/ui";
 import { humanizeEnum } from "@/lib/utils/formatters";
 
 type ProbabilityFactor = {
@@ -20,18 +19,24 @@ type ProbabilityResponse = {
   factors: ProbabilityFactor[];
 };
 
-function scoreVariant(score: number): BadgeVariant {
-  if (score >= 70) return "success";
-  if (score >= 40) return "warning";
-  return "error";
+function scoreColor(score: number): string {
+  if (score >= 70) return "#10B981";
+  if (score >= 40) return "#F59E0B";
+  return "#EF4444";
 }
 
-const CONFIDENCE_VARIANT: Record<ProbabilityResponse["confidence"], BadgeVariant> = {
-  high: "success",
-  medium: "warning",
-  low: "neutral",
+const CONFIDENCE_COLOR: Record<ProbabilityResponse["confidence"], string> = {
+  high: "#10B981",
+  medium: "#F59E0B",
+  low: "#94A3B8",
 };
 
+/**
+ * Five-factor eligibility breakdown: the top factors (by weight) from the
+ * Grant Probability Engine, each rendered as an inline-styled progress bar
+ * colored by its own value (BLUEPRINT §7.5 - hardcoded hex, no Tailwind color
+ * classes).
+ */
 export function SuccessProbabilityCard({
   opportunityId,
 }: {
@@ -75,6 +80,10 @@ export function SuccessProbabilityCard({
     };
   }, [opportunityId]);
 
+  const topFactors = data
+    ? [...data.factors].sort((a, b) => b.weight - a.weight).slice(0, 5)
+    : [];
+
   return (
     <Card title="Success Probability">
       {status === "loading" && (
@@ -87,45 +96,106 @@ export function SuccessProbabilityCard({
       {status === "error" && (
         <div
           role="alert"
-          className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+          style={{
+            borderRadius: "10px",
+            border: "1px solid #FECACA",
+            backgroundColor: "#FEE2E2",
+            padding: "10px 14px",
+            fontSize: "14px",
+            color: "#B91C1C",
+          }}
         >
           {fetchError}
         </div>
       )}
 
       {status === "loaded" && data && (
-        <div className="space-y-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant={scoreVariant(data.score)} className="text-base">
-              <TrendingUp className="h-3.5 w-3.5" aria-hidden />
-              <span className="tabular-nums">{data.score}%</span>
-            </Badge>
-            <Badge variant={CONFIDENCE_VARIANT[data.confidence]}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "8px" }}>
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                borderRadius: "999px",
+                padding: "4px 12px",
+                fontSize: "14px",
+                fontWeight: 800,
+                backgroundColor: `${scoreColor(data.score)}1A`,
+                color: scoreColor(data.score),
+              }}
+            >
+              <TrendingUp style={{ height: "14px", width: "14px" }} aria-hidden />
+              {data.score}%
+            </span>
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                borderRadius: "999px",
+                padding: "4px 12px",
+                fontSize: "12px",
+                fontWeight: 700,
+                backgroundColor: `${CONFIDENCE_COLOR[data.confidence]}1A`,
+                color: CONFIDENCE_COLOR[data.confidence],
+              }}
+            >
               {humanizeEnum(data.confidence)} confidence
-            </Badge>
+            </span>
           </div>
 
-          <ul className="space-y-2">
-            {data.factors.map((f) => (
-              <li
-                key={f.name}
-                className="flex items-center justify-between gap-3 text-sm"
-              >
-                <span className="text-navy-700">
-                  {humanizeEnum(f.name)}
-                  <span className="ml-1 text-xs text-navy-400">
-                    ({Math.round(f.weight * 100)}% weight)
-                  </span>
-                </span>
-                <span className="tabular-nums font-medium text-navy-900">
-                  {Math.round(f.value * 100)}%
-                  <span className="ml-1 text-xs font-normal text-navy-400">
-                    (+{f.contribution.toFixed(1)} pts)
-                  </span>
-                </span>
-              </li>
-            ))}
-          </ul>
+          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+            {topFactors.map((f) => {
+              const pct = Math.max(0, Math.min(100, Math.round(f.value * 100)));
+              const barColor = scoreColor(pct);
+              return (
+                <div key={f.name}>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "baseline",
+                      justifyContent: "space-between",
+                      marginBottom: "6px",
+                    }}
+                  >
+                    <span style={{ fontSize: "13px", fontWeight: 600, color: "#334155" }}>
+                      {humanizeEnum(f.name)}
+                      <span style={{ marginLeft: "6px", fontSize: "11px", fontWeight: 400, color: "#94A3B8" }}>
+                        ({Math.round(f.weight * 100)}% weight)
+                      </span>
+                    </span>
+                    <span style={{ fontSize: "13px", fontWeight: 700, color: "#0F172A" }}>
+                      {pct}%
+                    </span>
+                  </div>
+                  <div
+                    role="progressbar"
+                    aria-valuenow={pct}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-label={humanizeEnum(f.name)}
+                    style={{
+                      height: "8px",
+                      width: "100%",
+                      borderRadius: "999px",
+                      backgroundColor: "#E2E8F0",
+                      overflow: "hidden",
+                    }}
+                  >
+                    <div
+                      style={{
+                        height: "100%",
+                        width: `${pct}%`,
+                        borderRadius: "999px",
+                        backgroundColor: barColor,
+                        transition: "width 0.3s ease",
+                      }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
     </Card>
