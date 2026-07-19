@@ -73,7 +73,10 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Reports",
     href: "/reports",
     icon: FileBarChart2,
-    children: [{ label: "Simulator", href: "/reports/simulate" }],
+    children: [
+      { label: "Simulator", href: "/reports/simulate" },
+      { label: "ROI Insights", href: "/reports/roi" },
+    ],
   },
   {
     label: "Intelligence",

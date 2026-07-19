@@ -355,7 +355,7 @@
 | 224 | Predictive Fundraising Simulator | BUILT | Phase 4. Scenario builder + 3-year projection UI at /reports/simulate, backed by /api/reports/simulate (AG-37 SimulationAgent). |
 | 225 | Autonomous Continuous Improvement Engine | BUILT | Phase 4. AG-38 (src/lib/agents/self-improvement-agent.ts) + /admin/improvements review UI + agent_performance_metrics dashboard. |
 | 226 | Community Resource Graph | PLANNED | Phase 4. Need-to-resource pathfinding. |
-| 227 | ROI Optimization Engine | PLANNED | Phase 5. Submission variable optimization. |
+| 227 | ROI Optimization Engine | BUILT | Phase 5. /reports/roi dashboard + /api/reports/roi ??? AG-39 roi_insights + submission_variables aggregation. |
 | 228 | AI Strategic Advisor | BUILT | Phase 5. Command center at /intelligence/strategic-advisor, backed by /api/intelligence/strategic-advisor (AG-40 StrategicAdvisorAgent). Dashboard widget + nav badge wired. |
 
 ---
