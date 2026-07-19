@@ -25,9 +25,14 @@
 //   requested DeadlineExtractionAgent    -> DeadlineExtractor           (queue-only)
 //   requested ComplianceCheckAgent       -> ComplianceChecker           (queue-only)
 //   requested BudgetBuilderAgent         -> BudgetBuilderAgent          (exact match, queue-only)
-//   requested FitAnalysisAgent, RenewalTrackerAgent, OutcomeAnalyzerAgent,
-//     DocumentExpiryAgent, KnowledgeGapAgent, SearchProfileOptimizerAgent
-//     -> NO IMPLEMENTATION EXISTS ANYWHERE IN THE CODEBASE. Not wired.
+//   requested RenewalTrackerAgent        -> RenewalTrackerAgent         (AG-08, exact match)
+//   requested OutcomeAnalyzerAgent       -> OutcomeAnalyzerAgent        (AG-09, exact match)
+//   requested DocumentExpiryAgent        -> DocumentExpiryAgent         (AG-10, exact match)
+//   requested KnowledgeGapAgent          -> KnowledgeGapAgent           (AG-11, exact match)
+//   requested SearchProfileOptimizerAgent-> SearchProfileOptimizerAgent (AG-12, exact match)
+//   requested FitAnalysisAgent           -> exists (src/lib/agents/fit-analysis-agent.ts,
+//     BaseAgent pattern) but wiring it into this orchestrator is out of scope
+//     for the AG-08..AG-12 task this file was last updated for. Not wired.
 //
 // "Queue-only" agents are event-driven (e.g. FunderRelationshipAgent scores
 // one specific event like "awarded" against one funder) with no meaningful
@@ -35,6 +40,15 @@
 // processAgentQueue() only — never called from the per-org sweep, even when
 // their config toggle is on. They're ready for other app code to enqueue a
 // real event.
+//
+// AG-08 through AG-12 have no org_autonomous_config toggle columns (the
+// config table only has the 7 original auto_*_enabled flags) and no fixed
+// cron slot of their own — the worker's scheduler.ts only fires a single
+// nightly 2AM job. They run inside that same nightly per-org sweep, gated on
+// isAnyAutonomyEnabled() like every other step, with their monthly/weekly
+// cadence approximated by checking the calendar day in America/Chicago on
+// each nightly firing (isFirstOfMonthChicago / isSundayChicago below) rather
+// than a real once-a-month/once-a-week cron trigger.
 //
 // Also corrects a doc error: WORKER_ARCHITECTURE_v2.md describes "active
 // orgs" as organizations.stripe_subscription_status IN ('active','trialing')
@@ -63,6 +77,40 @@ function sleep(ms: number): Promise<void> {
 
 function errMsg(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
+}
+
+// --- calendar gating for the monthly/weekly-only steps -----------------------
+// Mirrors worker/scheduler.ts's chicagoParts(): the worker has no per-agent
+// cron, only a single fixed 2AM nightly job, so "monthly" / "weekly" agents
+// gate themselves on the calendar day of that nightly firing instead.
+
+function chicagoDateParts(now: Date): { day: number; weekday: number } {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Chicago',
+    day: '2-digit',
+    weekday: 'short',
+  });
+  const parts = formatter.formatToParts(now);
+  const day = parseInt(parts.find((p) => p.type === 'day')?.value ?? '0', 10);
+  const weekdayShort = parts.find((p) => p.type === 'weekday')?.value ?? '';
+  const weekdayMap: Record<string, number> = {
+    Sun: 0,
+    Mon: 1,
+    Tue: 2,
+    Wed: 3,
+    Thu: 4,
+    Fri: 5,
+    Sat: 6,
+  };
+  return { day, weekday: weekdayMap[weekdayShort] ?? -1 };
+}
+
+function isFirstOfMonthChicago(): boolean {
+  return chicagoDateParts(new Date()).day === 1;
+}
+
+function isSundayChicago(): boolean {
+  return chicagoDateParts(new Date()).weekday === 0;
 }
 
 // --- org_autonomous_config ---------------------------------------------------
@@ -466,6 +514,103 @@ async function runDeadlinePredictionStep(
   }
 }
 
+async function runRenewalTrackerStep(
+  supabase: SupabaseClient,
+  orgId: string,
+  log: string[],
+): Promise<boolean> {
+  try {
+    const { RenewalTrackerAgent } = await import(
+      '../src/lib/agents/renewal-tracker-agent.js'
+    );
+    const agent = new RenewalTrackerAgent(orgId, supabase);
+    const result = await agent.run('schedule');
+    log.push(`renewal_tracker: ${result.itemsQueued} renewal(s) created`);
+    return result.itemsQueued > 0;
+  } catch (err) {
+    log.push(`renewal_tracker: FAILED - ${errMsg(err)}`);
+    return false;
+  }
+}
+
+async function runOutcomeAnalyzerStep(
+  supabase: SupabaseClient,
+  orgId: string,
+  log: string[],
+): Promise<boolean> {
+  try {
+    const { OutcomeAnalyzerAgent } = await import(
+      '../src/lib/agents/outcome-analyzer-agent.js'
+    );
+    const agent = new OutcomeAnalyzerAgent(orgId, supabase);
+    const result = await agent.run('schedule');
+    log.push(`outcome_analyzer: ${result.itemsProcessed} outcome(s) analyzed`);
+    return result.itemsProcessed > 0;
+  } catch (err) {
+    log.push(`outcome_analyzer: FAILED - ${errMsg(err)}`);
+    return false;
+  }
+}
+
+async function runDocumentExpiryStep(
+  supabase: SupabaseClient,
+  orgId: string,
+  log: string[],
+): Promise<boolean> {
+  try {
+    const { DocumentExpiryAgent } = await import(
+      '../src/lib/agents/document-expiry-agent.js'
+    );
+    const agent = new DocumentExpiryAgent(orgId, supabase);
+    const result = await agent.run('schedule');
+    log.push(`document_expiry: ${result.itemsQueued} document(s) notified`);
+    return result.itemsQueued > 0;
+  } catch (err) {
+    log.push(`document_expiry: FAILED - ${errMsg(err)}`);
+    return false;
+  }
+}
+
+async function runKnowledgeGapStep(
+  supabase: SupabaseClient,
+  orgId: string,
+  log: string[],
+): Promise<boolean> {
+  try {
+    const { KnowledgeGapAgent } = await import(
+      '../src/lib/agents/knowledge-gap-agent.js'
+    );
+    const agent = new KnowledgeGapAgent(orgId, supabase);
+    const result = await agent.run('schedule');
+    log.push(`knowledge_gap: ${result.itemsQueued} gap(s) identified`);
+    return result.itemsQueued > 0;
+  } catch (err) {
+    log.push(`knowledge_gap: FAILED - ${errMsg(err)}`);
+    return false;
+  }
+}
+
+async function runSearchProfileOptimizerStep(
+  supabase: SupabaseClient,
+  orgId: string,
+  log: string[],
+): Promise<boolean> {
+  try {
+    const { SearchProfileOptimizerAgent } = await import(
+      '../src/lib/agents/search-profile-optimizer-agent.js'
+    );
+    const agent = new SearchProfileOptimizerAgent(orgId, supabase);
+    const result = await agent.run('schedule');
+    log.push(
+      `search_optimizer: ${result.itemsQueued} profile(s) flagged underperforming`,
+    );
+    return result.itemsQueued > 0;
+  } catch (err) {
+    log.push(`search_optimizer: FAILED - ${errMsg(err)}`);
+    return false;
+  }
+}
+
 // --- per-org run -----------------------------------------------------------------
 
 async function runOrgPipeline(
@@ -518,9 +663,25 @@ async function runOrgPipeline(
     hadActivity =
       (await runDeadlinePredictionStep(supabase, org.id, log)) || hadActivity;
   }
-  // renewal_tracker, document_expiry, knowledge_gap, search_optimizer: no
-  // agent implementation exists anywhere in the codebase for any of these
-  // (see file header) — not wired.
+
+  // AG-08..AG-12: no per-agent toggle or cron slot exists (see file header) —
+  // all run inside this same nightly sweep, cadence approximated by calendar
+  // day. document_expiry is nightly; the rest gate on the 1st of the month
+  // or Sunday.
+  hadActivity = (await runDocumentExpiryStep(supabase, org.id, log)) || hadActivity;
+  if (isFirstOfMonthChicago()) {
+    hadActivity =
+      (await runRenewalTrackerStep(supabase, org.id, log)) || hadActivity;
+    hadActivity =
+      (await runSearchProfileOptimizerStep(supabase, org.id, log)) ||
+      hadActivity;
+  }
+  if (isSundayChicago()) {
+    hadActivity =
+      (await runOutcomeAnalyzerStep(supabase, org.id, log)) || hadActivity;
+    hadActivity =
+      (await runKnowledgeGapStep(supabase, org.id, log)) || hadActivity;
+  }
 
   if (runId) {
     await supabase

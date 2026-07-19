@@ -56,6 +56,10 @@ export interface Database {
           onboarding_completed_at: string | null;
           onboarding_step: number;
           onboarding_progress: Json;
+          // AG-09 Outcome Analyzer (migration 082) - aggregate funding
+          // performance rollup: { successRateByCategory, averageAwardSize,
+          // dollarEfficiency, insightSummary, computedAt }.
+          analytics: Json;
           created_at: string;
           updated_at: string;
         };
@@ -124,6 +128,7 @@ export interface Database {
           onboarding_completed_at?: string | null;
           onboarding_step?: number;
           onboarding_progress?: Json;
+          analytics?: Json;
           created_at?: string;
           updated_at?: string;
         };
