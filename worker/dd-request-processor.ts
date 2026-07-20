@@ -107,6 +107,7 @@ interface FoundationGivingCapacityRow {
 // --- constants ---------------------------------------------------------------
 
 const POLL_INTERVAL_MS = 15_000;
+const FAILED_ITEM_BACKOFF_MS = 5_000;
 const ENRICHMENT_CONCURRENCY = 5;
 const ENRICHMENT_TTL_DAYS = 180; // matches donor_discovery_directory.enriched_at staleness (architecture §3)
 
@@ -206,10 +207,12 @@ export class DdRequestProcessor {
       }
 
       this.processing = true;
+      let failed = false;
 
       try {
         await this.processItem(item);
       } catch (err) {
+        failed = true;
         const message = err instanceof Error ? err.message : String(err);
         console.error(`[DdRequestProcessor] Request ${item.id} failed: ${message}`);
         await this.supabase
@@ -225,6 +228,14 @@ export class DdRequestProcessor {
       this.processing = false;
 
       if (!this.running) break;
+
+      // Backoff after a failed item — dequeue() re-claims immediately on the
+      // next loop iteration with no gap otherwise, so a run of malformed
+      // requests (or any other systematic failure) would hammer the RPC and
+      // the org lookup with no delay between attempts.
+      if (failed) {
+        await sleep(FAILED_ITEM_BACKOFF_MS);
+      }
     }
 
     this.resolveIdle();
@@ -235,6 +246,21 @@ export class DdRequestProcessor {
    * `donor_discovery_claim_request` RPC (migration 070), which runs
    * `SELECT ... FOR UPDATE SKIP LOCKED` and flips status to 'enumerating' in
    * one transaction.
+   *
+   * BUG FIX (2026-07-20): the RPC's SQL `return null;` on an empty result set
+   * does not come back over PostgREST as JSON `null` — Postgres serializes a
+   * NULL of a composite/row type as an object with every field null
+   * (verified live: `{"id":null,"organization_id":null,"taxonomy_ids":null,...}`).
+   * The previous `(data as DdRequestRow | null) ?? null` only catches actual
+   * null/undefined, so that all-null object passed straight through as a
+   * "real" claimed row. `loop()` then called `processItem()` on it: `.in('id',
+   * item.taxonomy_ids)` with `taxonomy_ids: null` fails, the catch handler's
+   * `.eq('id', item.id)` with `id: null` matches zero rows (SQL `= NULL` is
+   * never true), so the request was never marked failed either — and with no
+   * delay between a caught failure and the next dequeue(), this spun in a
+   * tight loop re-claiming the same phantom null row. Checking `row?.id`
+   * explicitly (not just object truthiness) closes this — the queue-is-empty
+   * case now actually returns null and hits the normal 15s idle sleep.
    */
   private async dequeue(): Promise<DdRequestRow | null> {
     const { data, error } = await this.supabase.rpc('donor_discovery_claim_request');
@@ -244,11 +270,22 @@ export class DdRequestProcessor {
       return null;
     }
 
-    return (data as DdRequestRow | null) ?? null;
+    const row = data as DdRequestRow | null;
+    if (!row || row.id === null || row.id === undefined) return null;
+    return row;
   }
 
   /** Runs the full enumerate -> enrich -> link foundations -> score pipeline for one request. */
   async processItem(item: DdRequestRow): Promise<void> {
+    // Fail fast on a malformed request (no real column named
+    // `naics_taxonomy_nodes` exists on donor_discovery_requests — the real
+    // column is `taxonomy_ids`, a uuid[] resolved to NAICS codes below) —
+    // avoids an unnecessary donor_discovery_taxonomy round-trip when there's
+    // nothing to look up.
+    if (!item.taxonomy_ids || item.taxonomy_ids.length === 0) {
+      throw new Error('malformed_request: taxonomy_ids is empty or missing');
+    }
+
     // --- Resolve taxonomy_ids -> NAICS codes (Phase 1: Google Places only) ---
     const { data: taxonomyRows, error: taxonomyError } = await this.supabase
       .from('donor_discovery_taxonomy')
