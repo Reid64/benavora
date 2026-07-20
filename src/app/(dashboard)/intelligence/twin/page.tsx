@@ -68,6 +68,15 @@ const FINANCIAL_LABELS: Record<string, string> = {
   total_volunteers: "Total Volunteers",
 };
 
+const CANVAS = "#D6E4F0";
+const CARD_BG = "#FFFFFF";
+const BORDER = "#C3D3E2";
+const DIVIDER = "#E2E8F0";
+const TEXT_PRIMARY = "#0F172A";
+const TEXT_SECONDARY = "#64748B";
+const TEXT_MUTED = "#94A3B8";
+const ACCENT = "#0077B6";
+
 function scoreColor(score: number): string {
   if (score >= 80) return "#16A34A";
   if (score >= 60) return "#D97706";
@@ -250,7 +259,10 @@ function CircularProgress({ score }: { score: number }) {
         <span className="text-4xl font-bold" style={{ color }}>
           {score}%
         </span>
-        <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+        <span
+          className="text-[10px] font-semibold uppercase tracking-wide"
+          style={{ color: TEXT_MUTED }}
+        >
           Twin Completeness
         </span>
       </div>
@@ -270,13 +282,16 @@ function SectionCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-border p-5">
-      <div className="flex items-center gap-2 text-slate-900">
-        <Icon className="h-5 w-5 text-[#0077B6]" aria-hidden />
-        <h3 className="text-base font-semibold text-slate-900">{title}</h3>
+    <div
+      className="rounded-xl p-5"
+      style={{ backgroundColor: CARD_BG, border: `1px solid ${BORDER}`, boxShadow: "0 1px 2px rgba(15,23,42,0.06)" }}
+    >
+      <div className="flex items-center gap-2" style={{ color: TEXT_PRIMARY }}>
+        <Icon className="h-5 w-5" style={{ color: ACCENT }} aria-hidden />
+        <h3 className="text-base font-semibold" style={{ color: TEXT_PRIMARY }}>{title}</h3>
       </div>
       {description && (
-        <p className="mt-0.5 text-sm text-slate-500">{description}</p>
+        <p className="mt-0.5 text-sm" style={{ color: TEXT_SECONDARY }}>{description}</p>
       )}
       <div className="mt-4">{children}</div>
     </div>
@@ -356,7 +371,7 @@ export default function DigitalTwinPage() {
   return (
     <div
       className="min-h-screen space-y-6 p-6"
-      style={{ backgroundColor: "#D6E4F0" }}
+      style={{ backgroundColor: CANVAS }}
     >
       <PageHeader
         title="Digital Twin"
@@ -372,7 +387,8 @@ export default function DigitalTwinPage() {
       {error && (
         <div
           role="alert"
-          className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+          className="rounded-lg px-4 py-3 text-sm"
+          style={{ border: "1px solid #FECACA", backgroundColor: "#FEF2F2", color: "#B91C1C" }}
         >
           {error}
         </div>
@@ -389,17 +405,20 @@ export default function DigitalTwinPage() {
       ) : (
         <>
           {/* Hero card */}
-          <div className="bg-white rounded-xl shadow-sm border border-border p-6">
+          <div
+            className="rounded-xl p-6"
+            style={{ backgroundColor: CARD_BG, border: `1px solid ${BORDER}`, boxShadow: "0 4px 20px rgba(15,23,42,0.08)" }}
+          >
             <div className="flex flex-wrap items-center gap-6">
               <CircularProgress score={twin.twin_completeness_score} />
               <div className="min-w-0">
-                <h2 className="text-xl font-bold text-slate-900">
+                <h2 className="text-xl font-bold" style={{ color: TEXT_PRIMARY }}>
                   {orgName ?? "Your Organization"}
                 </h2>
-                <p className="mt-1 text-sm text-slate-500">
+                <p className="mt-1 text-sm" style={{ color: TEXT_SECONDARY }}>
                   Twin completeness score
                 </p>
-                <p className="mt-2 text-xs text-slate-400">
+                <p className="mt-2 text-xs" style={{ color: TEXT_MUTED }}>
                   Last rebuilt{" "}
                   {new Date(twin.last_rebuilt_at).toLocaleString("en-US", {
                     dateStyle: "medium",
@@ -460,11 +479,12 @@ export default function DigitalTwinPage() {
             title="Completeness Checklist"
             description="What's feeding the twin, and what to add next."
           >
-            <ul className="divide-y divide-slate-100">
-              {buildChecklist(twin).map((item) => (
+            <ul>
+              {buildChecklist(twin).map((item, idx) => (
                 <li
                   key={item.label}
-                  className="flex items-start gap-3 py-3 first:pt-0 last:pb-0"
+                  className="flex items-start gap-3 py-3"
+                  style={{ borderTop: idx === 0 ? "none" : `1px solid ${DIVIDER}` }}
                 >
                   {item.met ? (
                     <CheckCircle2
@@ -480,11 +500,11 @@ export default function DigitalTwinPage() {
                     />
                   )}
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-slate-900">
+                    <p className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>
                       {item.label}
                     </p>
                     {!item.met && (
-                      <p className="mt-0.5 text-xs text-slate-500">
+                      <p className="mt-0.5 text-xs" style={{ color: TEXT_SECONDARY }}>
                         {item.tip}
                       </p>
                     )}
@@ -497,9 +517,9 @@ export default function DigitalTwinPage() {
           {/* Mission & Service Area */}
           <SectionCard icon={BookText} title="Mission & Service Area">
             {twin.mission ? (
-              <p className="text-sm text-slate-600">{twin.mission}</p>
+              <p className="text-sm" style={{ color: TEXT_SECONDARY }}>{twin.mission}</p>
             ) : (
-              <p className="text-sm text-slate-400">No mission statement on file.</p>
+              <p className="text-sm" style={{ color: TEXT_MUTED }}>No mission statement on file.</p>
             )}
             {twin.service_areas.length > 0 ? (
               <div className="mt-3 flex flex-wrap gap-2">
@@ -510,7 +530,7 @@ export default function DigitalTwinPage() {
                 ))}
               </div>
             ) : (
-              <p className="mt-3 text-sm text-slate-400">
+              <p className="mt-3 text-sm" style={{ color: TEXT_MUTED }}>
                 No service areas on file.
               </p>
             )}
@@ -519,20 +539,24 @@ export default function DigitalTwinPage() {
           {/* Programs */}
           <SectionCard icon={Sparkles} title="Programs">
             {twin.programs.length > 0 ? (
-              <ul className="divide-y divide-slate-100">
-                {twin.programs.map((program) => (
-                  <li key={program.title} className="py-3 first:pt-0 last:pb-0">
-                    <p className="text-sm font-semibold text-slate-900">
+              <ul>
+                {twin.programs.map((program, idx) => (
+                  <li
+                    key={program.title}
+                    className="py-3"
+                    style={{ borderTop: idx === 0 ? "none" : `1px solid ${DIVIDER}` }}
+                  >
+                    <p className="text-sm font-semibold" style={{ color: TEXT_PRIMARY }}>
                       {program.title}
                     </p>
-                    <p className="mt-1 text-sm text-slate-600">
+                    <p className="mt-1 text-sm" style={{ color: TEXT_SECONDARY }}>
                       {program.description}
                     </p>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-slate-400">
+              <p className="text-sm" style={{ color: TEXT_MUTED }}>
                 No programs documented yet.
               </p>
             )}
@@ -549,14 +573,15 @@ export default function DigitalTwinPage() {
                 {twin.proven_narrative_patterns.map((pattern) => (
                   <li
                     key={pattern}
-                    className="text-sm text-slate-600 before:mr-2 before:content-['•']"
+                    className="text-sm before:mr-2 before:content-['•']"
+                    style={{ color: TEXT_SECONDARY }}
                   >
                     {pattern}
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-slate-400">
+              <p className="text-sm" style={{ color: TEXT_MUTED }}>
                 No proven narrative patterns yet.
               </p>
             )}
@@ -568,10 +593,10 @@ export default function DigitalTwinPage() {
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 {Object.entries(twin.financial_profile).map(([key, value]) => (
                   <div key={key}>
-                    <p className="text-xs text-slate-400">
+                    <p className="text-xs" style={{ color: TEXT_MUTED }}>
                       {FINANCIAL_LABELS[key] ?? key}
                     </p>
-                    <p className="text-lg font-bold text-slate-900">
+                    <p className="text-lg font-bold" style={{ color: TEXT_PRIMARY }}>
                       {key === "annual_budget"
                         ? new Intl.NumberFormat("en-US", {
                             style: "currency",
@@ -584,7 +609,7 @@ export default function DigitalTwinPage() {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-slate-400">
+              <p className="text-sm" style={{ color: TEXT_MUTED }}>
                 No financial data on file.
               </p>
             )}
@@ -593,25 +618,29 @@ export default function DigitalTwinPage() {
           {/* Board composition */}
           <SectionCard icon={Users} title="Board Composition">
             {twin.board_composition.length > 0 ? (
-              <ul className="divide-y divide-slate-100">
-                {twin.board_composition.map((member) => (
-                  <li key={member.name} className="py-3 first:pt-0 last:pb-0">
-                    <p className="text-sm font-semibold text-slate-900">
+              <ul>
+                {twin.board_composition.map((member, idx) => (
+                  <li
+                    key={member.name}
+                    className="py-3"
+                    style={{ borderTop: idx === 0 ? "none" : `1px solid ${DIVIDER}` }}
+                  >
+                    <p className="text-sm font-semibold" style={{ color: TEXT_PRIMARY }}>
                       {member.name}
                       {member.title && (
-                        <span className="ml-2 font-normal text-slate-500">
+                        <span className="ml-2 font-normal" style={{ color: TEXT_SECONDARY }}>
                           {member.title}
                         </span>
                       )}
                     </p>
                     {member.bio && (
-                      <p className="mt-1 text-sm text-slate-600">{member.bio}</p>
+                      <p className="mt-1 text-sm" style={{ color: TEXT_SECONDARY }}>{member.bio}</p>
                     )}
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-slate-400">
+              <p className="text-sm" style={{ color: TEXT_MUTED }}>
                 No active board members on file.
               </p>
             )}
