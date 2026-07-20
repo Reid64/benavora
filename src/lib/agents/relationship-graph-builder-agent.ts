@@ -49,6 +49,70 @@
 //     EXISTS. This file is built and ready; it is not wired into any
 //     scheduler, queue route, or `routeQueueItem()` case, matching every
 //     other PLANNED agent's status in this codebase — see AGENTS_v2.md §1.1.
+//
+// --- Phase 2 discovery rules (rules 5-8), added July 19, 2026 ---------------
+//
+// Four more pig_edges discovery rules, verified against the real applied
+// schema before writing (root supabase/migrations/, not the aspirational
+// SCHEMA_REGISTRY_v2.md/AUTONOMOUS_PLATFORM_VISION.md wording):
+//
+//   - `organizations` (supabase/migrations/001_initial_schema.sql) has no
+//     ntee_code column and never has — its only classification-adjacent
+//     fields are free-text `mission_statement`, `target_population`, and
+//     `service_area`. Rule 5 ("same NTEE code as this org") is therefore
+//     implemented against an *inferred* NTEE major-group letter, derived
+//     from a small keyword map over those three free-text fields (see
+//     inferOrgNteeMajorGroup below) — the same style of heuristic mapping
+//     already used for donor-discovery NAICS labels
+//     (src/lib/donor-discovery/naics-labels.ts). `foundation_directory`
+//     (supabase/migrations/046_foundation_directory.sql) does carry a real
+//     `ntee_code` column, populated from IRS BMF data, and is matched
+//     against the inferred major group with a prefix match.
+//   - There is no recipient-level "which NTEE-coded orgs did this funder
+//     give to" data anywhere in this schema — foundation_directory's
+//     `enrichment` jsonb (added supabase/migrations/072_foundation_
+//     directory_990_enrichment.sql) has only fund-level 990 fields
+//     (total_giving, grant_count, grant_range_min/max, fiscal_year — see
+//     scripts/enrich-foundations-990.ts), never a recipient list. "Funded
+//     organizations with the same NTEE code... N times in past 3 years" is
+//     therefore evaluated as: foundation's own ntee_code matches the org's
+//     inferred major group, AND enrichment.grant_count > 0, AND
+//     enrichment.fiscal_year falls within the last 3 years — the closest
+//     real signal for "this funder was actively giving in this cause area
+//     recently," not a literal recipient-NTEE join that no data supports.
+//   - Rule 6 (asset compatibility) is the one rule with a clean, direct
+//     real-schema match: `organizations.annual_budget` vs
+//     `foundation_directory.asset_amount`, both real numeric columns.
+//   - Rule 7 (geographic giving history) matches
+//     `foundation_directory.city`/`state` against `organizations.city`/
+//     `state`, gated on the same giving-activity signal as Rule 5
+//     (grant_count > 0 or giving_total > 0 — both real columns).
+//   - Rule 8 (board network overlap) names a `corporate_relationships`
+//     table. Exactly like this file's own note above re: AG-32's original
+//     board-overlap logic, **no migration anywhere in either
+//     src/supabase/migrations/ or supabase/migrations/ has ever created a
+//     `corporate_relationships` table** — it exists only in
+//     CORPORATE_INTELLIGENCE_ARCHITECTURE.md as aspirational schema. This
+//     rule is implemented defensively (query, catch a missing-relation
+//     error, degrade to zero matches) using the exact same
+//     try/catch-return-empty pattern strategic-advisor-agent.ts already
+//     uses for its own Phase 2-5 "table may not exist yet" reads
+//     (loadOptionalOrgRows). It will correctly no-op today and start
+//     working the moment a future migration creates that table — it is not
+//     dead code, it is forward-defensive code, matching this codebase's
+//     established convention for PLANNED-but-unbuilt dependencies.
+//   - `corporate_intent_signals` (task's pig_nodes seed source) also has no
+//     migration anywhere — confirmed via the same table already being
+//     treated as optional/not-yet-real in strategic-advisor-agent.ts
+//     (AGENTS_v2.md AG-30/AG-40's own dependency notes say as much). Seeded
+//     the same defensive way, per the task's own "if table exists"
+//     qualifier.
+//   - The org's own pig_nodes row (entity_table="organizations") did not
+//     exist before this change — rules 5-7 need a source node for the org
+//     itself, distinct from the per-board-member "person" nodes rules 1-4
+//     create. node_type "nonprofit" per SCHEMA_REGISTRY_v2.md's own
+//     pig_nodes.node_type vocabulary (business/foundation/government/
+//     person/nonprofit).
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -87,6 +151,42 @@ const MAX_PROSPECTS_LOADED = 50;
 const WEB_SEARCH_MAX_USES = 4;
 const CLAUDE_MAX_TOKENS = 800;
 
+// Phase 2 rules 5-8 — deterministic, no Claude call (unlike rules 1-4's
+// web-search connection discovery), so these caps exist purely to bound
+// query/edge-write volume per nightly run, not token spend.
+const MAX_GIVING_CYCLE_MATCHES = 20;
+const MAX_ASSET_COMPATIBLE_MATCHES = 20;
+const MAX_GEOGRAPHIC_MATCHES = 20;
+const GIVING_CYCLE_LOOKBACK_YEARS = 3;
+const ASSET_MULTIPLE_MIN = 10;
+const ASSET_MULTIPLE_MAX = 1000;
+
+/** Relationship_type values rules 5-8 write to pig_edges.relationship_type
+ * — kept distinct from ALLOWED_RELATIONSHIP_TYPES above (which is rules
+ * 1-4's Claude-constrained board-connection vocabulary). */
+const GIVING_CYCLE_ALIGNED = "giving_cycle_aligned";
+const ASSET_COMPATIBLE = "asset_compatible";
+const GEOGRAPHIC_GIVING_HISTORY = "geographic_giving_history";
+const BOARD_NETWORK_OVERLAP = "board_network_overlap";
+
+/** Coarse keyword -> NTEE major-group letter map, standing in for the
+ * ntee_code column organizations.ts doesn't have (see file header). Order
+ * matters — first matching key wins. Not exhaustive; extend as new org
+ * cause areas come online. */
+const NTEE_MAJOR_GROUP_KEYWORDS: Array<[string, string[]]> = [
+  ["L", ["housing", "shelter", "homeless", "transitional housing"]],
+  ["E", ["health", "medical", "healthcare", "hospital", "clinic"]],
+  ["B", ["education", "school", "literacy", "tutoring", "scholarship"]],
+  ["O", ["youth development", "youth", "mentoring"]],
+  ["P", ["human services", "social services", "family services", "crisis", "food bank"]],
+  ["A", ["arts", "culture", "museum", "theater", "music"]],
+  ["C", ["environment", "conservation", "wildlife", "sustainability"]],
+  ["D", ["animal welfare", "humane society", "animal rescue"]],
+  ["X", ["religion", "faith", "church", "ministry"]],
+  ["Q", ["international", "refugee", "global"]],
+  ["S", ["community development", "economic development", "community improvement"]],
+];
+
 interface BoardMemberRow {
   id: string;
   name: string;
@@ -111,6 +211,52 @@ interface TargetEntity {
   label: string;
   nodeType: "funder" | "business";
   entityTable: "funders" | "corporate_prospects";
+}
+
+interface OrgRow {
+  id: string;
+  name: string;
+  mission_statement: string | null;
+  target_population: string | null;
+  service_area: string | null;
+  annual_budget: number | null;
+  city: string | null;
+  state: string | null;
+}
+
+interface FoundationDirectoryEnrichment {
+  grant_count?: number | null;
+  fiscal_year?: number | null;
+  total_giving?: number | null;
+}
+
+interface FoundationDirectoryRow {
+  id: string;
+  name: string;
+  ntee_code: string | null;
+  asset_amount: number | null;
+  city: string | null;
+  state: string | null;
+  giving_total: number | null;
+  officers: unknown;
+  enrichment: FoundationDirectoryEnrichment | null;
+}
+
+/** Loosely typed — corporate_relationships has no migration anywhere (see
+ * file header); this shape is a best guess at the aspirational columns
+ * named in CORPORATE_INTELLIGENCE_ARCHITECTURE.md, used only if the table
+ * is ever actually created. */
+interface CorporateRelationshipRow {
+  id: string;
+  source_entity_name?: string | null;
+  target_entity_name?: string | null;
+}
+
+/** Also has no migration anywhere (see file header) — read defensively
+ * with an unknown-shaped row and a best-effort label. */
+interface CorporateIntentSignalRow {
+  id: string;
+  [key: string]: unknown;
 }
 
 interface RawConnection {
@@ -296,6 +442,55 @@ function buildWarmIntroductionPath(
   return `Board member ${memberName} has ${degreeText} ${targetLabel}: ${description}`;
 }
 
+/** Best-effort NTEE major-group inference from an org's free-text
+ * mission/population/service-area fields — see file header for why this
+ * exists instead of reading a real ntee_code column. Returns null (rule 5
+ * skips) when nothing matches rather than guessing. */
+function inferOrgNteeMajorGroup(org: OrgRow): string | null {
+  const haystack = [org.mission_statement, org.target_population, org.service_area]
+    .filter((v): v is string => Boolean(v))
+    .join(" ")
+    .toLowerCase();
+  if (!haystack) return null;
+
+  for (const [majorGroup, keywords] of NTEE_MAJOR_GROUP_KEYWORDS) {
+    if (keywords.some((kw) => haystack.includes(kw))) return majorGroup;
+  }
+  return null;
+}
+
+/** Extracts trustee/officer names from foundation_directory.officers jsonb
+ * (real column, supabase/migrations/058_lead_enrichment_system.sql).
+ * Tolerant of unknown shapes since nothing in this codebase has ever
+ * populated it at scale — see AGENTS_v2.md's Foundation Enrichment Agent
+ * (AG-13) note that enrichment scripts were never run against the full
+ * foundation set. */
+function extractTrusteeNames(officers: unknown): string[] {
+  if (!Array.isArray(officers)) return [];
+  const names: string[] = [];
+  for (const entry of officers) {
+    if (typeof entry === "string" && entry.trim()) {
+      names.push(entry.trim());
+    } else if (entry && typeof entry === "object") {
+      const name = (entry as { name?: unknown }).name;
+      if (typeof name === "string" && name.trim()) names.push(name.trim());
+    }
+  }
+  return names;
+}
+
+/** Best-effort display label for a corporate_intent_signals row whose real
+ * shape is unknown (see file header) — tries the common name-ish columns
+ * other tables in this schema use before falling back to the row id. */
+function labelCorporateIntentSignal(row: CorporateIntentSignalRow): string {
+  const candidates = ["name", "company_name", "legal_name", "prospect_name", "entity_name"];
+  for (const key of candidates) {
+    const value = row[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return `corporate_intent_signals/${row.id}`;
+}
+
 /** Upserts a pig_nodes row for a real entity row and returns its id.
  * pig_nodes has UNIQUE(entity_table, entity_id), so this is idempotent
  * across repeated runs — re-discovering the same person/entity never
@@ -335,6 +530,389 @@ async function ensurePigNode(
 export class RelationshipGraphBuilderAgent extends AutonomousAgent {
   constructor(orgId: string, supabase: SupabaseClient) {
     super(orgId, "ag-32-relationship-graph", supabase);
+  }
+
+  private async loadOrg(): Promise<OrgRow | null> {
+    const { data, error } = await this.supabase
+      .from("organizations")
+      .select(
+        "id, name, mission_statement, target_population, service_area, annual_budget, city, state",
+      )
+      .eq("id", this.orgId)
+      .maybeSingle();
+    if (error || !data) return null;
+    return data as OrgRow;
+  }
+
+  /** Shared write path for rules 5-7: ensures the foundation's pig_nodes
+   * row, upserts the pig_edges row, and logs the decision. Rule-specific
+   * query/candidate logic lives in each rule's own method below. */
+  private async writeFoundationEdge(params: {
+    runId: string;
+    orgNodeId: string;
+    foundation: FoundationDirectoryRow;
+    relationshipType: string;
+    weight: number;
+    evidence: string;
+    decisions: string[];
+    errors: string[];
+  }): Promise<boolean> {
+    const { runId, orgNodeId, foundation, relationshipType, weight, evidence, decisions, errors } =
+      params;
+    try {
+      const foundationNodeId = await ensurePigNode(
+        this.supabase,
+        "foundation",
+        "foundation_directory",
+        foundation.id,
+        foundation.name,
+      );
+
+      const { error: edgeError } = await this.supabase.from("pig_edges").upsert(
+        {
+          source_node_id: orgNodeId,
+          target_node_id: foundationNodeId,
+          relationship_type: relationshipType,
+          weight,
+          evidence,
+          verified: false,
+          metadata: {
+            source_type: "org_self",
+            target_entity_name: foundation.name,
+          },
+        },
+        { onConflict: "source_node_id,target_node_id,relationship_type" },
+      );
+
+      if (edgeError) {
+        errors.push(
+          `${relationshipType} -> ${foundation.name}: failed to write pig_edges row: ${edgeError.message}`,
+        );
+        return false;
+      }
+
+      decisions.push(
+        await this.logDecision({
+          decisionType: relationshipType,
+          agentRunId: runId,
+          entityType: "pig_edge",
+          entityId: foundationNodeId,
+          reasoning: evidence,
+          confidenceScore: Math.round(weight * 100),
+          actionTaken: `Discovered ${relationshipType} edge to ${foundation.name}`,
+          actionPayload: {
+            relationshipType,
+            targetEntityName: foundation.name,
+          },
+        }),
+      );
+      return true;
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to write foundation edge.";
+      errors.push(`${relationshipType} -> ${foundation.name}: ${message}`);
+      return false;
+    }
+  }
+
+  /** Rule 5 — giving cycle alignment: foundations whose own ntee_code
+   * matches this org's inferred cause area and that show recent (last 3
+   * fiscal years on file) grantmaking activity. See file header for why
+   * this is the real-schema proxy for "funded orgs with the same NTEE code
+   * in the past 3 years." */
+  private async runGivingCycleRule(
+    runId: string,
+    orgNodeId: string,
+    org: OrgRow,
+    decisions: string[],
+    errors: string[],
+  ): Promise<number> {
+    const nteeMajorGroup = inferOrgNteeMajorGroup(org);
+    if (!nteeMajorGroup) return 0;
+
+    const { data, error } = await this.supabase
+      .from("foundation_directory")
+      .select("id, name, ntee_code, asset_amount, city, state, giving_total, officers, enrichment")
+      .ilike("ntee_code", `${nteeMajorGroup}%`)
+      .order("asset_amount", { ascending: false, nullsFirst: false })
+      .limit(100);
+
+    if (error) {
+      errors.push(`giving cycle rule: failed to load foundation_directory: ${error.message}`);
+      return 0;
+    }
+
+    const cutoffYear = new Date().getFullYear() - GIVING_CYCLE_LOOKBACK_YEARS;
+    const candidates = ((data ?? []) as FoundationDirectoryRow[])
+      .filter((f) => {
+        const grantCount = f.enrichment?.grant_count ?? 0;
+        const fiscalYear = f.enrichment?.fiscal_year ?? 0;
+        return grantCount > 0 && fiscalYear >= cutoffYear;
+      })
+      .slice(0, MAX_GIVING_CYCLE_MATCHES);
+
+    let matched = 0;
+    for (const foundation of candidates) {
+      const grantCount = foundation.enrichment?.grant_count ?? 0;
+      const fiscalYear = foundation.enrichment?.fiscal_year ?? cutoffYear;
+      const evidence = `Funded NTEE ${nteeMajorGroup} organizations ${grantCount} times in the past ${GIVING_CYCLE_LOOKBACK_YEARS} years (most recent fiscal year on file: ${fiscalYear}).`;
+      const wrote = await this.writeFoundationEdge({
+        runId,
+        orgNodeId,
+        foundation,
+        relationshipType: GIVING_CYCLE_ALIGNED,
+        weight: 0.7,
+        evidence,
+        decisions,
+        errors,
+      });
+      if (wrote) matched++;
+    }
+    return matched;
+  }
+
+  /** Rule 6 — asset size compatibility: foundation assets between 10x and
+   * 1000x this org's annual budget (too small = won't fund at this scale,
+   * too large = out of reach / not a realistic target). Skips entirely if
+   * the org has no annual_budget on file. */
+  private async runAssetCompatibilityRule(
+    runId: string,
+    orgNodeId: string,
+    org: OrgRow,
+    decisions: string[],
+    errors: string[],
+  ): Promise<number> {
+    if (!org.annual_budget || org.annual_budget <= 0) return 0;
+
+    const minAsset = org.annual_budget * ASSET_MULTIPLE_MIN;
+    const maxAsset = org.annual_budget * ASSET_MULTIPLE_MAX;
+
+    const { data, error } = await this.supabase
+      .from("foundation_directory")
+      .select("id, name, ntee_code, asset_amount, city, state, giving_total, officers, enrichment")
+      .gte("asset_amount", minAsset)
+      .lte("asset_amount", maxAsset)
+      .order("asset_amount", { ascending: true })
+      .limit(MAX_ASSET_COMPATIBLE_MATCHES);
+
+    if (error) {
+      errors.push(`asset compatibility rule: failed to load foundation_directory: ${error.message}`);
+      return 0;
+    }
+
+    let matched = 0;
+    for (const foundation of (data ?? []) as FoundationDirectoryRow[]) {
+      const assetAmount = foundation.asset_amount ?? 0;
+      const multiple = Math.round(assetAmount / org.annual_budget);
+      const evidence = `Foundation assets of $${assetAmount.toLocaleString()} are ~${multiple}x this org's annual budget of $${org.annual_budget.toLocaleString()} — within the fundable ${ASSET_MULTIPLE_MIN}x-${ASSET_MULTIPLE_MAX}x range.`;
+      const wrote = await this.writeFoundationEdge({
+        runId,
+        orgNodeId,
+        foundation,
+        relationshipType: ASSET_COMPATIBLE,
+        weight: 0.6,
+        evidence,
+        decisions,
+        errors,
+      });
+      if (wrote) matched++;
+    }
+    return matched;
+  }
+
+  /** Rule 7 — geographic giving history: foundations in the org's own
+   * city/state with evidence of past giving (grant_count or giving_total
+   * on file). Skips if the org has neither city nor state on file. */
+  private async runGeographicGivingRule(
+    runId: string,
+    orgNodeId: string,
+    org: OrgRow,
+    decisions: string[],
+    errors: string[],
+  ): Promise<number> {
+    if (!org.state && !org.city) return 0;
+
+    let query = this.supabase
+      .from("foundation_directory")
+      .select("id, name, ntee_code, asset_amount, city, state, giving_total, officers, enrichment");
+    query = org.state ? query.eq("state", org.state) : query.eq("city", org.city as string);
+
+    const { data, error } = await query
+      .order("giving_total", { ascending: false, nullsFirst: false })
+      .limit(100);
+
+    if (error) {
+      errors.push(`geographic giving rule: failed to load foundation_directory: ${error.message}`);
+      return 0;
+    }
+
+    const candidates = ((data ?? []) as FoundationDirectoryRow[])
+      .filter((f) => (f.enrichment?.grant_count ?? 0) > 0 || (f.giving_total ?? 0) > 0)
+      .slice(0, MAX_GEOGRAPHIC_MATCHES);
+
+    let matched = 0;
+    for (const foundation of candidates) {
+      const grantCount = foundation.enrichment?.grant_count ?? 0;
+      const givingTotal = foundation.giving_total ?? 0;
+      const location = [foundation.city, foundation.state].filter(Boolean).join(", ");
+      const evidence = `Foundation based in ${location || "org's service area"} matches this org's location; giving history on file: ${grantCount} recorded grants, $${givingTotal.toLocaleString()} total giving.`;
+      const wrote = await this.writeFoundationEdge({
+        runId,
+        orgNodeId,
+        foundation,
+        relationshipType: GEOGRAPHIC_GIVING_HISTORY,
+        weight: 0.8,
+        evidence,
+        decisions,
+        errors,
+      });
+      if (wrote) matched++;
+    }
+    return matched;
+  }
+
+  /** Rule 8 — board network overlap via corporate_relationships. That
+   * table has no migration anywhere in this codebase (see file header) —
+   * this queries it defensively and degrades to zero matches rather than
+   * failing the run, exactly like strategic-advisor-agent.ts's
+   * loadOptionalOrgRows pattern for the same class of not-yet-real table.
+   * Matches a foundation pig_node's officers-derived trustee names (real
+   * foundation_directory.officers jsonb, via extractTrusteeNames) against
+   * corporate_relationships.source_entity_name for this org. */
+  private async runBoardNetworkOverlapRule(
+    runId: string,
+    orgNodeId: string,
+    decisions: string[],
+    errors: string[],
+  ): Promise<number> {
+    let relationshipRows: CorporateRelationshipRow[] = [];
+    try {
+      const { data, error } = await this.supabase
+        .from("corporate_relationships")
+        .select("id, source_entity_name, target_entity_name")
+        .limit(50);
+      if (error) return 0;
+      relationshipRows = (data ?? []) as CorporateRelationshipRow[];
+    } catch {
+      return 0;
+    }
+    if (relationshipRows.length === 0) return 0;
+
+    const sourceNames = new Set(
+      relationshipRows
+        .map((r) => (typeof r.source_entity_name === "string" ? r.source_entity_name.trim().toLowerCase() : ""))
+        .filter(Boolean),
+    );
+    if (sourceNames.size === 0) return 0;
+
+    const { data: foundationRows, error: foundationError } = await this.supabase
+      .from("foundation_directory")
+      .select("id, name, ntee_code, asset_amount, city, state, giving_total, officers, enrichment")
+      .not("officers", "eq", "[]")
+      .limit(200);
+
+    if (foundationError) {
+      errors.push(
+        `board network overlap rule: failed to load foundation_directory: ${foundationError.message}`,
+      );
+      return 0;
+    }
+
+    let matched = 0;
+    for (const foundation of (foundationRows ?? []) as FoundationDirectoryRow[]) {
+      const trustees = extractTrusteeNames(foundation.officers);
+      const matchedTrustee = trustees.find((t) => sourceNames.has(t.toLowerCase()));
+      if (!matchedTrustee) continue;
+
+      const evidence = `Trustee ${matchedTrustee} of ${foundation.name} matches a corporate_relationships source_entity_name recorded for this org.`;
+      const foundationNodeId = await ensurePigNode(
+        this.supabase,
+        "foundation",
+        "foundation_directory",
+        foundation.id,
+        foundation.name,
+      );
+
+      const { error: edgeError } = await this.supabase.from("pig_edges").upsert(
+        {
+          source_node_id: orgNodeId,
+          target_node_id: foundationNodeId,
+          relationship_type: BOARD_NETWORK_OVERLAP,
+          weight: 0.95,
+          evidence,
+          verified: true,
+          metadata: {
+            source_type: "org_self",
+            target_entity_name: foundation.name,
+            matched_trustee: matchedTrustee,
+          },
+        },
+        { onConflict: "source_node_id,target_node_id,relationship_type" },
+      );
+
+      if (edgeError) {
+        errors.push(
+          `${BOARD_NETWORK_OVERLAP} -> ${foundation.name}: failed to write pig_edges row: ${edgeError.message}`,
+        );
+        continue;
+      }
+
+      matched++;
+      decisions.push(
+        await this.logDecision({
+          decisionType: BOARD_NETWORK_OVERLAP,
+          agentRunId: runId,
+          entityType: "pig_edge",
+          entityId: foundationNodeId,
+          reasoning: evidence,
+          confidenceScore: 95,
+          actionTaken: `Discovered verified board network overlap with ${foundation.name}`,
+          actionPayload: {
+            relationshipType: BOARD_NETWORK_OVERLAP,
+            targetEntityName: foundation.name,
+          },
+        }),
+      );
+    }
+    return matched;
+  }
+
+  /** Seeds pig_nodes from corporate_intent_signals "if table exists" per
+   * the task spec — that table also has no migration anywhere (see file
+   * header), so this degrades to zero seeded nodes today via the same
+   * defensive pattern as runBoardNetworkOverlapRule above. */
+  private async seedCorporateIntentSignalNodes(errors: string[]): Promise<number> {
+    let rows: CorporateIntentSignalRow[] = [];
+    try {
+      const { data, error } = await this.supabase
+        .from("corporate_intent_signals")
+        .select("*")
+        .eq("org_id", this.orgId)
+        .limit(50);
+      if (error) return 0;
+      rows = (data ?? []) as CorporateIntentSignalRow[];
+    } catch {
+      return 0;
+    }
+
+    let seeded = 0;
+    for (const row of rows) {
+      try {
+        await ensurePigNode(
+          this.supabase,
+          "business",
+          "corporate_intent_signals",
+          row.id,
+          labelCorporateIntentSignal(row),
+        );
+        seeded++;
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Failed to seed corporate_intent_signals node.";
+        errors.push(`corporate_intent_signals/${row.id}: ${message}`);
+      }
+    }
+    return seeded;
   }
 
   override async run(
@@ -391,30 +969,9 @@ export class RelationshipGraphBuilderAgent extends AutonomousAgent {
         MAX_PROSPECTS_IN_PROMPT,
       );
 
-      if (boardMembers.length === 0) {
-        const summary = {
-          boardMembersAnalyzed: 0,
-          connectionsFound: 0,
-          directConnections: 0,
-          oneHopConnections: 0,
-        };
-        await this.completeRun(runId, {
-          outputSummary: JSON.stringify(summary),
-          itemsFound: 0,
-          itemsProcessed: 0,
-          itemsQueued: 0,
-        });
-        return {
-          success: true,
-          itemsFound: 0,
-          itemsProcessed: 0,
-          itemsQueued: 0,
-          decisions,
-          nextActions: [],
-          errors,
-        };
-      }
-
+      // Rules 5-8 (below) don't depend on board members existing, so an
+      // empty board no longer short-circuits the whole run — this loop
+      // (rules 1-4) simply does zero iterations in that case.
       for (const member of boardMembers) {
         boardMembersAnalyzed++;
 
@@ -535,25 +1092,97 @@ export class RelationshipGraphBuilderAgent extends AutonomousAgent {
         }
       }
 
+      // Phase 2 rules 5-8 — org-level, run once per invocation regardless
+      // of board member count (see file header for the schema findings
+      // behind each rule's implementation).
+      let givingCycleMatches = 0;
+      let assetCompatibleMatches = 0;
+      let geographicMatches = 0;
+      let boardNetworkMatches = 0;
+      let corporateIntentNodesSeeded = 0;
+
+      const org = await this.loadOrg();
+      if (org) {
+        try {
+          const orgNodeId = await ensurePigNode(
+            this.supabase,
+            "nonprofit",
+            "organizations",
+            org.id,
+            org.name,
+          );
+
+          givingCycleMatches = await this.runGivingCycleRule(
+            runId,
+            orgNodeId,
+            org,
+            decisions,
+            errors,
+          );
+          assetCompatibleMatches = await this.runAssetCompatibilityRule(
+            runId,
+            orgNodeId,
+            org,
+            decisions,
+            errors,
+          );
+          geographicMatches = await this.runGeographicGivingRule(
+            runId,
+            orgNodeId,
+            org,
+            decisions,
+            errors,
+          );
+          boardNetworkMatches = await this.runBoardNetworkOverlapRule(
+            runId,
+            orgNodeId,
+            decisions,
+            errors,
+          );
+        } catch (err) {
+          const message =
+            err instanceof Error
+              ? err.message
+              : "Phase 2 relationship discovery rules failed.";
+          errors.push(`phase 2 rules: ${message}`);
+        }
+      } else {
+        errors.push(`phase 2 rules: could not load organization ${this.orgId} - skipped.`);
+      }
+
+      corporateIntentNodesSeeded = await this.seedCorporateIntentSignalNodes(errors);
+
+      const phase2EdgesWritten =
+        givingCycleMatches + assetCompatibleMatches + geographicMatches + boardNetworkMatches;
+
       const summary = {
         boardMembersAnalyzed,
         connectionsFound,
         directConnections,
         oneHopConnections,
+        givingCycleMatches,
+        assetCompatibleMatches,
+        geographicMatches,
+        boardNetworkMatches,
+        corporateIntentNodesSeeded,
       };
+
+      const totalItemsFound = boardMembers.length + phase2EdgesWritten;
+      const totalItemsProcessed = boardMembersAnalyzed + phase2EdgesWritten;
+      const totalItemsQueued = connectionsFound + phase2EdgesWritten;
 
       await this.completeRun(runId, {
         outputSummary: JSON.stringify(summary),
-        itemsFound: boardMembers.length,
-        itemsProcessed: boardMembersAnalyzed,
-        itemsQueued: connectionsFound,
+        itemsFound: totalItemsFound,
+        itemsProcessed: totalItemsProcessed,
+        itemsQueued: totalItemsQueued,
       });
 
       return {
         success: true,
-        itemsFound: boardMembers.length,
-        itemsProcessed: boardMembersAnalyzed,
-        itemsQueued: connectionsFound,
+        itemsFound: totalItemsFound,
+        itemsProcessed: totalItemsProcessed,
+        itemsQueued: totalItemsQueued,
         decisions,
         nextActions: [],
         errors,
