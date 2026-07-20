@@ -308,3 +308,64 @@ AUTONOMOUS_PLATFORM_VISION.md is the canonical roadmap for Phases 2-5. Every FOR
 2. Extend hard-limit unit coverage to the other autonomous agents (AG-02–AG-04, AG-06–AG-12, AG-15, AG-17–AG-19, AG-25, AG-28) using the same `TestAgent`-subclass + table-mock pattern established here.
 3. Enable auto_research_enabled + auto_score_enabled for Faith Foundation org and monitor first autonomous run (carried over).
 4. Faith Foundation org dedup in Supabase (carried over).
+
+---
+
+## Session July 19-20, 2026 — Orchestrator Launch + Enterprise Hardening
+
+### Orchestrator Infrastructure (COMPLETE)
+- `forge-orchestrator.ps1` built and operational — drains a library of queue files sequentially instead of requiring a manual `forge.ps1` launch per queue.
+- `library-manifest.yaml` managing 24+ queue files — the orchestrator's work list, replacing ad hoc single-queue runs.
+- First full orchestrator run completed: 21 queues, 5h42m wall-clock, all queues completed.
+- Stdout pipe fix applied: `forge.ps1` output now streams into the orchestrator's own log in real time instead of being buffered/lost, so mid-run failures are visible without waiting for the whole batch to finish.
+- `INSTRUCTIONAL_DOC_FOR_ANY_CHAT_ON_ORCHESTRATOR_LIBRARY_USE_WITH_FORGE.md` created — onboarding doc so any future session can operate the orchestrator without re-deriving its usage from scratch.
+
+### Agents Built (COMPLETE — enterprise hardened)
+Phase 2-5 planned agents from `AGENTS_v2.md` §"Phase 2-5 Agent Specifications" moved from PLANNED to built this session, each substantially larger/more hardened than their original spec estimate:
+- AG-29 FundabilityScorer — 612 lines, auto-fix engine, probability delta computation, chain trigger into AG-06 narrow mode.
+- AG-30 DonorIntentMonitor — 524 lines, web search integration, weighted multi-signal scoring.
+- AG-35 CommunityNeedPredictor — 410 lines, data source matrix, trend analysis.
+- AG-36 LearningNetworkAggregator — 905 lines, anonymization protocol, cross-org pattern extraction.
+- AG-37 SimulationAgent — 506 lines, multi-year financial model, historical calibration.
+- AG-38 SelfImprovementAgent — 777 lines, HARD LIMITS enforced (never modifies governance files, never self-deploys), metrics engine.
+- AG-39 ROIOptimizer — 404 lines, submission variable tracking, correlation analysis.
+- AG-40 StrategicAdvisor — 760 lines, 10-source intelligence synthesis, 400-word advisor prompt.
+
+**Verification caveat carried from `AGENTS_v2.md` §1.2/1.4:** these agents' `agent_type`/`agent_id` literals have not been independently re-audited against the live `agent_type` enum in this session. Given the documented pattern of every prior Phase 2+ agent landing "wired but blocked at the DB insert" until a follow-up enum migration, treat these eight as code-complete but **not confirmed to run end-to-end in production** until their enum values are verified against `src/supabase/migrations/`.
+
+### UI Pages Built
+- `/intelligence/strategic-advisor` (581 lines)
+- `/intelligence/donor-intent` (520 lines)
+- `/intelligence/community-need` (539 lines)
+- `/reports/simulate` (906 lines)
+- `/reports/roi` (622 lines)
+- `/admin/improvements` (610 lines)
+- Autonomous orchestrator worker (1,157 lines)
+
+### Data Infrastructure
+- 551K+ nonprofits enriched from IRS BMF (consistent with the July 19 governance sync figure — no additional enrichment volume run this session).
+- 990 XML enrichment script operational.
+- Foundation matcher intelligence engine built (multi-factor NTEE/geo/asset/prior-giving matching).
+- AutoApply portal adapter system built.
+
+### Tonight's Queue (in progress at session end)
+- `enterprise-enrich-agents` (10 prompts) — enterprise hardening pass across all Phase 2-5 agents.
+- `full-agentic-upgrade` (6 prompts) — perception-decision-execution loop applied to the 6 original Generation-2 agents already live (`RenewalTrackerAgent`, `OutcomeAnalyzerAgent`, `DocumentExpiryAgent`, `KnowledgeGapAgent`, `SearchProfileOptimizerAgent`, `AutonomousDigestAgent` — see `AGENTS_v2.md` §1.1).
+- Additional queued: UI audit, Digital Twin, Faith Foundation setup, sales outreach, billing, production hardening, AutoApply enterprise.
+- **Status at session close: in progress, not verified complete.** Do not report any of the above as BUILT until a future session confirms via live codebase audit, consistent with this file's own "never fabricate/claim unverified" standard (`CLAUDE.md` Iron Law #3).
+
+### What Remains
+- GoDaddy DNS: `benavora.com` — CNAME `www` → `cname.vercel-dns.com`, A `@` → `76.76.21.21`.
+- GitHub 2FA required by August 15, 2026.
+- DATAOCEAN backup of `enrichment-output/` — still CRITICAL/unresolved, carried forward across multiple sessions.
+- Real testimonials on marketing page — current ones are illustrative/placeholder, must be replaced before claiming production-ready marketing copy.
+- Faith Foundation autonomous pipeline live test — still not run (carried over from July 18-19 and July 19 sessions).
+- Consultant tier — deferred, gated on reaching 25+ customers per `PRD_v2.md` §"Pricing & Plan Gates".
+
+### Next Session Priorities
+1. Confirm tonight's in-progress queues (`enterprise-enrich-agents`, `full-agentic-upgrade`, and the additional queued items) actually completed — re-run orchestrator status check, do not assume success from this log alone.
+2. Verify the 8 new agents' `agent_type` literals against the live enum per `AGENTS_v2.md` §1.2 before relying on any of them running autonomously.
+3. Faith Foundation autonomous pipeline live test (carried over — outstanding since July 18-19).
+4. DATAOCEAN backup of `enrichment-output/` (carried over — CRITICAL, outstanding across 3+ sessions).
+5. GoDaddy DNS configuration for benavora.com (carried over).
+6. Replace illustrative marketing-page testimonials with real ones before any public launch claim.

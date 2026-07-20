@@ -1,28 +1,50 @@
 # BENAVORA — Session State
-## Last Updated: July 19, 2026
+## Last Updated: July 20, 2026
 ## Mode: Active Development
 
 ---
 
 ## Current Session
 
-**Date:** July 19, 2026 — governance sync
-**Focus:** Synchronized PRD_v2.md, BLUEPRINT_v2.md, and AGENTS_v2.md with the
-Phase 2-5 post-launch vision. PRD_v2.md gained 18 post-launch capabilities
-(user stories + acceptance criteria + success metrics) and a pricing
-correction (Section 29: $397/$897/$2,497 tiers). BLUEPRINT_v2.md now
-integrates the Phase 2-5 architecture and formally establishes
-AUTONOMOUS_PLATFORM_VISION.md as the canonical post-launch reference.
-AGENTS_v2.md gained planned specs for AG-29 through AG-40. All queue yaml
-files updated to list AUTONOMOUS_PLATFORM_VISION.md in their governance
-doc sets.
-**Status:** Governance stack fully synchronized with the autonomous build
-session and the post-launch roadmap. AUTONOMOUS_PLATFORM_VISION.md is now
-the authoritative Phase 2-5 reference — read it first before any post-launch
-feature work. See STATE_OF_THE_BUILD.md "Governance Sync Session — July 19,
-2026" for full detail.
+**Date:** July 19-20, 2026 — Orchestrator Launch + Enterprise Hardening
+**Focus:** Stood up the FORGE library orchestrator (`forge-orchestrator.ps1` +
+`library-manifest.yaml`) and ran it end-to-end for the first time: 21 queues,
+5h42m, all completed. Fixed a stdout pipe bug so `forge.ps1` output streams
+into the orchestrator log live instead of being buffered. Built and
+enterprise-hardened all 8 previously-PLANNED Phase 2-5 agents (AG-29
+FundabilityScorer, AG-30 DonorIntentMonitor, AG-35 CommunityNeedPredictor,
+AG-36 LearningNetworkAggregator, AG-37 SimulationAgent, AG-38
+SelfImprovementAgent, AG-39 ROIOptimizer, AG-40 StrategicAdvisor — 400-905
+lines each) plus their UI pages (`/intelligence/strategic-advisor`,
+`/intelligence/donor-intent`, `/intelligence/community-need`,
+`/reports/simulate`, `/reports/roi`, `/admin/improvements`) and a 1,157-line
+autonomous orchestrator worker. Foundation matcher intelligence engine
+(multi-factor NTEE/geo/asset/prior-giving matching) and an AutoApply portal
+adapter system were also built.
+**Status:** Orchestrator infrastructure is confirmed operational (one full
+run completed). The 8 new agents are code-complete but their `agent_type`
+enum values have **not** been re-verified against the live schema this
+session — per the established pattern in `AGENTS_v2.md` §1.2, treat them as
+unconfirmed-to-run-autonomously until checked. A further queue batch
+(`enterprise-enrich-agents`, `full-agentic-upgrade`, plus UI audit/Digital
+Twin/Faith Foundation/sales outreach/billing/production-hardening/AutoApply
+queues) was still in progress at session close — not verified complete, do
+not report as BUILT without a follow-up audit. See STATE_OF_THE_BUILD.md
+"Session July 19-20, 2026 — Orchestrator Launch + Enterprise Hardening" for
+full detail.
 
-### Previous session (July 18-19, 2026 — autonomous agent infrastructure build)
+### Previous session (July 19, 2026 — governance sync)
+Synchronized PRD_v2.md, BLUEPRINT_v2.md, and AGENTS_v2.md with the Phase 2-5
+post-launch vision. PRD_v2.md gained 18 post-launch capabilities (user
+stories + acceptance criteria + success metrics) and a pricing correction
+(Section 29: $397/$897/$2,497 tiers). BLUEPRINT_v2.md integrated the Phase
+2-5 architecture and formally established AUTONOMOUS_PLATFORM_VISION.md as
+the canonical post-launch reference. AGENTS_v2.md gained planned specs for
+AG-29 through AG-40 (the same eight built out in this session). All queue
+yaml files updated to list AUTONOMOUS_PLATFORM_VISION.md in their governance
+doc sets.
+
+### Prior session (July 18-19, 2026 — autonomous agent infrastructure build)
 Autonomous agent infrastructure — schema (autonomous_triggers, agent_queue,
 agent_decisions, org_autonomous_config), autonomous-base.ts,
 worker/autonomous-orchestrator.ts, queue processor, /api/autonomous/*
@@ -121,20 +143,21 @@ cd "C:\Users\manag\Documents\benavora"; npx vercel deploy --prod
 
 ## Next Session Priorities
 
-1. Write library queue files for UI redesign (queue-ui-flightpath-hud.yaml, queue-ui-command-center.yaml)
-2. Test autonomous pipeline with Faith Foundation — enable auto_research_enabled in org config
-3. Fix BEHAVIORAL_CONTRACTS.md (was missing after last FORGE run)
-4. Run pnpm score:eligibility
-5. Faith Foundation org dedup in Supabase
-6. GoDaddy DNS configuration for benavora.com
+1. Confirm tonight's in-progress orchestrator queues (`enterprise-enrich-agents`, `full-agentic-upgrade`, and the additional UI audit/Digital Twin/Faith Foundation/sales outreach/billing/production-hardening/AutoApply queues) actually completed — check orchestrator status, do not assume success.
+2. Verify AG-29/AG-30/AG-35/AG-36/AG-37/AG-38/AG-39/AG-40's `agent_type` literals against the live `agent_type` enum before relying on any of them running autonomously (see `AGENTS_v2.md` §1.2 — this exact gap has silently blocked every prior wave of new agents).
+3. Faith Foundation autonomous pipeline live test — enable `auto_research_enabled` in org config and monitor the first run (carried over since July 18-19).
+4. GoDaddy DNS configuration for benavora.com — CNAME `www` → `cname.vercel-dns.com`, A `@` → `76.76.21.21`.
+5. GitHub 2FA — required by August 15, 2026.
+6. Replace illustrative marketing-page testimonials with real ones before any public launch claim.
 
-### Carried over from prior session (still outstanding)
+### Carried over from prior sessions (still outstanding)
 - **Fix reputation/disaster schema gap** — copy `src/supabase/migrations/076_reputation_intelligence.sql` and `079_disaster_response.sql` into `supabase/migrations/` at the next free canonical numbers and apply via the Management API. Blocks both features in production until done.
 - Run batch probability scoring across all active opportunities (AG-15 nightly job — not yet run at scale)
-- Run digital twin builds for all orgs (`pnpm build:twins` — built this session, not yet executed against real org data)
+- Run digital twin builds for all orgs (`pnpm build:twins` — built, not yet executed against real org data)
 - Run intelligence ingestion scripts (NIH, NSF, Federal Register, SAMHSA) and `pnpm seed:intelligence` / `pnpm seed:patterns`
-- Back up enrichment-output/ to DATAOCEAN — CRITICAL
-- Platform Vision Phase 2 FORGE queue (nights 3-5)
+- Back up enrichment-output/ to DATAOCEAN — CRITICAL, outstanding across 3+ sessions
+- Faith Foundation org dedup in Supabase
+- Consultant tier — deferred, gated on reaching 25+ customers
 
 ---
 
