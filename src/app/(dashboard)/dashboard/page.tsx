@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { redirect } from "next/navigation";
@@ -11,6 +12,8 @@ import {
 } from "@/components/dashboard/DeadlineWidget";
 import { PipelineSummary } from "@/components/dashboard/PipelineSummary";
 import type { PipelineStage } from "@/components/applications/pipeline";
+import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
+import { LoadingCard } from "@/components/ui/LoadingCard";
 import { createClient } from "@/lib/supabase/server";
 import {
   analyzeOutcomes,
@@ -101,6 +104,333 @@ function confidenceBadgeColor(score: number | null): string {
   return "#EF4444";
 }
 
+const sectionHeaderStyle = {
+  fontSize: "13px",
+  fontWeight: 700,
+  color: "#0F172A",
+  marginBottom: "16px",
+  textTransform: "uppercase" as const,
+  letterSpacing: "0.05em",
+};
+
+const trayStyle = {
+  backgroundColor: "#B8C4CC",
+  borderRadius: "16px",
+  padding: "16px",
+  boxShadow: "inset 0 2px 8px rgba(0,0,0,0.10)",
+};
+
+function SectionError({ message }: { message: string }) {
+  return (
+    <div
+      style={{
+        backgroundColor: "#FFFFFF",
+        borderLeft: "4px solid #EF4444",
+        borderRadius: "12px",
+        padding: "20px",
+        fontSize: "13px",
+        color: "#B91C1C",
+        boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
+      }}
+    >
+      {message}
+    </div>
+  );
+}
+
+/** Today's Action Items — independently fetched so it can stream/fail on its own. */
+async function ActionItemsSection({ orgId }: { orgId: string }) {
+  const supabase = createClient();
+
+  try {
+    const [applicationsRes, deadlinesRes, discoveryMatchesRes, reputationAlertsRes] =
+      await Promise.all([
+        supabase
+          .from("applications")
+          .select("id, submitted_at, draft_content")
+          .eq("organization_id", orgId),
+        supabase
+          .from("deadlines")
+          .select("id, due_date")
+          .eq("organization_id", orgId)
+          .or("is_completed.is.null,is_completed.eq.false"),
+        supabase
+          .from("discovery_matches")
+          .select("id", { count: "exact", head: true })
+          .eq("organization_id", orgId)
+          .eq("status", "pending"),
+        supabase
+          .from("reputation_alerts")
+          .select("id", { count: "exact", head: true })
+          .eq("org_id", orgId)
+          .eq("status", "unread"),
+      ]);
+
+    if (applicationsRes.error) throw applicationsRes.error;
+    if (deadlinesRes.error) throw deadlinesRes.error;
+
+    const now = new Date();
+    const applications = applicationsRes.data ?? [];
+    const submittedCount = applications.filter((a) => a.submitted_at !== null).length;
+    const draftsGenerated = applications.filter(
+      (a) => a.draft_content !== null && a.draft_content.trim().length > 0,
+    ).length;
+    const deadlinesThisWeek = (deadlinesRes.data ?? []).filter((d) => {
+      const days = differenceInCalendarDays(new Date(d.due_date), now);
+      return days >= 0 && days <= 7;
+    }).length;
+    const discoveryMatchesCount = discoveryMatchesRes.count ?? 0;
+    const reputationAlertsCount = reputationAlertsRes.count ?? 0;
+
+    const actionItems = [
+      { dot: "#EF4444", text: "Parsed emails awaiting review", count: "-", href: "/emails" },
+      { dot: "#F59E0B", text: "New opportunities discovered", count: metricCount(discoveryMatchesCount), href: "/opportunities" },
+      { dot: "#6B48CC", text: "Drafts needing attention", count: metricCount(draftsGenerated), href: "/draft-generator" },
+      { dot: "#0077B6", text: "Deadlines approaching", count: metricCount(deadlinesThisWeek), href: "/deadlines" },
+      { dot: "#0096C7", text: "Applications missing documents", count: "-", href: "/applications" },
+      { dot: "#10B981", text: "AutoApply gates awaiting approval", count: "-", href: "/admin/autoapply-ops" },
+      { dot: "#1A2B3C", text: "Research runs completed", count: metricCount(submittedCount), href: "/research" },
+      { dot: "#0EA5E9", text: "Funder alerts requiring review", count: metricCount(reputationAlertsCount), href: "/alerts" },
+    ];
+
+    return (
+      <div style={trayStyle}>
+        <div style={{ backgroundColor: "#FFFFFF", borderRadius: "12px", overflow: "hidden", padding: "20px", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}>
+          <div
+            style={{
+              fontSize: "13px",
+              fontWeight: 700,
+              color: "#FFFFFF",
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+              backgroundColor: "#6B48CC",
+              padding: "14px 20px",
+              margin: "0",
+            }}
+          >
+            Today&rsquo;s Action Items
+          </div>
+          {actionItems.map((item) => (
+            <Link key={item.text} href={item.href} style={{ textDecoration: "none", display: "block" }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  padding: "10px 0",
+                  borderBottom: "1px solid #F1F5F9",
+                  cursor: "pointer",
+                }}
+              >
+                <div style={{ width: "8px", height: "8px", borderRadius: "50%", flexShrink: 0, backgroundColor: item.dot }} />
+                <div style={{ flex: 1, fontSize: "13px", color: "#334155" }}>{item.text}</div>
+                <div
+                  style={{
+                    fontSize: "11px",
+                    fontWeight: 700,
+                    color: "#FFFFFF",
+                    backgroundColor: item.dot,
+                    borderRadius: "999px",
+                    padding: "2px 8px",
+                  }}
+                >
+                  {item.count}
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </div>
+    );
+  } catch {
+    return <SectionError message="Couldn't load today's action items." />;
+  }
+}
+
+/** Pipeline summary + upcoming opportunities — independently fetched so it can stream/fail on its own. */
+async function PipelineSection({ orgId }: { orgId: string }) {
+  const supabase = createClient();
+
+  try {
+    const now = new Date();
+    const [applicationsRes, upcomingRes] = await Promise.all([
+      supabase
+        .from("applications")
+        .select("id, stage")
+        .eq("organization_id", orgId),
+      supabase
+        .from("opportunities")
+        .select("id, name, deadline")
+        .eq("organization_id", orgId)
+        .not("deadline", "is", null)
+        .gte("deadline", format(now, "yyyy-MM-dd"))
+        .order("deadline", { ascending: true })
+        .limit(3),
+    ]);
+
+    if (applicationsRes.error) throw applicationsRes.error;
+    if (upcomingRes.error) throw upcomingRes.error;
+
+    const pipelineCounts = PIPELINE_STAGES.reduce(
+      (acc, stage) => {
+        acc[stage] = 0;
+        return acc;
+      },
+      {} as Record<PipelineStage, number>,
+    );
+    const applications = (applicationsRes.data ?? []) as Pick<ApplicationRow, "id" | "stage">[];
+    for (const app of applications) {
+      if (app.stage in pipelineCounts) {
+        pipelineCounts[app.stage] += 1;
+      }
+    }
+    const upcomingOpportunities = (upcomingRes.data ?? []) as UpcomingOpportunityRow[];
+
+    return (
+      <div style={trayStyle}>
+        <div style={{ backgroundColor: "#FFFFFF", borderRadius: "12px", padding: "20px", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}>
+          <div style={sectionHeaderStyle}>Pipeline</div>
+          <PipelineSummary counts={pipelineCounts} />
+
+          <div style={{ marginTop: "16px" }}>
+            <div style={sectionHeaderStyle}>Upcoming Opportunities</div>
+            {upcomingOpportunities.length === 0 ? (
+              <p style={{ fontSize: "13px", color: "#64748B" }}>
+                No open opportunities — run Research to discover funding.
+              </p>
+            ) : (
+              upcomingOpportunities.map((opp) => {
+                const daysOut = differenceInCalendarDays(new Date(opp.deadline), now);
+                const deadlineColor =
+                  daysOut <= 14 ? "#EF4444" : daysOut <= 30 ? "#F59E0B" : "#64748B";
+                return (
+                  <div
+                    key={opp.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: "12px",
+                      padding: "8px 0",
+                      borderBottom: "1px solid #F1F5F9",
+                    }}
+                  >
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div
+                        style={{
+                          fontSize: "13px",
+                          color: "#334155",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {truncate(opp.name, 40)}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: "11px",
+                          fontWeight: 700,
+                          color: deadlineColor,
+                        }}
+                      >
+                        {format(new Date(opp.deadline), "MMM d")}
+                      </div>
+                    </div>
+                    <Link
+                      href={`/opportunities/${opp.id}`}
+                      style={{
+                        fontSize: "12px",
+                        fontWeight: 600,
+                        color: "#0077B6",
+                        flexShrink: 0,
+                      }}
+                    >
+                      View
+                    </Link>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  } catch {
+    return <SectionError message="Couldn't load the pipeline summary." />;
+  }
+}
+
+/** Upcoming deadlines widget — independently fetched so it can stream/fail on its own. */
+async function DeadlinesSection({ orgId, horizon }: { orgId: string; horizon: string }) {
+  const supabase = createClient();
+
+  try {
+    const { data, error } = await supabase
+      .from("deadlines")
+      .select("id, title, deadline_type, due_date, application_id, opportunity_id")
+      .eq("organization_id", orgId)
+      .or("is_completed.is.null,is_completed.eq.false")
+      .lte("due_date", horizon)
+      .order("due_date", { ascending: true });
+
+    if (error) throw error;
+
+    const deadlines = (data ?? []) as DeadlineRow[];
+    const deadlineItems: DeadlineWidgetItem[] = deadlines.slice(0, 5).map((d) => ({
+      id: d.id,
+      title: d.title,
+      deadlineType: d.deadline_type,
+      dueDate: d.due_date,
+      href: d.application_id
+        ? `/applications/${d.application_id}`
+        : d.opportunity_id
+          ? `/opportunities/${d.opportunity_id}`
+          : "/deadlines",
+    }));
+
+    return (
+      <div
+        style={{
+          backgroundColor: "#1A2B3C",
+          borderRadius: "16px",
+          padding: "0",
+          overflow: "hidden",
+          boxShadow: "0 4px 16px rgba(26,43,60,0.2)",
+        }}
+      >
+        <div style={{ padding: "20px 24px", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
+          <div className="flex items-center justify-between">
+            <h2
+              style={{
+                fontSize: "14px",
+                fontWeight: 700,
+                color: "#FFFFFF",
+                letterSpacing: "0.05em",
+                textTransform: "uppercase",
+              }}
+            >
+              Upcoming Deadlines
+            </h2>
+            <Link
+              href="/deadlines"
+              className="text-xs font-medium"
+              style={{ color: "#FFFFFF" }}
+            >
+              View all
+            </Link>
+          </div>
+        </div>
+        <div style={{ padding: "8px 0" }}>
+          <DeadlineWidget items={deadlineItems} dark />
+        </div>
+      </div>
+    );
+  } catch {
+    return <SectionError message="Couldn't load upcoming deadlines." />;
+  }
+}
+
 /**
  * Main dashboard (BLUEPRINT §4.1). All data is read server-side via the
  * session-bound Supabase client; organization_id derived from the authenticated
@@ -139,9 +469,6 @@ export default async function DashboardPage() {
     applicationsRes,
     deadlinesRes,
     outcomesRes,
-    discoveryMatchesRes,
-    reputationAlertsRes,
-    upcomingOpportunitiesRes,
     agentDecisionsRes,
     strategicRecommendationsRes,
     organizationRes,
@@ -152,7 +479,7 @@ export default async function DashboardPage() {
       .eq("organization_id", orgId),
     supabase
       .from("applications")
-      .select("id, stage, requested_amount, submitted_at, draft_content")
+      .select("id, requested_amount, submitted_at, draft_content")
       .eq("organization_id", orgId),
     supabase
       .from("deadlines")
@@ -169,24 +496,6 @@ export default async function DashboardPage() {
         "result, awarded_amount, requested_amount, funder_category, opportunity_category, denial_reason, recorded_at",
       )
       .eq("organization_id", orgId),
-    supabase
-      .from("discovery_matches")
-      .select("id", { count: "exact", head: true })
-      .eq("organization_id", orgId)
-      .eq("status", "pending"),
-    supabase
-      .from("reputation_alerts")
-      .select("id", { count: "exact", head: true })
-      .eq("org_id", orgId)
-      .eq("status", "unread"),
-    supabase
-      .from("opportunities")
-      .select("id, name, deadline")
-      .eq("organization_id", orgId)
-      .not("deadline", "is", null)
-      .gte("deadline", format(now, "yyyy-MM-dd"))
-      .order("deadline", { ascending: true })
-      .limit(3),
     supabase
       .from("agent_decisions")
       .select(
@@ -205,13 +514,9 @@ export default async function DashboardPage() {
   ]);
 
   const totalOpportunities = oppCountRes.count ?? 0;
-  const applications = (applicationsRes.data ?? []) as ApplicationRow[];
+  const applications = (applicationsRes.data ?? []) as Omit<ApplicationRow, "stage">[];
   const deadlines = (deadlinesRes.data ?? []) as DeadlineRow[];
   const outcomes = (outcomesRes.data ?? []) as OutcomeInput[];
-  const discoveryMatchesCount = discoveryMatchesRes.count ?? 0;
-  const reputationAlertsCount = reputationAlertsRes.count ?? 0;
-  const upcomingOpportunities = (upcomingOpportunitiesRes.data ??
-    []) as UpcomingOpportunityRow[];
   const agentDecisions = (agentDecisionsRes.data ?? []) as AgentDecisionRow[];
   const strategicRecommendations = (strategicRecommendationsRes.data ??
     []) as StrategicRecommendationUrgencyRow[];
@@ -248,35 +553,6 @@ export default async function DashboardPage() {
   const successRateValue =
     summary.successRate != null ? `${summary.successRate}%` : "-";
 
-  // --- pipeline counts -------------------------------------------------------
-  const pipelineCounts = PIPELINE_STAGES.reduce(
-    (acc, stage) => {
-      acc[stage] = 0;
-      return acc;
-    },
-    {} as Record<PipelineStage, number>,
-  );
-  for (const app of applications) {
-    if (app.stage in pipelineCounts) {
-      pipelineCounts[app.stage] += 1;
-    }
-  }
-
-  // --- widget data -----------------------------------------------------------
-  const deadlineItems: DeadlineWidgetItem[] = deadlines
-    .slice(0, 5)
-    .map((d) => ({
-      id: d.id,
-      title: d.title,
-      deadlineType: d.deadline_type,
-      dueDate: d.due_date,
-      href: d.application_id
-        ? `/applications/${d.application_id}`
-        : d.opportunity_id
-          ? `/opportunities/${d.opportunity_id}`
-          : "/deadlines",
-    }));
-
   const hasNoData =
     totalOpportunities === 0 &&
     applications.length === 0 &&
@@ -290,38 +566,11 @@ export default async function DashboardPage() {
     { label: "Deadlines", value: metricCount(deadlinesThisWeek) },
   ];
 
-  const actionItems = [
-    { dot: "#EF4444", text: "Parsed emails awaiting review", count: "-", href: "/emails" },
-    { dot: "#F59E0B", text: "New opportunities discovered", count: metricCount(discoveryMatchesCount), href: "/opportunities" },
-    { dot: "#6B48CC", text: "Drafts needing attention", count: metricCount(draftsGenerated), href: "/draft-generator" },
-    { dot: "#0077B6", text: "Deadlines approaching", count: metricCount(deadlinesThisWeek), href: "/deadlines" },
-    { dot: "#0096C7", text: "Applications missing documents", count: "-", href: "/applications" },
-    { dot: "#10B981", text: "AutoApply gates awaiting approval", count: "-", href: "/admin/autoapply-ops" },
-    { dot: "#1A2B3C", text: "Research runs completed", count: metricCount(submittedCount), href: "/research" },
-    { dot: "#0EA5E9", text: "Funder alerts requiring review", count: metricCount(reputationAlertsCount), href: "/alerts" },
-  ];
-
   const fundingSummaryRows = [
     { label: "Total Requested", value: metricCurrency(totalRequested) },
     { label: "Total Awarded", value: metricCurrency(summary.totalAwarded) },
     { label: "Success Rate", value: successRateValue },
   ];
-
-  const sectionHeaderStyle = {
-    fontSize: "13px",
-    fontWeight: 700,
-    color: "#0F172A",
-    marginBottom: "16px",
-    textTransform: "uppercase" as const,
-    letterSpacing: "0.05em",
-  };
-
-  const trayStyle = {
-    backgroundColor: "#B8C4CC",
-    borderRadius: "16px",
-    padding: "16px",
-    boxShadow: "inset 0 2px 8px rgba(0,0,0,0.10)",
-  };
 
   return (
     <div style={{ backgroundColor: "#D6E4F0", minHeight: "100vh", padding: "32px" }}>
@@ -409,172 +658,29 @@ export default async function DashboardPage() {
       )}
 
       {/* Mission Control lifecycle HUD */}
-      <FlightPathHUD />
+      <ErrorBoundary>
+        <FlightPathHUD />
+      </ErrorBoundary>
 
       {/* Three column grid: action items | pipeline | upcoming deadlines */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "16px", marginBottom: "16px" }}>
-        {/* Today's Action Items */}
-        <div style={trayStyle}>
-          <div style={{ backgroundColor: "#FFFFFF", borderRadius: "12px", overflow: "hidden", padding: "20px", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}>
-            <div
-              style={{
-                fontSize: "13px",
-                fontWeight: 700,
-                color: "#FFFFFF",
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
-                backgroundColor: "#6B48CC",
-                padding: "14px 20px",
-                margin: "0",
-              }}
-            >
-              Today&rsquo;s Action Items
-            </div>
-            {actionItems.map((item) => (
-              <Link key={item.text} href={item.href} style={{ textDecoration: "none", display: "block" }}>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "10px",
-                    padding: "10px 0",
-                    borderBottom: "1px solid #F1F5F9",
-                    cursor: "pointer",
-                  }}
-                >
-                  <div style={{ width: "8px", height: "8px", borderRadius: "50%", flexShrink: 0, backgroundColor: item.dot }} />
-                  <div style={{ flex: 1, fontSize: "13px", color: "#334155" }}>{item.text}</div>
-                  <div
-                    style={{
-                      fontSize: "11px",
-                      fontWeight: 700,
-                      color: "#FFFFFF",
-                      backgroundColor: item.dot,
-                      borderRadius: "999px",
-                      padding: "2px 8px",
-                    }}
-                  >
-                    {item.count}
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
+        <ErrorBoundary>
+          <Suspense fallback={<LoadingCard height={340} borderRadius={16} />}>
+            <ActionItemsSection orgId={orgId} />
+          </Suspense>
+        </ErrorBoundary>
 
-        {/* Pipeline (compact) */}
-        <div style={trayStyle}>
-          <div style={{ backgroundColor: "#FFFFFF", borderRadius: "12px", padding: "20px", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}>
-            <div style={sectionHeaderStyle}>Pipeline</div>
-            <PipelineSummary counts={pipelineCounts} />
+        <ErrorBoundary>
+          <Suspense fallback={<LoadingCard height={340} borderRadius={16} />}>
+            <PipelineSection orgId={orgId} />
+          </Suspense>
+        </ErrorBoundary>
 
-            <div style={{ marginTop: "16px" }}>
-              <div style={sectionHeaderStyle}>Upcoming Opportunities</div>
-              {upcomingOpportunities.length === 0 ? (
-                <p style={{ fontSize: "13px", color: "#64748B" }}>
-                  No open opportunities — run Research to discover funding.
-                </p>
-              ) : (
-                upcomingOpportunities.map((opp) => {
-                  const daysOut = differenceInCalendarDays(
-                    new Date(opp.deadline),
-                    now,
-                  );
-                  const deadlineColor =
-                    daysOut <= 14
-                      ? "#EF4444"
-                      : daysOut <= 30
-                        ? "#F59E0B"
-                        : "#64748B";
-                  return (
-                    <div
-                      key={opp.id}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        gap: "12px",
-                        padding: "8px 0",
-                        borderBottom: "1px solid #F1F5F9",
-                      }}
-                    >
-                      <div style={{ minWidth: 0, flex: 1 }}>
-                        <div
-                          style={{
-                            fontSize: "13px",
-                            color: "#334155",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {truncate(opp.name, 40)}
-                        </div>
-                        <div
-                          style={{
-                            fontSize: "11px",
-                            fontWeight: 700,
-                            color: deadlineColor,
-                          }}
-                        >
-                          {format(new Date(opp.deadline), "MMM d")}
-                        </div>
-                      </div>
-                      <Link
-                        href={`/opportunities/${opp.id}`}
-                        style={{
-                          fontSize: "12px",
-                          fontWeight: 600,
-                          color: "#0077B6",
-                          flexShrink: 0,
-                        }}
-                      >
-                        View
-                      </Link>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Upcoming deadlines */}
-        <div
-          style={{
-            backgroundColor: "#1A2B3C",
-            borderRadius: "16px",
-            padding: "0",
-            overflow: "hidden",
-            boxShadow: "0 4px 16px rgba(26,43,60,0.2)",
-          }}
-        >
-          <div style={{ padding: "20px 24px", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
-            <div className="flex items-center justify-between">
-              <h2
-                style={{
-                  fontSize: "14px",
-                  fontWeight: 700,
-                  color: "#FFFFFF",
-                  letterSpacing: "0.05em",
-                  textTransform: "uppercase",
-                }}
-              >
-                Upcoming Deadlines
-              </h2>
-              <Link
-                href="/deadlines"
-                className="text-xs font-medium"
-                style={{ color: "#FFFFFF" }}
-              >
-                View all
-              </Link>
-            </div>
-          </div>
-          <div style={{ padding: "8px 0" }}>
-            <DeadlineWidget items={deadlineItems} dark />
-          </div>
-        </div>
+        <ErrorBoundary>
+          <Suspense fallback={<LoadingCard height={340} borderRadius={16} />}>
+            <DeadlinesSection orgId={orgId} horizon={horizon} />
+          </Suspense>
+        </ErrorBoundary>
       </div>
 
       {/* Bottom two column grid: quick actions | funding summary */}

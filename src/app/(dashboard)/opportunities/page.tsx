@@ -2,11 +2,15 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { differenceInCalendarDays, isThisMonth } from "date-fns";
 import { Plus, Search } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
 import { canEdit, useProfile } from "@/lib/hooks/useProfile";
+import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
+import { LoadingCard } from "@/components/ui/LoadingCard";
+import { EmptyStateCard } from "@/components/ui/EmptyStateCard";
 import { OPPORTUNITY_STATUSES } from "@/lib/utils/constants";
 import { decodeHtmlEntities, formatCurrency, formatDate, humanizeEnum } from "@/lib/utils/formatters";
 import type { Enums, Tables } from "@/types/database";
@@ -95,6 +99,7 @@ function scoreTone(score: number | null | undefined): { color: string; bg: strin
  * so no organization_id filter is needed client-side.
  */
 export default function OpportunitiesPage() {
+  const router = useRouter();
   const { profile } = useProfile();
   const [opportunities, setOpportunities] = useState<OpportunityRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -210,6 +215,7 @@ export default function OpportunitiesPage() {
   const showEmpty = !loading && !error && opportunities.length === 0;
 
   return (
+    <ErrorBoundary>
     <div style={{ backgroundColor: "#D6E4F0", minHeight: "100vh", padding: "32px" }}>
       {/* Header */}
       <div
@@ -426,8 +432,12 @@ export default function OpportunitiesPage() {
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan={8} style={{ padding: "40px", textAlign: "center", fontSize: "13px", color: "#94A3B8" }}>
-                        Loading opportunities...
+                      <td colSpan={8} style={{ padding: "16px 20px" }}>
+                        {Array.from({ length: 8 }).map((_, i) => (
+                          <div key={i} style={{ marginBottom: i === 7 ? 0 : "8px" }}>
+                            <LoadingCard height={44} borderRadius={8} />
+                          </div>
+                        ))}
                       </td>
                     </tr>
                   ) : sorted.length === 0 ? (
@@ -531,43 +541,16 @@ export default function OpportunitiesPage() {
       )}
 
       {showEmpty && (
-        <div
-          style={{
-            backgroundColor: "#FFFFFF",
-            borderRadius: "14px",
-            boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
-            padding: "56px 24px",
-            textAlign: "center",
-          }}
-        >
-          <Search size={28} color="#94A3B8" aria-hidden style={{ margin: "0 auto 12px" }} />
-          <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#1A2B3C", margin: 0 }}>No opportunities yet</h2>
-          <p style={{ fontSize: "13px", color: "#6B7280", margin: "6px 0 20px" }}>
-            Add your first funding opportunity to start tracking deadlines, eligibility, and applications.
-          </p>
-          {editable && (
-            <Link
-              href="/opportunities/new"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "8px",
-                backgroundColor: "#0EA5E9",
-                color: "#FFFFFF",
-                padding: "10px 20px",
-                borderRadius: "10px",
-                fontSize: "14px",
-                fontWeight: 600,
-                textDecoration: "none",
-              }}
-            >
-              <Plus size={16} aria-hidden />
-              New Opportunity
-            </Link>
-          )}
-        </div>
+        <EmptyStateCard
+          icon="🧭"
+          title="No opportunities yet"
+          description="Run Research to discover grants matching your mission"
+          actionLabel="Run Research Now"
+          onAction={() => router.push("/research")}
+        />
       )}
     </div>
+    </ErrorBoundary>
   );
 }
 
