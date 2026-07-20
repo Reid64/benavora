@@ -1,314 +1,329 @@
 "use client";
 
 // Organizational Digital Twin profile (PLATFORM_VISION_ARCHITECTURE.md Pillar 6,
-// AGENTS_v2.md AG-16). Reads the deterministic twin built by
-// buildDigitalTwin() via GET /api/intelligence/digital-twin and lets the user
-// trigger a fresh rebuild via the same endpoint's POST handler.
+// AGENTS_v2.md AG-16/AG-29). Reads the 10-section diagnostic report from
+// GET /api/intelligence/twin/completeness (twin-completeness.ts's
+// calculateTwinCompleteness()) and lets the user trigger autonomous gap-filling
+// via POST /api/intelligence/twin/auto-populate (twin-auto-populate.ts's
+// autoPopulateTwin()).
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import {
   AlertTriangle,
-  Award,
-  Banknote,
-  BookText,
+  Bot,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  Loader2,
   RefreshCw,
   Sparkles,
-  Users,
-  XCircle,
-  type LucideIcon,
 } from "lucide-react";
 
-import { Badge, EmptyState, LoadingSpinner } from "@/components/ui";
-import { Button } from "@/components/ui/Button";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { createClient } from "@/lib/supabase/client";
-
-interface DigitalTwinProgram {
-  title: string;
-  description: string;
-}
-
-interface DigitalTwinBoardMember {
-  name: string;
-  title: string | null;
-  bio: string | null;
-  email: string | null;
-}
-
-interface DigitalTwin {
-  organization_id: string;
-  mission: string | null;
-  service_areas: string[];
-  programs: DigitalTwinProgram[];
-  financial_profile: Record<string, number>;
-  board_composition: DigitalTwinBoardMember[];
-  proven_narrative_patterns: string[];
-  key_strengths: string[];
-  twin_completeness_score: number;
-  last_rebuilt_at: string;
-  stats: {
-    outcomes_count: number;
-    kb_entries_count: number;
-    applications_count: number;
-    applications_by_stage: Record<string, number>;
-    most_applied_categories: { category: string; count: number }[];
-  };
-}
-
-interface ChecklistItem {
-  label: string;
-  met: boolean;
-  tip: string;
-}
-
-const FINANCIAL_LABELS: Record<string, string> = {
-  annual_budget: "Annual Budget",
-  total_staff: "Total Staff",
-  total_volunteers: "Total Volunteers",
-};
+import { LoadingSpinner } from "@/components/ui";
+import type {
+  TwinCompletenessReport,
+  TwinSectionReport,
+} from "@/lib/intelligence/twin-completeness";
 
 const CANVAS = "#D6E4F0";
-const CARD_BG = "#FFFFFF";
-const BORDER = "#C3D3E2";
-const DIVIDER = "#E2E8F0";
-const TEXT_PRIMARY = "#0F172A";
-const TEXT_SECONDARY = "#64748B";
-const TEXT_MUTED = "#94A3B8";
-const ACCENT = "#0077B6";
+const HEADER_CARD_BG = "#FFFFFF";
+const HEADER_BORDER = "#C3D3E2";
+const SECTION_CARD_BG = "#0D1526";
+const SECTION_BAR_TRACK = "#1A2B3C";
+const TEXT_MUTED = "#8BA8C8";
+const GREEN = "#10B981";
+const AMBER = "#F59E0B";
+const RED = "#DC2626";
 
 function scoreColor(score: number): string {
-  if (score >= 80) return "#16A34A";
-  if (score >= 60) return "#D97706";
-  return "#DC2626";
+  if (score >= 80) return GREEN;
+  if (score >= 60) return AMBER;
+  return RED;
 }
 
-const TWIN_SECTIONS: {
-  label: string;
-  populated: (twin: DigitalTwin) => boolean;
-}[] = [
-  { label: "Mission & Vision", populated: (twin) => Boolean(twin.mission) },
-  {
-    label: "Service Areas",
-    populated: (twin) => twin.service_areas.length > 0,
-  },
-  { label: "Programs", populated: (twin) => twin.programs.length > 0 },
-  {
-    label: "Financial Profile",
-    populated: (twin) => Object.keys(twin.financial_profile).length > 0,
-  },
-  {
-    label: "Board Composition",
-    populated: (twin) => twin.board_composition.length > 0,
-  },
-  {
-    label: "Proven Narratives",
-    populated: (twin) => twin.proven_narrative_patterns.length > 0,
-  },
-  {
-    label: "Key Strengths",
-    populated: (twin) => twin.key_strengths.length > 0,
-  },
-];
+const SECTION_LABELS: Record<string, string> = {
+  mission_and_vision: "Mission & Vision",
+  programs_and_services: "Programs & Services",
+  financial_profile: "Financial Profile",
+  leadership_and_board: "Leadership & Board",
+  geographic_service_area: "Geographic Service Area",
+  target_population: "Target Population",
+  impact_and_outcomes: "Impact & Outcomes",
+  organizational_history: "Organizational History",
+  partnerships_and_coalitions: "Partnerships & Coalitions",
+  compliance_and_certifications: "Compliance & Certifications",
+};
 
-function SectionStatusGrid({ twin }: { twin: DigitalTwin }) {
-  return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
-        gap: "10px",
-      }}
-    >
-      {TWIN_SECTIONS.map((section) => {
-        const populated = section.populated(twin);
-        return (
-          <div
-            key={section.label}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              padding: "10px 12px",
-              borderRadius: "8px",
-              backgroundColor: populated ? "#DCFCE7" : "#FEE2E2",
-              border: `1px solid ${populated ? "#86EFAC" : "#FECACA"}`,
-            }}
-          >
-            {populated ? (
-              <CheckCircle2
-                className="h-4 w-4 shrink-0"
-                style={{ color: "#16A34A" }}
-                aria-hidden
-              />
-            ) : (
-              <XCircle
-                className="h-4 w-4 shrink-0"
-                style={{ color: "#DC2626" }}
-                aria-hidden
-              />
-            )}
-            <span
-              style={{
-                fontSize: "12px",
-                fontWeight: 600,
-                color: populated ? "#166534" : "#991B1B",
-              }}
-            >
-              {section.label}
-            </span>
-          </div>
-        );
-      })}
-    </div>
-  );
+// Mirrors computeBlockingAgents() in twin-completeness.ts -- that function
+// only ever emits these 7 agent ids, each tied to exactly one of 4 gap
+// conditions, so a static reason lookup is accurate as long as that function
+// doesn't change. Re-check against the source if this ever drifts.
+const BLOCKING_AGENT_INFO: Record<string, { name: string; reason: string }> = {
+  "draft-generation": {
+    name: "Draft Generation Agent",
+    reason: "Mission statement is under 50 words",
+  },
+  "fundability-scorer": {
+    name: "Fundability Scorer Agent",
+    reason: "Mission statement is under 50 words",
+  },
+  "simulation-agent": {
+    name: "Simulation Agent",
+    reason: "Financial profile is empty",
+  },
+  "probability-scorer": {
+    name: "Probability Scorer Agent",
+    reason: "Financial profile is empty",
+  },
+  "relationship-builder": {
+    name: "Relationship Builder Agent",
+    reason: "No board members on record",
+  },
+  "community-need-predictor": {
+    name: "Community Need Predictor Agent",
+    reason: "No service areas defined",
+  },
+  "opportunity-discovery": {
+    name: "Opportunity Discovery Agent",
+    reason: "No service areas defined",
+  },
+};
+
+function humanizeField(field: string): string {
+  return field
+    .split("_")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
 }
 
-function buildChecklist(twin: DigitalTwin): ChecklistItem[] {
-  return [
-    {
-      label: "Mission statement",
-      met: Boolean(twin.mission),
-      tip: "Add a mission statement in Settings > Organization Profile.",
-    },
-    {
-      label: "Service areas",
-      met: twin.service_areas.length > 0,
-      tip: "Set a service area or city/state in the organization profile.",
-    },
-    {
-      label: "Programs",
-      met: twin.programs.length > 0,
-      tip: "Add program description entries to the Knowledge Base.",
-    },
-    {
-      label: "Financial profile",
-      met: Object.keys(twin.financial_profile).length > 0,
-      tip: "Enter annual budget, staff, or volunteer counts in the organization profile.",
-    },
-    {
-      label: "Board composition",
-      met: twin.board_composition.length > 0,
-      tip: "Add active board members under Governance.",
-    },
-    {
-      label: "Proven narrative patterns",
-      met: twin.proven_narrative_patterns.length > 0,
-      tip: "Mark Knowledge Base narratives as proven and record awarded outcomes.",
-    },
-    {
-      label: "Key strengths identified",
-      met: twin.key_strengths.length > 0,
-      tip: "Record outcomes, programs, and board members so strengths can be derived.",
-    },
-    {
-      label: "Outcome history (5+)",
-      met: twin.stats.outcomes_count > 5,
-      tip: "Record grant outcomes as applications are decided.",
-    },
-    {
-      label: "Knowledge base depth (10+ entries)",
-      met: twin.stats.kb_entries_count > 10,
-      tip: "Add more narratives and standard answers to the Knowledge Base.",
-    },
-    {
-      label: "Application history (5+)",
-      met: twin.stats.applications_count > 5,
-      tip: "Submit applications through the pipeline to build application history.",
-    },
-  ];
+function formatCurrency(value: number): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(value);
 }
 
-function CircularProgress({ score }: { score: number }) {
+function CompletenessCircle({ score }: { score: number }) {
   const color = scoreColor(score);
   const size = 160;
-  const strokeWidth = 12;
-  const radius = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (score / 100) * circumference;
+  const ringOffset = 14;
+  const outerSize = size + ringOffset * 2;
 
   return (
     <div
       className="relative shrink-0"
-      style={{ width: size, height: size }}
+      style={{ width: outerSize, height: outerSize }}
     >
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke="#E2E8F0"
-          strokeWidth={strokeWidth}
-        />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke={color}
-          strokeWidth={strokeWidth}
-          strokeLinecap="round"
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          transform={`rotate(-90 ${size / 2} ${size / 2})`}
-          style={{ transition: "stroke-dashoffset 0.4s ease" }}
-        />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-4xl font-bold" style={{ color }}>
-          {score}%
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          borderRadius: "50%",
+          border: `2px dashed ${color}`,
+          opacity: 0.45,
+          animation: "twin-ring-spin 14s linear infinite",
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          top: ringOffset,
+          left: ringOffset,
+          width: size,
+          height: size,
+          borderRadius: "50%",
+          border: `6px solid ${color}`,
+          backgroundColor: "#0D1526",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <span
+          style={{
+            fontSize: "48px",
+            fontWeight: 700,
+            color: "#FFFFFF",
+            lineHeight: 1,
+          }}
+        >
+          {score}
         </span>
         <span
-          className="text-[10px] font-semibold uppercase tracking-wide"
-          style={{ color: TEXT_MUTED }}
+          style={{
+            fontSize: "12px",
+            fontWeight: 600,
+            color: TEXT_MUTED,
+            marginTop: "8px",
+            textTransform: "uppercase",
+            letterSpacing: "0.06em",
+          }}
         >
           Twin Completeness
         </span>
       </div>
+      <style>{`
+        @keyframes twin-ring-spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 }
 
-function SectionCard({
-  icon: Icon,
-  title,
-  description,
-  children,
+function SectionGridCard({
+  section,
+  expanded,
+  onToggle,
 }: {
-  icon: LucideIcon;
-  title: string;
-  description?: string;
-  children: React.ReactNode;
+  section: TwinSectionReport;
+  expanded: boolean;
+  onToggle: () => void;
 }) {
+  const color = scoreColor(section.score);
+  const label = SECTION_LABELS[section.name] ?? humanizeField(section.name);
+
   return (
     <div
-      className="rounded-xl p-5"
-      style={{ backgroundColor: CARD_BG, border: `1px solid ${BORDER}`, boxShadow: "0 1px 2px rgba(15,23,42,0.06)" }}
+      style={{
+        backgroundColor: SECTION_CARD_BG,
+        borderRadius: "12px",
+        padding: "16px",
+      }}
     >
-      <div className="flex items-center gap-2" style={{ color: TEXT_PRIMARY }}>
-        <Icon className="h-5 w-5" style={{ color: ACCENT }} aria-hidden />
-        <h3 className="text-base font-semibold" style={{ color: TEXT_PRIMARY }}>{title}</h3>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "8px",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0 }}>
+          <span
+            style={{
+              fontSize: "14px",
+              fontWeight: 700,
+              color: "#FFFFFF",
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+          >
+            {label}
+          </span>
+          {section.score === 100 && (
+            <CheckCircle2
+              className="h-4 w-4 shrink-0"
+              style={{ color: GREEN }}
+              aria-hidden
+            />
+          )}
+        </div>
+        <span style={{ fontSize: "14px", fontWeight: 700, color, flexShrink: 0 }}>
+          {section.score}%
+        </span>
       </div>
-      {description && (
-        <p className="mt-0.5 text-sm" style={{ color: TEXT_SECONDARY }}>{description}</p>
+
+      <div
+        style={{
+          marginTop: "10px",
+          width: "100%",
+          height: "6px",
+          borderRadius: "3px",
+          backgroundColor: SECTION_BAR_TRACK,
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            width: `${section.score}%`,
+            height: "100%",
+            borderRadius: "3px",
+            backgroundColor: color,
+            transition: "width 0.4s ease",
+          }}
+        />
+      </div>
+
+      {section.score < 80 && section.missing_fields.length > 0 && (
+        <ul style={{ margin: "10px 0 0 0", paddingLeft: "16px" }}>
+          {section.missing_fields.map((field) => (
+            <li
+              key={field}
+              style={{ fontSize: "11px", color: AMBER, marginTop: "3px" }}
+            >
+              {humanizeField(field)}
+            </li>
+          ))}
+        </ul>
       )}
-      <div className="mt-4">{children}</div>
+
+      {section.recommendations.length > 0 && (
+        <div style={{ marginTop: "12px" }}>
+          <button
+            type="button"
+            onClick={onToggle}
+            style={{
+              background: "none",
+              border: "none",
+              padding: 0,
+              display: "flex",
+              alignItems: "center",
+              gap: "4px",
+              cursor: "pointer",
+              fontSize: "11px",
+              fontWeight: 600,
+              color: TEXT_MUTED,
+            }}
+          >
+            {expanded ? (
+              <ChevronUp className="h-3 w-3" aria-hidden />
+            ) : (
+              <ChevronDown className="h-3 w-3" aria-hidden />
+            )}
+            Recommendations ({section.recommendations.length})
+          </button>
+          {expanded && (
+            <ul style={{ margin: "8px 0 0 0", paddingLeft: "16px" }}>
+              {section.recommendations.map((rec, idx) => (
+                <li
+                  key={idx}
+                  style={{
+                    fontSize: "12px",
+                    color: "#B7C6D9",
+                    marginTop: "5px",
+                    lineHeight: 1.45,
+                  }}
+                >
+                  {rec}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
 export default function DigitalTwinPage() {
   const [orgName, setOrgName] = useState<string | null>(null);
-  const [twin, setTwin] = useState<DigitalTwin | null>(null);
+  const [report, setReport] = useState<TwinCompletenessReport | null>(null);
   const [loading, setLoading] = useState(true);
-  const [rebuilding, setRebuilding] = useState(false);
+  const [populating, setPopulating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
     setError(null);
     try {
-      const res = await fetch("/api/intelligence/digital-twin");
+      const res = await fetch("/api/intelligence/twin/completeness");
       const payload = await res.json().catch(() => ({}));
       if (!res.ok) {
         setError(
@@ -317,7 +332,8 @@ export default function DigitalTwinPage() {
         );
         return;
       }
-      setTwin(payload as DigitalTwin);
+      setOrgName((payload as { orgName?: string }).orgName ?? null);
+      setReport((payload as { report: TwinCompletenessReport }).report);
     } catch {
       setError("Could not reach the digital twin service.");
     }
@@ -325,70 +341,73 @@ export default function DigitalTwinPage() {
 
   useEffect(() => {
     let active = true;
-
     (async () => {
       setLoading(true);
-      const supabase = createClient();
-      const { data: org } = await supabase
-        .from("organizations")
-        .select("name")
-        .limit(1)
-        .maybeSingle();
-      if (!active) return;
-      setOrgName(org?.name ?? null);
       await load();
       if (!active) return;
       setLoading(false);
     })();
-
     return () => {
       active = false;
     };
   }, [load]);
 
-  async function handleRebuild() {
-    setRebuilding(true);
+  async function handleAutoPopulate() {
+    setPopulating(true);
     setError(null);
     try {
-      const res = await fetch("/api/intelligence/digital-twin", {
+      const res = await fetch("/api/intelligence/twin/auto-populate", {
         method: "POST",
       });
       const payload = await res.json().catch(() => ({}));
       if (!res.ok) {
         setError(
           (payload as { error?: string }).error ??
-            "Rebuild failed. Please try again.",
+            "Auto-populate failed. Please try again.",
         );
       } else {
-        setTwin(payload as DigitalTwin);
+        await load();
       }
     } catch {
       setError("Could not reach the digital twin service.");
     }
-    setRebuilding(false);
+    setPopulating(false);
+  }
+
+  function toggleSection(name: string) {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) {
+        next.delete(name);
+      } else {
+        next.add(name);
+      }
+      return next;
+    });
   }
 
   return (
-    <div
-      className="min-h-screen space-y-6 p-6"
-      style={{ backgroundColor: CANVAS }}
-    >
+    <div className="min-h-screen space-y-6 p-6" style={{ backgroundColor: CANVAS }}>
       <PageHeader
         title="Digital Twin"
-        description="A structured, continuously learning profile of your organization the AI reads before drafting any proposal."
-        actions={
-          <Button onClick={() => void handleRebuild()} isLoading={rebuilding}>
-            <RefreshCw className="h-4 w-4" aria-hidden />
-            Update Twin
-          </Button>
+        description={
+          orgName
+            ? `A structured, continuously learning profile of ${orgName} the AI reads before drafting any proposal.`
+            : "A structured, continuously learning profile of your organization the AI reads before drafting any proposal."
         }
       />
 
       {error && (
         <div
           role="alert"
-          className="rounded-lg px-4 py-3 text-sm"
-          style={{ border: "1px solid #FECACA", backgroundColor: "#FEF2F2", color: "#B91C1C" }}
+          style={{
+            borderRadius: "8px",
+            padding: "12px 16px",
+            fontSize: "14px",
+            border: "1px solid #FECACA",
+            backgroundColor: "#FEF2F2",
+            color: "#B91C1C",
+          }}
         >
           {error}
         </div>
@@ -396,255 +415,206 @@ export default function DigitalTwinPage() {
 
       {loading ? (
         <LoadingSpinner center label="Loading digital twin..." />
-      ) : !twin ? (
-        <EmptyState
-          icon={Sparkles}
-          title="No digital twin yet"
-          description="Rebuild the twin to generate a profile from your organization data."
-        />
+      ) : !report ? (
+        <div
+          style={{
+            borderRadius: "12px",
+            padding: "40px",
+            textAlign: "center",
+            backgroundColor: HEADER_CARD_BG,
+            border: `1px solid ${HEADER_BORDER}`,
+          }}
+        >
+          <Sparkles className="mx-auto h-8 w-8" style={{ color: "#0077B6" }} aria-hidden />
+          <p style={{ marginTop: "12px", fontSize: "14px", color: "#64748B" }}>
+            No digital twin data yet. Auto-populate to get started.
+          </p>
+        </div>
       ) : (
         <>
-          {/* Hero card */}
+          {/* Header: circle + actions + revenue impact */}
           <div
             className="rounded-xl p-6"
-            style={{ backgroundColor: CARD_BG, border: `1px solid ${BORDER}`, boxShadow: "0 4px 20px rgba(15,23,42,0.08)" }}
+            style={{
+              backgroundColor: HEADER_CARD_BG,
+              border: `1px solid ${HEADER_BORDER}`,
+              boxShadow: "0 4px 20px rgba(15,23,42,0.08)",
+            }}
           >
-            <div className="flex flex-wrap items-center gap-6">
-              <CircularProgress score={twin.twin_completeness_score} />
-              <div className="min-w-0">
-                <h2 className="text-xl font-bold" style={{ color: TEXT_PRIMARY }}>
-                  {orgName ?? "Your Organization"}
-                </h2>
-                <p className="mt-1 text-sm" style={{ color: TEXT_SECONDARY }}>
-                  Twin completeness score
-                </p>
-                <p className="mt-2 text-xs" style={{ color: TEXT_MUTED }}>
-                  Last rebuilt{" "}
-                  {new Date(twin.last_rebuilt_at).toLocaleString("en-US", {
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                  })}
-                </p>
+            <div className="flex flex-wrap items-center gap-8">
+              <CompletenessCircle score={report.overall_score} />
+
+              <div className="flex flex-col gap-3">
+                <button
+                  type="button"
+                  onClick={() => void handleAutoPopulate()}
+                  disabled={populating}
+                  style={{
+                    backgroundColor: "#0EA5E9",
+                    color: "#FFFFFF",
+                    border: "none",
+                    borderRadius: "10px",
+                    padding: "12px 22px",
+                    fontSize: "14px",
+                    fontWeight: 600,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "8px",
+                    cursor: populating ? "not-allowed" : "pointer",
+                    opacity: populating ? 0.7 : 1,
+                  }}
+                >
+                  {populating ? (
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                  ) : (
+                    <Sparkles className="h-4 w-4" aria-hidden />
+                  )}
+                  Auto-Populate Twin
+                </button>
+
+                <Link
+                  href="/settings/organization-setup"
+                  style={{
+                    backgroundColor: "#8B5CF6",
+                    color: "#FFFFFF",
+                    borderRadius: "10px",
+                    padding: "12px 22px",
+                    fontSize: "14px",
+                    fontWeight: 600,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "8px",
+                    textDecoration: "none",
+                  }}
+                >
+                  <RefreshCw className="h-4 w-4" aria-hidden />
+                  Update Twin
+                </Link>
               </div>
             </div>
-          </div>
 
-          {twin.twin_completeness_score < 60 && (
-            <div
-              role="alert"
-              style={{
-                display: "flex",
-                alignItems: "flex-start",
-                gap: "10px",
-                backgroundColor: "#FEF3C7",
-                border: "1px solid #FDE68A",
-                borderRadius: "12px",
-                padding: "16px",
-              }}
-            >
-              <AlertTriangle
-                className="h-5 w-5 shrink-0"
-                style={{ color: "#B45309" }}
-                aria-hidden
-              />
-              <p
+            {report.overall_score < 80 && (
+              <div
+                role="alert"
                 style={{
-                  fontSize: "13px",
-                  color: "#92400E",
-                  margin: 0,
-                  lineHeight: 1.5,
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: "10px",
+                  marginTop: "20px",
+                  backgroundColor: "#FEF3C7",
+                  border: "1px solid #FDE68A",
+                  borderRadius: "12px",
+                  padding: "16px",
                 }}
               >
-                <strong>
-                  Your AI drafts will be limited until your Digital Twin is
-                  complete.
-                </strong>{" "}
-                Complete now to unlock optimal draft quality.
-              </p>
+                <AlertTriangle
+                  className="h-5 w-5 shrink-0"
+                  style={{ color: "#B45309" }}
+                  aria-hidden
+                />
+                <p style={{ fontSize: "13px", color: "#92400E", margin: 0, lineHeight: 1.5 }}>
+                  <strong>
+                    Incomplete Twin is estimated to cost{" "}
+                    {formatCurrency(report.estimated_revenue_impact)}/month in
+                    reduced grant probability.
+                  </strong>{" "}
+                  Complete your profile to maximize AI performance.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Section grid: 2 columns x 5 rows */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+              gap: "16px",
+            }}
+          >
+            {report.sections.map((section) => (
+              <SectionGridCard
+                key={section.name}
+                section={section}
+                expanded={expanded.has(section.name)}
+                onToggle={() => toggleSection(section.name)}
+              />
+            ))}
+          </div>
+
+          {/* Blocking agents */}
+          {report.blocking_agents.length > 0 && (
+            <div
+              style={{
+                backgroundColor: HEADER_CARD_BG,
+                border: `1px solid ${HEADER_BORDER}`,
+                borderRadius: "12px",
+                padding: "20px",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "16px" }}>
+                <Bot className="h-5 w-5" style={{ color: RED }} aria-hidden />
+                <h3 style={{ fontSize: "15px", fontWeight: 700, color: "#0F172A", margin: 0 }}>
+                  Blocking Agents
+                </h3>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                {report.blocking_agents.map((agentId) => {
+                  const info = BLOCKING_AGENT_INFO[agentId] ?? {
+                    name: humanizeField(agentId),
+                    reason: "Digital Twin data incomplete.",
+                  };
+                  return (
+                    <div
+                      key={agentId}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: "12px",
+                        padding: "12px 14px",
+                        borderRadius: "10px",
+                        backgroundColor: SECTION_CARD_BG,
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0 }}>
+                        <AlertTriangle
+                          className="h-4 w-4 shrink-0"
+                          style={{ color: RED }}
+                          aria-hidden
+                        />
+                        <div style={{ minWidth: 0 }}>
+                          <p style={{ fontSize: "13px", fontWeight: 600, color: "#FFFFFF", margin: 0 }}>
+                            {info.name}
+                          </p>
+                          <p style={{ fontSize: "11px", color: AMBER, margin: "2px 0 0 0" }}>
+                            Blocked by: {info.reason}
+                          </p>
+                        </div>
+                      </div>
+                      <Link
+                        href="/settings/organization-setup"
+                        style={{
+                          flexShrink: 0,
+                          backgroundColor: "#0077B6",
+                          color: "#FFFFFF",
+                          fontSize: "12px",
+                          fontWeight: 600,
+                          padding: "8px 14px",
+                          borderRadius: "8px",
+                          textDecoration: "none",
+                        }}
+                      >
+                        Fix Now
+                      </Link>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
-
-          {/* Section-by-section status */}
-          <SectionCard
-            icon={Sparkles}
-            title="Section Status"
-            description="Which parts of the twin are populated vs. still empty."
-          >
-            <SectionStatusGrid twin={twin} />
-          </SectionCard>
-
-          {/* Completeness checklist */}
-          <SectionCard
-            icon={CheckCircle2}
-            title="Completeness Checklist"
-            description="What's feeding the twin, and what to add next."
-          >
-            <ul>
-              {buildChecklist(twin).map((item, idx) => (
-                <li
-                  key={item.label}
-                  className="flex items-start gap-3 py-3"
-                  style={{ borderTop: idx === 0 ? "none" : `1px solid ${DIVIDER}` }}
-                >
-                  {item.met ? (
-                    <CheckCircle2
-                      className="mt-0.5 h-4 w-4 shrink-0"
-                      style={{ color: "#16A34A" }}
-                      aria-hidden
-                    />
-                  ) : (
-                    <XCircle
-                      className="mt-0.5 h-4 w-4 shrink-0"
-                      style={{ color: "#DC2626" }}
-                      aria-hidden
-                    />
-                  )}
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium" style={{ color: TEXT_PRIMARY }}>
-                      {item.label}
-                    </p>
-                    {!item.met && (
-                      <p className="mt-0.5 text-xs" style={{ color: TEXT_SECONDARY }}>
-                        {item.tip}
-                      </p>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </SectionCard>
-
-          {/* Mission & Service Area */}
-          <SectionCard icon={BookText} title="Mission & Service Area">
-            {twin.mission ? (
-              <p className="text-sm" style={{ color: TEXT_SECONDARY }}>{twin.mission}</p>
-            ) : (
-              <p className="text-sm" style={{ color: TEXT_MUTED }}>No mission statement on file.</p>
-            )}
-            {twin.service_areas.length > 0 ? (
-              <div className="mt-3 flex flex-wrap gap-2">
-                {twin.service_areas.map((area) => (
-                  <Badge key={area} color="gray">
-                    {area}
-                  </Badge>
-                ))}
-              </div>
-            ) : (
-              <p className="mt-3 text-sm" style={{ color: TEXT_MUTED }}>
-                No service areas on file.
-              </p>
-            )}
-          </SectionCard>
-
-          {/* Programs */}
-          <SectionCard icon={Sparkles} title="Programs">
-            {twin.programs.length > 0 ? (
-              <ul>
-                {twin.programs.map((program, idx) => (
-                  <li
-                    key={program.title}
-                    className="py-3"
-                    style={{ borderTop: idx === 0 ? "none" : `1px solid ${DIVIDER}` }}
-                  >
-                    <p className="text-sm font-semibold" style={{ color: TEXT_PRIMARY }}>
-                      {program.title}
-                    </p>
-                    <p className="mt-1 text-sm" style={{ color: TEXT_SECONDARY }}>
-                      {program.description}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm" style={{ color: TEXT_MUTED }}>
-                No programs documented yet.
-              </p>
-            )}
-          </SectionCard>
-
-          {/* Proven Narrative Patterns */}
-          <SectionCard
-            icon={Award}
-            title="Proven Narrative Patterns"
-            description="Knowledge Base entries marked proven whose category overlaps an awarded outcome."
-          >
-            {twin.proven_narrative_patterns.length > 0 ? (
-              <ul className="space-y-2">
-                {twin.proven_narrative_patterns.map((pattern) => (
-                  <li
-                    key={pattern}
-                    className="text-sm before:mr-2 before:content-['•']"
-                    style={{ color: TEXT_SECONDARY }}
-                  >
-                    {pattern}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm" style={{ color: TEXT_MUTED }}>
-                No proven narrative patterns yet.
-              </p>
-            )}
-          </SectionCard>
-
-          {/* Financial Profile */}
-          <SectionCard icon={Banknote} title="Financial Profile">
-            {Object.keys(twin.financial_profile).length > 0 ? (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                {Object.entries(twin.financial_profile).map(([key, value]) => (
-                  <div key={key}>
-                    <p className="text-xs" style={{ color: TEXT_MUTED }}>
-                      {FINANCIAL_LABELS[key] ?? key}
-                    </p>
-                    <p className="text-lg font-bold" style={{ color: TEXT_PRIMARY }}>
-                      {key === "annual_budget"
-                        ? new Intl.NumberFormat("en-US", {
-                            style: "currency",
-                            currency: "USD",
-                            maximumFractionDigits: 0,
-                          }).format(value)
-                        : value.toLocaleString()}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm" style={{ color: TEXT_MUTED }}>
-                No financial data on file.
-              </p>
-            )}
-          </SectionCard>
-
-          {/* Board composition */}
-          <SectionCard icon={Users} title="Board Composition">
-            {twin.board_composition.length > 0 ? (
-              <ul>
-                {twin.board_composition.map((member, idx) => (
-                  <li
-                    key={member.name}
-                    className="py-3"
-                    style={{ borderTop: idx === 0 ? "none" : `1px solid ${DIVIDER}` }}
-                  >
-                    <p className="text-sm font-semibold" style={{ color: TEXT_PRIMARY }}>
-                      {member.name}
-                      {member.title && (
-                        <span className="ml-2 font-normal" style={{ color: TEXT_SECONDARY }}>
-                          {member.title}
-                        </span>
-                      )}
-                    </p>
-                    {member.bio && (
-                      <p className="mt-1 text-sm" style={{ color: TEXT_SECONDARY }}>{member.bio}</p>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm" style={{ color: TEXT_MUTED }}>
-                No active board members on file.
-              </p>
-            )}
-          </SectionCard>
         </>
       )}
     </div>
