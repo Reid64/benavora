@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -10,6 +11,12 @@ import { AcceptForm } from "./AcceptForm";
 export const runtime = "nodejs";
 // The invitation state changes per request; never cache this page.
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Accept Invitation",
+  description: "Accept your invitation to join a Benavora organization workspace.",
+  robots: { index: false, follow: false },
+};
 
 type UserRole = Enums<"user_role">;
 

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState, useEffect, useRef } from "react";
 
 // ─── Brand Tokens ─────────────────────────────────────────────────────────────
@@ -305,7 +306,14 @@ export default function BenavoraMarketing() {
         {/* ═══ Hero ═══ */}
         <section style={{ maxWidth: 1000, margin: "0 auto", padding: "120px 48px 100px", textAlign: "center" }}>
           <div className="fu" style={{ display: "flex", justifyContent: "center", marginBottom: 48, paddingLeft: 0 }}>
-            <img src="/benavora_logo.png" alt="Benavora" style={{ height: 320, width: "auto", objectFit: "contain" }} />
+            <Image
+              src="/benavora_logo.png"
+              alt="Benavora"
+              width={480}
+              height={320}
+              priority
+              style={{ height: 320, width: "auto", objectFit: "contain" }}
+            />
           </div>
 
           <div className="fu">
@@ -915,7 +923,13 @@ export default function BenavoraMarketing() {
           padding: "28px 48px",
           display: "flex", justifyContent: "space-between", alignItems: "center",
         }}>
-          <img src="/benavora_logo.png" alt="Benavora" style={{ height: 32, width: "auto", objectFit: "contain", opacity: 0.7 }} />
+          <Image
+            src="/benavora_logo.png"
+            alt="Benavora"
+            width={48}
+            height={32}
+            style={{ height: 32, width: "auto", objectFit: "contain", opacity: 0.7 }}
+          />
           <div style={{ display: "flex", gap: 28, alignItems: "center" }}>
             {["Privacy", "Terms", "Security", "Contact"].map(l => (
               <a key={l} href="#" style={{ fontSize: 13, color: B.textMuted }}>{l}</a>

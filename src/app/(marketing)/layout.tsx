@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -38,10 +39,11 @@ export default function MarketingLayout({
       <header className="sticky top-0 z-40 border-b border-[#e5e7eb] bg-white/90 backdrop-blur">
         <nav className="mx-auto flex max-w-6xl items-center justify-between gap-6 px-6 py-3">
           <Link href="/" className="flex items-center ml-0" aria-label="Benavora home">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/benavora-logo.png"
+            <Image
+              src="/benavora_logo.png"
               alt="Benavora"
+              width={84}
+              height={56}
               style={{ height: "56px", width: "auto" }}
             />
           </Link>
