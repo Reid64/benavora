@@ -57,6 +57,11 @@ function startOfTodayIso(): string {
   ).toISOString();
 }
 
+function startOfMonthIso(): string {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+}
+
 export async function GET() {
   const resolved = await resolveOwner();
   if ("error" in resolved) return resolved.error;
@@ -73,6 +78,7 @@ export async function GET() {
     agentRunsRes,
     documentsRes,
     invoicesRes,
+    autoapplyRes,
   ] = await Promise.all([
     supabase.from("profiles").select("id", { count: "exact", head: true }),
     supabase.from("search_profiles").select("id", { count: "exact", head: true }),
@@ -88,6 +94,12 @@ export async function GET() {
       )
       .order("created_at", { ascending: false })
       .limit(50),
+    // AutoApply has no plan-tiered limit (TIER_LIMITS has no autoapply field),
+    // so this is a live informational count only - never a fabricated limit.
+    supabase
+      .from("submission_queue")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", startOfMonthIso()),
   ]);
 
   const storageBytes = (
@@ -111,6 +123,7 @@ export async function GET() {
     subscription,
     usage,
     invoices: invoicesRes.data ?? [],
+    autoapplySubmissionsThisMonth: autoapplyRes.count ?? 0,
     billingEnabled: isStripeConfigured(),
   });
 }

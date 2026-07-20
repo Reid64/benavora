@@ -1,7 +1,6 @@
 import { Check } from "lucide-react";
 
-import { Badge, Button } from "@/components/ui";
-import { cn } from "@/lib/utils/cn";
+import { Button } from "@/components/ui";
 import { TIER_PLANS, type SubscriptionTier } from "@/lib/utils/constants";
 
 export type PlanCardProps = {
@@ -22,50 +21,82 @@ const ORDER: Record<SubscriptionTier, number> = {
   consultant: 4,
 };
 
+/** Plan accent colors (task spec: Starter/Professional/Enterprise; free and
+ * consultant extended to match so every real tier in SUBSCRIPTION_TIERS has one). */
+export const PLAN_COLORS: Record<SubscriptionTier, string> = {
+  free: "#64748B",
+  starter: "#0EA5E9",
+  professional: "#8B5CF6",
+  enterprise: "#10B981",
+  consultant: "#F59E0B",
+};
+
+const TEXT_PRIMARY = "#0F172A";
+const TEXT_SECONDARY = "#64748B";
+const BORDER = "#DCE6ED";
+
 /**
  * A single subscription tier card (BLUEPRINT Phase 5 pricing). The current plan
- * is highlighted; other tiers show an Upgrade or Downgrade CTA. The free tier
- * has no Stripe price, so selecting it routes through the billing portal.
+ * is highlighted with a border in its plan color; other tiers show an Upgrade
+ * or Downgrade CTA. The free tier has no Stripe price, so selecting it routes
+ * through the billing portal (handled by the caller's onSelect).
  */
 export function PlanCard({ tier, currentTier, onSelect, busy }: PlanCardProps) {
   const plan = TIER_PLANS[tier];
+  const color = PLAN_COLORS[tier];
   const isCurrent = tier === currentTier;
   const isUpgrade = ORDER[tier] > ORDER[currentTier];
 
-  const ctaLabel = isCurrent
-    ? "Current plan"
-    : isUpgrade
-      ? "Upgrade"
-      : "Downgrade";
+  const ctaLabel = isCurrent ? "Current plan" : isUpgrade ? "Upgrade" : "Downgrade";
 
   return (
     <div
-      className={cn(
-        "flex flex-col rounded-xl border bg-white p-5 shadow-sm",
-        isCurrent ? "border-teal-400 ring-1 ring-teal-400" : "border-border",
-      )}
+      style={{
+        backgroundColor: "#FFFFFF",
+        borderRadius: "14px",
+        border: isCurrent ? `2px solid ${color}` : `1px solid ${BORDER}`,
+        boxShadow: isCurrent
+          ? `0 4px 20px ${color}33`
+          : "0 4px 20px rgba(0,0,0,0.06)",
+        padding: "20px",
+      }}
+      className="flex flex-col"
     >
       <div className="flex items-center justify-between gap-2">
-        <h3 className="text-lg font-semibold text-navy-900">{plan.name}</h3>
+        <h3 style={{ color: TEXT_PRIMARY }} className="text-lg font-semibold">
+          {plan.name}
+        </h3>
         {isCurrent && (
-          <Badge color="green" withDot>
+          <span
+            style={{ backgroundColor: `${color}1A`, color }}
+            className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold"
+          >
+            <span
+              style={{ backgroundColor: color }}
+              className="h-1.5 w-1.5 rounded-full"
+              aria-hidden
+            />
             Current
-          </Badge>
+          </span>
         )}
       </div>
-      <p className="mt-0.5 text-sm text-navy-500">{plan.tagline}</p>
+      <p style={{ color: TEXT_SECONDARY }} className="mt-0.5 text-sm">
+        {plan.tagline}
+      </p>
 
       <div className="mt-4 flex items-baseline gap-1">
-        <span className="text-3xl font-bold text-navy-900">
+        <span style={{ color: TEXT_PRIMARY }} className="text-3xl font-bold">
           ${plan.monthlyPrice}
         </span>
-        <span className="text-sm text-navy-500">/mo</span>
+        <span style={{ color: TEXT_SECONDARY }} className="text-sm">
+          /mo
+        </span>
       </div>
 
       <ul className="mt-4 flex-1 space-y-2">
         {plan.features.map((feature) => (
-          <li key={feature} className="flex items-start gap-2 text-sm text-navy-700">
-            <Check className="mt-0.5 h-4 w-4 shrink-0 text-teal-500" aria-hidden />
+          <li key={feature} className="flex items-start gap-2 text-sm" style={{ color: "#334155" }}>
+            <Check className="mt-0.5 h-4 w-4 shrink-0" style={{ color }} aria-hidden />
             <span>{feature}</span>
           </li>
         ))}
@@ -77,6 +108,11 @@ export function PlanCard({ tier, currentTier, onSelect, busy }: PlanCardProps) {
           variant={isUpgrade && !isCurrent ? "primary" : "secondary"}
           disabled={isCurrent || busy}
           onClick={() => onSelect(tier)}
+          style={
+            isUpgrade && !isCurrent
+              ? { backgroundColor: color }
+              : undefined
+          }
         >
           {ctaLabel}
         </Button>

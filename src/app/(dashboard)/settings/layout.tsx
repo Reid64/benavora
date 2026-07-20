@@ -15,6 +15,7 @@ const NAV_ITEMS = [
   { label: "Branding", href: "/settings/branding" },
   { label: "Custom APIs", href: "/settings/custom-apis" },
   { label: "Scraping Targets", href: "/settings/scraping" },
+  { label: "Billing", href: "/billing", ownerOnly: true },
   { label: "White-Label", href: "/settings/white-label", ownerOnly: true },
 ] as const;
 
