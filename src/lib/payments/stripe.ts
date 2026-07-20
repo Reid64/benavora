@@ -272,6 +272,60 @@ async function syncSubscription(
     .eq("id", orgId);
 }
 
+/**
+ * Write an org-wide billing alert. The `alerts` table has no user_id column
+ * (it's org-scoped only - see src/lib/notifications/notify.ts for the same
+ * insert shape), so this is a system-level notice visible to the whole org.
+ * Upserted on the table's real unique constraint (organization_id, dedup_key)
+ * so a Stripe retry of the same event never creates a duplicate alert.
+ */
+async function writeBillingAlert(
+  admin: ReturnType<typeof createAdminClient>,
+  orgId: string,
+  severity: "info" | "warning" | "critical",
+  message: string,
+  link: string | null,
+  dedupKey: string,
+): Promise<void> {
+  await admin.from("alerts").upsert(
+    {
+      organization_id: orgId,
+      type: "system",
+      severity,
+      message,
+      link,
+      dedup_key: dedupKey,
+    },
+    { onConflict: "organization_id,dedup_key" },
+  );
+}
+
+/**
+ * Disable every autonomous agent toggle for an org. A canceled subscription
+ * must not keep spending AI budget unattended overnight. org_autonomous_config
+ * is a 1:1 row per org (unique org_id); if the row doesn't exist yet there is
+ * nothing to disable.
+ */
+async function disableAutonomousAgents(
+  admin: ReturnType<typeof createAdminClient>,
+  orgId: string,
+): Promise<void> {
+  await admin
+    .from("org_autonomous_config")
+    .update({
+      auto_research_enabled: false,
+      auto_score_enabled: false,
+      auto_draft_enabled: false,
+      auto_reputation_enabled: false,
+      auto_relationship_enabled: false,
+      auto_deadline_prediction_enabled: false,
+      auto_followup_enabled: false,
+      auto_autoapply_enabled: false,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("org_id", orgId);
+}
+
 /** Downgrade an org to the free tier when its subscription is deleted. */
 async function downgradeToFree(
   subscription: Stripe.Subscription,
@@ -294,6 +348,18 @@ async function downgradeToFree(
     .from("organizations")
     .update({ subscription_tier: "free", updated_at: new Date().toISOString() })
     .eq("id", orgId);
+
+  await Promise.all([
+    disableAutonomousAgents(admin, orgId),
+    writeBillingAlert(
+      admin,
+      orgId,
+      "warning",
+      "Your subscription has ended. Reactivate to restore autonomous features.",
+      `${siteUrl()}/billing`,
+      `stripe:${subscription.id}:canceled`,
+    ),
+  ]);
 }
 
 /**
@@ -340,11 +406,11 @@ async function recordInvoice(
  * Idempotent: the caller records processed event ids; this function's writes are
  * additionally upsert-based so a replay is harmless.
  *
- *   checkout.session.completed   → sync subscription + tier
- *   customer.subscription.updated→ sync subscription
- *   customer.subscription.deleted→ downgrade to free
- *   invoice.payment_succeeded    → record invoice
- *   invoice.payment_failed       → record invoice + flag past_due
+ *   checkout.session.completed   → sync subscription + tier, welcome alert
+ *   customer.subscription.updated→ sync subscription (tier enforcement is live, see inline comment)
+ *   customer.subscription.deleted→ downgrade to free, disable autonomous agents, cancellation alert
+ *   invoice.payment_succeeded    → record invoice, re-sync subscription (self-heals past_due)
+ *   invoice.payment_failed       → record invoice, flag past_due, critical alert with retry link
  */
 export async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
   const stripe = getStripe();
@@ -363,11 +429,31 @@ export async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
           if (orgId) subscription.metadata = { organization_id: orgId };
         }
         await syncSubscription(subscription, admin);
+
+        const orgId = subscription.metadata?.organization_id;
+        if (orgId) {
+          const priceId = subscription.items.data[0]?.price?.id ?? null;
+          const tier = tierForPriceId(priceId) ?? "free";
+          await writeBillingAlert(
+            admin,
+            orgId,
+            "info",
+            `Welcome to Benavora ${TIER_PLANS[tier].name}! Your subscription is now active.`,
+            `${siteUrl()}/billing`,
+            `stripe:${event.id}`,
+          );
+        }
       }
       break;
     }
     case "customer.subscription.created":
     case "customer.subscription.updated": {
+      // syncSubscription writes the new tier to organizations.subscription_tier
+      // synchronously, and every tier-gated check (src/lib/billing/usage-limiter.ts,
+      // usage-tracker.ts) reads that column live on each request - so a downgrade
+      // takes effect on the very next action with no separate feature-flag flip
+      // needed (this codebase has no boolean feature registry, only numeric
+      // per-tier limits resolved at call time).
       await syncSubscription(event.data.object as Stripe.Subscription, admin);
       break;
     }
@@ -376,7 +462,20 @@ export async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
       break;
     }
     case "invoice.payment_succeeded": {
-      await recordInvoice(event.data.object as Stripe.Invoice, admin);
+      const invoice = event.data.object as Stripe.Invoice;
+      await recordInvoice(invoice, admin);
+
+      // Self-heal a prior past_due/suspended state: re-sync from the live
+      // subscription (rather than just flipping a status flag) so tier and
+      // status are always correct after a successful payment, including a
+      // dunning recovery. Recent Stripe API versions moved the subscription
+      // reference off Invoice.subscription onto Invoice.parent.subscription_details.
+      const subRef = invoice.parent?.subscription_details?.subscription;
+      const subscriptionId = typeof subRef === "string" ? subRef : subRef?.id;
+      if (subscriptionId) {
+        const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+        await syncSubscription(subscription, admin);
+      }
       break;
     }
     case "invoice.payment_failed": {
@@ -389,12 +488,20 @@ export async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
             .update({ status: "past_due", updated_at: new Date().toISOString() })
             .eq("organization_id", orgId),
           // Suspend the org's tier so the app can block access until payment
-          // is recovered. Webhook customer.subscription.updated will restore
-          // the tier once Stripe retries successfully.
+          // is recovered. invoice.payment_succeeded (dunning recovery) or
+          // customer.subscription.updated will restore the tier.
           admin
             .from("organizations")
             .update({ subscription_tier: "suspended", updated_at: new Date().toISOString() })
             .eq("id", orgId),
+          writeBillingAlert(
+            admin,
+            orgId,
+            "critical",
+            "Your payment failed. Update your payment method to avoid losing access.",
+            invoice.hosted_invoice_url ?? `${siteUrl()}/billing`,
+            `stripe:${invoice.id}:payment_failed`,
+          ),
         ]);
       }
       break;
