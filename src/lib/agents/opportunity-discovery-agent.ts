@@ -105,11 +105,22 @@ import {
   searchSamGovOpportunities,
   type SamGovNormalizedOpportunity,
 } from "@/lib/sources/samgov-client";
+import { discoverLandBankOpportunities } from "@/lib/sources/land-bank-client";
 
 const FEDERAL_REGISTER_URL =
   "https://www.federalregister.gov/api/v1/documents.json";
 
 const FOUNDATION_MATCH_INSERT_LIMIT = 10;
+
+// Housing-focus keyword heuristic — `organizations` has no ntee_code column
+// (confirmed absent, same gap this file's header already documents for
+// loadPlatformPatterns), so "org NTEE code starts with 'L'" is approximated
+// via mission/target-population/service-area keyword matching instead.
+const HOUSING_FOCUS_KEYWORDS = [
+  "housing", "homeless", "shelter", "affordable home", "rental assistance",
+  "eviction", "supportive housing", "transitional housing", "tenant",
+  "homeownership", "land trust", "land bank",
+];
 const EXPAND_SEARCH_FOUNDATION_LIMIT = FOUNDATION_MATCH_INSERT_LIMIT * 2;
 const EXPAND_SEARCH_MAX_KEYWORD_TERMS = 3;
 
@@ -267,6 +278,18 @@ function mapFoundationMatch(match: FoundationMatch): DiscoveredOpportunity {
     category: "private_foundation",
     sourceType: "private_foundation",
   };
+}
+
+/** True when the org's mission/target-population/service-area text suggests
+ * housing-focused work — see HOUSING_FOCUS_KEYWORDS above for why this
+ * substitutes for a real NTEE code check. */
+function isHousingFocusedOrg(profile: OrgProfile): boolean {
+  const text = [profile.missionStatement, profile.targetPopulation, profile.serviceArea]
+    .filter((v): v is string => Boolean(v))
+    .join(" ")
+    .toLowerCase();
+  if (!text) return false;
+  return HOUSING_FOCUS_KEYWORDS.some((kw) => text.includes(kw));
 }
 
 /**
@@ -745,6 +768,56 @@ export class OpportunityDiscoveryAgent extends AutonomousAgent {
     }
   }
 
+  /**
+   * Land bank discovery batch (src/lib/sources/land-bank-client.ts) — only
+   * runs when this org's profile reads as housing-focused (see
+   * isHousingFocusedOrg above) and has a city/state on file to search
+   * against. discoverLandBankOpportunities() owns its own dedup+insert (it
+   * checks (organization_id, url, name) before writing, same rule
+   * existsInOpportunities uses here), so this logs a single summary decision
+   * rather than one per opportunity like insertDiscoveredOpportunities does
+   * — the per-item audit trail already lives inside that function's own
+   * inserts, this just records that the source ran and what it found.
+   */
+  private async runLandBankBatch(
+    orgProfile: OrgProfile | null,
+    runId: string,
+    decisions: string[],
+    errors: string[],
+  ): Promise<number> {
+    if (!orgProfile || !isHousingFocusedOrg(orgProfile)) return 0;
+    if (!orgProfile.city || !orgProfile.state) return 0;
+
+    try {
+      const results = await discoverLandBankOpportunities(
+        { city: orgProfile.city, state: orgProfile.state },
+        this.orgId,
+        this.supabase,
+      );
+
+      if (results.length > 0) {
+        const decisionId = await this.logDecision({
+          decisionType: "opportunity_discovered",
+          agentRunId: runId,
+          reasoning:
+            `Land bank sweep for ${orgProfile.state} (housing-focused org): found ${results.length} ` +
+            `opportunity(ies) across known land bank authorities and a SAM.gov land-bank keyword sweep. ` +
+            `Titles: ${results.slice(0, 5).map((r) => r.title).join("; ")}${results.length > 5 ? "; ..." : ""}.`,
+          confidenceScore: 75,
+          actionTaken: "land_bank_sweep_completed",
+          actionPayload: { state: orgProfile.state, count: results.length },
+        });
+        decisions.push(decisionId);
+      }
+
+      return results.length;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Land bank discovery failed.";
+      errors.push(`land bank discovery: ${message}`);
+      return 0;
+    }
+  }
+
   /** One profile's federal-source sweep, parameterized so
    * standard/federal_shift/deadline_focus can share it while still varying
    * whether the Federal Register is included and how the insert is labeled
@@ -811,6 +884,9 @@ export class OpportunityDiscoveryAgent extends AutonomousAgent {
       decisions,
       errors,
     );
+
+    const orgProfile = await this.loadOrgProfile();
+    await this.runLandBankBatch(orgProfile, runId, decisions, errors);
 
     return { duplicatesSkipped, sweptProfileIds };
   }
