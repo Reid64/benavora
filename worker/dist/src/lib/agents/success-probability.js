@@ -17,7 +17,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SuccessProbabilityAgent = void 0;
 const date_fns_1 = require("date-fns");
-const base_agent_1 = require("../../lib/agents/base-agent");
+const base_agent_1 = require("@/lib/agents/base-agent");
 class SuccessProbabilityAgent extends base_agent_1.BaseAgent {
     agentType = "success_probability";
     async execute(input) {

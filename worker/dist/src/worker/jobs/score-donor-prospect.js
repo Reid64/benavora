@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.SCORE_DONOR_PROSPECT_JOB_TYPE = void 0;
 exports.claimNextScoreDonorProspectJob = claimNextScoreDonorProspectJob;
 exports.handleScoreDonorProspectJob = handleScoreDonorProspectJob;
-const scoring_engine_1 = require("../../lib/donor-discovery/scoring-engine");
+const scoring_engine_1 = require("@/lib/donor-discovery/scoring-engine");
 /**
  * `score_donor_prospect` worker job (DONOR_DISCOVERY_ARCHITECTURE.md §2D).
  * Runs the Claude-rationale `ScoringEngine` (scoring-engine.ts) for one

@@ -39,7 +39,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.extractFromWebsite = extractFromWebsite;
 const cheerio = __importStar(require("cheerio"));
 const sdk_1 = __importDefault(require("@anthropic-ai/sdk"));
-const crawler_core_1 = require("../../lib/donor-discovery/crawler-core");
+const crawler_core_1 = require("@/lib/donor-discovery/crawler-core");
 /**
  * Shared web-extraction engine (DONOR_DISCOVERY_ARCHITECTURE.md §2B).
  *

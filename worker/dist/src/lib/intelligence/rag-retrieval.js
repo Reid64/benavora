@@ -5,7 +5,7 @@ exports.retrieveRubric = retrieveRubric;
 exports.retrieveLogicModel = retrieveLogicModel;
 exports.retrieveNeedData = retrieveNeedData;
 const embeddings_1 = require("./embeddings");
-const server_1 = require("../../lib/supabase/server");
+const server_1 = require("@/lib/supabase/server");
 const NEED_DATA_COLS = 'id, source, source_url, data_type, geographic_level, state, county, city, metric_name, metric_value, metric_year, context, citation';
 const RUBRIC_COLS = 'id, source, source_url, funder_name, grant_program, category, dimensions, full_text';
 async function retrieveIntelligence(params) {

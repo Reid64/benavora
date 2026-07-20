@@ -5,8 +5,8 @@ exports.parseLicenseeResults = parseLicenseeResults;
 exports.isActiveLicense = isActiveLicense;
 exports.searchLicenseType = searchLicenseType;
 const node_html_parser_1 = require("node-html-parser");
-const crawler_core_1 = require("../../../lib/donor-discovery/crawler-core");
-const directory_1 = require("../../../lib/donor-discovery/directory");
+const crawler_core_1 = require("@/lib/donor-discovery/crawler-core");
+const directory_1 = require("@/lib/donor-discovery/directory");
 /**
  * Texas Department of Licensing and Regulation (TDLR) registry adapter
  * (DONOR_DISCOVERY_ARCHITECTURE.md §2A "Registry layer" — "State contractor

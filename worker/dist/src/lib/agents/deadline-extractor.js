@@ -14,7 +14,7 @@
 // agent_runs via BaseAgent; tokens_used is 0 since no model is called.
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DeadlineExtractor = void 0;
-const base_agent_1 = require("../../lib/agents/base-agent");
+const base_agent_1 = require("@/lib/agents/base-agent");
 /** Days-before-deadline reminders to create (AGENTS.md Agent 03 step 3). */
 const FOLLOW_UP_OFFSETS = [30, 14, 7];
 /** Estimated lead time from an application deadline to a reporting deadline. */

@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.logConnectorUsage = logConnectorUsage;
-const admin_1 = require("../../../lib/supabase/admin");
+const admin_1 = require("@/lib/supabase/admin");
 /**
  * Shared `adapter_usage_log` (migration 076) writer for §6 BYO-key
  * connectors — same table `google-places-adapter.ts` already logs to, with

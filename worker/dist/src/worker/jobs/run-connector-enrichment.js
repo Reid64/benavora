@@ -3,11 +3,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.RUN_CONNECTOR_ENRICHMENT_JOB_TYPE = void 0;
 exports.handleRunConnectorEnrichmentJob = handleRunConnectorEnrichmentJob;
 exports.claimNextRunConnectorEnrichmentJob = claimNextRunConnectorEnrichmentJob;
-const key_encrypt_1 = require("../../lib/crypto/key-encrypt");
-const directory_1 = require("../../lib/donor-discovery/directory");
-const apollo_connector_1 = require("../../lib/donor-discovery/connectors/apollo-connector");
-const hunter_connector_1 = require("../../lib/donor-discovery/connectors/hunter-connector");
-const usage_log_1 = require("../../lib/donor-discovery/connectors/usage-log");
+const key_encrypt_1 = require("@/lib/crypto/key-encrypt");
+const directory_1 = require("@/lib/donor-discovery/directory");
+const apollo_connector_1 = require("@/lib/donor-discovery/connectors/apollo-connector");
+const hunter_connector_1 = require("@/lib/donor-discovery/connectors/hunter-connector");
+const usage_log_1 = require("@/lib/donor-discovery/connectors/usage-log");
 /**
  * `run_connector_enrichment` worker job (DONOR_DISCOVERY_ARCHITECTURE.md
  * §6). Given a `donor_discovery_prospects` row and a connectable provider

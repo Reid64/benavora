@@ -6,7 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.generateLogicModel = generateLogicModel;
 exports.formatLogicModelAsText = formatLogicModelAsText;
 const sdk_1 = __importDefault(require("@anthropic-ai/sdk"));
-const server_1 = require("../../lib/supabase/server");
+const server_1 = require("@/lib/supabase/server");
 const embeddings_1 = require("./embeddings");
 let anthropicClient = null;
 function getClient() {

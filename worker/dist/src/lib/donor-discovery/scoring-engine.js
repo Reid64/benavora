@@ -6,9 +6,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ScoringEngine = exports.DEFAULT_ENGINE_WEIGHTS = void 0;
 exports.parseEngineWeights = parseEngineWeights;
 const sdk_1 = __importDefault(require("@anthropic-ai/sdk"));
-const admin_1 = require("../../lib/supabase/admin");
-const directory_1 = require("../../lib/donor-discovery/directory");
-const foundation_linkage_1 = require("../../lib/donor-discovery/foundation-linkage");
+const admin_1 = require("@/lib/supabase/admin");
+const directory_1 = require("@/lib/donor-discovery/directory");
+const foundation_linkage_1 = require("@/lib/donor-discovery/foundation-linkage");
 /**
  * Donor Discovery on-demand scoring engine (DONOR_DISCOVERY_ARCHITECTURE.md
  * §2D). Distinct from `scoring.ts`'s `scoreProspect` — that function is pure

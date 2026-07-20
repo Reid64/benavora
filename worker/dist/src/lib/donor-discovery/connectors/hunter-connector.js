@@ -1,9 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.hunterConnector = exports.HunterConnectorError = void 0;
-const directory_1 = require("../../../lib/donor-discovery/directory");
-const crawler_core_1 = require("../../../lib/donor-discovery/crawler-core");
-const types_1 = require("../../../lib/donor-discovery/connectors/types");
+const directory_1 = require("@/lib/donor-discovery/directory");
+const crawler_core_1 = require("@/lib/donor-discovery/crawler-core");
+const types_1 = require("@/lib/donor-discovery/connectors/types");
 /**
  * Hunter.io Domain Search connector (DONOR_DISCOVERY_ARCHITECTURE.md §6).
  * `ConnectorEnricher` implementation: given a shared directory record and

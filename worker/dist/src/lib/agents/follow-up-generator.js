@@ -8,9 +8,9 @@
 // the application so it persists without requiring a new table.
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.FollowUpGeneratorAgent = exports.FOLLOW_UP_NOTE_PREFIX = void 0;
-const claude_1 = require("../../lib/ai/claude");
-const humanizer_agent_1 = require("../../lib/agents/humanizer-agent");
-const base_agent_1 = require("../../lib/agents/base-agent");
+const claude_1 = require("@/lib/ai/claude");
+const humanizer_agent_1 = require("@/lib/agents/humanizer-agent");
+const base_agent_1 = require("@/lib/agents/base-agent");
 // NOTE_PREFIX identifies follow-up sequence notes so the UI can filter them.
 exports.FOLLOW_UP_NOTE_PREFIX = "FOLLOW_UP_SEQ:";
 class FollowUpGeneratorAgent extends base_agent_1.BaseAgent {

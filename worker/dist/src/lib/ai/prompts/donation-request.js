@@ -7,7 +7,7 @@
 // organizational data, flag gaps with [NEEDS INPUT: ...], never fabricate.
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildDonationRequestPrompt = buildDonationRequestPrompt;
-const formatters_1 = require("../../../lib/utils/formatters");
+const formatters_1 = require("@/lib/utils/formatters");
 function formatAsk(min, max) {
     const fmt = (n) => new Intl.NumberFormat("en-US", {
         style: "currency",

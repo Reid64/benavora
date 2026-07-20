@@ -10,7 +10,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.BUDGET_CATEGORIES = void 0;
 exports.buildBudgetNarrativePrompt = buildBudgetNarrativePrompt;
-const formatters_1 = require("../../../lib/utils/formatters");
+const formatters_1 = require("@/lib/utils/formatters");
 /** Standard federal-style budget categories (AGENTS.md Agent 06). */
 exports.BUDGET_CATEGORIES = [
     "personnel",

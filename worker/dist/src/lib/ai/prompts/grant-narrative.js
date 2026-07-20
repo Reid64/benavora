@@ -8,7 +8,7 @@
 // fabricates statistics, certifications, partnerships, or promises.
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildGrantNarrativePrompt = buildGrantNarrativePrompt;
-const formatters_1 = require("../../../lib/utils/formatters");
+const formatters_1 = require("@/lib/utils/formatters");
 /** Human-readable description of each grant template the funder receives. */
 const TEMPLATE_BRIEF = {
     grant_narrative: "a grant narrative: a structured proposal covering need, program design, capacity, and intended impact",

@@ -14,7 +14,7 @@
 // and may be edited or removed when the funder confirms dates.
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DeadlinePredictionAgent = void 0;
-const base_agent_1 = require("../../lib/agents/base-agent");
+const base_agent_1 = require("@/lib/agents/base-agent");
 const HIGH_CONFIDENCE_THRESHOLD = 0.8;
 const MAX_HISTORICAL_RECORDS = 50;
 const DAYS_AHEAD_DEFAULT = 365;

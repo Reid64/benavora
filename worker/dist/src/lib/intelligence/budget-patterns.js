@@ -5,7 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.BudgetPatternLibrary = exports.BUDGET_CATEGORIES = void 0;
 const sdk_1 = __importDefault(require("@anthropic-ai/sdk"));
-const server_1 = require("../../lib/supabase/server");
+const server_1 = require("@/lib/supabase/server");
 exports.BUDGET_CATEGORIES = [
     'personnel',
     'fringe',

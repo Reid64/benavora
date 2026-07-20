@@ -3,8 +3,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.GeocodingError = void 0;
 exports.geocodeAddress = geocodeAddress;
 const crypto_1 = require("crypto");
-const admin_1 = require("../../../lib/supabase/admin");
-const crawler_core_1 = require("../../../lib/donor-discovery/crawler-core");
+const admin_1 = require("@/lib/supabase/admin");
+const crawler_core_1 = require("@/lib/donor-discovery/crawler-core");
 class GeocodingError extends Error {
     constructor(message) {
         super(message);

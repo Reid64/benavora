@@ -3,9 +3,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ENRICH_DONOR_PROSPECT_JOB_TYPE = void 0;
 exports.handleEnrichDonorProspectJob = handleEnrichDonorProspectJob;
 exports.claimNextEnrichDonorProspectJob = claimNextEnrichDonorProspectJob;
-const enrichment_agent_1 = require("../../lib/donor-discovery/agents/enrichment-agent");
-const directory_1 = require("../../lib/donor-discovery/directory");
-const scoring_1 = require("../../lib/donor-discovery/scoring");
+const enrichment_agent_1 = require("@/lib/donor-discovery/agents/enrichment-agent");
+const directory_1 = require("@/lib/donor-discovery/directory");
+const scoring_1 = require("@/lib/donor-discovery/scoring");
 /**
  * `enrich_donor_prospect` worker job (DONOR_DISCOVERY_ARCHITECTURE.md §2B/
  * §2D). Re-enriches one shared `donor_discovery_directory` record via

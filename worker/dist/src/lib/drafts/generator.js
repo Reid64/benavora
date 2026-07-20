@@ -8,15 +8,15 @@ exports.extractTopPatterns = extractTopPatterns;
 exports.computeConfidence = computeConfidence;
 exports.buildDetailedRubricSection = buildDetailedRubricSection;
 exports.generateDraft = generateDraft;
-const claude_1 = require("../../lib/ai/claude");
-const grant_narrative_1 = require("../../lib/ai/prompts/grant-narrative");
-const donation_request_1 = require("../../lib/ai/prompts/donation-request");
-const rag_retrieval_1 = require("../../lib/intelligence/rag-retrieval");
-const need_statement_engine_1 = require("../../lib/intelligence/need-statement-engine");
-const logic_model_generator_1 = require("../../lib/intelligence/logic-model-generator");
-const budget_patterns_1 = require("../../lib/intelligence/budget-patterns");
-const evaluation_library_1 = require("../../lib/intelligence/evaluation-library");
-const compliance_library_1 = require("../../lib/intelligence/compliance-library");
+const claude_1 = require("@/lib/ai/claude");
+const grant_narrative_1 = require("@/lib/ai/prompts/grant-narrative");
+const donation_request_1 = require("@/lib/ai/prompts/donation-request");
+const rag_retrieval_1 = require("@/lib/intelligence/rag-retrieval");
+const need_statement_engine_1 = require("@/lib/intelligence/need-statement-engine");
+const logic_model_generator_1 = require("@/lib/intelligence/logic-model-generator");
+const budget_patterns_1 = require("@/lib/intelligence/budget-patterns");
+const evaluation_library_1 = require("@/lib/intelligence/evaluation-library");
+const compliance_library_1 = require("@/lib/intelligence/compliance-library");
 exports.VALID_TEMPLATE_TYPES = [
     "grant_narrative",
     "donation_request_letter",

@@ -19,7 +19,7 @@
 // where RLS does not protect them (BEHAVIORAL_CONTRACTS §2, §15).
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.BaseAgent = exports.AgentError = exports.AGENT_TIMEOUT_MS = void 0;
-const usage_tracker_1 = require("../../lib/billing/usage-tracker");
+const usage_tracker_1 = require("@/lib/billing/usage-tracker");
 /** Default hard ceiling on a single agent run (AGENTS.md §15). */
 exports.AGENT_TIMEOUT_MS = 60_000;
 /**

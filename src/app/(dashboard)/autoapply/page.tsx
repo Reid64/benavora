@@ -18,6 +18,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useProfile } from "@/lib/hooks/useProfile";
 import type { Json } from "@/types/database";
 import { WorkerStatus } from "@/components/autoapply/WorkerStatus";
+import { AutonomousQueueSection } from "@/components/autoapply/AutonomousQueueSection";
 import { ModeSelector } from "@/components/autoapply/ModeSelector";
 import { LiveSessionViewer } from "@/components/autoapply/LiveSessionViewer";
 import { QueueMetrics } from "@/components/autoapply/QueueMetrics";
@@ -468,6 +469,9 @@ export default function AutoApplyPage() {
 
       {/* LIVE SESSION VIEWER — real-time worker stream */}
       <LiveSessionViewer />
+
+      {/* AUTONOMOUS QUEUE — tonight's overnight batch count, status, ETA, progress */}
+      <AutonomousQueueSection />
 
       {/* QUEUE METRICS — depth, processing rate, est. completion (live) */}
       <QueueMetrics />

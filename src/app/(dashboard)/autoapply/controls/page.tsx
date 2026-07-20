@@ -7,6 +7,7 @@ import { AlertTriangle, ArrowLeft, Loader2, Power, X } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button, Card } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
+import { AutonomousModePanel } from "@/components/autoapply/AutonomousModePanel";
 
 interface ControlStatus {
   id: string;
@@ -271,6 +272,9 @@ export default function QueueControlsPage() {
           Pause and resume AutoApply submissions at the platform, domain, funder, or organization level.
         </p>
       </div>
+
+      {/* Autonomous Mode — overnight batch AutoApply submissions */}
+      <AutonomousModePanel />
 
       {error && (
         <div

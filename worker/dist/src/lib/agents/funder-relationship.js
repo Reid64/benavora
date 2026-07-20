@@ -8,7 +8,7 @@
 // to 0-100. Results are stored in funder_relationship_scores.
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.FunderRelationshipAgent = void 0;
-const base_agent_1 = require("../../lib/agents/base-agent");
+const base_agent_1 = require("@/lib/agents/base-agent");
 const EVENT_DELTAS = {
     cold_outreach_sent: 5,
     response_received: 15,

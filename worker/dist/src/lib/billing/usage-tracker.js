@@ -24,7 +24,7 @@ exports.getDailyUsage = getDailyUsage;
 exports.getCurrentUsage = getCurrentUsage;
 exports.checkLimit = checkLimit;
 exports.getUsageSummary = getUsageSummary;
-const constants_1 = require("../../lib/utils/constants");
+const constants_1 = require("@/lib/utils/constants");
 /** Today's date as an UTC `YYYY-MM-DD` string (the usage_metrics.metric_date key). */
 function todayUtc() {
     return new Date().toISOString().slice(0, 10);

@@ -17,9 +17,9 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.EligibilityScorer = exports.MISMATCH_REASON_THRESHOLD = exports.HIGH_PRIORITY_THRESHOLD = void 0;
 exports.parseScoreResponse = parseScoreResponse;
-const claude_1 = require("../../lib/ai/claude");
-const formatters_1 = require("../../lib/utils/formatters");
-const base_agent_1 = require("../../lib/agents/base-agent");
+const claude_1 = require("@/lib/ai/claude");
+const formatters_1 = require("@/lib/utils/formatters");
+const base_agent_1 = require("@/lib/agents/base-agent");
 /** Match at or above this percentage auto-flags the opportunity high priority. */
 exports.HIGH_PRIORITY_THRESHOLD = 80;
 /** Below this match percentage the UI surfaces the specific mismatch reasons. */

@@ -4,7 +4,7 @@
 // counts in `submission_usage`. Enforces hard daily caps regardless of overages.
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UsageMeter = void 0;
-const key_encrypt_1 = require("../../lib/crypto/key-encrypt");
+const key_encrypt_1 = require("@/lib/crypto/key-encrypt");
 // --- Fallbacks (used when tier_limits table is not yet seeded) ---------------
 const FALLBACK_MONTHLY = {
     free: { automated: 10, email: 5, manual: 5 },

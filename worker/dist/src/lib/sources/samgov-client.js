@@ -11,7 +11,7 @@
 // hardcode it in source, it's a live credential.
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.searchSamGovOpportunities = searchSamGovOpportunities;
-const formatters_1 = require("../../lib/utils/formatters");
+const formatters_1 = require("@/lib/utils/formatters");
 const SAM_GOV_SEARCH_URL = "https://api.sam.gov/opportunities/v2/search";
 const DEFAULT_LIMIT = 100;
 function toStr(val) {

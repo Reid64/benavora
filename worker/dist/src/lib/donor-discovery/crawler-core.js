@@ -7,7 +7,7 @@ exports.DomainRateLimiter = void 0;
 exports.isAdapterDisabled = isAdapterDisabled;
 exports.fetchCompliant = fetchCompliant;
 const robots_parser_1 = __importDefault(require("robots-parser"));
-const admin_1 = require("../../lib/supabase/admin");
+const admin_1 = require("@/lib/supabase/admin");
 /**
  * Donor Discovery crawler core (DONOR_DISCOVERY_ARCHITECTURE.md §5).
  *

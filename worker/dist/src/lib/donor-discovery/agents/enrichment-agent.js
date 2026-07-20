@@ -40,8 +40,8 @@ exports.EnrichmentAgent = exports.donorDiscoveryEvents = void 0;
 const node_events_1 = require("node:events");
 const sdk_1 = __importDefault(require("@anthropic-ai/sdk"));
 const cheerio = __importStar(require("cheerio"));
-const admin_1 = require("../../../lib/supabase/admin");
-const crawler_core_1 = require("../../../lib/donor-discovery/crawler-core");
+const admin_1 = require("@/lib/supabase/admin");
+const crawler_core_1 = require("@/lib/donor-discovery/crawler-core");
 /**
  * Donor Discovery §2B enrichment agent (DONOR_DISCOVERY_ARCHITECTURE.md §2B,
  * AGENTS.md agent conventions).

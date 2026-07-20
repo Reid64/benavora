@@ -10,9 +10,9 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.BudgetBuilderAgent = void 0;
 exports.parseBudgetResponse = parseBudgetResponse;
-const claude_1 = require("../../lib/ai/claude");
-const budget_narrative_1 = require("../../lib/ai/prompts/budget-narrative");
-const base_agent_1 = require("../../lib/agents/base-agent");
+const claude_1 = require("@/lib/ai/claude");
+const budget_narrative_1 = require("@/lib/ai/prompts/budget-narrative");
+const base_agent_1 = require("@/lib/agents/base-agent");
 class BudgetBuilderAgent extends base_agent_1.BaseAgent {
     agentType = "budget_builder";
     model;

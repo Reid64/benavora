@@ -26,9 +26,28 @@
 //   requested DeadlineExtractionAgent    -> DeadlineExtractor           (queue-only)
 //   requested ComplianceCheckAgent       -> ComplianceChecker           (queue-only)
 //   requested BudgetBuilderAgent         -> BudgetBuilderAgent          (exact match, queue-only)
-//   requested FitAnalysisAgent, RenewalTrackerAgent, OutcomeAnalyzerAgent,
-//     DocumentExpiryAgent, KnowledgeGapAgent, SearchProfileOptimizerAgent
-//     -> NO IMPLEMENTATION EXISTS ANYWHERE IN THE CODEBASE. Not wired.
+//   requested RenewalTrackerAgent        -> RenewalTrackerAgent         (AG-08, exact match)
+//   requested OutcomeAnalyzerAgent       -> OutcomeAnalyzerAgent        (AG-09, exact match)
+//   requested DocumentExpiryAgent        -> DocumentExpiryAgent         (AG-10, exact match)
+//   requested KnowledgeGapAgent          -> KnowledgeGapAgent           (AG-11, exact match)
+//   requested SearchProfileOptimizerAgent-> SearchProfileOptimizerAgent (AG-12, exact match)
+//   requested FitAnalysisAgent           -> exists (src/lib/agents/fit-analysis-agent.ts,
+//     BaseAgent pattern) but wiring it into this orchestrator is out of scope
+//     for the AG-08..AG-12 task this file was last updated for. Not wired.
+//   requested AG-40 StrategicAdvisorAgent -> StrategicAdvisorAgent (AG-40, exact match)
+//     src/lib/agents/strategic-advisor-agent.ts. The spec that added this
+//     asked for "weekly Sunday 5:00 AM CST" — there is no such cron slot
+//     anywhere in this worker (scheduler.ts fires exactly two fixed jobs:
+//     2AM nightly, 7AM digest — see the module note above this one). Wired
+//     into the same isSundayChicago() gate as AG-09/AG-11 below instead,
+//     inside the single 2AM nightly sweep, matching how AG-08..AG-12 already
+//     approximate their own monthly/weekly cadence with no dedicated cron.
+//   requested AG-38 SelfImprovementAgent -> SelfImprovementAgent (AG-38, exact match)
+//     src/lib/agents/self-improvement-agent.ts. Platform-wide, not per-org —
+//     runs once via runSelfImprovementPipeline() below. Its own task spec
+//     asked for a dedicated 4:00 AM CST slot, so unlike AG-40 above this one
+//     gets a real third entry in worker/scheduler.ts's jobs array rather
+//     than being folded into the 2AM sweep.
 //
 // "Queue-only" agents are event-driven (e.g. FunderRelationshipAgent scores
 // one specific event like "awarded" against one funder) with no meaningful
@@ -36,6 +55,15 @@
 // processAgentQueue() only — never called from the per-org sweep, even when
 // their config toggle is on. They're ready for other app code to enqueue a
 // real event.
+//
+// AG-08 through AG-12 have no org_autonomous_config toggle columns (the
+// config table only has the 7 original auto_*_enabled flags) and no fixed
+// cron slot of their own — the worker's scheduler.ts only fires a single
+// nightly 2AM job. They run inside that same nightly per-org sweep, gated on
+// isAnyAutonomyEnabled() like every other step, with their monthly/weekly
+// cadence approximated by checking the calendar day in America/Chicago on
+// each nightly firing (isFirstOfMonthChicago / isSundayChicago below) rather
+// than a real once-a-month/once-a-week cron trigger.
 //
 // Also corrects a doc error: WORKER_ARCHITECTURE_v2.md describes "active
 // orgs" as organizations.stripe_subscription_status IN ('active','trialing')
@@ -46,6 +74,8 @@
 // getActiveOrgs() below uses the real schema.
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.runAutonomousPipeline = runAutonomousPipeline;
+exports.runDigestPipeline = runDigestPipeline;
+exports.runSelfImprovementPipeline = runSelfImprovementPipeline;
 exports.stopAgentQueueProcessor = stopAgentQueueProcessor;
 exports.processAgentQueue = processAgentQueue;
 const SLEEP_BETWEEN_ORGS_MS = 2_000;
@@ -61,6 +91,36 @@ function sleep(ms) {
 }
 function errMsg(err) {
     return err instanceof Error ? err.message : String(err);
+}
+// --- calendar gating for the monthly/weekly-only steps -----------------------
+// Mirrors worker/scheduler.ts's chicagoParts(): the worker has no per-agent
+// cron, only a single fixed 2AM nightly job, so "monthly" / "weekly" agents
+// gate themselves on the calendar day of that nightly firing instead.
+function chicagoDateParts(now) {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/Chicago',
+        day: '2-digit',
+        weekday: 'short',
+    });
+    const parts = formatter.formatToParts(now);
+    const day = parseInt(parts.find((p) => p.type === 'day')?.value ?? '0', 10);
+    const weekdayShort = parts.find((p) => p.type === 'weekday')?.value ?? '';
+    const weekdayMap = {
+        Sun: 0,
+        Mon: 1,
+        Tue: 2,
+        Wed: 3,
+        Thu: 4,
+        Fri: 5,
+        Sat: 6,
+    };
+    return { day, weekday: weekdayMap[weekdayShort] ?? -1 };
+}
+function isFirstOfMonthChicago() {
+    return chicagoDateParts(new Date()).day === 1;
+}
+function isSundayChicago() {
+    return chicagoDateParts(new Date()).weekday === 0;
 }
 // Mirrors autonomous-base.ts's SAFE_DEFAULT_CONFIG (that const isn't
 // exported, so it's duplicated here rather than modifying that file).
@@ -337,6 +397,84 @@ async function runDeadlinePredictionStep(supabase, orgId, log) {
         return false;
     }
 }
+async function runRenewalTrackerStep(supabase, orgId, log) {
+    try {
+        const { RenewalTrackerAgent } = await import('../src/lib/agents/renewal-tracker-agent.js');
+        const agent = new RenewalTrackerAgent(orgId, supabase);
+        const result = await agent.run('schedule');
+        log.push(`renewal_tracker: ${result.itemsQueued} renewal(s) created`);
+        return result.itemsQueued > 0;
+    }
+    catch (err) {
+        log.push(`renewal_tracker: FAILED - ${errMsg(err)}`);
+        return false;
+    }
+}
+async function runOutcomeAnalyzerStep(supabase, orgId, log) {
+    try {
+        const { OutcomeAnalyzerAgent } = await import('../src/lib/agents/outcome-analyzer-agent.js');
+        const agent = new OutcomeAnalyzerAgent(orgId, supabase);
+        const result = await agent.run('schedule');
+        log.push(`outcome_analyzer: ${result.itemsProcessed} outcome(s) analyzed`);
+        return result.itemsProcessed > 0;
+    }
+    catch (err) {
+        log.push(`outcome_analyzer: FAILED - ${errMsg(err)}`);
+        return false;
+    }
+}
+async function runDocumentExpiryStep(supabase, orgId, log) {
+    try {
+        const { DocumentExpiryAgent } = await import('../src/lib/agents/document-expiry-agent.js');
+        const agent = new DocumentExpiryAgent(orgId, supabase);
+        const result = await agent.run('schedule');
+        log.push(`document_expiry: ${result.itemsQueued} document(s) notified`);
+        return result.itemsQueued > 0;
+    }
+    catch (err) {
+        log.push(`document_expiry: FAILED - ${errMsg(err)}`);
+        return false;
+    }
+}
+async function runKnowledgeGapStep(supabase, orgId, log) {
+    try {
+        const { KnowledgeGapAgent } = await import('../src/lib/agents/knowledge-gap-agent.js');
+        const agent = new KnowledgeGapAgent(orgId, supabase);
+        const result = await agent.run('schedule');
+        log.push(`knowledge_gap: ${result.itemsQueued} gap(s) identified`);
+        return result.itemsQueued > 0;
+    }
+    catch (err) {
+        log.push(`knowledge_gap: FAILED - ${errMsg(err)}`);
+        return false;
+    }
+}
+async function runSearchProfileOptimizerStep(supabase, orgId, log) {
+    try {
+        const { SearchProfileOptimizerAgent } = await import('../src/lib/agents/search-profile-optimizer-agent.js');
+        const agent = new SearchProfileOptimizerAgent(orgId, supabase);
+        const result = await agent.run('schedule');
+        log.push(`search_optimizer: ${result.itemsQueued} profile(s) flagged underperforming`);
+        return result.itemsQueued > 0;
+    }
+    catch (err) {
+        log.push(`search_optimizer: FAILED - ${errMsg(err)}`);
+        return false;
+    }
+}
+async function runStrategicAdvisorStep(supabase, orgId, log) {
+    try {
+        const { StrategicAdvisorAgent } = await import('../src/lib/agents/strategic-advisor-agent.js');
+        const agent = new StrategicAdvisorAgent(orgId, supabase);
+        const result = await agent.run('schedule');
+        log.push(`strategic_advisor: ${result.itemsProcessed} recommendation(s) generated`);
+        return result.itemsProcessed > 0;
+    }
+    catch (err) {
+        log.push(`strategic_advisor: FAILED - ${errMsg(err)}`);
+        return false;
+    }
+}
 // --- per-org run -----------------------------------------------------------------
 async function runOrgPipeline(supabase, org) {
     const config = await getOrgConfig(supabase, org.id);
@@ -383,9 +521,26 @@ async function runOrgPipeline(supabase, org) {
         hadActivity =
             (await runDeadlinePredictionStep(supabase, org.id, log)) || hadActivity;
     }
-    // renewal_tracker, document_expiry, knowledge_gap, search_optimizer: no
-    // agent implementation exists anywhere in the codebase for any of these
-    // (see file header) — not wired.
+    // AG-08..AG-12: no per-agent toggle or cron slot exists (see file header) —
+    // all run inside this same nightly sweep, cadence approximated by calendar
+    // day. document_expiry is nightly; the rest gate on the 1st of the month
+    // or Sunday.
+    hadActivity = (await runDocumentExpiryStep(supabase, org.id, log)) || hadActivity;
+    if (isFirstOfMonthChicago()) {
+        hadActivity =
+            (await runRenewalTrackerStep(supabase, org.id, log)) || hadActivity;
+        hadActivity =
+            (await runSearchProfileOptimizerStep(supabase, org.id, log)) ||
+                hadActivity;
+    }
+    if (isSundayChicago()) {
+        hadActivity =
+            (await runOutcomeAnalyzerStep(supabase, org.id, log)) || hadActivity;
+        hadActivity =
+            (await runKnowledgeGapStep(supabase, org.id, log)) || hadActivity;
+        hadActivity =
+            (await runStrategicAdvisorStep(supabase, org.id, log)) || hadActivity;
+    }
     if (runId) {
         await supabase
             .from('agent_runs')
@@ -428,6 +583,51 @@ async function runAutonomousPipeline(supabase) {
         }
     }
     console.log('[AutonomousOrchestrator] Nightly pipeline complete.');
+}
+/**
+ * Morning digest pipeline: runs AutonomousDigestAgent (an AI-written summary
+ * of overnight agent_decisions activity — see
+ * src/lib/agents/autonomous-digest-agent.ts) for every active org. Separate
+ * from the plain sendMorningDigest() call at the end of runAutonomousPipeline
+ * above, which is a no-Claude alerts rollup, not an agent_runs-logged agent.
+ */
+async function runDigestPipeline(supabase) {
+    const orgs = await getActiveOrgs(supabase);
+    console.log(`[AutonomousOrchestrator] Morning digest pipeline starting for ${orgs.length} active org(s).`);
+    for (const org of orgs) {
+        try {
+            const { AutonomousDigestAgent } = await import('../src/lib/agents/autonomous-digest-agent.js');
+            const agent = new AutonomousDigestAgent(org.id, supabase);
+            await agent.run('schedule');
+        }
+        catch (err) {
+            console.error(`[AutonomousOrchestrator] Digest agent failed for org ${org.id}:`, errMsg(err));
+        }
+        await sleep(SLEEP_BETWEEN_ORGS_MS);
+    }
+    console.log('[AutonomousOrchestrator] Morning digest pipeline complete.');
+}
+/**
+ * AG-38 Self-Improvement Agent pipeline: unlike every step above, this runs
+ * ONCE at the platform level, not per-org (src/lib/agents/self-improvement-
+ * agent.ts's own header explains why it doesn't extend AutonomousAgent).
+ * Wired into its own fixed 4:00 AM CST scheduler slot (worker/scheduler.ts)
+ * rather than folded into the 2AM per-org sweep, per this agent's explicit
+ * task spec — the first agent in this worker with a dedicated cron slot of
+ * its own since the original 2AM/7AM pair.
+ */
+async function runSelfImprovementPipeline(supabase) {
+    console.log('[AutonomousOrchestrator] AG-38 self-improvement pipeline starting.');
+    try {
+        const { SelfImprovementAgent } = await import('../src/lib/agents/self-improvement-agent.js');
+        const agent = new SelfImprovementAgent(supabase);
+        const result = await agent.run('schedule');
+        console.log(`[AutonomousOrchestrator] AG-38 complete: ${result.itemsFound} metric row(s) calculated, ` +
+            `${result.itemsProcessed} proposal(s) generated, success=${result.success}.`);
+    }
+    catch (err) {
+        console.error('[AutonomousOrchestrator] AG-38 self-improvement pipeline failed:', errMsg(err));
+    }
 }
 function requireString(payload, key) {
     const value = payload?.[key];
@@ -579,6 +779,15 @@ async function routeQueueItem(supabase, item) {
             const { sendMorningDigest } = await import('../src/lib/agents/morning-digest.js');
             await sendMorningDigest(orgId, supabase);
             return 'morning_digest completed';
+        }
+        case 'ag-28-followup': {
+            // AG-28, src/lib/agents/followup-generator-agent.ts - event-driven off
+            // a pipeline stage transition (/api/autonomous/followup-trigger).
+            // Distinct from the 'follow_up_generator' case above.
+            const { FollowupGeneratorAgent } = await import('../src/lib/agents/followup-generator-agent.js');
+            const agent = new FollowupGeneratorAgent(orgId, supabase);
+            const result = await agent.run('event');
+            return `ag-28-followup completed (itemsQueued=${result.itemsQueued})`;
         }
         default:
             throw new Error(`Unknown agent_queue agent_id: "${item.agent_id}".`);

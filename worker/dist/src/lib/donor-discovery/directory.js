@@ -4,7 +4,7 @@ exports.normalizeDomain = normalizeDomain;
 exports.parseGeo = parseGeo;
 exports.upsertDirectoryRecord = upsertDirectoryRecord;
 exports.findOrCreateProspect = findOrCreateProspect;
-const admin_1 = require("../../lib/supabase/admin");
+const admin_1 = require("@/lib/supabase/admin");
 /**
  * Donor Discovery shared directory (DONOR_DISCOVERY_ARCHITECTURE.md §3
  * "compounding moat"). This is the module every acquisition adapter and the

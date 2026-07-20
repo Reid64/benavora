@@ -3,8 +3,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.SamGovError = void 0;
 exports.searchEntitiesByNaics = searchEntitiesByNaics;
 exports.searchRecentAwardRecipients = searchRecentAwardRecipients;
-const crawler_core_1 = require("../../../lib/donor-discovery/crawler-core");
-const directory_1 = require("../../../lib/donor-discovery/directory");
+const crawler_core_1 = require("@/lib/donor-discovery/crawler-core");
+const directory_1 = require("@/lib/donor-discovery/directory");
 /**
  * SAM.gov registry adapter (DONOR_DISCOVERY_ARCHITECTURE.md §2A "Registry
  * layer"). Two independent lookups against the same platform-managed key:

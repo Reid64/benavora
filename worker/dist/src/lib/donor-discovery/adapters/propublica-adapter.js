@@ -3,8 +3,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ProPublicaError = void 0;
 exports.searchOrganizations = searchOrganizations;
 exports.enrichOrganizationByEin = enrichOrganizationByEin;
-const admin_1 = require("../../../lib/supabase/admin");
-const crawler_core_1 = require("../../../lib/donor-discovery/crawler-core");
+const admin_1 = require("@/lib/supabase/admin");
+const crawler_core_1 = require("@/lib/donor-discovery/crawler-core");
 /**
  * ProPublica Nonprofit Explorer adapter (DONOR_DISCOVERY_ARCHITECTURE.md §2C
  * "Signal layer", BEHAVIORAL_CONTRACTS.md §19). Free, no API key.

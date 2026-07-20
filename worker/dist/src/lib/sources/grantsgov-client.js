@@ -7,7 +7,7 @@
 // Callers (route handlers, worker jobs) own persistence and dedup.
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.searchGrantsGovOpportunities = searchGrantsGovOpportunities;
-const formatters_1 = require("../../lib/utils/formatters");
+const formatters_1 = require("@/lib/utils/formatters");
 const GRANTS_GOV_SEARCH_URL = "https://api.grants.gov/grantsws/rest/opportunities/search/v2";
 const DEFAULT_ROWS = 100;
 function toStr(val) {

@@ -3,8 +3,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildCandidateFoundationNames = buildCandidateFoundationNames;
 exports.findLinkedFoundation = findLinkedFoundation;
 exports.linkFoundationForDirectoryRecord = linkFoundationForDirectoryRecord;
-const admin_1 = require("../../lib/supabase/admin");
-const directory_1 = require("../../lib/donor-discovery/directory");
+const admin_1 = require("@/lib/supabase/admin");
+const directory_1 = require("@/lib/donor-discovery/directory");
 /**
  * Corporate foundation linkage (DONOR_DISCOVERY_ARCHITECTURE.md §2C "Signal
  * layer" — "IRS 990/BMF (already ingested): corporate foundation linkage by

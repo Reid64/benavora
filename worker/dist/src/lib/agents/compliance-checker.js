@@ -15,8 +15,8 @@
 // findings inform the reviewer without silently blocking submission.
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ComplianceChecker = void 0;
-const claude_1 = require("../../lib/ai/claude");
-const base_agent_1 = require("../../lib/agents/base-agent");
+const claude_1 = require("@/lib/ai/claude");
+const base_agent_1 = require("@/lib/agents/base-agent");
 class ComplianceChecker extends base_agent_1.BaseAgent {
     agentType = "compliance_check";
     model;

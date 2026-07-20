@@ -11,8 +11,10 @@
 // runOpportunityDiscovery/sendMorningDigest: no agent_type enum value yet,
 // nothing to log to agent_runs.
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.ReputationIntelligenceAgent = void 0;
 exports.checkEntityReputation = checkEntityReputation;
-const claude_1 = require("../../lib/ai/claude");
+const autonomous_base_1 = require("@/lib/agents/autonomous-base");
+const claude_1 = require("@/lib/ai/claude");
 const DUCKDUCKGO_URL = "https://api.duckduckgo.com/";
 const SEARCH_SUFFIX = "lawsuit fraud scandal leadership change";
 // Claude classification is the expensive step — cap how many DuckDuckGo
@@ -202,3 +204,162 @@ async function checkEntityReputation(entityId, entityType, entityName, supabase)
     }
     return inserted;
 }
+/**
+ * Maps the five-value ReputationSeverity already produced by Claude's
+ * classification (see buildClassificationPrompt above) onto the four
+ * decision/alert tiers this agent acts on. "positive" carries no risk, so
+ * it folds into LOW alongside "low" rather than getting a fifth bucket.
+ */
+function toSeverityLevel(severity) {
+    switch (severity) {
+        case "critical":
+            return "CRITICAL";
+        case "high":
+            return "HIGH";
+        case "medium":
+            return "MEDIUM";
+        default:
+            return "LOW";
+    }
+}
+class ReputationIntelligenceAgent extends autonomous_base_1.AutonomousAgent {
+    constructor(orgId, supabase) {
+        super(orgId, "ag-18-reputation", supabase);
+    }
+    async run(triggerSource) {
+        const runId = await this.startRun(triggerSource);
+        const errors = [];
+        const decisions = [];
+        let signalsFound = 0;
+        let critical = 0;
+        let high = 0;
+        let medium = 0;
+        let low = 0;
+        let alertsCreated = 0;
+        let memoryEntriesCreated = 0;
+        try {
+            const { data: funderRows, error: fundersError } = await this.supabase
+                .from("funders")
+                .select("id, name")
+                .eq("organization_id", this.orgId);
+            if (fundersError) {
+                throw new Error(`Failed to load funders: ${fundersError.message}`);
+            }
+            const funders = (funderRows ?? []);
+            const today = new Date().toISOString().slice(0, 10);
+            for (const funder of funders) {
+                let signals;
+                try {
+                    signals = (await checkEntityReputation(funder.id, "funder", funder.name, this.supabase));
+                }
+                catch (err) {
+                    const message = err instanceof Error ? err.message : "Reputation check failed.";
+                    errors.push(`funder ${funder.id}: ${message}`);
+                    continue;
+                }
+                for (const signal of signals) {
+                    signalsFound++;
+                    const severity = toSeverityLevel(signal.severity);
+                    if (severity === "CRITICAL")
+                        critical++;
+                    else if (severity === "HIGH")
+                        high++;
+                    else if (severity === "MEDIUM")
+                        medium++;
+                    else
+                        low++;
+                    const signalSummary = signal.summary || signal.headline;
+                    const { data: alertRow, error: alertError } = await this.supabase
+                        .from("reputation_alerts")
+                        .insert({
+                        org_id: this.orgId,
+                        signal_id: signal.id,
+                        status: "unread",
+                    })
+                        .select("id")
+                        .single();
+                    if (alertError || !alertRow) {
+                        errors.push(`Failed to create reputation alert for signal ${signal.id}: ` +
+                            `${alertError?.message ?? "no row returned"}`);
+                        continue;
+                    }
+                    const alertId = alertRow.id;
+                    alertsCreated++;
+                    const decisionId = await this.logDecision({
+                        decisionType: "reputation_signal_detected",
+                        agentRunId: runId,
+                        entityType: "funder",
+                        entityId: funder.id,
+                        reasoning: `Signal for ${funder.name}: ${signalSummary}. ` +
+                            `Severity: ${severity}.`,
+                        confidenceScore: 75,
+                        actionTaken: "created_reputation_alert",
+                        requiredHumanReview: severity === "CRITICAL" || severity === "HIGH",
+                    });
+                    decisions.push(decisionId);
+                    if (severity === "CRITICAL") {
+                        await this.createNotification("reputation_critical", "URGENT: Critical funder signal detected", `${funder.name}: ${signalSummary}`, { funderId: funder.id, severity, alertId });
+                    }
+                    if (severity === "HIGH" || severity === "CRITICAL") {
+                        const { error: memoryError } = await this.supabase
+                            .from("relationship_memory")
+                            .insert({
+                            org_id: this.orgId,
+                            entity_id: funder.id,
+                            entity_type: "funder",
+                            memory_type: "press",
+                            content: signalSummary,
+                            signal_date: today,
+                        });
+                        if (memoryError) {
+                            errors.push(`Failed to record relationship memory for funder ` +
+                                `${funder.id}: ${memoryError.message}`);
+                        }
+                        else {
+                            memoryEntriesCreated++;
+                        }
+                    }
+                }
+            }
+            await this.completeRun(runId, {
+                outputSummary: JSON.stringify({
+                    signalsFound,
+                    critical,
+                    high,
+                    medium,
+                    low,
+                    alertsCreated,
+                    memoryEntriesCreated,
+                }),
+                itemsFound: funders.length,
+                itemsProcessed: signalsFound,
+                itemsQueued: alertsCreated,
+            });
+            return {
+                success: true,
+                itemsFound: funders.length,
+                itemsProcessed: signalsFound,
+                itemsQueued: alertsCreated,
+                decisions,
+                nextActions: [],
+                errors,
+            };
+        }
+        catch (err) {
+            const message = err instanceof Error
+                ? err.message
+                : "Reputation intelligence run failed.";
+            await this.failRun(runId, message);
+            return {
+                success: false,
+                itemsFound: 0,
+                itemsProcessed: signalsFound,
+                itemsQueued: alertsCreated,
+                decisions,
+                nextActions: [],
+                errors: [...errors, message],
+            };
+        }
+    }
+}
+exports.ReputationIntelligenceAgent = ReputationIntelligenceAgent;

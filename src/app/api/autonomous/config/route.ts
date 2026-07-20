@@ -28,6 +28,8 @@ const DEFAULT_CONFIG = {
   auto_relationship_enabled: false,
   auto_deadline_prediction_enabled: false,
   auto_followup_enabled: false,
+  auto_autoapply_enabled: false,
+  max_nightly_autoapply_submissions: 50,
   notify_on_auto_draft: true,
   notify_on_high_score: true,
   notify_digest_time: "07:00",
@@ -42,6 +44,7 @@ const BOOLEAN_FIELDS = [
   "auto_relationship_enabled",
   "auto_deadline_prediction_enabled",
   "auto_followup_enabled",
+  "auto_autoapply_enabled",
   "notify_on_auto_draft",
   "notify_on_high_score",
 ] as const;
@@ -57,6 +60,7 @@ export async function GET() {
       "auto_research_enabled, auto_score_enabled, auto_draft_enabled, " +
         "auto_draft_threshold, auto_reputation_enabled, auto_relationship_enabled, " +
         "auto_deadline_prediction_enabled, auto_followup_enabled, " +
+        "auto_autoapply_enabled, max_nightly_autoapply_submissions, " +
         "notify_on_auto_draft, notify_on_high_score, notify_digest_time, " +
         "max_auto_drafts_per_night",
     )
@@ -127,6 +131,23 @@ export async function PATCH(request: Request) {
     patch.max_auto_drafts_per_night = max;
   }
 
+  if ("max_nightly_autoapply_submissions" in input) {
+    const max = input.max_nightly_autoapply_submissions;
+    if (
+      typeof max !== "number" ||
+      !Number.isFinite(max) ||
+      max < 10 ||
+      max > 400
+    ) {
+      return jsonError(
+        "max_nightly_autoapply_submissions must be a number between 10 and 400.",
+        "invalid_input",
+        400,
+      );
+    }
+    patch.max_nightly_autoapply_submissions = max;
+  }
+
   if ("notify_digest_time" in input) {
     if (typeof input.notify_digest_time !== "string") {
       return jsonError(
@@ -152,6 +173,7 @@ export async function PATCH(request: Request) {
       "auto_research_enabled, auto_score_enabled, auto_draft_enabled, " +
         "auto_draft_threshold, auto_reputation_enabled, auto_relationship_enabled, " +
         "auto_deadline_prediction_enabled, auto_followup_enabled, " +
+        "auto_autoapply_enabled, max_nightly_autoapply_submissions, " +
         "notify_on_auto_draft, notify_on_high_score, notify_digest_time, " +
         "max_auto_drafts_per_night",
     )

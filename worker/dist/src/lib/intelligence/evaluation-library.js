@@ -5,7 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.EvaluationLibrary = void 0;
 const sdk_1 = __importDefault(require("@anthropic-ai/sdk"));
-const server_1 = require("../../lib/supabase/server");
+const server_1 = require("@/lib/supabase/server");
 const evaluation_templates_1 = require("./data/evaluation-templates");
 let anthropicClient = null;
 function getClient() {

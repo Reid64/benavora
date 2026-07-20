@@ -3,9 +3,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.DdBudgetExceededError = void 0;
 exports.normalizePlace = normalizePlace;
 exports.enumerate = enumerate;
-const admin_1 = require("../../../lib/supabase/admin");
-const env_1 = require("../../../lib/env");
-const directory_1 = require("../../../lib/donor-discovery/directory");
+const admin_1 = require("@/lib/supabase/admin");
+const env_1 = require("@/lib/env");
+const directory_1 = require("@/lib/donor-discovery/directory");
 /**
  * Google Places registry adapter (DONOR_DISCOVERY_ARCHITECTURE.md §2A).
  *

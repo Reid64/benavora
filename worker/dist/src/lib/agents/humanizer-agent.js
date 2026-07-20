@@ -39,8 +39,8 @@ exports.analyzeHumanization = analyzeHumanization;
 exports.computeHumanizationScore = computeHumanizationScore;
 exports.buildHumanizerPrompt = buildHumanizerPrompt;
 exports.runHumanizer = runHumanizer;
-const claude_1 = require("../../lib/ai/claude");
-const formatters_1 = require("../../lib/utils/formatters");
+const claude_1 = require("@/lib/ai/claude");
+const formatters_1 = require("@/lib/utils/formatters");
 // ---------------------------------------------------------------------------
 // Banned vocabulary (the task's "AI vocabulary" list).
 // ---------------------------------------------------------------------------

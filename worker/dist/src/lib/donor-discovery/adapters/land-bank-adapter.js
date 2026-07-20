@@ -4,8 +4,8 @@ exports.LandBankDirectoryError = void 0;
 exports.parseLandBankDirectory = parseLandBankDirectory;
 exports.fetchLandBankDirectory = fetchLandBankDirectory;
 const node_html_parser_1 = require("node-html-parser");
-const crawler_core_1 = require("../../../lib/donor-discovery/crawler-core");
-const directory_1 = require("../../../lib/donor-discovery/directory");
+const crawler_core_1 = require("@/lib/donor-discovery/crawler-core");
+const directory_1 = require("@/lib/donor-discovery/directory");
 /**
  * Center for Community Progress land bank directory adapter
  * (DONOR_DISCOVERY_ARCHITECTURE.md §1B "civic entity types" — land banks —
