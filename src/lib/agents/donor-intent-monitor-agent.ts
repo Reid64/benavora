@@ -1,55 +1,78 @@
 // AG-30 Donor Intent Monitor Agent (AutonomousAgent, migration 093:
 // corporate_intent_signals). Phase 2 per AUTONOMOUS_PLATFORM_VISION.md
 // section "AI Donor Intent Engine" and AGENTS_v2.md's Phase 2-5 spec section
-// ("AG-30: Donor Intent Monitor").
+// ("AG-30: Donor Intent Monitor"). Enterprise-hardening rewrite: deterministic
+// geographic scoring, weighted multi-factor intent scoring, per-prospect
+// 3-query web search, 60-day update-on-conflict dedup, urgent alerting.
 //
 // Numbering note: AUTONOMOUS_PLATFORM_VISION.md itself numbers this feature
 // AG-31 ("New AG-31 (Donor Intent Agent)"), while AGENTS_v2.md's Phase 2-5
 // addendum (the doc this build task was scoped from) calls it AG-30 - the two
 // governance docs disagree and both flag it as a known mismatch rather than
-// an accident (see AGENTS_v2.md section 1.4 and its Phase 2-5 numbering
-// table). This agent's agentId ("ag-30-donor-intent") is deliberately
-// suffixed, matching the precedent set by fundability-scorer-agent.ts
-// ("ag-29-fundability") and community-need-predictor-agent.ts
-// ("ag-35-community-need"), so its agent_type enum value can never collide
-// with a future literal "ag-30"/"ag-31" build either way.
+// an accident (see AGENTS_v2.md section 1.4). This agent's agentId
+// ("ag-30-donor-intent") is deliberately suffixed, matching the precedent set
+// by fundability-scorer-agent.ts ("ag-29-fundability") and
+// community-need-predictor-agent.ts ("ag-35-community-need"), so its
+// agent_type enum value can never collide with a future literal
+// "ag-30"/"ag-31" build either way.
 //
-// Purpose: continuously monitors press releases, ESG/CSR reports, SEC
-// filings, hiring trends, facility expansions, and disaster declarations for
-// corporate prospects and scores the probability (0-100) that each announces
-// a giving initiative in the next 30-90 days - moving Reputation Intelligence
-// (AG-18) and the Relationship Builder concept (AG-19) from reactive
-// (detecting a scandal after it's public) to predictive.
+// Deviations from this build task's literal spec, required because the task
+// named tables/columns that don't exist in the live schema (see project
+// memory `benavora-task-migration-specs-collide`) - each is a deliberate,
+// reasoned substitution, not a silent gap:
 //
-// Per-org scope: like every other Generation-2 agent (fundability-scorer-
-// agent.ts, community-need-predictor-agent.ts), this class operates on
-// `this.orgId` only. AutonomousAgent's constructor requires a single orgId,
-// so the "for each active org" framing in this feature's own build task is a
-// future worker/autonomous-orchestrator.ts registration concern, not
-// something this class does itself - wiring that registration is out of
-// scope here.
+//   1. "supabase.from('notifications').insert(...)" - there is no
+//      `notifications` table anywhere in this schema (verified against every
+//      migration under src/supabase/migrations/). autonomous-base.ts's own
+//      header documents this explicitly: all in-app notices live in `alerts`
+//      via createNotification(). Writing to a nonexistent table would throw
+//      at runtime on every high-intent signal - the opposite of hardening.
+//      `alerts` has no `priority` column either; its equivalent is
+//      `severity` (info/warning/error/success) - urgent signals use
+//      "warning", the closest real value to "needs attention now" without
+//      implying the platform itself is broken (which "error" would).
+//   2. "knowledge_base_profiles.geographic_data" - no such table exists.
+//      Org geography lives on `organizations` (city, state, service_area,
+//      service_areas[]) per SCHEMA_REGISTRY_v2.md - used directly below.
+//   3. "Extract NTEE code from organizations table" - `organizations` has no
+//      ntee_code column (NTEE classification lives on `foundation_directory`,
+//      a different entity). Substitutes the org fields
+//      fundability-scorer-agent.ts and this file's prior version already
+//      established as the real available mission-fit signal: tax_status,
+//      mission_statement, service_area, target_population.
+//   4. "Compare against signal content using Claude classification call" -
+//      implemented as a field in the same grounded web-search call rather
+//      than a separate round-trip. Claude already has the org's mission
+//      fields, the prospect's industry/NAICS data, and the live search
+//      results in one turn; a 4th sequential Claude call per prospect would
+//      re-send the same context for a classification it can already produce
+//      inline, tripling token spend for no accuracy gain.
 //
-// corporate_prospects has no organization_id column - it is a shared pool
-// across all orgs (see relationship-graph-builder-agent.ts's identical note
-// and project memory `benavora-corporate-prospects-no-org-id`). This agent
-// reads from that shared pool without ever writing to it.
+// Web search: every prospect gets exactly 3 targeted, independently-issued
+// searches (CSR/giving, ESG/community-investment, press-release/foundation),
+// each forced via callClaudeWithWebSearch's maxSearches:1 so the search
+// actually fires rather than being left to model discretion. Block-array
+// parsing ("never assume content[0] is text") happens inside
+// callClaudeWithWebSearch (src/lib/ai/claude.ts) via `.filter(block =>
+// block.type === "text")` over the full content array - every other
+// web-search-grounded agent in this codebase (community-need-predictor-agent,
+// fundability-scorer-agent) goes through that same helper, and no agent file
+// constructs the Anthropic SDK client directly (verified: no
+// `@anthropic-ai/sdk` import anywhere under src/lib/agents/ except
+// src/lib/ai/claude.ts itself). Duplicating client/key bootstrap in this file
+// would break that convention for no benefit.
 //
-// NTEE deviation: the build task asked this agent to load "org ... NTEE
-// category," but `organizations` (SCHEMA_REGISTRY_v2.md §Tables - Core
-// Tenant) has no ntee_code column - NTEE classification lives on
-// `foundation_directory`, a different entity than the org itself. This agent
-// substitutes the org fields fundability-scorer-agent.ts already established
-// as the real available profile signal (tax_status, mission_statement,
-// service_area, target_population) rather than inventing a column.
+// Grounding: a query call that never actually issues a web_search
+// (usedWebSearch=false) has its output discarded outright - a model turn
+// that didn't search never gets persisted as if it had (CLAUDE.md Iron Law
+// #8 / #3).
 //
-// Grounding: signal facts (summary, url, date) must come from a real
-// web_search result - callClaudeWithWebSearch's usedWebSearch flag gates
-// every prospect the same way community-need-predictor-agent.ts gates its
-// own run, so a model turn that never actually searched never gets persisted
-// as if it had (CLAUDE.md Iron Law #8 / #3). geographic_relevance and
-// mission_alignment are the model's numeric judgment over facts already on
-// hand (org profile + prospect record), not a claim about external reality,
-// matching the pattern fundability-scorer-agent.ts uses for its own scores.
+// Geographic relevance is computed deterministically from real address data
+// (org city/state/service_areas vs corporate_prospects.address_city/
+// address_state via a static US state-adjacency table), not asked of the
+// model - this is exactly the "compare city/state" instruction in this
+// task's own spec, and a structured comparison is strictly more reliable
+// than an LLM guess at geographic proximity.
 //
 // Hard limits (AUTONOMOUS_HARD_LIMITS, AGENTS_v2.md AG-30 spec): never
 // asserts intent as fact - every inserted row carries its signal_url/
@@ -59,7 +82,7 @@
 // AG-24; a "Predicted Intent" signal is a badge for a human, never a trigger.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { addDays, addHours, format, subDays } from "date-fns";
+import { addDays, addHours, differenceInCalendarDays, format, subDays } from "date-fns";
 
 import {
   AutonomousAgent,
@@ -92,31 +115,108 @@ const SIGNAL_TYPES: SignalType[] = [
   "executive_interview",
 ];
 
-/** Base weight per signal type, per this feature's own build task. The task
- * only specified weights for six of the nine signal_type CHECK values
- * (facility_expansion, disaster_declaration, csr_announcement, esg_report,
- * hiring_trend, press_release); sec_filing/foundation_appointment/
- * executive_interview are reasoned defaults slotted between the given
- * anchors by relative strength as a leading indicator, not fabricated. */
-const SIGNAL_TYPE_WEIGHTS: Record<SignalType, number> = {
+/** Base weight per signal type. Six of nine are exact values from this
+ * feature's build task (facility_expansion, disaster_declaration,
+ * csr_announcement, esg_report, hiring_trend, press_release); sec_filing/
+ * foundation_appointment/executive_interview are reasoned defaults slotted
+ * between the given anchors by relative predictive strength, matching the
+ * precedent this file already set for the un-specified three. */
+const SIGNAL_TYPE_BASE_SCORE: Record<SignalType, number> = {
   facility_expansion: 90,
   disaster_declaration: 85,
   foundation_appointment: 75,
   csr_announcement: 80,
   esg_report: 70,
-  sec_filing: 65,
-  hiring_trend: 60,
+  sec_filing: 60,
+  hiring_trend: 65,
   executive_interview: 55,
   press_release: 50,
 };
 
+/** One concrete, signal-type-specific approach clause for the >=80
+ * recommended_action template (build task requirement 5: "Recommended
+ * approach: [specific to signal type]"). */
+const SIGNAL_TYPE_APPROACH: Record<SignalType, string> = {
+  facility_expansion:
+    "reference their new or expanding facility and request a site-based partnership meeting",
+  disaster_declaration:
+    "submit a disaster-relief partnership request citing the active declaration",
+  csr_announcement:
+    "respond directly to their announced CSR initiative with an aligned funding request",
+  esg_report:
+    "cite their published ESG community-investment commitments in your outreach",
+  hiring_trend:
+    "highlight shared community-impact priorities when reaching out to their newly hired sustainability/community roles",
+  press_release: "reference the press release directly in your introduction",
+  sec_filing: "cite the filing's community-investment disclosure in your outreach",
+  foundation_appointment: "reach out to the newly appointed foundation/CSR lead directly",
+  executive_interview: "reference the executive's stated giving priorities from the interview",
+};
+
+/** Static US state-adjacency table (48 contiguous states + DC; AK/HI have no
+ * land borders). Used only for the deterministic geographic_relevance_factor
+ * below - a fixed geographic fact, not a live-fetched or model-guessed value. */
+const STATE_ADJACENCY: Record<string, string[]> = {
+  AL: ["GA", "FL", "MS", "TN"],
+  AK: [],
+  AZ: ["CA", "NV", "UT", "CO", "NM"],
+  AR: ["MO", "TN", "MS", "LA", "TX", "OK"],
+  CA: ["OR", "NV", "AZ"],
+  CO: ["WY", "NE", "KS", "OK", "NM", "AZ", "UT"],
+  CT: ["NY", "MA", "RI"],
+  DE: ["MD", "PA", "NJ"],
+  FL: ["AL", "GA"],
+  GA: ["FL", "AL", "TN", "NC", "SC"],
+  HI: [],
+  ID: ["MT", "WY", "UT", "NV", "OR", "WA"],
+  IL: ["IN", "KY", "MO", "IA", "WI"],
+  IN: ["MI", "OH", "KY", "IL"],
+  IA: ["MN", "WI", "IL", "MO", "NE", "SD"],
+  KS: ["NE", "MO", "OK", "CO"],
+  KY: ["IN", "OH", "WV", "VA", "TN", "MO", "IL"],
+  LA: ["TX", "AR", "MS"],
+  ME: ["NH"],
+  MD: ["VA", "WV", "PA", "DE", "DC"],
+  MA: ["RI", "CT", "NY", "NH", "VT"],
+  MI: ["OH", "IN", "WI"],
+  MN: ["WI", "IA", "SD", "ND"],
+  MS: ["LA", "AR", "TN", "AL"],
+  MO: ["IA", "IL", "KY", "TN", "AR", "OK", "KS", "NE"],
+  MT: ["ND", "SD", "WY", "ID"],
+  NE: ["SD", "IA", "MO", "KS", "CO", "WY"],
+  NV: ["CA", "OR", "ID", "UT", "AZ"],
+  NH: ["ME", "MA", "VT"],
+  NJ: ["NY", "PA", "DE"],
+  NM: ["AZ", "UT", "CO", "OK", "TX"],
+  NY: ["NJ", "PA", "CT", "MA", "VT"],
+  NC: ["VA", "TN", "GA", "SC"],
+  ND: ["MN", "SD", "MT"],
+  OH: ["MI", "PA", "WV", "KY", "IN"],
+  OK: ["KS", "MO", "AR", "TX", "NM", "CO"],
+  OR: ["WA", "ID", "NV", "CA"],
+  PA: ["NY", "NJ", "DE", "MD", "WV", "OH"],
+  RI: ["CT", "MA"],
+  SC: ["NC", "GA"],
+  SD: ["ND", "MN", "IA", "NE", "WY", "MT"],
+  TN: ["KY", "VA", "NC", "GA", "AL", "MS", "AR", "MO"],
+  TX: ["NM", "OK", "AR", "LA"],
+  UT: ["ID", "WY", "CO", "NM", "AZ", "NV"],
+  VT: ["NY", "NH", "MA"],
+  VA: ["NC", "TN", "KY", "WV", "MD", "DC"],
+  WA: ["ID", "OR"],
+  WV: ["OH", "PA", "MD", "VA", "KY"],
+  WI: ["MI", "MN", "IA", "IL"],
+  WY: ["MT", "ND", "SD", "NE", "CO", "UT", "ID"],
+  DC: ["MD", "VA"],
+};
+
 const INTENT_SCORE_THRESHOLD = 60;
 const HIGH_INTENT_THRESHOLD = 80;
-const MAX_PROSPECTS_PER_RUN = 6;
+const NOTIFY_GEO_THRESHOLD = 70; // 0.7 on this task's 0-1 scale == 70 on the stored 0-100 column
+const MAX_PROSPECTS_PER_RUN = 5;
 const MAX_SIGNALS_PER_PROSPECT = 3;
-const MAX_TOKENS = 1400;
-const MAX_SEARCHES_PER_PROSPECT = 4;
-const DEDUP_WINDOW_DAYS = 14;
+const MAX_TOKENS = 900;
+const DEDUP_WINDOW_DAYS = 60;
 
 interface OrgProfile {
   id: string;
@@ -124,6 +224,7 @@ interface OrgProfile {
   tax_status: string | null;
   mission_statement: string | null;
   service_area: string | null;
+  service_areas: string[] | null;
   target_population: string | null;
   city: string | null;
   state: string | null;
@@ -144,9 +245,7 @@ interface RawSignal {
   signal_summary?: string;
   signal_url?: string;
   signal_date?: string;
-  geographic_relevance?: number;
   mission_alignment?: number;
-  recommended_action?: string;
 }
 
 interface ValidatedSignal {
@@ -154,9 +253,7 @@ interface ValidatedSignal {
   signal_summary: string;
   signal_url: string | null;
   signal_date: string | null;
-  geographic_relevance: number;
-  mission_alignment: number;
-  recommended_action: string | null;
+  mission_alignment: number; // 0-100, Claude's classification judgment
 }
 
 function clamp0to100(value: unknown, fallback: number): number {
@@ -172,8 +269,7 @@ function isValidDate(value: string): boolean {
 /** Validates one of Claude's raw signal objects against
  * corporate_intent_signals' CHECK constraints (migration 093). An invalid
  * signal_type or missing summary is rejected outright rather than inserted
- * and left for a downstream reader to reconcile, mirroring
- * community-need-predictor-agent.ts's validateSignal(). */
+ * and left for a downstream reader to reconcile. */
 function validateSignal(raw: RawSignal): ValidatedSignal | null {
   if (!raw.signal_type || !SIGNAL_TYPES.includes(raw.signal_type as SignalType)) {
     return null;
@@ -188,47 +284,13 @@ function validateSignal(raw: RawSignal): ValidatedSignal | null {
   return {
     signal_type: raw.signal_type as SignalType,
     signal_summary: raw.signal_summary,
-    signal_url: typeof raw.signal_url === "string" && raw.signal_url.trim() !== "" ? raw.signal_url : null,
-    signal_date,
-    geographic_relevance: clamp0to100(raw.geographic_relevance, 50),
-    mission_alignment: clamp0to100(raw.mission_alignment, 50),
-    recommended_action:
-      typeof raw.recommended_action === "string" && raw.recommended_action.trim() !== ""
-        ? raw.recommended_action
+    signal_url:
+      typeof raw.signal_url === "string" && raw.signal_url.trim() !== ""
+        ? raw.signal_url
         : null,
+    signal_date,
+    mission_alignment: clamp0to100(raw.mission_alignment, 50),
   };
-}
-
-/** Recency decay: a signal found via live search is worth less the older its
- * underlying event is, since "will they announce in the next 30-90 days" is
- * inherently a near-term prediction. No date found is treated as neutral
- * rather than penalized, since the search may simply not have surfaced one. */
-function recencyScore(signalDate: string | null): number {
-  if (!signalDate) return 50;
-  const days = Math.floor(
-    (Date.now() - new Date(signalDate).getTime()) / (1000 * 60 * 60 * 24),
-  );
-  if (days < 0) return 50;
-  if (days <= 30) return 100;
-  if (days <= 90) return 70;
-  if (days <= 180) return 40;
-  return 15;
-}
-
-/** Deterministic composite score: signal-type strength is the dominant
- * factor (this is fundamentally about what kind of event predicts giving
- * intent), with geographic/mission fit and recency as modifiers. Kept
- * deterministic rather than asked of Claude directly so the same inputs
- * always produce the same score and the formula stays auditable. */
-function computeIntentScore(signal: ValidatedSignal): number {
-  const typeWeight = SIGNAL_TYPE_WEIGHTS[signal.signal_type];
-  const recency = recencyScore(signal.signal_date);
-  const score =
-    0.45 * typeWeight +
-    0.2 * signal.geographic_relevance +
-    0.2 * signal.mission_alignment +
-    0.15 * recency;
-  return clamp0to100(score, 0);
 }
 
 function extractJsonArray(text: string): RawSignal[] {
@@ -244,6 +306,98 @@ function extractJsonArray(text: string): RawSignal[] {
   }
 }
 
+/** Deterministic geographic_relevance_factor (build task requirement 3):
+ * same_city=1.0, same_state=0.7, adjacent_state=0.4, national=0.2. Also
+ * treats an explicit match in organizations.service_areas as same_state-
+ * equivalent, since an org's declared service footprint can extend beyond
+ * its own mailing address (e.g. a Texas org whose service_areas also lists
+ * "OK"). Insufficient address data on either side falls back to the
+ * national floor rather than guessing. */
+function geographicRelevanceFactor(org: OrgProfile, prospect: ProspectRow): number {
+  const orgState = org.state?.trim().toUpperCase() || null;
+  const orgCity = org.city?.trim().toLowerCase() || null;
+  const prospectState = prospect.address_state?.trim().toUpperCase() || null;
+  const prospectCity = prospect.address_city?.trim().toLowerCase() || null;
+
+  if (!prospectState) return 0.2;
+
+  if (orgState && prospectState === orgState) {
+    if (orgCity && prospectCity && orgCity === prospectCity) return 1.0;
+    return 0.7;
+  }
+
+  const serviceAreaMatch = (org.service_areas ?? []).some(
+    (area) => area.trim().toUpperCase() === prospectState,
+  );
+  if (serviceAreaMatch) return 0.7;
+
+  if (orgState && (STATE_ADJACENCY[orgState] ?? []).includes(prospectState)) {
+    return 0.4;
+  }
+
+  return 0.2;
+}
+
+/** Composite intent score. Base implements the exact per-type multipliers
+ * from this task's spec (facility_expansion's geographic_match_multiplier,
+ * disaster_declaration's recency_multiplier, esg_report's mission_match
+ * proxy - see file header deviation #3 on why mission_match uses the
+ * Claude-classified mission_alignment rather than an NTEE lookup that
+ * doesn't exist), then applies:
+ *   intent_score = min(100, round(effective_base * geo_factor * mission_factor))
+ * exactly as specified. */
+function computeIntentScore(
+  signalType: SignalType,
+  geoFactor: number,
+  missionFactor: number,
+  signalDate: string | null,
+): number {
+  const base = SIGNAL_TYPE_BASE_SCORE[signalType];
+  let effectiveBase = base;
+
+  if (signalType === "facility_expansion") {
+    effectiveBase = geoFactor >= 0.7 ? base * 1.3 : base;
+  } else if (signalType === "disaster_declaration") {
+    const daysSince = signalDate
+      ? differenceInCalendarDays(new Date(), new Date(signalDate))
+      : null;
+    const recencyMultiplier =
+      daysSince === null || daysSince < 0
+        ? 1.0
+        : daysSince <= 30
+          ? 1.5
+          : daysSince <= 90
+            ? 1.2
+            : 1.0;
+    effectiveBase = base * recencyMultiplier;
+  } else if (signalType === "esg_report") {
+    effectiveBase = base * (0.8 + 0.4 * missionFactor);
+  }
+
+  const raw = effectiveBase * geoFactor * missionFactor;
+  return Math.max(0, Math.min(100, Math.round(raw)));
+}
+
+function buildRecommendedAction(
+  companyName: string,
+  intentScore: number,
+  signalType: SignalType,
+): string {
+  if (intentScore >= HIGH_INTENT_THRESHOLD) {
+    return (
+      `Schedule introduction within 48 hours. ${companyName} signal indicates ` +
+      `active giving window. Recommended approach: ${SIGNAL_TYPE_APPROACH[signalType]}.`
+    );
+  }
+  return "Monitor and prepare proposal. Target submission in 30 days.";
+}
+
+const SEARCH_QUERY_TEMPLATES: Array<(company: string) => string> = [
+  (company) => `${company} CSR donations giving 2025 2026`,
+  (company) => `${company} ESG report community investment`,
+  (company) => `${company} press release grant foundation`,
+];
+
 export class DonorIntentMonitorAgent extends AutonomousAgent {
   constructor(orgId: string, supabase: SupabaseClient) {
     super(orgId, "ag-30-donor-intent", supabase);
@@ -253,17 +407,17 @@ export class DonorIntentMonitorAgent extends AutonomousAgent {
     const { data } = await this.supabase
       .from("organizations")
       .select(
-        "id, name, tax_status, mission_statement, service_area, target_population, city, state",
+        "id, name, tax_status, mission_statement, service_area, service_areas, target_population, city, state",
       )
       .eq("id", this.orgId)
       .maybeSingle();
     return (data ?? null) as OrgProfile | null;
   }
 
-  /** corporate_prospects is a shared, non-org-scoped pool (see file header).
-   * Prefer prospects in the org's own state when known so geographic_relevance
-   * has a real anchor; fall back to the most recently added prospects
-   * overall when the org has no state on file. */
+  /** corporate_prospects is a shared, non-org-scoped pool (project memory
+   * `benavora-corporate-prospects-no-org-id`). Prefer prospects in the org's
+   * own state when known so geographic scoring has a real anchor; fall back
+   * to the most recently added prospects overall otherwise. */
   private async loadProspects(org: OrgProfile): Promise<ProspectRow[]> {
     const baseSelect =
       "id, legal_name, website, address_city, address_state, naics_description, industry_category";
@@ -291,33 +445,44 @@ export class DonorIntentMonitorAgent extends AutonomousAgent {
     return (data ?? []) as ProspectRow[];
   }
 
-  /** Skips a prospect this org has already scored in the dedup window rather
-   * than re-inserting the same intent signal on every run. */
-  private async recentlyScored(companyName: string): Promise<boolean> {
+  /** Dedup key is (org_id, company_name, signal_type) within a 60-day
+   * window (build task requirement 6). corporate_intent_signals has no
+   * unique constraint on that tuple (migration 093 predates this
+   * requirement), so this is an explicit select-then-write rather than a
+   * database-level upsert. */
+  private async findExistingSignal(
+    companyName: string,
+    signalType: SignalType,
+  ): Promise<string | null> {
     const since = subDays(new Date(), DEDUP_WINDOW_DAYS).toISOString();
     const { data } = await this.supabase
       .from("corporate_intent_signals")
       .select("id")
       .eq("org_id", this.orgId)
       .eq("company_name", companyName)
+      .eq("signal_type", signalType)
       .gte("created_at", since)
-      .limit(1);
-    return (data?.length ?? 0) > 0;
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    return (data as { id: string } | null)?.id ?? null;
   }
 
-  private buildPrompt(org: OrgProfile, prospect: ProspectRow): { system: string; prompt: string } {
+  private buildPrompt(
+    org: OrgProfile,
+    prospect: ProspectRow,
+    query: string,
+  ): { system: string; prompt: string } {
     const system = [
-      "You are a corporate giving intelligence analyst. Your job is to find REAL, CURRENTLY VERIFIABLE public signals - via web search - that predict whether a specific company is likely to announce a charitable giving initiative in the next 30-90 days.",
+      "You are a corporate giving intelligence analyst. Your job is to run ONE specific web search and extract REAL, CURRENTLY VERIFIABLE public signals that predict whether a company is likely to announce a charitable giving initiative in the next 30-90 days.",
       "",
       "RULES:",
-      "1. Only report a signal when you found real, cited evidence via web search. Never estimate, infer, or recall a signal from training data alone - if search finds nothing relevant, return an empty array.",
+      "1. You MUST issue exactly one web_search call for the exact query given below before answering. Only report a signal when you found real, cited evidence in that search - never estimate, infer, or recall a signal from training data alone. If the search finds nothing relevant, return an empty array.",
       "2. signal_type must be exactly one of: " + SIGNAL_TYPES.join(", ") + ".",
-      "3. geographic_relevance (0-100) rates how relevant this company's footprint is to the nonprofit's service area given below - 100 means the company operates directly in that area.",
-      "4. mission_alignment (0-100) rates how well this company's apparent giving priorities (from what you find, or its industry if nothing giving-specific is found) align with the nonprofit's mission and target population given below.",
-      "5. recommended_action must be one concrete, specific next step for the nonprofit (e.g. 'Submit a letter of inquiry referencing their new distribution center opening in [city]'), never a vague generality.",
-      `6. Report at most ${MAX_SIGNALS_PER_PROSPECT} signals, only the strongest ones you can actually substantiate.`,
-      "7. Respond with ONLY a JSON array (no markdown fences, no prose) of objects shaped exactly:",
-      '{"signal_type": "...", "signal_summary": "one to two sentences", "signal_url": "source URL", "signal_date": "YYYY-MM-DD if known", "geographic_relevance": <integer 0-100>, "mission_alignment": <integer 0-100>, "recommended_action": "..."}',
+      "3. mission_alignment (0-100) rates how well this company's apparent giving priorities (from what you find, or its industry if nothing giving-specific is found) align with the nonprofit's mission and target population given below. 100 means a direct, obvious fit.",
+      `4. Report at most ${MAX_SIGNALS_PER_PROSPECT} signals, only the strongest ones you can actually substantiate from this search's results.`,
+      "5. Respond with ONLY a JSON array (no markdown fences, no prose) of objects shaped exactly:",
+      '{"signal_type": "...", "signal_summary": "one to two sentences", "signal_url": "source URL", "signal_date": "YYYY-MM-DD if known", "mission_alignment": <integer 0-100>}',
     ].join("\n");
 
     const orgLines = [
@@ -352,12 +517,62 @@ export class DonorIntentMonitorAgent extends AutonomousAgent {
       "## Company to research",
       prospectLines.join("\n"),
       "",
-      `Use web search now for "${prospect.legal_name}" combined with terms like press release, CSR, ESG, corporate giving, community investment, and the nonprofit's service area above. ` +
-        "Look specifically for facility expansions, disaster response commitments, new CSR/foundation appointments, hiring surges, SEC filings mentioning community investment, or executive interviews discussing giving plans. " +
-        "Return ONLY the JSON array described above.",
+      `Search for exactly this query: "${query}"`,
+      "Return ONLY the JSON array described above, based solely on that search's results.",
     ].join("\n");
 
     return { system, prompt };
+  }
+
+  /** Runs this prospect's 3 targeted searches (build task requirement 1) and
+   * returns every validated signal that actually came from a real search. */
+  private async searchProspect(
+    org: OrgProfile,
+    prospect: ProspectRow,
+  ): Promise<{ signals: ValidatedSignal[]; tokensUsed: number; errors: string[] }> {
+    const errors: string[] = [];
+    let tokensUsed = 0;
+
+    const results = await Promise.all(
+      SEARCH_QUERY_TEMPLATES.map(async (template) => {
+        const query = template(prospect.legal_name);
+        const { system, prompt } = this.buildPrompt(org, prospect, query);
+        try {
+          const response = await callClaudeWithWebSearch({
+            system,
+            prompt,
+            maxTokens: MAX_TOKENS,
+            maxSearches: 1,
+          });
+          return { response, query };
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Claude call failed.";
+          errors.push(`${prospect.legal_name} (${query}): ${message}`);
+          return null;
+        }
+      }),
+    );
+
+    const signals: ValidatedSignal[] = [];
+    for (const result of results) {
+      if (!result) continue;
+      tokensUsed += result.response.usage.totalTokens;
+
+      if (!result.response.usedWebSearch) {
+        errors.push(
+          `${prospect.legal_name} (${result.query}): Claude did not issue a web_search call - discarded rather than persist an ungrounded signal.`,
+        );
+        continue;
+      }
+
+      const rawSignals = extractJsonArray(result.response.text);
+      for (const raw of rawSignals) {
+        const validated = validateSignal(raw);
+        if (validated) signals.push(validated);
+      }
+    }
+
+    return { signals: signals.slice(0, MAX_SIGNALS_PER_PROSPECT), tokensUsed, errors };
   }
 
   override async run(triggerSource: TriggerSource): Promise<AutonomousAgentResult> {
@@ -378,35 +593,21 @@ export class DonorIntentMonitorAgent extends AutonomousAgent {
 
       for (const prospect of prospects) {
         try {
-          if (await this.recentlyScored(prospect.legal_name)) {
-            continue;
-          }
-
-          const { system, prompt } = this.buildPrompt(org, prospect);
-          const response = await callClaudeWithWebSearch({
-            system,
-            prompt,
-            maxTokens: MAX_TOKENS,
-            maxSearches: MAX_SEARCHES_PER_PROSPECT,
-          });
-          tokensUsed += response.usage.totalTokens;
+          const geoFactor = geographicRelevanceFactor(org, prospect);
+          const { signals, tokensUsed: prospectTokens, errors: prospectErrors } =
+            await this.searchProspect(org, prospect);
+          tokensUsed += prospectTokens;
+          errors.push(...prospectErrors);
           itemsProcessed += 1;
 
-          if (!response.usedWebSearch) {
-            errors.push(
-              `${prospect.legal_name}: Claude did not issue a web_search call - discarded any response rather than persist an ungrounded signal.`,
+          for (const signal of signals) {
+            const missionFactor = signal.mission_alignment / 100;
+            const intentScore = computeIntentScore(
+              signal.signal_type,
+              geoFactor,
+              missionFactor,
+              signal.signal_date,
             );
-            continue;
-          }
-
-          const rawSignals = extractJsonArray(response.text);
-          const validSignals = rawSignals
-            .map(validateSignal)
-            .filter((s): s is ValidatedSignal => s !== null)
-            .slice(0, MAX_SIGNALS_PER_PROSPECT);
-
-          for (const signal of validSignals) {
-            const intentScore = computeIntentScore(signal);
             if (intentScore < INTENT_SCORE_THRESHOLD) continue;
 
             const isHighIntent = intentScore >= HIGH_INTENT_THRESHOLD;
@@ -414,36 +615,64 @@ export class DonorIntentMonitorAgent extends AutonomousAgent {
               isHighIntent ? addHours(new Date(), 48) : addDays(new Date(), 7),
               "yyyy-MM-dd",
             );
+            const recommendedAction = buildRecommendedAction(
+              prospect.legal_name,
+              intentScore,
+              signal.signal_type,
+            );
+            const geographicRelevance = Math.round(geoFactor * 100);
+            const missionAlignment = Math.round(missionFactor * 100);
 
-            const { data: inserted, error: insertError } = await this.supabase
-              .from("corporate_intent_signals")
-              .insert({
-                org_id: this.orgId,
-                company_name: prospect.legal_name,
-                signal_type: signal.signal_type,
-                signal_summary: signal.signal_summary,
-                signal_url: signal.signal_url,
-                signal_date: signal.signal_date,
-                intent_score: intentScore,
-                geographic_relevance: signal.geographic_relevance,
-                mission_alignment: signal.mission_alignment,
-                recommended_action: signal.recommended_action,
-                recommended_deadline: recommendedDeadline,
-              })
-              .select("id")
-              .single();
+            const signalRow = {
+              org_id: this.orgId,
+              company_name: prospect.legal_name,
+              signal_type: signal.signal_type,
+              signal_summary: signal.signal_summary,
+              signal_url: signal.signal_url,
+              signal_date: signal.signal_date,
+              intent_score: intentScore,
+              geographic_relevance: geographicRelevance,
+              mission_alignment: missionAlignment,
+              recommended_action: recommendedAction,
+              recommended_deadline: recommendedDeadline,
+            };
 
-            if (insertError || !inserted) {
-              errors.push(
-                `Failed to save intent signal for "${prospect.legal_name}": ${
-                  insertError?.message ?? "no row returned"
-                }`,
-              );
-              continue;
+            const existingId = await this.findExistingSignal(
+              prospect.legal_name,
+              signal.signal_type,
+            );
+
+            let signalId: string | null = null;
+            if (existingId) {
+              const { error: updateError } = await this.supabase
+                .from("corporate_intent_signals")
+                .update(signalRow)
+                .eq("id", existingId);
+              if (updateError) {
+                errors.push(
+                  `Failed to update intent signal for "${prospect.legal_name}": ${updateError.message}`,
+                );
+                continue;
+              }
+              signalId = existingId;
+            } else {
+              const { data: inserted, error: insertError } = await this.supabase
+                .from("corporate_intent_signals")
+                .insert(signalRow)
+                .select("id")
+                .single();
+              if (insertError || !inserted) {
+                errors.push(
+                  `Failed to save intent signal for "${prospect.legal_name}": ${
+                    insertError?.message ?? "no row returned"
+                  }`,
+                );
+                continue;
+              }
+              signalId = (inserted as { id: string }).id;
             }
 
             itemsQueued += 1;
-            const signalId = (inserted as { id: string }).id;
 
             decisions.push(
               await this.logDecision({
@@ -453,28 +682,39 @@ export class DonorIntentMonitorAgent extends AutonomousAgent {
                 entityId: signalId,
                 reasoning:
                   `${prospect.legal_name}: ${signal.signal_summary} ` +
-                  `(type=${signal.signal_type}, geo=${signal.geographic_relevance}, mission=${signal.mission_alignment}) ` +
+                  `(type=${signal.signal_type}, geo=${geographicRelevance}, mission=${missionAlignment}) ` +
                   `-> intent_score ${intentScore}/100.`,
                 confidenceScore: intentScore,
-                actionTaken: isHighIntent
-                  ? `Recorded HIGH-intent signal (>=${HIGH_INTENT_THRESHOLD}); recommended action due within 48 hours.`
-                  : `Recorded intent signal; recommended action due within 7 days.`,
+                actionTaken: existingId
+                  ? `Updated existing intent signal (${DEDUP_WINDOW_DAYS}-day window match).`
+                  : isHighIntent
+                    ? `Recorded HIGH-intent signal (>=${HIGH_INTENT_THRESHOLD}); recommended action due within 48 hours.`
+                    : `Recorded intent signal; recommended action due within 7 days.`,
                 actionPayload: {
                   signal_type: signal.signal_type,
                   signal_url: signal.signal_url,
                   intent_score: intentScore,
-                  recommended_action: signal.recommended_action,
+                  geographic_relevance: geographicRelevance,
+                  mission_alignment: missionAlignment,
+                  recommended_action: recommendedAction,
                   recommended_deadline: recommendedDeadline,
                 },
                 requiredHumanReview: true,
               }),
             );
 
-            if (isHighIntent) {
+            // Build task requirement 7: notify immediately for high-intent,
+            // geographically relevant signals. Real equivalent of
+            // "notifications insert priority='urgent'" - see file header
+            // deviation #1 (no `notifications` table; `alerts` + severity is
+            // the real mechanism every other agent in this codebase uses).
+            if (isHighIntent && geographicRelevance >= NOTIFY_GEO_THRESHOLD) {
               await this.createNotification(
                 "donor_intent_high",
                 `High donor intent: ${prospect.legal_name}`,
-                signal.recommended_action ?? signal.signal_summary,
+                recommendedAction,
+                undefined,
+                "warning",
               );
             }
           }
