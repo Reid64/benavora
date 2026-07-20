@@ -454,7 +454,16 @@ export default async function DashboardPage() {
 
   if (!profile?.organization_id) {
     return (
-      <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+      <div
+        style={{
+          borderRadius: "8px",
+          border: "1px solid #FECACA",
+          backgroundColor: "#FEF2F2",
+          padding: "12px 16px",
+          fontSize: "14px",
+          color: "#B91C1C",
+        }}
+      >
         We couldn&rsquo;t resolve your organization. Please sign in again.
       </div>
     );
