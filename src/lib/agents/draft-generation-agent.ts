@@ -198,7 +198,7 @@ interface RoiRecommendationRow {
 // here — this agent does not compute deficiencies, only injects the most
 // recent row for this opportunity when one exists.
 interface FundabilityDeficiency {
-  factor_name: string;
+  factor: string;
   fix_type?: string | null;
 }
 interface FundabilityRow {
@@ -1370,7 +1370,7 @@ export class DraftGenerationAgent extends AutonomousAgent {
               .slice(0, 3)
               .map(
                 (d) =>
-                  `Deficiency: ${d.factor_name}${d.fix_type ? ` (${d.fix_type})` : ""}`,
+                  `Deficiency: ${d.factor}${d.fix_type ? ` (${d.fix_type})` : ""}`,
               ),
           ]
             .filter((line): line is string => Boolean(line))
