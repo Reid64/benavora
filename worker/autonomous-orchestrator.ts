@@ -47,6 +47,62 @@
 //     asked for a dedicated 4:00 AM CST slot, so unlike AG-40 above this one
 //     gets a real third entry in worker/scheduler.ts's jobs array rather
 //     than being folded into the 2AM sweep.
+//   requested AG-29 FundabilityScorerAgent  -> FundabilityScorerAgent (AG-29, exact match)
+//     src/lib/agents/fundability-scorer-agent.ts. Wired into the per-org
+//     nightly sweep, unconditional (no org_autonomous_config toggle exists
+//     for it, same gap as AG-08..AG-12 above).
+//   requested AG-30 DonorIntentMonitorAgent -> DonorIntentMonitorAgent (AG-30, exact match)
+//     src/lib/agents/donor-intent-monitor-agent.ts. Wired into the per-org
+//     nightly sweep, unconditional, same as AG-29 above.
+//   requested AG-35 CommunityNeedPredictorAgent -> CommunityNeedPredictorAgent (AG-35, exact match)
+//     src/lib/agents/community-need-predictor-agent.ts. Its underlying data
+//     sources (census/housing/eviction) update monthly per
+//     AUTONOMOUS_PLATFORM_VISION.md, so it's gated on isFirstOfMonthChicago()
+//     alongside the other monthly AG-08..AG-12 steps rather than run nightly.
+//   requested AG-39 ROIOptimizerAgent -> RoiOptimizerAgent (AG-39, exact match)
+//     src/lib/agents/roi-optimizer-agent.ts. Only its correlation-analysis
+//     run() path is wired here (its trackSubmissionVariables() telemetry
+//     half already has a live call site at
+//     /api/autonomous/track-submission). Gated monthly (isFirstOfMonthChicago)
+//     to match its own "monthly correlation-analysis pass" design.
+//   requested AG-36 LearningNetworkAggregatorAgent -> LearningNetworkAggregatorAgent (AG-36, exact match)
+//     src/lib/agents/learning-network-aggregator-agent.ts. Platform-wide, not
+//     per-org (constructor takes only `supabase`, same shape as AG-38) — runs
+//     once via the new runLearningNetworkPipeline() below, self-gated to
+//     Sunday only, wired into worker/scheduler.ts as its own daily-checked
+//     cron entry (mirrors AG-38's precedent of a dedicated scheduler.ts slot
+//     for a platform-level agent).
+//   requested AG-37 SimulationAgent -> intentionally NOT wired here.
+//     src/lib/agents/simulation-agent.ts is triggered exclusively by
+//     src/app/api/reports/simulate/route.ts, which inserts its own
+//     agent_queue row directly as status="processing" (never "queued") and
+//     calls agent.run("manual") synchronously in the same request — its own
+//     code comment states this is deliberate so the background queue
+//     processor (claimNextQueueItem() below, which only claims
+//     status="queued" rows) never also picks it up. Adding a nightly-sweep
+//     or routeQueueItem() entry for it would either duplicate a live request
+//     or never fire, so none was added.
+//
+// Deviation from this task's requested fixed-clock-time schedule (1:00 AM
+// discovery, 1:30 eligibility, 2:00 probability, ... 6:00 learning network):
+// that schedule doesn't match how this worker actually runs. There is no
+// per-agent cron in this codebase — worker/scheduler.ts fires exactly a
+// handful of fixed daily jobs (2AM nightly per-org sweep, 3AM AutoApply
+// autonomous orchestrator, 4AM AG-38, 7AM digest), and every per-org agent
+// above (including the new AG-29/AG-30/AG-35/AG-39) runs sequentially inside
+// that single 2AM sweep per org, not at its own wall-clock time — exactly
+// the same "single sweep, not per-agent cron" architecture this file's own
+// header already documents for AG-08..AG-12 and WORKER_ARCHITECTURE_v2.md
+// §11 describes. Restructuring that into eleven separate fixed-time cron
+// slots would be a real architecture change with no benefit (wall-clock
+// time within the sweep already scales with org count × enabled steps) and
+// would contradict the documented design, so per CLAUDE.md's "if an
+// ambiguity isn't covered by governance docs, don't guess" rule, the
+// existing proven single-sweep pattern was kept and the new agents were
+// slotted into it instead of inventing new cron infrastructure. AG-36 is the
+// one exception: it's a genuinely new platform-level weekly job that doesn't
+// conflict with anything, so its requested "6:00 AM, Sundays only" slot was
+// honored literally.
 //
 // "Queue-only" agents are event-driven (e.g. FunderRelationshipAgent scores
 // one specific event like "awarded" against one funder) with no meaningful
@@ -646,6 +702,86 @@ async function runStrategicAdvisorStep(
   }
 }
 
+async function runFundabilityScorerStep(
+  supabase: SupabaseClient,
+  orgId: string,
+  log: string[],
+): Promise<boolean> {
+  try {
+    const { FundabilityScorerAgent } = await import(
+      '../src/lib/agents/fundability-scorer-agent.js'
+    );
+    const agent = new FundabilityScorerAgent(orgId, supabase);
+    const result = await agent.run('schedule');
+    log.push(
+      `fundability_scorer: ${result.itemsProcessed}/${result.itemsFound} opportunity(ies) scored`,
+    );
+    return result.itemsProcessed > 0;
+  } catch (err) {
+    log.push(`fundability_scorer: FAILED - ${errMsg(err)}`);
+    return false;
+  }
+}
+
+async function runDonorIntentStep(
+  supabase: SupabaseClient,
+  orgId: string,
+  log: string[],
+): Promise<boolean> {
+  try {
+    const { DonorIntentMonitorAgent } = await import(
+      '../src/lib/agents/donor-intent-monitor-agent.js'
+    );
+    const agent = new DonorIntentMonitorAgent(orgId, supabase);
+    const result = await agent.run('schedule');
+    log.push(
+      `donor_intent: ${result.itemsQueued} signal(s) from ${result.itemsProcessed}/${result.itemsFound} prospect(s)`,
+    );
+    return result.itemsQueued > 0;
+  } catch (err) {
+    log.push(`donor_intent: FAILED - ${errMsg(err)}`);
+    return false;
+  }
+}
+
+async function runCommunityNeedStep(
+  supabase: SupabaseClient,
+  orgId: string,
+  log: string[],
+): Promise<boolean> {
+  try {
+    const { CommunityNeedPredictorAgent } = await import(
+      '../src/lib/agents/community-need-predictor-agent.js'
+    );
+    const agent = new CommunityNeedPredictorAgent(orgId, supabase);
+    const result = await agent.run('schedule');
+    log.push(`community_need: ${result.itemsProcessed} need signal(s) recorded`);
+    return result.itemsProcessed > 0;
+  } catch (err) {
+    log.push(`community_need: FAILED - ${errMsg(err)}`);
+    return false;
+  }
+}
+
+async function runRoiOptimizerStep(
+  supabase: SupabaseClient,
+  orgId: string,
+  log: string[],
+): Promise<boolean> {
+  try {
+    const { RoiOptimizerAgent } = await import(
+      '../src/lib/agents/roi-optimizer-agent.js'
+    );
+    const agent = new RoiOptimizerAgent(orgId, supabase);
+    const result = await agent.run('schedule');
+    log.push(`roi_optimizer: ${result.itemsProcessed} insight(s) computed`);
+    return result.itemsProcessed > 0;
+  } catch (err) {
+    log.push(`roi_optimizer: FAILED - ${errMsg(err)}`);
+    return false;
+  }
+}
+
 // --- per-org run -----------------------------------------------------------------
 
 async function runOrgPipeline(
@@ -704,12 +840,22 @@ async function runOrgPipeline(
   // day. document_expiry is nightly; the rest gate on the 1st of the month
   // or Sunday.
   hadActivity = (await runDocumentExpiryStep(supabase, org.id, log)) || hadActivity;
+  // AG-29/AG-30: same no-toggle nightly precedent as AG-08..AG-12 above.
+  hadActivity =
+    (await runFundabilityScorerStep(supabase, org.id, log)) || hadActivity;
+  hadActivity = (await runDonorIntentStep(supabase, org.id, log)) || hadActivity;
   if (isFirstOfMonthChicago()) {
     hadActivity =
       (await runRenewalTrackerStep(supabase, org.id, log)) || hadActivity;
     hadActivity =
       (await runSearchProfileOptimizerStep(supabase, org.id, log)) ||
       hadActivity;
+    // AG-35/AG-39: monthly cadence matches their own design (Community Need's
+    // underlying public data sources update monthly; ROI Optimizer's
+    // correlation pass is designed as a monthly analysis run).
+    hadActivity =
+      (await runCommunityNeedStep(supabase, org.id, log)) || hadActivity;
+    hadActivity = (await runRoiOptimizerStep(supabase, org.id, log)) || hadActivity;
   }
   if (isSundayChicago()) {
     hadActivity =
@@ -840,6 +986,44 @@ export async function runSelfImprovementPipeline(
     );
   } catch (err) {
     console.error('[AutonomousOrchestrator] AG-38 self-improvement pipeline failed:', errMsg(err));
+  }
+}
+
+/**
+ * AG-36 Learning Network Aggregator pipeline: platform-level, not per-org
+ * (src/lib/agents/learning-network-aggregator-agent.ts's constructor takes
+ * only `supabase`, same shape as AG-38's SelfImprovementAgent — it
+ * self-creates a synthetic SYSTEM_ORG_ID row to satisfy FK constraints since
+ * it aggregates cross-org patterns rather than acting for one org). Unlike
+ * every other agent in this file, this one is self-gated to Sunday only
+ * (isSundayChicago()) rather than running every time its scheduler slot
+ * fires — worker/scheduler.ts has no day-of-week concept, only fixed
+ * hour:minute jobs that fire once per calendar day, so weekly cadence is
+ * approximated the same way the per-org sweep already approximates
+ * "Sunday-only" for AG-09/AG-11/AG-40 above.
+ */
+export async function runLearningNetworkPipeline(
+  supabase: SupabaseClient,
+): Promise<void> {
+  if (!isSundayChicago()) {
+    console.log(
+      '[AutonomousOrchestrator] AG-36 learning network pipeline skipped (not Sunday, America/Chicago).',
+    );
+    return;
+  }
+
+  console.log('[AutonomousOrchestrator] AG-36 learning network pipeline starting.');
+  try {
+    const { LearningNetworkAggregatorAgent } = await import(
+      '../src/lib/agents/learning-network-aggregator-agent.js'
+    );
+    const agent = new LearningNetworkAggregatorAgent(supabase);
+    const result = await agent.run('schedule');
+    console.log(
+      `[AutonomousOrchestrator] AG-36 complete: ${result.itemsProcessed}/${result.itemsFound} pattern(s) aggregated, success=${result.success}.`,
+    );
+  } catch (err) {
+    console.error('[AutonomousOrchestrator] AG-36 learning network pipeline failed:', errMsg(err));
   }
 }
 

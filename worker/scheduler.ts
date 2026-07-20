@@ -67,6 +67,21 @@ const jobs: ScheduledJob[] = [
         ({ runAutonomousAutoApply }) => runAutonomousAutoApply(supabase),
       ),
   },
+  {
+    // AG-36 Learning Network Aggregator — platform-level, weekly. This job
+    // fires daily like every other entry here (worker/scheduler.ts has no
+    // day-of-week concept), but runLearningNetworkPipeline() itself no-ops
+    // unless it's Sunday in America/Chicago — see that function's own
+    // comment in autonomous-orchestrator.ts.
+    name: 'AG-36 learning network aggregator pipeline',
+    hour: 6,
+    minute: 0,
+    lastFiredOnDateKey: null,
+    run: (supabase) =>
+      import('./autonomous-orchestrator.js').then(
+        ({ runLearningNetworkPipeline }) => runLearningNetworkPipeline(supabase),
+      ),
+  },
 ];
 
 let intervalId: ReturnType<typeof setInterval> | null = null;
