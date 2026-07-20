@@ -14,13 +14,11 @@ export async function POST() {
   try {
     const config = await generateOrgResearchConfig(organizationId, supabase);
     return NextResponse.json({ ok: true, config });
-  } catch (err) {
+  } catch {
     return NextResponse.json(
       {
-        error:
-          err instanceof Error
-            ? err.message
-            : "Research configuration failed. Please try again.",
+        error: "Research configuration failed. Please try again.",
+        code: "config_failed",
       },
       { status: 500 },
     );

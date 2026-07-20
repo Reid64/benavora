@@ -51,9 +51,11 @@ export async function POST(req: NextRequest) {
       errors: outcome.data.errors,
       agent_run_id: outcome.runId,
     });
-  } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "Custom scrape agent failed.";
-    return jsonError(message, "agent_failed", 500);
+  } catch {
+    return jsonError(
+      "Custom scrape agent failed. Please try again.",
+      "agent_failed",
+      500,
+    );
   }
 }

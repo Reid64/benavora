@@ -64,6 +64,7 @@ export async function GET(
     .from("email_campaigns")
     .select("*")
     .eq("id", campaignId)
+    .eq("organization_id", auth.profile.organization_id as string)
     .maybeSingle();
   if (campaignError) {
     return jsonError("Could not load the campaign.", "load_failed", 500);
@@ -192,6 +193,7 @@ export async function PUT(
     .from("email_campaigns")
     .select("id, status")
     .eq("id", params.campaignId)
+    .eq("organization_id", auth.profile.organization_id as string)
     .maybeSingle();
   if (loadError) {
     return jsonError("Could not load the campaign.", "load_failed", 500);
@@ -213,6 +215,7 @@ export async function PUT(
     .from("email_campaigns")
     .update({ status: target, updated_at: new Date().toISOString() })
     .eq("id", params.campaignId)
+    .eq("organization_id", auth.profile.organization_id as string)
     .select("*")
     .single();
   if (updateError) {

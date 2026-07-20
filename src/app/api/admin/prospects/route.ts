@@ -107,10 +107,9 @@ export async function POST(request: Request) {
       typeof source === "string" ? source : "upload",
     );
     return NextResponse.json({ result }, { status: 201 });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
+  } catch {
     return NextResponse.json(
-      { error: message, code: "import_failed" },
+      { error: "Failed to import prospects.", code: "import_failed" },
       { status: 500 },
     );
   }

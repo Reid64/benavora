@@ -5,6 +5,8 @@ import { createClient } from '@/lib/supabase/server';
 import { EvaluationLibrary } from '@/lib/intelligence/evaluation-library';
 
 export const runtime = 'nodejs';
+// EvaluationLibrary calls Claude for a single non-streaming completion — give it room.
+export const maxDuration = 300;
 
 function jsonError(message: string, code: string, status: number) {
   return NextResponse.json({ error: message, code }, { status });
@@ -43,8 +45,7 @@ export async function GET(request: Request) {
     const dataCollectionTools = library.getDataCollectionTools(kpis);
 
     return NextResponse.json({ framework, kpis, dataCollectionTools });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Evaluation framework lookup failed.';
-    return jsonError(message, 'lookup_failed', 500);
+  } catch {
+    return jsonError('Evaluation framework lookup failed.', 'lookup_failed', 500);
   }
 }

@@ -46,8 +46,7 @@ export async function GET(request: Request) {
     const requirements = library.getRequirements(grantType, fundingSource);
 
     return NextResponse.json({ requirements, count: requirements.length });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Compliance requirements lookup failed.';
-    return jsonError(message, 'lookup_failed', 500);
+  } catch {
+    return jsonError('Compliance requirements lookup failed.', 'lookup_failed', 500);
   }
 }

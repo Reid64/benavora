@@ -27,12 +27,15 @@ export async function GET(req: NextRequest) {
   if ("error" in gate) return gate.error;
 
   const mgr = new PortalCredentialManager(gate.supabase, gate.organizationId);
-  const creds = await mgr.getCredentials(funderId);
-
-  return NextResponse.json({
-    hasCredentials: creds !== null,
-    username: creds?.username ?? null,
-  });
+  try {
+    const creds = await mgr.getCredentials(funderId);
+    return NextResponse.json({
+      hasCredentials: creds !== null,
+      username: creds?.username ?? null,
+    });
+  } catch {
+    return jsonError("Failed to load credentials.", 500);
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -67,9 +70,12 @@ export async function POST(req: NextRequest) {
   }
 
   const mgr = new PortalCredentialManager(gate.supabase, gate.organizationId);
-  await mgr.saveCredentials(funderId.trim(), username.trim(), password);
-
-  return NextResponse.json({ success: true });
+  try {
+    await mgr.saveCredentials(funderId.trim(), username.trim(), password);
+    return NextResponse.json({ success: true });
+  } catch {
+    return jsonError("Failed to save credentials.", 500);
+  }
 }
 
 export async function DELETE(req: NextRequest) {
@@ -80,7 +86,10 @@ export async function DELETE(req: NextRequest) {
   if ("error" in gate) return gate.error;
 
   const mgr = new PortalCredentialManager(gate.supabase, gate.organizationId);
-  await mgr.deleteCredentials(funderId);
-
-  return NextResponse.json({ success: true });
+  try {
+    await mgr.deleteCredentials(funderId);
+    return NextResponse.json({ success: true });
+  } catch {
+    return jsonError("Failed to delete credentials.", 500);
+  }
 }

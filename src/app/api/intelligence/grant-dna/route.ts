@@ -22,15 +22,22 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const scorer = new GrantDNAScorer()
-  const score = await scorer.scoreProposal(
-    sections as Record<string, string>,
-    typeof grant_type === 'string' ? grant_type : undefined,
-  )
-  const benchmark = scorer.benchmarkAgainstFunded(
-    score,
-    typeof category === 'string' ? category : 'default',
-  )
+  try {
+    const scorer = new GrantDNAScorer()
+    const score = await scorer.scoreProposal(
+      sections as Record<string, string>,
+      typeof grant_type === 'string' ? grant_type : undefined,
+    )
+    const benchmark = scorer.benchmarkAgainstFunded(
+      score,
+      typeof category === 'string' ? category : 'default',
+    )
 
-  return NextResponse.json({ ...score, ...benchmark })
+    return NextResponse.json({ ...score, ...benchmark })
+  } catch {
+    return NextResponse.json(
+      { error: 'Grant DNA scoring failed.' },
+      { status: 500 },
+    )
+  }
 }

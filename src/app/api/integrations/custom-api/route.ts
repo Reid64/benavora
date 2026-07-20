@@ -42,7 +42,7 @@ export async function GET() {
     .order("created_at", { ascending: true });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return jsonError("Failed to load custom API connections.", "db_error", 500);
   }
 
   const connections = (data ?? []).map((row) => ({
@@ -133,7 +133,7 @@ export async function POST(request: Request) {
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return jsonError("Failed to create the custom API connection.", "db_error", 500);
   }
 
   return NextResponse.json({ connection: data }, { status: 201 });

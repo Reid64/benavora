@@ -209,7 +209,7 @@ export async function POST(request: NextRequest) {
           onboarding_progress: progress,
         })
         .eq("id", orgId);
-      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      if (error) return NextResponse.json({ error: "Could not save onboarding data." }, { status: 500 });
       break;
     }
 
@@ -241,14 +241,14 @@ export async function POST(request: NextRequest) {
           }));
         if (rows.length > 0) {
           const { error } = await supabase.from("programs").insert(rows);
-          if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+          if (error) return NextResponse.json({ error: "Could not save onboarding data." }, { status: 500 });
         }
       }
       const { error } = await supabase
         .from("organizations")
         .update({ onboarding_step: 3, onboarding_progress: progress })
         .eq("id", orgId);
-      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      if (error) return NextResponse.json({ error: "Could not save onboarding data." }, { status: 500 });
       break;
     }
 
@@ -319,13 +319,13 @@ export async function POST(request: NextRequest) {
         const titles = rows.map((r) => r.title);
         await supabase.from("knowledge_base").delete().eq("organization_id", orgId).in("title", titles);
         const { error } = await supabase.from("knowledge_base").insert(rows);
-        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+        if (error) return NextResponse.json({ error: "Could not save onboarding data." }, { status: 500 });
       }
       const { error } = await supabase
         .from("organizations")
         .update({ onboarding_step: 4, onboarding_progress: progress })
         .eq("id", orgId);
-      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      if (error) return NextResponse.json({ error: "Could not save onboarding data." }, { status: 500 });
       break;
     }
 
@@ -355,7 +355,7 @@ export async function POST(request: NextRequest) {
           }));
         if (rows.length > 0) {
           const { error } = await supabase.from("board_members").insert(rows);
-          if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+          if (error) return NextResponse.json({ error: "Could not save onboarding data." }, { status: 500 });
         }
       }
 
@@ -382,14 +382,14 @@ export async function POST(request: NextRequest) {
           keywords: null,
           created_by: userId,
         });
-        if (kbError) return NextResponse.json({ error: kbError.message }, { status: 500 });
+        if (kbError) return NextResponse.json({ error: "Could not save onboarding data." }, { status: 500 });
       }
 
       const { error } = await supabase
         .from("organizations")
         .update({ onboarding_step: 5, onboarding_progress: progress })
         .eq("id", orgId);
-      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      if (error) return NextResponse.json({ error: "Could not save onboarding data." }, { status: 500 });
       break;
     }
 
@@ -415,13 +415,13 @@ export async function POST(request: NextRequest) {
           uploaded_by: userId,
         }));
         const { error } = await supabase.from("documents").insert(rows);
-        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+        if (error) return NextResponse.json({ error: "Could not save onboarding data." }, { status: 500 });
       }
       const { error } = await supabase
         .from("organizations")
         .update({ onboarding_step: 6, onboarding_progress: progress })
         .eq("id", orgId);
-      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      if (error) return NextResponse.json({ error: "Could not save onboarding data." }, { status: 500 });
       break;
     }
 
@@ -454,14 +454,14 @@ export async function POST(request: NextRequest) {
             max_amount: data.max_amount != null ? Number(data.max_amount) : null,
             is_active: true,
           });
-          if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+          if (error) return NextResponse.json({ error: "Could not save onboarding data." }, { status: 500 });
         }
       }
       const { error } = await supabase
         .from("organizations")
         .update({ onboarding_step: 7, onboarding_progress: progress })
         .eq("id", orgId);
-      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      if (error) return NextResponse.json({ error: "Could not save onboarding data." }, { status: 500 });
       break;
     }
 
@@ -475,7 +475,7 @@ export async function POST(request: NextRequest) {
           onboarding_progress: progress,
         })
         .eq("id", orgId);
-      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      if (error) return NextResponse.json({ error: "Could not save onboarding data." }, { status: 500 });
       break;
     }
 

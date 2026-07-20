@@ -44,7 +44,7 @@ export async function POST(request: Request) {
     .single();
 
   if (error) {
-    return jsonError(error.message, "db_error", 500);
+    return jsonError("Could not queue the agent run.", "db_error", 500);
   }
 
   return NextResponse.json({ status: "queued", runId: run.id });

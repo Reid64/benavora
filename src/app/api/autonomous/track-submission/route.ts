@@ -37,10 +37,8 @@ export async function POST(request: Request) {
 
   try {
     await agent.trackSubmissionVariables(applicationId.trim());
-  } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "Could not track submission variables.";
-    return jsonError(message, "tracking_failed", 500);
+  } catch {
+    return jsonError("Could not track submission variables.", "tracking_failed", 500);
   }
 
   return NextResponse.json({ applicationId: applicationId.trim(), tracked: true });

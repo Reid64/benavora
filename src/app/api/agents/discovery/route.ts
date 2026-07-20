@@ -40,11 +40,8 @@ export async function POST() {
   try {
     const summary = await runOpportunityDiscovery(ctx.orgId, ctx.supabase);
     return NextResponse.json(summary);
-  } catch (err) {
-    return jsonError(
-      err instanceof Error ? err.message : "Opportunity discovery failed.",
-      500,
-    );
+  } catch {
+    return jsonError("Opportunity discovery failed. Please try again.", 500);
   }
 }
 

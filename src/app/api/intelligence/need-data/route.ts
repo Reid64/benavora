@@ -127,20 +127,24 @@ export async function POST(request: Request) {
   // Derive categories from the program category (all = all sources)
   const dataCategories = deriveCategories(programCategory.trim());
 
-  const needData = await engine.gatherNeedData(geography, dataCategories);
-
   const safeOrgProfile =
     orgProfile && typeof orgProfile === 'object' && !Array.isArray(orgProfile)
       ? (orgProfile as Record<string, unknown>)
       : {};
 
-  const { statement, citations } = await engine.generateNeedStatement(
-    safeOrgProfile,
-    needData,
-    programCategory.trim(),
-  );
+  try {
+    const needData = await engine.gatherNeedData(geography, dataCategories);
 
-  return NextResponse.json({ statement, citations, dataPoints: needData });
+    const { statement, citations } = await engine.generateNeedStatement(
+      safeOrgProfile,
+      needData,
+      programCategory.trim(),
+    );
+
+    return NextResponse.json({ statement, citations, dataPoints: needData });
+  } catch {
+    return jsonError('Failed to generate need statement.', 'need_statement_failed', 500);
+  }
 }
 
 /**

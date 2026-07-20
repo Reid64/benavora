@@ -98,10 +98,9 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({ id: campaignId }, { status: 201 });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
+  } catch {
     return NextResponse.json(
-      { error: message, code: "create_failed" },
+      { error: "Failed to create campaign.", code: "create_failed" },
       { status: 500 },
     );
   }

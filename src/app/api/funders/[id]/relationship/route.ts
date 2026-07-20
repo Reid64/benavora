@@ -39,7 +39,12 @@ export async function GET(_request: Request, { params }: { params: { id: string 
     return jsonError("Funder not found.", "not_found", 404);
   }
 
-  const result = await computeRelationshipScore(params.id, organizationId, supabase);
+  let result;
+  try {
+    result = await computeRelationshipScore(params.id, organizationId, supabase);
+  } catch {
+    return jsonError("Failed to compute the relationship score.", "score_failed", 500);
+  }
 
   return NextResponse.json({ funderId: params.id, ...result });
 }
@@ -89,7 +94,12 @@ export async function POST(request: Request, { params }: { params: { id: string 
     return jsonError("Failed to record the relationship event.", "db_error", 500);
   }
 
-  const result = await computeRelationshipScore(params.id, organizationId, supabase);
+  let result;
+  try {
+    result = await computeRelationshipScore(params.id, organizationId, supabase);
+  } catch {
+    return jsonError("Failed to compute the relationship score.", "score_failed", 500);
+  }
 
   return NextResponse.json({ event, funderId: params.id, ...result }, { status: 201 });
 }

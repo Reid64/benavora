@@ -76,7 +76,10 @@ export async function POST(request: Request) {
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to create variant.' },
+      { status: 500 },
+    );
   }
 
   return NextResponse.json({ variant: data }, { status: 201 });
@@ -109,7 +112,10 @@ export async function DELETE(request: Request) {
     .eq('organization_id', organizationId);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to deactivate variant.' },
+      { status: 500 },
+    );
   }
 
   return NextResponse.json({ success: true });

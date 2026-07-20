@@ -189,9 +189,9 @@ export async function GET() {
   try {
     const connections = await loadConnections(supabase, organizationId);
     return NextResponse.json({ connections });
-  } catch (err) {
+  } catch {
     return jsonError(
-      err instanceof Error ? err.message : "Failed to load relationship graph.",
+      "Failed to load relationship graph.",
       "db_error",
       500,
     );
@@ -285,11 +285,9 @@ export async function POST(request: Request) {
     try {
       const connections = await loadConnections(supabase, organizationId);
       return NextResponse.json({ connections });
-    } catch (err) {
+    } catch {
       return jsonError(
-        err instanceof Error
-          ? err.message
-          : "Failed to reload relationship graph.",
+        "Failed to reload relationship graph.",
         "db_error",
         500,
       );
@@ -315,16 +313,14 @@ export async function POST(request: Request) {
       itemsProcessed: result.itemsProcessed,
       errors: result.errors,
     });
-  } catch (err) {
+  } catch {
     // RelationshipGraphBuilderAgent.startRun() writes
     // agent_type = 'ag-32-relationship-graph', which is not yet in the
     // agent_runs enum (AGENTS_v2.md §1.2) — that insert throws before
     // startRun() returns, outside the agent's own try/catch, so it
     // surfaces here rather than inside result.errors.
     return jsonError(
-      err instanceof Error
-        ? err.message
-        : "Relationship graph discovery run failed.",
+      "Relationship graph discovery run failed.",
       "agent_run_failed",
       500,
     );

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { requireRole } from "@/lib/auth/role-gate";
+import { requireRole, hasRequiredRole } from "@/lib/auth/role-gate";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { EmailContactExtractor } from "@/lib/email/contact-extractor";
 
@@ -35,12 +35,21 @@ interface PostBody {
 export async function POST(request: Request) {
   const gate = await requireRole("viewer");
   if ("error" in gate) return gate.error;
-  const { organizationId } = gate;
+  const { organizationId, userRole } = gate;
 
   const body = (await request.json().catch(() => ({}))) as PostBody;
 
   // Branch: import contacts into the CRM.
   if (body.action === "import") {
+    // Importing writes new rows into the CRM, so it needs writer+ even
+    // though the rest of this route (extraction preview) is viewer-safe.
+    if (!hasRequiredRole(userRole, "writer")) {
+      return NextResponse.json(
+        { error: "You do not have permission to perform this action.", code: "forbidden" },
+        { status: 403 },
+      );
+    }
+
     if (!Array.isArray(body.contacts) || body.contacts.length === 0) {
       return NextResponse.json(
         { error: "contacts array is required for action=import" },
@@ -74,9 +83,7 @@ export async function POST(request: Request) {
         .single();
 
       if (error) {
-        errors.push(
-          `Failed to import ${c.email ?? c.name}: ${error.message}`,
-        );
+        errors.push(`Failed to import ${c.email ?? c.name}.`);
       } else {
         imported.push((data as { id: string }).id);
       }
@@ -91,6 +98,22 @@ export async function POST(request: Request) {
       { error: "thread_id is required (or action=import with contacts array)" },
       { status: 400 },
     );
+  }
+
+  // Verify the thread belongs to this org before extracting from it —
+  // EmailContactExtractor.extractFromThread does not itself scope its
+  // message lookup by organization_id, so this check is what keeps a
+  // caller from pulling another org's email content by guessing a thread id.
+  const supabaseCheck = createAdminClient();
+  const { data: threadRow } = await supabaseCheck
+    .from("synced_email_threads")
+    .select("id")
+    .eq("id", body.thread_id)
+    .eq("organization_id", organizationId)
+    .maybeSingle();
+
+  if (!threadRow) {
+    return NextResponse.json({ error: "Thread not found." }, { status: 404 });
   }
 
   const extractor = new EmailContactExtractor();

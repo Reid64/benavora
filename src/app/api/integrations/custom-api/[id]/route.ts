@@ -62,7 +62,7 @@ export async function PATCH(
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return jsonError("Failed to update the custom API connection.", "db_error", 500);
   }
   if (!data) {
     return jsonError("Connection not found.", "not_found", 404);
@@ -86,7 +86,7 @@ export async function DELETE(
     .eq("organization_id", organizationId);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return jsonError("Failed to delete the custom API connection.", "db_error", 500);
   }
 
   return NextResponse.json({ deleted: true });

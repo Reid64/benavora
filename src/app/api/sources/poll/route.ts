@@ -47,9 +47,7 @@ export async function POST() {
     const results = await pollFederalSources(ctx.orgId, ctx.supabase);
     return NextResponse.json({ results });
   } catch (err) {
-    return jsonError(
-      err instanceof Error ? err.message : "Federal source poll failed.",
-      500,
-    );
+    console.error("[sources/poll]", err);
+    return jsonError("Federal source poll failed.", 500);
   }
 }

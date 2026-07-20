@@ -347,13 +347,10 @@ export async function GET() {
       topFoundations,
       clusters,
     });
-  } catch (err) {
+  } catch {
     return NextResponse.json(
       {
-        error:
-          err instanceof Error
-            ? err.message
-            : "Failed to compute relationship graph analytics.",
+        error: "Failed to compute relationship graph analytics.",
         code: "db_error",
       },
       { status: 500 },

@@ -49,20 +49,26 @@ export async function POST(request: Request) {
     )
     .join("\n\n---\n\n");
 
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  const response = await client.messages.create({
-    model: "claude-haiku-4-5-20251001",
-    max_tokens: 512,
-    messages: [
-      {
-        role: "user",
-        content: `Summarize this email thread concisely (2-4 sentences). Focus on key topics, decisions, and action items.\n\nSubject: ${thread.subject ?? "(no subject)"}\n\n${transcript}`,
-      },
-    ],
-  });
+  try {
+    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const response = await client.messages.create({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 512,
+      messages: [
+        {
+          role: "user",
+          content: `Summarize this email thread concisely (2-4 sentences). Focus on key topics, decisions, and action items.\n\nSubject: ${thread.subject ?? "(no subject)"}\n\n${transcript}`,
+        },
+      ],
+    });
 
-  const firstContent = response.content[0];
-  const summary = firstContent?.type === "text" ? firstContent.text : "";
+    const firstContent = response.content[0];
+    const summary = firstContent?.type === "text" ? firstContent.text : "";
 
-  return NextResponse.json({ summary });
+    return NextResponse.json({ summary });
+  } catch {
+    // Anthropic SDK errors can carry raw provider error bodies — never
+    // relay those to the client.
+    return NextResponse.json({ error: "Failed to summarize thread." }, { status: 502 });
+  }
 }

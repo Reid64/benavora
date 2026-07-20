@@ -46,10 +46,8 @@ export async function GET() {
       return jsonError(error.message, "fetch_failed", 500);
     }
     return NextResponse.json({ newDeclarations, declarations: declarations ?? [] });
-  } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "FEMA poll failed.";
-    return jsonError(message, "poll_failed", 502);
+  } catch {
+    return jsonError("FEMA poll failed. Please try again.", "poll_failed", 502);
   }
 }
 
@@ -82,9 +80,11 @@ export async function POST(req: NextRequest) {
       supabase,
     );
     return NextResponse.json(result);
-  } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "Disaster response deployment failed.";
-    return jsonError(message, "deploy_failed", 500);
+  } catch {
+    return jsonError(
+      "Disaster response deployment failed. Please try again.",
+      "deploy_failed",
+      500,
+    );
   }
 }

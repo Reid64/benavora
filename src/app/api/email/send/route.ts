@@ -89,7 +89,9 @@ export async function POST(request: Request) {
   const result = await emailSender.send(organizationId, sendOptions);
 
   if (!result.success) {
-    return jsonError(result.error ?? "Send failed.", "send_error", 502);
+    // emailSender can surface raw Gmail/Resend provider error bodies in
+    // result.error — never relay those to the client.
+    return jsonError("Failed to send email.", "send_error", 502);
   }
 
   return NextResponse.json(result);

@@ -93,7 +93,7 @@ export async function GET(request: Request) {
     ]);
 
   if (resultsRes.error) {
-    return jsonError(resultsRes.error.message, "query_failed", 500);
+    return jsonError("Failed to query proposals.", "query_failed", 500);
   }
 
   const results = (resultsRes.data ?? []).map((row) => ({

@@ -20,10 +20,9 @@ export async function GET(request: Request) {
     const manager = new ProspectManager();
     const stats = await manager.getStats(listId);
     return NextResponse.json({ stats });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
+  } catch {
     return NextResponse.json(
-      { error: message, code: "stats_failed" },
+      { error: "Failed to load prospect stats.", code: "stats_failed" },
       { status: 500 },
     );
   }

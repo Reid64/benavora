@@ -242,7 +242,6 @@ export async function POST(request: Request) {
       {
         error: "Database insert failed. Please try again.",
         code: "db_error",
-        details: insertError.message,
       },
       { status: 500 },
     );

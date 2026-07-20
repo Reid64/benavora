@@ -34,9 +34,11 @@ export async function POST() {
       errors: outcome.data.errors,
       agent_run_id: outcome.runId,
     });
-  } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "Foundation Finder agent failed.";
-    return jsonError(message, "agent_failed", 500);
+  } catch {
+    return jsonError(
+      "Foundation Finder agent failed. Please try again.",
+      "agent_failed",
+      500,
+    );
   }
 }

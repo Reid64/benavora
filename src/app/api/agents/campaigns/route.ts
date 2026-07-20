@@ -136,6 +136,7 @@ export async function GET() {
   const { data: campaigns, error } = await supabase
     .from("email_campaigns")
     .select("id, name, status, total_steps, total_contacts, created_at")
+    .eq("organization_id", resolved.organizationId)
     .order("created_at", { ascending: false });
   if (error) {
     return jsonError("Could not load campaigns.", "load_failed", 500);

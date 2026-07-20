@@ -38,7 +38,7 @@ export async function GET() {
     .order("created_at", { ascending: true });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return jsonError("Failed to load scraping targets.", "db_error", 500);
   }
 
   return NextResponse.json({ targets: data ?? [] });
@@ -116,7 +116,7 @@ export async function POST(request: Request) {
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return jsonError("Failed to create the scraping target.", "db_error", 500);
   }
 
   return NextResponse.json({ target: data }, { status: 201 });

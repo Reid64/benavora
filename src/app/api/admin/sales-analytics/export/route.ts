@@ -71,7 +71,7 @@ export async function GET(request: Request) {
     if (periodStart) query = query.gte("sent_at", periodStart);
 
     const { data, error } = await query;
-    if (error) return new Response(error.message, { status: 500 });
+    if (error) return new Response("Failed to export sends.", { status: 500 });
     csvContent = toCSV((data ?? []) as unknown as Record<string, unknown>[]);
     filename = "sends-export.csv";
   } else if (type === "prospects") {
@@ -82,7 +82,7 @@ export async function GET(request: Request) {
       )
       .order("created_at", { ascending: false });
 
-    if (error) return new Response(error.message, { status: 500 });
+    if (error) return new Response("Failed to export prospects.", { status: 500 });
     csvContent = toCSV((data ?? []) as unknown as Record<string, unknown>[]);
     filename = "prospects-export.csv";
   } else if (type === "suppression") {
@@ -91,7 +91,7 @@ export async function GET(request: Request) {
       .select("id, email, reason, source, added_at")
       .order("added_at", { ascending: false });
 
-    if (error) return new Response(error.message, { status: 500 });
+    if (error) return new Response("Failed to export suppression list.", { status: 500 });
     csvContent = toCSV((data ?? []) as unknown as Record<string, unknown>[]);
     filename = "suppression-export.csv";
   } else if (type === "campaigns") {
@@ -102,7 +102,7 @@ export async function GET(request: Request) {
       )
       .order("created_at", { ascending: false });
 
-    if (error) return new Response(error.message, { status: 500 });
+    if (error) return new Response("Failed to export campaigns.", { status: 500 });
     csvContent = toCSV((data ?? []) as unknown as Record<string, unknown>[]);
     filename = "campaigns-export.csv";
   } else {

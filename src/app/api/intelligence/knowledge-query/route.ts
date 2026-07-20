@@ -6,12 +6,12 @@ import { queryKnowledgeEngine } from "@/lib/intelligence/knowledge-engine";
 
 // POST /api/intelligence/knowledge-query
 //
-// Accepts { query, orgId } in the request body. orgId falls back to the
-// x-organization-id header (set server-side by middleware.ts from the
-// authenticated user's profile) when the body omits it, matching the
-// grant-probability route's convention. queryKnowledgeEngine() itself
-// writes the best-effort knowledge_queries log row (RLS-scoped to orgId),
-// so this route does not log separately.
+// Accepts { query } in the request body. orgId is always derived
+// server-side from the x-organization-id header (set by middleware.ts from
+// the authenticated user's profile) -- never trusted from the request body
+// (Behavioral Contracts §2). queryKnowledgeEngine() itself writes the
+// best-effort knowledge_queries log row (RLS-scoped to orgId), so this
+// route does not log separately.
 
 export async function POST(request: Request) {
   const supabase = createClient();
@@ -36,9 +36,8 @@ export async function POST(request: Request) {
     );
   }
 
-  const { query, orgId: bodyOrgId } = (body ?? {}) as {
+  const { query } = (body ?? {}) as {
     query?: unknown;
-    orgId?: unknown;
   };
 
   if (typeof query !== "string" || query.trim() === "") {
@@ -48,10 +47,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const orgId =
-    typeof bodyOrgId === "string" && bodyOrgId.trim() !== ""
-      ? bodyOrgId.trim()
-      : headers().get("x-organization-id");
+  const orgId = headers().get("x-organization-id");
 
   if (!orgId) {
     return NextResponse.json({ error: "orgId is required." }, { status: 400 });
@@ -60,14 +56,9 @@ export async function POST(request: Request) {
   try {
     const result = await queryKnowledgeEngine(query.trim(), orgId, supabase);
     return NextResponse.json(result);
-  } catch (err) {
+  } catch {
     return NextResponse.json(
-      {
-        error:
-          err instanceof Error
-            ? err.message
-            : "Failed to query the knowledge engine.",
-      },
+      { error: "Failed to query the knowledge engine." },
       { status: 500 },
     );
   }

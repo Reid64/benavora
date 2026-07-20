@@ -76,11 +76,9 @@ export async function POST(request: Request) {
   try {
     const id = await sequenceEngine.createSequence(organizationId, config);
     return NextResponse.json({ id }, { status: 201 });
-  } catch (err) {
-    return jsonError(
-      err instanceof Error ? err.message : "Failed to create sequence.",
-      "create_failed",
-      500,
-    );
+  } catch {
+    // sequenceEngine can surface raw Postgres error text — never relay that
+    // to the client (checklist: no raw exception/message/stack leakage).
+    return jsonError("Failed to create sequence.", "create_failed", 500);
   }
 }

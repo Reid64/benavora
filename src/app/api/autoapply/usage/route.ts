@@ -14,7 +14,10 @@ export async function GET(_request: Request) {
   const { supabase, organizationId } = gate;
 
   const meter = new UsageMeter();
-  const report = await meter.getUsageReport(organizationId, undefined, supabase);
-
-  return NextResponse.json(report);
+  try {
+    const report = await meter.getUsageReport(organizationId, undefined, supabase);
+    return NextResponse.json(report);
+  } catch {
+    return NextResponse.json({ error: "Failed to load usage report." }, { status: 500 });
+  }
 }

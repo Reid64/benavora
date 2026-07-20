@@ -57,6 +57,7 @@ export async function GET() {
   const { count: syncedCount } = await supabase
     .from("deadlines")
     .select("id", { count: "exact", head: true })
+    .eq("organization_id", organizationId)
     .not("google_calendar_event_id", "is", null);
 
   if (!(await isConnected(organizationId))) {

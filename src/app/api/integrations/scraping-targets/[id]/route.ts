@@ -54,7 +54,7 @@ export async function PATCH(
     .eq("organization_id", organizationId);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return jsonError("Failed to update the scraping target.", "db_error", 500);
   }
 
   return NextResponse.json({ ok: true });
@@ -78,7 +78,7 @@ export async function DELETE(
     .eq("organization_id", organizationId);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return jsonError("Failed to delete the scraping target.", "db_error", 500);
   }
 
   return NextResponse.json({ ok: true });

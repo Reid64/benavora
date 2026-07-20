@@ -109,7 +109,7 @@ export async function POST(request: Request) {
       if ((error as { code?: string }).code === "23505") {
         skipped++;
       } else {
-        errors.push(`Failed to insert ${email}: ${error.message}`);
+        errors.push(`Failed to insert ${email}.`);
       }
       continue;
     }

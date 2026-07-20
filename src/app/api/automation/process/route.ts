@@ -61,9 +61,7 @@ export async function POST(request: Request) {
   try {
     const { runId, data } = await worker.process({ queueItemId });
     return NextResponse.json({ runId, ...data });
-  } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "Worker execution failed.";
-    return jsonError(message, "worker_failed", 500);
+  } catch {
+    return jsonError("Worker execution failed.", "worker_failed", 500);
   }
 }

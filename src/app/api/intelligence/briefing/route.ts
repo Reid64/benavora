@@ -101,8 +101,7 @@ export async function GET(request: Request) {
       tier,
       tier_sections: TIER_SECTIONS[tier] ?? TIER_SECTIONS['free'] ?? [],
     })
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Briefing generation failed.'
-    return jsonError(message, 'briefing_failed', 500)
+  } catch {
+    return jsonError('Briefing generation failed.', 'briefing_failed', 500)
   }
 }

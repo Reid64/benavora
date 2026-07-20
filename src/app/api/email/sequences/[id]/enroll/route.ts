@@ -67,12 +67,14 @@ export async function POST(
       });
       results.push({ email, status: "enrolled" });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Enrollment failed";
-      // Surface duplicate-enrollment as a non-error status
+      const msg = err instanceof Error ? err.message : "";
+      // Surface duplicate-enrollment as a non-error status. The raw message
+      // is only used for this internal classification — it can contain
+      // Postgres error text and must never be relayed to the client.
       if (msg.toLowerCase().includes("duplicate") || msg.includes("23505")) {
         results.push({ email, status: "duplicate" });
       } else {
-        results.push({ email, status: "error", error: msg });
+        results.push({ email, status: "error", error: "Enrollment failed" });
       }
     }
   }

@@ -250,9 +250,8 @@ export async function POST(request: Request) {
     const screenshotDataUrl = `data:image/jpeg;base64,${screenshotBuffer.toString("base64")}`;
 
     return NextResponse.json({ screenshotDataUrl, fieldValues });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Dry test failed.";
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch {
+    return NextResponse.json({ error: "Dry test failed." }, { status: 500 });
   } finally {
     await session.context.close().catch(() => null);
   }

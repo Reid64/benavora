@@ -41,8 +41,10 @@ export async function POST(request: Request) {
     });
     return NextResponse.json({ url });
   } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "Could not open the billing portal.";
-    return NextResponse.json({ error: message, code: "billing_error" }, { status: 502 });
+    console.error("[stripe/create-portal-session]", err);
+    return NextResponse.json(
+      { error: "Could not open the billing portal.", code: "billing_error" },
+      { status: 502 },
+    );
   }
 }

@@ -9,15 +9,28 @@ import { NextResponse } from "next/server";
 import { requireRole } from "@/lib/auth/role-gate";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DraftAutoGenerator } from "@/lib/drafts/auto-generator";
+import { checkRateLimit } from "@/lib/utils/rate-limit";
 
 export const runtime = "nodejs";
 // Non-streaming Claude drafts at max_tokens=8192 take ~180s; allow 3 items.
 export const maxDuration = 300;
 
+function jsonError(message: string, code: string, status: number) {
+  return NextResponse.json({ error: message, code }, { status });
+}
+
 export async function POST(_request: Request) {
   const gate = await requireRole("writer");
   if ("error" in gate) return gate.error;
-  const { organizationId } = gate;
+  const { organizationId, userId } = gate;
+
+  if (!checkRateLimit(`drafts-queue-trigger:${userId}`)) {
+    return jsonError(
+      "Too many draft-queue triggers. Try again in a bit.",
+      "rate_limited",
+      429,
+    );
+  }
 
   const admin = createAdminClient();
   const generator = new DraftAutoGenerator(admin);

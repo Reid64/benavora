@@ -52,10 +52,7 @@ export async function GET(request: Request) {
     const result = await syncGrantsGovForOrg(admin, orgId, explicitKeywords);
     return NextResponse.json(result);
   } catch (err) {
-    return jsonError(
-      err instanceof Error ? err.message : "Sync failed.",
-      "sync_failed",
-      500,
-    );
+    console.error("[sources/grantsgov]", err);
+    return jsonError("Sync failed.", "sync_failed", 500);
   }
 }

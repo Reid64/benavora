@@ -64,7 +64,7 @@ export async function POST(request: Request) {
         typeof expiresAt === "string" && expiresAt.trim() ? expiresAt.trim() : undefined,
     });
     return NextResponse.json({ id }, { status: 201 });
-  } catch (err) {
-    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
+  } catch {
+    return NextResponse.json({ error: "Failed to upload document." }, { status: 500 });
   }
 }

@@ -71,8 +71,7 @@ export async function GET(request: Request) {
       limit: effectiveLimit,
       tier_limit: tierLimit,
     })
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Search failed.'
-    return jsonError(message, 'search_failed', 500)
+  } catch {
+    return jsonError('Search failed.', 'search_failed', 500)
   }
 }

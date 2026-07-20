@@ -45,12 +45,9 @@ async function rebuildAndRespond() {
   try {
     const twin = await buildDigitalTwin(orgId, supabase);
     return NextResponse.json(twin);
-  } catch (err) {
+  } catch {
     return NextResponse.json(
-      {
-        error:
-          err instanceof Error ? err.message : "Failed to build digital twin.",
-      },
+      { error: "Failed to build digital twin." },
       { status: 404 },
     );
   }

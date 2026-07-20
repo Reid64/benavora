@@ -121,10 +121,9 @@ export async function POST(request: Request, { params }: RouteContext) {
       const engine = new SalesCampaignEngine();
       const result = await engine.scheduleSends(id);
       return NextResponse.json(result);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Unknown error";
+    } catch {
       return NextResponse.json(
-        { error: message, code: "schedule_failed" },
+        { error: "Failed to schedule sends.", code: "schedule_failed" },
         { status: 500 },
       );
     }

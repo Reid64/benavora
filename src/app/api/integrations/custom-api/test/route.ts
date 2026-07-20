@@ -1,6 +1,76 @@
 import { NextResponse } from "next/server";
+import dns from "node:dns/promises";
+import { isIP } from "node:net";
 
 import { requireRole } from "@/lib/auth/role-gate";
+
+// SSRF guard: this endpoint fetches an admin-supplied URL server-side, which
+// would otherwise let an org admin probe internal network services or the
+// cloud metadata endpoint (169.254.169.254) and have the response echoed
+// back. Block loopback/private/link-local/metadata ranges before fetching.
+// Resolve-then-check has a DNS-rebinding gap (the name could re-resolve to a
+// different address between this check and `fetch()`) - acceptable for this
+// admin-only, low-volume "test connection" action, not a hardened egress proxy.
+const BLOCKED_IPV4_RANGES: [string, number][] = [
+  ["0.0.0.0", 8],
+  ["10.0.0.0", 8],
+  ["100.64.0.0", 10],
+  ["127.0.0.0", 8],
+  ["169.254.0.0", 16],
+  ["172.16.0.0", 12],
+  ["192.0.0.0", 24],
+  ["192.168.0.0", 16],
+  ["198.18.0.0", 15],
+  ["224.0.0.0", 4],
+];
+
+function ipv4ToInt(ip: string): number {
+  return ip.split(".").reduce((acc, part) => (acc << 8) + Number(part), 0) >>> 0;
+}
+
+function isBlockedIpv4(ip: string): boolean {
+  const target = ipv4ToInt(ip);
+  return BLOCKED_IPV4_RANGES.some(([base, bits]) => {
+    const mask = bits === 0 ? 0 : (~0 << (32 - bits)) >>> 0;
+    return (target & mask) === (ipv4ToInt(base) & mask);
+  });
+}
+
+function isBlockedIpv6(address: string): boolean {
+  const lower = address.toLowerCase();
+  if (lower === "::1") return true;
+  if (lower.startsWith("fe80:")) return true;
+  if (lower.startsWith("fc") || lower.startsWith("fd")) return true;
+  if (lower.startsWith("::ffff:")) return isBlockedIpv4(lower.slice(7));
+  return false;
+}
+
+async function assertSafeTargetUrl(rawUrl: string): Promise<void> {
+  const url = new URL(rawUrl);
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new Error("blocked_target");
+  }
+
+  const hostname = url.hostname;
+  const ipFamily = isIP(hostname);
+  if (ipFamily) {
+    if (ipFamily === 4 ? isBlockedIpv4(hostname) : isBlockedIpv6(hostname)) {
+      throw new Error("blocked_target");
+    }
+    return;
+  }
+
+  const lowerHost = hostname.toLowerCase();
+  if (lowerHost === "localhost" || lowerHost.endsWith(".localhost")) {
+    throw new Error("blocked_target");
+  }
+
+  const records = await dns.lookup(hostname, { all: true, verbatim: true });
+  for (const { address, family } of records) {
+    if (family === 4 && isBlockedIpv4(address)) throw new Error("blocked_target");
+    if (family === 6 && isBlockedIpv6(address)) throw new Error("blocked_target");
+  }
+}
 
 // Custom API test endpoint.
 //
@@ -41,6 +111,16 @@ export async function POST(request: Request) {
 
   if (typeof base_url !== "string" || !base_url.trim()) {
     return jsonError("base_url is required.", "missing_field", 400);
+  }
+
+  try {
+    await assertSafeTargetUrl(base_url.trim());
+  } catch {
+    return jsonError(
+      "This URL cannot be tested (invalid or blocked target).",
+      "blocked_target",
+      400,
+    );
   }
 
   const headers: Record<string, string> = { Accept: "application/json" };

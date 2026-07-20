@@ -59,13 +59,18 @@ function verifySignature(
 }
 
 export async function POST(request: Request) {
+  // Verification is REQUIRED - if RESEND_WEBHOOK_SECRET isn't configured, every
+  // request is rejected rather than silently accepted (mirrors
+  // /api/webhooks/resend; never fall back to trusting an unsigned payload).
+  const secret = process.env.RESEND_WEBHOOK_SECRET;
+  if (!secret) {
+    return NextResponse.json({ error: "Webhook secret not configured." }, { status: 500 });
+  }
+
   const rawBody = await request.text();
 
-  const secret = process.env.RESEND_WEBHOOK_SECRET;
-  if (secret) {
-    if (!verifySignature(rawBody, request.headers, secret)) {
-      return NextResponse.json({ error: "Invalid signature." }, { status: 401 });
-    }
+  if (!verifySignature(rawBody, request.headers, secret)) {
+    return NextResponse.json({ error: "Invalid signature." }, { status: 401 });
   }
 
   let event: ResendDeliveryEvent;

@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { FunderRecommender } from '@/lib/intelligence/funder-recommender'
 
 export const runtime = 'nodejs'
-export const maxDuration = 60
+export const maxDuration = 300
 
 function jsonError(message: string, code: string, status: number) {
   return NextResponse.json({ error: message, code }, { status })
@@ -39,8 +39,7 @@ export async function GET(request: Request) {
     const recommender = new FunderRecommender()
     const explanation = await recommender.explainMatch(funderId, profile.organization_id)
     return NextResponse.json({ explanation })
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Failed to generate match explanation.'
-    return jsonError(message, 'explain_failed', 500)
+  } catch {
+    return jsonError('Failed to generate match explanation.', 'explain_failed', 500)
   }
 }

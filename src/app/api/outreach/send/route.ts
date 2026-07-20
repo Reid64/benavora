@@ -2,7 +2,7 @@
 import { Resend } from "resend";
 
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
+import { requireRole } from "@/lib/auth/role-gate";
 import { FunderRelationshipAgent } from "@/lib/agents/funder-relationship";
 import {
   MAX_OUTREACH_EMAILS_PER_DAY,
@@ -43,21 +43,12 @@ function snippetOf(text: string | null | undefined): string {
 }
 
 export async function POST(request: Request) {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return jsonError("Authentication required.", "unauthenticated", 401);
-
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("id, organization_id, role")
-    .eq("id", user.id)
-    .single();
-  if (profileError || !profile)
-    return jsonError("Could not resolve your profile.", "no_profile", 403);
-
-  const organizationId = profile.organization_id as string;
+  // Sending a real outbound email is at least as sensitive as creating a
+  // template or sequence (both "writer"), so it gets the same floor - a
+  // viewer must not be able to trigger a send.
+  const gate = await requireRole("writer");
+  if ("error" in gate) return gate.error;
+  const { userId, organizationId } = gate;
 
   let body: unknown;
   try {
@@ -327,7 +318,7 @@ export async function POST(request: Request) {
     void new FunderRelationshipAgent({
       client: admin,
       organizationId,
-      triggeredBy: profile.id as string,
+      triggeredBy: userId,
     })
       .run({ funderId: convertedFunderId, event: "cold_outreach_sent" })
       .catch(() => undefined);

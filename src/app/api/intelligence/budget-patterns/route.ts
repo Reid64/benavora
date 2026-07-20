@@ -5,6 +5,8 @@ import { createClient } from '@/lib/supabase/server';
 import { BudgetPatternLibrary } from '@/lib/intelligence/budget-patterns';
 
 export const runtime = 'nodejs';
+// BudgetPatternLibrary calls Claude for a single non-streaming completion — give it room.
+export const maxDuration = 300;
 
 function jsonError(message: string, code: string, status: number) {
   return NextResponse.json({ error: message, code }, { status });
@@ -44,8 +46,7 @@ export async function GET(request: Request) {
     ]);
 
     return NextResponse.json({ template, indirectGuidance });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Budget pattern lookup failed.';
-    return jsonError(message, 'lookup_failed', 500);
+  } catch {
+    return jsonError('Budget pattern lookup failed.', 'lookup_failed', 500);
   }
 }

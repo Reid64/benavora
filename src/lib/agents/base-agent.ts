@@ -144,9 +144,13 @@ export abstract class BaseAgent<TInput, TResult> {
         completed_at: new Date().toISOString(),
       });
 
+      // `message` (the raw exception text) is logged to agent_runs.error_message
+      // above for operators, but never rethrown for an unexpected (non-AgentError)
+      // failure - route handlers surface AgentError.message directly to the
+      // client, so a raw DB/provider error must not travel through it.
       throw err instanceof AgentError
         ? err
-        : new AgentError(message, "agent_failed");
+        : new AgentError("Agent execution failed. Please try again.", "agent_failed");
     }
   }
 

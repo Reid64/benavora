@@ -58,6 +58,7 @@ export async function POST(request: Request) {
       "id, title, description, due_date, deadline_type, google_calendar_event_id, application_id, opportunity_id",
     )
     .eq("id", deadlineId)
+    .eq("organization_id", organizationId)
     .single();
 
   if (loadError || !deadline) {

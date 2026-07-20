@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-import { createClient } from '@/lib/supabase/server'
+import { requireRole } from '@/lib/auth/role-gate'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { generateLogicModel, type GeneratedLogicModel } from '@/lib/intelligence/logic-model-generator'
 
@@ -12,11 +12,12 @@ function jsonError(message: string, code: string, status: number) {
 }
 
 export async function POST(request: Request) {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    return jsonError('Authentication required.', 'unauthenticated', 401)
-  }
+  // Generating a logic model calls Claude and, with save_to_library, writes
+  // to the shared intelligence_logic_models table via the admin client — a
+  // write action, gated accordingly (mirrors need-data's POST convention).
+  const gate = await requireRole('writer')
+  if ('error' in gate) return gate.error
+  const { supabase } = gate
 
   let body: unknown
   try {
@@ -51,14 +52,9 @@ export async function POST(request: Request) {
     return jsonError('organization_id is required.', 'missing_organization_id', 400)
   }
 
-  // Verify the authenticated user belongs to the requested org
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('organization_id')
-    .eq('id', user.id)
-    .single()
-
-  if (!profile || profile.organization_id !== organization_id) {
+  // organization_id is verified against the session-derived value — never
+  // trusted from the body alone (Behavioral Contracts §2).
+  if (gate.organizationId !== organization_id) {
     return jsonError('You do not have access to this organization.', 'forbidden', 403)
   }
 
@@ -82,9 +78,8 @@ export async function POST(request: Request) {
       targetPopulation: typeof target_population === 'string' ? target_population : undefined,
       geography: typeof geography === 'string' ? geography : undefined,
     })
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Logic model generation failed.'
-    return jsonError(message, 'generation_failed', 500)
+  } catch {
+    return jsonError('Logic model generation failed.', 'generation_failed', 500)
   }
 
   if (save_to_library === true) {

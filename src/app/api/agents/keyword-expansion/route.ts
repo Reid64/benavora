@@ -84,22 +84,30 @@ export async function POST(request: Request) {
 
   const focusAreas = parseFocusAreas(profile.focus_areas);
 
-  const result = await expandKeywords({
-    existingKeywords: profile.keywords ?? [],
-    missionStatement: orgData?.mission_statement ?? null,
-    geographicScope: profile.geographic_scope ?? null,
-    focusAreaLabels: focusAreas.map((f) => f.label),
-    populationsServed: (profile.populations_served ?? []).filter(
-      (s) => typeof s === "string",
-    ),
-    categories: (profile.categories ?? []).map((c) =>
-      c.replace(/_/g, " "),
-    ),
-    count,
-  });
+  try {
+    const result = await expandKeywords({
+      existingKeywords: profile.keywords ?? [],
+      missionStatement: orgData?.mission_statement ?? null,
+      geographicScope: profile.geographic_scope ?? null,
+      focusAreaLabels: focusAreas.map((f) => f.label),
+      populationsServed: (profile.populations_served ?? []).filter(
+        (s) => typeof s === "string",
+      ),
+      categories: (profile.categories ?? []).map((c) =>
+        c.replace(/_/g, " "),
+      ),
+      count,
+    });
 
-  return NextResponse.json({
-    suggested: result.suggested,
-    tokensUsed: result.tokensUsed,
-  });
+    return NextResponse.json({
+      suggested: result.suggested,
+      tokensUsed: result.tokensUsed,
+    });
+  } catch {
+    return jsonError(
+      "Keyword expansion failed. Please try again.",
+      "expansion_failed",
+      500,
+    );
+  }
 }

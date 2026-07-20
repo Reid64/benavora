@@ -60,10 +60,9 @@ export async function POST(request: Request) {
     const manager = new DomainManager();
     const record = await manager.addDomain(domain, api_key, provider);
     return NextResponse.json({ domain: record }, { status: 201 });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
+  } catch {
     return NextResponse.json(
-      { error: message, code: "add_failed" },
+      { error: "Failed to add domain.", code: "add_failed" },
       { status: 500 },
     );
   }

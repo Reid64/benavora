@@ -23,8 +23,9 @@ export async function GET(
     const result = await computeSuccessProbability(orgId, params.id, supabase);
     return NextResponse.json(result);
   } catch (err) {
+    console.error("[opportunities/probability]", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Failed to compute success probability." },
+      { error: "Failed to compute success probability." },
       { status: 404 },
     );
   }

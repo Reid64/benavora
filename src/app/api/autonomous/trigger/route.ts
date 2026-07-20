@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { requireRole } from "@/lib/auth/role-gate";
+import { checkRateLimit } from "@/lib/utils/rate-limit";
 
 // POST /api/autonomous/trigger - manually enqueue an agent run
 // (agent_queue, migration 080). organization_id is always derived
@@ -19,7 +20,15 @@ function jsonError(message: string, code: string, status: number) {
 export async function POST(request: Request) {
   const gate = await requireRole("writer");
   if ("error" in gate) return gate.error;
-  const { supabase, organizationId } = gate;
+  const { supabase, organizationId, userId } = gate;
+
+  if (!checkRateLimit(`autonomous-trigger:${userId}`)) {
+    return jsonError(
+      "Too many manual agent triggers. Try again in a bit.",
+      "rate_limited",
+      429,
+    );
+  }
 
   let body: unknown;
   try {

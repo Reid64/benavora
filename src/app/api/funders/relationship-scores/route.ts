@@ -22,7 +22,7 @@ export async function GET() {
 
   if (fundersError || eventsError) {
     return NextResponse.json(
-      { error: (fundersError ?? eventsError)?.message, code: 'query_failed' },
+      { error: 'Failed to load relationship scores.', code: 'query_failed' },
       { status: 500 },
     )
   }

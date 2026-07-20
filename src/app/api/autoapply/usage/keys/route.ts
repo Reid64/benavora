@@ -88,7 +88,7 @@ export async function POST(req: Request) {
   );
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Failed to save API key." }, { status: 500 });
   }
 
   return NextResponse.json({ success: true });
@@ -121,7 +121,7 @@ export async function PATCH(req: Request) {
   );
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Failed to update key settings." }, { status: 500 });
   }
 
   return NextResponse.json({ success: true, using_own_keys: body.using_own_keys });

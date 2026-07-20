@@ -73,8 +73,7 @@ export async function GET(request: Request) {
           }
         : null,
     })
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Recommendation lookup failed.'
-    return jsonError(message, 'lookup_failed', 500)
+  } catch {
+    return jsonError('Recommendation lookup failed.', 'lookup_failed', 500)
   }
 }

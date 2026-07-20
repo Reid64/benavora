@@ -61,9 +61,9 @@ export async function POST(request: Request) {
       supabase,
     );
     return NextResponse.json({ signals });
-  } catch (err) {
+  } catch {
     return jsonError(
-      err instanceof Error ? err.message : "Reputation check failed.",
+      "Reputation check failed.",
       "reputation_check_failed",
       500,
     );

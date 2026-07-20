@@ -53,7 +53,10 @@ export async function GET(request: Request) {
 
   const { data: sendsData, error: sendsError } = await sendsQuery;
   if (sendsError) {
-    return NextResponse.json({ error: sendsError.message }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to load sales analytics.", code: "load_failed" },
+      { status: 500 },
+    );
   }
   const sends = sendsData ?? [];
 

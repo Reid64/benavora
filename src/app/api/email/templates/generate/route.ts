@@ -54,8 +54,9 @@ export async function POST(request: Request) {
     );
 
     return NextResponse.json({ template: result });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "AI generation failed";
-    return jsonError(message, "ai_error", 500);
+  } catch {
+    // templateEngine.generateWithAI can propagate raw Anthropic API error
+    // bodies — never relay those to the client.
+    return jsonError("AI generation failed.", "ai_error", 500);
   }
 }

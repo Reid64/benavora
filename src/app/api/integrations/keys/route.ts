@@ -23,7 +23,7 @@ export async function GET() {
     .order("service_name");
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Failed to load integration keys.", code: "db_error" }, { status: 500 });
   }
 
   const masked = (data ?? []).map((row) => {
@@ -121,7 +121,7 @@ export async function POST(request: Request) {
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Failed to save the API key.", code: "db_error" }, { status: 500 });
   }
 
   return NextResponse.json({ success: true, key: { ...data, key_hint: keyHint } });

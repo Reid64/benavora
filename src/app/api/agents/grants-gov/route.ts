@@ -79,9 +79,11 @@ export async function POST(req: NextRequest) {
       opportunitiesCreated: outcome.data.opportunitiesCreated,
       agent_run_id: outcome.runId,
     });
-  } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "Grants.gov agent failed.";
-    return jsonError(message, "agent_failed", 500);
+  } catch {
+    return jsonError(
+      "Grants.gov agent failed. Please try again.",
+      "agent_failed",
+      500,
+    );
   }
 }
