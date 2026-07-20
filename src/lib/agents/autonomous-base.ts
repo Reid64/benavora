@@ -165,6 +165,9 @@ export abstract class AutonomousAgent {
       tokensUsed?: number;
       nextAction?: string;
       confidenceScore?: number;
+      /** agent_runs.output_payload jsonb (migration 080) -- structured run
+       * output for agents whose result is more than a one-line summary. */
+      outputPayload?: Record<string, unknown>;
     },
   ): Promise<void> {
     const patch: Record<string, unknown> = {
@@ -181,6 +184,8 @@ export abstract class AutonomousAgent {
     if (params.nextAction !== undefined) patch.next_action = params.nextAction;
     if (params.confidenceScore !== undefined)
       patch.confidence_score = params.confidenceScore;
+    if (params.outputPayload !== undefined)
+      patch.output_payload = params.outputPayload;
 
     await this.supabase.from("agent_runs").update(patch).eq("id", runId);
   }
@@ -244,12 +249,13 @@ export abstract class AutonomousAgent {
     title: string,
     message: string,
     metadata?: Record<string, unknown>,
+    severity: "info" | "warning" | "error" | "success" = "info",
   ): Promise<void> {
     void metadata; // no jsonb column on `alerts` to persist this into.
     await this.supabase.from("alerts").insert({
       organization_id: this.orgId,
       type: "system",
-      severity: "info",
+      severity,
       message: message ? `${title}: ${message}` : title,
       dedup_key: `autonomous:${this.agentId}:${type}:${crypto.randomUUID()}`,
     });
