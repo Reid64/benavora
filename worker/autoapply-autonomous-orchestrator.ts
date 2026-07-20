@@ -50,6 +50,38 @@
 //    submission_queue (see queue-processor.ts's loop()/dequeue()). Rows this
 //    file inserts are picked up on that processor's next 15-second poll with
 //    no additional wiring.
+// 6. "portal type detection (cybergrants/benevity/yourcause/blackbaud/generic/
+//    unknown)" — implemented as a deterministic domain classifier
+//    (classifyPortalType below) reusing the same vendor-domain knowledge
+//    already vetted in src/lib/autoapply/submission-controls.ts's
+//    SHARED_PLATFORMS list, plus blackbaud and a Salesforce NPSP host-pattern
+//    check. Written once to the new funders.portal_type column (migration 095)
+//    since the portal is a property of the funder, not of a single
+//    submission. The task's further ask — for "unknown" portals, fall back to
+//    a live Claude web-search discovery call — is deliberately not built
+//    here: this orchestrator runs as a batch classifier inside a nightly
+//    worker loop with no existing web-search-capable Claude client wired into
+//    worker/, and FormAnalyzerAgent (src/lib/autoapply/form-analyzer-agent.ts)
+//    already does the real, authoritative portal analysis at fill-time when
+//    queue-processor.ts picks the item up. Adding a second, speculative
+//    discovery pass here would duplicate that work for a label with no
+//    downstream consumer beyond logging. Unclassified portals are tagged
+//    'unknown' and still queued normally.
+// 7. "if any org disables mid-run, stop processing remaining sessions for
+//    that org" — getEligibleOrgs() only runs once at the start of the batch,
+//    so a toggle flipped after that snapshot but before an org's own batch
+//    finishes wouldn't otherwise be seen. reconfirmAutoApplyEnabled() below
+//    re-reads org_autonomous_config directly (not the initial snapshot)
+//    before an org's batch starts and again every few prospects during it,
+//    so a mid-run disable halts that org's remaining prospects without
+//    affecting other orgs already queued or still pending in this run.
+// 8. "nightly report" — this function only queues; whether a queued item
+//    later completes or fails is decided by queue-processor.ts, often hours
+//    after this batch returns, so "X queued, Y completed, Z failed" can't
+//    all be known synchronously here. This orchestrator posts an immediate
+//    org-wide alert with the queued/skipped counts it does know, and points
+//    to the AutoApply dashboard for completed/failed status as those
+//    submissions resolve overnight.
 //
 // agent_runs.agent_type is a strict enum (migration 001); this orchestrator's
 // own literal ('autoapply_autonomous_orchestrator') is added by migration 092
@@ -73,6 +105,60 @@ function errMsg(err: unknown): string {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// --- portal type classification ---------------------------------------------
+
+// Vendor domains that host third-party corporate/foundation giving portals.
+// Mirrors the SHARED_PLATFORMS knowledge already vetted in
+// src/lib/autoapply/submission-controls.ts (used there for rate-limit
+// stricness), extended with blackbaud per this task's explicit ask.
+const PORTAL_VENDOR_DOMAINS: Record<string, string> = {
+  'cybergrants.com': 'cybergrants',
+  'benevity.org': 'benevity',
+  'benevity.com': 'benevity',
+  'yourcause.com': 'yourcause',
+  'blackbaud.com': 'blackbaud',
+  'blackbaud-sites.com': 'blackbaud',
+  'blackbaudhosting.com': 'blackbaud',
+  'smartsimple.com': 'smartsimple',
+  'submittable.com': 'submittable',
+  'fluxx.io': 'fluxx',
+  'grantinterface.com': 'grantinterface',
+};
+
+// Salesforce Experience Cloud / NPSP-hosted community giving pages don't share
+// one vendor domain — they're hosted per-org on a Salesforce-issued subdomain.
+const SALESFORCE_NPSP_HOST_PATTERNS = [/\.force\.com$/, /\.my\.site\.com$/];
+
+function classifyPortalType(url: string | null): string {
+  if (!url) return 'unknown';
+  let hostname: string;
+  try {
+    hostname = new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return 'unknown';
+  }
+
+  for (const [domain, type] of Object.entries(PORTAL_VENDOR_DOMAINS)) {
+    if (hostname === domain || hostname.endsWith(`.${domain}`)) return type;
+  }
+  if (SALESFORCE_NPSP_HOST_PATTERNS.some((re) => re.test(hostname))) return 'salesforce_npsp';
+  return 'generic';
+}
+
+// --- mid-run disable check (deviation note 7) --------------------------------
+
+async function reconfirmAutoApplyEnabled(
+  supabase: SupabaseClient,
+  orgId: string,
+): Promise<boolean> {
+  const { data } = await supabase
+    .from('org_autonomous_config')
+    .select('auto_autoapply_enabled')
+    .eq('org_id', orgId)
+    .maybeSingle();
+  return Boolean((data as { auto_autoapply_enabled: boolean | null } | null)?.auto_autoapply_enabled);
 }
 
 // --- eligible orgs: enterprise tier, active/trialing subscription, opted in --
@@ -152,7 +238,7 @@ async function resolveFunderId(
   supabase: SupabaseClient,
   orgId: string,
   directory: DirectoryRow,
-): Promise<{ funderId: string; givingPortalUrl: string | null; orgName: string } | null> {
+): Promise<{ funderId: string; givingPortalUrl: string | null; orgName: string; portalType: string } | null> {
   const enrichment =
     directory.enrichment && typeof directory.enrichment === 'object' && !Array.isArray(directory.enrichment)
       ? (directory.enrichment as Record<string, unknown>)
@@ -165,25 +251,29 @@ async function resolveFunderId(
     directory.website ||
     null;
   const orgName = directory.dba_name?.trim() || directory.legal_name;
+  const portalType = classifyPortalType(givingPortalUrl);
 
   let funderId: string | null = null;
+  let existingPortalType: string | null = null;
   if (givingPortalUrl) {
     const { data } = await supabase
       .from('funders')
-      .select('id')
+      .select('id, portal_type')
       .eq('organization_id', orgId)
       .eq('giving_portal_url', givingPortalUrl)
       .maybeSingle();
     funderId = (data?.id as string | undefined) ?? null;
+    existingPortalType = (data?.portal_type as string | undefined) ?? null;
   }
   if (!funderId) {
     const { data } = await supabase
       .from('funders')
-      .select('id')
+      .select('id, portal_type')
       .eq('organization_id', orgId)
       .eq('name', orgName)
       .maybeSingle();
     funderId = (data?.id as string | undefined) ?? null;
+    existingPortalType = (data?.portal_type as string | undefined) ?? null;
   }
 
   if (!funderId) {
@@ -196,14 +286,21 @@ async function resolveFunderId(
         website: directory.website,
         giving_portal_url: givingPortalUrl,
         has_giving_page: true,
+        portal_type: portalType,
       })
       .select('id')
       .single();
     if (error || !newFunder) return null;
     funderId = newFunder.id as string;
+    existingPortalType = portalType;
+  } else if (!existingPortalType) {
+    // Backfill classification for a funder created before this column/logic
+    // existed. Never overwrites a portal_type a human or another agent set.
+    await supabase.from('funders').update({ portal_type: portalType }).eq('id', funderId);
+    existingPortalType = portalType;
   }
 
-  return { funderId, givingPortalUrl, orgName };
+  return { funderId, givingPortalUrl, orgName, portalType: existingPortalType ?? portalType };
 }
 
 async function ranRecently(
@@ -296,8 +393,27 @@ async function queueOrgProspects(
   let queued = 0;
   let skipped = 0;
   const prospectRows = (prospects ?? []) as unknown as ProspectRow[];
+  const MID_RUN_RECHECK_EVERY = 5;
 
-  for (const prospect of prospectRows) {
+  for (let i = 0; i < prospectRows.length; i += 1) {
+    const prospect = prospectRows[i];
+
+    // Deviation note 7: re-confirm the org hasn't disabled autonomous
+    // AutoApply since this batch started, checked periodically rather than
+    // per-prospect to avoid one extra DB round-trip for every single item.
+    if (i > 0 && i % MID_RUN_RECHECK_EVERY === 0) {
+      const stillEnabled = await reconfirmAutoApplyEnabled(supabase, org.id);
+      if (!stillEnabled) {
+        const remaining = prospectRows.length - i;
+        log.push(
+          `mid_run_disable: org disabled auto_autoapply_enabled after ${i} prospects — ` +
+            `halting remaining ${remaining} for tonight`,
+        );
+        skipped += remaining;
+        break;
+      }
+    }
+
     const directory = asDirectory(prospect.directory);
     if (!directory) {
       skipped += 1;
@@ -312,7 +428,7 @@ async function queueOrgProspects(
         continue;
       }
 
-      const { funderId, orgName } = resolved;
+      const { funderId, orgName, portalType } = resolved;
 
       if (await ranRecently(supabase, org.id, funderId)) {
         skipped += 1;
@@ -321,10 +437,10 @@ async function queueOrgProspects(
           agentRunId,
           decisionType: 'autoapply_skipped',
           entityId: prospect.id,
-          reasoning: `Skipped AutoApply queueing for ${orgName}: a session already ran or is already queued for this funder within the last 30 days.`,
+          reasoning: `Skipped AutoApply queueing for ${orgName} (portal type: ${portalType}): a session already ran or is already queued for this funder within the last 30 days.`,
           confidenceScore: prospect.score,
           actionTaken: 'skipped_recent_duplicate',
-          actionPayload: { funderId },
+          actionPayload: { funderId, portalType },
         });
         continue;
       }
@@ -359,10 +475,10 @@ async function queueOrgProspects(
         agentRunId,
         decisionType: 'autoapply_queued',
         entityId: prospect.id,
-        reasoning: `Queued AutoApply for ${orgName} (score=${prospect.score ?? 'unscored'}).`,
+        reasoning: `Queued AutoApply for ${orgName} (score=${prospect.score ?? 'unscored'}, portal type: ${portalType}).`,
         confidenceScore: prospect.score,
         actionTaken: 'inserted_submission_queue_item',
-        actionPayload: { queueId: queueItem.id as string, funderId },
+        actionPayload: { queueId: queueItem.id as string, funderId, portalType },
       });
 
       queued += 1;
@@ -383,10 +499,16 @@ async function queueOrgProspects(
  * org_autonomous_config.auto_autoapply_enabled = true, selects up to
  * max_nightly_autoapply_submissions 'new' donor_discovery_prospects (highest
  * score first), resolves each to a funder record, skips anything already
- * queued or submitted to in the last 30 days, and inserts the rest into
+ * queued or submitted to in the last 30 days, classifies each resolved
+ * funder's giving portal (cybergrants/benevity/yourcause/blackbaud/
+ * smartsimple/submittable/fluxx/grantinterface/salesforce_npsp/generic/
+ * unknown — see classifyPortalType), and inserts the rest into
  * submission_queue for the already-running QueueProcessor
- * (worker/queue-processor.ts) to pick up and process. Never fills a form or
- * submits anything itself — see AUTONOMOUS_HARD_LIMITS.NEVER_SUBMIT_EXTERNALLY.
+ * (worker/queue-processor.ts) to pick up and process. Re-confirms
+ * auto_autoapply_enabled before each org's batch and periodically during it,
+ * and posts an org-wide queued/skipped summary alert once the batch
+ * completes. Never fills a form or submits anything itself — see
+ * AUTONOMOUS_HARD_LIMITS.NEVER_SUBMIT_EXTERNALLY.
  */
 export async function runAutonomousAutoApply(supabase: SupabaseClient): Promise<void> {
   const orgs = await getEligibleOrgs(supabase);
@@ -410,6 +532,33 @@ export async function runAutonomousAutoApply(supabase: SupabaseClient): Promise<
     const runId = (runRow?.id as string | undefined) ?? null;
 
     try {
+      // Deviation note 7: re-confirm eligibility right before this org's
+      // batch starts too — getEligibleOrgs() ran once at the top of the
+      // whole nightly batch, and prior orgs' processing time (plus the
+      // inter-org sleep below) is enough of a gap for a toggle flip to have
+      // happened in between.
+      if (!(await reconfirmAutoApplyEnabled(supabase, org.id))) {
+        log.push('org_disabled_before_start: auto_autoapply_enabled is now false — skipping org entirely');
+        if (runId) {
+          await supabase
+            .from('agent_runs')
+            .update({
+              status: 'completed',
+              completed_at: new Date().toISOString(),
+              items_found: 0,
+              items_processed: 0,
+              items_queued: 0,
+              output_summary: log.join(' | ').slice(0, 2000),
+            })
+            .eq('id', runId);
+        }
+        console.log(
+          `[AutoApplyAutonomousOrchestrator] Org ${org.id} (${org.name ?? 'unnamed'}): disabled before start, skipped.`,
+        );
+        await sleep(SLEEP_BETWEEN_ORGS_MS);
+        continue;
+      }
+
       const { queued, skipped, considered } = await queueOrgProspects(supabase, org, runId, log);
       log.push(`summary: ${queued} queued, ${skipped} skipped, ${considered} considered`);
 
@@ -425,6 +574,24 @@ export async function runAutonomousAutoApply(supabase: SupabaseClient): Promise<
             output_summary: log.join(' | ').slice(0, 2000),
           })
           .eq('id', runId);
+      }
+
+      // Deviation note 8: nightly report. Completed/failed counts aren't
+      // knowable yet (queue-processor.ts resolves each item asynchronously,
+      // often well after this function returns), so this alert reports what
+      // is known now — queued and skipped — and points to the dashboard for
+      // the rest as it resolves overnight.
+      if (queued > 0 || skipped > 0) {
+        const dateKey = new Date().toISOString().slice(0, 10);
+        await supabase.from('alerts').insert({
+          organization_id: org.id,
+          type: 'system',
+          severity: 'info',
+          message:
+            `Autonomous AutoApply: ${queued} submission${queued === 1 ? '' : 's'} queued tonight, ` +
+            `${skipped} prospect${skipped === 1 ? '' : 's'} skipped. Review progress in the AutoApply dashboard.`,
+          dedup_key: `autoapply-autonomous:${org.id}:${dateKey}`,
+        });
       }
 
       console.log(
