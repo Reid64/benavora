@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { requireRole } from "@/lib/auth/role-gate";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/types/database";
 
 export const runtime = "nodejs";
@@ -24,9 +25,24 @@ function jsonError(message: string, code: string, status: number) {
   return NextResponse.json({ error: message, code }, { status });
 }
 
-function readOrganization(metadata: Json | null): string | null {
+function readMetadataField(metadata: Json | null, field: string): unknown {
   if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return null;
-  const value = (metadata as Record<string, unknown>).organization;
+  return (metadata as Record<string, unknown>)[field];
+}
+
+function readOrganization(metadata: Json | null): string | null {
+  const value = readMetadataField(metadata, "organization");
+  return typeof value === "string" && value.trim().length > 0 ? value : null;
+}
+
+function readMetaStringArray(metadata: Json | null, field: string): string[] {
+  const value = readMetadataField(metadata, field);
+  if (!Array.isArray(value)) return [];
+  return value.filter((v): v is string => typeof v === "string");
+}
+
+function readMetaString(metadata: Json | null, field: string): string | null {
+  const value = readMetadataField(metadata, field);
   return typeof value === "string" && value.trim().length > 0 ? value : null;
 }
 
@@ -50,11 +66,24 @@ export async function GET(request: Request) {
   const pageParam = parseInt(searchParams.get("page") ?? "1", 10);
   const page = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
 
+  // Added filters: NTEE major letter (stored in `category`, not a real ntee_code
+  // column -- see scripts/seed-intelligence-library.ts's header), funder type,
+  // award amount range, and award year.
+  const ntee = searchParams.get("ntee")?.trim().toUpperCase() || null;
+  const funderType = searchParams.get("funderType")?.trim() || null;
+  const minAmountParam = searchParams.get("minAmount");
+  const maxAmountParam = searchParams.get("maxAmount");
+  const minAmount = minAmountParam !== null ? Number(minAmountParam) : null;
+  const maxAmount = maxAmountParam !== null ? Number(maxAmountParam) : null;
+  const yearParam = searchParams.get("year");
+  const year = yearParam !== null ? parseInt(yearParam, 10) : null;
+
   let query = supabase
     .from("intelligence_funded_proposals")
-    .select("id, source, source_url, funder_name, grant_program, award_amount, award_year, full_text, metadata, created_at", {
-      count: "exact",
-    });
+    .select(
+      "id, source, source_url, funder_name, funder_type, grant_program, award_amount, award_year, category, full_text, metadata, created_at",
+      { count: "exact" },
+    );
 
   if (source !== "ALL") {
     query = query.eq("source", source);
@@ -63,6 +92,21 @@ export async function GET(request: Request) {
     query = query.or(
       `grant_program.ilike.%${search}%,funder_name.ilike.%${search}%,full_text.ilike.%${search}%`,
     );
+  }
+  if (ntee) {
+    query = query.contains("category", [ntee]);
+  }
+  if (funderType) {
+    query = query.eq("funder_type", funderType);
+  }
+  if (minAmount !== null && Number.isFinite(minAmount)) {
+    query = query.gte("award_amount", minAmount);
+  }
+  if (maxAmount !== null && Number.isFinite(maxAmount)) {
+    query = query.lte("award_amount", maxAmount);
+  }
+  if (year !== null && Number.isFinite(year)) {
+    query = query.eq("award_year", year);
   }
 
   const from = (page - 1) * PAGE_SIZE;
@@ -101,11 +145,17 @@ export async function GET(request: Request) {
     source: row.source,
     sourceUrl: row.source_url,
     funderName: row.funder_name,
+    funderType: row.funder_type,
     title: row.grant_program,
     awardAmount: row.award_amount,
     awardYear: row.award_year,
+    category: row.category ?? [],
     organizationName: readOrganization(row.metadata),
     abstract: row.full_text,
+    narrativeFull: row.full_text,
+    nteeCode: readMetaString(row.metadata, "ntee_code"),
+    successFactors: readMetaStringArray(row.metadata, "success_factors"),
+    keywords: readMetaStringArray(row.metadata, "keywords"),
     createdAt: row.created_at,
   }));
 
@@ -129,4 +179,98 @@ export async function GET(request: Request) {
       lastIngestionAt,
     },
   });
+}
+
+// Manual "Add Awarded Grant Narrative" entry — platform-owner only, per the
+// Intelligence Library task spec. This table has no title/narrative_full/
+// ntee_code/success_factors/keywords columns (confirmed against
+// supabase/migrations/048_grant_intelligence.sql and src/types/database.ts):
+// title maps to grant_program (matching the GET handler's own `title: row.
+// grant_program` mapping above), narrative_full maps to full_text, and
+// ntee_code/success_factors/keywords are carried in metadata jsonb -- same
+// convention scripts/seed-intelligence-library.ts uses for the platform-wide
+// seed data. This is a shared, cross-org table (no organization_id column),
+// so the insert runs on the admin client after the role gate, mirroring
+// src/app/api/admin/prospects/route.ts's pattern for other shared tables.
+interface ManualProposalBody {
+  title?: unknown;
+  funder_name?: unknown;
+  grant_program?: unknown;
+  award_amount?: unknown;
+  award_year?: unknown;
+  narrative_full?: unknown;
+  ntee_code?: unknown;
+  success_factors?: unknown;
+  keywords?: unknown;
+}
+
+function toTrimmedString(val: unknown): string | null {
+  return typeof val === "string" && val.trim().length > 0 ? val.trim() : null;
+}
+function toStringArray(val: unknown): string[] {
+  if (!Array.isArray(val)) return [];
+  return val.filter((v): v is string => typeof v === "string" && v.trim().length > 0);
+}
+
+export async function POST(request: Request) {
+  const roleCheck = await requireRole("owner");
+  if ("error" in roleCheck) return roleCheck.error;
+
+  let body: ManualProposalBody;
+  try {
+    body = (await request.json()) as ManualProposalBody;
+  } catch {
+    return jsonError("Invalid JSON body.", "invalid_body", 400);
+  }
+
+  const title = toTrimmedString(body.title) ?? toTrimmedString(body.grant_program);
+  if (!title) {
+    return jsonError("title (or grant_program) is required.", "missing_title", 400);
+  }
+  const funderName = toTrimmedString(body.funder_name);
+  if (!funderName) {
+    return jsonError("funder_name is required.", "missing_funder_name", 400);
+  }
+
+  const awardAmount =
+    typeof body.award_amount === "number" && Number.isFinite(body.award_amount)
+      ? body.award_amount
+      : null;
+  const awardYear =
+    typeof body.award_year === "number" && Number.isInteger(body.award_year)
+      ? body.award_year
+      : null;
+  const narrativeFull = toTrimmedString(body.narrative_full);
+  const nteeCode = toTrimmedString(body.ntee_code);
+  const successFactors = toStringArray(body.success_factors);
+  const keywords = toStringArray(body.keywords);
+
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("intelligence_funded_proposals")
+    .insert({
+      source: "MANUAL_ENTRY",
+      source_url: null,
+      funder_name: funderName,
+      grant_program: title,
+      award_amount: awardAmount,
+      award_year: awardYear,
+      full_text: narrativeFull,
+      category: nteeCode ? [nteeCode] : [],
+      metadata: {
+        ntee_code: nteeCode,
+        success_factors: successFactors,
+        keywords: keywords,
+        record_kind: "manual_entry",
+        created_by: roleCheck.userId,
+      },
+    })
+    .select("id, source, source_url, funder_name, grant_program, award_amount, award_year, full_text, metadata, created_at")
+    .single();
+
+  if (error || !data) {
+    return jsonError("Failed to save the narrative.", "insert_failed", 500);
+  }
+
+  return NextResponse.json({ result: data }, { status: 201 });
 }

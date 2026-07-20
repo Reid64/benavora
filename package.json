@@ -40,6 +40,7 @@
         "score:opportunities": "tsx scripts/batch-score-opportunities.ts",
         "score:eligibility": "tsx scripts/batch-score-eligibility.ts",
         "seed:intelligence": "tsx scripts/seed-intelligence-corpus.ts",
+        "seed:library": "tsx scripts/seed-intelligence-library.ts",
         "seed:patterns": "tsx scripts/seed-knowledge-patterns.ts",
         "ingest:nonprofits": "tsx scripts/ingest-nonprofit-bmf.ts",
         "build:twins": "tsx scripts/build-digital-twins.ts",

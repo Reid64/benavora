@@ -227,6 +227,30 @@ interface FunderRow {
   notes: string | null;
 }
 
+// intelligence_funded_proposals (supabase/migrations/048_grant_intelligence.sql,
+// seeded platform-wide by scripts/seed-intelligence-library.ts). No
+// ntee_code/success_factors/keywords columns exist live -- those live inside
+// `metadata` jsonb (see that script's header for why: DDL against prod is
+// unavailable this session). `category` carries the NTEE major letter, a real
+// funder_category enum value, and free-text topic tags together in one array.
+interface IntelligenceLibraryRow {
+  id: string;
+  funder_name: string | null;
+  grant_program: string | null;
+  award_amount: number | null;
+  category: string[] | null;
+  full_text: string | null;
+  metadata: { keywords?: string[]; success_factors?: string[] } | null;
+}
+
+const INTELLIGENCE_LIBRARY_CANDIDATE_POOL = 200;
+const INTELLIGENCE_LIBRARY_MAX_INJECTED = 5;
+const INTELLIGENCE_LIBRARY_MIN_INJECTED = 3;
+const STOPWORDS = new Set([
+  "the", "and", "for", "with", "from", "that", "this", "will", "have",
+  "their", "about", "into", "across", "over", "under", "than", "through",
+]);
+
 interface FunderIntelligence {
   name: string | null;
   annualGivingBudget: number | null;
@@ -890,6 +914,93 @@ export class DraftGenerationAgent extends AutonomousAgent {
     return lines.join("\n");
   }
 
+  /** Extracts significant words (>=5 chars, not a stopword) from opportunity
+   * name/description/category to loosely match against library keywords.
+   * There is no real "org primary program keyword" field anywhere in this
+   * schema (organizations has no NTEE/program-keyword column -- same gap
+   * loadPlatformPatterns's header already documents), so this derives the
+   * closest available signal from the opportunity itself rather than
+   * fabricating one. */
+  private deriveOpportunityKeywords(opportunity: OpportunityRow): string[] {
+    const text = `${opportunity.name} ${opportunity.description ?? ""} ${opportunity.category}`.toLowerCase();
+    const words = text.match(/[a-z][a-z-]{4,}/g) ?? [];
+    return Array.from(new Set(words.filter((w) => !STOPWORDS.has(w))));
+  }
+
+  /**
+   * Intelligence Library lookup (intelligence_funded_proposals). Task spec:
+   * match by NTEE major code first, then keyword overlap, dedupe, top 5 by
+   * award_amount, always inject at least 3 even with no match. This schema
+   * has no org-side NTEE code (see loadPlatformPatterns's header for the same
+   * gap), so step 1 matches on `category` containing this opportunity's real
+   * funder_category value instead -- a genuine signal the seeded library rows
+   * carry precisely for this purpose (see scripts/seed-intelligence-library.ts).
+   * keywords/success_factors live in `metadata` jsonb (not real columns), so
+   * step 2's overlap check runs client-side against a single fetched
+   * candidate pool rather than fighting jsonb-path PostgREST filter syntax
+   * over a corpus this small (~100s of rows).
+   */
+  private async loadIntelligenceLibrary(
+    opportunity: OpportunityRow,
+  ): Promise<IntelligenceLibraryRow[]> {
+    const { data: pool } = await this.supabase
+      .from("intelligence_funded_proposals")
+      .select("id, funder_name, grant_program, award_amount, category, full_text, metadata")
+      .not("full_text", "is", null)
+      .order("award_amount", { ascending: false, nullsFirst: false })
+      .limit(INTELLIGENCE_LIBRARY_CANDIDATE_POOL);
+
+    const candidates = (pool ?? []) as IntelligenceLibraryRow[];
+    if (candidates.length === 0) return [];
+
+    const categoryMatches = candidates
+      .filter((c) => (c.category ?? []).includes(opportunity.category))
+      .slice(0, INTELLIGENCE_LIBRARY_MAX_INJECTED);
+
+    const oppKeywords = this.deriveOpportunityKeywords(opportunity);
+    const selectedIds = new Set(categoryMatches.map((c) => c.id));
+    const keywordMatches = candidates
+      .filter((c) => {
+        if (selectedIds.has(c.id)) return false;
+        const libKeywords = (c.metadata?.keywords ?? []).map((k) => k.toLowerCase());
+        return libKeywords.some((k) => oppKeywords.some((ok) => k.includes(ok) || ok.includes(k)));
+      })
+      .slice(0, 3);
+
+    let combined = [...categoryMatches, ...keywordMatches];
+    if (combined.length < INTELLIGENCE_LIBRARY_MIN_INJECTED) {
+      const usedIds = new Set(combined.map((c) => c.id));
+      const fallback = candidates.filter((c) => !usedIds.has(c.id));
+      combined = [...combined, ...fallback.slice(0, INTELLIGENCE_LIBRARY_MIN_INJECTED - combined.length)];
+    }
+
+    return combined
+      .sort((a, b) => (b.award_amount ?? 0) - (a.award_amount ?? 0))
+      .slice(0, INTELLIGENCE_LIBRARY_MAX_INJECTED);
+  }
+
+  private buildIntelligenceLibraryBlock(rows: IntelligenceLibraryRow[]): string {
+    if (rows.length === 0) {
+      return "No reference narratives available in the Intelligence Library yet.";
+    }
+    const header =
+      "The following are real awarded grants from the Benavora Intelligence Library. Use these as " +
+      "style, structure, and language reference when drafting. Do not copy verbatim. Extract the " +
+      "winning patterns -- how they frame problems, describe programs, quantify outcomes, and " +
+      "demonstrate organizational capacity.";
+
+    const entries = rows.map((r) => {
+      const amount = r.award_amount != null ? `$${r.award_amount.toLocaleString()}` : "unspecified";
+      const successFactors = (r.metadata?.success_factors ?? []).join(", ") || "not recorded";
+      return (
+        `[Funder: ${r.funder_name ?? "Unknown"} | Program: ${r.grant_program ?? "Unspecified"} | ` +
+        `Amount: ${amount} | Success Factors: ${successFactors}]\n${r.full_text ?? ""}`
+      );
+    });
+
+    return [header, "", ...entries].join("\n\n");
+  }
+
   private buildSharedContextBlock(params: {
     opportunity: OpportunityRow;
     orgName: string;
@@ -901,6 +1012,7 @@ export class DraftGenerationAgent extends AutonomousAgent {
     roiSection: string | null;
     fundabilitySection: string | null;
     funderSection: string;
+    intelligenceLibrarySection: string;
   }): string {
     const {
       opportunity,
@@ -913,6 +1025,7 @@ export class DraftGenerationAgent extends AutonomousAgent {
       roiSection,
       fundabilitySection,
       funderSection,
+      intelligenceLibrarySection,
     } = params;
 
     return [
@@ -944,6 +1057,9 @@ export class DraftGenerationAgent extends AutonomousAgent {
       "",
       "PROVEN NARRATIVES (high-weight examples from previously successful applications):",
       provenSection,
+      "",
+      "INTELLIGENCE LIBRARY -- SUCCESSFUL GRANT REFERENCE NARRATIVES",
+      intelligenceLibrarySection,
       "",
       ...(patternsSection
         ? [
@@ -1246,12 +1362,14 @@ export class DraftGenerationAgent extends AutonomousAgent {
         communityNeedSignals,
         fundability,
         funderIntel,
+        intelligenceLibraryRows,
       ] = await Promise.all([
         this.loadPlatformPatterns(opportunity.category),
         this.loadRoiRecommendations(),
         this.loadCommunityNeedSignals(),
         this.loadFundabilityContext(opportunity.id),
         this.loadFunderIntelligence(funderId),
+        this.loadIntelligenceLibrary(opportunity),
       ]);
 
       // "if twin_completeness < 40 create notification suggesting org
@@ -1390,6 +1508,7 @@ export class DraftGenerationAgent extends AutonomousAgent {
           : "No community need signal data available for this organization's service area yet.";
 
       const funderSection = this.buildFunderIntelBlock(funderIntel);
+      const intelligenceLibrarySection = this.buildIntelligenceLibraryBlock(intelligenceLibraryRows);
 
       const sharedContextBlock = this.buildSharedContextBlock({
         opportunity,
@@ -1402,6 +1521,7 @@ export class DraftGenerationAgent extends AutonomousAgent {
         roiSection,
         fundabilitySection,
         funderSection,
+        intelligenceLibrarySection,
       });
 
       // ---- PHASE 2: NARRATIVE STRATEGY ------------------------------------
