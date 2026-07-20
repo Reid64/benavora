@@ -183,6 +183,44 @@ This document keeps the original 30 canonical `AG-XX` names/purposes (Section 5)
 the taxonomy the product/business side already knows. Every per-agent spec below states its real
 on-disk `agent_type`/`agent_id` literal explicitly so the two schemes never get silently conflated.
 
+### 1.5 Files in `src/lib/agents/` with no corresponding spec anywhere in this document
+
+Cross-checking the full `src/lib/agents/` directory listing (76 entries as of July 19, 2026) against
+every file path named anywhere in this document (Sections 1, 4, 5, 8, and the Phase 2-5 section)
+turns up 21 files never mentioned. None of these were audited as part of this pass — this is a
+"these exist and are undocumented" list, not a claim about whether they're wired, dead, or built
+correctly. A future edit of this document should give each one a real spec (or fold it explicitly
+into an existing agent's spec as a helper/adapter, the way `research/*.ts` was folded into AG-05).
+
+| File | Lines | Likely relates to (unverified — name-based guess only) |
+|---|---|---|
+| `application-cloner.ts` | 226 | Application Cloning, `FEATURE_REGISTRY_v2.md` #72 BUILT — not in the AG-01–40 roster anywhere |
+| `automation-worker.ts` | 449 | Possibly AutoApply (AG-12) internals — not named in the AG-12 spec (Section 5) |
+| `budget-agent.ts` | 468 | A **third** budget-related file — distinct from `budget-builder.ts` (live, Gen-1) and `budget-builder-agent.ts` (dead, Gen-2 `ag-06-budget-builder`), neither of which this document identifies as related to this file |
+| `competitor-intel.ts` | 302 | Competitor Intelligence, `FEATURE_REGISTRY_v2.md` #70 BUILT — not in the AG-01–40 roster |
+| `consensus-validator.ts` | 378 | Multi-Model Consensus, `FEATURE_REGISTRY_v2.md` #29 BUILT — not in the AG-01–40 roster |
+| `email-campaign.ts` | 573 | Email campaign sending (Behavioral Contracts §28/32) — not in the AG-01–40 roster |
+| `final-assembly.ts` | 344 | Document Assembly Engine, `FEATURE_REGISTRY_v2.md` #31/#115 BUILT — not in the AG-01–40 roster |
+| `foundation-finder.ts` | 188 | Possibly overlaps AG-13 (Foundation Enrichment) — not named in the AG-13 spec |
+| `funder-intel.ts` | 284 | Funder Intelligence, `FEATURE_REGISTRY_v2.md` #32 BUILT — not in the AG-01–40 roster |
+| `giving-history.ts` | 204 | 990-PF Giving History, `FEATURE_REGISTRY_v2.md` #66 PLANNED — not in the AG-01–40 roster |
+| `housing-specific-scrapers.ts` | 201 | Faith Foundation-specific (housing/TDHCA domain) — not in the AG-01–40 roster |
+| `hud-monitor.ts` | 239 | HUD program monitoring — not in the AG-01–40 roster |
+| `humanizer-agent.ts` | 630 | AI Humanizer Agent, `FEATURE_REGISTRY_v2.md` #22 BUILT, referenced by name in Behavioral Contracts §28 ("processed through Humanizer") — not in the AG-01–40 roster |
+| `review-agent.ts` | 255 | Possibly `/api/ai/review` — not in the AG-01–40 roster |
+| `scheduler.ts` | 213 | **Naming collision risk:** distinct from `worker/scheduler.ts` (Section 4/7, the real nightly cron scheduler) — this is a different file under `src/lib/agents/`, unaudited |
+| `semantic-matching.ts` | 271 | Possibly overlaps Semantic Funder Matching, `FEATURE_REGISTRY_v2.md` #73 BUILT (registry cross-ref table, Section 4, credits `src/lib/intelligence/semantic-matcher.ts` instead — a different path) |
+| `simpler-grants.ts` | 234 | Likely a Simpler Grants API source adapter, sibling to `grants-gov.ts`/`sam-gov.ts` under AG-05 — not listed among AG-05's real implementation files |
+| `state-scrapers.ts` | 255 | Likely sibling to `state-portal.ts` (listed under AG-05) — not itself named |
+| `success-probability.ts` | 335 | Success Probability Scoring, `FEATURE_REGISTRY_v2.md` #68 BUILT — not in the AG-01–40 roster |
+| `tdhca-scraper.ts` | 193 | Texas Dept. of Housing scraper (Faith Foundation domain-specific) — not in the AG-01–40 roster |
+| `usaspending.ts` | 156 | USASpending API source adapter — not in the AG-01–40 roster |
+
+Not counted as "missing" above: `agent-registry-seed.ts` (Section 6, registry metadata, not an
+agent), `autonomous-base.ts`/`base-agent.ts` (Section 2, base classes), the `research/` subdirectory
+(Section 5 AG-05, source adapters), and the 14 files covered in Section 8 and the Phase 2-5 section
+above.
+
 ---
 
 ## 2. Agent Architecture (unchanged from prior edition)
@@ -1215,17 +1253,46 @@ which will queue, claim, fail, retry 3x, and land in `failed` with a visible
 
 ---
 
-## Phase 2-5 Agent Specifications (Planned)
+## 8. Fully Agentic Agents
 
-Every agent below is scoped in `AUTONOMOUS_PLATFORM_VISION.md` (Phases 2-5) and/or
-`FEATURE_REGISTRY_v2.md` features 217-228. **None of these agents exist in `src/lib/agents/` today**
-??? no file, no class, no `agent_type`/`agent_id` literal, no migration beyond what Section 6's schema
-tables already define for the handful that reuse Phase 1 tables (`impact_simulations`,
-`board_meeting_packets`). Every field below is a design commitment carried over from
-`AUTONOMOUS_PLATFORM_VISION.md` ??7's FORGE queue blueprint table, not a live call site. Treat this
-section the same way Section 5 treats AG-10/AG-20/AG-21/AG-23/AG-26/AG-27/AG-29/AG-30: PLANNED means
-PLANNED, and nothing here should be read as "wired" until a future edition of this document says so
-from an actual audit of `src/lib/agents/` and `worker/`.
+A requested list of six agents said to implement "a perception-decision-execution loop with
+self-calibration," each with a specific characterization of its branching/learning logic. Per this
+document's audit methodology, each claim below was checked against the actual file rather than
+accepted as given. Two agents match their stated description closely; four don't, either because
+the described capability isn't present in the named file, or because the description actually
+matches a *different* file than the one the requested AG-number implies (this codebase's AG-number
+collisions, cataloged in Sections 1.4 and the Phase 2-5 Numbering note above, strike again here).
+Real class names and `agentId` literals are used as the source of truth, not the requested AG-XX
+numbers, which don't align with either this document's canonical numbering (Section 3/5) or the
+on-disk `agent_type` literals (Section 1.4).
+
+| Requested label | File | Verified against code |
+|---|---|---|
+| AG-02 OpportunityDiscovery | `opportunity-discovery-agent.ts` (`ag-17-discovery`, this doc's canonical AG-17) | **Partially confirmed.** Real decision logic found: `queueChainedAgent("ag-15-probability", 7, {opportunityIds})` fires only `if (config.auto_score_enabled && newOpportunityIds.length > 0)` (line 434-435) — a genuine conditional branch, not unconditional chaining. Dedup checks both `url` and `name` against existing `opportunities` before insert (lines 219-242), a documented workaround for `opportunities` having no `source_url` column. **Not confirmed:** "strategy branching based on historical performance" — no code path was found that reads `agent_runs`/`outcomes` history to alter discovery strategy. The branching that exists is a single boolean config gate, not a performance-driven strategy switch. |
+| AG-03 ProbabilityScoring | `probability-scoring-agent.ts` (`ag-15-probability`, this doc's canonical AG-15) | **Partially confirmed.** Genuine chain logic: `queueChainedAgent("ag-05-draft", 8, {...})` fires only if `result.score >= config.auto_draft_threshold && config.auto_draft_enabled` (lines 202-206) — a two-part gate. **Not confirmed:** "self-calibrating against actual outcomes" — this file has no Claude call and no `.insert`/`.upsert` of its own; it delegates scoring to `computeGrantProbability()` in `src/lib/intelligence/grant-probability-engine.ts`, which was not audited as part of this pass. Whether *that* function self-calibrates against `outcomes` was not verified. Also note (Section 5, AG-15 spec): **this class is never imported anywhere in the repo** outside its own file — the orchestrator wires in a different class, `SuccessProbabilityAgent`, instead. |
+| AG-05 DraftGeneration | `draft-generation-agent.ts` (`ag-05-draft`) | **Confirmed, closest match of the six.** Real multi-phase flow with two hard gates: (1) daily-cap gate — counts today's `auto_generated=true` applications, skips entirely if `>= max_auto_drafts_per_night` (lines 379-416); (2) Digital-Twin-completeness check — below-threshold completeness fires a deduped notification but still proceeds; (3) context assembly from KB + proven narratives + Twin + `platform_learning_patterns`; (4) the Claude drafting call itself (`maxTokens: 4000`, line 657); (5) confidence computed then reduced by a twin-completeness penalty (`(100 - completeness) * 0.3`, lines 667-679) before the application is inserted with `pending_review=true` unconditionally. Five distinguishable phases, and phase (1) is a genuine compliance-style gate. Caveat: this class is only imported by its own unit test — production code calls a different function, `generateDraft()`, instead (Section 5, AG-06 spec). |
+| AG-06 RelationshipBuilder | `relationship-builder-agent.ts` (`ag-19-relationship`, this doc's canonical AG-19) | **Not confirmed as described.** Verified logic is a per-funder loop computing `relationship_score`/`momentum` from `relationship_memory` + `outcomes`, upserting a score, then conditionally generating a Claude recommendation with a dedup check against existing `relationship_recommendations`. No graph traversal of any kind — this file never touches `pig_nodes`/`pig_edges`. "Multi-hop network traversal" instead accurately describes a **different** agent: `relationship-graph-builder-agent.ts` (AG-32, `FEATURE_REGISTRY_v2.md` #220, BUILT), which reads/writes `pig_nodes`/`pig_edges` and ships a Graph Analytics panel with cross-rule pattern detection. Also note: `relationship-builder-agent.ts` is never imported anywhere outside its own file — the orchestrator wires in `FunderRelationshipAgent` (`funder-relationship.ts`) instead. |
+| AG-07 DeadlinePrediction | `deadline-prediction-agent.ts` (`ag-25-deadline-prediction`) | **Not confirmed as described, and orphaned.** Verified logic: for each funder, computes a predicted next-cycle deadline from that funder's own historical `opportunities.deadline` pattern (single source — `opportunities` — not multiple sources), skips if an open opportunity already exists for that funder, else inserts a synthetic predicted `opportunities` row citing a confidence % and cycle count. This is pattern detection over one table, not "multi-source." More importantly: **this exact file is never imported anywhere** — repo-wide grep confirms both the API route (`/api/agents/deadline-prediction`) and `worker/autonomous-orchestrator.ts` import a same-named-but-different class from `deadline-prediction.ts` instead (Section 5, AG-25 spec has full detail on this collision). Feature #201's "AG-25 Autonomous Deadline Prediction: BUILT" refers to whichever class is actually wired — not this file. |
+| Digest Agent | `autonomous-digest-agent.ts` (`ag-digest`) | **Partially confirmed.** Real decision gate: if all 7 overnight-activity counters sum to zero, the run completes immediately with `"No overnight activity -- digest skipped"` and **never calls Claude** (lines 115-130) — a genuine "don't waste a call on nothing to say" gate, which is a defensible reading of "intelligent priority curation." **Not confirmed:** "adaptive learning" — no code path reads historical digest performance or user engagement to adjust future digests; the summarization call (`maxTokens: 400`, lines 138-144) is a straightforward one-shot summary of the current night's counters. Genuinely wired into `worker/autonomous-orchestrator.ts:801-805`'s `runDigestPipeline()`. |
+
+---
+
+## Phase 2-5 Agent Specifications
+
+**Status as of July 19, 2026 (re-audited from `src/lib/agents/`, `worker/autonomous-orchestrator.ts`,
+and repo-wide import grep — supersedes the July 19, 2026 "none of these agents exist" edition of this
+section):** eight of the twelve agents below now have real files with real logic ??? AG-29, AG-30,
+AG-35, AG-36, AG-37, AG-38, AG-39, AG-40. Each is marked **BUILT** below. "BUILT" here means the class
+exists, extends the correct base class (or documents why it doesn't), calls Claude with real
+parameters, and writes to real tables ??? it does **not** automatically mean "wired into the nightly
+2AM sweep." Per this document's standing methodology (Section 1: "PLANNED means PLANNED... nothing
+should be read as wired until an actual audit says so"), the same rigor is applied here: each BUILT
+spec below states its actual, grep-verified call site. Three of the eight are genuinely orphaned ???
+never imported anywhere outside their own file (`learning-network-aggregator-agent.ts`,
+`probability-scoring-agent.ts`, `relationship-builder-agent.ts` under different names elsewhere in
+this document) ??? and are marked as such rather than glossed over. AG-31 through AG-34 remain
+**PLANNED** ??? no file found in `src/lib/agents/` for any of them; their specs below are unchanged
+design commitments, not live call sites.
 
 **Numbering note ??? read before cross-referencing against `AUTONOMOUS_PLATFORM_VISION.md`:** the
 task that produced this section numbered the twelve agents below AG-29 through AG-40 sequentially in
@@ -1260,77 +1327,73 @@ that produced them; each spec's Dependencies line states the correct source agen
 ### AG-29: Fundability Scorer
 
 - **Phase:** 2
-- **Status:** PLANNED
+- **Status:** BUILT
+- **Real implementation:** `src/lib/agents/fundability-scorer-agent.ts` (612 lines). Class
+  `FundabilityScorerAgent` (line 345), extends `AutonomousAgent`, `agentId: "ag-29-fundability"`
+  (note: collides with this document's own canonical AG-29 = Knowledge Engine Indexer Agent, Section
+  5 ??? see the Numbering note above; do not treat this as the same agent).
 - **Purpose:** Extends the Grant Probability Engine's bare 0-100 score into a diagnostic tool by
   decomposing any below-threshold score into the specific deficiency behind it (weak mission-fit
-  language, incomplete budget history, missing logic model, Digital Twin gaps). Where the
-  deficiency is a KB/Twin completeness gap rather than a structural mismatch, it offers a one-click
-  auto-fix that queues a targeted KB entry for human approval rather than auto-publishing it.
+  language, incomplete budget history, missing logic model, Digital Twin gaps). Self-guards against
+  re-scoring an opportunity already scored within a freshness window (checked via
+  `fundability_scores.generated_at`, lines 385-391) and combines two other agents' outputs ???
+  `opportunity_probability_scores` and `organizational_digital_twins` ??? into the Claude scoring
+  prompt rather than scoring from scratch.
 - **Type:** analysis
-- **Model:** claude-sonnet-4-6
-- **Estimated tokens per run:** ~3,500 input (opportunity + existing 11-factor breakdown + KB
-  index) / ~1,200 output (deficiency array + remediation text) per opportunity scored.
-- **Tier gate:** professional (extends AG-15, itself professional-gated).
-- **Trigger:** chain ??? fires whenever `grant-probability-engine.ts` computes a score below the
-  org's `auto_draft_threshold` / apply recommendation cutoff; also callable on-demand from the
-  opportunity detail page's factor breakdown UI.
-- **Input sources:** `opportunity_probability_scores` (existing 11-factor breakdown),
-  `organizational_digital_twins`, `knowledge_base_entries`, `applications.compliance_check_result`.
-- **Output:** `opportunity_probability_scores.deficiencies` (jsonb array of
-  `{factor_name, current_value, target_value, fix_type, auto_fixable}`); for `kb_gap`-type
-  deficiencies, a `fundability_autofix_runs` row with `generated_content` awaiting approval.
-- **Chains to:** AG-06 (Draft Generator Agent) in narrow mode, to draft the missing KB entry only
-  ??? never to draft the application narrative itself.
+- **Claude call:** `model: DEFAULT_MODEL`, `maxTokens: 1500` (lines 516-521). No `temperature` set.
+- **Tables written:** `fundability_scores` (`.insert`, lines 528-529) only. Reads `agent_queue`,
+  `opportunities`, `organizations`, `opportunity_probability_scores`,
+  `organizational_digital_twins`, `knowledge_base`.
+- **Trigger (actual):** manual/on-demand only. Real call site is `src/app/api/intelligence/
+  fundability/route.ts:4` (GET/POST). **Not wired into `worker/autonomous-orchestrator.ts`** ???
+  there is no nightly or chain-triggered invocation; a user or the opportunity detail UI must call
+  the API route.
+- **Chains to:** none in code ??? no `queueChainedAgent()` call found. (The design spec below still
+  describes an intended AG-06 narrow-mode chain that was never implemented.)
 - **Hard limits:** never auto-publishes a generated KB entry ??? every `fundability_autofix_runs` row
   is `status = 'pending'` until a human approves it; never overrides a `structural` deficiency
   (funder/geography/mission mismatch) as if it were fixable ??? those are reported, not auto-fixed.
-- **Dependencies:** requires AG-15 (Grant Probability Agent) actually reachable in production first
-  ??? currently blocked by the `agent_type` enum gap (??1.2) and the `routeQueueItem()` chain gap
-  (??1.3). Building AG-29 against a AG-15 that has never successfully completed a run would have no
-  real score to decompose.
-- **FORGE queue:** not yet scoped into a `queue.yaml`. Blueprint only exists in
-  `AUTONOMOUS_PLATFORM_VISION.md` ??7 ("Fundability Intelligence Score" row, Phase 2 table):
-  schema migration (alter `opportunity_probability_scores`, add `fundability_autofix_runs`),
-  `/api/intelligence/grant-probability/auto-fix` route, opportunity detail UI badge.
+  (Note: `fundability_autofix_runs` is the design doc's intended output table; the live code writes
+  to `fundability_scores` instead ??? verify which table actually exists in prod before building
+  against either name.)
+- **FORGE queue:** not yet scoped into a `queue.yaml`. Original design blueprint in
+  `AUTONOMOUS_PLATFORM_VISION.md` ??7 ("Fundability Intelligence Score" row, Phase 2 table) described
+  `opportunity_probability_scores.deficiencies` + `fundability_autofix_runs` and an AG-06 narrow-mode
+  chain ??? the shipped implementation diverged: a standalone `fundability_scores` table, API-route-only
+  trigger, no chain output.
 
 ---
 
 ### AG-30: Donor Intent Monitor
 
 - **Phase:** 2
-- **Status:** PLANNED
-- **Purpose:** Continuously monitors press releases, CSR/ESG reports, SEC filings, hiring-trend
-  deltas, and facility-expansion signals for corporate prospects and foundations, and scores the
-  probability that each entity announces a giving initiative in the next 30-90 days. Moves
-  Reputation Intelligence (AG-18) and the Relationship Builder concept (AG-19) from reactive
-  (detecting a scandal after it's public) to predictive (detecting intent before an announcement).
+- **Status:** BUILT
+- **Real implementation:** `src/lib/agents/donor-intent-monitor-agent.ts` (524 lines). Class
+  `DonorIntentMonitorAgent` (line 247), extends `AutonomousAgent`, `agentId: "ag-30-donor-intent"`.
+- **Purpose:** Monitors press releases, CSR/ESG reports, SEC filings, hiring-trend deltas, and
+  facility-expansion signals for corporate prospects, scoring the probability each entity announces
+  a giving initiative soon. Moves Reputation Intelligence (AG-18) from reactive to predictive.
 - **Type:** monitoring
-- **Model:** claude-sonnet-4-6
-- **Estimated tokens per run:** ~2,000 input / ~800 output per entity (per
-  `AUTONOMOUS_PLATFORM_VISION.md`'s own estimate for the reputation-agent pattern it extends);
-  batch-processed nightly, not per-org.
-- **Tier gate:** professional (extends AG-18/AG-20/AG-21, all professional-gated corporate
-  intelligence agents).
-- **Trigger:** schedule ??? nightly, as a new step in `worker/enrichment-processor.ts`'s
-  `runCorporateEnrichmentBatch()`.
-- **Input sources:** `corporate_prospects.enrichment`, `reputation_signals`,
-  `corporate_monitoring_events`, plus new signal feeds not yet built (hiring-trend feed, SEC EDGAR
-  full-text search, facility-permit monitoring) ??? see Dependencies.
-- **Output:** `donor_intent_scores` (new table: `intent_score` 0-100, `predicted_window`,
-  `signal_basis` jsonb array of `{signal_type, weight, evidence, source_url}`, `confidence`).
-- **Chains to:** none designed ??? surfaces on the Corporate Intelligence monitoring feed as a
-  "Predicted Intent" badge for a human to act on (e.g., route to AG-24/Cold Outreach).
+- **Claude call:** `callClaudeWithWebSearch({ system, prompt, maxTokens: 1400, maxSearches:
+  MAX_SEARCHES_PER_PROSPECT })` (lines 386-391) ??? live web search grounds the signal evidence rather
+  than relying on training-data recall. No explicit `model` or `temperature` override.
+- **Tables written:** `corporate_intent_signals` (`.insert`, lines 419-420) ??? not
+  `donor_intent_scores` as originally designed. Reads `organizations`, `corporate_prospects`.
+- **Trigger (actual):** manual/on-demand only. Real call sites: `src/app/api/intelligence/
+  donor-intent/route.ts:4` and `src/app/(dashboard)/intelligence/donor-intent/page.tsx`. The file's
+  own header comment (lines 23-29) states per-org nightly-sweep wiring was explicitly out of scope
+  for the session that built it ??? it operates on `this.orgId` only when called, and is **not**
+  registered in `worker/autonomous-orchestrator.ts`.
+- **Chains to:** none in code.
 - **Hard limits:** `AUTONOMOUS_HARD_LIMITS.NEVER_SEND_EMAIL_WITHOUT_APPROVAL` ??? a predicted-intent
-  badge is a signal, never a trigger for automatic outreach; never asserts intent as fact ??? every
-  score carries `confidence` and cites `evidence`/`source_url` per signal.
-- **Dependencies:** requires new EA-series enrichment sub-agents (hiring-trend feed, SEC EDGAR
-  search, facility-permit monitoring) that don't exist yet ??? AG-20 (Corporate Giving Detector) and
-  AG-21 (Executive Biography Analyzer) are themselves still PLANNED with no file found (Section 5).
-  AG-30 cannot be built before at least one of its named signal sources exists.
-- **FORGE queue:** not yet scoped into a `queue.yaml`. Blueprint in
-  `AUTONOMOUS_PLATFORM_VISION.md` ??7 ("AI Donor Intent Engine" row, Phase 2 table): new
-  `donor_intent_scores` table, `donor-intent-scorer.ts` module, `/api/intelligence/donor-intent/[prospectId]`
-  route, monitoring feed UI badge.
+  signal is informational only, never a trigger for automatic outreach; every signal carries
+  `evidence`/`source_url` from the live web search rather than an unsupported assertion.
+- **FORGE queue:** not yet scoped into a `queue.yaml`. Original design blueprint in
+  `AUTONOMOUS_PLATFORM_VISION.md` ??7 described a `donor_intent_scores` table and a nightly
+  `runCorporateEnrichmentBatch()` step ??? the shipped implementation diverged: table is named
+  `corporate_intent_signals`, trigger is API-route-only, and it was built without the EA-series
+  hiring-trend/SEC-EDGAR/facility-permit sub-agents the original design assumed as prerequisites
+  (those remain not found in `src/lib/agents/`, per AG-20/AG-21 Section 5).
 
 ---
 
@@ -1486,241 +1549,226 @@ that produced them; each spec's Dependencies line states the correct source agen
 ### AG-35: Community Need Predictor
 
 - **Phase:** 3
-- **Status:** PLANNED
-- **Purpose:** Ingests census data, housing prices, employment trends, eviction filings, weather
-  patterns, school enrollment, and migration data to forecast service demand before it materializes.
-  Directly extends the Faith Foundation pilot use case (rural Texas emergency/transitional housing)
-  ??? anticipating need spikes ahead of a funding cycle rather than reacting to them.
+- **Status:** BUILT
+- **Real implementation:** `src/lib/agents/community-need-predictor-agent.ts` (410 lines). Class
+  `CommunityNeedPredictorAgent` (line 198), extends `AutonomousAgent`,
+  `agentId: "ag-35-community-need"`.
+- **Purpose:** Forecasts service demand from housing/eviction/employment/weather signals, grounded
+  in live web search rather than training-data recall (header comment, lines 23-28, explains the
+  web-search requirement exists specifically to avoid fabricating statistics). Directly extends the
+  Faith Foundation pilot use case.
 - **Type:** analysis
-- **Model:** claude-sonnet-4-6
-- **Estimated tokens per run:** ~3,000 input (multi-source signal digest per service area) /
-  ~1,200 output (need forecast + confidence + contributing signals) per monitored service area.
-- **Tier gate:** enterprise (net-new Phase 3 predictive feature, same tier band as
-  AG-32/AG-33/Pillar 1).
-- **Trigger:** schedule ??? designed as a periodic (monthly, unconfirmed cadence) sweep per org's
-  `service_areas` (from `organizations.service_areas`).
-- **Input sources:** census data, housing-price indices, employment-trend data, eviction-filing
-  records, weather/disaster data (overlaps `disaster_declarations`), school enrollment data,
-  migration data ??? none of these external feeds are currently wired into any ingestion script.
-- **Output:** `community_need_signals` (new table, per `AUTONOMOUS_PLATFORM_VISION.md` ??7's Phase 3
-  blueprint table).
-- **Chains to:** none designed ??? surfaces as a needs-forecast card on the `/intelligence` hub.
-- **Hard limits:** never asserts a need forecast without citing its contributing signals and their
-  recency; never auto-generates a grant application from a predicted need ??? this is intelligence
-  for a human to act on, structurally analogous to AG-25 (Disaster Response)'s "surfaces, never
-  submits" pattern.
-- **Dependencies:** every listed input source (census, housing, employment, eviction, weather,
-  school enrollment, migration) requires a new ingestion adapter ??? none exist today. This is the
-  most infrastructure-heavy agent in this section; realistically gated behind building at least 2-3
-  of those seven feeds first.
-- **FORGE queue:** not yet scoped into a `queue.yaml`. Blueprint in
-  `AUTONOMOUS_PLATFORM_VISION.md` ??7, Phase 3 table: new `community_need_signals` table, new AG-35,
-  `/api/intelligence/community-need` route, needs forecast card on `/intelligence` hub.
+- **Claude call:** `callClaudeWithWebSearch({ prompt, maxTokens: 3000, maxSearches: 8 })`
+  (lines 264-268). No `model` or `temperature` override.
+- **Tables written:** `community_need_signals` (`.insert`, lines 318-319). Reads `organizations`,
+  `knowledge_base`.
+- **Severity-gated branching:** a `SEVERITY_CONFIDENCE` map (critical:90, high:70, medium:45, low:25)
+  sets the logged confidence; an `agent_decisions` row is written only for `severity IN ('critical',
+  'high')` (line 346), and a notification fires only for `severity = 'critical'` (lines 362-368) ???
+  medium/low signals are persisted but produce no alert.
+- **Trigger (actual):** manual/on-demand only. Real call sites: `src/app/api/intelligence/
+  community-need/route.ts:4` and `src/app/(dashboard)/intelligence/community-need/page.tsx`. Header
+  comment (lines 37-43) confirms `org_autonomous_config` has no toggle for this agent ??? it is
+  **not** registered in `worker/autonomous-orchestrator.ts` for a nightly/monthly sweep.
+- **Chains to:** none in code.
+- **Hard limits:** never asserts a need forecast without citing contributing signals and their
+  recency (enforced via the live web-search requirement); never auto-generates a grant application
+  from a predicted need ??? surfaces only, structurally analogous to AG-25 (Disaster Response)'s
+  "surfaces, never submits" pattern.
+- **FORGE queue:** not yet scoped into a `queue.yaml`. Original design assumed dedicated ingestion
+  adapters per data source (census, housing, eviction, weather, school enrollment, migration) ??? the
+  shipped implementation instead uses Claude's web-search tool as a single grounding mechanism across
+  all of them, with no separate per-source ingestion scripts built.
 
 ---
 
 ### AG-36: Learning Network Aggregator
 
 - **Phase:** 4
-- **Status:** PLANNED
-- **Purpose:** Anonymizes and aggregates successful grant patterns (language, budget structure,
-  narrative, keywords, timing) across every Benavora subscriber org, feeding the results back into
-  `knowledge_patterns` so every org's Knowledge Engine (Pillar 18) benefits from outcomes it never
-  personally generated. This is Moat 1's compounding mechanism made concrete.
+- **Status:** BUILT ??? orphaned (never imported outside its own file)
+- **Real implementation:** `src/lib/agents/learning-network-aggregator-agent.ts` (905 lines). Class
+  `LearningNetworkAggregatorAgent` (line 424), extends `AutonomousAgent`,
+  `agentId: "ag-36-learning-network"`. Uniquely among every agent in this document, its constructor
+  takes only `(supabase)` (line 425), not `(orgId, supabase)` ??? it is built around a synthetic
+  `SYSTEM_ORG_ID` row it self-creates in `organizations` (`.insert`, line 440) to satisfy FK
+  constraints, since it aggregates cross-org patterns rather than acting for one org (header comment,
+  lines 12-25).
+- **Purpose:** Anonymizes and aggregates successful grant patterns across every subscriber org into
+  `platform_learning_patterns` (not `knowledge_patterns` as originally designed).
 - **Type:** analysis
-- **Model:** none directly for the aggregation pass (per `AUTONOMOUS_PLATFORM_VISION.md`'s own
-  description of AG-29/Knowledge Engine Indexer using an embedding model, not Claude, for its core
-  function) ??? claude-sonnet-4-6 is used only for the pattern-description text written into
-  `knowledge_patterns.pattern_description`.
-- **Estimated tokens per run:** ~500 output tokens per newly detected pattern (description text
-  only); embedding/aggregation cost is not a Claude token cost.
-- **Tier gate:** platform-internal ??? this agent writes to the shared `knowledge_patterns` table
-  that benefits all tiers indirectly (per Pillar 18's `FKE-05`: "the knowledge engine improves
-  automatically as more data is ingested"); it has no standalone org-facing UI or tier gate of its
-  own.
-- **Trigger:** schedule ??? designed as a nightly aggregation pass, extending AG-29's (Knowledge
-  Engine Indexer) existing embedding-population responsibility.
-- **Input sources:** `outcomes` (award/denial results across all orgs), `drafts` (content),
-  `intelligence_funded_proposals`, `organizational_digital_twins` (structural metadata only, never
-  narrative content that could re-identify a specific org).
-- **Output:** `knowledge_patterns` rows with `sample_count`/`confidence` incremented as more
-  cross-org data accumulates; no client-facing route of its own ??? results surface through the
-  existing `/api/intelligence/knowledge-query` and `/intelligence/knowledge` UI.
-- **Chains to:** none designed.
-- **Hard limits:** `AUTONOMOUS_HARD_LIMITS.NEVER_MODIFY_GOVERNANCE_FILES` (n/a, doesn't touch
-  governance files) plus a feature-specific hard limit stated explicitly in
-  `AUTONOMOUS_PLATFORM_VISION.md`'s Phase 5 benchmarking design: aggregate tables are
-  service-role-only with **no `org_id` in client-facing responses** ??? this agent must never expose
-  an org-identifiable pattern back to a different org.
-- **Dependencies:** requires AG-29 (Knowledge Engine Indexer Agent, Section 5) built and running
-  first ??? that agent is itself PLANNED with no file found, and `intelligence_funded_proposals` has
-  only 11 records against a 2,000+ target (per `FEATURE_REGISTRY_v2.md` #166-169 and this document's
-  Moat 1 analysis). Per `AUTONOMOUS_PLATFORM_VISION.md` ??7, this feature has **no new agent
-  number** ??? it is explicitly "Extends AG-29," not a distinct agent; see the Numbering note above.
-- **FORGE queue:** not yet scoped into a `queue.yaml`. Blueprint in
-  `AUTONOMOUS_PLATFORM_VISION.md` ??7, Phase 4 table ("Global Learning Network" row): extends
-  `knowledge_patterns` with a cross-org aggregation flag, extends AG-29, internal only ??? no
-  client-facing route.
+- **Claude call:** `callClaude({ prompt, maxTokens: 500, temperature: 0.2 })` (line 395). No
+  explicit `model`.
+- **Tables written:** `organizations` (bootstrap insert of the system org row, line 440),
+  `platform_learning_patterns` (`.update` line 508-509, `.insert` line 532-533),
+  `org_learning_contributions` (`.insert`, line 568-569). Reads `applications`, `organizations`,
+  `opportunities`, `application_documents`, `documents`, `outcomes`.
+- **Trigger (actual): none.** Repo-wide grep found zero import or instantiation of this class
+  anywhere outside `learning-network-aggregator-agent.ts` itself ??? not in any API route, not in
+  `worker/autonomous-orchestrator.ts`, not in a script. It is real, compiling code that has never
+  been invoked in production. Per `FEATURE_REGISTRY_v2.md` #223, `draft-generation-agent.ts` reads
+  `platform_learning_patterns` at draft time, so the *table* is consumed downstream ??? but nothing in
+  the repo currently *writes* to it via this agent.
+- **Chains to:** none. A code comment at line 67 states `queueChainedAgent()` is intentionally never
+  called ??? confirmed, no call present.
+- **Hard limits:** aggregate tables are service-role-only with no `org_id` in client-facing
+  responses; this agent must never expose an org-identifiable pattern back to a different org.
+- **FORGE queue:** not yet scoped into a `queue.yaml`. No cron entry, no `agent_job_queue` handler,
+  no manual-trigger route exists for this class ??? someone must add a call site (scheduled job or
+  API route) before it does anything in production.
 
 ---
 
 ### AG-37: Simulation Agent
 
 - **Phase:** 4
-- **Status:** PLANNED
-- **Purpose:** Extends the single-scenario Impact Simulator (AG-28, Section 5) into comparative
-  multi-scenario modeling ??? running several what-if scenarios (receive/lose a grant, open a
-  location, hire staff, serve more beneficiaries) side by side and projecting revenue, capacity,
-  probability, and ROI for each so a board can compare options rather than evaluate one at a time.
+- **Status:** BUILT
+- **Real implementation:** `src/lib/agents/simulation-agent.ts` (506 lines). Class `SimulationAgent`
+  (line 158), extends `AutonomousAgent`, `agentId: "ag-37-simulation"` (collides with the vision
+  doc's own AG-37 = Autonomous Multi-Agent Negotiation ??? see the Numbering note above, unrelated
+  agent).
+- **Purpose:** Multi-scenario what-if modeling ??? projects revenue, capacity, probability, and ROI
+  per scenario so a board can compare options.
 - **Type:** analysis
-- **Model:** claude-sonnet-4-6
-- **Estimated tokens per run:** ~4,000 input (org financial profile + N scenario parameter sets) /
-  ~2,500 output (comparative projection table + risk assessment per scenario), scaling with
-  scenario count.
-- **Tier gate:** enterprise (extends AG-28, itself enterprise-gated per Section 5).
-- **Trigger:** manual ??? user-initiated scenario comparison request from `/intelligence/simulate`.
-- **Input sources:** `organizational_digital_twins` (financial_profile), `impact_simulations`
-  (individual scenario results already computed by AG-28), user-specified scenario parameter sets.
-- **Output:** `impact_simulations.scenario_comparison_id` groups multiple individual simulation
-  rows into one comparison set; a synthesized comparative summary.
-- **Chains to:** none designed.
-- **Hard limits:** the global hard limits (Section 0) apply; a simulation is read-only by
-  definition ??? never writes to live financial/pipeline data, matching AG-28's own hard limit.
-- **Dependencies:** requires AG-28 (Impact Simulation Agent) built first ??? it is itself PLANNED
-  with no file found (Section 5), though its schema (`impact_simulations`) exists (migration,
-  Section 6 table 67). Per `AUTONOMOUS_PLATFORM_VISION.md` ??7, this feature has **no new agent
-  number** ??? it is explicitly "Extends AG-28," not a distinct agent. Note also that the vision
-  doc's own **AG-37** names a completely different agent (Autonomous Multi-Agent Negotiation,
-  extending AG-12/AutoApply) ??? see the Numbering note above before using "AG-37" in any schema.
-- **FORGE queue:** not yet scoped into a `queue.yaml`. Blueprint in
-  `AUTONOMOUS_PLATFORM_VISION.md` ??7, Phase 4 table ("Predictive Fundraising Simulator" row):
-  extends `impact_simulations` with `scenario_comparison_id`, extends AG-28,
-  `/api/intelligence/simulate/compare` route, multi-scenario comparison view on
-  `/intelligence/simulate`.
+- **Claude call:** `model: DEFAULT_MODEL`, `maxTokens: 1200`, `temperature: 0.3` (lines 393-399).
+- **Tables written:** `simulation_scenarios` (`.insert`, lines 408-409) ??? not
+  `impact_simulations.scenario_comparison_id` as originally designed; this is a standalone table.
+  Reads `agent_queue`, `organizations`, `board_members`, `organizational_digital_twins`, `outcomes`,
+  `platform_learning_patterns`.
+- **Trigger (actual):** manual, via `src/app/api/reports/simulate/route.ts:4` and
+  `src/app/(dashboard)/reports/simulate/page.tsx`. Because `AutonomousAgent.run()` takes no
+  direct-input parameter, this agent reads its scenario spec out of the `agent_queue.input_payload`
+  row the queue processor marked "processing" (header comment, lines 7-9, documents this as the same
+  `loadChainScope()` convention `probability-scoring-agent.ts` established).
+- **Chains to:** none in code.
+- **Hard limits:** explicitly read-only ??? header comment states it "never writes to live
+  financial/pipeline data"; only inserts into the `simulation_scenarios` projection table.
+- **FORGE queue:** not yet scoped into a `queue.yaml`. Original design extended `impact_simulations`
+  with a `scenario_comparison_id` column; the shipped implementation instead uses a dedicated
+  `simulation_scenarios` table, independent of the (still-unbuilt, Section 5) AG-28 Impact
+  Simulation Agent it was originally meant to extend.
 
 ---
 
 ### AG-38: Self-Improvement Agent
 
 - **Phase:** 4
-- **Status:** PLANNED
-- **Purpose:** Nightly meta-agent that reviews every other agent's `agent_runs` outcomes ??? what
-  worked, what failed, which agents underperformed, which prompts improved results ??? and proposes
-  enhancements. Validates proposals in staging and A/B tests before presenting high-confidence
-  improvements for human approval; the first agent in the roster permitted to propose changes to
-  other agents' prompts.
+- **Status:** BUILT
+- **Real implementation:** `src/lib/agents/self-improvement-agent.ts` (777 lines). Class
+  `SelfImprovementAgent` (line 231) ??? **does not extend `AutonomousAgent`** (header comment, lines
+  17-22, states it keeps its own minimal `startRun`/`completeRun`/`failRun` instead). Identifier
+  `AGENT_ID = "ag-38-self-improvement"` (line 58) is written manually into `agent_runs.agent_type`
+  (line 246) rather than via a `super()` call. (Collides with the vision doc's own AG-38 = Community
+  Resource Graph, and with this doc's Numbering note which maps the vision doc's Continuous
+  Improvement Engine to AG-36 ??? see the Numbering note above; three different things share
+  overlapping numbers here, use the class name to disambiguate.)
+- **Purpose:** Nightly meta-agent reviewing every other agent's `agent_runs` outcomes and proposing
+  prompt/logic improvements, staged for human approval.
 - **Type:** optimization
-- **Model:** claude-sonnet-4-6
-- **Estimated tokens per run:** large ??? reads `agent_runs` output across the full roster nightly;
-  estimated 15,000+ input tokens per run (no independent estimate given in source docs; scaled from
-  the scope of "every agent in the roster" against typical `agent_runs` row volume).
-- **Tier gate:** platform-internal ??? this is an admin/platform-owner tool (`/admin/monitor`
-  approval queue per its blueprint), not an org-facing agent with a subscription tier gate.
-- **Trigger:** schedule ??? nightly self-assessment pass.
-- **Input sources:** `agent_runs` (all agents, all orgs, aggregated), `agent_decisions`,
-  `outcomes` (to correlate agent behavior with actual award/denial results).
-- **Output:** `agent_improvement_proposals` (new table) ??? a proposed prompt/logic change with
-  supporting evidence, staged for validation before any live agent is modified.
-- **Chains to:** AG-39 (ROI Optimizer) ??? per `AUTONOMOUS_PLATFORM_VISION.md` Phase 4: "ROI
-  Optimization Engine ??? feeds directly into the Continuous Improvement Engine above," i.e. the
-  data flow is bidirectional between the two.
-  **Numbering note:** the vision doc's own agent numbered **AG-36** is this exact agent
-  (Autonomous Continuous Improvement Engine); its own **AG-38** is a different, unrelated agent
-  (Community Resource Graph). See the Numbering note above before using "AG-38" in any schema.
+- **Claude call:** `model: DEFAULT_MODEL`, `maxTokens: 1500` (lines 638-643). No `temperature`.
+- **Tables written:** `agent_runs` (own run tracking, lines 244/272/288),
+  `agent_performance_metrics` (`.upsert`, lines 415-416), `improvement_proposals` (`.insert`, line
+  663 ??? not `agent_improvement_proposals` as originally designed), `alerts` (`.upsert`, line 720).
+  Reads `agent_runs`, `agent_decisions`, `agent_performance_metrics`, `profiles`.
+- **Self-calibration logic (verified in code):** `identifyUnderperformers()` (line 492) compares
+  each `agent_type`'s trailing-window stats against `MIN_AVG_CONFIDENCE = 65` plus success-rate and
+  human-review-ratio thresholds (lines 508-509, 627); separately mines `HighPerformingPattern`s from
+  `agent_decisions` with `confidence_score >= 85` (line 545). Both feed a Claude prompt, and only
+  proposals scoring `confidence_score >= 75` (`MIN_CONFIDENCE_TO_PROPOSE`, line 659) are persisted.
+- **Trigger (actual):** schedule ??? genuinely wired into `worker/autonomous-orchestrator.ts:832-836`
+  via dynamic import, instantiated `new SelfImprovementAgent(supabase)` inside
+  `runSelfImprovementPipeline()`, run with trigger `'schedule'`. This is one of the two Phase 2-5
+  agents actually reachable from the nightly pipeline (the other is AG-40).
+- **Chains to:** none in code (header comment, line 19, notes `queueChainedAgent()` doesn't apply
+  since this class doesn't extend `AutonomousAgent`).
 - **Hard limits:** `AUTONOMOUS_HARD_LIMITS.NEVER_MODIFY_GOVERNANCE_FILES` applies literally ??? this
-  agent proposes changes to *other agents' prompts*, never to CLAUDE.md/BLUEPRINT_v2.md/
-  SCHEMA_REGISTRY_v2.md/BEHAVIORAL_CONTRACTS.md/STATE_OF_THE_BUILD.md/SESSION_STATE.md; every
-  proposal requires human approval before deployment ??? "validates in staging, A/B tests, and
-  presents high-confidence improvements for human approval" is explicit in its own design, it does
-  not self-deploy.
-- **Dependencies:** requires a meaningful volume of `agent_runs`/`agent_decisions` history across
-  multiple agents in live production use ??? per `AUTONOMOUS_PLATFORM_VISION.md`'s own Phase 1
-  gating note, "no later phase should be scheduled until Phase 1's discovery???probability???draft
-  loop is running unattended for real subscriber orgs." This agent is the least buildable of the
-  twelve until that data exists.
-- **FORGE queue:** not yet scoped into a `queue.yaml`. Blueprint in
-  `AUTONOMOUS_PLATFORM_VISION.md` ??7, Phase 4 table ("Autonomous Continuous Improvement Engine"
-  row): new `agent_improvement_proposals` table, new agent (numbered AG-36 in the source doc,
-  reads `agent_runs`), `/api/admin/agent-improvements` route, approval queue on `/admin/monitor`.
+  agent proposes changes to *other agents' prompts*, never to a governance `.md` file; every proposal
+  requires human approval before deployment ??? it never self-deploys a change.
+- **FORGE queue:** not yet scoped into a `queue.yaml`. Table name diverged from the original design
+  (`improvement_proposals` vs. designed `agent_improvement_proposals`) ??? verify actual table name
+  before building the `/admin/monitor` approval-queue UI or `/api/admin/agent-improvements` route
+  against it.
 
 ---
 
 ### AG-39: ROI Optimizer
 
 - **Phase:** 5
-- **Status:** PLANNED
-- **Purpose:** Tracks every submission variable ??? prompt version, attachment type, submission day,
-  wording choices, contact person ??? against outcome, running a continuous optimization loop that
-  identifies which variable combinations correlate with higher award rates.
+- **Status:** BUILT ??? partially wired (telemetry path live, correlation path never called)
+- **Real implementation:** `src/lib/agents/roi-optimizer-agent.ts` (404 lines). Class
+  `RoiOptimizerAgent` (line 88), extends `AutonomousAgent`, `agentId: "ag-39-roi-optimizer"`.
+- **Purpose:** Tracks submission variables (prompt version, attachment type, submission day, wording,
+  contact person) against outcome to find correlations with higher award rates.
 - **Type:** optimization
-- **Model:** claude-sonnet-4-6
-- **Estimated tokens per run:** ~2,000 input / ~800 output per variable-outcome correlation batch;
-  run continuously against new `outcomes` rows rather than on a fixed schedule.
-- **Tier gate:** enterprise.
-- **Trigger:** event ??? fires on new `outcomes` inserts, correlating the outcome back to the
-  submission variables recorded for that application.
-- **Input sources:** `submission_variable_outcomes` (new table), `outcomes`, `applications`
-  (draft_source, auto_generated), `submission_queue` (submission day/time, portal_trust_score).
-- **Output:** `submission_variable_outcomes` rows with correlation strength per variable;
-  aggregate ROI trend data.
-- **Chains to:** AG-38 (Self-Improvement Agent) ??? "feeds AG-36" per
-  `AUTONOMOUS_PLATFORM_VISION.md` ??7's own Phase 4 table entry (using the vision doc's numbering
-  for the Self-Improvement Agent; see the Numbering note above).
-- **Hard limits:** the global hard limits (Section 0) apply; never adjusts a live submission's
-  variables mid-flight based on its own findings ??? optimization recommendations feed the
-  Self-Improvement Agent's human-approved proposal pipeline, they don't self-apply.
-- **Dependencies:** requires AutoApply Full Autonomous Mode (Phase 2, extends AG-12) shipped first
-  so there's submission volume to analyze ??? at 400+ overnight submissions per
-  `AUTONOMOUS_PLATFORM_VISION.md` Phase 2 ??4, this agent has a real signal; at today's manual/
-  semi-autonomous submission volume it would have too little data to correlate meaningfully.
-- **FORGE queue:** not yet scoped into a `queue.yaml`. Blueprint in
-  `AUTONOMOUS_PLATFORM_VISION.md` ??7, Phase 4 table ("ROI Optimization Engine" row): new
-  `submission_variable_outcomes` table, new AG-39 (feeds AG-36), `/api/admin/roi-optimization`
-  route, ROI trend dashboard on `/admin/monitor`.
+- **Claude calls (two, deliberately different code paths ??? header comment lines 5-19 documents
+  this explicitly):** (a) `trackSubmissionVariables()` ??? a readability sub-score call,
+  `maxTokens: 10, temperature: 0` (lines 151-155), fired synchronously off application stage
+  transitions, best-effort and **not** logged to `agent_runs`; (b) `run()` ??? the monthly
+  correlation-analysis call, `maxTokens: 1000` (lines 288-293), fully `agent_runs`/`agent_decisions`
+  logged.
+- **Tables written:** `submission_variables` (`.insert`, lines 167-168 ??? from
+  `trackSubmissionVariables()`), `roi_insights` (`.insert`, lines 329-330 ??? from `run()`, not
+  `submission_variable_outcomes` as originally designed). Reads `applications`, `opportunities`,
+  `application_documents`, `submission_variables`, `outcomes`.
+- **Trigger (actual, split):** `trackSubmissionVariables()` is called from
+  `src/app/api/autonomous/track-submission/route.ts:3,36` and does run in production. The full
+  `run()` method ??? the Claude-calling monthly correlation pass that writes `roi_insights` ??? **has
+  no production call site**; it is not invoked by that route, by any other route, or by the
+  orchestrator. The telemetry half of this agent is live; the analysis half is orphaned.
+- **Chains to:** none in code.
+- **Hard limits:** never adjusts a live submission's variables mid-flight based on its own findings;
+  correlation output is informational only.
+- **FORGE queue:** not yet scoped into a `queue.yaml`. Before building `/api/admin/roi-optimization`
+  or an ROI dashboard against this agent, note the analysis path (`run()`) needs a scheduled or
+  manual call site added ??? it currently never executes.
 
 ---
 
 ### AG-40: Strategic Advisor
 
 - **Phase:** 5
-- **Status:** PLANNED
-- **Purpose:** The capstone agent ??? reads the output of every other agent in the roster (AG-01
-  through AG-39) and synthesizes a single prioritized action list of proactive, unsolicited
-  strategic recommendations: "Apply for these 12 grants next month," "Postpone this application,"
-  "This foundation funded exactly your profile 3 times in the last 2 years."
+- **Status:** BUILT
+- **Real implementation:** `src/lib/agents/strategic-advisor-agent.ts` (760 lines). Class
+  `StrategicAdvisorAgent` (line 222), extends `AutonomousAgent`,
+  `agentId: "ag-40-strategic-advisor"`.
+- **Purpose:** The capstone agent ??? synthesizes a single prioritized action list of proactive
+  strategic recommendations from every other intelligence table it can read.
 - **Type:** analysis
-- **Model:** claude-sonnet-4-6
-- **Estimated tokens per run:** large ??? synthesizes across the full agent roster's recent output
-  per org; no independent token estimate given in source docs, expected to be the single most
-  expensive per-org nightly step once built, comparable in scale to AG-18's "single most expensive
-  nightly step" caveat today but across far more input sources.
-- **Tier gate:** enterprise.
-- **Trigger:** schedule ??? designed as a nightly per-org synthesis pass, surfaced on next login.
-- **Input sources:** `agent_runs`, `agent_decisions`, `opportunity_probability_scores`,
-  `donor_intent_scores`, `market_forecasts`, `reputation_signals`, `relationship_recommendations`,
-  `funding_forecasts`, `community_need_signals` ??? effectively every intelligence table this
-  document and its two predecessor phases define.
-- **Output:** `strategic_recommendations` (new table) ??? a prioritized, human-readable action list
-  with rationale per item.
-- **Chains to:** none ??? this is the terminal synthesis agent; nothing chains from it.
+- **Claude call:** `model: DEFAULT_MODEL`, `maxTokens: 2000`, `temperature: 0.4` (lines 598-604).
+- **Tables written:** `strategic_recommendations` (`.insert`, lines 657-658). Reads 7 sources:
+  `applications`, `outcomes` (x2 queries), `funding_forecasts`, `relationship_recommendations`,
+  `reputation_alerts`, `deadlines`, `platform_learning_patterns`. Header comment (lines 13-24)
+  states three of the originally-designed inputs ??? `donor_intent_scores`/`corporate_intent_signals`,
+  `community_need_signals`, `roi_insights` ??? are loaded defensively: "a missing table degrades to
+  an empty signal, it never throws," so this agent tolerates the schema drift documented in the
+  AG-29/AG-30/AG-35/AG-39 specs above rather than failing on it.
+- **Dedup logic:** before inserting a recommendation, checks for an existing `pending` row in the
+  same `recommendation_category` within a 30-day window (lines 630-654) and skips if found.
+- **Trigger (actual):** schedule ??? genuinely wired into `worker/autonomous-orchestrator.ts:634-638`
+  via dynamic import, instantiated `new StrategicAdvisorAgent(orgId, supabase)`, run with trigger
+  `'schedule'`. Orchestrator comment (lines 36-43) notes it's folded into the main 2AM nightly sweep
+  rather than a separate cron slot the original design assumed. Also reachable manually via
+  `src/app/api/intelligence/strategic-advisor/route.ts:5` and
+  `src/app/(dashboard)/intelligence/strategic-advisor/page.tsx`. This is one of the two Phase 2-5
+  agents actually reachable from the nightly pipeline (the other is AG-38).
+- **Chains to:** none ??? terminal synthesis agent.
 - **Hard limits:** `AUTONOMOUS_HARD_LIMITS.NEVER_SUBMIT_EXTERNALLY` /
-  `NEVER_SEND_EMAIL_WITHOUT_APPROVAL` apply to every recommendation it might otherwise be tempted to
-  auto-execute ??? it recommends, it never acts; never asserts a recommendation without traceable
-  provenance back to the specific upstream agent output that produced it (a "black box" priority
-  list would be a governance regression from every other agent's decision-logging standard).
-- **Dependencies:** by design, this agent depends on nearly everything else in this document ???
-  it is explicitly the last agent built, per Phase 5's position as "Month 49+" in
-  `AUTONOMOUS_PLATFORM_VISION.md`. Realistically gated behind AG-15/AG-17/AG-18/AG-19 first reaching
-  ENABLED-and-actually-running status (currently blocked per ??1.2/??1.3), plus at least the Phase 2
-  agents (AG-29 through AG-31) shipping so there's more than the Phase 1 signal set to synthesize.
-- **FORGE queue:** not yet scoped into a `queue.yaml`. Blueprint in
-  `AUTONOMOUS_PLATFORM_VISION.md` ??7, Phase 5 table ("AI Strategic Advisor" row): new
-  `strategic_recommendations` table, new AG-40 (reads output of AG-01 through AG-39),
-  `/api/intelligence/strategic-advisor` route, dashboard "Today's Priorities" hero panel.
+  `NEVER_SEND_EMAIL_WITHOUT_APPROVAL` apply ??? it recommends, it never acts.
+- **FORGE queue:** not yet scoped into a `queue.yaml`. Live and wired, but its three richest signal
+  sources (donor intent, community need, ROI) are currently thin or empty in practice because their
+  own upstream agents are either API-route-only (AG-30, AG-35) or never invoked (AG-39's `run()`) ???
+  see those specs above.
 
 ---
 
-*Phase 2-5 Agent Specifications section added July 19, 2026, from a read of
-`AUTONOMOUS_PLATFORM_VISION.md` (full) and `FEATURE_REGISTRY_v2.md` features 217-228 ??? no code
-audit was performed for this section since none of these twelve agents have any code to audit yet.
-Re-verify against `src/lib/agents/` before treating any status above as anything but PLANNED.*
+*Phase 2-5 Agent Specifications section added July 19, 2026, originally from a read of
+`AUTONOMOUS_PLATFORM_VISION.md` (full) and `FEATURE_REGISTRY_v2.md` features 217-228 with no code
+audit. Re-audited July 19, 2026 (later same day) directly against `src/lib/agents/`, grep of every
+import/instantiation site in `src/` and `worker/`, and `worker/autonomous-orchestrator.ts`: eight of
+twelve (AG-29, AG-30, AG-35, AG-36, AG-37, AG-38, AG-39, AG-40) now have real files and are marked
+BUILT above, each with its actual trigger, chain, Claude params, and tables written stated inline.
+Two of the eight (AG-38, AG-40) are genuinely wired into the nightly `worker/autonomous-orchestrator.ts`
+sweep. Three (AG-29, AG-30, AG-35) are reachable only via a manual API route, not the nightly
+pipeline. One (AG-36) and half of another (AG-39's `run()` method) are orphaned ??? real code that no
+production call site ever invokes. AG-31 through AG-34 remain PLANNED with no file found ??? treat
+their specs above as unchanged design commitments, not live call sites. Re-verify against
+`src/lib/agents/` and `worker/` before trusting any status here past this date.*
