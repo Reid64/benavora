@@ -57,6 +57,16 @@ const jobs: ScheduledJob[] = [
         ({ runSelfImprovementPipeline }) => runSelfImprovementPipeline(supabase),
       ),
   },
+  {
+    name: 'AutoApply autonomous overnight orchestrator',
+    hour: 3,
+    minute: 0,
+    lastFiredOnDateKey: null,
+    run: (supabase) =>
+      import('./autoapply-autonomous-orchestrator.js').then(
+        ({ runAutonomousAutoApply }) => runAutonomousAutoApply(supabase),
+      ),
+  },
 ];
 
 let intervalId: ReturnType<typeof setInterval> | null = null;
