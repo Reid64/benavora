@@ -23,10 +23,17 @@
 //     target_population, founder_name, annual_budget) — the same columns
 //     src/lib/drafts/generator.ts already reads for the interactive draft
 //     route.
-//   - There is no `organizational_digital_twins` table applied yet (only
-//     planned in SCHEMA_REGISTRY_v2.md as a future migration that was never
-//     run — confirmed absent from every file in src/supabase/migrations and
-//     from src/types/database.ts). Digital twin summary is skipped.
+//   - UPDATE (Twin-Powered Draft Generation, AUTONOMOUS_PLATFORM_VISION.md
+//     Phase 2): `organizational_digital_twins` is now created by migration
+//     094 (094_twin_powered_draft_generation.sql) in this same migrations
+//     directory — see that file's header for why it wasn't already here
+//     (src/lib/intelligence/digital-twin-builder.ts, which populates this
+//     table, was written against a different migrations fork's numbering).
+//     This agent now loads that row before every draft and injects it as a
+//     structured "ORGANIZATIONAL CONTEXT FROM DIGITAL TWIN" prompt section,
+//     taking priority over the overlapping Knowledge Base categories
+//     (mission/vision, program_description, impact, capacity) when twin data
+//     for that section exists. See buildTwinContext below.
 //   - `applications` has no `funder_id` column (confirmed absent from every
 //     migration and src/types/database.ts) — only `opportunity_id` is set
 //     on the created application; the funder is reachable via
@@ -101,6 +108,170 @@ interface PlatformLearningPatternRow {
   pattern_content: string;
   success_rate: number | null;
   sample_count: number;
+}
+
+// organizational_digital_twins (migration 094). Column shape matches exactly
+// what src/lib/intelligence/digital-twin-builder.ts populates via upsert;
+// `vision` and `known_weaknesses` are additionally selected here even though
+// the builder doesn't populate them yet (forward-compatible, per that
+// migration's header).
+interface DigitalTwinRow {
+  mission: string | null;
+  vision: string | null;
+  service_areas: string[] | null;
+  programs: { title: string; description: string }[] | null;
+  financial_profile: Record<string, number> | null;
+  board_composition:
+    | { name: string; title: string | null; bio: string | null }[]
+    | null;
+  proven_narrative_patterns: string[] | null;
+  key_strengths: string[] | null;
+  known_weaknesses: string[] | null;
+}
+
+// The 7 sections the task spec names (mission_data/programs_data/
+// financial_data/leadership_data/impact_data/geographic_data/capacity_data),
+// each rendered to a prompt-ready string or null when the underlying twin
+// column(s) have no data. Completeness = count of non-null sections / 7.
+interface TwinContextSections {
+  mission_data: string | null;
+  programs_data: string | null;
+  financial_data: string | null;
+  leadership_data: string | null;
+  impact_data: string | null;
+  geographic_data: string | null;
+  capacity_data: string | null;
+}
+
+interface TwinContext {
+  sections: TwinContextSections;
+  completeness: number;
+  promptBlock: string | null;
+}
+
+const TWIN_SECTION_COUNT = 7;
+const TWIN_COMPLETENESS_NOTIFY_THRESHOLD = 40;
+const TWIN_CONFIDENCE_PENALTY_FACTOR = 0.3;
+
+// Knowledge Base categories a populated twin section supersedes, per the
+// task spec's "Twin data takes priority over KB data when both exist."
+// Categories not listed here (need_statement, sustainability, partnerships,
+// organizational_history, budget_justification) have no twin-column
+// equivalent and are always included from the Knowledge Base as before.
+const TWIN_SECTION_KB_OVERRIDES: Record<
+  keyof Pick<
+    TwinContextSections,
+    "mission_data" | "programs_data" | "impact_data" | "capacity_data"
+  >,
+  string[]
+> = {
+  mission_data: ["mission", "vision"],
+  programs_data: ["program_description"],
+  impact_data: ["impact"],
+  capacity_data: ["capacity"],
+};
+
+function buildTwinContext(twin: DigitalTwinRow | null): TwinContext {
+  const financial = twin?.financial_profile ?? {};
+
+  const missionVal = twin?.mission ?? null;
+  const visionVal = twin?.vision ?? null;
+  const mission_data =
+    missionVal || visionVal
+      ? [missionVal, visionVal].filter(Boolean).join(" ")
+      : null;
+
+  const programs_data =
+    twin?.programs && twin.programs.length > 0
+      ? twin.programs.map((p) => `${p.title}: ${p.description}`).join("\n")
+      : null;
+
+  const financial_data =
+    financial.annual_budget != null
+      ? `Annual budget: $${financial.annual_budget.toLocaleString()}`
+      : null;
+
+  const leadership_data =
+    twin?.board_composition && twin.board_composition.length > 0
+      ? twin.board_composition
+          .map((b) => (b.title ? `${b.name} (${b.title})` : b.name))
+          .join(", ")
+      : null;
+
+  const impactParts = [
+    ...(twin?.proven_narrative_patterns ?? []),
+    ...(twin?.key_strengths ?? []),
+  ];
+  const impact_data = impactParts.length > 0 ? impactParts.join("\n") : null;
+
+  const geographic_data =
+    twin?.service_areas && twin.service_areas.length > 0
+      ? twin.service_areas.join(", ")
+      : null;
+
+  const capacityParts: string[] = [];
+  if (financial.total_staff != null) {
+    capacityParts.push(`${financial.total_staff} staff`);
+  }
+  if (financial.total_volunteers != null) {
+    capacityParts.push(`${financial.total_volunteers} volunteers`);
+  }
+  let capacity_data = capacityParts.length > 0 ? capacityParts.join(", ") : null;
+  if (twin?.known_weaknesses && twin.known_weaknesses.length > 0) {
+    const gaps = `Known capacity gaps: ${twin.known_weaknesses.join("; ")}`;
+    capacity_data = capacity_data ? `${capacity_data}. ${gaps}` : gaps;
+  }
+
+  const sections: TwinContextSections = {
+    mission_data,
+    programs_data,
+    financial_data,
+    leadership_data,
+    impact_data,
+    geographic_data,
+    capacity_data,
+  };
+
+  const populatedCount = Object.values(sections).filter(
+    (v) => v !== null,
+  ).length;
+  const completeness = Math.round(
+    (populatedCount / TWIN_SECTION_COUNT) * 100,
+  );
+
+  const sectionLabels: Record<keyof TwinContextSections, string> = {
+    mission_data: "Mission & Vision",
+    programs_data: "Programs",
+    financial_data: "Financial Profile",
+    leadership_data: "Board Leadership",
+    impact_data: "Proven Impact & Strengths",
+    geographic_data: "Geographic Service Areas",
+    capacity_data: "Organizational Capacity",
+  };
+
+  const blockLines = (
+    Object.keys(sections) as (keyof TwinContextSections)[]
+  )
+    .filter((key) => sections[key] !== null)
+    .map((key) => `${sectionLabels[key]}: ${sections[key]}`);
+
+  const promptBlock =
+    blockLines.length > 0
+      ? `ORGANIZATIONAL CONTEXT FROM DIGITAL TWIN (twin completeness: ${completeness}%):\n${blockLines.join("\n")}`
+      : null;
+
+  return { sections, completeness, promptBlock };
+}
+
+/** HARD LIMIT-adjacent: reduces confidence by (100 - completeness) * 0.3, per
+ * the task spec, so a sparse/absent digital twin is reflected in the
+ * confidence a human reviewer sees rather than silently ignored. */
+function applyTwinCompletenessPenalty(
+  confidence: number,
+  twinCompleteness: number,
+): number {
+  const penalty = (100 - twinCompleteness) * TWIN_CONFIDENCE_PENALTY_FACTOR;
+  return Math.max(0, Math.min(100, Math.round(confidence - penalty)));
 }
 
 // Knowledge Base categories that feed a grant narrative draft — mirrors
@@ -301,25 +472,65 @@ export class DraftGenerationAgent extends AutonomousAgent {
         .eq("id", this.orgId)
         .single();
 
-      const [{ data: kbRows }, { data: provenRows }] = await Promise.all([
-        this.supabase
-          .from("knowledge_base")
-          .select("title, category, content")
-          .eq("organization_id", this.orgId)
-          .in("category", GRANT_NARRATIVE_KB_CATEGORIES)
-          .order("is_proven", { ascending: false })
-          .order("updated_at", { ascending: false }),
-        this.supabase
-          .from("proven_narratives")
-          .select("narrative_text, section_type, effectiveness_score")
-          .eq("organization_id", this.orgId)
-          .eq("funder_category", opportunity.category)
-          .order("effectiveness_score", { ascending: false, nullsFirst: false })
-          .limit(5),
-      ]);
+      const [{ data: kbRows }, { data: provenRows }, { data: twinRow }] =
+        await Promise.all([
+          this.supabase
+            .from("knowledge_base")
+            .select("title, category, content")
+            .eq("organization_id", this.orgId)
+            .in("category", GRANT_NARRATIVE_KB_CATEGORIES)
+            .order("is_proven", { ascending: false })
+            .order("updated_at", { ascending: false }),
+          this.supabase
+            .from("proven_narratives")
+            .select("narrative_text, section_type, effectiveness_score")
+            .eq("organization_id", this.orgId)
+            .eq("funder_category", opportunity.category)
+            .order("effectiveness_score", {
+              ascending: false,
+              nullsFirst: false,
+            })
+            .limit(5),
+          this.supabase
+            .from("organizational_digital_twins")
+            .select(
+              "mission, vision, service_areas, programs, financial_profile, board_composition, proven_narrative_patterns, key_strengths, known_weaknesses",
+            )
+            .eq("organization_id", this.orgId)
+            .maybeSingle(),
+        ]);
 
       const knowledgeEntries = (kbRows ?? []) as KnowledgeBaseEntry[];
       const provenNarratives = (provenRows ?? []) as ProvenNarrativeRow[];
+      const twin = (twinRow ?? null) as DigitalTwinRow | null;
+      const twinContext = buildTwinContext(twin);
+
+      // "if twin_completeness < 40 create notification suggesting org
+      // complete their digital twin before drafts can be optimal" — deduped
+      // to once per org per day so a night with several drafts doesn't spam
+      // the alerts feed with the same suggestion per opportunity.
+      if (twinContext.completeness < TWIN_COMPLETENESS_NOTIFY_THRESHOLD) {
+        const todayStartForNotify = new Date();
+        todayStartForNotify.setUTCHours(0, 0, 0, 0);
+        const dedupPrefix = `autonomous:${this.agentId}:twin_completeness_low:`;
+        const { data: existingNotice } = await this.supabase
+          .from("alerts")
+          .select("id")
+          .eq("organization_id", this.orgId)
+          .like("dedup_key", `${dedupPrefix}%`)
+          .gte("created_at", todayStartForNotify.toISOString())
+          .limit(1)
+          .maybeSingle();
+
+        if (!existingNotice) {
+          await this.createNotification(
+            "twin_completeness_low",
+            "Digital Twin Incomplete",
+            `Your organizational digital twin is only ${twinContext.completeness}% complete. ` +
+              `Complete it on /intelligence/twin for stronger, more specific AI-generated drafts.`,
+          );
+        }
+      }
 
       // Platform Learning Network (AG-36 / migration 083): anonymized
       // cross-org patterns from awarded outcomes elsewhere on the platform,
@@ -354,9 +565,27 @@ export class DraftGenerationAgent extends AutonomousAgent {
         `Never fabricate statistics, certifications, or financial figures not in the data. ` +
         `Flag missing required data with [NEEDS INPUT: description].`;
 
+      // Twin data takes priority over KB data when both exist: KB categories
+      // covered by a populated twin section are dropped from the prompt so
+      // the richer, structurally-verified twin content isn't diluted or
+      // contradicted by a possibly-stale KB entry for the same concept.
+      const twinOverriddenCategories = new Set(
+        (
+          Object.entries(TWIN_SECTION_KB_OVERRIDES) as [
+            keyof typeof TWIN_SECTION_KB_OVERRIDES,
+            string[],
+          ][]
+        )
+          .filter(([sectionKey]) => twinContext.sections[sectionKey] !== null)
+          .flatMap(([, categories]) => categories),
+      );
+      const kbEntriesForPrompt = knowledgeEntries.filter(
+        (e) => !twinOverriddenCategories.has(e.category),
+      );
+
       const kbSection =
-        knowledgeEntries.length > 0
-          ? knowledgeEntries
+        kbEntriesForPrompt.length > 0
+          ? kbEntriesForPrompt
               .map((e) => `[${e.category}] ${e.title}\n${e.content}`)
               .join("\n\n")
           : "No knowledge base entries available for this organization.";
@@ -406,6 +635,9 @@ export class DraftGenerationAgent extends AutonomousAgent {
         `Founder: ${(orgProfile?.founder_name as string | null | undefined) ?? ""}`,
         `Annual budget: ${(orgProfile?.annual_budget as number | null | undefined) ?? "[NEEDS INPUT: annual budget]"}`,
         "",
+        ...(twinContext.promptBlock
+          ? [twinContext.promptBlock, ""]
+          : ["ORGANIZATIONAL CONTEXT FROM DIGITAL TWIN: not yet available for this organization.", ""]),
         "KNOWLEDGE BASE CONTENT:",
         kbSection,
         "",
@@ -433,10 +665,17 @@ export class DraftGenerationAgent extends AutonomousAgent {
       // +20 on top of the base KB/proven-narrative score (see
       // computeConfidence's platformPatternBoost).
       const needsInputCount = countNeedsInput(response.text);
-      const confidence = computeConfidence(
+      const baseConfidence = computeConfidence(
         needsInputCount,
         provenNarratives.length,
         highConfidencePatternsApplied,
+      );
+      // Twin completeness reduces confidence by (100 - completeness) * 0.3,
+      // per the task spec, so a sparse/absent digital twin is visible to the
+      // human reviewer rather than hidden inside an otherwise-normal score.
+      const confidence = applyTwinCompletenessPenalty(
+        baseConfidence,
+        twinContext.completeness,
       );
       const patternsApplied = platformPatterns.length;
 
@@ -454,6 +693,8 @@ export class DraftGenerationAgent extends AutonomousAgent {
           pending_review: true,
           draft_source: "autonomous",
           platform_patterns_applied: patternsApplied,
+          twin_powered: true,
+          twin_completeness: twinContext.completeness,
         })
         .select("id")
         .single();
@@ -475,7 +716,8 @@ export class DraftGenerationAgent extends AutonomousAgent {
         entityId: newAppId,
         reasoning:
           `Auto-generated draft for ${title} (probability: ${score ?? "N/A"}%). ` +
-          `Confidence: ${confidence}%. Platform learning patterns applied: ` +
+          `Confidence: ${confidence}% (base ${baseConfidence}%, twin completeness ` +
+          `${twinContext.completeness}%). Platform learning patterns applied: ` +
           `${patternsApplied} (${highConfidencePatternsApplied} high-confidence).`,
         confidenceScore: confidence,
         actionTaken: "created_draft_pending_review",
