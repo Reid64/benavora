@@ -263,6 +263,10 @@ function DayOfWeekChart({ data }: { data: DayStat[] }) {
   const gap = 20;
   const chartHeight = 140;
   const width = data.length * (barWidth + gap);
+  const maxRate = Math.max(
+    0,
+    ...data.filter((d) => d.sampleSize > 0 && d.winRate !== null).map((d) => d.winRate as number),
+  );
 
   return (
     <svg width={width} height={chartHeight + 40} role="img" aria-label="Win rate by day of week">
@@ -271,7 +275,8 @@ function DayOfWeekChart({ data }: { data: DayStat[] }) {
         const barHeight = d.sampleSize > 0 ? Math.max(4, rate * chartHeight) : 2;
         const x = i * (barWidth + gap) + gap / 2;
         const y = chartHeight - barHeight;
-        const color = d.sampleSize === 0 ? "#CBD5E1" : "#0077B6";
+        const isHighest = d.sampleSize > 0 && d.winRate !== null && maxRate > 0 && d.winRate === maxRate;
+        const color = isHighest ? "#10B981" : "#94A3B8";
         return (
           <g key={d.day}>
             <rect x={x} y={y} width={barWidth} height={barHeight} rx={6} fill={color} />

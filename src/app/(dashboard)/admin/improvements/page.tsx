@@ -470,6 +470,7 @@ function ProposalCard({
       style={{
         backgroundColor: "#FFFFFF",
         borderRadius: "12px",
+        borderLeft: `6px solid ${riskColor}`,
         padding: "24px",
         marginBottom: "12px",
         boxShadow: "0 4px 20px rgba(0,0,0,0.12)",

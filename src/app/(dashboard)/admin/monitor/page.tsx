@@ -315,13 +315,13 @@ export default function AdminMonitorPage() {
             <table className="min-w-full text-sm">
               <thead>
                 <tr style={{ backgroundColor: "#1A2B3C" }}>
-                  <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-white">Funder</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-white">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-white">Detail</th>
-                  <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-white">
+                  <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide" style={{ color: "#FFFFFF" }}>Funder</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide" style={{ color: "#FFFFFF" }}>Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide" style={{ color: "#FFFFFF" }}>Detail</th>
+                  <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-medium uppercase tracking-wide" style={{ color: "#FFFFFF" }}>
                     Updated
                   </th>
-                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-white">Action</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide" style={{ color: "#FFFFFF" }}>Action</th>
                 </tr>
               </thead>
               <tbody>
