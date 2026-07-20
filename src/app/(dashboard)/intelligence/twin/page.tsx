@@ -7,6 +7,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
+  AlertTriangle,
   Award,
   Banknote,
   BookText,
@@ -69,8 +70,89 @@ const FINANCIAL_LABELS: Record<string, string> = {
 
 function scoreColor(score: number): string {
   if (score >= 80) return "#16A34A";
-  if (score >= 50) return "#D97706";
+  if (score >= 60) return "#D97706";
   return "#DC2626";
+}
+
+const TWIN_SECTIONS: {
+  label: string;
+  populated: (twin: DigitalTwin) => boolean;
+}[] = [
+  { label: "Mission & Vision", populated: (twin) => Boolean(twin.mission) },
+  {
+    label: "Service Areas",
+    populated: (twin) => twin.service_areas.length > 0,
+  },
+  { label: "Programs", populated: (twin) => twin.programs.length > 0 },
+  {
+    label: "Financial Profile",
+    populated: (twin) => Object.keys(twin.financial_profile).length > 0,
+  },
+  {
+    label: "Board Composition",
+    populated: (twin) => twin.board_composition.length > 0,
+  },
+  {
+    label: "Proven Narratives",
+    populated: (twin) => twin.proven_narrative_patterns.length > 0,
+  },
+  {
+    label: "Key Strengths",
+    populated: (twin) => twin.key_strengths.length > 0,
+  },
+];
+
+function SectionStatusGrid({ twin }: { twin: DigitalTwin }) {
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
+        gap: "10px",
+      }}
+    >
+      {TWIN_SECTIONS.map((section) => {
+        const populated = section.populated(twin);
+        return (
+          <div
+            key={section.label}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              padding: "10px 12px",
+              borderRadius: "8px",
+              backgroundColor: populated ? "#DCFCE7" : "#FEE2E2",
+              border: `1px solid ${populated ? "#86EFAC" : "#FECACA"}`,
+            }}
+          >
+            {populated ? (
+              <CheckCircle2
+                className="h-4 w-4 shrink-0"
+                style={{ color: "#16A34A" }}
+                aria-hidden
+              />
+            ) : (
+              <XCircle
+                className="h-4 w-4 shrink-0"
+                style={{ color: "#DC2626" }}
+                aria-hidden
+              />
+            )}
+            <span
+              style={{
+                fontSize: "12px",
+                fontWeight: 600,
+                color: populated ? "#166534" : "#991B1B",
+              }}
+            >
+              {section.label}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 function buildChecklist(twin: DigitalTwin): ChecklistItem[] {
@@ -130,8 +212,8 @@ function buildChecklist(twin: DigitalTwin): ChecklistItem[] {
 
 function CircularProgress({ score }: { score: number }) {
   const color = scoreColor(score);
-  const size = 120;
-  const strokeWidth = 10;
+  const size = 160;
+  const strokeWidth = 12;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (score / 100) * circumference;
@@ -165,10 +247,12 @@ function CircularProgress({ score }: { score: number }) {
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-2xl font-bold" style={{ color }}>
-          {score}
+        <span className="text-4xl font-bold" style={{ color }}>
+          {score}%
         </span>
-        <span className="text-[10px] font-medium text-slate-400">/ 100</span>
+        <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+          Twin Completeness
+        </span>
       </div>
     </div>
   );
@@ -270,14 +354,17 @@ export default function DigitalTwinPage() {
   }
 
   return (
-    <div className="min-h-screen space-y-6 bg-[#CBD5E1] p-6">
+    <div
+      className="min-h-screen space-y-6 p-6"
+      style={{ backgroundColor: "#D6E4F0" }}
+    >
       <PageHeader
         title="Digital Twin"
         description="A structured, continuously learning profile of your organization the AI reads before drafting any proposal."
         actions={
           <Button onClick={() => void handleRebuild()} isLoading={rebuilding}>
             <RefreshCw className="h-4 w-4" aria-hidden />
-            Rebuild Twin
+            Update Twin
           </Button>
         }
       />
@@ -322,6 +409,50 @@ export default function DigitalTwinPage() {
               </div>
             </div>
           </div>
+
+          {twin.twin_completeness_score < 60 && (
+            <div
+              role="alert"
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: "10px",
+                backgroundColor: "#FEF3C7",
+                border: "1px solid #FDE68A",
+                borderRadius: "12px",
+                padding: "16px",
+              }}
+            >
+              <AlertTriangle
+                className="h-5 w-5 shrink-0"
+                style={{ color: "#B45309" }}
+                aria-hidden
+              />
+              <p
+                style={{
+                  fontSize: "13px",
+                  color: "#92400E",
+                  margin: 0,
+                  lineHeight: 1.5,
+                }}
+              >
+                <strong>
+                  Your AI drafts will be limited until your Digital Twin is
+                  complete.
+                </strong>{" "}
+                Complete now to unlock optimal draft quality.
+              </p>
+            </div>
+          )}
+
+          {/* Section-by-section status */}
+          <SectionCard
+            icon={Sparkles}
+            title="Section Status"
+            description="Which parts of the twin are populated vs. still empty."
+          >
+            <SectionStatusGrid twin={twin} />
+          </SectionCard>
 
           {/* Completeness checklist */}
           <SectionCard

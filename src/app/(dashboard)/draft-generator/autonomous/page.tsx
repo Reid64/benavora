@@ -14,6 +14,8 @@ type ApplicationRow = {
   draft_confidence_score: number | null;
   created_at: string;
   opportunity_id: string;
+  twin_powered: boolean | null;
+  twin_completeness: number | null;
 };
 
 type OpportunityRow = {
@@ -83,7 +85,9 @@ export default async function AutonomousDraftReviewPage() {
 
   const { data: applicationsData } = await supabase
     .from("applications")
-    .select("id, draft_content, draft_confidence_score, created_at, opportunity_id")
+    .select(
+      "id, draft_content, draft_confidence_score, created_at, opportunity_id, twin_powered, twin_completeness",
+    )
     .eq("organization_id", orgId)
     .eq("auto_generated", true)
     .eq("pending_review", true)
@@ -179,9 +183,26 @@ export default async function AutonomousDraftReviewPage() {
                   gap: "12px",
                 }}
               >
-                <span style={{ fontSize: "16px", fontWeight: 700, color: "#1A2B3C" }}>
-                  {opportunity?.name ?? "Unknown opportunity"}
-                </span>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0 }}>
+                  <span style={{ fontSize: "16px", fontWeight: 700, color: "#1A2B3C" }}>
+                    {opportunity?.name ?? "Unknown opportunity"}
+                  </span>
+                  {app.twin_powered && (
+                    <span
+                      style={{
+                        fontSize: "10px",
+                        fontWeight: 700,
+                        color: "#FFFFFF",
+                        backgroundColor: "#6B48CC",
+                        borderRadius: "999px",
+                        padding: "3px 10px",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      Twin-Powered
+                    </span>
+                  )}
+                </div>
                 <ScoreBadge label="Probability" score={probabilityScore} />
               </div>
 
@@ -197,8 +218,32 @@ export default async function AutonomousDraftReviewPage() {
                 <span style={{ fontSize: "12px", color: "#6B7280" }}>
                   Auto-generated {formatRelative(app.created_at)} by Benavora AI
                 </span>
-                <ScoreBadge label="Confidence" score={app.draft_confidence_score} />
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  {app.twin_completeness != null && (
+                    <ScoreBadge label="Twin" score={app.twin_completeness} />
+                  )}
+                  <ScoreBadge label="Confidence" score={app.draft_confidence_score} />
+                </div>
               </div>
+
+              {app.twin_completeness != null && app.twin_completeness < 60 && (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: "8px",
+                    backgroundColor: "#FEF3C7",
+                    border: "1px solid #FDE68A",
+                    borderRadius: "8px",
+                    padding: "10px 12px",
+                    marginTop: "10px",
+                  }}
+                >
+                  <span style={{ fontSize: "12px", color: "#92400E", lineHeight: 1.5 }}>
+                    Draft generated with incomplete twin data — review carefully.
+                  </span>
+                </div>
+              )}
 
               <div
                 style={{

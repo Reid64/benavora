@@ -187,7 +187,7 @@
 | 107 | Digital Twin Builder | IN BUILD | src/lib/intelligence/digital-twin-builder.ts. Tonight. |
 | 108 | Digital Twin API | IN BUILD | /api/intelligence/digital-twin. Tonight. |
 | 109 | Digital Twin Profile Page | IN BUILD | /intelligence/twin. Tonight. |
-| 110 | Twin-Powered Draft Generation | PLANNED | Draft Generator reads Twin before generating. Phase 2. |
+| 110 | Twin-Powered Draft Generation | BUILT | AG-05 draft-generation-agent.ts reads organizational_digital_twins (migration 094) before generating; applications.twin_powered/twin_completeness recorded per draft. /intelligence/twin shows completeness score + section breakdown; /draft-generator/autonomous shows Twin-Powered badge + low-completeness warning. |
 | 111 | Twin Completeness Score | IN BUILD | 10-factor completeness indicator. Tonight. |
 
 ### Pillar 7: Autonomous Proposal Factory
