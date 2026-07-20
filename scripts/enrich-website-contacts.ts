@@ -2,61 +2,61 @@
 // BENAVORA — nonprofit website contact enrichment (tier 2) for the
 // nonprofits table
 //
-// For nonprofits that have a discovered website but no enrichment yet
-// (last_enriched_at IS NULL), crawls a small set of likely contact/about/team
-// pages, extracts emails, phone numbers, social links, and an executive
-// officer contact + staff list, and writes them back (migration 099).
-// Concurrency-limited with p-limit (5), 1s delay between domains to stay
-// polite to hosting providers. Since last_enriched_at flips from null to a
-// timestamp as soon as a row is written, an enriched row drops out of the
-// WHERE filter on the very next query — the database is the checkpoint, so a
-// killed run resumes cleanly, same convention as scripts/enrich-foundations-propublica.ts.
+// Claude-powered rewrite of this script. The prior version fetched pages with
+// plain cheerio/regex parsing and targeted `last_enriched_at IS NULL` — but
+// `website` is only ever populated by scripts/enrich-990-xml.ts (tier 1),
+// which stamps `last_enriched_at` in the very same update, so no row with a
+// non-null website could ever have a null last_enriched_at and that filter
+// could never match a real row. This version targets nonprofits that DO have
+// a last_enriched_at (from tier 1) but still lack officer_email, re-checked
+// on a 30-day cooldown so a site with no discoverable contact info isn't
+// hammered every run.
 //
-//   pnpm enrich:websites
+// For each candidate: fetch /about, /contact, /staff, /leadership, /team
+// under the site's origin (5s timeout per page, skip on failure), hand the
+// first 3000 chars of the combined HTML to Claude (claude-sonnet-4-6,
+// max_tokens 200) to extract an executive director name/email, a general
+// email, and a phone number, validate each field, and write only the columns
+// that are still NULL on the existing row (COALESCE semantics — see
+// scripts/enrich-990-xml.ts's header for why this is done via a
+// fetch-then-conditionally-update query builder rather than a raw
+// `ON CONFLICT ... COALESCE(...)` string: the values come from untrusted
+// third-party HTML/model output, so they must stay parameterized).
+//
+// A row is always stamped with last_enriched_at after being attempted (even
+// when nothing was extracted), so a dead/uncontactable site cools down for 30
+// days instead of being re-selected on every subsequent run.
+//
+//   pnpm enrich:nonprofit-websites
 // ============================================================================
 
 import dotenv from "dotenv";
 
 dotenv.config({ path: ".env.local" });
 
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import ws from "ws";
-import * as cheerio from "cheerio";
-import pLimit from "p-limit";
 
-const BATCH_SIZE = 500;
-const CONCURRENCY = 5;
-const DOMAIN_DELAY_MS = 1_000;
-const FETCH_TIMEOUT_MS = 8_000;
-const LOG_EVERY = 100;
+import { callClaude } from "@/lib/ai/claude";
 
-const CONTACT_PATHS = ["", "/contact", "/contact-us", "/about", "/staff", "/team", "/leadership"];
+const BATCH_LIMIT = 500;
+const FETCH_TIMEOUT_MS = 5_000;
+const REQUEST_DELAY_MS = 2_000;
+const MAX_HTML_CHARS = 3000;
+const COOLDOWN_DAYS = 30;
+const LOG_EVERY = 25;
+const CLAUDE_MODEL = "claude-sonnet-4-6";
+const CLAUDE_MAX_TOKENS = 200;
 
-const JUNK_EMAIL_PREFIXES = [
-  "info@",
-  "hello@",
-  "support@",
-  "noreply@",
-  "webmaster@",
-  "admin@",
-  "donate@",
-  "volunteer@",
-  "contact@",
-];
+const CONTACT_PATHS = ["/about", "/contact", "/staff", "/leadership", "/team"];
 
-const EMAIL_REGEX = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
-const PHONE_REGEX = /\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g;
+const SYSTEM_PROMPT =
+  "Extract contact information from this nonprofit website HTML. Return JSON only: " +
+  "{ executive_director_name: string|null, executive_director_email: string|null, general_email: string|null, phone: string|null }. " +
+  "If not found, return null for that field.";
 
-const EXECUTIVE_KEYWORDS = ["director", "president", "ceo", "executive", "founder", "officer"];
-
-type SocialKey = "linkedin_url" | "facebook_url" | "twitter_url" | "instagram_url";
-
-const SOCIAL_PATTERNS: Record<SocialKey, RegExp> = {
-  linkedin_url: /linkedin\.com\/[^"'\s)>]+/i,
-  facebook_url: /facebook\.com\/[^"'\s)>]+/i,
-  twitter_url: /twitter\.com\/[^"'\s)>]+/i,
-  instagram_url: /instagram\.com\/[^"'\s)>]+/i,
-};
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_REGEX = /(\d{3}[-.]?\d{3}[-.]?\d{4})/;
 
 function fatal(message: string): never {
   console.error(`\nFATAL: ${message}`);
@@ -75,121 +75,60 @@ function sleep(ms: number): Promise<void> {
 interface NonprofitRow {
   id: string;
   ein: string;
-  website: string;
-}
-
-interface StaffContact {
   name: string;
-  title: string;
-  email: string | null;
+  website: string;
+  officer_name: string | null;
+  phone: string | null;
+  contact_emails: string | null;
 }
 
-interface PageExtract {
-  emails: string[];
-  phones: string[];
-  social: Partial<Record<SocialKey, string>>;
-  officerEmail: string | null;
-  staffContacts: StaffContact[];
+interface ExtractedContact {
+  executive_director_name: string | null;
+  executive_director_email: string | null;
+  general_email: string | null;
+  phone: string | null;
 }
 
-function isJunkEmail(email: string): boolean {
-  const lower = email.toLowerCase();
-  return JUNK_EMAIL_PREFIXES.some((prefix) => lower.startsWith(prefix));
+function isValidEmail(value: unknown): value is string {
+  return typeof value === "string" && EMAIL_REGEX.test(value.trim());
 }
 
-function extractSocial($: cheerio.CheerioAPI): Partial<Record<SocialKey, string>> {
-  const social: Partial<Record<SocialKey, string>> = {};
-  $("a[href]").each((_i, el) => {
-    const href = $(el).attr("href") ?? "";
-    for (const key of Object.keys(SOCIAL_PATTERNS) as SocialKey[]) {
-      if (!social[key] && SOCIAL_PATTERNS[key].test(href)) {
-        social[key] = href;
-      }
-    }
-  });
-  return social;
+function isValidPhone(value: unknown): value is string {
+  return typeof value === "string" && PHONE_REGEX.test(value);
 }
 
-function nearExecutiveContext(text: string): boolean {
-  const lower = text.toLowerCase();
-  return EXECUTIVE_KEYWORDS.some((kw) => lower.includes(kw));
+function isValidName(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  const trimmed = value.trim();
+  if (!trimmed || /\d/.test(trimmed)) return false;
+  return trimmed.split(/\s+/).filter(Boolean).length >= 2;
 }
 
-function extractOfficerEmailAndStaff($: cheerio.CheerioAPI): {
-  officerEmail: string | null;
-  staffContacts: StaffContact[];
-} {
-  let officerEmail: string | null = null;
-  const staffContacts: StaffContact[] = [];
-  const seen = new Set<string>();
-
-  $("a[href^='mailto:']").each((_i, el) => {
-    const href = $(el).attr("href") ?? "";
-    const email = href.replace(/^mailto:/i, "").split("?")[0].trim();
-    if (!email || isJunkEmail(email)) return;
-
-    const container = $(el).closest("div, li, tr, section, article, p");
-    const contextText = (container.length ? container.text() : $(el).parent().text()).trim();
-    if (contextText.length > 500 || !nearExecutiveContext(contextText)) return;
-
-    if (!officerEmail) officerEmail = email;
-
-    const lines = contextText.split(/\n|\r/).map((l) => l.trim()).filter(Boolean);
-    const titleLineIdx = lines.findIndex((l) =>
-      EXECUTIVE_KEYWORDS.some((kw) => l.toLowerCase().includes(kw)),
-    );
-    const titleLine = titleLineIdx >= 0 ? lines[titleLineIdx] : undefined;
-    const nameLine =
-      titleLineIdx > 0
-        ? lines[titleLineIdx - 1]
-        : titleLineIdx === 0
-          ? lines[titleLineIdx + 1]
-          : undefined;
-
-    const name = nameLine && nameLine.length > 1 && nameLine.length < 60 ? nameLine : "Unknown";
-    const title = titleLine && titleLine.length < 100 ? titleLine : "Unknown";
-    const key = `${name}|${title}|${email}`;
-    if (!seen.has(key)) {
-      seen.add(key);
-      staffContacts.push({ name, title, email });
-    }
-  });
-
-  return { officerEmail, staffContacts };
+function stripCodeFences(text: string): string {
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  return (fenced?.[1] ?? text).trim();
 }
 
-function extractFromHtml(html: string): PageExtract {
-  const $ = cheerio.load(html);
-  const bodyText = $("body").text();
-
-  const emailMatches = bodyText.match(EMAIL_REGEX) ?? [];
-  const emails = [...new Set(emailMatches.filter((e) => !isJunkEmail(e)))];
-  const phones = [...new Set(bodyText.match(PHONE_REGEX) ?? [])];
-  const social = extractSocial($);
-  const { officerEmail, staffContacts } = extractOfficerEmailAndStaff($);
-
-  return { emails, phones, social, officerEmail, staffContacts };
+function extractJsonObject(text: string): string {
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start === -1 || end === -1 || end < start) return text;
+  return text.slice(start, end + 1);
 }
 
-function mergePageExtracts(pages: PageExtract[]): PageExtract {
-  const emails = [...new Set(pages.flatMap((p) => p.emails))];
-  const phones = [...new Set(pages.flatMap((p) => p.phones))];
-  const social: Partial<Record<SocialKey, string>> = Object.assign({}, ...pages.map((p) => p.social));
-  const officerEmail = pages.find((p) => p.officerEmail)?.officerEmail ?? null;
-
-  const staffKeys = new Set<string>();
-  const staffContacts: StaffContact[] = [];
-  for (const page of pages) {
-    for (const contact of page.staffContacts) {
-      const key = `${contact.name}|${contact.title}|${contact.email}`;
-      if (!staffKeys.has(key)) {
-        staffKeys.add(key);
-        staffContacts.push(contact);
-      }
-    }
+function parseExtraction(raw: string): Record<string, unknown> | null {
+  const candidate = extractJsonObject(stripCodeFences(raw));
+  try {
+    const value: unknown = JSON.parse(candidate);
+    if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+    return value as Record<string, unknown>;
+  } catch {
+    return null;
   }
+}
 
-  return { emails, phones, social, officerEmail, staffContacts };
+function asStringOrNull(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
 async function fetchPage(url: string): Promise<string | null> {
@@ -202,21 +141,40 @@ async function fetchPage(url: string): Promise<string | null> {
   }
 }
 
-async function scrapeOrg(websiteUrl: string): Promise<PageExtract> {
+async function fetchContactPages(website: string): Promise<string | null> {
   let origin: string;
   try {
-    origin = new URL(websiteUrl).origin;
+    origin = new URL(website).origin;
   } catch {
-    origin = websiteUrl;
+    return null;
   }
 
-  const pages: PageExtract[] = [];
+  let combined = "";
   for (const path of CONTACT_PATHS) {
     const html = await fetchPage(`${origin}${path}`);
-    if (html) pages.push(extractFromHtml(html));
+    if (html) combined += html;
   }
 
-  return mergePageExtracts(pages);
+  return combined ? combined.slice(0, MAX_HTML_CHARS) : null;
+}
+
+async function extractContactInfo(html: string): Promise<ExtractedContact | null> {
+  const response = await callClaude({
+    system: SYSTEM_PROMPT,
+    prompt: html,
+    model: CLAUDE_MODEL,
+    maxTokens: CLAUDE_MAX_TOKENS,
+  });
+
+  const parsed = parseExtraction(response.text);
+  if (!parsed) return null;
+
+  return {
+    executive_director_name: asStringOrNull(parsed.executive_director_name),
+    executive_director_email: asStringOrNull(parsed.executive_director_email),
+    general_email: asStringOrNull(parsed.general_email),
+    phone: asStringOrNull(parsed.phone),
+  };
 }
 
 async function main() {
@@ -225,92 +183,114 @@ async function main() {
   if (!supabaseUrl || !serviceRoleKey) {
     fatal("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
   }
+  if (!process.env.ANTHROPIC_API_KEY) {
+    fatal("Missing ANTHROPIC_API_KEY");
+  }
 
-  const supabase = createClient(supabaseUrl, serviceRoleKey, {
+  const admin = createClient(supabaseUrl, serviceRoleKey, {
     // ws's WebSocket type isn't structurally identical to realtime-js's
     // WebSocketLikeConstructor (event handler signatures differ); runtime
-    // behavior is unaffected. Same pattern as scripts/batch-score-opportunities.ts.
+    // behavior is unaffected. Same pattern as scripts/enrich-990-xml.ts.
     realtime: { transport: ws as any },
-  });
+  }) as SupabaseClient;
 
   console.log("Nonprofit website contact enrichment — nonprofits table (tier 2)");
-  console.log("Population: website IS NOT NULL AND last_enriched_at IS NULL");
-  console.log(`Batch size: ${BATCH_SIZE}, concurrency: ${CONCURRENCY}\n`);
+  console.log(
+    `Population: website IS NOT NULL AND officer_email IS NULL AND last_enriched_at < NOW() - ${COOLDOWN_DAYS}d\n`,
+  );
 
-  const limit = pLimit(CONCURRENCY);
-  const startedAt = Date.now();
+  const cutoff = new Date(Date.now() - COOLDOWN_DAYS * 24 * 60 * 60 * 1000).toISOString();
+
+  const { data, error } = await admin
+    .from("nonprofits")
+    .select("id, ein, name, website, officer_name, phone, contact_emails")
+    .not("website", "is", null)
+    .is("officer_email", null)
+    .lt("last_enriched_at", cutoff)
+    .limit(BATCH_LIMIT);
+
+  if (error) {
+    fatal(`could not query nonprofits: ${error.message}`);
+  }
+
+  const batch = (data ?? []) as unknown as NonprofitRow[];
+  if (batch.length === 0) {
+    console.log("Nothing to do — no candidates matched.");
+    return;
+  }
+
+  console.log(`${batch.length} candidates this run\n`);
+
   let processed = 0;
   let enriched = 0;
+  let skipped = 0;
   let failed = 0;
 
-  for (;;) {
-    const { data, error } = await supabase
-      .from("nonprofits")
-      .select("id, ein, website")
-      .not("website", "is", null)
-      .is("last_enriched_at", null)
-      .order("revenue_amount", { ascending: false, nullsFirst: false })
-      .limit(BATCH_SIZE);
+  for (const org of batch) {
+    processed++;
 
-    if (error) {
-      fatal(`could not query nonprofits: ${error.message}`);
+    try {
+      const html = await fetchContactPages(org.website);
+
+      if (!html) {
+        skipped++;
+        const { error: touchError } = await admin
+          .from("nonprofits")
+          .update({ last_enriched_at: new Date().toISOString() })
+          .eq("ein", org.ein);
+        if (touchError) fail(`cooldown-stamp EIN ${org.ein}`, touchError);
+      } else {
+        const extracted = await extractContactInfo(html);
+
+        const update: Record<string, unknown> = {};
+        if (extracted) {
+          if (org.officer_name === null && isValidName(extracted.executive_director_name)) {
+            update.officer_name = extracted.executive_director_name;
+          }
+          if (isValidEmail(extracted.executive_director_email)) {
+            update.officer_email = extracted.executive_director_email;
+          }
+          if (org.contact_emails === null && isValidEmail(extracted.general_email)) {
+            update.contact_emails = extracted.general_email;
+          }
+          if (org.phone === null && isValidPhone(extracted.phone)) {
+            update.phone = extracted.phone;
+          }
+        }
+
+        if (Object.keys(update).length > 0) {
+          update.enrichment_tier = 2;
+        }
+        update.last_enriched_at = new Date().toISOString();
+
+        const { error: updateError } = await admin.from("nonprofits").update(update).eq("ein", org.ein);
+        if (updateError) {
+          failed++;
+          fail(`update EIN ${org.ein}`, updateError);
+        } else if (Object.keys(update).length > 1) {
+          enriched++;
+        } else {
+          skipped++;
+        }
+      }
+    } catch (err) {
+      failed++;
+      fail(`process EIN ${org.ein}`, err);
     }
 
-    const batch = (data ?? []) as NonprofitRow[];
-    if (batch.length === 0) break;
+    if (processed % LOG_EVERY === 0 || processed === batch.length) {
+      console.log(`  … processed ${processed}/${batch.length}, enriched ${enriched}, skipped ${skipped}, failed ${failed}`);
+    }
 
-    await Promise.all(
-      batch.map((org) =>
-        limit(async () => {
-          try {
-            const extract = await scrapeOrg(org.website);
-            await sleep(DOMAIN_DELAY_MS);
-
-            const { error: updateError } = await supabase
-              .from("nonprofits")
-              .update({
-                officer_email: extract.officerEmail,
-                contact_emails: JSON.stringify(extract.emails),
-                staff_contacts: JSON.stringify(extract.staffContacts),
-                phone: extract.phones[0] ?? null,
-                linkedin_url: extract.social.linkedin_url ?? null,
-                facebook_url: extract.social.facebook_url ?? null,
-                twitter_url: extract.social.twitter_url ?? null,
-                instagram_url: extract.social.instagram_url ?? null,
-                enrichment_tier: 2,
-                last_enriched_at: new Date().toISOString(),
-              })
-              .eq("ein", org.ein);
-
-            if (updateError) {
-              failed++;
-              fail(`update EIN ${org.ein}`, updateError);
-            } else {
-              enriched++;
-            }
-          } catch (err) {
-            failed++;
-            fail(`scrape EIN ${org.ein}`, err);
-          }
-
-          processed++;
-          if (processed % LOG_EVERY === 0) {
-            const elapsedMin = (Date.now() - startedAt) / 60_000;
-            const rate = elapsedMin > 0 ? Math.round(processed / elapsedMin) : 0;
-            console.log(
-              `  … processed ${processed}, enriched ${enriched}, failed ${failed}, rate ${rate}/min`,
-            );
-          }
-        }),
-      ),
-    );
-
-    if (batch.length < BATCH_SIZE) break;
+    if (processed < batch.length) {
+      await sleep(REQUEST_DELAY_MS);
+    }
   }
 
   console.log("\nDone.");
   console.log(`  Records processed: ${processed}`);
   console.log(`  Enriched:          ${enriched}`);
+  console.log(`  Skipped:           ${skipped} (no contact pages found / nothing new extracted)`);
   console.log(`  Failed:            ${failed}`);
 }
 

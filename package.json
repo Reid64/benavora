@@ -50,6 +50,7 @@
         "populate:all": "tsx scripts/populate-all-data.ts",
         "enrich:990xml": "tsx scripts/enrich-990-xml.ts",
         "enrich:nonprofit-websites": "tsx scripts/enrich-website-contacts.ts",
+        "enrich:contacts": "tsx scripts/enrich-website-contacts.ts",
         "enrich:nonprofits-pp": "tsx scripts/enrich-nonprofits-bmf-propublica.ts",
         "enrich:nonprofits-parallel": "tsx scripts/enrich-nonprofits-parallel.ts",
         "check:enrichment": "tsx scripts/check-enrichment-detailed.ts",
