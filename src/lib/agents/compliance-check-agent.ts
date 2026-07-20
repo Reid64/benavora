@@ -218,8 +218,11 @@ export class ComplianceCheckAgent extends AutonomousAgent {
           entityType: "application",
           entityId: applicationId,
           reasoning: passed
-            ? "All compliance checks passed."
-            : `Blocked: ${blockers.join("; ")}`,
+            ? `Application ${applicationId} for "${opportunityName}" passed every automated compliance check: all ${requiredDocuments.length} required document categor${requiredDocuments.length === 1 ? "y is" : "ies are"} attached, the draft narrative has no unresolved [NEEDS INPUT] flags, and the draft confidence score (${confidenceScore}%) is at or above the 70% review threshold. ` +
+              "This check is deterministic - it matches attached document categories against the opportunity's required_documents list and scans the draft narrative text - and does not itself submit or advance the application; it only clears it for the next stage."
+            : `Application ${applicationId} for "${opportunityName}" was blocked by automated compliance check(s): ${blockers.join("; ")}. ` +
+              `Of ${requiredDocuments.length} required document categor${requiredDocuments.length === 1 ? "y" : "ies"}, ${missingDocuments.length} ${missingDocuments.length === 1 ? "is" : "are"} still missing, and the draft narrative was scanned for unresolved [NEEDS INPUT: ...] placeholders and a draft confidence score below 70%. ` +
+              "This is a deterministic gate, not an AI judgment call - it flags the application for human review rather than allowing it to advance until every blocker above is resolved.",
           confidenceScore: passed ? 95 : 30,
           actionTaken: passed ? "compliance_cleared" : "compliance_blocked",
           actionPayload: { ...result },

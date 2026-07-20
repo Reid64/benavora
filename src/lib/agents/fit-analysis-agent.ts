@@ -54,7 +54,7 @@ type Recommendation =
   | "pass";
 type EffortLevel = "high" | "medium" | "low";
 
-const MAX_TOKENS = 600;
+const MAX_TOKENS = 1000;
 const MIN_OUTCOMES_FOR_RATE = 3;
 
 interface FitAnalysisPayload {
@@ -125,7 +125,24 @@ function buildPrompt(
   effort: EffortLevel,
 ): { system: string; prompt: string } {
   const system =
-    'Return JSON only: { recommendation: "strong_apply"|"apply"|' +
+    "You are the Fit Analysis Agent inside Benavora, an AI-powered nonprofit " +
+    "intelligence platform. An opportunity reaching you has already cleared basic " +
+    "eligibility scoring (score 70+) - your job is the deeper, second-pass question: " +
+    "given everything known about this organization's mission, capacity, and track " +
+    "record, and this specific opportunity's requirements, competitive landscape, " +
+    "and historical success rate for this org in this funder category, is this " +
+    "actually worth the staff time to pursue? Weigh effort vs. reward explicitly - a " +
+    "small award requiring a heavy application burden may score lower than a larger " +
+    "award with a lighter lift, even if both pass eligibility. When the historical " +
+    "success rate is unavailable or based on fewer than 3 outcomes, do not treat that " +
+    "as either a positive or negative signal - say so explicitly and weigh other " +
+    "factors more heavily instead of guessing. Your reasoning field must be a " +
+    "genuinely substantive explanation - at least several full sentences covering " +
+    "program alignment, competitive positioning, effort/reward tradeoff, and the " +
+    "historical data (or lack of it) - not a one-line summary, since this reasoning " +
+    "is the primary audit trail a human reviewer will read before approving or " +
+    "rejecting the application this analysis may create. Return JSON only, no prose " +
+    'outside the object: { recommendation: "strong_apply"|"apply"|' +
     '"conditional_apply"|"pass", confidence: number, reasoning: string, ' +
     "conditions: string[]|null, timeEstimateHours: number, expectedROI: string }";
 
@@ -418,7 +435,15 @@ export class FitAnalysisAgent extends AutonomousAgent {
           agentRunId: runId,
           entityType: "opportunity",
           entityId: opportunity.id,
-          reasoning: result.reasoning,
+          reasoning:
+            `Fit analysis for "${opportunity.name}" (category: ${humanizeEnum(opportunity.category)}, estimated effort: ${effort}) concluded "${result.recommendation}" at ${result.confidence}% confidence, with an estimated time commitment of ${result.timeEstimateHours} hours and expected ROI of "${result.expectedROI}". ` +
+            `${result.reasoning} ` +
+            (successRate != null
+              ? `This organization's historical success rate in this funder category is ${successRate}% across ${totalOutcomes} recorded outcomes. `
+              : `Historical data for this funder category is insufficient (${totalOutcomes} recorded outcome(s), below the ${MIN_OUTCOMES_FOR_RATE} needed for a reliable rate), so this factor was weighted conservatively rather than guessed. `) +
+            (result.recommendation !== "pass"
+              ? "A discovered-stage application was created for human review since the recommendation was not an outright pass."
+              : "No application was created since the recommendation was to pass on this opportunity."),
           confidenceScore: result.confidence,
           actionTaken,
           actionPayload: { ...result },

@@ -106,7 +106,11 @@ export class DocumentExpiryAgent extends AutonomousAgent {
               agentRunId: runId,
               entityType: "document",
               entityId: doc.id,
-              reasoning: `${doc.file_name} expires on ${doc.expiration_date}, within the ${EXPIRY_WINDOW_DAYS}-day warning window.`,
+              reasoning:
+                `Document "${doc.file_name}" (id ${doc.id}) has an expiration_date of ${doc.expiration_date}, which falls within the ${EXPIRY_WINDOW_DAYS}-day advance-warning window checked on every nightly run. ` +
+                `An expired document attached to a compliance-required category can silently break an in-progress application, so this agent surfaces it proactively as an in-app notification rather than waiting for a submission to fail. ` +
+                `Before notifying, this agent checked agent_decisions for a "document_expiring_flagged" entry against this same document id within the last ${RENOTIFY_SUPPRESSION_DAYS} days and found none, so this is not a repeat notification for the same expiring document. ` +
+                "This is a deterministic date comparison - no AI model is used - and it only creates a notification, never modifies or deletes the document itself.",
               confidenceScore: 95,
               actionTaken: "created_expiry_notification",
               actionPayload: { expirationDate: doc.expiration_date },

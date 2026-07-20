@@ -37,7 +37,7 @@ import { humanizeEnum } from "@/lib/utils/formatters";
 type TriggerSource = "autonomous" | "manual" | "chain" | "schedule";
 type Recommendation = "apply" | "skip" | "review";
 
-const MAX_TOKENS = 500;
+const MAX_TOKENS = 1000;
 const QUALIFIED_THRESHOLD = 70;
 const DISQUALIFIED_THRESHOLD = 40;
 
@@ -154,10 +154,23 @@ function buildPrompt(
   opp: OpportunityScopeRow,
 ): { system: string; prompt: string } {
   const system =
-    'Score eligibility 0-100. Return JSON only: { score: number, ' +
-    'recommendation: "apply"|"skip"|"review", reasoning: string, factors: ' +
-    "{ mission: number, geographic: number, tax_status: number, budget: " +
-    "number, program: number } }";
+    "You are the Eligibility Scoring Agent inside Benavora, an AI-powered nonprofit " +
+    "intelligence platform. Your job is to score, on a 0-100 scale, how eligible a " +
+    "specific nonprofit organization is to apply for a specific funding opportunity, " +
+    "based only on the verified organization profile and opportunity data provided to " +
+    "you - never on assumptions, never on information you were not given. This score " +
+    "feeds an autonomous pipeline that may go on to run a deeper fit analysis and " +
+    "generate a draft application, so accuracy and honesty matter more than " +
+    "optimism: a nonprofit wastes real staff time chasing an opportunity you scored " +
+    "too generously. Weigh five factors explicitly - mission alignment, geographic " +
+    "eligibility, tax status compatibility, budget/award-size fit, and program " +
+    "alignment - and be conservative when the organization profile is thin or the " +
+    "opportunity's eligibility requirements are ambiguous or unstated; a low-data " +
+    "situation should pull the score toward 'review' rather than a confident 'apply' " +
+    "or 'skip'. Recommend 'apply' only when the fit is clearly strong. Return JSON " +
+    "only, no prose outside the object: { score: number, recommendation: " +
+    '"apply"|"skip"|"review", reasoning: string, factors: { mission: number, ' +
+    "geographic: number, tax_status: number, budget: number, program: number } }";
 
   const orgLines: string[] = [];
   const add = (label: string, value: string | null) => {
@@ -270,7 +283,7 @@ export class EligibilityScoringAgent extends AutonomousAgent {
   }
 
   private async loadOrgProfile(): Promise<OrgProfile | null> {
-    const { data } = await this.supabase
+    const { data, error } = await this.supabase
       .from("organizations")
       .select(
         "name, tax_status, mission_statement, service_area, target_population, annual_budget",
@@ -278,6 +291,9 @@ export class EligibilityScoringAgent extends AutonomousAgent {
       .eq("id", this.orgId)
       .maybeSingle();
 
+    if (error) {
+      throw new Error(`Failed to load organization profile: ${error.message}`);
+    }
     if (!data) return null;
     return {
       name: data.name as string,
@@ -369,8 +385,10 @@ export class EligibilityScoringAgent extends AutonomousAgent {
               entityType: "opportunity",
               entityId: opp.id,
               reasoning:
-                `Scored ${opp.name}: ${parsed.score}/100. ` +
-                `Recommendation: ${parsed.recommendation}.`,
+                `Scored "${opp.name}" (category: ${humanizeEnum(opp.category)}) at ${parsed.score}/100, yielding a "${parsed.recommendation}" recommendation. ` +
+                `Factor breakdown - mission alignment: ${parsed.factors.mission}/100, geographic eligibility: ${parsed.factors.geographic}/100, tax status compatibility: ${parsed.factors.taxStatus}/100, budget/award fit: ${parsed.factors.budget}/100, program alignment: ${parsed.factors.program}/100. ` +
+                `Model reasoning: ${parsed.reasoning} ` +
+                `This score was computed from the organization's verified profile (mission, tax status, service area, target population, annual budget) against the opportunity's stated eligibility requirements and geographic restrictions, and will gate whether this opportunity is chained into deeper probability scoring.`,
               confidenceScore: parsed.score,
               actionTaken: "updated_eligibility_score",
             }),

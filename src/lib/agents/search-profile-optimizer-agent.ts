@@ -31,7 +31,7 @@ import {
   AutonomousAgent,
   type AutonomousAgentResult,
 } from "@/lib/agents/autonomous-base";
-import { callClaude } from "@/lib/ai/claude";
+import { callClaude, DEFAULT_MODEL } from "@/lib/ai/claude";
 import type { Enums } from "@/types/database";
 
 type TriggerSource = "autonomous" | "manual" | "chain" | "schedule" | "event";
@@ -40,6 +40,22 @@ type FunderCategory = Enums<"funder_category">;
 const DISCOVERY_WINDOW_DAYS = 90;
 const HIGH_SCORE_THRESHOLD = 70;
 const UNDERPERFORMING_HIT_RATE = 0.2;
+
+const SEARCH_OPTIMIZER_SYSTEM_PROMPT =
+  "You are the Search Profile Optimizer Agent inside Benavora, an AI-powered " +
+  "nonprofit intelligence platform. A search profile is a saved set of keywords " +
+  "and categories a nonprofit uses to discover new grant opportunities " +
+  "automatically. You are evaluating a profile that has underperformed - either " +
+  "it discovered zero opportunities in the last 90 days, or too few of what it " +
+  "did discover scored highly on eligibility. Your job is to suggest 5 specific, " +
+  "concrete keyword additions that would plausibly improve the hit rate, grounded " +
+  "in the organization's actual mission statement rather than generic fundraising " +
+  "terms. Prefer specific program-area and population-served terms over broad " +
+  "words like 'nonprofit' or 'grant' that would match too much irrelevant noise. " +
+  "If the mission statement is missing or unhelpful, say so explicitly rather " +
+  "than inventing organizational details you were not given. Keep the response " +
+  "focused and actionable - a nonprofit staff member should be able to copy your " +
+  "suggested keywords directly into the search profile editor.";
 
 interface SearchProfileRow {
   id: string;
@@ -86,7 +102,10 @@ export class SearchProfileOptimizerAgent extends AutonomousAgent {
       return [];
     }
 
-    const { data } = await query;
+    const { data, error } = await query;
+    if (error) {
+      throw new Error(`Failed to load discovered opportunities: ${error.message}`);
+    }
     return (data ?? []) as OpportunityScoreRow[];
   }
 
@@ -142,7 +161,9 @@ export class SearchProfileOptimizerAgent extends AutonomousAgent {
           profilesFlagged++;
 
           const response = await callClaude({
-            maxTokens: 300,
+            model: DEFAULT_MODEL,
+            maxTokens: 1000,
+            system: SEARCH_OPTIMIZER_SYSTEM_PROMPT,
             prompt:
               `This nonprofit search profile has underperformed. Keywords: ${profile.keywords.join(", ")}. ` +
               `Org mission: ${orgMission}. Suggest 5 improved keyword additions to find better-matched grant opportunities.`,
@@ -169,7 +190,10 @@ export class SearchProfileOptimizerAgent extends AutonomousAgent {
               agentRunId: runId,
               entityType: "search_profile",
               entityId: profile.id,
-              reasoning: `Profile "${profile.name}" hit rate ${(hitRate * 100).toFixed(0)}% (${highScoreCount}/${totalDiscovered}) over the last ${DISCOVERY_WINDOW_DAYS} days is below the ${(UNDERPERFORMING_HIT_RATE * 100).toFixed(0)}% threshold.`,
+              reasoning:
+                `Search profile "${profile.name}" (id ${profile.id}) discovered ${totalDiscovered} opportunit${totalDiscovered === 1 ? "y" : "ies"} in the last ${DISCOVERY_WINDOW_DAYS} days, of which ${highScoreCount} scored ${HIGH_SCORE_THRESHOLD}+ on eligibility - a hit rate of ${(hitRate * 100).toFixed(0)}%, below the ${(UNDERPERFORMING_HIT_RATE * 100).toFixed(0)}% underperformance threshold this agent flags against. ` +
+                `Suggested keyword additions were generated from the organization's mission statement to try to improve future discovery relevance: ${response.text.trim()} ` +
+                "This agent never edits the search profile itself - it only surfaces a notification and logs this decision for a human to act on, per its hard limit against writing to search_profiles.",
               confidenceScore: 75,
               actionTaken: "suggested_keyword_additions",
               actionPayload: {

@@ -39,13 +39,28 @@ import {
   AutonomousAgent,
   type AutonomousAgentResult,
 } from "@/lib/agents/autonomous-base";
-import { callClaude } from "@/lib/ai/claude";
+import { callClaude, DEFAULT_MODEL } from "@/lib/ai/claude";
 import type { Enums, Json } from "@/types/database";
 
 type TriggerSource = "autonomous" | "manual" | "chain" | "schedule" | "event";
 type FunderCategory = Enums<"funder_category">;
 
 const MIN_OUTCOMES_FOR_RATE = 3;
+
+const OUTCOME_ANALYSIS_SYSTEM_PROMPT =
+  "You are the Outcome Analyzer Agent inside Benavora, an AI-powered nonprofit " +
+  "intelligence platform. You are given aggregate, already-computed statistics " +
+  "about a nonprofit's grant funding performance - success rate by funder " +
+  "category, average award size, and dollar efficiency (dollars awarded versus " +
+  "dollars requested) - and your job is to summarize what those numbers actually " +
+  "mean for the organization's fundraising strategy going forward. Do not restate " +
+  "the raw numbers verbatim; interpret them. Call out the strongest-performing " +
+  "funder category by name if the data supports it, note any category with a low " +
+  "sample size where a rate should not be trusted, and be honest when the data is " +
+  "too thin to support a confident conclusion rather than manufacturing false " +
+  "confidence. This summary is surfaced directly to nonprofit staff on their " +
+  "dashboard, so write in plain, encouraging but honest language - not jargon, " +
+  "not a generic congratulations regardless of the numbers.";
 
 interface OutcomeRow {
   id: string;
@@ -163,8 +178,10 @@ export class OutcomeAnalyzerAgent extends AutonomousAgent {
       };
 
       const insightResponse = await callClaude({
-        maxTokens: 200,
-        prompt: `In 2 sentences, summarize the funding performance of this org based on: ${JSON.stringify(
+        model: DEFAULT_MODEL,
+        maxTokens: 1000,
+        system: OUTCOME_ANALYSIS_SYSTEM_PROMPT,
+        prompt: `Summarize the funding performance of this org based on the following computed statistics, in 3-5 sentences: ${JSON.stringify(
           stats,
         )}`,
       });
@@ -199,7 +216,10 @@ export class OutcomeAnalyzerAgent extends AutonomousAgent {
           agentRunId: runId,
           entityType: "organization",
           entityId: this.orgId,
-          reasoning: analytics.insightSummary,
+          reasoning:
+            `Recomputed funding analytics from ${outcomes.length} recorded outcome(s): average award size $${averageAwardSize.toLocaleString("en-US")}, dollar efficiency ${(dollarEfficiency * 100).toFixed(1)}% (awarded dollars versus requested dollars), and a success rate computed for ${Object.keys(successRateByCategory).length} funder categor${Object.keys(successRateByCategory).length === 1 ? "y" : "ies"} that had at least ${MIN_OUTCOMES_FOR_RATE} outcomes on file (categories below that threshold were excluded to avoid an unreliable rate). ` +
+            `${analytics.insightSummary} ` +
+            "This analytics snapshot is merged into organizations.analytics for the dashboard and does not itself change any application, opportunity, or Knowledge Base record - it is purely a read-and-summarize pass over the outcomes table.",
           confidenceScore: 85,
           actionTaken: "updated_organization_analytics",
           actionPayload: stats,

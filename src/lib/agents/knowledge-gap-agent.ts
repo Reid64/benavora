@@ -24,13 +24,31 @@ import {
   AutonomousAgent,
   type AutonomousAgentResult,
 } from "@/lib/agents/autonomous-base";
-import { callClaude } from "@/lib/ai/claude";
+import { callClaude, DEFAULT_MODEL } from "@/lib/ai/claude";
 import type { Enums } from "@/types/database";
 
 type TriggerSource = "autonomous" | "manual" | "chain" | "schedule" | "event";
 type KnowledgeBaseCategory = Enums<"knowledge_base_category">;
 
+const MIN_TOKENS = 1000;
 const MAX_TOKENS_PER_GAP = 150;
+
+const KNOWLEDGE_GAP_SYSTEM_PROMPT =
+  "You are the Knowledge Gap Agent inside Benavora, an AI-powered nonprofit " +
+  "intelligence platform. A nonprofit's Knowledge Base is the reusable pool of " +
+  "narrative content - mission, need statement, program descriptions, impact " +
+  "data, and similar - that the Draft Generation Agent pulls from to write grant " +
+  "applications; a missing category means every draft touching that topic will " +
+  "either be generic or flag a [NEEDS INPUT] gap for a human to fill manually. " +
+  "You are given a list of standard Knowledge Base categories that currently have " +
+  "zero entries for this organization. For each missing category, write one " +
+  "specific, actionable sentence telling the nonprofit exactly what kind of " +
+  "content to add - not a generic 'add information about X' but a concrete " +
+  "prompt referencing what a strong entry in that category typically contains " +
+  "(e.g. for 'impact', ask for specific outcome numbers and beneficiary counts " +
+  "rather than vague claims of success). Write one sentence per missing category, " +
+  "one per line, in the same order the categories were given, so the response can " +
+  "be matched back to each category by position.";
 
 /** The 10 real, non-'custom' knowledge_base_category enum values. */
 const STANDARD_CATEGORIES: KnowledgeBaseCategory[] = [
@@ -94,7 +112,9 @@ export class KnowledgeGapAgent extends AutonomousAgent {
       }
 
       const response = await callClaude({
-        maxTokens: missing.length * MAX_TOKENS_PER_GAP,
+        model: DEFAULT_MODEL,
+        maxTokens: Math.max(MIN_TOKENS, missing.length * MAX_TOKENS_PER_GAP),
+        system: KNOWLEDGE_GAP_SYSTEM_PROMPT,
         prompt:
           "For each missing KB category, write one specific helpful sentence telling a nonprofit what information to add. Categories: " +
           missing.join(", "),
@@ -127,7 +147,11 @@ export class KnowledgeGapAgent extends AutonomousAgent {
             decisionType: "knowledge_gap_identified",
             agentRunId: runId,
             entityType: "knowledge_base_category",
-            reasoning: `Category "${category}" has no Knowledge Base entries. Suggestion: ${suggestionsByCategory[category]}`,
+            reasoning:
+              `The "${category}" Knowledge Base category has zero entries for this organization, out of ${STANDARD_CATEGORIES.length} standard categories this weekly sweep checks (mission, vision, need_statement, program_description, impact, capacity, sustainability, partnerships, budget_justification, organizational_history). ` +
+              `This matters because the Draft Generation Agent reads the Knowledge Base first when writing a grant narrative, and a missing category forces it to either write generic filler or flag a [NEEDS INPUT] gap for a human to fill in mid-draft, slowing down the autonomous drafting pipeline. ` +
+              `Suggestion for this category: ${suggestionsByCategory[category]} ` +
+              "This agent only surfaces a notification and logs this decision - it never creates or edits Knowledge Base content itself.",
             confidenceScore: 90,
             actionTaken: "flagged_knowledge_gap",
             actionPayload: {

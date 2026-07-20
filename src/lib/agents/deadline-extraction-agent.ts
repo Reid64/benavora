@@ -166,11 +166,16 @@ export class DeadlineExtractionAgent extends AutonomousAgent {
             });
           }
 
-          const { data: existingRows } = await this.supabase
+          const { data: existingRows, error: existingError } = await this.supabase
             .from("deadlines")
             .select("title")
             .eq("organization_id", this.orgId)
             .eq("opportunity_id", opp.id);
+          if (existingError) {
+            throw new Error(
+              `Failed to load existing deadlines: ${existingError.message}`,
+            );
+          }
           const existingTitles = new Set(
             (existingRows ?? []).map((r) => r.title as string),
           );
@@ -204,7 +209,11 @@ export class DeadlineExtractionAgent extends AutonomousAgent {
               agentRunId: runId,
               entityType: "opportunity",
               entityId: opp.id,
-              reasoning: `Extracted deadline records for ${name}. Application deadline: ${opp.deadline}.`,
+              reasoning:
+                `Extracted deadline records for "${name}" from its stated application deadline of ${opp.deadline}. ` +
+                `This deterministic pass created ${toInsert.length} new deadline row(s) out of ${candidates.length} candidate offsets evaluated (the application deadline itself, plus 14-day and 30-day preparation reminders where those offset dates still fall in the future and are not already tracked). ` +
+                `Candidates whose title already existed in the deadlines table for this opportunity were skipped to avoid duplicate rows on repeated runs. ` +
+                "No AI model was used for this extraction - dates are derived purely from fixed-day offsets against the opportunity's deadline field.",
               confidenceScore: 95,
               actionTaken: "created_deadline_records",
               actionPayload: { created: toInsert.map((c) => c.title) },

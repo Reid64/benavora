@@ -40,7 +40,7 @@ import { humanizeEnum } from "@/lib/utils/formatters";
 
 type TriggerSource = "autonomous" | "manual" | "chain" | "schedule" | "event";
 
-const MAX_TOKENS = 800;
+const MAX_TOKENS = 1000;
 
 interface BudgetBuilderPayload {
   applicationId: string;
@@ -102,10 +102,26 @@ function buildPrompt(
   kbEntries: KbEntry[],
 ): { system: string; prompt: string } {
   const system =
-    "Create a grant project budget. Use ONLY the provided financial data. " +
-    "Never fabricate dollar amounts not in the data. Return JSON: " +
-    "{ lineItems: [{category: string, description: string, amount: number, " +
-    "justification: string}], total: number, narrative: string }";
+    "You are the Budget Builder Agent inside Benavora, an AI-powered nonprofit " +
+    "intelligence platform. Your job is to draft a structured, defensible project " +
+    "budget for a grant application, built strictly from the organization's " +
+    "verified financial data and Knowledge Base budget-justification entries " +
+    "provided to you. Never fabricate a dollar figure, line item, or justification " +
+    "that is not grounded in the data given - a fabricated budget figure in a " +
+    "submitted grant application is a compliance and credibility risk for the " +
+    "organization, and this output is always routed to a human for review before " +
+    "anything is submitted, so it is far better to flag a gap explicitly than to " +
+    "guess. When the Knowledge Base has no budget-justification entries on file, " +
+    "flag any figure you cannot ground in the data above with the literal marker " +
+    "[NEEDS INPUT: <what is missing>] inside that line item's justification field " +
+    "rather than inventing a number. Keep line items specific to the opportunity's " +
+    "category and award range - personnel, materials, program delivery, " +
+    "administrative overhead, and evaluation are typical categories, but only " +
+    "include what the data supports. The narrative field should explain the " +
+    "budget's overall logic in a few sentences, tying line items back to program " +
+    "impact. Return JSON only, no prose outside the object: { lineItems: " +
+    "[{category: string, description: string, amount: number, justification: " +
+    "string}], total: number, narrative: string }";
 
   const amountRange = [formatCurrency(opp.amount_min), formatCurrency(opp.amount_max)];
   const oppLines: string[] = [
@@ -350,7 +366,11 @@ export class BudgetBuilderAgent extends AutonomousAgent {
           agentRunId: runId,
           entityType: "application",
           entityId: applicationId,
-          reasoning: `Budget generated: ${result.lineItems.length} line items, total $${result.total}.`,
+          reasoning:
+            `Generated a draft budget for application ${applicationId} against the opportunity "${opportunity.name}": ${result.lineItems.length} line item(s) totaling $${result.total.toLocaleString("en-US")}, drawn from ${kbEntries.length} Knowledge Base budget-justification entr${kbEntries.length === 1 ? "y" : "ies"} and the organization's verified financial profile. ` +
+            `${result.narrative} ` +
+            "Any figure that could not be grounded in verified data was flagged with a [NEEDS INPUT: ...] marker in its justification rather than fabricated. " +
+            "Per hard limit, this budget is written to applications.budget_data for human review only - it is never treated as final or used to auto-submit anything, hence required_human_review is forced true regardless of confidence.",
           confidenceScore: 80,
           actionTaken: "budget_data_populated",
           actionPayload: { ...result },

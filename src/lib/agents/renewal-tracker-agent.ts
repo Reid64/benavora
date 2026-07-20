@@ -137,7 +137,7 @@ export class RenewalTrackerAgent extends AutonomousAgent {
           const nextYear = renewalDeadlineDate.getFullYear();
           const renewalName = `${opp.name} -- Renewal ${nextYear}`;
 
-          const { data: existing } = await this.supabase
+          const { data: existing, error: existingError } = await this.supabase
             .from("opportunities")
             .select("id")
             .eq("organization_id", this.orgId)
@@ -145,6 +145,11 @@ export class RenewalTrackerAgent extends AutonomousAgent {
             .eq("name", renewalName)
             .maybeSingle();
 
+          if (existingError) {
+            throw new Error(
+              `Failed to check for existing renewal: ${existingError.message}`,
+            );
+          }
           if (existing) continue; // renewal already tracked for this cycle.
 
           const { data: inserted, error: insertError } = await this.supabase
@@ -180,7 +185,11 @@ export class RenewalTrackerAgent extends AutonomousAgent {
               agentRunId: runId,
               entityType: "opportunity",
               entityId: newOppId,
-              reasoning: `"${opp.name}" was awarded and recurs (${opp.recurrence}). Created renewal opportunity "${renewalName}" with target deadline ${toDateOnly(renewalDeadlineDate)}.`,
+              reasoning:
+                `An awarded application exists against opportunity "${opp.name}" (category: ${opp.category}), and its recurrence is "${opp.recurrence}", which qualifies it as a recurring funding cycle rather than a one-time award. ` +
+                `A new renewal opportunity "${renewalName}" was created with a target deadline of ${toDateOnly(renewalDeadlineDate)} (365 days after the original opportunity's deadline, or from today if no deadline was on file). ` +
+                `Before creating it, this agent checked for an existing opportunity with the exact same name for this funder to avoid inserting a duplicate on a later monthly run. ` +
+                "This is a deterministic record-creation action - no AI model is used - and it only creates a new opportunity for a human to review and pursue; it never auto-applies or auto-submits anything.",
               confidenceScore: 92,
               actionTaken: "created_renewal_opportunity",
               actionPayload: {

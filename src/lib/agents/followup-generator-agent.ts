@@ -33,7 +33,24 @@ import {
   AutonomousAgent,
   type AutonomousAgentResult,
 } from "@/lib/agents/autonomous-base";
-import { callClaude } from "@/lib/ai/claude";
+import { callClaude, DEFAULT_MODEL } from "@/lib/ai/claude";
+
+const FOLLOWUP_SYSTEM_PROMPT =
+  "You are the Follow-Up Generator Agent inside Benavora, an AI-powered nonprofit " +
+  "intelligence platform. You write follow-up correspondence on behalf of a nonprofit " +
+  "development team, drafted for a human to review and send - you never send anything " +
+  "yourself. Your job is to sound like an experienced, warm, professional development " +
+  "director: grateful without being obsequious, concise without being curt, and " +
+  "specific to the funder and grant in question rather than generic boilerplate. " +
+  "Never invent facts about the funder, the grant amount, or the organization that " +
+  "were not given to you in the prompt. Never promise a future action the " +
+  "organization has not committed to. Never include placeholder brackets, sample " +
+  "salutations to be filled in later, or meta-commentary about the email itself - " +
+  "write only the finished email body text a human could copy and send as-is after " +
+  "reviewing it. Match tone to context: check-ins after submission are patient and " +
+  "confident, thank-you notes after an award are warm and specific about impact, " +
+  "and feedback requests after a denial are gracious, brief, and focused on future " +
+  "improvement rather than dwelling on the loss.";
 
 type TriggerSource = "autonomous" | "manual" | "chain" | "schedule" | "event";
 
@@ -239,7 +256,9 @@ export class FollowupGeneratorAgent extends AutonomousAgent {
           const followupDate = toDateOnly(addDays(deadlineBase, 14));
 
           const response = await callClaude({
-            maxTokens: 200,
+            model: DEFAULT_MODEL,
+            maxTokens: 1000,
+            system: FOLLOWUP_SYSTEM_PROMPT,
             prompt:
               `Write a professional 3-sentence check-in email for a nonprofit following up on a grant submitted to ${funderName}. ` +
               "Acknowledge the submission, express continued interest, offer to provide additional information.",
@@ -260,7 +279,11 @@ export class FollowupGeneratorAgent extends AutonomousAgent {
             agentRunId: runId,
             entityType: "application",
             entityId: application.id,
-            reasoning: `Application submitted to ${funderName}. Check-in scheduled for ${followupDate}.`,
+            reasoning:
+              `Application ${application.id} transitioned from "${trigger.previousStage}" to "submitted" for the opportunity "${opportunity.name ?? "this grant"}" with ${funderName}. ` +
+              `Per the standard follow-up cadence for a newly submitted application, a check-in email is scheduled for ${followupDate} (14 days after the opportunity's application deadline). ` +
+              `The check-in will be delivered via ${channel}, the funder's preferred contact channel where one is on file, or email by default. ` +
+              "This is a low-risk, routine scheduling action - it only creates a draft follow-up for a human to review and send, never sends anything automatically, so it is logged at high confidence.",
             actionTaken: "created_followup_sequence",
             confidenceScore: 90,
           });
@@ -275,7 +298,9 @@ export class FollowupGeneratorAgent extends AutonomousAgent {
             amount != null ? `$${amount.toLocaleString("en-US")}` : "the awarded amount";
 
           const response = await callClaude({
-            maxTokens: 200,
+            model: DEFAULT_MODEL,
+            maxTokens: 1000,
+            system: FOLLOWUP_SYSTEM_PROMPT,
             prompt: `Write a warm, professional thank you email from a nonprofit to ${funderName} for awarding a grant of ${amountText}.`,
           });
           tokensUsed += response.usage.totalTokens;
@@ -312,7 +337,13 @@ export class FollowupGeneratorAgent extends AutonomousAgent {
             agentRunId: runId,
             entityType: "application",
             entityId: application.id,
-            reasoning: `Application awarded by ${funderName}. Thank-you scheduled for ${thankDate}.`,
+            reasoning:
+              `Application ${application.id} for "${opportunity.name ?? "this grant"}" transitioned to "awarded" by ${funderName} for ${amountText}. ` +
+              `A warm thank-you email is scheduled for ${thankDate} (3 days out), consistent with the standard post-award follow-up cadence. ` +
+              (isRecurringOpportunity(opportunity.recurrence)
+                ? `Because the opportunity's recurrence is "${opportunity.recurrence}", a renewal-prep follow-up was also scheduled well ahead of the next cycle so the organization has time to assemble renewal materials. `
+                : "This opportunity is not recurring, so no renewal-prep follow-up was scheduled. ") +
+              "This is a routine, low-risk scheduling action - it only creates draft follow-ups for a human to review and send.",
             actionTaken: "created_award_followups",
             confidenceScore: 95,
           });
@@ -324,7 +355,9 @@ export class FollowupGeneratorAgent extends AutonomousAgent {
           const feedbackDate = toDateOnly(addDays(new Date(), 7));
 
           const response = await callClaude({
-            maxTokens: 150,
+            model: DEFAULT_MODEL,
+            maxTokens: 1000,
+            system: FOLLOWUP_SYSTEM_PROMPT,
             prompt: `Write a gracious 2-sentence email requesting feedback after a grant denial from ${funderName}.`,
           });
           tokensUsed += response.usage.totalTokens;
@@ -343,7 +376,11 @@ export class FollowupGeneratorAgent extends AutonomousAgent {
             agentRunId: runId,
             entityType: "application",
             entityId: application.id,
-            reasoning: `Application denied by ${funderName}. Feedback request scheduled for ${feedbackDate}.`,
+            reasoning:
+              `Application ${application.id} for "${opportunity.name ?? "this grant"}" was denied by ${funderName}. ` +
+              `A gracious feedback-request email is scheduled for ${feedbackDate} (7 days out), giving the funder time to move past the immediate decision while the relationship is still fresh enough for useful feedback. ` +
+              "Requesting denial feedback is a standard relationship-preservation step that can surface concrete gaps to fix before the next application to this funder, without pressuring them for an immediate response. " +
+              "This only schedules a draft email for human review and send - it never contacts the funder directly.",
             actionTaken: "created_denial_followup",
             confidenceScore: 85,
           });
