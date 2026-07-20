@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Bell, LogOut, Menu } from "lucide-react";
@@ -55,6 +56,38 @@ const NAV_LINK_ACTIVE =
 const NAV_LINK_INACTIVE =
   "px-4 py-2 text-sm font-semibold text-slate-600 hover:text-[#0077B6] hover:bg-slate-50 rounded-lg transition-colors";
 
+/** Formats a raw count per the nav-badge display rule: 0 hides, 10+ shows "9+". */
+function badgeLabel(count: number): string {
+  return count >= 10 ? "9+" : String(count);
+}
+
+const TAB_BADGE_STYLE: CSSProperties = {
+  position: "absolute",
+  top: -6,
+  right: -8,
+  width: 16,
+  height: 16,
+  borderRadius: "50%",
+  backgroundColor: "#EF4444",
+  color: "#FFFFFF",
+  fontSize: "9px",
+  fontWeight: 700,
+  lineHeight: 1,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+};
+
+/** 16px circle badge overlaid top-right of a header tab. Hidden at 0. */
+function TabBadge({ count }: { count: number }) {
+  if (count <= 0) return null;
+  return (
+    <span style={TAB_BADGE_STYLE} aria-label={`${count} ${count === 1 ? "item needs" : "items need"} attention`}>
+      {badgeLabel(count)}
+    </span>
+  );
+}
+
 /** Up-to-two-letter initials from the org name, falling back to the email. */
 function orgInitials(orgName: string, userEmail: string): string {
   const name = orgName.trim();
@@ -77,6 +110,8 @@ export function Header({ userEmail, orgName, orgLogoUrl, onMenuClick }: HeaderPr
   const [menuOpen, setMenuOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [autonomousDraftsCount, setAutonomousDraftsCount] = useState(0);
+  const [opportunitiesCount, setOpportunitiesCount] = useState(0);
+  const [autoapplyQueuedCount, setAutoapplyQueuedCount] = useState(0);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Close the avatar dropdown on outside click.
@@ -107,21 +142,32 @@ export function Header({ userEmail, orgName, orgLogoUrl, onMenuClick }: HeaderPr
     void fetchUnreadCount();
   }, [fetchUnreadCount, pathname]);
 
-  const fetchAutonomousDraftsCount = useCallback(async () => {
+  const fetchNavCounts = useCallback(async () => {
     try {
       const res = await fetch("/api/nav-counts", { cache: "no-store" });
       if (res.ok) {
-        const data = (await res.json()) as { autonomousDrafts?: number };
+        const data = (await res.json()) as {
+          autonomousDrafts?: number;
+          opportunities?: number;
+          autoapplyQueued?: number;
+        };
         setAutonomousDraftsCount(data.autonomousDrafts ?? 0);
+        setOpportunitiesCount(data.opportunities ?? 0);
+        setAutoapplyQueuedCount(data.autoapplyQueued ?? 0);
       }
     } catch {
-      // Non-fatal — badge simply stays at zero.
+      // Non-fatal — badges simply stay at zero.
     }
   }, []);
 
   useEffect(() => {
-    void fetchAutonomousDraftsCount();
-  }, [fetchAutonomousDraftsCount, pathname]);
+    void fetchNavCounts();
+  }, [fetchNavCounts, pathname]);
+
+  useEffect(() => {
+    const interval = setInterval(() => void fetchNavCounts(), 60_000);
+    return () => clearInterval(interval);
+  }, [fetchNavCounts]);
 
   async function handleSignOut() {
     setSigningOut(true);
@@ -157,7 +203,14 @@ export function Header({ userEmail, orgName, orgLogoUrl, onMenuClick }: HeaderPr
           <nav className="flex items-center gap-1" aria-label="Primary sections">
             {TABS.map((tab) => {
               const active = isActiveTab(tab.href);
-              const isDraftGenerator = tab.href === DRAFT_GENERATOR_HREF;
+              const tabBadge =
+                tab.href === DRAFT_GENERATOR_HREF
+                  ? autonomousDraftsCount
+                  : tab.href === "/opportunities"
+                    ? opportunitiesCount
+                    : tab.href === "/autoapply"
+                      ? autoapplyQueuedCount
+                      : 0;
               return (
                 <Link
                   key={tab.href}
@@ -167,15 +220,7 @@ export function Header({ userEmail, orgName, orgLogoUrl, onMenuClick }: HeaderPr
                   style={{ position: "relative" }}
                 >
                   {tab.label}
-                  {isDraftGenerator && autonomousDraftsCount > 0 && (
-                    <span
-                      className="absolute -top-1 -right-1 inline-flex min-w-[1.1rem] items-center justify-center rounded-full text-[10px] font-bold"
-                      style={{ backgroundColor: "#EF4444", color: "#FFFFFF", padding: "1px 5px" }}
-                      aria-label={`${autonomousDraftsCount} AI drafts ready for review`}
-                    >
-                      {autonomousDraftsCount > 99 ? "99+" : autonomousDraftsCount}
-                    </span>
-                  )}
+                  <TabBadge count={tabBadge} />
                 </Link>
               );
             })}

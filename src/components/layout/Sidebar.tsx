@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { CSSProperties } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Telescope, X } from "lucide-react";
+import { Telescope, X, type LucideIcon } from "lucide-react";
 
 import {
   DONOR_DISCOVERY_DRILLDOWN,
@@ -23,7 +23,14 @@ type NavCounts = {
   deadlines: number;
   strategicRecommendations: number;
   improvementsProposed: number;
+  opportunities: number;
+  pendingReview: number;
+  donorIntent: number;
+  communityNeed: number;
+  autoapplyQueued: number;
 };
+
+const NAV_COUNTS_POLL_MS = 60_000;
 
 type SidebarProps = {
   /** Whether the mobile drawer is open. Ignored at lg+ where the sidebar is static. */
@@ -50,14 +57,55 @@ const navLabelStyle = (active: boolean): CSSProperties => ({
   color: active ? "#FFFFFF" : "#CBD5E1",
 });
 
+/** Formats a raw count per the nav-badge display rule: 0 hides, 10+ shows "9+". */
+function badgeLabel(count: number): string {
+  return count >= 10 ? "9+" : String(count);
+}
+
+const BADGE_CIRCLE_STYLE: CSSProperties = {
+  position: "absolute",
+  top: -4,
+  right: -6,
+  width: 16,
+  height: 16,
+  borderRadius: "50%",
+  backgroundColor: "#EF4444",
+  color: "#FFFFFF",
+  fontSize: "9px",
+  fontWeight: 700,
+  lineHeight: 1,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+};
+
+/** A 16px circle badge overlaid top-right of the icon it wraps. Hidden at 0. */
+function IconWithBadge({ icon: Icon, count }: { icon: LucideIcon; count: number }) {
+  return (
+    <span className="relative inline-flex shrink-0">
+      <Icon className="h-5 w-5 shrink-0" aria-hidden />
+      {count > 0 && (
+        <span
+          style={BADGE_CIRCLE_STYLE}
+          aria-label={`${count} ${count === 1 ? "item needs" : "items need"} attention`}
+        >
+          {badgeLabel(count)}
+        </span>
+      )}
+    </span>
+  );
+}
+
+/** Inline circle badge for text-only sub-links that have no icon to overlay. */
 function NavBadge({ count }: { count: number }) {
   if (count <= 0) return null;
   return (
     <span
-      className="ml-auto inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-[#EF4444] px-1.5 py-0.5 text-[10px] font-bold text-white"
+      className="ml-auto inline-flex"
+      style={{ ...BADGE_CIRCLE_STYLE, position: "static" }}
       aria-label={`${count} ${count === 1 ? "item needs" : "items need"} attention`}
     >
-      {count > 99 ? "99+" : count}
+      {badgeLabel(count)}
     </span>
   );
 }
@@ -81,6 +129,11 @@ export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarPro
     deadlines: 0,
     strategicRecommendations: 0,
     improvementsProposed: 0,
+    opportunities: 0,
+    pendingReview: 0,
+    donorIntent: 0,
+    communityNeed: 0,
+    autoapplyQueued: 0,
   });
 
   const fetchCounts = useCallback(async () => {
@@ -97,6 +150,8 @@ export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarPro
 
   useEffect(() => {
     void fetchCounts();
+    const interval = setInterval(() => void fetchCounts(), NAV_COUNTS_POLL_MS);
+    return () => clearInterval(interval);
   }, [fetchCounts]);
 
   // Re-fetch on navigation so badges update after the user acts on items.
@@ -120,15 +175,19 @@ export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarPro
 
   const badgeByHref: Record<string, number> = {
     "/alerts": navCounts.alerts,
-    "/applications": navCounts.applications,
+    // Applications badge is AI drafts awaiting human review (pending_review),
+    // not the older stage-based count — see nav-counts route.
+    "/applications": navCounts.pendingReview,
     "/documents": navCounts.documents,
     "/deadlines": navCounts.deadlines,
   };
 
   // Child (sub-nav) badges — separate map since NavChild has no badge field
-  // of its own; only the Strategic Advisor sub-link needs one today.
+  // of its own.
   const childBadgeByHref: Record<string, number> = {
     "/intelligence/strategic-advisor": navCounts.strategicRecommendations,
+    "/intelligence/donor-intent": navCounts.donorIntent,
+    "/intelligence/community-need": navCounts.communityNeed,
   };
 
   // Platform admin section badges — separate map, same reasoning as above.
@@ -221,11 +280,10 @@ export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarPro
                       className={active ? NAV_ITEM_ACTIVE : NAV_ITEM_INACTIVE}
                       style={active ? NAV_ITEM_ACTIVE_STYLE : undefined}
                     >
-                      <Icon className="h-5 w-5 shrink-0" aria-hidden />
+                      <IconWithBadge icon={Icon} count={badge} />
                       <span className="truncate" style={navLabelStyle(active)}>
                         {label}
                       </span>
-                      <NavBadge count={badge} />
                     </Link>
                     {active && children && children.length > 0 && (
                       <div className="ml-9 mt-0.5 space-y-0.5">
@@ -277,11 +335,10 @@ export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarPro
                         className={active ? NAV_ITEM_ACTIVE : NAV_ITEM_INACTIVE}
                         style={active ? NAV_ITEM_ACTIVE_STYLE : undefined}
                       >
-                        <Icon className="h-5 w-5 shrink-0" aria-hidden />
+                        <IconWithBadge icon={Icon} count={badge} />
                         <span className="truncate" style={navLabelStyle(active)}>
                           {label}
                         </span>
-                        <NavBadge count={badge} />
                       </Link>
                     );
                   })}
