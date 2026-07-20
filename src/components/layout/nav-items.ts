@@ -91,6 +91,7 @@ export const NAV_ITEMS: NavItem[] = [
       { label: "Reputation", href: "/intelligence/reputation" },
       { label: "Disaster Response", href: "/intelligence/disaster" },
       { label: "Community Need", href: "/intelligence/community-need" },
+      { label: "Donor Intent", href: "/intelligence/donor-intent" },
       { label: "Relationship Graph", href: "/intelligence/relationship-graph" },
       { label: "Strategic Advisor", href: "/intelligence/strategic-advisor" },
     ],

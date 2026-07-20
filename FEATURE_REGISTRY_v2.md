@@ -346,8 +346,8 @@
 | # | Feature | Status | Notes |
 |---|---|---|---|
 | 217 | Fundability Intelligence Score | BUILT | Phase 2. AG-29 FundabilityScorerAgent, /api/intelligence/fundability, opportunity detail Fundability Intelligence panel. |
-| 218 | AI Donor Intent Engine | PLANNED | Phase 2. Corporate signal monitoring. |
-| 219 | AutoApply Full Autonomous Mode | PLANNED | Phase 2. 400+ overnight submissions. |
+| 218 | AI Donor Intent Engine | BUILT | AG-30. src/lib/agents/donor-intent-monitor-agent.ts + /api/intelligence/donor-intent + /intelligence/donor-intent page. |
+| 219 | AutoApply Full Autonomous Mode | BUILT | Phase 2. Nightly batch queuer (migration 092, worker/autoapply-autonomous-orchestrator.ts) + /autoapply/controls Autonomous Mode panel + /autoapply Autonomous Queue section. |
 | 220 | Corporate Relationship Graph | BUILT | Phase 3. AG-32 (src/lib/agents/relationship-graph-builder-agent.ts) + /api/intelligence/relationship-graph + /intelligence/relationship-graph UI. Reads pig_nodes/pig_edges, not a corporate_relationships table (none exists — see agent file header). Discovery run blocked at runtime by the agent_type enum gap (AGENTS_v2.md §1.2) until a migration adds 'ag-32-relationship-graph'. PIG Phase 2: /api/intelligence/relationship-graph/analytics + Graph Analytics panel on the relationship-graph page (node/edge counts, top-connected nodes, top foundations by connection count, cross-rule pattern detection). Note: this task referenced "feature 221 / PIG full build" but #221 is Donor Personalization Engine (unrelated) — the real PIG feature is this row; left #221 untouched. |
 | 221 | Donor Personalization Engine | PLANNED | Phase 3. Adaptive content by visitor type. |
 | 222 | Community Need Prediction | BUILT | Phase 3. AG-35 agent + /api/intelligence/community-need + /intelligence/community-need UI. |
