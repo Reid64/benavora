@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { differenceInCalendarDays, isThisMonth } from "date-fns";
-import { Plus, Search } from "lucide-react";
+import { Home, Plus, Search } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
 import { canEdit, useProfile } from "@/lib/hooks/useProfile";
@@ -23,7 +23,12 @@ type OpportunityRow = Tables<"opportunities"> & {
   probabilityScore: number | null;
 };
 
-type SourceBucket = "federal" | "foundation" | "corporate" | "state";
+type OrgHousingProfile = Pick<
+  Tables<"organizations">,
+  "target_population" | "mission_statement" | "service_area"
+>;
+
+type SourceBucket = "federal" | "foundation" | "corporate" | "state" | "land_bank";
 
 // The real opportunity_source_type enum (migration 010) has 8 values, finer
 // grained than the 4-bucket badge spec here. Government tiers other than
@@ -43,6 +48,7 @@ const SOURCE_BADGE_STYLE: Record<SourceBucket, { label: string; color: string; b
   foundation: { label: "Foundation", color: "#7C3AED", bg: "#F5F3FF" },
   corporate: { label: "Corporate", color: "#0891B2", bg: "#ECFEFF" },
   state: { label: "State", color: "#16A34A", bg: "#F0FDF4" },
+  land_bank: { label: "Land Bank", color: "#0F766E", bg: "#F0FDFA" },
 };
 
 const SOURCE_FILTER_OPTIONS: { value: "all" | SourceBucket; label: string }[] = [
@@ -51,7 +57,22 @@ const SOURCE_FILTER_OPTIONS: { value: "all" | SourceBucket; label: string }[] = 
   { value: "foundation", label: "Foundation" },
   { value: "corporate", label: "Corporate" },
   { value: "state", label: "State" },
+  { value: "land_bank", label: "Land Bank" },
 ];
+
+const HOUSING_KEYWORDS = ["housing", "homeless", "shelter", "transitional"];
+
+/** Org-level org.source is never set to "land_bank" — only opportunities are.
+ * Detects a housing-focused org from its free-text profile fields, since
+ * `organizations` has no NTEE code column (that only exists on
+ * foundation_directory/nonprofits — see SCHEMA_REGISTRY_v2.md). */
+function isHousingOrg(
+  org: { target_population: string | null; mission_statement: string | null; service_area: string | null } | null,
+): boolean {
+  if (!org) return false;
+  const haystack = `${org.target_population ?? ""} ${org.mission_statement ?? ""} ${org.service_area ?? ""}`.toLowerCase();
+  return HOUSING_KEYWORDS.some((kw) => haystack.includes(kw));
+}
 
 const STATUS_FILTER_OPTIONS: { value: "all" | OpportunityStatus; label: string }[] = [
   { value: "all", label: "All Statuses" },
@@ -75,8 +96,11 @@ const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: "name-asc", label: "Name (A-Z)" },
 ];
 
-function sourceBucket(sourceType: OpportunitySourceType | null): SourceBucket | null {
-  return sourceType ? (SOURCE_BUCKET_MAP[sourceType] ?? null) : null;
+function sourceBucket(opp: { source: string | null; source_type: OpportunitySourceType | null }): SourceBucket | null {
+  // discoverLandBankOpportunities() (land-bank-client.ts) sets `source`, not
+  // `source_type` (there is no land_bank value in that enum) — check it first.
+  if (opp.source === "land_bank") return "land_bank";
+  return opp.source_type ? (SOURCE_BUCKET_MAP[opp.source_type] ?? null) : null;
 }
 
 function deadlineColor(deadline: string | null): string {
@@ -104,74 +128,114 @@ export default function OpportunitiesPage() {
   const [opportunities, setOpportunities] = useState<OpportunityRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [org, setOrg] = useState<OrgHousingProfile | null>(null);
+  const [discovering, setDiscovering] = useState(false);
+  const [discoverError, setDiscoverError] = useState<string | null>(null);
 
   const [search, setSearch] = useState("");
   const [sourceFilter, setSourceFilter] = useState<"all" | SourceBucket>("all");
   const [statusFilter, setStatusFilter] = useState<"all" | OpportunityStatus>("all");
   const [sort, setSort] = useState<SortOption>("probability-desc");
 
-  useEffect(() => {
-    let active = true;
+  const loadOpportunities = useCallback(async () => {
+    setLoading(true);
+    setError(null);
 
-    async function loadOpportunities() {
-      setLoading(true);
-      setError(null);
+    const supabase = createClient();
 
-      const supabase = createClient();
+    const [oppsRes, fundersRes, probabilityRes] = await Promise.all([
+      supabase.from("opportunities").select("*").order("created_at", { ascending: false }).limit(1000),
+      supabase.from("funders").select("id, name"),
+      // opportunity_probability_scores (migration 093) - Grant Probability Engine.
+      supabase.from("opportunity_probability_scores").select("opportunity_id, overall_score"),
+    ]);
 
-      const [oppsRes, fundersRes, probabilityRes] = await Promise.all([
-        supabase.from("opportunities").select("*").order("created_at", { ascending: false }).limit(1000),
-        supabase.from("funders").select("id, name"),
-        // opportunity_probability_scores (migration 093) - Grant Probability Engine.
-        supabase.from("opportunity_probability_scores").select("opportunity_id, overall_score"),
-      ]);
-
-      if (!active) return;
-
-      if (oppsRes.error) {
-        setError("Could not load opportunities.");
-        setLoading(false);
-        return;
-      }
-
-      const funderNames = new Map<string, string>();
-      for (const f of fundersRes.data ?? []) {
-        funderNames.set(f.id, f.name);
-      }
-
-      const probabilityByOpp = new Map<string, number | null>();
-      for (const p of (probabilityRes.data ?? []) as { opportunity_id: string; overall_score: number | null }[]) {
-        probabilityByOpp.set(p.opportunity_id, p.overall_score);
-      }
-
-      const rows: OpportunityRow[] = (oppsRes.data ?? []).map((opp) => ({
-        ...opp,
-        funderName: opp.funder_id ? (funderNames.get(opp.funder_id) ?? null) : null,
-        probabilityScore: probabilityByOpp.get(opp.id) ?? null,
-      }));
-
-      setOpportunities(rows);
+    if (oppsRes.error) {
+      setError("Could not load opportunities.");
       setLoading(false);
+      return;
     }
 
+    const funderNames = new Map<string, string>();
+    for (const f of fundersRes.data ?? []) {
+      funderNames.set(f.id, f.name);
+    }
+
+    const probabilityByOpp = new Map<string, number | null>();
+    for (const p of (probabilityRes.data ?? []) as { opportunity_id: string; overall_score: number | null }[]) {
+      probabilityByOpp.set(p.opportunity_id, p.overall_score);
+    }
+
+    const rows: OpportunityRow[] = (oppsRes.data ?? []).map((opp) => ({
+      ...opp,
+      funderName: opp.funder_id ? (funderNames.get(opp.funder_id) ?? null) : null,
+      probabilityScore: probabilityByOpp.get(opp.id) ?? null,
+    }));
+
+    setOpportunities(rows);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
     loadOpportunities().catch(() => {
-      if (active) {
-        setError("Could not load opportunities.");
-        setLoading(false);
-      }
+      setError("Could not load opportunities.");
+      setLoading(false);
     });
+  }, [loadOpportunities]);
+
+  // Org profile fields used only to detect a housing-focused org (Land Bank
+  // Spotlight visibility) - `organizations` has no NTEE code column, so this
+  // is a free-text keyword check (see isHousingOrg above).
+  useEffect(() => {
+    if (!profile?.organization_id) return;
+    let active = true;
+
+    (async () => {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("organizations")
+        .select("target_population, mission_statement, service_area")
+        .eq("id", profile.organization_id)
+        .maybeSingle();
+      if (active) setOrg(data ?? null);
+    })();
 
     return () => {
       active = false;
     };
-  }, []);
+  }, [profile?.organization_id]);
 
   const editable = canEdit(profile?.role);
+  const housingOrg = isHousingOrg(org);
+
+  const landBankOpportunities = useMemo(() => {
+    return opportunities
+      .filter((opp) => opp.source === "land_bank")
+      .sort((a, b) => (a.deadline ?? "9999-12-31").localeCompare(b.deadline ?? "9999-12-31"))
+      .slice(0, 3);
+  }, [opportunities]);
+
+  const handleDiscoverLandBank = useCallback(async () => {
+    setDiscovering(true);
+    setDiscoverError(null);
+    try {
+      const res = await fetch("/api/intelligence/land-banks", { method: "POST" });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(body?.error ?? "Could not run land bank discovery.");
+      }
+      await loadOpportunities();
+    } catch (e) {
+      setDiscoverError(e instanceof Error ? e.message : "Could not run land bank discovery.");
+    } finally {
+      setDiscovering(false);
+    }
+  }, [loadOpportunities]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return opportunities.filter((opp) => {
-      if (sourceFilter !== "all" && sourceBucket(opp.source_type) !== sourceFilter) return false;
+      if (sourceFilter !== "all" && sourceBucket(opp) !== sourceFilter) return false;
       if (statusFilter !== "all" && opp.status !== statusFilter) return false;
       if (!q) return true;
       return (
@@ -236,28 +300,157 @@ export default function OpportunitiesPage() {
             Grants, donation programs, and sponsorships you&rsquo;re tracking.
           </p>
         </div>
-        {editable && (
-          <Link
-            href="/opportunities/new"
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+          {editable && housingOrg && (
+            <button
+              type="button"
+              onClick={handleDiscoverLandBank}
+              disabled={discovering}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+                backgroundColor: "#0F766E",
+                color: "#FFFFFF",
+                padding: "10px 20px",
+                borderRadius: "10px",
+                fontSize: "14px",
+                fontWeight: 600,
+                border: "none",
+                cursor: discovering ? "default" : "pointer",
+                opacity: discovering ? 0.7 : 1,
+                boxShadow: "0 2px 8px rgba(15,118,110,0.35)",
+              }}
+            >
+              <Home size={16} aria-hidden />
+              {discovering ? "Discovering..." : "Run Land Bank Discovery"}
+            </button>
+          )}
+          {editable && (
+            <Link
+              href="/opportunities/new"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+                backgroundColor: "#0EA5E9",
+                color: "#FFFFFF",
+                padding: "10px 20px",
+                borderRadius: "10px",
+                fontSize: "14px",
+                fontWeight: 600,
+                boxShadow: "0 2px 8px rgba(14,165,233,0.35)",
+                textDecoration: "none",
+              }}
+            >
+              <Plus size={16} aria-hidden />
+              New Opportunity
+            </Link>
+          )}
+        </div>
+      </div>
+
+      {housingOrg && (
+        <div
+          style={{
+            backgroundColor: "#FFFFFF",
+            borderRadius: "14px",
+            padding: "20px",
+            marginBottom: "20px",
+            boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
+            borderLeft: "4px solid #0F766E",
+          }}
+        >
+          <div
             style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "8px",
-              backgroundColor: "#0EA5E9",
-              color: "#FFFFFF",
-              padding: "10px 20px",
-              borderRadius: "10px",
-              fontSize: "14px",
-              fontWeight: 600,
-              boxShadow: "0 2px 8px rgba(14,165,233,0.35)",
-              textDecoration: "none",
+              display: "flex",
+              alignItems: "flex-start",
+              justifyContent: "space-between",
+              flexWrap: "wrap",
+              gap: "12px",
             }}
           >
-            <Plus size={16} aria-hidden />
-            New Opportunity
-          </Link>
-        )}
-      </div>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
+              <Home size={20} color="#0F766E" aria-hidden style={{ marginTop: "2px", flexShrink: 0 }} />
+              <div>
+                <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#1A2B3C", margin: 0 }}>
+                  Land Bank & Affordable Housing Funding
+                </h2>
+                <p style={{ fontSize: "13px", color: "#64748B", margin: "4px 0 0 0", maxWidth: "560px" }}>
+                  Specialized opportunities from land bank authorities, HUD programs, and community
+                  development funders.
+                </p>
+              </div>
+            </div>
+            {editable && (
+              <button
+                type="button"
+                onClick={handleDiscoverLandBank}
+                disabled={discovering}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  backgroundColor: "#F0FDFA",
+                  color: "#0F766E",
+                  padding: "9px 16px",
+                  borderRadius: "10px",
+                  fontSize: "13px",
+                  fontWeight: 700,
+                  border: "1px solid #99F6E4",
+                  cursor: discovering ? "default" : "pointer",
+                  opacity: discovering ? 0.7 : 1,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {discovering ? "Discovering..." : "Discover More Land Bank Opportunities"}
+              </button>
+            )}
+          </div>
+
+          {discoverError && (
+            <div style={{ fontSize: "12px", color: "#B91C1C", marginTop: "10px" }}>{discoverError}</div>
+          )}
+
+          {landBankOpportunities.length > 0 ? (
+            <div style={{ marginTop: "16px", display: "grid", gap: "10px" }}>
+              {landBankOpportunities.map((opp) => (
+                <Link
+                  key={opp.id}
+                  href={`/opportunities/${opp.id}`}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: "12px",
+                    padding: "12px 14px",
+                    borderRadius: "10px",
+                    backgroundColor: "#F0FDFA",
+                    border: "1px solid #CCFBF1",
+                    textDecoration: "none",
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: "13px", fontWeight: 600, color: "#1A2B3C" }}>
+                      {decodeHtmlEntities(opp.name)}
+                    </div>
+                    <div style={{ fontSize: "12px", color: "#0F766E", marginTop: "2px" }}>
+                      {opp.funderName ?? "Land Bank Authority"}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: "12px", fontWeight: 700, color: deadlineColor(opp.deadline), whiteSpace: "nowrap" }}>
+                    {opp.deadline ? formatDate(opp.deadline) : "No deadline"}
+                  </div>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <p style={{ fontSize: "13px", color: "#94A3B8", marginTop: "16px", marginBottom: 0 }}>
+              No land bank opportunities discovered yet for your service area.
+            </p>
+          )}
+        </div>
+      )}
 
       {error && (
         <div
@@ -448,7 +641,7 @@ export default function OpportunitiesPage() {
                     </tr>
                   ) : (
                     sorted.map((opp) => {
-                      const bucket = sourceBucket(opp.source_type);
+                      const bucket = sourceBucket(opp);
                       const sourceStyle = bucket ? SOURCE_BADGE_STYLE[bucket] : null;
                       const probTone = scoreTone(opp.probabilityScore);
                       const eligTone = scoreTone(opp.eligibility_score);
