@@ -4,10 +4,10 @@ import { useCallback, useEffect, useState } from "react";
 import type { CSSProperties } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Telescope, X, type LucideIcon } from "lucide-react";
+import { Radar, Telescope, X, type LucideIcon } from "lucide-react";
 
 import {
-  DONOR_DISCOVERY_DRILLDOWN,
+  DONOR_DISCOVERY_NAV_ITEMS,
   navItemsForRole,
   PLATFORM_NAV_ITEMS,
   PROGRAMS_NAV_ITEMS,
@@ -181,6 +181,17 @@ export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarPro
     "/applications": navCounts.pendingReview,
     "/documents": navCounts.documents,
     "/deadlines": navCounts.deadlines,
+    // Same corporate_intent_signals count already computed for
+    // /intelligence/donor-intent's badge — reused here for the
+    // donor-discovery drilldown's Intent Signals link.
+    "/donor-discovery/intent-signals": navCounts.donorIntent,
+  };
+
+  // Donor Discovery's drilldown links each get their own icon, matched by
+  // href since NavChild (unlike NavItem) carries no icon field of its own.
+  const donorDiscoveryIconByHref: Record<string, LucideIcon> = {
+    "/donor-discovery/prospects": Telescope,
+    "/donor-discovery/intent-signals": Radar,
   };
 
   // Child (sub-nav) badges — separate map since NavChild has no badge field
@@ -249,23 +260,28 @@ export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarPro
           {/* Main nav links */}
           <nav className="flex-1 overflow-y-auto py-4 px-3" aria-label="Main navigation">
             {pathname.startsWith("/donor-discovery") && (
-              <div className="mb-2">
+              <div className="mb-2 space-y-1">
                 <p className={SECTION_LABEL}>Donor Discovery</p>
-                <Link
-                  href={DONOR_DISCOVERY_DRILLDOWN.href}
-                  onClick={onClose}
-                  aria-current={isActive(DONOR_DISCOVERY_DRILLDOWN.href) ? "page" : undefined}
-                  className={isActive(DONOR_DISCOVERY_DRILLDOWN.href) ? NAV_ITEM_ACTIVE : NAV_ITEM_INACTIVE}
-                  style={isActive(DONOR_DISCOVERY_DRILLDOWN.href) ? NAV_ITEM_ACTIVE_STYLE : undefined}
-                >
-                  <Telescope className="h-5 w-5 shrink-0" aria-hidden />
-                  <span
-                    className="truncate"
-                    style={navLabelStyle(isActive(DONOR_DISCOVERY_DRILLDOWN.href))}
-                  >
-                    {DONOR_DISCOVERY_DRILLDOWN.label}
-                  </span>
-                </Link>
+                {DONOR_DISCOVERY_NAV_ITEMS.map((item) => {
+                  const active = isActive(item.href);
+                  const badge = badgeByHref[item.href] ?? 0;
+                  const Icon = donorDiscoveryIconByHref[item.href] ?? Telescope;
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={onClose}
+                      aria-current={active ? "page" : undefined}
+                      className={active ? NAV_ITEM_ACTIVE : NAV_ITEM_INACTIVE}
+                      style={active ? NAV_ITEM_ACTIVE_STYLE : undefined}
+                    >
+                      <IconWithBadge icon={Icon} count={badge} />
+                      <span className="truncate" style={navLabelStyle(active)}>
+                        {item.label}
+                      </span>
+                    </Link>
+                  );
+                })}
               </div>
             )}
             <div className="space-y-1">

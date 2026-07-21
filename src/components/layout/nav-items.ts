@@ -115,14 +115,22 @@ export const NAV_ITEMS: NavItem[] = [
 ];
 
 /**
- * Donor Discovery's own top-level entry now lives in the header nav — this
- * is the drill-down link Sidebar renders in its place, only while the user
+ * Donor Discovery's own top-level entry now lives in the header nav — these
+ * are the drill-down links Sidebar renders in its place, only while the user
  * is inside /donor-discovery/*.
  */
 export const DONOR_DISCOVERY_DRILLDOWN: NavChild = {
   label: "Prospects",
   href: "/donor-discovery/prospects",
 };
+
+/** Intent Signals sits alongside Prospects in the donor-discovery drilldown
+ * section — see DONOR_DISCOVERY_DRILLDOWN above for why this isn't a normal
+ * NAV_ITEMS entry. */
+export const DONOR_DISCOVERY_NAV_ITEMS: NavChild[] = [
+  DONOR_DISCOVERY_DRILLDOWN,
+  { label: "Intent Signals", href: "/donor-discovery/intent-signals" },
+];
 
 /**
  * Program features — org-facing feature programs, shown in their own
