@@ -91,6 +91,11 @@ import {
   type OpportunityContext as HumanizerOpportunityContext,
   type HumanizationScoreBreakdown,
 } from "@/lib/intelligence/narrative-humanizer";
+import {
+  enforceStyleGuide,
+  deriveFunderType,
+  type StyleGuideResult,
+} from "@/lib/intelligence/grant-style-guide";
 
 type TriggerSource = "autonomous" | "manual" | "chain" | "schedule";
 type FunderCategory = Enums<"funder_category">;
@@ -1714,6 +1719,53 @@ export class DraftGenerationAgent extends AutonomousAgent {
         );
       }
 
+      // ---- STYLE GUIDE ENFORCEMENT ------------------------------------------
+      // Runs on the humanized draft, before confidence scoring and the
+      // applications INSERT. Deterministic (see grant-style-guide.ts header)
+      // — a failure here degrades to "no style guide result" rather than
+      // blocking draft creation, matching this file's established
+      // defensive-load convention.
+      let styleGuideResult: StyleGuideResult | null = null;
+      try {
+        const funderType = deriveFunderType(opportunity.category);
+        styleGuideResult = enforceStyleGuide(finalDraftText, funderType, {
+          opportunityDescription: opportunity.description,
+          funderPriorities: funderIntel.notes,
+          funderGeographicFocus: funderIntel.geographicFocus,
+        });
+        if (styleGuideResult.correctedText !== finalDraftText) {
+          finalDraftText = styleGuideResult.correctedText;
+        }
+      } catch (err) {
+        errors.push(
+          `Style guide enforcement failed, saving draft without style corrections: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
+
+      const criticalStyleViolations =
+        styleGuideResult?.violations.filter((v) => v.severity === "critical") ?? [];
+
+      if (styleGuideResult && styleGuideResult.violations.length > 0) {
+        const styleDecisionId = await this.logDecision({
+          decisionType: "style_guide_violations",
+          agentRunId: runId,
+          entityType: "opportunity",
+          entityId: opportunity.id,
+          reasoning: styleGuideResult.violations
+            .map(
+              (v) =>
+                `[${v.severity}] ${v.type}: ${v.suggestedReplacement || v.originalText}`,
+            )
+            .join("\n"),
+          confidenceScore: criticalStyleViolations.length > 0 ? 40 : 70,
+          actionTaken: "flagged_style_guide_violations",
+          requiredHumanReview: criticalStyleViolations.length > 0,
+        });
+        decisions.push(styleDecisionId);
+      }
+
       // ---- PHASE 5: CONFIDENCE SCORING -------------------------------------
       const needsInputCount = countNeedsInput(finalDraftText);
       const baseConfidence = computeBaseConfidence(
@@ -1748,14 +1800,27 @@ export class DraftGenerationAgent extends AutonomousAgent {
         metadata: {
           humanization_score: humanizationScore,
           humanization_breakdown: humanizationBreakdown,
+          style_guide_violations: styleGuideResult?.violations ?? [],
+          style_guide_suggestions: styleGuideResult?.suggestions ?? [],
         },
-        ...(complianceResult.warnings.length > 0
-          ? {
-              notes:
-                "Autonomous compliance check flagged the following for reviewer attention:\n" +
-                complianceResult.warnings.map((w) => `- ${w}`).join("\n"),
-            }
-          : {}),
+        ...(() => {
+          const noteLines: string[] = [];
+          if (complianceResult.warnings.length > 0) {
+            noteLines.push(
+              "Autonomous compliance check flagged the following for reviewer attention:",
+              ...complianceResult.warnings.map((w) => `- ${w}`),
+            );
+          }
+          if (criticalStyleViolations.length > 0) {
+            noteLines.push(
+              "Style guide enforcement flagged critical issues:",
+              ...criticalStyleViolations.map(
+                (v) => `- [${v.type}] ${v.suggestedReplacement || v.originalText}`,
+              ),
+            );
+          }
+          return noteLines.length > 0 ? { notes: noteLines.join("\n") } : {};
+        })(),
       };
 
       this.enforceHardLimits(insertPayload);
@@ -1794,7 +1859,9 @@ export class DraftGenerationAgent extends AutonomousAgent {
           `${twinContext.completeness}%). Platform learning patterns applied: ` +
           `${patternsApplied} (${highConfidencePatternsApplied} high-confidence). ` +
           `Compliance check: ${complianceResult.passed ? "passed" : `${complianceResult.warnings.length} warning(s)`}. ` +
-          `Humanization score: ${humanizationScore ?? "N/A"}.`,
+          `Humanization score: ${humanizationScore ?? "N/A"}. ` +
+          `Style guide: ${styleGuideResult?.violations.length ?? 0} violation(s), ` +
+          `${criticalStyleViolations.length} critical.`,
         confidenceScore: confidence,
         actionTaken: "created_draft_pending_review",
         requiredHumanReview: true,
@@ -1805,15 +1872,23 @@ export class DraftGenerationAgent extends AutonomousAgent {
         complianceResult.warnings.length > 0
           ? ` Compliance check flagged ${complianceResult.warnings.length} item(s) for review.`
           : "";
+      const styleSuffix =
+        criticalStyleViolations.length > 0
+          ? ` Style guide flagged ${criticalStyleViolations.length} critical issue(s): ${criticalStyleViolations
+              .map((v) => v.type)
+              .join(", ")}.`
+          : "";
       await this.createNotification(
         "autonomous_draft_ready",
         "AI Draft Ready for Review",
-        `${title} -- AI draft ready. Confidence: ${confidence}%. Click to review.${notificationSuffix}`,
+        `${title} -- AI draft ready. Confidence: ${confidence}%. Click to review.${notificationSuffix}${styleSuffix}`,
         {
           applicationId: newAppId,
           opportunityId: opportunity.id,
           confidence,
           probabilityScore: score,
+          styleGuideViolations: styleGuideResult?.violations.length ?? 0,
+          criticalStyleViolations: criticalStyleViolations.length,
         },
       );
 
@@ -1827,6 +1902,8 @@ export class DraftGenerationAgent extends AutonomousAgent {
           compliancePassed: complianceResult.passed,
           complianceWarnings: complianceResult.warnings.length,
           humanizationScore,
+          styleGuideViolations: styleGuideResult?.violations.length ?? 0,
+          criticalStyleViolations: criticalStyleViolations.length,
         }),
         itemsFound: 1,
         itemsProcessed: 1,
