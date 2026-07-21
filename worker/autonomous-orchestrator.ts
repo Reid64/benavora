@@ -1242,6 +1242,111 @@ async function routeQueueItem(
       const result = await agent.run('event');
       return `ag-28-followup completed (itemsQueued=${result.itemsQueued})`;
     }
+    case 'ag-17-discovery': {
+      // Same self-identifying agentId OpportunityDiscoveryAgent passes to
+      // super() (src/lib/agents/opportunity-discovery-agent.ts) — alias of
+      // the 'opportunity_discovery' case above, same underlying call, so a
+      // manual trigger by the class's own agent_type literal also works.
+      const { runOpportunityDiscovery } = await import(
+        '../src/lib/agents/opportunity-discovery-agent.js'
+      );
+      const result = await runOpportunityDiscovery(orgId, supabase, 'manual');
+      return `discovery: ${result.itemsProcessed} matched / ${result.itemsFound} found`;
+    }
+    case 'ag-15-probability': {
+      // AG-15 (canonical), src/lib/agents/probability-scoring-agent.ts —
+      // opportunity-level grant probability scoring (computeGrantProbability
+      // wrapper) + auto-draft chaining. Distinct from 'success_probability'
+      // above (application-keyed, SuccessProbabilityAgent) — see
+      // AGENTS_v2.md AG-15 spec. Previously unreachable from any live path.
+      const { ProbabilityScoringAgent } = await import(
+        '../src/lib/agents/probability-scoring-agent.js'
+      );
+      const agent = new ProbabilityScoringAgent(orgId, supabase);
+      const result = await agent.run('manual');
+      return `ag-15-probability completed (itemsProcessed=${result.itemsProcessed}/${result.itemsFound})`;
+    }
+    case 'ag-29-fundability': {
+      // Also wired into the nightly per-org sweep and reachable manually via
+      // /api/intelligence/fundability — added here too so a manual trigger
+      // by this agent's own agentId literal works like every other agent.
+      const { FundabilityScorerAgent } = await import(
+        '../src/lib/agents/fundability-scorer-agent.js'
+      );
+      const agent = new FundabilityScorerAgent(orgId, supabase);
+      const result = await agent.run('manual');
+      return `ag-29-fundability completed (itemsProcessed=${result.itemsProcessed}/${result.itemsFound})`;
+    }
+    case 'ag-30-donor-intent': {
+      const { DonorIntentMonitorAgent } = await import(
+        '../src/lib/agents/donor-intent-monitor-agent.js'
+      );
+      const agent = new DonorIntentMonitorAgent(orgId, supabase);
+      const result = await agent.run('manual');
+      return `ag-30-donor-intent completed (itemsProcessed=${result.itemsProcessed}/${result.itemsFound})`;
+    }
+    case 'ag-35-community-need': {
+      const { CommunityNeedPredictorAgent } = await import(
+        '../src/lib/agents/community-need-predictor-agent.js'
+      );
+      const agent = new CommunityNeedPredictorAgent(orgId, supabase);
+      const result = await agent.run('manual');
+      return `ag-35-community-need completed (itemsProcessed=${result.itemsProcessed}/${result.itemsFound})`;
+    }
+    case 'ag-36-learning-network': {
+      // Platform-wide, not per-org (constructor takes only `supabase`, same
+      // shape as ag-38-self-improvement below) — item.org_id is ignored.
+      // Already wired to a Sunday-gated schedule via
+      // runLearningNetworkPipeline(); this adds an on-demand path.
+      const { LearningNetworkAggregatorAgent } = await import(
+        '../src/lib/agents/learning-network-aggregator-agent.js'
+      );
+      const agent = new LearningNetworkAggregatorAgent(supabase);
+      const result = await agent.run('manual');
+      return `ag-36-learning-network completed (itemsProcessed=${result.itemsProcessed}/${result.itemsFound})`;
+    }
+    case 'ag-38-self-improvement': {
+      // Platform-wide, not per-org — item.org_id is ignored. Already wired
+      // to its own 4AM scheduler.ts slot via runSelfImprovementPipeline();
+      // this adds an on-demand path.
+      const { SelfImprovementAgent } = await import(
+        '../src/lib/agents/self-improvement-agent.js'
+      );
+      const agent = new SelfImprovementAgent(supabase);
+      const result = await agent.run('manual');
+      return `ag-38-self-improvement completed (itemsProcessed=${result.itemsProcessed}/${result.itemsFound})`;
+    }
+    case 'ag-39-roi-optimizer': {
+      // Correlation-analysis run() path only — trackSubmissionVariables()
+      // telemetry half has its own live call site at
+      // /api/autonomous/track-submission and is unaffected by this case.
+      const { RoiOptimizerAgent } = await import(
+        '../src/lib/agents/roi-optimizer-agent.js'
+      );
+      const agent = new RoiOptimizerAgent(orgId, supabase);
+      const result = await agent.run('manual');
+      return `ag-39-roi-optimizer completed (itemsProcessed=${result.itemsProcessed}/${result.itemsFound})`;
+    }
+    case 'ag-40-strategic-advisor': {
+      // Also wired into the nightly per-org sweep and reachable manually via
+      // /api/intelligence/strategic-advisor — added here too for consistency.
+      const { StrategicAdvisorAgent } = await import(
+        '../src/lib/agents/strategic-advisor-agent.js'
+      );
+      const agent = new StrategicAdvisorAgent(orgId, supabase);
+      const result = await agent.run('manual');
+      return `ag-40-strategic-advisor completed (itemsProcessed=${result.itemsProcessed}/${result.itemsFound})`;
+    }
+    case 'ag-digest': {
+      // Already wired to the fixed 7AM digest pipeline
+      // (runDigestPipeline()); this adds an on-demand path.
+      const { AutonomousDigestAgent } = await import(
+        '../src/lib/agents/autonomous-digest-agent.js'
+      );
+      const agent = new AutonomousDigestAgent(orgId, supabase);
+      const result = await agent.run('manual');
+      return `ag-digest completed (itemsProcessed=${result.itemsProcessed}/${result.itemsFound})`;
+    }
     default:
       throw new Error(`Unknown agent_queue agent_id: "${item.agent_id}".`);
   }

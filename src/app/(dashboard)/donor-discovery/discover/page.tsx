@@ -6,22 +6,32 @@
 // plain-English business categories (src/lib/donor-discovery/naics-labels.ts)
 // and previews real nearby businesses before committing to a discovery run.
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Briefcase,
   Building2,
+  Car,
   Check,
   ChevronLeft,
   ChevronRight,
-  Factory,
+  Cpu,
+  ExternalLink,
   HardHat,
+  HeartPulse,
   Landmark,
   Loader2,
+  MapPin,
   Package,
   Phone,
+  Recycle,
   Rocket,
+  Scissors,
   Search,
+  Star,
+  Truck,
+  Users,
   Utensils,
   type LucideIcon,
 } from "lucide-react";
@@ -29,6 +39,7 @@ import {
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Badge, Button, Card, Input, Select } from "@/components/ui";
 import { useProfile } from "@/lib/hooks/useProfile";
+import { createClient } from "@/lib/supabase/client";
 import { NAICS_CATEGORIES, naicsLabel } from "@/lib/donor-discovery/naics-labels";
 import { cn } from "@/lib/utils/cn";
 
@@ -40,22 +51,48 @@ const STEPS = [
 
 const CATEGORY_ICONS: Record<string, LucideIcon> = {
   construction: HardHat,
-  manufacturing: Factory,
+  waste_environmental: Recycle,
+  automotive: Car,
   financial: Landmark,
   food: Utensils,
   real_estate: Building2,
   professional: Briefcase,
+  staffing: Users,
   retail: Package,
+  healthcare: HeartPulse,
+  technology: Cpu,
+  personal_care: Scissors,
+  logistics: Truck,
 };
+
+// One distinct hex accent per category card — inline hex only, per the
+// design system (no Tailwind color classes for anything data-driven).
+const CATEGORY_ACCENTS: Record<string, string> = {
+  construction: "#F97316",
+  waste_environmental: "#10B981",
+  automotive: "#EF4444",
+  financial: "#0EA5E9",
+  food: "#F59E0B",
+  real_estate: "#8B5CF6",
+  professional: "#0077B6",
+  staffing: "#EC4899",
+  retail: "#6366F1",
+  healthcare: "#14B8A6",
+  technology: "#6B7280",
+  personal_care: "#A855F7",
+  logistics: "#84CC16",
+};
+const DEFAULT_CATEGORY_ACCENT = "#0077B6";
 
 const RADIUS_OPTIONS = [10, 25, 50, 100] as const;
 
-const MIN_SIZE_OPTIONS = [
-  { value: "any", label: "Any size" },
-  { value: "small", label: "Small (1–10 employees)" },
-  { value: "medium", label: "Medium (11–50 employees)" },
-  { value: "large", label: "Large (51–200 employees)" },
-  { value: "enterprise", label: "Enterprise (200+ employees)" },
+// Applied against the real `rating` Google Places returns (see
+// discover/route.ts's minRating handling) — not a fabricated filter.
+const MIN_RATING_OPTIONS = [
+  { value: "0", label: "Any rating" },
+  { value: "3", label: "3.0+ stars" },
+  { value: "4", label: "4.0+ stars" },
+  { value: "4.5", label: "4.5+ stars" },
 ];
 
 interface DiscoverProspect {
@@ -64,8 +101,14 @@ interface DiscoverProspect {
   address: string | null;
   phone: string | null;
   website: string | null;
+  rating: number | null;
   lat: number | null;
   lng: number | null;
+}
+
+interface OrgSearchLocation {
+  addressLine: string | null;
+  serviceArea: string | null;
 }
 
 interface LaunchedProspectDirectory {
@@ -98,7 +141,9 @@ export default function DiscoverPage() {
   // Step 2 — search parameters
   const [radiusMiles, setRadiusMiles] = useState<number>(25);
   const [keywords, setKeywords] = useState("");
-  const [minSize, setMinSize] = useState("any");
+  const [minRating, setMinRating] = useState("0");
+  const [orgLocation, setOrgLocation] = useState<OrgSearchLocation | null>(null);
+  const [orgLocationLoading, setOrgLocationLoading] = useState(true);
 
   // Step 3 — preview + launch
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -124,6 +169,38 @@ export default function DiscoverPage() {
   const [batchFeedback, setBatchFeedback] = useState<string | null>(null);
 
   const categories = useMemo(() => Object.entries(NAICS_CATEGORIES), []);
+
+  // "Use My Service Area" — discover/route.ts always searches near the org's
+  // address_line1/city/state/zip (the only geography source this flow has;
+  // there's no per-request address override). This just surfaces that real
+  // address plus the org's `service_area` free-text field (migration
+  // 001_initial_schema.sql) so the step isn't a silent assumption.
+  useEffect(() => {
+    if (!profile?.organization_id) return;
+    let active = true;
+    (async () => {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("organizations")
+        .select("address_line1, address_line2, city, state, zip, service_area")
+        .eq("id", profile.organization_id)
+        .maybeSingle();
+      if (!active) return;
+      if (data) {
+        const addressLine = [data.address_line1, data.address_line2, data.city, data.state, data.zip]
+          .filter((part): part is string => Boolean(part && part.trim().length > 0))
+          .join(", ");
+        setOrgLocation({
+          addressLine: addressLine.length > 0 ? addressLine : null,
+          serviceArea: data.service_area,
+        });
+      }
+      setOrgLocationLoading(false);
+    })();
+    return () => {
+      active = false;
+    };
+  }, [profile?.organization_id]);
 
   const step1Valid = selectedCode !== null;
   const step2Valid = RADIUS_OPTIONS.includes(radiusMiles as (typeof RADIUS_OPTIONS)[number]);
@@ -152,6 +229,7 @@ export default function DiscoverPage() {
           radius: radiusMiles,
           keywords: keywords.trim() || undefined,
           orgId: profile.organization_id,
+          minRating: Number(minRating) > 0 ? Number(minRating) : undefined,
         }),
       });
       const payload = (await res.json().catch(() => ({}))) as {
@@ -189,6 +267,7 @@ export default function DiscoverPage() {
           radius: radiusMiles,
           keywords: keywords.trim() || undefined,
           orgId: profile.organization_id,
+          minRating: Number(minRating) > 0 ? Number(minRating) : undefined,
           launch: true,
         }),
       });
@@ -368,27 +447,32 @@ export default function DiscoverPage() {
           title="What kind of business are you looking for?"
           description="Pick a category, then a specific business type within it."
         >
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {categories.map(([key, category]) => {
               const Icon = CATEGORY_ICONS[key] ?? Briefcase;
+              const accent = CATEGORY_ACCENTS[key] ?? DEFAULT_CATEGORY_ACCENT;
               const active = selectedCategoryKey === key;
               return (
                 <button
                   key={key}
                   type="button"
                   onClick={() => selectCategory(key)}
+                  style={
+                    active
+                      ? { borderColor: accent, backgroundColor: `${accent}0D`, boxShadow: `0 0 0 1px ${accent}4D` }
+                      : undefined
+                  }
                   className={cn(
                     "flex flex-col items-start gap-2 rounded-xl border p-4 text-left transition",
-                    active
-                      ? "border-[#0077B6] bg-[#EFF6FF] ring-1 ring-[#0077B6]/30"
-                      : "border-slate-200 bg-white hover:border-[#00B4D8] hover:shadow-md",
+                    active ? "" : "border-slate-200 bg-white hover:shadow-md",
                   )}
                 >
                   <span
-                    className={cn(
-                      "flex h-10 w-10 items-center justify-center rounded-lg",
-                      active ? "bg-[#0077B6] text-white" : "bg-slate-100 text-slate-500",
-                    )}
+                    style={{
+                      backgroundColor: active ? accent : `${accent}1A`,
+                      color: active ? "#FFFFFF" : accent,
+                    }}
+                    className="flex h-10 w-10 items-center justify-center rounded-lg"
                   >
                     <Icon className="h-5 w-5" aria-hidden />
                   </span>
@@ -407,21 +491,25 @@ export default function DiscoverPage() {
                 {NAICS_CATEGORIES[selectedCategoryKey]?.label} — pick one
               </p>
               <div className="flex flex-wrap gap-2">
-                {NAICS_CATEGORIES[selectedCategoryKey]?.codes.map((code) => (
-                  <button
-                    key={code}
-                    type="button"
-                    onClick={() => setSelectedCode(code)}
-                    className={cn(
-                      "rounded-full border px-3 py-1.5 text-sm font-medium transition",
-                      selectedCode === code
-                        ? "border-[#0077B6] bg-[#0077B6] text-white"
-                        : "border-slate-200 bg-white text-slate-600 hover:border-[#0077B6] hover:text-[#0077B6]",
-                    )}
-                  >
-                    {naicsLabel(code)}
-                  </button>
-                ))}
+                {NAICS_CATEGORIES[selectedCategoryKey]?.codes.map((code) => {
+                  const accent = CATEGORY_ACCENTS[selectedCategoryKey] ?? DEFAULT_CATEGORY_ACCENT;
+                  const codeActive = selectedCode === code;
+                  return (
+                    <button
+                      key={code}
+                      type="button"
+                      onClick={() => setSelectedCode(code)}
+                      style={
+                        codeActive
+                          ? { borderColor: accent, backgroundColor: accent, color: "#FFFFFF" }
+                          : { borderColor: "#E2E8F0", color: "#475569" }
+                      }
+                      className="rounded-full border bg-white px-3 py-1.5 text-sm font-medium transition"
+                    >
+                      {naicsLabel(code)}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -432,6 +520,36 @@ export default function DiscoverPage() {
       {step === 2 && (
         <Card title="Set your search area" description="We'll search near your organization's address.">
           <div className="space-y-5">
+            <div className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <span
+                style={{ backgroundColor: "#0077B61A", color: "#0077B6" }}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+              >
+                <MapPin className="h-4.5 w-4.5" aria-hidden />
+              </span>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-slate-900">Using your service area</p>
+                {orgLocationLoading ? (
+                  <p className="mt-0.5 text-xs text-slate-400">Loading your organization's address…</p>
+                ) : orgLocation?.addressLine ? (
+                  <>
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      Searching near <span className="font-medium text-slate-700">{orgLocation.addressLine}</span>
+                    </p>
+                    {orgLocation.serviceArea && (
+                      <p className="mt-1 text-xs text-slate-400">
+                        Your organization's stated service area: {orgLocation.serviceArea}
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <p className="mt-0.5 text-xs text-red-500">
+                    No address on file — add one in Settings before running Discover, or this search will fail.
+                  </p>
+                )}
+              </div>
+            </div>
+
             <div>
               <p className="mb-2 text-sm font-medium text-slate-700">Radius</p>
               <div className="flex flex-wrap gap-2">
@@ -461,13 +579,18 @@ export default function DiscoverPage() {
               helperText="Narrows the search — added to the business type as extra search terms."
             />
 
-            <Select
-              label="Minimum company size"
-              value={minSize}
-              onChange={(e) => setMinSize(e.target.value)}
-              options={MIN_SIZE_OPTIONS}
-              helperText="Google's business search doesn't report employee counts, so this isn't applied as a hard filter yet — it's recorded for future enrichment-based scoring."
-            />
+            <div className="border-t border-slate-100 pt-5">
+              <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-slate-400">
+                Advanced filters
+              </p>
+              <Select
+                label="Minimum Google rating"
+                value={minRating}
+                onChange={(e) => setMinRating(e.target.value)}
+                options={MIN_RATING_OPTIONS}
+                helperText="Filters on Google's real star rating for each business — we don't have employee-count or CSR-program data to filter on yet."
+              />
+            </div>
           </div>
         </Card>
       )}
@@ -507,7 +630,15 @@ export default function DiscoverPage() {
                     key={p.placeId}
                     className="rounded-xl border border-slate-200 bg-white p-4 hover:border-[#00B4D8] transition-colors"
                   >
-                    <p className="truncate text-sm font-semibold text-slate-900">{p.name}</p>
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="min-w-0 truncate text-sm font-semibold text-slate-900">{p.name}</p>
+                      {p.rating != null && (
+                        <span className="flex shrink-0 items-center gap-1 text-xs font-semibold text-amber-600">
+                          <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" aria-hidden />
+                          {p.rating.toFixed(1)}
+                        </span>
+                      )}
+                    </div>
                     {p.address && <p className="mt-1 text-xs text-slate-500">{p.address}</p>}
                     <div className="mt-2 flex flex-wrap gap-2">
                       {p.phone && (
@@ -516,7 +647,20 @@ export default function DiscoverPage() {
                           {p.phone}
                         </Badge>
                       )}
-                      {p.website && <Badge color="teal">Website on file</Badge>}
+                      {p.website && (
+                        <a
+                          href={p.website}
+                          target="_blank"
+                          rel="noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="inline-flex items-center"
+                        >
+                          <Badge color="teal">
+                            Website
+                            <ExternalLink className="ml-1 inline h-3 w-3" aria-hidden />
+                          </Badge>
+                        </a>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -609,6 +753,18 @@ export default function DiscoverPage() {
                           >
                             Add to Email Campaign
                           </button>
+                          <Link
+                            href="/donor-discovery/outreach"
+                            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-[#8B5CF6] hover:text-[#8B5CF6]"
+                          >
+                            Quick Outreach
+                          </Link>
+                          <Link
+                            href={`/donor-discovery/prospects/${p.id}`}
+                            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-[#0077B6] hover:text-[#0077B6]"
+                          >
+                            View Details
+                          </Link>
                         </div>
                         {feedback && (
                           <p className={cn("mt-2 text-xs font-medium", feedback.ok ? "text-[#15803D]" : "text-slate-500")}>

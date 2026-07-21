@@ -52,15 +52,26 @@ export interface NaicsCategory {
 
 /** Groups the codes above into consumer-facing categories for the Step 1
  * category-card picker. Every code in `NAICS_FRIENDLY_LABELS` appears in
- * exactly one category. */
+ * exactly one category.
+ *
+ * Expanded from an original 7 categories to 13 (2026-07-20 Donor Discovery
+ * rebuild) purely by regrouping the codes already present in
+ * NAICS_FRIENDLY_LABELS above — no new NAICS codes were invented. "Retail &
+ * Distribution" was split into Automotive / Healthcare / Technology /
+ * Staffing / Logistics / Personal Care so the category-card grid reads as a
+ * richer picker without fabricating industries that have no backing code. */
 export const NAICS_CATEGORIES: Record<string, NaicsCategory> = {
   construction: {
     label: "Construction & Trades",
-    codes: ["238910", "562991", "237110", "238220", "562"],
+    codes: ["238910", "237110", "238220", "236220", "238160", "238210"],
   },
-  manufacturing: {
-    label: "Manufacturing",
-    codes: ["336111"],
+  waste_environmental: {
+    label: "Waste & Environmental Services",
+    codes: ["562991", "562"],
+  },
+  automotive: {
+    label: "Automotive",
+    codes: ["336111", "441110", "811"],
   },
   financial: {
     label: "Financial Services",
@@ -68,7 +79,7 @@ export const NAICS_CATEGORIES: Record<string, NaicsCategory> = {
   },
   food: {
     label: "Food & Agriculture",
-    codes: ["311"],
+    codes: ["311", "424410"],
   },
   real_estate: {
     label: "Real Estate",
@@ -76,11 +87,31 @@ export const NAICS_CATEGORIES: Record<string, NaicsCategory> = {
   },
   professional: {
     label: "Professional Services",
-    codes: ["541", "561", "812"],
+    codes: ["541", "561"],
+  },
+  staffing: {
+    label: "Staffing & Recruiting",
+    codes: ["561320"],
   },
   retail: {
     label: "Retail & Distribution",
-    codes: ["444180", "423", "811"],
+    codes: ["444180", "423", "442110", "443142"],
+  },
+  healthcare: {
+    label: "Healthcare",
+    codes: ["622110", "423450"],
+  },
+  technology: {
+    label: "Technology",
+    codes: ["541511"],
+  },
+  personal_care: {
+    label: "Personal Care Services",
+    codes: ["812"],
+  },
+  logistics: {
+    label: "Logistics & Transportation",
+    codes: ["488510"],
   },
 };
 

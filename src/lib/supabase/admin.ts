@@ -1,3 +1,4 @@
+import ws from "ws";
 import {
   createClient as createSupabaseClient,
   type SupabaseClient,
@@ -35,6 +36,11 @@ export function createAdminClient(): SupabaseClient {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
+    },
+    realtime: {
+      // ws's overloaded constructor (incl. `constructor(address: null)`) doesn't
+      // structurally match Supabase's WebSocketLikeConstructor; cast is types-only.
+      transport: ws as any,
     },
   }) as unknown as SupabaseClient;
 }

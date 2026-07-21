@@ -24,6 +24,11 @@
 // (requireRole) — the `orgId` field in the request body is accepted per this
 // endpoint's contract but is only ever compared against the session's org,
 // never trusted on its own (Behavioral Contracts §2).
+//
+// 2026-07-20 Donor Discovery rebuild: added `places.rating` to the field mask
+// and an optional `minRating` (0-5) request field, applied client-side of the
+// Places API response (Text Search has no server-side rating filter) — real
+// Google data, not a fabricated employee-count/CSR-program style filter.
 
 import { NextResponse } from "next/server";
 
@@ -44,6 +49,7 @@ const PLACES_FIELD_MASK = [
   "places.internationalPhoneNumber",
   "places.nationalPhoneNumber",
   "places.websiteUri",
+  "places.rating",
   "nextPageToken",
 ].join(",");
 
@@ -63,6 +69,7 @@ interface DiscoverProspect {
   address: string | null;
   phone: string | null;
   website: string | null;
+  rating: number | null;
   lat: number | null;
   lng: number | null;
 }
@@ -75,6 +82,7 @@ interface PlacesApiPlace {
   internationalPhoneNumber?: string;
   nationalPhoneNumber?: string;
   websiteUri?: string;
+  rating?: number;
 }
 
 interface PlacesApiSearchTextResponse {
@@ -99,6 +107,7 @@ function normalizePlace(place: PlacesApiPlace): DiscoverProspect | null {
     address: place.formattedAddress ?? null,
     phone: place.internationalPhoneNumber ?? place.nationalPhoneNumber ?? null,
     website: place.websiteUri ?? null,
+    rating: typeof place.rating === "number" ? place.rating : null,
     lat: place.location?.latitude ?? null,
     lng: place.location?.longitude ?? null,
   };
@@ -167,7 +176,7 @@ export async function POST(request: Request) {
     return jsonError("Invalid JSON body.", 400);
   }
 
-  const { naicsCode, radius, keywords, orgId, launch } = body as Record<string, unknown>;
+  const { naicsCode, radius, keywords, orgId, launch, minRating } = body as Record<string, unknown>;
 
   if (typeof naicsCode !== "string" || naicsCode.trim().length === 0) {
     return jsonError("naicsCode is required.", 400);
@@ -184,6 +193,14 @@ export async function POST(request: Request) {
       ? Math.min(radius, MAX_RADIUS_MI)
       : DEFAULT_RADIUS_MI;
   const keywordText = typeof keywords === "string" ? keywords.trim() : "";
+  // Google Places doesn't accept a minRating filter server-side on Text
+  // Search — applied here, after normalization, against the real `rating`
+  // field it returns (no fabricated data; places with no rating on file are
+  // excluded once a threshold is set, same as they'd be invisible on Maps).
+  const minRatingValue =
+    typeof minRating === "number" && Number.isFinite(minRating) && minRating > 0 && minRating <= 5
+      ? minRating
+      : null;
 
   const apiKey = process.env.GOOGLE_PLACES_API_KEY;
   if (!apiKey) {
@@ -246,8 +263,11 @@ export async function POST(request: Request) {
     return jsonError(message, 502);
   }
 
+  const filteredProspects =
+    minRatingValue !== null ? prospects.filter((p) => p.rating !== null && p.rating >= minRatingValue) : prospects;
+
   if (launch !== true) {
-    return NextResponse.json({ prospects, count: prospects.length, center });
+    return NextResponse.json({ prospects: filteredProspects, count: filteredProspects.length, center });
   }
 
   const requestName = `${naicsLabel(naicsCode)}${keywordText ? ` — ${keywordText}` : ""} (${radiusMi} mi)`;
@@ -260,7 +280,7 @@ export async function POST(request: Request) {
       taxonomy_ids: [],
       geography: { center, radius_mi: radiusMi },
       status: "complete",
-      counts: { enumerated: prospects.length, enriched: 0, scored: 0 },
+      counts: { enumerated: filteredProspects.length, enriched: 0, scored: 0 },
       created_by: userId,
       completed_at: new Date().toISOString(),
     })
@@ -272,7 +292,7 @@ export async function POST(request: Request) {
   }
 
   let prospectsCreated = 0;
-  for (const prospect of prospects) {
+  for (const prospect of filteredProspects) {
     try {
       const record = await upsertDirectoryRecord({
         legal_name: prospect.name,
@@ -293,8 +313,8 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({
-    prospects,
-    count: prospects.length,
+    prospects: filteredProspects,
+    count: filteredProspects.length,
     requestId: (requestRow as { id: string }).id,
     prospectsCreated,
   });

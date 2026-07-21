@@ -62,7 +62,8 @@
         "setup:sparkgood": "tsx scripts/setup-sparkgood-account.ts",
         "smoke:platform": "tsx scripts/platform-smoke-test.ts",
         "seed:signals": "tsx scripts/seed-intent-signals.ts",
-        "import:federal": "tsx scripts/import-federal-awards.ts"
+        "import:federal": "tsx scripts/import-federal-awards.ts",
+        "import:foundations": "tsx scripts/import-foundation-awards.ts"
     },
     "dependencies": {
         "@2captcha/captcha-solver": "^1.3.6",

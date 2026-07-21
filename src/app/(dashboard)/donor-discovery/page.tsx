@@ -1,8 +1,44 @@
 "use client";
 
+// Donor Discovery Overview — 2026-07-20 rebuild adds a dark stat-card row and
+// 3 quick-action cards on top of the pre-existing Active Requests / Pipeline
+// Funnel / Top Prospects cards (kept, not discarded).
+//
+// Two deliberate deviations from the original task spec, documented so a
+// future session doesn't reintroduce them:
+//   - "Active Outreach Campaigns" reads `email_campaign_sequences`
+//     (organization_id, status — migration 054_email_calendar_integration.sql),
+//     NOT `sales_campaigns`. `sales_campaigns` (migration 055) is Benavora's
+//     own admin-only, platform-level sales-outreach-to-prospective-nonprofit-
+//     customers tool — it has no organization_id at all and is unrelated to a
+//     nonprofit org's own corporate donor outreach. The real org-scoped
+//     "campaign" concept for Donor Discovery's Corporate Outreach flow is
+//     already `email_campaign_sequences` — see route-to-email/route.ts and
+//     /api/intelligence/outreach/queue, which both write to it.
+//   - "Contacted This Month" counts donor_discovery_prospects in an engaged
+//     stage (contacted/applied/received) whose `created_at` falls in the
+//     current calendar month. donor_discovery_prospects has no per-stage
+//     transition timestamp, so this is an honest proxy, not a literal
+//     "moved to Contacted this month" count.
+//
+// Pipeline Funnel + Top Prospects now come from GET /api/donor-discovery/pipeline
+// (one server round trip) instead of 6 parallel per-stage count queries plus a
+// separate top-prospects fetch issued directly from the browser.
+
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Loader2, Plug, Plus, Sparkles, Star, Telescope } from "lucide-react";
+import {
+  ArrowUpRight,
+  Loader2,
+  Mail,
+  Plug,
+  Plus,
+  Radar,
+  Rocket,
+  Sparkles,
+  Star,
+  Telescope,
+} from "lucide-react";
 
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Badge, Button, Card, EmptyState } from "@/components/ui";
@@ -52,6 +88,26 @@ interface DdProspectRow {
   directory: DdDirectoryRef | null;
 }
 
+interface PipelineStageData {
+  count: number;
+  top: DdProspectRow[];
+}
+
+interface PipelineResponse {
+  stages: Record<string, PipelineStageData>;
+  totalProspects: number;
+  avgScore: number | null;
+}
+
+interface IntentSignalRow {
+  company_name: string;
+  intent_score: number | null;
+  created_at: string;
+}
+
+const HIGH_INTENT_THRESHOLD = 75;
+const INTENT_SIGNAL_LOOKBACK = 1000;
+
 const FUNNEL_STAGES: DdFunnelStage[] = [
   "new",
   "reviewing",
@@ -84,7 +140,6 @@ const STATUS_PROGRESS_PCT: Record<DdRequestStatus, number> = {
 };
 
 const POLL_INTERVAL_MS = 15_000;
-const TOP_PROSPECTS_LIMIT = 5;
 
 function countsSummary(counts: DdRequestCounts | null): string {
   if (!counts) return "Waiting to start…";
@@ -126,6 +181,10 @@ export default function DonorDiscoveryPage() {
   );
   const [topProspects, setTopProspects] = useState<DdProspectRow[]>([]);
   const [avgScore, setAvgScore] = useState<number | null>(null);
+  const [highIntentCount, setHighIntentCount] = useState(0);
+  const [contactedThisMonth, setContactedThisMonth] = useState(0);
+  const [activeCampaignsCount, setActiveCampaignsCount] = useState(0);
+  const [autoApplySubmissionsCount, setAutoApplySubmissionsCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -136,26 +195,63 @@ export default function DonorDiscoveryPage() {
     try {
       const supabase = createClient();
 
-      const [requestsRes, topProspectsRes, stageResults, scoreRes] = await Promise.all([
+      const startOfMonth = new Date();
+      startOfMonth.setDate(1);
+      startOfMonth.setHours(0, 0, 0, 0);
+
+      const [
+        requestsRes,
+        pipelineRes,
+        intentSignalsRes,
+        contactedCountRes,
+        activeCampaignsRes,
+        autoApplyRes,
+      ] = await Promise.all([
         fetch("/api/donor-discovery/requests", { cache: "no-store" }),
-        fetch(`/api/donor-discovery/prospects?stage=new&limit=${TOP_PROSPECTS_LIMIT}`, {
-          cache: "no-store",
-        }),
-        Promise.all(
-          FUNNEL_STAGES.map((stage) =>
-            supabase
-              .from("donor_discovery_prospects")
-              .select("*", { count: "exact", head: true })
-              .eq("pipeline_stage", stage),
-          ),
-        ),
-        supabase.from("donor_discovery_prospects").select("score").not("score", "is", null),
+        fetch("/api/donor-discovery/pipeline", { cache: "no-store" }),
+        // High Intent stat + latest-signal-per-company reduction — RLS scopes
+        // this to the caller's org (corporate_intent_signals, migration 093).
+        supabase
+          .from("corporate_intent_signals")
+          .select("company_name, intent_score, created_at")
+          .order("created_at", { ascending: false })
+          .limit(INTENT_SIGNAL_LOOKBACK),
+        // "Contacted This Month" — donor_discovery_prospects has no per-stage
+        // transition timestamp, so this counts prospects in an engaged stage
+        // whose row was created this month (a proxy, not a literal
+        // moved-to-Contacted date — see file header).
+        supabase
+          .from("donor_discovery_prospects")
+          .select("*", { count: "exact", head: true })
+          .in("pipeline_stage", ["contacted", "applied", "received"])
+          .gte("created_at", startOfMonth.toISOString()),
+        // Active Outreach Campaigns — email_campaign_sequences, NOT
+        // sales_campaigns (see file header for why).
+        supabase
+          .from("email_campaign_sequences")
+          .select("*", { count: "exact", head: true })
+          .eq("status", "active"),
+        // Submissions via AutoApply — completed rows in this org's
+        // submission_queue (migration 045_autoapply_tables.sql).
+        supabase
+          .from("submission_queue")
+          .select("*", { count: "exact", head: true })
+          .eq("status", "completed"),
       ]);
 
-      const scores = ((scoreRes.data ?? []) as Array<{ score: number | null }>)
-        .map((row) => row.score)
-        .filter((s): s is number => s != null);
-      setAvgScore(scores.length > 0 ? Math.round(scores.reduce((sum, s) => sum + s, 0) / scores.length) : null);
+      setContactedThisMonth(contactedCountRes.count ?? 0);
+      setActiveCampaignsCount(activeCampaignsRes.count ?? 0);
+      setAutoApplySubmissionsCount(autoApplyRes.count ?? 0);
+
+      const intentRows = (intentSignalsRes.data ?? []) as IntentSignalRow[];
+      const latestScoreByCompany = new Map<string, number | null>();
+      for (const row of intentRows) {
+        const key = row.company_name.trim().toLowerCase();
+        if (!latestScoreByCompany.has(key)) latestScoreByCompany.set(key, row.intent_score);
+      }
+      setHighIntentCount(
+        Array.from(latestScoreByCompany.values()).filter((s) => s != null && s >= HIGH_INTENT_THRESHOLD).length,
+      );
 
       let requestRows: DdRequestRow[] = [];
       if (!requestsRes.ok) {
@@ -166,23 +262,23 @@ export default function DonorDiscoveryPage() {
         setRequests(requestRows);
       }
 
-      let prospectRows: DdProspectRow[] = [];
-      if (topProspectsRes.ok) {
-        const payload = (await topProspectsRes.json()) as { data: DdProspectRow[] };
-        prospectRows = payload.data ?? [];
-        setTopProspects(prospectRows);
+      let newStageTop: DdProspectRow[] = [];
+      if (pipelineRes.ok) {
+        const payload = (await pipelineRes.json()) as PipelineResponse;
+        setStageCounts(
+          Object.fromEntries(
+            FUNNEL_STAGES.map((stage) => [stage, payload.stages?.[stage]?.count ?? 0]),
+          ) as Record<DdFunnelStage, number>,
+        );
+        setAvgScore(payload.avgScore ?? null);
+        newStageTop = payload.stages?.new?.top ?? [];
+        setTopProspects(newStageTop);
       }
-
-      setStageCounts(
-        Object.fromEntries(
-          FUNNEL_STAGES.map((stage, i) => [stage, stageResults[i]?.count ?? 0]),
-        ) as Record<DdFunnelStage, number>,
-      );
 
       const taxonomyIds = Array.from(new Set(requestRows.flatMap((r) => r.taxonomy_ids ?? [])));
       const taxonomyCodes = Array.from(
         new Set(
-          prospectRows.flatMap((p) =>
+          newStageTop.flatMap((p) =>
             [...(p.directory?.naics_codes ?? []), p.directory?.civic_kind].filter(
               (v): v is string => Boolean(v),
             ),
@@ -216,6 +312,7 @@ export default function DonorDiscoveryPage() {
   const activeRequestsCount = requests.filter((r) => ACTIVE_STATUSES.includes(r.status)).length;
   const totalProspects = Object.values(stageCounts).reduce((sum, n) => sum + n, 0);
   const highValueCount = stageCounts.new + stageCounts.reviewing;
+  const mostRecentRequest = requests[0] ?? null;
 
   useEffect(() => {
     if (!hasActiveRequest) return;
@@ -241,6 +338,78 @@ export default function DonorDiscoveryPage() {
     color: "#0F172A",
     marginTop: "6px",
   };
+
+  // Dark #0D1526 stat-card row — matches intent-signals/page.tsx's StatCard
+  // convention, distinct from the light #F7F5F1 cards used elsewhere on this
+  // page (deliberate, per this feature's own build spec).
+  function DarkStatCard({ label, value, color }: { label: string; value: string; color: string }) {
+    return (
+      <div
+        style={{
+          backgroundColor: "#0D1526",
+          borderRadius: "14px",
+          padding: "20px 24px",
+          boxShadow: "0 4px 20px rgba(0,0,0,0.25)",
+        }}
+      >
+        <p
+          style={{
+            fontSize: "11px",
+            fontWeight: 700,
+            color: "#8BA8C8",
+            textTransform: "uppercase",
+            letterSpacing: "0.08em",
+            margin: 0,
+          }}
+        >
+          {label}
+        </p>
+        <p style={{ fontSize: "26px", fontWeight: 900, color, margin: "8px 0 0" }}>{value}</p>
+      </div>
+    );
+  }
+
+  interface QuickAction {
+    key: string;
+    label: string;
+    description: string;
+    href: string;
+    accent: string;
+    icon: typeof Rocket;
+    stat: string;
+  }
+
+  const quickActions: QuickAction[] = [
+    {
+      key: "discover",
+      label: "Discover Prospects",
+      description: "Search nearby businesses by industry and add them to your pipeline.",
+      href: "/donor-discovery/discover",
+      accent: "#0EA5E9",
+      icon: Rocket,
+      stat: mostRecentRequest
+        ? `Last run ${formatRelative(mostRecentRequest.created_at)} · ${totalProspects} in pipeline`
+        : "No discovery runs yet",
+    },
+    {
+      key: "outreach",
+      label: "Corporate Outreach",
+      description: "Compose and queue AI-personalized outreach to your prospects.",
+      href: "/donor-discovery/outreach",
+      accent: "#8B5CF6",
+      icon: Mail,
+      stat: `${activeCampaignsCount} active campaign${activeCampaignsCount === 1 ? "" : "s"}`,
+    },
+    {
+      key: "intent-signals",
+      label: "Intent Signals",
+      description: "AI-detected corporate giving indicators — act before the window closes.",
+      href: "/donor-discovery/intent-signals",
+      accent: "#F59E0B",
+      icon: Radar,
+      stat: `${highIntentCount} high-intent signal${highIntentCount === 1 ? "" : "s"}`,
+    },
+  ];
 
   return (
     <div className="space-y-6" style={{ backgroundColor: "#D6E4F0", padding: "24px", borderRadius: "16px" }}>
@@ -284,6 +453,65 @@ export default function DonorDiscoveryPage() {
           <p style={statLabelStyle}>New &amp; Reviewing</p>
           <p style={statValueStyle}>{loading ? "—" : highValueCount}</p>
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <DarkStatCard
+          label="Contacted This Month"
+          value={loading ? "—" : String(contactedThisMonth)}
+          color="#0EA5E9"
+        />
+        <DarkStatCard
+          label="Active Campaigns"
+          value={loading ? "—" : String(activeCampaignsCount)}
+          color="#8B5CF6"
+        />
+        <DarkStatCard
+          label="High-Intent Signals"
+          value={loading ? "—" : String(highIntentCount)}
+          color="#F59E0B"
+        />
+        <DarkStatCard
+          label="AutoApply Submissions"
+          value={loading ? "—" : String(autoApplySubmissionsCount)}
+          color="#10B981"
+        />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        {quickActions.map((action) => {
+          const Icon = action.icon;
+          return (
+            <Link
+              key={action.key}
+              href={action.href}
+              className="group flex flex-col rounded-xl p-5 transition-transform hover:-translate-y-0.5"
+              style={{
+                backgroundColor: "#FFFFFF",
+                boxShadow: "0 4px 20px rgba(0,0,0,0.10)",
+                border: "1px solid #D9D3C5",
+              }}
+            >
+              <div className="flex items-start justify-between">
+                <div
+                  className="flex h-10 w-10 items-center justify-center rounded-lg"
+                  style={{ backgroundColor: `${action.accent}1A` }}
+                >
+                  <Icon className="h-5 w-5" style={{ color: action.accent }} aria-hidden />
+                </div>
+                <ArrowUpRight
+                  className="h-4 w-4 text-slate-300 transition-colors group-hover:text-slate-500"
+                  aria-hidden
+                />
+              </div>
+              <p className="mt-3 text-sm font-bold text-text">{action.label}</p>
+              <p className="mt-1 text-xs text-text-muted">{action.description}</p>
+              <p className="mt-3 text-xs font-semibold" style={{ color: action.accent }}>
+                {action.stat}
+              </p>
+            </Link>
+          );
+        })}
       </div>
 
       {error && (

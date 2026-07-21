@@ -417,8 +417,20 @@ export class DonorIntentMonitorAgent extends AutonomousAgent {
   /** corporate_prospects is a shared, non-org-scoped pool (project memory
    * `benavora-corporate-prospects-no-org-id`). Prefer prospects in the org's
    * own state when known so geographic scoring has a real anchor; fall back
-   * to the most recently added prospects overall otherwise. */
-  private async loadProspects(org: OrgProfile): Promise<ProspectRow[]> {
+   * to the most recently added prospects overall otherwise.
+   *
+   * As of 2026-07-20, corporate_prospects does not exist in the live
+   * production schema at all (confirmed via direct PostgREST introspection:
+   * PGRST205, "Could not find the table 'public.corporate_prospects' in the
+   * schema cache" - consistent with SCHEMA_REGISTRY_v2.md's own "Live
+   * Database Audit" section, which lists corporate_prospects among tables
+   * documented here but never shipped to prod). This must degrade the run to
+   * "zero prospects found" with a clear reason rather than throw and fail
+   * the whole agent run - the same fail-open posture every zero-signal path
+   * in this file already takes. */
+  private async loadProspects(
+    org: OrgProfile,
+  ): Promise<{ prospects: ProspectRow[]; loadError: string | null }> {
     const baseSelect =
       "id, legal_name, website, address_city, address_state, naics_description, industry_category";
 
@@ -431,7 +443,10 @@ export class DonorIntentMonitorAgent extends AutonomousAgent {
         .limit(MAX_PROSPECTS_PER_RUN * 3);
 
       if (!error && data && data.length > 0) {
-        return (data as ProspectRow[]).slice(0, MAX_PROSPECTS_PER_RUN);
+        return {
+          prospects: (data as ProspectRow[]).slice(0, MAX_PROSPECTS_PER_RUN),
+          loadError: null,
+        };
       }
     }
 
@@ -441,8 +456,168 @@ export class DonorIntentMonitorAgent extends AutonomousAgent {
       .order("created_at", { ascending: false })
       .limit(MAX_PROSPECTS_PER_RUN);
 
-    if (error) throw new Error(`Failed to load corporate_prospects: ${error.message}`);
-    return (data ?? []) as ProspectRow[];
+    if (error) {
+      return {
+        prospects: [],
+        loadError:
+          `corporate_prospects is unavailable in this environment (${error.message}) - ` +
+          "this table does not exist in production as of 2026-07-20; no prospects to " +
+          "analyze this run. Seed corporate_intent_signals directly (scripts/seed-intent-signals.ts) " +
+          "for test data, or build/apply a migration creating corporate_prospects before relying " +
+          "on live discovery.",
+      };
+    }
+    return { prospects: (data ?? []) as ProspectRow[], loadError: null };
+  }
+
+  /** org_autonomous_config.auto_autoapply_enabled / max_nightly_autoapply_submissions
+   * (migration 092_autoapply_autonomous_orchestrator.sql, src/supabase/migrations/)
+   * are not live in every environment - confirmed absent from production as of
+   * 2026-07-20 (42703 "column does not exist"), consistent with the project's
+   * two-parallel-migration-tracks gap (root supabase/migrations/ vs
+   * src/supabase/migrations/; see project memory
+   * `benavora-two-parallel-migrations-directories`). Degrade to "AutoApply
+   * wiring disabled" instead of failing the run over an unrelated column gap -
+   * once migration 092 is actually applied here, this starts working with no
+   * code change required. */
+  private async loadAutoApplyConfig(): Promise<{
+    enabled: boolean;
+    maxNightly: number;
+    unavailable: boolean;
+  }> {
+    const { data, error } = await this.supabase
+      .from("org_autonomous_config")
+      .select("auto_autoapply_enabled, max_nightly_autoapply_submissions")
+      .eq("org_id", this.orgId)
+      .maybeSingle();
+
+    if (error) {
+      return { enabled: false, maxNightly: 0, unavailable: true };
+    }
+    const row = data as {
+      auto_autoapply_enabled: boolean | null;
+      max_nightly_autoapply_submissions: number | null;
+    } | null;
+    return {
+      enabled: Boolean(row?.auto_autoapply_enabled),
+      maxNightly: row?.max_nightly_autoapply_submissions ?? 50,
+      unavailable: false,
+    };
+  }
+
+  private async countQueuedToday(): Promise<number> {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const { count } = await this.supabase
+      .from("submission_queue")
+      .select("id", { count: "exact", head: true })
+      .eq("organization_id", this.orgId)
+      .gte("created_at", todayStart.toISOString());
+    return count ?? 0;
+  }
+
+  /** A "known portal" for AutoApply queueing means the org already tracks
+   * this company as a funder with a giving_portal_url on file - this agent
+   * never invents a portal URL for a company it only has a free-text
+   * company_name for (corporate_intent_signals has no prospect_id/company_id
+   * FK - see file header). This mirrors the real, already-shipped convention
+   * in worker/autoapply-autonomous-orchestrator.ts's resolveFunderId(), which
+   * only queues when a donation form is already confirmed - the difference
+   * here is this agent never auto-creates a funders row, since an intent
+   * signal alone is not confirmation of a giving portal's existence. */
+  private async findKnownPortalFunder(companyName: string): Promise<string | null> {
+    const { data } = await this.supabase
+      .from("funders")
+      .select("id, giving_portal_url")
+      .eq("organization_id", this.orgId)
+      .ilike("name", companyName)
+      .not("giving_portal_url", "is", null)
+      .limit(1)
+      .maybeSingle();
+    return (data as { id: string } | null)?.id ?? null;
+  }
+
+  /** Same 30-day dedup window as worker/autoapply-autonomous-orchestrator.ts's
+   * ranRecently() - a funder already submitted to recently, or already sitting
+   * in submission_queue, is never re-queued. */
+  private async alreadyQueuedOrSubmitted(funderId: string): Promise<boolean> {
+    const since = subDays(new Date(), 30).toISOString();
+    const { data: recentSubmission } = await this.supabase
+      .from("autoapply_submissions")
+      .select("id")
+      .eq("organization_id", this.orgId)
+      .eq("funder_id", funderId)
+      .gte("created_at", since)
+      .limit(1)
+      .maybeSingle();
+    if (recentSubmission) return true;
+
+    const { data: pendingItem } = await this.supabase
+      .from("submission_queue")
+      .select("id")
+      .eq("organization_id", this.orgId)
+      .eq("funder_id", funderId)
+      .in("status", ["pending", "processing"])
+      .limit(1)
+      .maybeSingle();
+    return Boolean(pendingItem);
+  }
+
+  /** HARD LIMIT: this only ever inserts into submission_queue (status=
+   * 'pending') - it never submits externally. The existing AutoApply human
+   * approval checkpoint (AGENTS_v2.md AG-12 spec) still gates the actual
+   * submission downstream; queueing is not submitting. */
+  private async queueForAutoApply(
+    prospect: ProspectRow,
+    intentScore: number,
+    runId: string,
+    decisions: string[],
+    errors: string[],
+  ): Promise<void> {
+    try {
+      const funderId = await this.findKnownPortalFunder(prospect.legal_name);
+      if (!funderId) return;
+      if (await this.alreadyQueuedOrSubmitted(funderId)) return;
+
+      const { error: insertError } = await this.supabase.from("submission_queue").insert({
+        organization_id: this.orgId,
+        funder_id: funderId,
+        priority: Math.min(100, Math.max(1, 101 - intentScore)),
+        status: "pending",
+        automation_mode: "autonomous",
+      });
+
+      if (insertError) {
+        errors.push(
+          `AutoApply queue insert failed for "${prospect.legal_name}": ${insertError.message}`,
+        );
+        return;
+      }
+
+      decisions.push(
+        await this.logDecision({
+          decisionType: "autoapply_queued",
+          agentRunId: runId,
+          entityType: "funder",
+          entityId: funderId,
+          reasoning:
+            `${prospect.legal_name} intent_score ${intentScore} >= ${HIGH_INTENT_THRESHOLD} and ` +
+            "org has auto_autoapply_enabled; a known giving portal is already on file for this funder.",
+          confidenceScore: intentScore,
+          actionTaken:
+            "Queued for AutoApply (submission_queue, status=pending) - final submission still " +
+            "requires the existing human approval checkpoint (AUTONOMOUS_HARD_LIMITS.NEVER_SUBMIT_EXTERNALLY).",
+          actionPayload: { funder_id: funderId, intent_score: intentScore },
+          requiredHumanReview: true,
+        }),
+      );
+    } catch (err) {
+      errors.push(
+        `AutoApply wiring failed for "${prospect.legal_name}": ${
+          err instanceof Error ? err.message : "unknown error"
+        }`,
+      );
+    }
   }
 
   /** Dedup key is (org_id, company_name, signal_type) within a 60-day
@@ -588,8 +763,21 @@ export class DonorIntentMonitorAgent extends AutonomousAgent {
       const org = await this.loadOrgProfile();
       if (!org) throw new Error(`Could not load organization ${this.orgId}.`);
 
-      const prospects = await this.loadProspects(org);
+      const { prospects, loadError } = await this.loadProspects(org);
       itemsFound = prospects.length;
+      if (loadError) errors.push(loadError);
+
+      const autoApplyConfig = await this.loadAutoApplyConfig();
+      if (autoApplyConfig.unavailable) {
+        errors.push(
+          "AutoApply wiring skipped: org_autonomous_config.auto_autoapply_enabled is not present " +
+            "in this environment (migration 092 not applied here) - queueing will activate automatically " +
+            "once that migration is applied.",
+        );
+      }
+      let autoApplyBudgetRemaining = autoApplyConfig.enabled
+        ? Math.max(0, autoApplyConfig.maxNightly - (await this.countQueuedToday()))
+        : 0;
 
       for (const prospect of prospects) {
         try {
@@ -716,6 +904,16 @@ export class DonorIntentMonitorAgent extends AutonomousAgent {
                 undefined,
                 "warning",
               );
+            }
+
+            // AutoApply wiring: only high-intent signals, only when the org
+            // has opted in, only within the nightly budget, and only when a
+            // known giving portal already exists on file (see
+            // queueForAutoApply / findKnownPortalFunder above).
+            if (isHighIntent && autoApplyConfig.enabled && autoApplyBudgetRemaining > 0) {
+              const beforeCount = decisions.length;
+              await this.queueForAutoApply(prospect, intentScore, runId, decisions, errors);
+              if (decisions.length > beforeCount) autoApplyBudgetRemaining -= 1;
             }
           }
         } catch (err) {
