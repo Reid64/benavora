@@ -79,11 +79,6 @@ const IconArrow = ({ color = "currentColor" }: { color?: string } = {}) => (
     <path d="M3 8h10M9 4l4 4-4 4" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
   </svg>
 );
-const IconStar = () => (
-  <svg width="14" height="14" viewBox="0 0 14 14" fill={B.amber}>
-    <path d="M7 1l1.55 3.13L12 4.63l-2.5 2.44.59 3.43L7 8.9l-3.09 1.6.59-3.43L2 4.63l3.45-.5L7 1z"/>
-  </svg>
-);
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 type Tier = {
@@ -135,8 +130,8 @@ const TIERS: Tier[] = [
     annualTotal: 8604,
     tagline: "For development teams managing serious funding pipelines.",
     seats: "5 users · 1 organization",
-    badge: null,
-    highlight: false,
+    badge: "Most Popular",
+    highlight: true,
     accentColor: B.blue,
     cta: "Start Free Trial",
     ctaNote: "14 days · No credit card required",
@@ -161,8 +156,8 @@ const TIERS: Tier[] = [
     annualTotal: 23964,
     tagline: "For large organizations automating funding operations at scale.",
     seats: "25 users · 1 organization",
-    badge: "Most Capable",
-    highlight: true,
+    badge: null,
+    highlight: false,
     accentColor: B.purple,
     cta: "Contact Sales",
     ctaNote: "Demo call required",
@@ -183,12 +178,12 @@ const TIERS: Tier[] = [
 ];
 
 const FAQS: [string, string][] = [
-  ["What does the setup fee cover?", "Hands-on onboarding: Knowledge Base population with your mission, programs, financials, and board data; document upload and organization; research agent configuration. For Enterprise and above, AutoApply template analysis for your top target funders. Starter is fully self-service with no setup fee."],
-  ["How does AutoApply actually work?", "AutoApply uses browser automation to visit corporate giving portals, analyze their donation request forms using AI, and fill them with your organization's verified profile data. It captures screenshots before and after each submission. Enterprise gets Manual and Batch modes. Consultant gets Full Autonomous — queue hundreds of submissions overnight."],
-  ["What's the difference between grants and AutoApply targets?", "Grant applications are formal legal documents requiring reviewed AI narratives, budgets, and compliance checks — your team always approves before submission. AutoApply handles corporate donation request forms: cash, in-kind, equipment, land, and sponsorships. These are simpler web forms appropriate for autonomous submission."],
-  ["Can I bring my own AI API keys?", "Benavora includes Claude for all generation and analysis. If you want three-model consensus validation (adding OpenAI and Gemini), you provide your own API keys — we configure and test them during setup at no additional charge. You pay those providers directly."],
-  ["Can I switch tiers later?", "Yes — upgrade anytime with immediate effect. Your Knowledge Base, proven narratives, and all historical data carry over. Downgrades take effect at the end of your billing cycle. Setup fees are one-time and non-refundable."],
-  ["Is there a free trial?", "14 days on Starter or Professional, no credit card required. Enterprise and Consultant tiers begin with a demo call so we can configure the platform appropriately before you start."],
+  ["How long does setup take?", "Digital Twin setup takes about 15 minutes. Your first matched opportunities typically appear within 24 hours, once the nightly discovery run completes."],
+  ["Do I need technical skills?", "No. Benavora is designed for nonprofit staff, not developers — every workflow is a guided form, not a config file."],
+  ["Is my data secure?", "Yes. Every organization's data is isolated with Postgres row-level security and encrypted at rest, following SOC 2-aligned practices."],
+  ["Can I cancel anytime?", "Yes. No long-term contracts. Cancel from your billing page anytime and your access continues through the end of the current billing period."],
+  ["Does AutoApply work on all portals?", "AutoApply has dedicated adapters for CyberGrants and Benevity, plus AI-driven form analysis for generic corporate giving portals. New named adapters are added as more portals get mapped."],
+  ["What's in the Intelligence Library?", "113 real awarded grant narratives spanning major NTEE categories, used to ground your AI-generated drafts in language that has actually won funding."],
 ];
 
 const BILLING_OPTIONS: [string, boolean][] = [["Monthly", false], ["Annual — save 20%", true]];
@@ -380,6 +375,32 @@ export default function BenavoraMarketing() {
           </div>
         </section>
 
+        {/* ═══ Social Proof ═══ */}
+        <section style={{ maxWidth: 1100, margin: "0 auto", padding: "0 48px 90px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20 }}>
+            {[
+              { n: 1.97, s: "M+", d: 2, label: "Nonprofits in our IRS BMF database" },
+              { n: 113,  s: "",   d: 0, label: "Awarded grant narratives in the Intelligence Library" },
+              { n: 30,   s: "",   d: 0, label: "Autonomous AI agents working day and night" },
+            ].map((stat, i) => (
+              <div key={i} style={{
+                textAlign: "center", padding: "30px 20px", borderRadius: 14,
+                backgroundColor: B.bgCard, border: `1px solid ${B.borderFaint}`,
+              }}>
+                <div style={{
+                  fontFamily: display, fontSize: 42, fontWeight: 800,
+                  color: B.blue, letterSpacing: "-0.02em", marginBottom: 10,
+                }}>
+                  <Counter target={stat.n} suffix={stat.s} decimals={stat.d} />
+                </div>
+                <p style={{ fontSize: 14, color: "rgba(255,255,255,0.7)", lineHeight: 1.5 }}>
+                  {stat.label}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+
         {/* ═══ Stats — The Problem ═══ */}
         <section style={{
           background: `linear-gradient(180deg, ${B.bg} 0%, ${B.bgCard} 50%, ${B.bg} 100%)`,
@@ -434,49 +455,55 @@ export default function BenavoraMarketing() {
           </div>
         </section>
 
-        {/* ═══ Four Engines ═══ */}
-        <section style={{ maxWidth: 1200, margin: "0 auto", padding: "100px 48px" }}>
+        {/* ═══ Feature Deep-Dive ═══ */}
+        <section style={{ maxWidth: 1280, margin: "0 auto", padding: "100px 48px" }}>
           <div style={{ textAlign: "center", marginBottom: 64 }}>
             <Eyebrow>The Platform</Eyebrow>
             <h2 style={{
               fontFamily: display, fontSize: "clamp(32px, 4vw, 48px)",
               fontWeight: 800, letterSpacing: "-0.02em", lineHeight: 1.15,
             }}>
-              Four engines working in parallel —<br />
+              Six AI systems working in parallel —<br />
               <GradText>day and night.</GradText>
             </h2>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
             {[
               {
-                n: "01", title: "Grant Intelligence Engine",
+                n: "01", title: "AI Grant Discovery",
                 color: B.teal,
-                body: "Continuously monitors Grants.gov, SAM.gov, federal registers, 133K+ foundation profiles, and state portals. Scores every opportunity against your organization's profile and surfaces only the ones worth your time.",
-                tags: ["Eligibility scoring", "Deadline alerts", "Source categorization", "Funder intelligence"],
+                body: "Scans SAM.gov, Grants.gov, land bank and community land trust authorities, and 1.97M+ nonprofit and foundation records every night — scoring each opportunity against your organization before it reaches your inbox.",
               },
               {
-                n: "02", title: "Autonomous Proposal Factory",
+                n: "02", title: "Autonomous Draft Generation",
                 color: B.blue,
-                body: "Generates complete, compliant grant applications from your Knowledge Base of proven narratives, financials, and program data. Every draft learns from your outcomes — wins and losses — and gets sharper over time.",
-                tags: ["AI draft generation", "Budget narratives", "Logic model builder", "Compliance pre-check"],
+                body: "A five-phase pipeline — intelligence gathering, narrative strategy, section drafting, compliance check, confidence scoring — draws on 113 awarded grant narratives to write application-ready drafts.",
               },
               {
-                n: "03", title: "AutoApply Automation",
+                n: "03", title: "AutoApply",
                 color: B.purple,
-                body: "Browser automation that visits corporate giving portals, analyzes their forms with AI, fills them with your verified data, and submits — capturing screenshots at every step. Queue hundreds of submissions to run overnight.",
-                tags: ["Corporate portals", "In-kind & cash requests", "Sponsorships", "Full audit trail"],
+                body: "Playwright-powered browser automation fills and submits corporate giving portal forms — CyberGrants, Benevity, and generic portals — with anti-detection browsing and 2Captcha-backed CAPTCHA solving.",
               },
               {
-                n: "04", title: "Organizational Digital Twin",
+                n: "04", title: "Fundability Intelligence",
                 color: B.amber,
-                body: "A living AI model of your organization — mission, programs, financials, board, impact history. The deeper it knows you, the sharper every draft, eligibility score, funder match, and recommendation becomes.",
-                tags: ["Digital twin", "Relationship intelligence", "Donor discovery", "Funding forecast"],
+                body: "Scores your organization against each opportunity, identifies the specific deficiencies holding your probability down, and auto-fixes what it can — always routed to you for approval first.",
+              },
+              {
+                n: "05", title: "Digital Twin",
+                color: B.green,
+                body: "A complete organizational intelligence profile — mission, programs, financials, board, proven narratives — that every other agent reads first so nothing it generates is generic.",
+              },
+              {
+                n: "06", title: "Strategic Advisor",
+                color: B.red,
+                body: "Reads the output of every other agent in the roster and surfaces one prioritized list of proactive recommendations — the things you should be doing that you didn't think to ask about.",
               },
             ].map((item, i) => (
               <div key={i} className="card-hover" style={{
                 backgroundColor: B.bgCard,
-                borderRadius: 16, padding: "44px 40px",
+                borderRadius: 16, padding: "36px 32px",
                 border: `1px solid ${B.borderFaint}`,
                 position: "relative", overflow: "hidden",
               }}>
@@ -486,31 +513,65 @@ export default function BenavoraMarketing() {
                 }} />
                 <div style={{
                   display: "inline-flex", alignItems: "center", justifyContent: "center",
-                  width: 40, height: 40, borderRadius: 10,
+                  width: 36, height: 36, borderRadius: 9,
                   backgroundColor: `${item.color}18`,
                   border: `1px solid ${item.color}30`,
-                  fontFamily: display, fontSize: 14, fontWeight: 700, color: item.color,
-                  marginBottom: 20,
+                  fontFamily: display, fontSize: 13, fontWeight: 700, color: item.color,
+                  marginBottom: 18,
                 }}>{item.n}</div>
                 <h3 style={{
-                  fontFamily: display, fontSize: 22, fontWeight: 700,
-                  color: B.textPrimary, marginBottom: 14, lineHeight: 1.3,
+                  fontFamily: display, fontSize: 19, fontWeight: 700,
+                  color: B.textPrimary, marginBottom: 12, lineHeight: 1.3,
                 }}>{item.title}</h3>
-                <p style={{ fontSize: 15, lineHeight: 1.7, color: B.textSecond, marginBottom: 24 }}>
+                <p style={{ fontSize: 14, lineHeight: 1.65, color: B.textSecond }}>
                   {item.body}
                 </p>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                  {item.tags.map(t => (
-                    <span key={t} style={{
-                      fontSize: 12, fontWeight: 600, color: item.color,
-                      backgroundColor: `${item.color}12`,
-                      border: `1px solid ${item.color}25`,
-                      padding: "4px 10px", borderRadius: 6,
-                    }}>{t}</span>
-                  ))}
-                </div>
               </div>
             ))}
+          </div>
+        </section>
+
+        {/* ═══ How It Works ═══ */}
+        <section style={{
+          backgroundColor: B.bgCard,
+          borderTop: `1px solid ${B.borderFaint}`,
+          borderBottom: `1px solid ${B.borderFaint}`,
+          padding: "90px 48px",
+        }}>
+          <div style={{ maxWidth: 1000, margin: "0 auto" }}>
+            <div style={{ textAlign: "center", marginBottom: 64 }}>
+              <Eyebrow>How It Works</Eyebrow>
+              <h2 style={{
+                fontFamily: display, fontSize: "clamp(30px, 4vw, 46px)",
+                fontWeight: 800, letterSpacing: "-0.02em",
+              }}>
+                From setup to submission in <GradText>three steps.</GradText>
+              </h2>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 24 }}>
+              {[
+                { n: "1", title: "Complete your Digital Twin", body: "Answer guided questions about your mission, programs, financials, and board. Takes about 5 minutes.", color: B.teal },
+                { n: "2", title: "Agents discover & score overnight", body: "Autonomous agents scan every source, score each opportunity against your profile, and queue the strongest matches while you sleep.", color: B.blue },
+                { n: "3", title: "Review and submit with one click", body: "Wake up to AI-drafted applications ready for review. Approve, edit, or submit — you're always in control of what goes out.", color: B.purple },
+              ].map((step, i) => (
+                <div key={i} style={{ textAlign: "center" }}>
+                  <div style={{
+                    width: 56, height: 56, borderRadius: "50%",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    margin: "0 auto 24px",
+                    background: `linear-gradient(135deg, ${step.color}25, ${step.color}10)`,
+                    border: `1.5px solid ${step.color}50`,
+                    fontFamily: display, fontSize: 22, fontWeight: 800, color: step.color,
+                  }}>{step.n}</div>
+                  <h3 style={{ fontFamily: display, fontSize: 18, fontWeight: 700, marginBottom: 10, color: B.textPrimary }}>
+                    {step.title}
+                  </h3>
+                  <p style={{ fontSize: 14, lineHeight: 1.65, color: B.textSecond, maxWidth: 280, margin: "0 auto" }}>
+                    {step.body}
+                  </p>
+                </div>
+              ))}
+            </div>
           </div>
         </section>
 
@@ -775,7 +836,7 @@ export default function BenavoraMarketing() {
           </div>
         </section>
 
-        {/* ═══ Testimonials ═══ */}
+        {/* ═══ Outcomes ═══ */}
         <section style={{
           backgroundColor: B.bgCard,
           borderTop: `1px solid ${B.borderFaint}`,
@@ -784,18 +845,21 @@ export default function BenavoraMarketing() {
         }}>
           <div style={{ maxWidth: 1160, margin: "0 auto" }}>
             <div style={{ textAlign: "center", marginBottom: 48 }}>
-              <div style={{ display: "flex", justifyContent: "center", gap: 2, marginBottom: 12 }}>
-                {[...Array(5)].map((_, i) => <IconStar key={i} />)}
-              </div>
-              <p style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: B.textMuted }}>
-                What development directors say
+              <p style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: B.textMuted, marginBottom: 12 }}>
+                Illustrative outcomes
               </p>
+              <h2 style={{
+                fontFamily: display, fontSize: "clamp(28px, 3.5vw, 40px)",
+                fontWeight: 800, letterSpacing: "-0.02em",
+              }}>
+                Outcomes <GradText>organizations like yours achieve.</GradText>
+              </h2>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
               {[
-                { q: "We submitted 43 corporate donation requests in one week. Previously that would have consumed my entire quarter.", name: "Executive Director", org: "Housing nonprofit, Texas", color: B.teal },
-                { q: "The eligibility scoring alone saved us from two weeks on a grant we had no shot at. That's measurable, documented ROI on day one.", name: "Development Director", org: "Community foundation, Ohio", color: B.blue },
-                { q: "Our grant writer was spending 60% of her time on research. Now she focuses entirely on relationship strategy and we're submitting 4x as many proposals.", name: "Chief Operating Officer", org: "Youth services org, Georgia", color: B.purple },
+                { stat: "3x", body: "Organizations using AI grant discovery find 3x more matching opportunities than manual search alone.", color: B.teal },
+                { stat: "40 → 4 hrs", body: "Automated draft generation reduces average application time from roughly 40 hours to about 4.", color: B.blue },
+                { stat: "+28 pts", body: "Nonprofits with a complete Digital Twin score an average of 28 points higher on fundability.", color: B.purple },
               ].map((t, i) => (
                 <div key={i} className="card-hover" style={{
                   backgroundColor: B.bgRaised, borderRadius: 14, padding: "32px 28px",
@@ -806,13 +870,16 @@ export default function BenavoraMarketing() {
                     position: "absolute", top: 0, left: 0, right: 0, height: 2,
                     background: `linear-gradient(90deg, ${t.color}, transparent)`,
                   }} />
-                  <div style={{ fontFamily: display, fontSize: 40, color: t.color, lineHeight: 1, marginBottom: 16, opacity: 0.6 }}>"</div>
-                  <p style={{ fontSize: 15, lineHeight: 1.7, color: B.textPrimary, marginBottom: 24 }}>{t.q}</p>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: B.textSecond }}>{t.name}</div>
-                  <div style={{ fontSize: 12, color: B.textMuted, marginTop: 2 }}>{t.org}</div>
+                  <div style={{ fontFamily: display, fontSize: 36, fontWeight: 800, color: t.color, lineHeight: 1, marginBottom: 16 }}>
+                    {t.stat}
+                  </div>
+                  <p style={{ fontSize: 14.5, lineHeight: 1.7, color: B.textPrimary }}>{t.body}</p>
                 </div>
               ))}
             </div>
+            <p style={{ textAlign: "center", marginTop: 32, fontSize: 12.5, color: B.textMuted }}>
+              Illustrative projections based on platform capabilities, not guaranteed results for any individual organization.
+            </p>
           </div>
         </section>
 
