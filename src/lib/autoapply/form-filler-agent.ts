@@ -8,6 +8,10 @@ import { DocumentAttacher } from './document-attacher.js';
 import { DocumentVault } from './document-vault.js';
 import type { OrgDocument } from './document-vault.js';
 import { parseConfirmationPage } from './confirmation-parser.js';
+import { CaptchaSolver } from './captcha-solver.js';
+import type { CaptchaDetection } from './captcha-solver.js';
+import { ScreenshotManager } from './screenshot-manager.js';
+import { WebhookNotifier } from './webhook-notifier.js';
 
 export interface RequestProfile {
   request_type: string;
@@ -42,6 +46,8 @@ export interface FillResult {
   attachedDocuments?: string[];
   unmatchedUploadFields?: string[];
   sessionTimedOut?: boolean;
+  captchaEncountered: boolean;
+  captchaSolved: boolean;
 }
 
 type FieldType =
@@ -91,12 +97,14 @@ export class FormFillerAgent {
 
   async fillAndSubmit(options: FillOptions): Promise<FillResult> {
     const { page, template, organizationId, funderId, requestProfile, sessionId } = options;
-    void funderId;
 
     const advancedHandler = new AdvancedFieldHandler();
     const multiPageHandler = new MultiPageFormHandler();
     const vault = new DocumentVault(this.supabase);
     const attacher = new DocumentAttacher(advancedHandler);
+    const captchaSolver = new CaptchaSolver();
+    const screenshotManager = new ScreenshotManager();
+    const webhookNotifier = new WebhookNotifier();
 
     const fillData = await this.buildFillData(organizationId, requestProfile);
     const requestDescription = fillData['request.description'] ?? null;
@@ -108,6 +116,89 @@ export class FormFillerAgent {
     const allUnmatchedUploadFields: string[] = [];
     let pagesCompleted = 0;
     let sessionTimedOut = false;
+    let captchaEncountered = false;
+    let captchaSolved = false;
+    let captchaStepNumber = 0;
+
+    // Detect/solve/inject any CAPTCHA on the current page before AdvancedFieldHandler
+    // starts filling fields. Runs on initial page load and after every multi-page
+    // navigation. Never throws and never blocks the fill — a missing 2captcha key or
+    // a failed solve just leaves the CAPTCHA unsolved and submission proceeds.
+    const checkCaptcha = async (currentPage: Page): Promise<void> => {
+      const detection = await captchaSolver
+        .detectCaptcha(currentPage)
+        .catch((): CaptchaDetection | null => null);
+      if (detection === null || detection.type === null) return;
+
+      captchaEncountered = true;
+      const captchaType = detection.type;
+      const pageUrl = currentPage.url();
+      console.log(`[CaptchaSolver] ${captchaType} detected on ${pageUrl}`);
+
+      const token = await captchaSolver
+        .solveCaptcha(detection, currentPage)
+        .catch((): string | null => null);
+
+      let solved = false;
+      if (token === null) {
+        console.log('[CaptchaSolver] WARN: solve failed — continuing without token');
+      } else {
+        await captchaSolver.injectSolution(currentPage, detection, token).catch(() => null);
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        solved = true;
+        captchaSolved = true;
+        console.log(`[CaptchaSolver] ${captchaType} solved and injected successfully`);
+      }
+
+      // Audit trail: one automation_steps row per CAPTCHA encounter. Failure here
+      // must never block the fill flow.
+      try {
+        if (sessionId) {
+          captchaStepNumber += 1;
+          await this.supabase.from('automation_steps').insert({
+            session_id: sessionId,
+            step_number: 9000 + captchaStepNumber,
+            action: 'captcha_detected',
+            description: `${captchaType} captcha on ${pageUrl}`,
+            status: solved ? 'completed' : 'failed',
+            input_data: { captcha_type: captchaType, page_url: pageUrl },
+            output_data: { solved },
+          });
+        }
+      } catch {
+        // Audit failure must never block the fill flow
+      }
+
+      // Best-effort screenshot of the CAPTCHA state. Failure must never block the fill flow.
+      try {
+        await screenshotManager.captureAndUpload(
+          currentPage,
+          `captcha-${solved ? 'solved' : 'detected'}-${Date.now()}`,
+          { orgId: organizationId, funderId, submissionId: null, supabase: this.supabase },
+        );
+      } catch {
+        // Screenshot failure must never block the fill flow
+      }
+
+      // Notify the operator when a CAPTCHA could not be solved — human intervention
+      // may be needed. alerting.ts's checkAlerts() is a periodic system-wide threshold
+      // scan (worker offline / success rate / cost / tenant anomaly) with no per-event
+      // dispatch and no caller anywhere in this codebase; WebhookNotifier is the real,
+      // already-wired operator-notification path this same pipeline uses for
+      // review_needed/submission_failed events, so a CAPTCHA failure is routed there too.
+      if (!solved) {
+        try {
+          await webhookNotifier.notify({
+            orgId: organizationId,
+            event: 'captcha_solve_failed',
+            data: { funderId, captchaType, pageUrl },
+            supabase: this.supabase,
+          });
+        } catch {
+          // Alerting failure must never block the fill flow
+        }
+      }
+    };
 
     const multiPageInfo = await multiPageHandler
       .detectMultiPage(page)
@@ -132,6 +223,8 @@ export class FormFillerAgent {
           if (!recovered) break;
           sessionTimedOut = false;
         }
+
+        await checkCaptcha(page);
 
         const pageResult = await this.fillPageFields(
           page,
@@ -180,6 +273,8 @@ export class FormFillerAgent {
       }
 
       if (!sessionTimedOut) {
+        await checkCaptcha(page);
+
         const pageResult = await this.fillPageFields(
           page,
           fieldMapping,
@@ -229,6 +324,8 @@ export class FormFillerAgent {
       attachedDocuments: allAttachedDocs,
       unmatchedUploadFields: allUnmatchedUploadFields,
       sessionTimedOut,
+      captchaEncountered,
+      captchaSolved,
     };
   }
 

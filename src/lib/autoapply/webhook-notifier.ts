@@ -6,7 +6,8 @@ export type WebhookEvent =
   | 'submission_failed'
   | 'queue_populated'
   | 'review_needed'
-  | 'agreement_received';
+  | 'agreement_received'
+  | 'captcha_solve_failed';
 
 interface WebhookConfigRow {
   id: string;
@@ -47,6 +48,12 @@ function buildSlackPayload(
     const funderName = typeof data['funderName'] === 'string' ? data['funderName'] : 'Unknown funder';
     lines.push(`*AutoApply: Agreement received*`);
     lines.push(`Funder: ${funderName}`);
+  } else if (event === 'captcha_solve_failed') {
+    const funderId = typeof data['funderId'] === 'string' ? data['funderId'] : 'unknown funder';
+    const captchaType = typeof data['captchaType'] === 'string' ? data['captchaType'] : 'captcha';
+    const pageUrl = typeof data['pageUrl'] === 'string' ? data['pageUrl'] : '';
+    lines.push(`*AutoApply: CAPTCHA solve failed — human intervention may be needed*`);
+    lines.push(`Funder: ${funderId} — ${captchaType}${pageUrl ? ` on ${pageUrl}` : ''}`);
   } else {
     lines.push(`*AutoApply: ${event}*`);
   }
