@@ -4,8 +4,16 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkPermission } from "@/lib/auth/role-gate";
 import { formatDate, humanizeEnum } from "@/lib/utils/formatters";
-import { TIER_PLANS, type SubscriptionTier } from "@/lib/utils/constants";
-import { OrgDetailTabs, type OrgUserRow, type OrgOpportunityRow, type OrgApplicationRow } from "./OrgDetailTabs";
+import { TIER_PLANS, NARRATIVE_CATEGORIES, type SubscriptionTier } from "@/lib/utils/constants";
+import {
+  OrgDetailTabs,
+  type OrgUserRow,
+  type OrgOpportunityRow,
+  type OrgApplicationRow,
+  type OrgAgentRunRow,
+  type OrgStrategicRecRow,
+  type OrgAutonomousConfig,
+} from "./OrgDetailTabs";
 
 // Platform admin org detail. Owner-only, same gate as the parent /admin
 // dashboard (BLUEPRINT §3.2). Unlike org-scoped app pages, every query here
@@ -19,6 +27,7 @@ type OrgRow = {
   name: string;
   subscription_tier: string | null;
   stripe_customer_id: string | null;
+  onboarding_completed: boolean | null;
   created_at: string;
 };
 
@@ -61,7 +70,7 @@ export default async function OrgDetailPage({
 
   const orgRes = await admin
     .from("organizations")
-    .select("id, name, subscription_tier, stripe_customer_id, created_at")
+    .select("id, name, subscription_tier, stripe_customer_id, onboarding_completed, created_at")
     .eq("id", orgId)
     .single();
 
@@ -71,7 +80,24 @@ export default async function OrgDetailPage({
 
   const org = orgRes.data as OrgRow;
 
-  const [subRes, profilesRes, opportunitiesRes, applicationsRes] = await Promise.all([
+  const AUTONOMOUS_CONFIG_SELECT =
+    "auto_research_enabled, auto_score_enabled, auto_draft_enabled, " +
+    "auto_draft_threshold, auto_reputation_enabled, auto_relationship_enabled, " +
+    "auto_deadline_prediction_enabled, auto_followup_enabled, " +
+    "auto_autoapply_enabled, max_nightly_autoapply_submissions, " +
+    "notify_on_auto_draft, notify_on_high_score, notify_digest_time, " +
+    "max_auto_drafts_per_night";
+
+  const [
+    subRes,
+    profilesRes,
+    opportunitiesRes,
+    applicationsRes,
+    kbRes,
+    agentRunsRes,
+    strategicRecsRes,
+    autonomousConfigRes,
+  ] = await Promise.all([
     admin
       .from("subscriptions")
       .select("status, stripe_subscription_id, current_period_end")
@@ -92,11 +118,44 @@ export default async function OrgDetailPage({
       .select("id, opportunity_id, stage, requested_amount, submitted_at, created_at")
       .eq("organization_id", orgId)
       .order("created_at", { ascending: false }),
+    admin.from("knowledge_base").select("category").eq("organization_id", orgId),
+    admin
+      .from("agent_runs")
+      .select(
+        "id, agent_type, status, items_found, items_processed, error_message, duration_ms, trigger_source, created_at, completed_at",
+      )
+      .eq("organization_id", orgId)
+      .order("created_at", { ascending: false })
+      .limit(100),
+    admin
+      .from("strategic_recommendations")
+      .select(
+        "id, recommendation_category, title, recommendation, urgency, confidence_score, status, generated_at",
+      )
+      .eq("org_id", orgId)
+      .order("generated_at", { ascending: false })
+      .limit(50),
+    admin
+      .from("org_autonomous_config")
+      .select(AUTONOMOUS_CONFIG_SELECT)
+      .eq("org_id", orgId)
+      .maybeSingle(),
   ]);
 
   const subscription = (subRes.data ?? null) as SubscriptionRow | null;
   const users = (profilesRes.data ?? []) as OrgUserRow[];
   const opportunities = (opportunitiesRes.data ?? []) as OrgOpportunityRow[];
+  const agentRuns = (agentRunsRes.data ?? []) as OrgAgentRunRow[];
+  const strategicRecommendations = (strategicRecsRes.data ?? []) as OrgStrategicRecRow[];
+  const autonomousConfig = (autonomousConfigRes.data ?? null) as OrgAutonomousConfig | null;
+
+  const kbCategories = new Set(
+    ((kbRes.data ?? []) as { category: string }[]).map((row) => row.category),
+  );
+  const kbCompletenessPercent = Math.round(
+    (kbCategories.size / NARRATIVE_CATEGORIES.length) * 100,
+  );
+
   const applicationRows = (applicationsRes.data ?? []) as Array<{
     id: string;
     opportunity_id: string;
@@ -179,6 +238,15 @@ export default async function OrgDetailPage({
           planName: plan.name,
           monthlyPrice: plan.monthlyPrice,
         }}
+        agentRuns={agentRuns}
+        strategicRecommendations={strategicRecommendations}
+        autonomousConfig={autonomousConfig}
+        kbCompleteness={{
+          percent: kbCompletenessPercent,
+          categoriesPresent: kbCategories.size,
+          categoriesTotal: NARRATIVE_CATEGORIES.length,
+        }}
+        onboardingCompleted={org.onboarding_completed ?? false}
       />
     </div>
   );

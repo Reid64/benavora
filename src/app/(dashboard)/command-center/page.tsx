@@ -167,6 +167,8 @@ function ProgressBar({
 
 const quickActions = [
   { label: "Platform Admin", href: "/admin" },
+  { label: "Organizations", href: "/admin/orgs" },
+  { label: "System Health", href: "/admin/system" },
   { label: "System Monitor", href: "/admin/monitor" },
   { label: "Audit Log", href: "/admin/audit-log" },
   { label: "Sales Outreach", href: "/admin/sales-outreach" },

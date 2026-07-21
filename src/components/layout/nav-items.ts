@@ -4,12 +4,14 @@ import {
   BookOpen,
   Bot,
   Brain,
+  Building,
   Building2,
   Calendar,
   DollarSign,
   FileBarChart2,
   FolderOpen,
   GraduationCap,
+  HeartPulse,
   KanbanSquare,
   Library,
   Lightbulb,
@@ -139,6 +141,8 @@ export const SETTINGS_NAV_ITEM: NavItem = {
 /** Platform admin section — shown only to owner/admin roles. */
 export const PLATFORM_NAV_ITEMS: NavItem[] = [
   { label: "Command Center", href: "/command-center", icon: Radar },
+  { label: "Organizations", href: "/admin/orgs", icon: Building },
+  { label: "System Health", href: "/admin/system", icon: HeartPulse },
   { label: "Import", href: "/import", icon: Upload },
   { label: "Sales Outreach", href: "/admin/sales-outreach", icon: Megaphone },
   { label: "AutoApply Ops", href: "/admin/autoapply-ops", icon: Bot },
