@@ -277,6 +277,7 @@ export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarPro
                     <Link
                       href={hrefs[href] ?? href}
                       onClick={onClose}
+                      id={href === "/intelligence-library" ? "tour-nav-intelligence-library" : undefined}
                       aria-current={active ? "page" : undefined}
                       className={active ? NAV_ITEM_ACTIVE : NAV_ITEM_INACTIVE}
                       style={active ? NAV_ITEM_ACTIVE_STYLE : undefined}
@@ -386,6 +387,7 @@ export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarPro
                 <Link
                   href={hrefs[href] ?? href}
                   onClick={onClose}
+                  id="tour-nav-settings"
                   aria-current={active ? "page" : undefined}
                   className={active ? NAV_ITEM_ACTIVE : NAV_ITEM_INACTIVE}
                   style={active ? NAV_ITEM_ACTIVE_STYLE : undefined}

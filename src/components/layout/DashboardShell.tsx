@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { Header } from "@/components/layout/Header";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { OnboardingBanner, type OnboardingProgressSummary } from "@/components/layout/OnboardingBanner";
+import { PlatformTour } from "@/components/onboarding/PlatformTour";
 import { useSectionLocationTracker } from "@/lib/navigation/section-memory";
 import type { Enums } from "@/types/database";
 
@@ -52,6 +53,7 @@ export function DashboardShell({
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
+      <PlatformTour />
       <Sidebar
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}

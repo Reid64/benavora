@@ -166,6 +166,7 @@ export function FlightPathHUD({ stageCounts, activeStage }: FlightPathHUDProps) 
 
   return (
     <div
+      id="tour-flightpath-hud"
       style={{
         display: "flex",
         flexWrap: "wrap",

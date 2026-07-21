@@ -992,6 +992,11 @@ function OnboardingPageInner() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [alreadyCompleted, setAlreadyCompleted] = useState(false);
+  // True while the post-onboarding automations (Digital Twin auto-populate,
+  // initial opportunity discovery queue, welcome email) run server-side —
+  // see /api/onboarding/complete-setup. Shown between "Save & Continue" on
+  // the plan step and the redirect to the dashboard.
+  const [settingUp, setSettingUp] = useState(false);
 
   // Step state
   const [currentStep, setCurrentStep] = useState(1);
@@ -1362,19 +1367,35 @@ function OnboardingPageInner() {
     }
   }
 
+  // Fires the post-onboarding automations (Digital Twin auto-populate,
+  // initial opportunity discovery queue, welcome email) and waits for them
+  // to finish so the "Setting up your AI..." screen reflects real work, not
+  // a fixed timer. Best-effort: a failure here (e.g. a slow/failed Claude
+  // web search call) must never strand the user off the dashboard.
+  async function runPostOnboardingSetup() {
+    try {
+      await fetch("/api/onboarding/complete-setup", { method: "POST" });
+    } catch {
+      // Non-fatal — see comment above.
+    }
+  }
+
   async function handleChoosePlan(tier: SubscriptionTier) {
     setSaving(true);
     setSaveError(null);
     try {
       // Complete onboarding, then go to billing to handle Stripe checkout
       await saveStep(7, {}, true);
+      setSettingUp(true);
+      await runPostOnboardingSetup();
       if (tier === "free") {
-        router.push("/dashboard");
+        router.push("/dashboard?tour=true");
       } else {
         router.push(`/billing?checkout=${tier}`);
       }
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : "An error occurred.");
+      setSettingUp(false);
     } finally {
       setSaving(false);
     }
@@ -1385,9 +1406,12 @@ function OnboardingPageInner() {
     setSaveError(null);
     try {
       await saveStep(7, {}, true);
-      router.push("/dashboard");
+      setSettingUp(true);
+      await runPostOnboardingSetup();
+      router.push("/dashboard?tour=true");
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : "An error occurred.");
+      setSettingUp(false);
     } finally {
       setSaving(false);
     }
@@ -1422,6 +1446,21 @@ function OnboardingPageInner() {
       <div className="max-w-2xl mx-auto mt-12 text-center">
         <p className="text-red-600 mb-4">{loadError}</p>
         <Button onClick={() => void load()}>Retry</Button>
+      </div>
+    );
+  }
+
+  if (settingUp) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="flex flex-col items-center gap-4 text-center max-w-sm">
+          <LoadingSpinner />
+          <h2 className="text-lg font-semibold text-slate-900">Setting up your AI...</h2>
+          <p className="text-sm text-slate-500">
+            We&apos;re populating your organization&apos;s AI profile, queuing your first
+            opportunity matches, and sending your welcome email. This only takes a moment.
+          </p>
+        </div>
       </div>
     );
   }

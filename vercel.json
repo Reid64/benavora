@@ -12,6 +12,9 @@
     "src/app/api/reports/simulate/**/*.ts": {
       "maxDuration": 300
     },
+    "src/app/api/onboarding/complete-setup/**/*.ts": {
+      "maxDuration": 300
+    },
     "src/app/api/cron/**/*.ts": {
       "maxDuration": 120
     }

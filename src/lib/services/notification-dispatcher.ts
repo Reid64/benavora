@@ -24,7 +24,8 @@ export type NotificationEventType =
   | "donor_intent_signal"
   | "strategic_recommendation"
   | "community_need_signal"
-  | "improvement_proposal";
+  | "improvement_proposal"
+  | "onboarding_welcome";
 
 export type DigestMode = "per_event" | "hourly_digest" | "daily_summary";
 
@@ -54,6 +55,7 @@ export const NOTIFICATION_EVENT_TYPES: {
   { value: "strategic_recommendation", label: "Strategic Recommendation" },
   { value: "community_need_signal", label: "Community Need Signal" },
   { value: "improvement_proposal", label: "Agent Improvement Proposal" },
+  { value: "onboarding_welcome", label: "Welcome Email" },
 ];
 
 export interface DispatchOptions {
@@ -70,6 +72,8 @@ export interface DispatchOptions {
   digest_mode?: DigestMode;
   /** Recipient email. Required for email delivery; omit for in-app only. */
   email_to?: string;
+  /** Extra call-to-action links appended to the email body, beyond the default "View in Benavora" link. */
+  extra_links?: { label: string; href: string }[];
 }
 
 export interface DispatchResult {
@@ -94,6 +98,7 @@ export async function dispatchNotification(
     related_entity,
     digest_mode = "per_event",
     email_to,
+    extra_links,
   } = opts;
 
   const supabase = createAdminClient();
@@ -131,6 +136,10 @@ export async function dispatchNotification(
         subject: title,
         html: [
           `<p style="font-family:sans-serif">${message ?? title}</p>`,
+          ...(extra_links ?? []).map(
+            (l) =>
+              `<p style="font-family:sans-serif"><a href="${l.href}">${l.label} →</a></p>`,
+          ),
           `<p style="font-family:sans-serif">`,
           `<a href="${appUrl}/notifications">View in Benavora →</a>`,
           `</p>`,

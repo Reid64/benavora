@@ -195,10 +195,19 @@ export function Header({ userEmail, orgName, orgLogoUrl, onMenuClick }: HeaderPr
                     : tab.href === "/autoapply"
                       ? autoapplyQueuedCount
                       : 0;
+              const tourId =
+                tab.href === "/opportunities"
+                  ? "tour-tab-opportunities"
+                  : tab.href === "/autoapply"
+                    ? "tour-tab-autoapply"
+                    : tab.href === DRAFT_GENERATOR_HREF
+                      ? "tour-tab-draft-generator"
+                      : undefined;
               return (
                 <Link
                   key={tab.href}
                   href={tab.href}
+                  id={tourId}
                   aria-current={active ? "page" : undefined}
                   className={active ? NAV_LINK_ACTIVE : NAV_LINK_INACTIVE}
                   style={{ position: "relative" }}
