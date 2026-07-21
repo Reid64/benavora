@@ -3062,6 +3062,14 @@ export interface Database {
         Relationships: [];
       };
       // Grant Intelligence Library — global shared tables, no RLS, no organization_id.
+      // NOTE: the 21 columns below funder_type/created_at (funder_category
+      // through full_text_search_vector) come from migration 106
+      // (106_intelligence_library_schema_upgrade.sql), which has NOT been
+      // confirmed applied to production as of 2026-07-20 -- see that
+      // migration's header. Declared here ahead of confirmed-live so the
+      // backfill script (scripts/backfill-intelligence-library-columns.ts)
+      // and future callers type-check; do not assume these columns are
+      // queryable until the migration is verified live.
       intelligence_funded_proposals: {
         Row: {
           id: string;
@@ -3077,6 +3085,26 @@ export interface Database {
           reviewer_comments: string | null;
           metadata: Json | null;
           created_at: string;
+          funder_category: string | null;
+          ntee_major: string | null;
+          ntee_code: string | null;
+          success_factors: Json | null;
+          keywords: Json | null;
+          persuasive_elements: Json | null;
+          winning_phrases: Json | null;
+          theory_of_change: string | null;
+          evaluation_approach: string | null;
+          budget_structure: Json | null;
+          geographic_scope: string | null;
+          org_size_category: string | null;
+          submission_timing: Json | null;
+          application_word_count: number | null;
+          sections_included: Json | null;
+          ai_quality_score: number | null;
+          is_verified: boolean | null;
+          source_type: string | null;
+          import_batch: string | null;
+          full_text_search_vector: unknown | null;
         };
         Insert: {
           id?: string;
@@ -3092,6 +3120,26 @@ export interface Database {
           reviewer_comments?: string | null;
           metadata?: Json | null;
           created_at?: string;
+          funder_category?: string | null;
+          ntee_major?: string | null;
+          ntee_code?: string | null;
+          success_factors?: Json | null;
+          keywords?: Json | null;
+          persuasive_elements?: Json | null;
+          winning_phrases?: Json | null;
+          theory_of_change?: string | null;
+          evaluation_approach?: string | null;
+          budget_structure?: Json | null;
+          geographic_scope?: string | null;
+          org_size_category?: string | null;
+          submission_timing?: Json | null;
+          application_word_count?: number | null;
+          sections_included?: Json | null;
+          ai_quality_score?: number | null;
+          is_verified?: boolean | null;
+          source_type?: string | null;
+          import_batch?: string | null;
+          full_text_search_vector?: unknown | null;
         };
         Update: {
           id?: string;
@@ -3107,6 +3155,26 @@ export interface Database {
           reviewer_comments?: string | null;
           metadata?: Json | null;
           created_at?: string;
+          funder_category?: string | null;
+          ntee_major?: string | null;
+          ntee_code?: string | null;
+          success_factors?: Json | null;
+          keywords?: Json | null;
+          persuasive_elements?: Json | null;
+          winning_phrases?: Json | null;
+          theory_of_change?: string | null;
+          evaluation_approach?: string | null;
+          budget_structure?: Json | null;
+          geographic_scope?: string | null;
+          org_size_category?: string | null;
+          submission_timing?: Json | null;
+          application_word_count?: number | null;
+          sections_included?: Json | null;
+          ai_quality_score?: number | null;
+          is_verified?: boolean | null;
+          source_type?: string | null;
+          import_batch?: string | null;
+          full_text_search_vector?: unknown | null;
         };
         Relationships: [];
       };

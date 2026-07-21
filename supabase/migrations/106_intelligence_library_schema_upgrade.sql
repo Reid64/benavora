@@ -1,0 +1,73 @@
+-- 106_intelligence_library_schema_upgrade.sql
+--
+-- Adds full-text search and structured intelligence columns to
+-- intelligence_funded_proposals (supabase/migrations/048_grant_intelligence.sql).
+-- Prior to this migration, ntee_code/success_factors/keywords were carried
+-- inside the metadata jsonb column only (see scripts/seed-intelligence-library.ts
+-- header) because DDL against live prod (project vbjplpquqxxfbpazyalt) was
+-- unavailable in the sessions that built the seed/API layer -- Management API
+-- PAT returns 401, no working MCP connector access. This migration file has
+-- NOT been confirmed applied to production. Apply manually via the Supabase
+-- SQL Editor: https://supabase.com/dashboard/project/vbjplpquqxxfbpazyalt/sql/new
+--
+-- funder_type and source_url already exist on this table (048) -- the
+-- IF NOT EXISTS guards below are no-ops for those two.
+--
+-- DEVIATION FROM TASK SPEC: the task-provided trigger/backfill SQL referenced
+-- NEW.title and NEW.narrative_excerpt, neither of which exists on this table
+-- (confirmed against 048_grant_intelligence.sql and src/types/database.ts).
+-- The title-equivalent column is grant_program; there is no separate
+-- narrative_excerpt column (full_text already carries the narrative). Applying
+-- the trigger as originally given would fail at the first INSERT/UPDATE with
+-- "record NEW has no field title". Corrected below to reference grant_program
+-- and drop the nonexistent narrative_excerpt term.
+
+ALTER TABLE intelligence_funded_proposals
+  ADD COLUMN IF NOT EXISTS funder_type text DEFAULT 'foundation',
+  ADD COLUMN IF NOT EXISTS funder_category text,
+  ADD COLUMN IF NOT EXISTS ntee_major text,
+  ADD COLUMN IF NOT EXISTS ntee_code text,
+  ADD COLUMN IF NOT EXISTS success_factors jsonb DEFAULT '[]',
+  ADD COLUMN IF NOT EXISTS keywords jsonb DEFAULT '[]',
+  ADD COLUMN IF NOT EXISTS persuasive_elements jsonb DEFAULT '[]',
+  ADD COLUMN IF NOT EXISTS winning_phrases jsonb DEFAULT '[]',
+  ADD COLUMN IF NOT EXISTS theory_of_change text,
+  ADD COLUMN IF NOT EXISTS evaluation_approach text,
+  ADD COLUMN IF NOT EXISTS budget_structure jsonb DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS geographic_scope text DEFAULT 'local',
+  ADD COLUMN IF NOT EXISTS org_size_category text,
+  ADD COLUMN IF NOT EXISTS submission_timing jsonb DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS application_word_count integer,
+  ADD COLUMN IF NOT EXISTS sections_included jsonb DEFAULT '[]',
+  ADD COLUMN IF NOT EXISTS ai_quality_score integer,
+  ADD COLUMN IF NOT EXISTS is_verified boolean DEFAULT false,
+  ADD COLUMN IF NOT EXISTS source_url text,
+  ADD COLUMN IF NOT EXISTS source_type text DEFAULT 'manual',
+  ADD COLUMN IF NOT EXISTS import_batch text,
+  ADD COLUMN IF NOT EXISTS full_text_search_vector tsvector;
+
+CREATE INDEX IF NOT EXISTS idx_funded_proposals_fts ON intelligence_funded_proposals USING gin(full_text_search_vector);
+CREATE INDEX IF NOT EXISTS idx_funded_proposals_ntee ON intelligence_funded_proposals(ntee_major, ntee_code);
+CREATE INDEX IF NOT EXISTS idx_funded_proposals_funder_type ON intelligence_funded_proposals(funder_type);
+CREATE INDEX IF NOT EXISTS idx_funded_proposals_amount ON intelligence_funded_proposals(award_amount);
+CREATE INDEX IF NOT EXISTS idx_funded_proposals_year ON intelligence_funded_proposals(award_year);
+
+CREATE OR REPLACE FUNCTION update_funded_proposals_fts() RETURNS trigger AS $$
+BEGIN
+  NEW.full_text_search_vector := to_tsvector('english',
+    coalesce(NEW.grant_program,'') || ' ' ||
+    coalesce(NEW.funder_name,'') || ' ' ||
+    coalesce(NEW.full_text,'')
+  );
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS funded_proposals_fts_trigger ON intelligence_funded_proposals;
+CREATE TRIGGER funded_proposals_fts_trigger
+  BEFORE INSERT OR UPDATE ON intelligence_funded_proposals
+  FOR EACH ROW EXECUTE FUNCTION update_funded_proposals_fts();
+
+UPDATE intelligence_funded_proposals SET full_text_search_vector = to_tsvector('english',
+  coalesce(grant_program,'') || ' ' || coalesce(funder_name,'') || ' ' || coalesce(full_text,'')
+);
