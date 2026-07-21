@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 import {
   Activity,
   AlertCircle,
+  ArrowRight,
   Calendar,
   CheckCircle2,
   ClipboardList,
@@ -12,8 +14,10 @@ import {
   Download,
   DollarSign,
   FileBarChart2,
+  Heart,
   Loader2,
   Printer,
+  TrendingUp,
   Trophy,
 } from "lucide-react";
 
@@ -133,6 +137,73 @@ const REPORT_CATEGORIES: ReportCategory[] = [
     items: ["Executive Summary & KPIs", "Agent Performance", "Strategic Recommendations"],
   },
 ];
+
+type DetailedReportAccent = "blue" | "violet" | "red";
+
+const DETAILED_REPORT_ACCENT_CLASSES: Record<
+  DetailedReportAccent,
+  { iconBg: string; iconText: string }
+> = {
+  blue: { iconBg: "bg-blue-50", iconText: "text-[#0077B6]" },
+  violet: { iconBg: "bg-violet-100", iconText: "text-violet-600" },
+  red: { iconBg: "bg-red-50", iconText: "text-red-500" },
+};
+
+interface DetailedReportLink {
+  key: string;
+  title: string;
+  description: string;
+  href: string;
+  icon: LucideIcon;
+  accent: DetailedReportAccent;
+}
+
+const DETAILED_REPORTS: DetailedReportLink[] = [
+  {
+    key: "funding-summary",
+    title: "Funding Summary Report",
+    description: "Pipeline metrics, funding source breakdown, category performance, and top funders.",
+    href: "/reports/funding-summary",
+    icon: TrendingUp,
+    accent: "blue",
+  },
+  {
+    key: "board-report",
+    title: "Board Report",
+    description: "Auto-generated, printable board report with an AI-written executive summary and recommended actions.",
+    href: "/reports/board-report",
+    icon: FileBarChart2,
+    accent: "violet",
+  },
+  {
+    key: "impact-report",
+    title: "Impact Report",
+    description: "Mission, programs, stewardship, and stories of impact for donors and funders — AI-enhanced.",
+    href: "/reports/impact",
+    icon: Heart,
+    accent: "red",
+  },
+];
+
+function DetailedReportCard({ report }: { report: DetailedReportLink }) {
+  const accent = DETAILED_REPORT_ACCENT_CLASSES[report.accent];
+  const Icon = report.icon;
+  return (
+    <Link
+      href={report.href}
+      className="group flex items-start gap-4 rounded-xl border border-border bg-white p-5 shadow-sm transition-colors hover:border-[#0077B6]"
+    >
+      <div className={cn("flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg", accent.iconBg)}>
+        <Icon className={cn("h-5 w-5", accent.iconText)} aria-hidden />
+      </div>
+      <div className="min-w-0 flex-1">
+        <h3 className="text-sm font-semibold text-slate-900">{report.title}</h3>
+        <p className="mt-1 text-xs leading-relaxed text-slate-500">{report.description}</p>
+      </div>
+      <ArrowRight className="mt-1 h-4 w-4 flex-shrink-0 text-slate-300 transition-colors group-hover:text-[#0077B6]" aria-hidden />
+    </Link>
+  );
+}
 
 function ReportCategoryCard({ category }: { category: ReportCategory }) {
   const accent = ACCENT_CLASSES[category.accent];
@@ -290,6 +361,16 @@ export default function ReportsPage() {
         {REPORT_CATEGORIES.map((category) => (
           <ReportCategoryCard key={category.key} category={category} />
         ))}
+      </div>
+
+      {/* Detailed reports */}
+      <div>
+        <h2 className="mb-3 text-sm font-semibold text-slate-700">Detailed Reports</h2>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          {DETAILED_REPORTS.map((report) => (
+            <DetailedReportCard key={report.key} report={report} />
+          ))}
+        </div>
       </div>
 
       <div className="mx-auto max-w-2xl">
