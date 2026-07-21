@@ -2,11 +2,21 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 
 import { createClient } from "@/lib/supabase/client";
 import { Logo } from "@/components/layout/Logo";
 import { isValidEmail } from "@/lib/utils/validators";
+import { PRICING_PLANS, isPlanId, type PlanId } from "@/lib/utils/pricing-plans";
+
+// Plan is read from window.location rather than useSearchParams so this page
+// needs no Suspense boundary for static export (see ResetPasswordPageClient.tsx
+// for the same pattern).
+function readPlanFromUrl(): PlanId | null {
+  if (typeof window === "undefined") return null;
+  const value = new URL(window.location.href).searchParams.get("plan");
+  return isPlanId(value) ? value : null;
+}
 
 /**
  * New organization signup (BLUEPRINT US-01).
@@ -33,6 +43,13 @@ export default function RegisterPageClient() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [checkEmail, setCheckEmail] = useState(false);
+  const [plan, setPlan] = useState<PlanId | null>(null);
+
+  // Read after mount (not in the useState initializer) so the server-rendered
+  // markup and first client render match - no hydration mismatch.
+  useEffect(() => {
+    setPlan(readPlanFromUrl());
+  }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -102,7 +119,7 @@ export default function RegisterPageClient() {
       return;
     }
 
-    router.replace("/dashboard");
+    router.replace(plan ? `/onboarding?plan=${plan}` : "/onboarding");
     router.refresh();
   }
 
@@ -173,6 +190,25 @@ export default function RegisterPageClient() {
               <p className="mt-2 text-sm text-navy-500">
                 Set up your organization workspace.
               </p>
+
+              {plan && (
+                <div className="mt-4 flex items-center justify-between rounded-lg border border-teal-200 bg-teal-50 px-4 py-3">
+                  <div>
+                    <p className="text-sm font-semibold text-navy-900">
+                      {PRICING_PLANS[plan].name} plan
+                    </p>
+                    <p className="text-xs text-navy-500">
+                      ${PRICING_PLANS[plan].monthly}/mo, billed monthly
+                    </p>
+                  </div>
+                  <Link
+                    href="/pricing"
+                    className="text-xs font-semibold text-teal-600 transition hover:text-teal-700"
+                  >
+                    Change plan
+                  </Link>
+                </div>
+              )}
 
               <form
                 onSubmit={handleSubmit}
