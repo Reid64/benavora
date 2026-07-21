@@ -9,6 +9,7 @@ import {
   DollarSign,
   FileBarChart2,
   FolderOpen,
+  GraduationCap,
   KanbanSquare,
   Library,
   Lightbulb,
@@ -118,6 +119,15 @@ export const DONOR_DISCOVERY_DRILLDOWN: NavChild = {
   label: "Prospects",
   href: "/donor-discovery/prospects",
 };
+
+/**
+ * Program features — org-facing feature programs, shown in their own
+ * "Programs" sidebar section (always visible, not role-gated). SchoolFunder
+ * is a Faith Foundation program / Benavora showcase feature (BLUEPRINT §1).
+ */
+export const PROGRAMS_NAV_ITEMS: NavItem[] = [
+  { label: "SchoolFunder", href: "/schoolfunder", icon: GraduationCap },
+];
 
 /** Settings rendered at the bottom of the sidebar, separated from main nav. */
 export const SETTINGS_NAV_ITEM: NavItem = {

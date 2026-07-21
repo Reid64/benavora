@@ -10,6 +10,7 @@ import {
   DONOR_DISCOVERY_DRILLDOWN,
   navItemsForRole,
   PLATFORM_NAV_ITEMS,
+  PROGRAMS_NAV_ITEMS,
   SETTINGS_NAV_ITEM,
 } from "@/components/layout/nav-items";
 import { Logo } from "@/components/layout/Logo";
@@ -316,6 +317,35 @@ export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarPro
                   </div>
                 );
               })}
+            </div>
+
+            {/* Programs section — org-facing feature programs (e.g. SchoolFunder) */}
+            <div className="mt-2">
+              <p className={SECTION_LABEL}>Programs</p>
+              <div className="space-y-1">
+                {PROGRAMS_NAV_ITEMS.map(({ label, href, icon: Icon }) => {
+                  const active = isActive(href);
+                  return (
+                    <Link
+                      key={href}
+                      href={href}
+                      onClick={onClose}
+                      aria-current={active ? "page" : undefined}
+                      className={active ? NAV_ITEM_ACTIVE : NAV_ITEM_INACTIVE}
+                      style={active ? NAV_ITEM_ACTIVE_STYLE : undefined}
+                    >
+                      <Icon
+                        className="h-5 w-5 shrink-0"
+                        aria-hidden
+                        style={{ color: active ? "#FFFFFF" : "#10B981" }}
+                      />
+                      <span className="truncate" style={navLabelStyle(active)}>
+                        {label}
+                      </span>
+                    </Link>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Platform admin section */}
