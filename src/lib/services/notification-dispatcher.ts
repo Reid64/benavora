@@ -19,7 +19,12 @@ export type NotificationEventType =
   | "application_submitted"
   | "award_received"
   | "research_complete"
-  | "autoapply_complete";
+  | "autoapply_complete"
+  | "draft_ready"
+  | "donor_intent_signal"
+  | "strategic_recommendation"
+  | "community_need_signal"
+  | "improvement_proposal";
 
 export type DigestMode = "per_event" | "hourly_digest" | "daily_summary";
 
@@ -44,6 +49,11 @@ export const NOTIFICATION_EVENT_TYPES: {
   { value: "award_received", label: "Award Received" },
   { value: "research_complete", label: "Research Complete" },
   { value: "autoapply_complete", label: "AutoApply Complete" },
+  { value: "draft_ready", label: "Draft Ready for Review" },
+  { value: "donor_intent_signal", label: "High Donor Intent Signal" },
+  { value: "strategic_recommendation", label: "Strategic Recommendation" },
+  { value: "community_need_signal", label: "Community Need Signal" },
+  { value: "improvement_proposal", label: "Agent Improvement Proposal" },
 ];
 
 export interface DispatchOptions {

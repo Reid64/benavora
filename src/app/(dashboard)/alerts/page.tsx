@@ -209,6 +209,12 @@ export default function AlertsPage() {
 
   return (
     <div style={{ backgroundColor: CANVAS, minHeight: "100vh" }} className="space-y-6 p-6">
+      <style>{`
+        @keyframes alerts-critical-pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.35; }
+        }
+      `}</style>
       <PageHeader
         title="Alerts"
         description="Your daily action list — deadlines, new opportunities, applications needing action, and drafts pending review."
@@ -383,10 +389,15 @@ function AlertRow({
     return () => document.removeEventListener("mousedown", onClick);
   }, [snoozeOpen]);
 
+  const isCritical = alert.severity === "critical";
+
   const message = (
     <div className="flex min-w-0 items-start gap-2.5">
       <span
-        style={{ backgroundColor: dotColor }}
+        style={{
+          backgroundColor: isCritical ? SEVERITY_BORDER.critical : dotColor,
+          animation: isCritical ? "alerts-critical-pulse 1.6s ease-in-out infinite" : undefined,
+        }}
         className="mt-1.5 h-2 w-2 shrink-0 rounded-full"
         aria-hidden
       />

@@ -4,10 +4,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, LogOut, Menu } from "lucide-react";
+import { LogOut, Menu } from "lucide-react";
 
 import { recordAuthEvent } from "@/lib/audit/client";
 import { createClient } from "@/lib/supabase/client";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 
 type HeaderProps = {
   /** Authenticated user's email, derived server-side from the session. */
@@ -108,7 +109,6 @@ export function Header({ userEmail, orgName, orgLogoUrl, onMenuClick }: HeaderPr
   const pathname = usePathname();
   const [signingOut, setSigningOut] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
   const [autonomousDraftsCount, setAutonomousDraftsCount] = useState(0);
   const [opportunitiesCount, setOpportunitiesCount] = useState(0);
   const [autoapplyQueuedCount, setAutoapplyQueuedCount] = useState(0);
@@ -125,22 +125,6 @@ export function Header({ userEmail, orgName, orgLogoUrl, onMenuClick }: HeaderPr
     document.addEventListener("mousedown", handleOutside);
     return () => document.removeEventListener("mousedown", handleOutside);
   }, [menuOpen]);
-
-  const fetchUnreadCount = useCallback(async () => {
-    try {
-      const res = await fetch("/api/notifications", { cache: "no-store" });
-      if (res.ok) {
-        const data = (await res.json()) as { unread_count: number };
-        setUnreadCount(data.unread_count ?? 0);
-      }
-    } catch {
-      // Non-fatal — badge simply stays at zero.
-    }
-  }, []);
-
-  useEffect(() => {
-    void fetchUnreadCount();
-  }, [fetchUnreadCount, pathname]);
 
   const fetchNavCounts = useCallback(async () => {
     try {
@@ -250,21 +234,7 @@ export function Header({ userEmail, orgName, orgLogoUrl, onMenuClick }: HeaderPr
 
         <div className="ml-auto flex items-center gap-4">
           {/* Notification bell */}
-          <Link
-            href="/notifications"
-            className="relative p-2 rounded-lg text-slate-600 hover:bg-slate-100"
-            aria-label={unreadCount > 0 ? `Notifications (${unreadCount} unread)` : "Notifications"}
-          >
-            <Bell className="h-5 w-5" />
-            {unreadCount > 0 && (
-              <span
-                className="absolute top-1 right-1 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white ring-2 ring-white"
-                aria-hidden
-              >
-                {unreadCount > 99 ? "99+" : unreadCount}
-              </span>
-            )}
-          </Link>
+          <NotificationBell />
 
           {/* Org avatar + dropdown */}
           <div className="relative" ref={menuRef}>

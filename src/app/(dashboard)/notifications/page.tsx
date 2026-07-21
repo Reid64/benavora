@@ -1,31 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import {
-  Bell,
-  Bot,
-  Calendar,
-  CheckCircle2,
-  Key,
-  Target,
-  TriangleAlert,
-  Zap,
-} from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import { Bell } from "lucide-react";
 
 import { cn } from "@/lib/utils/cn";
 import { formatRelative } from "@/lib/utils/formatters";
-
-type NotificationEventType =
-  | "automation_completed"
-  | "automation_failed"
-  | "automation_paused"
-  | "deadline_approaching"
-  | "agent_completed"
-  | "agent_failed"
-  | "key_expired"
-  | "target_paused"
-  | "daily_limit_reached";
+import { notificationEventMeta, NOTIFICATION_EVENT_META } from "@/lib/notifications/event-meta";
+import type { NotificationEventType } from "@/lib/services/notification-dispatcher";
 
 type AutoNotification = {
   id: string;
@@ -39,64 +20,7 @@ type AutoNotification = {
   created_at: string;
 };
 
-const EVENT_META: Record<
-  NotificationEventType,
-  { label: string; icon: LucideIcon; color: string }
-> = {
-  automation_completed: {
-    label: "Automation Completed",
-    icon: CheckCircle2,
-    color: "text-success-text",
-  },
-  automation_failed: {
-    label: "Automation Failed",
-    icon: TriangleAlert,
-    color: "text-error-text",
-  },
-  automation_paused: {
-    label: "Automation Paused",
-    icon: Bot,
-    color: "text-warning-text",
-  },
-  deadline_approaching: {
-    label: "Deadline Approaching",
-    icon: Calendar,
-    color: "text-warning-text",
-  },
-  agent_completed: {
-    label: "Agent Completed",
-    icon: CheckCircle2,
-    color: "text-success-text",
-  },
-  agent_failed: {
-    label: "Agent Failed",
-    icon: TriangleAlert,
-    color: "text-error-text",
-  },
-  key_expired: { label: "Key Expired", icon: Key, color: "text-error-text" },
-  target_paused: {
-    label: "Target Paused",
-    icon: Target,
-    color: "text-warning-text",
-  },
-  daily_limit_reached: {
-    label: "Daily Limit Reached",
-    icon: Zap,
-    color: "text-warning-text",
-  },
-};
-
-const ALL_EVENT_TYPES = Object.keys(EVENT_META) as NotificationEventType[];
-
-function metaFor(event_type: string) {
-  return (
-    EVENT_META[event_type as NotificationEventType] ?? {
-      label: event_type,
-      icon: Bell,
-      color: "text-text-muted",
-    }
-  );
-}
+const ALL_EVENT_TYPES = Object.keys(NOTIFICATION_EVENT_META) as NotificationEventType[];
 
 type ReadFilter = "all" | "unread" | "read";
 
@@ -137,9 +61,9 @@ export default function NotificationsPage() {
     setBusyId(id);
     try {
       await fetch("/api/notifications", {
-        method: "POST",
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ notification_id: id }),
+        body: JSON.stringify({ id }),
       });
       setNotifications((prev) =>
         prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)),
@@ -154,7 +78,7 @@ export default function NotificationsPage() {
     setBusyId("all");
     try {
       await fetch("/api/notifications", {
-        method: "POST",
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ all: true }),
       });
@@ -175,6 +99,12 @@ export default function NotificationsPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
+      <style>{`
+        @keyframes notification-page-pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.4; }
+        }
+      `}</style>
       {/* Page header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -227,7 +157,7 @@ export default function NotificationsPage() {
           <option value="all">All types</option>
           {ALL_EVENT_TYPES.map((t) => (
             <option key={t} value={t}>
-              {EVENT_META[t].label}
+              {NOTIFICATION_EVENT_META[t].label}
             </option>
           ))}
         </select>
@@ -250,7 +180,7 @@ export default function NotificationsPage() {
       ) : (
         <div className="overflow-hidden rounded-xl border border-border bg-white shadow-sm">
           {visible.map((n, idx) => {
-            const meta = metaFor(n.event_type);
+            const meta = notificationEventMeta(n.event_type);
             const Icon = meta.icon;
             return (
               <div
@@ -264,12 +194,14 @@ export default function NotificationsPage() {
               >
                 {/* Icon */}
                 <div
-                  className={cn(
-                    "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white-raised",
-                    meta.color,
-                  )}
+                  className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white-raised"
+                  style={{
+                    animation: meta.critical
+                      ? "notification-page-pulse 1.6s ease-in-out infinite"
+                      : undefined,
+                  }}
                 >
-                  <Icon className="h-4 w-4" />
+                  <Icon className="h-4 w-4" style={{ color: meta.color }} />
                 </div>
 
                 {/* Body */}
