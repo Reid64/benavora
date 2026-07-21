@@ -89,6 +89,7 @@ import {
   humanizeNarrative,
   type OrgProfile as HumanizerOrgProfile,
   type OpportunityContext as HumanizerOpportunityContext,
+  type HumanizationScoreBreakdown,
 } from "@/lib/intelligence/narrative-humanizer";
 
 type TriggerSource = "autonomous" | "manual" | "chain" | "schedule";
@@ -1684,6 +1685,7 @@ export class DraftGenerationAgent extends AutonomousAgent {
       // (loadRoiRecommendations, loadFundabilityContext above).
       let finalDraftText = fullDraftText;
       let humanizationScore: number | null = null;
+      let humanizationBreakdown: HumanizationScoreBreakdown | null = null;
       try {
         const humanizerOrgProfile = this.buildHumanizerOrgProfile({
           orgName,
@@ -1703,6 +1705,7 @@ export class DraftGenerationAgent extends AutonomousAgent {
         );
         finalDraftText = humanization.humanizedText;
         humanizationScore = humanization.humanizationScore;
+        humanizationBreakdown = humanization.scoreBreakdown;
       } catch (err) {
         errors.push(
           `Narrative humanization failed, saving pre-humanization draft: ${
@@ -1742,7 +1745,10 @@ export class DraftGenerationAgent extends AutonomousAgent {
           string,
           unknown
         >,
-        metadata: { humanization_score: humanizationScore },
+        metadata: {
+          humanization_score: humanizationScore,
+          humanization_breakdown: humanizationBreakdown,
+        },
         ...(complianceResult.warnings.length > 0
           ? {
               notes:

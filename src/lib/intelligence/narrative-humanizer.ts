@@ -48,9 +48,23 @@ export interface OpportunityContext {
   funderName?: string | null;
 }
 
+/** Per-dimension quality scores from Pass 4, plus the reviewer's specific
+ * concerns — previously computed and discarded in favor of just the
+ * average. Snake_case to match the shape persisted in
+ * applications.metadata.humanization_breakdown (103_narrative_humanizer.sql)
+ * with no camelCase/snake_case conversion at that boundary. */
+export interface HumanizationScoreBreakdown {
+  human_voice_authenticity: number;
+  organization_specificity: number;
+  ai_phrase_absence: number;
+  narrative_flow: number;
+  top_concerns: string[];
+}
+
 export interface HumanizationResult {
   humanizedText: string;
   humanizationScore: number;
+  scoreBreakdown: HumanizationScoreBreakdown;
   aiTellsRemoved: string[];
   wordCountBefore: number;
   wordCountAfter: number;
@@ -431,7 +445,20 @@ function clampScore(value: unknown): number {
   return Math.max(0, Math.min(100, Math.round(numeric)));
 }
 
-async function scoreHumanizedNarrative(text: string): Promise<number> {
+const DEFAULT_SCORE_BREAKDOWN: HumanizationScoreBreakdown = {
+  human_voice_authenticity: DEFAULT_HUMANIZATION_SCORE,
+  organization_specificity: DEFAULT_HUMANIZATION_SCORE,
+  ai_phrase_absence: DEFAULT_HUMANIZATION_SCORE,
+  narrative_flow: DEFAULT_HUMANIZATION_SCORE,
+  top_concerns: [],
+};
+
+/** Exported separately from humanizeNarrative() so callers can re-score an
+ * already-humanized (or manually edited) draft without re-running Passes
+ * 1-3 — powers the draft review UI's "Re-Score" action. */
+export async function scoreNarrativeQuality(
+  text: string,
+): Promise<HumanizationScoreBreakdown> {
   const response = await callClaude({
     system:
       "You are a quality assurance reviewer scoring a humanized grant narrative for remaining " +
@@ -450,18 +477,29 @@ async function scoreHumanizedNarrative(text: string): Promise<number> {
   });
 
   const raw = extractJsonObject(response.text);
-  if (!raw) return DEFAULT_HUMANIZATION_SCORE;
+  if (!raw) return DEFAULT_SCORE_BREAKDOWN;
 
-  const humanVoiceAuthenticity = clampScore(raw.human_voice_authenticity);
-  const organizationSpecificity = clampScore(raw.organization_specificity);
-  const aiPhraseAbsence = clampScore(raw.ai_phrase_absence);
-  const narrativeFlow = clampScore(raw.narrative_flow);
+  const topConcerns = Array.isArray(raw.top_concerns)
+    ? raw.top_concerns
+        .filter((c): c is string => typeof c === "string" && c.trim().length > 0)
+        .slice(0, 5)
+    : [];
 
+  return {
+    human_voice_authenticity: clampScore(raw.human_voice_authenticity),
+    organization_specificity: clampScore(raw.organization_specificity),
+    ai_phrase_absence: clampScore(raw.ai_phrase_absence),
+    narrative_flow: clampScore(raw.narrative_flow),
+    top_concerns: topConcerns,
+  };
+}
+
+function averageScore(breakdown: HumanizationScoreBreakdown): number {
   return Math.round(
-    (humanVoiceAuthenticity +
-      organizationSpecificity +
-      aiPhraseAbsence +
-      narrativeFlow) /
+    (breakdown.human_voice_authenticity +
+      breakdown.organization_specificity +
+      breakdown.ai_phrase_absence +
+      breakdown.narrative_flow) /
       4,
   );
 }
@@ -495,16 +533,17 @@ export async function humanizeNarrative(
   }
 
   // PASS 4 — Quality score.
-  let humanizationScore = DEFAULT_HUMANIZATION_SCORE;
+  let scoreBreakdown = DEFAULT_SCORE_BREAKDOWN;
   try {
-    humanizationScore = await scoreHumanizedNarrative(text);
+    scoreBreakdown = await scoreNarrativeQuality(text);
   } catch {
-    // keep the default fallback score
+    // keep the default fallback breakdown
   }
 
   return {
     humanizedText: text,
-    humanizationScore,
+    humanizationScore: averageScore(scoreBreakdown),
+    scoreBreakdown,
     aiTellsRemoved: Array.from(new Set(aiTellsRemoved)),
     wordCountBefore,
     wordCountAfter: countWords(text),

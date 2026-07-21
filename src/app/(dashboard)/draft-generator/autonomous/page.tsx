@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { DismissDraftButton } from "@/components/draft-generator/DismissDraftButton";
+import { DraftQualityPanel } from "@/components/draft-generator/DraftQualityPanel";
 import { createClient } from "@/lib/supabase/server";
 import { formatRelative } from "@/lib/utils/formatters";
 
@@ -16,6 +17,7 @@ type ApplicationRow = {
   opportunity_id: string;
   twin_powered: boolean | null;
   twin_completeness: number | null;
+  metadata: Record<string, unknown> | null;
 };
 
 type OpportunityRow = {
@@ -86,7 +88,7 @@ export default async function AutonomousDraftReviewPage() {
   const { data: applicationsData } = await supabase
     .from("applications")
     .select(
-      "id, draft_content, draft_confidence_score, created_at, opportunity_id, twin_powered, twin_completeness",
+      "id, draft_content, draft_confidence_score, created_at, opportunity_id, twin_powered, twin_completeness, metadata",
     )
     .eq("organization_id", orgId)
     .eq("auto_generated", true)
@@ -258,6 +260,12 @@ export default async function AutonomousDraftReviewPage() {
               >
                 {preview || "No draft content available."}
               </div>
+
+              <DraftQualityPanel
+                applicationId={app.id}
+                initialDraftContent={app.draft_content ?? ""}
+                initialMetadata={app.metadata}
+              />
 
               <div
                 style={{
