@@ -60,6 +60,12 @@ export interface Database {
           // performance rollup: { successRateByCategory, averageAwardSize,
           // dollarEfficiency, insightSummary, computedAt }.
           analytics: Json;
+          // Knowledge Base Editor (migration 104) - fields the 10-section
+          // profile UI needs with no dedicated column (core_values,
+          // executive_director, financial, geographic, target_population_detail,
+          // impact, history, partnerships, compliance). See ExtendedProfile in
+          // src/lib/knowledge-base/profile.ts.
+          extended_profile: Json;
           created_at: string;
           updated_at: string;
         };
@@ -94,6 +100,7 @@ export interface Database {
           onboarding_completed_at?: string | null;
           onboarding_step?: number;
           onboarding_progress?: Json;
+          extended_profile?: Json;
           created_at?: string;
           updated_at?: string;
         };
@@ -129,6 +136,7 @@ export interface Database {
           onboarding_step?: number;
           onboarding_progress?: Json;
           analytics?: Json;
+          extended_profile?: Json;
           created_at?: string;
           updated_at?: string;
         };

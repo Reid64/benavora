@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils/cn";
 const TABS = [
   { label: "Overview", href: "/knowledge-base" },
   { label: "Organization Profile", href: "/knowledge-base/profile" },
+  { label: "Full Editor", href: "/knowledge-base/edit" },
   { label: "Narratives", href: "/knowledge-base/narratives" },
   { label: "Standard Answers", href: "/knowledge-base/answers" },
 ];
