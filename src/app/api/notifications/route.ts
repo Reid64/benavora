@@ -4,6 +4,8 @@ import { requireRole } from "@/lib/auth/role-gate";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notificationPriority, type NotificationPriority } from "@/lib/notifications/event-meta";
 import type { NotificationEventType } from "@/lib/services/notification-dispatcher";
+import { sendEmail } from "@/lib/email/resend-client";
+import { ctaButton, emailLayout, EMAIL_COLORS } from "@/lib/email/templates/base-layout";
 
 // GET   /api/notifications  — unread + recent notifications (90-day window).
 //       ?unread_only=true restricts to unread rows.
@@ -169,6 +171,53 @@ export async function POST(request: Request) {
 
   if (error || !data) {
     return jsonError("Could not create notification.", "db_error", 500);
+  }
+
+  // Real priority model (notificationPriority(), event-meta.tsx) has three
+  // tiers — urgent/immediate/normal — not the task-spec's four (immediate/
+  // urgent/digest/standard). 'urgent' and 'immediate' both get an email now;
+  // 'normal' stays in-app only — the daily digest agent (autonomous-digest-
+  // agent.ts / morning-digest.ts) already sweeps automation_notifications
+  // independently of this route, so no separate "digest queue" write is
+  // needed here.
+  const priority = notificationPriority(event_type);
+  if (priority === "urgent" || priority === "immediate") {
+    const { data: admins } = await admin
+      .from("profiles")
+      .select("email")
+      .eq("organization_id", organization_id)
+      .in("role", ["owner", "admin"])
+      .limit(5);
+
+    const recipients = ((admins ?? []) as { email: string }[])
+      .map((p) => p.email)
+      .filter(Boolean);
+
+    if (recipients.length > 0) {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://benavora.com";
+      const isUrgent = priority === "urgent";
+      const headerColor = isUrgent ? "#DC2626" : undefined;
+
+      const bodyHtml = `
+        <h1 style="margin:0 0 16px;font-size:20px;font-weight:800;color:${isUrgent ? "#DC2626" : EMAIL_COLORS.textPrimary}">
+          ${title}
+        </h1>
+        <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:${EMAIL_COLORS.textPrimary}">
+          ${message ?? title}
+        </p>
+        ${ctaButton(`${appUrl}/notifications`, "View in Benavora", isUrgent ? "#DC2626" : undefined)}
+      `;
+
+      await sendEmail({
+        to: recipients,
+        subject: isUrgent ? `⚠️ ${title}` : title,
+        html: emailLayout({
+          headerColor,
+          headerLabel: isUrgent ? "Urgent" : "Action Needed",
+          bodyHtml,
+        }),
+      });
+    }
   }
 
   return NextResponse.json({ id: (data as { id: string }).id }, { status: 201 });

@@ -83,6 +83,8 @@ import {
 } from "@/lib/agents/autonomous-base";
 import { callClaude, DEFAULT_MODEL } from "@/lib/ai/claude";
 import type { Enums } from "@/types/database";
+import { sendEmail } from "@/lib/email/resend-client";
+import { draftReadyEmail } from "@/lib/email/templates/draft-ready";
 
 type TriggerSource = "autonomous" | "manual" | "chain" | "schedule";
 type FunderCategory = Enums<"funder_category">;
@@ -1217,6 +1219,43 @@ export class DraftGenerationAgent extends AutonomousAgent {
     return { sections, tokensUsed };
   }
 
+  /** Emails the org's owner/admin users that a new autonomous draft is
+   * waiting in pending_review — same admin/owner lookup pattern as
+   * sendAutoapplyDigest (src/lib/autoapply/digest-email.ts). Best-effort:
+   * a missing RESEND_API_KEY, no admin profiles, or a Resend failure all
+   * degrade silently — the in-app alert (createNotification, already called)
+   * is the notification of record. */
+  private async sendDraftReadyNotificationEmail(params: {
+    orgName: string;
+    draftTitle: string;
+    funderName: string;
+    confidence: number;
+  }): Promise<void> {
+    const { data: admins } = await this.supabase
+      .from("profiles")
+      .select("email")
+      .eq("organization_id", this.orgId)
+      .in("role", ["owner", "admin"])
+      .limit(5);
+
+    const recipients = ((admins ?? []) as { email: string }[])
+      .map((p) => p.email)
+      .filter(Boolean);
+    if (recipients.length === 0) return;
+
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://benavora.com";
+    const { subject, html } = draftReadyEmail({
+      orgName: params.orgName,
+      draftTitle: params.draftTitle,
+      opportunityName: params.draftTitle,
+      funderName: params.funderName,
+      confidenceScore: params.confidence,
+      reviewUrl: `${appUrl}/draft-generator/autonomous`,
+    });
+
+    await sendEmail({ to: recipients, subject, html });
+  }
+
   override async run(
     triggerSource: TriggerSource,
   ): Promise<AutonomousAgentResult> {
@@ -1620,6 +1659,13 @@ export class DraftGenerationAgent extends AutonomousAgent {
 
       const title = payload.title ?? opportunity.name;
       const score = payload.score;
+
+      await this.sendDraftReadyNotificationEmail({
+        orgName,
+        draftTitle: title,
+        funderName: funderIntel.name ?? "Unknown funder",
+        confidence,
+      });
 
       const decisionId = await this.logDecision({
         decisionType: "draft_generated",
