@@ -85,6 +85,11 @@ import { callClaude, DEFAULT_MODEL } from "@/lib/ai/claude";
 import type { Enums } from "@/types/database";
 import { sendEmail } from "@/lib/email/resend-client";
 import { draftReadyEmail } from "@/lib/email/templates/draft-ready";
+import {
+  humanizeNarrative,
+  type OrgProfile as HumanizerOrgProfile,
+  type OpportunityContext as HumanizerOpportunityContext,
+} from "@/lib/intelligence/narrative-humanizer";
 
 type TriggerSource = "autonomous" | "manual" | "chain" | "schedule";
 type FunderCategory = Enums<"funder_category">;
@@ -335,6 +340,11 @@ interface DraftApplicationPayload {
   twin_powered: boolean;
   twin_completeness: number;
   compliance_check_result: Record<string, unknown>;
+  // applications.metadata (src/supabase/migrations/103_narrative_humanizer.sql /
+  // supabase/migrations/105_applications_metadata_column.sql) — did not
+  // exist on this table before this session, added specifically to hold
+  // the narrative humanizer's score per draft.
+  metadata: Record<string, unknown>;
   notes?: string;
   // Never set by this agent — present only so enforceHardLimits can assert
   // that fact in code, not just in a comment.
@@ -1256,6 +1266,69 @@ export class DraftGenerationAgent extends AutonomousAgent {
     await sendEmail({ to: recipients, subject, html });
   }
 
+  /** Builds the narrative humanizer's org-context input from data this run
+   * already loaded in Phase 1 — no additional queries. Every field is
+   * derived from real KB/twin/organizations data; nothing is fabricated,
+   * matching this file's established convention (see loadFunderIntelligence,
+   * buildTwinContext above). */
+  private buildHumanizerOrgProfile(params: {
+    orgName: string;
+    orgProfile: OrgProfileRow | null;
+    knowledgeEntries: KnowledgeBaseEntry[];
+    twin: DigitalTwinRow | null;
+  }): HumanizerOrgProfile {
+    const { orgName, orgProfile, knowledgeEntries, twin } = params;
+
+    const demographicParts = [
+      orgProfile?.target_population,
+      orgProfile?.service_area,
+    ].filter((v): v is string => Boolean(v));
+    const demographicDetail =
+      demographicParts.length > 0 ? demographicParts.join(" in ") : null;
+
+    const kbProgramNames = knowledgeEntries
+      .filter((e) => e.category === "program_description")
+      .map((e) => e.title);
+    const twinProgramNames = (twin?.programs ?? []).map((p) => p.title);
+    const programNames = Array.from(
+      new Set([...twinProgramNames, ...kbProgramNames]),
+    );
+
+    const boardQualifications = (twin?.board_composition ?? [])
+      .map((b) => (b.title ? `${b.name}, ${b.title}` : null))
+      .filter((v): v is string => Boolean(v));
+    const kbCapacityQualifications = knowledgeEntries
+      .filter((e) => e.category === "capacity")
+      .map((e) => e.content);
+    const staffQualifications = [
+      ...boardQualifications,
+      ...kbCapacityQualifications,
+    ];
+
+    const kbImpactStats = knowledgeEntries
+      .filter((e) => e.category === "impact")
+      .map((e) => e.content);
+    const twinImpactStats = [
+      ...(twin?.proven_narrative_patterns ?? []),
+      ...(twin?.key_strengths ?? []),
+    ];
+    const impactStats = [...twinImpactStats, ...kbImpactStats];
+
+    return {
+      name: orgName,
+      missionStatement: orgProfile?.mission_statement ?? twin?.mission ?? null,
+      serviceArea: orgProfile?.service_area ?? null,
+      targetPopulation: orgProfile?.target_population ?? null,
+      demographicDetail,
+      programNames,
+      staffQualifications,
+      impactStats,
+      // No schema source for a stated multi-year projection anywhere in
+      // this codebase today — left null rather than fabricated.
+      threeYearProjection: null,
+    };
+  }
+
   override async run(
     triggerSource: TriggerSource,
   ): Promise<AutonomousAgentResult> {
@@ -1602,8 +1675,44 @@ export class DraftGenerationAgent extends AutonomousAgent {
         opportunity,
       );
 
+      // ---- HUMANIZATION PASS -------------------------------------------------
+      // Runs on the fully assembled, compliance-checked draft, before the
+      // applications row is created (task requirement: humanize after the
+      // initial draft, before saving). Degrades to the pre-humanization
+      // text on any failure rather than blocking draft creation, matching
+      // this file's established defensive-load convention
+      // (loadRoiRecommendations, loadFundabilityContext above).
+      let finalDraftText = fullDraftText;
+      let humanizationScore: number | null = null;
+      try {
+        const humanizerOrgProfile = this.buildHumanizerOrgProfile({
+          orgName,
+          orgProfile,
+          knowledgeEntries,
+          twin,
+        });
+        const humanizerOpportunityContext: HumanizerOpportunityContext = {
+          name: opportunity.name,
+          category: opportunity.category,
+          funderName: funderIntel.name,
+        };
+        const humanization = await humanizeNarrative(
+          fullDraftText,
+          humanizerOrgProfile,
+          humanizerOpportunityContext,
+        );
+        finalDraftText = humanization.humanizedText;
+        humanizationScore = humanization.humanizationScore;
+      } catch (err) {
+        errors.push(
+          `Narrative humanization failed, saving pre-humanization draft: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
+
       // ---- PHASE 5: CONFIDENCE SCORING -------------------------------------
-      const needsInputCount = countNeedsInput(fullDraftText);
+      const needsInputCount = countNeedsInput(finalDraftText);
       const baseConfidence = computeBaseConfidence(
         needsInputCount,
         provenNarratives.length,
@@ -1621,7 +1730,7 @@ export class DraftGenerationAgent extends AutonomousAgent {
         organization_id: this.orgId,
         opportunity_id: opportunity.id,
         stage: "drafting",
-        draft_content: fullDraftText,
+        draft_content: finalDraftText,
         draft_confidence_score: confidence,
         auto_generated: true,
         pending_review: true,
@@ -1633,6 +1742,7 @@ export class DraftGenerationAgent extends AutonomousAgent {
           string,
           unknown
         >,
+        metadata: { humanization_score: humanizationScore },
         ...(complianceResult.warnings.length > 0
           ? {
               notes:
@@ -1677,7 +1787,8 @@ export class DraftGenerationAgent extends AutonomousAgent {
           `Confidence: ${confidence}% (base ${baseConfidence}%, twin completeness ` +
           `${twinContext.completeness}%). Platform learning patterns applied: ` +
           `${patternsApplied} (${highConfidencePatternsApplied} high-confidence). ` +
-          `Compliance check: ${complianceResult.passed ? "passed" : `${complianceResult.warnings.length} warning(s)`}.`,
+          `Compliance check: ${complianceResult.passed ? "passed" : `${complianceResult.warnings.length} warning(s)`}. ` +
+          `Humanization score: ${humanizationScore ?? "N/A"}.`,
         confidenceScore: confidence,
         actionTaken: "created_draft_pending_review",
         requiredHumanReview: true,
@@ -1709,6 +1820,7 @@ export class DraftGenerationAgent extends AutonomousAgent {
           patternsApplied,
           compliancePassed: complianceResult.passed,
           complianceWarnings: complianceResult.warnings.length,
+          humanizationScore,
         }),
         itemsFound: 1,
         itemsProcessed: 1,
