@@ -18,7 +18,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Loader2, Radar, Sparkles } from "lucide-react";
+import { ArrowLeft, Loader2, Radar, Sparkles } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
 import { canEdit, useProfile } from "@/lib/hooks/useProfile";
@@ -520,6 +520,14 @@ export default function IntentSignalsPage() {
 
   return (
     <div style={{ backgroundColor: "#D6E4F0", minHeight: "100vh", padding: "32px", borderRadius: "16px" }}>
+      <Link
+        href="/donor-discovery"
+        className="inline-flex items-center gap-1.5 text-sm text-navy-500 transition hover:text-navy-700"
+        style={{ marginBottom: "16px" }}
+      >
+        <ArrowLeft className="h-4 w-4" aria-hidden />
+        Back to Donor Discovery
+      </Link>
       <div
         style={{
           display: "flex",
