@@ -32,10 +32,19 @@ const jobs: ScheduledJob[] = [
     hour: 2,
     minute: 0,
     lastFiredOnDateKey: null,
-    run: (supabase) =>
-      import('./autonomous-orchestrator.js').then(({ runAutonomousPipeline }) =>
-        runAutonomousPipeline(supabase),
-      ),
+    run: async (supabase) => {
+      const { runAutonomousPipeline } = await import('./autonomous-orchestrator.js');
+      await runAutonomousPipeline(supabase);
+
+      // AG-28 application_followups sweep - shares this same 2AM slot rather
+      // than a dedicated cron entry, matching this file's existing precedent
+      // of folding same-cadence jobs into the nightly sweep instead of
+      // inventing a new fixed-time slot for each one.
+      const { processFollowups } = await import(
+        '../src/worker/jobs/process-followups.js'
+      );
+      await processFollowups(supabase);
+    },
   },
   {
     name: 'morning digest pipeline',
