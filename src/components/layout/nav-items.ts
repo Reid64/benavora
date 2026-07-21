@@ -1,4 +1,5 @@
 import {
+  Activity,
   BarChart3,
   Bell,
   BookOpen,
@@ -61,6 +62,7 @@ export type NavOptions = {
  */
 export const NAV_ITEMS: NavItem[] = [
   { label: "Alerts", href: "/alerts", icon: Bell },
+  { label: "Activity", href: "/activity", icon: Activity },
   { label: "Funders", href: "/funders", icon: Building2 },
   { label: "Foundations", href: "/foundations", icon: Library },
   { label: "Contacts", href: "/contacts", icon: Users },

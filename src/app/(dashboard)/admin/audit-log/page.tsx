@@ -28,6 +28,8 @@ import { humanizeEnum } from "@/lib/utils/formatters";
 type AuditEntry = {
   id: string;
   createdAt: string;
+  organizationId: string;
+  organizationName: string | null;
   userId: string | null;
   userName: string | null;
   userEmail: string | null;
@@ -39,6 +41,7 @@ type AuditEntry = {
 };
 
 type Actor = { id: string; name: string | null; email: string | null };
+type Org = { id: string; name: string };
 
 // The audit_action enum (SCHEMA_REGISTRY) - drives the action filter.
 const AUDIT_ACTIONS = [
@@ -110,6 +113,8 @@ export default function AuditLogPage() {
 
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [actors, setActors] = useState<Actor[]>([]);
+  const [organizations, setOrganizations] = useState<Org[]>([]);
+  const [isOwnerView, setIsOwnerView] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -117,6 +122,7 @@ export default function AuditLogPage() {
   const [actionFilter, setActionFilter] = useState("");
   const [userFilter, setUserFilter] = useState("");
   const [entityFilter, setEntityFilter] = useState("");
+  const [orgFilter, setOrgFilter] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
 
@@ -126,7 +132,13 @@ export default function AuditLogPage() {
     try {
       const res = await fetch("/api/admin/audit-log");
       const json = (await res.json().catch(() => null)) as
-        | { entries?: AuditEntry[]; actors?: Actor[]; error?: string }
+        | {
+            entries?: AuditEntry[];
+            actors?: Actor[];
+            organizations?: Org[];
+            isOwner?: boolean;
+            error?: string;
+          }
         | null;
       if (!res.ok || !json) {
         setLoadError(json?.error ?? "Could not load the audit log.");
@@ -135,6 +147,8 @@ export default function AuditLogPage() {
       }
       setEntries(json.entries ?? []);
       setActors(json.actors ?? []);
+      setOrganizations(json.organizations ?? []);
+      setIsOwnerView(json.isOwner ?? false);
     } catch {
       setLoadError("Could not reach the server. Please try again.");
     } finally {
@@ -163,15 +177,17 @@ export default function AuditLogPage() {
       if (actionFilter && e.action !== actionFilter) return false;
       if (userFilter && e.userId !== userFilter) return false;
       if (entityFilter && e.entityType !== entityFilter) return false;
+      if (orgFilter && e.organizationId !== orgFilter) return false;
       const ts = new Date(e.createdAt).getTime();
       if (fromTs !== null && ts < fromTs) return false;
       if (toTs !== null && ts >= toTs) return false;
       return true;
     });
-  }, [entries, actionFilter, userFilter, entityFilter, fromDate, toDate]);
+  }, [entries, actionFilter, userFilter, entityFilter, orgFilter, fromDate, toDate]);
 
   function exportCsv() {
     const header = [
+      ...(isOwnerView ? ["Organization"] : []),
       "Timestamp",
       "User",
       "Email",
@@ -183,6 +199,7 @@ export default function AuditLogPage() {
     ];
     const lines = filtered.map((e) =>
       [
+        ...(isOwnerView ? [e.organizationName ?? e.organizationId] : []),
         formatTimestamp(e.createdAt),
         actorLabel(e),
         e.userEmail ?? "",
@@ -227,6 +244,21 @@ export default function AuditLogPage() {
         </span>
       ),
     },
+    ...(isOwnerView
+      ? [
+          {
+            key: "organization",
+            header: "Organization",
+            sortable: true,
+            sortValue: (r: AuditEntry) => r.organizationName ?? "",
+            render: (r: AuditEntry) => (
+              <span className="truncate text-navy-700">
+                {r.organizationName ?? r.organizationId}
+              </span>
+            ),
+          } satisfies TableColumn<AuditEntry>,
+        ]
+      : []),
     {
       key: "user",
       header: "User",
@@ -290,6 +322,10 @@ export default function AuditLogPage() {
     { value: "", label: "All entities" },
     ...entityTypes.map((t) => ({ value: t, label: humanizeEnum(t) })),
   ];
+  const orgOptions = [
+    { value: "", label: "All organizations" },
+    ...organizations.map((o) => ({ value: o.id, label: o.name })),
+  ];
 
   return (
     <div className="space-y-6">
@@ -299,7 +335,9 @@ export default function AuditLogPage() {
             Audit Log
           </h1>
           <p className="mt-1 text-sm text-navy-500">
-            A complete, append-only record of activity in your organization.
+            {isOwnerView
+              ? "A complete, append-only record of activity across every organization on the platform."
+              : "A complete, append-only record of activity in your organization."}
           </p>
         </div>
         {canView && entries.length > 0 && (
@@ -330,7 +368,19 @@ export default function AuditLogPage() {
         </Card>
       ) : (
         <Card>
-          <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <div
+            className={`mb-4 grid gap-3 sm:grid-cols-2 ${
+              isOwnerView ? "lg:grid-cols-6" : "lg:grid-cols-5"
+            }`}
+          >
+            {isOwnerView && (
+              <Select
+                label="Organization"
+                options={orgOptions}
+                value={orgFilter}
+                onChange={(e) => setOrgFilter(e.target.value)}
+              />
+            )}
             <Select
               label="Action"
               options={actionOptions}
