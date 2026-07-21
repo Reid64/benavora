@@ -1,0 +1,37 @@
+-- Migration 102: org_portal_accounts — tracks one-time pre-created portal
+-- accounts (starting with Walmart Spark Good) so AutoApply's queue worker
+-- can skip the in-session registration + email-verification wall on every
+-- run and log straight in with stored credentials instead.
+--
+-- Deviations from the task-given spec, per this project's established
+-- practice of checking real conventions before applying a literal column
+-- list (see migration 093's header for the prior instance of this pattern):
+--   - `org_id` -> `organization_id`: every table in this schema uses
+--     `organization_id`, FK'd to organizations(id); `org_id` would be the
+--     only exception.
+--   - Added FK constraint, RLS policy (profiles-based, matching every other
+--     org-scoped table — see SCHEMA_REGISTRY_v2.md "RLS Master Policy
+--     Pattern"), an index, and a UNIQUE(organization_id, portal_type) so a
+--     given org has at most one account row per portal type.
+
+CREATE TABLE IF NOT EXISTS org_portal_accounts (
+  id                    uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id       uuid        NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  portal_type           text        NOT NULL,
+  account_email         text,
+  account_created_at    timestamptz,
+  deed_verified         boolean     NOT NULL DEFAULT false,
+  deed_verified_at      timestamptz,
+  notes                 text,
+  created_at            timestamptz DEFAULT now(),
+  updated_at            timestamptz DEFAULT now(),
+  UNIQUE(organization_id, portal_type)
+);
+
+ALTER TABLE org_portal_accounts ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "org_portal_accounts_org" ON org_portal_accounts;
+CREATE POLICY "org_portal_accounts_org" ON org_portal_accounts
+  USING (organization_id = (SELECT organization_id FROM profiles WHERE id = auth.uid()));
+
+CREATE INDEX IF NOT EXISTS idx_org_portal_accounts_org ON org_portal_accounts(organization_id);

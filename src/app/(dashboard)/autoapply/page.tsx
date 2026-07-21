@@ -353,6 +353,7 @@ export default function AutoApplyPage() {
   const completedCount = queue.filter((q) => q.status === "completed").length;
   const failedCount = queue.filter((q) => q.status === "failed").length;
   const isRunning = runningCount > 0;
+  const needsSparkGoodSetup = queue.some((q) => q.status === "requires_account_setup");
 
   const statCardStyle = {
     backgroundColor: "#F7F5F1",
@@ -404,6 +405,41 @@ export default function AutoApplyPage() {
           </>
         }
       />
+
+      {/* SPARK GOOD SETUP BANNER — shown while any queue item is blocked on the one-time Walmart account setup */}
+      {needsSparkGoodSetup && (
+        <div
+          role="alert"
+          className="flex items-center gap-3 rounded-xl px-5 py-4"
+          style={{ backgroundColor: "#FEF3C7", border: "1px solid #FCD34D" }}
+        >
+          <span
+            style={{
+              width: "10px",
+              height: "10px",
+              borderRadius: "50%",
+              backgroundColor: "#F59E0B",
+              flexShrink: 0,
+            }}
+            aria-hidden
+          />
+          <span style={{ fontSize: "13px", fontWeight: 700, color: "#92400E" }}>
+            One-time setup required for Walmart AutoApply. Run{" "}
+            <code
+              style={{
+                backgroundColor: "#FDE68A",
+                padding: "1px 6px",
+                borderRadius: "4px",
+                fontFamily: "monospace",
+              }}
+            >
+              pnpm setup:sparkgood
+            </code>{" "}
+            in your terminal to complete Spark Good account verification. This takes 5 minutes and only needs to be
+            done once.
+          </span>
+        </div>
+      )}
 
       {/* STATUS BANNER — pulsing green while a session is actively running, gray if idle */}
       <div

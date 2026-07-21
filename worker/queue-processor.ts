@@ -105,6 +105,24 @@ class SkipError extends Error {
   }
 }
 
+/**
+ * Thrown by handleLoginGating() for portals (currently: Walmart Spark Good)
+ * that require a one-time, human-in-the-loop account setup
+ * (scripts/setup-sparkgood-account.ts) before this worker can log in and
+ * submit autonomously. Distinct from SkipError so the poll loop can persist
+ * a dedicated 'requires_account_setup' status instead of 'skipped' — the
+ * dashboard (autoapply/page.tsx) surfaces this status as an actionable
+ * banner rather than a routine skip.
+ */
+class AccountSetupRequiredError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'AccountSetupRequiredError';
+  }
+}
+
+const WALMART_SPARKGOOD_PORTAL_TYPE = 'walmart_sparkgood';
+
 function classifyError(message: string): string {
   if (/^captcha_failed/.test(message)) return 'captcha_failed';
   const lower = message.toLowerCase();
@@ -269,7 +287,18 @@ export class QueueProcessor {
           .eq('id', item.id);
         await heartbeat.incrementProcessed();
       } catch (err) {
-        if (err instanceof SkipError) {
+        if (err instanceof AccountSetupRequiredError) {
+          console.log(`[QueueProcessor] Item ${item.id} requires account setup: ${err.message}`);
+          await this.supabase
+            .from('submission_queue')
+            .update({
+              status: 'requires_account_setup',
+              error_message: err.message,
+              completed_at: new Date().toISOString(),
+            })
+            .eq('id', item.id);
+          await heartbeat.incrementProcessed();
+        } else if (err instanceof SkipError) {
           console.log(`[QueueProcessor] Item ${item.id} skipped: ${err.message}`);
           await this.supabase
             .from('submission_queue')
@@ -1647,6 +1676,66 @@ export class QueueProcessor {
   }
 
   /**
+   * Walmart-specific login path used in place of the generic
+   * detect-login-or-register flow below. Requires a verified row in
+   * org_portal_accounts (portal_type='walmart_sparkgood') created by
+   * scripts/setup-sparkgood-account.ts; throws AccountSetupRequiredError
+   * otherwise so the queue item surfaces as 'requires_account_setup' rather
+   * than a generic failure.
+   */
+  private async handleWalmartSparkGoodLogin(
+    page: any,
+    orgId: string,
+    funderId: string,
+    portalUrl: string,
+  ): Promise<void> {
+    const setupMessage = 'Run pnpm setup:sparkgood to complete one-time account setup';
+
+    const { data: portalAccount, error: portalAccountError } = await this.supabase
+      .from('org_portal_accounts')
+      .select('deed_verified')
+      .eq('organization_id', orgId)
+      .eq('portal_type', WALMART_SPARKGOOD_PORTAL_TYPE)
+      .maybeSingle();
+
+    if (portalAccountError) {
+      console.warn('[QueueProcessor] org_portal_accounts lookup failed:', portalAccountError.message);
+    }
+
+    const verified =
+      portalAccount !== null &&
+      portalAccount !== undefined &&
+      Boolean((portalAccount as { deed_verified: boolean }).deed_verified);
+
+    if (!verified) {
+      throw new AccountSetupRequiredError(setupMessage);
+    }
+
+    const existing = await this.credentialManager.getCredentials(orgId, funderId);
+    if (existing === null) {
+      throw new AccountSetupRequiredError(setupMessage);
+    }
+
+    const loginDetection = await this.registrationAgent.detectLoginForm(page);
+    if (!loginDetection?.hasLoginForm) {
+      // Already logged in (or no login gate on this page) â€” nothing to do.
+      return;
+    }
+
+    const loginSuccess = await this.registrationAgent.login(page, {
+      username: existing.username,
+      password: existing.password,
+    });
+    await this.credentialManager.updateLastLogin(existing.id, loginSuccess);
+
+    if (!loginSuccess) {
+      throw new Error('account_required: stored Spark Good credentials failed');
+    }
+
+    console.log(`[QueueProcessor] Logged in to ${portalUrl} with stored Spark Good credentials`);
+  }
+
+  /**
    * Detects whether the portal is gated behind a login wall and handles it by:
    * 1. Using stored credentials to log in, or
    * 2. Registering a new account and logging in with the generated credentials.
@@ -1660,6 +1749,16 @@ export class QueueProcessor {
     portalUrl: string,
     orgProfile: OrgRow | null,
   ): Promise<void> {
+    // Walmart Spark Good gates new accounts behind a Deed email verification
+    // step this worker cannot clear on its own (see
+    // scripts/setup-sparkgood-account.ts's doc comment). Never attempt
+    // registration against this portal â€” only log in with a pre-verified
+    // account, or surface that one-time setup is still needed.
+    if (extractDomain(portalUrl) === 'walmart.com') {
+      await this.handleWalmartSparkGoodLogin(page, orgId, funderId, portalUrl);
+      return;
+    }
+
     const loginDetection = await this.registrationAgent.detectLoginForm(page);
     if (!loginDetection?.hasLoginForm) return;
 

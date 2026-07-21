@@ -57,7 +57,9 @@
         "check:enrichment": "tsx scripts/check-enrichment-detailed.ts",
         "outreach:seed": "tsx scripts/seed-outreach-prospects.ts",
         "ff:test-pipeline": "tsx scripts/ff-agent-test.ts",
-        "test:autoapply": "tsx scripts/test-autoapply-walmart.ts"
+        "test:autoapply": "tsx scripts/test-autoapply-walmart.ts",
+        "setup:sparkgood": "tsx scripts/setup-sparkgood-account.ts",
+        "smoke:platform": "tsx scripts/platform-smoke-test.ts"
     },
     "dependencies": {
         "@2captcha/captcha-solver": "^1.3.6",
