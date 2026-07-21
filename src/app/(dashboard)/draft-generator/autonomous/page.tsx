@@ -35,6 +35,65 @@ type ProbabilityScoreRow = {
   overall_score: number | null;
 };
 
+// Written by draft-generation-agent.ts (ag-05-draft) into
+// applications.metadata.intelligence_pattern_analysis -- see
+// src/lib/intelligence/pattern-extractor.ts's extractGrantPatterns().
+interface IntelligencePatternAnalysis {
+  reference_narrative_count: number;
+  funder_types_matched: string[];
+  winning_phrases_applied_count: number;
+}
+
+function parseIntelligencePatternAnalysis(
+  metadata: Record<string, unknown> | null,
+): IntelligencePatternAnalysis | null {
+  const raw = metadata?.intelligence_pattern_analysis;
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const count = r.reference_narrative_count;
+  const winningPhrases = r.winning_phrases_applied_count;
+  if (typeof count !== "number" || typeof winningPhrases !== "number") return null;
+  return {
+    reference_narrative_count: count,
+    funder_types_matched: Array.isArray(r.funder_types_matched)
+      ? r.funder_types_matched.filter((v): v is string => typeof v === "string")
+      : [],
+    winning_phrases_applied_count: winningPhrases,
+  };
+}
+
+function IntelligenceUsedSection({ analysis }: { analysis: IntelligencePatternAnalysis }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        flexWrap: "wrap",
+        gap: "8px",
+        backgroundColor: "#EEF2FF",
+        border: "1px solid #C7D2FE",
+        borderRadius: "8px",
+        padding: "10px 12px",
+        marginTop: "10px",
+      }}
+    >
+      <span style={{ fontSize: "11px", fontWeight: 700, color: "#4338CA", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+        Intelligence Used
+      </span>
+      <span style={{ fontSize: "12px", color: "#3730A3" }}>
+        {analysis.reference_narrative_count} reference narrative
+        {analysis.reference_narrative_count === 1 ? "" : "s"} from the Intelligence Library
+        {analysis.funder_types_matched.length > 0
+          ? ` · funder types matched: ${analysis.funder_types_matched.join(", ")}`
+          : ""}
+        {` · ${analysis.winning_phrases_applied_count} winning phrase${
+          analysis.winning_phrases_applied_count === 1 ? "" : "s"
+        } applied`}
+      </span>
+    </div>
+  );
+}
+
 function scoreColor(score: number | null): string {
   if (score == null) return "#6B7280";
   if (score >= 70) return "#10B981";
@@ -246,6 +305,11 @@ export default async function AutonomousDraftReviewPage() {
                   </span>
                 </div>
               )}
+
+              {(() => {
+                const analysis = parseIntelligencePatternAnalysis(app.metadata);
+                return analysis ? <IntelligenceUsedSection analysis={analysis} /> : null;
+              })()}
 
               <div
                 style={{
