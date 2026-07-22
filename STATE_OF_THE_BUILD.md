@@ -1,219 +1,88 @@
 # STATE_OF_THE_BUILD.md
-## AFS — Current Build Status
-**Updated by FORGE at the end of every prompt run from actual codebase audit.**
+## BENAVORA — Current Build Status
+**Updated: July 22, 2026, from git log + live verification (checkpoint files, running processes, DNS/HTTPS check, code grep). Not FORGE-auto-generated this session — hand-verified.**
+
+> Note: prior to this update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
 
 ---
 
 ## OVERALL STATUS
 
 ```
-Governance documents:    COMPLETE (12 files)
-Feature specs:           COMPLETE (52 files)
-FORGE queue:             READY (queue.yaml staged, tokens correct)
-Application code:        NOT STARTED
-Database migration:      NOT STARTED (pending Supabase project setup)
-API keys in .env.local:  NOT STARTED (pending client data delivery)
+Platform:               BENAVORA — AI-powered nonprofit funding automation SaaS
+Production:             benavora.com — LIVE on Vercel (DNS resolves to 76.76.21.21,
+                         HTTPS confirmed, 308 redirect to www.benavora.com working)
+Database tables:        60+ confirmed live in Supabase (ref vbjplpquqxxfbpazyalt).
+                         NOT reachable via this session's connected Supabase MCP account
+                         (that account only shows unrelated projects "tarritrix" /
+                         "tarritrix-audit") — table count is carried from the manual
+                         July 20 2026 verification recorded in BENAVORA_HANDOFF_JULY21.md
+                         (13 tables applied manually via SQL editor that day), not
+                         re-verified fresh this session.
+Autonomous agents:      30 built (18 original + 12 Phase 2-5). See caveat below —
+                         "built" does not mean all 30 are wired into a live call path.
+FORGE queue library:    32 queues in library-manifest.yaml — 31 status: complete,
+                         1 status: running (queue-vercel-dns-setup — DNS is in fact
+                         already live per the check above; this manifest entry looks stale).
 ```
 
 ---
 
-## ARCHITECTURE DECISIONS LOCKED
+## AUTOAPPLY
 
-| Decision | Status | Notes |
-|---|---|---|
-| RFQ model — no customer-facing pricing | Locked | Core business model |
-| Gunmetal single theme from logo | Locked | Design system complete |
-| Phase 1 = drawing tool first | Locked | Highest complexity first |
-| claude-sonnet-4-6 on all AI | Locked | Single model |
-| pnpm only | Locked | Lock-file consistency |
-| No SEO in this build | Locked | Teratrix platform handles it |
-| **Pricing engine deferred** | **Locked** | **Manual pricing mode at launch** |
+- **StealthBrowser + FormFiller: confirmed working.** Per July 20-21 session, live submission to Meade Tractor completed in 43s.
+- **CaptchaSolver: now wired (commit `3e7400b`).** Verified by direct grep of `src/lib/autoapply/form-filler-agent.ts` — `captcha-solver.ts` is imported and its `detect` / `solveCaptcha` / `injectSolution` calls are present in the actual submission flow (not just an unused file). Handles recaptcha v2/v3, hcaptcha, turnstile; audit logging; screenshot capture; degrades gracefully when no 2Captcha key is configured. This closes Feature #63 (previously PARTIAL — "not wired").
 
----
+## FOLLOW-UP WORKER
 
-## PRICING ENGINE — DEFERRED
+- **process-followups: fully implemented.** `src/worker/jobs/process-followups.ts` — verified 276 lines (commit `2f822b1` message said "150+ lines"; actual line count is 276). This closes Feature #74 (previously PARTIAL — "stub only").
 
-```
-DECISION DATE: July 2026
-REASON:        Insufficient historical data to build an accurate engine.
-               Building without validated data produces an untrustworthy system.
-IMPACT:        None on customer experience. None on architecture.
-               Estimators price manually in admin quote creation form.
-SCHEMA:        All 5 pricing tables included in 001_initial_schema.sql.
-               No migration required when engine activates.
-CRON JOBS:     Not built. vercel.json cron config not added.
-METALS API:    Not required at launch.
-ACTIVATION:    6–12 months post-launch. See PRICING_ENGINE.md activation checklist.
-```
+## DATA PIPELINES — VERIFIED STATE (July 22, 2026)
 
----
+Ran `pnpm tsx scripts/check-enrichment-detailed.ts` and checked live checkpoint files / running processes directly. Results:
 
-## GOVERNANCE STACK — COMPLETE
+| Pipeline | Claimed | Verified | Status |
+|---|---|---|---|
+| IRS BMF import | 1.97M records | **1,978,526 total nonprofit records** confirmed live | ✅ Accurate |
+| ProPublica financial enrichment | 66% complete, 1.3M records | **66.1%, 1,307,022 records** (`last_enriched_at` set) | ✅ Accurate |
+| ProPublica contact+address enrichment (commit `7e89db1`) | Built and running | **Confirmed actively running** — 3 parallel state-partitioned `pnpm enrich:propublica-contacts` processes live in the process table right now, covering West/AK/HI, South-Central, and Southeast/Northeast state groups | ✅ Accurate, but very early: `officer_name` populated on only 6,781 records (0.3%), `website` on 0 (0.0%) so far |
+| 990 XML ZIP enrichment | 4/12 ZIPs done | **Confirmed via `%TEMP%\irs-990\progress.json`: exactly 4 of 12 ZIPs completed** (01A–04A) | ✅ Accurate |
+| USASpending/NIH/NSF federal import (`pnpm import:federal`) | "Import running" | **Not running.** No `import-federal-awards` process found in the live process table. `scripts/.checkpoints/federal-awards-checkpoint.json` shows `done: false` for all three sources with **0 records inserted** in any of them (usaspending nextPage: 5, nih nextOffset: 0, nsf stateIndex: 0), last updated 2026-07-21T09:13 — over a day stale. | ❌ **Correction: this pipeline is stalled/non-functional, not active.** Needs investigation before it can be claimed as running. |
 
-| Document | Status | Notes |
-|---|---|---|
-| CLAUDE.md | Complete | Master index |
-| BLUEPRINT.md | Complete | FORGE operational rules |
-| ARCHITECTURE.md | Complete | System architecture |
-| SCHEMA.md | Complete | 25 tables + RLS (all pricing tables included) |
-| DESIGN_TOKENS.md | Complete | Gunmetal theme from logo |
-| SITEMAP.md | Complete | 87 routes, RFQ model |
-| COMPONENT_MAP.md | Complete | All components mapped |
-| PRICING_ENGINE.md | Complete | Engine deferred — manual mode documented |
-| PRD.md | Complete | Platform requirements |
-| STATE_OF_THE_BUILD.md | This file | Updated by FORGE |
-| SESSION_STATE.md | Active | Session log |
-| MASTER_DOCUMENT_REGISTRY.md | Complete | Document index |
+## INTELLIGENCE LIBRARY & DONOR DISCOVERY
+
+- Both `queue-intelligence-library-enterprise` and `queue-donor-discovery-enterprise` show `status: complete` in the FORGE library manifest — enterprise rebuilds (schema, full-text search, filters, pattern extraction engine for Intelligence Library; Google Places pipeline, CSR programs, portal types, intent signals for Donor Discovery) are done per that record.
+- The Intelligence Library's federal-source record counts should NOT be assumed current given the federal import pipeline is stalled (see table above) — the "700+ records from USASpending/NIH/NSF/ProPublica" in the manifest description reflects the queue's build-time target, not confirmed current live counts from those three sources specifically.
+
+## AUTONOMOUS AGENTS — 30 BUILT, WITH KNOWN WIRING GAPS
+
+FEATURE_REGISTRY_v2.md documents 30 designed/built agents (AG-01 through AG-40, phases 1-5). Two are flagged in that document's own notes as **not actually wired into any live call path** (confirmed by repo-wide grep, dated July 19 2026 in that file):
+- **AG-36 (Global Learning Network aggregator)** — real 905-line implementation, never imported or called anywhere in `src/` or `worker/`.
+- **AG-39 (ROI Optimizer)** — only the telemetry half (`trackSubmissionVariables`) has a live call site; its `run()` method (the Claude-calling correlation pass that populates `roi_insights`) has none, so `/reports/roi` reads a table nothing populates.
+
+Treat "30 agents built and wired" as accurate for "built"; for "wired to a live trigger," the true count is 28 of 30 per the existing registry notes above.
 
 ---
 
-## FEATURE SPECS — COMPLETE (52 files)
+## FORGE ORCHESTRATOR
 
-All specs written. All reflect RFQ model (no customer-facing pricing).
-See MASTER_DOCUMENT_REGISTRY.md for full list.
-
----
-
-## WHAT IS AND IS NOT BUILT IN PHASE 6 (ADMIN)
-
-```
-BUILT:
-  /admin/pricing — pricing_rules editor (manual margin + waste factor notes)
-  /admin/pricing — PricingEngineComingSoon section
-  Admin estimator quote creation — manual unit price entry per line item
-  All other admin features per SPEC_ADMIN_PORTAL.md, SPEC_PRODUCTION_QUEUE.md
-
-NOT BUILT (deferred):
-  Metals API integration
-  /api/cron/commodity-prices
-  /api/cron/pricing-trends
-  Commodity price dashboard
-  Margin risk alert system
-  "Generate Pricing" button on estimator form
-  Historical price chart
-  vercel.json cron config entries
-```
+- 32 queue files registered in `C:\Users\manag\Documents\FORGE\library\benavora\library-manifest.yaml` (verified count).
+- `forge.ps1` encoding fix and workDir bug fix carried forward from prior session notes (`BENAVORA_HANDOFF_JULY21.md`) — not independently re-tested this session.
 
 ---
 
-## DATA BLOCKERS — UNRESOLVED
+## DOMAIN
 
-These items block specific features but do not block the build.
-
-| Item | Checklist # | Blocks |
-|---|---|---|
-| Product catalog (profiles, materials, gauges) | #12–21 | Catalog content, dropdowns |
-| Pricing cost basis and margin rules | #22–23, #26 | Manual margin targets in pricing_rules |
-| Production stage names | #39 | Timeline labels |
-| AFS address, phone, hours | #5, #6 | Contact page, emails |
-| Tax nexus states | #31 | TaxJar config |
-| Carrier/freight method | #27–28, #80 | Freight manual entry context |
-| Industry certifications | #8 | Trust badges |
-| Logo SVG (vector) | #1 | Asset quality |
-| Photography | #9 | Product/gallery images |
-| Privacy Policy | #65 | LAUNCH BLOCKER |
+- **benavora.com is live on Vercel.** Verified this session: `nslookup benavora.com` resolves to `76.76.21.21` (Vercel's anycast IP, matching the A-record instructions in the July 21 handoff doc), and `curl -I https://benavora.com` returns `HTTP/1.1 308` redirecting to `https://www.benavora.com/` with `Server: Vercel`. DNS setup that was listed as an open action item in the July 21 handoff doc has since been completed.
 
 ---
 
-## BUILD PHASE STATUS
+## KNOWN ISSUES CARRIED FORWARD (unchanged this session, see prior memory/handoff docs)
 
-```
-Phase 0 — Scaffold + Design System:    NOT STARTED
-Phase 1 — Drawing Tool + Upload:       NOT STARTED
-Phase 2 — Quote Request System:        NOT STARTED
-Phase 3 — Product Catalog + Auth:      NOT STARTED
-Phase 4 — Customer Portal:             NOT STARTED
-Phase 5 — Architect Portal:            NOT STARTED
-Phase 6 — Admin + Operations:          NOT STARTED (engine deferred per decision above)
-Phase 7 — AI Layer:                    NOT STARTED
-Phase 8 — Integrations + Deploy:       NOT STARTED
-```
-
-**FORGE is ready to run Phase 0 when .env.local is populated.**
+- Federal import pipeline (USASpending/NIH/NSF) stalled at 0 records — needs debugging, not just re-running.
+- AG-36 and AG-39 dead-code gaps (not wired).
+- Prior open items from `BENAVORA_HANDOFF_JULY21.md` (SchoolFunder removal, Faith Foundation org dedup, etc.) not re-verified this session — check that doc and `SESSION_STATE.md` directly.
 
 ---
 
-## NEXT ACTION
-
-1. Populate .env.local with Supabase project credentials
-2. Run queue.yaml — Phase 0 scaffold prompt
-3. Verify all gates pass (tsc, build, lint, Playwright)
-4. Continue through Phase 1
-
----
-
-*STATE_OF_THE_BUILD.md | Updated by FORGE after each run. Do not edit manually.*
-
-| Document | Status | Notes |
-|---|---|---|
-| CLAUDE.md | Complete | Master index |
-| BLUEPRINT.md | Complete | FORGE operational rules |
-| ARCHITECTURE.md | Complete | System architecture |
-| SCHEMA.md | Complete | 25 tables + RLS |
-| DESIGN_TOKENS.md | Complete | Gunmetal theme from logo |
-| SITEMAP.md | Complete | 87 routes, RFQ model |
-| COMPONENT_MAP.md | Complete | All components mapped |
-| PRICING_ENGINE.md | Complete | Internal commodity system |
-| PRD.md | Complete | Platform requirements |
-| STATE_OF_THE_BUILD.md | This file | Updated by FORGE |
-| SESSION_STATE.md | Active | Session log |
-| MASTER_DOCUMENT_REGISTRY.md | Complete | Document index |
-
----
-
-## FEATURE SPECS — COMPLETE (52 files)
-
-All specs written. All reflect RFQ model (no customer-facing pricing).
-See MASTER_DOCUMENT_REGISTRY.md for full list.
-
----
-
-## DATA BLOCKERS — UNRESOLVED
-
-These items block specific features but do not block the build.
-Code is built now. Data populates when received.
-
-| Item | Checklist # | Blocks |
-|---|---|---|
-| Product catalog (profiles, materials, gauges) | #12–21 | Catalog content, dropdowns |
-| Pricing cost basis and margin rules | #22–23, #26 | Engine activation |
-| Supplier price history | Internal records | Trend projection |
-| Production stage names | #39 | Timeline labels |
-| AFS address, phone, hours | #5, #6 | Contact page, emails |
-| Tax nexus states | #31 | TaxJar config |
-| Carrier/freight method | #27–28, #80 | Freight calculation |
-| Industry certifications | #8 | Trust badges |
-| Logo SVG (vector) | #1 | Asset quality |
-| Photography | #9 | Product/gallery images |
-| Privacy Policy | #65 | LAUNCH BLOCKER |
-
----
-
-## BUILD PHASE STATUS
-
-```
-Phase 0 — Scaffold + Design System:    NOT STARTED
-Phase 1 — Drawing Tool + Upload:       NOT STARTED
-Phase 2 — Quote Request System:        NOT STARTED
-Phase 3 — Product Catalog + Auth:      NOT STARTED
-Phase 4 — Customer Portal:             NOT STARTED
-Phase 5 — Architect Portal:            NOT STARTED
-Phase 6 — Admin + Operations:          NOT STARTED
-Phase 7 — AI Layer:                    NOT STARTED
-Phase 8 — Integrations + Deploy:       NOT STARTED
-```
-
-**FORGE is ready to run Phase 0 when .env.local is populated.**
-
----
-
-## NEXT ACTION
-
-1. Populate .env.local with Supabase project credentials
-2. Run queue.yaml — Phase 0 scaffold prompt
-3. Verify all gates pass (tsc, build, lint, Playwright)
-4. Continue through Phase 1
-
----
-
-*STATE_OF_THE_BUILD.md | Updated by FORGE after each run. Do not edit manually.*
+*STATE_OF_THE_BUILD.md | Hand-verified July 22, 2026. Update by re-running the verification commands above, not by copying claims without checking them.*

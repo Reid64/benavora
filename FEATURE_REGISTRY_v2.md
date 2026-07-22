@@ -1,6 +1,6 @@
 # BENAVORA — Feature Registry v2.0
 ## Supersedes: Feature_Registry.md v1.0
-## Date: July 17, 2026
+## Date: July 22, 2026 (last update)
 ## Status: CANONICAL — Updated after every FORGE run and CC session.
 ## Build tool: FORGE 1.x | Repo: Reid64/benavora | Production: www.benavora.com
 
@@ -112,7 +112,7 @@
 | 60 | Custom Scraping Targets | PLANNED | Not built. |
 | 61 | Automation Queue | PARTIAL | Worker exists. Priority scoring not implemented. |
 | 62 | Semi/Autonomous Modes | BUILT | Both modes implemented in AutoApply. |
-| 63 | 2Captcha Integration | PARTIAL | captcha-solver.ts exists. Not wired into stealth browser flow. |
+| 63 | 2Captcha Integration | BUILT | captcha-solver.ts wired into src/lib/autoapply/form-filler-agent.ts — detect/solve/inject for recaptcha v2/v3, hcaptcha, turnstile. Audit logging, screenshot capture, graceful degradation when 2Captcha key is missing. Commit 3e7400b, July 22 2026. |
 | 64 | Automation Monitor | BUILT | Real-time queue status. Failure categorization. Screenshot review. |
 | 65 | Notification Preferences | BUILT | Per-user event type preferences. In-app + email toggles. |
 | 66 | 990-PF Giving History | PLANNED | Not built separately. Foundation profiler exists but not giving history extractor. |
@@ -123,7 +123,7 @@
 | 71 | Deadline Prediction | BUILT | src/lib/intelligence/deadline-predictor.ts + API route + UI section. |
 | 72 | Application Cloning | BUILT | /api/applications/[id]/clone — AI-adapted narrative for new opportunity. |
 | 73 | Semantic Funder Matching | BUILT | src/lib/intelligence/semantic-matcher.ts + /research/match page. |
-| 74 | Follow-Up Sequences | PARTIAL | Table + page exists. process-followups worker job is stub only. |
+| 74 | Follow-Up Sequences | BUILT | Table + page + src/worker/jobs/process-followups.ts (276 lines, verified) fully implemented. Commit 2f822b1, July 22 2026. |
 | 75 | Financial Reconciliation | BUILT | Budgets, expenses, reconciliation reports. API routes. Financials page. |
 | 76 | Compliance Calendar | BUILT | compliance_events table + page + API routes. |
 | 77 | Multi-Channel Outreach | PARTIAL | Templates page and send route exist. LinkedIn/phone/physical mail not implemented. |
@@ -364,7 +364,7 @@
 
 | # | Feature | Status | Notes |
 |---|---|---|---|
-| D1 | IRS BMF Full Import | PLANNED | pnpm ingest:bmf. 1.8M nonprofits. Never successfully run. |
+| D1 | IRS BMF Full Import | BUILT | pnpm ingest:bmf. nonprofits table has 1,978,526 records live (verified via check-enrichment-detailed.ts, July 22 2026). |
 | D2 | IRS 990 Stream Parser | PARTIAL | Script exists. EIN column bug confirmed. Fix in last FORGE queue. |
 | D3 | ProPublica Batch Enrichment | BUILT | Script exists. Never run against full 133K foundation records. |
 | D4 | 298K Prospect CSV Import | PLANNED | Source: D:\dataocean. scripts/import-prospects.ts exists. Never run. |
@@ -411,11 +411,11 @@
 | Tier 1-3 Enhancements | 21 | 21 | 0 | 0 | 0 |
 | Tier 4 Browser Automation | 7 | 7 | 0 | 0 | 0 |
 | Tier 5 SaaS Layer | 6 | 6 | 0 | 0 | 0 |
-| Tier 6 Full Autonomous | 26 | 17 | 5 | 0 | 4 |
+| Tier 6 Full Autonomous | 26 | 19 | 3 | 0 | 4 |
 | Platform Vision Pillars | 93 | 9 | 2 | 35 | 47 |
-| Data Pipeline | 7 | 1 | 3 | 0 | 3 |
+| Data Pipeline | 7 | 2 | 2 | 0 | 3 |
 | Testing | 8 | 3 | 0 | 0 | 5 |
-| **TOTAL** | **186** | **82** | **10** | **35** | **59** |
+| **TOTAL** | **186** | **85** | **7** | **35** | **59** |
 
 **Infrastructure:**
 - Database tables: 67 (097 migrations applied or queued)
