@@ -1,45 +1,51 @@
 // ============================================================================
-// BENAVORA — nonprofit website discovery via DuckDuckGo HTML search
+// BENAVORA — nonprofit website discovery via Bing/Yahoo HTML search
 //
-// For nonprofits with no known website, searches DuckDuckGo's no-JS HTML
-// endpoint ("{name} {city} {state} nonprofit") and takes the first organic
-// result that isn't a social network or a nonprofit-directory site (those
-// are about the org, not the org's own site).
+// For nonprofits with no known website, searches Bing's HTML search results
+// ("{name} {city} {state} nonprofit") and takes the first organic result
+// that isn't a social network, search engine, or nonprofit-directory site
+// (those are about the org, not the org's own site). Falls back to Yahoo
+// search if Bing returns nothing usable.
 //
 // NO API key required. Pure HTTP + cheerio against
-// https://html.duckduckgo.com/html/.
+// https://www.bing.com/search and https://search.yahoo.com/search.
 //
 // Idempotent: only ever writes nonprofits.website (currently NULL). A miss
 // is left untouched so it's picked back up on the next run — pagination
 // therefore walks forward by id (keyset cursor) rather than re-querying
 // "website IS NULL" from the top each batch, otherwise a run of all-misses
 // would loop forever on the same 500 rows.
-// State-partitioned: pass --states TX,CA,FL to run multiple windows
+// State-partitioned: pass --states=TX,CA,FL to run multiple windows
 // concurrently against disjoint partitions, same convention as
-// scripts/enrich-propublica-contacts.ts.
+// scripts/enrich-propublica-contacts.ts. Args are read directly off
+// process.argv (not node:util's parseArgs) so this survives pnpm's "--"
+// argument-forwarding quirk.
 //
 //   pnpm discover:websites
-//   pnpm discover:websites -- --states TX,CA,FL
+//   npx tsx scripts/discover-websites.ts --states=TX,CA,FL
 // ============================================================================
 
 import dotenv from "dotenv";
 dotenv.config({ path: ".env.local" });
 
-import { parseArgs } from "node:util";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import * as cheerio from "cheerio";
 import ws from "ws";
 
 // ---- Config -----------------------------------------------------------------
-const DDG_HTML_URL = "https://html.duckduckgo.com/html/";
-const USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36";
+const BING_URL = "https://www.bing.com/search";
+const YAHOO_URL = "https://search.yahoo.com/search";
+const USER_AGENT =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 const BATCH_SIZE = 500;
-const DELAY_MS = 1500;
-const FETCH_TIMEOUT_MS = 10_000;
+const DELAY_MS = 800;
+const FETCH_TIMEOUT_MS = 6000;
 const LOG_EVERY = 100;
 
 const EXCLUDED_DOMAINS = [
   "duckduckgo.com",
+  "bing.com",
+  "yahoo.com",
   "facebook.com",
   "linkedin.com",
   "twitter.com",
@@ -57,14 +63,13 @@ function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+// Reads process.argv directly instead of node:util's parseArgs — pnpm forwards
+// a literal extra "--" ahead of user args on this setup, which made parseArgs
+// (without allowPositionals) throw and silently fall back to no filter.
+// Scanning the whole argv array for a "--states=" token sidesteps that.
 function parseStatesArg(): string[] | null {
-  try {
-    const { values } = parseArgs({ options: { states: { type: "string" } } });
-    if (!values.states) return null;
-    return values.states.split(/[,\s]+/).map((s) => s.trim().toUpperCase()).filter(Boolean);
-  } catch {
-    return null;
-  }
+  const statesArg = process.argv.find((a) => a.startsWith("--states="));
+  return statesArg ? statesArg.replace("--states=", "").split(/[,\s]+/).filter(Boolean) : null;
 }
 
 interface NonprofitRow {
@@ -78,21 +83,6 @@ interface NonprofitRow {
 function isExcludedDomain(hostname: string): boolean {
   const h = hostname.replace(/^www\./i, "").toLowerCase();
   return EXCLUDED_DOMAINS.some((d) => h === d || h.endsWith(`.${d}`));
-}
-
-// DDG's html endpoint wraps result links in a `/l/?uddg=<encoded-target>`
-// redirect (protocol-relative href). Unwrap it to get the real target URL.
-function resolveResultHref(href: string): string | null {
-  try {
-    const full = href.startsWith("//") ? `https:${href}` : href;
-    const url = new URL(full, "https://duckduckgo.com");
-    const uddg = url.searchParams.get("uddg");
-    if (uddg) return decodeURIComponent(uddg);
-    if (url.protocol === "http:" || url.protocol === "https:") return url.toString();
-    return null;
-  } catch {
-    return null;
-  }
 }
 
 // Drop query string and fragment — this is the "strip tracking params" step;
@@ -110,42 +100,73 @@ function cleanUrl(raw: string): string | null {
   }
 }
 
-function extractFirstResultUrl($: cheerio.CheerioAPI): string | null {
-  const anchors = $(".result__a").toArray();
-  for (const el of anchors) {
-    const href = $(el).attr("href");
-    if (!href) continue;
-    const resolved = resolveResultHref(href);
-    if (!resolved) continue;
-    const cleaned = cleanUrl(resolved);
-    if (!cleaned) continue;
+// Bing/Yahoo's displayed-URL text is breadcrumb-style (e.g. "example.org ›
+// about-us") — the homepage is the first segment before the separator.
+function displayTextToUrl(text: string): string | null {
+  const firstSegment = text.split(/[›»]/)[0]?.trim();
+  if (!firstSegment) return null;
+  const withProtocol = /^https?:\/\//i.test(firstSegment) ? firstSegment : `https://${firstSegment}`;
+  return cleanUrl(withProtocol);
+}
+
+function firstAllowedUrl(candidates: string[]): string | null {
+  for (const candidate of candidates) {
     try {
-      if (!isExcludedDomain(new URL(cleaned).hostname)) return cleaned;
+      if (!isExcludedDomain(new URL(candidate).hostname)) return candidate;
     } catch {
       continue;
     }
   }
-
-  // Fallback: the displayed-URL span, protocol-less text like "example.org/about"
-  const urlSpans = $(".result__url").toArray();
-  for (const el of urlSpans) {
-    const text = $(el).text().trim();
-    if (!text) continue;
-    const withProtocol = /^https?:\/\//i.test(text) ? text : `https://${text}`;
-    const cleaned = cleanUrl(withProtocol);
-    if (!cleaned) continue;
-    try {
-      if (!isExcludedDomain(new URL(cleaned).hostname)) return cleaned;
-    } catch {
-      continue;
-    }
-  }
-
   return null;
 }
 
-async function searchDuckDuckGo(query: string): Promise<string | null> {
-  const url = `${DDG_HTML_URL}?q=${encodeURIComponent(query)}`;
+function extractBingUrls($: cheerio.CheerioAPI): string[] {
+  const urls: string[] = [];
+
+  $(".b_algo").each((_, el) => {
+    const href = $(el).find("h2 a").attr("href");
+    if (href) {
+      const cleaned = cleanUrl(href);
+      if (cleaned) urls.push(cleaned);
+    }
+    const citeText = $(el).find("cite, .b_attribution cite").first().text().trim();
+    if (citeText) {
+      const cleaned = displayTextToUrl(citeText);
+      if (cleaned) urls.push(cleaned);
+    }
+  });
+
+  return urls;
+}
+
+function extractYahooUrls($: cheerio.CheerioAPI): string[] {
+  const urls: string[] = [];
+
+  $(".algo-sr .compTitle a").each((_, el) => {
+    const href = $(el).attr("href");
+    if (href) {
+      const cleaned = cleanUrl(href);
+      if (cleaned) urls.push(cleaned);
+    }
+  });
+
+  $("dd.d span").each((_, el) => {
+    const text = $(el).text().trim();
+    if (text) {
+      const cleaned = displayTextToUrl(text);
+      if (cleaned) urls.push(cleaned);
+    }
+  });
+
+  return urls;
+}
+
+// TEMP DEBUG: log status + whether any candidate URLs were found (pre-filter)
+// for the first N requests across both engines combined, then stop.
+let debugRequestCount = 0;
+const DEBUG_REQUEST_LIMIT = 5;
+
+async function fetchSearchHtml(url: string, engine: "bing" | "yahoo"): Promise<string | null> {
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
@@ -154,13 +175,42 @@ async function searchDuckDuckGo(query: string): Promise<string | null> {
       signal: controller.signal,
     });
     clearTimeout(timer);
-    if (!res.ok) return null;
     const html = await res.text();
-    const $ = cheerio.load(html);
-    return extractFirstResultUrl($);
+
+    if (debugRequestCount < DEBUG_REQUEST_LIMIT) {
+      debugRequestCount++;
+      const $ = cheerio.load(html);
+      const urlsFound = (engine === "bing" ? extractBingUrls($) : extractYahooUrls($)).length > 0;
+      log(`DEBUG [${engine}]: status=${res.status} urlsFoundBeforeFilter=${urlsFound}`);
+    }
+
+    if (!res.ok) return null;
+    return html;
   } catch {
     return null;
   }
+}
+
+async function searchBing(query: string): Promise<string | null> {
+  const url = `${BING_URL}?q=${encodeURIComponent(query)}&count=5`;
+  const html = await fetchSearchHtml(url, "bing");
+  if (!html) return null;
+  const $ = cheerio.load(html);
+  return firstAllowedUrl(extractBingUrls($));
+}
+
+async function searchYahoo(query: string): Promise<string | null> {
+  const url = `${YAHOO_URL}?p=${encodeURIComponent(query)}`;
+  const html = await fetchSearchHtml(url, "yahoo");
+  if (!html) return null;
+  const $ = cheerio.load(html);
+  return firstAllowedUrl(extractYahooUrls($));
+}
+
+async function searchWeb(query: string): Promise<string | null> {
+  const bingResult = await searchBing(query);
+  if (bingResult) return bingResult;
+  return searchYahoo(query);
 }
 
 async function discoverBatch(
@@ -176,7 +226,7 @@ async function discoverBatch(
 
     let website: string | null = null;
     try {
-      website = await searchDuckDuckGo(query);
+      website = await searchWeb(query);
     } catch {
       website = null;
     }
