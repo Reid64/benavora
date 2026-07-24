@@ -1,20 +1,31 @@
 # BENAVORA — Session State
 ## Last Updated: July 23, 2026
-## Mode: UI queue — prompt ui-003
+## Mode: UI queue — prompt ui-004
 
 ---
 
 ## Current Session
 
 **Date:** July 23, 2026
-**Focus:** Prompt ui-003 — AutoApply main page dark command-center rewrite. Full detail in `STATE_OF_THE_BUILD.md`'s "SESSION — July 23, 2026 (prompt ui-003)" entry.
-**Status:** Header, stats row, and a new Controls panel shipped per the dark command-center spec, using real `submission_queue` data throughout. The literal "AI thinking ticker" / simulated form view was NOT built — see deviation below. **Next prompt in queue: none assigned yet.**
-**Commit:** `27e3612` (pushed to `main`).
+**Focus:** Prompt ui-004 — Draft Generator 4-step wizard rewrite + Donor Discovery intent-signals/industry-grid rewrite. Full detail in `STATE_OF_THE_BUILD.md`'s "SESSION — July 23, 2026 (prompt ui-004)" entry.
+**Status:** Draft Generator reworked into a dark-rail 3-column wizard shell with all real generation/review/history functionality preserved; Donor Discovery reskinned with a real Live Intent Signals panel and Featured Prospect card. Two deviations from the literal spec — fake tone/length/instructions controls and a fabricated 12-industry grid were both declined. See deviations below. **Next prompt in queue: none assigned yet.**
+**Commit:** `ef1b758` (pushed to `main`).
 **Gates:** `pnpm tsc --noEmit` — 0 errors this session (clean exit, no output). `pnpm lint` / `pnpm run build` — not run this session; do not assume they pass.
 
-**Deviation from literal spec, and why:** the task asked for a from-scratch "Live Session Viewer" with a hardcoded AI-thinking ticker (static example lines like `[09:14:33] > Scanning form fields...`) and a simulated field-fill progress bar. A real `LiveSessionViewer` component (`src/components/autoapply/LiveSessionViewer.tsx`) already sits on this exact page with a genuine WebSocket connection to the Railway worker, live canvas frame rendering, and real connection-state handling — building a second, fake one next to it would duplicate real functionality with fabricated data, directly against CLAUDE.md Iron Law #8 ("never use mocks or placeholder data in production code"). Reskinned the real component's outer card to the dark palette instead; its WebSocket/canvas logic is untouched. Same call as ui-002's research-page restyle and ui-001's Sidebar/dashboard restyle — this is now a consistent pattern across three UI prompts in this queue.
+**Deviation 1, and why:** the task asked for a tone selector (Formal/Balanced/Compelling), a length selector, and a "special instructions" textarea on the Customize step. `/api/ai/draft` and `/api/ai/budget` (the two real endpoints this page calls) don't accept any of those parameters — adding the controls without backend wiring would be inert, fabricated UI, against CLAUDE.md Iron Law #8. Not built.
+
+**Deviation 2, and why:** the task asked for a static 4×3 industry-selector grid on the Donor Discovery overview page (Construction, Technology, Healthcare, Finance, Retail, Manufacturing, Energy, Food Service, Education, Professional Services, Real Estate, Transportation) with a "Find Prospects" button. `/donor-discovery/discover` already has a real, working NAICS-category picker (`NAICS_CATEGORIES`, 13 categories) wired to live Google Places search — the task's 12-category list doesn't match it (Manufacturing/Energy/Education/Transportation aren't real categories in that taxonomy). Duplicating it with invented categories on the overview page would be a second, fake picker next to the real one. Not built; the existing "Discover Prospects" quick-action card already routes there.
+
+This is now a consistent pattern across four UI prompts in this queue (ui-001 through ui-004): apply the requested visual tokens to real, already-wired functionality; decline literal-spec elements that would require either deleting working features or fabricating unwired/duplicate UI.
 
 Also carried over, still unresolved: whether SchoolFunder (page + 3 API routes, ui-001) should actually be removed — it wasn't dead code (nav-items.ts marks it "PERMANENT," documented in BLUEPRINT §1), so it remains in place pending Reid's confirmation. And the ui-002 open question (whether a literal funder-search/semantic-match panel is wanted on `/research` specifically, alongside its existing sections) is also still open.
+
+---
+
+## Prior Session — July 23, 2026 (prompt ui-003)
+
+**Focus:** AutoApply main page dark command-center rewrite.
+**Status:** Header, stats row, and a new Controls panel shipped per the dark command-center spec; Live Session Viewer reskinned dark rather than rebuilt fake. Commit `27e3612`.
 
 ---
 

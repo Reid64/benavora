@@ -1,8 +1,30 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: July 23, 2026 (prompt ui-003), from `git log --oneline -3` run this session. Not FORGE-auto-generated — hand-verified.**
+**Updated: July 23, 2026 (prompt ui-004), from `git log --oneline -3` run this session. Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — July 23, 2026 (prompt ui-004)
+
+**Commit `ef1b758`** — `feat(ui): draft generator 4-step wizard dark rail, donor discovery intent signals + featured prospect`, on top of `3dd6fad` (verified via `git log --oneline -3`):
+```
+ef1b758 feat(ui): draft generator 4-step wizard dark rail, donor discovery intent signals + featured prospect
+3dd6fad docs: governance sync for prompt ui-003 -- AutoApply dark theme shipped, fake AI ticker declined
+27e3612 feat(ui): AutoApply dark command center header/stats, Controls panel; Live Session Viewer reskinned dark
+```
+
+Pre-read confirmed: `src/app/(dashboard)/draft-generator/page.tsx` and `src/app/(dashboard)/donor-discovery/page.tsx` are both real, fully backend-wired pages (draft generation with humanize/DNA-score/budget/rubric/version-history; donor discovery requests/pipeline/prospects) — same pattern as ui-001/002/003.
+
+**What actually shipped, and two deliberate deviations:**
+
+- **Draft Generator** reworked into a 3-column wizard shell: dark navy (`#1A2B3C`) left rail showing 4 real steps (Select Opportunity / Customize / Generate / Review & Export), derived from actual component state (`opportunityId`, `templateType`, `generating`, `hasDraft`) — not a separate fake step tracker. Added the spec's animated conic-gradient generation view for the `generating` state. All existing functionality preserved as-is: template selector, program selector, humanize, Grant DNA scoring, rubric panel, logic model, budget table, section scores, readability metrics, sources panel, version history, and the ability to regenerate a new version after a draft already exists (the setup form stays visible except during active generation).
+- **Deviation 1:** the spec's tone selector, length selector, and "special instructions" textarea were not built. `/api/ai/draft` and `/api/ai/budget` accept only `{opportunityId, templateType}` / `{opportunityId, programId}` — no tone/length/instructions parameters exist server-side. Adding unwired form controls that don't affect generation would be exactly the kind of fabricated/mock UI Iron Law #8 prohibits (same call as ui-003's declined fake AI ticker).
+- **Donor Discovery** reskinned to the new token set (canvas `#E4E9F0`, white cards with `#E2E8F0` border, `0 2px 8px rgba(0,0,0,0.08)` shadow). Added a dark "Live Intent Signals" panel and a "Featured Prospect" card, both built from data the page already fetches — real HIGH/MEDIUM badges thresholded on `corporate_intent_signals.intent_score`, real top-scored prospect from the existing pipeline query. Top stat row remapped to the spec's 4 accent colors using the closest honest real metrics (Prospects Identified #7C3AED, High-Intent Signals #F59E0B, Active Campaigns #0077B6, AutoApply Submissions #10B981) — there is no literal "Outreach Sent" or "Conversions" count in the schema, so those spec labels were not used verbatim.
+- **Deviation 2:** the spec's static 4×3 industry-selector grid (Construction, Technology, Healthcare, Finance, Retail, Manufacturing, Energy, Food Service, Education, Professional Services, Real Estate, Transportation) was not added to this page. It would duplicate `/donor-discovery/discover`'s existing real NAICS-driven category picker (`NAICS_CATEGORIES` in `src/lib/donor-discovery/naics-labels.ts`) with an invented category list that doesn't match the real taxonomy (Manufacturing/Energy/Education/Transportation aren't real categories there). The existing "Discover Prospects" quick-action card already links to that real flow.
+
+Gates: `pnpm tsc --noEmit` — 0 errors. `pnpm lint` / `pnpm run build` — not run this session; do not assume they pass.
 
 ---
 
