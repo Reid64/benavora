@@ -52,18 +52,27 @@ const MENU_LINKS = [
   { label: "AutoApply Ops", href: "/admin/autoapply-ops" },
 ];
 
-/** Header tab link style — active gets the teal underline, otherwise dim/hover cyan (BLUEPRINT §7.5). */
+/** Header tab link style — active gets the teal underline, hover brightens to cyan (BLUEPRINT §7.5). */
 function headerTabStyle(active: boolean, hovered: boolean): CSSProperties {
+  if (hovered) {
+    return {
+      color: "#67E8F9",
+      fontSize: "14px",
+      fontWeight: 600,
+      textDecoration: "none",
+      padding: "4px 0",
+      borderBottom: "2px solid #67E8F9",
+      transition: "all 0.15s",
+    };
+  }
   return {
-    padding: "8px 16px",
+    color: "#00B4D8",
     fontSize: "14px",
     fontWeight: 600,
-    color: active ? "#00B4D8" : hovered ? "#22D3EE" : "rgba(248,250,252,0.6)",
+    textDecoration: "none",
+    padding: "4px 0",
     borderBottom: active ? "2px solid #00B4D8" : "2px solid transparent",
-    paddingBottom: active ? "2px" : "6px",
-    borderRadius: active ? 0 : "8px",
-    marginBottom: active ? "-1px" : 0,
-    transition: "color 0.15s",
+    transition: "all 0.15s",
   };
 }
 

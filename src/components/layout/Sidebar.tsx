@@ -65,14 +65,14 @@ function navItemStyle(active: boolean, hovered: boolean): CSSProperties {
     gap: "10px",
     padding: "9px 12px",
     borderRadius: "8px",
-    color: active ? "#00B4D8" : hovered ? "#F8FAFC" : "rgba(248,250,252,0.6)",
+    color: active ? "#00B4D8" : hovered ? "#67E8F9" : "rgba(248,250,252,0.7)",
     fontSize: "13px",
     fontWeight: active ? 600 : 500,
     textDecoration: "none",
     backgroundColor: active
       ? "rgba(0,180,216,0.12)"
       : hovered
-        ? "rgba(255,255,255,0.06)"
+        ? "rgba(103,232,249,0.08)"
         : "transparent",
     marginBottom: "1px",
     transition: "all 0.15s",
@@ -200,7 +200,12 @@ function ChildNavLink({
         fontSize: "12px",
         fontWeight: 500,
         textDecoration: "none",
-        color: active ? "#00B4D8" : hovered ? "#F8FAFC" : "rgba(248,250,252,0.5)",
+        color: active ? "#00B4D8" : hovered ? "#67E8F9" : "rgba(248,250,252,0.7)",
+        backgroundColor: active
+          ? "rgba(0,180,216,0.12)"
+          : hovered
+            ? "rgba(103,232,249,0.08)"
+            : "transparent",
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}

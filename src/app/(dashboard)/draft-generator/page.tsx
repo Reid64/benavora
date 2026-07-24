@@ -941,14 +941,13 @@ export default function DraftGeneratorPage() {
             </div>
           )}
 
-          <div className="flex flex-col gap-6 lg:flex-row">
+          <div className="flex flex-col gap-6 lg:flex-row" style={{ display: "flex", gap: "16px", alignItems: "flex-start" }}>
             <div
               style={{
                 width: "200px",
                 flexShrink: 0,
                 alignSelf: "flex-start",
-                position: "sticky",
-                top: "24px",
+                position: "relative",
                 backgroundColor: "#1E293B",
                 borderRadius: "14px",
                 padding: "20px",
@@ -1025,6 +1024,37 @@ export default function DraftGeneratorPage() {
                   </div>
                 );
               })}
+
+              <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", margin: "16px 0" }} />
+
+              <p style={{ fontSize: "10px", fontWeight: 700, color: "rgba(248,250,252,0.3)", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: "12px" }}>
+                Tips
+              </p>
+              <div style={{ fontSize: "12px", color: "rgba(248,250,252,0.5)", lineHeight: "1.5", marginBottom: "10px", paddingLeft: "10px", borderLeft: "2px solid rgba(0,180,216,0.3)" }}>
+                Complete your Knowledge Base to increase confidence scores above 80
+              </div>
+              <div style={{ fontSize: "12px", color: "rgba(248,250,252,0.5)", lineHeight: "1.5", marginBottom: "10px", paddingLeft: "10px", borderLeft: "2px solid rgba(0,180,216,0.3)" }}>
+                Humanize your draft before submitting to pass AI detection filters
+              </div>
+              <div style={{ fontSize: "12px", color: "rgba(248,250,252,0.5)", lineHeight: "1.5", marginBottom: "10px", paddingLeft: "10px", borderLeft: "2px solid rgba(0,180,216,0.3)" }}>
+                Use Grant narrative template for federal opportunities
+              </div>
+
+              <p style={{ fontSize: "10px", fontWeight: 700, color: "rgba(248,250,252,0.3)", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: "12px", marginTop: "16px" }}>
+                Keyboard Shortcuts
+              </p>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "rgba(248,250,252,0.4)", marginBottom: "6px" }}>
+                <span>Generate</span>
+                <span style={{ backgroundColor: "rgba(255,255,255,0.08)", borderRadius: "4px", padding: "1px 6px", fontSize: "11px", fontFamily: "monospace", color: "rgba(248,250,252,0.6)" }}>
+                  ⌘G
+                </span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "rgba(248,250,252,0.4)", marginBottom: "6px" }}>
+                <span>Humanize</span>
+                <span style={{ backgroundColor: "rgba(255,255,255,0.08)", borderRadius: "4px", padding: "1px 6px", fontSize: "11px", fontFamily: "monospace", color: "rgba(248,250,252,0.6)" }}>
+                  ⌘H
+                </span>
+              </div>
             </div>
 
             <div style={{ flex: "1", display: "flex", flexDirection: "column", gap: "12px", minWidth: 0 }}>
