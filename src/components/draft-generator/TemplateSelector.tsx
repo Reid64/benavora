@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   Calculator,
   FileText,
@@ -88,6 +89,8 @@ export function TemplateSelector({
   onChange,
   disabled = false,
 }: TemplateSelectorProps) {
+  const [hovered, setHovered] = useState<DraftTemplateType | null>(null);
+
   return (
     <div
       role="radiogroup"
@@ -97,6 +100,7 @@ export function TemplateSelector({
       {TEMPLATE_OPTIONS.map((option) => {
         const Icon = option.icon;
         const selected = value === option.value;
+        const isHovered = !selected && hovered === option.value;
         return (
           <button
             key={option.value}
@@ -105,34 +109,52 @@ export function TemplateSelector({
             aria-checked={selected}
             disabled={disabled}
             onClick={() => onChange(option.value)}
+            onMouseEnter={() => setHovered(option.value)}
+            onMouseLeave={() => setHovered(null)}
             className={cn(
-              "flex h-full flex-col items-start gap-1.5 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60",
+              "flex h-full flex-col items-start gap-1.5 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60",
             )}
             style={
               selected
                 ? {
-                    backgroundColor: "rgba(0,119,182,0.2)",
-                    border: "2px solid #0077B6",
+                    border: "2px solid #7C3AED",
+                    backgroundColor: "#F5F3FF",
                     borderRadius: "12px",
                     padding: "16px",
                     cursor: "pointer",
                     transition: "all 0.15s",
+                    boxShadow: "0 0 0 3px rgba(124,58,237,0.1)",
                   }
-                : {
-                    backgroundColor: "rgba(255,255,255,0.04)",
-                    border: "1px solid rgba(255,255,255,0.08)",
-                    borderRadius: "12px",
-                    padding: "16px",
-                    cursor: "pointer",
-                    transition: "all 0.15s",
-                  }
+                : isHovered
+                  ? {
+                      border: "1.5px solid #C4B5FD",
+                      backgroundColor: "#FAFAFF",
+                      borderRadius: "12px",
+                      padding: "16px",
+                      cursor: "pointer",
+                      transition: "all 0.15s",
+                    }
+                  : {
+                      border: "1.5px solid #E2E8F0",
+                      backgroundColor: "#FFFFFF",
+                      borderRadius: "12px",
+                      padding: "16px",
+                      cursor: "pointer",
+                      transition: "all 0.15s",
+                    }
             }
           >
-            <Icon className="h-5 w-5" style={{ color: "#00B4D8" }} aria-hidden />
-            <span style={{ fontSize: "14px", fontWeight: 700, color: "#F8FAFC", marginTop: "10px" }}>
+            <Icon className="h-5 w-5" style={{ color: "#7C3AED" }} aria-hidden />
+            <span
+              style={
+                selected
+                  ? { fontSize: "14px", fontWeight: 700, color: "#7C3AED", marginTop: "10px" }
+                  : { fontSize: "14px", fontWeight: 700, color: "#0F172A", marginTop: "10px" }
+              }
+            >
               {option.label}
             </span>
-            <span style={{ fontSize: "12px", color: "rgba(248,250,252,0.5)", marginTop: "4px" }}>
+            <span style={{ fontSize: "12px", color: "#64748B", marginTop: "4px", lineHeight: "1.5" }}>
               {option.description}
             </span>
           </button>
