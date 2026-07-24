@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { differenceInCalendarDays, isThisMonth } from "date-fns";
+import { differenceInCalendarDays } from "date-fns";
 import { Home, Plus, Search } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
@@ -33,7 +33,7 @@ type SourceBucket = "federal" | "foundation" | "corporate" | "state" | "land_ban
 // The real opportunity_source_type enum (migration 010) has 8 values, finer
 // grained than the 4-bucket badge spec here. Government tiers other than
 // federal/state and faith-based/international sources fall back to a neutral
-// badge rather than being forced into one of the 4 colors.
+// label rather than being forced into one of the 4 colors.
 const SOURCE_BUCKET_MAP: Partial<Record<OpportunitySourceType, SourceBucket>> = {
   government_federal: "federal",
   government_state: "state",
@@ -43,22 +43,24 @@ const SOURCE_BUCKET_MAP: Partial<Record<OpportunitySourceType, SourceBucket>> = 
   corporate_giving: "corporate",
 };
 
-const SOURCE_BADGE_STYLE: Record<SourceBucket, { label: string; color: string; bg: string }> = {
-  federal: { label: "Federal", color: "#1D4ED8", bg: "#EFF6FF" },
-  foundation: { label: "Foundation", color: "#7C3AED", bg: "#F5F3FF" },
-  corporate: { label: "Corporate", color: "#0891B2", bg: "#ECFEFF" },
-  state: { label: "State", color: "#16A34A", bg: "#F0FDF4" },
-  land_bank: { label: "Land Bank", color: "#0F766E", bg: "#F0FDFA" },
+const SOURCE_LABEL: Record<SourceBucket, string> = {
+  federal: "Federal",
+  foundation: "Foundation",
+  corporate: "Corporate",
+  state: "State/Local",
+  land_bank: "Land Bank",
 };
 
-const SOURCE_FILTER_OPTIONS: { value: "all" | SourceBucket; label: string }[] = [
-  { value: "all", label: "All Sources" },
-  { value: "federal", label: "Federal" },
-  { value: "foundation", label: "Foundation" },
-  { value: "corporate", label: "Corporate" },
-  { value: "state", label: "State" },
-  { value: "land_bank", label: "Land Bank" },
-];
+// Left accent bar + category color per the design spec. Land Bank isn't in the
+// spec's 4-color list; it keeps the teal already used for the Land Bank
+// Spotlight section below so the two don't send conflicting color signals.
+const CATEGORY_ACCENT: Record<SourceBucket, string> = {
+  federal: "#0077B6",
+  foundation: "#7C3AED",
+  corporate: "#0EA5E9",
+  state: "#10B981",
+  land_bank: "#0F766E",
+};
 
 const HOUSING_KEYWORDS = ["housing", "homeless", "shelter", "transitional"];
 
@@ -96,6 +98,21 @@ const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: "name-asc", label: "Name (A-Z)" },
 ];
 
+// Filter pills. "state_local" folds in land_bank opportunities (state/local
+// government-adjacent) so Land Bank isn't orphaned from the main filter bar.
+// "rolling"/"closing_soon" filter on deadline rather than source.
+type FilterChip = "all" | "federal" | "foundation" | "corporate" | "state_local" | "rolling" | "closing_soon";
+
+const FILTER_CHIPS: { value: FilterChip; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "federal", label: "Federal" },
+  { value: "foundation", label: "Foundation" },
+  { value: "corporate", label: "Corporate" },
+  { value: "state_local", label: "State/Local" },
+  { value: "rolling", label: "Rolling" },
+  { value: "closing_soon", label: "Closing Soon" },
+];
+
 function sourceBucket(opp: { source: string | null; source_type: OpportunitySourceType | null }): SourceBucket | null {
   // discoverLandBankOpportunities() (land-bank-client.ts) sets `source`, not
   // `source_type` (there is no land_bank value in that enum) — check it first.
@@ -103,19 +120,31 @@ function sourceBucket(opp: { source: string | null; source_type: OpportunitySour
   return opp.source_type ? (SOURCE_BUCKET_MAP[opp.source_type] ?? null) : null;
 }
 
+function matchesFilterChip(opp: OpportunityRow, chip: FilterChip): boolean {
+  if (chip === "all") return true;
+  if (chip === "rolling") return !opp.deadline;
+  if (chip === "closing_soon") {
+    if (!opp.deadline) return false;
+    return differenceInCalendarDays(new Date(opp.deadline), new Date()) <= 14;
+  }
+  const bucket = sourceBucket(opp);
+  if (chip === "state_local") return bucket === "state" || bucket === "land_bank";
+  return bucket === chip;
+}
+
 function deadlineColor(deadline: string | null): string {
   if (!deadline) return "#94A3B8";
   const days = differenceInCalendarDays(new Date(deadline), new Date());
   if (days <= 14) return "#EF4444";
-  if (days <= 30) return "#F59E0B";
+  if (days <= 30) return "#D97706";
   return "#334155";
 }
 
-function scoreTone(score: number | null | undefined): { color: string; bg: string; label: string } {
-  if (score == null) return { color: "#64748B", bg: "#F1F5F9", label: "Not scored" };
-  if (score >= 70) return { color: "#FFFFFF", bg: "#10B981", label: `${Math.round(score)}%` };
-  if (score >= 50) return { color: "#FFFFFF", bg: "#F59E0B", label: `${Math.round(score)}%` };
-  return { color: "#FFFFFF", bg: "#EF4444", label: `${Math.round(score)}%` };
+function probabilityTone(score: number | null | undefined): { color: string; label: string } {
+  if (score == null) return { color: "#64748B", label: "Not scored" };
+  if (score >= 70) return { color: "#16A34A", label: `${Math.round(score)}%` };
+  if (score >= 40) return { color: "#D97706", label: `${Math.round(score)}%` };
+  return { color: "#EF4444", label: `${Math.round(score)}%` };
 }
 
 /**
@@ -131,9 +160,10 @@ export default function OpportunitiesPage() {
   const [org, setOrg] = useState<OrgHousingProfile | null>(null);
   const [discovering, setDiscovering] = useState(false);
   const [discoverError, setDiscoverError] = useState<string | null>(null);
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
 
   const [search, setSearch] = useState("");
-  const [sourceFilter, setSourceFilter] = useState<"all" | SourceBucket>("all");
+  const [filterChip, setFilterChip] = useState<FilterChip>("all");
   const [statusFilter, setStatusFilter] = useState<"all" | OpportunityStatus>("all");
   const [sort, setSort] = useState<SortOption>("probability-desc");
 
@@ -235,7 +265,8 @@ export default function OpportunitiesPage() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return opportunities.filter((opp) => {
-      if (sourceFilter !== "all" && sourceBucket(opp) !== sourceFilter) return false;
+      if (dismissedIds.has(opp.id)) return false;
+      if (!matchesFilterChip(opp, filterChip)) return false;
       if (statusFilter !== "all" && opp.status !== statusFilter) return false;
       if (!q) return true;
       return (
@@ -244,7 +275,7 @@ export default function OpportunitiesPage() {
         (opp.funderName?.toLowerCase().includes(q) ?? false)
       );
     });
-  }, [opportunities, search, sourceFilter, statusFilter]);
+  }, [opportunities, search, filterChip, statusFilter, dismissedIds]);
 
   const sorted = useMemo(() => {
     const rows = [...filtered];
@@ -254,7 +285,7 @@ export default function OpportunitiesPage() {
       case "probability-asc":
         return rows.sort((a, b) => (a.probabilityScore ?? -1) - (b.probabilityScore ?? -1));
       case "deadline-asc":
-        return rows.sort((a, b) => (a.deadline ?? "9999") .localeCompare(b.deadline ?? "9999"));
+        return rows.sort((a, b) => (a.deadline ?? "9999").localeCompare(b.deadline ?? "9999"));
       case "amount-desc":
         return rows.sort(
           (a, b) => (b.amount_max ?? b.amount_available ?? 0) - (a.amount_max ?? a.amount_available ?? 0),
@@ -269,509 +300,554 @@ export default function OpportunitiesPage() {
   }, [filtered, sort]);
 
   const stats = useMemo(() => {
-    const total = filtered.length;
+    const open = filtered.filter((o) => o.status === "open").length;
     const highProbability = filtered.filter((o) => (o.probabilityScore ?? 0) >= 70).length;
-    const closingThisMonth = filtered.filter((o) => o.deadline && isThisMonth(new Date(o.deadline))).length;
+    const closingThisWeek = filtered.filter((o) => {
+      if (!o.deadline) return false;
+      const days = differenceInCalendarDays(new Date(o.deadline), new Date());
+      return days >= 0 && days <= 7;
+    }).length;
     const totalValue = filtered.reduce((sum, o) => sum + (o.amount_max ?? o.amount_available ?? 0), 0);
-    return { total, highProbability, closingThisMonth, totalValue };
+    return { open, highProbability, closingThisWeek, totalValue };
   }, [filtered]);
 
   const showEmpty = !loading && !error && opportunities.length === 0;
 
+  const chipStyle = (active: boolean): CSSProperties => ({
+    backgroundColor: active ? "#0077B6" : "#FFFFFF",
+    color: active ? "#FFFFFF" : "#64748B",
+    border: active ? "1px solid #0077B6" : "1px solid #E2E8F0",
+    borderRadius: "20px",
+    padding: "6px 16px",
+    fontSize: "13px",
+    fontWeight: 500,
+    cursor: "pointer",
+  });
+
   return (
     <ErrorBoundary>
-    <div style={{ backgroundColor: "#D6E4F0", minHeight: "100vh", padding: "32px" }}>
-      {/* Header */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "flex-start",
-          justifyContent: "space-between",
-          flexWrap: "wrap",
-          gap: "16px",
-          marginBottom: "24px",
-        }}
-      >
-        <div>
-          <h1 style={{ fontSize: "28px", fontWeight: 700, color: "#1A2B3C", margin: 0, letterSpacing: "-0.02em" }}>
-            Opportunities
-          </h1>
-          <p style={{ fontSize: "14px", color: "#6B7280", margin: "4px 0 0 0" }}>
-            Grants, donation programs, and sponsorships you&rsquo;re tracking.
-          </p>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
-          {editable && housingOrg && (
-            <button
-              type="button"
-              onClick={handleDiscoverLandBank}
-              disabled={discovering}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "8px",
-                backgroundColor: "#0F766E",
-                color: "#FFFFFF",
-                padding: "10px 20px",
-                borderRadius: "10px",
-                fontSize: "14px",
-                fontWeight: 600,
-                border: "none",
-                cursor: discovering ? "default" : "pointer",
-                opacity: discovering ? 0.7 : 1,
-                boxShadow: "0 2px 8px rgba(15,118,110,0.35)",
-              }}
-            >
-              <Home size={16} aria-hidden />
-              {discovering ? "Discovering..." : "Run Land Bank Discovery"}
-            </button>
-          )}
-          {editable && (
-            <Link
-              href="/opportunities/new"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "8px",
-                backgroundColor: "#0EA5E9",
-                color: "#FFFFFF",
-                padding: "10px 20px",
-                borderRadius: "10px",
-                fontSize: "14px",
-                fontWeight: 600,
-                boxShadow: "0 2px 8px rgba(14,165,233,0.35)",
-                textDecoration: "none",
-              }}
-            >
-              <Plus size={16} aria-hidden />
-              New Opportunity
-            </Link>
-          )}
-        </div>
-      </div>
-
-      {housingOrg && (
+      <div style={{ backgroundColor: "#E4E9F0", minHeight: "100vh", padding: "32px" }}>
+        {/* Header */}
         <div
           style={{
-            backgroundColor: "#FFFFFF",
-            borderRadius: "14px",
-            padding: "20px",
-            marginBottom: "20px",
-            boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
-            borderLeft: "4px solid #0F766E",
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: "16px",
+            marginBottom: "24px",
           }}
         >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "flex-start",
-              justifyContent: "space-between",
-              flexWrap: "wrap",
-              gap: "12px",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
-              <Home size={20} color="#0F766E" aria-hidden style={{ marginTop: "2px", flexShrink: 0 }} />
-              <div>
-                <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#1A2B3C", margin: 0 }}>
-                  Land Bank & Affordable Housing Funding
-                </h2>
-                <p style={{ fontSize: "13px", color: "#64748B", margin: "4px 0 0 0", maxWidth: "560px" }}>
-                  Specialized opportunities from land bank authorities, HUD programs, and community
-                  development funders.
-                </p>
-              </div>
-            </div>
-            {editable && (
+          <div>
+            <h1 style={{ fontSize: "24px", fontWeight: 800, color: "#0F172A", margin: 0 }}>Opportunities</h1>
+            <p style={{ fontSize: "14px", color: "#64748B", marginTop: "2px" }}>
+              Grants, donation programs, and sponsorships you&rsquo;re tracking.
+            </p>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+            {editable && housingOrg && (
               <button
                 type="button"
                 onClick={handleDiscoverLandBank}
                 disabled={discovering}
                 style={{
-                  display: "inline-flex",
+                  display: "flex",
                   alignItems: "center",
                   gap: "8px",
                   backgroundColor: "#F0FDFA",
                   color: "#0F766E",
-                  padding: "9px 16px",
-                  borderRadius: "10px",
-                  fontSize: "13px",
-                  fontWeight: 700,
                   border: "1px solid #99F6E4",
+                  borderRadius: "8px",
+                  padding: "10px 20px",
+                  fontSize: "14px",
+                  fontWeight: 600,
                   cursor: discovering ? "default" : "pointer",
                   opacity: discovering ? 0.7 : 1,
-                  whiteSpace: "nowrap",
                 }}
               >
-                {discovering ? "Discovering..." : "Discover More Land Bank Opportunities"}
+                <Home size={16} aria-hidden />
+                {discovering ? "Discovering..." : "Run Land Bank Discovery"}
               </button>
             )}
+            {editable && (
+              <Link
+                href="/opportunities/new"
+                style={{
+                  backgroundColor: "#0077B6",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "8px",
+                  padding: "10px 20px",
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  textDecoration: "none",
+                }}
+              >
+                <Plus size={16} aria-hidden />
+                Add Opportunity
+              </Link>
+            )}
           </div>
+        </div>
 
-          {discoverError && (
-            <div style={{ fontSize: "12px", color: "#B91C1C", marginTop: "10px" }}>{discoverError}</div>
-          )}
-
-          {landBankOpportunities.length > 0 ? (
-            <div style={{ marginTop: "16px", display: "grid", gap: "10px" }}>
-              {landBankOpportunities.map((opp) => (
-                <Link
-                  key={opp.id}
-                  href={`/opportunities/${opp.id}`}
+        {housingOrg && (
+          <div
+            style={{
+              backgroundColor: "#FFFFFF",
+              borderRadius: "12px",
+              padding: "20px",
+              marginBottom: "20px",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+              border: "1px solid #E2E8F0",
+              borderLeft: "4px solid #0F766E",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                justifyContent: "space-between",
+                flexWrap: "wrap",
+                gap: "12px",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
+                <Home size={20} color="#0F766E" aria-hidden style={{ marginTop: "2px", flexShrink: 0 }} />
+                <div>
+                  <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#0F172A", margin: 0 }}>
+                    Land Bank & Affordable Housing Funding
+                  </h2>
+                  <p style={{ fontSize: "13px", color: "#64748B", margin: "4px 0 0 0", maxWidth: "560px" }}>
+                    Specialized opportunities from land bank authorities, HUD programs, and community
+                    development funders.
+                  </p>
+                </div>
+              </div>
+              {editable && (
+                <button
+                  type="button"
+                  onClick={handleDiscoverLandBank}
+                  disabled={discovering}
                   style={{
-                    display: "flex",
+                    display: "inline-flex",
                     alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: "12px",
-                    padding: "12px 14px",
-                    borderRadius: "10px",
+                    gap: "8px",
                     backgroundColor: "#F0FDFA",
-                    border: "1px solid #CCFBF1",
-                    textDecoration: "none",
+                    color: "#0F766E",
+                    padding: "9px 16px",
+                    borderRadius: "8px",
+                    fontSize: "13px",
+                    fontWeight: 700,
+                    border: "1px solid #99F6E4",
+                    cursor: discovering ? "default" : "pointer",
+                    opacity: discovering ? 0.7 : 1,
+                    whiteSpace: "nowrap",
                   }}
                 >
-                  <div>
-                    <div style={{ fontSize: "13px", fontWeight: 600, color: "#1A2B3C" }}>
-                      {decodeHtmlEntities(opp.name)}
-                    </div>
-                    <div style={{ fontSize: "12px", color: "#0F766E", marginTop: "2px" }}>
-                      {opp.funderName ?? "Land Bank Authority"}
-                    </div>
-                  </div>
-                  <div style={{ fontSize: "12px", fontWeight: 700, color: deadlineColor(opp.deadline), whiteSpace: "nowrap" }}>
-                    {opp.deadline ? formatDate(opp.deadline) : "No deadline"}
-                  </div>
-                </Link>
-              ))}
+                  {discovering ? "Discovering..." : "Discover More Land Bank Opportunities"}
+                </button>
+              )}
             </div>
-          ) : (
-            <p style={{ fontSize: "13px", color: "#94A3B8", marginTop: "16px", marginBottom: 0 }}>
-              No land bank opportunities discovered yet for your service area.
-            </p>
-          )}
-        </div>
-      )}
 
-      {error && (
-        <div
-          role="alert"
-          style={{
-            backgroundColor: "#FEF2F2",
-            border: "1px solid #FECACA",
-            borderRadius: "10px",
-            padding: "12px 16px",
-            fontSize: "14px",
-            color: "#B91C1C",
-            marginBottom: "20px",
-          }}
-        >
-          {error}
-        </div>
-      )}
+            {discoverError && (
+              <div style={{ fontSize: "12px", color: "#B91C1C", marginTop: "10px" }}>{discoverError}</div>
+            )}
 
-      {!showEmpty && (
-        <>
-          {/* Filter bar */}
+            {landBankOpportunities.length > 0 ? (
+              <div style={{ marginTop: "16px", display: "grid", gap: "10px" }}>
+                {landBankOpportunities.map((opp) => (
+                  <Link
+                    key={opp.id}
+                    href={`/opportunities/${opp.id}`}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: "12px",
+                      padding: "12px 14px",
+                      borderRadius: "8px",
+                      backgroundColor: "#F0FDFA",
+                      border: "1px solid #CCFBF1",
+                      textDecoration: "none",
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontSize: "13px", fontWeight: 600, color: "#0F172A" }}>
+                        {decodeHtmlEntities(opp.name)}
+                      </div>
+                      <div style={{ fontSize: "12px", color: "#0F766E", marginTop: "2px" }}>
+                        {opp.funderName ?? "Land Bank Authority"}
+                      </div>
+                    </div>
+                    <div style={{ fontSize: "12px", fontWeight: 700, color: deadlineColor(opp.deadline), whiteSpace: "nowrap" }}>
+                      {opp.deadline ? formatDate(opp.deadline) : "No deadline"}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <p style={{ fontSize: "13px", color: "#94A3B8", marginTop: "16px", marginBottom: 0 }}>
+                No land bank opportunities discovered yet for your service area.
+              </p>
+            )}
+          </div>
+        )}
+
+        {error && (
           <div
+            role="alert"
             style={{
-              backgroundColor: "#FFFFFF",
-              borderRadius: "14px",
-              padding: "16px 20px",
-              boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
+              backgroundColor: "#FEF2F2",
+              border: "1px solid #FECACA",
+              borderRadius: "8px",
+              padding: "12px 16px",
+              fontSize: "14px",
+              color: "#B91C1C",
               marginBottom: "20px",
-              display: "flex",
-              flexWrap: "wrap",
-              alignItems: "center",
-              gap: "12px",
             }}
           >
-            <div style={{ position: "relative", flex: "1 1 240px", minWidth: "220px" }}>
-              <Search
-                size={16}
-                color="#94A3B8"
-                aria-hidden
-                style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)" }}
-              />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search opportunities, funders..."
-                aria-label="Search opportunities"
+            {error}
+          </div>
+        )}
+
+        {!showEmpty && (
+          <>
+            {/* Filter pills + search/sort */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                flexWrap: "wrap",
+                gap: "12px",
+                marginBottom: "24px",
+              }}
+            >
+              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                {FILTER_CHIPS.map((chip) => (
+                  <button
+                    key={chip.value}
+                    type="button"
+                    onClick={() => setFilterChip(chip.value)}
+                    style={chipStyle(filterChip === chip.value)}
+                  >
+                    {chip.label}
+                  </button>
+                ))}
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                <div style={{ position: "relative" }}>
+                  <Search
+                    size={14}
+                    color="#94A3B8"
+                    aria-hidden
+                    style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)" }}
+                  />
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search opportunities, funders..."
+                    aria-label="Search opportunities"
+                    style={{
+                      padding: "8px 12px 8px 30px",
+                      borderRadius: "8px",
+                      border: "1px solid #E2E8F0",
+                      fontSize: "13px",
+                      color: "#0F172A",
+                      backgroundColor: "#FFFFFF",
+                      width: "200px",
+                    }}
+                  />
+                </div>
+
+                <select
+                  aria-label="Filter by status"
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value as "all" | OpportunityStatus)}
+                  style={{
+                    borderRadius: "8px",
+                    border: "1px solid #E2E8F0",
+                    padding: "8px 12px",
+                    fontSize: "13px",
+                    fontWeight: 600,
+                    color: "#334155",
+                    backgroundColor: "#FFFFFF",
+                  }}
+                >
+                  {STATUS_FILTER_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  aria-label="Sort opportunities"
+                  value={sort}
+                  onChange={(e) => setSort(e.target.value as SortOption)}
+                  style={{
+                    borderRadius: "8px",
+                    border: "1px solid #E2E8F0",
+                    padding: "8px 12px",
+                    fontSize: "13px",
+                    fontWeight: 600,
+                    color: "#334155",
+                    backgroundColor: "#FFFFFF",
+                  }}
+                >
+                  {SORT_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Stats row */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(4, 1fr)",
+                gap: "16px",
+                marginBottom: "24px",
+              }}
+            >
+              <StatCard label="Open Opportunities" value={String(stats.open)} accent="#0077B6" />
+              <StatCard label="High Probability >70%" value={String(stats.highProbability)} accent="#16A34A" />
+              <StatCard label="Closing This Week" value={String(stats.closingThisWeek)} accent="#D97706" />
+              <StatCard label="Total Potential" value={formatCurrency(stats.totalValue)} accent="#7C3AED" />
+            </div>
+
+            {/* Opportunity cards */}
+            {loading ? (
+              <div style={{ display: "grid", gap: "12px" }}>
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <LoadingCard key={i} height={92} borderRadius={12} />
+                ))}
+              </div>
+            ) : sorted.length === 0 ? (
+              <div
                 style={{
-                  width: "100%",
-                  padding: "9px 14px 9px 36px",
-                  borderRadius: "999px",
+                  backgroundColor: "#FFFFFF",
+                  borderRadius: "12px",
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
                   border: "1px solid #E2E8F0",
+                  padding: "40px",
+                  textAlign: "center",
                   fontSize: "13px",
-                  color: "#1A2B3C",
-                  backgroundColor: "#F8FAFC",
+                  color: "#64748B",
                 }}
-              />
-            </div>
+              >
+                No opportunities match your filters.
+              </div>
+            ) : (
+              <div>
+                {sorted.map((opp) => {
+                  const bucket = sourceBucket(opp);
+                  const accent = bucket ? CATEGORY_ACCENT[bucket] : "#94A3B8";
+                  const probTone = probabilityTone(opp.probabilityScore);
+                  const dLineColor = deadlineColor(opp.deadline);
+                  const closingSoon =
+                    !!opp.deadline && differenceInCalendarDays(new Date(opp.deadline), new Date()) <= 14;
 
-            <select
-              aria-label="Filter by source"
-              value={sourceFilter}
-              onChange={(e) => setSourceFilter(e.target.value as "all" | SourceBucket)}
-              style={{
-                borderRadius: "999px",
-                border: "1px solid #E2E8F0",
-                padding: "9px 14px",
-                fontSize: "13px",
-                fontWeight: 600,
-                color: "#334155",
-                backgroundColor: "#F8FAFC",
-              }}
-            >
-              {SOURCE_FILTER_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
+                  return (
+                    <div
+                      key={opp.id}
+                      style={{
+                        backgroundColor: "#FFFFFF",
+                        borderRadius: "12px",
+                        padding: "20px 24px",
+                        boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                        border: "1px solid #E2E8F0",
+                        marginBottom: "12px",
+                        display: "flex",
+                        alignItems: "flex-start",
+                        gap: "16px",
+                      }}
+                    >
+                      <div
+                        aria-hidden
+                        style={{ width: "4px", alignSelf: "stretch", borderRadius: "2px", backgroundColor: accent }}
+                      />
 
-            <select
-              aria-label="Filter by status"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as "all" | OpportunityStatus)}
-              style={{
-                borderRadius: "999px",
-                border: "1px solid #E2E8F0",
-                padding: "9px 14px",
-                fontSize: "13px",
-                fontWeight: 600,
-                color: "#334155",
-                backgroundColor: "#F8FAFC",
-              }}
-            >
-              {STATUS_FILTER_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "8px" }}>
+                          <span style={{ fontSize: "11px", fontWeight: 700, color: accent, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                            {bucket ? SOURCE_LABEL[bucket] : opp.source_type ? humanizeEnum(opp.source_type) : "Other"}
+                          </span>
+                          {opp.funderName && (
+                            <span style={{ fontSize: "12px", color: "#64748B" }}>&middot; {opp.funderName}</span>
+                          )}
+                        </div>
 
-            <select
-              aria-label="Sort opportunities"
-              value={sort}
-              onChange={(e) => setSort(e.target.value as SortOption)}
-              style={{
-                borderRadius: "999px",
-                border: "1px solid #E2E8F0",
-                padding: "9px 14px",
-                fontSize: "13px",
-                fontWeight: 600,
-                color: "#334155",
-                backgroundColor: "#F8FAFC",
-              }}
-            >
-              {SORT_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Stats row */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(4, 1fr)",
-              gap: "16px",
-              marginBottom: "20px",
-            }}
-          >
-            <StatCard label="Total Opportunities" value={String(stats.total)} band="#0EA5E9" />
-            <StatCard label="High Probability" value={String(stats.highProbability)} band="#10B981" />
-            <StatCard label="Closing This Month" value={String(stats.closingThisMonth)} band="#F59E0B" />
-            <StatCard label="Total Value" value={formatCurrency(stats.totalValue)} band="#8B5CF6" />
-          </div>
-
-          {/* Table */}
-          <div
-            style={{
-              backgroundColor: "#FFFFFF",
-              borderRadius: "14px",
-              boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
-              overflow: "hidden",
-            }}
-          >
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "900px" }}>
-                <thead>
-                  <tr style={{ backgroundColor: "#1A2B3C" }}>
-                    {["Title", "Source", "Funder", "Amount", "Deadline", "Probability", "Eligibility", "Actions"].map(
-                      (col, i) => (
-                        <th
-                          key={col}
-                          style={{
-                            textAlign: i === 3 ? "right" : "left",
-                            padding: "12px 20px",
-                            fontSize: "11px",
-                            fontWeight: 700,
-                            color: "#FFFFFF",
-                            textTransform: "uppercase",
-                            letterSpacing: "0.05em",
-                          }}
+                        <Link
+                          href={`/opportunities/${opp.id}`}
+                          style={{ fontSize: "16px", fontWeight: 700, color: "#0F172A", textDecoration: "none", display: "block", marginTop: "4px" }}
                         >
-                          {col}
-                        </th>
-                      ),
-                    )}
-                  </tr>
-                </thead>
-                <tbody>
-                  {loading ? (
-                    <tr>
-                      <td colSpan={8} style={{ padding: "16px 20px" }}>
-                        {Array.from({ length: 8 }).map((_, i) => (
-                          <div key={i} style={{ marginBottom: i === 7 ? 0 : "8px" }}>
-                            <LoadingCard height={44} borderRadius={8} />
-                          </div>
-                        ))}
-                      </td>
-                    </tr>
-                  ) : sorted.length === 0 ? (
-                    <tr>
-                      <td colSpan={8} style={{ padding: "40px", textAlign: "center", fontSize: "13px", color: "#94A3B8" }}>
-                        No opportunities match your filters.
-                      </td>
-                    </tr>
-                  ) : (
-                    sorted.map((opp) => {
-                      const bucket = sourceBucket(opp);
-                      const sourceStyle = bucket ? SOURCE_BADGE_STYLE[bucket] : null;
-                      const probTone = scoreTone(opp.probabilityScore);
-                      const eligTone = scoreTone(opp.eligibility_score);
-                      const dLineColor = deadlineColor(opp.deadline);
-                      return (
-                        <tr key={opp.id} style={{ borderTop: "1px solid #F1F5F9" }}>
-                          <td style={{ padding: "14px 20px", fontSize: "13px", fontWeight: 600, color: "#1A2B3C", maxWidth: "260px" }}>
-                            {decodeHtmlEntities(opp.name)}
-                          </td>
-                          <td style={{ padding: "14px 20px" }}>
-                            {sourceStyle ? (
+                          {decodeHtmlEntities(opp.name)}
+                        </Link>
+
+                        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "8px", marginTop: "10px" }}>
+                          <span
+                            style={{
+                              backgroundColor: `${probTone.color}15`,
+                              color: probTone.color,
+                              borderRadius: "6px",
+                              padding: "3px 10px",
+                              fontSize: "12px",
+                              fontWeight: 700,
+                            }}
+                          >
+                            {probTone.label}
+                          </span>
+
+                          {(opp.amount_max != null || opp.amount_available != null) && (
+                            <span
+                              style={{
+                                backgroundColor: "#F0F9FF",
+                                color: "#0077B6",
+                                borderRadius: "6px",
+                                padding: "3px 10px",
+                                fontSize: "12px",
+                                fontWeight: 600,
+                              }}
+                            >
+                              {formatCurrency(opp.amount_max ?? opp.amount_available)}
+                            </span>
+                          )}
+
+                          {opp.deadline ? (
+                            closingSoon ? (
                               <span
                                 style={{
-                                  display: "inline-flex",
-                                  alignItems: "center",
-                                  fontSize: "11px",
-                                  fontWeight: 700,
-                                  color: sourceStyle.color,
-                                  backgroundColor: sourceStyle.bg,
-                                  borderRadius: "999px",
+                                  backgroundColor: "#FEF3C7",
+                                  color: "#B45309",
+                                  borderRadius: "6px",
                                   padding: "3px 10px",
+                                  fontSize: "12px",
+                                  fontWeight: 600,
                                 }}
                               >
-                                {sourceStyle.label}
+                                Due {formatDate(opp.deadline)}
                               </span>
                             ) : (
-                              <span style={{ fontSize: "12px", color: "#94A3B8" }}>
-                                {opp.source_type ? humanizeEnum(opp.source_type) : "-"}
+                              <span style={{ fontSize: "12px", fontWeight: 600, color: dLineColor }}>
+                                Due {formatDate(opp.deadline)}
                               </span>
-                            )}
-                          </td>
-                          <td style={{ padding: "14px 20px", fontSize: "13px", color: "#475569" }}>
-                            {opp.funderName ?? <span style={{ color: "#94A3B8" }}>-</span>}
-                          </td>
-                          <td style={{ padding: "14px 20px", fontSize: "13px", fontWeight: 600, color: "#1A2B3C", textAlign: "right" }}>
-                            {opp.amount_max != null || opp.amount_available != null
-                              ? formatCurrency(opp.amount_max ?? opp.amount_available)
-                              : <span style={{ color: "#94A3B8", fontWeight: 400 }}>-</span>}
-                          </td>
-                          <td style={{ padding: "14px 20px", fontSize: "13px", fontWeight: 600, color: dLineColor }}>
-                            {opp.deadline ? formatDate(opp.deadline) : <span style={{ color: "#94A3B8", fontWeight: 400 }}>-</span>}
-                          </td>
-                          <td style={{ padding: "14px 20px" }}>
-                            <span
-                              style={{
-                                display: "inline-flex",
-                                fontSize: "11px",
-                                fontWeight: 700,
-                                color: probTone.color,
-                                backgroundColor: probTone.bg,
-                                borderRadius: "999px",
-                                padding: "3px 10px",
-                              }}
-                            >
-                              {probTone.label}
-                            </span>
-                          </td>
-                          <td style={{ padding: "14px 20px" }}>
-                            <span
-                              style={{
-                                display: "inline-flex",
-                                fontSize: "11px",
-                                fontWeight: 700,
-                                color: eligTone.color,
-                                backgroundColor: eligTone.bg,
-                                borderRadius: "999px",
-                                padding: "3px 10px",
-                              }}
-                            >
-                              {eligTone.label}
-                            </span>
-                          </td>
-                          <td style={{ padding: "14px 20px" }}>
-                            <Link
-                              href={`/opportunities/${opp.id}`}
-                              style={{ fontSize: "12px", fontWeight: 700, color: "#0EA5E9", textDecoration: "none" }}
-                            >
-                              View →
-                            </Link>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </>
-      )}
+                            )
+                          ) : (
+                            <span style={{ fontSize: "12px", color: "#94A3B8" }}>Rolling deadline</span>
+                          )}
 
-      {showEmpty && (
-        <EmptyStateCard
-          icon="🧭"
-          title="No opportunities yet"
-          description="Run Research to discover grants matching your mission"
-          actionLabel="Run Research Now"
-          onAction={() => router.push("/research")}
-        />
-      )}
-    </div>
+                          {opp.eligibility_score != null && (
+                            <span style={{ fontSize: "12px", color: "#94A3B8" }}>
+                              Eligibility {Math.round(opp.eligibility_score)}%
+                            </span>
+                          )}
+                        </div>
+
+                        <div style={{ display: "flex", gap: "8px", marginTop: "14px" }}>
+                          <Link
+                            href={`/opportunities/${opp.id}`}
+                            style={{
+                              backgroundColor: "#FFFFFF",
+                              color: "#0077B6",
+                              border: "1px solid #0077B6",
+                              borderRadius: "8px",
+                              padding: "6px 14px",
+                              fontSize: "12px",
+                              fontWeight: 700,
+                              textDecoration: "none",
+                            }}
+                          >
+                            View
+                          </Link>
+                          <Link
+                            href={`/applications/new?opportunityId=${opp.id}`}
+                            style={{
+                              backgroundColor: "#0077B6",
+                              color: "#FFFFFF",
+                              border: "none",
+                              borderRadius: "8px",
+                              padding: "6px 14px",
+                              fontSize: "12px",
+                              fontWeight: 700,
+                              textDecoration: "none",
+                            }}
+                          >
+                            Apply Now
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={() => setDismissedIds((prev) => new Set(prev).add(opp.id))}
+                            style={{
+                              backgroundColor: "#FFFFFF",
+                              color: "#64748B",
+                              border: "1px solid #E2E8F0",
+                              borderRadius: "8px",
+                              padding: "6px 14px",
+                              fontSize: "12px",
+                              fontWeight: 600,
+                              cursor: "pointer",
+                            }}
+                          >
+                            Skip
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </>
+        )}
+
+        {showEmpty && (
+          <EmptyStateCard
+            icon="🧭"
+            title="No opportunities yet"
+            description="Run Research to discover grants matching your mission"
+            actionLabel="Run Research Now"
+            onAction={() => router.push("/research")}
+          />
+        )}
+      </div>
     </ErrorBoundary>
   );
 }
 
-function StatCard({ label, value, band }: { label: string; value: string; band: string }) {
+function StatCard({ label, value, accent }: { label: string; value: string; accent: string }) {
   return (
     <div
       style={{
         backgroundColor: "#FFFFFF",
-        borderRadius: "14px",
-        boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
-        overflow: "hidden",
+        borderRadius: "10px",
+        padding: "16px 20px",
+        boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+        border: "1px solid #E2E8F0",
+        flex: "1",
       }}
     >
-      <div style={{ height: "6px", backgroundColor: band }} />
-      <div style={{ padding: "18px 20px" }}>
-        <div
-          style={{
-            fontSize: "11px",
-            fontWeight: 700,
-            color: "#64748B",
-            textTransform: "uppercase",
-            letterSpacing: "0.06em",
-          }}
-        >
-          {label}
-        </div>
-        <div style={{ fontSize: "28px", fontWeight: 800, color: "#1A2B3C", marginTop: "4px" }}>{value}</div>
+      <div
+        style={{
+          fontSize: "11px",
+          fontWeight: 700,
+          color: "#64748B",
+          textTransform: "uppercase",
+          letterSpacing: "0.06em",
+        }}
+      >
+        {label}
       </div>
+      <div style={{ fontSize: "28px", fontWeight: 800, color: accent, marginTop: "4px" }}>{value}</div>
     </div>
   );
 }

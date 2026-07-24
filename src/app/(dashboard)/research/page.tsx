@@ -1003,7 +1003,7 @@ export default function ResearchPage() {
   }
 
   return (
-    <div className="space-y-8 page-bg" style={{ backgroundColor: "#E4E9F0" }}>
+    <div style={{ backgroundColor: "#E4E9F0", display: "flex", flexDirection: "column", gap: "32px" }}>
       {/* Header */}
       <PageHeader
         title="Research Command Center"
@@ -1011,8 +1011,8 @@ export default function ResearchPage() {
       />
 
       {/* Research / Search Configuration tabs */}
-      <div className="border-b border-gray-200">
-        <nav className="-mb-px flex gap-6" aria-label="Research tabs">
+      <div style={{ borderBottom: "1px solid #E2E8F0" }}>
+        <nav style={{ display: "flex", gap: "24px" }} aria-label="Research tabs">
           {(
             [
               { key: "research", label: "Research" },
@@ -1024,12 +1024,17 @@ export default function ResearchPage() {
               type="button"
               onClick={() => setView(t.key)}
               aria-current={view === t.key ? "page" : undefined}
-              className={
-                "whitespace-nowrap border-b-2 px-1 py-3 text-sm font-medium transition " +
-                (view === t.key
-                  ? "border-navy-900 text-navy-900"
-                  : "border-transparent text-navy-500 hover:border-navy-300 hover:text-navy-700")
-              }
+              style={{
+                background: "none",
+                border: "none",
+                borderBottom: view === t.key ? "2px solid #0077B6" : "2px solid transparent",
+                marginBottom: "-1px",
+                padding: "12px 4px",
+                fontSize: "14px",
+                fontWeight: 600,
+                color: view === t.key ? "#0F172A" : "#64748B",
+                cursor: "pointer",
+              }}
             >
               {t.label}
             </button>
@@ -1046,12 +1051,12 @@ export default function ResearchPage() {
       <FundingSourceDirectorySection />
 
       {/* DISCOVERED OPPORTUNITIES */}
-      <section className="space-y-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <h2 className="text-lg font-semibold text-navy-900">
+      <section style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "12px" }}>
+          <h2 style={{ fontSize: "18px", fontWeight: 700, color: "#0F172A", margin: 0 }}>
             Discovered Opportunities
             {!loading && (
-              <span className="ml-2 text-sm font-normal text-navy-500">
+              <span style={{ marginLeft: "8px", fontSize: "14px", fontWeight: 400, color: "#64748B" }}>
                 ({searchedOpportunities.length})
               </span>
             )}
@@ -1060,43 +1065,74 @@ export default function ResearchPage() {
 
         <form
           onSubmit={(e) => e.preventDefault()}
-          className="flex flex-col gap-3 sm:flex-row"
+          style={{ display: "flex", flexDirection: "column", gap: "12px" }}
         >
-          <input
-            type="search"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search discovered opportunities by name, source, or category..."
-            aria-label="Search discovered opportunities"
-            className="w-full bg-white border-2 border-slate-200 rounded-2xl px-6 py-4 text-base text-slate-700 placeholder-slate-400 focus:border-[#0077B6] focus:ring-4 focus:ring-[#0077B6]/10 outline-none shadow-sm"
-          />
-          <button
-            type="submit"
-            className="bg-[#0077B6] hover:bg-[#005F92] text-white px-6 py-4 rounded-2xl font-semibold shrink-0"
-          >
-            Search
-          </button>
+          <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search discovered opportunities by name, source, or category..."
+              aria-label="Search discovered opportunities"
+              style={{
+                flex: "1 1 320px",
+                backgroundColor: "#FFFFFF",
+                border: "1.5px solid #E2E8F0",
+                borderRadius: "12px",
+                padding: "12px 20px",
+                fontSize: "14px",
+                color: "#0F172A",
+                outline: "none",
+              }}
+            />
+            <button
+              type="submit"
+              style={{
+                backgroundColor: "#0077B6",
+                color: "#FFFFFF",
+                border: "none",
+                borderRadius: "12px",
+                padding: "12px 24px",
+                fontSize: "14px",
+                fontWeight: 700,
+                cursor: "pointer",
+                flexShrink: 0,
+              }}
+            >
+              Search
+            </button>
+          </div>
         </form>
 
         {loading ? (
           <div
-            className="flex items-center justify-center rounded-xl border border-border bg-white p-10 text-sm text-slate-500"
             style={{
-              backgroundColor: "#F7F5F1",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: "#FFFFFF",
               boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-              border: "1px solid #D9D3C5",
+              border: "1px solid #E2E8F0",
+              borderRadius: "12px",
+              padding: "40px",
+              fontSize: "14px",
+              color: "#64748B",
             }}
           >
-            <Spinner className="mr-2 h-4 w-4 text-slate-400" />
+            <Spinner className="mr-2 h-4 w-4" />
             Loading opportunities...
           </div>
         ) : opportunities.length === 0 ? (
           <div
-            className="rounded-xl border border-border bg-white p-10 text-center text-sm text-slate-500"
             style={{
-              backgroundColor: "#F7F5F1",
+              backgroundColor: "#FFFFFF",
               boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-              border: "1px solid #D9D3C5",
+              border: "1px solid #E2E8F0",
+              borderRadius: "12px",
+              padding: "40px",
+              textAlign: "center",
+              fontSize: "14px",
+              color: "#64748B",
             }}
           >
             No discovered opportunities yet. Run a research agent above to find
@@ -1104,17 +1140,21 @@ export default function ResearchPage() {
           </div>
         ) : searchedOpportunities.length === 0 ? (
           <div
-            className="rounded-xl border border-border bg-white p-10 text-center text-sm text-slate-500"
             style={{
-              backgroundColor: "#F7F5F1",
+              backgroundColor: "#FFFFFF",
               boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-              border: "1px solid #D9D3C5",
+              border: "1px solid #E2E8F0",
+              borderRadius: "12px",
+              padding: "40px",
+              textAlign: "center",
+              fontSize: "14px",
+              color: "#64748B",
             }}
           >
             No discovered opportunities match &ldquo;{searchQuery}&rdquo;.{" "}
             <button
               onClick={() => setSearchQuery("")}
-              className="font-medium text-blue-600 hover:underline"
+              style={{ fontWeight: 600, color: "#0077B6", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}
             >
               Clear search
             </button>
@@ -1129,63 +1169,93 @@ export default function ResearchPage() {
                 <div
                   key={opp.id}
                   onClick={() => router.push(`/opportunities/${opp.id}`)}
-                  className="bg-white rounded-xl shadow-sm border border-border p-5 mb-4 hover:shadow-md hover:border-[#00B4D8] transition-all cursor-pointer"
                   style={{
-                    backgroundColor: "#F7F5F1",
+                    backgroundColor: "#FFFFFF",
+                    borderRadius: "12px",
                     boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                    border: "1px solid #E2E8F0",
+                    padding: "20px",
+                    marginBottom: "16px",
+                    cursor: "pointer",
                   }}
                 >
-                  <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div className="min-w-0 flex-1">
-                      <h3 className="text-base font-semibold text-slate-900 hover:text-[#0077B6]">
+                  <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-start", justifyContent: "space-between", gap: "16px" }}>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <h3 style={{ fontSize: "15px", fontWeight: 700, color: "#0F172A", margin: 0 }}>
                         {opp.name}
                       </h3>
-                      <div className="mt-2 flex flex-wrap items-center gap-2">
-                        <span className="bg-[#EFF6FF] text-[#1D4ED8] px-2.5 py-1 rounded-full text-xs font-medium">
+                      <div style={{ marginTop: "8px", display: "flex", flexWrap: "wrap", alignItems: "center", gap: "8px" }}>
+                        <span
+                          style={{
+                            backgroundColor: "#EFF6FF",
+                            color: "#1D4ED8",
+                            padding: "3px 10px",
+                            borderRadius: "999px",
+                            fontSize: "11px",
+                            fontWeight: 600,
+                          }}
+                        >
                           {badge.label}
                         </span>
-                        <span className="text-xs text-slate-500">
+                        <span style={{ fontSize: "12px", color: "#64748B" }}>
                           {categoryLabel(opp.category)}
                         </span>
                         {opp.eligibility_score != null && (
-                          <span className="text-xs text-slate-500">
-                            · Eligibility {opp.eligibility_score}%
+                          <span style={{ fontSize: "12px", color: "#64748B" }}>
+                            &middot; Eligibility {opp.eligibility_score}%
                           </span>
                         )}
                       </div>
                     </div>
-                    <div className="shrink-0 text-right">
-                      <p className="text-[#15803D] font-bold">
+                    <div style={{ flexShrink: 0, textAlign: "right" }}>
+                      <p style={{ color: "#16A34A", fontWeight: 700, margin: 0 }}>
                         {formatAmount(opp.amount_min, opp.amount_max)}
                       </p>
-                      <p className={urgent ? "text-[#EF4444] font-medium" : "text-slate-400"}>
+                      <p style={{ margin: "4px 0 0 0", fontWeight: urgent ? 600 : 400, color: urgent ? "#EF4444" : "#94A3B8" }}>
                         {opp.deadline ? formatDate(opp.deadline) : "No deadline"}
                       </p>
                     </div>
                   </div>
 
                   <div
-                    className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3"
+                    style={{
+                      marginTop: "12px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      borderTop: "1px solid #F1F5F9",
+                      paddingTop: "12px",
+                    }}
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <span className="text-xs text-slate-400">
+                    <span style={{ fontSize: "12px", color: "#94A3B8" }}>
                       Discovered {formatDate(opp.created_at)}
                     </span>
                     {applied ? (
-                      <div className="flex flex-col items-end">
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
                         <Badge variant="info">
                           {applied.stage
                             .replace(/_/g, " ")
                             .replace(/\b\w/g, (c) => c.toUpperCase())}
                         </Badge>
-                        <span className="mt-1 text-xs text-slate-500">
+                        <span style={{ marginTop: "4px", fontSize: "12px", color: "#64748B" }}>
                           Applied {formatDate(applied.created_at)}
                         </span>
                       </div>
                     ) : (
                       <Link
                         href={`/applications/new?opportunityId=${opp.id}`}
-                        className="inline-flex items-center rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-white shadow-sm hover:bg-primary-hover"
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          backgroundColor: "#0077B6",
+                          color: "#FFFFFF",
+                          borderRadius: "8px",
+                          padding: "4px 12px",
+                          fontSize: "12px",
+                          fontWeight: 600,
+                          textDecoration: "none",
+                        }}
                       >
                         Apply
                       </Link>
@@ -1199,13 +1269,13 @@ export default function ResearchPage() {
       </section>
 
       {/* HISTORICAL AWARDS (USAspending.gov competitive intelligence) */}
-      <section className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      <section style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "12px" }}>
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">
+            <h2 style={{ fontSize: "18px", fontWeight: 700, color: "#0F172A", margin: 0 }}>
               Historical Awards
             </h2>
-            <p className="text-xs text-slate-500">
+            <p style={{ fontSize: "12px", color: "#64748B", marginTop: "4px" }}>
               Who actually received similar federal grants - competitive
               intelligence from USAspending.gov (what funders funded, not just
               what they say they fund).
@@ -1214,7 +1284,21 @@ export default function ResearchPage() {
           <button
             onClick={() => void handlePullAwards()}
             disabled={pullingAwards}
-            className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-primary-hover disabled:opacity-60 transition-colors"
+            style={{
+              display: "inline-flex",
+              flexShrink: 0,
+              alignItems: "center",
+              gap: "8px",
+              backgroundColor: "#0077B6",
+              color: "#FFFFFF",
+              borderRadius: "8px",
+              border: "none",
+              padding: "8px 16px",
+              fontSize: "13px",
+              fontWeight: 600,
+              cursor: pullingAwards ? "default" : "pointer",
+              opacity: pullingAwards ? 0.6 : 1,
+            }}
           >
             {pullingAwards && <Spinner className="h-4 w-4" />}
             {pullingAwards ? "Pulling..." : "Pull Historical Awards"}
@@ -1224,7 +1308,14 @@ export default function ResearchPage() {
         {awardsError && (
           <div
             role="alert"
-            className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+            style={{
+              backgroundColor: "#FEF2F2",
+              border: "1px solid #FECACA",
+              borderRadius: "8px",
+              padding: "12px 16px",
+              fontSize: "13px",
+              color: "#B91C1C",
+            }}
           >
             {awardsError}
           </div>
@@ -1232,11 +1323,15 @@ export default function ResearchPage() {
 
         {historicalAwards.length === 0 ? (
           <div
-            className="rounded-xl border border-border bg-white p-8 text-center text-sm text-slate-500"
             style={{
-              backgroundColor: "#F7F5F1",
+              backgroundColor: "#FFFFFF",
               boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-              border: "1px solid #D9D3C5",
+              border: "1px solid #E2E8F0",
+              borderRadius: "12px",
+              padding: "32px",
+              textAlign: "center",
+              fontSize: "14px",
+              color: "#64748B",
             }}
           >
             No historical awards yet. Pull awards to see who actually received
@@ -1244,24 +1339,30 @@ export default function ResearchPage() {
           </div>
         ) : (
           <div
-            className="overflow-x-auto rounded-xl border border-border bg-white shadow-sm"
             style={{
-              backgroundColor: "#F7F5F1",
+              overflowX: "auto",
+              backgroundColor: "#FFFFFF",
               boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-              border: "1px solid #D9D3C5",
+              border: "1px solid #E2E8F0",
+              borderRadius: "12px",
             }}
           >
-            <table className="min-w-full divide-y divide-slate-200">
+            <table style={{ width: "100%", minWidth: "720px", borderCollapse: "collapse" }}>
               <thead>
-                <tr
-                  className="bg-sidebar"
-                  style={{ backgroundColor: "#1A2B3C", color: "#FFFFFF" }}
-                >
+                <tr style={{ backgroundColor: "#1A2B3C" }}>
                   {["Recipient", "Amount", "Agency", "Date", "Description"].map(
                     (col) => (
                       <th
                         key={col}
-                        className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-white"
+                        style={{
+                          padding: "12px 16px",
+                          textAlign: "left",
+                          fontSize: "11px",
+                          fontWeight: 700,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.05em",
+                          color: "#FFFFFF",
+                        }}
                       >
                         {col}
                       </th>
@@ -1269,24 +1370,24 @@ export default function ResearchPage() {
                   )}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200">
+              <tbody>
                 {historicalAwards.map((award) => (
-                  <tr key={award.id}>
-                    <td className="max-w-[200px] truncate px-4 py-3 text-sm font-medium text-slate-900">
+                  <tr key={award.id} style={{ borderTop: "1px solid #F1F5F9" }}>
+                    <td style={{ maxWidth: "200px", padding: "12px 16px", fontSize: "13px", fontWeight: 600, color: "#0F172A", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {award.recipient_name ?? "Unknown recipient"}
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-xs font-medium text-slate-700">
+                    <td style={{ padding: "12px 16px", fontSize: "12px", fontWeight: 600, color: "#334155", whiteSpace: "nowrap" }}>
                       {award.award_amount != null
                         ? `$${Math.round(award.award_amount).toLocaleString("en-US")}`
                         : "-"}
                     </td>
-                    <td className="px-4 py-3 text-xs text-slate-600">
+                    <td style={{ padding: "12px 16px", fontSize: "12px", color: "#475569" }}>
                       {award.awarding_agency ?? "-"}
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-xs text-slate-600">
+                    <td style={{ padding: "12px 16px", fontSize: "12px", color: "#475569", whiteSpace: "nowrap" }}>
                       {formatDate(award.award_date)}
                     </td>
-                    <td className="max-w-[280px] truncate px-4 py-3 text-xs text-slate-500">
+                    <td style={{ maxWidth: "280px", padding: "12px 16px", fontSize: "12px", color: "#64748B", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {award.description ?? "-"}
                     </td>
                   </tr>
@@ -1298,15 +1399,15 @@ export default function ResearchPage() {
       </section>
 
       {/* AGENT RUN HISTORY LINK (replaces the inline Agent Run Log) */}
-      <div className="flex items-center justify-between border-t border-slate-200 pt-4">
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderTop: "1px solid #E2E8F0", paddingTop: "16px" }}>
         <Link
           href="/admin/audit-log"
-          className="text-sm font-medium text-blue-600 hover:underline"
+          style={{ fontSize: "13px", fontWeight: 600, color: "#0077B6", textDecoration: "none" }}
         >
           View agent run history →
         </Link>
         {hasLiveRun && (
-          <span className="inline-flex items-center gap-1 text-xs text-blue-600">
+          <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "12px", color: "#0077B6" }}>
             <Spinner className="h-3 w-3" />
             Auto-refreshing every 30s
           </span>
