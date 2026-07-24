@@ -1027,7 +1027,7 @@ export default function DraftGeneratorPage() {
               })}
             </div>
 
-            <div style={{ flex: "1", display: "flex", flexDirection: "column", minWidth: 0 }}>
+            <div style={{ flex: "1", display: "flex", flexDirection: "column", gap: "12px", minWidth: 0 }}>
               {!generating && (
                 <>
                   <div style={{ ...indigoCardStyle, marginBottom: "12px" }}>
@@ -1205,6 +1205,7 @@ export default function DraftGeneratorPage() {
                     padding: "24px",
                     border: "1px solid rgba(255,255,255,0.1)",
                     flex: "1",
+                    minHeight: "500px",
                     display: "flex",
                     flexDirection: "column",
                     boxShadow: "0 4px 16px rgba(0,0,0,0.2)",
@@ -1358,8 +1359,7 @@ export default function DraftGeneratorPage() {
                     width: "240px",
                     flexShrink: 0,
                     alignSelf: "flex-start",
-                    position: "sticky",
-                    top: "24px",
+                    position: "relative",
                     background: "linear-gradient(135deg,#064E3B,#065F46)",
                     borderRadius: "14px",
                     padding: "20px",

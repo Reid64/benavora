@@ -210,7 +210,7 @@ export function Header({ userEmail, orgName, orgLogoUrl, onMenuClick }: HeaderPr
         position: "sticky",
         top: 0,
         zIndex: 30,
-        backgroundColor: "#0F172A",
+        backgroundColor: "#1A2535",
         height: "56px",
         display: "flex",
         alignItems: "center",
@@ -308,11 +308,11 @@ export function Header({ userEmail, orgName, orgLogoUrl, onMenuClick }: HeaderPr
                 <img
                   src={orgLogoUrl}
                   alt={orgName || "Organization"}
-                  className="w-9 h-9 rounded-full object-cover ring-2 ring-[#00B4D8] ring-offset-2 ring-offset-[#0F172A]"
+                  className="w-9 h-9 rounded-full object-cover ring-2 ring-[#00B4D8] ring-offset-2 ring-offset-[#1A2535]"
                 />
               ) : (
                 <span
-                  className="w-9 h-9 rounded-full bg-[#0077B6] text-white flex items-center justify-center text-sm font-bold ring-2 ring-[#00B4D8] ring-offset-2 ring-offset-[#0F172A]"
+                  className="w-9 h-9 rounded-full bg-[#0077B6] text-white flex items-center justify-center text-sm font-bold ring-2 ring-[#00B4D8] ring-offset-2 ring-offset-[#1A2535]"
                   aria-hidden
                 >
                   {initials}

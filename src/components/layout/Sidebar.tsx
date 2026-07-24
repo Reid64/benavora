@@ -345,7 +345,7 @@ export function Sidebar({ open, onClose, role, onboardingCompleted, orgName }: S
         style={{
           width: "240px",
           minHeight: "100vh",
-          backgroundColor: "#0F172A",
+          backgroundColor: "#162032",
           display: "flex",
           flexDirection: "column",
           borderRight: "1px solid rgba(255,255,255,0.06)",
