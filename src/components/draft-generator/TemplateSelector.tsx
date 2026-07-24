@@ -120,7 +120,8 @@ export function TemplateSelector({
                     background: "linear-gradient(135deg,rgba(0,119,182,0.3),rgba(14,165,233,0.2))",
                     border: "2px solid #0EA5E9",
                     borderRadius: "12px",
-                    padding: "16px",
+                    padding: "20px",
+                    minHeight: "100px",
                     cursor: "pointer",
                     boxShadow: "0 0 0 3px rgba(168,85,247,0.2)",
                     transition: "all 0.15s",
@@ -130,7 +131,8 @@ export function TemplateSelector({
                       backgroundColor: "rgba(255,255,255,0.08)",
                       border: "1px solid rgba(168,85,247,0.4)",
                       borderRadius: "12px",
-                      padding: "16px",
+                      padding: "20px",
+                      minHeight: "100px",
                       cursor: "pointer",
                       transition: "all 0.15s",
                     }
@@ -138,18 +140,19 @@ export function TemplateSelector({
                       backgroundColor: "rgba(255,255,255,0.04)",
                       border: "1px solid rgba(255,255,255,0.08)",
                       borderRadius: "12px",
-                      padding: "16px",
+                      padding: "20px",
+                      minHeight: "100px",
                       cursor: "pointer",
                       transition: "all 0.15s",
                     }
             }
           >
-            <Icon className="h-5 w-5" style={{ color: selected ? "#38BDF8" : "#A78BFA" }} aria-hidden />
+            <Icon className="h-6 w-6" style={{ color: selected ? "#38BDF8" : "#A78BFA" }} aria-hidden />
             <span
               style={
                 selected
-                  ? { fontSize: "14px", fontWeight: 700, color: "#38BDF8", marginTop: "10px" }
-                  : { fontSize: "14px", fontWeight: 700, color: "rgba(248,250,252,0.8)", marginTop: "10px" }
+                  ? { fontSize: "15px", fontWeight: 700, color: "#38BDF8", marginTop: "10px" }
+                  : { fontSize: "15px", fontWeight: 700, color: "rgba(248,250,252,0.8)", marginTop: "10px" }
               }
             >
               {option.label}

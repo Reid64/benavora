@@ -1076,10 +1076,10 @@ export default function DraftGeneratorPage() {
                           width: "100%",
                           padding: "11px 14px",
                           borderRadius: "10px",
-                          border: "1px solid rgba(255,255,255,0.15)",
+                          border: "1.5px solid rgba(255,255,255,0.15)",
                           fontSize: "14px",
-                          color: "#F8FAFC",
-                          backgroundColor: "rgba(255,255,255,0.08)",
+                          color: "#0F172A",
+                          backgroundColor: "#F8FAFC",
                           outline: "none",
                         }}
                       />
@@ -1117,10 +1117,10 @@ export default function DraftGeneratorPage() {
                               width: "100%",
                               padding: "11px 14px",
                               borderRadius: "10px",
-                              border: "1px solid rgba(255,255,255,0.15)",
+                              border: "1.5px solid rgba(255,255,255,0.15)",
                               fontSize: "14px",
-                              color: "#F8FAFC",
-                              backgroundColor: "rgba(255,255,255,0.08)",
+                              color: "#0F172A",
+                              backgroundColor: "#F8FAFC",
                               outline: "none",
                             }}
                           />
@@ -1202,39 +1202,92 @@ export default function DraftGeneratorPage() {
               )}
 
               {hasDraft && !generating && (
-          <div className="flex flex-col gap-6 xl:flex-row" style={{ minHeight: "600px" }}>
-              <div className="flex flex-1 flex-col gap-4" style={{ minWidth: 0 }}>
-                {belowThreshold && (
-                  <div
-                    role="alert"
+          <div style={{ minHeight: "600px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "24px",
+                  backgroundColor: "#1E293B",
+                  borderRadius: "12px",
+                  padding: "16px 24px",
+                  marginBottom: "12px",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                }}
+              >
+                <p style={{ fontSize: "32px", fontWeight: 800, color: "#FFFFFF", lineHeight: 1 }}>
+                  {confidence != null ? Math.round(confidence) : "—"}
+                  <span style={{ fontSize: "14px", color: "rgba(255,255,255,0.4)" }}>/100</span>
+                </p>
+                <div style={{ flex: "1", backgroundColor: "rgba(255,255,255,0.1)", borderRadius: "4px", height: "8px" }}>
+                  {confidence != null && (
+                    <div
+                      style={{
+                        width: `${Math.max(0, Math.min(100, Math.round(confidence)))}%`,
+                        height: "100%",
+                        borderRadius: "4px",
+                        backgroundColor: confidenceBarColor(confidence),
+                      }}
+                    />
+                  )}
+                </div>
+                <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.6)", maxWidth: "300px" }}>
+                  {confidence != null
+                    ? `${confidenceStatusText(confidence)}${belowThreshold ? " This draft falls below your review threshold." : ""}`
+                    : "No confidence score recorded for this draft."}
+                </p>
+                {editable && draftText.trim() && (
+                  <button
+                    type="button"
+                    onClick={handleRescore}
+                    title="Recalculate score from current draft text"
                     style={{
-                      backgroundColor: "rgba(245,158,11,0.15)",
-                      border: "1px solid rgba(245,158,11,0.3)",
-                      borderRadius: "10px",
-                      padding: "12px 16px",
-                      color: "#FCD34D",
+                      backgroundColor: "rgba(52,211,153,0.15)",
+                      color: "#34D399",
+                      border: "1px solid rgba(52,211,153,0.3)",
+                      borderRadius: "8px",
+                      padding: "10px 16px",
                       fontSize: "13px",
-                      display: "flex",
-                      alignItems: "flex-start",
-                      gap: "10px",
-                      marginBottom: "12px",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      whiteSpace: "nowrap",
+                    }}
+                    className="inline-flex items-center gap-1.5"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" aria-hidden />
+                    Rescore
+                  </button>
+                )}
+                {humanizationStatus === "humanized" && (
+                  <span
+                    style={{
+                      backgroundColor: "rgba(52,211,153,0.15)",
+                      color: "#34D399",
+                      border: "1px solid rgba(52,211,153,0.2)",
+                      borderRadius: "6px",
+                      padding: "4px 12px",
+                      fontSize: "11px",
+                      fontWeight: 700,
+                      whiteSpace: "nowrap",
                     }}
                   >
-                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-                    <span>
-                      This draft contains AI-generated content not verified
-                      against your Knowledge Base. Review carefully before
-                      submission.
-                    </span>
-                  </div>
+                    Humanized
+                  </span>
                 )}
+              </div>
+              {rescoreMessage && (
+                <p style={{ fontSize: "13px", color: "#34D399", marginTop: "-4px", marginBottom: "12px", fontWeight: 600 }}>
+                  {rescoreMessage}
+                </p>
+              )}
+
                 <div
                   style={{
                     backgroundColor: "#1E293B",
                     borderRadius: "14px",
                     padding: "24px",
                     border: "1px solid rgba(255,255,255,0.1)",
-                    flex: "1",
+                    width: "100%",
                     minHeight: "500px",
                     display: "flex",
                     flexDirection: "column",
@@ -1381,107 +1434,8 @@ export default function DraftGeneratorPage() {
                     <span className="text-xs" style={{ color: "rgba(248,250,252,0.4)" }}>Connect Gmail to enable email</span>
                   </div>
                 </div>
-              </div>
 
-              <div className="flex flex-col gap-6" style={{ width: "240px", flexShrink: 0 }}>
-                <div
-                  style={{
-                    width: "240px",
-                    flexShrink: 0,
-                    alignSelf: "flex-start",
-                    position: "relative",
-                    background: "linear-gradient(135deg,#064E3B,#065F46)",
-                    borderRadius: "14px",
-                    padding: "20px",
-                    boxShadow: "0 4px 16px rgba(0,0,0,0.3)",
-                    border: "1px solid rgba(16,185,129,0.2)",
-                  }}
-                >
-                  <p
-                    style={{
-                      fontSize: "10px",
-                      fontWeight: 700,
-                      letterSpacing: "0.15em",
-                      color: "#34D399",
-                      textTransform: "uppercase",
-                      marginBottom: "16px",
-                    }}
-                  >
-                    Confidence
-                  </p>
-
-                  {confidence != null ? (
-                    <>
-                      <p style={{ fontSize: "44px", fontWeight: 800, color: "#FFFFFF", lineHeight: 1 }}>
-                        {Math.round(confidence)}
-                        <span style={{ fontSize: "20px", color: "rgba(255,255,255,0.4)" }}>/100</span>
-                      </p>
-                      <div style={{ backgroundColor: "rgba(255,255,255,0.1)", borderRadius: "4px", height: "8px", margin: "14px 0 6px" }}>
-                        <div
-                          style={{
-                            width: `${Math.max(0, Math.min(100, Math.round(confidence)))}%`,
-                            height: "100%",
-                            borderRadius: "4px",
-                            backgroundColor: confidenceBarColor(confidence),
-                          }}
-                        />
-                      </div>
-                      <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.6)", lineHeight: "1.6", marginTop: "10px" }}>
-                        {confidenceStatusText(confidence)}
-                        {belowThreshold && " This draft falls below your review threshold."}
-                      </p>
-                    </>
-                  ) : (
-                    <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.6)", lineHeight: "1.6", marginTop: "10px" }}>
-                      No confidence score recorded for this draft.
-                    </p>
-                  )}
-                  {rescoreMessage && (
-                    <p style={{ fontSize: "13px", color: "#34D399", marginTop: "8px", fontWeight: 600 }}>
-                      {rescoreMessage}
-                    </p>
-                  )}
-                  {editable && draftText.trim() && (
-                    <button
-                      type="button"
-                      onClick={handleRescore}
-                      title="Recalculate score from current draft text"
-                      style={{
-                        width: "100%",
-                        backgroundColor: "rgba(52,211,153,0.15)",
-                        color: "#34D399",
-                        border: "1px solid rgba(52,211,153,0.3)",
-                        borderRadius: "8px",
-                        padding: "10px",
-                        fontSize: "13px",
-                        fontWeight: 600,
-                        cursor: "pointer",
-                        marginTop: "14px",
-                      }}
-                      className="inline-flex items-center justify-center gap-1.5"
-                    >
-                      <RefreshCw className="h-3.5 w-3.5" aria-hidden />
-                      Rescore
-                    </button>
-                  )}
-                  {humanizationStatus === "humanized" && (
-                    <span
-                      style={{
-                        backgroundColor: "rgba(52,211,153,0.15)",
-                        color: "#34D399",
-                        border: "1px solid rgba(52,211,153,0.2)",
-                        borderRadius: "6px",
-                        padding: "4px 12px",
-                        fontSize: "11px",
-                        fontWeight: 700,
-                        display: "inline-block",
-                        marginTop: "10px",
-                      }}
-                    >
-                      Humanized
-                    </span>
-                  )}
-                </div>
+              <div style={{ marginTop: "12px", display: "flex", flexDirection: "column", gap: "12px" }}>
                 {(dnaScore !== null || dnaScoring) && (
                   dnaScore !== null ? (
                     <GrantDNACard
