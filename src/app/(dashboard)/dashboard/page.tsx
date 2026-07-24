@@ -1,17 +1,18 @@
-import { Suspense } from "react";
+import { Suspense, type CSSProperties, type ReactNode } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { redirect } from "next/navigation";
 import { addDays, differenceInCalendarDays, format } from "date-fns";
-import { Sparkles } from "lucide-react";
+import {
+  BookOpen,
+  Compass,
+  FileText,
+  Search,
+  Sparkles,
+  Users,
+  Zap,
+} from "lucide-react";
 
 import { FlightPathHUD } from "@/components/dashboard/FlightPathHUD";
-import {
-  DeadlineWidget,
-  type DeadlineWidgetItem,
-} from "@/components/dashboard/DeadlineWidget";
-import { PipelineSummary } from "@/components/dashboard/PipelineSummary";
-import type { PipelineStage } from "@/components/applications/pipeline";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { LoadingCard } from "@/components/ui/LoadingCard";
 import { createClient } from "@/lib/supabase/server";
@@ -19,7 +20,6 @@ import {
   analyzeOutcomes,
   type OutcomeInput,
 } from "@/lib/ai/learning/outcome-analyzer";
-import { PIPELINE_STAGES } from "@/lib/utils/constants";
 import { formatCurrency, formatRelative, humanizeEnum } from "@/lib/utils/formatters";
 
 // Dashboard reflects live session-scoped data; never cache (CLAUDE.md).
@@ -27,7 +27,6 @@ export const dynamic = "force-dynamic";
 
 type ApplicationRow = {
   id: string;
-  stage: PipelineStage;
   requested_amount: number | null;
   submitted_at: string | null;
   draft_content: string | null;
@@ -42,23 +41,14 @@ type DeadlineRow = {
   opportunity_id: string | null;
 };
 
-type UpcomingOpportunityRow = {
-  id: string;
-  name: string;
-  deadline: string;
-};
-
 // strategic_recommendations (migration 086_strategic_advisor.sql) is
 // org_id-scoped, not organization_id — see AG-40 Strategic Advisor.
-type StrategicRecommendationUrgencyRow = {
+type StrategicRecommendationRow = {
+  id: string;
+  title: string;
+  recommendation: string;
   urgency: "immediate" | "urgent" | "normal" | "low";
-};
-
-const URGENCY_COLOR: Record<string, string> = {
-  immediate: "#DC2626",
-  urgent: "#F59E0B",
-  normal: "#0EA5E9",
-  low: "#6B7280",
+  generated_at: string;
 };
 
 // agent_decisions.agent_id (migration 080) — real ids are suffixed forms
@@ -75,6 +65,20 @@ type AgentDecisionRow = {
   created_at: string;
 };
 
+const URGENCY_COLOR: Record<string, string> = {
+  immediate: "#DC2626",
+  urgent: "#D97706",
+  normal: "#0EA5E9",
+  low: "#6B7280",
+};
+
+const URGENCY_PRIORITY: Record<string, number> = {
+  immediate: 0,
+  urgent: 1,
+  normal: 2,
+  low: 3,
+};
+
 /** Returns "-" instead of "0" so empty metrics don't imply active tracking. */
 function metricCount(n: number): string {
   return n === 0 ? "-" : String(n);
@@ -82,6 +86,12 @@ function metricCount(n: number): string {
 
 function metricCurrency(n: number): string {
   return n === 0 ? "-" : formatCurrency(n);
+}
+
+/** Formats a 0-100 rate, or "-" when analyzeOutcomes withheld it (below
+ * MIN_OUTCOMES_FOR_RATE — Behavioral Contracts §10 "insufficient data" rule). */
+function ratePercent(n: number | null): string {
+  return n == null ? "-" : `${n}%`;
 }
 
 function truncate(s: string, max: number): string {
@@ -104,33 +114,22 @@ function confidenceBadgeColor(score: number | null): string {
   return "#EF4444";
 }
 
-const sectionHeaderStyle = {
-  fontSize: "13px",
-  fontWeight: 700,
-  color: "#0F172A",
-  marginBottom: "16px",
-  textTransform: "uppercase" as const,
-  letterSpacing: "0.05em",
-};
-
-const trayStyle = {
-  backgroundColor: "#B8C4CC",
-  borderRadius: "16px",
-  padding: "16px",
-  boxShadow: "inset 0 2px 8px rgba(0,0,0,0.10)",
+const cardStyle: CSSProperties = {
+  backgroundColor: "#FFFFFF",
+  borderRadius: "12px",
+  boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+  border: "1px solid #E2E8F0",
 };
 
 function SectionError({ message }: { message: string }) {
   return (
     <div
       style={{
-        backgroundColor: "#FFFFFF",
-        borderLeft: "4px solid #EF4444",
-        borderRadius: "12px",
+        ...cardStyle,
+        borderLeft: "4px solid #DC2626",
         padding: "20px",
         fontSize: "13px",
         color: "#B91C1C",
-        boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
       }}
     >
       {message}
@@ -138,7 +137,24 @@ function SectionError({ message }: { message: string }) {
   );
 }
 
-/** Today's Action Items — independently fetched so it can stream/fail on its own. */
+function PanelHeader({ children }: { children: ReactNode }) {
+  return (
+    <div
+      style={{
+        fontSize: "12px",
+        fontWeight: 700,
+        color: "#0F172A",
+        textTransform: "uppercase",
+        letterSpacing: "0.05em",
+        marginBottom: "14px",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+/** Today's Priority Actions — independently fetched so it can stream/fail on its own. */
 async function ActionItemsSection({ orgId }: { orgId: string }) {
   const supabase = createClient();
 
@@ -171,7 +187,6 @@ async function ActionItemsSection({ orgId }: { orgId: string }) {
 
     const now = new Date();
     const applications = applicationsRes.data ?? [];
-    const submittedCount = applications.filter((a) => a.submitted_at !== null).length;
     const draftsGenerated = applications.filter(
       (a) => a.draft_content !== null && a.draft_content.trim().length > 0,
     ).length;
@@ -183,253 +198,74 @@ async function ActionItemsSection({ orgId }: { orgId: string }) {
     const reputationAlertsCount = reputationAlertsRes.count ?? 0;
 
     const actionItems = [
-      { dot: "#EF4444", text: "Parsed emails awaiting review", count: "-", href: "/emails" },
       { dot: "#F59E0B", text: "New opportunities discovered", count: metricCount(discoveryMatchesCount), href: "/opportunities" },
       { dot: "#6B48CC", text: "Drafts needing attention", count: metricCount(draftsGenerated), href: "/draft-generator" },
       { dot: "#0077B6", text: "Deadlines approaching", count: metricCount(deadlinesThisWeek), href: "/deadlines" },
-      { dot: "#0096C7", text: "Applications missing documents", count: "-", href: "/applications" },
-      { dot: "#10B981", text: "AutoApply gates awaiting approval", count: "-", href: "/admin/autoapply-ops" },
-      { dot: "#1A2B3C", text: "Research runs completed", count: metricCount(submittedCount), href: "/research" },
       { dot: "#0EA5E9", text: "Funder alerts requiring review", count: metricCount(reputationAlertsCount), href: "/alerts" },
+      { dot: "#1A2B3C", text: "Applications awaiting review", count: metricCount(applications.filter((a) => a.submitted_at === null).length), href: "/applications" },
     ];
 
     return (
-      <div style={trayStyle}>
-        <div style={{ backgroundColor: "#FFFFFF", borderRadius: "12px", overflow: "hidden", padding: "20px", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}>
+      <div style={{ ...cardStyle, padding: "20px", marginBottom: "16px" }}>
+        <PanelHeader>Today&rsquo;s Priority Actions</PanelHeader>
+        {actionItems.map((item) => (
           <div
+            key={item.text}
             style={{
-              fontSize: "13px",
-              fontWeight: 700,
-              color: "#FFFFFF",
-              textTransform: "uppercase",
-              letterSpacing: "0.05em",
-              backgroundColor: "#6B48CC",
-              padding: "14px 20px",
-              margin: "0",
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              padding: "10px 0",
+              borderBottom: "1px solid #F1F5F9",
             }}
           >
-            Today&rsquo;s Action Items
-          </div>
-          {actionItems.map((item) => (
-            <Link key={item.text} href={item.href} style={{ textDecoration: "none", display: "block" }}>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "10px",
-                  padding: "10px 0",
-                  borderBottom: "1px solid #F1F5F9",
-                  cursor: "pointer",
-                }}
-              >
-                <div style={{ width: "8px", height: "8px", borderRadius: "50%", flexShrink: 0, backgroundColor: item.dot }} />
-                <div style={{ flex: 1, fontSize: "13px", color: "#334155" }}>{item.text}</div>
-                <div
-                  style={{
-                    fontSize: "11px",
-                    fontWeight: 700,
-                    color: "#FFFFFF",
-                    backgroundColor: item.dot,
-                    borderRadius: "999px",
-                    padding: "2px 8px",
-                  }}
-                >
-                  {item.count}
-                </div>
-              </div>
-            </Link>
-          ))}
-        </div>
-      </div>
-    );
-  } catch {
-    return <SectionError message="Couldn't load today's action items." />;
-  }
-}
-
-/** Pipeline summary + upcoming opportunities — independently fetched so it can stream/fail on its own. */
-async function PipelineSection({ orgId }: { orgId: string }) {
-  const supabase = createClient();
-
-  try {
-    const now = new Date();
-    const [applicationsRes, upcomingRes] = await Promise.all([
-      supabase
-        .from("applications")
-        .select("id, stage")
-        .eq("organization_id", orgId),
-      supabase
-        .from("opportunities")
-        .select("id, name, deadline")
-        .eq("organization_id", orgId)
-        .not("deadline", "is", null)
-        .gte("deadline", format(now, "yyyy-MM-dd"))
-        .order("deadline", { ascending: true })
-        .limit(3),
-    ]);
-
-    if (applicationsRes.error) throw applicationsRes.error;
-    if (upcomingRes.error) throw upcomingRes.error;
-
-    const pipelineCounts = PIPELINE_STAGES.reduce(
-      (acc, stage) => {
-        acc[stage] = 0;
-        return acc;
-      },
-      {} as Record<PipelineStage, number>,
-    );
-    const applications = (applicationsRes.data ?? []) as Pick<ApplicationRow, "id" | "stage">[];
-    for (const app of applications) {
-      if (app.stage in pipelineCounts) {
-        pipelineCounts[app.stage] += 1;
-      }
-    }
-    const upcomingOpportunities = (upcomingRes.data ?? []) as UpcomingOpportunityRow[];
-
-    return (
-      <div style={trayStyle}>
-        <div style={{ backgroundColor: "#FFFFFF", borderRadius: "12px", padding: "20px", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}>
-          <div style={sectionHeaderStyle}>Pipeline</div>
-          <PipelineSummary counts={pipelineCounts} />
-
-          <div style={{ marginTop: "16px" }}>
-            <div style={sectionHeaderStyle}>Upcoming Opportunities</div>
-            {upcomingOpportunities.length === 0 ? (
-              <p style={{ fontSize: "13px", color: "#64748B" }}>
-                No open opportunities — run Research to discover funding.
-              </p>
-            ) : (
-              upcomingOpportunities.map((opp) => {
-                const daysOut = differenceInCalendarDays(new Date(opp.deadline), now);
-                const deadlineColor =
-                  daysOut <= 14 ? "#EF4444" : daysOut <= 30 ? "#F59E0B" : "#64748B";
-                return (
-                  <div
-                    key={opp.id}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      gap: "12px",
-                      padding: "8px 0",
-                      borderBottom: "1px solid #F1F5F9",
-                    }}
-                  >
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <div
-                        style={{
-                          fontSize: "13px",
-                          color: "#334155",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {truncate(opp.name, 40)}
-                      </div>
-                      <div
-                        style={{
-                          fontSize: "11px",
-                          fontWeight: 700,
-                          color: deadlineColor,
-                        }}
-                      >
-                        {format(new Date(opp.deadline), "MMM d")}
-                      </div>
-                    </div>
-                    <Link
-                      href={`/opportunities/${opp.id}`}
-                      style={{
-                        fontSize: "12px",
-                        fontWeight: 600,
-                        color: "#0077B6",
-                        flexShrink: 0,
-                      }}
-                    >
-                      View
-                    </Link>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  } catch {
-    return <SectionError message="Couldn't load the pipeline summary." />;
-  }
-}
-
-/** Upcoming deadlines widget — independently fetched so it can stream/fail on its own. */
-async function DeadlinesSection({ orgId, horizon }: { orgId: string; horizon: string }) {
-  const supabase = createClient();
-
-  try {
-    const { data, error } = await supabase
-      .from("deadlines")
-      .select("id, title, deadline_type, due_date, application_id, opportunity_id")
-      .eq("organization_id", orgId)
-      .or("is_completed.is.null,is_completed.eq.false")
-      .lte("due_date", horizon)
-      .order("due_date", { ascending: true });
-
-    if (error) throw error;
-
-    const deadlines = (data ?? []) as DeadlineRow[];
-    const deadlineItems: DeadlineWidgetItem[] = deadlines.slice(0, 5).map((d) => ({
-      id: d.id,
-      title: d.title,
-      deadlineType: d.deadline_type,
-      dueDate: d.due_date,
-      href: d.application_id
-        ? `/applications/${d.application_id}`
-        : d.opportunity_id
-          ? `/opportunities/${d.opportunity_id}`
-          : "/deadlines",
-    }));
-
-    return (
-      <div
-        style={{
-          backgroundColor: "#1A2B3C",
-          borderRadius: "16px",
-          padding: "0",
-          overflow: "hidden",
-          boxShadow: "0 4px 16px rgba(26,43,60,0.2)",
-        }}
-      >
-        <div style={{ padding: "20px 24px", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
-          <div className="flex items-center justify-between">
-            <h2
+            <div style={{ width: "8px", height: "8px", borderRadius: "50%", flexShrink: 0, backgroundColor: item.dot }} />
+            <div style={{ flex: 1, fontSize: "13px", color: "#334155" }}>{item.text}</div>
+            <div
               style={{
-                fontSize: "14px",
+                fontSize: "11px",
                 fontWeight: 700,
                 color: "#FFFFFF",
-                letterSpacing: "0.05em",
-                textTransform: "uppercase",
+                backgroundColor: item.dot,
+                borderRadius: "999px",
+                padding: "2px 8px",
               }}
             >
-              Upcoming Deadlines
-            </h2>
+              {item.count}
+            </div>
             <Link
-              href="/deadlines"
-              className="text-xs font-medium"
-              style={{ color: "#FFFFFF" }}
+              href={item.href}
+              style={{
+                backgroundColor: "#0077B6",
+                color: "#FFFFFF",
+                border: "none",
+                borderRadius: "8px",
+                padding: "6px 12px",
+                fontSize: "12px",
+                fontWeight: 600,
+                cursor: "pointer",
+                textDecoration: "none",
+              }}
             >
-              View all
+              Go
             </Link>
           </div>
-        </div>
-        <div style={{ padding: "8px 0" }}>
-          <DeadlineWidget items={deadlineItems} dark />
-        </div>
+        ))}
       </div>
     );
   } catch {
-    return <SectionError message="Couldn't load upcoming deadlines." />;
+    return <SectionError message="Couldn't load today's priority actions." />;
   }
 }
+
+const QUICK_ACTIONS = [
+  { label: "New Opportunity", href: "/opportunities/new", icon: Zap },
+  { label: "Start Draft", href: "/draft-generator", icon: FileText },
+  { label: "Run AutoApply", href: "/autoapply", icon: Sparkles },
+  { label: "Find Donors", href: "/donor-discovery", icon: Users },
+  { label: "View Research", href: "/research", icon: Search },
+  { label: "Intelligence Library", href: "/intelligence-library", icon: BookOpen },
+];
 
 /**
  * Main dashboard (BLUEPRINT §4.1). All data is read server-side via the
@@ -480,6 +316,7 @@ export default async function DashboardPage() {
     outcomesRes,
     agentDecisionsRes,
     strategicRecommendationsRes,
+    autoapplyQueueRes,
     organizationRes,
   ] = await Promise.all([
     supabase
@@ -516,37 +353,42 @@ export default async function DashboardPage() {
       .limit(8),
     supabase
       .from("strategic_recommendations")
-      .select("urgency")
+      .select("id, title, recommendation, urgency, generated_at")
       .eq("org_id", orgId)
+      .eq("status", "pending"),
+    // submission_queue (migration 045_autoapply_tables.sql) has no 'queued'
+    // status value — its enum is pending/processing/completed/failed/skipped.
+    // 'pending' is the queued-and-waiting equivalent (matches nav-counts route).
+    supabase
+      .from("submission_queue")
+      .select("id", { count: "exact", head: true })
+      .eq("organization_id", orgId)
       .eq("status", "pending"),
     supabase.from("organizations").select("name").eq("id", orgId).single(),
   ]);
 
   const totalOpportunities = oppCountRes.count ?? 0;
-  const applications = (applicationsRes.data ?? []) as Omit<ApplicationRow, "stage">[];
+  const applications = (applicationsRes.data ?? []) as ApplicationRow[];
   const deadlines = (deadlinesRes.data ?? []) as DeadlineRow[];
   const outcomes = (outcomesRes.data ?? []) as OutcomeInput[];
   const agentDecisions = (agentDecisionsRes.data ?? []) as AgentDecisionRow[];
   const strategicRecommendations = (strategicRecommendationsRes.data ??
-    []) as StrategicRecommendationUrgencyRow[];
+    []) as StrategicRecommendationRow[];
+  const autoapplyQueued = autoapplyQueueRes.count ?? 0;
   const orgName =
     (organizationRes.data as { name: string } | null)?.name ??
     "Your Organization";
 
-  const strategicUrgencyCounts = strategicRecommendations.reduce(
-    (acc, r) => {
-      acc[r.urgency] = (acc[r.urgency] ?? 0) + 1;
-      return acc;
-    },
-    {} as Record<string, number>,
-  );
+  const topInsights = [...strategicRecommendations]
+    .sort((a, b) => {
+      const p = (URGENCY_PRIORITY[a.urgency] ?? 9) - (URGENCY_PRIORITY[b.urgency] ?? 9);
+      return p !== 0 ? p : b.generated_at.localeCompare(a.generated_at);
+    })
+    .slice(0, 3);
 
   // --- metrics ---------------------------------------------------------------
   const submittedCount = applications.filter(
     (a) => a.submitted_at !== null,
-  ).length;
-  const draftsGenerated = applications.filter(
-    (a) => a.draft_content !== null && a.draft_content.trim().length > 0,
   ).length;
   const totalRequested = applications.reduce(
     (sum, a) => sum + (a.requested_amount ?? 0),
@@ -559,8 +401,6 @@ export default async function DashboardPage() {
 
   const analysis = analyzeOutcomes(outcomes);
   const { summary } = analysis;
-  const successRateValue =
-    summary.successRate != null ? `${summary.successRate}%` : "-";
 
   const hasNoData =
     totalOpportunities === 0 &&
@@ -568,81 +408,47 @@ export default async function DashboardPage() {
     deadlines.length === 0 &&
     outcomes.length === 0;
 
-  const heroChips = [
-    { label: "Active Apps", value: metricCount(applications.length) },
-    { label: "Submitted", value: metricCount(submittedCount) },
-    { label: "Drafts", value: metricCount(draftsGenerated) },
-    { label: "Deadlines", value: metricCount(deadlinesThisWeek) },
+  const statCards = [
+    {
+      label: "Active Applications",
+      value: metricCount(applications.length),
+      color: "#0077B6",
+    },
+    {
+      label: "Total Funding Pursued",
+      value: metricCurrency(totalRequested),
+      color: "#16A34A",
+    },
+    {
+      label: "Win Rate",
+      value: ratePercent(summary.successRate),
+      color: "#7C3AED",
+    },
+    {
+      label: "Deadlines This Week",
+      value: metricCount(deadlinesThisWeek),
+      color: deadlinesThisWeek > 0 ? "#D97706" : "#64748B",
+    },
+    {
+      label: "AutoApply Queue",
+      value: metricCount(autoapplyQueued),
+      color: "#00B4D8",
+    },
   ];
 
-  const fundingSummaryRows = [
-    { label: "Total Requested", value: metricCurrency(totalRequested) },
-    { label: "Total Awarded", value: metricCurrency(summary.totalAwarded) },
-    { label: "Success Rate", value: successRateValue },
+  const performanceRows = [
+    { label: "Win Rate", value: summary.successRate },
+    { label: "Funded Rate", value: summary.fundedRate },
+    { label: "Dollar Efficiency", value: summary.dollarEfficiency },
   ];
 
   return (
-    <div style={{ backgroundColor: "#D6E4F0", minHeight: "100vh", padding: "32px" }}>
-      {/* Hero banner */}
-      <div
-        style={{
-          background: "linear-gradient(135deg, #1A2B3C 0%, #0077B6 100%)",
-          borderRadius: "20px",
-          padding: "0",
-          marginBottom: "20px",
-          display: "flex",
-          alignItems: "stretch",
-          overflow: "hidden",
-          height: "200px",
-          boxShadow: "0 8px 32px rgba(0,0,0,0.20)",
-          position: "relative",
-        }}
-      >
-        <div style={{ width: "260px", flexShrink: 0, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "0 0 0 16px" }}>
-          <Image
-            src="/hero-illustration.png"
-            alt="Funding manager"
-            width={240}
-            height={190}
-            style={{ objectFit: "contain", objectPosition: "bottom center" }}
-          />
-        </div>
-        <div style={{ flex: 1, padding: "32px 40px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
-          <h1 style={{ fontSize: "24px", fontWeight: 800, color: "#FFFFFF", letterSpacing: "-0.02em", margin: "0 0 4px 0" }}>
-            {orgName}
-          </h1>
-          <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.65)", margin: "0 0 20px 0" }}>
-            {format(now, "MMMM d, yyyy")}
-          </p>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", maxWidth: "360px" }}>
-            {heroChips.map((chip) => (
-              <div
-                key={chip.label}
-                style={{
-                  backgroundColor: "rgba(255,255,255,0.12)",
-                  border: "1px solid rgba(255,255,255,0.2)",
-                  borderRadius: "10px",
-                  padding: "10px 14px",
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: "10px",
-                    fontWeight: 700,
-                    letterSpacing: "0.08em",
-                    textTransform: "uppercase",
-                    color: "rgba(255,255,255,0.6)",
-                  }}
-                >
-                  {chip.label}
-                </div>
-                <div style={{ fontSize: "20px", fontWeight: 900, color: "#FFFFFF", lineHeight: 1, marginTop: "2px" }}>
-                  {chip.value}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+    <div style={{ backgroundColor: "#E4E9F0", minHeight: "100vh", padding: "32px", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+      <div style={{ marginBottom: "20px" }}>
+        <h1 style={{ fontSize: "24px", fontWeight: 800, color: "#0F172A", letterSpacing: "-0.02em", margin: "0 0 4px 0" }}>
+          {orgName}
+        </h1>
+        <p style={{ fontSize: "13px", color: "#64748B", margin: 0 }}>{format(now, "MMMM d, yyyy")}</p>
       </div>
 
       {hasNoData && (
@@ -661,195 +467,148 @@ export default async function DashboardPage() {
           <p style={{ fontSize: "14px", color: "#0F766E", marginTop: "4px" }}>
             You don&rsquo;t have any data yet. Start by adding a funding
             opportunity or completing your organization profile in the Knowledge
-            Base &mdash; the metrics and charts below fill in as you work.
+            Base &mdash; the metrics below fill in as you work.
           </p>
         </div>
       )}
 
-      {/* Mission Control lifecycle HUD */}
-      <ErrorBoundary>
-        <FlightPathHUD />
-      </ErrorBoundary>
-
-      {/* Three column grid: action items | pipeline | upcoming deadlines */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "16px", marginBottom: "16px" }}>
-        <ErrorBoundary>
-          <Suspense fallback={<LoadingCard height={340} borderRadius={16} />}>
-            <ActionItemsSection orgId={orgId} />
-          </Suspense>
-        </ErrorBoundary>
-
-        <ErrorBoundary>
-          <Suspense fallback={<LoadingCard height={340} borderRadius={16} />}>
-            <PipelineSection orgId={orgId} />
-          </Suspense>
-        </ErrorBoundary>
-
-        <ErrorBoundary>
-          <Suspense fallback={<LoadingCard height={340} borderRadius={16} />}>
-            <DeadlinesSection orgId={orgId} horizon={horizon} />
-          </Suspense>
-        </ErrorBoundary>
+      {/* ZONE 1 — stat bar */}
+      <div style={{ display: "flex", gap: "16px", marginBottom: "20px", flexWrap: "wrap" }}>
+        {statCards.map((card) => (
+          <div key={card.label} style={{ ...cardStyle, padding: "20px 24px", flex: "1", minWidth: "180px" }}>
+            <div style={{ fontSize: "32px", fontWeight: 800, lineHeight: 1, color: card.color }}>
+              {card.value}
+            </div>
+            <div style={{ fontSize: "12px", fontWeight: 600, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.05em", marginTop: "4px" }}>
+              {card.label}
+            </div>
+          </div>
+        ))}
       </div>
 
-      {/* Bottom two column grid: quick actions | funding summary */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
-        {/* Quick actions */}
-        <div
-          style={{
-            backgroundColor: "#0077B6",
-            borderRadius: "16px",
-            padding: "24px",
-            boxShadow: "0 4px 16px rgba(0,119,182,0.3)",
-          }}
-        >
-          <h3 style={{ fontSize: "14px", fontWeight: 700, color: "#FFFFFF", marginBottom: "16px" }}>
-            Quick Actions
-          </h3>
-          <div>
-            <Link
-              href="/research"
-              style={{
-                display: "block",
-                width: "100%",
-                padding: "12px 16px",
-                backgroundColor: "rgba(255,255,255,0.15)",
-                borderRadius: "8px",
-                color: "#FFFFFF",
-                fontSize: "13px",
-                fontWeight: 600,
-                marginBottom: "8px",
-                border: "1px solid rgba(255,255,255,0.2)",
-                cursor: "pointer",
-                textAlign: "left",
-              }}
-            >
-              Run Research
-            </Link>
-            <Link
-              href="/draft-generator"
-              style={{
-                display: "block",
-                width: "100%",
-                padding: "12px 16px",
-                backgroundColor: "rgba(255,255,255,0.15)",
-                borderRadius: "8px",
-                color: "#FFFFFF",
-                fontSize: "13px",
-                fontWeight: 600,
-                marginBottom: "8px",
-                border: "1px solid rgba(255,255,255,0.2)",
-                cursor: "pointer",
-                textAlign: "left",
-              }}
-            >
-              Generate Drafts
-            </Link>
-            <Link
-              href="/draft-generator/queue"
-              style={{
-                display: "block",
-                width: "100%",
-                padding: "12px 16px",
-                backgroundColor: "rgba(255,255,255,0.15)",
-                borderRadius: "8px",
-                color: "#FFFFFF",
-                fontSize: "13px",
-                fontWeight: 600,
-                marginBottom: "8px",
-                border: "1px solid rgba(255,255,255,0.2)",
-                cursor: "pointer",
-                textAlign: "left",
-              }}
-            >
-              Review Queue
-            </Link>
+      {/* ZONE 2 — 60/40 split */}
+      <div style={{ display: "grid", gridTemplateColumns: "3fr 2fr", gap: "16px", marginBottom: "16px", alignItems: "start" }}>
+        {/* LEFT — Mission Control */}
+        <div style={{ backgroundColor: "#0F172A", borderRadius: "16px", padding: "24px", color: "#F8FAFC" }}>
+          <div style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.15em", color: "#00B4D8", textTransform: "uppercase", marginBottom: "16px" }}>
+            Mission Control
           </div>
+          <FlightPathHUD />
         </div>
 
-        {/* Funding Summary (compact) */}
-        <div style={trayStyle}>
-          <div style={{ backgroundColor: "#FFFFFF", borderRadius: "12px", padding: "20px" }}>
-            <div style={sectionHeaderStyle}>Funding Summary</div>
-            {fundingSummaryRows.map((row) => (
-              <div key={row.label}>
-                <div
-                  style={{
-                    fontSize: "11px",
-                    fontWeight: 700,
-                    color: "#64748B",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.05em",
-                  }}
-                >
-                  {row.label}
-                </div>
-                <div style={{ fontSize: "22px", fontWeight: 800, color: "#0F172A", marginTop: "2px", marginBottom: "12px" }}>
-                  {row.value}
-                </div>
-              </div>
-            ))}
+        {/* RIGHT — 3 stacked panels */}
+        <div>
+          <ErrorBoundary>
+            <Suspense fallback={<LoadingCard height={220} borderRadius={12} />}>
+              <ActionItemsSection orgId={orgId} />
+            </Suspense>
+          </ErrorBoundary>
+
+          <div style={{ backgroundColor: "#1A2B3C", borderRadius: "12px", padding: "20px", color: "#F8FAFC", marginBottom: "16px" }}>
+            <div style={{ fontSize: "12px", fontWeight: 700, color: "#FFFFFF", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "14px" }}>
+              Upcoming Deadlines
+            </div>
+            {deadlines.length === 0 ? (
+              <p style={{ fontSize: "13px", color: "rgba(248,250,252,0.6)" }}>No deadlines in the next 7 days.</p>
+            ) : (
+              deadlines.slice(0, 4).map((d) => {
+                const days = differenceInCalendarDays(new Date(d.due_date), now);
+                const href = d.application_id
+                  ? `/applications/${d.application_id}`
+                  : d.opportunity_id
+                    ? `/opportunities/${d.opportunity_id}`
+                    : "/deadlines";
+                return (
+                  <Link
+                    key={d.id}
+                    href={href}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: "10px",
+                      padding: "8px 0",
+                      borderBottom: "1px solid rgba(255,255,255,0.08)",
+                      textDecoration: "none",
+                    }}
+                  >
+                    <span style={{ fontSize: "13px", color: "#F8FAFC", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {truncate(d.title, 32)}
+                    </span>
+                    <span
+                      style={{
+                        backgroundColor: "rgba(220,38,38,0.2)",
+                        color: "#FCA5A5",
+                        borderRadius: "6px",
+                        padding: "2px 8px",
+                        fontSize: "11px",
+                        fontWeight: 700,
+                        flexShrink: 0,
+                      }}
+                    >
+                      {days <= 0 ? "Due today" : `${days}d`}
+                    </span>
+                  </Link>
+                );
+              })
+            )}
+          </div>
+
+          <div style={{ ...cardStyle, padding: "20px" }}>
+            <PanelHeader>Quick Actions</PanelHeader>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+              {QUICK_ACTIONS.map((action) => {
+                const Icon = action.icon;
+                return (
+                  <Link
+                    key={action.href}
+                    href={action.href}
+                    style={{
+                      backgroundColor: "#F8FAFC",
+                      border: "1px solid #E2E8F0",
+                      borderRadius: "10px",
+                      padding: "14px",
+                      textAlign: "center",
+                      cursor: "pointer",
+                      textDecoration: "none",
+                      color: "#0F172A",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: "6px",
+                      fontSize: "12px",
+                      fontWeight: 600,
+                    }}
+                  >
+                    <Icon size={16} color="#0077B6" aria-hidden />
+                    {action.label}
+                  </Link>
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Autonomous activity — last 24 hours of agent_decisions (migration 080) */}
-      <div
-        style={{
-          backgroundColor: "#FFFFFF",
-          borderRadius: "12px",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-          padding: "24px",
-          marginTop: "16px",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            marginBottom: "16px",
-          }}
-        >
-          <span style={{ fontSize: "14px", fontWeight: 700, color: "#1A2B3C" }}>
-            AI Working For You — Last 24 Hours
-          </span>
-          {agentDecisions.length > 0 && (
-            <span
-              className="animate-pulse"
-              style={{
-                width: "8px",
-                height: "8px",
-                borderRadius: "50%",
-                backgroundColor: "#10B981",
-              }}
-              aria-hidden
-            />
-          )}
-        </div>
-
-        {agentDecisions.length === 0 ? (
-          <p
-            style={{
-              fontSize: "13px",
-              color: "#6B7280",
-              textAlign: "center",
-              padding: "32px 0",
-            }}
-          >
-            No autonomous activity yet. Enable agents in Settings &gt; Agents
-            to activate your AI pipeline.
-          </p>
-        ) : (
-          <div>
-            {agentDecisions.map((decision) => (
+      {/* ZONE 3 — bottom 3-column row */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "16px" }}>
+        {/* Col 1 — Recent Activity */}
+        <div style={{ ...cardStyle, padding: "20px" }}>
+          <PanelHeader>Recent Activity</PanelHeader>
+          {agentDecisions.length === 0 ? (
+            <p style={{ fontSize: "13px", color: "#6B7280", textAlign: "center", padding: "24px 0" }}>
+              No autonomous activity yet. Enable agents in Settings &gt; Agents.
+            </p>
+          ) : (
+            agentDecisions.slice(0, 5).map((decision, i) => (
               <div
                 key={decision.id}
                 style={{
                   display: "flex",
-                  gap: "12px",
-                  padding: "10px 0",
-                  borderBottom: "1px solid #F3F4F6",
+                  gap: "10px",
+                  padding: "10px 8px",
+                  borderRadius: "6px",
+                  backgroundColor: i % 2 === 0 ? "transparent" : "#F8FAFC",
                 }}
               >
                 <div
@@ -863,106 +622,94 @@ export default async function DashboardPage() {
                   }}
                 />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <span style={{ fontSize: "13px", fontWeight: 700, color: "#1A2B3C" }}>
+                  <div style={{ fontSize: "12px", fontWeight: 700, color: "#1A2B3C" }}>
                     {humanizeEnum(decision.decision_type)}
-                  </span>
-                  <span style={{ fontSize: "12px", color: "#6B7280", marginLeft: "6px" }}>
-                    {truncate(decision.reasoning, 80)}
-                  </span>
+                  </div>
+                  <div style={{ fontSize: "11px", color: "#6B7280" }}>{truncate(decision.reasoning, 60)}</div>
                 </div>
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "flex-end",
-                    gap: "4px",
-                    flexShrink: 0,
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: "11px",
-                      fontWeight: 700,
-                      color: "#FFFFFF",
-                      backgroundColor: confidenceBadgeColor(decision.confidence_score),
-                      borderRadius: "999px",
-                      padding: "2px 8px",
-                    }}
-                  >
-                    {decision.confidence_score != null
-                      ? `${decision.confidence_score}%`
-                      : "-"}
-                  </span>
-                  <span style={{ fontSize: "11px", color: "#9CA3AF" }}>
-                    {formatRelative(decision.created_at)}
-                  </span>
-                </div>
+                <span style={{ fontSize: "10px", color: "#9CA3AF", flexShrink: 0 }}>
+                  {formatRelative(decision.created_at)}
+                </span>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Strategic Advisor — pending strategic_recommendations (AG-40) */}
-      <Link
-        href="/intelligence/strategic-advisor"
-        style={{ textDecoration: "none", display: "block", marginTop: "16px", maxWidth: "360px" }}
-      >
-        <div
-          style={{
-            backgroundColor: "#FFFFFF",
-            borderRadius: "12px",
-            padding: "20px",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-            cursor: "pointer",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              marginBottom: "10px",
-            }}
-          >
-            <span style={{ fontSize: "13px", fontWeight: 700, color: "#1A2B3C" }}>
-              Strategic Advisor
-            </span>
-            <Sparkles size={16} color="#8B5CF6" aria-hidden />
-          </div>
-          <div style={{ fontSize: "32px", fontWeight: 900, color: "#0F172A", lineHeight: 1 }}>
-            {metricCount(strategicRecommendations.length)}
-          </div>
-          <div style={{ fontSize: "12px", color: "#64748B", margin: "4px 0 12px" }}>
-            pending recommendation{strategicRecommendations.length === 1 ? "" : "s"}
-          </div>
-          {strategicRecommendations.length > 0 && (
-            <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
-              {(["immediate", "urgent", "normal", "low"] as const)
-                .filter((urgency) => (strategicUrgencyCounts[urgency] ?? 0) > 0)
-                .map((urgency) => (
-                  <span
-                    key={urgency}
-                    style={{
-                      fontSize: "10px",
-                      fontWeight: 700,
-                      color: "#FFFFFF",
-                      backgroundColor: URGENCY_COLOR[urgency],
-                      borderRadius: "999px",
-                      padding: "2px 10px",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.03em",
-                    }}
-                  >
-                    {urgency}: {strategicUrgencyCounts[urgency]}
-                  </span>
-                ))}
-            </div>
+            ))
           )}
         </div>
-      </Link>
+
+        {/* Col 2 — AI Insights */}
+        <div style={{ background: "linear-gradient(135deg,#0077B6,#00B4D8)", borderRadius: "12px", padding: "20px", color: "#FFFFFF" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "14px" }}>
+            <Sparkles size={14} aria-hidden />
+            <span style={{ fontSize: "12px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              AI Insights
+            </span>
+          </div>
+          {topInsights.length === 0 ? (
+            <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.85)" }}>
+              No pending recommendations right now.
+            </p>
+          ) : (
+            topInsights.map((rec) => (
+              <Link
+                key={rec.id}
+                href="/intelligence/strategic-advisor"
+                style={{
+                  display: "block",
+                  backgroundColor: "rgba(255,255,255,0.15)",
+                  border: "1px solid rgba(255,255,255,0.25)",
+                  borderRadius: "10px",
+                  padding: "12px 14px",
+                  marginBottom: "10px",
+                  textDecoration: "none",
+                  color: "#FFFFFF",
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", gap: "8px", marginBottom: "4px" }}>
+                  <span style={{ fontSize: "12px", fontWeight: 700 }}>{truncate(rec.title, 34)}</span>
+                  <span
+                    style={{
+                      fontSize: "9px",
+                      fontWeight: 700,
+                      textTransform: "uppercase",
+                      backgroundColor: URGENCY_COLOR[rec.urgency],
+                      borderRadius: "999px",
+                      padding: "2px 8px",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {rec.urgency}
+                  </span>
+                </div>
+                <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.85)" }}>
+                  {truncate(rec.recommendation, 70)}
+                </div>
+              </Link>
+            ))
+          )}
+        </div>
+
+        {/* Col 3 — Performance Radar */}
+        <div style={{ ...cardStyle, padding: "20px" }}>
+          <PanelHeader>Performance Radar</PanelHeader>
+          {performanceRows.map((row) => (
+            <div key={row.label} style={{ marginBottom: "14px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", marginBottom: "6px" }}>
+                <span style={{ color: "#64748B", fontWeight: 600 }}>{row.label}</span>
+                <span style={{ color: "#0F172A", fontWeight: 700 }}>{ratePercent(row.value)}</span>
+              </div>
+              <div style={{ backgroundColor: "#F1F5F9", borderRadius: "3px", height: "6px", overflow: "hidden" }}>
+                <div
+                  style={{
+                    backgroundColor: "#0077B6",
+                    height: "6px",
+                    borderRadius: "3px",
+                    width: `${row.value ?? 0}%`,
+                  }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
-
-// redeploy 07/16/2026 18:25:17

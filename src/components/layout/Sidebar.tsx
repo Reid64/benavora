@@ -44,19 +44,37 @@ type SidebarProps = {
   onboardingCompleted: boolean;
 };
 
-const NAV_ITEM_ACTIVE =
-  "flex items-center gap-3 px-3 py-2.5 rounded-lg bg-[#0077B6] text-white font-medium text-sm border-l-4 border-[#00B4D8]";
-const NAV_ITEM_INACTIVE =
-  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#CBD5E1] hover:bg-[#243B55] hover:text-white transition-colors text-sm";
-const SECTION_LABEL =
-  "px-3 pt-5 pb-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-[#64748B]";
-const NAV_ITEM_ACTIVE_STYLE: CSSProperties = {
-  backgroundColor: "#0077B6",
-  borderLeft: "3px solid #00B4D8",
+const SECTION_LABEL_STYLE: CSSProperties = {
+  fontSize: "10px",
+  fontWeight: 700,
+  letterSpacing: "0.12em",
+  color: "rgba(248,250,252,0.3)",
+  textTransform: "uppercase",
+  padding: "16px 20px 6px",
+  margin: 0,
 };
-const navLabelStyle = (active: boolean): CSSProperties => ({
-  color: active ? "#FFFFFF" : "#CBD5E1",
-});
+
+/** Nav item style per the sidebar reskin spec — inline hex only (BLUEPRINT §7.5). */
+function navItemStyle(active: boolean, hovered: boolean): CSSProperties {
+  return {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    padding: "10px 16px",
+    borderRadius: "8px",
+    margin: "2px 8px",
+    fontSize: "13px",
+    fontWeight: active ? 600 : 500,
+    textDecoration: "none",
+    transition: "all 0.15s",
+    backgroundColor: active
+      ? "rgba(0,180,216,0.15)"
+      : hovered
+        ? "rgba(255,255,255,0.06)"
+        : "transparent",
+    color: active ? "#00B4D8" : "rgba(248,250,252,0.7)",
+  };
+}
 
 /** Formats a raw count per the nav-badge display rule: 0 hides, 10+ shows "9+". */
 function badgeLabel(count: number): string {
@@ -84,7 +102,7 @@ const BADGE_CIRCLE_STYLE: CSSProperties = {
 function IconWithBadge({ icon: Icon, count }: { icon: LucideIcon; count: number }) {
   return (
     <span className="relative inline-flex shrink-0">
-      <Icon className="h-5 w-5 shrink-0" aria-hidden />
+      <Icon style={{ width: 16, height: 16, flexShrink: 0 }} aria-hidden />
       {count > 0 && (
         <span
           style={BADGE_CIRCLE_STYLE}
@@ -95,6 +113,47 @@ function IconWithBadge({ icon: Icon, count }: { icon: LucideIcon; count: number 
       )}
     </span>
   );
+}
+
+type NavLinkProps = {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  active: boolean;
+  badge?: number;
+  id?: string;
+  onClick?: () => void;
+  iconColor?: (active: boolean) => string;
+};
+
+/** A single sidebar nav row — owns its own hover state (spec: onMouseEnter/onMouseLeave toggle). */
+function NavLink({ href, label, icon, active, badge = 0, id, onClick, iconColor }: NavLinkProps) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <Link
+      href={href}
+      id={id}
+      onClick={onClick}
+      aria-current={active ? "page" : undefined}
+      style={navItemStyle(active, hovered)}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      {iconColor ? (
+        <Icon icon={icon} color={iconColor(active)} />
+      ) : (
+        <IconWithBadge icon={icon} count={badge} />
+      )}
+      <span className="truncate">{label}</span>
+    </Link>
+  );
+}
+
+/** Bare 16px icon with an explicit color override — used where a nav item's
+ * icon carries its own semantic color instead of the shared badge treatment
+ * (e.g. Programs section's green icon). */
+function Icon({ icon: LucideComp, color }: { icon: LucideIcon; color: string }) {
+  return <LucideComp style={{ width: 16, height: 16, flexShrink: 0, color }} aria-hidden />;
 }
 
 /** Inline circle badge for text-only sub-links that have no icon to overlay. */
@@ -223,17 +282,23 @@ export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarPro
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-[#1A2B3C] shadow-2xl transition-transform duration-300 ease-in-out lg:static lg:z-auto lg:translate-x-0 lg:shadow-none ${
+        className={`fixed inset-y-0 left-0 z-50 shadow-2xl transition-transform duration-300 ease-in-out lg:static lg:z-auto lg:translate-x-0 lg:shadow-none ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
+        style={{
+          backgroundColor: "#1A2B3C",
+          width: "240px",
+          minHeight: "100vh",
+          borderRight: "1px solid rgba(255,255,255,0.06)",
+        }}
         aria-label="Primary navigation"
       >
         <div
-          className="bg-[#1A2B3C] flex flex-col h-full"
+          className="flex flex-col h-full"
           style={{ backgroundColor: "#1A2B3C" }}
         >
           {/* Brand + mobile close */}
-          <div className="px-6 py-5 border-b border-[#243B55]">
+          <div style={{ padding: "24px 20px 16px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
             <div className="flex items-center justify-between">
               <Link href="/dashboard" aria-label="Benavora - go to dashboard">
                 {/* Desktop: full wordmark + tagline */}
@@ -261,48 +326,40 @@ export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarPro
           <nav className="flex-1 overflow-y-auto py-4 px-3" aria-label="Main navigation">
             {pathname.startsWith("/donor-discovery") && (
               <div className="mb-2 space-y-1">
-                <p className={SECTION_LABEL}>Donor Discovery</p>
+                <p style={SECTION_LABEL_STYLE}>Donor Discovery</p>
                 {DONOR_DISCOVERY_NAV_ITEMS.map((item) => {
                   const active = isActive(item.href);
                   const badge = badgeByHref[item.href] ?? 0;
-                  const Icon = donorDiscoveryIconByHref[item.href] ?? Telescope;
+                  const ItemIcon = donorDiscoveryIconByHref[item.href] ?? Telescope;
                   return (
-                    <Link
+                    <NavLink
                       key={item.href}
                       href={item.href}
+                      label={item.label}
+                      icon={ItemIcon}
+                      active={active}
+                      badge={badge}
                       onClick={onClose}
-                      aria-current={active ? "page" : undefined}
-                      className={active ? NAV_ITEM_ACTIVE : NAV_ITEM_INACTIVE}
-                      style={active ? NAV_ITEM_ACTIVE_STYLE : undefined}
-                    >
-                      <IconWithBadge icon={Icon} count={badge} />
-                      <span className="truncate" style={navLabelStyle(active)}>
-                        {item.label}
-                      </span>
-                    </Link>
+                    />
                   );
                 })}
               </div>
             )}
             <div className="space-y-1">
-              {navItems.map(({ label, href, icon: Icon, children }) => {
+              {navItems.map(({ label, href, icon: ItemIcon, children }) => {
                 const active = isActive(href);
                 const badge = badgeByHref[href] ?? 0;
                 return (
                   <div key={href}>
-                    <Link
+                    <NavLink
                       href={hrefs[href] ?? href}
-                      onClick={onClose}
+                      label={label}
+                      icon={ItemIcon}
+                      active={active}
+                      badge={badge}
                       id={href === "/intelligence-library" ? "tour-nav-intelligence-library" : undefined}
-                      aria-current={active ? "page" : undefined}
-                      className={active ? NAV_ITEM_ACTIVE : NAV_ITEM_INACTIVE}
-                      style={active ? NAV_ITEM_ACTIVE_STYLE : undefined}
-                    >
-                      <IconWithBadge icon={Icon} count={badge} />
-                      <span className="truncate" style={navLabelStyle(active)}>
-                        {label}
-                      </span>
-                    </Link>
+                      onClick={onClose}
+                    />
                     {active && children && children.length > 0 && (
                       <div className="ml-9 mt-0.5 space-y-0.5">
                         {children.map((child) => {
@@ -338,28 +395,20 @@ export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarPro
 
             {/* Programs section — org-facing feature programs (e.g. SchoolFunder) */}
             <div className="mt-2">
-              <p className={SECTION_LABEL}>Programs</p>
+              <p style={SECTION_LABEL_STYLE}>Programs</p>
               <div className="space-y-1">
-                {PROGRAMS_NAV_ITEMS.map(({ label, href, icon: Icon }) => {
+                {PROGRAMS_NAV_ITEMS.map(({ label, href, icon: ItemIcon }) => {
                   const active = isActive(href);
                   return (
-                    <Link
+                    <NavLink
                       key={href}
                       href={href}
+                      label={label}
+                      icon={ItemIcon}
+                      active={active}
                       onClick={onClose}
-                      aria-current={active ? "page" : undefined}
-                      className={active ? NAV_ITEM_ACTIVE : NAV_ITEM_INACTIVE}
-                      style={active ? NAV_ITEM_ACTIVE_STYLE : undefined}
-                    >
-                      <Icon
-                        className="h-5 w-5 shrink-0"
-                        aria-hidden
-                        style={{ color: active ? "#FFFFFF" : "#10B981" }}
-                      />
-                      <span className="truncate" style={navLabelStyle(active)}>
-                        {label}
-                      </span>
-                    </Link>
+                      iconColor={(isActiveNow) => (isActiveNow ? "#FFFFFF" : "#10B981")}
+                    />
                   );
                 })}
               </div>
@@ -368,25 +417,21 @@ export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarPro
             {/* Platform admin section */}
             {isPlatformAdmin && (
               <div className="mt-2">
-                <p className={SECTION_LABEL}>Platform</p>
+                <p style={SECTION_LABEL_STYLE}>Platform</p>
                 <div className="space-y-1">
-                  {PLATFORM_NAV_ITEMS.map(({ label, href, icon: Icon }) => {
+                  {PLATFORM_NAV_ITEMS.map(({ label, href, icon: ItemIcon }) => {
                     const active = isActive(href);
                     const badge = platformBadgeByHref[href] ?? 0;
                     return (
-                      <Link
+                      <NavLink
                         key={href}
                         href={href}
+                        label={label}
+                        icon={ItemIcon}
+                        active={active}
+                        badge={badge}
                         onClick={onClose}
-                        aria-current={active ? "page" : undefined}
-                        className={active ? NAV_ITEM_ACTIVE : NAV_ITEM_INACTIVE}
-                        style={active ? NAV_ITEM_ACTIVE_STYLE : undefined}
-                      >
-                        <IconWithBadge icon={Icon} count={badge} />
-                        <span className="truncate" style={navLabelStyle(active)}>
-                          {label}
-                        </span>
-                      </Link>
+                      />
                     );
                   })}
                 </div>
@@ -396,25 +441,14 @@ export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarPro
 
           {/* Settings — bottom, separated */}
           <div className="border-t border-[#243B55] px-3 py-4">
-            {(() => {
-              const { label, href, icon: Icon } = SETTINGS_NAV_ITEM;
-              const active = isActive(href);
-              return (
-                <Link
-                  href={hrefs[href] ?? href}
-                  onClick={onClose}
-                  id="tour-nav-settings"
-                  aria-current={active ? "page" : undefined}
-                  className={active ? NAV_ITEM_ACTIVE : NAV_ITEM_INACTIVE}
-                  style={active ? NAV_ITEM_ACTIVE_STYLE : undefined}
-                >
-                  <Icon className="h-5 w-5 shrink-0" aria-hidden />
-                  <span className="truncate" style={navLabelStyle(active)}>
-                    {label}
-                  </span>
-                </Link>
-              );
-            })()}
+            <NavLink
+              href={hrefs[SETTINGS_NAV_ITEM.href] ?? SETTINGS_NAV_ITEM.href}
+              label={SETTINGS_NAV_ITEM.label}
+              icon={SETTINGS_NAV_ITEM.icon}
+              active={isActive(SETTINGS_NAV_ITEM.href)}
+              id="tour-nav-settings"
+              onClick={onClose}
+            />
             <p className="mt-3 px-3 text-[11px] text-[#64748B] font-medium tracking-wide">
               Nonprofit funding automation
             </p>
