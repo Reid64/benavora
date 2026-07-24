@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils/cn";
-import { ColorIcon, type IconHue } from "@/components/ui/ColorIcon";
+import type { IconHue } from "@/components/ui/ColorIcon";
 import type { DraftTemplateType } from "@/types/ai";
 
 type TemplateOption = {
@@ -111,26 +111,30 @@ export function TemplateSelector({
             style={
               selected
                 ? {
+                    backgroundColor: "rgba(0,119,182,0.2)",
                     border: "2px solid #0077B6",
-                    backgroundColor: "#F0F9FF",
                     borderRadius: "12px",
                     padding: "16px",
                     cursor: "pointer",
+                    transition: "all 0.15s",
                   }
                 : {
-                    border: "1px solid #E2E8F0",
-                    backgroundColor: "#FFFFFF",
+                    backgroundColor: "rgba(255,255,255,0.04)",
+                    border: "1px solid rgba(255,255,255,0.08)",
                     borderRadius: "12px",
                     padding: "16px",
                     cursor: "pointer",
+                    transition: "all 0.15s",
                   }
             }
           >
-            <ColorIcon icon={Icon} hue={option.hue} size="sm" />
-            <span className="text-sm font-semibold text-slate-900">
+            <Icon className="h-5 w-5" style={{ color: "#00B4D8" }} aria-hidden />
+            <span style={{ fontSize: "14px", fontWeight: 700, color: "#F8FAFC", marginTop: "10px" }}>
               {option.label}
             </span>
-            <span className="text-xs text-slate-500">{option.description}</span>
+            <span style={{ fontSize: "12px", color: "rgba(248,250,252,0.5)", marginTop: "4px" }}>
+              {option.description}
+            </span>
           </button>
         );
       })}

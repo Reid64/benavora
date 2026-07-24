@@ -24,6 +24,8 @@ export type DraftEditorProps = {
   onRescore?: () => void;
   /** Rescore in progress. */
   rescoring?: boolean;
+  /** Style the label + word/gap count row for a dark card background (draft generator page). Defaults to light. */
+  dark?: boolean;
 };
 
 type Gap = { description: string; index: number; length: number };
@@ -136,6 +138,7 @@ export function DraftEditor({
   isDirty = false,
   onRescore,
   rescoring = false,
+  dark = false,
 }: DraftEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const backdropInnerRef = useRef<HTMLDivElement>(null);
@@ -218,9 +221,31 @@ export function DraftEditor({
     <div className="flex h-full flex-col space-y-3">
       {/* ── Header ── */}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="text-sm font-medium text-navy-700">{label}</span>
+        <span
+          className={dark ? undefined : "text-sm font-medium text-navy-700"}
+          style={
+            dark
+              ? {
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  color: "rgba(248,250,252,0.5)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
+                }
+              : undefined
+          }
+        >
+          {label}
+        </span>
 
-        <div className="flex items-center gap-3 text-xs text-navy-500">
+        <div
+          className={dark ? undefined : "flex items-center gap-3 text-xs text-navy-500"}
+          style={
+            dark
+              ? { display: "flex", alignItems: "center", gap: "12px", fontSize: "12px", color: "rgba(248,250,252,0.5)" }
+              : undefined
+          }
+        >
           <span>{words.toLocaleString()} words</span>
 
           {isDirty && onRescore && (

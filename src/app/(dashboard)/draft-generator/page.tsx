@@ -1198,7 +1198,7 @@ export default function DraftGeneratorPage() {
               )}
 
               {hasDraft && !generating && (
-          <div className="grid grid-cols-1 gap-6 xl:grid-cols-3 xl:items-stretch" style={{ flex: 1 }}>
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-3 xl:items-stretch" style={{ flex: 1, minHeight: "600px" }}>
               <div className="flex flex-col gap-4 xl:col-span-2">
                 {belowThreshold && (
                   <div
@@ -1281,18 +1281,6 @@ export default function DraftGeneratorPage() {
                     )}
                   </div>
 
-                  <p
-                    style={{
-                      fontSize: "12px",
-                      fontWeight: 700,
-                      color: "rgba(248,250,252,0.5)",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.08em",
-                      marginBottom: "8px",
-                    }}
-                  >
-                    Generated draft
-                  </p>
                   <div style={{ flex: "1", minHeight: "500px" }}>
                     <DraftEditor
                       value={draftText}
@@ -1301,6 +1289,7 @@ export default function DraftGeneratorPage() {
                       saving={saving}
                       readOnly={!editable}
                       label="Generated draft"
+                      dark
                     />
                   </div>
 
