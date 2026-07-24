@@ -1,12 +1,23 @@
 # BENAVORA — Session State
-## Last Updated: July 22, 2026
-## Mode: Governance documentation sync
+## Last Updated: July 23, 2026
+## Mode: UI queue — prompt ui-001
 
 ---
 
 ## Current Session
 
-**Date:** July 22, 2026
+**Date:** July 23, 2026
+**Focus:** Prompt ui-001 — dashboard rewrite (operational command center) + sidebar reskin. SchoolFunder removal step was declined (see below). Full detail in `STATE_OF_THE_BUILD.md`'s "SESSION — July 23, 2026" entry.
+**Status:** ui-001 complete except the SchoolFunder-removal step, which was intentionally skipped pending Reid's confirmation. **ui-002 next.**
+**Commit:** `48236f3` (pushed to `main`).
+**Gates:** `pnpm tsc --noEmit` — 0 errors, verified. `pnpm lint` — not run this session (command required approval that wasn't granted); do not assume it passes.
+
+**Open question for Reid before ui-002:** the ui-001 prompt said to delete SchoolFunder (page + 3 API routes) as dead code. It isn't dead — `nav-items.ts` marks it "PERMANENT," it's a documented Faith Foundation program (BLUEPRINT §1), and it has live routes. Left it in place. If it should actually go, say so explicitly and it'll be removed in a follow-up.
+
+---
+
+## Prior Session — July 22, 2026 (Governance documentation sync)
+
 **Focus:** Governance doc sync — reconcile STATE_OF_THE_BUILD.md, SESSION_STATE.md, FEATURE_REGISTRY_v2.md against actual verified build state.
 **Status:** Complete.
 

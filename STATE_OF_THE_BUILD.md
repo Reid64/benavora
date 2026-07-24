@@ -1,8 +1,34 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: July 22, 2026, from git log + live verification (checkpoint files, running processes, DNS/HTTPS check, code grep). Not FORGE-auto-generated this session — hand-verified.**
+**Updated: July 23, 2026 (prompt ui-001), from `git log --oneline -5` + `ls -d "src/app/(dashboard)"/*/ | wc -l` run this session. Not FORGE-auto-generated — hand-verified.**
 
-> Note: prior to this update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+> Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — July 23, 2026 (prompt ui-001)
+
+**Commit `48236f3`** — `feat(ui): operational command center dashboard, sidebar reskin`, on top of `21e4944` (verified via `git log --oneline -5`):
+```
+48236f3 feat(ui): operational command center dashboard, sidebar reskin
+21e4944 feat(scripts): Google Maps query generator + results importer -- foundations and nonprofits, no API key
+a592ba7 fix(scripts): discover-websites -- Bing+Yahoo fallback, fix states arg parsing, reduce timeouts
+d62441d feat(scripts): two-stage nonprofit enrichment -- DuckDuckGo website discovery + Crawlee contact scraper, no API keys, pure internet
+3bf466d docs: governance update July 22 2026 -- captcha+followup complete, enrichment pipelines running, FORGE bugs fixed
+```
+
+`src/app/(dashboard)` route-group directory count (`ls -d "src/app/(dashboard)"/*/ | wc -l`, run this session): **34 directories.**
+
+**What actually shipped:**
+- `src/app/(dashboard)/dashboard/page.tsx` rewritten as a 3-zone operational command center (5-card stat bar; Mission Control panel + priority-actions/deadlines/quick-actions stack; bottom activity/AI-insights/performance-radar row). Every number on the page comes from a real org-scoped Supabase query — no mock data. Deviations from the literal task spec, and why:
+  - Mission Control reuses the live `FlightPathHUD` component instead of a hand-rolled 6-card grid with the task's stage colors — those colors are a **fourth** distinct "locked" palette on top of three already-conflicting ones (live `FlightPathHUD.tsx`, `BLUEPRINT_v2.md` §7.2, `STANDING_DIRECTIVES.md` Directive 4). Reusing the tested live component avoids adding a fifth.
+  - Performance Radar shows Win Rate / Funded Rate / Dollar Efficiency (all already computed by `outcome-analyzer.ts`, all genuine 0–100 percentages) instead of the spec's "avg award size / application velocity," which have no natural 0–100 scale and no existing query — faking a progress-bar fill for them would have meant fabricated data (IRON LAW #8).
+  - Canvas color set to `#E4E9F0`, matching `globals.css`'s current `--color-background` token — the page had drifted to a stale `#D6E4F0` that predates the current palette.
+  - Stayed a server component (no `'use client'`) — it derives `organization_id` from the session server-side per the Six Laws' API rule; converting to client-side fetching would have weakened that, not just changed styling.
+- `src/components/layout/Sidebar.tsx` restyled with the requested inline-hex nav tokens (240px rail, hover via `onMouseEnter`/`onMouseLeave`, 16px icons) via a new shared `NavLink` component — applied across the **existing** architecture. Did **not** rewrite Sidebar from scratch: the task's simplified spec would have discarded real, wired functionality (live badge counts from `/api/nav-counts`, role gating, mobile drawer, children sub-nav, section-memory hrefs, the Programs/Platform admin sections) that isn't reproducible from the spec alone.
+- **SchoolFunder was NOT removed.** `src/app/(dashboard)/schoolfunder/page.tsx` and 3 API routes (`src/app/api/schoolfunder/{route,hours/route,donate/route}.ts`) are real and live. `nav-items.ts` marks it explicitly: *"SchoolFunder is a Faith Foundation program / Benavora showcase feature (BLUEPRINT §1)."* Deleting an intentional, documented feature on a task-prompt's say-so — with no confirmation the prompt-writer checked current repo state — is exactly the "task-given specs collide with real state" failure mode already logged in prior sessions. Flagged to Reid; not deleted pending his call.
+
+**Gates:** `pnpm tsc --noEmit` → 0 errors (verified, ran clean twice — once after the dashboard rewrite, once after the sidebar reskin). `pnpm lint` / `npx eslint` was not verified this session — the command required approval that wasn't granted in this run; do not assume it passes.
 
 ---
 
