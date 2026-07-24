@@ -1059,7 +1059,7 @@ export default function DraftGeneratorPage() {
 
             <div style={{ flex: "1", display: "flex", flexDirection: "column", gap: "12px", minWidth: 0 }}>
               {!generating && (
-                <>
+                <div style={{ display: hasDraft ? "none" : "block" }}>
                   <div style={{ ...indigoCardStyle, marginBottom: "12px" }}>
                     <p style={{ fontSize: "11px", fontWeight: 700, color: "#A78BFA", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "10px" }}>
                       Choose an opportunity
@@ -1162,7 +1162,7 @@ export default function DraftGeneratorPage() {
                       {hasDraft ? "Generate new version" : "Generate draft"}
                     </button>
                   </div>
-                </>
+                </div>
               )}
 
               {generating && (
@@ -1289,6 +1289,7 @@ export default function DraftGeneratorPage() {
                     border: "1px solid rgba(255,255,255,0.1)",
                     width: "100%",
                     minHeight: "500px",
+                    marginTop: "0",
                     display: "flex",
                     flexDirection: "column",
                     boxShadow: "0 4px 16px rgba(0,0,0,0.2)",
@@ -1463,7 +1464,10 @@ export default function DraftGeneratorPage() {
                     </div>
                   )
                 )}
-                <Card title="Sources used">
+                <Card
+                  title="Sources used"
+                  style={{ backgroundColor: "#1E293B", borderRadius: "12px", padding: "20px", border: "1px solid rgba(255,255,255,0.08)", marginTop: "12px" }}
+                >
                   <KnowledgePreview sources={sources} />
                 </Card>
 
@@ -1512,7 +1516,7 @@ export default function DraftGeneratorPage() {
                   </Card>
                 )}
 
-                <RubricPanel rubric={rubric} rubricInferred={rubricInferred} />
+                <RubricPanel rubric={rubric} rubricInferred={rubricInferred} dark />
                 {logicModel && (
                   <Card
                     title="Program logic model"
