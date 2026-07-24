@@ -1,23 +1,58 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   Award,
   BookText,
   Building2,
+  FileEdit,
   HelpCircle,
   type LucideIcon,
 } from "lucide-react";
 
 import { Badge, EmptyState, LoadingSpinner } from "@/components/ui";
-import { PageHeader } from "@/components/layout/PageHeader";
-import { KnowledgeBaseNav } from "@/components/knowledge-base/KnowledgeBaseNav";
 import { ProvenBadge } from "@/components/knowledge-base/ProvenBadge";
 import { createClient } from "@/lib/supabase/client";
 import { STANDARD_ANSWER_CATEGORY } from "@/lib/utils/constants";
 import { formatRelative, humanizeEnum } from "@/lib/utils/formatters";
 import type { Tables } from "@/types/database";
+
+// Knowledge Base overview (BLUEPRINT §4.7). Two-column layout per the UI
+// redesign spec: a left nav card mirroring the same routes
+// KnowledgeBaseNav.tsx already exposes (Overview, Organization Profile, Full
+// Editor, Narratives, Standard Answers), and a right content column with a
+// gradient hero card for the org profile plus the proven-narratives list.
+// "Standard Answers" is labeled "Q&A Library" here to match the design
+// spec's requested wording -- same real route, no new page.
+//
+// The hero card's completeness bar reads the real per-section scoring engine
+// (src/lib/knowledge-base/profile.ts's computeSectionScores, served by
+// GET /api/knowledge-base -- the same score /knowledge-base/edit and
+// /intelligence/twin already show) rather than a fabricated percentage.
+// Editable fields are NOT duplicated into a second form on this page --
+// ProfileEditor.tsx at /knowledge-base/profile is the one real, wired editor
+// for those fields; this page links to it instead of forking a disconnected
+// copy, matching this project's established "restyle, don't duplicate wired
+// functionality" practice.
+//
+// Every color below is an inline hex value per BLUEPRINT_v2.md §7.5 -- no
+// CSS variables, no Tailwind color classes, for anything built directly on
+// this page. Shared components (Badge, EmptyState, LoadingSpinner) keep
+// their existing bracket-hex Tailwind implementation, unchanged here.
+
+const COLORS = {
+  canvas: "#E4E9F0",
+  card: "#FFFFFF",
+  cardBorder: "#E2E8F0",
+  text: "#0F172A",
+  textMuted: "#64748B",
+  primary: "#0077B6",
+  accent: "#00B4D8",
+};
+
+const CARD_SHADOW = "0 2px 8px rgba(0,0,0,0.08)";
 
 type Summary = {
   narrativeCount: number;
@@ -26,39 +61,43 @@ type Summary = {
   proven: Tables<"proven_narratives">[];
 };
 
-const SHORTCUTS: {
-  href: string;
-  title: string;
-  description: string;
-  icon: LucideIcon;
-}[] = [
-  {
-    href: "/knowledge-base/profile",
-    title: "Organization Profile",
-    description: "EIN, mission, programs, board, and budget.",
-    icon: Building2,
-  },
-  {
-    href: "/knowledge-base/narratives",
-    title: "Narratives",
-    description: "Reusable mission, need, impact, and capacity blocks.",
-    icon: BookText,
-  },
-  {
-    href: "/knowledge-base/answers",
-    title: "Standard Answers",
-    description: "Approved answers to recurring grant questions.",
-    icon: HelpCircle,
-  },
+interface OrgProfileSnapshot {
+  name: string;
+  missionStatement: string | null;
+  ein: string | null;
+  taxStatus: string | null;
+  serviceArea: string | null;
+  totalStaff: number | null;
+  totalVolunteers: number | null;
+}
+
+interface KnowledgeBaseApiResponse {
+  organization: {
+    name: string;
+    mission_statement: string | null;
+    ein: string | null;
+    tax_status: string | null;
+    service_area: string | null;
+    total_staff: number | null;
+    total_volunteers: number | null;
+  };
+  sectionScores: Record<string, number>;
+  twinCompletenessScore: number;
+}
+
+const NAV_ITEMS: { href: string; label: string; icon: LucideIcon }[] = [
+  { href: "/knowledge-base", label: "Overview", icon: BookText },
+  { href: "/knowledge-base/profile", label: "Organization Profile", icon: Building2 },
+  { href: "/knowledge-base/edit", label: "Full Editor", icon: FileEdit },
+  { href: "/knowledge-base/narratives", label: "Proven Narratives", icon: Award },
+  { href: "/knowledge-base/answers", label: "Q&A Library", icon: HelpCircle },
 ];
 
-/**
- * Knowledge Base overview (BLUEPRINT Â§4.7): a summary of the org's reusable
- * content plus a window into the narratives the learning system has proven
- * effective, with their effectiveness scores.
- */
 export default function KnowledgeBaseOverviewPage() {
+  const pathname = usePathname();
   const [summary, setSummary] = useState<Summary | null>(null);
+  const [profile, setProfile] = useState<OrgProfileSnapshot | null>(null);
+  const [completeness, setCompleteness] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -70,13 +109,14 @@ export default function KnowledgeBaseOverviewPage() {
       setLoading(true);
       setError(null);
 
-      const [kbRes, provenRes] = await Promise.all([
+      const [kbRes, provenRes, profileRes] = await Promise.all([
         supabase.from("knowledge_base").select("id, category, is_proven"),
         supabase
           .from("proven_narratives")
           .select("*")
           .order("effectiveness_score", { ascending: false, nullsFirst: false })
           .limit(1000),
+        fetch("/api/knowledge-base").then((res) => (res.ok ? (res.json() as Promise<KnowledgeBaseApiResponse>) : null)),
       ]);
 
       if (!active) return;
@@ -89,15 +129,28 @@ export default function KnowledgeBaseOverviewPage() {
 
       const kb = kbRes.data ?? [];
       setSummary({
-        narrativeCount: kb.filter(
-          (r) => r.category !== STANDARD_ANSWER_CATEGORY,
-        ).length,
-        answerCount: kb.filter(
-          (r) => r.category === STANDARD_ANSWER_CATEGORY,
-        ).length,
+        narrativeCount: kb.filter((r) => r.category !== STANDARD_ANSWER_CATEGORY).length,
+        answerCount: kb.filter((r) => r.category === STANDARD_ANSWER_CATEGORY).length,
         provenCount: kb.filter((r) => r.is_proven).length,
         proven: provenRes.data ?? [],
       });
+
+      if (profileRes) {
+        setProfile({
+          name: profileRes.organization.name,
+          missionStatement: profileRes.organization.mission_statement,
+          ein: profileRes.organization.ein,
+          taxStatus: profileRes.organization.tax_status,
+          serviceArea: profileRes.organization.service_area,
+          totalStaff: profileRes.organization.total_staff,
+          totalVolunteers: profileRes.organization.total_volunteers,
+        });
+        const scores = Object.values(profileRes.sectionScores ?? {});
+        const avgSectionScore =
+          scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
+        setCompleteness(profileRes.twinCompletenessScore || avgSectionScore || 0);
+      }
+
       setLoading(false);
     })();
 
@@ -107,18 +160,26 @@ export default function KnowledgeBaseOverviewPage() {
   }, []);
 
   return (
-    <div className="min-h-screen space-y-6 bg-[#CBD5E1] p-6">
-      <PageHeader
-        title="Knowledge Base"
-        description="The verified organizational content the AI draws from - never fabricated beyond what you store here."
-      />
-
-      <KnowledgeBaseNav />
+    <div style={{ minHeight: "100vh", background: COLORS.canvas, padding: 24 }}>
+      <div style={{ marginBottom: 20 }}>
+        <h1 style={{ fontSize: 28, fontWeight: 800, color: COLORS.text, margin: 0 }}>Knowledge Base</h1>
+        <p style={{ fontSize: 14, color: COLORS.textMuted, marginTop: 6, maxWidth: 640 }}>
+          The verified organizational content the AI draws from — never fabricated beyond what you store here.
+        </p>
+      </div>
 
       {error && (
         <div
           role="alert"
-          className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+          style={{
+            background: "#FEF2F2",
+            border: "1px solid #EF4444",
+            borderRadius: 10,
+            padding: "12px 16px",
+            fontSize: 14,
+            color: "#991B1B",
+            marginBottom: 20,
+          }}
         >
           {error}
         </div>
@@ -127,126 +188,274 @@ export default function KnowledgeBaseOverviewPage() {
       {loading ? (
         <LoadingSpinner center label="Loading knowledge base..." />
       ) : (
-        <>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <MetricCard
-              icon={BookText}
-              label="Narratives"
-              value={summary?.narrativeCount ?? 0}
-            />
-            <MetricCard
-              icon={HelpCircle}
-              label="Standard answers"
-              value={summary?.answerCount ?? 0}
-            />
-            <MetricCard
-              icon={Award}
-              label="Proven narratives"
-              value={summary?.provenCount ?? 0}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            {SHORTCUTS.map((shortcut) => (
-              <Link
-                key={shortcut.href}
-                href={shortcut.href}
-                className="bg-white rounded-xl shadow-sm border border-border p-5 hover:shadow-md hover:border-[#00B4D8] transition-all"
-              >
-                <div className="flex items-center gap-2 text-slate-900">
-                  <shortcut.icon className="h-5 w-5 text-[#0077B6]" aria-hidden />
-                  <h3 className="text-base font-semibold text-slate-900">
-                    {shortcut.title}
-                  </h3>
-                </div>
-                <p className="mt-1.5 text-sm text-slate-500">
-                  {shortcut.description}
-                </p>
-              </Link>
-            ))}
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm border border-border p-5">
-            <h3 className="text-base font-semibold text-slate-900">
-              Proven narratives
-            </h3>
-            <p className="mt-0.5 text-sm text-slate-500">
-              Patterns the learning system extracted from awarded applications, ranked by effectiveness.
+        <div style={{ display: "flex", gap: 20, alignItems: "flex-start", flexWrap: "wrap" }}>
+          {/* Left nav */}
+          <div
+            style={{
+              flex: "1 1 280px",
+              maxWidth: 320,
+              background: COLORS.card,
+              borderRadius: 12,
+              padding: 16,
+              boxShadow: CARD_SHADOW,
+              border: `1px solid ${COLORS.cardBorder}`,
+            }}
+          >
+            <p
+              style={{
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: "0.12em",
+                color: COLORS.textMuted,
+                textTransform: "uppercase",
+                marginBottom: 12,
+              }}
+            >
+              Knowledge Sections
             </p>
+            {NAV_ITEMS.map((item) => {
+              const active = item.href === "/knowledge-base" ? pathname === item.href : pathname.startsWith(item.href);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  style={
+                    {
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      borderRadius: 8,
+                      padding: "10px 14px",
+                      fontWeight: active ? 600 : 500,
+                      fontSize: 13,
+                      cursor: "pointer",
+                      marginBottom: 4,
+                      backgroundColor: active ? "#F0F9FF" : "transparent",
+                      color: active ? COLORS.primary : COLORS.textMuted,
+                      textDecoration: "none",
+                    } as CSSProperties
+                  }
+                >
+                  <item.icon size={15} aria-hidden />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
 
-            {summary && summary.proven.length > 0 ? (
-              <ul className="mt-4 divide-y divide-slate-100">
-                {summary.proven.map((proven) => (
-                  <li
-                    key={proven.id}
-                    className="flex items-start justify-between gap-4 py-3 first:pt-0 last:pb-0"
-                  >
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        {proven.section_type && (
-                          <Badge color="indigo">
-                            {humanizeEnum(proven.section_type)}
-                          </Badge>
-                        )}
-                        {proven.funder_category && (
-                          <Badge color="gray">
-                            {humanizeEnum(proven.funder_category)}
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="mt-1.5 line-clamp-2 text-sm text-slate-600">
-                        {proven.narrative_text}
-                      </p>
-                      {proven.last_used_at && (
-                        <p className="mt-1 text-xs text-slate-400">
-                          Last used {formatRelative(proven.last_used_at)}
-                        </p>
-                      )}
-                    </div>
-                    <div className="shrink-0">
-                      <ProvenBadge
-                        isProven
-                        provenCount={proven.success_count}
-                        effectivenessScore={proven.effectiveness_score}
-                      />
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <div className="mt-4">
-                <EmptyState
-                  icon={Award}
-                  title="No proven narratives yet"
-                  description="As you record awarded outcomes, the learning system promotes the narratives that won and ranks them here."
+          {/* Right content */}
+          <div style={{ flex: "3 1 560px", minWidth: 0, display: "flex", flexDirection: "column", gap: 20 }}>
+            {/* Organization profile hero */}
+            <div
+              style={{
+                background: "linear-gradient(135deg,#0077B6,#00B4D8)",
+                borderRadius: 12,
+                padding: 24,
+                color: "#FFFFFF",
+              }}
+            >
+              <p style={{ margin: 0, fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", opacity: 0.75, textTransform: "uppercase" }}>
+                Organization Profile
+              </p>
+              <h2 style={{ margin: "6px 0 0", fontSize: 22, fontWeight: 800 }}>
+                {profile?.name ?? "Your organization"}
+              </h2>
+              <p style={{ margin: "6px 0 0", fontSize: 13, color: "rgba(255,255,255,0.85)", maxWidth: 560 }}>
+                {profile?.missionStatement
+                  ? profile.missionStatement.length > 180
+                    ? `${profile.missionStatement.slice(0, 180).trimEnd()}…`
+                    : profile.missionStatement
+                  : "No mission statement recorded yet — add one in the Organization Profile editor."}
+              </p>
+
+              <div style={{ marginTop: 18, display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 12, fontWeight: 600 }}>
+                <span>Profile Completeness</span>
+                <span>{completeness ?? 0}%</span>
+              </div>
+              <div style={{ backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 3, height: 6, marginTop: 8 }}>
+                <div
+                  style={{
+                    backgroundColor: "#FFFFFF",
+                    height: 6,
+                    borderRadius: 3,
+                    width: `${completeness ?? 0}%`,
+                    transition: "width 300ms",
+                  }}
                 />
               </div>
-            )}
+
+              {profile && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 16, marginTop: 18 }}>
+                  <ProfileFact label="EIN" value={profile.ein ?? "—"} />
+                  <ProfileFact label="Tax Status" value={profile.taxStatus ? humanizeEnum(profile.taxStatus) : "—"} />
+                  <ProfileFact label="Service Area" value={profile.serviceArea ?? "—"} />
+                  <ProfileFact
+                    label="Staff / Volunteers"
+                    value={`${profile.totalStaff ?? 0} / ${profile.totalVolunteers ?? 0}`}
+                  />
+                </div>
+              )}
+
+              <Link
+                href="/knowledge-base/profile"
+                style={{
+                  display: "inline-block",
+                  marginTop: 20,
+                  padding: "9px 16px",
+                  borderRadius: 8,
+                  fontSize: 13,
+                  fontWeight: 700,
+                  background: "rgba(255,255,255,0.16)",
+                  color: "#FFFFFF",
+                  textDecoration: "none",
+                }}
+              >
+                Edit Organization Profile
+              </Link>
+            </div>
+
+            {/* Metrics */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 14 }}>
+              <MetricCard icon={BookText} label="Narratives" value={summary?.narrativeCount ?? 0} />
+              <MetricCard icon={HelpCircle} label="Standard answers" value={summary?.answerCount ?? 0} />
+              <MetricCard icon={Award} label="Proven narratives" value={summary?.provenCount ?? 0} />
+            </div>
+
+            {/* Proven narratives */}
+            <div
+              style={{
+                background: COLORS.card,
+                borderRadius: 12,
+                padding: 20,
+                boxShadow: CARD_SHADOW,
+                border: `1px solid ${COLORS.cardBorder}`,
+              }}
+            >
+              <h3 style={{ fontSize: 16, fontWeight: 700, color: COLORS.text, margin: 0 }}>Proven narratives</h3>
+              <p style={{ fontSize: 13, color: COLORS.textMuted, margin: "4px 0 0" }}>
+                Patterns the learning system extracted from awarded applications, ranked by effectiveness.
+              </p>
+
+              {summary && summary.proven.length > 0 ? (
+                <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+                  {summary.proven.map((proven) => (
+                    <div
+                      key={proven.id}
+                      style={{
+                        backgroundColor: "#F0FDF4",
+                        border: "1px solid #BBF7D0",
+                        borderRadius: 10,
+                        padding: 16,
+                        display: "flex",
+                        alignItems: "flex-start",
+                        justifyContent: "space-between",
+                        gap: 16,
+                      }}
+                    >
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                          {proven.section_type && <Badge color="indigo">{humanizeEnum(proven.section_type)}</Badge>}
+                          {proven.funder_category && <Badge color="gray">{humanizeEnum(proven.funder_category)}</Badge>}
+                        </div>
+                        <p
+                          style={{
+                            marginTop: 8,
+                            fontSize: 13,
+                            color: "#334155",
+                            display: "-webkit-box",
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: "vertical",
+                            overflow: "hidden",
+                          }}
+                        >
+                          {proven.narrative_text}
+                        </p>
+                        {proven.last_used_at && (
+                          <p style={{ marginTop: 6, fontSize: 11, color: "#94A3B8" }}>
+                            Last used {formatRelative(proven.last_used_at)}
+                          </p>
+                        )}
+                      </div>
+                      <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+                        <span
+                          style={{
+                            backgroundColor: "#16A34A",
+                            color: "#FFFFFF",
+                            borderRadius: 6,
+                            padding: "3px 10px",
+                            fontSize: 12,
+                            fontWeight: 700,
+                          }}
+                        >
+                          {proven.effectiveness_score != null
+                            ? `${Math.round(proven.effectiveness_score * 100)}% effective`
+                            : "Proven"}
+                        </span>
+                        <ProvenBadge
+                          isProven
+                          provenCount={proven.success_count}
+                          effectivenessScore={null}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ marginTop: 16 }}>
+                  <EmptyState
+                    icon={Award}
+                    title="No proven narratives yet"
+                    description="As you record awarded outcomes, the learning system promotes the narratives that won and ranks them here."
+                  />
+                </div>
+              )}
+            </div>
           </div>
-        </>
+        </div>
       )}
     </div>
   );
 }
 
-function MetricCard({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: LucideIcon;
-  label: string;
-  value: number;
-}) {
+function ProfileFact({ label, value }: { label: string; value: string }) {
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-border p-5 hover:shadow-md hover:border-[#00B4D8] transition-all">
-      <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#CAF0F8]">
-          <Icon className="h-5 w-5 text-[#0077B6]" aria-hidden />
+    <div>
+      <p style={{ margin: 0, fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", color: "rgba(255,255,255,0.7)", textTransform: "uppercase" }}>
+        {label}
+      </p>
+      <p style={{ margin: "2px 0 0", fontSize: 13, fontWeight: 600 }}>{value}</p>
+    </div>
+  );
+}
+
+function MetricCard({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: number }) {
+  return (
+    <div
+      style={{
+        background: COLORS.card,
+        borderRadius: 12,
+        padding: 20,
+        boxShadow: CARD_SHADOW,
+        border: `1px solid ${COLORS.cardBorder}`,
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div
+          style={{
+            display: "flex",
+            height: 40,
+            width: 40,
+            alignItems: "center",
+            justifyContent: "center",
+            borderRadius: 8,
+            backgroundColor: "#CAF0F8",
+          }}
+        >
+          <Icon size={18} color={COLORS.primary} aria-hidden />
         </div>
         <div>
-          <p className="text-2xl font-bold text-slate-900">{value}</p>
-          <p className="text-xs text-slate-400">{label}</p>
+          <p style={{ margin: 0, fontSize: 24, fontWeight: 800, color: COLORS.text }}>{value}</p>
+          <p style={{ margin: 0, fontSize: 11, color: COLORS.textMuted }}>{label}</p>
         </div>
       </div>
     </div>

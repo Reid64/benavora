@@ -18,7 +18,9 @@
 // Phrases / Persuasive Elements sections only render when that data is
 // present -- with migration 106 unapplied, that's currently never (the API
 // never fabricates them), so those sections are hidden rather than shown
-// empty or faked. Once migration 106 lands and
+// empty or faked, and the "Winning Phrases" hero stat below is a live count
+// of the currently loaded page (honestly 0 until 106 lands), not a fabricated
+// corpus total the API doesn't expose. Once migration 106 lands and
 // scripts/backfill-intelligence-library-columns.ts runs, they'll appear with
 // no further frontend changes needed.
 //
@@ -49,28 +51,44 @@ import {
 } from "@/lib/intelligence/proposals-query";
 
 const COLORS = {
-  canvas: "#D6E4F0",
-  card: "#0D1526",
-  cardBorderColor: "rgba(255,255,255,0.08)",
-  white: "#FFFFFF",
-  text: "#FFFFFF",
-  textMuted: "#8BA8C8",
-  textFaint: "#5B7699",
+  canvas: "#E4E9F0",
+  card: "#FFFFFF",
+  cardBorder: "#E2E8F0",
+  text: "#0F172A",
+  textMuted: "#64748B",
+  textFaint: "#94A3B8",
+  primary: "#0077B6",
+  accent: "#00B4D8",
   purple: "#8B5CF6",
-  blue: "#0EA5E9",
-  green: "#10B981",
-  greenBg: "rgba(16,185,129,0.12)",
+  green: "#16A34A",
+  greenBg: "#F0FDF4",
+  greenBorder: "#BBF7D0",
   amber: "#F59E0B",
-  amberBg: "rgba(245,158,11,0.14)",
+  amberBg: "#FFFBEB",
   red: "#EF4444",
+  redBg: "#FEF2F2",
 };
 
+const CARD_SHADOW = "0 2px 8px rgba(0,0,0,0.08)";
+const CARD_SHADOW_HOVER = "0 4px 16px rgba(0,0,0,0.12)";
+
 const FUNDER_BUCKET_BADGE: Record<FunderBucket, { bg: string; fg: string; label: string }> = {
-  federal: { bg: "#EFF6FF", fg: "#1D4ED8", label: "Federal Government" },
-  private_foundation: { bg: "#F5F3FF", fg: "#7C3AED", label: "Private Foundation" },
-  corporate_foundation: { bg: "#ECFEFF", fg: "#0891B2", label: "Corporate Foundation" },
-  community_foundation: { bg: "#ECFDF5", fg: "#059669", label: "Community Foundation" },
-  public_charity: { bg: "#FFFBEB", fg: "#B45309", label: "Public Charity (Self-Reported)" },
+  federal: { bg: "#0077B6", fg: "#FFFFFF", label: "Federal" },
+  private_foundation: { bg: "#10B981", fg: "#FFFFFF", label: "Foundation" },
+  corporate_foundation: { bg: "#F59E0B", fg: "#FFFFFF", label: "Corporate" },
+  community_foundation: { bg: "#10B981", fg: "#FFFFFF", label: "Foundation" },
+  public_charity: { bg: "#64748B", fg: "#FFFFFF", label: "Public Charity" },
+};
+
+// Source-specific badge overrides per the design spec's funder-type palette
+// (Federal=#0077B6, NIH=#7C3AED, NSF=#0EA5E9, Foundation=#10B981,
+// Corporate=#F59E0B) -- applied on top of the funder-bucket badge above when
+// the real `source` column identifies a specific federal agency.
+const SOURCE_BADGE_OVERRIDE: Record<string, { bg: string; label: string }> = {
+  NIH: { bg: "#7C3AED", label: "NIH" },
+  NIH_NIAID: { bg: "#7C3AED", label: "NIH NIAID" },
+  NIH_REPORTER: { bg: "#7C3AED", label: "NIH RePORTER" },
+  NSF_AWARDS: { bg: "#0EA5E9", label: "NSF" },
 };
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -95,12 +113,13 @@ const selectStyle: CSSProperties = {
   marginTop: 4,
   width: "100%",
   boxSizing: "border-box",
-  border: `1px solid ${COLORS.cardBorderColor}`,
-  borderRadius: 8,
-  padding: "8px 10px",
+  border: `1.5px solid ${COLORS.cardBorder}`,
+  borderRadius: 10,
+  padding: "10px 12px",
   fontSize: 13,
-  color: COLORS.white,
-  background: "#141F33",
+  color: COLORS.text,
+  background: COLORS.card,
+  outline: "none",
 };
 
 const filterLabelStyle: CSSProperties = {
@@ -197,6 +216,13 @@ function truncate(value: string | null, max: number): string {
   if (!value) return "—";
   const trimmed = value.trim();
   return trimmed.length > max ? `${trimmed.slice(0, max).trimEnd()}…` : trimmed;
+}
+
+function badgeFor(proposal: ProposalCard): { bg: string; label: string } {
+  const override = SOURCE_BADGE_OVERRIDE[proposal.source];
+  if (override) return override;
+  const bucket = proposal.funderBucket ? FUNDER_BUCKET_BADGE[proposal.funderBucket] : null;
+  return bucket ? { bg: bucket.bg, label: bucket.label } : { bg: COLORS.textMuted, label: "Other" };
 }
 
 export default function IntelligenceLibraryPage() {
@@ -408,6 +434,13 @@ export default function IntelligenceLibraryPage() {
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [data?.stats.sources]);
 
+  // Hero stat: live count of winning phrases on the currently loaded page --
+  // see the file-header note above on why this can't be a corpus-wide total.
+  const winningPhraseCount = useMemo(
+    () => displayedResults.reduce((sum, p) => sum + p.winningPhrases.length, 0),
+    [displayedResults],
+  );
+
   function goToDraftGenerator() {
     const ids = [...selectedRefs.keys()];
     if (ids.length === 0) return;
@@ -416,79 +449,61 @@ export default function IntelligenceLibraryPage() {
 
   return (
     <div style={{ minHeight: "100vh", background: COLORS.canvas, padding: 24 }}>
-      {/* Header */}
+      {/* Hero header */}
       <div
         style={{
-          marginBottom: 20,
-          display: "flex",
-          alignItems: "flex-start",
-          justifyContent: "space-between",
-          gap: 16,
-          flexWrap: "wrap",
+          background: "linear-gradient(135deg,#0F172A 0%,#1A2B3C 50%,#0F172A 100%)",
+          borderRadius: 16,
+          padding: 32,
+          marginBottom: 24,
+          position: "relative",
+          overflow: "hidden",
         }}
       >
-        <div>
-          <h1 style={{ fontSize: 28, fontWeight: 800, color: "#0F172A", margin: 0 }}>
-            Grant Intelligence Library
-          </h1>
-          <p style={{ fontSize: 14, color: "#3F5872", marginTop: 6, maxWidth: 640 }}>
-            {data
-              ? `${data.stats.totalProposals.toLocaleString()} awarded grant narratives — the AI draws from these when drafting every application`
-              : "Loading corpus…"}
-          </p>
-        </div>
-        <div style={{ display: "flex", gap: 10, flexShrink: 0 }}>
-          <div style={{ position: "relative" }}>
-            <button
-              type="button"
-              onClick={() => setShowImportInfo((v) => !v)}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                padding: "10px 16px",
-                borderRadius: 10,
-                fontSize: 13,
-                fontWeight: 600,
-                border: "none",
-                background: COLORS.blue,
-                color: COLORS.white,
-                cursor: "pointer",
-              }}
-            >
-              <Database size={15} />
-              Import More
-            </button>
-            {showImportInfo && (
-              <div
-                style={{
-                  position: "absolute",
-                  right: 0,
-                  top: "calc(100% + 8px)",
-                  width: 320,
-                  background: COLORS.card,
-                  border: `1px solid ${COLORS.cardBorderColor}`,
-                  borderRadius: 12,
-                  padding: 16,
-                  boxShadow: "0 12px 32px rgba(0,0,0,0.35)",
-                  zIndex: 20,
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
-                  <Info size={16} color={COLORS.blue} style={{ flexShrink: 0, marginTop: 2 }} />
-                  <p style={{ fontSize: 12.5, color: COLORS.textMuted, margin: 0, lineHeight: 1.5 }}>
-                    New narratives are added by the ingestion pipeline (
-                    <code style={{ color: COLORS.white }}>pnpm import:federal</code>, NIH RePORTER, NSF Award
-                    Search, USASpending, ProPublica 990) run by a platform admin — there is no client-triggerable
-                    import here yet.
-                  </p>
-                </div>
-              </div>
-            )}
+        <div
+          aria-hidden
+          style={{
+            position: "absolute",
+            inset: 0,
+            backgroundImage: "radial-gradient(rgba(255,255,255,0.08) 1px, transparent 1px)",
+            backgroundSize: "18px 18px",
+            opacity: 0.6,
+          }}
+        />
+        <div
+          style={{
+            position: "relative",
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            gap: 20,
+            flexWrap: "wrap",
+          }}
+        >
+          <div>
+            <h1 style={{ fontSize: 28, fontWeight: 800, color: "#F8FAFC", margin: 0, letterSpacing: "-0.01em" }}>
+              GRANT INTELLIGENCE LIBRARY
+            </h1>
+            <p style={{ color: "rgba(248,250,252,0.6)", fontSize: 14, marginTop: 6, maxWidth: 560 }}>
+              {data
+                ? `${data.stats.totalProposals.toLocaleString()} awarded grant narratives — the AI draws from these when drafting every application`
+                : "Loading corpus…"}
+            </p>
           </div>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <HeroStatChip label="Funded Proposals" value={data ? data.stats.totalProposals.toLocaleString() : "—"} />
+            <HeroStatChip label="Data Sources" value={data ? data.stats.sources.length.toLocaleString() : "—"} />
+            <HeroStatChip label="Winning Phrases" value={winningPhraseCount.toLocaleString()} />
+          </div>
+        </div>
+      </div>
+
+      {/* Actions row */}
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginBottom: 16 }}>
+        <div style={{ position: "relative" }}>
           <button
             type="button"
-            onClick={() => setShowAddForm((v) => !v)}
+            onClick={() => setShowImportInfo((v) => !v)}
             style={{
               display: "inline-flex",
               alignItems: "center",
@@ -497,22 +512,172 @@ export default function IntelligenceLibraryPage() {
               borderRadius: 10,
               fontSize: 13,
               fontWeight: 600,
-              border: "none",
-              background: COLORS.purple,
-              color: COLORS.white,
+              border: `1.5px solid ${COLORS.cardBorder}`,
+              background: COLORS.card,
+              color: COLORS.primary,
               cursor: "pointer",
             }}
           >
-            {showAddForm ? <X size={15} /> : <Plus size={15} />}
-            {showAddForm ? "Cancel" : "Add Awarded Grant"}
+            <Database size={15} />
+            Import More
           </button>
+          {showImportInfo && (
+            <div
+              style={{
+                position: "absolute",
+                right: 0,
+                top: "calc(100% + 8px)",
+                width: 320,
+                background: COLORS.card,
+                border: `1px solid ${COLORS.cardBorder}`,
+                borderRadius: 12,
+                padding: 16,
+                boxShadow: CARD_SHADOW_HOVER,
+                zIndex: 20,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                <Info size={16} color={COLORS.primary} style={{ flexShrink: 0, marginTop: 2 }} />
+                <p style={{ fontSize: 12.5, color: COLORS.textMuted, margin: 0, lineHeight: 1.5 }}>
+                  New narratives are added by the ingestion pipeline (
+                  <code style={{ color: COLORS.text }}>pnpm import:federal</code>, NIH RePORTER, NSF Award
+                  Search, USASpending, ProPublica 990) run by a platform admin — there is no client-triggerable
+                  import here yet.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
+        <button
+          type="button"
+          onClick={() => setShowAddForm((v) => !v)}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "10px 16px",
+            borderRadius: 10,
+            fontSize: 13,
+            fontWeight: 600,
+            border: "none",
+            background: COLORS.purple,
+            color: "#FFFFFF",
+            cursor: "pointer",
+          }}
+        >
+          {showAddForm ? <X size={15} /> : <Plus size={15} />}
+          {showAddForm ? "Cancel" : "Add Awarded Grant"}
+        </button>
       </div>
 
-      {/* Quick source pills */}
+      {showAddForm && (
+        <AddNarrativeForm
+          value={newNarrative}
+          onChange={setNewNarrative}
+          onSubmit={handleAddNarrative}
+          submitting={addSubmitting}
+          error={addError}
+        />
+      )}
+
+      {/* Filter row */}
+      <div style={{ display: "flex", gap: 12, marginBottom: 16, alignItems: "center", flexWrap: "wrap" }}>
+        <div style={{ position: "relative", flex: 1, minWidth: 280 }}>
+          <Search
+            size={16}
+            color={COLORS.textFaint}
+            style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)" }}
+          />
+          <input
+            type="search"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") runFullTextSearch(searchInput);
+            }}
+            placeholder="Search by funder, program, keyword, or narrative content…"
+            style={{
+              width: "100%",
+              boxSizing: "border-box",
+              padding: "10px 16px 10px 40px",
+              borderRadius: 10,
+              border: `1.5px solid ${COLORS.cardBorder}`,
+              backgroundColor: COLORS.card,
+              fontSize: 14,
+              color: COLORS.text,
+              outline: "none",
+            }}
+          />
+        </div>
+        <select
+          value={nteeFilter}
+          onChange={(e) => {
+            setNteeFilter(e.target.value);
+            setPage(1);
+          }}
+          style={{
+            padding: "10px 16px",
+            borderRadius: 10,
+            border: `1.5px solid ${COLORS.cardBorder}`,
+            backgroundColor: COLORS.card,
+            fontSize: 14,
+            color: COLORS.text,
+            minWidth: 160,
+          }}
+        >
+          <option value="">All Categories</option>
+          {NTEE_GROUPS.map((g) => (
+            <option key={g.value} value={g.value}>
+              {g.label}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          onClick={() => runFullTextSearch(searchInput)}
+          disabled={searching}
+          style={{
+            padding: "10px 20px",
+            borderRadius: 10,
+            fontSize: 13,
+            fontWeight: 700,
+            border: "none",
+            background: searching ? COLORS.textFaint : COLORS.primary,
+            color: "#FFFFFF",
+            cursor: searching ? "not-allowed" : "pointer",
+          }}
+        >
+          {searching ? "Searching…" : "Search"}
+        </button>
+      </div>
+
+      {/* Quick filter chips (funder bucket) */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+        <QuickChip
+          active={funderBucketFilter === ""}
+          label="ALL"
+          onClick={() => {
+            setFunderBucketFilter("");
+            setPage(1);
+          }}
+        />
+        {FUNDER_BUCKET_OPTIONS.map((o) => (
+          <QuickChip
+            key={o.value}
+            active={funderBucketFilter === o.value}
+            label={FUNDER_BUCKET_BADGE[o.value].label}
+            onClick={() => {
+              setFunderBucketFilter((prev) => (prev === o.value ? "" : o.value));
+              setPage(1);
+            }}
+          />
+        ))}
+      </div>
+
+      {/* Quick source pills (real data sources present in the corpus) */}
       {sourcePills.length > 0 && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 20 }}>
-          <QuickPill
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
+          <QuickChip
             active={dataSourceFilter === ""}
             label="All Sources"
             onClick={() => {
@@ -521,7 +686,7 @@ export default function IntelligenceLibraryPage() {
             }}
           />
           {sourcePills.map((s) => (
-            <QuickPill
+            <QuickChip
               key={s.value}
               active={dataSourceFilter === s.value}
               label={s.label}
@@ -534,200 +699,104 @@ export default function IntelligenceLibraryPage() {
         </div>
       )}
 
-      {showAddForm && (
-        <AddNarrativeForm
-          value={newNarrative}
-          onChange={setNewNarrative}
-          onSubmit={handleAddNarrative}
-          submitting={addSubmitting}
-          error={addError}
-        />
-      )}
-
-      {/* Search + filter bar */}
+      {/* Amount range + data source + year + clear */}
       <div
         style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 14,
+          alignItems: "flex-end",
           background: COLORS.card,
-          border: `1px solid ${COLORS.cardBorderColor}`,
+          border: `1px solid ${COLORS.cardBorder}`,
           borderRadius: 14,
           padding: 20,
           marginBottom: 20,
+          boxShadow: CARD_SHADOW,
         }}
       >
-        {/* Row 1: full-text search */}
-        <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
-          <div style={{ position: "relative", flex: 1 }}>
-            <Search
-              size={16}
-              color={COLORS.textFaint}
-              style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)" }}
-            />
-            <input
-              type="search"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") runFullTextSearch(searchInput);
-              }}
-              placeholder="Search by funder, program, keyword, or narrative content…"
-              style={{
-                width: "100%",
-                boxSizing: "border-box",
-                background: "#141F33",
-                border: `1px solid ${COLORS.cardBorderColor}`,
-                borderRadius: 10,
-                padding: "11px 14px 11px 38px",
-                fontSize: 14,
-                color: COLORS.white,
-                outline: "none",
-              }}
-            />
-          </div>
+        <div style={{ width: 120 }}>
+          <label style={filterLabelStyle}>Min Award ($)</label>
+          <input
+            type="number"
+            value={minAmount}
+            onChange={(e) => {
+              setMinAmount(e.target.value);
+              setPage(1);
+            }}
+            style={selectStyle}
+          />
+        </div>
+        <div style={{ width: 120 }}>
+          <label style={filterLabelStyle}>Max Award ($)</label>
+          <input
+            type="number"
+            value={maxAmount}
+            onChange={(e) => {
+              setMaxAmount(e.target.value);
+              setPage(1);
+            }}
+            style={selectStyle}
+          />
+        </div>
+        <div style={{ width: 130 }}>
+          <label style={filterLabelStyle}>Award Year</label>
+          <select
+            value={yearFilter}
+            onChange={(e) => {
+              setYearFilter(e.target.value);
+              setPage(1);
+            }}
+            style={selectStyle}
+          >
+            <option value="">All Years</option>
+            {YEAR_OPTIONS.map((y) => (
+              <option key={y} value={y}>
+                {y === "earlier" ? "Earlier" : y}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div style={{ minWidth: 170 }}>
+          <label style={filterLabelStyle}>Data Source</label>
+          <select
+            value={dataSourceFilter}
+            onChange={(e) => {
+              setDataSourceFilter(e.target.value);
+              setPage(1);
+            }}
+            style={selectStyle}
+          >
+            <option value="">All</option>
+            {DATA_SOURCE_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {activeFilterCount > 0 && (
           <button
             type="button"
-            onClick={() => runFullTextSearch(searchInput)}
-            disabled={searching}
+            onClick={clearAllFilters}
             style={{
-              padding: "0 20px",
-              borderRadius: 10,
-              fontSize: 13,
+              padding: "8px 14px",
+              borderRadius: 999,
+              fontSize: 12,
               fontWeight: 700,
-              border: "none",
-              background: searching ? COLORS.textFaint : COLORS.blue,
-              color: COLORS.white,
-              cursor: searching ? "not-allowed" : "pointer",
+              border: `1px solid ${COLORS.amber}`,
+              background: COLORS.amberBg,
+              color: "#B45309",
+              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
             }}
           >
-            {searching ? "Searching…" : "Search"}
+            {activeFilterCount} filter{activeFilterCount === 1 ? "" : "s"} active
+            <X size={12} />
           </button>
-        </div>
-
-        {/* Row 2: filter pills */}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 14, alignItems: "flex-end" }}>
-          <div style={{ minWidth: 190 }}>
-            <label style={filterLabelStyle}>Funder Type</label>
-            <select
-              value={funderBucketFilter}
-              onChange={(e) => {
-                setFunderBucketFilter(e.target.value as FunderBucket | "");
-                setPage(1);
-              }}
-              style={selectStyle}
-            >
-              <option value="">All Types</option>
-              {FUNDER_BUCKET_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div style={{ minWidth: 200 }}>
-            <label style={filterLabelStyle}>NTEE Category</label>
-            <select
-              value={nteeFilter}
-              onChange={(e) => {
-                setNteeFilter(e.target.value);
-                setPage(1);
-              }}
-              style={selectStyle}
-            >
-              <option value="">All Categories</option>
-              {NTEE_GROUPS.map((g) => (
-                <option key={g.value} value={g.value}>
-                  {g.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div style={{ width: 110 }}>
-            <label style={filterLabelStyle}>Min Award ($)</label>
-            <input
-              type="number"
-              value={minAmount}
-              onChange={(e) => {
-                setMinAmount(e.target.value);
-                setPage(1);
-              }}
-              style={selectStyle}
-            />
-          </div>
-          <div style={{ width: 110 }}>
-            <label style={filterLabelStyle}>Max Award ($)</label>
-            <input
-              type="number"
-              value={maxAmount}
-              onChange={(e) => {
-                setMaxAmount(e.target.value);
-                setPage(1);
-              }}
-              style={selectStyle}
-            />
-          </div>
-
-          <div style={{ width: 130 }}>
-            <label style={filterLabelStyle}>Award Year</label>
-            <select
-              value={yearFilter}
-              onChange={(e) => {
-                setYearFilter(e.target.value);
-                setPage(1);
-              }}
-              style={selectStyle}
-            >
-              <option value="">All Years</option>
-              {YEAR_OPTIONS.map((y) => (
-                <option key={y} value={y}>
-                  {y === "earlier" ? "Earlier" : y}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div style={{ minWidth: 170 }}>
-            <label style={filterLabelStyle}>Data Source</label>
-            <select
-              value={dataSourceFilter}
-              onChange={(e) => {
-                setDataSourceFilter(e.target.value);
-                setPage(1);
-              }}
-              style={selectStyle}
-            >
-              <option value="">All</option>
-              {DATA_SOURCE_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {activeFilterCount > 0 && (
-            <button
-              type="button"
-              onClick={clearAllFilters}
-              style={{
-                padding: "8px 14px",
-                borderRadius: 999,
-                fontSize: 12,
-                fontWeight: 700,
-                border: `1px solid ${COLORS.amber}`,
-                background: COLORS.amberBg,
-                color: COLORS.amber,
-                cursor: "pointer",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-              }}
-            >
-              {activeFilterCount} filter{activeFilterCount === 1 ? "" : "s"} active
-              <X size={12} />
-            </button>
-          )}
-        </div>
+        )}
       </div>
 
       {/* Stats row */}
@@ -750,17 +819,17 @@ export default function IntelligenceLibraryPage() {
         <StatCard
           label="Federal Grants"
           value={data ? data.filteredStats.federalCount.toLocaleString() : "—"}
-          accent="#1D4ED8"
+          accent="#0077B6"
         />
         <StatCard
           label="Foundation Grants"
           value={data ? data.filteredStats.foundationCount.toLocaleString() : "—"}
-          accent="#7C3AED"
+          accent="#10B981"
         />
         <StatCard
           label="Corporate Grants"
           value={data ? data.filteredStats.corporateCount.toLocaleString() : "—"}
-          accent="#0891B2"
+          accent="#F59E0B"
         />
       </div>
 
@@ -768,29 +837,32 @@ export default function IntelligenceLibraryPage() {
       {error ? (
         <div
           style={{
-            background: "#450A0A",
+            background: COLORS.redBg,
             border: `1px solid ${COLORS.red}`,
             borderRadius: 12,
             padding: 20,
-            color: "#FCA5A5",
+            color: "#991B1B",
             fontSize: 14,
           }}
         >
           {error}
         </div>
       ) : loading && !data ? (
-        <div style={{ textAlign: "center", padding: 48, color: "#3F5872", fontSize: 14 }}>Loading proposals…</div>
+        <div style={{ textAlign: "center", padding: 48, color: COLORS.textMuted, fontSize: 14 }}>
+          Loading proposals…
+        </div>
       ) : displayedResults.length === 0 ? (
         <div
           style={{
             background: COLORS.card,
-            border: `1px solid ${COLORS.cardBorderColor}`,
+            border: `1px solid ${COLORS.cardBorder}`,
             borderRadius: 14,
             padding: 48,
             textAlign: "center",
+            boxShadow: CARD_SHADOW,
           }}
         >
-          <p style={{ fontSize: 16, fontWeight: 700, color: COLORS.white, margin: 0 }}>No narratives found</p>
+          <p style={{ fontSize: 16, fontWeight: 700, color: COLORS.text, margin: 0 }}>No narratives found</p>
           <p style={{ fontSize: 14, color: COLORS.textMuted, marginTop: 8 }}>
             {activeFilterCount > 0 || search
               ? "Try a different search term or filter combination."
@@ -802,7 +874,7 @@ export default function IntelligenceLibraryPage() {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(440px, 1fr))",
+              gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))",
               gap: 16,
               opacity: loading ? 0.6 : 1,
               transition: "opacity 150ms",
@@ -835,7 +907,7 @@ export default function IntelligenceLibraryPage() {
                 padding: "12px 4px",
               }}
             >
-              <span style={{ fontSize: 13, color: "#3F5872" }}>
+              <span style={{ fontSize: 13, color: COLORS.textMuted }}>
                 Showing {(data.page - 1) * data.pageSize + 1}-
                 {Math.min(data.page * data.pageSize, data.total)} of {data.total.toLocaleString()} results
               </span>
@@ -882,7 +954,7 @@ export default function IntelligenceLibraryPage() {
             border: `1px solid ${COLORS.purple}`,
             borderRadius: 14,
             padding: "16px 22px",
-            boxShadow: "0 -12px 32px rgba(0,0,0,0.35)",
+            boxShadow: "0 -12px 32px rgba(0,0,0,0.18)",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
@@ -892,7 +964,7 @@ export default function IntelligenceLibraryPage() {
           }}
         >
           <div>
-            <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: COLORS.white }}>
+            <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: COLORS.text }}>
               {selectedRefs.size} Narrative{selectedRefs.size === 1 ? "" : "s"} Selected for AI Reference
             </p>
             <p style={{ margin: "2px 0 0", fontSize: 12.5, color: COLORS.textMuted }}>
@@ -908,7 +980,7 @@ export default function IntelligenceLibraryPage() {
                 borderRadius: 8,
                 fontSize: 13,
                 fontWeight: 600,
-                border: `1px solid ${COLORS.cardBorderColor}`,
+                border: `1px solid ${COLORS.cardBorder}`,
                 background: "transparent",
                 color: COLORS.textMuted,
                 cursor: "pointer",
@@ -926,7 +998,7 @@ export default function IntelligenceLibraryPage() {
                 fontWeight: 700,
                 border: "none",
                 background: COLORS.purple,
-                color: COLORS.white,
+                color: "#FFFFFF",
                 cursor: "pointer",
               }}
             >
@@ -939,20 +1011,37 @@ export default function IntelligenceLibraryPage() {
   );
 }
 
-function QuickPill({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) {
+function HeroStatChip({ label, value }: { label: string; value: string }) {
+  return (
+    <div
+      style={{
+        backgroundColor: "rgba(255,255,255,0.08)",
+        borderRadius: 8,
+        padding: "8px 16px",
+        fontSize: 13,
+        color: "rgba(248,250,252,0.8)",
+        fontWeight: 600,
+      }}
+    >
+      {value} <span style={{ fontWeight: 500, color: "rgba(248,250,252,0.55)" }}>{label}</span>
+    </div>
+  );
+}
+
+function QuickChip({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
       style={{
-        padding: "7px 14px",
-        borderRadius: 999,
-        fontSize: 12.5,
+        backgroundColor: active ? COLORS.primary : COLORS.card,
+        color: active ? "#FFFFFF" : COLORS.textMuted,
+        border: active ? `1px solid ${COLORS.primary}` : `1px solid ${COLORS.cardBorder}`,
+        borderRadius: 20,
+        padding: "6px 16px",
+        fontSize: 13,
         fontWeight: 600,
         cursor: "pointer",
-        border: active ? `1px solid ${COLORS.blue}` : `1px solid rgba(15,23,42,0.12)`,
-        background: active ? COLORS.blue : COLORS.white,
-        color: active ? COLORS.white : "#3F5872",
       }}
     >
       {label}
@@ -965,13 +1054,14 @@ function StatCard({ label, value, accent }: { label: string; value: string; acce
     <div
       style={{
         background: COLORS.card,
-        border: `1px solid ${COLORS.cardBorderColor}`,
+        border: `1px solid ${COLORS.cardBorder}`,
         borderRadius: 12,
         padding: 16,
-        borderLeft: `4px solid ${accent ?? COLORS.blue}`,
+        borderLeft: `4px solid ${accent ?? COLORS.primary}`,
+        boxShadow: CARD_SHADOW,
       }}
     >
-      <p style={{ margin: 0, fontSize: 20, fontWeight: 800, color: COLORS.white, lineHeight: 1.2 }}>{value}</p>
+      <p style={{ margin: 0, fontSize: 20, fontWeight: 800, color: COLORS.text, lineHeight: 1.2 }}>{value}</p>
       <p style={{ margin: "4px 0 0", fontSize: 11.5, fontWeight: 600, color: COLORS.textMuted }}>{label}</p>
     </div>
   );
@@ -1000,38 +1090,44 @@ function ProposalCardView({
   onToggleReference: () => void;
   onOpenOverlay: () => void;
 }) {
-  const bucketBadge = proposal.funderBucket ? FUNDER_BUCKET_BADGE[proposal.funderBucket] : null;
+  const [hovered, setHovered] = useState(false);
+  const badge = badgeFor(proposal);
   const visibleFactors = proposal.successFactors.slice(0, 4);
   const extraFactors = proposal.successFactors.length - visibleFactors.length;
 
   return (
     <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onClick={onOpenOverlay}
       style={{
-        background: COLORS.card,
-        border: selected ? `1px solid ${COLORS.purple}` : `1px solid ${COLORS.cardBorderColor}`,
-        borderRadius: 14,
-        padding: 24,
+        backgroundColor: COLORS.card,
+        borderRadius: 12,
+        padding: 20,
+        boxShadow: hovered ? CARD_SHADOW_HOVER : CARD_SHADOW,
+        border: selected ? `1.5px solid ${COLORS.purple}` : `1px solid ${COLORS.cardBorder}`,
+        cursor: "pointer",
+        transition: "all 0.15s",
+        transform: hovered ? "translateY(-1px)" : "none",
         display: "flex",
         flexDirection: "column",
         gap: 12,
       }}
     >
-      {/* Top row */}
+      {/* Top row: funder badge + award amount chip */}
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
-        {bucketBadge && (
-          <span
-            style={{
-              fontSize: 11,
-              fontWeight: 700,
-              padding: "4px 10px",
-              borderRadius: 999,
-              background: bucketBadge.bg,
-              color: bucketBadge.fg,
-            }}
-          >
-            {bucketBadge.label}
-          </span>
-        )}
+        <span
+          style={{
+            fontSize: 11,
+            fontWeight: 700,
+            padding: "4px 10px",
+            borderRadius: 999,
+            background: badge.bg,
+            color: "#FFFFFF",
+          }}
+        >
+          {badge.label}
+        </span>
         {proposal.nteeCode && (
           <span
             style={{
@@ -1042,8 +1138,8 @@ function ProposalCardView({
               fontWeight: 700,
               padding: "4px 9px",
               borderRadius: 999,
-              background: "rgba(139,92,246,0.16)",
-              color: "#C4B5FD",
+              background: "#F5F3FF",
+              color: "#7C3AED",
             }}
           >
             <Tag size={10} />
@@ -1060,7 +1156,7 @@ function ProposalCardView({
               fontWeight: 700,
               padding: "3px 8px",
               borderRadius: 999,
-              background: "rgba(255,255,255,0.06)",
+              background: "#F1F5F9",
               color: COLORS.textMuted,
             }}
           >
@@ -1069,23 +1165,23 @@ function ProposalCardView({
         </div>
       </div>
 
-      {/* Second row */}
+      {/* Grant title + org */}
       <div>
-        <h3 style={{ fontSize: 16, fontWeight: 700, color: COLORS.white, margin: 0, lineHeight: 1.35 }}>
+        <h3 style={{ fontSize: 15, fontWeight: 700, color: COLORS.text, margin: "10px 0 6px", lineHeight: 1.35 }}>
           {proposal.funderName ?? "Unknown funder"}
         </h3>
-        <p style={{ fontSize: 13, color: COLORS.textMuted, margin: "2px 0 0" }}>
+        <p style={{ fontSize: 13, color: COLORS.textMuted, margin: "0 0 10px" }}>
           {truncate(proposal.title, 90)}
         </p>
         {proposal.organizationName && (
-          <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 4 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
             <Building2 size={12} color={COLORS.textFaint} />
             <span style={{ fontSize: 12, color: COLORS.textFaint }}>{proposal.organizationName}</span>
           </div>
         )}
       </div>
 
-      {/* Third row — excerpt */}
+      {/* Excerpt */}
       <p
         style={{
           fontSize: 13,
@@ -1104,11 +1200,14 @@ function ProposalCardView({
       {proposal.fullText && proposal.fullText.length > 280 && (
         <button
           type="button"
-          onClick={onToggleExpand}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleExpand();
+          }}
           style={{
             fontSize: 12,
             fontWeight: 700,
-            color: COLORS.blue,
+            color: COLORS.primary,
             background: "none",
             border: "none",
             cursor: "pointer",
@@ -1131,8 +1230,8 @@ function ProposalCardView({
                 fontWeight: 600,
                 padding: "4px 9px",
                 borderRadius: 999,
-                background: COLORS.greenBg,
-                color: "#6EE7B7",
+                background: "#EFF6FF",
+                color: "#1D4ED8",
               }}
             >
               {factor}
@@ -1146,16 +1245,19 @@ function ProposalCardView({
         </div>
       )}
 
-      {/* Winning phrases / persuasive elements — only rendered when data exists */}
+      {/* Winning phrases (up to shown when present; only rendered when data exists) */}
       {proposal.winningPhrases.length > 0 && (
         <div>
           <button
             type="button"
-            onClick={onToggleWinningPhrases}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleWinningPhrases();
+            }}
             style={{
               fontSize: 12,
               fontWeight: 700,
-              color: COLORS.amber,
+              color: COLORS.green,
               background: "none",
               border: "none",
               cursor: "pointer",
@@ -1164,25 +1266,27 @@ function ProposalCardView({
           >
             {winningPhrasesOpen ? "Hide Winning Phrases" : "View Winning Phrases"}
           </button>
-          {winningPhrasesOpen && (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
-              {proposal.winningPhrases.map((phrase, i) => (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+            {(winningPhrasesOpen ? proposal.winningPhrases : proposal.winningPhrases.slice(0, 3)).map(
+              (phrase, i) => (
                 <span
                   key={i}
                   style={{
+                    backgroundColor: COLORS.greenBg,
+                    border: `1px solid ${COLORS.greenBorder}`,
+                    borderRadius: 4,
+                    padding: "2px 8px",
                     fontSize: 11,
-                    fontWeight: 600,
-                    padding: "4px 9px",
-                    borderRadius: 999,
-                    background: COLORS.amberBg,
-                    color: "#FCD34D",
+                    color: COLORS.green,
+                    fontWeight: 500,
+                    marginRight: 4,
                   }}
                 >
                   {phrase}
                 </span>
-              ))}
-            </div>
-          )}
+              ),
+            )}
+          </div>
         </div>
       )}
 
@@ -1190,11 +1294,14 @@ function ProposalCardView({
         <div>
           <button
             type="button"
-            onClick={onTogglePersuasive}
+            onClick={(e) => {
+              e.stopPropagation();
+              onTogglePersuasive();
+            }}
             style={{
               fontSize: 12,
               fontWeight: 700,
-              color: COLORS.blue,
+              color: COLORS.primary,
               background: "none",
               border: "none",
               cursor: "pointer",
@@ -1206,11 +1313,8 @@ function ProposalCardView({
           {persuasiveOpen && (
             <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
               {proposal.persuasiveElements.map((el, i) => (
-                <div
-                  key={i}
-                  style={{ background: "rgba(255,255,255,0.04)", borderRadius: 8, padding: "8px 10px" }}
-                >
-                  <p style={{ margin: 0, fontSize: 11.5, fontWeight: 700, color: COLORS.white }}>
+                <div key={i} style={{ background: "#F8FAFC", borderRadius: 8, padding: "8px 10px" }}>
+                  <p style={{ margin: 0, fontSize: 11.5, fontWeight: 700, color: COLORS.text }}>
                     {el.element_type}
                   </p>
                   <p style={{ margin: "3px 0 0", fontSize: 11.5, color: COLORS.textMuted }}>{el.why_it_works}</p>
@@ -1221,7 +1325,7 @@ function ProposalCardView({
         </div>
       )}
 
-      {/* Action row */}
+      {/* Bottom action row */}
       <div
         style={{
           display: "flex",
@@ -1230,12 +1334,15 @@ function ProposalCardView({
           gap: 8,
           marginTop: 4,
           paddingTop: 12,
-          borderTop: `1px solid ${COLORS.cardBorderColor}`,
+          borderTop: `1px solid ${COLORS.cardBorder}`,
         }}
       >
         <button
           type="button"
-          onClick={onToggleReference}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleReference();
+          }}
           style={{
             padding: "7px 12px",
             borderRadius: 8,
@@ -1243,7 +1350,7 @@ function ProposalCardView({
             fontWeight: 700,
             border: selected ? "none" : `1px solid ${COLORS.purple}`,
             background: selected ? COLORS.purple : "transparent",
-            color: selected ? COLORS.white : COLORS.purple,
+            color: selected ? "#FFFFFF" : COLORS.purple,
             cursor: "pointer",
           }}
         >
@@ -1251,24 +1358,28 @@ function ProposalCardView({
         </button>
         <button
           type="button"
-          onClick={onOpenOverlay}
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenOverlay();
+          }}
           style={{
             padding: "7px 12px",
             borderRadius: 8,
             fontSize: 12,
             fontWeight: 700,
-            border: `1px solid ${COLORS.cardBorderColor}`,
+            border: `1px solid ${COLORS.cardBorder}`,
             background: "transparent",
-            color: COLORS.white,
+            color: COLORS.primary,
             cursor: "pointer",
           }}
         >
-          View Full Narrative
+          View Narrative
         </button>
         {proposal.winningPhrases.length > 0 && (
           <button
             type="button"
-            onClick={() => {
+            onClick={(e) => {
+              e.stopPropagation();
               navigator.clipboard?.writeText(proposal.winningPhrases.map((p) => `• ${p}`).join("\n"));
             }}
             style={{
@@ -1279,7 +1390,7 @@ function ProposalCardView({
               borderRadius: 8,
               fontSize: 12,
               fontWeight: 700,
-              border: `1px solid ${COLORS.cardBorderColor}`,
+              border: `1px solid ${COLORS.cardBorder}`,
               background: "transparent",
               color: COLORS.textMuted,
               cursor: "pointer",
@@ -1289,11 +1400,15 @@ function ProposalCardView({
             Copy Winning Phrases
           </button>
         )}
+        {proposal.nteeCode && (
+          <span style={{ fontSize: 11, fontWeight: 600, color: COLORS.textFaint }}>{proposal.nteeCode}</span>
+        )}
         {proposal.sourceUrl && (
           <a
             href={proposal.sourceUrl}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
             style={{
               marginLeft: "auto",
               display: "inline-flex",
@@ -1322,36 +1437,27 @@ function FullNarrativeOverlay({
   onClose: () => void;
   onUseInDraft: () => void;
 }) {
-  const bucketBadge = proposal.funderBucket ? FUNDER_BUCKET_BADGE[proposal.funderBucket] : null;
+  const badge = badgeFor(proposal);
   const paragraphs = (proposal.fullText ?? "").split(/\n\n+/).filter(Boolean);
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(4,10,20,0.72)",
-        backdropFilter: "blur(4px)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 50,
-        padding: 20,
-      }}
-      onClick={onClose}
-    >
+    <>
+      {/* Click-outside catcher */}
+      <div style={{ position: "fixed", inset: 0, zIndex: 49 }} onClick={onClose} />
+
       <div
-        onClick={(e) => e.stopPropagation()}
         style={{
-          background: COLORS.white,
-          borderRadius: 16,
-          width: 800,
+          position: "fixed",
+          right: 0,
+          top: 0,
+          bottom: 0,
+          width: 480,
           maxWidth: "100%",
-          height: "85vh",
-          overflowY: "auto",
+          backgroundColor: COLORS.card,
+          boxShadow: "-8px 0 32px rgba(0,0,0,0.15)",
+          zIndex: 50,
+          overflow: "auto",
           padding: 32,
-          position: "relative",
-          boxShadow: "0 24px 64px rgba(0,0,0,0.4)",
         }}
       >
         <button
@@ -1376,20 +1482,18 @@ function FullNarrativeOverlay({
         </button>
 
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
-          {bucketBadge && (
-            <span
-              style={{
-                fontSize: 11,
-                fontWeight: 700,
-                padding: "4px 10px",
-                borderRadius: 999,
-                background: bucketBadge.bg,
-                color: bucketBadge.fg,
-              }}
-            >
-              {bucketBadge.label}
-            </span>
-          )}
+          <span
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              padding: "4px 10px",
+              borderRadius: 999,
+              background: badge.bg,
+              color: "#FFFFFF",
+            }}
+          >
+            {badge.label}
+          </span>
           {proposal.nteeCode && (
             <span
               style={{
@@ -1406,17 +1510,17 @@ function FullNarrativeOverlay({
           )}
         </div>
 
-        <h2 style={{ fontSize: 22, fontWeight: 800, color: "#0F172A", margin: "0 0 4px" }}>
+        <h2 style={{ fontSize: 22, fontWeight: 800, color: COLORS.text, margin: "0 0 4px" }}>
           {proposal.funderName}
         </h2>
-        <p style={{ fontSize: 14, color: "#64748B", margin: 0 }}>{proposal.title}</p>
+        <p style={{ fontSize: 14, color: COLORS.textMuted, margin: 0 }}>{proposal.title}</p>
 
         <div style={{ display: "flex", gap: 24, margin: "16px 0", flexWrap: "wrap" }}>
           <div>
             <p style={{ margin: 0, fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase" }}>
               Award Amount
             </p>
-            <p style={{ margin: "2px 0 0", fontSize: 18, fontWeight: 800, color: "#15803D" }}>
+            <p style={{ margin: "2px 0 0", fontSize: 18, fontWeight: 800, color: COLORS.green }}>
               {formatCurrency(proposal.awardAmount)}
             </p>
           </div>
@@ -1424,7 +1528,7 @@ function FullNarrativeOverlay({
             <p style={{ margin: 0, fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase" }}>
               Award Year
             </p>
-            <p style={{ margin: "2px 0 0", fontSize: 18, fontWeight: 800, color: "#0F172A" }}>
+            <p style={{ margin: "2px 0 0", fontSize: 18, fontWeight: 800, color: COLORS.text }}>
               {proposal.awardYear ?? "—"}
             </p>
           </div>
@@ -1433,7 +1537,7 @@ function FullNarrativeOverlay({
               <p style={{ margin: 0, fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase" }}>
                 Recipient Organization
               </p>
-              <p style={{ margin: "2px 0 0", fontSize: 14, fontWeight: 600, color: "#0F172A" }}>
+              <p style={{ margin: "2px 0 0", fontSize: 14, fontWeight: 600, color: COLORS.text }}>
                 {proposal.organizationName}
               </p>
             </div>
@@ -1451,7 +1555,7 @@ function FullNarrativeOverlay({
             fontWeight: 700,
             border: "none",
             background: COLORS.purple,
-            color: COLORS.white,
+            color: "#FFFFFF",
             cursor: "pointer",
             marginBottom: 20,
           }}
@@ -1473,7 +1577,7 @@ function FullNarrativeOverlay({
 
         {proposal.successFactors.length > 0 && (
           <div style={{ marginTop: 12 }}>
-            <p style={{ fontSize: 12, fontWeight: 700, color: "#0F172A", marginBottom: 8 }}>Success Factors</p>
+            <p style={{ fontSize: 12, fontWeight: 700, color: COLORS.text, marginBottom: 8 }}>Success Factors</p>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
               {proposal.successFactors.map((f, i) => (
                 <span
@@ -1496,18 +1600,19 @@ function FullNarrativeOverlay({
 
         {proposal.winningPhrases.length > 0 && (
           <div style={{ marginTop: 16 }}>
-            <p style={{ fontSize: 12, fontWeight: 700, color: "#0F172A", marginBottom: 8 }}>Winning Phrases</p>
+            <p style={{ fontSize: 12, fontWeight: 700, color: COLORS.text, marginBottom: 8 }}>Winning Phrases</p>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
               {proposal.winningPhrases.map((p, i) => (
                 <span
                   key={i}
                   style={{
+                    backgroundColor: COLORS.greenBg,
+                    border: `1px solid ${COLORS.greenBorder}`,
+                    borderRadius: 4,
+                    padding: "4px 10px",
                     fontSize: 11.5,
                     fontWeight: 600,
-                    padding: "4px 10px",
-                    borderRadius: 999,
-                    background: "#FEF3C7",
-                    color: "#B45309",
+                    color: COLORS.green,
                   }}
                 >
                   {p}
@@ -1519,19 +1624,19 @@ function FullNarrativeOverlay({
 
         {proposal.persuasiveElements.length > 0 && (
           <div style={{ marginTop: 16 }}>
-            <p style={{ fontSize: 12, fontWeight: 700, color: "#0F172A", marginBottom: 8 }}>Persuasive Elements</p>
+            <p style={{ fontSize: 12, fontWeight: 700, color: COLORS.text, marginBottom: 8 }}>Persuasive Elements</p>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {proposal.persuasiveElements.map((el, i) => (
                 <div key={i} style={{ background: "#F8FAFC", borderRadius: 8, padding: "10px 12px" }}>
-                  <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: "#0F172A" }}>{el.element_type}</p>
-                  <p style={{ margin: "3px 0 0", fontSize: 12, color: "#64748B" }}>{el.why_it_works}</p>
+                  <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: COLORS.text }}>{el.element_type}</p>
+                  <p style={{ margin: "3px 0 0", fontSize: 12, color: COLORS.textMuted }}>{el.why_it_works}</p>
                 </div>
               ))}
             </div>
           </div>
         )}
       </div>
-    </div>
+    </>
   );
 }
 
@@ -1552,13 +1657,14 @@ function AddNarrativeForm({
     <div
       style={{
         background: COLORS.card,
-        border: `1px solid ${COLORS.cardBorderColor}`,
+        border: `1px solid ${COLORS.cardBorder}`,
         borderRadius: 14,
         padding: 20,
         marginBottom: 20,
+        boxShadow: CARD_SHADOW,
       }}
     >
-      <h3 style={{ fontSize: 15, fontWeight: 700, color: COLORS.white, margin: "0 0 14px" }}>
+      <h3 style={{ fontSize: 15, fontWeight: 700, color: COLORS.text, margin: "0 0 14px" }}>
         Add Awarded Grant Narrative
       </h3>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
@@ -1626,18 +1732,18 @@ function AddNarrativeForm({
             width: "100%",
             boxSizing: "border-box",
             marginTop: 4,
-            border: `1px solid ${COLORS.cardBorderColor}`,
-            borderRadius: 8,
-            padding: "8px 10px",
+            border: `1.5px solid ${COLORS.cardBorder}`,
+            borderRadius: 10,
+            padding: "10px 12px",
             fontSize: 13,
-            color: COLORS.white,
-            background: "#141F33",
+            color: COLORS.text,
+            background: COLORS.card,
             fontFamily: "inherit",
             resize: "vertical",
           }}
         />
       </div>
-      {error && <p style={{ color: "#FCA5A5", fontSize: 13, marginTop: 10 }}>{error}</p>}
+      {error && <p style={{ color: COLORS.red, fontSize: 13, marginTop: 10 }}>{error}</p>}
       <div style={{ marginTop: 14, display: "flex", gap: 8 }}>
         <button
           type="button"
@@ -1650,7 +1756,7 @@ function AddNarrativeForm({
             fontWeight: 600,
             border: "none",
             background: submitting ? COLORS.textFaint : COLORS.purple,
-            color: COLORS.white,
+            color: "#FFFFFF",
             cursor: submitting ? "not-allowed" : "pointer",
           }}
         >
@@ -1706,9 +1812,9 @@ function PageButton({
         borderRadius: 8,
         fontSize: 13,
         fontWeight: 600,
-        border: `1px solid ${disabled ? "rgba(15,23,42,0.08)" : "rgba(15,23,42,0.18)"}`,
-        background: disabled ? "rgba(255,255,255,0.4)" : COLORS.white,
-        color: disabled ? "#94A3B8" : "#0F172A",
+        border: `1px solid ${disabled ? "#E2E8F0" : "#CBD5E1"}`,
+        background: disabled ? "#F8FAFC" : COLORS.card,
+        color: disabled ? "#94A3B8" : COLORS.text,
         cursor: disabled ? "not-allowed" : "pointer",
       }}
     >
