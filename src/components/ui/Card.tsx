@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 import { cn } from "@/lib/utils/cn";
 
@@ -13,6 +13,7 @@ export type CardProps = {
   noPadding?: boolean;
   children?: ReactNode;
   className?: string;
+  style?: CSSProperties;
 };
 
 /**
@@ -25,6 +26,7 @@ export function Card({
   noPadding = false,
   children,
   className,
+  style,
 }: CardProps) {
   const hasHeader = Boolean(title || description || actions);
 
@@ -34,6 +36,7 @@ export function Card({
         "bg-white rounded-xl shadow-sm border border-border transition-shadow hover:shadow-md",
         className,
       )}
+      style={style}
     >
       {hasHeader && (
         <div className="flex items-start justify-between gap-4 rounded-t-xl border-b border-border bg-white-sunken px-5 py-4">

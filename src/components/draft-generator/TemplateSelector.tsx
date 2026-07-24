@@ -106,11 +106,25 @@ export function TemplateSelector({
             disabled={disabled}
             onClick={() => onChange(option.value)}
             className={cn(
-              "flex h-full flex-col items-start gap-1.5 rounded-xl border p-4 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60",
-              selected
-                ? "border-primary ring-2 ring-primary/20 bg-blue-50/50"
-                : "border-border bg-white shadow-sm hover:border-slate-300 hover:bg-slate-50",
+              "flex h-full flex-col items-start gap-1.5 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60",
             )}
+            style={
+              selected
+                ? {
+                    border: "2px solid #0077B6",
+                    backgroundColor: "#F0F9FF",
+                    borderRadius: "12px",
+                    padding: "16px",
+                    cursor: "pointer",
+                  }
+                : {
+                    border: "1px solid #E2E8F0",
+                    backgroundColor: "#FFFFFF",
+                    borderRadius: "12px",
+                    padding: "16px",
+                    cursor: "pointer",
+                  }
+            }
           >
             <ColorIcon icon={Icon} hue={option.hue} size="sm" />
             <span className="text-sm font-semibold text-slate-900">

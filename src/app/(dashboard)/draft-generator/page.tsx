@@ -879,7 +879,7 @@ export default function DraftGeneratorPage() {
         <h1 className="text-2xl font-bold tracking-tight text-primary">
           Draft Generator
         </h1>
-        <p className="mt-1 text-sm text-navy-500">
+        <p className="mt-1 text-sm" style={{ color: "#64748B" }}>
           Generate an application draft from your Knowledge Base. The AI never
           invents organizational facts - gaps are flagged for your input.
         </p>
@@ -954,16 +954,17 @@ export default function DraftGeneratorPage() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-10">
+          <div className="flex flex-col gap-6 lg:flex-row">
             <div
               style={{
                 backgroundColor: "#1A2B3C",
                 borderRadius: "16px",
                 padding: "24px",
                 color: "white",
-                minHeight: "600px",
+                width: "200px",
+                maxWidth: "200px",
+                flexShrink: 0,
               }}
-              className="lg:col-span-3"
             >
               <p
                 style={{
@@ -1040,7 +1041,7 @@ export default function DraftGeneratorPage() {
               })}
             </div>
 
-            <div className="lg:col-span-7 space-y-6">
+            <div className="flex-1 space-y-6" style={{ flex: 1, minWidth: 0 }}>
               {!generating && (
                 <div className="space-y-8 rounded-2xl p-8" style={cardStyle}>
                   <div>
@@ -1069,7 +1070,7 @@ export default function DraftGeneratorPage() {
                   {templateType === "budget_narrative" && (
                     <div>
                       <h2 className="text-base font-semibold text-slate-900 mb-4">Choose a program</h2>
-                      <p className="mb-3 text-sm text-navy-500">
+                      <p className="mb-3 text-sm" style={{ color: "#64748B" }}>
                         The budget will be scoped to this program&rsquo;s financial
                         data and your Knowledge Base budget justification entries.
                       </p>
@@ -1083,7 +1084,7 @@ export default function DraftGeneratorPage() {
                           aria-label="Program"
                         />
                         {programs.length === 0 && !loading && (
-                          <p className="text-sm text-navy-500">
+                          <p className="text-sm" style={{ color: "#64748B" }}>
                             No programs found. Add programs in organization settings
                             first.
                           </p>
@@ -1159,6 +1160,12 @@ export default function DraftGeneratorPage() {
                 )}
                 <Card
                   className="flex flex-1 flex-col"
+                  style={{
+                    backgroundColor: "#FFFFFF",
+                    borderRadius: "16px",
+                    border: "2px solid #E2E8F0",
+                    boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
+                  }}
                   title={<StepTitle step={3}>Review &amp; edit</StepTitle>}
                   description="Humanize rewrites the draft in an authentic human voice (no em dashes, no AI clichés, varied rhythm), grounded in your verified data."
                   actions={
@@ -1201,7 +1208,7 @@ export default function DraftGeneratorPage() {
                   />
 
                   {readability && (
-                    <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-navy-100 pt-3">
+                    <div className="mt-3 flex flex-wrap items-center gap-2 border-t pt-3" style={{ borderColor: "#E2E8F0" }}>
                       <span
                         className={
                           "inline-flex items-center rounded-md px-2 py-1 text-xs font-medium " +
@@ -1225,18 +1232,19 @@ export default function DraftGeneratorPage() {
                       <span className="inline-flex items-center rounded-md bg-navy-100 px-2 py-1 text-xs font-medium text-navy-700">
                         {readability.wordCount.toLocaleString()} words
                       </span>
-                      <span className="ml-auto text-xs text-navy-400">
+                      <span className="ml-auto text-xs" style={{ color: "#94A3B8" }}>
                         Ideal: Grade 10–12, &lt;15% passive
                       </span>
                     </div>
                   )}
 
-                  <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-navy-100 pt-3">
+                  <div className="mt-3 flex flex-wrap items-center gap-2 border-t pt-3" style={{ borderColor: "#E2E8F0" }}>
                     <button
                       type="button"
                       onClick={handleCopyToClipboard}
                       disabled={!draftText.trim()}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-navy-200 bg-white px-3 py-1.5 text-xs font-medium text-navy-700 transition hover:bg-navy-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-navy-200 px-3 py-1.5 text-xs font-medium text-navy-700 transition hover:bg-navy-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      style={{ backgroundColor: "#FFFFFF" }}
                     >
                       {copiedToClipboard ? (
                         <Check className="h-3.5 w-3.5 text-green-600" aria-hidden />
@@ -1249,7 +1257,8 @@ export default function DraftGeneratorPage() {
                       type="button"
                       onClick={handleDownloadTxt}
                       disabled={!draftText.trim()}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-navy-200 bg-white px-3 py-1.5 text-xs font-medium text-navy-700 transition hover:bg-navy-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-navy-200 px-3 py-1.5 text-xs font-medium text-navy-700 transition hover:bg-navy-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      style={{ backgroundColor: "#FFFFFF" }}
                     >
                       <Download className="h-3.5 w-3.5" aria-hidden />
                       Download .txt
@@ -1258,7 +1267,8 @@ export default function DraftGeneratorPage() {
                       type="button"
                       onClick={handleDownloadPdf}
                       disabled={!draftText.trim()}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-navy-200 bg-white px-3 py-1.5 text-xs font-medium text-navy-700 transition hover:bg-navy-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-navy-200 px-3 py-1.5 text-xs font-medium text-navy-700 transition hover:bg-navy-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      style={{ backgroundColor: "#FFFFFF" }}
                     >
                       <Download className="h-3.5 w-3.5" aria-hidden />
                       Download PDF
@@ -1267,12 +1277,13 @@ export default function DraftGeneratorPage() {
                       type="button"
                       disabled
                       title="Connect Gmail to enable"
-                      className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-lg border border-navy-200 bg-white px-3 py-1.5 text-xs font-medium text-navy-400 opacity-50"
+                      className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-lg border border-navy-200 px-3 py-1.5 text-xs font-medium opacity-50"
+                      style={{ backgroundColor: "#FFFFFF", color: "#94A3B8" }}
                     >
                       <MailIcon className="h-3.5 w-3.5" aria-hidden />
                       Email draft
                     </button>
-                    <span className="text-xs text-navy-400">Connect Gmail to enable email</span>
+                    <span className="text-xs" style={{ color: "#94A3B8" }}>Connect Gmail to enable email</span>
                   </div>
                 </Card>
               </div>
@@ -1280,6 +1291,12 @@ export default function DraftGeneratorPage() {
               <div className="space-y-6">
                 <Card
                   title="Confidence"
+                  style={{
+                    backgroundColor: "#0F172A",
+                    borderRadius: "12px",
+                    padding: "20px",
+                    color: "#F8FAFC",
+                  }}
                   actions={
                     <div className="flex items-center gap-2">
                       {editable && draftText.trim() && (
@@ -1303,7 +1320,7 @@ export default function DraftGeneratorPage() {
                   {confidence != null ? (
                     <ConfidenceIndicator score={confidence} />
                   ) : (
-                    <p className="text-sm text-navy-500">
+                    <p className="text-sm" style={{ color: "#64748B" }}>
                       No confidence score recorded for this draft.
                     </p>
                   )}
@@ -1313,7 +1330,7 @@ export default function DraftGeneratorPage() {
                     </p>
                   )}
                   {humanizationStatus === "humanized" && (
-                    <p className="mt-2 text-xs text-navy-500">
+                    <p className="mt-2 text-xs" style={{ color: "#64748B" }}>
                       This draft has been humanized. The score reflects how
                       well it&rsquo;s grounded in your data.
                     </p>
@@ -1331,7 +1348,7 @@ export default function DraftGeneratorPage() {
                     />
                   ) : (
                     <div
-                      className="rounded-xl border border-border bg-white shadow-sm p-5"
+                      className="rounded-xl border border-border shadow-sm p-5"
                       style={{
                         backgroundColor: "#FFFFFF",
                         boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
@@ -1377,14 +1394,14 @@ export default function DraftGeneratorPage() {
                                 {section.name}
                               </span>
                               <div className="flex shrink-0 items-center gap-1.5">
-                                <span className="text-xs text-navy-400">{words}w</span>
+                                <span className="text-xs" style={{ color: "#94A3B8" }}>{words}w</span>
                                 <span className={"text-xs font-bold " + scoreColor}>
                                   {score}/100
                                 </span>
                               </div>
                             </div>
                             {score < 80 && (
-                              <p className="mt-0.5 text-xs leading-snug text-navy-500">
+                              <p className="mt-0.5 text-xs leading-snug" style={{ color: "#64748B" }}>
                                 {sectionSuggestion(score, gaps)}
                               </p>
                             )}
@@ -1410,24 +1427,25 @@ export default function DraftGeneratorPage() {
                       {budgetTable.map((item, i) => (
                         <div
                           key={i}
-                          className="flex items-start justify-between gap-3 border-b border-navy-100 pb-2 last:border-0 last:pb-0"
+                          className="flex items-start justify-between gap-3 border-b pb-2 last:border-0 last:pb-0"
+                          style={{ borderColor: "#E2E8F0" }}
                         >
                           <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium capitalize text-navy-900">
+                            <p className="text-sm font-medium capitalize" style={{ color: "#0F172A" }}>
                               {item.category}
                             </p>
-                            <p className="mt-0.5 text-xs leading-snug text-navy-500">
+                            <p className="mt-0.5 text-xs leading-snug" style={{ color: "#64748B" }}>
                               {item.justification}
                             </p>
                           </div>
                           <div className="shrink-0 text-right">
-                            <p className="font-mono text-sm text-navy-900">
+                            <p className="font-mono text-sm" style={{ color: "#0F172A" }}>
                               {item.amount != null
                                 ? formatCurrency(item.amount)
                                 : "[NEEDS INPUT]"}
                             </p>
                             {item.percentage != null && (
-                              <p className="text-xs text-navy-500">
+                              <p className="text-xs" style={{ color: "#64748B" }}>
                                 {item.percentage.toFixed(1)}%
                               </p>
                             )}
@@ -1436,10 +1454,10 @@ export default function DraftGeneratorPage() {
                       ))}
                       {totalRequested != null && (
                         <div className="mt-1 flex items-center justify-between border-t-2 border-navy-200 pt-2">
-                          <p className="text-sm font-semibold text-navy-900">
+                          <p className="text-sm font-semibold" style={{ color: "#0F172A" }}>
                             Total requested
                           </p>
-                          <p className="font-mono text-sm font-semibold text-navy-900">
+                          <p className="font-mono text-sm font-semibold" style={{ color: "#0F172A" }}>
                             {formatCurrency(totalRequested)}
                           </p>
                         </div>
@@ -1468,9 +1486,9 @@ export default function DraftGeneratorPage() {
               Recent Drafts
             </div>
             {recentDraftsLoading ? (
-              <div className="p-5 text-sm text-navy-400">Loading recent drafts…</div>
+              <div className="p-5 text-sm" style={{ color: "#94A3B8" }}>Loading recent drafts…</div>
             ) : recentDrafts.length === 0 ? (
-              <div className="p-5 text-sm text-navy-400">
+              <div className="p-5 text-sm" style={{ color: "#94A3B8" }}>
                 No drafts generated yet. Generate one above to see it here.
               </div>
             ) : (
@@ -1478,28 +1496,28 @@ export default function DraftGeneratorPage() {
                 <table className="min-w-full divide-y divide-navy-100 text-sm">
                   <thead>
                     <tr style={{ backgroundColor: "#F1F5F9" }}>
-                      <th className="px-5 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                      <th className="px-5 py-2.5 text-left text-xs font-medium uppercase tracking-wide" style={{ color: "#64748B" }}>
                         Opportunity
                       </th>
-                      <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                      <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide" style={{ color: "#64748B" }}>
                         Template
                       </th>
-                      <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                      <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide" style={{ color: "#64748B" }}>
                         Confidence
                       </th>
-                      <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                      <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide" style={{ color: "#64748B" }}>
                         Source
                       </th>
-                      <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                      <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide" style={{ color: "#64748B" }}>
                         Created
                       </th>
                       <th className="px-4 py-2.5" />
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-navy-100 bg-white">
+                  <tbody className="divide-y divide-navy-100" style={{ backgroundColor: "#FFFFFF" }}>
                     {recentDrafts.map((draft) => (
                       <tr key={draft.id} className="hover:bg-navy-50">
-                        <td className="px-5 py-3 max-w-xs truncate font-medium text-navy-900">
+                        <td className="px-5 py-3 max-w-xs truncate font-medium" style={{ color: "#0F172A" }}>
                           {draft.opportunityName}
                         </td>
                         <td className="px-4 py-3 text-navy-600">
@@ -1525,10 +1543,10 @@ export default function DraftGeneratorPage() {
                               AI Generated
                             </span>
                           ) : (
-                            <span className="text-xs text-navy-400">{humanizeEnum(draft.source)}</span>
+                            <span className="text-xs" style={{ color: "#94A3B8" }}>{humanizeEnum(draft.source)}</span>
                           )}
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-navy-400">
+                        <td className="whitespace-nowrap px-4 py-3" style={{ color: "#94A3B8" }}>
                           {new Date(draft.createdAt).toLocaleDateString()}
                         </td>
                         <td className="px-4 py-3">
