@@ -226,11 +226,12 @@ export function DraftEditor({
           style={
             dark
               ? {
-                  fontSize: "12px",
+                  fontSize: "11px",
                   fontWeight: 700,
-                  color: "rgba(248,250,252,0.5)",
+                  color: "rgba(248,250,252,0.4)",
                   textTransform: "uppercase",
                   letterSpacing: "0.08em",
+                  marginBottom: "8px",
                 }
               : undefined
           }
@@ -242,7 +243,7 @@ export function DraftEditor({
           className={dark ? undefined : "flex items-center gap-3 text-xs text-navy-500"}
           style={
             dark
-              ? { display: "flex", alignItems: "center", gap: "12px", fontSize: "12px", color: "rgba(248,250,252,0.5)" }
+              ? { display: "flex", alignItems: "center", gap: "12px", fontSize: "12px", color: "rgba(248,250,252,0.4)" }
               : undefined
           }
         >
@@ -294,8 +295,23 @@ export function DraftEditor({
       {readOnly ? (
         // Read-only: plain div with inline clickable amber spans.
         <div
-          className="block min-h-[55vh] w-full flex-1 overflow-y-auto rounded-xl border border-slate-200 bg-[#F8FAFC] p-6 font-mono text-sm text-slate-700 leading-relaxed shadow-sm"
-          style={{ whiteSpace: "pre-wrap" }}
+          className={dark ? "block w-full flex-1 overflow-y-auto" : "block min-h-[55vh] w-full flex-1 overflow-y-auto rounded-xl border border-slate-200 bg-[#F8FAFC] p-6 font-mono text-sm text-slate-700 leading-relaxed shadow-sm"}
+          style={
+            dark
+              ? {
+                  whiteSpace: "pre-wrap",
+                  backgroundColor: "rgba(0,0,0,0.2)",
+                  borderRadius: "10px",
+                  padding: "16px",
+                  border: "1px solid rgba(255,255,255,0.06)",
+                  flex: "1",
+                  minHeight: "400px",
+                  color: "rgba(248,250,252,0.85)",
+                  fontSize: "14px",
+                  lineHeight: "1.7",
+                }
+              : { whiteSpace: "pre-wrap" }
+          }
         >
           {readOnlyNodes}
         </div>
@@ -304,7 +320,21 @@ export function DraftEditor({
         // + flex-1 so the editor fills the available height instead of the
         // old fixed `rows={20}` (which the global `textarea{max-height:120px}`
         // base style clamped down to a few visible lines regardless).
-        <div className="relative flex min-h-[55vh] flex-1 flex-col rounded-xl border border-slate-200 bg-[#F8FAFC] shadow-sm transition focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-500">
+        <div
+          className={dark ? "relative flex flex-1 flex-col transition" : "relative flex min-h-[55vh] flex-1 flex-col rounded-xl border border-slate-200 bg-[#F8FAFC] shadow-sm transition focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-500"}
+          style={
+            dark
+              ? {
+                  backgroundColor: "rgba(0,0,0,0.2)",
+                  borderRadius: "10px",
+                  padding: "16px",
+                  border: "1px solid rgba(255,255,255,0.06)",
+                  flex: "1",
+                  minHeight: "400px",
+                }
+              : undefined
+          }
+        >
           {/* Backdrop — plain transparent text, no gap highlighting. Gaps are
               visible as literal "[NEEDS INPUT: …]" text in the textarea layer. */}
           <div
@@ -313,11 +343,12 @@ export function DraftEditor({
           >
             <div
               ref={backdropInnerRef}
-              className="p-6 font-mono text-sm leading-relaxed"
+              className={dark ? "font-mono leading-relaxed" : "p-6 font-mono text-sm leading-relaxed"}
               style={{
                 whiteSpace: "pre-wrap",
                 wordBreak: "break-word",
                 color: "transparent",
+                ...(dark ? { fontSize: "14px", lineHeight: "1.7" } : {}),
               }}
             >
               {value}
@@ -332,16 +363,23 @@ export function DraftEditor({
             onScroll={syncScroll}
             aria-label={label}
             spellCheck
-            className="relative block h-full max-h-none w-full flex-1 resize-none rounded-xl bg-transparent p-6 font-mono text-sm leading-relaxed text-slate-700 placeholder:text-slate-400 focus:outline-none"
+            className={dark ? "relative block h-full max-h-none w-full flex-1 resize-none bg-transparent font-mono placeholder:text-slate-500 focus:outline-none" : "relative block h-full max-h-none w-full flex-1 resize-none rounded-xl bg-transparent p-6 font-mono text-sm leading-relaxed text-slate-700 placeholder:text-slate-400 focus:outline-none"}
+            style={dark ? { color: "rgba(248,250,252,0.85)", fontSize: "14px", lineHeight: "1.7" } : undefined}
             placeholder="The generated draft will appear here. Edit freely before saving."
           />
         </div>
       )}
 
       {gaps.length > 0 && (
-        <p className="text-xs text-navy-500">
+        <p
+          className={dark ? undefined : "text-xs text-navy-500"}
+          style={dark ? { fontSize: "12px", color: "rgba(248,250,252,0.4)" } : undefined}
+        >
           Replace each{" "}
-          <code className="rounded bg-navy-100 px-1 py-0.5 text-navy-600">
+          <code
+            className={dark ? "rounded px-1 py-0.5" : "rounded bg-navy-100 px-1 py-0.5 text-navy-600"}
+            style={dark ? { backgroundColor: "rgba(255,255,255,0.08)", color: "rgba(248,250,252,0.7)" } : undefined}
+          >
             [NEEDS INPUT: ...]
           </code>{" "}
           marker with verified information before submitting.

@@ -60,11 +60,11 @@ type RecentDraftRow = {
   createdAt: string;
 };
 
-/** Recent-drafts table confidence pill colors, by score band. */
+/** Recent-drafts confidence pill colors, by score band. */
 function tableConfidenceBadge(score: number): { bg: string; color: string } {
-  if (score >= 80) return { bg: "#F0FDF4", color: "#16A34A" };
-  if (score >= 60) return { bg: "#FFFBEB", color: "#D97706" };
-  return { bg: "#FEF2F2", color: "#DC2626" };
+  if (score >= 80) return { bg: "rgba(52,211,153,0.15)", color: "#34D399" };
+  if (score >= 60) return { bg: "rgba(251,191,36,0.15)", color: "#FCD34D" };
+  return { bg: "rgba(248,113,113,0.15)", color: "#F87171" };
 }
 
 /** Client-side confidence re-score — same algorithm as /api/ai/draft's computeConfidence. */
@@ -92,9 +92,9 @@ function formatCurrency(amount: number): string {
 
 /** Score-band color for the confidence bar fill. */
 function confidenceBarColor(score: number): string {
-  if (score >= 80) return "#10B981";
-  if (score >= 60) return "#F59E0B";
-  return "#EF4444";
+  if (score >= 80) return "#34D399";
+  if (score >= 60) return "#FCD34D";
+  return "#F87171";
 }
 
 /** Score-band interpretation text under the confidence bar. */
@@ -831,17 +831,12 @@ export default function DraftGeneratorPage() {
   const belowThreshold =
     confidence != null && confidence < AI_CONFIDENCE_THRESHOLD;
 
-  const statCardStyle = {
-    backgroundColor: "#FFFFFF",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-    border: "1px solid #E2E8F0",
-  };
-  const whiteCardStyle = {
-    backgroundColor: "#FFFFFF",
+  const indigoCardStyle = {
+    backgroundColor: "#2D2A6E",
     borderRadius: "14px",
-    padding: "24px",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-    border: "1px solid #E2E8F0",
+    padding: "20px",
+    border: "1px solid rgba(255,255,255,0.1)",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
   };
   // Wizard rail step (1 Select Opportunity, 2 Customize, 3 Generate, 4 Review
   // & Export) derived from real state - there is no separate wizard-step
@@ -849,38 +844,40 @@ export default function DraftGeneratorPage() {
   const activeStep = generating ? 3 : hasDraft ? 4 : opportunityId ? 2 : 1;
   const stepStatus = (n: number): "done" | "active" | "pending" =>
     n < activeStep ? "done" : n === activeStep ? "active" : "pending";
+  const statNumberStyle = {
+    fontSize: "40px",
+    fontWeight: 800 as const,
+    color: "#FFFFFF",
+    lineHeight: 1,
+  };
   const statLabelStyle = {
     fontSize: "11px",
     fontWeight: 700 as const,
-    color: "#64748B",
+    color: "rgba(255,255,255,0.7)",
     textTransform: "uppercase" as const,
     letterSpacing: "0.08em",
-  };
-  const statValueStyle = {
-    fontSize: "28px",
-    fontWeight: 900 as const,
-    color: "#0F172A",
     marginTop: "6px",
   };
 
   return (
-    <div className="space-y-6" style={{ backgroundColor: "#EEF2F7", minHeight: "100vh", padding: "24px", fontFamily: "'Plus Jakarta Sans',sans-serif" }}>
+    <div className="space-y-6" style={{ backgroundColor: "#1E1B4B", minHeight: "100vh", padding: "24px", fontFamily: "'Plus Jakarta Sans',sans-serif" }}>
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-primary">
+        <h1 style={{ fontSize: "28px", fontWeight: 800, color: "#F8FAFC", marginBottom: "4px" }}>
           Draft Generator
         </h1>
-        <p className="mt-1 text-sm" style={{ color: "#64748B" }}>
+        <p style={{ fontSize: "14px", color: "rgba(248,250,252,0.5)", marginBottom: "24px" }}>
           Generate an application draft from your Knowledge Base. The AI never
           invents organizational facts - gaps are flagged for your input.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-xl p-5" style={statCardStyle}>
+      <div className="flex flex-col gap-4 sm:flex-row">
+        <div style={{ flex: "1", background: "linear-gradient(135deg,#0077B6,#0EA5E9)", borderRadius: "14px", padding: "20px 24px", boxShadow: "0 4px 16px rgba(0,119,182,0.4)" }}>
+          <p style={statNumberStyle}>{stats ? stats.totalDrafts : "—"}</p>
           <p style={statLabelStyle}>Total Drafts</p>
-          <p style={statValueStyle}>{stats ? stats.totalDrafts : "—"}</p>
         </div>
-        <div className="rounded-xl p-5" style={statCardStyle}>
+        <div style={{ flex: "1", background: "linear-gradient(135deg,#7C3AED,#A855F7)", borderRadius: "14px", padding: "20px 24px", boxShadow: "0 4px 16px rgba(124,58,237,0.4)" }}>
+          <p style={statNumberStyle}>{stats ? stats.aiPending : "—"}</p>
           <div className="flex items-center justify-between">
             <p style={statLabelStyle}>AI Drafts Pending</p>
             <span
@@ -891,22 +888,22 @@ export default function DraftGeneratorPage() {
                 fontWeight: 700,
                 borderRadius: "999px",
                 padding: "2px 8px",
+                marginTop: "6px",
               }}
             >
               AI
             </span>
           </div>
-          <p style={statValueStyle}>{stats ? stats.aiPending : "—"}</p>
         </div>
-        <div className="rounded-xl p-5" style={statCardStyle}>
+        <div style={{ flex: "1", background: "linear-gradient(135deg,#059669,#10B981)", borderRadius: "14px", padding: "20px 24px", boxShadow: "0 4px 16px rgba(5,150,105,0.4)" }}>
+          <p style={statNumberStyle}>{stats ? stats.draftsThisMonth : "—"}</p>
           <p style={statLabelStyle}>Drafts This Month</p>
-          <p style={statValueStyle}>{stats ? stats.draftsThisMonth : "—"}</p>
         </div>
-        <div className="rounded-xl p-5" style={statCardStyle}>
-          <p style={statLabelStyle}>Avg Confidence</p>
-          <p style={statValueStyle}>
+        <div style={{ flex: "1", background: "linear-gradient(135deg,#D97706,#F59E0B)", borderRadius: "14px", padding: "20px 24px", boxShadow: "0 4px 16px rgba(217,119,6,0.4)" }}>
+          <p style={statNumberStyle}>
             {stats && stats.avgConfidence != null ? `${stats.avgConfidence}/100` : "—"}
           </p>
+          <p style={statLabelStyle}>Avg Confidence</p>
         </div>
       </div>
 
@@ -952,11 +949,11 @@ export default function DraftGeneratorPage() {
                 alignSelf: "flex-start",
                 position: "sticky",
                 top: "24px",
-                backgroundColor: "#FFFFFF",
+                background: "linear-gradient(180deg,#312E81,#1E1B4B)",
                 borderRadius: "14px",
                 padding: "20px",
-                boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-                border: "1px solid #E2E8F0",
+                border: "1px solid rgba(255,255,255,0.1)",
+                boxShadow: "0 4px 16px rgba(0,0,0,0.3)",
               }}
             >
               <p
@@ -964,7 +961,7 @@ export default function DraftGeneratorPage() {
                   fontSize: "10px",
                   fontWeight: 700,
                   letterSpacing: "0.15em",
-                  color: "#7C3AED",
+                  color: "#A78BFA",
                   textTransform: "uppercase",
                   marginBottom: "20px",
                   display: "block",
@@ -987,7 +984,7 @@ export default function DraftGeneratorPage() {
                         gap: "12px",
                         padding: "12px",
                         borderRadius: "8px",
-                        backgroundColor: "rgba(16,185,129,0.08)",
+                        backgroundColor: "rgba(16,185,129,0.15)",
                         marginBottom: "8px",
                       }
                     : status === "active"
@@ -997,8 +994,8 @@ export default function DraftGeneratorPage() {
                           gap: "12px",
                           padding: "12px",
                           borderRadius: "8px",
-                          backgroundColor: "rgba(124,58,237,0.08)",
-                          border: "1px solid rgba(124,58,237,0.2)",
+                          backgroundColor: "rgba(168,85,247,0.15)",
+                          border: "1px solid rgba(168,85,247,0.3)",
                           marginBottom: "8px",
                         }
                       : {
@@ -1009,20 +1006,18 @@ export default function DraftGeneratorPage() {
                           borderRadius: "8px",
                           marginBottom: "8px",
                         };
-                const dotStyle = {
-                  width: "10px",
-                  height: "10px",
-                  borderRadius: "50%",
-                  flexShrink: 0,
-                  backgroundColor:
-                    status === "done" ? "#10B981" : status === "active" ? "#7C3AED" : "#CBD5E1",
-                } as const;
+                const dotStyle =
+                  status === "done"
+                    ? { width: "10px", height: "10px", borderRadius: "50%", backgroundColor: "#10B981", flexShrink: 0, boxShadow: "0 0 6px rgba(16,185,129,0.6)" }
+                    : status === "active"
+                      ? { width: "10px", height: "10px", borderRadius: "50%", backgroundColor: "#A855F7", flexShrink: 0, boxShadow: "0 0 6px rgba(168,85,247,0.8)" }
+                      : { width: "10px", height: "10px", borderRadius: "50%", backgroundColor: "rgba(255,255,255,0.2)", flexShrink: 0 };
                 const textStyle =
                   status === "done"
-                    ? { fontSize: "13px", fontWeight: 600, color: "#0F172A" }
+                    ? { fontSize: "13px", fontWeight: 600, color: "rgba(255,255,255,0.6)" }
                     : status === "active"
-                      ? { fontSize: "13px", fontWeight: 700, color: "#7C3AED" }
-                      : { fontSize: "13px", fontWeight: 500, color: "#94A3B8" };
+                      ? { fontSize: "13px", fontWeight: 700, color: "#E9D5FF" }
+                      : { fontSize: "13px", fontWeight: 500, color: "rgba(255,255,255,0.3)" };
                 return (
                   <div key={n} style={rowStyle}>
                     <span style={dotStyle} />
@@ -1032,11 +1027,11 @@ export default function DraftGeneratorPage() {
               })}
             </div>
 
-            <div style={{ flex: "1", display: "flex", flexDirection: "column", gap: "16px", minWidth: 0 }}>
+            <div style={{ flex: "1", display: "flex", flexDirection: "column", minWidth: 0 }}>
               {!generating && (
                 <>
-                  <div style={whiteCardStyle}>
-                    <p style={{ fontSize: "13px", fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "10px" }}>
+                  <div style={{ ...indigoCardStyle, marginBottom: "12px" }}>
+                    <p style={{ fontSize: "11px", fontWeight: 700, color: "#A78BFA", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "10px" }}>
                       Choose an opportunity
                     </p>
                     <div className="max-w-xl">
@@ -1051,18 +1046,18 @@ export default function DraftGeneratorPage() {
                           width: "100%",
                           padding: "11px 14px",
                           borderRadius: "10px",
-                          border: "1.5px solid #E2E8F0",
+                          border: "1px solid rgba(255,255,255,0.15)",
                           fontSize: "14px",
-                          color: "#0F172A",
-                          backgroundColor: "#F8FAFC",
+                          color: "#F8FAFC",
+                          backgroundColor: "rgba(255,255,255,0.08)",
                           outline: "none",
                         }}
                       />
                     </div>
                   </div>
 
-                  <div style={whiteCardStyle}>
-                    <p style={{ fontSize: "13px", fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "14px" }}>
+                  <div style={{ ...indigoCardStyle, marginBottom: "12px" }}>
+                    <p style={{ fontSize: "11px", fontWeight: 700, color: "#A78BFA", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "14px" }}>
                       Choose a template
                     </p>
                     <TemplateSelector
@@ -1073,10 +1068,10 @@ export default function DraftGeneratorPage() {
 
                     {templateType === "budget_narrative" && (
                       <div className="mt-6">
-                        <p style={{ fontSize: "13px", fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "10px" }}>
+                        <p style={{ fontSize: "11px", fontWeight: 700, color: "#A78BFA", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "10px" }}>
                           Choose a program
                         </p>
-                        <p className="mb-3 text-sm" style={{ color: "#64748B" }}>
+                        <p className="mb-3 text-sm" style={{ color: "rgba(248,250,252,0.5)" }}>
                           The budget will be scoped to this program&rsquo;s financial
                           data and your Knowledge Base budget justification entries.
                         </p>
@@ -1092,15 +1087,15 @@ export default function DraftGeneratorPage() {
                               width: "100%",
                               padding: "11px 14px",
                               borderRadius: "10px",
-                              border: "1.5px solid #E2E8F0",
+                              border: "1px solid rgba(255,255,255,0.15)",
                               fontSize: "14px",
-                              color: "#0F172A",
-                              backgroundColor: "#F8FAFC",
+                              color: "#F8FAFC",
+                              backgroundColor: "rgba(255,255,255,0.08)",
                               outline: "none",
                             }}
                           />
                           {programs.length === 0 && !loading && (
-                            <p className="text-sm" style={{ color: "#64748B" }}>
+                            <p className="text-sm" style={{ color: "rgba(248,250,252,0.5)" }}>
                               No programs found. Add programs in organization settings
                               first.
                             </p>
@@ -1115,7 +1110,7 @@ export default function DraftGeneratorPage() {
                       disabled={!canGenerate || generating}
                       style={{
                         width: "100%",
-                        background: "linear-gradient(135deg,#7C3AED,#6D28D9)",
+                        background: "linear-gradient(135deg,#7C3AED,#A855F7)",
                         color: "white",
                         border: "none",
                         borderRadius: "12px",
@@ -1128,7 +1123,8 @@ export default function DraftGeneratorPage() {
                         justifyContent: "center",
                         gap: "8px",
                         marginTop: "4px",
-                        boxShadow: "0 4px 12px rgba(124,58,237,0.3)",
+                        boxShadow: "0 6px 20px rgba(124,58,237,0.5)",
+                        letterSpacing: "0.02em",
                       }}
                       className="disabled:cursor-not-allowed disabled:opacity-50"
                     >
@@ -1140,13 +1136,13 @@ export default function DraftGeneratorPage() {
               )}
 
               {generating && (
-                <div className="text-center" style={whiteCardStyle}>
+                <div className="text-center" style={indigoCardStyle}>
                   <div
                     style={{
                       width: "80px",
                       height: "80px",
                       borderRadius: "50%",
-                      background: "conic-gradient(#7C3AED,#00B4D8,#7C3AED)",
+                      background: "conic-gradient(#7C3AED,#A855F7,#7C3AED)",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
@@ -1158,17 +1154,17 @@ export default function DraftGeneratorPage() {
                         width: "64px",
                         height: "64px",
                         borderRadius: "50%",
-                        backgroundColor: "white",
+                        backgroundColor: "#1E1B4B",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
                       }}
                     >
-                      <Sparkles className="h-6 w-6 animate-pulse" style={{ color: "#7C3AED" }} aria-hidden />
+                      <Sparkles className="h-6 w-6 animate-pulse" style={{ color: "#A855F7" }} aria-hidden />
                     </div>
                   </div>
-                  <p style={{ fontSize: "15px", fontWeight: 700, color: "#0F172A" }}>Generating your draft…</p>
-                  <p style={{ fontSize: "13px", color: "#64748B", marginTop: "6px" }}>
+                  <p style={{ fontSize: "15px", fontWeight: 700, color: "#F8FAFC" }}>Generating your draft…</p>
+                  <p style={{ fontSize: "13px", color: "rgba(248,250,252,0.5)", marginTop: "6px" }}>
                     Drawing on your Knowledge Base to write a grounded{" "}
                     {templateType ? humanizeEnum(templateType) : "draft"}. This can take a couple of minutes.
                   </p>
@@ -1182,15 +1178,16 @@ export default function DraftGeneratorPage() {
                   <div
                     role="alert"
                     style={{
-                      backgroundColor: "#FFFBEB",
-                      border: "1px solid #FDE68A",
+                      backgroundColor: "rgba(245,158,11,0.15)",
+                      border: "1px solid rgba(245,158,11,0.3)",
                       borderRadius: "10px",
                       padding: "12px 16px",
-                      color: "#92400E",
+                      color: "#FCD34D",
                       fontSize: "13px",
                       display: "flex",
                       alignItems: "flex-start",
                       gap: "10px",
+                      marginBottom: "12px",
                     }}
                   >
                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
@@ -1203,30 +1200,27 @@ export default function DraftGeneratorPage() {
                 )}
                 <div
                   style={{
-                    backgroundColor: "#FFFFFF",
+                    backgroundColor: "#2D2A6E",
                     borderRadius: "14px",
                     padding: "24px",
-                    boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
-                    border: "1px solid #E2E8F0",
+                    border: "1px solid rgba(255,255,255,0.1)",
                     flex: "1",
                     display: "flex",
                     flexDirection: "column",
+                    boxShadow: "0 4px 16px rgba(0,0,0,0.2)",
                   }}
                 >
                   <div
                     style={{
-                      fontSize: "13px",
-                      fontWeight: 700,
-                      color: "#64748B",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.06em",
-                      marginBottom: "16px",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "space-between",
+                      marginBottom: "16px",
                     }}
                   >
-                    <span>Review &amp; edit</span>
+                    <span style={{ fontSize: "11px", fontWeight: 700, color: "#A78BFA", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                      Review &amp; edit
+                    </span>
                     {editable && (
                       <div className="flex items-center gap-2">
                         <button
@@ -1238,12 +1232,12 @@ export default function DraftGeneratorPage() {
                           disabled={!draftText.trim() || dnaScoring}
                           title="Score this draft with Grant DNA"
                           style={{
-                            backgroundColor: "#F0F9FF",
-                            color: "#0077B6",
-                            border: "1px solid #BAE6FD",
+                            backgroundColor: "rgba(0,119,182,0.2)",
+                            color: "#38BDF8",
+                            border: "1px solid rgba(56,189,248,0.3)",
                             borderRadius: "8px",
-                            padding: "8px 16px",
-                            fontSize: "13px",
+                            padding: "7px 14px",
+                            fontSize: "12px",
                             fontWeight: 600,
                             cursor: "pointer",
                           }}
@@ -1258,12 +1252,12 @@ export default function DraftGeneratorPage() {
                           disabled={!draftText.trim() || generating || humanizing}
                           title="Rewrite this draft to read like a human wrote it"
                           style={{
-                            backgroundColor: "#F5F3FF",
-                            color: "#7C3AED",
-                            border: "1px solid #DDD6FE",
+                            backgroundColor: "rgba(124,58,237,0.2)",
+                            color: "#C084FC",
+                            border: "1px solid rgba(192,132,252,0.3)",
                             borderRadius: "8px",
-                            padding: "8px 16px",
-                            fontSize: "13px",
+                            padding: "7px 14px",
+                            fontSize: "12px",
                             fontWeight: 600,
                             cursor: "pointer",
                           }}
@@ -1275,11 +1269,11 @@ export default function DraftGeneratorPage() {
                       </div>
                     )}
                   </div>
-                  <p style={{ fontSize: "13px", color: "#64748B", marginBottom: "16px" }}>
+                  <p style={{ fontSize: "13px", color: "rgba(248,250,252,0.5)", marginBottom: "16px" }}>
                     Humanize rewrites the draft in an authentic human voice (no em dashes, no AI clichés, varied rhythm), grounded in your verified data.
                   </p>
 
-                  <div style={{ flex: "1", minHeight: "500px" }}>
+                  <div style={{ flex: "1", minHeight: "400px" }}>
                     <DraftEditor
                       value={draftText}
                       onChange={setDraftText}
@@ -1287,50 +1281,37 @@ export default function DraftGeneratorPage() {
                       saving={saving}
                       readOnly={!editable}
                       label="Generated draft"
+                      dark
                     />
                   </div>
 
                   {readability && (
-                    <div className="mt-3 flex flex-wrap items-center gap-2 border-t pt-3" style={{ borderColor: "#E2E8F0" }}>
-                      <span
-                        className={
-                          "inline-flex items-center rounded-md px-2 py-1 text-xs font-medium " +
-                          (readability.gradeLevel >= 10 && readability.gradeLevel <= 12
-                            ? "bg-green-100 text-green-800"
-                            : "bg-yellow-100 text-yellow-800")
-                        }
-                      >
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "16px", padding: "10px 0 0", borderTop: "1px solid rgba(255,255,255,0.06)", marginTop: "12px" }}>
+                      <span style={{ fontSize: "12px", color: "rgba(248,250,252,0.4)", display: "flex", alignItems: "center", gap: "4px" }}>
                         Grade {readability.gradeLevel.toFixed(1)} reading level
                       </span>
-                      <span
-                        className={
-                          "inline-flex items-center rounded-md px-2 py-1 text-xs font-medium " +
-                          (readability.passivePercent <= 15
-                            ? "bg-green-100 text-green-800"
-                            : "bg-yellow-100 text-yellow-800")
-                        }
-                      >
+                      <span style={{ fontSize: "12px", color: "rgba(248,250,252,0.4)", display: "flex", alignItems: "center", gap: "4px" }}>
                         {readability.passivePercent.toFixed(0)}% passive voice
                       </span>
-                      <span className="inline-flex items-center rounded-md bg-navy-100 px-2 py-1 text-xs font-medium text-navy-700">
+                      <span style={{ fontSize: "12px", color: "rgba(248,250,252,0.4)", display: "flex", alignItems: "center", gap: "4px" }}>
                         {readability.wordCount.toLocaleString()} words
                       </span>
-                      <span className="ml-auto text-xs" style={{ color: "#94A3B8" }}>
+                      <span style={{ fontSize: "12px", color: "rgba(248,250,252,0.4)", marginLeft: "auto" }}>
                         Ideal: Grade 10–12, &lt;15% passive
                       </span>
                     </div>
                   )}
 
-                  <div className="mt-3 flex flex-wrap items-center gap-2 border-t pt-3" style={{ borderColor: "#E2E8F0" }}>
+                  <div className="mt-3 flex flex-wrap items-center gap-2 border-t pt-3" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
                     <button
                       type="button"
                       onClick={handleCopyToClipboard}
                       disabled={!draftText.trim()}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-navy-200 px-3 py-1.5 text-xs font-medium text-navy-700 transition hover:bg-navy-50 disabled:cursor-not-allowed disabled:opacity-50"
-                      style={{ backgroundColor: "#FFFFFF" }}
+                      className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
+                      style={{ backgroundColor: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(248,250,252,0.7)" }}
                     >
                       {copiedToClipboard ? (
-                        <Check className="h-3.5 w-3.5 text-green-600" aria-hidden />
+                        <Check className="h-3.5 w-3.5 text-green-400" aria-hidden />
                       ) : (
                         <Clipboard className="h-3.5 w-3.5" aria-hidden />
                       )}
@@ -1340,8 +1321,8 @@ export default function DraftGeneratorPage() {
                       type="button"
                       onClick={handleDownloadTxt}
                       disabled={!draftText.trim()}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-navy-200 px-3 py-1.5 text-xs font-medium text-navy-700 transition hover:bg-navy-50 disabled:cursor-not-allowed disabled:opacity-50"
-                      style={{ backgroundColor: "#FFFFFF" }}
+                      className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
+                      style={{ backgroundColor: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(248,250,252,0.7)" }}
                     >
                       <Download className="h-3.5 w-3.5" aria-hidden />
                       Download .txt
@@ -1350,8 +1331,8 @@ export default function DraftGeneratorPage() {
                       type="button"
                       onClick={handleDownloadPdf}
                       disabled={!draftText.trim()}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-navy-200 px-3 py-1.5 text-xs font-medium text-navy-700 transition hover:bg-navy-50 disabled:cursor-not-allowed disabled:opacity-50"
-                      style={{ backgroundColor: "#FFFFFF" }}
+                      className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
+                      style={{ backgroundColor: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(248,250,252,0.7)" }}
                     >
                       <Download className="h-3.5 w-3.5" aria-hidden />
                       Download PDF
@@ -1360,13 +1341,13 @@ export default function DraftGeneratorPage() {
                       type="button"
                       disabled
                       title="Connect Gmail to enable"
-                      className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-lg border border-navy-200 px-3 py-1.5 text-xs font-medium opacity-50"
-                      style={{ backgroundColor: "#FFFFFF", color: "#94A3B8" }}
+                      className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium opacity-50"
+                      style={{ backgroundColor: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(248,250,252,0.4)" }}
                     >
                       <MailIcon className="h-3.5 w-3.5" aria-hidden />
                       Email draft
                     </button>
-                    <span className="text-xs" style={{ color: "#94A3B8" }}>Connect Gmail to enable email</span>
+                    <span className="text-xs" style={{ color: "rgba(248,250,252,0.4)" }}>Connect Gmail to enable email</span>
                   </div>
                 </div>
               </div>
@@ -1379,12 +1360,11 @@ export default function DraftGeneratorPage() {
                     alignSelf: "flex-start",
                     position: "sticky",
                     top: "24px",
-                    backgroundColor: "#1A2B3C",
+                    background: "linear-gradient(135deg,#064E3B,#065F46)",
                     borderRadius: "14px",
                     padding: "20px",
-                    boxShadow: "0 4px 16px rgba(0,0,0,0.15)",
-                    border: "1px solid rgba(255,255,255,0.08)",
-                    color: "#F8FAFC",
+                    boxShadow: "0 4px 16px rgba(0,0,0,0.3)",
+                    border: "1px solid rgba(16,185,129,0.2)",
                   }}
                 >
                   <p
@@ -1392,7 +1372,7 @@ export default function DraftGeneratorPage() {
                       fontSize: "10px",
                       fontWeight: 700,
                       letterSpacing: "0.15em",
-                      color: "#00B4D8",
+                      color: "#34D399",
                       textTransform: "uppercase",
                       marginBottom: "16px",
                     }}
@@ -1402,10 +1382,11 @@ export default function DraftGeneratorPage() {
 
                   {confidence != null ? (
                     <>
-                      <p style={{ fontSize: "40px", fontWeight: 800, color: "#F8FAFC", lineHeight: 1 }}>
+                      <p style={{ fontSize: "44px", fontWeight: 800, color: "#FFFFFF", lineHeight: 1 }}>
                         {Math.round(confidence)}
+                        <span style={{ fontSize: "20px", color: "rgba(255,255,255,0.4)" }}>/100</span>
                       </p>
-                      <div style={{ backgroundColor: "rgba(255,255,255,0.1)", borderRadius: "4px", height: "8px", margin: "12px 0 4px" }}>
+                      <div style={{ backgroundColor: "rgba(255,255,255,0.1)", borderRadius: "4px", height: "8px", margin: "14px 0 6px" }}>
                         <div
                           style={{
                             width: `${Math.max(0, Math.min(100, Math.round(confidence)))}%`,
@@ -1415,18 +1396,18 @@ export default function DraftGeneratorPage() {
                           }}
                         />
                       </div>
-                      <p style={{ fontSize: "12px", color: "rgba(248,250,252,0.6)", lineHeight: "1.5" }}>
+                      <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.6)", lineHeight: "1.6", marginTop: "10px" }}>
                         {confidenceStatusText(confidence)}
                         {belowThreshold && " This draft falls below your review threshold."}
                       </p>
                     </>
                   ) : (
-                    <p style={{ fontSize: "12px", color: "rgba(248,250,252,0.6)", lineHeight: "1.5" }}>
+                    <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.6)", lineHeight: "1.6", marginTop: "10px" }}>
                       No confidence score recorded for this draft.
                     </p>
                   )}
                   {rescoreMessage && (
-                    <p style={{ fontSize: "12px", color: "#00B4D8", marginTop: "8px", fontWeight: 600 }}>
+                    <p style={{ fontSize: "13px", color: "#34D399", marginTop: "8px", fontWeight: 600 }}>
                       {rescoreMessage}
                     </p>
                   )}
@@ -1437,15 +1418,15 @@ export default function DraftGeneratorPage() {
                       title="Recalculate score from current draft text"
                       style={{
                         width: "100%",
-                        backgroundColor: "rgba(0,180,216,0.15)",
-                        color: "#00B4D8",
-                        border: "1px solid rgba(0,180,216,0.2)",
+                        backgroundColor: "rgba(52,211,153,0.15)",
+                        color: "#34D399",
+                        border: "1px solid rgba(52,211,153,0.3)",
                         borderRadius: "8px",
-                        padding: "9px",
+                        padding: "10px",
                         fontSize: "13px",
                         fontWeight: 600,
                         cursor: "pointer",
-                        marginTop: "12px",
+                        marginTop: "14px",
                       }}
                       className="inline-flex items-center justify-center gap-1.5"
                     >
@@ -1456,15 +1437,15 @@ export default function DraftGeneratorPage() {
                   {humanizationStatus === "humanized" && (
                     <span
                       style={{
-                        backgroundColor: "rgba(16,185,129,0.15)",
-                        color: "#10B981",
-                        border: "1px solid rgba(16,185,129,0.2)",
+                        backgroundColor: "rgba(52,211,153,0.15)",
+                        color: "#34D399",
+                        border: "1px solid rgba(52,211,153,0.2)",
                         borderRadius: "6px",
-                        padding: "4px 10px",
+                        padding: "4px 12px",
                         fontSize: "11px",
                         fontWeight: 700,
                         display: "inline-block",
-                        marginTop: "8px",
+                        marginTop: "10px",
                       }}
                     >
                       Humanized
@@ -1606,131 +1587,133 @@ export default function DraftGeneratorPage() {
             </div>
           </div>
 
-          <div style={{ ...statCardStyle, borderRadius: "14px", overflow: "hidden", marginTop: "16px" }}>
+          <div
+            style={{
+              marginTop: "16px",
+              backgroundColor: "#2D2A6E",
+              borderRadius: "14px",
+              overflow: "hidden",
+              border: "1px solid rgba(255,255,255,0.1)",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+            }}
+          >
             <div
+              role="row"
               style={{
-                backgroundColor: "#F8FAFC",
-                padding: "12px 20px",
+                backgroundColor: "rgba(0,0,0,0.2)",
+                padding: "14px 20px",
                 display: "flex",
-                borderBottom: "1px solid #E2E8F0",
+                gap: "24px",
+                borderBottom: "1px solid rgba(255,255,255,0.06)",
               }}
             >
-              <span style={{ fontSize: "11px", fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                Recent Drafts
+              <span style={{ flex: 2, fontSize: "11px", fontWeight: 700, color: "rgba(248,250,252,0.3)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                Opportunity
               </span>
+              <span style={{ flex: 1, fontSize: "11px", fontWeight: 700, color: "rgba(248,250,252,0.3)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                Template
+              </span>
+              <span style={{ flex: "0 0 90px", fontSize: "11px", fontWeight: 700, color: "rgba(248,250,252,0.3)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                Confidence
+              </span>
+              <span style={{ flex: "0 0 110px", fontSize: "11px", fontWeight: 700, color: "rgba(248,250,252,0.3)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                Source
+              </span>
+              <span style={{ flex: "0 0 90px", fontSize: "11px", fontWeight: 700, color: "rgba(248,250,252,0.3)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                Created
+              </span>
+              <span style={{ flex: "0 0 50px" }} />
             </div>
             {recentDraftsLoading ? (
-              <div className="p-5 text-sm" style={{ color: "#94A3B8" }}>Loading recent drafts…</div>
+              <div className="p-5 text-sm" style={{ color: "rgba(248,250,252,0.4)" }}>Loading recent drafts…</div>
             ) : recentDrafts.length === 0 ? (
-              <div className="p-5 text-sm" style={{ color: "#94A3B8" }}>
+              <div className="p-5 text-sm" style={{ color: "rgba(248,250,252,0.4)" }}>
                 No drafts generated yet. Generate one above to see it here.
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-navy-100 text-sm">
-                  <thead>
-                    <tr style={{ backgroundColor: "#F8FAFC" }}>
-                      <th className="px-5 py-2.5 text-left" style={{ fontSize: "11px", fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                        Opportunity
-                      </th>
-                      <th className="px-4 py-2.5 text-left" style={{ fontSize: "11px", fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                        Template
-                      </th>
-                      <th className="px-4 py-2.5 text-left" style={{ fontSize: "11px", fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                        Confidence
-                      </th>
-                      <th className="px-4 py-2.5 text-left" style={{ fontSize: "11px", fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                        Source
-                      </th>
-                      <th className="px-4 py-2.5 text-left" style={{ fontSize: "11px", fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                        Created
-                      </th>
-                      <th className="px-4 py-2.5" />
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-navy-100">
-                    {recentDrafts.map((draft, i) => (
-                      <tr key={draft.id} className="hover:bg-navy-50" style={{ backgroundColor: i % 2 === 0 ? "#FFFFFF" : "#F8FAFC" }}>
-                        <td className="px-5 py-3 max-w-xs truncate font-medium" style={{ color: "#0F172A" }}>
-                          {draft.opportunityName}
-                        </td>
-                        <td className="px-4 py-3 text-navy-600">
-                          {humanizeEnum(draft.templateType)}
-                        </td>
-                        <td className="px-4 py-3">
-                          {draft.confidenceScore != null ? (
-                            <span
-                              style={{
-                                backgroundColor: tableConfidenceBadge(draft.confidenceScore).bg,
-                                color: tableConfidenceBadge(draft.confidenceScore).color,
-                                borderRadius: "6px",
-                                padding: "2px 8px",
-                                fontSize: "12px",
-                                fontWeight: 700,
-                              }}
-                            >
-                              {draft.confidenceScore}/100
-                            </span>
-                          ) : (
-                            <span style={{ color: "#94A3B8", fontSize: "12px" }}>—</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          {draft.source === "generated" ? (
-                            <span
-                              style={{
-                                backgroundColor: "#F0F9FF",
-                                color: "#0077B6",
-                                borderRadius: "6px",
-                                padding: "2px 8px",
-                                fontSize: "11px",
-                                fontWeight: 600,
-                              }}
-                            >
-                              AI Generated
-                            </span>
-                          ) : draft.source === "humanized" ? (
-                            <span
-                              style={{
-                                backgroundColor: "#F5F3FF",
-                                color: "#7C3AED",
-                                borderRadius: "6px",
-                                padding: "2px 8px",
-                                fontSize: "11px",
-                                fontWeight: 600,
-                              }}
-                            >
-                              Humanized
-                            </span>
-                          ) : (
-                            <span className="text-xs" style={{ color: "#94A3B8" }}>{humanizeEnum(draft.source)}</span>
-                          )}
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-3" style={{ color: "#94A3B8" }}>
-                          {new Date(draft.createdAt).toLocaleDateString()}
-                        </td>
-                        <td className="px-4 py-3">
-                          <button
-                            type="button"
-                            onClick={() => setOpportunityId(draft.opportunityId)}
-                            style={{ color: "#0077B6", fontSize: "13px", fontWeight: 600, background: "none", border: "none", cursor: "pointer" }}
-                          >
-                            Open
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              recentDrafts.map((draft) => (
+                <div
+                  key={draft.id}
+                  role="row"
+                  style={{ padding: "12px 20px", display: "flex", alignItems: "center", gap: "16px", borderBottom: "1px solid rgba(255,255,255,0.04)" }}
+                >
+                  <span className="truncate" style={{ flex: 2, fontSize: "13px", fontWeight: 600, color: "rgba(248,250,252,0.85)" }}>
+                    {draft.opportunityName}
+                  </span>
+                  <span style={{ flex: 1, fontSize: "12px", color: "rgba(248,250,252,0.5)" }}>
+                    {humanizeEnum(draft.templateType)}
+                  </span>
+                  <span style={{ flex: "0 0 90px" }}>
+                    {draft.confidenceScore != null ? (
+                      <span
+                        style={{
+                          backgroundColor: tableConfidenceBadge(draft.confidenceScore).bg,
+                          color: tableConfidenceBadge(draft.confidenceScore).color,
+                          borderRadius: "6px",
+                          padding: "2px 8px",
+                          fontSize: "12px",
+                          fontWeight: 700,
+                        }}
+                      >
+                        {draft.confidenceScore}/100
+                      </span>
+                    ) : (
+                      <span style={{ color: "rgba(248,250,252,0.3)", fontSize: "12px" }}>—</span>
+                    )}
+                  </span>
+                  <span style={{ flex: "0 0 110px" }}>
+                    {draft.source === "generated" ? (
+                      <span
+                        style={{
+                          backgroundColor: "rgba(56,189,248,0.15)",
+                          color: "#38BDF8",
+                          borderRadius: "6px",
+                          padding: "2px 8px",
+                          fontSize: "11px",
+                          fontWeight: 600,
+                        }}
+                      >
+                        AI Generated
+                      </span>
+                    ) : draft.source === "humanized" ? (
+                      <span
+                        style={{
+                          backgroundColor: "rgba(192,132,252,0.15)",
+                          color: "#C084FC",
+                          borderRadius: "6px",
+                          padding: "2px 8px",
+                          fontSize: "11px",
+                          fontWeight: 600,
+                        }}
+                      >
+                        Humanized
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: "11px", color: "rgba(248,250,252,0.4)" }}>{humanizeEnum(draft.source)}</span>
+                    )}
+                  </span>
+                  <span style={{ flex: "0 0 90px", fontSize: "12px", color: "rgba(248,250,252,0.4)" }}>
+                    {new Date(draft.createdAt).toLocaleDateString()}
+                  </span>
+                  <span style={{ flex: "0 0 50px" }}>
+                    <button
+                      type="button"
+                      onClick={() => setOpportunityId(draft.opportunityId)}
+                      style={{ color: "#A78BFA", fontSize: "13px", fontWeight: 600, background: "none", border: "none", cursor: "pointer" }}
+                    >
+                      Open
+                    </button>
+                  </span>
+                </div>
+              ))
             )}
           </div>
 
           {opportunityId && (
-            <Card
-              title="Version history"
-              style={{ ...statCardStyle, borderRadius: "14px", padding: "24px", marginTop: "16px" }}
-            >
+            <div style={{ marginTop: "12px", backgroundColor: "#2D2A6E", borderRadius: "14px", padding: "20px", border: "1px solid rgba(255,255,255,0.1)" }}>
+              <p style={{ fontSize: "13px", fontWeight: 700, color: "rgba(248,250,252,0.8)", marginBottom: "14px" }}>
+                Version history
+              </p>
               <DraftsHistoryPanel
                 versions={versions}
                 activeVersionId={activeVersionId}
@@ -1738,8 +1721,9 @@ export default function DraftGeneratorPage() {
                 onView={loadVersion}
                 onRevert={editable ? handleRevert : undefined}
                 reverting={reverting}
+                dark
               />
-            </Card>
+            </div>
           )}
         </>
       )}

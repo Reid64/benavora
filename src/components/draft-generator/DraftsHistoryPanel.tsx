@@ -40,6 +40,8 @@ export type DraftsHistoryPanelProps = {
   onRevert?: (version: DraftVersionItem) => void;
   /** Revert in progress (disables actions). */
   reverting?: boolean;
+  /** Style version cards for a dark card background (draft generator page). Defaults to light. */
+  dark?: boolean;
 };
 
 const HUMANIZATION_BADGE: Record<
@@ -81,6 +83,7 @@ export function DraftsHistoryPanel({
   onView,
   onRevert,
   reverting = false,
+  dark = false,
 }: DraftsHistoryPanelProps) {
   // Two selected version ids for comparison (most-recent-first selection).
   const [compareIds, setCompareIds] = useState<string[]>([]);
@@ -119,15 +122,23 @@ export function DraftsHistoryPanel({
 
   if (loading) {
     return (
-      <p className="text-sm text-navy-500">Loading version history...</p>
+      <p
+        className={dark ? undefined : "text-sm text-navy-500"}
+        style={dark ? { fontSize: "13px", color: "rgba(248,250,252,0.5)" } : undefined}
+      >
+        Loading version history...
+      </p>
     );
   }
 
   if (versions.length === 0) {
     return (
       <div className="flex flex-col items-center gap-2 py-6 text-center">
-        <History className="h-6 w-6 text-navy-300" aria-hidden />
-        <p className="text-sm text-navy-500">
+        <History className={dark ? "h-6 w-6" : "h-6 w-6 text-navy-300"} style={dark ? { color: "rgba(248,250,252,0.3)" } : undefined} aria-hidden />
+        <p
+          className={dark ? undefined : "text-sm text-navy-500"}
+          style={dark ? { fontSize: "13px", color: "rgba(248,250,252,0.5)" } : undefined}
+        >
           No saved versions yet. Generate a draft and it will be saved here
           automatically.
         </p>
@@ -138,7 +149,10 @@ export function DraftsHistoryPanel({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs text-navy-500">
+        <span
+          className={dark ? undefined : "text-xs text-navy-500"}
+          style={dark ? { fontSize: "12px", color: "rgba(248,250,252,0.5)" } : undefined}
+        >
           {versions.length} {versions.length === 1 ? "version" : "versions"} ·
           newest first
         </span>
@@ -166,17 +180,35 @@ export function DraftsHistoryPanel({
           return (
             <li
               key={version.id}
-              className={cn(
-                "rounded-lg border px-3 py-2.5 transition",
-                isActive
-                  ? "border-teal-400/40 bg-teal-400/5"
-                  : "border-navy-200 hover:border-navy-300",
-              )}
+              className={
+                dark
+                  ? "transition"
+                  : cn(
+                      "rounded-lg border px-3 py-2.5 transition",
+                      isActive
+                        ? "border-teal-400/40 bg-teal-400/5"
+                        : "border-navy-200 hover:border-navy-300",
+                    )
+              }
+              style={
+                dark
+                  ? {
+                      backgroundColor: isActive ? "rgba(168,85,247,0.1)" : "rgba(0,0,0,0.15)",
+                      borderRadius: "10px",
+                      padding: "14px",
+                      marginBottom: "8px",
+                      border: isActive ? "1px solid rgba(168,85,247,0.4)" : "1px solid rgba(255,255,255,0.06)",
+                    }
+                  : undefined
+              }
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-semibold text-navy-900">
+                    <span
+                      className={dark ? undefined : "text-sm font-semibold text-navy-900"}
+                      style={dark ? { fontSize: "14px", fontWeight: 700, color: "rgba(248,250,252,0.9)" } : undefined}
+                    >
                       Version {version.versionNumber}
                     </span>
                     {isActive && (
@@ -191,7 +223,10 @@ export function DraftsHistoryPanel({
                     </Badge>
                     <Badge color={human.color}>{human.label}</Badge>
                   </div>
-                  <p className="mt-1 text-xs text-navy-500">
+                  <p
+                    className={dark ? undefined : "mt-1 text-xs text-navy-500"}
+                    style={dark ? { marginTop: "4px", fontSize: "12px", color: "rgba(248,250,252,0.4)" } : undefined}
+                  >
                     {formatTimestamp(version.createdAt)} ·{" "}
                     {humanizeEnum(version.templateType)}
                     {version.source !== "generated" && (
@@ -199,7 +234,10 @@ export function DraftsHistoryPanel({
                     )}
                   </p>
                 </div>
-                <label className="flex shrink-0 items-center gap-1.5 text-xs text-navy-500">
+                <label
+                  className={dark ? "flex shrink-0 items-center gap-1.5" : "flex shrink-0 items-center gap-1.5 text-xs text-navy-500"}
+                  style={dark ? { fontSize: "12px", color: "rgba(248,250,252,0.5)" } : undefined}
+                >
                   <input
                     type="checkbox"
                     checked={isSelected}
