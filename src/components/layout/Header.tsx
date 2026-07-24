@@ -55,7 +55,7 @@ const MENU_LINKS = [
 const NAV_LINK_ACTIVE =
   "px-4 py-2 text-sm font-semibold text-[#0077B6] border-b-2 border-[#0077B6] rounded-none -mb-px";
 const NAV_LINK_INACTIVE =
-  "px-4 py-2 text-sm font-semibold text-slate-600 hover:text-[#0077B6] hover:bg-slate-50 rounded-lg transition-colors";
+  "px-4 py-2 text-sm font-semibold text-[rgba(248,250,252,0.6)] hover:text-white hover:bg-[rgba(255,255,255,0.08)] rounded-lg transition-colors";
 
 /** Formats a raw count per the nav-badge display rule: 0 hides, 10+ shows "9+". */
 function badgeLabel(count: number): string {
@@ -169,13 +169,25 @@ export function Header({ userEmail, orgName, orgLogoUrl, onMenuClick }: HeaderPr
   const initials = orgInitials(orgName, userEmail);
 
   return (
-    <header className="sticky top-0 z-30 bg-white border-b border-border shadow-sm">
-      <div className="flex items-center h-16 px-6">
+    <header
+      style={{
+        position: "sticky",
+        top: 0,
+        zIndex: 30,
+        backgroundColor: "#0F172A",
+        height: "56px",
+        display: "flex",
+        alignItems: "center",
+        padding: "0 24px",
+        borderBottom: "1px solid rgba(255,255,255,0.08)",
+        flexShrink: 0,
+      }}
+    >
         <div className="mr-4">
           <button
             type="button"
             onClick={onMenuClick}
-            className="p-2 rounded-lg text-slate-600 hover:bg-slate-100 lg:hidden"
+            className="p-2 rounded-lg text-[rgba(248,250,252,0.8)] hover:bg-[rgba(255,255,255,0.08)] lg:hidden"
             aria-label="Open navigation"
           >
             <Menu className="h-5 w-5" />
@@ -224,7 +236,7 @@ export function Header({ userEmail, orgName, orgLogoUrl, onMenuClick }: HeaderPr
                 href={AUTONOMOUS_DRAFTS_HREF}
                 className="inline-flex items-center gap-1.5 text-xs font-medium"
                 style={{
-                  color: pathname === AUTONOMOUS_DRAFTS_HREF ? "#0077B6" : "#64748B",
+                  color: pathname === AUTONOMOUS_DRAFTS_HREF ? "#0077B6" : "rgba(248,250,252,0.6)",
                 }}
               >
                 AI Drafts Ready
@@ -255,7 +267,7 @@ export function Header({ userEmail, orgName, orgLogoUrl, onMenuClick }: HeaderPr
               aria-expanded={menuOpen}
               aria-label="Organization menu"
             >
-              <span className="hidden text-sm font-medium text-slate-700 sm:inline">
+              <span className="hidden text-sm font-medium text-[rgba(248,250,252,0.8)] sm:inline">
                 {orgName || "Your organization"}
               </span>
               {orgLogoUrl ? (
@@ -263,11 +275,11 @@ export function Header({ userEmail, orgName, orgLogoUrl, onMenuClick }: HeaderPr
                 <img
                   src={orgLogoUrl}
                   alt={orgName || "Organization"}
-                  className="w-9 h-9 rounded-full object-cover ring-2 ring-[#00B4D8] ring-offset-2"
+                  className="w-9 h-9 rounded-full object-cover ring-2 ring-[#00B4D8] ring-offset-2 ring-offset-[#0F172A]"
                 />
               ) : (
                 <span
-                  className="w-9 h-9 rounded-full bg-[#0077B6] text-white flex items-center justify-center text-sm font-bold ring-2 ring-[#00B4D8] ring-offset-2"
+                  className="w-9 h-9 rounded-full bg-[#0077B6] text-white flex items-center justify-center text-sm font-bold ring-2 ring-[#00B4D8] ring-offset-2 ring-offset-[#0F172A]"
                   aria-hidden
                 >
                   {initials}
@@ -315,7 +327,6 @@ export function Header({ userEmail, orgName, orgLogoUrl, onMenuClick }: HeaderPr
             )}
           </div>
         </div>
-      </div>
     </header>
   );
 }
