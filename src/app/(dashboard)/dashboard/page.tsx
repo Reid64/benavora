@@ -4,7 +4,6 @@ import { redirect } from "next/navigation";
 import { addDays, differenceInCalendarDays, format } from "date-fns";
 import {
   BookOpen,
-  Compass,
   FileText,
   Search,
   Sparkles,
@@ -12,7 +11,6 @@ import {
   Zap,
 } from "lucide-react";
 
-import { FlightPathHUD } from "@/components/dashboard/FlightPathHUD";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { LoadingCard } from "@/components/ui/LoadingCard";
 import { createClient } from "@/lib/supabase/server";
@@ -20,7 +18,7 @@ import {
   analyzeOutcomes,
   type OutcomeInput,
 } from "@/lib/ai/learning/outcome-analyzer";
-import { formatCurrency, formatRelative, humanizeEnum } from "@/lib/utils/formatters";
+import { formatRelative, humanizeEnum } from "@/lib/utils/formatters";
 
 // Dashboard reflects live session-scoped data; never cache (CLAUDE.md).
 export const dynamic = "force-dynamic";
@@ -65,6 +63,8 @@ type AgentDecisionRow = {
   created_at: string;
 };
 
+type OnboardingProgress = { completed_steps?: string[] } | null;
+
 const URGENCY_COLOR: Record<string, string> = {
   immediate: "#DC2626",
   urgent: "#D97706",
@@ -84,16 +84,6 @@ function metricCount(n: number): string {
   return n === 0 ? "-" : String(n);
 }
 
-function metricCurrency(n: number): string {
-  return n === 0 ? "-" : formatCurrency(n);
-}
-
-/** Formats a 0-100 rate, or "-" when analyzeOutcomes withheld it (below
- * MIN_OUTCOMES_FOR_RATE — Behavioral Contracts §10 "insufficient data" rule). */
-function ratePercent(n: number | null): string {
-  return n == null ? "-" : `${n}%`;
-}
-
 function truncate(s: string, max: number): string {
   return s.length > max ? `${s.slice(0, max)}…` : s;
 }
@@ -105,13 +95,6 @@ function decisionDotColor(agentId: string): string {
   if (agentId.startsWith("ag-18")) return "#F59E0B";
   if (agentId.startsWith("ag-19")) return "#10B981";
   return "#6B7280";
-}
-
-function confidenceBadgeColor(score: number | null): string {
-  if (score == null) return "#6B7280";
-  if (score >= 70) return "#10B981";
-  if (score >= 50) return "#F59E0B";
-  return "#EF4444";
 }
 
 const cardStyle: CSSProperties = {
@@ -144,8 +127,8 @@ function PanelHeader({ children }: { children: ReactNode }) {
         fontSize: "12px",
         fontWeight: 700,
         color: "#0F172A",
-        textTransform: "uppercase",
         letterSpacing: "0.05em",
+        textTransform: "uppercase",
         marginBottom: "14px",
       }}
     >
@@ -154,7 +137,7 @@ function PanelHeader({ children }: { children: ReactNode }) {
   );
 }
 
-/** Today's Priority Actions — independently fetched so it can stream/fail on its own. */
+/** Today's Priorities — independently fetched so it can stream/fail on its own. */
 async function ActionItemsSection({ orgId }: { orgId: string }) {
   const supabase = createClient();
 
@@ -198,63 +181,49 @@ async function ActionItemsSection({ orgId }: { orgId: string }) {
     const reputationAlertsCount = reputationAlertsRes.count ?? 0;
 
     const actionItems = [
-      { dot: "#F59E0B", text: "New opportunities discovered", count: metricCount(discoveryMatchesCount), href: "/opportunities" },
-      { dot: "#6B48CC", text: "Drafts needing attention", count: metricCount(draftsGenerated), href: "/draft-generator" },
-      { dot: "#0077B6", text: "Deadlines approaching", count: metricCount(deadlinesThisWeek), href: "/deadlines" },
-      { dot: "#0EA5E9", text: "Funder alerts requiring review", count: metricCount(reputationAlertsCount), href: "/alerts" },
-      { dot: "#1A2B3C", text: "Applications awaiting review", count: metricCount(applications.filter((a) => a.submitted_at === null).length), href: "/applications" },
+      { color: "#F59E0B", text: "New opportunities discovered", count: metricCount(discoveryMatchesCount), href: "/opportunities" },
+      { color: "#6B48CC", text: "Drafts needing attention", count: metricCount(draftsGenerated), href: "/draft-generator" },
+      { color: "#0077B6", text: "Deadlines approaching", count: metricCount(deadlinesThisWeek), href: "/deadlines" },
+      { color: "#0EA5E9", text: "Funder alerts requiring review", count: metricCount(reputationAlertsCount), href: "/alerts" },
+      { color: "#1A2B3C", text: "Applications awaiting review", count: metricCount(applications.filter((a) => a.submitted_at === null).length), href: "/applications" },
     ];
 
     return (
-      <div style={{ ...cardStyle, padding: "20px", marginBottom: "16px" }}>
-        <PanelHeader>Today&rsquo;s Priority Actions</PanelHeader>
+      <div style={{ backgroundColor: "#FFFFFF", borderRadius: "12px", padding: "20px", boxShadow: "0 2px 8px rgba(0,0,0,0.08)", border: "1px solid #E2E8F0", marginBottom: "16px" }}>
+        <PanelHeader>Today&rsquo;s Priorities</PanelHeader>
         {actionItems.map((item) => (
-          <div
+          <Link
             key={item.text}
+            href={item.href}
             style={{
               display: "flex",
+              justifyContent: "space-between",
               alignItems: "center",
-              gap: "10px",
-              padding: "10px 0",
+              padding: "8px 0",
               borderBottom: "1px solid #F1F5F9",
+              textDecoration: "none",
             }}
           >
-            <div style={{ width: "8px", height: "8px", borderRadius: "50%", flexShrink: 0, backgroundColor: item.dot }} />
-            <div style={{ flex: 1, fontSize: "13px", color: "#334155" }}>{item.text}</div>
-            <div
+            <span style={{ fontSize: "13px", color: "#374151" }}>{item.text}</span>
+            <span
               style={{
                 fontSize: "11px",
                 fontWeight: 700,
                 color: "#FFFFFF",
-                backgroundColor: item.dot,
+                backgroundColor: item.color,
                 borderRadius: "999px",
                 padding: "2px 8px",
+                flexShrink: 0,
               }}
             >
               {item.count}
-            </div>
-            <Link
-              href={item.href}
-              style={{
-                backgroundColor: "#0077B6",
-                color: "#FFFFFF",
-                border: "none",
-                borderRadius: "8px",
-                padding: "6px 12px",
-                fontSize: "12px",
-                fontWeight: 600,
-                cursor: "pointer",
-                textDecoration: "none",
-              }}
-            >
-              Go
-            </Link>
-          </div>
+            </span>
+          </Link>
         ))}
       </div>
     );
   } catch {
-    return <SectionError message="Couldn't load today's priority actions." />;
+    return <SectionError message="Couldn't load today's priorities." />;
   }
 }
 
@@ -318,6 +287,8 @@ export default async function DashboardPage() {
     strategicRecommendationsRes,
     autoapplyQueueRes,
     organizationRes,
+    agentRunsCountRes,
+    donorDiscoveryCountRes,
   ] = await Promise.all([
     supabase
       .from("opportunities")
@@ -364,7 +335,19 @@ export default async function DashboardPage() {
       .select("id", { count: "exact", head: true })
       .eq("organization_id", orgId)
       .eq("status", "pending"),
-    supabase.from("organizations").select("name").eq("id", orgId).single(),
+    supabase
+      .from("organizations")
+      .select("name, onboarding_progress")
+      .eq("id", orgId)
+      .single(),
+    supabase
+      .from("agent_runs")
+      .select("id", { count: "exact", head: true })
+      .eq("organization_id", orgId),
+    supabase
+      .from("donor_discovery_prospects")
+      .select("id", { count: "exact", head: true })
+      .eq("organization_id", orgId),
   ]);
 
   const totalOpportunities = oppCountRes.count ?? 0;
@@ -375,9 +358,13 @@ export default async function DashboardPage() {
   const strategicRecommendations = (strategicRecommendationsRes.data ??
     []) as StrategicRecommendationRow[];
   const autoapplyQueued = autoapplyQueueRes.count ?? 0;
-  const orgName =
-    (organizationRes.data as { name: string } | null)?.name ??
-    "Your Organization";
+  const orgRow = organizationRes.data as
+    | { name: string; onboarding_progress: OnboardingProgress }
+    | null;
+  const orgName = orgRow?.name ?? "Your Organization";
+  const onboardCount = orgRow?.onboarding_progress?.completed_steps?.length ?? 0;
+  const researchCount = agentRunsCountRes.count ?? 0;
+  const donorDiscoveryCount = donorDiscoveryCountRes.count ?? 0;
 
   const topInsights = [...strategicRecommendations]
     .sort((a, b) => {
@@ -387,20 +374,17 @@ export default async function DashboardPage() {
     .slice(0, 3);
 
   // --- metrics ---------------------------------------------------------------
-  const submittedCount = applications.filter(
-    (a) => a.submitted_at !== null,
+  const draftsCount = applications.filter(
+    (a) => a.draft_content !== null && a.draft_content.trim().length > 0,
   ).length;
-  const totalRequested = applications.reduce(
-    (sum, a) => sum + (a.requested_amount ?? 0),
-    0,
-  );
   const deadlinesThisWeek = deadlines.filter((d) => {
     const days = differenceInCalendarDays(new Date(d.due_date), now);
     return days >= 0 && days <= 7;
   }).length;
 
-  const analysis = analyzeOutcomes(outcomes);
-  const { summary } = analysis;
+  // Kept for parity with the outcomes-driven empty state below; win-rate /
+  // funded-rate figures are computed but not surfaced in this layout.
+  analyzeOutcomes(outcomes);
 
   const hasNoData =
     totalOpportunities === 0 &&
@@ -409,46 +393,28 @@ export default async function DashboardPage() {
     outcomes.length === 0;
 
   const statCards = [
-    {
-      label: "Active Applications",
-      value: metricCount(applications.length),
-      color: "#0077B6",
-    },
-    {
-      label: "Total Funding Pursued",
-      value: metricCurrency(totalRequested),
-      color: "#16A34A",
-    },
-    {
-      label: "Win Rate",
-      value: ratePercent(summary.successRate),
-      color: "#7C3AED",
-    },
-    {
-      label: "Deadlines This Week",
-      value: metricCount(deadlinesThisWeek),
-      color: deadlinesThisWeek > 0 ? "#D97706" : "#64748B",
-    },
-    {
-      label: "AutoApply Queue",
-      value: metricCount(autoapplyQueued),
-      color: "#00B4D8",
-    },
+    { label: "Active Apps", value: metricCount(applications.length), color: "#0077B6" },
+    { label: "Opportunities", value: metricCount(totalOpportunities), color: "#7C3AED" },
+    { label: "Drafts", value: metricCount(draftsCount), color: "#10B981" },
+    { label: "Deadlines", value: metricCount(deadlinesThisWeek), color: "#D97706" },
+    { label: "AutoApply Queue", value: metricCount(autoapplyQueued), color: "#00B4D8" },
   ];
 
-  const performanceRows = [
-    { label: "Win Rate", value: summary.successRate },
-    { label: "Funded Rate", value: summary.fundedRate },
-    { label: "Dollar Efficiency", value: summary.dollarEfficiency },
+  const stageCards = [
+    { label: "Onboard", color: "#6366F1", count: onboardCount, href: "/onboarding" },
+    { label: "Research", color: "#0077B6", count: researchCount, href: "/research" },
+    { label: "Opportunities", color: "#0EA5E9", count: totalOpportunities, href: "/opportunities" },
+    { label: "Grant Narratives", color: "#8B5CF6", count: draftsCount, href: "/draft-generator" },
+    { label: "AutoApply", color: "#10B981", count: autoapplyQueued, href: "/admin/autoapply-ops" },
+    { label: "Donor Discovery", color: "#F59E0B", count: donorDiscoveryCount, href: "/donor-discovery" },
   ];
 
   return (
-    <div style={{ backgroundColor: "#E4E9F0", minHeight: "100vh", padding: "32px", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-      <div style={{ marginBottom: "20px" }}>
-        <h1 style={{ fontSize: "24px", fontWeight: 800, color: "#0F172A", letterSpacing: "-0.02em", margin: "0 0 4px 0" }}>
-          {orgName}
-        </h1>
-        <p style={{ fontSize: "13px", color: "#64748B", margin: 0 }}>{format(now, "MMMM d, yyyy")}</p>
+    <div style={{ backgroundColor: "#D6E4F0", minHeight: "100vh", padding: "24px", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+      {/* ROW 1 — header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
+        <h1 style={{ fontSize: "24px", fontWeight: 800, color: "#0F172A", margin: 0 }}>{orgName}</h1>
+        <span style={{ fontSize: "14px", color: "#64748B" }}>{format(now, "MMMM d, yyyy")}</span>
       </div>
 
       {hasNoData && (
@@ -472,40 +438,60 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {/* ZONE 1 — stat bar */}
-      <div style={{ display: "flex", gap: "16px", marginBottom: "20px", flexWrap: "wrap" }}>
+      {/* ROW 2 — 5 stat cards */}
+      <div style={{ display: "flex", gap: "16px", marginBottom: "24px" }}>
         {statCards.map((card) => (
-          <div key={card.label} style={{ ...cardStyle, padding: "20px 24px", flex: "1", minWidth: "180px" }}>
-            <div style={{ fontSize: "32px", fontWeight: 800, lineHeight: 1, color: card.color }}>
+          <div key={card.label} style={{ flex: "1", backgroundColor: "#FFFFFF", borderRadius: "12px", padding: "20px 24px", boxShadow: "0 2px 8px rgba(0,0,0,0.08)", border: "1px solid #E2E8F0" }}>
+            <div style={{ fontSize: "36px", fontWeight: 800, lineHeight: "1", color: card.color }}>
               {card.value}
             </div>
-            <div style={{ fontSize: "12px", fontWeight: 600, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.05em", marginTop: "4px" }}>
+            <div style={{ fontSize: "11px", fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.06em", marginTop: "6px" }}>
               {card.label}
             </div>
           </div>
         ))}
       </div>
 
-      {/* ZONE 2 — 60/40 split */}
-      <div style={{ display: "grid", gridTemplateColumns: "3fr 2fr", gap: "16px", marginBottom: "16px", alignItems: "start" }}>
+      {/* ROW 3 — 60/40 split */}
+      <div style={{ display: "flex", gap: "16px", marginBottom: "24px" }}>
         {/* LEFT — Mission Control */}
-        <div style={{ backgroundColor: "#0F172A", borderRadius: "16px", padding: "24px", color: "#F8FAFC" }}>
-          <div style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.15em", color: "#00B4D8", textTransform: "uppercase", marginBottom: "16px" }}>
+        <div id="tour-flightpath-hud" style={{ flex: "1.5", backgroundColor: "#0F172A", borderRadius: "16px", padding: "24px" }}>
+          <div style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.15em", color: "#00B4D8", textTransform: "uppercase", marginBottom: "16px" }}>
             Mission Control
           </div>
-          <FlightPathHUD />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+            {stageCards.map((stage) => (
+              <Link
+                key={stage.label}
+                href={stage.href}
+                style={{
+                  display: "block",
+                  backgroundColor: "rgba(255,255,255,0.06)",
+                  borderRadius: "8px",
+                  padding: "14px",
+                  borderLeft: `3px solid ${stage.color}`,
+                  textDecoration: "none",
+                }}
+              >
+                <div style={{ fontSize: "13px", fontWeight: 600, color: "#F8FAFC" }}>{stage.label}</div>
+                <div style={{ fontSize: "24px", fontWeight: 800, color: stage.color, marginTop: "4px" }}>
+                  {metricCount(stage.count)}
+                </div>
+              </Link>
+            ))}
+          </div>
         </div>
 
-        {/* RIGHT — 3 stacked panels */}
-        <div>
+        {/* RIGHT — stacked panels */}
+        <div style={{ flex: "1" }}>
           <ErrorBoundary>
             <Suspense fallback={<LoadingCard height={220} borderRadius={12} />}>
               <ActionItemsSection orgId={orgId} />
             </Suspense>
           </ErrorBoundary>
 
-          <div style={{ backgroundColor: "#1A2B3C", borderRadius: "12px", padding: "20px", color: "#F8FAFC", marginBottom: "16px" }}>
-            <div style={{ fontSize: "12px", fontWeight: 700, color: "#FFFFFF", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "14px" }}>
+          <div style={{ backgroundColor: "#1A2B3C", borderRadius: "12px", padding: "20px", color: "#F8FAFC" }}>
+            <div style={{ fontSize: "12px", fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "14px" }}>
               Upcoming Deadlines
             </div>
             {deadlines.length === 0 ? (
@@ -513,6 +499,8 @@ export default async function DashboardPage() {
             ) : (
               deadlines.slice(0, 4).map((d) => {
                 const days = differenceInCalendarDays(new Date(d.due_date), now);
+                const overdue = days <= 0;
+                const label = days < 0 ? `${Math.abs(days)}d overdue` : days === 0 ? "Due today" : `${days}d`;
                 const href = d.application_id
                   ? `/applications/${d.application_id}`
                   : d.opportunity_id
@@ -536,64 +524,26 @@ export default async function DashboardPage() {
                       {truncate(d.title, 32)}
                     </span>
                     <span
-                      style={{
-                        backgroundColor: "rgba(220,38,38,0.2)",
-                        color: "#FCA5A5",
-                        borderRadius: "6px",
-                        padding: "2px 8px",
-                        fontSize: "11px",
-                        fontWeight: 700,
-                        flexShrink: 0,
-                      }}
+                      style={
+                        overdue
+                          ? { backgroundColor: "rgba(220,38,38,0.2)", color: "#FCA5A5", borderRadius: "4px", padding: "2px 8px", fontSize: "11px", fontWeight: 700, flexShrink: 0 }
+                          : { backgroundColor: "rgba(245,158,11,0.2)", color: "#FCD34D", borderRadius: "4px", padding: "2px 8px", fontSize: "11px", fontWeight: 700, flexShrink: 0 }
+                      }
                     >
-                      {days <= 0 ? "Due today" : `${days}d`}
+                      {label}
                     </span>
                   </Link>
                 );
               })
             )}
           </div>
-
-          <div style={{ ...cardStyle, padding: "20px" }}>
-            <PanelHeader>Quick Actions</PanelHeader>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-              {QUICK_ACTIONS.map((action) => {
-                const Icon = action.icon;
-                return (
-                  <Link
-                    key={action.href}
-                    href={action.href}
-                    style={{
-                      backgroundColor: "#F8FAFC",
-                      border: "1px solid #E2E8F0",
-                      borderRadius: "10px",
-                      padding: "14px",
-                      textAlign: "center",
-                      cursor: "pointer",
-                      textDecoration: "none",
-                      color: "#0F172A",
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      gap: "6px",
-                      fontSize: "12px",
-                      fontWeight: 600,
-                    }}
-                  >
-                    <Icon size={16} color="#0077B6" aria-hidden />
-                    {action.label}
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
         </div>
       </div>
 
-      {/* ZONE 3 — bottom 3-column row */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "16px" }}>
+      {/* ROW 4 — bottom 3 columns */}
+      <div style={{ display: "flex", gap: "16px" }}>
         {/* Col 1 — Recent Activity */}
-        <div style={{ ...cardStyle, padding: "20px" }}>
+        <div style={{ flex: "1", backgroundColor: "#FFFFFF", borderRadius: "12px", padding: "20px", boxShadow: "0 2px 8px rgba(0,0,0,0.08)", border: "1px solid #E2E8F0" }}>
           <PanelHeader>Recent Activity</PanelHeader>
           {agentDecisions.length === 0 ? (
             <p style={{ fontSize: "13px", color: "#6B7280", textAlign: "center", padding: "24px 0" }}>
@@ -635,8 +585,43 @@ export default async function DashboardPage() {
           )}
         </div>
 
-        {/* Col 2 — AI Insights */}
-        <div style={{ background: "linear-gradient(135deg,#0077B6,#00B4D8)", borderRadius: "12px", padding: "20px", color: "#FFFFFF" }}>
+        {/* Col 2 — Quick Actions */}
+        <div style={{ flex: "1", backgroundColor: "#FFFFFF", borderRadius: "12px", padding: "20px", boxShadow: "0 2px 8px rgba(0,0,0,0.08)", border: "1px solid #E2E8F0" }}>
+          <PanelHeader>Quick Actions</PanelHeader>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+            {QUICK_ACTIONS.map((action) => {
+              const Icon = action.icon;
+              return (
+                <Link
+                  key={action.href}
+                  href={action.href}
+                  style={{
+                    backgroundColor: "#F8FAFC",
+                    border: "1px solid #E2E8F0",
+                    borderRadius: "10px",
+                    padding: "14px 10px",
+                    textAlign: "center",
+                    cursor: "pointer",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    color: "#374151",
+                    textDecoration: "none",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: "6px",
+                  }}
+                >
+                  <Icon size={16} color="#0077B6" aria-hidden />
+                  {action.label}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Col 3 — AI Insight */}
+        <div style={{ flex: "1", background: "linear-gradient(135deg,#0077B6,#00B4D8)", borderRadius: "12px", padding: "20px", color: "#FFFFFF" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "14px" }}>
             <Sparkles size={14} aria-hidden />
             <span style={{ fontSize: "12px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
@@ -685,29 +670,6 @@ export default async function DashboardPage() {
               </Link>
             ))
           )}
-        </div>
-
-        {/* Col 3 — Performance Radar */}
-        <div style={{ ...cardStyle, padding: "20px" }}>
-          <PanelHeader>Performance Radar</PanelHeader>
-          {performanceRows.map((row) => (
-            <div key={row.label} style={{ marginBottom: "14px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", marginBottom: "6px" }}>
-                <span style={{ color: "#64748B", fontWeight: 600 }}>{row.label}</span>
-                <span style={{ color: "#0F172A", fontWeight: 700 }}>{ratePercent(row.value)}</span>
-              </div>
-              <div style={{ backgroundColor: "#F1F5F9", borderRadius: "3px", height: "6px", overflow: "hidden" }}>
-                <div
-                  style={{
-                    backgroundColor: "#0077B6",
-                    height: "6px",
-                    borderRadius: "3px",
-                    width: `${row.value ?? 0}%`,
-                  }}
-                />
-              </div>
-            </div>
-          ))}
         </div>
       </div>
     </div>
