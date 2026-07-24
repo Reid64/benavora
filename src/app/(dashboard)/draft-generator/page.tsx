@@ -844,10 +844,21 @@ export default function DraftGeneratorPage() {
     confidence != null && confidence < AI_CONFIDENCE_THRESHOLD;
 
   const statCardStyle = {
-    backgroundColor: "#F7F5F1",
+    backgroundColor: "#FFFFFF",
     boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-    border: "1px solid #D9D3C5",
+    border: "1px solid #E2E8F0",
   };
+  const cardStyle = {
+    backgroundColor: "#FFFFFF",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+    border: "1px solid #E2E8F0",
+  };
+  // Wizard rail step (1 Select Opportunity, 2 Customize, 3 Generate, 4 Review
+  // & Export) derived from real state - there is no separate wizard-step
+  // field, this mirrors what the form is actually doing right now.
+  const activeStep = generating ? 3 : hasDraft ? 4 : opportunityId ? 2 : 1;
+  const stepStatus = (n: number): "done" | "active" | "pending" =>
+    n < activeStep ? "done" : n === activeStep ? "active" : "pending";
   const statLabelStyle = {
     fontSize: "11px",
     fontWeight: 700 as const,
@@ -863,7 +874,7 @@ export default function DraftGeneratorPage() {
   };
 
   return (
-    <div className="space-y-6" style={{ backgroundColor: "#D6E4F0", padding: "24px", borderRadius: "16px" }}>
+    <div className="space-y-6" style={{ backgroundColor: "#E4E9F0", padding: "24px", borderRadius: "16px" }}>
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-primary">
           Draft Generator
@@ -943,193 +954,196 @@ export default function DraftGeneratorPage() {
             </div>
           )}
 
-          <div
-            className="bg-white rounded-2xl shadow-sm border border-border p-8 space-y-8"
-            style={{
-              backgroundColor: "#F7F5F1",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-              border: "1px solid #D9D3C5",
-            }}
-          >
-            <div>
-              <h2 className="text-base font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-white">
-                  1
-                </span>
-                Choose an opportunity
-              </h2>
-              <div className="max-w-xl">
-                <Select
-                  options={opportunityOptions}
-                  value={opportunityId}
-                  onChange={(e) => setOpportunityId(e.target.value)}
-                  placeholder="Select an opportunity..."
-                  disabled={!editable || generating}
-                  aria-label="Opportunity"
-                />
-              </div>
-            </div>
-
-            <div>
-              <h2 className="text-base font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-white">
-                  2
-                </span>
-                Choose a template
-              </h2>
-              <TemplateSelector
-                value={templateType}
-                onChange={setTemplateType}
-                disabled={!editable || generating}
-              />
-            </div>
-
-            {templateType === "budget_narrative" && (
-              <div>
-                <h2 className="text-base font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-white">
-                    3
-                  </span>
-                  Choose a program
-                </h2>
-                <p className="mb-3 text-sm text-navy-500">
-                  The budget will be scoped to this program&rsquo;s financial
-                  data and your Knowledge Base budget justification entries.
-                </p>
-                <div className="max-w-xl space-y-2">
-                  <Select
-                    options={programOptions}
-                    value={programId}
-                    onChange={(e) => setProgramId(e.target.value)}
-                    placeholder="Select a program..."
-                    disabled={!editable || generating}
-                    aria-label="Program"
-                  />
-                  {programs.length === 0 && !loading && (
-                    <p className="text-sm text-navy-500">
-                      No programs found. Add programs in organization settings
-                      first.
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
-
-            <button
-              type="button"
-              onClick={handleGenerate}
-              disabled={!canGenerate || generating}
-              style={{ backgroundColor: "#8B5CF6" }}
-              className="w-full hover:bg-[#7C3AED] text-white py-4 rounded-xl font-bold text-base shadow-lg transition-all disabled:cursor-not-allowed disabled:opacity-50 inline-flex items-center justify-center gap-2"
-            >
-              <Sparkles className={`h-4 w-4 ${generating ? "animate-spin" : ""}`} aria-hidden />
-              {generating
-                ? "Generating..."
-                : hasDraft
-                  ? "Generate new version"
-                  : "Generate draft"}
-            </button>
-          </div>
-
-          <div className="rounded-xl overflow-hidden" style={statCardStyle}>
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-10">
             <div
               style={{
-                fontSize: "13px",
-                fontWeight: 700,
-                color: "#FFFFFF",
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
                 backgroundColor: "#1A2B3C",
-                padding: "14px 20px",
+                borderRadius: "16px",
+                padding: "24px",
+                color: "white",
+                minHeight: "600px",
               }}
+              className="lg:col-span-3"
             >
-              Recent Drafts
+              <p
+                style={{
+                  fontSize: "11px",
+                  fontWeight: 700,
+                  letterSpacing: "0.15em",
+                  color: "#00B4D8",
+                  marginBottom: "24px",
+                  textTransform: "uppercase",
+                }}
+              >
+                Grant Draft Wizard
+              </p>
+              {[
+                { n: 1, label: "Select Opportunity" },
+                { n: 2, label: "Customize" },
+                { n: 3, label: "Generate" },
+                { n: 4, label: "Review & Export" },
+              ].map(({ n, label }) => {
+                const status = stepStatus(n);
+                const rowStyle =
+                  status === "done"
+                    ? {
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "12px",
+                        padding: "12px",
+                        borderRadius: "8px",
+                        backgroundColor: "rgba(16,185,129,0.15)",
+                        marginBottom: "8px",
+                      }
+                    : status === "active"
+                      ? {
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "12px",
+                          padding: "12px",
+                          borderRadius: "8px",
+                          backgroundColor: "rgba(0,180,216,0.15)",
+                          border: "1px solid rgba(0,180,216,0.3)",
+                          marginBottom: "8px",
+                        }
+                      : {
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "12px",
+                          padding: "12px",
+                          borderRadius: "8px",
+                          opacity: 0.4,
+                          marginBottom: "8px",
+                        };
+                const circleColor = status === "done" ? "#10B981" : status === "active" ? "#00B4D8" : "#334155";
+                return (
+                  <div key={n} style={rowStyle}>
+                    <span
+                      style={{
+                        width: "28px",
+                        height: "28px",
+                        borderRadius: "50%",
+                        backgroundColor: circleColor,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: "13px",
+                        fontWeight: 700,
+                        flexShrink: 0,
+                      }}
+                    >
+                      {status === "done" ? <Check className="h-3.5 w-3.5" aria-hidden /> : n}
+                    </span>
+                    <span style={{ fontSize: "14px", fontWeight: 600 }}>{label}</span>
+                  </div>
+                );
+              })}
             </div>
-            {recentDraftsLoading ? (
-              <div className="p-5 text-sm text-navy-400">Loading recent drafts…</div>
-            ) : recentDrafts.length === 0 ? (
-              <div className="p-5 text-sm text-navy-400">
-                No drafts generated yet. Generate one above to see it here.
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-navy-100 text-sm">
-                  <thead>
-                    <tr style={{ backgroundColor: "#F1F5F9" }}>
-                      <th className="px-5 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
-                        Opportunity
-                      </th>
-                      <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
-                        Template
-                      </th>
-                      <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
-                        Confidence
-                      </th>
-                      <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
-                        Source
-                      </th>
-                      <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
-                        Created
-                      </th>
-                      <th className="px-4 py-2.5" />
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-navy-100 bg-white">
-                    {recentDrafts.map((draft) => (
-                      <tr key={draft.id} className="hover:bg-navy-50">
-                        <td className="px-5 py-3 max-w-xs truncate font-medium text-navy-900">
-                          {draft.opportunityName}
-                        </td>
-                        <td className="px-4 py-3 text-navy-600">
-                          {humanizeEnum(draft.templateType)}
-                        </td>
-                        <td className="px-4 py-3">
-                          <Badge color={confidenceBadgeColor(draft.confidenceScore)}>
-                            {draft.confidenceScore != null ? `${draft.confidenceScore}/100` : "—"}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-3">
-                          {draft.source === "generated" ? (
-                            <span
-                              style={{
-                                backgroundColor: "#EDE9FE",
-                                color: "#6D28D9",
-                                fontSize: "11px",
-                                fontWeight: 700,
-                                borderRadius: "999px",
-                                padding: "2px 8px",
-                              }}
-                            >
-                              AI Generated
-                            </span>
-                          ) : (
-                            <span className="text-xs text-navy-400">{humanizeEnum(draft.source)}</span>
-                          )}
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-navy-400">
-                          {new Date(draft.createdAt).toLocaleDateString()}
-                        </td>
-                        <td className="px-4 py-3">
-                          <button
-                            type="button"
-                            onClick={() => setOpportunityId(draft.opportunityId)}
-                            className="text-xs font-medium"
-                            style={{ color: "#0077B6" }}
-                          >
-                            Open
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
 
-          {hasDraft && (
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:items-stretch">
-              <div className="flex flex-col gap-4 lg:col-span-2">
+            <div className="lg:col-span-7 space-y-6">
+              {!generating && (
+                <div className="space-y-8 rounded-2xl p-8" style={cardStyle}>
+                  <div>
+                    <h2 className="text-base font-semibold text-slate-900 mb-4">Choose an opportunity</h2>
+                    <div className="max-w-xl">
+                      <Select
+                        options={opportunityOptions}
+                        value={opportunityId}
+                        onChange={(e) => setOpportunityId(e.target.value)}
+                        placeholder="Select an opportunity..."
+                        disabled={!editable || generating}
+                        aria-label="Opportunity"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <h2 className="text-base font-semibold text-slate-900 mb-4">Choose a template</h2>
+                    <TemplateSelector
+                      value={templateType}
+                      onChange={setTemplateType}
+                      disabled={!editable || generating}
+                    />
+                  </div>
+
+                  {templateType === "budget_narrative" && (
+                    <div>
+                      <h2 className="text-base font-semibold text-slate-900 mb-4">Choose a program</h2>
+                      <p className="mb-3 text-sm text-navy-500">
+                        The budget will be scoped to this program&rsquo;s financial
+                        data and your Knowledge Base budget justification entries.
+                      </p>
+                      <div className="max-w-xl space-y-2">
+                        <Select
+                          options={programOptions}
+                          value={programId}
+                          onChange={(e) => setProgramId(e.target.value)}
+                          placeholder="Select a program..."
+                          disabled={!editable || generating}
+                          aria-label="Program"
+                        />
+                        {programs.length === 0 && !loading && (
+                          <p className="text-sm text-navy-500">
+                            No programs found. Add programs in organization settings
+                            first.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={handleGenerate}
+                    disabled={!canGenerate || generating}
+                    style={{ background: "linear-gradient(135deg,#0077B6,#00B4D8)" }}
+                    className="w-full text-white py-4 rounded-xl font-bold text-base shadow-lg transition-all disabled:cursor-not-allowed disabled:opacity-50 inline-flex items-center justify-center gap-2"
+                  >
+                    <Sparkles className="h-4 w-4" aria-hidden />
+                    {hasDraft ? "Generate new version" : "Generate draft"}
+                  </button>
+                </div>
+              )}
+
+              {generating && (
+                <div className="rounded-2xl p-12 text-center" style={cardStyle}>
+                  <div
+                    style={{
+                      width: "80px",
+                      height: "80px",
+                      borderRadius: "50%",
+                      background: "conic-gradient(#0077B6,#00B4D8,#0077B6)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      margin: "0 auto 24px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: "64px",
+                        height: "64px",
+                        borderRadius: "50%",
+                        backgroundColor: "white",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Sparkles className="h-6 w-6 animate-pulse" style={{ color: "#0077B6" }} aria-hidden />
+                    </div>
+                  </div>
+                  <p style={{ fontSize: "15px", fontWeight: 700, color: "#0F172A" }}>Generating your draft…</p>
+                  <p style={{ fontSize: "13px", color: "#64748B", marginTop: "6px" }}>
+                    Drawing on your Knowledge Base to write a grounded{" "}
+                    {templateType ? humanizeEnum(templateType) : "draft"}. This can take a couple of minutes.
+                  </p>
+                </div>
+              )}
+
+              {hasDraft && !generating && (
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-3 xl:items-stretch">
+              <div className="flex flex-col gap-4 xl:col-span-2">
                 {belowThreshold && (
                   <div
                     role="alert"
@@ -1319,9 +1333,9 @@ export default function DraftGeneratorPage() {
                     <div
                       className="rounded-xl border border-border bg-white shadow-sm p-5"
                       style={{
-                        backgroundColor: "#F7F5F1",
+                        backgroundColor: "#FFFFFF",
                         boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-                        border: "1px solid #D9D3C5",
+                        border: "1px solid #E2E8F0",
                       }}
                     >
                       <div className="mb-3 flex items-center gap-2">
@@ -1434,8 +1448,106 @@ export default function DraftGeneratorPage() {
                   </Card>
                 )}
               </div>
+          </div>
+              )}
             </div>
-          )}
+          </div>
+
+          <div className="rounded-xl overflow-hidden" style={statCardStyle}>
+            <div
+              style={{
+                fontSize: "13px",
+                fontWeight: 700,
+                color: "#FFFFFF",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                backgroundColor: "#1A2B3C",
+                padding: "14px 20px",
+              }}
+            >
+              Recent Drafts
+            </div>
+            {recentDraftsLoading ? (
+              <div className="p-5 text-sm text-navy-400">Loading recent drafts…</div>
+            ) : recentDrafts.length === 0 ? (
+              <div className="p-5 text-sm text-navy-400">
+                No drafts generated yet. Generate one above to see it here.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-navy-100 text-sm">
+                  <thead>
+                    <tr style={{ backgroundColor: "#F1F5F9" }}>
+                      <th className="px-5 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                        Opportunity
+                      </th>
+                      <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                        Template
+                      </th>
+                      <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                        Confidence
+                      </th>
+                      <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                        Source
+                      </th>
+                      <th className="px-4 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-navy-500">
+                        Created
+                      </th>
+                      <th className="px-4 py-2.5" />
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-navy-100 bg-white">
+                    {recentDrafts.map((draft) => (
+                      <tr key={draft.id} className="hover:bg-navy-50">
+                        <td className="px-5 py-3 max-w-xs truncate font-medium text-navy-900">
+                          {draft.opportunityName}
+                        </td>
+                        <td className="px-4 py-3 text-navy-600">
+                          {humanizeEnum(draft.templateType)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <Badge color={confidenceBadgeColor(draft.confidenceScore)}>
+                            {draft.confidenceScore != null ? `${draft.confidenceScore}/100` : "—"}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3">
+                          {draft.source === "generated" ? (
+                            <span
+                              style={{
+                                backgroundColor: "#EDE9FE",
+                                color: "#6D28D9",
+                                fontSize: "11px",
+                                fontWeight: 700,
+                                borderRadius: "999px",
+                                padding: "2px 8px",
+                              }}
+                            >
+                              AI Generated
+                            </span>
+                          ) : (
+                            <span className="text-xs text-navy-400">{humanizeEnum(draft.source)}</span>
+                          )}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 text-navy-400">
+                          {new Date(draft.createdAt).toLocaleDateString()}
+                        </td>
+                        <td className="px-4 py-3">
+                          <button
+                            type="button"
+                            onClick={() => setOpportunityId(draft.opportunityId)}
+                            className="text-xs font-medium"
+                            style={{ color: "#0077B6" }}
+                          >
+                            Open
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
 
           {opportunityId && (
             <Card title="Version history">

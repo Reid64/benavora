@@ -180,6 +180,7 @@ export default function DonorDiscoveryPage() {
     () => Object.fromEntries(FUNNEL_STAGES.map((s) => [s, 0])) as Record<DdFunnelStage, number>,
   );
   const [topProspects, setTopProspects] = useState<DdProspectRow[]>([]);
+  const [recentSignals, setRecentSignals] = useState<IntentSignalRow[]>([]);
   const [avgScore, setAvgScore] = useState<number | null>(null);
   const [highIntentCount, setHighIntentCount] = useState(0);
   const [contactedThisMonth, setContactedThisMonth] = useState(0);
@@ -244,6 +245,7 @@ export default function DonorDiscoveryPage() {
       setAutoApplySubmissionsCount(autoApplyRes.count ?? 0);
 
       const intentRows = (intentSignalsRes.data ?? []) as IntentSignalRow[];
+      setRecentSignals(intentRows.slice(0, 5));
       const latestScoreByCompany = new Map<string, number | null>();
       for (const row of intentRows) {
         const key = row.company_name.trim().toLowerCase();
@@ -321,9 +323,9 @@ export default function DonorDiscoveryPage() {
   }, [hasActiveRequest, load]);
 
   const statCardStyle = {
-    backgroundColor: "#F7F5F1",
+    backgroundColor: "#FFFFFF",
     boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-    border: "1px solid #D9D3C5",
+    border: "1px solid #E2E8F0",
   };
   const statLabelStyle = {
     fontSize: "11px",
@@ -338,6 +340,7 @@ export default function DonorDiscoveryPage() {
     color: "#0F172A",
     marginTop: "6px",
   };
+  const accentStatValueStyle = (color: string) => ({ ...statValueStyle, color });
 
   // Dark #0D1526 stat-card row — matches intent-signals/page.tsx's StatCard
   // convention, distinct from the light #F7F5F1 cards used elsewhere on this
@@ -412,7 +415,7 @@ export default function DonorDiscoveryPage() {
   ];
 
   return (
-    <div className="space-y-6" style={{ backgroundColor: "#D6E4F0", padding: "24px", borderRadius: "16px" }}>
+    <div className="space-y-6" style={{ backgroundColor: "#E4E9F0", padding: "24px", borderRadius: "16px" }}>
       <PageHeader
         title="Donor Discovery"
         description="Find and engage corporate donors matched to your mission."
@@ -436,44 +439,48 @@ export default function DonorDiscoveryPage() {
         }
       />
 
+      {/* Prospects Identified / High-Intent Signals / Active Campaigns / AutoApply
+          Submissions — the closest real metrics to this feature's "Outreach Sent"
+          and "Conversions" spec, honestly labeled (there is no literal sent-count
+          or conversion-count column to report instead). */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-xl p-5" style={statCardStyle}>
-          <p style={statLabelStyle}>Total Prospects</p>
-          <p style={statValueStyle}>{loading ? "—" : totalProspects}</p>
+          <p style={statLabelStyle}>Prospects Identified</p>
+          <p style={accentStatValueStyle("#7C3AED")}>{loading ? "—" : totalProspects}</p>
         </div>
         <div className="rounded-xl p-5" style={statCardStyle}>
-          <p style={statLabelStyle}>Active Requests</p>
-          <p style={statValueStyle}>{loading ? "—" : activeRequestsCount}</p>
+          <p style={statLabelStyle}>High-Intent Signals</p>
+          <p style={accentStatValueStyle("#F59E0B")}>{loading ? "—" : highIntentCount}</p>
         </div>
         <div className="rounded-xl p-5" style={statCardStyle}>
-          <p style={statLabelStyle}>Avg Score</p>
-          <p style={statValueStyle}>{loading || avgScore == null ? "—" : avgScore}</p>
+          <p style={statLabelStyle}>Active Campaigns</p>
+          <p style={accentStatValueStyle("#0077B6")}>{loading ? "—" : activeCampaignsCount}</p>
         </div>
         <div className="rounded-xl p-5" style={statCardStyle}>
-          <p style={statLabelStyle}>New &amp; Reviewing</p>
-          <p style={statValueStyle}>{loading ? "—" : highValueCount}</p>
+          <p style={statLabelStyle}>AutoApply Submissions</p>
+          <p style={accentStatValueStyle("#10B981")}>{loading ? "—" : autoApplySubmissionsCount}</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <DarkStatCard
-          label="Contacted This Month"
-          value={loading ? "—" : String(contactedThisMonth)}
+          label="Active Requests"
+          value={loading ? "—" : String(activeRequestsCount)}
           color="#0EA5E9"
         />
         <DarkStatCard
-          label="Active Campaigns"
-          value={loading ? "—" : String(activeCampaignsCount)}
+          label="Avg Score"
+          value={loading || avgScore == null ? "—" : String(avgScore)}
+          color="#00B4D8"
+        />
+        <DarkStatCard
+          label="New & Reviewing"
+          value={loading ? "—" : String(highValueCount)}
           color="#8B5CF6"
         />
         <DarkStatCard
-          label="High-Intent Signals"
-          value={loading ? "—" : String(highIntentCount)}
-          color="#F59E0B"
-        />
-        <DarkStatCard
-          label="AutoApply Submissions"
-          value={loading ? "—" : String(autoApplySubmissionsCount)}
+          label="Contacted This Month"
+          value={loading ? "—" : String(contactedThisMonth)}
           color="#10B981"
         />
       </div>
@@ -514,6 +521,147 @@ export default function DonorDiscoveryPage() {
         })}
       </div>
 
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div style={{ backgroundColor: "#1A2B3C", borderRadius: "12px", padding: "20px", color: "white" }}>
+          <p
+            style={{
+              fontSize: "11px",
+              fontWeight: 700,
+              letterSpacing: "0.12em",
+              color: "#F59E0B",
+              marginBottom: "14px",
+              textTransform: "uppercase",
+            }}
+          >
+            Live Intent Signals
+          </p>
+          {loading ? (
+            <p style={{ fontSize: "13px", color: "#8BA8C8" }}>Loading signals…</p>
+          ) : recentSignals.length === 0 ? (
+            <p style={{ fontSize: "13px", color: "#8BA8C8" }}>
+              No intent signals detected yet — the Donor Intent Agent surfaces these as it runs.
+            </p>
+          ) : (
+            <div className="space-y-2.5">
+              {recentSignals.map((s, i) => {
+                const score = s.intent_score;
+                const badgeStyle =
+                  score != null && score >= HIGH_INTENT_THRESHOLD
+                    ? {
+                        backgroundColor: "rgba(220,38,38,0.2)",
+                        color: "#FCA5A5",
+                        borderRadius: "4px",
+                        padding: "2px 8px",
+                        fontSize: "11px",
+                        fontWeight: 700 as const,
+                      }
+                    : score != null && score >= 50
+                      ? {
+                          backgroundColor: "rgba(245,158,11,0.2)",
+                          color: "#FCD34D",
+                          borderRadius: "4px",
+                          padding: "2px 8px",
+                          fontSize: "11px",
+                          fontWeight: 700 as const,
+                        }
+                      : null;
+                const badgeLabel = score != null && score >= HIGH_INTENT_THRESHOLD ? "HIGH" : "MEDIUM";
+                return (
+                  <div key={`${s.company_name}-${i}`} className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate" style={{ fontSize: "13px", fontWeight: 600, color: "#FFFFFF" }}>
+                        {s.company_name}
+                      </p>
+                      <p style={{ fontSize: "11px", color: "#64748B" }}>{formatRelative(s.created_at)}</p>
+                    </div>
+                    {badgeStyle && <span style={badgeStyle}>{badgeLabel}</span>}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div
+          style={{
+            backgroundColor: "#FFFFFF",
+            borderRadius: "12px",
+            padding: "20px",
+            boxShadow: "0 4px 16px rgba(0,0,0,0.1)",
+            border: "2px solid #E2E8F0",
+          }}
+        >
+          <p
+            style={{
+              fontSize: "11px",
+              fontWeight: 700,
+              color: "#64748B",
+              textTransform: "uppercase",
+              letterSpacing: "0.08em",
+              marginBottom: "10px",
+            }}
+          >
+            Featured Prospect
+          </p>
+          {loading ? (
+            <p style={{ fontSize: "13px", color: "#64748B" }}>Loading…</p>
+          ) : topProspects.length === 0 ? (
+            <p style={{ fontSize: "13px", color: "#64748B" }}>
+              No scored prospects yet — run Discover Prospects to build your pipeline.
+            </p>
+          ) : (
+            (() => {
+              const p = topProspects[0];
+              if (!p) return null;
+              const taxonomyCode = p.directory?.naics_codes?.[0] ?? p.directory?.civic_kind ?? null;
+              const taxonomyLabel = taxonomyCode ? (taxonomyLabelByCode.get(taxonomyCode) ?? taxonomyCode) : null;
+              return (
+                <>
+                  <p style={{ fontSize: "18px", fontWeight: 700, color: "#0F172A" }}>
+                    {p.directory?.legal_name ?? "Unknown company"}
+                  </p>
+                  {taxonomyLabel && (
+                    <span
+                      style={{
+                        display: "inline-block",
+                        marginTop: "6px",
+                        backgroundColor: "#EDE9FE",
+                        color: "#6D28D9",
+                        fontSize: "11px",
+                        fontWeight: 700,
+                        borderRadius: "999px",
+                        padding: "2px 10px",
+                      }}
+                    >
+                      {taxonomyLabel}
+                    </span>
+                  )}
+                  {p.score_rationale && (
+                    <p style={{ fontSize: "13px", color: "#64748B", marginTop: "10px" }}>{p.score_rationale}</p>
+                  )}
+                  <Link
+                    href={`/donor-discovery/prospects/${p.id}`}
+                    style={{
+                      backgroundColor: "#7C3AED",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "8px",
+                      padding: "10px 20px",
+                      fontSize: "13px",
+                      fontWeight: 600,
+                      display: "inline-block",
+                      marginTop: "14px",
+                    }}
+                  >
+                    View Prospect
+                  </Link>
+                </>
+              );
+            })()
+          )}
+        </div>
+      </div>
+
       {error && (
         <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
@@ -548,9 +696,9 @@ export default function DonorDiscoveryPage() {
                   key={req.id}
                   className="bg-white rounded-xl shadow-sm border border-border p-5 mb-4"
                   style={{
-                    backgroundColor: "#F7F5F1",
+                    backgroundColor: "#FFFFFF",
                     boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-                    border: "1px solid #D9D3C5",
+                    border: "1px solid #E2E8F0",
                   }}
                 >
                   <div className="flex items-start justify-between gap-2">
@@ -605,8 +753,9 @@ export default function DonorDiscoveryPage() {
               href={`/donor-discovery/prospects?stage=${stage}`}
               className="bg-white shadow-sm rounded-lg border border-border px-4 py-3 text-center hover:border-[#0077B6] cursor-pointer transition-colors"
               style={{
-                backgroundColor: "#F7F5F1",
+                backgroundColor: "#FFFFFF",
                 boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                border: "1px solid #E2E8F0",
               }}
             >
               <p className="text-2xl font-bold text-slate-900">{loading ? "—" : stageCounts[stage]}</p>
@@ -640,9 +789,9 @@ export default function DonorDiscoveryPage() {
                   key={p.id}
                   className="flex flex-col rounded-lg border border-border bg-white p-4"
                   style={{
-                    backgroundColor: "#F7F5F1",
+                    backgroundColor: "#FFFFFF",
                     boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-                    border: "1px solid #D9D3C5",
+                    border: "1px solid #E2E8F0",
                   }}
                 >
                   <div className="flex items-start justify-between gap-2">
