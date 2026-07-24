@@ -1,8 +1,27 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: July 23, 2026 (prompt ui-002), from `git log --oneline -3` run this session. Not FORGE-auto-generated — hand-verified.**
+**Updated: July 23, 2026 (prompt ui-003), from `git log --oneline -3` run this session. Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — July 23, 2026 (prompt ui-003)
+
+**Commit `27e3612`** — `feat(ui): AutoApply dark command center header/stats, Controls panel; Live Session Viewer reskinned dark`, on top of `cfc7214` (verified via `git log --oneline -3`):
+```
+27e3612 feat(ui): AutoApply dark command center header/stats, Controls panel; Live Session Viewer reskinned dark
+cfc7214 docs: governance sync for prompt ui-002 -- opportunities cards shipped, research page restyled not rewritten
+0dfade3 feat(ui): opportunities page cards + filter bar; research page inline-hex restyle
+```
+
+Pre-read confirmed: `src/app/(dashboard)/autoapply/[sessionId]/page.tsx`, `controls/page.tsx`, and `analytics/page.tsx` all exist and are real, backend-wired pages (automation session detail with approval workflow, platform kill-switch + pause controls, recharts analytics) — none needed changes for this prompt.
+
+**What actually shipped, and one deliberate deviation:**
+- `src/app/(dashboard)/autoapply/page.tsx` — applied the dark command-center palette (`#0A0F1A` canvas, `rgba(255,255,255,0.04)` stat cards, pulsing ACTIVE/IDLE status pill) to the page header and a new 4-stat row (Sessions Today / Success Rate / Avg Fill Time / Forms Queued), all computed from the same real `submission_queue` rows already loaded for the table below (`completed_at` was already a selected column via `select("*")`, just not previously read into the `QueueRow` interface). Added a real "Controls" panel (Start Session → opens the existing add-to-queue modal; Pause → links to `/autoapply/controls`, the real platform kill-switch page; View All Sessions → anchors to the existing Session List table).
+- **Did not** implement the task's literal "Live Session Viewer" spec (browser chrome bar with traffic lights, a 6×6 dot "AI ENGINE STANDING BY" placeholder, a hardcoded AI-thinking ticker with static example lines like `[09:14:33] > Scanning form fields...`, a fabricated field-fill progress bar). A real `LiveSessionViewer` component already exists on this exact page — genuine WebSocket connection to the Railway worker, live canvas frame rendering, real connection-state handling (`connecting`/`connected`/`live`/`offline`). Building a second, fake one next to it would both duplicate the real one and violate CLAUDE.md Iron Law #8 ("never use mocks or placeholder data in production code") and the Six Laws' DATA rule. Instead, reskinned the real component's outer card (`src/components/autoapply/LiveSessionViewer.tsx`) to the dark palette (`#0D1B2A` background, cyan border) — its WebSocket/canvas logic is untouched, only presentation changed. This is the same "restyle in place, don't gut real functionality" call made for the research page in ui-002 and Sidebar/dashboard in ui-001.
+
+**Gates:** `pnpm tsc --noEmit` → 0 errors, confirmed this session (clean exit, no output).
 
 ---
 

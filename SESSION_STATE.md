@@ -1,20 +1,27 @@
 # BENAVORA — Session State
 ## Last Updated: July 23, 2026
-## Mode: UI queue — prompt ui-002
+## Mode: UI queue — prompt ui-003
 
 ---
 
 ## Current Session
 
 **Date:** July 23, 2026
-**Focus:** Prompt ui-002 — Opportunities page card/filter rewrite + Research page restyle. Full detail in `STATE_OF_THE_BUILD.md`'s "SESSION — July 23, 2026 (prompt ui-002)" entry.
-**Status:** Opportunities page: complete per spec. Research page: restyled in place, NOT rewritten to the literal two-panel spec (see below). **ui-003 next.**
-**Commit:** `0dfade3` (pushed to `main`).
-**Gates:** `pnpm tsc --noEmit` — 0 errors this session. `pnpm lint` / `pnpm run build` — not run this session; do not assume they pass.
+**Focus:** Prompt ui-003 — AutoApply main page dark command-center rewrite. Full detail in `STATE_OF_THE_BUILD.md`'s "SESSION — July 23, 2026 (prompt ui-003)" entry.
+**Status:** Header, stats row, and a new Controls panel shipped per the dark command-center spec, using real `submission_queue` data throughout. The literal "AI thinking ticker" / simulated form view was NOT built — see deviation below. **Next prompt in queue: none assigned yet.**
+**Commit:** `27e3612` (pushed to `main`).
+**Gates:** `pnpm tsc --noEmit` — 0 errors this session (clean exit, no output). `pnpm lint` / `pnpm run build` — not run this session; do not assume they pass.
 
-**Open question for Reid before ui-003:** the ui-002 prompt's research-page spec (a "Funder Search" panel + "Semantic Match Engine" panel) describes `/research/match/page.tsx`, not `/research/page.tsx`. The real research page is the Research Command Center — agent-run polling, the Directive-5 3×7 resource grid, Funding Source Directory, Discovered Opportunities, Historical Awards, Search Configuration tab. Implementing the literal spec would have deleted all of that to duplicate an existing page, so it was restyled (inline hex, no Tailwind color classes) instead of rewritten. If a genuine funder-search/semantic-match panel is wanted *on this page specifically*, alongside (not instead of) the existing sections, say so explicitly for ui-003.
+**Deviation from literal spec, and why:** the task asked for a from-scratch "Live Session Viewer" with a hardcoded AI-thinking ticker (static example lines like `[09:14:33] > Scanning form fields...`) and a simulated field-fill progress bar. A real `LiveSessionViewer` component (`src/components/autoapply/LiveSessionViewer.tsx`) already sits on this exact page with a genuine WebSocket connection to the Railway worker, live canvas frame rendering, and real connection-state handling — building a second, fake one next to it would duplicate real functionality with fabricated data, directly against CLAUDE.md Iron Law #8 ("never use mocks or placeholder data in production code"). Reskinned the real component's outer card to the dark palette instead; its WebSocket/canvas logic is untouched. Same call as ui-002's research-page restyle and ui-001's Sidebar/dashboard restyle — this is now a consistent pattern across three UI prompts in this queue.
 
-Also carried over from ui-001, still unresolved: whether SchoolFunder (page + 3 API routes) should actually be removed — it wasn't dead code (nav-items.ts marks it "PERMANENT," documented in BLUEPRINT §1), so it was left in place pending Reid's confirmation.
+Also carried over, still unresolved: whether SchoolFunder (page + 3 API routes, ui-001) should actually be removed — it wasn't dead code (nav-items.ts marks it "PERMANENT," documented in BLUEPRINT §1), so it remains in place pending Reid's confirmation. And the ui-002 open question (whether a literal funder-search/semantic-match panel is wanted on `/research` specifically, alongside its existing sections) is also still open.
+
+---
+
+## Prior Session — July 23, 2026 (prompt ui-002)
+
+**Focus:** Opportunities page card/filter rewrite + Research page restyle.
+**Status:** Opportunities page complete per spec; research page restyled in place, not rewritten to the literal two-panel spec. Commit `0dfade3`.
 
 ---
 
