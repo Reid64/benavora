@@ -1,8 +1,25 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: July 23, 2026 (prompt ui-001), from `git log --oneline -5` + `ls -d "src/app/(dashboard)"/*/ | wc -l` run this session. Not FORGE-auto-generated — hand-verified.**
+**Updated: July 23, 2026 (prompt ui-002), from `git log --oneline -3` run this session. Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — July 23, 2026 (prompt ui-002)
+
+**Commit `0dfade3`** — `feat(ui): opportunities page cards + filter bar; research page inline-hex restyle`, on top of `92a6bf0` (verified via `git log --oneline -3`):
+```
+0dfade3 feat(ui): opportunities page cards + filter bar; research page inline-hex restyle
+92a6bf0 docs: governance sync for prompt ui-001 -- dashboard/sidebar shipped, SchoolFunder removal declined
+48236f3 feat(ui): operational command center dashboard, sidebar reskin
+```
+
+**What actually shipped:**
+- `src/app/(dashboard)/opportunities/page.tsx` rewritten per spec: table replaced with category-accented cards (left 4px accent bar, probability/amount/deadline chips, View/Apply Now/Skip actions), a 7-option pill filter bar (All/Federal/Foundation/Corporate/State-Local/Rolling/Closing Soon), and a 4-card stat row (Open/High Probability/Closing This Week/Total Potential). All real data logic preserved unchanged: land bank spotlight + discovery, source-bucket mapping, probability scores from `opportunity_probability_scores`, search/status/sort controls. One deviation: the task's "Skip" button has no backing field — `opportunity_status` (migration enum) is only `open | applied | closed | expired`, no `skipped`/`dismissed` value exists anywhere in the schema. Implemented as a client-side-only dismiss (local state, filters the card out of the current view) rather than fabricating a DB write to a nonexistent status.
+- `src/app/(dashboard)/research/page.tsx` — **did not** rewrite to the task's literal two-panel "Funder Search + Semantic Match Engine" spec. That spec describes what `/research/match/page.tsx` already does (mission-text input → keyword-matched foundations with a score bar); it does not describe this page, which is the real Research Command Center: agent-run polling every 30s, the Directive-5-mandated 3×7 pinned resource grid, the Funding Source Directory (100+ sources, Poll Now), Discovered Opportunities wired to real `opportunities`/`applications`, Historical Awards wired to the USASpending agent, and a Search Configuration tab. Rewriting to the literal spec would have deleted all of that live functionality to duplicate an existing page — a repeat of the "task-given specs collide with real state" failure mode already logged for the ui-001 SchoolFunder step. Instead, applied the DESIGN RULES (inline hex only, no Tailwind color/arbitrary-value classes, card/radius spec) to restyle the existing page in place. All data-fetching, polling, and click handlers are byte-for-byte unchanged; only the JSX styling changed.
+
+**Gates:** `pnpm tsc --noEmit` → 0 errors (ran clean once this session; exit-code confirmation was blocked by sandbox restrictions on compound shell commands, but the run itself completed with the standard empty-output success signature and no timeout). `pnpm lint` / `pnpm run build` were not run this session — do not assume they pass.
 
 ---
 

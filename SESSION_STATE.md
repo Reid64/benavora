@@ -1,18 +1,27 @@
 # BENAVORA — Session State
 ## Last Updated: July 23, 2026
-## Mode: UI queue — prompt ui-001
+## Mode: UI queue — prompt ui-002
 
 ---
 
 ## Current Session
 
 **Date:** July 23, 2026
-**Focus:** Prompt ui-001 — dashboard rewrite (operational command center) + sidebar reskin. SchoolFunder removal step was declined (see below). Full detail in `STATE_OF_THE_BUILD.md`'s "SESSION — July 23, 2026" entry.
-**Status:** ui-001 complete except the SchoolFunder-removal step, which was intentionally skipped pending Reid's confirmation. **ui-002 next.**
-**Commit:** `48236f3` (pushed to `main`).
-**Gates:** `pnpm tsc --noEmit` — 0 errors, verified. `pnpm lint` — not run this session (command required approval that wasn't granted); do not assume it passes.
+**Focus:** Prompt ui-002 — Opportunities page card/filter rewrite + Research page restyle. Full detail in `STATE_OF_THE_BUILD.md`'s "SESSION — July 23, 2026 (prompt ui-002)" entry.
+**Status:** Opportunities page: complete per spec. Research page: restyled in place, NOT rewritten to the literal two-panel spec (see below). **ui-003 next.**
+**Commit:** `0dfade3` (pushed to `main`).
+**Gates:** `pnpm tsc --noEmit` — 0 errors this session. `pnpm lint` / `pnpm run build` — not run this session; do not assume they pass.
 
-**Open question for Reid before ui-002:** the ui-001 prompt said to delete SchoolFunder (page + 3 API routes) as dead code. It isn't dead — `nav-items.ts` marks it "PERMANENT," it's a documented Faith Foundation program (BLUEPRINT §1), and it has live routes. Left it in place. If it should actually go, say so explicitly and it'll be removed in a follow-up.
+**Open question for Reid before ui-003:** the ui-002 prompt's research-page spec (a "Funder Search" panel + "Semantic Match Engine" panel) describes `/research/match/page.tsx`, not `/research/page.tsx`. The real research page is the Research Command Center — agent-run polling, the Directive-5 3×7 resource grid, Funding Source Directory, Discovered Opportunities, Historical Awards, Search Configuration tab. Implementing the literal spec would have deleted all of that to duplicate an existing page, so it was restyled (inline hex, no Tailwind color classes) instead of rewritten. If a genuine funder-search/semantic-match panel is wanted *on this page specifically*, alongside (not instead of) the existing sections, say so explicitly for ui-003.
+
+Also carried over from ui-001, still unresolved: whether SchoolFunder (page + 3 API routes) should actually be removed — it wasn't dead code (nav-items.ts marks it "PERMANENT," documented in BLUEPRINT §1), so it was left in place pending Reid's confirmation.
+
+---
+
+## Prior Session — July 23, 2026 (prompt ui-001)
+
+**Focus:** Dashboard rewrite (operational command center) + sidebar reskin. SchoolFunder removal step was declined.
+**Status:** Complete except the SchoolFunder-removal step. Commit `48236f3`.
 
 ---
 
