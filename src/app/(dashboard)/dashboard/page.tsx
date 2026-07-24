@@ -129,7 +129,7 @@ function PanelHeader({ children }: { children: ReactNode }) {
         color: "#0F172A",
         letterSpacing: "0.05em",
         textTransform: "uppercase",
-        marginBottom: "14px",
+        marginBottom: "10px",
       }}
     >
       {children}
@@ -189,7 +189,7 @@ async function ActionItemsSection({ orgId }: { orgId: string }) {
     ];
 
     return (
-      <div style={{ backgroundColor: "#FFFFFF", borderRadius: "12px", padding: "20px", boxShadow: "0 2px 8px rgba(0,0,0,0.08)", border: "1px solid #E2E8F0", marginBottom: "16px" }}>
+      <div style={{ backgroundColor: "#FFFFFF", borderRadius: "12px", padding: "16px", boxShadow: "0 2px 8px rgba(0,0,0,0.08)", border: "1px solid #E2E8F0", borderLeft: "3px solid #0077B6", marginBottom: "11px" }}>
         <PanelHeader>Today&rsquo;s Priorities</PanelHeader>
         {actionItems.map((item) => (
           <Link
@@ -410,9 +410,9 @@ export default async function DashboardPage() {
   ];
 
   return (
-    <div style={{ backgroundColor: "#D6E4F0", minHeight: "100vh", padding: "24px", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-      {/* ROW 1 — header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
+    <div style={{ backgroundColor: "#EEF2F7", minHeight: "100vh", padding: "24px", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+      {/* ROW 1 — header, sits directly on canvas */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "17px" }}>
         <h1 style={{ fontSize: "24px", fontWeight: 800, color: "#0F172A", margin: 0 }}>{orgName}</h1>
         <span style={{ fontSize: "14px", color: "#64748B" }}>{format(now, "MMMM d, yyyy")}</span>
       </div>
@@ -424,7 +424,7 @@ export default async function DashboardPage() {
             border: "1px solid #99F6E4",
             borderRadius: "12px",
             padding: "16px 20px",
-            marginBottom: "20px",
+            marginBottom: "14px",
           }}
         >
           <h2 style={{ fontSize: "14px", fontWeight: 600, color: "#134E4A", margin: 0 }}>
@@ -438,11 +438,11 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {/* ROW 2 — 5 stat cards */}
-      <div style={{ display: "flex", gap: "16px", marginBottom: "24px" }}>
+      {/* ROW 2 — 5 stat cards, each with a distinct accent border */}
+      <div style={{ display: "flex", gap: "16px", marginBottom: "17px" }}>
         {statCards.map((card) => (
-          <div key={card.label} style={{ flex: "1", backgroundColor: "#FFFFFF", borderRadius: "12px", padding: "20px 24px", boxShadow: "0 2px 8px rgba(0,0,0,0.08)", border: "1px solid #E2E8F0" }}>
-            <div style={{ fontSize: "36px", fontWeight: 800, lineHeight: "1", color: card.color }}>
+          <div key={card.label} style={{ flex: "1", backgroundColor: "#FFFFFF", borderRadius: "12px", padding: "16px 20px", boxShadow: "0 2px 8px rgba(0,0,0,0.08)", borderTop: `3px solid ${card.color}` }}>
+            <div style={{ fontSize: "40px", fontWeight: 800, lineHeight: "1", color: card.color }}>
               {card.value}
             </div>
             <div style={{ fontSize: "11px", fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.06em", marginTop: "6px" }}>
@@ -453,10 +453,10 @@ export default async function DashboardPage() {
       </div>
 
       {/* ROW 3 — 60/40 split */}
-      <div style={{ display: "flex", gap: "16px", marginBottom: "24px" }}>
+      <div style={{ display: "flex", gap: "16px", marginBottom: "17px" }}>
         {/* LEFT — Mission Control */}
-        <div id="tour-flightpath-hud" style={{ flex: "1.5", backgroundColor: "#0F172A", borderRadius: "16px", padding: "24px" }}>
-          <div style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.15em", color: "#00B4D8", textTransform: "uppercase", marginBottom: "16px" }}>
+        <div id="tour-flightpath-hud" style={{ flex: "1.5", backgroundColor: "#0F172A", borderRadius: "16px", padding: "28px", boxShadow: "0 0 0 1px rgba(0,180,216,0.3),0 8px 32px rgba(0,0,0,0.3)" }}>
+          <div style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.15em", color: "#00B4D8", textTransform: "uppercase", marginBottom: "11px" }}>
             Mission Control
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
@@ -474,7 +474,7 @@ export default async function DashboardPage() {
                 }}
               >
                 <div style={{ fontSize: "13px", fontWeight: 600, color: "#F8FAFC" }}>{stage.label}</div>
-                <div style={{ fontSize: "24px", fontWeight: 800, color: stage.color, marginTop: "4px" }}>
+                <div style={{ fontSize: "32px", fontWeight: 800, color: stage.color, marginTop: "4px" }}>
                   {metricCount(stage.count)}
                 </div>
               </Link>
@@ -490,8 +490,8 @@ export default async function DashboardPage() {
             </Suspense>
           </ErrorBoundary>
 
-          <div style={{ backgroundColor: "#1A2B3C", borderRadius: "12px", padding: "20px", color: "#F8FAFC" }}>
-            <div style={{ fontSize: "12px", fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "14px" }}>
+          <div style={{ backgroundColor: "#1A2B3C", borderRadius: "12px", padding: "16px", color: "#F8FAFC", boxShadow: "0 4px 16px rgba(0,0,0,0.2)" }}>
+            <div style={{ fontSize: "12px", fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "10px" }}>
               Upcoming Deadlines
             </div>
             {deadlines.length === 0 ? (
@@ -543,7 +543,7 @@ export default async function DashboardPage() {
       {/* ROW 4 — bottom 3 columns */}
       <div style={{ display: "flex", gap: "16px" }}>
         {/* Col 1 — Recent Activity */}
-        <div style={{ flex: "1", backgroundColor: "#FFFFFF", borderRadius: "12px", padding: "20px", boxShadow: "0 2px 8px rgba(0,0,0,0.08)", border: "1px solid #E2E8F0" }}>
+        <div style={{ flex: "1", backgroundColor: "#FFFFFF", borderRadius: "12px", padding: "16px", boxShadow: "0 2px 8px rgba(0,0,0,0.08)", border: "1px solid #E2E8F0" }}>
           <PanelHeader>Recent Activity</PanelHeader>
           {agentDecisions.length === 0 ? (
             <p style={{ fontSize: "13px", color: "#6B7280", textAlign: "center", padding: "24px 0" }}>
@@ -586,7 +586,7 @@ export default async function DashboardPage() {
         </div>
 
         {/* Col 2 — Quick Actions */}
-        <div style={{ flex: "1", backgroundColor: "#FFFFFF", borderRadius: "12px", padding: "20px", boxShadow: "0 2px 8px rgba(0,0,0,0.08)", border: "1px solid #E2E8F0" }}>
+        <div style={{ flex: "1", backgroundColor: "#FFFFFF", borderRadius: "12px", padding: "16px", boxShadow: "0 2px 8px rgba(0,0,0,0.08)", border: "1px solid #E2E8F0" }}>
           <PanelHeader>Quick Actions</PanelHeader>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
             {QUICK_ACTIONS.map((action) => {
@@ -621,10 +621,10 @@ export default async function DashboardPage() {
         </div>
 
         {/* Col 3 — AI Insight */}
-        <div style={{ flex: "1", background: "linear-gradient(135deg,#0077B6,#00B4D8)", borderRadius: "12px", padding: "20px", color: "#FFFFFF" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "14px" }}>
-            <Sparkles size={14} aria-hidden />
-            <span style={{ fontSize: "12px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+        <div style={{ flex: "1", background: "linear-gradient(135deg,#0F172A 0%,#1A2B3C 100%)", borderRadius: "12px", padding: "16px", color: "#FFFFFF" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "10px" }}>
+            <Sparkles size={14} color="#00B4D8" aria-hidden />
+            <span style={{ fontSize: "12px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#00B4D8" }}>
               AI Insights
             </span>
           </div>
@@ -643,12 +643,12 @@ export default async function DashboardPage() {
                   border: "1px solid rgba(255,255,255,0.25)",
                   borderRadius: "10px",
                   padding: "12px 14px",
-                  marginBottom: "10px",
+                  marginBottom: "7px",
                   textDecoration: "none",
                   color: "#FFFFFF",
                 }}
               >
-                <div style={{ display: "flex", justifyContent: "space-between", gap: "8px", marginBottom: "4px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: "8px", marginBottom: "3px" }}>
                   <span style={{ fontSize: "12px", fontWeight: 700 }}>{truncate(rec.title, 34)}</span>
                   <span
                     style={{

@@ -32,6 +32,7 @@ type NavCounts = {
 };
 
 const NAV_COUNTS_POLL_MS = 60_000;
+const ICON_SIZE = 15;
 
 type SidebarProps = {
   /** Whether the mobile drawer is open. Ignored at lg+ where the sidebar is static. */
@@ -42,6 +43,8 @@ type SidebarProps = {
   role: Enums<"user_role"> | undefined;
   /** Whether onboarding is complete. */
   onboardingCompleted: boolean;
+  /** Organization name — shown at the bottom of the rail, under Settings. */
+  orgName: string;
 };
 
 const SECTION_LABEL_STYLE: CSSProperties = {
@@ -50,29 +53,29 @@ const SECTION_LABEL_STYLE: CSSProperties = {
   letterSpacing: "0.12em",
   color: "rgba(248,250,252,0.3)",
   textTransform: "uppercase",
-  padding: "16px 20px 6px",
+  padding: "12px 12px 6px",
   margin: 0,
 };
 
-/** Nav item style per the sidebar reskin spec — inline hex only (BLUEPRINT §7.5). */
+/** Nav item style per the dark premium reskin spec — inline hex only (BLUEPRINT §7.5). */
 function navItemStyle(active: boolean, hovered: boolean): CSSProperties {
   return {
     display: "flex",
     alignItems: "center",
     gap: "10px",
-    padding: "10px 16px",
+    padding: "9px 12px",
     borderRadius: "8px",
-    margin: "2px 8px",
+    color: active ? "#00B4D8" : hovered ? "#F8FAFC" : "rgba(248,250,252,0.6)",
     fontSize: "13px",
     fontWeight: active ? 600 : 500,
     textDecoration: "none",
-    transition: "all 0.15s",
     backgroundColor: active
-      ? "rgba(0,180,216,0.15)"
+      ? "rgba(0,180,216,0.12)"
       : hovered
         ? "rgba(255,255,255,0.06)"
         : "transparent",
-    color: active ? "#00B4D8" : "rgba(248,250,252,0.7)",
+    marginBottom: "1px",
+    transition: "all 0.15s",
   };
 }
 
@@ -101,8 +104,8 @@ const BADGE_CIRCLE_STYLE: CSSProperties = {
 /** A 16px circle badge overlaid top-right of the icon it wraps. Hidden at 0. */
 function IconWithBadge({ icon: Icon, count }: { icon: LucideIcon; count: number }) {
   return (
-    <span className="relative inline-flex shrink-0">
-      <Icon style={{ width: 16, height: 16, flexShrink: 0 }} aria-hidden />
+    <span style={{ position: "relative", display: "inline-flex", flexShrink: 0 }}>
+      <Icon style={{ width: ICON_SIZE, height: ICON_SIZE, flexShrink: 0 }} aria-hidden />
       {count > 0 && (
         <span
           style={BADGE_CIRCLE_STYLE}
@@ -144,16 +147,16 @@ function NavLink({ href, label, icon, active, badge = 0, id, onClick, iconColor 
       ) : (
         <IconWithBadge icon={icon} count={badge} />
       )}
-      <span className="truncate">{label}</span>
+      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
     </Link>
   );
 }
 
-/** Bare 16px icon with an explicit color override — used where a nav item's
- * icon carries its own semantic color instead of the shared badge treatment
+/** Bare icon with an explicit color override — used where a nav item's icon
+ * carries its own semantic color instead of the shared badge treatment
  * (e.g. Programs section's green icon). */
 function Icon({ icon: LucideComp, color }: { icon: LucideIcon; color: string }) {
-  return <LucideComp style={{ width: 16, height: 16, flexShrink: 0, color }} aria-hidden />;
+  return <LucideComp style={{ width: ICON_SIZE, height: ICON_SIZE, flexShrink: 0, color }} aria-hidden />;
 }
 
 /** Inline circle badge for text-only sub-links that have no icon to overlay. */
@@ -161,8 +164,7 @@ function NavBadge({ count }: { count: number }) {
   if (count <= 0) return null;
   return (
     <span
-      className="ml-auto inline-flex"
-      style={{ ...BADGE_CIRCLE_STYLE, position: "static" }}
+      style={{ ...BADGE_CIRCLE_STYLE, position: "static", marginLeft: "auto" }}
       aria-label={`${count} ${count === 1 ? "item needs" : "items need"} attention`}
     >
       {badgeLabel(count)}
@@ -170,16 +172,70 @@ function NavBadge({ count }: { count: number }) {
   );
 }
 
+/** An indented child (sub-nav) row — same owns-its-own-hover-state pattern as NavLink. */
+function ChildNavLink({
+  href,
+  label,
+  active,
+  badge = 0,
+  onClick,
+}: {
+  href: string;
+  label: string;
+  active: boolean;
+  badge?: number;
+  onClick?: () => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <Link
+      href={href}
+      onClick={onClick}
+      aria-current={active ? "page" : undefined}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        borderRadius: "6px",
+        padding: "6px 12px",
+        fontSize: "12px",
+        fontWeight: 500,
+        textDecoration: "none",
+        color: active ? "#00B4D8" : hovered ? "#F8FAFC" : "rgba(248,250,252,0.5)",
+      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      {active && (
+        <span
+          aria-hidden
+          style={{
+            display: "inline-block",
+            width: "4px",
+            height: "4px",
+            borderRadius: "50%",
+            backgroundColor: "#00B4D8",
+            marginRight: "8px",
+            flexShrink: 0,
+          }}
+        />
+      )}
+      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
+      <NavBadge count={badge} />
+    </Link>
+  );
+}
+
 /**
- * Dashboard sidebar navigation — dark navy brand rail.
+ * Dashboard sidebar navigation — dark premium brand rail.
  * - Static rail on lg+ screens.
  * - Slide-in drawer with backdrop on mobile, controlled by `open`.
- * - The nav item whose route matches the current path is highlighted in blue.
+ * - The nav item whose route matches the current path is highlighted in cyan.
  */
-export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarProps) {
+export function Sidebar({ open, onClose, role, onboardingCompleted, orgName }: SidebarProps) {
   const pathname = usePathname();
   const navItems = navItemsForRole(role, { onboardingCompleted });
   const isPlatformAdmin = role === "owner" || role === "admin";
+  const [closeHovered, setCloseHovered] = useState(false);
 
   // Lightweight badge counts from a single API call.
   const [navCounts, setNavCounts] = useState<NavCounts>({
@@ -275,130 +331,161 @@ export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarPro
       {/* Mobile backdrop */}
       {open && (
         <div
-          className="fixed inset-0 bg-[#0F172A]/60 backdrop-blur-sm z-40 lg:hidden"
+          className="fixed inset-0 z-40 lg:hidden"
+          style={{ backgroundColor: "rgba(15,23,42,0.6)", backdropFilter: "blur(4px)" }}
           aria-hidden
           onClick={onClose}
         />
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 shadow-2xl transition-transform duration-300 ease-in-out lg:static lg:z-auto lg:translate-x-0 lg:shadow-none ${
+        className={`fixed inset-y-0 left-0 z-50 transition-transform duration-300 ease-in-out lg:static lg:z-auto lg:translate-x-0 ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
         style={{
-          backgroundColor: "#1A2B3C",
           width: "240px",
           minHeight: "100vh",
+          backgroundColor: "#0F172A",
+          display: "flex",
+          flexDirection: "column",
           borderRight: "1px solid rgba(255,255,255,0.06)",
+          flexShrink: 0,
         }}
         aria-label="Primary navigation"
       >
+        {/* Logo area */}
         <div
-          className="flex flex-col h-full"
-          style={{ backgroundColor: "#1A2B3C" }}
+          style={{
+            padding: "20px",
+            borderBottom: "1px solid rgba(255,255,255,0.08)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "10px",
+          }}
         >
-          {/* Brand + mobile close */}
-          <div style={{ padding: "24px 20px 16px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-            <div className="flex items-center justify-between">
-              <Link href="/dashboard" aria-label="Benavora - go to dashboard">
-                {/* Desktop: full wordmark + tagline */}
-                <div className="hidden flex-col lg:flex">
-                  <Logo />
-                  <span className="mt-1 text-[11px] text-[#64748B] font-medium tracking-wide">
-                    Fund More. Do More. Change More.
-                  </span>
-                </div>
-                {/* Mobile drawer: icon only, no tagline */}
-                <Logo size={32} showWordmark={false} className="lg:hidden" />
-              </Link>
-              <button
-                type="button"
-                onClick={onClose}
-                className="rounded-md p-1.5 text-[#CBD5E1] transition hover:bg-[#243B55] hover:text-white lg:hidden"
-                aria-label="Close navigation"
-              >
-                <X className="h-5 w-5" />
-              </button>
+          <Link href="/dashboard" aria-label="Benavora - go to dashboard">
+            {/* Desktop: full wordmark + tagline */}
+            <div className="hidden lg:flex" style={{ flexDirection: "column" }}>
+              <Logo />
+              <span style={{ fontSize: "11px", color: "rgba(248,250,252,0.4)", marginTop: "2px" }}>
+                Fund More. Do More. Change More.
+              </span>
             </div>
-          </div>
+            {/* Mobile drawer: icon only, no tagline */}
+            <Logo size={32} showWordmark={false} className="lg:hidden" />
+          </Link>
+          <button
+            type="button"
+            onClick={onClose}
+            className="lg:hidden"
+            style={{
+              border: "none",
+              borderRadius: "6px",
+              padding: "6px",
+              cursor: "pointer",
+              color: closeHovered ? "#F8FAFC" : "rgba(248,250,252,0.6)",
+              backgroundColor: closeHovered ? "rgba(255,255,255,0.06)" : "transparent",
+              transition: "all 0.15s",
+            }}
+            onMouseEnter={() => setCloseHovered(true)}
+            onMouseLeave={() => setCloseHovered(false)}
+            aria-label="Close navigation"
+          >
+            <X style={{ width: 18, height: 18 }} aria-hidden />
+          </button>
+        </div>
 
-          {/* Main nav links */}
-          <nav className="flex-1 overflow-y-auto py-4 px-3" aria-label="Main navigation">
-            {pathname.startsWith("/donor-discovery") && (
-              <div className="mb-2 space-y-1">
-                <p style={SECTION_LABEL_STYLE}>Donor Discovery</p>
-                {DONOR_DISCOVERY_NAV_ITEMS.map((item) => {
-                  const active = isActive(item.href);
-                  const badge = badgeByHref[item.href] ?? 0;
-                  const ItemIcon = donorDiscoveryIconByHref[item.href] ?? Telescope;
-                  return (
-                    <NavLink
-                      key={item.href}
-                      href={item.href}
-                      label={item.label}
-                      icon={ItemIcon}
-                      active={active}
-                      badge={badge}
-                      onClick={onClose}
-                    />
-                  );
-                })}
-              </div>
-            )}
-            <div className="space-y-1">
-              {navItems.map(({ label, href, icon: ItemIcon, children }) => {
-                const active = isActive(href);
-                const badge = badgeByHref[href] ?? 0;
+        {/* Main nav links */}
+        <nav style={{ flex: "1", padding: "12px 8px", overflowY: "auto" }} aria-label="Main navigation">
+          {pathname.startsWith("/donor-discovery") && (
+            <div style={{ marginBottom: "8px" }}>
+              <p style={SECTION_LABEL_STYLE}>Donor Discovery</p>
+              {DONOR_DISCOVERY_NAV_ITEMS.map((item) => {
+                const active = isActive(item.href);
+                const badge = badgeByHref[item.href] ?? 0;
+                const ItemIcon = donorDiscoveryIconByHref[item.href] ?? Telescope;
                 return (
-                  <div key={href}>
-                    <NavLink
-                      href={hrefs[href] ?? href}
-                      label={label}
-                      icon={ItemIcon}
-                      active={active}
-                      badge={badge}
-                      id={href === "/intelligence-library" ? "tour-nav-intelligence-library" : undefined}
-                      onClick={onClose}
-                    />
-                    {active && children && children.length > 0 && (
-                      <div className="ml-9 mt-0.5 space-y-0.5">
-                        {children.map((child) => {
-                          const childActive = pathname === child.href;
-                          const childBadge = childBadgeByHref[child.href] ?? 0;
-                          return (
-                            <Link
-                              key={child.href}
-                              href={child.href}
-                              onClick={onClose}
-                              aria-current={childActive ? "page" : undefined}
-                              className={`flex items-center rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                                childActive ? "text-[#00B4D8]" : "text-[#94A3B8] hover:text-white"
-                              }`}
-                            >
-                              {childActive && (
-                                <span
-                                  className="mr-2 inline-block h-1 w-1 rounded-full bg-[#00B4D8]"
-                                  aria-hidden
-                                />
-                              )}
-                              <span className="truncate">{child.label}</span>
-                              <NavBadge count={childBadge} />
-                            </Link>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
+                  <NavLink
+                    key={item.href}
+                    href={item.href}
+                    label={item.label}
+                    icon={ItemIcon}
+                    active={active}
+                    badge={badge}
+                    onClick={onClose}
+                  />
                 );
               })}
             </div>
+          )}
+          <div>
+            {navItems.map(({ label, href, icon: ItemIcon, children }) => {
+              const active = isActive(href);
+              const badge = badgeByHref[href] ?? 0;
+              return (
+                <div key={href}>
+                  <NavLink
+                    href={hrefs[href] ?? href}
+                    label={label}
+                    icon={ItemIcon}
+                    active={active}
+                    badge={badge}
+                    id={href === "/intelligence-library" ? "tour-nav-intelligence-library" : undefined}
+                    onClick={onClose}
+                  />
+                  {active && children && children.length > 0 && (
+                    <div style={{ marginLeft: "23px", marginTop: "2px" }}>
+                      {children.map((child) => {
+                        const childActive = pathname === child.href;
+                        const childBadge = childBadgeByHref[child.href] ?? 0;
+                        return (
+                          <ChildNavLink
+                            key={child.href}
+                            href={child.href}
+                            label={child.label}
+                            active={childActive}
+                            badge={childBadge}
+                            onClick={onClose}
+                          />
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
 
-            {/* Programs section — org-facing feature programs (e.g. SchoolFunder) */}
-            <div className="mt-2">
-              <p style={SECTION_LABEL_STYLE}>Programs</p>
-              <div className="space-y-1">
-                {PROGRAMS_NAV_ITEMS.map(({ label, href, icon: ItemIcon }) => {
+          {/* Programs section — org-facing feature programs (e.g. SchoolFunder) */}
+          <div style={{ marginTop: "8px" }}>
+            <p style={SECTION_LABEL_STYLE}>Programs</p>
+            <div>
+              {PROGRAMS_NAV_ITEMS.map(({ label, href, icon: ItemIcon }) => {
+                const active = isActive(href);
+                return (
+                  <NavLink
+                    key={href}
+                    href={href}
+                    label={label}
+                    icon={ItemIcon}
+                    active={active}
+                    onClick={onClose}
+                    iconColor={(isActiveNow) => (isActiveNow ? "#FFFFFF" : "#10B981")}
+                  />
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Platform admin section */}
+          {isPlatformAdmin && (
+            <div style={{ marginTop: "8px" }}>
+              <p style={SECTION_LABEL_STYLE}>Platform</p>
+              <div>
+                {PLATFORM_NAV_ITEMS.map(({ label, href, icon: ItemIcon }) => {
                   const active = isActive(href);
+                  const badge = platformBadgeByHref[href] ?? 0;
                   return (
                     <NavLink
                       key={href}
@@ -406,53 +493,32 @@ export function Sidebar({ open, onClose, role, onboardingCompleted }: SidebarPro
                       label={label}
                       icon={ItemIcon}
                       active={active}
+                      badge={badge}
                       onClick={onClose}
-                      iconColor={(isActiveNow) => (isActiveNow ? "#FFFFFF" : "#10B981")}
                     />
                   );
                 })}
               </div>
             </div>
+          )}
+        </nav>
 
-            {/* Platform admin section */}
-            {isPlatformAdmin && (
-              <div className="mt-2">
-                <p style={SECTION_LABEL_STYLE}>Platform</p>
-                <div className="space-y-1">
-                  {PLATFORM_NAV_ITEMS.map(({ label, href, icon: ItemIcon }) => {
-                    const active = isActive(href);
-                    const badge = platformBadgeByHref[href] ?? 0;
-                    return (
-                      <NavLink
-                        key={href}
-                        href={href}
-                        label={label}
-                        icon={ItemIcon}
-                        active={active}
-                        badge={badge}
-                        onClick={onClose}
-                      />
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </nav>
-
-          {/* Settings — bottom, separated */}
-          <div className="border-t border-[#243B55] px-3 py-4">
-            <NavLink
-              href={hrefs[SETTINGS_NAV_ITEM.href] ?? SETTINGS_NAV_ITEM.href}
-              label={SETTINGS_NAV_ITEM.label}
-              icon={SETTINGS_NAV_ITEM.icon}
-              active={isActive(SETTINGS_NAV_ITEM.href)}
-              id="tour-nav-settings"
-              onClick={onClose}
-            />
-            <p className="mt-3 px-3 text-[11px] text-[#64748B] font-medium tracking-wide">
-              Nonprofit funding automation
-            </p>
-          </div>
+        {/* Settings + org identity — bottom, separated */}
+        <div style={{ padding: "16px", borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+          <NavLink
+            href={hrefs[SETTINGS_NAV_ITEM.href] ?? SETTINGS_NAV_ITEM.href}
+            label={SETTINGS_NAV_ITEM.label}
+            icon={SETTINGS_NAV_ITEM.icon}
+            active={isActive(SETTINGS_NAV_ITEM.href)}
+            id="tour-nav-settings"
+            onClick={onClose}
+          />
+          <p style={{ margin: 0, marginTop: "10px", fontSize: "12px", fontWeight: 600, color: "rgba(248,250,252,0.8)" }}>
+            {orgName}
+          </p>
+          <p style={{ margin: 0, marginTop: "2px", fontSize: "11px", color: "rgba(248,250,252,0.4)" }}>
+            Nonprofit funding automation
+          </p>
         </div>
       </aside>
     </>

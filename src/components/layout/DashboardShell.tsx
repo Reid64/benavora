@@ -59,6 +59,7 @@ export function DashboardShell({
         onClose={() => setSidebarOpen(false)}
         role={role}
         onboardingCompleted={onboardingCompleted}
+        orgName={orgName}
       />
 
       <div className="flex min-w-0 flex-1 flex-col">
