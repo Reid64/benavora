@@ -70,7 +70,7 @@ function confidenceBadgeColor(score: number | null): "green" | "yellow" | "red" 
   return "red";
 }
 
-/** Client-side confidence re-score — same algorithm as /api/ai/draft's computeConfidence. */
+/** Client-side confidence re-score â€” same algorithm as /api/ai/draft's computeConfidence. */
 function computeRescoreConfidence(
   text: string,
   kbCount: number,
@@ -93,7 +93,7 @@ function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
-/** Numbered step header — a filled circle instead of a plain "N." prefix. */
+/** Numbered step header â€” a filled circle instead of a plain "N." prefix. */
 function StepTitle({ step, children }: { step: number; children: ReactNode }) {
   return (
     <span className="flex items-center gap-2.5">
@@ -179,7 +179,7 @@ function sectionSuggestion(score: number, gaps: number): string {
   if (gaps > 0) return `Fill ${gaps} input gap${gaps !== 1 ? "s" : ""} to complete this section`;
   if (score >= 80) return "Well-developed section";
   if (score >= 60) return "Expand with specific outcomes or evidence";
-  return "Needs development — add concrete details";
+  return "Needs development â€” add concrete details";
 }
 
 // --- Readability metrics ---
@@ -225,7 +225,7 @@ function mapVersion(row: Tables<"draft_versions">): DraftVersionItem {
 }
 
 /**
- * Draft Generator - template selection + generation flow (BLUEPRINT §4.8).
+ * Draft Generator - template selection + generation flow (BLUEPRINT Â§4.8).
  * Pick an opportunity and template, generate a draft grounded in the Knowledge
  * Base, review the confidence and sources, then save it onto an application
  * record and open the editor. organization_id is never sent from the client -
@@ -317,7 +317,7 @@ export default function DraftGeneratorPage() {
           setDnaScore(data);
         }
       } catch {
-        // DNA scoring is supplementary — silent failure is acceptable.
+        // DNA scoring is supplementary â€” silent failure is acceptable.
       } finally {
         setDnaScoring(false);
       }
@@ -394,7 +394,7 @@ export default function DraftGeneratorPage() {
         return;
       }
 
-      // Restore the last draft this org worked on (BLUEPRINT §4.8). Setting the
+      // Restore the last draft this org worked on (BLUEPRINT Â§4.8). Setting the
       // opportunity id triggers the version-loading effect below, which loads
       // the latest version into the editor.
       const { data: lastVersion } = await supabase
@@ -413,7 +413,7 @@ export default function DraftGeneratorPage() {
     };
   }, [requestedOpportunityId]);
 
-  // Header stats row + recent drafts table — org-wide, independent of the
+  // Header stats row + recent drafts table â€” org-wide, independent of the
   // opportunity currently selected in the generator below.
   const loadStatsAndRecent = useCallback(async () => {
     setRecentDraftsLoading(true);
@@ -502,7 +502,7 @@ export default function DraftGeneratorPage() {
     () =>
       opportunities.map((o) => ({
         value: o.id,
-        label: `${o.name} · ${humanizeEnum(o.category)}`,
+        label: `${o.name} Â· ${humanizeEnum(o.category)}`,
       })),
     [opportunities],
   );
@@ -663,7 +663,7 @@ export default function DraftGeneratorPage() {
 
   // Second pass: rewrite the current draft for an authentic human voice
   // (anti-detection). The endpoint appends a new humanized version and returns
-  // a confidence score that reflects the humanization (BLUEPRINT §4.8).
+  // a confidence score that reflects the humanization (BLUEPRINT Â§4.8).
   const handleHumanize = useCallback(async () => {
     if (!opportunityId || !templateType || !draftText.trim()) return;
     if (humanizingRef.current) return;
@@ -696,7 +696,7 @@ export default function DraftGeneratorPage() {
 
       // Replace the editor content with the humanized draft. The humanizer
       // changes style, not content sources, so the confidence score is preserved
-      // from the original generation — only setRescoreMessage can update it.
+      // from the original generation â€” only setRescoreMessage can update it.
       setDraftText(payload.content);
       setSources(payload.sources);
       setHumanizationStatus(payload.humanizationStatus);
@@ -721,8 +721,8 @@ export default function DraftGeneratorPage() {
     setConfidence(newScore);
     const msg =
       needsInput > 0
-        ? `Score updated: ${newScore}/100 · ${needsInput} gap${needsInput !== 1 ? "s" : ""} remaining`
-        : `Score updated: ${newScore}/100 · No gaps remaining`;
+        ? `Score updated: ${newScore}/100 Â· ${needsInput} gap${needsInput !== 1 ? "s" : ""} remaining`
+        : `Score updated: ${newScore}/100 Â· No gaps remaining`;
     setRescoreMessage(msg);
     setTimeout(() => setRescoreMessage(null), 4000);
   }
@@ -817,7 +817,7 @@ export default function DraftGeneratorPage() {
         return;
       }
       applicationId = created.id as string;
-      // Record the application's creation in the pipeline timeline (§6).
+      // Record the application's creation in the pipeline timeline (Â§6).
       await supabase.from("pipeline_history").insert({
         organization_id: profile.organization_id,
         application_id: applicationId,
@@ -888,7 +888,7 @@ export default function DraftGeneratorPage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-xl p-5" style={statCardStyle}>
           <p style={statLabelStyle}>Total Drafts</p>
-          <p style={statValueStyle}>{stats ? stats.totalDrafts : "—"}</p>
+          <p style={statValueStyle}>{stats ? stats.totalDrafts : "â€”"}</p>
         </div>
         <div className="rounded-xl p-5" style={statCardStyle}>
           <div className="flex items-center justify-between">
@@ -906,16 +906,16 @@ export default function DraftGeneratorPage() {
               AI
             </span>
           </div>
-          <p style={statValueStyle}>{stats ? stats.aiPending : "—"}</p>
+          <p style={statValueStyle}>{stats ? stats.aiPending : "â€”"}</p>
         </div>
         <div className="rounded-xl p-5" style={statCardStyle}>
           <p style={statLabelStyle}>Drafts This Month</p>
-          <p style={statValueStyle}>{stats ? stats.draftsThisMonth : "—"}</p>
+          <p style={statValueStyle}>{stats ? stats.draftsThisMonth : "â€”"}</p>
         </div>
         <div className="rounded-xl p-5" style={statCardStyle}>
           <p style={statLabelStyle}>Avg Confidence</p>
           <p style={statValueStyle}>
-            {stats && stats.avgConfidence != null ? `${stats.avgConfidence}/100` : "—"}
+            {stats && stats.avgConfidence != null ? `${stats.avgConfidence}/100` : "â€”"}
           </p>
         </div>
       </div>
@@ -1133,7 +1133,7 @@ export default function DraftGeneratorPage() {
                       <Sparkles className="h-6 w-6 animate-pulse" style={{ color: "#0077B6" }} aria-hidden />
                     </div>
                   </div>
-                  <p style={{ fontSize: "15px", fontWeight: 700, color: "#0F172A" }}>Generating your draft…</p>
+                  <p style={{ fontSize: "15px", fontWeight: 700, color: "#0F172A" }}>Generating your draftâ€¦</p>
                   <p style={{ fontSize: "13px", color: "#64748B", marginTop: "6px" }}>
                     Drawing on your Knowledge Base to write a grounded{" "}
                     {templateType ? humanizeEnum(templateType) : "draft"}. This can take a couple of minutes.
@@ -1160,7 +1160,7 @@ export default function DraftGeneratorPage() {
                 <Card
                   className="flex flex-1 flex-col"
                   title={<StepTitle step={3}>Review &amp; edit</StepTitle>}
-                  description="Humanize rewrites the draft in an authentic human voice (no em dashes, no AI clichés, varied rhythm), grounded in your verified data."
+                  description="Humanize rewrites the draft in an authentic human voice (no em dashes, no AI clichÃ©s, varied rhythm), grounded in your verified data."
                   actions={
                     editable ? (
                       <div className="flex items-center gap-2">
@@ -1226,7 +1226,7 @@ export default function DraftGeneratorPage() {
                         {readability.wordCount.toLocaleString()} words
                       </span>
                       <span className="ml-auto text-xs text-navy-400">
-                        Ideal: Grade 10–12, &lt;15% passive
+                        Ideal: Grade 10â€“12, &lt;15% passive
                       </span>
                     </div>
                   )}
@@ -1399,7 +1399,7 @@ export default function DraftGeneratorPage() {
                 {logicModel && (
                   <Card
                     title="Program logic model"
-                    description="The inputs → impact backbone the AI used to ground this draft's program design. Sourced from the Intelligence Library when a template matches, otherwise generated for this opportunity."
+                    description="The inputs â†’ impact backbone the AI used to ground this draft's program design. Sourced from the Intelligence Library when a template matches, otherwise generated for this opportunity."
                   >
                     <LogicModelView model={logicModel} />
                   </Card>
@@ -1468,7 +1468,7 @@ export default function DraftGeneratorPage() {
               Recent Drafts
             </div>
             {recentDraftsLoading ? (
-              <div className="p-5 text-sm text-navy-400">Loading recent drafts…</div>
+              <div className="p-5 text-sm text-navy-400">Loading recent draftsâ€¦</div>
             ) : recentDrafts.length === 0 ? (
               <div className="p-5 text-sm text-navy-400">
                 No drafts generated yet. Generate one above to see it here.
@@ -1507,7 +1507,7 @@ export default function DraftGeneratorPage() {
                         </td>
                         <td className="px-4 py-3">
                           <Badge color={confidenceBadgeColor(draft.confidenceScore)}>
-                            {draft.confidenceScore != null ? `${draft.confidenceScore}/100` : "—"}
+                            {draft.confidenceScore != null ? `${draft.confidenceScore}/100` : "â€”"}
                           </Badge>
                         </td>
                         <td className="px-4 py-3">
