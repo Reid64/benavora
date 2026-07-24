@@ -1,8 +1,32 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: July 23, 2026 (prompt ui-004), from `git log --oneline -3` run this session. Not FORGE-auto-generated — hand-verified.**
+**Updated: July 23, 2026 (prompt ui-005), from `git log --oneline -5` run this session. Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — July 23, 2026 (prompt ui-005)
+
+**Commit `08ae36a`** — `feat(ui): intelligence library dark hero + filter bar + narrative overlay, knowledge base dual-panel nav`, on top of `7b708b1` (verified via `git log --oneline -5`):
+```
+08ae36a feat(ui): intelligence library dark hero + filter bar + narrative overlay, knowledge base dual-panel nav
+7b708b1 docs: governance sync for prompt ui-004 -- draft generator wizard + donor discovery panels shipped, fake tone/length controls and invented industry grid declined
+ef1b758 feat(ui): draft generator 4-step wizard dark rail, donor discovery intent signals + featured prospect
+3dd6fad docs: governance sync for prompt ui-003 -- AutoApply dark theme shipped, fake AI ticker declined
+27e3612 feat(ui): AutoApply dark command center header/stats, Controls panel; Live Session Viewer reskinned dark
+```
+
+Pre-read confirmed: `src/app/(dashboard)/intelligence-library/page.tsx` was already a mature, fully-wired page (commit `50472ed`, prior session) — real search/filter/pagination against `/api/intelligence/proposals` and `/api/intelligence/library/search`, an add-narrative form, "use as reference" → Draft Generator handoff, and winning-phrases/persuasive-elements sections that only render when migration 106's columns are populated (they are not, in prod, as of this session). `src/app/(dashboard)/knowledge-base/page.tsx` was likewise real but styled with Tailwind color classes throughout, in violation of BLUEPRINT_v2.md §7.5 (inline hex only) — same pattern as ui-001/002/003/004: restyle real, wired pages rather than rebuild them.
+
+**What actually shipped:**
+
+- **Intelligence Library**: added the spec's dark gradient hero header (`#0F172A→#1A2B3C→#0F172A`, dot-grid pattern) with 3 real stat chips — Funded Proposals (`data.stats.totalProposals`), Data Sources (`data.stats.sources.length`), and Winning Phrases (live count summed from the currently loaded page's `winningPhrases` arrays — honestly 0 right now, not a fabricated corpus total the API doesn't expose, per the same migration-106-unapplied caveat already documented in this file's header). Converted the whole page from the prior dark-card theme to the spec's light canvas (`#E4E9F0`) + white cards (`#FFFFFF`, `0 2px 8px rgba(0,0,0,0.08)` shadow, `#E2E8F0` border) with per-card hover elevation. Funder badges recolored to the spec's palette (Federal `#0077B6`, NIH `#7C3AED`, NSF `#0EA5E9`, Foundation `#10B981`, Corporate `#F59E0B`) derived from the real `source`/`funderBucket` fields — not a new classification. Winning-phrase chips recolored green (`#F0FDF4`/`#BBF7D0`/`#16A34A`) per spec. The narrative overlay was converted from a centered modal to the spec's 480px slide-in panel from the right, same content (full narrative, success factors, winning phrases, persuasive elements, "Use in My Draft"). Quick filter chips restyled to the spec's pill look; the underlying set is still driven by the real dynamic source list plus the real funder-bucket enum (Federal/Foundation/Corporate/Community/Public Charity), not a hardcoded ALL/Federal/NIH/NSF/Foundation/Corporate list, since NIH and NSF are data sources, not funder types, and the real data already surfaces them as source pills. All existing state/handlers (search debounce, full-text search, pagination, add-narrative POST, reference selection, draft-generator handoff) are unchanged.
+- **Knowledge Base overview**: rebuilt as the spec's 35/65 two-column layout — a left nav card (Overview, Organization Profile, Full Editor, Narratives relabeled "Proven Narratives", Standard Answers relabeled "Q&A Library" per the spec's wording) linking to the same real routes `KnowledgeBaseNav.tsx` already exposes, and a right column with a gradient hero card (`#0077B6→#00B4D8`) showing the org name, mission-statement preview, and a completeness bar. The completeness % is the real score from `GET /api/knowledge-base` (`twinCompletenessScore`, the same number `/knowledge-base/edit` and `/intelligence/twin` already show — computed by `computeSectionScores()`/`calculateTwinCompleteness()`, not invented for this page). Proven-narrative cards restyled to the spec's green card look (`#F0FDF4`/`#BBF7D0` bg/border, `#16A34A` score badge).
+- **Deviation:** the spec asked for "editable fields below in clean form cards" on the hero card. Not built as a second inline edit form — `ProfileEditor.tsx` at `/knowledge-base/profile` is the one real, wired editor for those fields (EIN, tax status, mission, board, programs, extended profile). Forking a second, disconnected edit form on the overview page would duplicate write logic across two places against real data, which this project's sessions have consistently declined (ui-002's research page, ui-003's Live Session Viewer, ui-004's tone/length controls). Instead the hero card shows a real read-only snapshot (EIN, tax status, service area, staff/volunteers) plus a link to the real editor.
+- The spec's left-nav item list (Organization Profile, Mission Statement, Programs, Proven Narratives, Q&A Library, Documents) doesn't match this app's real route structure one-to-one — Mission Statement/Programs are sections *within* the Full Editor, not separate pages, and there is no standalone Documents route under `/knowledge-base`. The nav uses the real 5 routes instead of inventing 2 more that don't exist.
+
+Gates: `pnpm tsc --noEmit` — 0 errors (clean exit, no output). `pnpm lint` / `pnpm run build` — not run this session; do not assume they pass.
 
 ---
 
