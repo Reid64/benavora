@@ -52,10 +52,20 @@ const MENU_LINKS = [
   { label: "AutoApply Ops", href: "/admin/autoapply-ops" },
 ];
 
-const NAV_LINK_ACTIVE =
-  "px-4 py-2 text-sm font-semibold text-[#0077B6] border-b-2 border-[#0077B6] rounded-none -mb-px";
-const NAV_LINK_INACTIVE =
-  "px-4 py-2 text-sm font-semibold text-[rgba(248,250,252,0.6)] hover:text-white hover:bg-[rgba(255,255,255,0.08)] rounded-lg transition-colors";
+/** Header tab link style — active gets the teal underline, otherwise dim/hover cyan (BLUEPRINT §7.5). */
+function headerTabStyle(active: boolean, hovered: boolean): CSSProperties {
+  return {
+    padding: "8px 16px",
+    fontSize: "14px",
+    fontWeight: 600,
+    color: active ? "#00B4D8" : hovered ? "#22D3EE" : "rgba(248,250,252,0.6)",
+    borderBottom: active ? "2px solid #00B4D8" : "2px solid transparent",
+    paddingBottom: active ? "2px" : "6px",
+    borderRadius: active ? 0 : "8px",
+    marginBottom: active ? "-1px" : 0,
+    transition: "color 0.15s",
+  };
+}
 
 /** Formats a raw count per the nav-badge display rule: 0 hides, 10+ shows "9+". */
 function badgeLabel(count: number): string {
@@ -86,6 +96,32 @@ function TabBadge({ count }: { count: number }) {
     <span style={TAB_BADGE_STYLE} aria-label={`${count} ${count === 1 ? "item needs" : "items need"} attention`}>
       {badgeLabel(count)}
     </span>
+  );
+}
+
+type HeaderTabLinkProps = {
+  href: string;
+  label: string;
+  active: boolean;
+  badge: number;
+  id?: string;
+};
+
+/** A single header tab — owns its own hover state (same pattern as Sidebar's NavLink). */
+function HeaderTabLink({ href, label, active, badge, id }: HeaderTabLinkProps) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <Link
+      href={href}
+      id={id}
+      aria-current={active ? "page" : undefined}
+      style={{ position: "relative", ...headerTabStyle(active, hovered) }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      {label}
+      <TabBadge count={badge} />
+    </Link>
   );
 }
 
@@ -216,17 +252,14 @@ export function Header({ userEmail, orgName, orgLogoUrl, onMenuClick }: HeaderPr
                       ? "tour-tab-draft-generator"
                       : undefined;
               return (
-                <Link
+                <HeaderTabLink
                   key={tab.href}
                   href={tab.href}
                   id={tourId}
-                  aria-current={active ? "page" : undefined}
-                  className={active ? NAV_LINK_ACTIVE : NAV_LINK_INACTIVE}
-                  style={{ position: "relative" }}
-                >
-                  {tab.label}
-                  <TabBadge count={tabBadge} />
-                </Link>
+                  label={tab.label}
+                  active={active}
+                  badge={tabBadge}
+                />
               );
             })}
           </nav>
