@@ -338,20 +338,28 @@ export function LiveSessionViewer() {
   return (
     <>
       {!expanded && (
-        <div className="rounded-lg border border-border bg-white p-5 shadow-sm">
+        <div
+          style={{
+            backgroundColor: "#0D1B2A",
+            borderRadius: "16px",
+            border: "1px solid rgba(0,180,216,0.2)",
+            padding: "20px",
+          }}
+        >
           <div className="mb-4 flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-semibold text-navy-900">
+              <h3 style={{ fontSize: "13px", fontWeight: 700, color: "#F8FAFC" }}>
                 Live Session Viewer
               </h3>
-              <p className="mt-0.5 text-xs text-navy-400">
+              <p style={{ fontSize: "12px", color: "#64748B", marginTop: "2px" }}>
                 Real-time browser automation stream from the AutoApply worker
               </p>
             </div>
             <button
               type="button"
               onClick={() => setExpanded(true)}
-              className="rounded-md p-1.5 text-navy-400 hover:bg-navy-50 hover:text-navy-700"
+              className="rounded-md p-1.5 hover:bg-white/5"
+              style={{ color: "#64748B" }}
               title="Expand to fullscreen"
             >
               <Maximize2 className="h-4 w-4" />

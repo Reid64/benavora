@@ -13,7 +13,6 @@ import {
 } from "lucide-react";
 
 import { Button, Card, EmptyState, Modal } from "@/components/ui";
-import { PageHeader } from "@/components/layout/PageHeader";
 import { createClient } from "@/lib/supabase/client";
 import { useProfile } from "@/lib/hooks/useProfile";
 import type { Json } from "@/types/database";
@@ -60,6 +59,7 @@ interface QueueRow {
   automation_mode: string;
   scheduled_for: string | null;
   created_at: string;
+  completed_at: string | null;
   funders: { name: string; giving_portal_url: string | null } | null;
 }
 
@@ -108,6 +108,24 @@ function countFields(fieldMapping: Json | null): number {
 function truncateUrl(url: string, max = 45): string {
   if (url.length <= max) return url;
   return url.slice(0, max) + "…";
+}
+
+function isToday(isoString: string | null): boolean {
+  if (!isoString) return false;
+  const d = new Date(isoString);
+  const now = new Date();
+  return (
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  );
+}
+
+function formatDuration(seconds: number): string {
+  if (seconds < 60) return `${Math.round(seconds)}s`;
+  const minutes = Math.floor(seconds / 60);
+  const remSeconds = Math.round(seconds % 60);
+  return `${minutes}m ${remSeconds}s`;
 }
 
 export default function AutoApplyPage() {
@@ -355,56 +373,135 @@ export default function AutoApplyPage() {
   const isRunning = runningCount > 0;
   const needsSparkGoodSetup = queue.some((q) => q.status === "requires_account_setup");
 
-  const statCardStyle = {
-    backgroundColor: "#F7F5F1",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-    border: "1px solid #D9D3C5",
+  // Real, derived from the same submission_queue rows already loaded above — no fabricated data.
+  const sessionsToday = queue.filter((q) => isToday(q.created_at)).length;
+  const resolvedCount = completedCount + failedCount;
+  const successRatePct = resolvedCount > 0 ? Math.round((completedCount / resolvedCount) * 100) : null;
+  const fillDurations = queue
+    .filter((q) => q.status === "completed" && q.completed_at)
+    .map((q) => (new Date(q.completed_at as string).getTime() - new Date(q.created_at).getTime()) / 1000)
+    .filter((s) => s >= 0);
+  const avgFillTimeSeconds =
+    fillDurations.length > 0 ? fillDurations.reduce((a, b) => a + b, 0) / fillDurations.length : null;
+
+  const darkStatCardStyle = {
+    backgroundColor: "rgba(255,255,255,0.04)",
+    borderRadius: "12px",
+    padding: "20px",
+    border: "1px solid rgba(255,255,255,0.08)",
+    flex: "1",
   };
-  const statLabelStyle = {
+  const darkStatLabelStyle = {
     fontSize: "11px",
-    fontWeight: 700 as const,
+    fontWeight: 600 as const,
     color: "#64748B",
     textTransform: "uppercase" as const,
     letterSpacing: "0.08em",
   };
-  const statValueStyle = {
-    fontSize: "28px",
-    fontWeight: 900 as const,
-    color: "#0F172A",
+  const darkStatValueStyle = (color: string) => ({
+    fontSize: "36px",
+    fontWeight: 800 as const,
+    color,
     marginTop: "6px",
-  };
+  });
 
   return (
-    <div className="space-y-8" style={{ backgroundColor: "#D6E4F0", padding: "24px", borderRadius: "16px" }}>
-      {/* Header */}
-      <PageHeader
-        title="AutoApply"
-        description="Automated form submission engine. Queue funders, analyze portal forms, and submit applications automatically."
-        actions={
-          <>
-            <WorkerStatus />
-            <Link href="/autoapply/settings">
-              <Button variant="secondary">
-                <Settings className="mr-1.5 h-4 w-4" />
-                Settings
-              </Button>
-            </Link>
-            <Button onClick={() => void openAddToQueue()} variant="secondary">
-              <Plus className="mr-1.5 h-4 w-4" />
-              Add to Queue
-            </Button>
+    <div style={{ backgroundColor: "#0A0F1A", minHeight: "100vh", padding: "24px" }} className="space-y-8">
+      <style>{`@keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:0.4 } }`}</style>
+
+      {/* HEADER */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px", flexWrap: "wrap", gap: "16px" }}>
+        <div>
+          <h1 style={{ fontSize: "28px", fontWeight: 800, color: "#F8FAFC", letterSpacing: "-0.02em" }}>
+            AUTOAPPLY ENGINE
+          </h1>
+          <p style={{ fontSize: "14px", color: "#64748B", marginTop: "4px" }}>
+            Automated form submission engine. Queue funders, analyze portal forms, and submit applications
+            automatically.
+          </p>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+          {isRunning ? (
+            <span
+              style={{
+                backgroundColor: "rgba(16,185,129,0.15)",
+                border: "1px solid rgba(16,185,129,0.3)",
+                borderRadius: "20px",
+                padding: "8px 20px",
+                color: "#10B981",
+                fontSize: "13px",
+                fontWeight: 700,
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+              }}
+            >
+              <span style={{ width: "8px", height: "8px", backgroundColor: "#10B981", borderRadius: "50%", animation: "pulse 2s infinite" }} />
+              ACTIVE — {runningCount} SESSION{runningCount === 1 ? "" : "S"}
+            </span>
+          ) : (
+            <span
+              style={{
+                backgroundColor: "rgba(100,116,139,0.15)",
+                border: "1px solid rgba(100,116,139,0.3)",
+                borderRadius: "20px",
+                padding: "8px 20px",
+                color: "#94A3B8",
+                fontSize: "13px",
+                fontWeight: 700,
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+              }}
+            >
+              <span style={{ width: "8px", height: "8px", backgroundColor: "#64748B", borderRadius: "50%" }} />
+              IDLE
+            </span>
+          )}
+          <WorkerStatus />
+          <Link href="/autoapply/settings">
             <button
               type="button"
-              onClick={() => void openAddToQueue()}
-              style={{ backgroundColor: "#10B981" }}
-              className="hover:bg-[#059669] text-white px-5 py-2.5 rounded-lg font-semibold text-sm shadow-sm transition-colors inline-flex items-center gap-2"
+              style={{
+                backgroundColor: "transparent",
+                color: "#00B4D8",
+                border: "1px solid rgba(0,180,216,0.3)",
+                borderRadius: "10px",
+                padding: "9px 16px",
+                fontSize: "13px",
+                fontWeight: 600,
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+              }}
             >
-              <Plus className="h-4 w-4" aria-hidden />
-              New Session
+              <Settings className="h-3.5 w-3.5" aria-hidden />
+              Settings
             </button>
-          </>
-        }
-      />
+          </Link>
+          <button
+            type="button"
+            onClick={() => void openAddToQueue()}
+            style={{
+              background: "linear-gradient(135deg,#10B981,#059669)",
+              color: "white",
+              border: "none",
+              borderRadius: "10px",
+              padding: "9px 18px",
+              fontSize: "13px",
+              fontWeight: 700,
+              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+            }}
+          >
+            <Plus className="h-3.5 w-3.5" aria-hidden />
+            Add to Queue
+          </button>
+        </div>
+      </div>
 
       {/* SPARK GOOD SETUP BANNER — shown while any queue item is blocked on the one-time Walmart account setup */}
       {needsSparkGoodSetup && (
@@ -441,53 +538,102 @@ export default function AutoApplyPage() {
         </div>
       )}
 
-      {/* STATUS BANNER — pulsing green while a session is actively running, gray if idle */}
-      <div
-        className="flex items-center gap-3 rounded-xl px-5 py-4"
-        style={{
-          backgroundColor: isRunning ? "#ECFDF5" : "#F1F5F9",
-          border: `1px solid ${isRunning ? "#A7F3D0" : "#E2E8F0"}`,
-        }}
-      >
-        <span
-          className={isRunning ? "animate-pulse" : undefined}
-          style={{
-            width: "10px",
-            height: "10px",
-            borderRadius: "50%",
-            backgroundColor: isRunning ? "#10B981" : "#94A3B8",
-            flexShrink: 0,
-          }}
-          aria-hidden
-        />
-        <span style={{ fontSize: "13px", fontWeight: 700, color: isRunning ? "#065F46" : "#475569" }}>
-          {isRunning
-            ? `AutoApply is running — ${runningCount} session${runningCount === 1 ? "" : "s"} in progress`
-            : "AutoApply is idle — no sessions currently running"}
-        </span>
+      {/* TOP STATS ROW — real values derived from the same submission_queue rows loaded for the table below */}
+      <div className="flex flex-col gap-4 sm:flex-row">
+        <div style={darkStatCardStyle}>
+          <p style={darkStatValueStyle("#10B981")}>{queueLoading ? "—" : sessionsToday}</p>
+          <p style={darkStatLabelStyle}>Sessions Today</p>
+        </div>
+        <div style={darkStatCardStyle}>
+          <p style={darkStatValueStyle("#0077B6")}>
+            {queueLoading ? "—" : successRatePct !== null ? `${successRatePct}%` : "—"}
+          </p>
+          <p style={darkStatLabelStyle}>Success Rate</p>
+        </div>
+        <div style={darkStatCardStyle}>
+          <p style={darkStatValueStyle("#00B4D8")}>
+            {queueLoading ? "—" : avgFillTimeSeconds !== null ? formatDuration(avgFillTimeSeconds) : "—"}
+          </p>
+          <p style={darkStatLabelStyle}>Avg Fill Time</p>
+        </div>
+        <div style={darkStatCardStyle}>
+          <p style={darkStatValueStyle("#F59E0B")}>{queueLoading ? "—" : queue.length}</p>
+          <p style={darkStatLabelStyle}>Forms Queued</p>
+        </div>
       </div>
 
-      {/* STATS ROW */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-xl p-5" style={statCardStyle}>
-          <p style={statLabelStyle}>Total in Queue</p>
-          <p style={statValueStyle}>{queueLoading ? "—" : queue.length}</p>
+      {/* MAIN CONTENT — Live Session Viewer (left) + Controls (right) */}
+      <div className="flex flex-col gap-6 lg:flex-row">
+        <div className="lg:flex-[65]">
+          <LiveSessionViewer />
         </div>
-        <div className="rounded-xl p-5" style={statCardStyle}>
-          <p style={statLabelStyle}>Running</p>
-          <p style={{ ...statValueStyle, color: runningCount > 0 ? "#F59E0B" : "#0F172A" }}>
-            {queueLoading ? "—" : runningCount}
-          </p>
-        </div>
-        <div className="rounded-xl p-5" style={statCardStyle}>
-          <p style={statLabelStyle}>Completed</p>
-          <p style={{ ...statValueStyle, color: "#10B981" }}>{queueLoading ? "—" : completedCount}</p>
-        </div>
-        <div className="rounded-xl p-5" style={statCardStyle}>
-          <p style={statLabelStyle}>Failed</p>
-          <p style={{ ...statValueStyle, color: failedCount > 0 ? "#DC2626" : "#0F172A" }}>
-            {queueLoading ? "—" : failedCount}
-          </p>
+        <div className="flex flex-col gap-4 lg:flex-[35]">
+          <div
+            style={{
+              backgroundColor: "rgba(255,255,255,0.04)",
+              borderRadius: "12px",
+              border: "1px solid rgba(255,255,255,0.08)",
+              padding: "20px",
+            }}
+          >
+            <p style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.12em", color: "#64748B", marginBottom: "16px" }}>
+              CONTROLS
+            </p>
+            <button
+              type="button"
+              onClick={() => void openAddToQueue()}
+              style={{
+                width: "100%",
+                background: "linear-gradient(135deg,#10B981,#059669)",
+                color: "white",
+                border: "none",
+                borderRadius: "10px",
+                padding: "12px",
+                fontSize: "14px",
+                fontWeight: 700,
+                cursor: "pointer",
+                marginBottom: "8px",
+              }}
+            >
+              Start Session
+            </button>
+            <Link href="/autoapply/controls" style={{ display: "block", marginBottom: "8px" }}>
+              <button
+                type="button"
+                style={{
+                  width: "100%",
+                  backgroundColor: "rgba(245,158,11,0.15)",
+                  color: "#F59E0B",
+                  border: "1px solid rgba(245,158,11,0.3)",
+                  borderRadius: "10px",
+                  padding: "12px",
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Pause
+              </button>
+            </Link>
+            <a href="#session-list" style={{ display: "block" }}>
+              <button
+                type="button"
+                style={{
+                  width: "100%",
+                  backgroundColor: "transparent",
+                  color: "#00B4D8",
+                  border: "1px solid rgba(0,180,216,0.3)",
+                  borderRadius: "10px",
+                  padding: "12px",
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                View All Sessions
+              </button>
+            </a>
+          </div>
         </div>
       </div>
 
@@ -502,9 +648,6 @@ export default function AutoApplyPage() {
 
       {/* MODE SELECTOR — Manual / Semi-Auto / Autonomous */}
       <ModeSelector />
-
-      {/* LIVE SESSION VIEWER — real-time worker stream */}
-      <LiveSessionViewer />
 
       {/* AUTONOMOUS QUEUE — tonight's overnight batch count, status, ETA, progress */}
       <AutonomousQueueSection />
@@ -556,6 +699,7 @@ export default function AutoApplyPage() {
       </div>
 
       {/* QUEUE SECTION / SESSION LIST */}
+      <span id="session-list" style={{ scrollMarginTop: "24px" }} />
       <Card
         title="Session List"
         description="Funders pending or processed by automated form submission"
