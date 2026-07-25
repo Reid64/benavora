@@ -34,14 +34,7 @@ const TABS = [
   { label: "Donor Discovery", href: "/donor-discovery" },
 ];
 
-// Draft Generator has no sidebar entry (it's a header tab — see comment on
-// nav-items.ts's NAV_ITEMS), so it has no `children` array to attach an
-// "AI Drafts Ready" link to the way Sidebar attaches children. Instead this
-// renders as a badge on the tab plus a slim sub-link row shown while the
-// user is anywhere under /draft-generator, mirroring Sidebar's
-// active-parent-reveals-children pattern in the header's own idiom.
 const DRAFT_GENERATOR_HREF = "/draft-generator";
-const AUTONOMOUS_DRAFTS_HREF = "/draft-generator/autonomous";
 
 /** Avatar-dropdown destinations (Log Out is rendered separately). */
 const MENU_LINKS = [
@@ -241,7 +234,7 @@ export function Header({ userEmail, orgName, orgLogoUrl, onMenuClick }: HeaderPr
 
         {/* Header tab links */}
         <div className="flex flex-col">
-          <nav className="flex items-center gap-1" aria-label="Primary sections">
+          <nav className="flex items-center" style={{ gap: "28px" }} aria-label="Primary sections">
             {TABS.map((tab) => {
               const active = isActiveTab(tab.href);
               const tabBadge =
@@ -272,27 +265,6 @@ export function Header({ userEmail, orgName, orgLogoUrl, onMenuClick }: HeaderPr
               );
             })}
           </nav>
-          {pathname.startsWith(DRAFT_GENERATOR_HREF) && (
-            <div className="pl-4">
-              <Link
-                href={AUTONOMOUS_DRAFTS_HREF}
-                className="inline-flex items-center gap-1.5 text-xs font-medium"
-                style={{
-                  color: pathname === AUTONOMOUS_DRAFTS_HREF ? "#0077B6" : "rgba(248,250,252,0.6)",
-                }}
-              >
-                AI Drafts Ready
-                {autonomousDraftsCount > 0 && (
-                  <span
-                    className="inline-flex min-w-[1.1rem] items-center justify-center rounded-full text-[10px] font-bold"
-                    style={{ backgroundColor: "#EF4444", color: "#FFFFFF", padding: "1px 5px" }}
-                  >
-                    {autonomousDraftsCount > 99 ? "99+" : autonomousDraftsCount}
-                  </span>
-                )}
-              </Link>
-            </div>
-          )}
         </div>
 
         <div className="ml-auto flex items-center gap-4">

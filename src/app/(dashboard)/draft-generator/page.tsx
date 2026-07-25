@@ -1025,6 +1025,21 @@ export default function DraftGeneratorPage() {
                   </div>
                 );
               })}
+              <div style={{borderTop:'1px solid rgba(255,255,255,0.1)',marginTop:'16px',paddingTop:'16px'}}>
+                <p style={{fontSize:'10px',fontWeight:700,letterSpacing:'0.12em',color:'rgba(248,250,252,0.3)',textTransform:'uppercase',marginBottom:'12px'}}>INTELLIGENCE TIPS</p>
+                <div style={{fontSize:'12px',color:'rgba(248,250,252,0.5)',lineHeight:'1.6',marginBottom:'10px',paddingLeft:'8px',borderLeft:'2px solid rgba(0,180,216,0.4)'}}>
+                  Visit Intelligence Library to import winning grant narratives that boost your confidence score
+                </div>
+                <div style={{fontSize:'12px',color:'rgba(248,250,252,0.5)',lineHeight:'1.6',marginBottom:'10px',paddingLeft:'8px',borderLeft:'2px solid rgba(124,58,237,0.4)'}}>
+                  Narratives matched to your NTEE category increase AI accuracy by up to 40%
+                </div>
+                <div style={{fontSize:'12px',color:'rgba(248,250,252,0.5)',lineHeight:'1.6',marginBottom:'10px',paddingLeft:'8px',borderLeft:'2px solid rgba(16,185,129,0.4)'}}>
+                  Humanize your draft before submitting — scores above 80 pass most AI detection filters
+                </div>
+                <div style={{fontSize:'12px',color:'rgba(248,250,252,0.5)',lineHeight:'1.6',paddingLeft:'8px',borderLeft:'2px solid rgba(245,158,11,0.4)'}}>
+                  Complete your Knowledge Base org profile to eliminate [NEEDS INPUT] gaps in generated drafts
+                </div>
+              </div>
             </div>
 
             <div style={{ flex: "1", display: "flex", flexDirection: "column", minWidth: 0 }}>
@@ -1174,30 +1189,6 @@ export default function DraftGeneratorPage() {
               {hasDraft && !generating && (
           <div className="flex flex-col gap-6 xl:flex-row" style={{ minHeight: "600px" }}>
               <div className="flex flex-1 flex-col gap-4" style={{ minWidth: 0 }}>
-                {belowThreshold && (
-                  <div
-                    role="alert"
-                    style={{
-                      backgroundColor: "rgba(245,158,11,0.15)",
-                      border: "1px solid rgba(245,158,11,0.3)",
-                      borderRadius: "10px",
-                      padding: "12px 16px",
-                      color: "#FCD34D",
-                      fontSize: "13px",
-                      display: "flex",
-                      alignItems: "flex-start",
-                      gap: "10px",
-                      marginBottom: "12px",
-                    }}
-                  >
-                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-                    <span>
-                      This draft contains AI-generated content not verified
-                      against your Knowledge Base. Review carefully before
-                      submission.
-                    </span>
-                  </div>
-                )}
                 <div
                   style={{
                     backgroundColor: "#1E293B",
@@ -1358,8 +1349,7 @@ export default function DraftGeneratorPage() {
                     width: "240px",
                     flexShrink: 0,
                     alignSelf: "flex-start",
-                    position: "sticky",
-                    top: "24px",
+                    position: "relative",
                     background: "linear-gradient(135deg,#064E3B,#065F46)",
                     borderRadius: "14px",
                     padding: "20px",
