@@ -459,26 +459,36 @@ export default async function DashboardPage() {
           <div style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.15em", color: "#00B4D8", textTransform: "uppercase", marginBottom: "11px" }}>
             Mission Control
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-            {stageCards.map((stage) => (
+          <div style={{ display: "flex", alignItems: "center", gap: "0", marginTop: "12px" }}>
+            {stageCards.flatMap((stage, i) => [
               <Link
                 key={stage.label}
                 href={stage.href}
                 style={{
-                  display: "block",
+                  flex: "1",
                   backgroundColor: "rgba(255,255,255,0.06)",
                   borderRadius: "8px",
-                  padding: "14px",
-                  borderLeft: `3px solid ${stage.color}`,
+                  padding: "10px 12px",
+                  borderTop: `2px solid ${stage.color}`,
+                  position: "relative",
                   textDecoration: "none",
                 }}
               >
-                <div style={{ fontSize: "13px", fontWeight: 600, color: "#F8FAFC" }}>{stage.label}</div>
-                <div style={{ fontSize: "32px", fontWeight: 800, color: stage.color, marginTop: "4px" }}>
+                <div style={{ fontSize: "11px", fontWeight: 700, color: "rgba(248,250,252,0.6)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                  {stage.label}
+                </div>
+                <div style={{ fontSize: "24px", fontWeight: 800, color: stage.color, lineHeight: 1, marginTop: "4px" }}>
                   {metricCount(stage.count)}
                 </div>
-              </Link>
-            ))}
+              </Link>,
+              ...(i < stageCards.length - 1
+                ? [
+                    <div key={`${stage.label}-arrow`} style={{ color: "#EF4444", fontSize: "18px", fontWeight: "900", padding: "0 6px", flexShrink: 0 }}>
+                      →
+                    </div>,
+                  ]
+                : []),
+            ])}
           </div>
         </div>
 
