@@ -1057,16 +1057,7 @@ export default function DraftGeneratorPage() {
                         placeholder="Select an opportunity..."
                         disabled={!editable || generating}
                         aria-label="Opportunity"
-                        style={{
-                          width: "100%",
-                          padding: "11px 14px",
-                          borderRadius: "10px",
-                          border: "1px solid rgba(255,255,255,0.15)",
-                          fontSize: "14px",
-                          color: "#F8FAFC",
-                          backgroundColor: "rgba(255,255,255,0.08)",
-                          outline: "none",
-                        }}
+                        style={{width:'100%',padding:'11px 14px',borderRadius:'10px',border:'1.5px solid rgba(255,255,255,0.2)',fontSize:'14px',color:'#0F172A',backgroundColor:'#F8FAFC',outline:'none',cursor:'pointer'}}
                       />
                     </div>
                   </div>
