@@ -832,7 +832,7 @@ export default function DraftGeneratorPage() {
     confidence != null && confidence < AI_CONFIDENCE_THRESHOLD;
 
   const indigoCardStyle = {
-    backgroundColor: "#2D2A6E",
+    backgroundColor: "#1E293B",
     borderRadius: "14px",
     padding: "20px",
     border: "1px solid rgba(255,255,255,0.1)",
@@ -860,7 +860,7 @@ export default function DraftGeneratorPage() {
   };
 
   return (
-    <div className="space-y-6" style={{ backgroundColor: "#1E1B4B", minHeight: "100vh", padding: "24px", fontFamily: "'Plus Jakarta Sans',sans-serif" }}>
+    <div className="space-y-6" style={{ backgroundColor: "#0F172A", minHeight: "100vh", padding: "24px", fontFamily: "'Plus Jakarta Sans',sans-serif" }}>
       <div>
         <h1 style={{ fontSize: "28px", fontWeight: 800, color: "#F8FAFC", marginBottom: "4px" }}>
           Draft Generator
@@ -876,7 +876,7 @@ export default function DraftGeneratorPage() {
           <p style={statNumberStyle}>{stats ? stats.totalDrafts : "—"}</p>
           <p style={statLabelStyle}>Total Drafts</p>
         </div>
-        <div style={{ flex: "1", background: "linear-gradient(135deg,#7C3AED,#A855F7)", borderRadius: "14px", padding: "20px 24px", boxShadow: "0 4px 16px rgba(124,58,237,0.4)" }}>
+        <div style={{ flex: "1", background: "linear-gradient(135deg,#7C3AED,#9333EA)", borderRadius: "14px", padding: "20px 24px", boxShadow: "0 4px 16px rgba(124,58,237,0.4)" }}>
           <p style={statNumberStyle}>{stats ? stats.aiPending : "—"}</p>
           <div className="flex items-center justify-between">
             <p style={statLabelStyle}>AI Drafts Pending</p>
@@ -895,7 +895,7 @@ export default function DraftGeneratorPage() {
             </span>
           </div>
         </div>
-        <div style={{ flex: "1", background: "linear-gradient(135deg,#059669,#10B981)", borderRadius: "14px", padding: "20px 24px", boxShadow: "0 4px 16px rgba(5,150,105,0.4)" }}>
+        <div style={{ flex: "1", background: "linear-gradient(135deg,#0891B2,#06B6D4)", borderRadius: "14px", padding: "20px 24px", boxShadow: "0 4px 16px rgba(5,150,105,0.4)" }}>
           <p style={statNumberStyle}>{stats ? stats.draftsThisMonth : "—"}</p>
           <p style={statLabelStyle}>Drafts This Month</p>
         </div>
@@ -949,7 +949,7 @@ export default function DraftGeneratorPage() {
                 alignSelf: "flex-start",
                 position: "sticky",
                 top: "24px",
-                background: "linear-gradient(180deg,#312E81,#1E1B4B)",
+                backgroundColor: "#1E293B",
                 borderRadius: "14px",
                 padding: "20px",
                 border: "1px solid rgba(255,255,255,0.1)",
@@ -1110,7 +1110,7 @@ export default function DraftGeneratorPage() {
                       disabled={!canGenerate || generating}
                       style={{
                         width: "100%",
-                        background: "linear-gradient(135deg,#7C3AED,#A855F7)",
+                        background: "linear-gradient(135deg,#0077B6,#0EA5E9)",
                         color: "white",
                         border: "none",
                         borderRadius: "12px",
@@ -1123,7 +1123,7 @@ export default function DraftGeneratorPage() {
                         justifyContent: "center",
                         gap: "8px",
                         marginTop: "4px",
-                        boxShadow: "0 6px 20px rgba(124,58,237,0.5)",
+                        boxShadow: "0 6px 20px rgba(0,119,182,0.4)",
                         letterSpacing: "0.02em",
                       }}
                       className="disabled:cursor-not-allowed disabled:opacity-50"
@@ -1154,7 +1154,7 @@ export default function DraftGeneratorPage() {
                         width: "64px",
                         height: "64px",
                         borderRadius: "50%",
-                        backgroundColor: "#1E1B4B",
+                        backgroundColor: "#1E293B",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
@@ -1200,7 +1200,7 @@ export default function DraftGeneratorPage() {
                 )}
                 <div
                   style={{
-                    backgroundColor: "#2D2A6E",
+                    backgroundColor: "#1E293B",
                     borderRadius: "14px",
                     padding: "24px",
                     border: "1px solid rgba(255,255,255,0.1)",
@@ -1590,7 +1590,7 @@ export default function DraftGeneratorPage() {
           <div
             style={{
               marginTop: "16px",
-              backgroundColor: "#2D2A6E",
+              backgroundColor: "#1E293B",
               borderRadius: "14px",
               overflow: "hidden",
               border: "1px solid rgba(255,255,255,0.1)",
@@ -1710,7 +1710,7 @@ export default function DraftGeneratorPage() {
           </div>
 
           {opportunityId && (
-            <div style={{ marginTop: "12px", backgroundColor: "#2D2A6E", borderRadius: "14px", padding: "20px", border: "1px solid rgba(255,255,255,0.1)" }}>
+            <div style={{ marginTop: "12px", backgroundColor: "#1E293B", borderRadius: "14px", padding: "20px", border: "1px solid rgba(255,255,255,0.1)" }}>
               <p style={{ fontSize: "13px", fontWeight: 700, color: "rgba(248,250,252,0.8)", marginBottom: "14px" }}>
                 Version history
               </p>
