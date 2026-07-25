@@ -455,11 +455,11 @@ export default async function DashboardPage() {
       {/* ROW 3 — 60/40 split */}
       <div style={{ display: "flex", gap: "16px", marginBottom: "17px" }}>
         {/* LEFT — Mission Control */}
-        <div id="tour-flightpath-hud" style={{ flex: "1.5", backgroundColor: "#0F172A", borderRadius: "16px", padding: "28px", boxShadow: "0 0 0 1px rgba(0,180,216,0.3),0 8px 32px rgba(0,0,0,0.3)" }}>
-          <div style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.15em", color: "#00B4D8", textTransform: "uppercase", marginBottom: "11px" }}>
+        <div id="tour-flightpath-hud" style={{ flex: "1.5", backgroundColor: "#0F172A", borderRadius: "16px", padding: "16px", boxShadow: "0 0 0 1px rgba(0,180,216,0.3),0 8px 32px rgba(0,0,0,0.3)" }}>
+          <div style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.15em", color: "#00B4D8", textTransform: "uppercase", marginBottom: "8px" }}>
             Mission Control
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "0", marginTop: "12px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0" }}>
             {stageCards.flatMap((stage, i) => [
               <Link
                 key={stage.label}
