@@ -862,14 +862,14 @@ export default function DraftGeneratorPage() {
   const statLabelStyle = {
     fontSize: "11px",
     fontWeight: 700 as const,
-    color: "#64748B",
+    color: "rgba(255,255,255,0.8)",
     textTransform: "uppercase" as const,
     letterSpacing: "0.08em",
   };
   const statValueStyle = {
     fontSize: "28px",
     fontWeight: 900 as const,
-    color: "#0F172A",
+    color: "#FFFFFF",
     marginTop: "6px",
   };
 
@@ -886,11 +886,11 @@ export default function DraftGeneratorPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-xl p-5" style={statCardStyle}>
+        <div className="rounded-xl p-5" style={{background:"linear-gradient(135deg,#0077B6,#0EA5E9)",borderRadius:"12px",padding:"20px",boxShadow:"0 4px 16px rgba(0,119,182,0.4)"}}>
           <p style={statLabelStyle}>Total Drafts</p>
           <p style={statValueStyle}>{stats ? stats.totalDrafts : "â€”"}</p>
         </div>
-        <div className="rounded-xl p-5" style={statCardStyle}>
+        <div className="rounded-xl p-5" style={{background:"linear-gradient(135deg,#7C3AED,#9333EA)",borderRadius:"12px",padding:"20px",boxShadow:"0 4px 16px rgba(124,58,237,0.4)"}}>
           <div className="flex items-center justify-between">
             <p style={statLabelStyle}>AI Drafts Pending</p>
             <span
@@ -908,11 +908,11 @@ export default function DraftGeneratorPage() {
           </div>
           <p style={statValueStyle}>{stats ? stats.aiPending : "â€”"}</p>
         </div>
-        <div className="rounded-xl p-5" style={statCardStyle}>
+        <div className="rounded-xl p-5" style={{background:"linear-gradient(135deg,#0891B2,#06B6D4)",borderRadius:"12px",padding:"20px",boxShadow:"0 4px 16px rgba(8,145,178,0.4)"}}>
           <p style={statLabelStyle}>Drafts This Month</p>
           <p style={statValueStyle}>{stats ? stats.draftsThisMonth : "â€”"}</p>
         </div>
-        <div className="rounded-xl p-5" style={statCardStyle}>
+        <div className="rounded-xl p-5" style={{background:"linear-gradient(135deg,#D97706,#F59E0B)",borderRadius:"12px",padding:"20px",boxShadow:"0 4px 16px rgba(217,119,6,0.4)"}}>
           <p style={statLabelStyle}>Avg Confidence</p>
           <p style={statValueStyle}>
             {stats && stats.avgConfidence != null ? `${stats.avgConfidence}/100` : "â€”"}
