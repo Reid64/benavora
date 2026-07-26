@@ -9,7 +9,7 @@ type TriggerAction =
 
 export type AiTrigger = {
   key: string;
-  icon: string;
+  borderColor: string;
   title: string;
   sub: string;
   yieldText: string;
@@ -49,37 +49,36 @@ export function AiTriggerPanel({ triggers }: { triggers: AiTrigger[] }) {
           <div
             key={trigger.key}
             style={{
-              background: "rgba(255,255,255,0.04)",
+              backgroundColor: "rgba(255,255,255,0.04)",
               border: "1px solid rgba(255,255,255,0.08)",
-              borderRadius: "12px",
-              padding: "16px",
-              marginBottom: "10px",
+              borderLeft: `2px solid ${trigger.borderColor}`,
+              borderRadius: "10px",
+              padding: "12px 14px",
+              marginBottom: "8px",
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
-              <span style={{ fontSize: "16px" }} aria-hidden>
-                {trigger.icon}
-              </span>
-              <span style={{ fontSize: "14px", fontWeight: 800, color: "#FFFFFF" }}>{trigger.title}</span>
+            <div style={{ fontSize: "13px", fontWeight: 700, color: "#FFFFFF", marginBottom: "4px", letterSpacing: "-0.01em" }}>
+              {trigger.title}
             </div>
-            <div style={{ fontSize: "12px", color: "rgba(255,255,255,0.7)", marginBottom: "6px" }}>{trigger.sub}</div>
-            <div style={{ fontSize: "13px", fontWeight: 700, color: "#00D4FF", marginBottom: "10px" }}>
-              {trigger.yieldText}
+            <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.55)", marginBottom: "6px", lineHeight: 1.4 }}>
+              {trigger.sub}
             </div>
+            <div style={{ fontSize: "12px", fontWeight: 700, color: "#00D4FF", marginBottom: "8px" }}>{trigger.yieldText}</div>
             {trigger.action.kind === "post" ? (
               <button
                 type="button"
                 onClick={() => run(trigger)}
                 disabled={st === "loading"}
                 style={{
-                  background: "linear-gradient(135deg,#0077B6,#00D4FF)",
+                  background: "linear-gradient(135deg,#0077B6,#0EA5E9)",
                   color: "white",
                   border: "none",
-                  borderRadius: "7px",
-                  padding: "7px 14px",
-                  fontSize: "12px",
+                  borderRadius: "6px",
+                  padding: "6px 12px",
+                  fontSize: "11px",
                   fontWeight: 700,
                   cursor: st === "loading" ? "wait" : "pointer",
+                  fontFamily: "inherit",
                 }}
               >
                 {st === "loading" ? "Running…" : trigger.ctaLabel}
@@ -89,13 +88,14 @@ export function AiTriggerPanel({ triggers }: { triggers: AiTrigger[] }) {
                 href={trigger.action.href}
                 style={{
                   display: "inline-block",
-                  background: "linear-gradient(135deg,#0077B6,#00D4FF)",
+                  background: "linear-gradient(135deg,#0077B6,#0EA5E9)",
                   color: "white",
-                  borderRadius: "7px",
-                  padding: "7px 14px",
-                  fontSize: "12px",
+                  borderRadius: "6px",
+                  padding: "6px 12px",
+                  fontSize: "11px",
                   fontWeight: 700,
                   textDecoration: "none",
+                  fontFamily: "inherit",
                 }}
               >
                 {trigger.ctaLabel}

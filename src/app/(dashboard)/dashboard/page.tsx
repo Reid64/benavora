@@ -5,7 +5,13 @@ import { addDays, differenceInCalendarDays, format } from "date-fns";
 
 import { createClient } from "@/lib/supabase/server";
 import { formatCurrency, formatRelative, humanizeEnum } from "@/lib/utils/formatters";
-import { naicsLabel } from "@/lib/donor-discovery/naics-labels";
+import {
+  computeSectionScores,
+  SECTION_KEYS,
+  SECTION_LABELS,
+  type ExtendedProfile,
+  type OrganizationProfileFields,
+} from "@/lib/knowledge-base/profile";
 import { FlipCards, type FlipCardData } from "@/components/dashboard/FlipCards";
 import { AiTriggerPanel, type AiTrigger } from "@/components/dashboard/AiTriggerPanel";
 
@@ -85,9 +91,6 @@ type AutomationSessionDetail = {
   id: string;
   status: string;
   created_at: string;
-  started_at: string | null;
-  completed_at: string | null;
-  funder_id: string | null;
   target_url: string | null;
 };
 
@@ -100,12 +103,28 @@ type AlertRow = {
   created_at: string;
 };
 
-type ProspectDirectoryRow = {
-  id: string;
-  directory: { naics_codes: string[] | null } | null;
-};
+type BoardMemberRow = { id: string; bio: string | null };
+type ProgramRow = { id: string; description: string | null };
+type FoundationRow = { id: string; name: string; asset_amount: number | null };
+type IntelligenceProposalRow = { funder_type: string | null; created_at: string };
 
-type OnboardingProgress = { completed_steps?: string[] } | null;
+type OrgProfileRow = {
+  name: string;
+  onboarding_progress: { completed_steps?: string[] } | null;
+  ein: string | null;
+  tax_status: string | null;
+  mission_statement: string | null;
+  vision_statement: string | null;
+  founding_date: string | null;
+  founder_name: string | null;
+  founder_bio: string | null;
+  service_area: string | null;
+  target_population: string | null;
+  annual_budget: number | null;
+  total_staff: number | null;
+  total_volunteers: number | null;
+  extended_profile: ExtendedProfile | null;
+};
 
 const URGENCY_COLOR: Record<string, string> = {
   immediate: RED,
@@ -127,19 +146,16 @@ const SEVERITY_COLOR: Record<string, string> = {
   info: SKY,
 };
 
-// Mirrors src/app/(dashboard)/settings/organization-setup/page.tsx's STEP_INFO —
-// the real 7-step wizard (organizations.onboarding_progress.completed_steps
-// stores stringified "1".."7", not 11 steps).
-const ONBOARDING_STEPS: { id: string; title: string }[] = [
-  { id: "1", title: "Organization Profile" },
-  { id: "2", title: "Programs" },
-  { id: "3", title: "Knowledge Base" },
-  { id: "4", title: "Board Members" },
-  { id: "5", title: "Documents" },
-  { id: "6", title: "Search Profile" },
-  { id: "7", title: "Plan Selection" },
-];
-const TOTAL_ONBOARDING_STEPS = ONBOARDING_STEPS.length;
+type KpiTrend = "UP" | "DOWN" | "NEUTRAL" | "NONE";
+
+const TREND_META: Record<KpiTrend, { label: string; arrow: string; color: string }> = {
+  UP: { label: "UP", arrow: "↑", color: "#34D399" },
+  DOWN: { label: "DOWN", arrow: "↓", color: "#EF4444" },
+  NEUTRAL: { label: "NEUTRAL", arrow: "→", color: "#FCD34D" },
+  NONE: { label: "--", arrow: "—", color: "rgba(255,255,255,0.3)" },
+};
+
+type Kpi = { name: string; value: string; trend: KpiTrend; goal: string; goalMet: boolean | null };
 
 function truncate(s: string, max: number): string {
   return s.length > max ? `${s.slice(0, max)}…` : s;
@@ -154,17 +170,11 @@ function decisionDotColor(agentId: string): string {
   return MUTED;
 }
 
-function confidenceColor(score: number): string {
-  if (score < 60) return RED;
-  if (score < 80) return AMBER;
-  return GREEN;
-}
-
-function formatDurationSeconds(seconds: number): string {
-  if (seconds < 60) return `${seconds}s`;
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return `${m}m ${s}s`;
+function deadlineChipLabel(dueDate: string, now: Date): { label: string; overdue: boolean } {
+  const days = differenceInCalendarDays(new Date(dueDate), now);
+  const overdue = days <= 0;
+  const label = days < 0 ? `${Math.abs(days)}d overdue` : days === 0 ? "Due today" : `${days}d`;
+  return { label, overdue };
 }
 
 const panelStyle: CSSProperties = {
@@ -181,9 +191,19 @@ const panelHeaderStyle: CSSProperties = {
   color: WHITE,
 };
 
-function Panel({ title, children, style }: { title: string; children: ReactNode; style?: CSSProperties }) {
+function Panel({
+  title,
+  accent,
+  children,
+  style,
+}: {
+  title: string;
+  accent: string;
+  children: ReactNode;
+  style?: CSSProperties;
+}) {
   return (
-    <div style={{ ...panelStyle, ...style }}>
+    <div style={{ ...panelStyle, borderLeft: `3px solid ${accent}`, ...style }}>
       <div style={panelHeaderStyle}>{title}</div>
       <div style={{ padding: "16px 20px" }}>{children}</div>
     </div>
@@ -234,7 +254,6 @@ export default async function DashboardPage() {
   const orgId = profile.organization_id;
   const now = new Date();
   const horizon = format(addDays(now, 7), "yyyy-MM-dd");
-  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
   const [
@@ -247,19 +266,25 @@ export default async function DashboardPage() {
     oppOpenCountRes,
     topOpportunitiesRes,
     oppSourceTypesRes,
-    agentRunsCountRes,
-    donorDiscoveryCountRes,
-    corporateIntentSignalsRes,
-    foundationTotalRes,
-    foundationHighMatchRes,
-    foundationNewThisWeekRes,
     automationSessionsRecentRes,
     automationSessionLastRes,
-    prospectDirectoryRes,
-    twinRes,
     alertsRes,
+    boardMembersRes,
+    programsRes,
+    taxDocumentCountRes,
+    foundationTotalRes,
+    topFoundationsRes,
+    intelligenceLibraryCountRes,
+    intelligenceLibraryTypesRes,
+    donorDiscoveryCountRes,
   ] = await Promise.all([
-    supabase.from("organizations").select("name, onboarding_progress").eq("id", orgId).single(),
+    supabase
+      .from("organizations")
+      .select(
+        "name, onboarding_progress, ein, tax_status, mission_statement, vision_statement, founding_date, founder_name, founder_bio, service_area, target_population, annual_budget, total_staff, total_volunteers, extended_profile",
+      )
+      .eq("id", orgId)
+      .single(),
     supabase
       .from("applications")
       .select("id, requested_amount, submitted_at, draft_content, draft_confidence_score, stage, awarded_amount")
@@ -296,24 +321,6 @@ export default async function DashboardPage() {
       .order("match_percentage", { ascending: false, nullsFirst: false })
       .limit(5),
     supabase.from("opportunities").select("source_type").eq("organization_id", orgId),
-    supabase.from("agent_runs").select("id", { count: "exact", head: true }).eq("organization_id", orgId),
-    supabase
-      .from("donor_discovery_prospects")
-      .select("id", { count: "exact", head: true })
-      .eq("organization_id", orgId),
-    supabase
-      .from("corporate_intent_signals")
-      .select("id", { count: "exact", head: true })
-      .eq("org_id", orgId),
-    supabase.from("foundation_directory").select("id", { count: "exact", head: true }),
-    supabase
-      .from("foundation_directory")
-      .select("id", { count: "exact", head: true })
-      .gt("asset_amount", 1_000_000),
-    supabase
-      .from("foundation_directory")
-      .select("id", { count: "exact", head: true })
-      .gte("created_at", weekAgo),
     supabase
       .from("automation_sessions")
       .select("id, status")
@@ -321,20 +328,10 @@ export default async function DashboardPage() {
       .gte("created_at", thirtyDaysAgo),
     supabase
       .from("automation_sessions")
-      .select("id, status, created_at, started_at, completed_at, funder_id, target_url")
+      .select("id, status, created_at, target_url")
       .eq("organization_id", orgId)
       .order("created_at", { ascending: false })
       .limit(1)
-      .maybeSingle(),
-    supabase
-      .from("donor_discovery_prospects")
-      .select("id, directory:donor_discovery_directory(naics_codes)")
-      .eq("organization_id", orgId)
-      .limit(200),
-    supabase
-      .from("organizational_digital_twins")
-      .select("twin_completeness_score")
-      .eq("organization_id", orgId)
       .maybeSingle(),
     supabase
       .from("alerts")
@@ -343,12 +340,30 @@ export default async function DashboardPage() {
       .eq("is_dismissed", false)
       .order("created_at", { ascending: false })
       .limit(5),
+    supabase.from("board_members").select("id, bio").eq("organization_id", orgId),
+    supabase.from("programs").select("id, description").eq("organization_id", orgId),
+    supabase
+      .from("documents")
+      .select("id", { count: "exact", head: true })
+      .eq("organization_id", orgId)
+      .eq("category", "tax_documents"),
+    supabase.from("foundation_directory").select("id", { count: "exact", head: true }),
+    supabase
+      .from("foundation_directory")
+      .select("id, name, asset_amount")
+      .order("asset_amount", { ascending: false, nullsFirst: false })
+      .limit(3),
+    supabase.from("intelligence_funded_proposals").select("id", { count: "exact", head: true }),
+    supabase.from("intelligence_funded_proposals").select("funder_type, created_at"),
+    supabase
+      .from("donor_discovery_prospects")
+      .select("id", { count: "exact", head: true })
+      .eq("organization_id", orgId),
   ]);
 
-  const orgRow = organizationRes.data as { name: string; onboarding_progress: OnboardingProgress } | null;
+  const orgRow = organizationRes.data as OrgProfileRow | null;
   const orgName = orgRow?.name ?? "Your Organization";
   const completedSteps = orgRow?.onboarding_progress?.completed_steps ?? [];
-  const onboardCount = completedSteps.length;
 
   const applications = (applicationsRes.data ?? []) as ApplicationRow[];
   const deadlines = (deadlinesRes.data ?? []) as DeadlineRow[];
@@ -359,22 +374,20 @@ export default async function DashboardPage() {
   const reviewedOpportunities = Math.max(totalOpportunities - openOpportunities, 0);
   const topOpportunities = (topOpportunitiesRes.data ?? []) as TopOpportunityRow[];
   const oppSourceTypes = (oppSourceTypesRes.data ?? []) as { source_type: string | null }[];
-  const researchCount = agentRunsCountRes.count ?? 0;
-  const donorDiscoveryCount = donorDiscoveryCountRes.count ?? 0;
-  const intentSignalsCount = corporateIntentSignalsRes.count ?? 0;
-  const foundationTotal = foundationTotalRes.count ?? 0;
-  const foundationHighMatch = foundationHighMatchRes.count ?? 0;
-  const foundationNewThisWeek = foundationNewThisWeekRes.count ?? 0;
   const automationSessionsRecent = (automationSessionsRecentRes.data ?? []) as AutomationSessionRow[];
   const automationSessionLast = automationSessionLastRes.data as AutomationSessionDetail | null;
-  const prospectDirectoryRows = (prospectDirectoryRes.data ?? []) as unknown as ProspectDirectoryRow[];
-  const twinCompletenessScore =
-    (twinRes.data as { twin_completeness_score: number | null } | null)?.twin_completeness_score ?? 0;
   const alerts = (alertsRes.data ?? []) as AlertRow[];
+  const boardMembers = (boardMembersRes.data ?? []) as BoardMemberRow[];
+  const programs = (programsRes.data ?? []) as ProgramRow[];
+  const taxDocumentCount = taxDocumentCountRes.count ?? 0;
+  const foundationTotal = foundationTotalRes.count ?? 0;
+  const topFoundations = (topFoundationsRes.data ?? []) as FoundationRow[];
+  const intelligenceLibraryCount = intelligenceLibraryCountRes.count ?? 0;
+  const intelligenceLibraryRows = (intelligenceLibraryTypesRes.data ?? []) as IntelligenceProposalRow[];
+  const donorDiscoveryCount = donorDiscoveryCountRes.count ?? 0;
 
   // --- second-wave lookups (depend on first wave's ids) -----------------------
   const funderIds = [...new Set(topOpportunities.map((o) => o.funder_id).filter((id): id is string => Boolean(id)))];
-  if (automationSessionLast?.funder_id) funderIds.push(automationSessionLast.funder_id);
 
   const [funderNamesRes] = await Promise.all([
     funderIds.length > 0
@@ -382,6 +395,36 @@ export default async function DashboardPage() {
       : Promise.resolve({ data: [] as { id: string; name: string }[] }),
   ]);
   const funderNameById = new Map((funderNamesRes.data ?? []).map((f) => [f.id, f.name]));
+
+  // --- knowledge base completeness (live-computed, not the onboarding wizard) -
+  const orgProfileFields: OrganizationProfileFields = {
+    name: orgRow?.name ?? "",
+    ein: orgRow?.ein ?? null,
+    tax_status: orgRow?.tax_status ?? null,
+    mission_statement: orgRow?.mission_statement ?? null,
+    vision_statement: orgRow?.vision_statement ?? null,
+    founding_date: orgRow?.founding_date ?? null,
+    founder_name: orgRow?.founder_name ?? null,
+    founder_bio: orgRow?.founder_bio ?? null,
+    service_area: orgRow?.service_area ?? null,
+    target_population: orgRow?.target_population ?? null,
+    annual_budget: orgRow?.annual_budget ?? null,
+    total_staff: orgRow?.total_staff ?? null,
+    total_volunteers: orgRow?.total_volunteers ?? null,
+  };
+  const extendedProfile: ExtendedProfile = orgRow?.extended_profile ?? {};
+  const sectionScores = computeSectionScores({
+    org: orgProfileFields,
+    extended: extendedProfile,
+    boardMemberCount: boardMembers.length,
+    boardMembersWithBio: boardMembers.filter((b) => Boolean(b.bio)).length,
+    programCount: programs.length,
+    programsWithDescription: programs.filter((p) => Boolean(p.description)).length,
+    taxDocumentCount,
+  });
+  const sectionEntries = SECTION_KEYS.map((key) => ({ key, label: SECTION_LABELS[key], score: sectionScores[key] }));
+  const incompleteSections = sectionEntries.filter((s) => s.score < 100);
+  const kbCompleteness = Math.round(sectionEntries.reduce((sum, s) => sum + s.score, 0) / sectionEntries.length);
 
   // --- derived metrics ---------------------------------------------------------
   const draftsCount = applications.filter(
@@ -395,9 +438,8 @@ export default async function DashboardPage() {
       ? Math.round(confidenceScores.reduce((sum, s) => sum + s, 0) / confidenceScores.length)
       : 0;
   const awardedApplications = applications.filter((a) => a.stage === "awarded");
-  const recentDrafts = applications
-    .filter((a) => a.draft_content !== null && a.draft_content.trim().length > 0)
-    .slice(0, 4);
+  const agentActivityScore = Math.min(agentDecisions.length * 10, 100);
+  const platformHealthScore = Math.round(kbCompleteness * 0.4 + avgConfidence * 0.4 + agentActivityScore * 0.2);
 
   const automationSubmitted = automationSessionsRecent.filter((s) => s.status === "submitted").length;
   const automationTerminal = automationSessionsRecent.filter((s) =>
@@ -406,17 +448,21 @@ export default async function DashboardPage() {
   const automationSuccessRate =
     automationTerminal > 0 ? Math.round((automationSubmitted / automationTerminal) * 100) : null;
 
-  const industryCounts = new Map<string, number>();
-  for (const row of prospectDirectoryRows) {
-    const codes = row.directory?.naics_codes ?? [];
-    for (const code of codes) {
-      industryCounts.set(code, (industryCounts.get(code) ?? 0) + 1);
-    }
+  const overdueDeadlines = deadlines.filter((d) => new Date(d.due_date) < now);
+  const dueThisWeek = deadlines.filter((d) => {
+    const days = differenceInCalendarDays(new Date(d.due_date), now);
+    return days >= 0 && days <= 7;
+  });
+  const nextFourDeadlines = deadlines.slice(0, 4);
+
+  const funderTypeCounts = new Map<string, number>();
+  let lastImportDate: string | null = null;
+  for (const row of intelligenceLibraryRows) {
+    const key = row.funder_type ?? "Unclassified";
+    funderTypeCounts.set(key, (funderTypeCounts.get(key) ?? 0) + 1);
+    if (!lastImportDate || row.created_at > lastImportDate) lastImportDate = row.created_at;
   }
-  const topIndustries = [...industryCounts.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
-    .map(([code, count]) => ({ label: naicsLabel(code), count }));
+  const topFunderTypes = [...funderTypeCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4);
 
   const sourceTypeCounts = new Map<string, number>();
   for (const row of oppSourceTypes) {
@@ -439,8 +485,8 @@ export default async function DashboardPage() {
 
   // --- pipeline strip -----------------------------------------------------------
   const stages = [
-    { label: "Onboard", color: GREEN, value: `${onboardCount}/${TOTAL_ONBOARDING_STEPS}`, href: "/onboarding" },
-    { label: "Research", color: ROYAL, value: String(researchCount), href: "/research" },
+    { label: "Onboard", color: GREEN, value: `${completedSteps.length}/7`, href: "/onboarding" },
+    { label: "Research", color: ROYAL, value: String(foundationTotal), href: "/research" },
     { label: "Opportunities", color: CYAN, value: String(totalOpportunities), href: "/opportunities", active: true },
     { label: "Narratives", color: PURPLE, value: String(draftsCount), href: "/draft-generator" },
     { label: "AutoApply", color: TEAL, value: String(automationSessionsRecent.length), href: "/autoapply" },
@@ -448,30 +494,26 @@ export default async function DashboardPage() {
   ];
 
   // --- flip cards -----------------------------------------------------------------
-  const incompleteSteps = ONBOARDING_STEPS.filter((s) => !completedSteps.includes(s.id));
-  const onboardingPct = Math.round((onboardCount / TOTAL_ONBOARDING_STEPS) * 100);
-
   const cards: FlipCardData[] = [
     {
-      key: "onboarding",
-      icon: "🚀",
-      label: "ONBOARDING",
-      value: `${onboardCount}/${TOTAL_ONBOARDING_STEPS}`,
-      sub: `${onboardingPct}% complete`,
+      key: "knowledge-base",
+      label: "KNOWLEDGE BASE",
+      value: `${kbCompleteness}%`,
+      sub: `${incompleteSections.length} gaps remaining`,
       frontGradient: "linear-gradient(135deg,#0B2D4A,#0D3560)",
       borderColor: "rgba(0,119,182,0.3)",
-      accentGradient: "linear-gradient(90deg,#0077B6,#00D4FF)",
-      href: "/onboarding",
-      ctaLabel: "Complete setup →",
+      accentGradient: "linear-gradient(90deg,#0077B6,#0EA5E9)",
+      href: "/knowledge-base",
+      ctaLabel: "Complete setup",
       back: (
         <div>
-          {incompleteSteps.length === 0 ? (
-            <div style={{ fontSize: "12px", color: WHITE }}>All steps complete.</div>
+          {incompleteSections.length === 0 ? (
+            <div style={{ fontSize: "12px", color: WHITE }}>All sections complete.</div>
           ) : (
-            incompleteSteps.map((step) => (
+            incompleteSections.map((section) => (
               <Link
-                key={step.id}
-                href="/onboarding"
+                key={section.key}
+                href="/knowledge-base"
                 style={{
                   display: "block",
                   fontSize: "12px",
@@ -481,7 +523,7 @@ export default async function DashboardPage() {
                   textDecoration: "none",
                 }}
               >
-                {step.title}
+                {section.label}
               </Link>
             ))
           )}
@@ -489,78 +531,91 @@ export default async function DashboardPage() {
       ),
     },
     {
-      key: "research",
-      icon: "🔬",
-      label: "RESEARCH",
+      key: "intelligence-library",
+      label: "INTELLIGENCE LIBRARY",
+      value: String(intelligenceLibraryCount),
+      sub: "narratives indexed",
+      frontGradient: "linear-gradient(135deg,#1E0A3C,#2A1050)",
+      borderColor: "rgba(124,58,237,0.3)",
+      accentGradient: "linear-gradient(90deg,#7C3AED,#A855F7)",
+      href: "/intelligence-library",
+      ctaLabel: "Open library",
+      back: (
+        <div style={{ fontSize: "12px", color: WHITE, display: "flex", flexDirection: "column", gap: "5px" }}>
+          {topFunderTypes.length === 0 ? (
+            <div>No proposals indexed yet.</div>
+          ) : (
+            topFunderTypes.map(([type, count]) => (
+              <div key={type} style={{ display: "flex", justifyContent: "space-between" }}>
+                <span>{truncate(type, 22)}</span>
+                <span style={{ fontWeight: 700 }}>{count}</span>
+              </div>
+            ))
+          )}
+          {lastImportDate && <div style={{ marginTop: "4px", color: "rgba(255,255,255,0.6)" }}>Last import: {formatRelative(lastImportDate)}</div>}
+        </div>
+      ),
+    },
+    {
+      key: "deadlines",
+      label: "DEADLINES",
+      value: String(overdueDeadlines.length),
+      sub: `${dueThisWeek.length} due this week`,
+      frontGradient: "linear-gradient(135deg,#2D1A00,#3A2200)",
+      borderColor: "rgba(217,119,6,0.3)",
+      accentGradient: "linear-gradient(90deg,#D97706,#F59E0B)",
+      href: "/deadlines",
+      ctaLabel: "View all deadlines",
+      back: (
+        <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+          {nextFourDeadlines.length === 0 ? (
+            <div style={{ fontSize: "12px", color: WHITE }}>No deadlines in the next 7 days.</div>
+          ) : (
+            nextFourDeadlines.map((d) => {
+              const chip = deadlineChipLabel(d.due_date, now);
+              return (
+                <div key={d.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px" }}>
+                  <span style={{ fontSize: "12px", color: WHITE }}>{truncate(d.title, 25)}</span>
+                  <span
+                    style={{
+                      fontSize: "10px",
+                      fontWeight: 700,
+                      color: WHITE,
+                      backgroundColor: chip.overdue ? "rgba(239,68,68,0.3)" : "rgba(217,119,6,0.3)",
+                      borderRadius: "4px",
+                      padding: "2px 6px",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {chip.label}
+                  </span>
+                </div>
+              );
+            })
+          )}
+        </div>
+      ),
+    },
+    {
+      key: "funder-research",
+      label: "FUNDER RESEARCH",
       value: String(foundationTotal),
-      sub: `${foundationHighMatch} high-match`,
+      sub: "profiles indexed",
       frontGradient: "linear-gradient(135deg,#082838,#0A3548)",
       borderColor: "rgba(14,165,233,0.3)",
       accentGradient: "linear-gradient(90deg,#0EA5E9,#0077B6)",
       href: "/research",
-      ctaLabel: "Open research →",
+      ctaLabel: "Open research",
       back: (
-        <div style={{ fontSize: "12px", color: WHITE, display: "flex", flexDirection: "column", gap: "6px" }}>
-          <div>Total foundations: {foundationTotal}</div>
-          <div>High-match (&gt;$1M assets): {foundationHighMatch}</div>
-          <div>New this week: {foundationNewThisWeek}</div>
-        </div>
-      ),
-    },
-    {
-      key: "outreach",
-      icon: "📤",
-      label: "OUTREACH",
-      value: "0",
-      sub: `${intentSignalsCount} intent signals`,
-      frontGradient: "linear-gradient(135deg,#0A2D1E,#0C3A26)",
-      borderColor: "rgba(16,185,129,0.3)",
-      accentGradient: "linear-gradient(90deg,#10B981,#34D399)",
-      href: "/donor-discovery",
-      ctaLabel: "Start outreach →",
-      back: (
-        <div style={{ fontSize: "12px", color: WHITE, display: "flex", flexDirection: "column", gap: "6px" }}>
-          <div>Emails sent: 0</div>
-          <div>Opens: 0</div>
-          <div>Intent signals: {intentSignalsCount}</div>
-          <div>Prospects available: {donorDiscoveryCount}</div>
-        </div>
-      ),
-    },
-    {
-      key: "narratives",
-      icon: "✍️",
-      label: "NARRATIVES",
-      value: String(draftsCount),
-      sub: `${avgConfidence}% avg confidence`,
-      frontGradient: "linear-gradient(135deg,#1E0A3C,#2A1050)",
-      borderColor: "rgba(124,58,237,0.3)",
-      accentGradient: "linear-gradient(90deg,#7C3AED,#A855F7)",
-      href: "/draft-generator",
-      ctaLabel: "Open draft generator →",
-      back: (
-        <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-          {recentDrafts.length === 0 ? (
-            <div style={{ fontSize: "12px", color: WHITE }}>No drafts yet.</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
+          {topFoundations.length === 0 ? (
+            <div style={{ fontSize: "12px", color: WHITE }}>No profiles indexed yet.</div>
           ) : (
-            recentDrafts.map((draft) => (
-              <Link
-                key={draft.id}
-                href="/draft-generator"
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  fontSize: "12px",
-                  color: WHITE,
-                  padding: "3px 0",
-                  textDecoration: "none",
-                }}
-              >
-                <span>{formatCurrency(draft.requested_amount)}</span>
-                <span style={{ color: confidenceColor(draft.draft_confidence_score ?? 0), fontWeight: 700 }}>
-                  {draft.draft_confidence_score ?? "-"}
-                </span>
-              </Link>
+            topFoundations.map((f) => (
+              <div key={f.id} style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: WHITE }}>
+                <span>{truncate(f.name, 22)}</span>
+                <span style={{ fontWeight: 700 }}>{formatCurrency(f.asset_amount)}</span>
+              </div>
             ))
           )}
         </div>
@@ -568,34 +623,21 @@ export default async function DashboardPage() {
     },
     {
       key: "autoapply",
-      icon: "⚡",
       label: "AUTOAPPLY",
       value: String(automationSessionsRecent.length),
-      sub: automationSuccessRate != null ? `${automationSuccessRate}% success` : "No runs yet",
+      sub: "sessions last 30 days",
       frontGradient: "linear-gradient(135deg,#082830,#0A3540)",
       borderColor: "rgba(8,145,178,0.3)",
       accentGradient: "linear-gradient(90deg,#0891B2,#06B6D4)",
       href: "/autoapply",
-      ctaLabel: "View AutoApply →",
+      ctaLabel: "View sessions",
       back: (
         <div style={{ fontSize: "12px", color: WHITE, display: "flex", flexDirection: "column", gap: "6px" }}>
           {automationSessionLast ? (
             <>
-              <div>Portal: {funderNameById.get(automationSessionLast.funder_id ?? "") ?? automationSessionLast.target_url ?? "Unknown"}</div>
+              <div>Portal: {truncate(automationSessionLast.target_url ?? "Unknown", 30)}</div>
+              <div>Created: {formatRelative(automationSessionLast.created_at)}</div>
               <div>Status: {humanizeEnum(automationSessionLast.status)}</div>
-              <div>Started: {formatRelative(automationSessionLast.started_at ?? automationSessionLast.created_at)}</div>
-              {automationSessionLast.completed_at && automationSessionLast.started_at && (
-                <div>
-                  Duration:{" "}
-                  {formatDurationSeconds(
-                    Math.round(
-                      (new Date(automationSessionLast.completed_at).getTime() -
-                        new Date(automationSessionLast.started_at).getTime()) /
-                        1000,
-                    ),
-                  )}
-                </div>
-              )}
             </>
           ) : (
             <div>No sessions yet.</div>
@@ -604,30 +646,77 @@ export default async function DashboardPage() {
       ),
     },
     {
-      key: "donor-discovery",
-      icon: "🎯",
-      label: "DONOR DISCOVERY",
-      value: String(donorDiscoveryCount),
-      sub: `${intentSignalsCount} intent signals`,
-      frontGradient: "linear-gradient(135deg,#2D1A00,#3A2200)",
-      borderColor: "rgba(217,119,6,0.3)",
-      accentGradient: "linear-gradient(90deg,#D97706,#F59E0B)",
-      href: "/donor-discovery",
-      ctaLabel: "Start discovery →",
+      key: "platform-health",
+      label: "PLATFORM HEALTH",
+      value: String(platformHealthScore),
+      sub: "overall readiness score",
+      frontGradient: "linear-gradient(135deg,#062818,#082E1C)",
+      borderColor: "rgba(16,185,129,0.3)",
+      accentGradient: "linear-gradient(90deg,#10B981,#34D399)",
+      href: "/knowledge-base",
+      ctaLabel: "Improve score",
       back: (
-        <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-          {topIndustries.length === 0 ? (
-            <div style={{ fontSize: "12px", color: WHITE }}>No prospects yet.</div>
-          ) : (
-            topIndustries.map((ind) => (
-              <div key={ind.label} style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: WHITE }}>
-                <span>{truncate(ind.label, 22)}</span>
-                <span style={{ fontWeight: 700 }}>{ind.count}</span>
-              </div>
-            ))
-          )}
+        <div style={{ fontSize: "12px", color: WHITE, display: "flex", flexDirection: "column", gap: "6px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <span>KB score</span>
+            <span style={{ fontWeight: 700 }}>{kbCompleteness}</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <span>Draft confidence</span>
+            <span style={{ fontWeight: 700 }}>{avgConfidence}</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <span>Agent activity</span>
+            <span style={{ fontWeight: 700 }}>{agentActivityScore}</span>
+          </div>
         </div>
       ),
+    },
+  ];
+
+  // --- KPI scorecard ----------------------------------------------------------------
+  const kpis: Kpi[] = [
+    {
+      name: "Opportunities Reviewed",
+      value: String(totalOpportunities),
+      trend: "UP",
+      goal: "≥50/mo",
+      goalMet: totalOpportunities >= 50,
+    },
+    {
+      name: "Draft Confidence",
+      value: `${Math.round(avgConfidence ?? 0)}/100`,
+      trend: "DOWN",
+      goal: "≥80",
+      goalMet: (avgConfidence ?? 0) >= 80,
+    },
+    {
+      name: "AutoApply Sessions",
+      value: String(automationSessionsRecent.length),
+      trend: "NEUTRAL",
+      goal: "≥5/mo",
+      goalMet: automationSessionsRecent.length >= 5,
+    },
+    {
+      name: "KB Completeness",
+      value: `${kbCompleteness}%`,
+      trend: "UP",
+      goal: "≥90%",
+      goalMet: kbCompleteness >= 90,
+    },
+    {
+      name: "Outreach Sent",
+      value: "0",
+      trend: "NONE",
+      goal: "≥20/mo",
+      goalMet: false,
+    },
+    {
+      name: "Win Rate",
+      value: "0%",
+      trend: "NONE",
+      goal: "≥15%",
+      goalMet: null,
     },
   ];
 
@@ -635,7 +724,7 @@ export default async function DashboardPage() {
   const aiTriggers: AiTrigger[] = [
     {
       key: "federal-scan",
-      icon: "🏛️",
+      borderColor: ROYAL,
       title: "Federal Scan",
       sub: "Pull new opportunities from grants.gov, Simpler Grants & HUD",
       yieldText: `${totalOpportunities} opportunities on file`,
@@ -644,7 +733,7 @@ export default async function DashboardPage() {
     },
     {
       key: "geo-discovery",
-      icon: "🗺️",
+      borderColor: GREEN,
       title: "Geo Discovery",
       sub: "Launch a geographic donor/foundation discovery request",
       yieldText: `${donorDiscoveryCount} prospects found so far`,
@@ -653,7 +742,7 @@ export default async function DashboardPage() {
     },
     {
       key: "import-narratives",
-      icon: "📝",
+      borderColor: PURPLE,
       title: "Import Narratives",
       sub: "Generate up to 3 queued draft narratives now",
       yieldText: `${draftsCount} narratives generated`,
@@ -691,11 +780,12 @@ export default async function DashboardPage() {
           background: "linear-gradient(135deg,#0D1E35,#0A1A2E)",
           borderRadius: "16px",
           border: "1px solid rgba(0,212,255,0.15)",
+          borderLeft: `3px solid ${CYAN}`,
           padding: "18px 22px",
           marginBottom: "18px",
         }}
       >
-        <div style={{ fontSize: "15px", fontWeight: 800, color: WHITE, marginBottom: "14px" }}>🔗 Pipeline</div>
+        <div style={{ fontSize: "15px", fontWeight: 800, color: WHITE, marginBottom: "14px" }}>Pipeline</div>
         <div style={{ display: "flex", alignItems: "center", gap: "0" }}>
           {stages.flatMap((stage, i) => [
             <Link
@@ -736,7 +826,7 @@ export default async function DashboardPage() {
       <div style={{ display: "flex", gap: "16px", marginBottom: "16px", alignItems: "flex-start" }}>
         {/* Left */}
         <div style={{ flex: "1.5", display: "flex", flexDirection: "column", gap: "16px" }}>
-          <Panel title="📋 Action Queue">
+          <Panel title="Action Queue" accent={ROYAL}>
             {topInsights.length === 0 ? (
               <p style={{ fontSize: "13px", color: MUTED, margin: 0 }}>No pending recommendations right now.</p>
             ) : (
@@ -782,7 +872,7 @@ export default async function DashboardPage() {
             )}
           </Panel>
 
-          <Panel title="🎯 Top Opportunities">
+          <Panel title="Top Opportunities" accent={CYAN}>
             {topOpportunities.length === 0 ? (
               <p style={{ fontSize: "13px", color: MUTED, margin: 0 }}>No opportunities on file yet.</p>
             ) : (
@@ -824,14 +914,14 @@ export default async function DashboardPage() {
 
         {/* Center */}
         <div style={{ flex: "1" }}>
-          <Panel title="🤖 AI Triggers">
+          <Panel title="AI Triggers" accent={ROYAL}>
             <AiTriggerPanel triggers={aiTriggers} />
           </Panel>
         </div>
 
         {/* Right */}
         <div style={{ flex: "0 0 300px", display: "flex", flexDirection: "column", gap: "16px" }}>
-          <Panel title="🔔 Alerts">
+          <Panel title="Alerts" accent={RED}>
             {alerts.length === 0 ? (
               <p style={{ fontSize: "13px", color: MUTED, margin: 0 }}>No active alerts.</p>
             ) : (
@@ -864,14 +954,12 @@ export default async function DashboardPage() {
             )}
           </Panel>
 
-          <Panel title="⏰ Deadlines">
+          <Panel title="Deadlines" accent={AMBER}>
             {deadlines.length === 0 ? (
               <p style={{ fontSize: "13px", color: MUTED, margin: 0 }}>No deadlines in the next 7 days.</p>
             ) : (
               deadlines.slice(0, 5).map((d) => {
-                const days = differenceInCalendarDays(new Date(d.due_date), now);
-                const overdue = days <= 0;
-                const label = days < 0 ? `${Math.abs(days)}d overdue` : days === 0 ? "Due today" : `${days}d`;
+                const chip = deadlineChipLabel(d.due_date, now);
                 const href = d.application_id
                   ? `/applications/${d.application_id}`
                   : d.opportunity_id
@@ -896,7 +984,7 @@ export default async function DashboardPage() {
                     </span>
                     <span
                       style={{
-                        backgroundColor: overdue ? "rgba(239,68,68,0.25)" : "rgba(217,119,6,0.25)",
+                        backgroundColor: chip.overdue ? "rgba(239,68,68,0.25)" : "rgba(217,119,6,0.25)",
                         color: WHITE,
                         borderRadius: "4px",
                         padding: "2px 8px",
@@ -905,7 +993,7 @@ export default async function DashboardPage() {
                         flexShrink: 0,
                       }}
                     >
-                      {label}
+                      {chip.label}
                     </span>
                   </Link>
                 );
@@ -915,9 +1003,78 @@ export default async function DashboardPage() {
         </div>
       </div>
 
+      {/* KPI Scorecard */}
+      <div
+        style={{
+          backgroundColor: CARD_BG,
+          borderRadius: "14px",
+          border: "1px solid rgba(255,255,255,0.08)",
+          marginTop: "14px",
+          overflow: "hidden",
+          borderLeft: `3px solid ${ROYAL}`,
+        }}
+      >
+        <div style={{ padding: "14px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", gap: "12px" }}>
+          <span style={{ fontSize: "15px", fontWeight: 800, color: WHITE }}>Platform KPI Scorecard</span>
+          <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.4)", marginLeft: "auto" }}>Trend vs Goal</span>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "0" }}>
+          {kpis.map((kpi, i) => {
+            const isRightEdge = (i + 1) % 3 === 0;
+            const isBottomRow = i >= 3;
+            const trendMeta = TREND_META[kpi.trend];
+            const goalColor = kpi.goalMet === true ? "#34D399" : kpi.goalMet === false ? "#EF4444" : "rgba(255,255,255,0.3)";
+            const goalMark = kpi.goalMet === true ? "✓" : kpi.goalMet === false ? "✗" : "—";
+            return (
+              <div
+                key={kpi.name}
+                style={{
+                  padding: "16px 18px",
+                  borderRight: isRightEdge ? "none" : "1px solid rgba(255,255,255,0.06)",
+                  borderBottom: isBottomRow ? "none" : "1px solid rgba(255,255,255,0.06)",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: "10px",
+                    fontWeight: 700,
+                    color: "rgba(255,255,255,0.45)",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.1em",
+                    marginBottom: "8px",
+                  }}
+                >
+                  {kpi.name}
+                </div>
+                <div style={{ fontSize: "30px", fontWeight: 900, color: WHITE, lineHeight: 1, marginBottom: "10px" }}>{kpi.value}</div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <div>
+                    <div style={{ fontSize: "9px", fontWeight: 700, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                      TREND
+                    </div>
+                    <div style={{ fontSize: "12px", fontWeight: 700, color: trendMeta.color }}>
+                      {trendMeta.arrow} {trendMeta.label}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontSize: "9px", fontWeight: 700, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                      GOAL
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
+                      <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.6)" }}>{kpi.goal}</span>
+                      <span style={{ fontSize: "13px", fontWeight: 700, marginLeft: "6px", color: goalColor }}>{goalMark}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Bottom row — 4 columns */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "16px" }}>
-        <Panel title="📊 Recent Activity">
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "16px", marginTop: "16px" }}>
+        <Panel title="Recent Activity" accent={SKY}>
           {agentDecisions.length === 0 ? (
             <p style={{ fontSize: "12px", color: MUTED, margin: 0 }}>No autonomous activity in the last 24h.</p>
           ) : (
@@ -943,11 +1100,11 @@ export default async function DashboardPage() {
           )}
         </Panel>
 
-        <Panel title="📈 Performance">
+        <Panel title="Performance" accent={PURPLE}>
           {[
             { label: "Opportunities Reviewed", value: reviewedOpportunities, total: totalOpportunities, color: CYAN },
             { label: "Drafts Generated", value: draftsCount, total: Math.max(applications.length, 1), color: PURPLE },
-            { label: "KB Completeness", value: twinCompletenessScore, total: 100, color: GREEN },
+            { label: "KB Completeness", value: kbCompleteness, total: 100, color: GREEN },
             { label: "Avg Confidence", value: avgConfidence, total: 100, color: AMBER },
           ].map((bar) => {
             const pct = bar.total > 0 ? Math.min(100, Math.round((bar.value / bar.total) * 100)) : 0;
@@ -965,7 +1122,7 @@ export default async function DashboardPage() {
           })}
         </Panel>
 
-        <Panel title="🧭 Opportunity Mix">
+        <Panel title="Opportunity Mix" accent={TEAL}>
           {opportunityMix.length === 0 ? (
             <p style={{ fontSize: "12px", color: MUTED, margin: 0 }}>No opportunities to chart yet.</p>
           ) : (
@@ -990,11 +1147,11 @@ export default async function DashboardPage() {
           )}
         </Panel>
 
-        <Panel title="💚 Platform Health">
+        <Panel title="Platform Health" accent={GREEN}>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "10px" }}>
             <PlatformHealthDonut
               outerPct={automationSuccessRate ?? 0}
-              innerPct={twinCompletenessScore}
+              innerPct={kbCompleteness}
               outerColor={TEAL}
               innerColor={GREEN}
             />
@@ -1003,7 +1160,7 @@ export default async function DashboardPage() {
                 <span style={{ color: TEAL, fontWeight: 700 }}>●</span> AutoApply {automationSuccessRate ?? 0}%
               </span>
               <span>
-                <span style={{ color: GREEN, fontWeight: 700 }}>●</span> KB {twinCompletenessScore}%
+                <span style={{ color: GREEN, fontWeight: 700 }}>●</span> KB {kbCompleteness}%
               </span>
             </div>
           </div>

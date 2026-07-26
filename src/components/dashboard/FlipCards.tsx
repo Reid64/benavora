@@ -5,7 +5,6 @@ import Link from "next/link";
 
 export type FlipCardData = {
   key: string;
-  icon: string;
   label: string;
   value: string;
   sub: string;
@@ -56,13 +55,19 @@ export function FlipCards({ cards }: { cards: FlipCardData[] }) {
                 }}
               >
                 <div style={{ height: "2px", background: card.accentGradient, borderRadius: "1px", marginBottom: "10px" }} />
-                <div style={{ fontSize: "20px", marginBottom: "2px" }}>{card.icon}</div>
-                <div style={{ fontSize: "10px", fontWeight: 700, color: "#FFFFFF", letterSpacing: "0.06em" }}>
+                <div
+                  style={{
+                    fontSize: "10px",
+                    fontWeight: 700,
+                    color: "rgba(255,255,255,0.5)",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.12em",
+                    marginBottom: "6px",
+                  }}
+                >
                   {card.label}
                 </div>
-                <div style={{ fontSize: "26px", fontWeight: 800, color: "#FFFFFF", marginTop: "4px", lineHeight: 1 }}>
-                  {card.value}
-                </div>
+                <div style={{ fontSize: "28px", fontWeight: 800, color: "#FFFFFF", lineHeight: 1 }}>{card.value}</div>
                 <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.75)", marginTop: "auto" }}>{card.sub}</div>
               </div>
 
