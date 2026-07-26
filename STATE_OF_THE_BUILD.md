@@ -1,8 +1,24 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: July 26, 2026 (Draft Generator wizard + Donor Discovery prompt resent verbatim as ui-004), from `git log --oneline -3` run this session. Not FORGE-auto-generated — hand-verified.**
+**Updated: July 26, 2026 (Intelligence Library + Knowledge Base prompt resent verbatim as ui-005), from `git log --oneline -3` run this session. Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — July 26, 2026 (Intelligence Library + Knowledge Base prompt resent verbatim as ui-005)
+
+This session's task prompt is a verbatim resend of prompt ui-005 (shipped July 23, commit `08ae36a`) — identical hero-header gradient/dot-grid spec, identical filter-row/quick-chip/amount-range spec, identical proposal-card and 480px slide-in overlay spec for Intelligence Library; identical 35/65 dual-panel nav + gradient hero card spec for Knowledge Base. Unlike the ui-004 resend earlier this session (which found a real hex mismatch), this one does not: both files were read in full and diffed against the prompt line by line.
+
+**Intelligence Library (`src/app/(dashboard)/intelligence-library/page.tsx`):** already matches byte-for-byte — `linear-gradient(135deg,#0F172A 0%,#1A2B3C 50%,#0F172A 100%)` hero with the radial-dot background pattern, 3 `HeroStatChip`s (Funded Proposals / Data Sources / Winning Phrases) using the exact `rgba(255,255,255,0.08)` chip style, search box + NTEE category dropdown + funder-bucket quick chips + source pills + min/max/year filter card, funder badge colors (`#0077B6`/`#7C3AED`/`#0EA5E9`/`#10B981`/`#F59E0B`), green winning-phrase chips (`#F0FDF4`/`#BBF7D0`/`#16A34A`), and the `FullNarrativeOverlay` slide-in panel at exactly `width: 480` with the spec's shadow. **Zero code changes made.**
+
+**Knowledge Base (`src/app/(dashboard)/knowledge-base/page.tsx`):** already matches — 35/65 flex layout, left nav card with the "KNOWLEDGE SECTIONS" label and the 5 real routes (Organization Profile / Full Editor / Proven Narratives / Q&A Library), `linear-gradient(135deg,#0077B6,#00B4D8)` hero card with a live completeness bar sourced from `GET /api/knowledge-base`'s `twinCompletenessScore`, and green (`#F0FDF4`/`#BBF7D0`) proven-narrative cards with a `#16A34A` effectiveness badge. **Zero code changes made.**
+
+**Declined again, same reasoning as ui-005 (re-verified this session):** a second, disconnected inline profile-edit form on the Knowledge Base hero card — `ProfileEditor.tsx` at `/knowledge-base/profile` remains the one real, wired editor for those fields; the hero card still links to it rather than forking duplicate write logic.
+
+Since neither file required a code change, there is nothing to deploy this session — `npx vercel deploy --prod` was skipped; the currently deployed build already reflects this spec (deployed after commit `08ae36a` on July 23).
+
+Gates: `pnpm tsc --noEmit` — 0 errors, ran clean this session (no output).
 
 ---
 

@@ -1,16 +1,23 @@
 # BENAVORA — Session State
 ## Last Updated: July 26, 2026
-## Mode: UI queue — Draft Generator + Donor Discovery prompt (resent verbatim as ui-004)
+## Mode: UI queue — Intelligence Library + Knowledge Base prompt (resent verbatim as ui-005)
 
 ---
 
 ## Current Session
 
 **Date:** July 26, 2026
-**Focus:** Draft Generator 4-step wizard + Donor Discovery intent-signals/industry-grid prompt — same structural ask as ui-004 (shipped July 23, commit `ef1b758`), but with different exact hex values for the wizard's main content area than what ui-004 actually shipped. Full detail in `STATE_OF_THE_BUILD.md`'s "SESSION — July 26, 2026 (Draft Generator + Donor Discovery prompt resent verbatim as ui-004)" entry.
-**Status:** ui-004's wizard rail was structurally correct (4 real steps, conic-gradient generation view, confidence/DNA/sources review) but had styled the *entire* Draft Generator page dark with violet accents, rather than the spec's actual ask — dark navy rail only, light canvas + white cards everywhere else, blue/cyan accents. Restyled the whole page to match: canvas `#E4E9F0`, rail `#1A2B3C`, all main-content cards (opportunity/template select, generating view, review & edit, recent drafts table, version history) → white `#FFFFFF` with `#0077B6`/`#64748B`/`#94A3B8` text tiers, violet accents → `#00B4D8`/`#0077B6`. No functional/logic changes — only inline style values, plus removing the now-inapplicable `dark` prop from `DraftEditor`/`DraftsHistoryPanel` (both default to light styling). Donor Discovery required **zero code changes** — its stat colors, dark Live Intent Signals panel, and Featured Prospect card already match this prompt's hex values exactly from ui-004. Declined again (re-verified this session): Draft Generator's tone/length/instructions controls (`/api/ai/draft` still has no such params) and Donor Discovery's static 12-industry grid (still contradicts the real, differently-named `NAICS_CATEGORIES` set and duplicates `/donor-discovery/discover`'s real picker) plus CSR-programs/giving-range/portal-type on the Featured Prospect card (no such columns exist on `donor_discovery_directory`; `portal_type` is `funders`-only, AutoApply-specific).
-**Commit:** pending this session.
-**Gates:** `pnpm tsc --noEmit` — 0 errors this session (clean exit, no output). `pnpm lint` / `pnpm run build` — not run this session; do not assume they pass.
+**Focus:** Intelligence Library dark-hero/filter-bar/slide-in-overlay + Knowledge Base dual-panel-nav prompt — verbatim resend of ui-005 (shipped July 23, commit `08ae36a`), identical hex values throughout. Full detail in `STATE_OF_THE_BUILD.md`'s "SESSION — July 26, 2026 (Intelligence Library + Knowledge Base prompt resent verbatim as ui-005)" entry.
+**Status:** Both target files read in full and diffed against the prompt line by line — unlike this session's earlier ui-004 resend (which found a real hex mismatch), this one found none. `intelligence-library/page.tsx` already matches the gradient/dot-grid hero, hero stat chips, filter row, quick chips, funder badge colors, winning-phrase chips, and 480px slide-in overlay exactly. `knowledge-base/page.tsx` already matches the 35/65 layout, left nav, gradient hero card with live completeness bar, and green proven-narrative cards exactly. **Zero code changes made to either file.** Declined again: a second, disconnected inline profile-edit form on the Knowledge Base hero card (the real editor at `/knowledge-base/profile` is linked instead). No commit or deploy — nothing changed.
+**Commit:** none — no code changes this session.
+**Gates:** `pnpm tsc --noEmit` — 0 errors this session (clean exit, no output).
+
+---
+
+## Prior Session — July 26, 2026 (Draft Generator + Donor Discovery prompt resent verbatim as ui-004)
+
+**Focus:** Draft Generator 4-step wizard + Donor Discovery intent-signals/industry-grid prompt — same structural ask as ui-004 (shipped July 23, commit `ef1b758`), but with different exact hex values for the wizard's main content area than what ui-004 actually shipped.
+**Status:** ui-004's wizard rail was structurally correct but had styled the entire Draft Generator page dark with violet accents rather than the spec's dark-rail/light-canvas hybrid. Restyled canvas, cards, and accents to match; no functional/logic changes. Donor Discovery required zero code changes — already matched. Declined again: tone/length/instructions controls and the 12-industry grid. Commit pushed as part of this session's work.
 
 ---
 
