@@ -679,14 +679,14 @@ export default async function DashboardPage() {
     {
       name: "Opportunities Reviewed",
       value: String(totalOpportunities),
-      trend: "UP",
+      trend: totalOpportunities > 0 ? "UP" : "NEUTRAL",
       goal: "≥50/mo",
       goalMet: totalOpportunities >= 50,
     },
     {
       name: "Draft Confidence",
       value: `${Math.round(avgConfidence ?? 0)}/100`,
-      trend: "DOWN",
+      trend: (avgConfidence ?? 0) >= 80 ? "UP" : "DOWN",
       goal: "≥80",
       goalMet: (avgConfidence ?? 0) >= 80,
     },

@@ -11,6 +11,7 @@ import {
   navItemsForRole,
   PLATFORM_NAV_ITEMS,
   PROGRAMS_NAV_ITEMS,
+  RESOURCES_NAV_ITEMS,
   SETTINGS_NAV_ITEM,
 } from "@/components/layout/nav-items";
 import { Logo } from "@/components/layout/Logo";
@@ -478,6 +479,19 @@ export function Sidebar({ open, onClose, role, onboardingCompleted, orgName }: S
                     onClick={onClose}
                     iconColor={(isActiveNow) => (isActiveNow ? "#FFFFFF" : "#10B981")}
                   />
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Resources section — shared public reference directories */}
+          <div style={{ marginTop: "8px" }}>
+            <p style={SECTION_LABEL_STYLE}>Resources</p>
+            <div>
+              {RESOURCES_NAV_ITEMS.map(({ label, href, icon: ItemIcon }) => {
+                const active = isActive(href);
+                return (
+                  <NavLink key={href} href={href} label={label} icon={ItemIcon} active={active} onClick={onClose} />
                 );
               })}
             </div>

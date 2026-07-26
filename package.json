@@ -65,6 +65,7 @@
         "setup:sparkgood": "tsx scripts/setup-sparkgood-account.ts",
         "smoke:platform": "tsx scripts/platform-smoke-test.ts",
         "seed:signals": "tsx scripts/seed-intent-signals.ts",
+        "seed:foundation-prospects": "tsx scripts/seed-foundation-prospects.ts",
         "import:federal": "tsx scripts/import-federal-awards.ts",
         "import:foundations": "tsx scripts/import-foundation-awards.ts",
         "gmaps:gen-foundations": "npx tsx scripts/generate-gmaps-queries.ts --mode=foundations",

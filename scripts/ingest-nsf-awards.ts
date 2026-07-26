@@ -92,6 +92,17 @@ function fatal(message: string): never {
   process.exit(1);
 }
 
+// Supabase's gateway rejects an overlong `.in()` query string (verified: 400
+// Bad Request against a ~500-value list). Chunking keeps every request's
+// query string well under any gateway limit — see ingest-nih-reporter.ts.
+const IN_CHUNK_SIZE = 100;
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) chunks.push(items.slice(i, i + size));
+  return chunks;
+}
+
 async function fetchPage(offset: number): Promise<NsfAward[]> {
   const params = new URLSearchParams({
     keyword: KEYWORD,
@@ -198,28 +209,37 @@ async function main() {
       const sourceUrls = rows.map((r) => r.source_url);
       const grantPrograms = rows.map((r) => r.grant_program).filter((p): p is string => !!p);
 
-      const [{ data: existingByUrl, error: existingUrlError }, { data: existingByTitle, error: existingTitleError }] =
-        await Promise.all([
-          supabase.from("intelligence_funded_proposals").select("source_url").in("source_url", sourceUrls),
-          grantPrograms.length > 0
-            ? supabase
-                .from("intelligence_funded_proposals")
-                .select("grant_program")
-                .eq("funder_name", "NSF")
-                .in("grant_program", grantPrograms)
-            : Promise.resolve({ data: [], error: null }),
-        ]);
+      const urlChunkResults = await Promise.all(
+        chunk(sourceUrls, IN_CHUNK_SIZE).map((group) =>
+          supabase.from("intelligence_funded_proposals").select("source_url").in("source_url", group),
+        ),
+      );
+      const titleChunkResults =
+        grantPrograms.length > 0
+          ? await Promise.all(
+              chunk(grantPrograms, IN_CHUNK_SIZE).map((group) =>
+                supabase
+                  .from("intelligence_funded_proposals")
+                  .select("grant_program")
+                  .eq("funder_name", "NSF")
+                  .in("grant_program", group),
+              ),
+            )
+          : [];
 
-      const existingError = existingUrlError ?? existingTitleError;
+      const existingError =
+        urlChunkResults.find((r) => r.error)?.error ?? titleChunkResults.find((r) => r.error)?.error ?? null;
 
       if (existingError) {
         fail(`page ${page} dedup check`, existingError);
         totalFailed += rows.length;
         totalSkipped += skippedNoText;
       } else {
-        const existingUrls = new Set((existingByUrl ?? []).map((e: { source_url: string }) => e.source_url));
+        const existingUrls = new Set(
+          urlChunkResults.flatMap((r) => (r.data ?? []).map((e: { source_url: string }) => e.source_url)),
+        );
         const existingTitles = new Set(
-          (existingByTitle ?? []).map((e: { grant_program: string | null }) => e.grant_program),
+          titleChunkResults.flatMap((r) => (r.data ?? []).map((e: { grant_program: string | null }) => e.grant_program)),
         );
         const newRows = rows.filter(
           (r) => !existingUrls.has(r.source_url) && !(r.grant_program && existingTitles.has(r.grant_program)),

@@ -14,6 +14,7 @@ import {
   GraduationCap,
   HeartPulse,
   KanbanSquare,
+  Landmark,
   Library,
   Lightbulb,
   Mail,
@@ -139,6 +140,14 @@ export const DONOR_DISCOVERY_NAV_ITEMS: NavChild[] = [
  */
 export const PROGRAMS_NAV_ITEMS: NavItem[] = [
   { label: "SchoolFunder", href: "/schoolfunder", icon: GraduationCap },
+];
+
+/**
+ * Resources — shared public reference directories (no organization_id
+ * scoping), shown in their own sidebar section alongside Programs.
+ */
+export const RESOURCES_NAV_ITEMS: NavItem[] = [
+  { label: "Nonprofit Directory", href: "/nonprofits", icon: Landmark },
 ];
 
 /** Settings rendered at the bottom of the sidebar, separated from main nav. */
