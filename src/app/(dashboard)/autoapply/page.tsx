@@ -568,6 +568,74 @@ export default function AutoApplyPage() {
           <LiveSessionViewer />
         </div>
         <div className="flex flex-col gap-4 lg:flex-[35]">
+          {/* QUEUE — top 5 real submission_queue rows, same data already loaded for the Session List table below */}
+          <div
+            style={{
+              backgroundColor: "rgba(255,255,255,0.04)",
+              borderRadius: "12px",
+              border: "1px solid rgba(255,255,255,0.08)",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                padding: "16px 20px",
+                borderBottom: "1px solid rgba(255,255,255,0.06)",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <p style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.12em", color: "#64748B" }}>QUEUE</p>
+              <span
+                style={{
+                  backgroundColor: "rgba(0,119,182,0.2)",
+                  color: "#00B4D8",
+                  borderRadius: "10px",
+                  padding: "2px 10px",
+                  fontSize: "12px",
+                  fontWeight: 700,
+                }}
+              >
+                {queue.length}
+              </span>
+            </div>
+            {queueLoading ? (
+              <p style={{ padding: "16px 20px", fontSize: "13px", color: "#64748B" }}>Loading…</p>
+            ) : queue.length === 0 ? (
+              <p style={{ padding: "16px 20px", fontSize: "13px", color: "#64748B" }}>Queue is empty.</p>
+            ) : (
+              queue.slice(0, 5).map((item) => {
+                const dotColor =
+                  item.status === "processing" || item.status === "running"
+                    ? "#10B981"
+                    : item.status === "pending"
+                      ? "#F59E0B"
+                      : "#64748B";
+                return (
+                  <div
+                    key={item.id}
+                    style={{
+                      padding: "12px 20px",
+                      borderBottom: "1px solid rgba(255,255,255,0.04)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "12px",
+                    }}
+                  >
+                    <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: dotColor, flexShrink: 0 }} />
+                    <span style={{ color: "#F8FAFC", fontSize: "13px", fontWeight: 600 }}>
+                      {item.funders?.name ?? "—"}
+                    </span>
+                    <span style={{ color: "#64748B", fontSize: "12px", marginLeft: "auto" }}>
+                      {sessionStatusHex(item.status).label}
+                    </span>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
           <div
             style={{
               backgroundColor: "rgba(255,255,255,0.04)",
