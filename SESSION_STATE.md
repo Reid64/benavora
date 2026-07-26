@@ -1,16 +1,23 @@
 # BENAVORA — Session State
 ## Last Updated: July 26, 2026
-## Mode: UI queue — Intelligence Library + Knowledge Base prompt (resent verbatim as ui-005)
+## Mode: UI queue — Opportunities + Research two-panel prompt (resent verbatim as ui-006, second resend)
 
 ---
 
 ## Current Session
 
 **Date:** July 26, 2026
-**Focus:** Intelligence Library dark-hero/filter-bar/slide-in-overlay + Knowledge Base dual-panel-nav prompt — verbatim resend of ui-005 (shipped July 23, commit `08ae36a`), identical hex values throughout. Full detail in `STATE_OF_THE_BUILD.md`'s "SESSION — July 26, 2026 (Intelligence Library + Knowledge Base prompt resent verbatim as ui-005)" entry.
-**Status:** Both target files read in full and diffed against the prompt line by line — unlike this session's earlier ui-004 resend (which found a real hex mismatch), this one found none. `intelligence-library/page.tsx` already matches the gradient/dot-grid hero, hero stat chips, filter row, quick chips, funder badge colors, winning-phrase chips, and 480px slide-in overlay exactly. `knowledge-base/page.tsx` already matches the 35/65 layout, left nav, gradient hero card with live completeness bar, and green proven-narrative cards exactly. **Zero code changes made to either file.** Declined again: a second, disconnected inline profile-edit form on the Knowledge Base hero card (the real editor at `/knowledge-base/profile` is linked instead). No commit or deploy — nothing changed.
+**Focus:** Opportunities page cards/filter-bar + Research page two-panel (Funder Search / Semantic Match Engine) prompt — verbatim resend of ui-006 (shipped July 26 earlier this session, commit `c2b02d5`), identical hex values throughout. Full detail in `STATE_OF_THE_BUILD.md`'s "SESSION — July 26, 2026 (Opportunities + Research two-panel prompt resent verbatim as ui-006, second resend)" entry.
+**Status:** All four mandated files (`opportunities/page.tsx`, `research/page.tsx`, `research/match/page.tsx`, `opportunities/new/page.tsx`) read in full and diffed against the prompt line by line. `opportunities/page.tsx` already matches the filter chips, stat row, and accent-bar cards exactly (verified in ui-002 and ui-006). The two-panel research spec describes `/research/match`, not `/research` — same collision declined in ui-002 and ui-006; `/research/match` already received this exact restyle in ui-006 and matches byte-for-byte. **Zero code changes made to any file.** No commit or deploy — nothing changed.
 **Commit:** none — no code changes this session.
 **Gates:** `pnpm tsc --noEmit` — 0 errors this session (clean exit, no output).
+
+---
+
+## Prior Session — July 26, 2026 (Intelligence Library + Knowledge Base prompt resent verbatim as ui-005)
+
+**Focus:** Intelligence Library dark-hero/filter-bar/slide-in-overlay + Knowledge Base dual-panel-nav prompt — verbatim resend of ui-005 (shipped July 23, commit `08ae36a`), identical hex values throughout.
+**Status:** Both target files read in full and diffed against the prompt line by line — found no mismatch. `intelligence-library/page.tsx` and `knowledge-base/page.tsx` already matched exactly. **Zero code changes made to either file.** Declined again: a second, disconnected inline profile-edit form on the Knowledge Base hero card. No commit or deploy — nothing changed.
 
 ---
 

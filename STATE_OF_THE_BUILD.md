@@ -1,8 +1,22 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: July 26, 2026 (Intelligence Library + Knowledge Base prompt resent verbatim as ui-005), from `git log --oneline -3` run this session. Not FORGE-auto-generated — hand-verified.**
+**Updated: July 26, 2026 (Opportunities + Research two-panel prompt resent verbatim as ui-006, second resend), from `git log --oneline -5` run this session. Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — July 26, 2026 (Opportunities + Research two-panel prompt resent verbatim as ui-006, second resend)
+
+This session's task prompt is a verbatim resend of prompt ui-006 (shipped July 26 earlier this session, commit `c2b02d5`) — identical opportunities-page cards/filter-bar/stats-row spec, identical two-panel (45% Funder Search / 55% dark Semantic Match Engine) research spec, same exact hex values throughout (`#0077B6`/`#00B4D8`/`#7C3AED`/`#0EA5E9`/`#10B981`/`#16A34A`/`#D97706`). All four mandated files were read in full and diffed line by line against the prompt.
+
+**Opportunities (`src/app/(dashboard)/opportunities/page.tsx`):** already matches — pill filter bar (All/Federal/Foundation/Corporate/State-Local/Rolling/Closing Soon) with the exact active/inactive chip styling, 4-card stat row (Open/High Probability `#16A34A`/Closing This Week `#D97706`/Total Potential `#7C3AED`), and accent-bar cards (Federal `#0077B6`/Foundation `#7C3AED`/Corporate `#0EA5E9`/State `#10B981`) with probability/amount/deadline chips and View/Apply Now/Skip actions. This is the same file verified against this identical spec in the ui-002 and ui-006 sessions. **Zero code changes made.**
+
+**Research (`src/app/(dashboard)/research/page.tsx` vs `src/app/(dashboard)/research/match/page.tsx`):** the prompt's literal two-panel ask describes `/research/match`, not `/research` — same collision flagged and declined in ui-002 and ui-006. `/research` remains the real Research Command Center (agent polling, Directive-5 3×7 resource grid, Funding Source Directory, Discovered Opportunities, Historical Awards) and was not touched. `/research/match` already received the exact two-panel restyle this prompt asks for, in the ui-006 session: white ranked-foundation cards on the left with the `#0077B6` match-score pill, and the `#0F172A` "AI Funder Match" panel on the right with the `linear-gradient(135deg,#0077B6,#00B4D8)` Run Match button — byte-for-byte the same hex values this resend specifies. **Zero code changes made.**
+
+Third consecutive time this exact research two-panel spec has been evaluated (ui-002 declined the `/research` rewrite; ui-006 built `/research/match` to spec; this resend re-verified both are correct and untouched).
+
+Gates: `pnpm tsc --noEmit` — 0 errors, ran clean this session (no output).
 
 ---
 
