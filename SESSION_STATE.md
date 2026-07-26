@@ -1,22 +1,29 @@
 # BENAVORA — Session State
-## Last Updated: July 23, 2026
-## Mode: UI queue — prompt ui-005
+## Last Updated: July 26, 2026
+## Mode: UI queue — prompt ui-006
 
 ---
 
 ## Current Session
 
-**Date:** July 23, 2026
-**Focus:** Prompt ui-005 — Intelligence Library dark-hero/filter-bar/slide-in-overlay rewrite + Knowledge Base dual-panel nav rewrite. Full detail in `STATE_OF_THE_BUILD.md`'s "SESSION — July 23, 2026 (prompt ui-005)" entry.
-**Status:** Intelligence Library reskinned from its prior dark-card theme to the spec's light-canvas/white-card/dark-hero-header look, with the narrative overlay converted to a 480px slide-in panel; all search/filter/pagination/add-narrative/reference-selection wiring preserved. Knowledge Base overview rebuilt as a real 35/65 two-column layout (left nav + gradient hero card with a real completeness score). One deviation — a second, disconnected inline profile-edit form — was declined in favor of linking to the real editor. **Next prompt in queue: none assigned yet.**
-**Commit:** `08ae36a` (pushed to `main`).
+**Date:** July 26, 2026
+**Focus:** Prompt ui-006 — Opportunities page cards/filter-bar rewrite + Research page dual-panel semantic match rewrite. Full detail in `STATE_OF_THE_BUILD.md`'s "SESSION — July 26, 2026 (prompt ui-006)" entry.
+**Status:** Opportunities page required no changes — it already matches this exact spec from the ui-002 session. The literal ask to rewrite `/research` into a two-panel Funder Search/Semantic Match layout was declined again (same collision flagged in ui-002: it would delete the live Research Command Center's Directive-5 resource grid, funding source directory, agent polling, discovered opportunities, and historical awards). Instead restyled `/research/match` — the actual semantic-match feature — from Tailwind classes to inline hex, with a real two-panel layout (ranked results left, dark AI match form right). **Next prompt in queue: none assigned yet.**
+**Commit:** `c2b02d5` (pushed to `main`).
 **Gates:** `pnpm tsc --noEmit` — 0 errors this session (clean exit, no output). `pnpm lint` / `pnpm run build` — not run this session; do not assume they pass.
 
-**Deviation, and why:** the task asked for "editable fields below in clean form cards" on the Knowledge Base hero card. `ProfileEditor.tsx` (`/knowledge-base/profile`) is already the real, wired editor for those org-profile fields. Building a second inline edit form on the overview page would duplicate write logic against the same data — the same call this queue has made every session so far (declined fake/duplicate UI in ui-002 through ui-004). Shipped instead: a read-only fact snapshot (EIN, tax status, service area, staff/volunteers) plus a link to the real editor.
+**Deviation, and why:** the prompt's left panel described an independent "Funder Search" with NTEE/state/asset-range/giving-range filter chips and a standalone browsable list. `/api/match/foundations` only accepts `mission`, `minGrant`, `maxGrant`, `state` — no NTEE/asset-range/giving-range params exist, and there's no way to browse foundations without a mission (that's `/foundations`, out of scope). Rather than fabricate those filters, the two panels split the one real flow: results render left once a mission is submitted via the form in the right AI panel.
 
-This is now a consistent pattern across five UI prompts in this queue (ui-001 through ui-005): apply the requested visual tokens to real, already-wired functionality; decline literal-spec elements that would require either deleting working features or fabricating unwired/duplicate UI.
+This is now a consistent pattern across six UI prompts in this queue (ui-001 through ui-006): apply the requested visual tokens to real, already-wired functionality; decline literal-spec elements that would require either deleting working features or fabricating unwired/duplicate UI.
 
-Also carried over, still unresolved: whether SchoolFunder (page + 3 API routes, ui-001) should actually be removed — it wasn't dead code (nav-items.ts marks it "PERMANENT," documented in BLUEPRINT §1), so it remains in place pending Reid's confirmation. The ui-002 open question (whether a literal funder-search/semantic-match panel is wanted on `/research` specifically) and the ui-004 open questions (tone/length/instructions params, donor-discovery industry grid) are also still open, pending Reid's confirmation on whether to add the missing backend support first.
+Also carried over, still unresolved: whether SchoolFunder (page + 3 API routes, ui-001) should actually be removed — it wasn't dead code (nav-items.ts marks it "PERMANENT," documented in BLUEPRINT §1), so it remains in place pending Reid's confirmation. The ui-002/ui-006 open question (whether a literal funder-search/semantic-match panel is wanted on `/research` specifically, now declined twice) and the ui-004 open questions (tone/length/instructions params, donor-discovery industry grid) are also still open, pending Reid's confirmation on whether to add the missing backend support first.
+
+---
+
+## Prior Session — July 23, 2026 (prompt ui-005)
+
+**Focus:** Intelligence Library dark-hero/filter-bar/slide-in-overlay rewrite + Knowledge Base dual-panel nav rewrite.
+**Status:** Intelligence Library reskinned to light-canvas/white-card/dark-hero-header look with a 480px slide-in narrative overlay; Knowledge Base overview rebuilt as a real 35/65 two-column layout. A second, disconnected inline profile-edit form was declined in favor of linking to the real editor. Commit `08ae36a`.
 
 ---
 

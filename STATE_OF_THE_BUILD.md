@@ -1,8 +1,29 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: July 23, 2026 (prompt ui-005), from `git log --oneline -5` run this session. Not FORGE-auto-generated — hand-verified.**
+**Updated: July 26, 2026 (prompt ui-006), from `git log --oneline -3` run this session. Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — July 26, 2026 (prompt ui-006)
+
+**Commit `c2b02d5`** — `feat(ui): semantic funder match page restyled to inline-hex two-panel design`, on top of `0038fca` (verified via `git log --oneline -3`):
+```
+c2b02d5 feat(ui): semantic funder match page restyled to inline-hex two-panel design
+0038fca feat: nonprofit directory (2M searchable records), KPI scorecard, foundation seeding, intelligence ingestion
+2937b72 feat(dashboard): KPI scorecard, unique flip cards, compressed triggers, zero emoji, colored border accents only
+```
+
+Pre-read confirmed: `src/app/(dashboard)/opportunities/page.tsx` already matches this prompt's opportunities-page spec almost line-for-line — it was built to this exact design (filter chips, 4-card stat row, accent-bar cards with probability/amount/deadline chips, View/Apply Now/Skip actions) in the ui-002 session (commit `0dfade3`, see that session's entry below). No changes were needed or made to that file this session.
+
+**What actually shipped, and the deviation:**
+
+- The prompt's other half asked to rewrite `src/app/(dashboard)/research/page.tsx` completely into a two-panel Funder Search (left) / dark Semantic Match Engine (right) layout. This is the identical collision already flagged and declined in the ui-002 session below: `/research` is the real, wired Research Command Center (agent-run polling every 30s, the Directive-5-mandated 3×7 pinned resource grid, the Funding Source Directory with Poll Now, Discovered Opportunities wired to real `opportunities`/`applications`, Historical Awards wired to the USASpending agent, and a Search Configuration tab). Rewriting it to the literal two-panel spec would have deleted all of that live functionality a second time. Declined again, for the same reason.
+- Instead, restyled `src/app/(dashboard)/research/match/page.tsx` — the page that actually *is* the semantic funder-matching feature (BLUEPRINT nav: "Research Match" / "Semantic funder matching") — from Tailwind utility classes (a standing violation of BLUEPRINT_v2.md §7.5's inline-hex-only rule) to inline `style={{}}` hex values, and gave it a real two-panel layout matching the prompt's visual spec: ranked foundation-match results (white cards, blue pill match-score badge) on the left, the mission-driven AI match form (dark `#0F172A` panel, gradient Run Match button) on the right.
+- **Deviation:** the prompt's literal left panel described an independent "Funder Search" with NTEE-category/state/asset-range/giving-range filter chips and a browsable results list. `/api/match/foundations` (the only endpoint this page calls) accepts just `mission`, `minGrant`, `maxGrant`, and `state` — there is no NTEE, asset-range, or giving-range parameter, and no way to browse foundations without a mission statement (that capability lives on the separate `/foundations` directory page, out of scope here). Fabricating those filters would have been unwired UI. So the two panels split the one real flow instead of representing two independent features: results render on the left once a mission is submitted via the form in the right-hand AI panel, rather than duplicating `/foundations`' real filter set with fake ones.
+
+Gates: `pnpm tsc --noEmit` — 0 errors (clean exit, no output). `pnpm lint` / `pnpm run build` — not run this session; do not assume they pass.
 
 ---
 
