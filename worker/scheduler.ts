@@ -91,6 +91,35 @@ const jobs: ScheduledJob[] = [
         ({ runLearningNetworkPipeline }) => runLearningNetworkPipeline(supabase),
       ),
   },
+  {
+    // Foundation directory enrichment (STANDING_DIRECTIVES.md Directive 1,
+    // src/lib/scraper/foundation-scraper.ts). Weekly, Sunday 3AM CST — same
+    // precedent as the AG-36 entry above: this file has no day-of-week
+    // concept, so the job fires daily at this hour and the run() body itself
+    // no-ops on any day that isn't Sunday in America/Chicago. Gated behind
+    // ENABLE_SCRAPER to prevent accidental runs (task requirement) — the
+    // scraper launches real Chromium instances and makes outbound requests to
+    // IRS/Google/foundation websites, which is not something to fire
+    // silently just because a queued deploy happened to land near 3AM.
+    name: 'foundation-enrichment-weekly',
+    hour: 3,
+    minute: 0,
+    lastFiredOnDateKey: null,
+    run: async (_supabase) => {
+      if (process.env['ENABLE_SCRAPER'] !== 'true') {
+        console.log(
+          "[Scheduler] foundation-enrichment-weekly skipped — ENABLE_SCRAPER is not 'true'.",
+        );
+        return;
+      }
+      if (chicagoWeekday(new Date()) !== 'Sun') return;
+
+      const { runFoundationScraper } = await import(
+        '../src/lib/scraper/foundation-scraper.js'
+      );
+      await runFoundationScraper();
+    },
+  },
 ];
 
 let intervalId: ReturnType<typeof setInterval> | null = null;
@@ -114,6 +143,13 @@ function chicagoParts(now: Date): { dateKey: string; hour: number; minute: numbe
     hour: parseInt(get('hour'), 10),
     minute: parseInt(get('minute'), 10),
   };
+}
+
+function chicagoWeekday(now: Date): string {
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: TIMEZONE,
+    weekday: 'short',
+  }).format(now);
 }
 
 function errMsg(err: unknown): string {

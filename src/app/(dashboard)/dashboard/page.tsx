@@ -14,6 +14,7 @@ import {
 } from "@/lib/knowledge-base/profile";
 import { FlipCards, type FlipCardData } from "@/components/dashboard/FlipCards";
 import { AiTriggerPanel, type AiTrigger } from "@/components/dashboard/AiTriggerPanel";
+import { ScraperStatusCard } from "@/components/dashboard/ScraperStatusCard";
 
 // Dashboard reflects live session-scoped data; never cache (CLAUDE.md).
 export const dynamic = "force-dynamic";
@@ -1110,6 +1111,8 @@ export default async function DashboardPage() {
                 Open AutoApply
               </Link>
             </div>
+
+            <ScraperStatusCard />
           </Panel>
         </div>
 

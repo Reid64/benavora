@@ -507,11 +507,22 @@ async function processFoundation(
 
 // --- main ----------------------------------------------------------------------
 
-export async function runFoundationScraper(startOffset?: number): Promise<void> {
+/**
+ * @param startOffset row offset into foundation_directory to start at. Passing
+ *   any value (including 0) starts a fresh checkpoint, discarding prior
+ *   processed/enriched counts — see loadCheckpoint(). Omit to resume from the
+ *   existing checkpoint file.
+ * @param maxToProcess stops the run once this many rows have been processed
+ *   *in this call* (not cumulative across prior runs), saving the checkpoint
+ *   so a later call can resume from where this one stopped. Omit to run
+ *   until foundation_directory is exhausted.
+ */
+export async function runFoundationScraper(startOffset?: number, maxToProcess?: number): Promise<void> {
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 
   const supabase = createAdminClient();
   const checkpoint = loadCheckpoint(startOffset);
+  const processedAtRunStart = checkpoint.processed;
   const irs990Source = new IRS990Source();
 
   const engines: PooledEngine[] = [];
@@ -579,6 +590,11 @@ export async function runFoundationScraper(startOffset?: number): Promise<void> 
 
       if (checkpoint.processed % CHECKPOINT_EVERY === 0) {
         saveCheckpoint(checkpoint);
+      }
+
+      if (maxToProcess !== undefined && checkpoint.processed - processedAtRunStart >= maxToProcess) {
+        log(`Reached batch limit of ${maxToProcess} for this run — stopping (resume at offset ${checkpoint.offset}).`);
+        break;
       }
 
       if (rows.length < BATCH_SIZE) break;

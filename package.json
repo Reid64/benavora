@@ -71,7 +71,8 @@
         "gmaps:gen-foundations": "npx tsx scripts/generate-gmaps-queries.ts --mode=foundations",
         "gmaps:gen-nonprofits": "npx tsx scripts/generate-gmaps-queries.ts --mode=nonprofits",
         "gmaps:import-foundations": "npx tsx scripts/import-gmaps-results.ts --mode=foundations",
-        "gmaps:import-nonprofits": "npx tsx scripts/import-gmaps-results.ts --mode=nonprofits"
+        "gmaps:import-nonprofits": "npx tsx scripts/import-gmaps-results.ts --mode=nonprofits",
+        "scrape:foundations": "tsx scripts/run-foundation-scraper.ts"
     },
     "dependencies": {
         "@2captcha/captcha-solver": "^1.3.6",
