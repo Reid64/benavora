@@ -1,8 +1,31 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: July 26, 2026 (AutoApply queue-panel resend), from `git log --oneline -3` run this session. Not FORGE-auto-generated — hand-verified.**
+**Updated: July 26, 2026 (Draft Generator wizard + Donor Discovery prompt resent verbatim as ui-004), from `git log --oneline -3` run this session. Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — July 26, 2026 (Draft Generator + Donor Discovery prompt resent verbatim as ui-004)
+
+This session's task prompt was, in substance, a verbatim resend of prompt ui-004 (shipped July 23, commit `ef1b758`) — same 4-step wizard rail, same Donor Discovery intent-signals/industry-grid ask — but with different literal hex values for the wizard's main content area than what ui-004 actually shipped. Pre-read confirmed both target pages already exist and are fully wired (as ui-004 left them); this session's job was to reconcile the two against the current prompt's exact spec rather than rebuild from scratch.
+
+**What was found:** ui-004 built the Draft Generator's 4-step wizard rail correctly in structure, but styled the *entire* page dark (page canvas `#0F172A`, all main-content cards `#1E293B`, violet accents `#A78BFA`/`#7C3AED`/`#A855F7`) rather than the hybrid the spec actually calls for — a dark navy (`#1A2B3C`) rail with light canvas (`#E4E9F0`) and white (`#FFFFFF`) main-content cards elsewhere, using the app's real Primary/Accent tokens (`#0077B6`/`#00B4D8`), not violet. This is a genuine, real mismatch (not a resend-with-no-changes case) — the wizard's functional structure (4 real steps derived from `generating`/`hasDraft`/`opportunityId` state, conic-gradient generation view, confidence card, DNA scoring, sources, rubric, budget table, recent-drafts table, version history) was fully preserved; only color tokens changed.
+
+**What shipped this session (`src/app/(dashboard)/draft-generator/page.tsx`):**
+- Page canvas `#0F172A` → `#E4E9F0`; header text flipped from light-on-dark to dark-on-light.
+- Left wizard rail: `#1E293B` → `#1A2B3C` (exact spec hex); title/active-step accent violet (`#A78BFA`/`#A855F7`/`rgba(168,85,247,...)`) → cyan (`#00B4D8`/`rgba(0,180,216,...)`) per spec. The rail's own dark-on-dark tip text (`rgba(248,250,252,...)` on `#1A2B3C`) is untouched — it's still a dark surface, correctly left as light text.
+- All main-content cards (opportunity/template select, generating view, review & edit, recent drafts table, version history panel): `#1E293B` → `#FFFFFF`, borders/shadows/text recolored for a white card on light canvas (`#E2E8F0` borders, `#0F172A`/`#64748B`/`#94A3B8` text tiers, `#0077B6` section labels).
+- `DraftEditor`/`DraftsHistoryPanel`'s `dark` prop removed (both default to light styling — confirmed via component source before removing).
+- Generation-view conic gradient: `#7C3AED,#A855F7,#7C3AED` → `#0077B6,#00B4D8,#0077B6` per spec.
+
+**Declined again, same reasoning as ui-004 (verified still true this session):** the Step 2 tone selector (Formal/Balanced/Compelling), length selector, and special-instructions textarea were not built — re-grepped `/api/ai/draft` this session and confirmed it still accepts only `{opportunityId, templateType}`, no tone/length/instructions params. Building unwired controls would be fabricated UI (Iron Law #8).
+
+**Donor Discovery (`src/app/(dashboard)/donor-discovery/page.tsx`):** re-read in full against this session's spec. Already matches almost exactly as shipped in ui-004 — the 4 stat-card accent colors (`#7C3AED`/`#F59E0B`/`#0077B6`/`#10B981`), the dark Live Intent Signals panel (`#1A2B3C` bg, `#F59E0B` title, HIGH/MEDIUM badge colors), and the Featured Prospect card (white, `2px solid #E2E8F0`, `#7C3AED` action button) are byte-for-byte the same hex values this session's spec asks for. **Zero code changes made to this file.** Two things declined again, both previously documented and re-verified this session:
+- The static 4×3 "Construction/Technology/Healthcare/.../Transportation" industry grid — checked `src/lib/donor-discovery/naics-labels.ts` again; the real `NAICS_CATEGORIES` set (13 categories: construction, waste_environmental, automotive, financial, food, real_estate, professional, staffing, retail, healthcare, technology, personal_care, logistics) still doesn't match the spec's list (no Manufacturing/Energy/Education/Transportation as such), and `/donor-discovery/discover` already has the real, wired category picker. Building a second, mismatched 12-card grid on the Overview page would duplicate and contradict it.
+- CSR programs list / giving range / portal-type badge on the Featured Prospect card — grepped this session for `csr_programs`/`giving_range`/`portal_type` columns; `portal_type` exists only on `funders` (migration 095, AutoApply-specific), not on `donor_discovery_directory` or prospects. No real data source for these fields exists on a corporate prospect record.
+
+Gates: `pnpm tsc --noEmit` — 0 errors, ran clean this session (no output). `pnpm lint` / `pnpm run build` — not run this session; do not assume they pass.
 
 ---
 

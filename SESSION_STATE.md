@@ -1,15 +1,23 @@
 # BENAVORA — Session State
 ## Last Updated: July 26, 2026
-## Mode: UI queue — AutoApply main-page prompt (resent verbatim as ui-003)
+## Mode: UI queue — Draft Generator + Donor Discovery prompt (resent verbatim as ui-004)
 
 ---
 
 ## Current Session
 
 **Date:** July 26, 2026
-**Focus:** AutoApply main-page dark command-center prompt — same wording/hex values as ui-003 (shipped July 23, commit `27e3612`). Full detail in `STATE_OF_THE_BUILD.md`'s "SESSION — July 26, 2026 (AutoApply main-page prompt resent verbatim as ui-003)" entry.
-**Status:** Page already matched nearly the entire spec from ui-003 — header, stats row, Controls panel, dark-reskinned real `LiveSessionViewer`. The one real gap (a "QUEUE" mini-panel in the right sidebar, explicitly named in this resend's commit-message text) was added, sourced from the already-loaded `submission_queue` state — status dot + funder name, no fabricated "Amount" column since that data doesn't exist on the table. Declined again, same reasoning as ui-003: the literal browser-chrome/AI-ticker Live Session Viewer mockup, since the real WebSocket-backed component already does this live. Commit `ba6269d`.
+**Focus:** Draft Generator 4-step wizard + Donor Discovery intent-signals/industry-grid prompt — same structural ask as ui-004 (shipped July 23, commit `ef1b758`), but with different exact hex values for the wizard's main content area than what ui-004 actually shipped. Full detail in `STATE_OF_THE_BUILD.md`'s "SESSION — July 26, 2026 (Draft Generator + Donor Discovery prompt resent verbatim as ui-004)" entry.
+**Status:** ui-004's wizard rail was structurally correct (4 real steps, conic-gradient generation view, confidence/DNA/sources review) but had styled the *entire* Draft Generator page dark with violet accents, rather than the spec's actual ask — dark navy rail only, light canvas + white cards everywhere else, blue/cyan accents. Restyled the whole page to match: canvas `#E4E9F0`, rail `#1A2B3C`, all main-content cards (opportunity/template select, generating view, review & edit, recent drafts table, version history) → white `#FFFFFF` with `#0077B6`/`#64748B`/`#94A3B8` text tiers, violet accents → `#00B4D8`/`#0077B6`. No functional/logic changes — only inline style values, plus removing the now-inapplicable `dark` prop from `DraftEditor`/`DraftsHistoryPanel` (both default to light styling). Donor Discovery required **zero code changes** — its stat colors, dark Live Intent Signals panel, and Featured Prospect card already match this prompt's hex values exactly from ui-004. Declined again (re-verified this session): Draft Generator's tone/length/instructions controls (`/api/ai/draft` still has no such params) and Donor Discovery's static 12-industry grid (still contradicts the real, differently-named `NAICS_CATEGORIES` set and duplicates `/donor-discovery/discover`'s real picker) plus CSR-programs/giving-range/portal-type on the Featured Prospect card (no such columns exist on `donor_discovery_directory`; `portal_type` is `funders`-only, AutoApply-specific).
+**Commit:** pending this session.
 **Gates:** `pnpm tsc --noEmit` — 0 errors this session (clean exit, no output). `pnpm lint` / `pnpm run build` — not run this session; do not assume they pass.
+
+---
+
+## Prior Session — July 26, 2026 (AutoApply main-page prompt resent verbatim as ui-003)
+
+**Focus:** AutoApply main-page dark command-center prompt — same wording/hex values as ui-003 (shipped July 23, commit `27e3612`).
+**Status:** Page already matched nearly the entire spec from ui-003 — header, stats row, Controls panel, dark-reskinned real `LiveSessionViewer`. Added a real "QUEUE" mini-panel sourced from already-loaded `submission_queue` state. Declined the literal browser-chrome/AI-ticker Live Session Viewer mockup again. Commit `ba6269d`.
 
 ---
 
