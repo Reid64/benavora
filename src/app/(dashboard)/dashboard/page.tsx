@@ -1,7 +1,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { addDays, differenceInCalendarDays, format } from "date-fns";
+import { addDays, differenceInCalendarDays, format, subMonths } from "date-fns";
 
 import { createClient } from "@/lib/supabase/server";
 import { formatCurrency, formatRelative, humanizeEnum } from "@/lib/utils/formatters";
@@ -177,6 +177,20 @@ function deadlineChipLabel(dueDate: string, now: Date): { label: string; overdue
   return { label, overdue };
 }
 
+// Buckets the real opportunity_source_type enum (migration 010) into the 4
+// funding-activity categories the chart shows — the task-given `category`/
+// `source` fields don't exist on `opportunities`; source_type is the real
+// physical column (see benavora-two-source-type-concepts memory).
+type FundingActivityBucket = "federal" | "foundation" | "state" | "corporate" | "other";
+
+function fundingActivityBucket(sourceType: string | null): FundingActivityBucket {
+  if (sourceType === "government_federal") return "federal";
+  if (sourceType === "government_state" || sourceType === "government_local") return "state";
+  if (sourceType === "private_foundation" || sourceType === "community_foundation") return "foundation";
+  if (sourceType === "corporate_giving") return "corporate";
+  return "other";
+}
+
 const panelStyle: CSSProperties = {
   backgroundColor: CARD_BG,
   borderRadius: "14px",
@@ -255,6 +269,8 @@ export default async function DashboardPage() {
   const now = new Date();
   const horizon = format(addDays(now, 7), "yyyy-MM-dd");
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+  const sixMonthsAgo = subMonths(now, 6).toISOString();
 
   const [
     organizationRes,
@@ -277,6 +293,8 @@ export default async function DashboardPage() {
     intelligenceLibraryCountRes,
     intelligenceLibraryTypesRes,
     donorDiscoveryCountRes,
+    automationSessions24hRes,
+    oppByCategoryRes,
   ] = await Promise.all([
     supabase
       .from("organizations")
@@ -359,6 +377,21 @@ export default async function DashboardPage() {
       .from("donor_discovery_prospects")
       .select("id", { count: "exact", head: true })
       .eq("organization_id", orgId),
+    // Change 2 (AutoApply trigger card) — a dedicated 24h count; the existing
+    // automationSessionsRecentRes above is 30-day scoped for other cards.
+    supabase
+      .from("automation_sessions")
+      .select("id", { count: "exact", head: true })
+      .eq("organization_id", orgId)
+      .gte("created_at", twentyFourHoursAgo),
+    // Change 1 (Funding Activity chart) — org + 6-month scoped, separate from
+    // oppSourceTypesRes above (all-time, org-wide) so the existing
+    // "Opportunity Mix" panel's meaning is untouched.
+    supabase
+      .from("opportunities")
+      .select("source_type")
+      .eq("organization_id", orgId)
+      .gte("created_at", sixMonthsAgo),
   ]);
 
   const orgRow = organizationRes.data as OrgProfileRow | null;
@@ -385,6 +418,8 @@ export default async function DashboardPage() {
   const intelligenceLibraryCount = intelligenceLibraryCountRes.count ?? 0;
   const intelligenceLibraryRows = (intelligenceLibraryTypesRes.data ?? []) as IntelligenceProposalRow[];
   const donorDiscoveryCount = donorDiscoveryCountRes.count ?? 0;
+  const automationSessions24hCount = automationSessions24hRes.count ?? 0;
+  const oppByCategory = (oppByCategoryRes.data ?? []) as { source_type: string | null }[];
 
   // --- second-wave lookups (depend on first wave's ids) -----------------------
   const funderIds = [...new Set(topOpportunities.map((o) => o.funder_id).filter((id): id is string => Boolean(id)))];
@@ -473,6 +508,26 @@ export default async function DashboardPage() {
     .sort((a, b) => b[1] - a[1])
     .map(([sourceType, count]) => ({ label: humanizeEnum(sourceType), count }));
   const maxMixCount = Math.max(1, ...opportunityMix.map((m) => m.count));
+
+  // --- Change 1: Funding Activity chart (opportunities by source, last 6 months) ---
+  const fundingActivityCounts: Record<FundingActivityBucket, number> = {
+    federal: 0,
+    foundation: 0,
+    state: 0,
+    corporate: 0,
+    other: 0,
+  };
+  for (const row of oppByCategory) {
+    fundingActivityCounts[fundingActivityBucket(row.source_type)]++;
+  }
+  const fundingActivityTotal = Object.values(fundingActivityCounts).reduce((sum, n) => sum + n, 0);
+  const FUNDING_ACTIVITY_BARS: { key: FundingActivityBucket; label: string; color: string }[] = [
+    { key: "federal", label: "Federal", color: ROYAL },
+    { key: "foundation", label: "Foundation", color: PURPLE },
+    { key: "state", label: "State", color: SKY },
+    { key: "corporate", label: "Corporate", color: GREEN },
+    { key: "other", label: "Other", color: AMBER },
+  ];
 
   const topInsights = [...strategicRecommendations]
     .sort((a, b) => {
@@ -720,6 +775,21 @@ export default async function DashboardPage() {
     },
   ];
 
+  // --- Change 2: AutoApply Engine trigger card -------------------------------------
+  // latestSession reuses automationSessionLast (already org-scoped) rather than a
+  // second, unfiltered query — an unfiltered `.single()` on automation_sessions
+  // would leak another organization's most recent session.
+  const autoApplySubText =
+    automationSessions24hCount > 0
+      ? `${automationSessions24hCount} sessions in last 24h · Last: ${(automationSessionLast?.target_url ?? "Unknown").substring(0, 30)}`
+      : "No sessions in last 24h · Ready to queue";
+  const autoApplyStatus: { label: string; color: string; pulse: boolean } =
+    automationSessionLast?.status === "running"
+      ? { label: "RUNNING", color: GREEN, pulse: true }
+      : automationSessionLast?.status === "completed"
+        ? { label: "LAST SESSION COMPLETE", color: GREEN, pulse: false }
+        : { label: "IDLE", color: MUTED, pulse: false };
+
   // --- AI triggers ----------------------------------------------------------------
   const aiTriggers: AiTrigger[] = [
     {
@@ -765,6 +835,11 @@ export default async function DashboardPage() {
           0% { box-shadow: 0 0 0 0 rgba(0,212,255,0.5); }
           50% { box-shadow: 0 0 14px 4px rgba(0,212,255,0.35); }
           100% { box-shadow: 0 0 0 0 rgba(0,212,255,0.5); }
+        }
+        @keyframes pulse {
+          0% { opacity: 1; }
+          50% { opacity: 0.35; }
+          100% { opacity: 1; }
         }
       `}</style>
 
@@ -910,12 +985,131 @@ export default async function DashboardPage() {
               </div>
             )}
           </Panel>
+
+          {/* Funding Activity — CSS-only bar chart, no external chart library */}
+          <div
+            style={{
+              backgroundColor: "#0D1E35",
+              borderRadius: "14px",
+              border: "1px solid rgba(255,255,255,0.08)",
+              marginTop: "14px",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                padding: "14px 20px",
+                borderBottom: "1px solid rgba(255,255,255,0.06)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <span style={{ fontSize: "15px", fontWeight: 800, color: WHITE }}>Funding Activity</span>
+              <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.4)" }}>
+                Opportunities by source — last 6 months
+              </span>
+            </div>
+            <div style={{ padding: "20px" }}>
+              {fundingActivityTotal === 0 ? (
+                <p style={{ fontSize: "13px", color: MUTED, margin: 0 }}>No opportunities in the last 6 months.</p>
+              ) : (
+                <>
+                  {FUNDING_ACTIVITY_BARS.map((bar) => {
+                    const count = fundingActivityCounts[bar.key];
+                    const pct = (count / fundingActivityTotal) * 100;
+                    return (
+                      <div key={bar.key} style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px" }}>
+                        <span style={{ width: "80px", flexShrink: 0, fontSize: "12px", color: WHITE }}>{bar.label}</span>
+                        <div style={{ flex: 1, backgroundColor: "rgba(255,255,255,0.06)", borderRadius: "4px", overflow: "hidden" }}>
+                          <div
+                            style={{
+                              width: `${pct}%`,
+                              height: "24px",
+                              borderRadius: "4px",
+                              backgroundColor: bar.color,
+                              display: "flex",
+                              alignItems: "center",
+                              paddingLeft: "8px",
+                            }}
+                          />
+                        </div>
+                        <span style={{ width: "40px", flexShrink: 0, textAlign: "right", fontSize: "12px", fontWeight: 700, color: WHITE }}>
+                          {count}
+                        </span>
+                      </div>
+                    );
+                  })}
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "14px", marginTop: "12px" }}>
+                    {FUNDING_ACTIVITY_BARS.map((bar) => (
+                      <div key={bar.key} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: bar.color, flexShrink: 0 }} />
+                        <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.6)" }}>{bar.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Center */}
         <div style={{ flex: "1" }}>
           <Panel title="AI Triggers" accent={ROYAL}>
             <AiTriggerPanel triggers={aiTriggers} />
+
+            {/* AutoApply Engine — bespoke card (status dot + direct link), not part
+                of the uniform AiTrigger shape used by the 3 cards above. */}
+            <div
+              style={{
+                backgroundColor: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(255,255,255,0.08)",
+                borderLeft: "2px solid #0891B2",
+                borderRadius: "10px",
+                padding: "12px 14px",
+                marginBottom: "8px",
+              }}
+            >
+              <div style={{ fontSize: "13px", fontWeight: 700, color: WHITE, marginBottom: "4px" }}>
+                AutoApply Engine
+              </div>
+              <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.55)", marginBottom: "6px", lineHeight: 1.4 }}>
+                {autoApplySubText}
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "8px" }}>
+                <span
+                  style={{
+                    width: "8px",
+                    height: "8px",
+                    borderRadius: "50%",
+                    backgroundColor: autoApplyStatus.color,
+                    flexShrink: 0,
+                    ...(autoApplyStatus.pulse ? { animation: "pulse 2s infinite" } : {}),
+                  }}
+                />
+                <span style={{ fontSize: "11px", fontWeight: 700, color: autoApplyStatus.color }}>
+                  {autoApplyStatus.label}
+                </span>
+              </div>
+              <Link
+                href="/autoapply"
+                style={{
+                  background: "linear-gradient(135deg,#0891B2,#06B6D4)",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  padding: "6px 12px",
+                  fontSize: "11px",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  display: "inline-block",
+                  textDecoration: "none",
+                }}
+              >
+                Open AutoApply
+              </Link>
+            </div>
           </Panel>
         </div>
 
