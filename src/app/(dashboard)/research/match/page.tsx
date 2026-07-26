@@ -4,11 +4,16 @@
 // optional grant-size/state filter) to /api/match/foundations and lists the
 // top-scoring foundation_directory records. Distinct from the AI-scored
 // /intelligence/matches page: this one is a plain Jaccard keyword match.
+//
+// Two-panel layout: this page has one real capability (mission -> ranked
+// foundations), not two independent features, so "Funder Search" and
+// "Semantic Match Engine" are the same flow split across columns — results
+// on the left, the mission-driven match form in the dark AI panel on the
+// right — rather than a fabricated second, independent browse/filter panel
+// (NTEE/asset-range filters aren't supported by /api/match/foundations).
 
-import { useState } from "react";
-import { Search } from "lucide-react";
+import { useState, type CSSProperties, type FormEvent } from "react";
 
-import { Badge, Button, Card, Input, Select, Textarea } from "@/components/ui";
 import { PageHeader } from "@/components/layout/PageHeader";
 
 interface FoundationMatch {
@@ -77,16 +82,21 @@ const US_STATES: { value: string; label: string }[] = [
   { value: "PR", label: "PR – Puerto Rico" },
 ];
 
-function ScoreBadge({ score }: { score: number }) {
-  const pct = Math.round(score * 100);
-  const variant = pct < 20 ? "neutral" : pct < 50 ? "warning" : "success";
-  return <Badge variant={variant}>{pct}% match</Badge>;
-}
-
 function formatAmount(amount: number | null): string {
   if (amount === null) return "—";
   return amount.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 }
+
+const fieldStyle: CSSProperties = {
+  width: "100%",
+  padding: "12px 16px",
+  backgroundColor: "rgba(255,255,255,0.08)",
+  border: "1px solid rgba(255,255,255,0.15)",
+  borderRadius: "10px",
+  color: "#FFFFFF",
+  fontSize: "14px",
+  outline: "none",
+};
 
 export default function MatchFoundationsPage() {
   const [mission, setMission] = useState("");
@@ -98,7 +108,7 @@ export default function MatchFoundationsPage() {
   const [error, setError] = useState<string | null>(null);
   const [searched, setSearched] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!mission.trim() || loading) return;
 
@@ -131,87 +141,211 @@ export default function MatchFoundationsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#EEF2F7] p-6">
+    <div style={{ backgroundColor: "#E4E9F0", minHeight: "100vh", padding: "32px" }}>
       <PageHeader
         title="Funder Matching"
         description="Describe your mission and find foundations whose focus areas share the most keyword overlap."
       />
 
-      <div className="max-w-3xl space-y-6">
-        <Card>
-          <form onSubmit={(e) => void handleSubmit(e)} className="space-y-4">
-            <Textarea
-              label="Organization mission"
-              placeholder="We help formerly incarcerated mothers find stable housing in rural Texas…"
+      <div style={{ display: "flex", gap: "24px", alignItems: "flex-start", flexWrap: "wrap" }}>
+        {/* LEFT (45%) — Funder Search results */}
+        <div style={{ flex: "1 1 420px", minWidth: "320px" }}>
+          <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#0F172A", margin: "0 0 12px 0" }}>
+            Funder Search Results
+          </h2>
+
+          {!searched && (
+            <div
+              style={{
+                backgroundColor: "#FFFFFF",
+                borderRadius: "12px",
+                padding: "32px 24px",
+                textAlign: "center",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                border: "1px solid #E2E8F0",
+                color: "#64748B",
+                fontSize: "13px",
+              }}
+            >
+              Describe your mission in the AI Funder Match panel to see ranked results here.
+            </div>
+          )}
+
+          {searched && results.length === 0 && !loading && (
+            <div
+              style={{
+                backgroundColor: "#FFFFFF",
+                borderRadius: "12px",
+                padding: "32px 24px",
+                textAlign: "center",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                border: "1px solid #E2E8F0",
+                color: "#64748B",
+                fontSize: "13px",
+              }}
+            >
+              No foundations matched. Try broadening your mission statement or filters.
+            </div>
+          )}
+
+          {results.length > 0 && (
+            <div style={{ display: "grid", gap: "12px" }}>
+              {results.map((f) => {
+                const pct = Math.round(f.score * 100);
+                return (
+                  <div
+                    key={f.id}
+                    style={{
+                      backgroundColor: "#FFFFFF",
+                      borderRadius: "12px",
+                      padding: "16px 20px",
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                      border: "1px solid #E2E8F0",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "12px" }}>
+                      <div style={{ minWidth: 0 }}>
+                        <p
+                          style={{
+                            fontSize: "14px",
+                            fontWeight: 700,
+                            color: "#0F172A",
+                            margin: 0,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {f.name}
+                        </p>
+                        <p style={{ fontSize: "12px", color: "#64748B", marginTop: "4px" }}>
+                          EIN {f.ein} &middot; {f.state || "Unknown state"} &middot; Assets {formatAmount(f.asset_amount)}
+                        </p>
+                        {f.matchReasons.length > 0 && (
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "8px" }}>
+                            {f.matchReasons.map((reason) => (
+                              <span
+                                key={reason}
+                                style={{
+                                  backgroundColor: "#F1F5F9",
+                                  color: "#475569",
+                                  fontSize: "11px",
+                                  fontWeight: 500,
+                                  padding: "2px 8px",
+                                  borderRadius: "999px",
+                                }}
+                              >
+                                {reason}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <span
+                        style={{
+                          backgroundColor: "#0077B6",
+                          color: "#FFFFFF",
+                          borderRadius: "20px",
+                          padding: "4px 12px",
+                          fontSize: "12px",
+                          fontWeight: 700,
+                          whiteSpace: "nowrap",
+                          flexShrink: 0,
+                        }}
+                      >
+                        {pct}% match
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* RIGHT (55%) — Semantic Match Engine */}
+        <div
+          style={{
+            flex: "1.3 1 480px",
+            minWidth: "340px",
+            backgroundColor: "#0F172A",
+            borderRadius: "16px",
+            padding: "28px",
+            color: "#FFFFFF",
+            height: "fit-content",
+          }}
+        >
+          <div style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.15em", color: "#00B4D8", textTransform: "uppercase" }}>
+            AI Funder Match
+          </div>
+          <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.65)", marginTop: "8px", marginBottom: "20px" }}>
+            Describe your organization&rsquo;s mission to find foundations whose stated focus areas overlap most closely.
+          </p>
+
+          <form onSubmit={(e) => void handleSubmit(e)}>
+            <textarea
               value={mission}
               onChange={(e) => setMission(e.target.value)}
-              required
+              placeholder="We help formerly incarcerated mothers find stable housing in rural Texas…"
               rows={5}
+              required
+              style={{ ...fieldStyle, resize: "none", marginBottom: "12px" }}
             />
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <Input
-                label="Min grant ($)"
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "12px" }}>
+              <input
                 type="number"
                 min={0}
+                placeholder="Min grant ($)"
                 value={minGrant}
                 onChange={(e) => setMinGrant(e.target.value)}
+                style={fieldStyle}
               />
-              <Input
-                label="Max grant ($)"
+              <input
                 type="number"
                 min={0}
+                placeholder="Max grant ($)"
                 value={maxGrant}
                 onChange={(e) => setMaxGrant(e.target.value)}
+                style={fieldStyle}
               />
-              <Select label="State" options={US_STATES} value={state} onChange={(e) => setState(e.target.value)} />
             </div>
-            {error && <p className="text-sm text-[#B91C1C]">{error}</p>}
-            <div className="flex justify-end">
-              <Button type="submit" disabled={loading || !mission.trim()}>
-                <Search className="w-4 h-4" />
-                {loading ? "Matching…" : "Find Matches"}
-              </Button>
-            </div>
+
+            <select
+              aria-label="State"
+              value={state}
+              onChange={(e) => setState(e.target.value)}
+              style={{ ...fieldStyle, marginBottom: "16px" }}
+            >
+              {US_STATES.map((s) => (
+                <option key={s.value} value={s.value} style={{ color: "#0F172A" }}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+
+            {error && <p style={{ fontSize: "13px", color: "#FCA5A5", marginBottom: "12px" }}>{error}</p>}
+
+            <button
+              type="submit"
+              disabled={loading || !mission.trim()}
+              style={{
+                background: "linear-gradient(135deg,#0077B6,#00B4D8)",
+                color: "#FFFFFF",
+                border: "none",
+                borderRadius: "10px",
+                padding: "12px 24px",
+                fontSize: "14px",
+                fontWeight: 700,
+                cursor: loading || !mission.trim() ? "default" : "pointer",
+                width: "100%",
+                opacity: loading || !mission.trim() ? 0.7 : 1,
+              }}
+            >
+              {loading ? "Matching…" : "Run Match"}
+            </button>
           </form>
-        </Card>
-
-        {searched && results.length === 0 && !loading && (
-          <Card>
-            <p className="text-slate-500 text-center py-8">
-              No foundations matched. Try broadening your mission statement or filters.
-            </p>
-          </Card>
-        )}
-
-        {results.length > 0 && (
-          <div className="space-y-3">
-            {results.map((f) => (
-              <Card key={f.id}>
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <p className="font-semibold text-slate-900 truncate">{f.name}</p>
-                    <p className="text-sm text-slate-500 mt-1">
-                      EIN {f.ein} &middot; {f.state ?? "Unknown state"} &middot; Assets {formatAmount(f.asset_amount)}
-                    </p>
-                    {f.matchReasons.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 mt-2">
-                        {f.matchReasons.map((reason) => (
-                          <span
-                            key={reason}
-                            className="inline-flex items-center rounded-full bg-[#F1F5F9] px-2 py-0.5 text-xs text-slate-600"
-                          >
-                            {reason}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <ScoreBadge score={f.score} />
-                </div>
-              </Card>
-            ))}
-          </div>
-        )}
+        </div>
       </div>
     </div>
   );
