@@ -1,8 +1,27 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: July 26, 2026 (prompt ui-006), from `git log --oneline -3` run this session. Not FORGE-auto-generated — hand-verified.**
+**Updated: July 26, 2026 (AutoApply queue-panel resend), from `git log --oneline -3` run this session. Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — July 26, 2026 (AutoApply main-page prompt resent verbatim as ui-003)
+
+**Commit `ba6269d`** — `feat(ui): AutoApply queue mini-panel added to dark command center sidebar`, on top of `09b34f2` (verified via `git log --oneline -3`):
+```
+ba6269d feat(ui): AutoApply queue mini-panel added to dark command center sidebar
+09b34f2 docs: governance sync for prompt ui-006 -- opportunities page already matched spec, research two-panel rewrite declined again (match page restyled instead)
+c2b02d5 feat(ui): semantic funder match page restyled to inline-hex two-panel design
+```
+
+Pre-read confirmed: this exact prompt (dark command-center header/stats/Live-Session-Viewer/Controls, identical hex values) is a verbatim resend of ui-003, already shipped July 23 in commit `27e3612`. The page already had: `#0A0F1A` canvas, "AUTOAPPLY ENGINE" header with pulsing ACTIVE/IDLE pill, the exact 4-stat row (Sessions Today `#10B981`, Success Rate `#0077B6`, Avg Fill Time `#00B4D8`, Forms Queued `#F59E0B`) computed from the same `submission_queue` rows, a Controls panel matching the spec's button styles exactly, and `LiveSessionViewer.tsx` already reskinned to the dark palette (`#0D1B2A` bg, cyan border) rather than rebuilt as a fake browser-chrome mockup.
+
+**What actually shipped — one real gap, found by diffing against the spec line by line:** the spec's right-column "QUEUE" panel (header + count badge + up to 5 items with a status dot and funder name) was not present in ui-003's output — only the Controls panel was. Added it above Controls, sourced from the same `queue` state array already loaded for the Session List table below (no new fetch): status dot colored green for `processing`/`running`, amber for `pending`, gray otherwise; funder name from `item.funders?.name`; right-aligned status label instead of the spec's "Amount" column, since `submission_queue` has no dollar-amount column or joined field that would supply one (confirmed against `src/types/database.ts`'s `submission_queue` Row type) — fabricating one would violate Iron Law #8.
+
+**Declined again, same reasoning as ui-003:** the literal Live Session Viewer redesign (browser chrome bar with traffic lights, a 6x6 dot "AI ENGINE STANDING BY" placeholder grid, a hardcoded `[HH:MM:SS] > ...` AI-thinking ticker with static example lines, a fabricated field-fill progress bar). `LiveSessionViewer.tsx` is a real component with a genuine WebSocket connection to the Railway worker rendering live canvas frames, connection-state handling, and exponential backoff reconnect — replacing it with static placeholder text and fake progress bars would be exactly the kind of mock/placeholder production UI CLAUDE.md Iron Law #8 and the Six Laws' DATA rule prohibit.
+
+Gates: `pnpm tsc --noEmit` — 0 errors (clean exit, no output). `pnpm lint` / `pnpm run build` — not run this session; do not assume they pass.
 
 ---
 

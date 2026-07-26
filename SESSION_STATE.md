@@ -1,12 +1,20 @@
 # BENAVORA — Session State
 ## Last Updated: July 26, 2026
-## Mode: UI queue — prompt ui-006
+## Mode: UI queue — AutoApply main-page prompt (resent verbatim as ui-003)
 
 ---
 
 ## Current Session
 
 **Date:** July 26, 2026
+**Focus:** AutoApply main-page dark command-center prompt — same wording/hex values as ui-003 (shipped July 23, commit `27e3612`). Full detail in `STATE_OF_THE_BUILD.md`'s "SESSION — July 26, 2026 (AutoApply main-page prompt resent verbatim as ui-003)" entry.
+**Status:** Page already matched nearly the entire spec from ui-003 — header, stats row, Controls panel, dark-reskinned real `LiveSessionViewer`. The one real gap (a "QUEUE" mini-panel in the right sidebar, explicitly named in this resend's commit-message text) was added, sourced from the already-loaded `submission_queue` state — status dot + funder name, no fabricated "Amount" column since that data doesn't exist on the table. Declined again, same reasoning as ui-003: the literal browser-chrome/AI-ticker Live Session Viewer mockup, since the real WebSocket-backed component already does this live. Commit `ba6269d`.
+**Gates:** `pnpm tsc --noEmit` — 0 errors this session (clean exit, no output). `pnpm lint` / `pnpm run build` — not run this session; do not assume they pass.
+
+---
+
+## Prior Session — July 26, 2026 (prompt ui-006)
+
 **Focus:** Prompt ui-006 — Opportunities page cards/filter-bar rewrite + Research page dual-panel semantic match rewrite. Full detail in `STATE_OF_THE_BUILD.md`'s "SESSION — July 26, 2026 (prompt ui-006)" entry.
 **Status:** Opportunities page required no changes — it already matches this exact spec from the ui-002 session. The literal ask to rewrite `/research` into a two-panel Funder Search/Semantic Match layout was declined again (same collision flagged in ui-002: it would delete the live Research Command Center's Directive-5 resource grid, funding source directory, agent polling, discovered opportunities, and historical awards). Instead restyled `/research/match` — the actual semantic-match feature — from Tailwind classes to inline hex, with a real two-panel layout (ranked results left, dark AI match form right). **Next prompt in queue: none assigned yet.**
 **Commit:** `c2b02d5` (pushed to `main`).
