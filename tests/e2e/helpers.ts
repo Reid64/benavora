@@ -101,6 +101,91 @@ export const ONBOARDING_USER = {
 /** Storage state for the mid-onboarding account (written by auth.setup.ts). */
 export const ONBOARDING_STORAGE_STATE = "tests/e2e/.auth/onboarding.json";
 
+/**
+ * A third, isolated account used only to verify the owner-only Platform admin
+ * gate (AUDIT_NAV_CONSOLIDATION.md). register_organization() always makes the
+ * creating user "owner" of their new org, so this account is downgraded to
+ * "admin" immediately after creation — the exact role the audit found could
+ * still reach owner-only pages/routes via a stale client-side-only check.
+ */
+export const ADMIN_NON_OWNER_USER = {
+  email: "admin-non-owner.e2e@benavora-test.dev",
+  password: "Benavora!E2E-Admin-1",
+  organizationName: "Benavora Admin-Gate E2E Org",
+  fullName: "E2E Non-Owner Admin",
+} as const;
+
+/**
+ * Ensure the dedicated non-owner "admin" account exists in its own org, with
+ * profiles.role forced to "admin" (never "owner"). Idempotent. Returns the
+ * user and org ids.
+ */
+export async function ensureAdminNonOwnerAccount(
+  env: E2EEnv,
+): Promise<{ userId: string; organizationId: string }> {
+  const admin = adminClient(env);
+
+  const { error: createError } = await admin.auth.admin.createUser({
+    email: ADMIN_NON_OWNER_USER.email,
+    password: ADMIN_NON_OWNER_USER.password,
+    email_confirm: true,
+    user_metadata: {
+      organization_name: ADMIN_NON_OWNER_USER.organizationName,
+      full_name: ADMIN_NON_OWNER_USER.fullName,
+    },
+  });
+  if (
+    createError &&
+    !/already.*registered|already.*exists|been registered/i.test(
+      createError.message,
+    )
+  ) {
+    throw new Error(`Could not create admin-non-owner user: ${createError.message}`);
+  }
+
+  const anon = createClient(env.url, env.anonKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+  const { data: signIn, error: signInError } =
+    await anon.auth.signInWithPassword({
+      email: ADMIN_NON_OWNER_USER.email,
+      password: ADMIN_NON_OWNER_USER.password,
+    });
+  if (signInError || !signIn.user) {
+    throw new Error(
+      `Could not sign in admin-non-owner user: ${signInError?.message ?? "no user"}`,
+    );
+  }
+
+  const { data: orgId, error: rpcError } = await anon.rpc(
+    "register_organization",
+  );
+  if (rpcError || !orgId) {
+    throw new Error(
+      `register_organization failed (admin-non-owner): ${rpcError?.message ?? "no org id"}`,
+    );
+  }
+
+  // Force role down to "admin" and mark onboarding complete so the dashboard
+  // never bounces this account to the wizard before it reaches /admin/orgs.
+  const { error: roleError } = await admin
+    .from("profiles")
+    .update({ role: "admin" })
+    .eq("id", signIn.user.id);
+  if (roleError) {
+    throw new Error(`Could not downgrade role to admin: ${roleError.message}`);
+  }
+  const { error: onboardingError } = await admin
+    .from("organizations")
+    .update({ onboarding_completed: true })
+    .eq("id", orgId as string);
+  if (onboardingError) {
+    throw new Error(`Could not mark admin-non-owner org onboarded: ${onboardingError.message}`);
+  }
+
+  return { userId: signIn.user.id, organizationId: orgId as string };
+}
+
 /** A service-role client. Bypasses RLS — used only for setup/seed/cleanup. */
 export function adminClient(env: E2EEnv): SupabaseClient {
   return createClient(env.url, env.serviceKey, {

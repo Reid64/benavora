@@ -240,7 +240,9 @@ function ChildNavLink({
 export function Sidebar({ open, onClose, role, onboardingCompleted, orgName }: SidebarProps) {
   const pathname = usePathname();
   const navItems = navItemsForRole(role, { onboardingCompleted });
-  const isPlatformAdmin = role === "owner" || role === "admin";
+  // Owner-only (AUDIT_NAV_CONSOLIDATION.md finding #1/#3) — every page and API
+  // route behind this section is now gated to "owner", so the nav must match.
+  const isPlatformAdmin = role === "owner";
   const [closeHovered, setCloseHovered] = useState(false);
 
   // Lightweight badge counts from a single API call.

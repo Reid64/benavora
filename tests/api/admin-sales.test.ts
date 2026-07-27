@@ -18,14 +18,14 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("server-only", () => ({}));
 
 const {
-  mockRequireAdmin,
+  mockRequireRole,
   mockAddDomain,
   mockImportFromCsv,
   mockCreateCampaign,
   mockGetDailyBudget,
   mockAdminFrom,
 } = vi.hoisted(() => ({
-  mockRequireAdmin: vi.fn(),
+  mockRequireRole: vi.fn(),
   mockAddDomain: vi.fn(),
   mockImportFromCsv: vi.fn(),
   mockCreateCampaign: vi.fn(),
@@ -33,8 +33,8 @@ const {
   mockAdminFrom: vi.fn(),
 }));
 
-vi.mock("@/lib/admin/auth", () => ({
-  requireAdmin: (...args: unknown[]) => mockRequireAdmin(...args),
+vi.mock("@/lib/auth/role-gate", () => ({
+  requireRole: (...args: unknown[]) => mockRequireRole(...args),
 }));
 
 vi.mock("@/lib/admin/domain-manager", () => ({
@@ -86,13 +86,20 @@ import { POST as campaignsPost } from "@/app/api/admin/campaigns/route";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const ADMIN_CONTEXT = { userId: "admin-user-id" };
+const OWNER_CONTEXT = {
+  userId: "owner-user-id",
+  userRole: "owner",
+  organizationId: "org-1",
+  supabase: {},
+};
 
-function adminForbidden() {
-  return new Response(
-    JSON.stringify({ error: "Platform admin access required.", code: "not_platform_admin" }),
-    { status: 403, headers: { "Content-Type": "application/json" } },
-  );
+function ownerForbidden() {
+  return {
+    error: new Response(
+      JSON.stringify({ error: "You do not have permission to perform this action.", code: "forbidden" }),
+      { status: 403, headers: { "Content-Type": "application/json" } },
+    ),
+  };
 }
 
 function jsonPost(url: string, body: unknown): Request {
@@ -132,7 +139,7 @@ function makeChain(data: unknown, error: unknown = null) {
 describe("admin routes: non-admin access returns 403", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockRequireAdmin.mockRejectedValue(adminForbidden());
+    mockRequireRole.mockResolvedValue(ownerForbidden());
   });
 
   it("POST /api/admin/domains returns 403", async () => {
@@ -144,7 +151,7 @@ describe("admin routes: non-admin access returns 403", () => {
     );
     expect(res.status).toBe(403);
     const body = (await res.json()) as { code: string };
-    expect(body.code).toBe("not_platform_admin");
+    expect(body.code).toBe("forbidden");
   });
 
   it("POST /api/admin/prospects returns 403", async () => {
@@ -177,7 +184,7 @@ describe("admin routes: non-admin access returns 403", () => {
 describe("POST /api/admin/domains", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockRequireAdmin.mockResolvedValue(ADMIN_CONTEXT);
+    mockRequireRole.mockResolvedValue(OWNER_CONTEXT);
   });
 
   it("returns 400 when domain is missing", async () => {
@@ -240,7 +247,7 @@ describe("POST /api/admin/domains", () => {
 describe("POST /api/admin/prospects (CSV import)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockRequireAdmin.mockResolvedValue(ADMIN_CONTEXT);
+    mockRequireRole.mockResolvedValue(OWNER_CONTEXT);
   });
 
   it("returns 400 when no file is attached", async () => {
@@ -303,7 +310,7 @@ describe("POST /api/admin/prospects (CSV import)", () => {
 describe("POST /api/admin/campaigns", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockRequireAdmin.mockResolvedValue(ADMIN_CONTEXT);
+    mockRequireRole.mockResolvedValue(OWNER_CONTEXT);
   });
 
   it("returns 400 when required fields are missing", async () => {

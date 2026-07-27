@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { requireAdmin } from "@/lib/admin/auth";
+import { requireRole } from "@/lib/auth/role-gate";
 import { ProspectManager } from "@/lib/admin/prospect-manager";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -9,12 +9,8 @@ export const runtime = "nodejs";
 type RouteContext = { params: { id: string } };
 
 export async function GET(request: Request, { params }: RouteContext) {
-  try {
-    await requireAdmin(request);
-  } catch (e) {
-    if (e instanceof Response) return e;
-    throw e;
-  }
+  const gate = await requireRole("owner");
+  if ("error" in gate) return gate.error;
 
   const { id } = params;
   const supabase = createAdminClient();
@@ -35,12 +31,8 @@ export async function GET(request: Request, { params }: RouteContext) {
 }
 
 export async function PATCH(request: Request, { params }: RouteContext) {
-  try {
-    await requireAdmin(request);
-  } catch (e) {
-    if (e instanceof Response) return e;
-    throw e;
-  }
+  const gate = await requireRole("owner");
+  if ("error" in gate) return gate.error;
 
   let body: {
     status?: string;
@@ -94,12 +86,8 @@ export async function PATCH(request: Request, { params }: RouteContext) {
 }
 
 export async function DELETE(request: Request, { params }: RouteContext) {
-  try {
-    await requireAdmin(request);
-  } catch (e) {
-    if (e instanceof Response) return e;
-    throw e;
-  }
+  const gate = await requireRole("owner");
+  if ("error" in gate) return gate.error;
 
   const { id } = params;
   const supabase = createAdminClient();

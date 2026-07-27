@@ -1,18 +1,14 @@
 import { NextResponse } from "next/server";
 
-import { requireAdmin } from "@/lib/admin/auth";
+import { requireRole } from "@/lib/auth/role-gate";
 import { ProspectManager } from "@/lib/admin/prospect-manager";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
-  try {
-    await requireAdmin(request);
-  } catch (e) {
-    if (e instanceof Response) return e;
-    throw e;
-  }
+  const gate = await requireRole("owner");
+  if ("error" in gate) return gate.error;
 
   const { searchParams } = new URL(request.url);
   const listId = searchParams.get("list_id");
@@ -63,12 +59,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  try {
-    await requireAdmin(request);
-  } catch (e) {
-    if (e instanceof Response) return e;
-    throw e;
-  }
+  const gate = await requireRole("owner");
+  if ("error" in gate) return gate.error;
 
   let formData: FormData;
   try {

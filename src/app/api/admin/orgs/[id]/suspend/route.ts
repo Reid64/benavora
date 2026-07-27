@@ -4,10 +4,10 @@ import { requireRole } from "@/lib/auth/role-gate";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 // Platform-admin action: suspend a tenant org. Gated the same way as the
-// /admin and /admin/orgs/[id] pages (profiles.role via requireRole), not the
-// requireAdmin() env-var stopgap used by the pre-existing sales/domains admin
-// routes - this is a cross-tenant RBAC action, not the sales-ops tooling those
-// routes cover.
+// /admin and /admin/orgs/[id] pages (profiles.role via requireRole). The
+// sales/domains admin routes previously used a separate requireAdmin()
+// env-var stopgap; that gap was closed (AUDIT_NAV_CONSOLIDATION.md) and they
+// now use requireRole("owner") too.
 export const runtime = "nodejs";
 
 type RouteContext = { params: { id: string } };

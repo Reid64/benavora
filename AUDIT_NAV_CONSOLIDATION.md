@@ -98,3 +98,71 @@ This is a **separate system from admin Sales Outreach** — confirmed no shared 
 4. **Mail merge doesn't exist** — one aspirational doc mention, no implementation.
 5. **AG-38 is real and scheduled**, but whether its target tables exist on live prod is unresolved (same open question as `platform_learning_patterns` flagged in earlier project memory) — worth a direct prod check before trusting the Improvements page's contents.
 6. **Org-facing Outreach and admin Sales Outreach are fully separate systems** with no shared tables/routes — safe to reason about independently.
+
+---
+
+## RESOLVED (2026-07-26) — findings #1, #2, #3 closed
+
+Findings #1–#3 (the owner/admin mismatch, the `requireAdmin` env-var stopgap, and the
+6 pages with client-only checks) are fixed. #4–#6 are unchanged/out of scope for this pass.
+
+**1. `requireAdmin` replaced with `requireRole("owner")` on all 11 sales-ops route files**
+(the 5 route groups named in the task — `domains`, `prospects`, `suppression`,
+`campaigns`, `sales-analytics` — cover 11 files once `[id]`/sub-routes are counted):
+`domains/route.ts`, `domains/[id]/route.ts`, `prospects/route.ts`,
+`prospects/[id]/route.ts`, `prospects/stats/route.ts`, `suppression/route.ts`,
+`suppression/import/route.ts`, `campaigns/route.ts`, `campaigns/[id]/route.ts`,
+`sales-analytics/route.ts`, `sales-analytics/export/route.ts`. Each now opens with
+`const gate = await requireRole("owner"); if ("error" in gate) return gate.error;` —
+the same pattern already used by `orgs/[id]/suspend/route.ts`. `profiles.role` is now
+the single source of truth for every admin API route; `PLATFORM_ADMIN_USER_ID` no
+longer gates anything. `src/lib/admin/auth.ts` (the `requireAdmin` env-var check) had
+zero remaining callers after this change and was deleted.
+`tests/api/admin-sales.test.ts` was updated to mock `@/lib/auth/role-gate`'s
+`requireRole` instead of the deleted module (one pre-existing, unrelated failure in
+that file — `DomainManager throws` expecting the raw error message in the response —
+predates this change and was left alone).
+
+**2. Server-side `owner`-only gate added to the 6 pages that previously relied on a
+client-side-only `useProfile()` check:**
+`admin/sales-outreach/page.tsx`, `admin/autoapply-ops/page.tsx`,
+`admin/improvements/page.tsx`, `admin/monitor/page.tsx`, `admin/system/page.tsx`,
+`admin/audit-log/page.tsx`. Each was split into a thin `async` Server Component
+`page.tsx` (calls `checkPermission(user.id, "owner", supabase)` and
+`redirect("/dashboard?notice=owner_required")` on failure — the identical pattern
+`admin/page.tsx` and `admin/orgs/page.tsx` already used) plus a sibling
+`*Client.tsx`/`*Loader.tsx` holding the original client component unchanged.
+`autoapply-ops` needed an extra `AutoApplyOpsLoader.tsx` hop because
+`next/dynamic(..., { ssr:false })` requires a Client Component boundary, and the new
+`page.tsx` has to stay a Server Component to run the redirect. The pre-existing
+client-side `useProfile()` checks were left in place as defense-in-depth/UX (instant
+"Admins only" panel while the server round-trip is in flight for anyone who somehow
+still reaches the client bundle) — the server redirect is what actually blocks access
+now, per finding #3's own recommendation.
+
+**3. Sidebar's Platform section gated to `owner` only.** `isPlatformAdmin` in
+`src/components/layout/Sidebar.tsx` was `role === "owner" || role === "admin"`; it's
+now `role === "owner"`, matching every page/route behind it (all 9 `PLATFORM_NAV_ITEMS`
+are owner-only server-side after this fix, closing the exact mismatch finding #1
+described for `/admin`, `/admin/orgs`, and `/admin/orgs/[id]` — now extended
+consistently to the other 6).
+
+**Verification:** `pnpm tsc --noEmit` passes clean. Non-owner-admin access was verified
+two ways: (a) a new e2e spec, `e2e/admin-owner-gate.spec.ts`, drives a real
+non-owner `admin`-role account (helper `ensureAdminNonOwnerAccount` in
+`tests/e2e/helpers.ts`) to `/admin/orgs` and `/admin/sales-outreach` and asserts the
+`/dashboard?notice=owner_required` redirect, plus asserts the Platform nav items are
+absent from the DOM; (b) because this sandbox's shell could not reach a freshly
+spawned `next dev` server over localhost (pre-existing dev servers from other
+sessions on :3000/:3001 were reachable; a new one on an unused port was not — a
+sandbox networking quirk, unrelated to this change), the fix was additionally
+verified directly against the real Supabase project: `checkPermission(userId,
+"owner", supabase)` — the exact call every converted `page.tsx` makes — returns
+`{ allowed: false, userRole: "admin" }` for the real non-owner test account and
+`{ allowed: true, userRole: "owner" }` for the owner test account. The e2e spec is
+committed and will run normally in a non-sandboxed dev environment or CI.
+
+**Not touched (per task scope):** page content, styling, and the
+Improvements/SchoolFunder items. `admin/orgs/[id]/suspend/route.ts` already used
+`requireRole("owner")` before this pass; only its comment (which referenced the
+now-removed `requireAdmin` split as if still current) was updated for accuracy.

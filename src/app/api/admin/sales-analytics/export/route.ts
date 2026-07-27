@@ -1,4 +1,4 @@
-import { requireAdmin } from "@/lib/admin/auth";
+import { requireRole } from "@/lib/auth/role-gate";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
@@ -42,12 +42,8 @@ function getPeriodStart(period: string | null): string | null {
 }
 
 export async function GET(request: Request) {
-  try {
-    await requireAdmin(request);
-  } catch (e) {
-    if (e instanceof Response) return e;
-    throw e;
-  }
+  const gate = await requireRole("owner");
+  if ("error" in gate) return gate.error;
 
   const { searchParams } = new URL(request.url);
   const type = searchParams.get("type") ?? "sends";
