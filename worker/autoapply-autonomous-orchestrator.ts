@@ -414,6 +414,8 @@ async function queueOrgProspects(
       }
     }
 
+    if (!prospect) continue;
+
     const directory = asDirectory(prospect.directory);
     if (!directory) {
       skipped += 1;

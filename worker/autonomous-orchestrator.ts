@@ -319,8 +319,8 @@ async function runDiscoveryStep(
       '../src/lib/agents/opportunity-discovery-agent.js'
     );
     const result = await runOpportunityDiscovery(orgId, supabase);
-    log.push(`discovery: ${result.matched} matched / ${result.found} found`);
-    return result.matched > 0;
+    log.push(`discovery: ${result.itemsFound} matched / ${result.itemsProcessed} found`);
+    return result.itemsFound > 0;
   } catch (err) {
     log.push(`discovery: FAILED - ${errMsg(err)}`);
     return false;
@@ -1065,7 +1065,7 @@ async function routeQueueItem(
         '../src/lib/agents/opportunity-discovery-agent.js'
       );
       const result = await runOpportunityDiscovery(orgId, supabase);
-      return `discovery: ${result.matched} matched / ${result.found} found`;
+      return `discovery: ${result.itemsFound} matched / ${result.itemsProcessed} found`;
     }
     case 'eligibility_scoring': {
       const { EligibilityScorer } = await import(

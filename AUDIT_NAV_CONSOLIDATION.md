@@ -256,3 +256,96 @@ in production, and even the pre-existing 2AM/7AM jobs are only running if that s
 an AG-38-specific bug — worth fixing `worker/autoapply-autonomous-orchestrator.ts` and
 `worker/autonomous-orchestrator.ts`'s TS errors and redeploying before trusting *any*
 worker-side automation is live.
+
+---
+
+## WORKER BUILD FIX (2026-07-27 follow-up)
+
+**What was broken:** the exact same two files and errors identified in the AG-38 STATUS
+section above, reproduced locally via `pnpm tsc -p worker/tsconfig.json --noEmit`
+(worker's own tsconfig — `strict: true` + `noUncheckedIndexedAccess: true` inherited from
+root `tsconfig.json`) and confirmed byte-for-byte identical to the 2026-07-21 Railway
+build log:
+
+1. `worker/autoapply-autonomous-orchestrator.ts` — 10× `TS18048: 'prospect' is possibly
+   'undefined'` (lines 417, 439, 441, 453, 461, 471, 477, 478, 479, 486). Cause:
+   `const prospect = prospectRows[i]` inside a `for` loop, indexed under
+   `noUncheckedIndexedAccess`, types as `ProspectRow | undefined`; nothing narrowed it
+   before first use.
+2. `worker/autonomous-orchestrator.ts` — 5× `TS2339: Property 'matched'/'found' does not
+   exist on type 'AutonomousAgentResult'` (lines 322 ×2, 323, 1068 ×2). Cause: both call
+   sites read `result.matched` / `result.found` from `runOpportunityDiscovery()`'s return
+   value, but `AutonomousAgentResult` (`src/lib/agents/autonomous-base.ts:28`) has never
+   had those fields — it's `success, itemsFound, itemsProcessed, itemsQueued, decisions,
+   nextActions, errors`. This was dead-on-arrival code that had never actually compiled;
+   it just never got caught because the worker build has been failing since before these
+   lines could ever run.
+
+**What changed (targeted compile fix only — no scheduler/AG-38/logic changes):**
+
+- `worker/autoapply-autonomous-orchestrator.ts`: added `if (!prospect) continue;`
+  immediately after `const prospect = prospectRows[i];`, narrowing the type for the rest
+  of the loop body. Behaviorally a no-op — `prospectRows[i]` is never actually undefined
+  at runtime (loop bound is `i < prospectRows.length`); this only satisfies the compiler.
+- `worker/autonomous-orchestrator.ts`: both call sites changed `result.matched` →
+  `result.itemsFound` and `result.found` → `result.itemsProcessed`, matching the real
+  `AutonomousAgentResult` shape and `OpportunityDiscoveryAgent`'s actual semantics
+  (`itemsFound` = new opportunities discovered, `itemsProcessed` = found + duplicates
+  skipped). Log message wording (`"X matched / Y found"`) preserved verbatim.
+
+**Local verification:** `pnpm tsc -p worker/tsconfig.json --noEmit` → zero errors, zero
+output. `pnpm run build:worker` (the exact command Railway's `worker/Dockerfile` runs —
+`tsc -p worker/tsconfig.json && tsc-alias -p worker/tsconfig.json`) → completes clean, no
+errors. `git diff -- worker/*.ts` confirms only these 2 files changed, 8 lines total
+(2 insertions in the AutoApply file, 4 lines changed across 2 call sites in the
+orchestrator file) — `worker/scheduler.ts` and every AG-38 file untouched.
+
+**Deploy result: BLOCKED, not attempted/verified.** Triggering a Railway deploy for
+service `bd9f0c6b-fe01-4f31-9ef7-5fe9d7d0b127` failed before any build could start:
+
+```
+railway up -s bd9f0c6b-... --detach --json
+  → {"code":"UPLOAD_FAILED","error":"Your trial has expired. Please select a plan to continue using Railway.","hint":null}
+railway redeploy -s bd9f0c6b-... --from-source --json
+  → Your trial has expired. Please select a plan to continue using Railway.
+```
+
+Both the local-upload path (`railway up`) and the pull-latest-commit path
+(`railway redeploy --from-source`) are blocked identically — this is an account/billing
+gate, not a build or code issue, and it blocks **every** deploy trigger, not just this
+one. Reid confirmed (2026-07-27) to skip attempting the deploy and land the code fix +
+this doc update only; Railway plan selection and the actual deploy trigger are left for
+him to do separately at railway.app (project `1d79d4e6-f529-4903-9577-7085b3ab126b`).
+`railway status` still reports service `benavora-worker` as **`Failed`** (deployment
+`058c9321-14d2-4778-b029-d958bf9899d1`, the same 2026-07-21 failed build from the AG-38
+STATUS section) — unchanged by this fix until a new deploy actually runs.
+
+**Every worker-side feature/job merged after commit `1d3bf1a` (2026-07-19 05:38 UTC, the
+last build that ever succeeded) — none of these have executed in production, and none
+will until a deploy actually succeeds post-billing-fix:**
+
+| Merged (commit, CDT) | Feature / job | Runtime entry point |
+|---|---|---|
+| `cca8236`, 07-19 00:59 | Autonomous morning digest agent | `worker/scheduler.ts` 7:00 AM job → `runDigestPipeline()` |
+| `9e6b427`, 07-19 01:26 | AG-28 FollowUpGeneratorAgent | Queue-only, routed via `agent_queue` in the nightly sweep |
+| `1416a05`, 07-19 01:56 | AG-08–AG-12 (RenewalTracker, OutcomeAnalyzer, DocumentExpiry, KnowledgeGap, SearchProfileOptimizer) | Steps inside the existing 2:00 AM per-org nightly sweep |
+| `325746a`, 07-19 16:14 | AG-40 StrategicAdvisorAgent | Step inside the 2:00 AM nightly sweep |
+| `acc80e9`, 07-19 16:39 | **AG-38 self-improvement pipeline** (this session's original ask) | `worker/scheduler.ts` 4:00 AM job |
+| `ffd97be`, 07-19 19:34 | AutoApply autonomous overnight orchestrator (batch queuer, the file fixed above) | `worker/scheduler.ts` 3:00 AM job |
+| `4833c8b`, 07-19 20:24 | Broad "21 queues Phase 2-5" pass — substantial rewrites to `autoapply-autonomous-orchestrator.ts`, `autonomous-orchestrator.ts`, and `scheduler.ts` itself (364/221/76 lines) | Multiple — same jobs as above, hardened |
+| `2260662`, 07-20 09:40 | "12 queues enterprise hardening" pass — +180 lines to `autoapply-autonomous-orchestrator.ts` (digital twin, Faith Foundation setup, etc.) | AutoApply 3:00 AM job |
+| `e50f557`, 07-20 17:45 | DdRequestProcessor null-composite dequeue bug fix + failed-item backoff | `worker/dd-request-processor.ts` (donor-discovery request queue — continuously running, not scheduler-based) |
+| `6ffd4fd`, 07-20 18:43 | AG-29 FundabilityScorerAgent, AG-30 DonorIntentMonitorAgent, AG-35 CommunityNeedPredictorAgent, AG-39 ROIOptimizerAgent, **AG-36 LearningNetworkAggregatorAgent** wired in | AG-29/30/35/39: steps inside the 2:00 AM nightly sweep. AG-36: `worker/scheduler.ts` 6:00 AM job (Sunday-gated) |
+| `224f731`, 07-20 19:19 | Spark Good account pre-creation guide (human-in-loop email verification) | New code path inside `worker/queue-processor.ts` |
+| `56e209d`, 07-21 13:39 | Additional TS-error/wiring fixes to `autonomous-orchestrator.ts` (+105 lines) | Same nightly-sweep steps as above |
+| `2f822b1`, 07-21 14:40 | AG-28 `application_followups` sweep, full implementation | Folded into the 2:00 AM nightly job per `scheduler.ts`'s own comment |
+| `d161b99`, 07-26 16:41 | Foundation directory enrichment scraper (`foundation-enrichment-weekly`) | `worker/scheduler.ts` 3:00 AM job (Sunday-gated, `ENABLE_SCRAPER`-gated) |
+
+Not included above: `worker/dd-request-processor.ts` and `worker/queue-processor.ts`
+themselves predate `1d3bf1a` and were already running in the last-known-good container
+(`7379f5a5`) — only the specific additions/fixes to them listed above are new-since-break.
+Also worth noting: **the 2:00 AM nightly per-org sweep and the AutoApply 3:00 AM job's
+*base* wiring predate the break**, but nearly every step folded into them (AG-08–12,
+AG-28, AG-29/30/35/39, AG-40, the followups sweep) was added after it — so even once the
+worker redeploys successfully, this will be most of these agents' first production run
+ever, not a resumption.
