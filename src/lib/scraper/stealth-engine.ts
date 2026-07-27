@@ -23,7 +23,7 @@ import StealthPlugin from "puppeteer-extra-plugin-stealth";
 import * as cheerio from "cheerio";
 import UserAgent from "user-agents";
 import type { UserAgentData } from "user-agents";
-import type { Browser, BrowserContext, Page, Route } from "playwright";
+import type { Browser, BrowserContext, Cookie, Page, Route } from "playwright";
 
 import { CaptchaSolver, type CaptchaDetection } from "@/lib/autoapply/captcha-solver";
 
@@ -111,6 +111,65 @@ const TIMEZONES: readonly { id: string; locale: string }[] = [
   { id: "Europe/London", locale: "en-GB" },
   { id: "Europe/Berlin", locale: "de-DE" },
 ];
+
+// --- header consistency --------------------------------------------------------
+//
+// A rotated User-Agent string is a lie the rest of the request has to back up:
+// real Chrome sends Client Hints (Sec-Ch-Ua*) and an Accept-Encoding that lists
+// zstd on recent versions; real Firefox sends neither Client Hints nor zstd.
+// Mismatched headers (Chrome UA + no Sec-Ch-Ua, or vice versa) are a stronger
+// bot signal than the UA string itself, so every header below is derived from
+// the same uaProfile picked for the session rather than left at Chromium's
+// real (and now UA-inconsistent) defaults.
+
+type BrowserFamily = "chrome" | "firefox";
+
+function detectBrowserFamily(userAgent: string): BrowserFamily {
+  return /Firefox\/\d/.test(userAgent) ? "firefox" : "chrome";
+}
+
+function chromeMajorVersion(userAgent: string): string {
+  return /Chrome\/(\d+)/.exec(userAgent)?.[1] ?? "124";
+}
+
+const PLATFORM_SEC_CH_UA: Record<string, string> = {
+  Win32: '"Windows"',
+  MacIntel: '"macOS"',
+  "Linux x86_64": '"Linux"',
+};
+
+// Real browsers send a locale-specific Accept-Language, not a bare locale tag.
+const ACCEPT_LANGUAGE_BY_LOCALE: Record<string, string> = {
+  "en-US": "en-US,en;q=0.9",
+  "en-GB": "en-GB,en;q=0.9",
+  "de-DE": "de-DE,de;q=0.9,en;q=0.8",
+};
+
+/** Builds the header set a real browser matching `uaProfile` would send, for `context.newContext({ extraHTTPHeaders })`. */
+function buildConsistentHeaders(uaProfile: UAProfile, locale: string): Record<string, string> {
+  const family = detectBrowserFamily(uaProfile.userAgent);
+  const acceptLanguage = ACCEPT_LANGUAGE_BY_LOCALE[locale] ?? "en-US,en;q=0.9";
+
+  if (family === "firefox") {
+    // Real Firefox never sends Client Hints — omitting Sec-Ch-Ua* entirely is
+    // the consistent choice, not sending Chromium's real (Chrome-branded) ones.
+    return {
+      "Accept-Language": acceptLanguage,
+      "Accept-Encoding": "gzip, deflate, br",
+    };
+  }
+
+  const major = chromeMajorVersion(uaProfile.userAgent);
+  const platform = PLATFORM_SEC_CH_UA[uaProfile.platform] ?? '"Windows"';
+
+  return {
+    "Accept-Language": acceptLanguage,
+    "Accept-Encoding": "gzip, deflate, br, zstd",
+    "Sec-Ch-Ua": `"Not.A/Brand";v="8", "Chromium";v="${major}", "Google Chrome";v="${major}"`,
+    "Sec-Ch-Ua-Mobile": "?0",
+    "Sec-Ch-Ua-Platform": platform,
+  };
+}
 
 // --- small helpers -------------------------------------------------------------
 
@@ -222,6 +281,33 @@ const PHONE_REGEX = /\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g;
 const JUNK_EMAIL_PREFIXES = ["noreply@", "no-reply@", "donotreply@", "webmaster@", "admin@", "support@"];
 const CONTACT_PATH_PATTERNS = ["contact", "about-us", "about", "connect", "get-in-touch", "reach-us"];
 
+// --- response verification ------------------------------------------------------
+//
+// A 200 OK is not proof of a real page: interstitials (CAPTCHA challenges,
+// WAF block pages, "enable JavaScript" notices) routinely return 200 with a
+// tiny, marker-laden body. Treating that as success would poison downstream
+// extraction with empty/garbage results instead of retrying like a genuine
+// block. detectCaptcha() already covers structured CAPTCHA challenges; this
+// catches the plain-text block pages that slip past it.
+const MIN_PLAUSIBLE_HTML_LENGTH = 500;
+const BLOCK_PAGE_MARKERS = [
+  "verify you are human",
+  "access denied",
+  "are you a robot",
+  "unusual traffic",
+  "checking your browser before accessing",
+  "enable javascript and cookies to continue",
+  "attention required",
+  "request blocked",
+  "pardon our interruption",
+];
+
+function isPlausibleResponse(html: string): boolean {
+  if (html.trim().length < MIN_PLAUSIBLE_HTML_LENGTH) return false;
+  const lower = html.toLowerCase();
+  return !BLOCK_PAGE_MARKERS.some((marker) => lower.includes(marker));
+}
+
 // --- public types -----------------------------------------------------------
 
 export interface StealthEngineOptions {
@@ -245,6 +331,15 @@ export class StealthEngine {
   private context: BrowserContext | null = null;
   private page: Page | null = null;
   private viewport: { width: number; height: number } | null = null;
+
+  /**
+   * Cookie jar carried across identity rotations within one StealthEngine
+   * run — teardownBrowser()/launchContext() replace the browser/context on
+   * every rotateAndWait() (retry after a 403/429/CAPTCHA), which would
+   * otherwise silently drop any session/clearance cookies (e.g. a solved
+   * CAPTCHA's clearance cookie) the prior context had already earned.
+   */
+  private cookieJar: Cookie[] = [];
 
   constructor(options: StealthEngineOptions = {}) {
     this.headless = options.headless ?? true;
@@ -286,7 +381,12 @@ export class StealthEngine {
       locale: tz.locale,
       timezoneId: tz.id,
       deviceScaleFactor: 1,
+      extraHTTPHeaders: buildConsistentHeaders(uaProfile, tz.locale),
     });
+
+    if (this.cookieJar.length > 0) {
+      await context.addCookies(this.cookieJar);
+    }
 
     await context.addInitScript({
       content: buildInitScript({
@@ -312,6 +412,7 @@ export class StealthEngine {
 
   private async teardownBrowser(): Promise<void> {
     if (this.context) {
+      this.cookieJar = await this.context.cookies().catch(() => this.cookieJar);
       await this.context.close().catch(() => {});
     }
     if (this.browser) {
@@ -414,7 +515,20 @@ export class StealthEngine {
         }
 
         await this.simulateHumanBehavior();
-        return await this.page.content();
+        const html = await this.page.content();
+
+        if (!isPlausibleResponse(html)) {
+          console.warn(
+            `[StealthEngine] soft failure (implausible/block-page response) on attempt ${attempt}/${this.maxRetries}: ${url}`,
+          );
+          if (attempt < this.maxRetries) {
+            await this.rotateAndWait();
+            continue;
+          }
+          return null;
+        }
+
+        return html;
       } catch (err) {
         console.warn(
           `[StealthEngine] fetch failed on attempt ${attempt}/${this.maxRetries} for ${url}: ${(err as Error).message}`,
@@ -447,6 +561,34 @@ export class StealthEngine {
     return found && found.length > 0 ? (found[0] as string).trim() : null;
   }
 
+  /**
+   * Reads the live, rendered DOM (not the static HTML string) for `a[href]`
+   * elements a real visitor could actually see — computed `display`/
+   * `visibility` plus a non-zero bounding box — so a hidden honeypot link
+   * planted only to bait naive scrapers never becomes a click/extraction
+   * candidate. Returns null (meaning "couldn't determine, don't filter")
+   * rather than an empty set on any evaluation failure, so a transient DOM
+   * read error can't silently zero out every real candidate.
+   */
+  private async getVisibleAnchorHrefs(): Promise<Set<string> | null> {
+    if (!this.page) return null;
+    try {
+      const hrefs = await this.page.$$eval("a[href]", (elements) =>
+        elements
+          .filter((el) => {
+            const style = window.getComputedStyle(el);
+            if (style.display === "none" || style.visibility === "hidden") return false;
+            const rect = el.getBoundingClientRect();
+            return rect.width > 0 && rect.height > 0;
+          })
+          .map((el) => (el as HTMLAnchorElement).href),
+      );
+      return new Set(hrefs);
+    } catch {
+      return null;
+    }
+  }
+
   /** Fetches `baseUrl` and returns the first same-origin /contact or /about link found, or null. */
   async findContactPage(baseUrl: string): Promise<string | null> {
     const html = await this.fetchPage(baseUrl);
@@ -459,6 +601,10 @@ export class StealthEngine {
       return null;
     }
 
+    // fetchPage() left `this.page` navigated to baseUrl — read its visible
+    // links before the static-HTML pass below considers any candidates.
+    const visibleHrefs = await this.getVisibleAnchorHrefs();
+
     const $ = cheerio.load(html);
     const candidates: string[] = [];
     $("a[href]").each((_i, el) => {
@@ -467,7 +613,9 @@ export class StealthEngine {
       if (CONTACT_PATH_PATTERNS.some((p) => lower.includes(p))) {
         try {
           const abs = new URL(href, origin).href;
-          if (abs.startsWith(origin)) candidates.push(abs);
+          if (abs.startsWith(origin) && (visibleHrefs === null || visibleHrefs.has(abs))) {
+            candidates.push(abs);
+          }
         } catch {
           // ignore malformed hrefs
         }
