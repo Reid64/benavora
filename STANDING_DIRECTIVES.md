@@ -9,7 +9,7 @@
 
 **Objective:** Every record in `foundation_directory` (133,812 records) must be enriched to the highest possible fidelity from every available free and open-source data source. No record left at stub quality. This is a continuous pipeline, not a one-time run.
 
-**Current State:** Infrastructure built (engine, sources, scripts). Never fully executed. IRS 990 parser has confirmed EIN column bug (position 2, parser reads wrong column). ProPublica abandoned at 0% hit rate (incorrect). Web enrichment never run at scale.
+**Current State (updated 2026-07-27):** Stealth scraper engine BUILT — src/lib/scraper/stealth-engine.ts (header consistency, cookie jars, honeypot avoidance, response verification), src/lib/scraper/foundation-scraper.ts (foundation_directory waterfall, wired into worker/scheduler.ts's weekly `foundation-enrichment-weekly` job behind `ENABLE_SCRAPER`), src/lib/scraper/nonprofit-scraper.ts (nonprofits contact-enrichment, CLI-only via scripts/run-nonprofit-scraper.ts — not yet on the weekly scheduler), and /api/scraper/status (live foundation_directory enrichment counts/rate + next-run time). See FEATURE_REGISTRY_v2.md S1-S5. Not yet run at the full 133,812-record scale — this closes the "engine never fully executed" gap for the *infrastructure*, not the enrichment run itself. IRS 990 parser EIN column bug (position 2, parser reads wrong column) is unfixed. ProPublica abandoned at 0% hit rate (incorrect) — unrevisited. Web enrichment now has a real engine (S1/S2) but has not been run at scale.
 
 **Mandatory Enrichment Sources (waterfall order):**
 1. IRS 990 e-file XML — EIN, assets, revenue, grants made, officers, website, fiscal year

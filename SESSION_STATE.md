@@ -1,12 +1,21 @@
 # BENAVORA — Session State
-## Last Updated: July 26, 2026
-## Mode: UI queue — Opportunities + Research two-panel prompt (resent verbatim as ui-006, second resend)
+## Last Updated: July 27, 2026
+## Mode: Governance sync — stealth scraper build complete (docs-only session)
 
 ---
 
 ## Current Session
 
-**Date:** July 26, 2026
+**Date:** July 27, 2026
+**Focus:** Documentation-only governance sync for the stealth scraper build already committed as `25b42a4` (`feat(scraper): nonprofit contact extraction agent + stealth engine hardening (headers, cookies, honeypot, response verification)`). No code written this session.
+**Status:** Verified all 4 scraper files exist and are wired as claimed: `src/lib/scraper/stealth-engine.ts` (S1), `src/lib/scraper/foundation-scraper.ts` (S2, wired into `worker/scheduler.ts`'s weekly `foundation-enrichment-weekly` job), `src/lib/scraper/nonprofit-scraper.ts` (S3, real but CLI-only via `scripts/run-nonprofit-scraper.ts` — **not** on the weekly scheduler, unlike S2), `src/app/api/scraper/status/route.ts` (S5). Added S1-S5 to FEATURE_REGISTRY_v2.md as BUILT (new "Scraper (Directive 1)" section; registry total now 191 features, 90 BUILT). Updated STANDING_DIRECTIVES.md Directive 1's "Current State" to reflect the engine now exists, while keeping the still-open items (full 133,812-record run, IRS 990 EIN column bug, abandoned ProPublica pass) documented as unresolved. Updated STATE_OF_THE_BUILD.md with a new session entry.
+**Commit:** governance docs commit pending this session (see below); scraper code itself was already committed as `25b42a4` in a prior session.
+**Gates:** not run this session — no code changed, docs-only.
+
+---
+
+## Prior Session — July 26, 2026 (Opportunities + Research two-panel prompt resent verbatim as ui-006, second resend)
+
 **Focus:** Opportunities page cards/filter-bar + Research page two-panel (Funder Search / Semantic Match Engine) prompt — verbatim resend of ui-006 (shipped July 26 earlier this session, commit `c2b02d5`), identical hex values throughout. Full detail in `STATE_OF_THE_BUILD.md`'s "SESSION — July 26, 2026 (Opportunities + Research two-panel prompt resent verbatim as ui-006, second resend)" entry.
 **Status:** All four mandated files (`opportunities/page.tsx`, `research/page.tsx`, `research/match/page.tsx`, `opportunities/new/page.tsx`) read in full and diffed against the prompt line by line. `opportunities/page.tsx` already matches the filter chips, stat row, and accent-bar cards exactly (verified in ui-002 and ui-006). The two-panel research spec describes `/research/match`, not `/research` — same collision declined in ui-002 and ui-006; `/research/match` already received this exact restyle in ui-006 and matches byte-for-byte. **Zero code changes made to any file.** No commit or deploy — nothing changed.
 **Commit:** none — no code changes this session.

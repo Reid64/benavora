@@ -374,6 +374,18 @@
 
 ---
 
+## Scraper Features (Directive 1 — Stealth Enrichment Engine)
+
+| # | Feature | Description | Status |
+|---|---|---|---|
+| S1 | Stealth Engine Core | src/lib/scraper/stealth-engine.ts — shared Playwright/Chromium engine used by both scrapers below: header consistency (realistic per-request header sets), cookie jar persistence across navigations, honeypot-field avoidance, and response verification (confirms the page actually returned the expected content before treating a fetch as successful). | BUILT |
+| S2 | Foundation Enrichment Scraper | src/lib/scraper/foundation-scraper.ts — StealthEngine-based waterfall (homepage fetch -> contact-page discovery -> extraction) against foundation_directory. Wired into worker/scheduler.ts's `foundation-enrichment-weekly` job (Sunday 3AM CST, gated behind `ENABLE_SCRAPER=true`) and surfaced on the dashboard via S5. | BUILT |
+| S3 | Nonprofit Contact Scraper | src/lib/scraper/nonprofit-scraper.ts — StealthEngine sibling to foundation-scraper.ts, targeting `nonprofits WHERE website IS NOT NULL AND contact_emails IS NULL` (~6,066 rows as of 2026-07-27). Writes contact_emails/officer_email/phone, COALESCE-style so it never clobbers other enrichment passes. Invoked via `scripts/run-nonprofit-scraper.ts` (CLI) — **not** currently wired into worker/scheduler.ts's weekly job, unlike S2. | BUILT |
+| S4 | Scraper Railway Worker Job | worker/scheduler.ts `foundation-enrichment-weekly` entry — weekly (Sunday 3AM CST) scheduler integration for the Foundation Enrichment Scraper (S2), gated behind `ENABLE_SCRAPER` env var. Covers S2 only; S3 (nonprofit contact scraper) is CLI-only, see S3 note. | BUILT |
+| S5 | Scraper Status API | /api/scraper/status — GET route (viewer-role gated) reporting live `foundation_directory` enrichment counts/rate computed from the DB, plus best-effort last-run stats from a local `enrichment-output/scraper-stats.json` file (null when unavailable) and the next scheduled Sunday-3AM-CST run time. Foundation-directory-scoped only, matching S2/S4. | BUILT |
+
+---
+
 ## Testing Features
 
 | # | Feature | Status | Notes |
@@ -414,8 +426,9 @@
 | Tier 6 Full Autonomous | 26 | 19 | 3 | 0 | 4 |
 | Platform Vision Pillars | 93 | 9 | 2 | 35 | 47 |
 | Data Pipeline | 7 | 2 | 2 | 0 | 3 |
+| Scraper (Directive 1) | 5 | 5 | 0 | 0 | 0 |
 | Testing | 8 | 3 | 0 | 0 | 5 |
-| **TOTAL** | **186** | **85** | **7** | **35** | **59** |
+| **TOTAL** | **191** | **90** | **7** | **35** | **59** |
 
 **Infrastructure:**
 - Database tables: 67 (097 migrations applied or queued)

@@ -1,8 +1,27 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: July 26, 2026 (Opportunities + Research two-panel prompt resent verbatim as ui-006, second resend), from `git log --oneline -5` run this session. Not FORGE-auto-generated — hand-verified.**
+**Updated: July 27, 2026 (governance sync — stealth scraper build complete), from `git log --oneline -5` run this session. Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — July 27, 2026 (governance sync: stealth scraper build complete)
+
+Commit `25b42a4` — `feat(scraper): nonprofit contact extraction agent + stealth engine hardening (headers, cookies, honeypot, response verification)` — closes out Directive 1's scraper-infrastructure gap. This session's task was documentation-only: sync FEATURE_REGISTRY_v2.md, STANDING_DIRECTIVES.md, STATE_OF_THE_BUILD.md, and SESSION_STATE.md against the already-committed scraper code (no code changes made this session).
+
+**Verified this session (files read directly, not taken on faith):**
+- `src/lib/scraper/stealth-engine.ts` (23,595 bytes) — shared Playwright/Chromium engine: header consistency, cookie jar persistence, honeypot avoidance, response verification.
+- `src/lib/scraper/foundation-scraper.ts` (21,145 bytes) — foundation_directory waterfall enrichment, imports StealthEngine.
+- `src/lib/scraper/nonprofit-scraper.ts` (9,992 bytes) — nonprofits contact-enrichment agent, also imports StealthEngine, targets `nonprofits WHERE website IS NOT NULL AND contact_emails IS NULL`.
+- `src/app/api/scraper/status/route.ts` — live GET route, viewer-role gated, computed foundation_directory counts + best-effort local stats file + next-Sunday-3AM-CST calculation.
+- `worker/scheduler.ts` — confirmed `foundation-enrichment-weekly` job (Sunday 3AM CST, `ENABLE_SCRAPER` gated) imports and calls `runFoundationScraper` from foundation-scraper.ts.
+
+**One real gap found and documented (not fixed, out of scope for a docs-only session):** `nonprofit-scraper.ts`'s `runNonprofitScraper()` is exported and real, but is **not** called from `worker/scheduler.ts` — grepped the whole repo, its only caller is `scripts/run-nonprofit-scraper.ts` (a manual CLI entry point). So "weekly scheduler integration" (S4) is true for the foundation scraper only; the nonprofit contact scraper still requires a manual run. Flagged in FEATURE_REGISTRY_v2.md's S3/S4 notes rather than silently marked as fully scheduled.
+
+Registry updated: FEATURE_REGISTRY_v2.md now has a new "Scraper (Directive 1)" section, S1-S5, all BUILT (191 total features, 90 BUILT, up from 186/85). STANDING_DIRECTIVES.md Directive 1's "Current State" updated to reflect the engine now exists, distinct from the still-outstanding "run at full 133,812-record scale" and the still-unfixed IRS 990 EIN column bug / abandoned ProPublica pass.
+
+Gates: not run this session (no code changed).
 
 ---
 
