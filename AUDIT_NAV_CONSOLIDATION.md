@@ -166,3 +166,93 @@ committed and will run normally in a non-sandboxed dev environment or CI.
 Improvements/SchoolFunder items. `admin/orgs/[id]/suspend/route.ts` already used
 `requireRole("owner")` before this pass; only its comment (which referenced the
 now-removed `requireAdmin` split as if still current) was updated for accuracy.
+
+---
+
+## AG-38 STATUS (2026-07-26 follow-up — supersedes §5/§6 point 5)
+
+**Note on requested path:** the task asked for `src/lib/worker/scheduler.ts`. That path
+doesn't exist. The real file is `worker/scheduler.ts` (confirmed via `find`; the only
+`scheduler.ts` files in the repo are `worker/scheduler.ts`, `src/lib/agents/scheduler.ts`,
+and `src/lib/agents/research/scheduler.ts` — the latter two are unrelated agent-internal
+schedulers, not the worker cron). Read in full.
+
+**Schedule:** `worker/scheduler.ts` lines 59–68, job name `'AG-38 self-improvement
+pipeline'`, `hour: 4, minute: 0` — fires once daily at **4:00 AM America/Chicago**. Not a
+real cron string: the scheduler checks wall-clock time every 60s (`CHECK_INTERVAL_MS`)
+against every job's fixed `hour`/`minute`, guarded by `lastFiredOnDateKey` so it can't
+double-fire the same calendar day. On fire it calls `runSelfImprovementPipeline(supabase)`
+→ `worker/autonomous-orchestrator.ts:973` → `new SelfImprovementAgent(supabase).run('schedule')`.
+
+**Enabled/gated:** no feature flag or env var gates this job — unlike the
+`foundation-enrichment-weekly` entry two slots below it (gated on
+`process.env['ENABLE_SCRAPER'] === 'true'`), AG-38 has no such check in `scheduler.ts`,
+and `self-improvement-agent.ts` is platform-wide (not `AutonomousAgent`-based, no
+`org_autonomous_config` toggle applies to it — see the class's own header comment). It
+runs unconditionally whenever the worker process is up and the clock hits 4:00 AM CST.
+
+**Conditions to write `agent_performance_metrics`:** `calculateAgentMetrics()`
+(self-improvement-agent.ts:416) upserts one row per distinct `agent_type` seen in
+yesterday's (UTC calendar day) `agent_runs`, keyed on `(agent_id, metric_date)` —
+condition is simply `metricRows.length > 0`, i.e. at least one `agent_runs` row existed
+yesterday for any agent.
+
+**Conditions to write `improvement_proposals`:** two independent paths —
+1. Claude-generated proposals (steps 3–5): `generateProposals()` calls Claude with the
+   trailing metrics/underperformer/pattern summary; each returned proposal must (a) not
+   be one of the three hard-forbidden types (`code_change`/`schema_change`/
+   `permission_change` — rejected before insertion, no exceptions), (b) pass field
+   validation (non-empty title/description/evidence, recognized `proposal_type`), (c)
+   have `confidence_score >= 70` (`MIN_CONFIDENCE_TO_PROPOSE`), and (d) not match an
+   existing proposal of the same `(proposal_type, affected_agent_id)` within the last 30
+   days, nor a *rejected* one within the last 90 days. Only survivors get inserted with
+   `status: 'proposed'`.
+2. The weekly performance report (`generateWeeklyReport()`, step 7): unconditionally
+   inserted every **Sunday, America/Chicago** (`isSundayChicago()`), regardless of
+   whether any Claude proposals were generated — `proposal_type: 'performance_report'`,
+   `confidence_score: 100`, not subject to the confidence/dedup filters above.
+
+**Railway execution check — AG-38 has never run in production:**
+
+- `railway status` shows the linked `benavora-worker` service (project
+  `1d79d4e6-f529-4903-9577-7085b3ab126b`) currently in status **`Failed`**.
+- `railway deployment list --limit 1000 --json` returned all 321 deployments on record
+  (back to 2026-06-20). **Zero have status `SUCCESS`.** Every deployment from
+  2026-07-19 05:38 UTC onward is `FAILED`; the most recent attempt is
+  **2026-07-21 05:59:43 UTC (00:59:43 CDT)**, also `FAILED`, and there have been **no
+  deploy attempts since** (checked through today, 2026-07-26 — a 5-day gap).
+- The failing build (`railway logs` on the latest deployment) errors during
+  `pnpm run build:worker`, unrelated to AG-38 itself: TypeScript `TS18048`
+  (`'prospect' is possibly 'undefined'`) in `worker/autoapply-autonomous-orchestrator.ts`
+  and `TS2339` (missing `matched`/`found` properties on `AutonomousAgentResult`) in
+  `worker/autonomous-orchestrator.ts`. The Docker build never completes, so the container
+  never starts.
+- The last deployment that wasn't a build failure is `7379f5a5-10be-44b0-bf6a-dbe78397a9e6`,
+  created **2026-07-19T05:38:38Z**, commit `1d3bf1a` ("feat: autonomous config,
+  decisions, queue, and trigger API routes"). Pulling its full runtime logs
+  (`railway logs <id> -d --filter "Scheduler" --since 30d`) turns up **exactly one**
+  scheduler line in its entire run history: `[Scheduler] 2:00 CST reached — starting
+  nightly autonomous pipeline.` No `AG-38`, no `4:00`, ever.
+- **Why:** AG-38 was added to `worker/scheduler.ts` in commit `acc80e9`, dated
+  **2026-07-19 16:39:41 -0500** — over 16 hours *after* commit `1d3bf1a` (2026-07-19
+  00:38:28 -0500), the last commit whose build actually succeeded. Every deploy attempt
+  since `acc80e9` landed has failed to build, for reasons unrelated to AG-38's own code.
+  The container that was last (and may still be) running on Railway is built from source
+  that predates AG-38's existence entirely.
+
+**Conclusion:** AG-38 has **never executed in production, not even once**, since it was
+written. This supersedes §5's "the claim is accurate at the code level... the nightly job
+still runs every night" and §6 point 5 ("AG-38 is real and scheduled") — the code is real
+and correctly wired, but it has never had a deployed build to run inside. The open
+question in §5 about whether `improvement_proposals`/`agent_performance_metrics` exist on
+live prod is now moot as a blocker for this job specifically (it can't fail against the
+wrong tables if it never runs), but the underlying **worker deployment has been fully
+broken for 7 days (2026-07-19 → 2026-07-21 build failures, then no deploy attempts through
+2026-07-26)** — every job in `worker/scheduler.ts` added after commit `1d3bf1a` (AG-38,
+and potentially others depending on their own add-commit dates) is equally non-functional
+in production, and even the pre-existing 2AM/7AM jobs are only running if that stale
+`7379f5a5` container is somehow still alive rather than crash-looped out by Railway's
+`ON_FAILURE` restart policy. This is a build-breakage issue blocking the whole worker, not
+an AG-38-specific bug — worth fixing `worker/autoapply-autonomous-orchestrator.ts` and
+`worker/autonomous-orchestrator.ts`'s TS errors and redeploying before trusting *any*
+worker-side automation is live.
