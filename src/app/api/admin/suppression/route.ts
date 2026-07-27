@@ -11,7 +11,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 
-export async function GET(request: Request) {
+export async function GET(_request: Request) {
   const gate = await requireRole("owner");
   if ("error" in gate) return gate.error;
 

@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 
 type RouteContext = { params: { id: string } };
 
-export async function GET(request: Request, { params }: RouteContext) {
+export async function GET(_request: Request, { params }: RouteContext) {
   const gate = await requireRole("owner");
   if ("error" in gate) return gate.error;
 
