@@ -11,7 +11,6 @@ import {
   DollarSign,
   FileBarChart2,
   FolderOpen,
-  GraduationCap,
   HeartPulse,
   KanbanSquare,
   Landmark,
@@ -135,12 +134,9 @@ export const DONOR_DISCOVERY_NAV_ITEMS: NavChild[] = [
 
 /**
  * Program features — org-facing feature programs, shown in their own
- * "Programs" sidebar section (always visible, not role-gated). SchoolFunder
- * is a Faith Foundation program / Benavora showcase feature (BLUEPRINT §1).
+ * "Programs" sidebar section (always visible, not role-gated).
  */
-export const PROGRAMS_NAV_ITEMS: NavItem[] = [
-  { label: "SchoolFunder", href: "/schoolfunder", icon: GraduationCap },
-];
+export const PROGRAMS_NAV_ITEMS: NavItem[] = [];
 
 /**
  * Resources — shared public reference directories (no organization_id

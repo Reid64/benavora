@@ -465,26 +465,28 @@ export function Sidebar({ open, onClose, role, onboardingCompleted, orgName }: S
             })}
           </div>
 
-          {/* Programs section — org-facing feature programs (e.g. SchoolFunder) */}
-          <div style={{ marginTop: "8px" }}>
-            <p style={SECTION_LABEL_STYLE}>Programs</p>
-            <div>
-              {PROGRAMS_NAV_ITEMS.map(({ label, href, icon: ItemIcon }) => {
-                const active = isActive(href);
-                return (
-                  <NavLink
-                    key={href}
-                    href={href}
-                    label={label}
-                    icon={ItemIcon}
-                    active={active}
-                    onClick={onClose}
-                    iconColor={(isActiveNow) => (isActiveNow ? "#FFFFFF" : "#10B981")}
-                  />
-                );
-              })}
+          {/* Programs section — org-facing feature programs */}
+          {PROGRAMS_NAV_ITEMS.length > 0 && (
+            <div style={{ marginTop: "8px" }}>
+              <p style={SECTION_LABEL_STYLE}>Programs</p>
+              <div>
+                {PROGRAMS_NAV_ITEMS.map(({ label, href, icon: ItemIcon }) => {
+                  const active = isActive(href);
+                  return (
+                    <NavLink
+                      key={href}
+                      href={href}
+                      label={label}
+                      icon={ItemIcon}
+                      active={active}
+                      onClick={onClose}
+                      iconColor={(isActiveNow) => (isActiveNow ? "#FFFFFF" : "#10B981")}
+                    />
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Resources section — shared public reference directories */}
           <div style={{ marginTop: "8px" }}>
