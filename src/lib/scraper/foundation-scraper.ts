@@ -172,6 +172,12 @@ async function throttledFetch(pooled: PooledEngine, url: string): Promise<string
   return pooled.engine.fetchPage(url);
 }
 
+/** Like throttledFetch(), but via StealthEngine.fetchRaw() — for responses (e.g. CSV) a browser treats as a file download rather than a page. */
+async function throttledFetchRaw(pooled: PooledEngine, url: string): Promise<string | null> {
+  await throttle(pooled);
+  return pooled.engine.fetchRaw(url);
+}
+
 async function throttledFindContactPage(pooled: PooledEngine, baseUrl: string): Promise<string | null> {
   await throttle(pooled);
   return pooled.engine.findContactPage(baseUrl);
@@ -187,9 +193,10 @@ const OBJECT_ID_FALLBACK_IDX = 7;
 const XML_BATCH_ID_FALLBACK_IDX = 8;
 
 /**
- * StealthEngine.fetchPage() returns the rendered page HTML, not a raw HTTP
- * body — Chromium wraps a text/csv response in a plain-text viewer. Unwrap
- * back to the underlying text before line-splitting.
+ * The index is fetched via StealthEngine.fetchRaw() (see buildEinIndex), so
+ * `rendered` is normally already the raw CSV text. This only unwraps the
+ * HTML-viewer wrapping Chromium would add if fetchRaw() ever fell through to
+ * an HTML error/interstitial response instead of the expected text/csv body.
  */
 function extractRawText(rendered: string): string {
   const trimmed = rendered.trim();
@@ -279,7 +286,10 @@ async function buildEinIndex(
   const pooled = await pool.acquire();
   try {
     log(`Strategy 1: downloading IRS 990 index (${IRS_990_INDEX_URL}) for ${neededEins.size} foundation(s) missing a website`);
-    const rendered = await throttledFetch(pooled, IRS_990_INDEX_URL);
+    // The index is a CSV served as a file download (Content-Disposition:
+    // attachment), which page.goto()-based fetchPage() can't render — use
+    // fetchRaw() (context.request.get(), same cookies/headers) instead.
+    const rendered = await throttledFetchRaw(pooled, IRS_990_INDEX_URL);
     if (!rendered) {
       log("WARN Strategy 1: could not download IRS 990 index this run — continuing with Strategy 2/3 only");
       return new Map();
@@ -318,6 +328,22 @@ async function tryIrs990(
 }
 
 // --- Strategy 2: Google search fallback ---------------------------------------
+//
+// Circuit breaker: Google can serve a recaptcha_v2 challenge on every search
+// query, and with no TWOCAPTCHA_API_KEY configured StealthEngine can't solve
+// it (nor should it try to bypass it). Once that's happening, every further
+// Strategy 2 call burns a full fetchPage() retry budget just to fail the
+// same way. After GOOGLE_CAPTCHA_BREAKER_THRESHOLD consecutive CAPTCHA
+// blocks, trip the breaker and skip Strategy 2 for the rest of the run —
+// foundations without a website by then fall through past Strategy 3 too,
+// since Strategy 3 only runs once a website is known.
+
+const GOOGLE_CAPTCHA_BREAKER_THRESHOLD = 5;
+
+interface GoogleBreakerState {
+  consecutiveCaptchaBlocks: number;
+  tripped: boolean;
+}
 
 function isExcludedSearchHost(url: string): boolean {
   try {
@@ -366,12 +392,30 @@ async function validateUrl(url: string): Promise<boolean> {
   }
 }
 
-async function tryGoogleFallback(row: FoundationRow, pooled: PooledEngine): Promise<string | null> {
+async function tryGoogleFallback(
+  row: FoundationRow,
+  pooled: PooledEngine,
+  breaker: GoogleBreakerState,
+): Promise<string | null> {
   const location = [row.city, row.state].filter(Boolean).join(" ");
   const query = `"${row.name}" ${location} foundation site:*`;
   const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}&num=10`;
 
   const html = await throttledFetch(pooled, searchUrl);
+
+  if (pooled.engine.wasCaptchaBlocked()) {
+    breaker.consecutiveCaptchaBlocks++;
+    if (!breaker.tripped && breaker.consecutiveCaptchaBlocks >= GOOGLE_CAPTCHA_BREAKER_THRESHOLD) {
+      breaker.tripped = true;
+      log(
+        `WARN Strategy 2: ${GOOGLE_CAPTCHA_BREAKER_THRESHOLD} consecutive Google CAPTCHA blocks (recaptcha_v2, no TWOCAPTCHA_API_KEY configured) — ` +
+          `disabling Strategy 2 for the remainder of this run`,
+      );
+    }
+  } else {
+    breaker.consecutiveCaptchaBlocks = 0;
+  }
+
   if (!html) return null;
 
   for (const link of extractSearchResultLinks(html)) {
@@ -422,6 +466,7 @@ async function processFoundation(
   pool: EnginePool,
   irs990Source: IRS990Source,
   supabase: ReturnType<typeof createAdminClient>,
+  googleBreaker: GoogleBreakerState,
 ): Promise<ProcessResult> {
   if (row.website && row.email && row.phone) {
     return { enriched: false, strategy: "none" };
@@ -448,9 +493,9 @@ async function processFoundation(
       }
     }
 
-    if (!website) {
+    if (!website && !googleBreaker.tripped) {
       try {
-        const found = await tryGoogleFallback(row, pooled);
+        const found = await tryGoogleFallback(row, pooled, googleBreaker);
         if (found) {
           update["website"] = found;
           update["website_discovered_via"] = "google_search";
@@ -533,6 +578,7 @@ export async function runFoundationScraper(startOffset?: number, maxToProcess?: 
   }
   const pool = new EnginePool(engines);
   const limit = pLimit(CONCURRENCY);
+  const googleBreaker: GoogleBreakerState = { consecutiveCaptchaBlocks: 0, tripped: false };
 
   log(`Starting foundation scraper at offset ${checkpoint.offset} (processed so far: ${checkpoint.processed}, enriched so far: ${checkpoint.enriched})`);
 
@@ -558,7 +604,7 @@ export async function runFoundationScraper(startOffset?: number, maxToProcess?: 
       let batchEnriched = 0;
 
       const results = await Promise.all(
-        rows.map((row) => limit(() => processFoundation(row, einIndex, pool, irs990Source, supabase))),
+        rows.map((row) => limit(() => processFoundation(row, einIndex, pool, irs990Source, supabase, googleBreaker))),
       );
 
       for (const result of results) {

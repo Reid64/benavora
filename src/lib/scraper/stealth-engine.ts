@@ -341,6 +341,15 @@ export class StealthEngine {
    */
   private cookieJar: Cookie[] = [];
 
+  /**
+   * Set when a fetchPage() call ultimately fails because a CAPTCHA challenge
+   * could not be resolved (all retries exhausted) — lets callers (e.g. a
+   * Strategy 2 circuit breaker) tell "blocked by CAPTCHA" apart from other
+   * failure modes without StealthEngine attempting to solve/bypass anything
+   * itself beyond its existing optional 2Captcha integration.
+   */
+  private captchaBlockedLastFetch = false;
+
   constructor(options: StealthEngineOptions = {}) {
     this.headless = options.headless ?? true;
     this.proxy = resolveProxy(options.proxy);
@@ -480,6 +489,7 @@ export class StealthEngine {
     if (!this.page) {
       throw new Error("StealthEngine not initialized — call init() first");
     }
+    this.captchaBlockedLastFetch = false;
 
     for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
       try {
@@ -510,6 +520,7 @@ export class StealthEngine {
               continue;
             }
             console.warn(`[StealthEngine] CAPTCHA unresolved after ${this.maxRetries} attempts, skipping: ${url}`);
+            this.captchaBlockedLastFetch = true;
             return null;
           }
         }
@@ -542,6 +553,36 @@ export class StealthEngine {
     }
 
     return null;
+  }
+
+  /** Whether the most recent fetchPage() call ultimately failed because a CAPTCHA challenge went unresolved (all retries exhausted). */
+  wasCaptchaBlocked(): boolean {
+    return this.captchaBlockedLastFetch;
+  }
+
+  /**
+   * Fetches `url` via the current browser context's request API — sharing
+   * the same cookies, proxy, and extraHTTPHeaders as fetchPage() — instead of
+   * navigating a page. Use for responses a browser won't render inline (e.g.
+   * a CSV served as `Content-Disposition: attachment`, which turns
+   * page.goto() into a file download and breaks navigation). Returns the raw
+   * response body text, or null on a non-2xx status or request failure.
+   */
+  async fetchRaw(url: string): Promise<string | null> {
+    if (!this.context) {
+      throw new Error("StealthEngine not initialized — call init() first");
+    }
+    try {
+      const response = await this.context.request.get(url, { timeout: 30_000 });
+      if (!response.ok()) {
+        console.warn(`[StealthEngine] fetchRaw non-OK status (${response.status()}): ${url}`);
+        return null;
+      }
+      return await response.text();
+    } catch (err) {
+      console.warn(`[StealthEngine] fetchRaw failed for ${url}: ${(err as Error).message}`);
+      return null;
+    }
   }
 
   /** Extracts and dedupes email addresses from HTML, filtering junk mailbox prefixes. */
