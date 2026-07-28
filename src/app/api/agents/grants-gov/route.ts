@@ -4,12 +4,15 @@
 // GrantsGovResearchAgent, and runs a live Grants.gov search. Returns the full
 // list of discovered opportunities plus the agent run ID for audit.
 //
-// Body: { keywords: string[], categories?: string[], dateRange?: { from?: string, to?: string } }
+// Body: { keywords?: string[], categories?: string[], dateRange?: { from?: string, to?: string } }
+//   - keywords defaults to the org's active search_profiles when omitted
+//     (the settings-page "Run Now" trigger sends an empty body).
 // Response: { opportunities: [...], count: number, agent_run_id: string | null }
 
 import { NextRequest, NextResponse } from "next/server";
 
 import { GrantsGovResearchAgent } from "@/lib/agents/grants-gov";
+import { getDefaultResearchKeywords } from "@/lib/agents/org-defaults";
 import { requireRole } from "@/lib/auth/role-gate";
 
 export const runtime = "nodejs";
@@ -37,19 +40,19 @@ export async function POST(req: NextRequest) {
     dateRange?: unknown;
   };
 
-  const keywords = Array.isArray(parsed.keywords)
+  // Body-supplied keywords take precedence; the settings-page "Run Now"
+  // trigger sends an empty body (the connector card has no keyword input),
+  // so fall back to the org's active search_profiles keywords.
+  const bodyKeywords = Array.isArray(parsed.keywords)
     ? (parsed.keywords as unknown[]).map(String).filter(Boolean)
     : typeof parsed.keywords === "string" && parsed.keywords.trim()
       ? [parsed.keywords.trim()]
       : [];
 
-  if (keywords.length === 0) {
-    return jsonError(
-      "At least one keyword is required.",
-      "no_keywords",
-      400,
-    );
-  }
+  const keywords =
+    bodyKeywords.length > 0
+      ? bodyKeywords
+      : await getDefaultResearchKeywords(supabase, organizationId);
 
   const categories = Array.isArray(parsed.categories)
     ? (parsed.categories as unknown[]).map(String).filter(Boolean)

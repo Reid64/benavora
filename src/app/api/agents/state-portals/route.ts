@@ -4,13 +4,20 @@
 // StatePortalResearchAgent, and runs a live portal scrape + Claude extraction.
 // Returns discovered opportunities and the agent run ID for audit.
 //
-// Body: { state: string, keywords: string[], category?: string }
+// Body: { state?: string, keywords?: string[], category?: string }
+//   - state defaults to the org's own profile state, keywords to the org's
+//     active search_profiles, when omitted (the settings-page "Run Now"
+//     trigger sends an empty body).
 // Response: { opportunities: [...], count: number, opportunitiesCreated: number,
 //             state: string, agent_run_id: string | null }
 
 import { NextRequest, NextResponse } from "next/server";
 
 import { StatePortalResearchAgent } from "@/lib/agents/state-portal";
+import {
+  getDefaultResearchKeywords,
+  getOrgProfileBasics,
+} from "@/lib/agents/org-defaults";
 import { requireRole } from "@/lib/auth/role-gate";
 
 export const runtime = "nodejs";
@@ -38,32 +45,39 @@ export async function POST(req: NextRequest) {
     category?: unknown;
   };
 
-  const state =
+  // Body-supplied state takes precedence; the settings-page "Run Now"
+  // trigger sends an empty body (the connector card has no state input), so
+  // fall back to the org's own profile state.
+  let state =
     typeof parsed.state === "string" && parsed.state.trim()
       ? parsed.state.trim()
       : "";
 
   if (!state) {
+    const orgProfile = await getOrgProfileBasics(supabase, organizationId);
+    state = orgProfile.state ?? "";
+  }
+
+  if (!state) {
     return jsonError(
-      "state is required (e.g. \"TX\" or \"Texas\").",
+      "state is required (e.g. \"TX\" or \"Texas\"), and your organization " +
+        "profile has no state on file. Set one in Settings, or pass a " +
+        "state explicitly.",
       "no_state",
       400,
     );
   }
 
-  const keywords = Array.isArray(parsed.keywords)
+  const bodyKeywords = Array.isArray(parsed.keywords)
     ? (parsed.keywords as unknown[]).map(String).filter(Boolean)
     : typeof parsed.keywords === "string" && parsed.keywords.trim()
       ? [parsed.keywords.trim()]
       : [];
 
-  if (keywords.length === 0) {
-    return jsonError(
-      "At least one keyword is required.",
-      "no_keywords",
-      400,
-    );
-  }
+  const keywords =
+    bodyKeywords.length > 0
+      ? bodyKeywords
+      : await getDefaultResearchKeywords(supabase, organizationId);
 
   const category =
     typeof parsed.category === "string" && parsed.category.trim()

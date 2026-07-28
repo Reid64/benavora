@@ -7,7 +7,9 @@
 //
 // Body: { ein?: string, query?: string, state?: string }
 //   - Provide either `ein` (preferred, EIN with or without dashes) or `query`
-//     (free-text org name / keyword). At least one is required.
+//     (free-text org name / keyword). When both are omitted (the
+//     settings-page "Run Now" trigger sends an empty body), defaults to a
+//     query for the org's own name/state.
 //   - `state` is optional; narrows query-based searches to a US state.
 //
 // Response: { organizations: [...], organizations_found: number, agent_run_id }
@@ -15,6 +17,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { AgentError } from "@/lib/agents/base-agent";
+import { getOrgProfileBasics } from "@/lib/agents/org-defaults";
 import { ProPublicaMiningAgent } from "@/lib/agents/propublica";
 import { requireRole } from "@/lib/auth/role-gate";
 
@@ -47,19 +50,29 @@ export async function POST(req: NextRequest) {
       ? parsed.ein.trim()
       : undefined;
 
-  const query =
+  let query =
     typeof parsed.query === "string" && parsed.query.trim()
       ? parsed.query.trim()
       : undefined;
 
-  const state =
+  let state =
     typeof parsed.state === "string" && parsed.state.trim()
       ? parsed.state.trim()
       : undefined;
 
+  // The settings-page "Run Now" trigger sends an empty body (the connector
+  // card has no ein/query input) — default to looking up the org's own
+  // organization by name/state rather than failing outright.
+  if (!ein && !query) {
+    const orgProfile = await getOrgProfileBasics(supabase, organizationId);
+    query = orgProfile.name ?? undefined;
+    state = state ?? orgProfile.state ?? undefined;
+  }
+
   if (!ein && !query) {
     return jsonError(
-      "Provide either ein or query in the request body.",
+      "Provide either ein or query in the request body, and your " +
+        "organization profile has no name on file to fall back to.",
       "missing_input",
       400,
     );
