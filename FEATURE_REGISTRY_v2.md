@@ -110,7 +110,7 @@
 | 58 | CSV Import Wizard | BUILT | 3-step wizard at /import. Column mapping. Preview. POST to /api/import/csv. |
 | 59 | Custom API Connector | PLANNED | Not built. |
 | 60 | Custom Scraping Targets | PLANNED | Not built. |
-| 61 | Automation Queue | PARTIAL | Worker exists. Priority scoring not implemented. |
+| 61 | Automation Queue | BUILT | Worker exists (worker/queue-processor.ts). Priority scoring in worker/batch-scorer.ts, re-run on idle→active transitions: timing, funder match, historical win rate, amount alignment, portal health, deadline proximity (nearest open opportunity per funder), probability score (opportunity_probability_scores, Feature #102, if scored), and organization tier. Lower submission_queue.priority = processed first. |
 | 62 | Semi/Autonomous Modes | BUILT | Both modes implemented in AutoApply. |
 | 63 | 2Captcha Integration | BUILT | captcha-solver.ts wired into src/lib/autoapply/form-filler-agent.ts — detect/solve/inject for recaptcha v2/v3, hcaptcha, turnstile. Audit logging, screenshot capture, graceful degradation when 2Captcha key is missing. Commit 3e7400b, July 22 2026. |
 | 64 | Automation Monitor | BUILT | Real-time queue status. Failure categorization. Screenshot review. |
