@@ -1,8 +1,22 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: July 27, 2026 (governance sync — stealth scraper build complete), from `git log --oneline -5` run this session. Not FORGE-auto-generated — hand-verified.**
+**Updated: July 28, 2026 (re-verification: process-followups job is real, not a stub), from `git log --oneline -5` run this session. Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — July 28, 2026 (re-verification: process-followups job, Feature #74)
+
+Task premise for this session was: "FEATURE_REGISTRY_v2.md #74 says process-followups is stub only, contradicting a prior session's completion claim — determine ground truth." That premise does not match the file on disk. **FEATURE_REGISTRY_v2.md line 126 already reads:** `| 74 | Follow-Up Sequences | BUILT | Table + page + src/worker/jobs/process-followups.ts (276 lines, verified) fully implemented. Commit 2f822b1, July 22 2026. |` — no "stub only" text exists anywhere in that row or file. The task's quoted claim was simply stale/incorrect; there was nothing in the registry to correct.
+
+**Re-verified the code directly (not taken on faith from the registry or this file's own July 22 entry):**
+- `src/worker/jobs/process-followups.ts` (277 lines) — real logic, not a stub: queries `application_followups` for `status='scheduled' AND scheduled_date <= today`, runs `FollowUpGeneratorAgent` (`src/lib/agents/follow-up-generator.ts`, confirmed exists) per due row, maps the generator's fixed 3-step output onto the row's `follow_up_type` via a documented preference/fallback table, writes the generated content back with `status='sent'`, leaves failed rows `scheduled` for next-night retry, and logs a batch summary to `agent_runs`.
+- `worker/scheduler.ts:39-46` — confirmed live wiring: the nightly 2AM job (`'nightly autonomous pipeline'`) dynamically imports `../src/worker/jobs/process-followups.js` and calls `processFollowups(supabase)` immediately after `runAutonomousPipeline`, sharing that slot rather than a dedicated cron entry.
+- `src/supabase/migrations/081_application_followups.sql` — confirmed the backing table's migration file exists.
+- There is no `worker/dist/` directory in this checkout (build output, not checked into git) — the task's pointer to `worker/dist/src/worker/jobs/process-followups.js` was a request to find the compiled file's `.ts` source, which is `src/worker/jobs/process-followups.ts` above; `worker/scheduler.ts` imports the `.js` build output at runtime after `tsc` compiles it.
+
+**Conclusion:** both the code and the registry are already correct and already agreed with each other before this session started. No code change and no registry change were made. `pnpm tsc --noEmit` re-run clean (0 errors) as a gate check even though nothing changed.
 
 ---
 
