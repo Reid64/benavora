@@ -109,7 +109,13 @@ export type AgentType =
   | "ea02_community_outreach_detector"
   | "ea03_sponsorship_detector"
   | "ea04_foundation_detector"
-  | "ea05_career_page_analyzer";
+  | "ea05_career_page_analyzer"
+  // Migration 108 adds these to the DB agent_type enum.
+  | "ea06_press_release_analyzer"
+  | "ea07_esg_analyzer"
+  | "ea08_executive_biography_analyzer"
+  | "ea09_contact_extractor"
+  | "ea10_social_media_analyzer";
 
 export type AgentRunStatus = "pending" | "running" | "completed" | "failed";
 

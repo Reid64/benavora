@@ -26,6 +26,10 @@ export interface CorporateProspectRow {
   legal_name: string;
   website: string | null;
   ein: string | null;
+  address_street: string | null;
+  address_city: string | null;
+  address_state: string | null;
+  address_zip: string | null;
   enrichment: Record<string, unknown> | null;
   enrichment_version: number | null;
 }
@@ -37,7 +41,9 @@ export async function fetchProspect(
 ): Promise<CorporateProspectRow | null> {
   const { data, error } = await client
     .from("corporate_prospects")
-    .select("id, legal_name, website, ein, enrichment, enrichment_version")
+    .select(
+      "id, legal_name, website, ein, address_street, address_city, address_state, address_zip, enrichment, enrichment_version",
+    )
     .eq("id", prospectId)
     .maybeSingle();
 
