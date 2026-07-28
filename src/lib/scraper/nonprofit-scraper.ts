@@ -10,7 +10,9 @@
 // instead of `foundation_directory`.
 //
 // Population: nonprofits WHERE website IS NOT NULL AND contact_emails IS
-// NULL (~6,066 rows as of 2026-07-27). Deviation from the task's literal
+// NULL AND revenue_amount >= 750000 (6,066 rows before the revenue filter,
+// 363 as of 2026-07-27 with it — see AUDIT_FILTER_FEASIBILITY.md for the
+// feasibility numbers behind the $750k cutoff). Deviation from the task's literal
 // "email IS NULL" / "SET email=...": nonprofits has no `email` column
 // (supabase/migrations/098_nonprofits_bmf.sql + 099_nonprofits_enrichment.sql,
 // confirmed against SCHEMA_REGISTRY_v2.md) — the real contact columns are
@@ -223,7 +225,7 @@ export async function runNonprofitScraper(): Promise<RunStats> {
   let batchNum = 0;
 
   log("Nonprofit contact scraper (StealthEngine) starting");
-  log("Population: nonprofits WHERE website IS NOT NULL AND contact_emails IS NULL");
+  log("Population: nonprofits WHERE website IS NOT NULL AND contact_emails IS NULL AND revenue_amount >= 750000");
 
   try {
     for (;;) {
@@ -234,6 +236,7 @@ export async function runNonprofitScraper(): Promise<RunStats> {
         .select("id, ein, website, contact_emails, officer_email, phone")
         .not("website", "is", null)
         .is("contact_emails", null)
+        .gte("revenue_amount", 750000)
         .order("id", { ascending: true })
         .limit(BATCH_SIZE);
 

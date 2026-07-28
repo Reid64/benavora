@@ -587,9 +587,15 @@ export async function runFoundationScraper(startOffset?: number, maxToProcess?: 
     let offset = checkpoint.offset;
 
     for (;;) {
+      // Name-heuristic exclusion, not an authoritative IRS classification —
+      // foundation_directory has no field distinguishing "family foundation"
+      // from other private foundations (foundation_type/organization_type/
+      // subsection_code are raw IRS BMF codes with no such concept). See
+      // AUDIT_FILTER_FEASIBILITY.md §2.
       const { data, error } = await supabase
         .from("foundation_directory")
         .select("id, ein, name, city, state, website, email, phone")
+        .not("name", "ilike", "%FAMILY FOUNDATION%")
         .order("id", { ascending: true })
         .range(offset, offset + BATCH_SIZE - 1);
 
