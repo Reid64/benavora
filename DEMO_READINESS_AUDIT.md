@@ -195,3 +195,42 @@ Goal: seed an active `request_profiles` row for Faith Foundation and re-run the 
    (Also seeding at least one `org_documents` row per type `501c3_letter`/`form_990` will additionally clear the doc-completeness half of the readiness gate — those are real compliance artifacts Reid would need to supply, not fabricatable test data.)
 
 Once both are done, re-running the exact same live test (§2/§5's method) should be the next step to confirm the pipeline actually reaches `FormAnalyzerAgent`/Playwright/risk assessment — not yet verified, since it's gated on the above.
+
+---
+
+## 7. `org_not_ready` re-verification — migration 051 now applied, blocker narrowed but not cleared (2026-07-28, follow-up)
+
+Goal: confirm whether §6's two unblockers (migration 051 + seeded `request_profiles` row) got applied since that section was written, and if so, re-run the live test to see whether the pipeline now reaches `FormAnalyzerAgent`/Playwright/risk assessment.
+
+**Table check (live service-role REST, same method as prior sections):** `request_profiles` and `org_documents` both now return `200`, not `PGRST205` — migration 051 has been applied to production since §6 (by Reid, presumably via the Supabase SQL Editor, per §6's handoff instructions — not done by this session).
+
+**Seeded row confirmed present and matches §6's INSERT exactly:** `request_profiles` id `2dd9d930-7ab6-41f9-9895-c03dee09903e`, `organization_id b1ab7402-dfc2-4712-869f-70ea3566cc1d`, name/request_type/values/categories all match §6's statement verbatim, `created_at 2026-07-28T16:14:19Z`, `active: true`.
+
+**KB fields re-checked directly against `organizations`:** `mission_statement`, `ein`, `address_line1`, `founder_name`, `contact_email`, `phone` are all populated — confirms §6's fix to `checkOrgReadiness()` (swapping `contact_name` → `founder_name`) is live and working; the KB-completeness half of the readiness gate is now genuinely satisfied, not a false positive.
+
+**`org_documents` is empty for this org** (`[]`, zero rows) — `checkOrgReadiness()` (`src/lib/autoapply/submission-validator.ts:188-218`) requires a current-version row per `document_type` for `501c3_letter` and `form_990` specifically; neither exists. This registers as `missing_required` regardless of the KB/profile state above.
+
+**Live test, same target and discipline as §2/§5:** rather than re-mint a magic-link session for the org owner (§2/§5's method, needed there to prove the `/api/autoapply/test` *route* itself works end-to-end), this run inserted the `funders` + `submission_queue` rows directly via service-role REST, matching the route's own insert shape field-for-field. This is a deliberate, narrower substitution: §7's question is about the *worker's* readiness gate and pipeline (`worker/queue-processor.ts`), which reads `submission_queue` directly and has no way to tell how a row got there — not about the route's auth path, which was already proven live in §2. It also avoids repeating the stray-auth-user landmine §6 flagged from the magic-link approach.
+
+- Created funder `32d2d1c3-0060-45a0-acf0-cd57a942411e` ("Test: httpbin.org", `giving_portal_url: https://httpbin.org/forms/post`) — same safe public dummy-form target as §2/§5, not a real donation portal.
+- Created `submission_queue` row `a542b5f8-f5b3-41fd-96e7-cd65e1b14bca` (`status: pending`, `automation_mode: manual_test`).
+- Watched live `railway logs`: the running worker (`benavora-worker`, deployment `47b47182-42f2-4f15-8cc9-2841d03b6356`) picked the item up within its normal 15s poll cycle and logged:
+  ```
+  [QueueProcessor] Org b1ab7402-dfc2-4712-869f-70ea3566cc1d is not ready for AutoApply: Required organization information is incomplete — form filling will produce inaccurate submissions
+  [QueueProcessor] Item a542b5f8-f5b3-41fd-96e7-cd65e1b14bca skipped: org_not_ready: Required organization information is incomplete — form filling will produce inaccurate submissions
+  ```
+- Confirmed in the database: the row transitioned `pending` → `skipped`, `started_at` to `completed_at` was ~1.8 seconds (16:17:27.554 → 16:17:29.362) — consistent with §2/§5's finding that a `SkipError` thrown before browser launch is near-instant; no `FormAnalyzerAgent`, no Playwright, no risk assessment ran.
+
+**Result: `org_not_ready` still fires — does NOT yet clear. The blocker is real but has narrowed to exactly one thing: missing `org_documents`.** Every other piece §6 identified as broken is now fixed and verified live:
+
+| Sub-blocker | §6 status | §7 status |
+|---|---|---|
+| `request_profiles` table exists | Missing (PGRST205) | **Fixed** — migration 051 applied |
+| `org_documents` table exists | Missing (PGRST205) | **Fixed** — migration 051 applied |
+| Active `request_profiles` row for this org | None | **Fixed** — seeded row confirmed present |
+| KB fields falsely reported missing (`contact_name` bug) | Bug present | **Fixed** — code fix live, fields correctly read as present |
+| `org_documents` rows for `501c3_letter`/`form_990` | N/A (table didn't exist) | **Still missing** — 0 rows, this is now the sole blocker |
+
+**Bottom line:** the code and schema are no longer the obstacle. The one remaining gap is exactly what §6 flagged it would be: two real compliance documents (a 501(c)(3) determination letter and a Form 990) need to exist as `org_documents` rows with `is_current: true` for org `b1ab7402-dfc2-4712-869f-70ea3566cc1d`, `document_type` = `501c3_letter` and `form_990` respectively. These are real artifacts Reid would need to supply for Faith Foundation, not fabricatable test data — this session did not attempt to synthesize them. Once uploaded (via whatever the normal document-vault upload path is — not traced in this pass), the pipeline should be one more identical re-run away from actually reaching `FormAnalyzerAgent`/Playwright/risk assessment for the first time.
+
+**Cleanup:** both synthetic rows from this test (`funders` id `32d2d1c3-0060-45a0-acf0-cd57a942411e`, `submission_queue` id `a542b5f8-f5b3-41fd-96e7-cd65e1b14bca`) were deleted immediately after the log confirmation, same discipline as §2/§5. The legitimate seeded `request_profiles` row (`2dd9d930-...`, from §6) was left in place — it is real data, not test scaffolding.
