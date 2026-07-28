@@ -10,7 +10,7 @@
 | Flow | Status | Failure point (if broken) |
 |---|---|---|
 | 1. Draft Generator | **WORKING** | — |
-| 2. AutoApply | **BROKEN** | `worker/queue-processor.ts:472` selects `funders.automation_level`, a column that does not exist in the live database |
+| 2. AutoApply | **FIXED** (re-verified 2026-07-28) | `automation_level` column now live; pipeline progresses past `queue-processor.ts:472` — new failure point is a data-completeness gate (`org_not_ready`), not a code/schema bug |
 | 3. Research / "Semantic" Funder Match | **WORKING**, but not actually semantic | — (functional; see caveat) |
 
 ---
@@ -119,3 +119,24 @@ With the query mechanics, credentials, schema, and read path all independently p
 - Poll 2 (04:50:02Z, 35s later): `started_at` unchanged (same process), `last_heartbeat_at: 04:49:45.815Z` — advanced by exactly 30.000 seconds from poll 1, matching the interval exactly.
 
 Confirmed fixed and updating live in production.
+
+---
+
+## 5. AutoApply `automation_level` fix — re-verified end-to-end (2026-07-28, follow-up)
+
+Follow-up to §2. At some point after the original audit run, `ALTER TABLE funders ADD COLUMN IF NOT EXISTS automation_level text DEFAULT 'assisted';` (already present in `supabase/migrations/052_governance_layer.sql`, dated 2026-06-21, but — per the original audit's direct-query confirmation the same day — not actually applied to the live database until sometime between that audit and this follow-up) was applied to production. Confirmed directly: `SELECT id, automation_level FROM funders LIMIT 1` now returns `"automation_level":"assisted"` instead of erroring `42703`.
+
+**Re-ran the identical live test**, same method as the original audit (real production DB, real Railway worker, same test org `b1ab7402-dfc2-4712-869f-70ea3566cc1d`, same target `https://httpbin.org/forms/post`):
+- Created a fresh synthetic `funders` row (`Test: httpbin.org`, id `dc700f54-1cc9-4e2b-8c3d-6281222ac4ae`) and `submission_queue` row (id `7e98b1ed-0262-4bf0-90d8-4711122ba771`, `status: pending`) directly via service-role REST — equivalent to what `POST /api/autoapply/test` does internally, used directly here rather than minting another session since the auth path itself was already proven live in the original audit.
+- Confirmed `railway-worker-1` was alive and heartbeating fresh (`last_heartbeat_at` matching wall-clock at insert time) before enqueueing.
+- The worker picked the item up within its poll cycle: `status` went `pending` (05:18:20) → `processing` (`started_at` 05:18:22) → `skipped` (`completed_at` 05:18:24).
+- Pulled live Railway logs for the exact reason (the `submission_queue` row itself doesn't persist skip reasons, only `queue-processor.ts`'s console log does): 
+  ```
+  [QueueProcessor] Org b1ab7402-dfc2-4712-869f-70ea3566cc1d is not ready for AutoApply: No active request profiles — AutoApply cannot determine what to request from funders, Required organization information is incomplete — form filling will produce inaccurate submissions
+  [QueueProcessor] Item 7e98b1ed-0262-4bf0-90d8-4711122ba771 skipped: org_not_ready: No active request profiles — AutoApply cannot determine what to request from funders
+  ```
+- Deleted both synthetic rows after confirming (`204` on both), same cleanup discipline as the original audit.
+
+**Verdict: the `automation_level` bug is fixed.** The pipeline now clears the funder fetch, the early control-plane block check, the portal/email presence check, and the domain control-plane check — all of which sit between line 472 and the new failure point. It now fails later, at `org_not_ready` (`queue-processor.ts` org-readiness gate, checked before browser launch) — a **legitimate data-completeness gate**, not a bug: this test org genuinely has no active `request_profiles` row, which the pipeline correctly refuses to submit against (an AutoApply submission with no request profile would have nothing to tell the funder it's asking for). This is expected behavior for this test org's current data state, not a new regression.
+
+**For an actual full-pipeline demo run** (reaching `FormAnalyzerAgent` / Playwright / risk assessment / a real submission), this test org needs at least one active `request_profiles` row and complete organization profile fields — that is a test-data gap, not a code fix.
