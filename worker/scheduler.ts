@@ -120,6 +120,33 @@ const jobs: ScheduledJob[] = [
       await runFoundationScraper();
     },
   },
+  {
+    // Nonprofit contact-enrichment agent (STANDING_DIRECTIVES.md Directive 1,
+    // src/lib/scraper/nonprofit-scraper.ts). Weekly, Sunday 4AM CST — staggered
+    // one hour after foundation-enrichment-weekly (3AM) so the two scrapers'
+    // StealthEngine browser pools never run concurrently on the same worker.
+    // Same day-of-week guard and ENABLE_SCRAPER gate as that job, for the same
+    // reason: this scraper also launches real Chromium instances and makes
+    // outbound requests to nonprofit websites.
+    name: 'nonprofit-enrichment-weekly',
+    hour: 4,
+    minute: 0,
+    lastFiredOnDateKey: null,
+    run: async (_supabase) => {
+      if (process.env['ENABLE_SCRAPER'] !== 'true') {
+        console.log(
+          "[Scheduler] nonprofit-enrichment-weekly skipped — ENABLE_SCRAPER is not 'true'.",
+        );
+        return;
+      }
+      if (chicagoWeekday(new Date()) !== 'Sun') return;
+
+      const { runNonprofitScraper } = await import(
+        '../src/lib/scraper/nonprofit-scraper.js'
+      );
+      await runNonprofitScraper();
+    },
+  },
 ];
 
 let intervalId: ReturnType<typeof setInterval> | null = null;
