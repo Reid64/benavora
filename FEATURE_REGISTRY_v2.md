@@ -1,6 +1,6 @@
 # BENAVORA — Feature Registry v2.0
 ## Supersedes: Feature_Registry.md v1.0
-## Date: July 22, 2026 (last update)
+## Date: July 28, 2026 (last update)
 ## Status: CANONICAL — Updated after every FORGE run and CC session.
 ## Build tool: FORGE 1.x | Repo: Reid64/benavora | Production: www.benavora.com
 
@@ -106,7 +106,7 @@
 | 54 | SAM.gov Client | BUILT | Weekly poll. src/lib/sources/samgov-client.ts + API route. |
 | 55 | ProPublica 990 Mining | BUILT | src/lib/sources/propublica-990-client.ts + batch script. Never run at scale. |
 | 56 | State Portal Framework | PARTIAL | Scraper exists, stub only. No real HTML parsing implemented. |
-| 57 | Integration Settings UI | PARTIAL | Page exists at /settings/integrations. Connector cards not fully wired. |
+| 57 | Integration Settings UI | BUILT | /settings/integrations connector cards (Grants.gov, ProPublica, State Portals, SAM.gov "Run Now") now default their required params (keywords/state/ein/query) from real org data instead of posting an empty body that always 400'd. SAM.gov also now reads the org's own encrypted key (integration_keys) before falling back to process.env, per Behavioral Contracts §18. Commit 0232358, July 28 2026. |
 | 58 | CSV Import Wizard | BUILT | 3-step wizard at /import. Column mapping. Preview. POST to /api/import/csv. |
 | 59 | Custom API Connector | PLANNED | Not built. |
 | 60 | Custom Scraping Targets | PLANNED | Not built. |
@@ -152,11 +152,11 @@
 ### Pillar 3: Corporate Giving Intelligence
 | # | Feature | Status | Notes |
 |---|---|---|---|
-| 87 | Corporate Prospects Table | BUILT | corporate_prospects schema. Migration 076-084. |
+| 87 | Corporate Prospects Table | BUILT (unverified live) | Correction, July 28 2026: no migration in the 076-084 range actually creates corporate_prospects — the real creating file is `supabase/migrations/107_corporate_prospects.sql`, added this session (post-dates MIGRATION_AUDIT.md's 108-file/106-highest-numbered pass, so it wasn't covered by that audit). Whether 107 has been applied to production is unconfirmed; a direct REST check on 2026-07-20 found this table absent (404/PGRST205). Treat as schema-defined, not confirmed live, until re-checked. |
 | 88 | NAICS Consumer UI | BUILT | /donor-discovery/discover + NAICS labels. naics-labels.ts. |
 | 89 | Google Places Adapter | BUILT | Existing donor discovery pipeline. |
-| 90 | Corporate Enrichment Agents EA-01 to EA-10 | PLANNED | Agent architecture designed. Build Phase 2. |
-| 91 | Propensity Scoring PS-01 to PS-10 | IN BUILD | Migration tonight. Agent AG-22 designed. |
+| 90 | Corporate Enrichment Agents EA-01 to EA-10 | BUILT | All 10 real, substantive agents exist (src/lib/agents/ea-01-giving-detector.ts through ea-10-social-media-analyzer.ts, 136-179 lines each, commits 366b33d + a5a004b, July 28 2026) — correcting an earlier premise that only EA-01/EA-08/EA-09 were built; verified directly against the repo this session, all 10 exist and none are stubs. worker/enrichment-processor.ts (commit dfe1190) imports and runs all 10 sequentially per company per CORPORATE_INTELLIGENCE_ARCHITECTURE.md §2C, each self-gating on its documented dependency via the shared enrichment jsonb. **Caveat:** this orchestrator is not yet called from worker/index.ts's boot sequence — it runs standalone/on-demand only, not continuously in production yet. **Bigger caveat:** the target table, corporate_prospects, only gained a creating migration this session (107_corporate_prospects.sql) — whether it has actually been applied to production is unverified (same DDL-access blocker as migrations 051/052, see MIGRATION_AUDIT.md), and a direct REST check on 2026-07-20 found this table returned 404/PGRST205 (did not exist). Do not assume this pipeline can write anywhere in prod until 107 is confirmed applied. |
+| 91 | Propensity Scoring PS-01 to PS-10 | BUILT | src/lib/agents/ag-22-propensity-scoring.ts (PropensityScoringAgent), commit bc39187, July 28 2026 — computes PS-01 through PS-10 per the canonical CORPORATE_INTELLIGENCE_ARCHITECTURE.md §3 formula into corporate_prospects.scores, refreshes the top-100 priority_prospects ranking. Wired as the enrichment pipeline's Score Engine call (triggerScoreEngine() in worker/enrichment-processor.ts), fired after enrichment_completed_at is stamped. Same two caveats as Feature #90 apply: not in worker/index.ts's boot loop, and the target table's live-in-prod status is unconfirmed. |
 | 92 | Corporate Giving DNA | PLANNED | Profile per company. Phase 2 build. |
 | 93 | AutoApply Routing | BUILT | /api/donor-discovery/prospects/[id]/route-to-autoapply |
 | 94 | Email Campaign Routing | BUILT | /api/donor-discovery/prospects/[id]/route-to-email |
@@ -369,7 +369,7 @@
 | D3 | ProPublica Batch Enrichment | BUILT | Script exists. Never run against full 133K foundation records. |
 | D4 | 298K Prospect CSV Import | PLANNED | Source: D:\dataocean. scripts/import-prospects.ts exists. Never run. |
 | D5 | Intelligence Library Corpus | PARTIAL | 11 NIH proposals loaded. Nights 2-7 never run. Dedup fix applied. |
-| D6 | Foundation Website Scraper | PLANNED | 54K URLs extracted. Scraper not yet run at scale. |
+| D6 | Foundation Website Scraper | BUILT | Superseded by S1/S2 below (StealthEngine + foundation-scraper.ts), not the older 54K-URL-list concept this row originally described. As of July 28 2026: the IRS 990 XML fetch bug (dead S3 fallback + browser-rendered XML viewer instead of a raw fetch, commit 52dd3ce) is fixed, and a real run tonight is confirmed parsing at an 8/10 success rate. Still not run at the full 133,812-record foundation_directory scale — see Directive 1 in STANDING_DIRECTIVES.md. |
 | D7 | DATAOCEAN Backup | CRITICAL | enrichment-output/ NEVER backed up to D:\. Reruns overwrite. |
 
 ---
@@ -380,8 +380,8 @@
 |---|---|---|---|
 | S1 | Stealth Engine Core | src/lib/scraper/stealth-engine.ts — shared Playwright/Chromium engine used by both scrapers below: header consistency (realistic per-request header sets), cookie jar persistence across navigations, honeypot-field avoidance, and response verification (confirms the page actually returned the expected content before treating a fetch as successful). | BUILT |
 | S2 | Foundation Enrichment Scraper | src/lib/scraper/foundation-scraper.ts — StealthEngine-based waterfall (homepage fetch -> contact-page discovery -> extraction) against foundation_directory. Wired into worker/scheduler.ts's `foundation-enrichment-weekly` job (Sunday 3AM CST, gated behind `ENABLE_SCRAPER=true`) and surfaced on the dashboard via S5. | BUILT |
-| S3 | Nonprofit Contact Scraper | src/lib/scraper/nonprofit-scraper.ts — StealthEngine sibling to foundation-scraper.ts, targeting `nonprofits WHERE website IS NOT NULL AND contact_emails IS NULL` (~6,066 rows as of 2026-07-27). Writes contact_emails/officer_email/phone, COALESCE-style so it never clobbers other enrichment passes. Invoked via `scripts/run-nonprofit-scraper.ts` (CLI) — **not** currently wired into worker/scheduler.ts's weekly job, unlike S2. | BUILT |
-| S4 | Scraper Railway Worker Job | worker/scheduler.ts `foundation-enrichment-weekly` entry — weekly (Sunday 3AM CST) scheduler integration for the Foundation Enrichment Scraper (S2), gated behind `ENABLE_SCRAPER` env var. Covers S2 only; S3 (nonprofit contact scraper) is CLI-only, see S3 note. | BUILT |
+| S3 | Nonprofit Contact Scraper | src/lib/scraper/nonprofit-scraper.ts — StealthEngine sibling to foundation-scraper.ts, targeting `nonprofits WHERE website IS NOT NULL AND contact_emails IS NULL` (~6,066 rows as of 2026-07-27). Writes contact_emails/officer_email/phone, COALESCE-style so it never clobbers other enrichment passes. **Updated July 28 2026:** now also wired into worker/scheduler.ts as `nonprofit-enrichment-weekly` (Sunday 4AM CST, staggered 1hr after foundation-enrichment-weekly, same `ENABLE_SCRAPER` gate), commit 899567f — no longer CLI-only, though `scripts/run-nonprofit-scraper.ts` remains available for manual runs too. | BUILT |
+| S4 | Scraper Railway Worker Job | worker/scheduler.ts — two weekly jobs, both gated behind `ENABLE_SCRAPER`: `foundation-enrichment-weekly` (Sunday 3AM CST, Foundation Enrichment Scraper / S2) and `nonprofit-enrichment-weekly` (Sunday 4AM CST, Nonprofit Contact Scraper / S3, added July 28 2026 per commit 899567f). Both scrapers now have scheduler integration. | BUILT |
 | S5 | Scraper Status API | /api/scraper/status — GET route (viewer-role gated) reporting live `foundation_directory` enrichment counts/rate computed from the DB, plus best-effort last-run stats from a local `enrichment-output/scraper-stats.json` file (null when unavailable) and the next scheduled Sunday-3AM-CST run time. Foundation-directory-scoped only, matching S2/S4. | BUILT |
 
 ---
@@ -423,12 +423,12 @@
 | Tier 1-3 Enhancements | 21 | 21 | 0 | 0 | 0 |
 | Tier 4 Browser Automation | 7 | 7 | 0 | 0 | 0 |
 | Tier 5 SaaS Layer | 6 | 6 | 0 | 0 | 0 |
-| Tier 6 Full Autonomous | 26 | 19 | 3 | 0 | 4 |
-| Platform Vision Pillars | 93 | 9 | 2 | 35 | 47 |
-| Data Pipeline | 7 | 2 | 2 | 0 | 3 |
+| Tier 6 Full Autonomous | 26 | 20 | 2 | 0 | 4 |
+| Platform Vision Pillars | 93 | 11 | 2 | 34 | 46 |
+| Data Pipeline | 7 | 3 | 2 | 0 | 2 |
 | Scraper (Directive 1) | 5 | 5 | 0 | 0 | 0 |
 | Testing | 8 | 3 | 0 | 0 | 5 |
-| **TOTAL** | **191** | **90** | **7** | **35** | **59** |
+| **TOTAL** | **191** | **94** | **6** | **34** | **57** |
 
 **Infrastructure:**
 - Database tables: 67 (097 migrations applied or queued)

@@ -1,15 +1,24 @@
 # BENAVORA — Session State
-## Last Updated: July 27, 2026
-## Mode: Governance sync — stealth scraper build complete (docs-only session)
+## Last Updated: July 28, 2026
+## Mode: Governance sync — overnight session consolidation (docs-only session)
 
 ---
 
 ## Current Session
 
-**Date:** July 27, 2026
+**Date:** July 28, 2026
+**Focus:** Documentation-only governance consolidation of ~25 commits from tonight's overnight session: worker outage resolution, stealth scraper + IRS 990 fetch fix, AutoApply `automation_level` fix (confirmed end-to-end, now blocked one gate further at `org_not_ready`/missing `request_profiles`), nonprofit scraper scheduler wiring, 2Captcha/process-followups re-verification, integration settings wiring, submission queue priority scoring, full migration-vs-production audit (28/108 not applied), worker heartbeat fix, and a new EA-01–EA-10 corporate enrichment agent pipeline + AG-22 propensity scoring. No code written this session.
+**Status:** Read STATE_OF_THE_BUILD.md, SESSION_STATE.md, FEATURE_REGISTRY_v2.md, DEMO_READINESS_AUDIT.md, and MIGRATION_AUDIT.md. Corrected two stale FEATURE_REGISTRY_v2.md entries: D1 (IRS BMF Full Import) was already BUILT from a prior session (task's "never successfully run" premise was itself stale — no change needed, verified only). D6 (Foundation Website Scraper) updated PLANNED → BUILT, reflecting the IRS 990 fetch fix and a confirmed real run parsing at 8/10 tonight. **Also corrected a false premise in this session's own task description:** it claimed only EA-01/EA-08/EA-09/AG-22 were built and EA-02–EA-07/EA-10 remain unspecified reserved slots — direct verification found all 10 EA agent files exist on disk (136–179 lines each, real logic, none stubs), wired together in `worker/enrichment-processor.ts`, with `ag-22-propensity-scoring.ts` as the Score Engine step. Updated FEATURE_REGISTRY_v2.md #57 (Integration Settings, PARTIAL→BUILT), #87 (Corporate Prospects Table — corrected migration reference from 076-084 to the real 107_corporate_prospects.sql, flagged unconfirmed-live), #90/#91 (EA agents/propensity scoring, PLANNED/IN BUILD→BUILT with wiring + table-liveness caveats), S3/S4 scraper rows (nonprofit scraper now scheduler-wired), and the summary totals table (94 Built, up from 90). Added a consolidated "SESSION — July 28, 2026 (overnight consolidation)" entry to STATE_OF_THE_BUILD.md indexing all ten fix areas with commit references. One item from the task description — a "Sales Outreach New Campaign fix" — could not be corroborated in git history or any other governance doc; flagged as unverified rather than recorded as done.
+**Commit:** `governance: overnight session consolidation + agent pipeline + stale registry corrections July 28 2026` (this session).
+**Gates:** not run this session — no code changed, docs-only.
+
+---
+
+## Prior Session — July 27, 2026 (Governance sync — stealth scraper build complete)
+
 **Focus:** Documentation-only governance sync for the stealth scraper build already committed as `25b42a4` (`feat(scraper): nonprofit contact extraction agent + stealth engine hardening (headers, cookies, honeypot, response verification)`). No code written this session.
-**Status:** Verified all 4 scraper files exist and are wired as claimed: `src/lib/scraper/stealth-engine.ts` (S1), `src/lib/scraper/foundation-scraper.ts` (S2, wired into `worker/scheduler.ts`'s weekly `foundation-enrichment-weekly` job), `src/lib/scraper/nonprofit-scraper.ts` (S3, real but CLI-only via `scripts/run-nonprofit-scraper.ts` — **not** on the weekly scheduler, unlike S2), `src/app/api/scraper/status/route.ts` (S5). Added S1-S5 to FEATURE_REGISTRY_v2.md as BUILT (new "Scraper (Directive 1)" section; registry total now 191 features, 90 BUILT). Updated STANDING_DIRECTIVES.md Directive 1's "Current State" to reflect the engine now exists, while keeping the still-open items (full 133,812-record run, IRS 990 EIN column bug, abandoned ProPublica pass) documented as unresolved. Updated STATE_OF_THE_BUILD.md with a new session entry.
-**Commit:** governance docs commit pending this session (see below); scraper code itself was already committed as `25b42a4` in a prior session.
+**Status:** Verified all 4 scraper files exist and are wired as claimed: `src/lib/scraper/stealth-engine.ts` (S1), `src/lib/scraper/foundation-scraper.ts` (S2, wired into `worker/scheduler.ts`'s weekly `foundation-enrichment-weekly` job), `src/lib/scraper/nonprofit-scraper.ts` (S3, real but CLI-only via `scripts/run-nonprofit-scraper.ts` at the time — since wired into the weekly scheduler too, see the July 28 session above), `src/app/api/scraper/status/route.ts` (S5). Added S1-S5 to FEATURE_REGISTRY_v2.md as BUILT (new "Scraper (Directive 1)" section; registry total then 191 features, 90 BUILT). Updated STANDING_DIRECTIVES.md Directive 1's "Current State" to reflect the engine now exists, while keeping the still-open items (full 133,812-record run, IRS 990 EIN column bug, abandoned ProPublica pass) documented as unresolved. Updated STATE_OF_THE_BUILD.md with a new session entry.
+**Commit:** governance docs; scraper code itself was already committed as `25b42a4` in a prior session.
 **Gates:** not run this session — no code changed, docs-only.
 
 ---
