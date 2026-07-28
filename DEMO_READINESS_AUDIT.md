@@ -114,4 +114,8 @@ With the query mechanics, credentials, schema, and read path all independently p
 - Applied the same await-and-log treatment to `setProcessing()`, `incrementProcessed()`, and `incrementFailed()`, which already awaited their calls but silently discarded any `error` field, the same class of blind spot.
 - Scope: `worker/heartbeat.ts` only. No AutoApply or scraper files touched.
 
-**Verification:** `pnpm run build:worker` (`tsc -p worker/tsconfig.json && tsc-alias`) and `pnpm tsc --noEmit` both clean. After deploying, polled `worker_status.last_heartbeat_at` for `railway-worker-1` twice, 30+ seconds apart — timestamp advanced between polls, confirming the heartbeat now updates live in production. (See commit for exact before/after values.)
+**Verification:** `pnpm run build:worker` (`tsc -p worker/tsconfig.json && tsc-alias`) and `pnpm tsc --noEmit` both clean. Pushed to `main`, which triggered a Railway auto-redeploy of `benavora-worker` (deployment `7280096e-a01c-4154-9bd6-39de317c80c2`, booted `2026-07-28T04:48:45.646Z` per fresh log output). Polled `worker_status` for `railway-worker-1` twice, live:
+- Poll 1 (04:49:17Z): `started_at: 04:48:45.646Z`, `last_heartbeat_at: 04:49:15.815Z` — already 30s ahead of boot, i.e. the interval had already fired and successfully updated the row once (previously these two fields were always identical, forever, for the entire life of every process).
+- Poll 2 (04:50:02Z, 35s later): `started_at` unchanged (same process), `last_heartbeat_at: 04:49:45.815Z` — advanced by exactly 30.000 seconds from poll 1, matching the interval exactly.
+
+Confirmed fixed and updating live in production.
