@@ -115,7 +115,12 @@ export type AgentType =
   | "ea07_esg_analyzer"
   | "ea08_executive_biography_analyzer"
   | "ea09_contact_extractor"
-  | "ea10_social_media_analyzer";
+  | "ea10_social_media_analyzer"
+  // Corporate Intelligence Engine (CORPORATE_INTELLIGENCE_ARCHITECTURE.md §3,
+  // AGENTS_v2.md AG-22). Computes PS-01..PS-10 propensity scores into
+  // corporate_prospects.scores jsonb. Migration 109 adds this to the DB
+  // agent_type enum.
+  | "ag22_propensity_scoring";
 
 export type AgentRunStatus = "pending" | "running" | "completed" | "failed";
 

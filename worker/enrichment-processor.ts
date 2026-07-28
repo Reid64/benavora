@@ -34,14 +34,14 @@
 // doesn't conflate the two.
 //
 // Score Engine (CORPORATE_INTELLIGENCE_ARCHITECTURE.md §3, Propensity
-// Scoring PS-01..PS-10 / AGENTS_v2.md AG-22): verified via repo-wide grep
-// this session -- no implementation exists anywhere in this codebase
-// (AGENTS_v2.md §5 AG-22 status: PLANNED; worker/batch-scorer.ts is an
+// Scoring PS-01..PS-10 / AGENTS_v2.md AG-22): PropensityScoringAgent
+// (src/lib/agents/ag-22-propensity-scoring.ts) now implements this.
+// triggerScoreEngine() below is its real call site -- runs after
+// enrichment_completed_at is stamped, computes PS-01..PS-10 into
+// corporate_prospects.scores, and refreshes the global top-100
+// priority_prospects ranking (§3C). worker/batch-scorer.ts remains an
 // unrelated agent -- it reorders AutoApply's submission_queue, not
-// corporate_prospects propensity). triggerScoreEngine() below is the
-// documented call site for that agent once it exists; until then it only
-// logs, so this pipeline never fabricates a `scores`/`scores_computed_at`
-// value.
+// corporate_prospects propensity.
 //
 // corporate_prospects has no organization_id (shared, cross-org table --
 // corporate-enrichment-shared.ts). BaseAgent still requires one for its own
@@ -67,6 +67,7 @@ import { EA07EsgAnalyzerAgent } from '../src/lib/agents/ea-07-esg-analyzer.js';
 import { EA08ExecutiveBiographyAnalyzerAgent } from '../src/lib/agents/ea-08-executive-biography-analyzer.js';
 import { EA09ContactExtractorAgent } from '../src/lib/agents/ea-09-contact-extractor.js';
 import { EA10SocialMediaAnalyzerAgent } from '../src/lib/agents/ea-10-social-media-analyzer.js';
+import { PropensityScoringAgent } from '../src/lib/agents/ag-22-propensity-scoring.js';
 import type { BaseAgent, BaseAgentOptions } from '../src/lib/agents/base-agent.js';
 
 /** Same sentinel AG-36 (Learning Network Aggregator) uses for platform-level, non-org-scoped agent runs. */
@@ -113,15 +114,28 @@ async function ensureSystemOrg(supabase: SupabaseClient): Promise<void> {
 }
 
 /**
- * Score Engine trigger (§2C, §3 Propensity Scoring PS-01..PS-10). No such
- * agent exists in this codebase yet (AGENTS_v2.md §5 AG-22: PLANNED). This
- * is the documented call site for it once built.
+ * Score Engine trigger (§2C, §3 Propensity Scoring PS-01..PS-10). Runs
+ * PropensityScoringAgent (AG-22) for this prospect -- computes PS-01..PS-10
+ * into `scores` jsonb and refreshes the global priority_prospects ranking.
+ * Failure here never blocks the enrichment batch (same tolerance as each
+ * EA-0X agent's own try/catch in enrichProspect() below).
  */
-async function triggerScoreEngine(prospectId: string): Promise<void> {
-  console.log(
-    `[EnrichmentProcessor] Score Engine trigger for prospect ${prospectId} -- ` +
-      'no PS-01..PS-10 propensity scoring agent exists in this codebase yet (AG-22, PLANNED). Skipped.',
-  );
+async function triggerScoreEngine(
+  supabase: SupabaseClient,
+  prospectId: string,
+): Promise<void> {
+  try {
+    const agent = new PropensityScoringAgent({
+      client: supabase,
+      organizationId: SYSTEM_ORG_ID,
+    });
+    await agent.run({ prospectId });
+  } catch (err) {
+    console.error(
+      `[EnrichmentProcessor] Score Engine (AG-22) failed for prospect ${prospectId}: ` +
+        `${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
 }
 
 /** Runs EA-01 through EA-10 sequentially for one prospect (§2C dependency order). */
@@ -171,7 +185,7 @@ async function enrichProspect(
     .update({ enrichment_completed_at: new Date().toISOString() })
     .eq('id', prospect.id);
 
-  await triggerScoreEngine(prospect.id);
+  await triggerScoreEngine(supabase, prospect.id);
 }
 
 /** Runs one batch of up to BATCH_SIZE unenriched companies (§2C). */
