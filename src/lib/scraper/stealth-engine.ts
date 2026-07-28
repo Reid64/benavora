@@ -585,6 +585,30 @@ export class StealthEngine {
     }
   }
 
+  /**
+   * Like fetchRaw(), but for binary content (e.g. a ZIP archive) —
+   * fetchRaw()'s response.text() decodes the body as UTF-8, which corrupts
+   * binary bytes. Returns the raw response body as a Buffer, or null on a
+   * non-2xx status or request failure. Uses a longer timeout than fetchRaw()
+   * since the archives this is used for run tens of megabytes.
+   */
+  async fetchRawBuffer(url: string): Promise<Buffer | null> {
+    if (!this.context) {
+      throw new Error("StealthEngine not initialized — call init() first");
+    }
+    try {
+      const response = await this.context.request.get(url, { timeout: 60_000 });
+      if (!response.ok()) {
+        console.warn(`[StealthEngine] fetchRawBuffer non-OK status (${response.status()}): ${url}`);
+        return null;
+      }
+      return await response.body();
+    } catch (err) {
+      console.warn(`[StealthEngine] fetchRawBuffer failed for ${url}: ${(err as Error).message}`);
+      return null;
+    }
+  }
+
   /** Extracts and dedupes email addresses from HTML, filtering junk mailbox prefixes. */
   async extractEmails(html: string): Promise<string[]> {
     const $ = cheerio.load(html);

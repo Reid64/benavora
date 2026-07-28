@@ -36,6 +36,7 @@ import fs from "node:fs";
 import path from "node:path";
 import * as cheerio from "cheerio";
 import pLimit from "p-limit";
+import unzipper from "unzipper";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { StealthEngine } from "@/lib/scraper/stealth-engine";
@@ -178,6 +179,12 @@ async function throttledFetchRaw(pooled: PooledEngine, url: string): Promise<str
   return pooled.engine.fetchRaw(url);
 }
 
+/** Like throttledFetchRaw(), but for binary content (a ZIP archive) — see StealthEngine.fetchRawBuffer(). */
+async function throttledFetchRawBuffer(pooled: PooledEngine, url: string): Promise<Buffer | null> {
+  await throttle(pooled);
+  return pooled.engine.fetchRawBuffer(url);
+}
+
 async function throttledFindContactPage(pooled: PooledEngine, baseUrl: string): Promise<string | null> {
   await throttle(pooled);
   return pooled.engine.findContactPage(baseUrl);
@@ -207,8 +214,28 @@ function extractRawText(rendered: string): string {
   return $("body").text();
 }
 
-function parseIndexCsv(text: string, neededEins: Set<string>): Map<string, string> {
-  const map = new Map<string, string>();
+interface EinIndexEntry {
+  /** Direct per-filing XML URL — used only if the index CSV still has a `url` column (older format). */
+  directUrl?: string;
+  /**
+   * Current (2026) index format has no per-filing URL at all: filings are
+   * packaged into per-batch ZIP archives hosted on IRS's own site
+   * (apps.irs.gov), not the individual-file layout this code originally
+   * assumed. Each ZIP entry inside is named "{object_id}_public.xml" — the
+   * same filename the old code tried to hit directly as a URL. Confirmed
+   * 2026-07-28 against 3 real filings across false object_ids: the old
+   * https://s3.amazonaws.com/irs-form-990/{object_id}_public.xml fallback
+   * this used to construct is dead on every real object_id tested (404) —
+   * that AWS Open Data bucket is no longer being served/updated. The real
+   * batch archive lives at
+   * https://apps.irs.gov/pub/epostcard/990/xml/{year}/{xml_batch_id}.zip.
+   */
+  objectId?: string;
+  batchZipUrl?: string;
+}
+
+function parseIndexCsv(text: string, neededEins: Set<string>): Map<string, EinIndexEntry> {
+  const map = new Map<string, EinIndexEntry>();
   let headers: string[] | null = null;
 
   for (const rawLine of text.split(/\r?\n/)) {
@@ -232,17 +259,54 @@ function parseIndexCsv(text: string, neededEins: Set<string>): Map<string, strin
     let xmlBatchIdIdx = headers.indexOf("xml_batch_id");
     if (xmlBatchIdIdx < 0) xmlBatchIdIdx = XML_BATCH_ID_FALLBACK_IDX;
 
+    const directUrl = urlIdx >= 0 ? (cols[urlIdx] ?? "").trim() : "";
+    if (directUrl) {
+      map.set(ein, { directUrl });
+      continue;
+    }
+
     const objectId = (cols[objectIdIdx] ?? "").trim();
     const xmlBatchId = (cols[xmlBatchIdIdx] ?? "").trim();
-    let xmlUrl = urlIdx >= 0 ? (cols[urlIdx] ?? "").trim() : "";
-    if (!xmlUrl && objectId) xmlUrl = `https://s3.amazonaws.com/irs-form-990/${objectId}_public.xml`;
-    if (!xmlUrl && xmlBatchId) xmlUrl = `https://s3.amazonaws.com/irs-form-990/${xmlBatchId}_public.xml`;
-    if (!xmlUrl) continue;
-
-    map.set(ein, xmlUrl);
+    if (objectId && xmlBatchId) {
+      map.set(ein, {
+        objectId,
+        batchZipUrl: `https://apps.irs.gov/pub/epostcard/990/xml/${IRS_990_YEAR}/${xmlBatchId}.zip`,
+      });
+    }
   }
 
   return map;
+}
+
+// --- Strategy 1 batch-ZIP cache ------------------------------------------------
+//
+// Many matched EINs share the same batch (a batch holds ~12,000 filings), so
+// each batch ZIP is downloaded and opened at most once per run, cached here
+// keyed by URL. The cache stores the in-flight Promise (not just the
+// resolved value) so concurrent callers awaiting the same batch don't each
+// trigger their own download. No eviction: one run's candidate set is
+// bounded (BATCH_LIMIT), so unbounded growth within one process is fine.
+async function getOrFetchBatchZip(
+  pooled: PooledEngine,
+  batchZipUrl: string,
+  cache: Map<string, Promise<unzipper.CentralDirectory | null>>,
+): Promise<unzipper.CentralDirectory | null> {
+  let pending = cache.get(batchZipUrl);
+  if (!pending) {
+    pending = (async () => {
+      log(`Strategy 1: downloading IRS 990 batch ZIP: ${batchZipUrl}`);
+      const buffer = await throttledFetchRawBuffer(pooled, batchZipUrl);
+      if (!buffer) return null;
+      try {
+        return await unzipper.Open.buffer(buffer);
+      } catch (err) {
+        log(`WARN Strategy 1: could not open batch ZIP ${batchZipUrl}: ${(err as Error).message}`);
+        return null;
+      }
+    })();
+    cache.set(batchZipUrl, pending);
+  }
+  return pending;
 }
 
 async function loadEinsMissingWebsite(supabase: ReturnType<typeof createAdminClient>): Promise<Set<string>> {
@@ -279,7 +343,7 @@ async function loadEinsMissingWebsite(supabase: ReturnType<typeof createAdminCli
 async function buildEinIndex(
   pool: EnginePool,
   supabase: ReturnType<typeof createAdminClient>,
-): Promise<Map<string, string>> {
+): Promise<Map<string, EinIndexEntry>> {
   const neededEins = await loadEinsMissingWebsite(supabase);
   if (neededEins.size === 0) return new Map();
 
@@ -307,18 +371,45 @@ async function buildEinIndex(
 
 async function tryIrs990(
   row: FoundationRow,
-  einIndex: Map<string, string>,
+  einIndex: Map<string, EinIndexEntry>,
   pooled: PooledEngine,
   irs990Source: IRS990Source,
+  batchZipCache: Map<string, Promise<unzipper.CentralDirectory | null>>,
 ): Promise<{ website?: string; phone?: string } | null> {
   const ein = String(row.ein ?? "").replace(/\D/g, "");
-  const xmlUrl = ein ? einIndex.get(ein) : undefined;
-  if (!xmlUrl) return null;
+  const entry = ein ? einIndex.get(ein) : undefined;
+  if (!entry) return null;
 
-  const xml = await throttledFetch(pooled, xmlUrl);
+  let xml: string | null = null;
+  let sourceLabel: string;
+
+  if (entry.directUrl) {
+    // Legacy path, kept in case the index CSV ever restores a `url` column.
+    // Uses fetchRaw() (context.request.get()), not fetchPage() (page.goto()):
+    // this is a raw XML file, and Chromium's page.goto() renders it through
+    // its own built-in XML-viewer DOM instead of returning the literal bytes
+    // — parseXml()'s regex-based tag extraction can never match that
+    // rendered output no matter what the filing actually contains. This is
+    // the same reason buildEinIndex() already used fetchRaw() for the index
+    // CSV; tryIrs990() just never got the same fix until now.
+    sourceLabel = entry.directUrl;
+    xml = await throttledFetchRaw(pooled, entry.directUrl);
+  } else if (entry.objectId && entry.batchZipUrl) {
+    const entryFileName = `${entry.objectId}_public.xml`;
+    sourceLabel = `${entry.batchZipUrl}#${entryFileName}`;
+    const directory = await getOrFetchBatchZip(pooled, entry.batchZipUrl, batchZipCache);
+    if (!directory) return null;
+    const fileEntry = directory.files.find((f) => f.type === "File" && f.path === entryFileName);
+    if (!fileEntry) return null;
+    const buffer = await fileEntry.buffer();
+    xml = buffer.toString("utf-8");
+  } else {
+    return null;
+  }
+
   if (!xml) return null;
 
-  const parsed = irs990Source.parseXml(ein, xml, xmlUrl);
+  const parsed = irs990Source.parseXml(ein, xml, sourceLabel);
   if (!parsed) return null;
 
   const update: { website?: string; phone?: string } = {};
@@ -462,11 +553,12 @@ interface ProcessResult {
 
 async function processFoundation(
   row: FoundationRow,
-  einIndex: Map<string, string>,
+  einIndex: Map<string, EinIndexEntry>,
   pool: EnginePool,
   irs990Source: IRS990Source,
   supabase: ReturnType<typeof createAdminClient>,
   googleBreaker: GoogleBreakerState,
+  batchZipCache: Map<string, Promise<unzipper.CentralDirectory | null>>,
 ): Promise<ProcessResult> {
   if (row.website && row.email && row.phone) {
     return { enriched: false, strategy: "none" };
@@ -480,7 +572,7 @@ async function processFoundation(
 
     if (!website) {
       try {
-        const found = await tryIrs990(row, einIndex, pooled, irs990Source);
+        const found = await tryIrs990(row, einIndex, pooled, irs990Source, batchZipCache);
         if (found?.website) {
           update["website"] = found.website;
           update["website_discovered_via"] = "irs_990_xml";
@@ -584,6 +676,7 @@ export async function runFoundationScraper(startOffset?: number, maxToProcess?: 
 
   try {
     const einIndex = await buildEinIndex(pool, supabase);
+    const batchZipCache = new Map<string, Promise<unzipper.CentralDirectory | null>>();
     let offset = checkpoint.offset;
 
     for (;;) {
@@ -610,7 +703,9 @@ export async function runFoundationScraper(startOffset?: number, maxToProcess?: 
       let batchEnriched = 0;
 
       const results = await Promise.all(
-        rows.map((row) => limit(() => processFoundation(row, einIndex, pool, irs990Source, supabase, googleBreaker))),
+        rows.map((row) =>
+          limit(() => processFoundation(row, einIndex, pool, irs990Source, supabase, googleBreaker, batchZipCache)),
+        ),
       );
 
       for (const result of results) {
