@@ -135,9 +135,15 @@ export class SubmissionValidator {
     const blockers: string[] = [];
 
     // --- KB completeness: query organizations table ---
+    // NOTE: `organizations` has no `contact_name` column (never has, in any
+    // migration) — that column only exists on unrelated tables like
+    // outreach_contacts/prospects. Selecting it here used to make this whole
+    // query error out, so every KB field silently registered as missing
+    // regardless of real data. `founder_name` is the closest real column for
+    // "who to list as the org's primary contact."
     const { data: org } = await supabase
       .from("organizations")
-      .select("mission_statement, ein, address_line1, contact_name, contact_email, phone")
+      .select("mission_statement, ein, address_line1, founder_name, contact_email, phone")
       .eq("id", orgId)
       .single();
 
@@ -145,7 +151,7 @@ export class SubmissionValidator {
       ["mission_statement", "Mission statement"],
       ["ein", "EIN (Employer Identification Number)"],
       ["address_line1", "Organization address"],
-      ["contact_name", "Primary contact name"],
+      ["founder_name", "Primary contact name"],
       ["contact_email", "Primary contact email"],
     ];
 

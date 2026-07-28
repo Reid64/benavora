@@ -140,3 +140,58 @@ Follow-up to §2. At some point after the original audit run, `ALTER TABLE funde
 **Verdict: the `automation_level` bug is fixed.** The pipeline now clears the funder fetch, the early control-plane block check, the portal/email presence check, and the domain control-plane check — all of which sit between line 472 and the new failure point. It now fails later, at `org_not_ready` (`queue-processor.ts` org-readiness gate, checked before browser launch) — a **legitimate data-completeness gate**, not a bug: this test org genuinely has no active `request_profiles` row, which the pipeline correctly refuses to submit against (an AutoApply submission with no request profile would have nothing to tell the funder it's asking for). This is expected behavior for this test org's current data state, not a new regression.
 
 **For an actual full-pipeline demo run** (reaching `FormAnalyzerAgent` / Playwright / risk assessment / a real submission), this test org needs at least one active `request_profiles` row and complete organization profile fields — that is a test-data gap, not a code fix.
+
+---
+
+## 6. `org_not_ready` follow-up — BLOCKED on missing production tables, one real code bug found and fixed (2026-07-28)
+
+Goal: seed an active `request_profiles` row for Faith Foundation and re-run the live test to confirm the pipeline reaches actual form-filling. **Could not complete as scoped** — two more schema-drift gaps, deeper than §5's, block this independent of any row-seeding. One genuine code bug was found and fixed along the way; the two missing tables were not, because no DDL credential available in this session can create them.
+
+**Schema check, per the task's request (`SCHEMA_REGISTRY_v2.md` + normal creation path):**
+- `SCHEMA_REGISTRY_v2.md` has **zero mentions** of `request_profiles` anywhere — this table (and its siblings `kb_extended_needs`, `pitch_cache`, `org_documents`, `submission_receipts`, `grant_agreements`, `webhook_configs`, `cross_client_submissions`) is entirely undocumented in the schema registry. Consistent with the already-known pattern of undocumented tables (Stripe webhook tables, etc.).
+- Real schema: `supabase/migrations/051_submission_intelligence.sql`. Its own header comment reads: *"NOTE: Migration 051 must be applied manually via Supabase SQL Editor."* — i.e., unlike most migrations in this repo, it was authored to require a human pasting it into the Supabase dashboard, not an automated apply.
+- Normal creation path (found per the task's ask): `POST /api/autoapply/profiles` (`src/app/api/autoapply/profiles/route.ts`), backing the `/autoapply/profiles` page wizard. Session-gated (`requireRole("writer")`), `organization_id` derived server-side. `request_type` is a validated enum: `monetary | land | in_kind | volunteer | service | partnership | sponsorship | facility`.
+
+**Direct live-schema check (service-role REST, same method as prior sections) found migration 051 was never applied to production at all:**
+- `GET .../rest/v1/request_profiles` → `PGRST205 Could not find the table 'public.request_profiles'` (PostgREST's "did you mean" suggested `search_profiles` — an unrelated table).
+- `GET .../rest/v1/org_documents` → `PGRST205 Could not find the table 'public.org_documents'` (suggested `documents` — a different, unrelated, and for this org empty, table).
+- Both confirm: this isn't an RLS-hidden or empty-table situation like §2/§5 — the tables genuinely do not exist in the live database.
+
+**A second, independent, real code bug found while tracing this (now fixed):** `checkOrgReadiness()` in `src/lib/autoapply/submission-validator.ts` selected `organizations.contact_name` — a column that has **never existed on `organizations` in any migration**, ever (grepped full migration history; `contact_name` only exists on unrelated tables like `outreach_contacts` and `prospects`). Selecting a nonexistent column makes the entire `.select()` call error, so `org` came back `null`/`undefined`, `orgRow` fell back to `{}`, and **every one of the 5 required KB fields registered as "missing" for every organization**, regardless of how complete their real data actually was — confirmed for Faith Foundation specifically: `mission_statement`, `ein`, `address_line1`, and `contact_email` are all genuinely present and non-empty in production, yet all four were being reported missing. This is why §2/§5's log line showed *two* blockers, not one — the missing-profile blocker was real, but "Required organization information is incomplete" was a false positive caused by this bug, not actual missing data.
+
+**Fix applied** (`src/lib/autoapply/submission-validator.ts`): swapped the nonexistent `contact_name` for `founder_name` (the closest real column — for a two-person nonprofit like this one, the founder is the de facto primary contact), in both the `.select()` and the `kbRequired` field-check list. `pnpm tsc --noEmit` clean. This is a real, always-broken bug for every org on this platform, not specific to the test tenant — worth landing regardless of the tables blocker below.
+
+**Why the row couldn't be seeded — no working DDL path found in this session, all checked:**
+- Management API PAT from `BLUEPRINT_v2.md` §8.3 (`sbp_a63596...`) — re-tested fresh with a trivial `SELECT 1`: still `401 Unauthorized` (same as the 2026-07-19 finding; not stale, actually re-verified today).
+- Supabase MCP tools (`list_projects`) — only see `tarritrix`/`tarritrix-audit` (ref `jhiplicikizdpdsguimg`/`hacsgiylclthwqzbktoe`), an unrelated Supabase org; the real prod project (ref `vbjplpquqxxfbpazyalt`) is not reachable through it.
+- Supabase CLI (`supabase projects list`) — authenticated, but same two unrelated `tarritrix*` projects only; prod isn't linked.
+- No `DATABASE_URL` / raw Postgres connection string found anywhere checked: `.env.local`, Railway `benavora-worker` service variables (names only, listed via `railway variables --json`), Vercel production env var names (`vercel env ls production`). Service-role key is a PostgREST JWT, not a Postgres role password — it can do DML through the REST API but categorically cannot run `CREATE TABLE`/`ALTER TABLE`.
+- No `exec_sql`/`run_sql`-style RPC function exists in any migration that could run arbitrary DDL through PostgREST as a workaround.
+
+**Side note, unrelated to this task but worth flagging:** while checking Railway env vars, an early `railway variables --json` call printed real secret values (`ANTHROPIC_API_KEY`, part of `CRON_SECRET`) directly into this session's tool output/transcript, before switching to a names-only listing for the rest of the check. Those secrets aren't committed to git, but they are now present in this conversation's history — worth a rotation if that transcript could ever be exported or shared, purely out of caution.
+
+**Bottom line: BLOCKED, not fixed.** The `automation_level` fix (§5) is real and confirmed live. This follow-up is not — it requires a human with dashboard/SQL-editor access to Supabase project `vbjplpquqxxfbpazyalt` to run DDL that no credential available to this session can run. Two concrete unblockers, ready to hand to Reid:
+
+1. **Apply migration 051** (`supabase/migrations/051_submission_intelligence.sql`) via the Supabase Studio SQL Editor — creates `request_profiles`, `org_documents`, and the other five tables in that file, plus the `submission_queue.request_profile_id` FK column the worker already expects.
+2. **Once applied, seed one active `request_profiles` row for Faith Foundation** — realistic values matching the org's real profile (75k annual budget, 2 staff, housing/veterans/recovery/reentry focus):
+   ```sql
+   INSERT INTO request_profiles (
+     organization_id, name, request_type, needs_description,
+     priority, active, min_value, max_value, value_unit,
+     target_funder_categories
+   ) VALUES (
+     'b1ab7402-dfc2-4712-869f-70ea3566cc1d',
+     'General Operating & Housing Program Support',
+     'monetary',
+     'General operating and program support for transitional and permanent housing assistance, financial education, and homeownership counseling serving veterans, individuals experiencing homelessness, single parents, and those in recovery or reentry.',
+     100,
+     true,
+     2500,
+     25000,
+     'usd',
+     ARRAY['corporate_foundation','community_foundation','family_foundation']
+   );
+   ```
+   (Also seeding at least one `org_documents` row per type `501c3_letter`/`form_990` will additionally clear the doc-completeness half of the readiness gate — those are real compliance artifacts Reid would need to supply, not fabricatable test data.)
+
+Once both are done, re-running the exact same live test (§2/§5's method) should be the next step to confirm the pipeline actually reaches `FormAnalyzerAgent`/Playwright/risk assessment — not yet verified, since it's gated on the above.
