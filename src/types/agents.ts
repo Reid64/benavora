@@ -101,7 +101,15 @@ export type AgentType =
   // AutoApply Form Fill Engine — fills and submits a corporate giving form using
   // a stored form_template via Playwright. Creates autoapply_submissions records
   // with screenshots and confirmation numbers.
-  | "form_filler";
+  | "form_filler"
+  // Corporate Intelligence Engine (CORPORATE_INTELLIGENCE_ARCHITECTURE.md §2B/§6,
+  // Agent EA-01..EA-05). Enrich corporate_prospects.enrichment jsonb.
+  // Migration 107 adds these to the DB agent_type enum.
+  | "ea01_giving_detector"
+  | "ea02_community_outreach_detector"
+  | "ea03_sponsorship_detector"
+  | "ea04_foundation_detector"
+  | "ea05_career_page_analyzer";
 
 export type AgentRunStatus = "pending" | "running" | "completed" | "failed";
 
