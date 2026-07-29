@@ -36,6 +36,7 @@
         "enrich:propublica-contacts": "tsx scripts/enrich-propublica-contacts.ts",
         "discover:websites": "tsx scripts/discover-websites.ts",
         "scrape:contacts": "tsx scripts/scrape-website-contacts.ts",
+        "scrape:universal": "tsx scripts/run-universal-scraper.ts",
         "ingest:tdlr": "tsx scripts/ingest-tx-tdlr.ts",
         "ingest:landbanks": "tsx scripts/ingest-land-banks.ts",
         "ingest:federal-register": "tsx scripts/ingest-federal-register.ts",
