@@ -76,7 +76,9 @@
         "gmaps:import-foundations": "npx tsx scripts/import-gmaps-results.ts --mode=foundations",
         "gmaps:import-nonprofits": "npx tsx scripts/import-gmaps-results.ts --mode=nonprofits",
         "scrape:foundations": "tsx scripts/run-foundation-scraper.ts",
-        "scrape:nonprofits": "tsx scripts/run-nonprofit-scraper.ts"
+        "scrape:nonprofits": "tsx scripts/run-nonprofit-scraper.ts",
+        "scrape:foundations-v2": "tsx scripts/run-foundation-990-template.ts",
+        "scrape:nonprofits-v2": "tsx scripts/run-nonprofit-contact-template.ts"
     },
     "dependencies": {
         "@2captcha/captcha-solver": "^1.3.6",
@@ -166,6 +168,9 @@
     "pnpm": {
         "overrides": {
             "google-auth-library": "10.7.0"
-        }
+        },
+        "neverBuiltDependencies": [
+            "better-sqlite3"
+        ]
     }
 }
