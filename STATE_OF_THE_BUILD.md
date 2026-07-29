@@ -6,6 +6,16 @@
 
 ---
 
+## SESSION — July 28, 2026 (Universal Scraper schema — migration 110, pending manual apply)
+
+Per `UNIVERSAL_SCRAPER_PRD.md` §3.4, added `supabase/migrations/110_scrape_jobs_universal_scraper.sql` defining `scrape_jobs` and `scrape_results` exactly per the PRD's schema, plus indexes (`scrape_jobs.status`, `scrape_jobs.keyword`, `scrape_results.job_id`). RLS enabled on both tables with no permissive policy — service-role-only access, matching the posture already used for other worker-owned queues with no per-tenant end-user (`dd_robots_cache` 068, `donor_discovery_geocache` 077, `worker_status` 047). No `organization_id` column, matching the PRD's literal schema and the fact that this is platform infrastructure the universal-scraper worker/CLI writes to, not a per-org dashboard resource. Full reasoning is in the migration file's header comment.
+
+**This migration is pending manual application via the Supabase SQL Editor** — same DDL-credential gap as migrations 051 and 052 from tonight's earlier session (Management API PAT still 401, no other DDL path found this session). It was **not** applied; only the file was created and committed. Apply at `https://supabase.com/dashboard/project/vbjplpquqxxfbpazyalt/sql/new` when Reid has SQL Editor access.
+
+Gates: not run this session (SQL-only change, no TypeScript touched).
+
+---
+
 ## SESSION — July 28, 2026 (overnight consolidation)
 
 Consolidated snapshot of everything shipped in tonight's overnight session, reconciling roughly 25 commits since the July 27 governance sync entry below. This entry is a summary/index — the individual fixes already have their own detailed write-ups either further down this file or in `DEMO_READINESS_AUDIT.md`/`MIGRATION_AUDIT.md`; this entry doesn't repeat every detail, it points to where each lives and states the net current status.
