@@ -43,6 +43,7 @@
         "score:opportunities": "tsx scripts/batch-score-opportunities.ts",
         "score:eligibility": "tsx scripts/batch-score-eligibility.ts",
         "seed:intelligence": "tsx scripts/seed-intelligence-corpus.ts",
+        "test:universal-fetcher": "tsx scripts/test-universal-fetcher.ts",
         "seed:library": "tsx scripts/seed-intelligence-library.ts",
         "seed:patterns": "tsx scripts/seed-knowledge-patterns.ts",
         "seed:platform-patterns": "tsx scripts/seed-platform-patterns.ts",
