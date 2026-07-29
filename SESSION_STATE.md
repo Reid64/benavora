@@ -1,12 +1,27 @@
 # BENAVORA — Session State
 ## Last Updated: July 28, 2026
-## Mode: Governance sync — overnight session consolidation (docs-only session)
+## Mode: Governance sync — Universal Scraper build documentation (docs-only session)
 
 ---
 
 ## Current Session
 
 **Date:** July 28, 2026
+**Focus:** Documentation-only governance sync for the Universal Scraper build, steps uscraper-001 through 007, per `UNIVERSAL_SCRAPER_PRD.md`. No code written this session — read the 5 committed `feat(scraper-v2)` commits (`a3378c5`→`03a49cb`) plus 2 uncommitted/untracked file sets found in the working tree (`job-store.ts`, `templates/foundation-990-template.ts`, `templates/nonprofit-contact-template.ts`, `scripts/run-foundation-990-template.ts`, `scripts/run-nonprofit-contact-template.ts`), diffed the modified `foundation-scraper.ts`/`package.json`, and re-ran `pnpm tsc --noEmit` (0 errors, full project).
+**Status:** Documented all 7 steps honestly against actual evidence rather than commit-message claims alone:
+- **uscraper-001 (schema)** — migration 110 file committed, **not confirmed applied to prod** (same DDL-credential gap as 051/052/107).
+- **uscraper-002 (elite stealth stack)** — camoufox-js confirmed non-functional (Node 20 vs its declared `>=22` floor, segfault in `sampleWebGL()`/`better-sqlite3`); fallback stack (rebrowser-patches + ghost-cursor on existing stealth-engine.ts) confirmed working and is what 003 built on.
+- **uscraper-003/004/005 (fetch/extract/CLI pipeline)** — **verified real**, not just claimed: re-confirmed `scrape-output/` still contains the 6 mock-JSON files from uscraper-005's live "vegan bakeries Austin" run (1 job + 5 results), matching the commit message's description exactly. This is the part of the PRD that's genuinely proven against live, varied targets.
+- **uscraper-006/007 (foundation-990 and nonprofit-contact job templates)** — code exists, is well-reasoned (990 XML extraction correctly kept on the deterministic parser instead of the Claude/Readability layer; nonprofit contact extraction correctly upgraded to schema-flexible extraction), and type-checks cleanly, but **found zero evidence either was ever executed** — no `scrape-output/` record, no `foundation_directory`/`nonprofits` write matching either template, and the nearby `enrichment-output/scraper-checkpoint.json` predates both template files by over an hour (leftover from the old standalone `pnpm scrape:foundations` CLI, not these templates). Per this session's explicit instruction, these are **not** marked BUILT.
+
+Updated `FEATURE_REGISTRY_v2.md` with a new "Universal Scraper (uscraper-001 through 007)" section (US1-US7: 3 BUILT, 4 PARTIAL) and revised summary totals (198 total, 97 Built, 10 Partial). Added a new session entry to `STATE_OF_THE_BUILD.md` above the existing uscraper-001/002 entries with full per-step detail and honest status.
+**Commit:** `governance: universal scraper build status July 28 2026` (this session).
+**Gates:** `pnpm tsc --noEmit` — 0 errors, ran clean this session (no code changed; check covered the uncommitted uscraper-006/007 files too).
+
+---
+
+## Prior Session — July 28, 2026 (overnight consolidation)
+
 **Focus:** Documentation-only governance consolidation of ~25 commits from tonight's overnight session: worker outage resolution, stealth scraper + IRS 990 fetch fix, AutoApply `automation_level` fix (confirmed end-to-end, now blocked one gate further at `org_not_ready`/missing `request_profiles`), nonprofit scraper scheduler wiring, 2Captcha/process-followups re-verification, integration settings wiring, submission queue priority scoring, full migration-vs-production audit (28/108 not applied), worker heartbeat fix, and a new EA-01–EA-10 corporate enrichment agent pipeline + AG-22 propensity scoring. No code written this session.
 **Status:** Read STATE_OF_THE_BUILD.md, SESSION_STATE.md, FEATURE_REGISTRY_v2.md, DEMO_READINESS_AUDIT.md, and MIGRATION_AUDIT.md. Corrected two stale FEATURE_REGISTRY_v2.md entries: D1 (IRS BMF Full Import) was already BUILT from a prior session (task's "never successfully run" premise was itself stale — no change needed, verified only). D6 (Foundation Website Scraper) updated PLANNED → BUILT, reflecting the IRS 990 fetch fix and a confirmed real run parsing at 8/10 tonight. **Also corrected a false premise in this session's own task description:** it claimed only EA-01/EA-08/EA-09/AG-22 were built and EA-02–EA-07/EA-10 remain unspecified reserved slots — direct verification found all 10 EA agent files exist on disk (136–179 lines each, real logic, none stubs), wired together in `worker/enrichment-processor.ts`, with `ag-22-propensity-scoring.ts` as the Score Engine step. Updated FEATURE_REGISTRY_v2.md #57 (Integration Settings, PARTIAL→BUILT), #87 (Corporate Prospects Table — corrected migration reference from 076-084 to the real 107_corporate_prospects.sql, flagged unconfirmed-live), #90/#91 (EA agents/propensity scoring, PLANNED/IN BUILD→BUILT with wiring + table-liveness caveats), S3/S4 scraper rows (nonprofit scraper now scheduler-wired), and the summary totals table (94 Built, up from 90). Added a consolidated "SESSION — July 28, 2026 (overnight consolidation)" entry to STATE_OF_THE_BUILD.md indexing all ten fix areas with commit references. One item from the task description — a "Sales Outreach New Campaign fix" — could not be corroborated in git history or any other governance doc; flagged as unverified rather than recorded as done.
 **Commit:** `governance: overnight session consolidation + agent pipeline + stale registry corrections July 28 2026` (this session).
