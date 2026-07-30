@@ -604,6 +604,13 @@ export class QueueProcessor {
     const timingScore = timingResult.score;
 
     // --- A/B test variant selection (before pitch personalization) ---
+    // activeVariantId still drives pitch-variant selection and
+    // abTestEngine.recordOutcome() below — only the write of this value into
+    // autoapply_submissions.variant_id was removed (that column doesn't exist
+    // live; confirmed via direct PostgREST query, Postgres error 42703). That
+    // write made the insert into autoapply_submissions fail for every
+    // web_form/email submission, so no audit row was ever created regardless
+    // of outcome — found via src/__tests__/integration/autoapply-queue.test.ts.
     let activeVariantId: string | null = null;
     const abVariant = await this.abTestEngine
       .getVariant(orgId, funder.category ?? '', this.supabase)
@@ -746,7 +753,6 @@ export class QueueProcessor {
           personalized_pitch: personalizedPitch,
           optimized_amount: optimizedAmount,
           timing_score: timingScore,
-          variant_id: activeVariantId,
           error_message: emailError,
           submitted_at: emailStatus === 'submitted' ? new Date().toISOString() : null,
         })
@@ -1275,7 +1281,6 @@ export class QueueProcessor {
         personalized_pitch: personalizedPitch,
         optimized_amount: optimizedAmount,
         timing_score: timingScore,
-        variant_id: activeVariantId,
         error_message: errorMessage,
         error_screenshot_url: errorPath,
         retry_count: 0,
