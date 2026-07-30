@@ -776,3 +776,244 @@ persisted `opportunity_probability_scores` row read back and hand-checked agains
 function's own factor-weight math; direct reading of `buildKeyRisks()` to root-cause the
 deadline-message defect the live CEVSS run surfaced. All temporary test scripts were deleted
 after the session; no repo files were left behind.
+
+---
+
+## AG-16
+
+**Spec under test:** `AGENTS_v2.md` §5, AG-16 "Digital Twin Builder Agent" — Autonomous
+Status: **PLANNED**, "not imported anywhere in `worker/`... `agent_registry` metadata claims
+monthly schedule, unenforced," no trigger, no decision log.
+**Real file:** `src/lib/intelligence/digital-twin-builder.ts`, `buildDigitalTwin()` — a plain
+async function (not a `BaseAgent`/`AutonomousAgent` class; matches AGENTS_v2.md's description of
+this as a deterministic, non-Claude precursor to a future full AG-16 agent). `FEATURE_REGISTRY_v2.md`
+Pillar 6 rows #107-111 claim "IN BUILD" (last touched in the Tier-6 overnight-build era) except
+#110 (Twin-Powered Draft Generation) and part of #111, which it separately marks BUILT.
+
+**Verdict: `AGENTS_v2.md`'s "PLANNED, nothing live" framing is stale and wrong. The underlying
+function is real, schema-correct, and — confirmed live against the production database, not
+just read from code — has actually executed successfully for the real Faith Foundation org.
+`FEATURE_REGISTRY_v2.md`'s "IN BUILD" wording undersells it in the opposite direction: this is
+working, wired-to-real-triggers code, not something still being built.**
+
+### What actually happened (in order)
+
+1. **`pnpm tsc --noEmit` — clean.** Neither `digital-twin-builder.ts` nor its companion
+   `twin-auto-populate.ts` / `twin-completeness.ts` appears anywhere in the compiler's error
+   output. The only errors in the full run are pre-existing, unrelated `src/__tests__/**`
+   issues (deadline-predictor, outcome-analyzer, samgov-client, two `.catch()`-on-builder
+   issues already tracked in project memory) — none touch this agent's files.
+
+2. **Read `buildDigitalTwin()` end-to-end and cross-checked every column it queries against the
+   real migrations, not just trusted its own header comment's claims:** `organizations.mission_statement`/
+   `service_area`/`city`/`state`/`annual_budget`/`total_staff`/`total_volunteers` (migration 001 +
+   later extensions), `knowledge_base.category`/`title`/`content`/`is_proven`/`funder_categories`
+   including the `program_description` enum value the header claims substitutes for a
+   non-existent `program` value (confirmed: `knowledge_base_category` enum in migration 001
+   line 61 lists `program_description`, not `program`), `board_members.organization_id`/`name`/
+   `title`/`bio`/`email`/`is_active` (migration 001 line 320), `outcomes.organization_id`/
+   `result`/`funder_category`/`opportunity_category`/`awarded_amount`/`recorded_at` (migration
+   001 line 350). Every column referenced is real — no fabricated schema.
+
+3. **Confirmed the destination table is real and, critically, already populated for the real
+   tenant** — queried `organizational_digital_twins` (migration `093_digital_twins.sql`, the
+   correct root-path migration per that file's own header, not the `src/supabase/migrations/094`
+   duplicate) directly against production (project `vbjplpquqxxfbpazyalt`) scoped to the real
+   Faith Foundation org (`b1ab7402-dfc2-4712-869f-70ea3566cc1d`) via the service-role client:
+   a real row exists — **`twin_completeness_score: 70`, `last_rebuilt_at: 2026-07-25T00:54:25Z`** —
+   containing the org's real mission statement, real service area ("Texas"), two program
+   descriptions, and three real board members (Reid Whitesides, Pastor Juan Valdez, Scott
+   Ellis) with their actual bios pulled from the live `board_members`/`knowledge_base` tables.
+   This is not a stub or seed row — the content is genuine, org-specific, human-written text,
+   consistent with `buildDigitalTwin()` having actually run against this org's real data at
+   least once.
+4. Confirmed `key_strengths` on the live row ("2 documented programs.", "3 active board members
+   on record.", "Well-developed knowledge base (10+ entries).") matches `buildKeyStrengths()`'s
+   logic exactly for this org's real counts, and `financial_profile` (`{total_staff: 2,
+   annual_budget: 75000, total_volunteers: 2}`) matches `buildFinancialProfile()`'s flat-map
+   shape precisely — the persisted data is demonstrably the real function's real output, not a
+   hand-inserted placeholder.
+5. **Minor, non-blocking data-quality observation (not a code bug):** the live row's `programs`
+   array contains the same "Core Programs Overview" title/description twice, verbatim. Reading
+   `buildPrograms()` shows it faithfully maps every `knowledge_base` row tagged
+   `program_description` — the duplication is upstream KB data hygiene (two near-identical KB
+   entries), not a defect in the twin-builder's mapping logic.
+6. **Confirmed real call sites beyond the AGENTS_v2.md-documented manual API route**
+   (`/api/intelligence/digital-twin`): `buildDigitalTwin()` is also invoked from
+   `src/app/api/knowledge-base/route.ts` (rebuilds the twin on KB writes) and
+   `src/app/api/onboarding/complete-setup/route.ts` (builds it at onboarding completion), plus
+   a companion event-driven module, `src/lib/intelligence/twin-auto-populate.ts`
+   (`/api/intelligence/twin/auto-populate`), which fills gaps in the twin from `nonprofits`/
+   `foundation_directory` enrichment data without overwriting existing non-null fields. None of
+   this is a nightly/scheduled `worker/autonomous-orchestrator.ts` sweep — confirmed by grep,
+   zero matches for `buildDigitalTwin`/`DigitalTwin` anywhere in that file — so AGENTS_v2.md's
+   narrower claim ("not imported anywhere in `worker/`") is still accurate for the *autonomous
+   nightly* trigger specifically. But its broader framing ("PLANNED... none live") is wrong:
+   this is event-driven (KB save, onboarding), not schedule-driven, and it demonstrably works
+   against real production data today.
+7. A companion unit test exists (`src/__tests__/unit/digital-twin-builder.test.ts`). Test
+   execution (`vitest`/`jest`) was blocked by this session's sandbox permission gate (multiple
+   invocation attempts — `pnpm exec jest`, `npx jest`, `pnpm test:unit --`, `pnpm vitest run` —
+   all returned "this command requires approval" with no prompt reachable) — unlike the prior
+   AG-15/AG-20/AG-21 sessions in this log, this session could not get a test-runner approved.
+   Live-data verification (steps 1-6 above) substituted for it and is, if anything, stronger
+   evidence than a mocked unit test would be.
+
+### Root-cause summary
+
+1. **`AGENTS_v2.md` AG-16 spec is stale, not current.** Its "PLANNED... no file, no trigger, no
+   decision log" framing describes a state that predates this working implementation. The real
+   function exists, compiles clean, matches the real schema in every column, and — confirmed by
+   direct live-database read, not inference — has already successfully built and persisted a
+   real, data-rich twin for the real Faith Foundation tenant.
+2. **`FEATURE_REGISTRY_v2.md` #107-109/#111 ("IN BUILD") undersells it from the other
+   direction** — this is not "currently being built," it is built, compiles, and has live
+   production output today. Only the *autonomous nightly sweep* trigger remains genuinely
+   absent; the manual/event-driven triggers (API route, KB save, onboarding, auto-populate) are
+   real and working.
+3. **No code defect found in this agent.** The one anomaly (duplicate program entry) traces to
+   upstream KB data, not `digital-twin-builder.ts` logic.
+
+**Recommendation:** correct `AGENTS_v2.md` AG-16's Autonomous Status from PLANNED to a status
+reflecting "event-driven, ENABLED" (KB save / onboarding / manual API — not schedule-driven).
+`FEATURE_REGISTRY_v2.md` rows #107-109/#111 should read BUILT, not IN BUILD, with a note that
+the nightly-schedule variant described in the Pillar 6 vision is still absent. No further build
+work is required for the core function to be useful; a nightly-sweep entry in
+`worker/autonomous-orchestrator.ts` would close the one real gap.
+
+**Verification method:** live `pnpm tsc --noEmit`; direct reading of `buildDigitalTwin()`
+cross-checked column-by-column against migration 001/093 DDL; live read of the real
+`organizational_digital_twins` row for the real Faith Foundation org
+(`b1ab7402-dfc2-4712-869f-70ea3566cc1d`) against production (`vbjplpquqxxfbpazyalt`) via the
+service-role client (`node --import tsx`, `ws` WebSocket polyfill for Node 20, no mocks);
+repo-wide grep for every call site of `buildDigitalTwin`/`OpportunityDiscoveryAgent`-style
+wiring in `worker/`. All temporary verification scripts were deleted after the session; no
+repo files were left behind, no data was modified (read-only queries only for this agent).
+
+---
+
+## AG-17
+
+**Spec under test:** `AGENTS_v2.md` §5, AG-17 "Opportunity Discovery Agent" — Autonomous Status:
+**"ENABLED (blocked at runtime, see §1.2)"** — every invocation calls `startRun()`, which
+inserts `agent_type = 'ag-17-discovery'` into a strict Postgres enum that (per §1.2, dated
+July 19, 2026) never had that value added, so the insert throws before any Grants.gov/SAM.gov/
+Federal Register call is made.
+**Real file:** `src/lib/agents/opportunity-discovery-agent.ts`, class
+`OpportunityDiscoveryAgent extends AutonomousAgent`, plus the thin wrapper
+`runOpportunityDiscovery()`. The file has since been substantially rewritten (per its own header,
+"Agentic upgrade, July 19, 2026") into a full perceive/decide/execute/observe loop with five
+strategy branches — considerably more built than a literal reading of the AGENTS_v2.md prose
+(written the same day) suggests.
+
+**Verdict: `AGENTS_v2.md`'s "ENABLED (blocked)" framing is directionally correct and still true
+today — reproduced live, not inferred — but its stated cause (§1.2's enum gap) is only half the
+story. A migration fixing the enum already exists in the repo but has not been applied to
+production, and a second, previously-undocumented live bug in the same file's perception phase
+would silently degrade the agent's decision logic even after the enum is fixed.**
+
+### What actually happened (in order)
+
+1. **`pnpm tsc --noEmit` — clean.** `opportunity-discovery-agent.ts` does not appear anywhere in
+   the compiler's error output; the only errors present are the same pre-existing, unrelated
+   `src/__tests__/**` issues noted in the AG-16 entry above. No unit test file exists for this
+   agent (`src/__tests__/unit/` has no discovery-agent spec) to attempt to run.
+
+2. **Found that a fix for the AGENTS_v2.md §1.2 enum gap already exists in the repo, unlike the
+   still-open AG-15 gap documented earlier in this log** — `src/supabase/migrations/101_orchestrator_enterprise_hardening.sql`
+   (dated in its own header as a "2026-07-20 enterprise hardening pass," i.e. written the day
+   *after* AGENTS_v2.md's July 19 audit) contains
+   `ALTER TYPE agent_type ADD VALUE IF NOT EXISTS 'ag-17-discovery';` alongside the same fix for
+   `'autonomous_orchestrator'` and `'ag-36-learning-network'`. This migration's existence alone
+   does not mean it is live — the project has two parallel migration directories
+   (`supabase/migrations/` vs `src/supabase/migrations/`) whose live-vs-stale status is disputed
+   per project memory, and separately, per `MIGRATION_AUDIT.md`, `ALTER TYPE ... ADD VALUE`
+   statements are explicitly out of scope for that audit's coverage.
+
+3. **Reproduced the exact live-DB failure directly, rather than trusting either AGENTS_v2.md's
+   claim or the migration file's presence** — ran the same `agent_runs.insert({ organization_id,
+   agent_type: "ag-17-discovery", status: "running", trigger_source: "manual", started_at })`
+   that `startRun()` performs, against the live production database (`vbjplpquqxxfbpazyalt`),
+   scoped to the real Faith Foundation org. Result:
+   ```
+   error: {"code":"22P02","message":"invalid input value for enum agent_type: \"ag-17-discovery\""}
+   ```
+   **Confirmed live and current: migration 101's enum fix has not been applied to production.**
+   `OpportunityDiscoveryAgent.run()` still cannot execute at all today — it fails on the very
+   first line of `run()`, before the perceive/decide/execute/observe loop or any external API
+   call runs, on every trigger path (schedule, manual, chain, queue alike).
+
+4. **Confirmed the chain-routing side of §1.3 is fixed** (matching what the AG-15 entry above
+   already found for its own agent_id): `worker/autonomous-orchestrator.ts` has a live
+   `case 'ag-17-discovery':` (line 1245, aliasing the pre-existing `'opportunity_discovery'`
+   case) and a live `case 'ag-15-probability':` (line 1256) that this agent's own
+   `queueChainedAgent("ag-15-probability", ...)` call (fired when new opportunities are found
+   and `auto_score_enabled`) now has a real destination for. Routing is not the blocker;
+   the enum gap confirmed in step 3 is.
+
+5. **Found a second, previously undocumented live defect while verifying the perception phase's
+   real dependencies** — `perceiveState()` (line ~554) queries
+   `opportunity_probability_scores` with `.eq("org_id", this.orgId)`. Migration `093_digital_twins.sql`
+   (the real, root-path migration — confirmed by its own header comment explaining
+   `src/supabase/migrations/` duplicates aren't real) defines this table's org-scoping column as
+   `organization_id`, not `org_id` — `simulation-agent.ts`'s own code comment (line 426)
+   independently confirms this exact naming, warning against the same mistake this file makes.
+   Reproduced live against production: the identical query returns
+   `{"code":"42703","message":"column opportunity_probability_scores.org_id does not exist"}`,
+   while the same query with `organization_id` succeeds and returns real rows (169 found for
+   this org). Because Supabase-js does not throw on this class of error — it resolves to
+   `{data: null, error}` — this does **not** crash `run()`; `scoreRows` silently becomes `[]`,
+   `avgProbabilityScore` is always computed as `null`, and the DECISION PHASE's
+   `federal_shift` branch (meant to fire when the org's average probability score is below 50)
+   can therefore **never trigger, for any org, ever** — it is live dead code, not just
+   theoretically unreachable. The same `null` baseline also means the OBSERVATION PHASE's
+   `probabilityGateOk` check for chaining into `ag-15-probability` always defaults to "pass"
+   rather than genuinely gating on pipeline quality, silently defeating one of the two
+   documented conditions for that chain (`snapshot.avgProbabilityScore >= 
+   PROBABILITY_CHAIN_MIN_AVG_SCORE`).
+6. Confirmed the agent's other real dependencies are present and correctly scoped for the real
+   org: `search_profiles` has 1 real active profile for Faith Foundation (`organization_id`,
+   `is_active` — both real columns, migration-verified), so if the enum gap in step 3 were
+   fixed, the standard-strategy sweep would have a real profile to run Grants.gov/SAM.gov/
+   Federal Register searches against, not an empty set.
+
+### Root-cause summary
+
+1. **`AGENTS_v2.md`'s core claim — "ENABLED but blocked at runtime by the agent_type enum gap"
+   — is confirmed still true today**, live-reproduced against production, not just re-read from
+   the doc. Every trigger path fails before any discovery logic executes.
+2. **New finding: a fix already exists in the repo** (`src/supabase/migrations/101_orchestrator_enterprise_hardening.sql`)
+   but has **not been applied to the live database** — confirmed by the identical enum error
+   still occurring live. This narrows the actual remaining work from "write a migration" (as
+   AGENTS_v2.md's recommendation implies) to "apply the migration that already exists."
+3. **New, previously undocumented defect**: `perceiveState()`'s `opportunity_probability_scores`
+   query uses the wrong column name (`org_id` instead of `organization_id`), silently zeroing
+   out the average-probability-score baseline for every org. This means even after the enum
+   gap is fixed, the `federal_shift` decision branch will never fire and the probability-chain
+   gate will never actually gate — both silent, not crashing, so this would ship invisibly.
+4. **`FEATURE_REGISTRY_v2.md` #83 ("Discovery Agent Core — IN BUILD")** is stale in the other
+   direction from AG-16: the code is considerably more built (full perceive/decide/execute/
+   observe loop, five strategies, foundation-match and land-bank integration) than "IN BUILD"
+   suggests, but it still cannot run in production today, so neither "IN BUILD" nor an
+   unqualified "BUILT" would be accurate — it needs the same blocked/caveated framing already
+   used for #217/#218/#227 elsewhere in that document.
+
+**Recommendation:** apply `src/supabase/migrations/101_orchestrator_enterprise_hardening.sql`'s
+three `ALTER TYPE agent_type ADD VALUE` statements to production (same DDL-access blocker
+documented elsewhere in project memory — Management API PAT returns 401, no other DDL path
+confirmed) before trusting any nightly/manual/chained run of this agent. Separately, fix
+`perceiveState()`'s `.eq("org_id", ...)` to `.eq("organization_id", ...)` — a one-line fix,
+independent of the enum-migration blocker, needed before the `federal_shift` strategy or the
+probability-chain quality gate can ever actually function.
+
+**Verification method:** live `pnpm tsc --noEmit` against the full project; a live,
+field-for-field reproduction of `startRun()`'s real `agent_runs` insert against production
+(project `vbjplpquqxxfbpazyalt`), scoped to the real Faith Foundation org, with the resulting
+error captured verbatim (no row was created, nothing to clean up); a repo-wide grep confirming
+`routeQueueItem()`'s current case list for both `'ag-17-discovery'` and `'ag-15-probability'`;
+a live, side-by-side comparison of the same `opportunity_probability_scores` query run with
+`org_id` (fails, `42703`) versus `organization_id` (succeeds, 169 real rows) against production;
+a live check of `search_profiles` confirming 1 real active profile for the real org. All
+temporary verification scripts were deleted after the session; no repo files were left behind;
+no data was modified (all queries were read-only except the enum-insert reproduction, which
+itself failed and left nothing to clean up).
