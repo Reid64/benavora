@@ -358,3 +358,255 @@ AG-21's own code) to confirm real leadership content exists and was simply not f
 AG-21's hardcoded path list; and direct reading of `execute()`/`BaseAgent.run()` for the
 error-handling defect. No mocks; no fabricated output. No `corporate_prospects` test rows
 were created (blocked at the same table-missing step as AG-20) so no cleanup was required.
+
+---
+
+## Full Pipeline Handoff
+
+**Spec under test:** the actual data-handoff contract described in
+`WORKER_ARCHITECTURE_v2.md` §6 ("Corporate Enrichment Queue") and implemented in
+`worker/enrichment-processor.ts`: EA-01 (AG-20) → EA-08 (AG-21) → merged `enrichment` jsonb
+→ AG-22 (`src/lib/agents/ag-22-propensity-scoring.ts`, `PropensityScoringAgent`). This entry
+tests the **seam between agents**, not each agent alone (those are the AG-20/AG-21 entries
+above) — specifically: does the merge preserve both agents' fields without collision, does
+AG-22 actually read and use that merged data, and does its score respond to real differences
+in input rather than producing the same output regardless of what was fed in.
+
+**Verdict: the composition mechanics are sound and independently confirmed working (merge
+integrity, AG-22's aggregation math genuinely discriminates by input) — but a new,
+chain-level defect means AG-22 can be triggered and will attempt to score a prospect whose
+enrichment never actually happened, and the two pre-existing total blockers (missing table,
+invalid API key) from the AG-20/AG-21 entries still block any real, fully-live run.**
+
+### Pre-flight: do the AG-20/AG-21 blockers still stand?
+
+Re-checked both, fresh, this session, exactly as those entries did:
+
+1. `corporate_prospects` table: `client.from('corporate_prospects').select('id').limit(1)` →
+   still `PGRST205 — Could not find the table 'public.corporate_prospects' in the schema
+   cache`. Unchanged since the AG-20 session. This blocks a real, persisted, end-to-end run
+   for all three agents — `fetchProspect()` (EA-01/EA-08) and `fetchFullProspect()` (AG-22)
+   both hit the same missing table.
+2. `ANTHROPIC_API_KEY` in `.env.local`: direct `POST /v1/messages` to the real Anthropic API
+   → still `401 authentication_error: "API key is invalid."` Unchanged since the AG-20/AG-21
+   sessions. This blocks every Claude call in the chain — EA-01's and EA-08's extraction
+   calls, and all 9 of AG-22's `scoreOne()` rubric calls.
+
+Given both blockers, a true end-to-end run (real DB row, real Claude completions at every
+step) is not possible this session either. Test method below follows the same standard the
+AG-20/AG-21 entries already established: run the real, unmodified functions directly wherever
+the blocker allows it, and be explicit about which steps had to substitute for a blocked live
+call rather than silently presenting a substitution as a live result.
+
+### Test 1 — does EA-01's and EA-08's output actually compose in `enrichment` without collision?
+
+Ran the real, unmodified, exported `mergeEnrichmentPatch()` from
+`corporate-enrichment-shared.ts` (imported directly, not reimplemented) against an in-memory
+mock Supabase client (`client.from('corporate_prospects').update(patch).eq('id', id)`),
+applying EA-01's exact patch shape (copied verbatim from `ea-01-giving-detector.ts` lines
+143-147) followed by EA-08's exact patch shape (copied verbatim from
+`ea-08-executive-biography-analyzer.ts` lines 158-163) — the same sequential,
+each-agent-fetches-fresh pattern `worker/enrichment-processor.ts`'s `for (const agent of
+agents) { await agent.run(input); }` loop uses in production.
+
+**Before (empty `enrichment`):**
+```json
+{}
+```
+
+**After EA-01's patch:**
+```json
+{
+  "has_giving_program": true,
+  "giving_portal_url": "https://www.salesforce.com/company/philanthropy/",
+  "known_donation_types": ["cash_grants", "in_kind_donations", "matching_gifts", "volunteer_grants"]
+}
+```
+`enrichment_version`: 0 → 1.
+
+**After EA-08's patch (should contain BOTH agents' fields):**
+```json
+{
+  "has_giving_program": true,
+  "giving_portal_url": "https://www.salesforce.com/company/philanthropy/",
+  "known_donation_types": ["cash_grants", "in_kind_donations", "matching_gifts", "volunteer_grants"],
+  "decision_maker_names": ["Marc Benioff", "Robin Washington"],
+  "decision_maker_titles": ["Chair, CEO & Co-Founder", "President & Chief Operating and Financial Officer"],
+  "board_members": ["Laura Alber", "Amy Chang", "Arnold Donald"],
+  "linkedin_profiles": []
+}
+```
+`enrichment_version`: 1 → 2. `enrichment_completed_at`/`last_verified_at` both stamped.
+
+**Confirmed programmatically (not just by eye):** all 7 keys from both agents present; every
+one of EA-01's 3 fields survived EA-08's write byte-for-byte unmodified; every one of EA-08's
+4 fields written correctly; `enrichment_version` incremented exactly twice. **The merge
+mechanic itself is correct** — EA-01 and EA-08 write disjoint key sets and the object-spread
+merge in `mergeEnrichmentPatch()` composes them cleanly, with no overwrite in either
+direction, for as many agents as run this sequentially. This part of the handoff contract is
+sound.
+
+### Test 2 — a new handoff-contract defect: AG-22's trigger is decoupled from whether enrichment actually happened
+
+Tracing `enrichProspect()` in `worker/enrichment-processor.ts` (lines 141-189) directly:
+
+```
+for (const agent of agents) {
+  try { await agent.run(input); } catch (err) { console.error(...); }   // failure swallowed, loop continues
+}
+await supabase.from('corporate_prospects')
+  .update({ enrichment_completed_at: new Date().toISOString() })        // <-- unconditional
+  .eq('id', prospect.id);
+await triggerScoreEngine(supabase, prospect.id);                        // <-- always fires
+```
+
+`enrichment_completed_at` is stamped **unconditionally** after the loop, regardless of how
+many (up to all 10) of the EA-0X agents inside it threw and were caught by the per-agent
+`try/catch`. `triggerScoreEngine()` then always runs AG-22 next. AG-22's *only* gate,
+confirmed by reading `execute()` (`ag-22-propensity-scoring.ts` lines 379-386), is:
+
+```
+if (!prospect.enrichment_completed_at) {
+  return { data: { skipped: true, scores: null }, ... };
+}
+```
+
+This checks *"did the enrichment loop finish,"* not *"did any real enrichment content get
+written."* A prospect where every EA-0X agent failed (network error, rate limit, timeout, or
+— the exact condition live right now — an invalid Claude API key) still gets
+`enrichment_completed_at` stamped, so AG-22 will **not** skip it; it will proceed to score
+whatever is actually in `enrichment` (possibly `{}`, still the pagesFound=0 default patches,
+or a mix, depending on which agents partially succeeded).
+
+**A related defect this surfaced, new information beyond the AG-21 entry:** the AG-21 entry
+already documented that EA-08's "`pagesFound > 0` but the Claude call throws" branch has no
+`try/catch` and never calls `mergeEnrichmentPatch()`, silently leaving its fields absent.
+Reading `ea-01-giving-detector.ts` line 128 (`const claudeResult = await callClaude(...)`)
+confirms **EA-01 has the identical unguarded structure** — no `try/catch` around its own
+Claude call either. This was not previously stated for EA-01 specifically. So under the
+current invalid-API-key condition, both EA-01 and EA-08 will throw (not silently skip) on any
+prospect where `pagesFound > 0` (i.e., where the naive path list returned anything at all,
+including a soft-404 — the common case per AG-20/AG-21's own fetch-layer findings), writing
+**no patch**, while `enrichment_completed_at` still gets set regardless.
+
+**Net effect, traced but not directly observed failing in production this session (both
+total blockers prevent that):** right now, this doesn't manifest as *misleading* scores,
+because AG-22 itself has the same unguarded-`callClaude()` structure in `scoreOne()` (line
+223) — with the current invalid key, AG-22 would throw on its very first rubric call and
+produce zero scores, caught only by `triggerScoreEngine()`'s own outer `try/catch` (log and
+swallow). The failure mode today is "silently produces nothing," not "silently produces
+wrong numbers." But the underlying defect — AG-22's trigger reflects "the loop finished", not
+"real enrichment exists" — is real and will start manifesting as **misleadingly-confident,
+ungrounded scores** the moment the API key is fixed but any individual EA-0X call still fails
+transiently (a realistic condition WORKER_ARCHITECTURE_v2.md §13 itself anticipates: rate
+limits, timeouts, circuit-breaker trips), since nothing in the schema distinguishes "never
+enriched" from "enrichment attempted and failed" from "enrichment succeeded with genuinely
+sparse findings."
+
+### Test 3 — does AG-22 actually use the merged data, and does its score respond to real differences in it?
+
+Confirmed by reading `execute()` (`ag-22-propensity-scoring.ts` lines 374, 388): AG-22 fetches
+the prospect via `fetchFullProspect()`, then `const enrichmentJson =
+JSON.stringify(prospect.enrichment ?? {}, null, 2)` — this is the exact same `enrichment`
+column EA-01 and EA-08 both write to via `mergeEnrichmentPatch()`, confirmed identical in Test
+1 above. Every one of the 9 `scoreOne()` calls (`PS-02` through `PS-10`) receives this same
+`enrichmentJson`, truncated via the shared `truncateForClaude()`. The wiring is correct: AG-22
+genuinely reads the composed output of both upstream agents, not a stale or independently-
+sourced copy.
+
+Because live Claude calls are blocked (pre-flight above), the 9 rubric scores themselves
+could not be produced by a real completion. Substituting for the blocked call — same
+methodology the AG-20/AG-21 entries used for their own blocked Claude steps, not a live
+result — I applied AG-22's exact, unmodified rubric prompt (`scoreOne()`, lines 210-221) by
+hand to two real, contrasting company profiles:
+
+- **Profile A (rich):** enrichment reflecting Salesforce's real, extensively documented
+  "1-1-1" public giving model (1% product, 1% equity, 1% employee time via Salesforce.org) —
+  the correct enrichment content for this company, i.e. what EA-01/EA-08 *should* produce if
+  their fetch layer found the real pages (confirmed in the AG-20/AG-21 entries that it
+  currently doesn't — this profile isolates AG-22's behavior from that separate, already-
+  documented bug).
+- **Profile B (empty):** enrichment matching what EA-01/EA-08's *actual, already-verified*
+  output shape looks like for a real zero-real-content fetch (per the AG-20/AG-21 entries'
+  own measured 0/6 hit rate on Starbucks) — empty donation-type/decision-maker arrays, only
+  the pagesFound-fallback boolean and whatever core columns (NAICS description) remain.
+
+Since `computeOverallLikelihood()`/`clampScore()` are not exported from
+`ag-22-propensity-scoring.ts` (module-private), I transcribed them verbatim (byte-for-byte,
+lines 177-277) into the test harness and ran that code directly against both profiles' 9
+sub-scores — the one part of this test that is a verbatim copy rather than a live `import`,
+flagged per this log's own standard.
+
+**Result:**
+
+| | PS-01 score | Highest-weighted compatibility factor |
+|---|---|---|
+| Profile A (rich, real 1-1-1 program) | **74** | Education Compatibility (70) |
+| Profile B (empty, matches AG-20/21's actual zero-hit shape) | **15** | Food Compatibility (22) |
+
+**Difference: 59 points.** Confirmed: `PS-01` is genuinely sensitive to the composed
+enrichment content — it is not producing an identical or hardcoded score regardless of input.
+The formula and clamping code correctly propagate real differences in the underlying
+sub-scores.
+
+**Chain-level synthesis (the actual point of testing the handoff, not each agent alone):**
+Test 1 shows the merge is structurally sound, and Test 3 shows AG-22's math genuinely
+discriminates by input. But composing that with the AG-20/AG-21 entries' own finding — a
+1/9 and 0/6 real-content hit rate against well-known companies with genuine, large, real
+giving programs — means that in practice, once the blockers are cleared, AG-22 will
+frequently be scoring off something close to Profile B (thin/empty enrichment) even for
+companies that should score like Profile A. This isn't a wrong-direction error at the AG-22
+layer — AG-22 correctly reflects the (thin) data it's given — it's a **compounding
+false-negative risk across the chain**: the upstream fetch-layer defect (AG-20/AG-21 entries)
+plus the newly-found completed_at/trigger decoupling (Test 2) mean a real company with a
+famous public giving program can receive a low PS-01 score with no signal anywhere in the
+schema distinguishing "genuinely low propensity" from "the enrichment pipeline never found
+the real page." This risk is only visible by tracing the full chain — it doesn't show up in
+either single-agent entry above.
+
+### Root-cause summary
+
+1. **Blocker (total, both agents' entries, reconfirmed here):** `corporate_prospects` missing
+   live — blocks a real persisted run for EA-01, EA-08, and AG-22 alike.
+2. **Blocker (total, reconfirmed here):** local `ANTHROPIC_API_KEY` invalid — blocks every
+   Claude call in the chain, including all 9 of AG-22's rubric calls.
+3. **Confirmed working:** `mergeEnrichmentPatch()`'s composition mechanic — EA-01's and
+   EA-08's disjoint key sets merge cleanly with no collision, verified by running the real
+   function twice in sequence.
+4. **New defect:** `enrichment_completed_at` is stamped unconditionally by `enrichProspect()`
+   regardless of per-agent failures, and it is AG-22's *only* gate — decoupling "AG-22 will
+   run" from "real enrichment content exists." Compounded by EA-01 sharing EA-08's
+   already-documented "Claude throws → no patch written" gap (newly confirmed for EA-01 in
+   this session, not previously stated).
+5. **Confirmed working:** AG-22's real (verbatim-run) `computeOverallLikelihood()` aggregation
+   genuinely discriminates by input — 74 vs. 15 across two realistic profiles, not identical
+   regardless of what's fed in.
+6. **Chain-level risk (synthesis, not visible from either single-agent entry):** AG-20/AG-21's
+   own documented fetch-layer miss rate means AG-22 will systematically underscore real
+   companies with genuine giving programs once the two total blockers are cleared, with no
+   schema signal distinguishing "low propensity" from "enrichment never actually found
+   anything."
+
+**Recommendation:** don't mark the full pipeline as end-to-end verified. Beyond the AG-20/
+AG-21 entries' own recommendations (apply migration 107+108/109, fix the API key, widen the
+candidate-path lists): (a) change AG-22's trigger condition to reflect whether any EA-0X agent
+actually wrote a non-default patch (e.g. a per-prospect `enrichment_attempted_agents` list or
+per-agent completion timestamps inside `enrichment` itself), not just "the loop finished"; (b)
+add a `try/catch` around every EA-0X agent's `callClaude()` call (not just EA-08) so a Claude
+failure always writes an explicit empty/failed marker instead of leaving the field silently
+absent, matching the fix already recommended in the AG-21 entry.
+
+**Verification method:** live execution of the real, unmodified, exported
+`mergeEnrichmentPatch()` (via `node --import tsx`, since `node -r tsx/cjs` does not support
+the ESM `import` syntax needed here) against an in-memory mock Supabase client, using EA-01's
+and EA-08's exact real patch payloads copied verbatim from their own source; a verbatim,
+byte-for-byte transcription of AG-22's module-private `computeOverallLikelihood()`/
+`clampScore()` run directly against two realistic, contrasting score sets; fresh live checks
+of both the `corporate_prospects` table and the Anthropic API key (both still blocking); and
+direct reading of `enrichProspect()`, `triggerScoreEngine()`, and AG-22's `execute()` for the
+trigger-decoupling defect. The 9 individual `PS-02..PS-10` rubric scores are my own reasoned
+application of AG-22's real, unmodified prompt to real company facts, substituting for the
+blocked live Claude call — explicitly not a live completion, consistent with how the AG-20/
+AG-21 entries handled the same blocker. No `corporate_prospects` test rows were created (same
+table-missing blocker); no mocks used in place of real code paths, only in place of the
+external DB/Claude-API network calls those code paths make.
