@@ -234,3 +234,62 @@ Goal: confirm whether §6's two unblockers (migration 051 + seeded `request_prof
 **Bottom line:** the code and schema are no longer the obstacle. The one remaining gap is exactly what §6 flagged it would be: two real compliance documents (a 501(c)(3) determination letter and a Form 990) need to exist as `org_documents` rows with `is_current: true` for org `b1ab7402-dfc2-4712-869f-70ea3566cc1d`, `document_type` = `501c3_letter` and `form_990` respectively. These are real artifacts Reid would need to supply for Faith Foundation, not fabricatable test data — this session did not attempt to synthesize them. Once uploaded (via whatever the normal document-vault upload path is — not traced in this pass), the pipeline should be one more identical re-run away from actually reaching `FormAnalyzerAgent`/Playwright/risk assessment for the first time.
 
 **Cleanup:** both synthetic rows from this test (`funders` id `32d2d1c3-0060-45a0-acf0-cd57a942411e`, `submission_queue` id `a542b5f8-f5b3-41fd-96e7-cd65e1b14bca`) were deleted immediately after the log confirmation, same discipline as §2/§5. The legitimate seeded `request_profiles` row (`2dd9d930-...`, from §6) was left in place — it is real data, not test scaffolding.
+
+---
+
+## 8. Document upload re-verification — `org_not_ready` still fires; documents went into the wrong system entirely (2026-07-30, follow-up)
+
+Goal: confirm whether the 3 documents recently uploaded through the app for Faith Foundation cleared §7's sole remaining blocker (missing `501c3_letter`/`form_990` in `org_documents`), and if so, re-run the live test to see whether the pipeline finally reaches `FormAnalyzerAgent`/Playwright/risk assessment.
+
+**Result: still blocked, same `org_not_ready` message as §7 — and the uploaded documents never had a chance to clear it.** They were uploaded through a completely different document system than the one `checkOrgReadiness()` reads, not through a broken bucket link within the same system.
+
+### The two document systems in this codebase are unrelated, not two paths to the same data
+
+Live check (service-role REST) confirms **two parallel, non-overlapping document pipelines**, both real and both live, that happen to share the word "document":
+
+| | General Document Vault (what was actually used) | AutoApply Compliance Vault (what `checkOrgReadiness()` reads) |
+|---|---|---|
+| UI | `DocumentUploader.tsx` (onboarding page, general org document manager) | `/autoapply/documents` page |
+| API/client | Browser session client direct to Storage, then `POST` to `documents` table | `POST /api/autoapply/documents` → `DocumentVault.uploadDocument()` |
+| DB table | `documents` (`category` enum: `tax_documents`, `legal_documents`, etc. — no `501c3_letter`/`form_990` values exist in this enum at all) | `org_documents` (`document_type` free-text: `501c3_letter`, `form_990`, ...) |
+| Storage bucket | `org-${organizationId}` (per-tenant) | `org-documents` (one shared bucket, path-prefixed `${orgId}/${documentType}/...`) |
+
+**Live data confirms the 3 documents landed in the left column only:**
+
+```
+GET /rest/v1/documents?organization_id=eq.b1ab7402-...  (service-role)
+→ 3 rows, category: "tax_documents", including
+  "IRS Determination letter for 501 c3 status for FAITH Foundation.pdf" (121,126 bytes)
+  and two screenshots (257,470 / 286,515 bytes), all created 2026-07-30T20:19:59Z–20:22:26Z
+
+GET /rest/v1/org_documents?organization_id=eq.b1ab7402-...  (service-role)
+→ [] — zero rows, unchanged since §7
+```
+
+The files are real and physically present — confirmed via a direct Storage API object list against `org-b1ab7402-dfc2-4712-869f-70ea3566cc1d` with the service-role key (not just trusting the DB row): all 3 objects exist with real byte sizes matching the `documents` table's `file_size` values exactly. This is not a case of "upload silently failed but the UI said success" — the upload genuinely worked, into the general vault. Separately confirmed `org-documents` (the bucket the AutoApply-specific `DocumentVault` class writes to) has **zero objects, for any org** — nothing has ever been uploaded through the correct path in this database's history.
+
+Because `checkOrgReadiness()` (`src/lib/autoapply/submission-validator.ts:188-218`) only ever queries `org_documents.document_type`/`is_current`, it has no way to see anything in the `documents` table regardless of category or content — even if one of the 3 uploaded files literally is Faith Foundation's real IRS determination letter (which, per the filename, it appears to be), the system has no code path connecting it to the AutoApply readiness gate. Uploading the identical file again through `/autoapply/documents` with `document_type: "501c3_letter"` would clear this specific check; re-uploading it through `DocumentUploader.tsx` again, in any category, would not.
+
+**This is a distinct finding from `STORAGE_POLICY_AUDIT.md` §3.2's `documents`-vs-`org-{id}` bucket-name mismatch** (that finding is about `DocumentUploader.tsx` writing to `org-${orgId}` while `api/documents/assemble/route.ts` reads from the literal `"documents"` bucket for the *same* `documents` table rows). This is a second, separate instance of the same underlying pattern — two document systems in this codebase, uploads landing in the wrong one — but between a different pair: the general Document Vault and the AutoApply-specific Compliance Vault, which don't share a table, a bucket, or a category taxonomy at all.
+
+**Secondary finding, worth flagging even though it wasn't the blocker this time:** tracing `/api/autoapply/documents`'s `POST` handler (the *correct* upload path) shows it calls `requireRole("writer")`, which returns the session-bound Supabase client (`src/lib/auth/role-gate.ts` → `createClient()` from `@/lib/supabase/server`) — not service-role — and passes that client into `DocumentVault`, which uploads to the `org-documents` bucket with that same session-bound client. `STORAGE_POLICY_AUDIT.md` §3.4 found `org-documents` has **zero `storage.objects` policy** and assumed this bucket is "likely masked today by service-role-only usage" based on the one worker-side consumer it found. This route is a second, previously undocumented consumer that is *not* service-role — so if `org-documents` still has zero policy, the correct upload path would itself fail at the storage-write step with an RLS violation, independent of and in addition to today's actual blocker. Not verified live this session (no document was uploaded through the correct path to test it), so flagged as a likely follow-on blocker, not confirmed.
+
+### Live queue re-test — confirms `org_not_ready` still fires, identical to §7
+
+Same method as §2/§5/§7: synthetic `funders` + `submission_queue` rows via service-role REST, field-for-field matching `POST /api/autoapply/test`'s insert shape, target `https://httpbin.org/forms/post`.
+
+- Created funder `956ce6f1-3359-44f2-9364-34d49f67bdcd` ("Test: httpbin.org").
+- Created `submission_queue` row `0cc1daa4-91b8-444c-a20c-670ebc712ea4` (`status: pending`).
+- Polled live: `pending` (20:28:22.463Z) → `processing` (`started_at` 20:28:27.12Z) → `skipped` (`completed_at` 20:28:28.956Z) — ~1.8s total, the same near-instant pre-browser-launch `SkipError` signature as §2/§5/§7.
+- Live Railway logs (`benavora-worker`, service `bd9f0c6b-fe01-4f31-9ef7-5fe9d7d0b127`, confirmed online via `railway status` before the test):
+  ```
+  [QueueProcessor] Org b1ab7402-dfc2-4712-869f-70ea3566cc1d is not ready for AutoApply: Required organization information is incomplete — form filling will produce inaccurate submissions
+  [QueueProcessor] Item 0cc1daa4-91b8-444c-a20c-670ebc712ea4 skipped: org_not_ready: Required organization information is incomplete — form filling will produce inaccurate submissions
+  ```
+  Identical message to §7's — `org_documents` is exactly as empty as it was then. **No `FormAnalyzerAgent`, no Playwright, no risk assessment ran.** The pipeline has still never reached that stage for this org.
+
+**Cleanup:** both synthetic rows deleted immediately after log confirmation (`204` on both), same discipline as §2/§5/§7.
+
+### Bottom line
+
+`org_not_ready` does **not** clear. The blocker is not the storage-bucket mismatch `STORAGE_POLICY_AUDIT.md` flagged elsewhere in the codebase (that one doesn't apply to this pair of systems) — it's that the 3 documents were uploaded through the wrong system entirely, one table and one bucket removed from what `checkOrgReadiness()` reads. Concrete unblocker, ready to hand to Reid: re-upload the same 3 files (the 501(c)(3) letter is the one that matters; the two screenshots aren't part of `docRequired`/`docRecommended` either way) through **`/autoapply/documents`**, selecting document type "501(c)(3) determination letter" and, separately, a real Form 990, not through the general onboarding/document-manager uploader. If that upload itself then fails, the next thing to check is whether `org-documents` needs the same kind of `storage.objects` policy fix already written (not yet applied) for `org-b1ab7402-dfc2-4712-869f-70ea3566cc1d` in this session's Storage policy work.
