@@ -1254,6 +1254,136 @@ blocked by this session's tool-permission layer (see item 4) — not performed, 
 performed. Files modified: `FEATURE_REGISTRY_v2.md` (rows #100 and #199, the latter for the AG-18
 entry above) and this log.
 
+## AG-24
+
+**Spec under test:** `AGENTS_v2.md` §5, "AG-24: Personalized Outreach Generator Agent" — "Generates
+AI-individualized outreach emails for corporate prospects, referencing specific known facts about
+each company." Status: **PLANNED**. "Real implementation: none found under this exact scope. The
+closest live analog is AG-11 (Cold Outreach Agent, `cold-outreach.ts`)... not verified as the same
+code path." Cross-reference table (§4) independently confirms: `AG-24 | not found (closest live
+analog: AG-11 Cold Outreach) | — | —`.
+
+**Verdict: `AGENTS_v2.md` is wrong — real, live-wired code implementing exactly this spec exists
+and is not AG-11. It is undocumented anywhere in `AGENTS_v2.md`, including its own §1.5 list of
+"files with no corresponding spec" (that list only covers `src/lib/agents/`, and this
+implementation is an API route, not a lib/agents file, so it fell through that audit's net too).
+Structurally it does genuine per-prospect personalization, not name-templating — but its one real
+runtime dependency, `corporate_prospects`, does not exist in production, and this session could not
+obtain a live Claude completion to verify actual output quality (same blocker as the AG-20 entry
+above, confirmed independently again here).**
+
+### What actually happened (in order)
+
+1. **Grepped the full repo for every spelling** (`ag-24`, `ag24`, `PersonalizedOutreach`,
+   `personalized-outreach`, `personalized_outreach`, case-insensitive) — no `src/lib/agents/` file
+   matches. Two hits total: a decorative `agent-registry-seed.ts` entry (`agent_id: "ag-24"`, name
+   "Personalized Outreach Agent", `trigger_type: "manual"`, no `schedule_cron` — per §6's own
+   standing caveat this is Agent Marketplace display metadata only, never read by
+   `worker/scheduler.ts`), and a comment in `donor-intent-monitor-agent.ts` line 82 referencing
+   "AG-24" only to say a predicted-intent signal is *not* itself a trigger for this agent.
+
+2. **Broadened the search past `src/lib/agents/`** (the exact directory `AGENTS_v2.md` §1.5 audited
+   for "undocumented files") and grepped for `personaliz` across all of `src/`. This surfaced
+   `src/app/api/intelligence/outreach/generate/route.ts` — a real, live API route whose own header
+   comment states its purpose is to "AI-personalize a corporate outreach email for the Corporate
+   Outreach composer," word-for-word the AG-24 concept, and which is genuinely called from
+   `src/app/(dashboard)/donor-discovery/outreach/page.tsx:189` (`fetch("/api/intelligence/outreach/
+   generate", { method: "POST", body: { prospectId, templateType } })`) — a real UI wiring, not an
+   orphaned file. This is the actual AG-24 implementation; it was simply never added to
+   `AGENTS_v2.md` under any name, and §1.5's own audit methodology (grep `src/lib/agents/` only)
+   structurally could not have found it since it lives under `src/app/api/`.
+
+3. **Read the route's full logic (149 lines).** `organizationId` is derived from `requireRole`
+   (session), never the request body, per Behavioral Contracts §2. It pulls three real, live rows
+   in parallel: (a) the named `corporate_prospects` row's `legal_name, dba_name,
+   industry_category, naics_description, address_city, address_state`; (b) the calling org's
+   `organizations.name, mission_statement`; (c) up to 4 of the org's own `knowledge_base` rows
+   (`category IN ('impact', 'program_description')`, most-recently-updated first). All five
+   prospect/org facts plus KB narrative content are interpolated directly into the Claude
+   prompt (`companyIndustry`, `companyLocation`, `orgRes.data.mission_statement`,
+   `programDescription`, `impact`) — this is genuine per-prospect and per-org context assembly,
+   structurally the opposite of "generic template with the prospect's name substituted in." The
+   generated subject/body use literal `{company_name}`/`{org_name}` placeholder tokens (deliberate,
+   documented convention shared with `route-to-email/route.ts`'s `DEFAULT_BODY`, so one generated
+   email can be queued to multiple prospects and rendered per-recipient by
+   `EmailTemplateEngine.renderTemplate()` at send time) — the personalization this agent is
+   responsible for is the *industry/location/mission/impact* framing, not the name itself, which is
+   correctly left as a render-time token rather than baked in.
+
+4. **Checked whether `corporate_prospects` — the route's very first query — actually exists in
+   production right now.** Direct REST query against the live Supabase project (same project ref
+   this session): `GET /rest/v1/corporate_prospects?select=...` → `404 PGRST205: "Could not find
+   the table 'public.corporate_prospects' in the schema cache"`. This reconfirms the AG-20 entry's
+   finding from earlier this session and the project-memory note
+   (`benavora-corporate-prospects-confirmed-missing-breaks-outreach`) — nothing new, but directly
+   relevant here: **this route's first database call will 404 "Prospect not found" for every
+   possible `prospectId` in production today**, before the org/KB queries or the Claude call ever
+   run. The UI composer at `/donor-discovery/outreach` that calls this route is reachable, but the
+   generate button cannot currently succeed against real data.
+
+5. **Attempted a live functional test anyway**, to evaluate the personalization logic on its own
+   terms independent of the missing-table blocker. Pulled real Faith Foundation org data (org id
+   `b1ab7402-dfc2-4712-869f-70ea3566cc1d`) live from Supabase — real `mission_statement`, real
+   `impact`/`program_description` KB rows (Cornerstone Communities, down-payment voucher targets,
+   South Texas service area) — and constructed two simulated prospects with genuinely different,
+   real, verifiable facts (H-E-B, San Antonio TX grocery retailer; Frost Bank, San Antonio TX
+   regional bank), replicating the route's exact `system`/`prompt` construction verbatim in a
+   throwaway script to call Claude directly and compare the two outputs for genuine differentiation
+   (industry-specific framing) versus templated sameness.
+
+6. **Blocked**: the local `ANTHROPIC_API_KEY` in `.env.local` is rejected by the Anthropic API —
+   confirmed via the raw HTTPS endpoint directly (`x-api-key` header, no SDK involved) with
+   `401 authentication_error: "API key is invalid."` This is the identical blocker independently
+   hit and documented in this log's AG-20 entry earlier this session — not a new, isolated failure,
+   but a standing environment problem: **no session this cycle has been able to obtain a single
+   live Claude completion locally.** No generated email — for either simulated prospect, or any
+   prospect — was produced or inspected this session. The throwaway verification script was
+   deleted after the failed attempt; nothing was committed from it.
+
+7. **`pnpm tsc --noEmit`** — full project; `src/app/api/intelligence/outreach/generate/route.ts`
+   appears in none of the (pre-existing, `src/__tests__/**`-only) error output.
+
+### Root-cause summary
+
+1. **`AGENTS_v2.md`'s AG-24 status is wrong, not just stale.** It says "none found... closest live
+   analog is AG-11 Cold Outreach." The real implementation is a different, purpose-built route
+   (`/api/intelligence/outreach/generate`) that does exactly what the AG-24 spec describes —
+   distinct from AG-11, which extracts contact info from companies *without* a giving page rather
+   than writing a personalized pitch email to a known prospect. AG-24 should be reclassified BUILT
+   (API-route pattern, not a `BaseAgent`/`AutonomousAgent` class — consistent with several other
+   plain-function agents already documented that way elsewhere in this file, e.g. AG-06's live path,
+   AG-18) with this route as its real implementation, wired into `/donor-discovery/outreach`.
+2. **The personalization logic itself is structurally genuine**, not name-templating: distinct
+   prospect facts (industry, location) and distinct org facts (mission, program description, real
+   impact metrics) are assembled per-call and passed to Claude; only the company/org *names*
+   themselves are deliberately left as render-time tokens, for a documented, defensible reason
+   (multi-recipient queuing), not because the agent skips real personalization.
+3. **It cannot run end-to-end in production today** — `corporate_prospects` does not exist live
+   (same confirmed gap as the AG-20 entry), so the route 404s before Claude is ever called,
+   regardless of prompt quality.
+4. **This session could not verify actual generated output quality** — the local Claude API key is
+   invalid, a standing blocker also hit in the AG-20 entry. The "not a generic template" claim
+   above is a structural/code-review finding (real distinct inputs reach the prompt), not a
+   confirmed-by-inspecting-real-output finding — flag this gap for the next session with a working
+   key.
+5. **Recommended fix for a future governance-sync session**: add a real AG-24 spec to
+   `AGENTS_v2.md` §5 crediting `src/app/api/intelligence/outreach/generate/route.ts`; broaden §1.5's
+   "undocumented files" audit methodology beyond `src/lib/agents/` since it structurally cannot
+   find agent-shaped API routes like this one.
+
+**Verification method:** repo-wide case-insensitive grep for `ag-24`/`ag24`/`PersonalizedOutreach`/
+`personalized-outreach`/`personalized_outreach`, then broadened to `personaliz` across all of `src/`;
+full read of `src/app/api/intelligence/outreach/generate/route.ts` (149 lines); grep confirming its
+call site in `src/app/(dashboard)/donor-discovery/outreach/page.tsx`; live REST query against the
+production Supabase project confirming `corporate_prospects` returns 404 PGRST205; live queries
+against the real `organizations`/`knowledge_base` tables for the Faith Foundation org
+(`b1ab7402-dfc2-4712-869f-70ea3566cc1d`) to source real personalization inputs; an attempted live
+Claude call replicating the route's exact prompt construction against two distinct simulated
+prospects (H-E-B, Frost Bank), blocked by a `401 authentication_error` from the raw Anthropic API
+independent of the SDK; `pnpm tsc --noEmit` against the full project.
+
+---
+
 ## AG-23
 
 **Spec under test:** `AGENTS_v2.md` §5, **"AG-23: Relationship Mapper Agent (RA-01)"** —
