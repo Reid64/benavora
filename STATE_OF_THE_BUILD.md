@@ -6,6 +6,32 @@
 
 ---
 
+## SESSION — July 29/30, 2026 (systematic cross-org RLS test suite — 24 real leaks found)
+
+Built `src/__tests__/integration/rls.test.ts` (Vitest, matching this repo's real stack — `TESTING_v2.md`'s Jest references are aspirational/stale, confirmed against `src/__tests__/unit/*.test.ts` and `vitest.config.ts` before writing). This replaces incident-driven RLS discovery (tonight's session found real gaps by accident via the documents bucket / `storage.objects` policy) with a systematic sweep.
+
+**Design:** No separate test Supabase project exists (`.env.test` points at a non-running `localhost:54321`; `TESTING_v2.md`'s `SUPABASE_URL_TEST` was never real). The suite runs against the real project in `.env.local`, using two throwaway orgs/users created and fully torn down per run. Rather than hand-copying table names from `SCHEMA_REGISTRY_v2.md` (which documents only 71 tables and admits 89 live tables are undocumented), the org-scoped table list is discovered **live** via the PostgREST OpenAPI endpoint (`GET /rest/v1/`) at test-run time — found **100** live org-scoped tables this run, not 71. A minimal valid seed row is synthesized per table from its live required-columns/enum/FK metadata (all 11 distinct FK targets among the 100 tables' required columns are pre-seeded as helper rows). For each table: seed a row under org A (service role), then as an authenticated org-B user assert cross-org SELECT returns 0 rows, cross-org INSERT impersonating org A's id is rejected, and cross-org UPDATE affects 0 rows.
+
+**Result, run for real (not fabricated) — reproduced 3x for stability:**
+```
+[rls.test] 100 tables checked — 71 passed, 5 skipped, 24 failed
+```
+
+**🔴 FINDING — 24 of 100 org-scoped tables leak cross-org data via plain SELECT (real RLS gap, NOT fixed in this session per instruction — flagging for separate, higher-priority fix):**
+`adapter_usage_log`, `agent_configurations`, `ai_usage_log`, `auto_queue_config`, `autoapply_review_queue`, `autoapply_submissions`, `discovery_matches`, `enrichment_jobs`, `form_templates`, `funder_credentials`, `grant_agreements`, `kb_extended_needs`, `knowledge_queries`, `opportunity_probability_scores`, `org_documents`, `org_learning_contributions`, `organizational_digital_twins`, `pitch_cache`, `request_profiles`, `solicitation_registrations`, `submission_queue`, `submission_receipts`, `system_errors`, `webhook_configs`.
+
+Notable: `organizational_digital_twins` (org profile intelligence), `funder_credentials` (portal login credentials — encrypted at rest but the *rows*, including which funder a customer has credentials for, are readable cross-org), `request_profiles` (blocks AutoApply per `benavora-request-profiles-table-missing-blocks-autoapply` memory, but the RLS gap applies to its live column set regardless), and `submission_queue`/`autoapply_submissions` (AutoApply job data) are the highest-sensitivity leaks in this list. INSERT/UPDATE isolation held for all 100 tables tested — the gap so far is SELECT-only (missing or overly-permissive SELECT policy), not full org-isolation absence, but that still means one org can read another org's rows in these 24 tables today.
+
+**5 tables skipped (not evidence of pass or fail — PostgREST's OpenAPI introspection doesn't expose CHECK constraint bodies, so a handful of tables can't get a schema-driven synthetic seed row):** `autoapply_follow_ups`/`funder_relationship_events` (CHECK constraint on a `text` enum-like column with no discoverable allowed values), `notes` (its documented "exactly one of funder_id/opportunity_id/application_id" CHECK), `outcomes` (this test's own helper-chain already uses the one application per org that `outcomes` allows via its `UNIQUE(application_id)` constraint — a test-harness collision, not an app bug), `profiles` (its `id` FK to `auth.users` isn't discoverable via PostgREST since `auth` isn't an exposed schema).
+
+**Test-harness gotchas found and fixed in this same session (mentioned since they'd otherwise recur every future run):** (1) `createClient()` needs the same `realtime: { transport: ws }` workaround as `src/lib/supabase/admin.ts` — Node 20 has no native WebSocket and `supabase-js` constructs a `RealtimeClient` eagerly, so every `createClient()` call in the test wraps this. (2) Deleting a fresh test `organizations` row raced against `platform_config` rows being (re)populated for that org — root cause not fully pinned down (a trigger or the live Railway worker reacting to org creation are both plausible; not confirmed), so cleanup now retries delete-`platform_config`-then-delete-`organizations` up to 4x with a 1.5s backoff. Verified empirically clean (zero `RLS_TEST_ORG_*` rows, zero `rls-test-org*@benavora-rls-test.local` auth users) after 2 consecutive full runs post-fix. One earlier run's manual cleanup was itself incomplete (an org row survived a partial manual cleanup pass mid-session) — since fully cleaned up and confirmed.
+
+Gates: `pnpm tsc --noEmit` — 0 errors. `pnpm run lint` — 0 errors (1 pre-existing unrelated warning in `src/app/(dashboard)/research/page.tsx`).
+
+**Next step (not done here, by design):** write the missing/incorrect RLS SELECT policies for the 24 tables above and re-run this suite to confirm 100/100 (minus legitimate skips).
+
+---
+
 ## SESSION — July 28, 2026 (governance sync: Universal Scraper build, uscraper-001 through 007)
 
 Documentation-only session. Reconciled `STATE_OF_THE_BUILD.md`, `SESSION_STATE.md`, and `FEATURE_REGISTRY_v2.md` against the full uscraper-001 through 007 build — 5 commits (`a3378c5` through `03a49cb`, all `feat(scraper-v2): ...`) plus 2 uncommitted/untracked file sets found in the working tree this session. No code was written or changed; the two template files below were read and their `pnpm tsc --noEmit` result re-confirmed, nothing else.
