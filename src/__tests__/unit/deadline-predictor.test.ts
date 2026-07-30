@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { differenceInCalendarDays } from "date-fns";
 import { predictDeadlines } from "@/lib/intelligence/deadline-predictor";
 
