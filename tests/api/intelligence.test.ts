@@ -6,7 +6,13 @@
  *   POST /api/intelligence/logic-model  (src/app/api/intelligence/logic-model/route.ts)
  *
  * ingest uses requireRole("writer") then a second auth.getUser() check via
- * createClient(). logic-model uses createClient() directly (no requireRole).
+ * createClient(). logic-model also uses requireRole("writer") but reuses the
+ * gate's own `supabase` client (`const { supabase } = gate`) for its org
+ * lookup instead of calling createClient() again — the same pattern used by
+ * reputation, foundations/[id]/profile, agents/disaster, match/foundations,
+ * donor-discovery/taxonomy/search, autoapply/controls, and users. Its mocked
+ * gate must therefore carry a real chainable `supabase` mock, not requireRole
+ * fully replaced with createClient() semantics.
  * Both AI calls (extractSections, generateEmbedding, generateLogicModel) are
  * stubbed so no network is needed.
  */
@@ -249,16 +255,20 @@ describe("POST /api/intelligence/logic-model", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    // Default: authenticated user belonging to the correct org.
-    mockCreateClient.mockReturnValue(
-      makeSupabaseClient({
+    // Default: requireRole passes as writer for ORG_ID, and the gate's own
+    // supabase client (reused via `const { supabase } = gate` in the route)
+    // resolves the organization lookup.
+    mockRequireRole.mockResolvedValue({
+      supabase: makeSupabaseClient({
         user: { id: USER_ID },
         tableMap: {
-          profiles: { data: { organization_id: ORG_ID }, error: null },
           organizations: { data: { name: "Reid's Faith Foundation" }, error: null },
         },
       }),
-    );
+      userId: USER_ID,
+      userRole: "writer" as const,
+      organizationId: ORG_ID,
+    });
     mockGenerateLogicModel.mockResolvedValue({
       category: "housing",
       inputs: ["Staff"],
@@ -270,7 +280,7 @@ describe("POST /api/intelligence/logic-model", () => {
   });
 
   it("returns 401 when no authenticated user", async () => {
-    mockCreateClient.mockReturnValue(makeSupabaseClient({ user: null }));
+    mockRequireRole.mockResolvedValue(unauthError());
     const res = await logicModelPost(jsonPost("http://localhost/api/intelligence/logic-model", VALID_BODY));
     expect(res.status).toBe(401);
     const body = (await res.json()) as { code: string };
@@ -314,16 +324,20 @@ describe("POST /api/intelligence/logic-model", () => {
   });
 
   it("returns 403 when user does not belong to the requested org", async () => {
-    mockCreateClient.mockReturnValue(
-      makeSupabaseClient({
+    // Gate resolves the caller to a different org than the body requests —
+    // the route's own `gate.organizationId !== organization_id` check (never
+    // trusting the body, Behavioral Contracts §2) must deny this.
+    mockRequireRole.mockResolvedValue({
+      supabase: makeSupabaseClient({
         user: { id: USER_ID },
         tableMap: {
-          // Profile returns a different org — access denied.
-          profiles: { data: { organization_id: "other-org-id" }, error: null },
           organizations: { data: { name: "Other Org" }, error: null },
         },
       }),
-    );
+      userId: USER_ID,
+      userRole: "writer" as const,
+      organizationId: "other-org-id",
+    });
     const res = await logicModelPost(
       jsonPost("http://localhost/api/intelligence/logic-model", VALID_BODY),
     );

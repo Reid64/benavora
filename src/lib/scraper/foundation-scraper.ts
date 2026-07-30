@@ -31,6 +31,15 @@
 // processed records (and on completion/early exit). A re-run with no
 // argument resumes from that checkpoint; passing `startOffset` explicitly
 // always starts a fresh run at that row offset.
+//
+// Not deleted per UNIVERSAL_SCRAPER_PRD.md §4 — this file's standalone CLI
+// entry point (scripts/run-foundation-scraper.ts, `pnpm scrape:foundations`)
+// remains in place. Its proven Strategy 1 batch-ZIP discovery logic
+// (buildEinIndex/tryIrs990/EnginePool/PooledEngine below, all now exported)
+// is separately reused unchanged — not rebuilt — as a custom discovery
+// source by src/lib/scraper-v2/templates/foundation-990-template.ts, the
+// pre-configured universal-scraper-v2 job template that re-hosts this same
+// EIN->filing lookup under the new scrape_jobs/scrape_results job model.
 
 import fs from "node:fs";
 import path from "node:path";
@@ -126,12 +135,12 @@ function saveCheckpoint(cp: Checkpoint): void {
 
 // --- engine pool: N persistent StealthEngine instances = N browser contexts ----
 
-interface PooledEngine {
+export interface PooledEngine {
   engine: StealthEngine;
   lastRequestAt: number;
 }
 
-class EnginePool {
+export class EnginePool {
   private readonly all: PooledEngine[];
   private idle: PooledEngine[];
   private waiters: Array<(pooled: PooledEngine) => void> = [];
@@ -214,7 +223,7 @@ function extractRawText(rendered: string): string {
   return $("body").text();
 }
 
-interface EinIndexEntry {
+export interface EinIndexEntry {
   /** Direct per-filing XML URL — used only if the index CSV still has a `url` column (older format). */
   directUrl?: string;
   /**
@@ -339,8 +348,14 @@ async function loadEinsMissingWebsite(supabase: ReturnType<typeof createAdminCli
   return set;
 }
 
-/** Downloads + parses the IRS 990 index once, scoped to EINs currently missing a website. */
-async function buildEinIndex(
+/**
+ * Downloads + parses the IRS 990 index once, scoped to EINs currently
+ * missing a website. Exported per UNIVERSAL_SCRAPER_PRD.md §4: this is the
+ * proven batch-ZIP discovery mechanism reused as-is (not rebuilt) by
+ * src/lib/scraper-v2/templates/foundation-990-template.ts's custom
+ * discovery source.
+ */
+export async function buildEinIndex(
   pool: EnginePool,
   supabase: ReturnType<typeof createAdminClient>,
 ): Promise<Map<string, EinIndexEntry>> {
@@ -369,7 +384,13 @@ async function buildEinIndex(
   }
 }
 
-async function tryIrs990(
+/**
+ * Resolves a single foundation row against the EIN index and returns any
+ * website/phone found in its matched 990 filing. Exported per
+ * UNIVERSAL_SCRAPER_PRD.md §4 — the "IRS 990 index discovery" logic reused
+ * unchanged as the foundation-990-template.ts custom discovery source.
+ */
+export async function tryIrs990(
   row: FoundationRow,
   einIndex: Map<string, EinIndexEntry>,
   pooled: PooledEngine,
@@ -533,7 +554,7 @@ async function tryContactPage(
 
 // --- per-foundation waterfall --------------------------------------------------
 
-interface FoundationRow {
+export interface FoundationRow {
   id: string;
   ein: string | null;
   name: string;

@@ -1,0 +1,537 @@
+{
+  "usableSessionsCount": 6,
+  "retiredSessionsCount": 3,
+  "sessions": [
+    {
+      "id": "session_ZEfvhXeEV6",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.2",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "__Secure-STRP",
+            "value": "ANmZwa1K4ruajV3eyaVunMZPiyQz_R1R66-IwO_dcOE8YfC93Uw8wazARyDC_nVw5BOz21N7saIPRiZ6TGlM1QXVI5y28dEQdEZd",
+            "expires": "2026-07-29T04:56:48.955Z",
+            "domain": "google.com",
+            "path": "/",
+            "secure": true,
+            "hostOnly": false,
+            "creation": "2026-07-29T04:51:49.811Z",
+            "lastAccessed": "2026-07-29T04:51:49.811Z"
+          },
+          {
+            "key": "AEC",
+            "value": "AdJVEasTOXk7EnGpbUFjAC6uWt_3Bpm-8M-mlIUW5a09vteLKZ_tQbNDzA",
+            "expires": "2027-01-25T04:51:48.956Z",
+            "domain": "google.com",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": false,
+            "creation": "2026-07-29T04:51:49.814Z",
+            "lastAccessed": "2026-07-29T04:51:49.814Z"
+          },
+          {
+            "key": "NID",
+            "value": "533=B6GMC9Y5pYw3KwTtZ0-mx0DDALIPlhuj8qqcSxD-QQfTJeZyJXByTodZrSap_0oB3a_W6DlQk9HPesoJgekT3L5bp6iLBBQfwpeyCBiA2GbEvCVQ5rRBeQGB0c4LvWJJPa7mnUuscSyRic4kZAte5LTiX5Ctvfu_B4wvZLe2SlVryS2CS8hNsbyMPXhHD5R3yx6NZulc0ShfvBvvtHuzvXWiVCIC8aN3pR0doN7pg386GGNCHuQ-IAmg",
+            "expires": "2027-01-28T04:51:48.475Z",
+            "domain": "google.com",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": false,
+            "creation": "2026-07-29T04:51:49.815Z",
+            "lastAccessed": "2026-07-29T04:51:49.815Z"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-07-29T05:41:45.727Z",
+      "createdAt": "2026-07-29T04:51:45.726Z",
+      "usageCount": 1,
+      "maxUsageCount": 30,
+      "errorScore": 1
+    },
+    {
+      "id": "session_7fhyJbi4Se",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.2",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "__Secure-STRP",
+            "value": "ANmZwa2cimc_X29XZgIUXiZwjqq9qlG0czeX2leaaTnbUz9jEqlT8znKkJopajaVijDFMw00M3pk9muvQA671zDEzR3vF3U7Jw",
+            "expires": "2026-07-29T04:56:50.051Z",
+            "domain": "google.com",
+            "path": "/",
+            "secure": true,
+            "hostOnly": false,
+            "creation": "2026-07-29T04:51:50.739Z",
+            "lastAccessed": "2026-07-29T04:51:50.739Z"
+          },
+          {
+            "key": "AEC",
+            "value": "AdJVEas9Ces2615YL9NAJF_xycvw_-I7wrjB_rl1bfuBawgvwIRRh-12Itk",
+            "expires": "2027-01-25T04:51:50.051Z",
+            "domain": "google.com",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": false,
+            "creation": "2026-07-29T04:51:50.739Z",
+            "lastAccessed": "2026-07-29T04:51:50.739Z"
+          },
+          {
+            "key": "NID",
+            "value": "533=MnWcwZgLyI2S9K_c0oGtTiBYEUrX9cU480_OcBSHStQT5o7GF3DAQx3N6EQxxn5v25TEbGGnbNcaGkJjqQ5H0lLRklXofQpeoPuFa8UG2A2wXNaMN2cXpVP2dkTuF6_jq4XMJpojV1uVOeSx6KNPU7SAWFPr8kgFMHgLQ4a655awspC1djgN8A0gvVnmACr3evl1pL31OZ3Z-wgY1j2wyxcraIZrcffOtEssj_sqPMyAEe1XfIpTNAR8DYY",
+            "expires": "2027-01-28T04:51:50.562Z",
+            "domain": "google.com",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": false,
+            "creation": "2026-07-29T04:51:50.739Z",
+            "lastAccessed": "2026-07-29T04:51:50.739Z"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-07-29T05:41:49.822Z",
+      "createdAt": "2026-07-29T04:51:49.822Z",
+      "usageCount": 1,
+      "maxUsageCount": 30,
+      "errorScore": 1
+    },
+    {
+      "id": "session_4YcPpm0ImK",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.2",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "__Secure-STRP",
+            "value": "ANmZwa2utok_1qLFoyNf-n0vpZ1NmOFHotS3QUv_dy-ofdaZbDj5QvainqUBxQ27Cl426Xi3CD1T_Uuw_nylryg-onoia_PevnLS",
+            "expires": "2026-07-29T04:56:50.907Z",
+            "domain": "google.com",
+            "path": "/",
+            "secure": true,
+            "hostOnly": false,
+            "creation": "2026-07-29T04:51:51.987Z",
+            "lastAccessed": "2026-07-29T04:51:51.987Z"
+          },
+          {
+            "key": "AEC",
+            "value": "AdJVEasi5j2o_JIkUr1pCHc2x17ChzVIH0zvyL6VaysSdFYeVY9XCxIVTc0",
+            "expires": "2027-01-25T04:51:50.907Z",
+            "domain": "google.com",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": false,
+            "creation": "2026-07-29T04:51:51.988Z",
+            "lastAccessed": "2026-07-29T04:51:51.988Z"
+          },
+          {
+            "key": "NID",
+            "value": "533=n5NDZLSDdrdww_li5fNwc5qD0d8qxvZfy40SUiKU8ihM00s7Dclwd5nOo0bJIdWitdYLJFJgnb_t1fnV4QItm9pQ-TRnEhiFMxYANcFJxRexVEKGQKBVh_oELwiksr4iGQPoVrkDVUByKoDVem_h9xfdFepKc9GFMKJSZxW2xCgkxf9KZzx-XgAkQSqcc4D2oRvcBarlXn3MY3lQdVeIlkIEBGozIIvhssG8CGyy0HVH1Y0We78QOTC0",
+            "expires": "2027-01-28T04:51:50.508Z",
+            "domain": "google.com",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": false,
+            "creation": "2026-07-29T04:51:51.988Z",
+            "lastAccessed": "2026-07-29T04:51:51.988Z"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-07-29T05:41:50.744Z",
+      "createdAt": "2026-07-29T04:51:50.744Z",
+      "usageCount": 1,
+      "maxUsageCount": 30,
+      "errorScore": 1
+    },
+    {
+      "id": "session_aD7X12bWMB",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.2",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "_C_Auth",
+            "expires": "2026-07-29T05:41:54.193Z",
+            "domain": "www.bing.com",
+            "path": "/rewardsapp",
+            "hostOnly": true,
+            "creation": "2026-07-29T04:51:54.193Z",
+            "lastAccessed": "2026-07-29T04:51:54.193Z"
+          },
+          {
+            "key": "MUID",
+            "value": "3F6974778D6B65A7368663D28C0E6415",
+            "expires": "2027-08-23T04:51:52.257Z",
+            "domain": "bing.com",
+            "path": "/",
+            "secure": true,
+            "hostOnly": false,
+            "creation": "2026-07-29T04:51:54.193Z",
+            "lastAccessed": "2026-07-29T04:51:54.193Z"
+          },
+          {
+            "key": "MUIDB",
+            "value": "3F6974778D6B65A7368663D28C0E6415",
+            "expires": "2027-08-23T04:51:54.085Z",
+            "domain": "www.bing.com",
+            "path": "/",
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-07-29T04:51:54.193Z",
+            "lastAccessed": "2026-07-29T04:51:54.193Z"
+          },
+          {
+            "key": "_EDGE_S",
+            "value": "F=1&SID=0223E2DDA9556B6D325CF578A8306AE1",
+            "expires": "2026-07-29T05:41:54.193Z",
+            "domain": "bing.com",
+            "path": "/",
+            "httpOnly": true,
+            "hostOnly": false,
+            "creation": "2026-07-29T04:51:54.193Z",
+            "lastAccessed": "2026-07-29T04:51:54.193Z"
+          },
+          {
+            "key": "_EDGE_V",
+            "value": "1",
+            "expires": "2027-08-23T04:51:52.257Z",
+            "domain": "bing.com",
+            "path": "/",
+            "httpOnly": true,
+            "hostOnly": false,
+            "creation": "2026-07-29T04:51:54.194Z",
+            "lastAccessed": "2026-07-29T04:51:54.194Z"
+          },
+          {
+            "key": "SRCHD",
+            "value": "AF=NOFORM",
+            "expires": "2027-09-02T04:51:52.257Z",
+            "domain": "bing.com",
+            "path": "/",
+            "secure": true,
+            "hostOnly": false,
+            "creation": "2026-07-29T04:51:54.194Z",
+            "lastAccessed": "2026-07-29T04:51:54.194Z"
+          },
+          {
+            "key": "SRCHUID",
+            "value": "V=2&GUID=4E077793BB6E49AAA760F3511704F66E&dmnchg=1",
+            "expires": "2027-09-02T04:51:52.257Z",
+            "domain": "bing.com",
+            "path": "/",
+            "secure": true,
+            "hostOnly": false,
+            "creation": "2026-07-29T04:51:54.194Z",
+            "lastAccessed": "2026-07-29T04:51:54.194Z"
+          },
+          {
+            "key": "ak_bmsc",
+            "value": "4703064082CF67124DBB88A87A82A269~000000000000000000000000000000~YAAQEm4mF0IYvmSfAQAAXfs2rACpu+K8mNvqNsKjow2qGAAIKTL8c7K+6+X/PaWppMYuQInLzGV4cpqxSTUwD42ukhc9JPOmHQaSC+UuZCZXD8A9MgWUNzXyIAmsIuUzOvYAo2tTyLkQYeTQkSCL9NQdULOvrVtJj0zpwbUBqVXzZXOn5y000rVIM+iO44yXmRYDJ+c//OFC1iOWcCGhsmnZ0f6VoQu1LAoY536UBkCurRAlLE9OpCamKw5u3dyy/CatptY+9S21IHkxXw3UkouDNO14UV0hPT0kcGeCBN2+cAo3qvpt+/8mNXUISgMwDQjLjIQk0bck91AW9rFk5L6tHpmpQLLpTBwGKH4xKBwmPdVkztLcUJvRRDdC1GuHFI5XLZO/T5JEi+ZsGwLEtBGk79/WzNDJcuPUWft9bdi1Il8=",
+            "expires": "2026-07-29T06:51:52.257Z",
+            "domain": "bing.com",
+            "path": "/",
+            "httpOnly": true,
+            "hostOnly": false,
+            "creation": "2026-07-29T04:51:54.194Z",
+            "lastAccessed": "2026-07-29T04:51:54.194Z"
+          },
+          {
+            "key": "_C_ETH",
+            "value": "1",
+            "expires": "2026-07-29T05:41:54.193Z",
+            "domain": "bing.com",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": false,
+            "creation": "2026-07-29T04:51:54.194Z",
+            "lastAccessed": "2026-07-29T04:51:54.194Z"
+          },
+          {
+            "key": "SRCHUSR",
+            "value": "DOB=20260729&DS=1",
+            "expires": "2027-09-02T04:51:54.085Z",
+            "domain": "bing.com",
+            "path": "/",
+            "secure": true,
+            "hostOnly": false,
+            "creation": "2026-07-29T04:51:54.194Z",
+            "lastAccessed": "2026-07-29T04:51:54.194Z"
+          },
+          {
+            "key": ".MSA.Auth.Nonce.CfDJ8A8rLfEh4ZdMhJ19YNJ4FtTXTkCeeJz8RUPVBIscXQAbcRv8zqHrGfKOAy3kxbXkPvgBYi7skwtEt9GSw8SoaECNWEpvLtEY9hS9drgFgEJojyaU71ZxYRaUldAiiBNeSbbvAjwDinZ32zMWpWJTUFEzuSuvsSAMuth9tgHMSa_mv6_cflqzULJ6sxHJ0fL8etN_s0094Nc5v_QxGfdFNtbBqaQz2qqsLVrWKpUaBCuf_-6HOhWj8OvJUxkcBS_oKA1rluijU-u_Chat2WESl3Q",
+            "value": "N",
+            "expires": "2026-07-29T05:06:54.049Z",
+            "domain": "www.bing.com",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-07-29T04:51:54.194Z",
+            "lastAccessed": "2026-07-29T04:51:54.194Z"
+          },
+          {
+            "key": ".MSA.Auth.Correlation.H90E1vlH-hXW9g7wuGpTa31-V9aK4zIDd_m0VBlTFsI",
+            "value": "N",
+            "expires": "2026-07-29T05:06:54.049Z",
+            "domain": "www.bing.com",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-07-29T04:51:54.194Z",
+            "lastAccessed": "2026-07-29T04:51:54.194Z"
+          },
+          {
+            "key": "_RwBf",
+            "value": "r=0&ilt=1&ihpd=0&ispd=1&rc=0&rb=0&rg=200&pc=0&mtu=0&rbb=0&clo=0&v=1&l=2026-07-28T07:00:00.0000000Z&lft=0001-01-01T00:00:00.0000000&aof=0&ard=0001-01-01T00:00:00.0000000&rwdbt=0&rwflt=0&rwaul2=0&g=&o=2&p=&c=&t=0&s=0001-01-01T00:00:00.0000000+00:00&ts=2026-07-29T04:51:54.0602613+00:00&rwred=0&wls=&wlb=&wle=&ccp=&cpt=&lka=0&lkt=0&aad=0&TH=&cid=0&gb=",
+            "expires": "2027-07-29T04:51:54.050Z",
+            "domain": "bing.com",
+            "path": "/",
+            "secure": true,
+            "hostOnly": false,
+            "creation": "2026-07-29T04:51:54.194Z",
+            "lastAccessed": "2026-07-29T04:51:54.194Z"
+          },
+          {
+            "key": "_Rwho",
+            "value": "u=d&ts=2026-07-29",
+            "expires": "2026-07-29T05:41:54.193Z",
+            "domain": "bing.com",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": false,
+            "creation": "2026-07-29T04:51:54.194Z",
+            "lastAccessed": "2026-07-29T04:51:54.194Z"
+          },
+          {
+            "key": "_SS",
+            "value": "SID=0223E2DDA9556B6D325CF578A8306AE1&R=0&RB=0&GB=0&RG=200&RP=0",
+            "expires": "2026-07-29T05:41:54.193Z",
+            "domain": "bing.com",
+            "path": "/",
+            "secure": true,
+            "hostOnly": false,
+            "creation": "2026-07-29T04:51:54.194Z",
+            "lastAccessed": "2026-07-29T04:51:54.194Z"
+          },
+          {
+            "key": "__Host-XY",
+            "value": "CfDJ8A8rLfEh4ZdMhJ19YNJ4FtRGWxINHYR6oRllbdDh7nImuUAuSxjMhhTeWzw3ji1IeatP0tccacGB1HO0KLkKLG_kbctloqie3Wd8V3MvkbgsNWYDCqcl5wgOHUH3c4YaPixW7g2jmaPl3uJCYp4uLW_wc8q6sL3Do39BVgXNc07RiFaWoqcUSZVTxVg9zC69gXkC8XofX0xE1kq_uBG77TGYaFG2ex2IAjF2JgrmVMiXQrJg3iW7ISGqGOzVa_JBkA",
+            "expires": "2026-07-30T11:51:54.085Z",
+            "domain": "www.bing.com",
+            "path": "/",
+            "secure": true,
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-07-29T04:51:54.194Z",
+            "lastAccessed": "2026-07-29T04:51:54.194Z"
+          },
+          {
+            "key": "bm_sv",
+            "value": "956B2198B3789EFD27424509B9B29D6D~YAAQJ24mF++zjqqfAQAAggI3rACyoNDCudlshPlKB5MUay5v9Cdu6k0TKeiySujEhq8EURPU/ogg7S/jUL+b5h63wDKcLIgyzxeiijE0Yllc/d2w/LFvdJYcLQyrDpuR3sCzezAXWP7DbRFTMozdJTVZT5tijDPJP5oqdzoieGpdm3Hsi2rOlwKWc17RTXSdjbn0G/9wTZCZpKHCOoAV/hT5vRDihMOxvdVJfsSyawmt/XU2SHBBYGK/f/SsHg==~1",
+            "expires": "2026-07-29T06:51:54.085Z",
+            "domain": "bing.com",
+            "path": "/",
+            "secure": true,
+            "hostOnly": false,
+            "creation": "2026-07-29T04:51:54.194Z",
+            "lastAccessed": "2026-07-29T04:51:54.194Z"
+          },
+          {
+            "key": "SRCHHPGUSR",
+            "value": "SRCHLANG=en&IG=C6737C2645FF4FD79AB6102F6C9A9025&HV=1785300714&HVE=CfDJ8A8rLfEh4ZdMhJ19YNJ4FtR7y8eZ7zwi6w2Hht-cDAbRlV3iQz8MGrl7bUymlieHJ2IqBpgt7s5vDOy1_CC-ZWIRZwg8A2iwPQnuNqmPi4d9BclKOTrJP0W8meDVIM78G2pa8Oz3FOxfjPaj2wPYBxHCdJq709lLZUCAgUBxa_blVmcxlmohrnnr9G5w6TToeQ&PREFCOL=0&BRW=M&BRH=M&CW=1280&CH=720&SCW=1280&SCH=1318&DPR=1.5&UTC=-300&P=CfDJ8A8rLfEh4ZdMhJ19YNJ4FtQim-hHD5GRtEPLSczxYxj0o-957zwjZkjwOPDNZCJSdL2SEyWvipbSXmEc1IfTwjRQzQTqzv4Eng02L6RUhiNnQmbv4SfeZ5rsOUlQDPnmo1eTCsjNhJeoqIbiSetJmCh-bG0352eRgXgR5erbY2UYLAnl3aFiARYDN2qkIoHENg0&EXLTT=1&PV=10.0",
+            "expires": "2027-09-02T04:51:54.188Z",
+            "domain": "bing.com",
+            "path": "/",
+            "secure": true,
+            "hostOnly": false,
+            "creation": "2026-07-29T04:51:54.194Z",
+            "lastAccessed": "2026-07-29T04:51:54.194Z"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-07-29T05:41:51.991Z",
+      "createdAt": "2026-07-29T04:51:51.991Z",
+      "usageCount": 1,
+      "maxUsageCount": 30,
+      "errorScore": 0
+    },
+    {
+      "id": "session_YfhEkbbTA2",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.2",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-07-29T05:41:54.199Z",
+      "createdAt": "2026-07-29T04:51:54.199Z",
+      "usageCount": 1,
+      "maxUsageCount": 30,
+      "errorScore": 0
+    },
+    {
+      "id": "session_fAMyWeJVdE",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.2",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-07-29T05:41:56.479Z",
+      "createdAt": "2026-07-29T04:51:56.479Z",
+      "usageCount": 1,
+      "maxUsageCount": 30,
+      "errorScore": 3
+    },
+    {
+      "id": "session_xt5isPPm9K",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.2",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-07-29T05:41:56.855Z",
+      "createdAt": "2026-07-29T04:51:56.855Z",
+      "usageCount": 1,
+      "maxUsageCount": 30,
+      "errorScore": 3
+    },
+    {
+      "id": "session_gU56pvBAHz",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.2",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-07-29T05:41:57.096Z",
+      "createdAt": "2026-07-29T04:51:57.096Z",
+      "usageCount": 1,
+      "maxUsageCount": 30,
+      "errorScore": 3
+    },
+    {
+      "id": "session_h8ItAtdzmX",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.2",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "_fbp",
+            "value": "fb.1.1785300719501.423619829787054045",
+            "expires": "2026-10-27T04:51:59.000Z",
+            "domain": "veggiesabroad.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-07-29T04:51:59.861Z",
+            "lastAccessed": "2026-07-29T04:51:59.861Z"
+          },
+          {
+            "key": "_gcl_au",
+            "value": "1.1.1437458703.1785300720",
+            "expires": "2026-10-27T04:52:00.000Z",
+            "domain": "veggiesabroad.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-07-29T04:51:59.861Z",
+            "lastAccessed": "2026-07-29T04:51:59.861Z"
+          },
+          {
+            "key": "_ga_KC8HM9FB00",
+            "value": "GS2.1.s1785300719$o1$g0$t1785300719$j60$l0$h0",
+            "expires": "2027-09-02T04:51:59.735Z",
+            "domain": "veggiesabroad.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-07-29T04:51:59.861Z",
+            "lastAccessed": "2026-07-29T04:51:59.861Z"
+          },
+          {
+            "key": "_ga",
+            "value": "GA1.1.1536484944.1785300720",
+            "expires": "2027-09-02T04:51:59.737Z",
+            "domain": "veggiesabroad.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-07-29T04:51:59.861Z",
+            "lastAccessed": "2026-07-29T04:51:59.861Z"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-07-29T05:41:57.337Z",
+      "createdAt": "2026-07-29T04:51:57.337Z",
+      "usageCount": 1,
+      "maxUsageCount": 30,
+      "errorScore": 0
+    }
+  ]
+}
