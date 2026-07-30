@@ -1511,3 +1511,158 @@ of `src/app/api/intelligence/relationship-graph/route.ts`; cross-check against
 (the enum-gap claim for `'ag-32-relationship-graph'` is taken from the file's own header comment
 and cross-checked against §1.2's documented pattern, not independently re-verified against
 production).
+
+---
+
+## AG-25
+
+**Spec under test:** `AGENTS_v2.md` §5, AG-25 "Disaster Response Agent". Claims: two plain
+functions (`pollFEMADeclarations`, `deployDisasterResponse`), no `agent_type`/`agent_runs`/
+`agent_decisions` row, reachable only via a manual API route with no cron/queue/worker wiring
+despite `BLUEPRINT_v2.md` §6 and `agent-registry-seed.ts` both describing a 6-hour poll schedule.
+Also claims a numbering collision: the on-disk literal `"ag-25-deadline-prediction"` does **not**
+belong to this agent — it belongs to `DeadlinePredictionAgent`, an unrelated deadline-forecasting
+class.
+
+**Verdict: spec matches the live code exactly — no drift found.** Every claim in the AG-25 spec
+was independently reproduced against the actual files.
+
+**What actually happened:**
+
+1. **Read `src/lib/agents/disaster-response-agent.ts` in full.** Confirmed: exactly two exported
+   plain functions, no class, no `AutonomousAgent`/`BaseAgent` inheritance, no `agent_runs` or
+   `agent_decisions` write anywhere in the file — matches the spec's "matching the
+   `sendMorningDigest` pattern" framing verbatim (the file's own header comment says this). Note
+   the header comment explicitly cross-references `AGENTS_v2.md AG-25`, so the doc and the code
+   are written to agree with each other.
+   - `pollFEMADeclarations(supabase)`: fetches `fema.gov`'s open disaster-declarations API
+     (`$top=20`, ordered by `declarationDate desc`), dedupes against `disaster_declarations` by
+     `fema_disaster_number` before each insert (`.maybeSingle()` check), returns the count of
+     newly inserted rows.
+   - `deployDisasterResponse(declarationId, orgId, supabase)`: marks one declaration deployed for
+     one org, matches active emergency funds by disaster/incident type, raises a single summary
+     alert. Read-only against the declaration otherwise — no external contact.
+2. **Confirmed the only call site is the manual API route.** `src/app/api/agents/disaster/
+   route.ts`: `GET` (viewer-role gated via `requireRole("viewer")`) calls `pollFEMADeclarations`
+   then returns the latest 20 declarations; `POST` (writer-role gated) calls
+   `deployDisasterResponse` with `organization_id` derived server-side from the caller's session,
+   never from the request body (`Behavioral Contracts §2` compliant). `maxDuration = 300` is set,
+   consistent with `BLUEPRINT_v2.md` §8.1's AI-route rule even though this route makes no Claude
+   call itself (the FEMA fetch + DB round-trips are the only latency source).
+3. **Grepped `worker/index.ts`, `worker/scheduler.ts`, and `worker/autonomous-orchestrator.ts`
+   for any reference to "disaster" or "Disaster" — zero hits in all three.** No cron entry in
+   `vercel.json`'s `crons` array either (checked the full array: research, grantsgov, reminders,
+   campaigns, autoapply, domain-warmup — no disaster entry). This confirms the spec's claim that
+   the documented "poll every 6 hours" schedule (`BLUEPRINT_v2.md` §6: "5:00 AM — AG-25: Disaster
+   Response (FEMA poll)") does not correspond to anything that actually runs unattended.
+4. **Confirmed the decorative registry metadata.** `src/lib/agents/agent-registry-seed.ts`'s
+   `ag-25` row: `trigger_type: "scheduled"`, `schedule_cron: "0 */6 * * *"` — this is Agent
+   Marketplace display metadata only, per `AGENTS_v2.md` §6's standing caveat that
+   `agent_registry.schedule_cron` is never read by `worker/scheduler.ts`. Independently re-verified
+   that caveat here rather than assuming it: `worker/scheduler.ts` has exactly the two fixed jobs
+   the doc describes (2 AM nightly pipeline, 7 AM digest), nothing reads `agent_registry` at all.
+5. **Verified the numbering-collision claim.** `grep -n "ag-25-deadline-prediction" src/lib/agents/
+   deadline-prediction-agent.ts` → line 337: `super(orgId, "ag-25-deadline-prediction", supabase);`
+   inside `DeadlinePredictionAgent`. Confirmed this is a materially different agent (pattern-based
+   deadline forecasting from a funder's own `opportunities.deadline` history) with no relation to
+   FEMA/disaster data — the spec's warning that a human searching `agent_runs`/`agent_queue` for
+   "AG-25" would find deadline-prediction rows, not disaster declarations, is accurate (modulo
+   1.2's enum gap meaning neither agent's `agent_type` literal can actually insert successfully
+   today, so in practice neither would show up at all).
+6. **Confirmed the dashboard UI exists and is wired to the real route.** `src/app/(dashboard)/
+   intelligence/disaster/page.tsx` exists (per `FEATURE_REGISTRY_v2.md` #129, "IN BUILD" —
+   the page itself is present; not independently verified here whether it calls the route
+   correctly beyond confirming the file exists at the expected path).
+7. **`pnpm tsc --noEmit`** — full project; `disaster-response-agent.ts` and
+   `src/app/api/agents/disaster/route.ts` appear in none of the (pre-existing,
+   `src/__tests__/**`-only) error output.
+
+**Root-cause summary:** no root cause to document — this is the rare case where the governance
+doc's characterization is fully accurate. The only thing worth flagging forward: `BLUEPRINT_v2.md`
+§6's nightly-pipeline table still lists "5:00 AM — AG-25: Disaster Response (FEMA poll)" as if it
+runs on that schedule, which is misleading in the same direction `AGENTS_v2.md` itself already
+warns about — no code path makes that true. A future governance-sync session should either wire an
+actual cron entry (a straightforward add: `vercel.json` cron → `/api/agents/disaster` GET, or a
+`worker/scheduler.ts` job) or strike the 5:00 AM line from `BLUEPRINT_v2.md` §6 to stop describing
+a schedule that doesn't exist.
+
+**Verification method:** full read of `AGENTS_v2.md` §5 AG-25 spec; full read of
+`src/lib/agents/disaster-response-agent.ts` and `src/app/api/agents/disaster/route.ts`; grep of
+`worker/index.ts`, `worker/scheduler.ts`, `worker/autonomous-orchestrator.ts` for
+"disaster"/"Disaster" (zero hits); read of `vercel.json`'s full `crons` array; read of
+`agent-registry-seed.ts`'s `ag-25` entry; grep confirming `"ag-25-deadline-prediction"` belongs to
+`DeadlinePredictionAgent` (`deadline-prediction-agent.ts:337`); confirmed existence of
+`src/app/(dashboard)/intelligence/disaster/page.tsx`; `pnpm tsc --noEmit` against the full project.
+No live FEMA API call or live-DB probe was attempted — the route's behavior was verified by
+reading the code path, not by triggering it against production.
+
+---
+
+## AG-26
+
+**Spec under test:** `AGENTS_v2.md` §5, AG-26 "Funding Forecast Agent". Claims: **no real
+implementation found anywhere** — `FEATURE_REGISTRY_v2.md` #132 lists it PLANNED, and only the
+schema (`funding_forecasts` table, IN BUILD) exists. `agent-registry-seed.ts` lists a monthly cron
+for `ag-26` — metadata only, per the doc's standing caveat.
+
+**Verdict: spec matches — confirmed genuinely unbuilt, zero agent code exists.** Went further than
+the spec's own claim by also checking for any consumer of the schema and finding one unexpected
+result: `funding_forecasts` is read (never written) by a completely different agent, AG-40.
+
+**What actually happened:**
+
+1. **Grepped `src/lib/agents/` for any forecast-related agent file** — zero matches for
+   `*forecast*` in the directory listing. No `funding-forecast-agent.ts`, no class named anything
+   resembling `FundingForecastAgent`, `ForecastAgent`, or `NationalForecastAgent` (the latter being
+   AG-31/Phase-2's distinct, also-PLANNED macro-forecast concept — confirmed these are not
+   accidentally the same file under a different name; AG-31 has no file either, per its own PLANNED
+   spec).
+2. **Confirmed the `funding_forecasts` table exists but nothing writes to it.**
+   `grep -rn "funding_forecasts" src/ worker/` returns exactly one hit outside the migration file
+   itself: `src/lib/agents/strategic-advisor-agent.ts:567`, a `.from("funding_forecasts")` **read**
+   (AG-40 lists it as one of its 7 input sources, tolerant of it being empty per that agent's own
+   defensive-load pattern documented in its spec). No `.insert`/`.upsert` into `funding_forecasts`
+   exists anywhere in the repo. The table is schema-defined and consumed downstream, but has no
+   producer — it will always read empty in production.
+3. **Found a migration-number discrepancy while locating the schema.**
+   `FEATURE_REGISTRY_v2.md` #131 ("Forecast Schema") claims "`funding_forecasts` table. Migration
+   095 tonight." The actual creating file is `src/supabase/migrations/078_forecast_board.sql`
+   (also creates `board_members`, `board_meetings`, `board_meeting_packets`, `impact_simulations`
+   in the same migration — a combined Pillar 11/12/13 schema drop, not a dedicated 095 migration).
+   This is the same class of doc-vs-reality drift flagged elsewhere in this repo's governance docs
+   (task-given migration numbers routinely don't match the real applied file) — noted here since
+   it surfaced directly while verifying this entry, not asserted from memory.
+4. **Confirmed no API route or UI page exists for this feature at all.** Searched
+   `src/app` for any `forecast`-named route or page — zero results (`/reports/forecast`,
+   referenced in `FEATURE_REGISTRY_v2.md` #133 as PLANNED, does not exist; this is consistent with
+   PLANNED status, not a contradiction). Compare to AG-25 above, where the API route and dashboard
+   page both exist even though the *schedule* doesn't — AG-26 has none of the three (agent code,
+   route, page).
+5. **Confirmed `agent-registry-seed.ts`'s decorative entry.** `ag-26` row: `name: "Funding
+   Forecast Agent"`, `trigger_type: "scheduled"`, `schedule_cron: "0 6 1 * *"` (monthly, 1st of
+   month) — Marketplace display metadata only, per the same standing caveat verified independently
+   for AG-25 above (`worker/scheduler.ts` has only its two fixed jobs; this cron is never read).
+6. **Grepped `worker/index.ts`, `worker/scheduler.ts`, `worker/autonomous-orchestrator.ts` for
+   "forecast"/"Forecast" — zero hits**, consistent with there being no code to wire in.
+7. **`pnpm tsc --noEmit`** — full project; no forecast-agent file exists to appear in output one
+   way or the other. Confirms there is nothing to compile-check for this agent.
+
+**Root-cause summary:** no drift to correct — `AGENTS_v2.md`'s "none found" claim for AG-26 is
+accurate today. The one governance inconsistency surfaced by this check (migration 078 vs. the
+"095" cited in `FEATURE_REGISTRY_v2.md` #131) is minor and pre-existing, not specific to whether
+AG-26 itself exists. Recommended for a future build session: before writing `AG-26`, note that its
+one designed consumer (AG-40 Strategic Advisor) already has a defensive read path in place, so
+shipping the producer agent would light up real data in an already-deployed downstream feature
+rather than requiring new integration work.
+
+**Verification method:** full read of `AGENTS_v2.md` §5 AG-26 spec; directory listing of
+`src/lib/agents/` grepped for `forecast`/`Forecast` (zero agent files); repo-wide grep for
+`funding_forecasts` across `src/` and `worker/` (one read-only consumer found, no writer); read of
+`src/supabase/migrations/078_forecast_board.sql` to confirm the schema's real creating migration
+number against `FEATURE_REGISTRY_v2.md` #131's claimed "095"; search of `src/app` for any
+`forecast`-named route/page (none found); read of `agent-registry-seed.ts`'s `ag-26` entry; grep of
+`worker/index.ts`/`worker/scheduler.ts`/`worker/autonomous-orchestrator.ts` for "forecast" (zero
+hits); `pnpm tsc --noEmit` against the full project. No live-DB probe was attempted — the "no
+writer" conclusion rests on a repo-wide static grep for `.insert`/`.upsert` call sites, not a
+production data check of whether `funding_forecasts` currently has any rows from another,
+unaccounted-for source.
