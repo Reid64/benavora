@@ -23,6 +23,9 @@ interface MockOpts {
   kbRows?: Record<string, unknown>[];
   provenRows?: Record<string, unknown>[];
   patternRows?: Record<string, unknown>[];
+  twinRow?: Record<string, unknown> | null;
+  libraryRows?: Record<string, unknown>[];
+  adminProfiles?: Record<string, unknown>[];
 }
 
 function createSupabaseMock(opts: MockOpts) {
@@ -153,6 +156,45 @@ function createSupabaseMock(opts: MockOpts) {
           return b;
         }
 
+        case "organizational_digital_twins": {
+          const b: Record<string, unknown> = {};
+          b.select = vi.fn(() => b);
+          b.eq = vi.fn(() => b);
+          b.maybeSingle = vi.fn(async () => ({
+            data: opts.twinRow ?? null,
+            error: null,
+          }));
+          return b;
+        }
+
+        case "intelligence_funded_proposals": {
+          const b: Record<string, unknown> = {};
+          b.select = vi.fn(() => b);
+          b.not = vi.fn(() => b);
+          b.order = vi.fn(() => b);
+          b.limit = vi.fn(() => b);
+          b.then = (resolve: (v: unknown) => unknown) =>
+            Promise.resolve({
+              data: opts.libraryRows ?? [],
+              error: null,
+            }).then(resolve);
+          return b;
+        }
+
+        case "profiles": {
+          const b: Record<string, unknown> = {};
+          b.select = vi.fn(() => b);
+          b.eq = vi.fn(() => b);
+          b.in = vi.fn(() => b);
+          b.limit = vi.fn(() => b);
+          b.then = (resolve: (v: unknown) => unknown) =>
+            Promise.resolve({
+              data: opts.adminProfiles ?? [],
+              error: null,
+            }).then(resolve);
+          return b;
+        }
+
         case "platform_learning_patterns": {
           const b: Record<string, unknown> = {};
           b.select = vi.fn(() => b);
@@ -197,6 +239,15 @@ function createSupabaseMock(opts: MockOpts) {
         case "alerts": {
           const b: Record<string, unknown> = {};
           b.insert = vi.fn(() => Promise.resolve({ data: null, error: null }));
+          // Also used for the twin-completeness-low dedup check
+          // (select().eq().like().gte().limit().maybeSingle()) --
+          // draft-generation-agent.ts queries `alerts` both ways.
+          b.select = vi.fn(() => b);
+          b.eq = vi.fn(() => b);
+          b.like = vi.fn(() => b);
+          b.gte = vi.fn(() => b);
+          b.limit = vi.fn(() => b);
+          b.maybeSingle = vi.fn(async () => ({ data: null, error: null }));
           return b;
         }
 
@@ -297,7 +348,14 @@ describe("DraftGenerationAgent — hard limits", () => {
     expect(app.auto_generated).toBe(true);
     expect(app.draft_source).toBe("autonomous");
     expect(app.stage).toBe("drafting");
-    expect(callClaude).toHaveBeenCalledTimes(1);
+    // The agent runs a five-phase pipeline (narrative strategy + one call
+    // per section, plus the humanizer's own Claude passes) rather than a
+    // single-shot generation call -- see this file's header comment on the
+    // "FULL AGENTIC UPGRADE" that replaced the old single-call design.
+    // Asserting an exact count here would pin this test to that internal
+    // call fan-out instead of the behavior that matters: Claude was used to
+    // generate the draft at all.
+    expect(callClaude).toHaveBeenCalled();
   });
 
   it("stops at max_auto_drafts_per_night and creates no draft", async () => {
