@@ -1757,3 +1757,147 @@ schema probe via service-role REST against `intelligence_funded_proposals`, `int
 and `knowledge_patterns` to find the real embedding column and confirm the doc's claimed location was
 wrong; live data probe of all 105 `intelligence_proposal_sections` rows confirming 105/105 non-null,
 1536-dimension, non-zero, content-varying embedding vectors — real data, not placeholders.
+
+---
+
+## AG-30
+
+**Task premise, checked against the actual record before proceeding:** this task's framing
+("AG-38 status check, which was actually AG-30/CM-01 under an old label... confirmed wired into
+`worker/scheduler.ts` and fires nightly") does not match anything in this log or in
+`AGENTS_v2.md`. Every prior entry in this file was checked (`grep -n '^## AG-'`) — there is no
+existing AG-30 or AG-38 entry here, so no "earlier this session" verification of either agent
+exists in the committed record. More importantly, **the premise conflates three agents that the
+doc and the code both keep deliberately separate, not relabeled versions of one another:**
+
+1. `AGENTS_v2.md` §5's canonical **AG-30 = "Change Monitor Agent (CM-01)"** — status PLANNED,
+   "Real implementation: none found."
+2. `AGENTS_v2.md`'s Phase 2-5 section documents a *second*, doc-acknowledged **AG-30 = "Donor
+   Intent Monitor"** (`donor-intent-monitor-agent.ts`, `agentId: "ag-30-donor-intent"`) — a real,
+   BUILT class, per the doc reachable only via a manual API route.
+3. **AG-38 = "Self-Improvement Agent"** (`self-improvement-agent.ts`,
+   `agentId: "ag-38-self-improvement"`) is the agent that actually writes to
+   `improvement_proposals` / `agent_performance_metrics` — a third, distinct agent. Nowhere does
+   `AGENTS_v2.md` describe AG-38 as "AG-30 under an old label."
+
+`worker/autonomous-orchestrator.ts`'s own header comment (lines 44-56) already disambiguates all
+three: AG-38 gets its own dedicated 4:00 AM CST `scheduler.ts` slot (not folded into the 2AM
+per-org sweep), while AG-30 (Donor Intent) is wired unconditionally into the per-org nightly sweep
+alongside AG-29/AG-35 — two separate wiring entries, two separate real files, no shared identity.
+Rather than guess which agent the task actually intends, this entry verifies all three candidates
+against live evidence below, so the finding holds regardless of the intended target.
+
+### Candidate 1 — canonical AG-30, Change Monitor Agent (CM-01)
+
+`ls src/lib/agents/ | grep -i "change-monitor\|cm-01"` and a repo-wide grep for `ChangeMonitor`/
+`CM-01` in `worker/` — zero matches, confirmed today (2026-07-30). **`AGENTS_v2.md`'s "PLANNED...
+none found" is still accurate.** This agent has no code, is not wired anywhere, and therefore
+cannot have "run nightly" under any interpretation.
+
+### Candidate 2 — AG-30, Donor Intent Monitor (`ag-30-donor-intent`)
+
+### Candidate 3 — AG-38, Self-Improvement Agent (`ag-38-self-improvement`, the one that actually
+writes to the tables this task named)
+
+Both are real, compiling classes with real wiring (confirmed by reading
+`worker/autonomous-orchestrator.ts` and `worker/scheduler.ts` directly, matching the header
+comment). Both were checked live against the production database
+(`vbjplpquqxxfbpazyalt`, service-role REST, same method this log's AG-15/AG-29 entries used) —
+not just read from source — as of **2026-07-30, ~07:48 UTC**:
+
+1. **`agent_type` enum — still rejects both literal values, live, today.** Attempted the exact
+   insert shape `startRun()` performs (`agent_runs.insert({ agent_type: "ag-30-donor-intent", ... })`
+   and the same for `"ag-38-self-improvement"`) via a direct REST query:
+   ```
+   agent_type=eq.ag-30-donor-intent  -> 400 {"code":"22P02","message":"invalid input value for enum agent_type: \"ag-30-donor-intent\""}
+   agent_type=eq.ag-38-self-improvement -> 400 {"code":"22P02","message":"invalid input value for enum agent_type: \"ag-38-self-improvement\""}
+   ```
+   This is the identical failure mode this log's AG-15 entry already reproduced live for
+   `ag-15-probability` — both agents die on the first line of `run()`/`startRun()`, before any
+   real work happens, on every trigger path (schedule, chain, manual, queue alike).
+2. **The migrations that add these two enum values live only in `src/supabase/migrations/`, not
+   the root `supabase/migrations/`** (per project memory on the two-parallel-migrations-directories
+   gap): `src/supabase/migrations/093_donor_intent_engine.sql` line 52 adds
+   `'ag-30-donor-intent'`; `src/supabase/migrations/088_self_improvement_agent.sql` line 23 adds
+   `'ag-38-self-improvement'`. Neither has reached production, confirmed by (1) above — this is
+   not a doc-vs-code mismatch, it's a migration-never-applied gap, same root cause already
+   documented in `AGENTS_v2.md` §1.2 for other agents.
+3. **A genuine partial-application anomaly, worth flagging rather than glossing over:** the
+   *tables* both agents write to already exist live and are reachable (not a schema-cache 404):
+   `corporate_intent_signals` (created by the same file, `093`, that adds the missing enum value —
+   `CREATE TABLE` at line 28, `ALTER TYPE` at line 52) returns `200` with real rows possible;
+   `improvement_proposals` and `agent_performance_metrics` (created by a *different* file,
+   `src/supabase/migrations/087_continuous_improvement.sql`, separate from `088`'s enum addition)
+   are likewise reachable. So table DDL from these `src/supabase/migrations/` files partially
+   landed live while the `ALTER TYPE` statements did not — consistent with
+   `BLUEPRINT_v2.md` §8.3's documented practice of manually splitting large SQL into separate
+   statements for the SQL Editor (a Management API PAT is confirmed dead, per project memory) and
+   most plausibly dropping or erroring on the enum lines along the way. This is inferred from what
+   was directly observed (table reachable, enum value rejected, both statements present in the
+   same source file for 093), not confirmed by reading any apply log.
+4. **Zero rows, ever, in every table either agent would write to** — checked with
+   `Prefer: count=exact`, not just an empty page:
+   - `agent_runs` — zero rows for `ag-30-donor-intent` or `ag-38-self-improvement` (structurally
+     impossible for any to exist, per (1)); the last 300 `agent_runs` rows by `started_at`
+     (spanning back to 2026-06-11) contain **only** Generation-1-style types (`narrative_drafting`,
+     `government_research`, `eligibility_scoring`, `grant_summary`, `sam_gov_research`,
+     `consensus_validation`, `grants_gov_research`, `corporate_research`, `foundation_research`,
+     `local_sponsorship`, `fit_analysis`, `review`) — no `ag-XX-*` Generation-2 identifier appears
+     anywhere in that window.
+   - `corporate_intent_signals` (AG-30 Donor Intent's real output table) — `0/0` rows, ever.
+   - `improvement_proposals` — `0/0` rows, ever.
+   - `agent_performance_metrics` — `0/0` rows, ever.
+5. **The nightly pipeline itself has left no trace at all for over two days.** The single newest
+   row in the entire `agent_runs` table, across every agent type, is
+   `2026-07-28T03:27:04.442+00:00` (`narrative_drafting`) — roughly 52 hours before this check
+   (2026-07-30T07:48 UTC). Project memory records the Railway worker outage as resolved
+   "2026-07-28... billing resolved, deploys succeed again, worker confirmed live and processing" —
+   but even taking that at face value, **no subsequent nightly-pipeline trace of any kind exists
+   in the database since then**, for any agent, Generation-1 or Generation-2. This check cannot
+   distinguish from outside whether the 2AM/4AM `scheduler.ts` cron jobs are currently firing at
+   all versus firing and producing no durable row (e.g. every gated step short-circuiting on
+   `org_autonomous_config` toggles) — flagging the gap rather than guessing at the cause.
+
+### Root-cause summary
+
+1. **Canonical AG-30 (Change Monitor/CM-01):** unchanged, still PLANNED, zero code. Not a "nightly
+   fires" candidate under any reading.
+2. **AG-30 (Donor Intent Monitor) and AG-38 (Self-Improvement Agent) are both real, wired, and
+   both still completely blocked in production** by the exact same `agent_type` enum gap
+   `AGENTS_v2.md` §1.2 and this log's AG-15 entry already documented for `ag-15-probability` /
+   `ag-17-discovery` — reproduced live today, not inferred. **The now-resolved Railway/worker
+   billing outage is not the blocker and fixing it did not and could not make either agent run** —
+   the failure happens at the database layer, before the worker's own logic executes, and is
+   unrelated to whether the worker process itself is up.
+3. **Neither agent has ever produced a single row** in `agent_runs`, nor in either agent's own
+   real output table (`corporate_intent_signals` for AG-30; `improvement_proposals` /
+   `agent_performance_metrics` for AG-38), at any point in this database's history — not "hasn't
+   run since the outage," but has never successfully completed a run at all.
+4. This task's premise — that an earlier session confirmed AG-30/CM-01 (under an "AG-38" label)
+   "wired into `worker/scheduler.ts`" and "fires nightly" — does not hold for any of the three real
+   candidates and is not supported by any prior entry in this log.
+
+**Recommendation:** do not mark AG-30 (either sense) or AG-38 as functionally verified. Apply the
+missing `agent_type` enum values from `src/supabase/migrations/` (at minimum `088`'s
+`ag-38-self-improvement` and `093`'s `ag-30-donor-intent`; per `AGENTS_v2.md` §1.2 this is one of
+~12+ missing values across that migration set, not just these two) to the live production database
+before re-attempting this verification — a worker/Railway health check alone cannot surface this
+class of failure. Separately, if the canonical AG-30 (Change Monitor/CM-01) concept is still
+wanted, it needs to be built from scratch — its gap is a missing-code problem, unrelated to the
+enum-migration gap blocking the other two.
+
+**Verification method:** full read of `AGENTS_v2.md` §5 (AG-30 canonical spec) and its Phase 2-5
+section (AG-30 Donor Intent Monitor, AG-38 Self-Improvement Agent); `grep -n '^## AG-'` across this
+entire log file to confirm no prior AG-30/AG-38 entry exists; directory listing + grep of
+`src/lib/agents/` for `change-monitor`/`CM-01` (zero matches); direct read of
+`worker/autonomous-orchestrator.ts` lines 1-70 and 1256-1320 and `worker/scheduler.ts` for the real
+wiring of both AG-30 and AG-38; grep of `src/supabase/migrations/` and `supabase/migrations/` for
+the `ALTER TYPE agent_type ADD VALUE` statements adding `ag-30-donor-intent` and
+`ag-38-self-improvement`, confirming both exist only in `src/supabase/migrations/`; live service-role
+REST queries against the production database (`vbjplpquqxxfbpazyalt`) reproducing the exact
+`agent_runs` insert shape `startRun()` performs for both agent-type literals (both rejected,
+`22P02`), plus `Prefer: count=exact` row counts against `agent_runs`, `corporate_intent_signals`,
+`improvement_proposals`, and `agent_performance_metrics` (all zero for the agents in question), plus
+a full-table newest-row check on `agent_runs` to establish pipeline staleness. All queries and their
+raw JSON responses were inspected directly; no mocks, no fabricated timestamps. Temporary query
+scripts were deleted before this commit and were never staged.
