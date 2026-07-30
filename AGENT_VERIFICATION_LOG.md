@@ -610,3 +610,169 @@ blocked live Claude call — explicitly not a live completion, consistent with h
 AG-21 entries handled the same blocker. No `corporate_prospects` test rows were created (same
 table-missing blocker); no mocks used in place of real code paths, only in place of the
 external DB/Claude-API network calls those code paths make.
+
+---
+
+## AG-15
+
+**Spec under test:** `AGENTS_v2.md` §5, AG-15 "Grant Probability Agent", plus its own
+"Real vs. Canonical" cross-reference row (§4) and `FEATURE_REGISTRY_v2.md`'s two places this
+feature is tracked: Pillar 5 (rows #102-106, "Probability Scoring Engine" etc., all stamped
+`IN BUILD` / `Tonight.` from the original ~July 17-19 build session and never updated since)
+and the Autonomous Agents table (row #196, `AG-15 Autonomous Probability Scoring — BUILT —
+Post-discovery or scheduled. Threshold gate chains to AG-05.`, no caveat). This entry checks
+both halves of what "AG-15" actually means in this codebase: the live deterministic engine
+(`computeGrantProbability()`) and the autonomous agent wrapper (`ProbabilityScoringAgent`,
+`agentId: "ag-15-probability"`) that `AGENTS_v2.md` itself already flags as blocked.
+
+**Verdict: split result. The deterministic engine is genuinely BUILT and verified working
+end-to-end against real production data — `FEATURE_REGISTRY_v2.md` Pillar 5 rows #102-104 are
+actually true today, ahead of their stale "IN BUILD / Tonight" wording. But
+`FEATURE_REGISTRY_v2.md` row #196 ("AG-15 Autonomous Probability Scoring — BUILT — ... chains
+to AG-05") is false and directly contradicted by a live test this session: the autonomous
+agent cannot run at all in production, confirmed by reproducing its exact failure live, not
+just by reading the code.**
+
+### What actually happened (in order)
+
+1. **`pnpm tsc --noEmit` — both real files compile clean.** Neither
+   `src/lib/intelligence/grant-probability-engine.ts` nor
+   `src/lib/agents/probability-scoring-agent.ts` appears anywhere in the compiler's error
+   output. (The full run does report ~30 pre-existing errors, all confined to
+   `src/__tests__/**` — unrelated test-file issues, not AG-15 code; consistent with project
+   memory that the tsc gate doesn't cover the test tree cleanly.)
+
+2. **Reproduced `ProbabilityScoringAgent.startRun()`'s exact live-DB failure, not just read
+   the code and trusted its own header comment.** The class's own header (lines 42-48) already
+   states `agent_type: "ag-15-probability"` is "still not a value in the agent_type enum." To
+   confirm this is current, not stale, I ran the exact insert `startRun()` performs
+   (`agent_runs.insert({ organization_id, agent_type: "ag-15-probability", status: "running",
+   trigger_source, input_params, started_at })`, copied field-for-field from
+   `autonomous-base.ts` lines 136-147) directly against the live production database
+   (`vbjplpquqxxfbpazyalt`) via the service-role client, scoped to the real Faith Foundation
+   org (`b1ab7402-dfc2-4712-869f-70ea3566cc1d`). Result:
+   ```
+   error: {"code":"22P02","message":"invalid input value for enum agent_type: \"ag-15-probability\""}
+   ```
+   Confirmed live and current, not a doc claim. **`ProbabilityScoringAgent.run()` cannot
+   execute at all in production right now — it throws before a single line of its own logic
+   runs, on every trigger path** (`autonomous`, `manual`, `chain`, `schedule` alike, since
+   `startRun()` is the very first line of `run()`).
+
+3. **Checked whether the AGENTS_v2.md §1.3 chain-routing gap (no `routeQueueItem()` case for
+   `'ag-15-probability'`) is still real — it is not; that part has since been fixed.** Grepping
+   `worker/autonomous-orchestrator.ts` today shows an explicit `case 'ag-15-probability':`
+   (line 1256) that calls `new ProbabilityScoringAgent(...).run('chain')` — so the chain
+   producers (`OpportunityDiscoveryAgent`'s `queueChainedAgent("ag-15-probability", ...)`,
+   `EligibilityScoringAgent`'s same call, `DeadlinePredictionAgent`'s same call) now have a
+   real destination. This is genuine, verified progress since the July 19 edition of
+   `AGENTS_v2.md` — the routing half of the "unreachable by every available path" claim in
+   that document is now stale and should be corrected. **It does not change the outcome**:
+   `probability-scoring-agent.ts`'s own header (written after the routing fix, per its "FULL
+   AGENTIC UPGRADE (July 2026)" framing and explicit acknowledgment of the still-open enum
+   gap) confirms the agent's author already knew routing alone wasn't enough — item 2 above is
+   the live confirmation that the enum gap is the surviving, sole blocker.
+   `runQueueItem()`'s outer `try/catch` (lines 1381-1399) catches the thrown error, increments
+   `agent_queue.retry_count`, and marks the row `failed` after 3 attempts — consistent with
+   `AGENTS_v2.md`'s "does not crash the nightly pipeline, but never successfully completes a
+   run" framing for sibling agents AG-17/AG-05.
+
+4. **Ran the real, unmodified `computeGrantProbability()` — the actual live implementation
+   behind AG-15's manual/batch call sites — against two real, contrasting opportunities in the
+   live Faith Foundation org**, imported directly (`import { computeGrantProbability } from
+   './src/lib/intelligence/grant-probability-engine'`, executed via `node --import tsx`), no
+   mocks, real Supabase writes:
+   - **CDBG (Community Development Block Grant)**, `housing_grant`, no deadline on file, no
+     eligibility score on file → **score 40, confidence "low", recommendation "consider"**.
+     Factor math checks out by hand: eligibility defaults to neutral 0.5 × 30% = 15;
+     category_win_rate defaults to neutral 0.3 × 25% = 7.5 (confirmed zero real `outcomes` rows
+     exist for this org — the neutral fallback is the *correct* behavior here, not a bug
+     papering over missing data); deadline_proximity = 0 (no deadline) × 20% = 0; twin
+     completeness = real live value 0.70 × 25% = 17.5. Sum = 40.0, matches exactly.
+   - **CEVSS (Centers of Excellence for Veteran Student Success)**, `government_grant`,
+     real deadline on file (`2026-06-23`, **already 37 days in the past relative to today's
+     date 2026-07-30**) → **score 40, confidence "medium"** (confidence correctly moved from
+     low to medium because a real deadline value is now present, satisfying one more of the 4
+     `realDataCount` checks — even though that deadline has passed, which is a separate,
+     genuine defect, see below).
+   - Both results **persisted for real** to `opportunity_probability_scores` via the function's
+     own upsert — confirmed by reading the row back after each run, not just trusting the
+     return value.
+
+5. **Found a genuine, live-reproduced logic defect in `computeGrantProbability()`'s risk-message
+   builder** while inspecting the CEVSS result: for a deadline that has already passed (37 days
+   ago), `buildKeyRisks()` (lines 235-247) produced the risk text **"Deadline is under 15 days
+   away — limited prep time"** instead of the intended **"Deadline has already passed."**
+   Reading the code confirms why: 
+   ```
+   const days = differenceInCalendarDays(new Date(opportunity.deadline), new Date());
+   if (days < 15) {
+     risks.push("Deadline is under 15 days away — limited prep time.");
+   } else if (days < 0) {
+     risks.push("Deadline has already passed.");
+   }
+   ```
+   `days < 15` is true for every negative value too, so the `else if (days < 0)` branch is
+   **dead code — structurally unreachable**, since any `days < 0` already satisfied `days < 15`
+   on the branch above it. This does not affect the numeric score (`scoreDeadlineProximity()`
+   has its own, separately-correct `days >= 0 ? 0.1 : 0` check and did score this opportunity's
+   deadline factor at 0, the right answer) — it is purely a misleading user-facing risk message
+   for any opportunity whose deadline has lapsed but is still marked `status = 'open'` (which
+   CEVSS, a real row in the live database, currently is). Not previously documented anywhere
+   in `AGENTS_v2.md` or `FEATURE_REGISTRY_v2.md`.
+
+6. **Confirmed the two real call sites that make Pillar 5 rows #102-104 true today**: 
+   `src/app/api/intelligence/grant-probability/route.ts` imports and calls
+   `computeGrantProbability()` directly (line 5, line 55) — the "Probability API Route" (#103)
+   is real, not a stub. `scripts/batch-score-opportunities.ts` does the same (line 23, line
+   147) for the "Batch Score Runner" (#104). `src/app/(dashboard)/opportunities/page.tsx`
+   references `opportunity_probability_scores`/`overall_score` directly, consistent with #105
+   ("Probability Badges on Opportunities") being wired to real data, not a placeholder — UI
+   rendering itself was not re-verified visually this session (no browser check performed), so
+   treat #105's specific visual claim as read-verified, not screenshot-verified.
+
+### Root-cause summary
+
+1. **Confirmed working, ahead of the stale registry wording:** the deterministic engine
+   (`computeGrantProbability()`) is real, compiles clean, and was proven this session to run
+   against two different real live opportunities in the real production org, producing
+   correctly-computed (hand-checked) scores that respond to genuine differences in input
+   (twin completeness, deadline presence, eligibility score, outcome history) rather than a
+   fixed or fabricated number, and persists them via a real upsert. `FEATURE_REGISTRY_v2.md`
+   #102-104 should read BUILT, not IN BUILD.
+2. **Confirmed broken, contradicting the registry's unqualified claim:** the autonomous agent
+   (`ProbabilityScoringAgent`, `agent_type: "ag-15-probability"`) cannot execute at all in
+   production — reproduced live, not inferred from the enum audit alone. Every trigger path
+   (nightly schedule, chain from AG-17/AG-02/AG-25, manual, queue) fails at the first line of
+   `run()`. `FEATURE_REGISTRY_v2.md` #196 ("BUILT ... Threshold gate chains to AG-05") is false
+   as stated; the described chain (probability → threshold gate → AG-06 draft) has never
+   executed once in production.
+3. **Partial correction to `AGENTS_v2.md` §1.3 itself:** the chain-routing gap it documents
+   for `'ag-15-probability'` has been fixed since that document's July 19 pass —
+   `worker/autonomous-orchestrator.ts` now has a live `case 'ag-15-probability'`. The enum gap
+   (§1.2) is the sole remaining blocker for this specific agent, not routing.
+4. **New defect, not previously documented:** `buildKeyRisks()`'s deadline-passed branch is
+   dead code due to a bounds-check ordering bug, producing a misleading risk message ("under 15
+   days away" instead of "already passed") for any open opportunity with a lapsed deadline —
+   confirmed against a real row (CEVSS) in the live database, not a synthetic case.
+
+**Recommendation:** correct `FEATURE_REGISTRY_v2.md` row #196 to reflect that the autonomous
+wrapper is blocked (matching the caveats already present on neighboring rows like #217/#218/
+#227), not unqualified BUILT. Add the `ag-15-probability` (and the other 11 still-missing
+literals per `AGENTS_v2.md` §1.2) to the `agent_type` enum via one migration before trusting
+any nightly/chain-triggered probability scoring. Separately, swap `buildKeyRisks()`'s deadline
+check to `days < 0` first (or `else if` ordering fixed) so a lapsed deadline reports correctly
+instead of falling into the "under 15 days" branch.
+
+**Verification method:** live `pnpm tsc --noEmit` against the full project; a live,
+field-for-field reproduction of `startRun()`'s real `agent_runs` insert against the live
+production database (project `vbjplpquqxxfbpazyalt`), scoped to the real Faith Foundation org,
+with the resulting error captured verbatim (no test row was left behind — the insert failed
+before a row was created, so there was nothing to clean up); a repo-wide grep confirming
+`routeQueueItem()`'s current case list; live execution of the real, unmodified, exported
+`computeGrantProbability()` (via `node --import tsx`, no mocks) against two real open
+opportunities already present in the live database, with both the returned object and the
+persisted `opportunity_probability_scores` row read back and hand-checked against the
+function's own factor-weight math; direct reading of `buildKeyRisks()` to root-cause the
+deadline-message defect the live CEVSS run surfaced. All temporary test scripts were deleted
+after the session; no repo files were left behind.
