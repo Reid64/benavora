@@ -1253,3 +1253,131 @@ relevant sections (header comment, lines 1160-1177). A live-DB enum probe was at
 blocked by this session's tool-permission layer (see item 4) — not performed, and not claimed as
 performed. Files modified: `FEATURE_REGISTRY_v2.md` (rows #100 and #199, the latter for the AG-18
 entry above) and this log.
+
+## AG-23
+
+**Spec under test:** `AGENTS_v2.md` §5, **"AG-23: Relationship Mapper Agent (RA-01)"** —
+the section header itself already bakes the two labels together. Purpose: discovers relationships
+between businesses, foundations, board members, and nonprofits; populates `pig_nodes`/`pig_edges`.
+Status: PLANNED, "Real implementation: none found." Cross-reference table (§4) independently
+confirms: `AG-23 | not found | — | —`.
+
+**Trigger for this entry:** earlier this session, "RA-01" turned up as a separate label in
+`FEATURE_REGISTRY_v2.md` (#80 "Relationship Discovery Engine ... Agent RA-01. Nightly traversal."
+and #95 "Relationship Mapper RA-01 ... pig_edges population agent") and in `BLUEPRINT_v2.md`'s
+nightly pipeline table ("5:30 AM — AG-23: Relationship Mapper (incremental)"), raising the
+question of whether RA-01/AG-23/"incremental" describe one agent or several.
+
+**Verdict: same agent, three inconsistent characterizations, still not independently coded.**
+RA-01 and AG-23 are confirmed to be one and the same concept under two labels — `AGENTS_v2.md`
+says so explicitly in its own section header, and `FEATURE_REGISTRY_v2.md`'s two RA-01 rows
+(#80, #95) describe the identical `pig_edges`-population purpose `AGENTS_v2.md`'s AG-23 spec
+describes. The "incremental" vs. "full nightly/weekly traversal" question is not two competing
+agents — it's three governance docs disagreeing about the cadence of a concept that, under its
+own name, has never had any code written for it at all. The only real, substantive implementation
+of this concept in the repo exists under a *different* agent number, AG-32, and matches the
+"weekly full rebuild" characterization, not "incremental."
+
+### What actually happened (in order)
+
+1. **Grepped the full repo for every spelling of this concept** (`ag-23`, `ag23`, `RA-01`, `RA01`,
+   `RelationshipMapper`, case-insensitive, across `src/` and `worker/`). Exactly two hits: a
+   decorative `agent-registry-seed.ts` entry (below) and a header-comment reference inside
+   `src/lib/agents/relationship-graph-builder-agent.ts`. No class named `RelationshipMapperAgent`
+   exists anywhere. No file implements a "Relationship Discovery Engine" or "incremental"
+   relationship-mapping job under any name.
+
+2. **`agent-registry-seed.ts` confirms the RA-01/AG-23 identity and contradicts BLUEPRINT_v2.md's
+   cadence claim.** The seed data's `ag-23` row: `name: "Relationship Mapper Agent"`,
+   description "Discovers connections between businesses, foundations, board members, and
+   nonprofits. Builds the Philanthropic Intelligence Graph" (word-for-word the AG-23/RA-01
+   purpose in both `AGENTS_v2.md` and `FEATURE_REGISTRY_v2.md` #80/#95), `trigger_type:
+   "scheduled"`, `schedule_cron: "0 5 * * 0"` — **weekly, Sunday 5 AM**, not the nightly
+   5:30 AM slot `BLUEPRINT_v2.md` §6 lists it under, and not "incremental" in any sense the cron
+   expression can support (a once-a-week job is structurally a periodic full pass, not an
+   incremental delta job). Per `AGENTS_v2.md` §6's own standing caveat, this registry data is
+   Agent Marketplace display metadata only — `worker/scheduler.ts` has exactly two fixed jobs
+   (2 AM nightly pipeline, 7 AM digest) and does not read `agent_registry.schedule_cron` at all —
+   so neither BLUEPRINT_v2.md's "nightly incremental" line nor this row's "weekly" line
+   corresponds to anything that actually executes on a schedule today.
+
+3. **Found the real code, filed under a different number.** `src/lib/agents/
+   relationship-graph-builder-agent.ts` (`RelationshipGraphBuilderAgent extends AutonomousAgent`,
+   `agentId: "ag-32-relationship-graph"`) opens with an explicit statement of the same identity
+   question this entry was asked to resolve: *"Per AGENTS_v2.md §1.4 and
+   AUTONOMOUS_PLATFORM_VISION.md §7's own Phase 3 blueprint table, this feature has 'no new agent
+   number' — it is an extension of AG-23 (Relationship Mapper)... This file is written as a
+   standalone class (as the task that produced it requested, labeled AG-32) but follows that
+   explicit design constraint."* `AGENTS_v2.md`'s own Phase 2-5 AG-32 spec (read earlier this
+   session, cross-checked again here) independently quotes the same source document as describing
+   this as an **"AG-23 full weekly rebuild"** — matching `agent-registry-seed.ts`'s Sunday cron,
+   not `BLUEPRINT_v2.md`'s "incremental" framing. So of the three characterizations in play
+   (nightly-incremental / weekly-scheduled-metadata / weekly-full-rebuild-per-design-doc), the two
+   that agree with each other (registry cron + design doc) are also the two that match what was
+   actually built; `BLUEPRINT_v2.md`'s nightly-incremental line is the outlier and does not
+   correspond to any code.
+
+4. **Verified this file writes to the real, applied graph tables, not a placeholder schema.**
+   `pig_nodes`/`pig_edges` (`src/supabase/migrations/077_intelligence_graph.sql`) are read/written
+   directly — new `relationship_type` values (`board_overlap`, `shared_executive`,
+   `alumni_network`, plus four more discovery rules added in a later pass, per the file's own
+   header) are appended as edges, never a separate `corporate_relationships` table (confirmed:
+   no migration in either `src/supabase/migrations/` or root `supabase/migrations/` ever created
+   one, despite `SCHEMA_REGISTRY_v2.md` describing it as applied — the file's header documents
+   this discrepancy itself and degrades gracefully via try/catch where that table would have been
+   read).
+
+5. **Confirmed AG-32 is itself unreachable today — same practical status as bare AG-23 would
+   have, just for the standard reason documented across this whole log.** The file's own header:
+   `this.startRun()`'s `agent_runs` insert will fail against the live schema until a migration
+   adds `'ag-32-relationship-graph'` (§1.2's enum gap, same class of bug as every other entry in
+   this log) — *"This file is built and ready; it is not wired into any scheduler, queue route,
+   or `routeQueueItem()` case."* Repo-wide grep confirms: no cron entry, no `agent_queue` case, no
+   call site in `worker/autonomous-orchestrator.ts`. It is reachable only via
+   `src/app/api/intelligence/relationship-graph/route.ts` (manual, on-demand), whose own comment
+   at line 31 flags the same unresolved enum literal.
+
+6. **Found `FEATURE_REGISTRY_v2.md` is internally inconsistent about this exact question.** Row
+   #220 (Post-Launch Vision table) marks the capability **BUILT**, correctly crediting AG-32/
+   `relationship-graph-builder-agent.ts` and correctly noting the enum-gap block. Rows #80 and
+   #95 (Pillar 1 and Pillar 3 tables) — describing the identical RA-01/AG-23 purpose word-for-word
+   — are still marked **PLANNED** and make no mention of #220 or AG-32. The registry was never
+   reconciled after AG-32 shipped under a different number for what its own design doc calls the
+   same feature.
+
+7. **`pnpm tsc --noEmit`** — full project; `relationship-graph-builder-agent.ts` and
+   `agent-registry-seed.ts` appear in none of the (pre-existing, `src/__tests__/**`-only) error
+   output.
+
+### Root-cause summary
+
+1. **RA-01 = AG-23, confirmed, not a genuine scope split.** Both labels describe one PLANNED,
+   never-independently-coded concept: an agent that discovers cross-entity relationships and
+   populates `pig_nodes`/`pig_edges`. No file, class, or route implements this under either label.
+2. **"Incremental" (BLUEPRINT_v2.md) vs. "full nightly/weekly traversal" (FEATURE_REGISTRY_v2.md
+   #80, `agent-registry-seed.ts`, `AUTONOMOUS_PLATFORM_VISION.md`) is a documentation
+   contradiction, not two agents.** Two of the three sources agree on a weekly full-rebuild
+   cadence; `BLUEPRINT_v2.md`'s nightly-incremental line is the outlier, and none of the three
+   corresponds to a live cron job — `worker/scheduler.ts` has only its two fixed jobs regardless.
+3. **The concept does have real, substantive code today — under AG-32, not AG-23/RA-01** —
+   `relationship-graph-builder-agent.ts`, which its own header and `AGENTS_v2.md`'s Phase 2-5
+   section both explicitly identify as "the same agent as AG-23... not a distinct agent," built
+   as a standalone class per the task that requested it. It matches the weekly-full-rebuild
+   characterization, not "incremental," and is currently blocked by the same enum-gap pattern
+   documented throughout this log (§1.2-class bug) plus a total absence of scheduler/queue wiring.
+4. **Recommended fix for a future governance-sync session**: update `FEATURE_REGISTRY_v2.md`
+   rows #80 and #95 to cross-reference #220/AG-32 instead of standing alone as PLANNED, and
+   correct `BLUEPRINT_v2.md` §6's nightly pipeline table to either drop the AG-23 "incremental"
+   line or relabel it AG-32/weekly, matching what was actually built.
+
+**Verification method:** full read of `AGENTS_v2.md` §5 AG-23 spec, §4 cross-reference table, and
+the Phase 2-5 AG-32 spec; repo-wide case-insensitive grep for `ag-23`/`ag23`/`RA-01`/`RA01`/
+`RelationshipMapper` and separately for `ag-32`/`relationship-graph-builder` across `src/` and
+`worker/`; full read of `src/lib/agents/relationship-graph-builder-agent.ts`'s header comment and
+`agentId`/table-write lines; read of `src/lib/agents/agent-registry-seed.ts`'s `ag-23` entry; read
+of `src/app/api/intelligence/relationship-graph/route.ts`; cross-check against
+`BLUEPRINT_v2.md` §6's nightly pipeline table and `FEATURE_REGISTRY_v2.md` rows #80, #95, and
+#220; `pnpm tsc --noEmit` against the full project. No live-DB probe was attempted for this entry
+(the enum-gap claim for `'ag-32-relationship-graph'` is taken from the file's own header comment
+and cross-checked against §1.2's documented pattern, not independently re-verified against
+production).
