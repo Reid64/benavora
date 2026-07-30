@@ -34,7 +34,9 @@ function makeChain(result: { data: unknown; error: unknown }) {
   const chain: Record<string, unknown> = {
     select: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
+    in: vi.fn().mockReturnThis(),
     order: vi.fn().mockReturnThis(),
+    range: vi.fn().mockReturnThis(),
     insert: vi.fn().mockReturnThis(),
     single: vi.fn().mockResolvedValue(result),
     maybeSingle: vi.fn().mockResolvedValue(result),
@@ -198,7 +200,8 @@ describe("GET /api/donor-discovery/requests", () => {
     };
     mockRequireRole.mockResolvedValue(grantedGate(supabase, "viewer", ORG_ID));
 
-    const res = await listRequests();
+    const req = makeRequest("http://localhost/api/donor-discovery/requests");
+    const res = await listRequests(req);
 
     expect(res.status).toBe(200);
     const body = (await res.json()) as { requests: unknown[] };
