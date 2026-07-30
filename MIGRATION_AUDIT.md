@@ -1,457 +1,205 @@
 # MIGRATION_AUDIT.md
-## Migration-vs-Production Schema Audit
-**Run: July 28, 2026. Diagnostic only — no migrations were applied.**
+## Migration-vs-Production Schema Audit — RE-VERIFIED
+**Original run: July 28, 2026. Re-verification run: July 30, 2026, after migrations 051 and 052 were manually applied via the Supabase SQL Editor.**
 
-## Purpose
+## Why this re-run happened
 
-Migration 051 (`051_submission_intelligence.sql`) was discovered to have silently never been applied to production (see project memory `benavora-request-profiles-table-missing-blocks-autoapply`), causing a real AutoApply production bug (the `automation_level` org-readiness check). This audit reads every migration in `supabase/migrations/` (root — the "live" directory per project memory `benavora-two-parallel-migrations-directories`; the separate `src/supabase/migrations/` tree, 32 files, is out of scope for this pass), extracts every `CREATE TABLE` / `ALTER TABLE ... ADD COLUMN` statement, and checks whether each table/column actually exists on production — to find any *other* migrations with the same silent-failure pattern before they cause a production bug the way 051 did.
+The July 28 audit found that migration 051 (`051_submission_intelligence.sql`) had silently never been applied to production. Reid applied 051 and 052 manually via the SQL Editor this session. The task for this pass was: confirm 051/052 are now actually live, and — critically — **do not assume they were the only gaps**. This re-run does not trust the July 28 audit's own conclusions; it re-derives table/column existence from scratch against the current live schema and flags every divergence from the July 28 report.
 
-## Methodology
+**Result: the July 28 audit itself had a real blind spot.** Its own methodology note said it couldn't distinguish "this migration's statements executed" from "an object with this name happens to exist." In practice its tooling checked table *existence* for `CREATE TABLE IF NOT EXISTS` migrations but did not fully verify every column those statements define — so when a table already existed (created earlier, with fewer/differently-named columns) and a later migration's `CREATE TABLE IF NOT EXISTS`/`ALTER TABLE ADD COLUMN` no-op'd against it, the July 28 pass marked the whole migration "APPLIED." This re-run parses every `CREATE TABLE` and `ALTER TABLE ... ADD COLUMN` statement (including ones nested inside `DO $$ ... $$` idempotent blocks, and multi-column `ADD COLUMN a, ADD COLUMN b` clauses under one `ALTER TABLE`) and checks **every individual column**, not just table presence. That stricter check surfaces **11 additional migrations** with real gaps that July 28 missed entirely (034, 035, 036, 037, 038, 039, 041, 094, 095, 096, plus the two brand-new files 107/110 that postdate that audit).
 
-1. **Parsed 108 `.sql` files** in `supabase/migrations/` in filename order. For each file, extracted every top-level `CREATE TABLE [IF NOT EXISTS] <table>` and `ALTER TABLE <table> ADD COLUMN [IF NOT EXISTS] <column>` statement via a semicolon-statement-boundary parser (comments stripped first). 167 `CREATE TABLE` statements and 110 `ADD COLUMN` statements found.
-2. **Fetched the live production schema** directly from project `vbjplpquqxxfbpazyalt` via `GET {SUPABASE_URL}/rest/v1/` with `Accept: application/openapi+json` and the service-role key (same PostgREST-introspection method SCHEMA_REGISTRY_v2.md's July 19, 2026 live audit used). This returned 145 tables/views with full column lists.
-3. **Also attempted** the Supabase Management API (`POST /v1/projects/vbjplpquqxxfbpazyalt/database/query`) with the PAT documented in `BLUEPRINT_v2.md` §8.3, specifically to query `supabase_migrations.schema_migrations` for an authoritative applied-migrations list. **This PAT is still rejected — HTTP 401 Unauthorized** (re-confirming project memory `benavora-management-api-pat-rejected`, now stale-checked again as of this session, still invalid). PostgREST introspection was used as the sole source of truth instead.
-4. For every table/column found **missing** from the live schema, grepped `src/`, `worker/`, and `scripts/` for references to find live code paths depending on it.
+## Methodology (same as July 28, tightened)
 
-**Important caveat on what "APPLIED" means here:** without access to `supabase_migrations.schema_migrations`, this audit cannot distinguish "this exact migration file's statements executed successfully" from "an object with this name/shape happens to exist in production now (possibly created by a different migration)". What it **can** state with confidence is binary and directly useful: does the table/column this migration defines actually exist in production right now, yes or no. That is the same question that made migration 051's gap a real bug, and it is what this report answers for all 108 migrations.
+1. Fetched the live production schema directly from project `vbjplpquqxxfbpazyalt` via `GET {SUPABASE_URL}/rest/v1/` with `Accept: application/openapi+json` and the service-role key (same PostgREST-introspection method as both prior audits). **153 tables/views** returned (up from 145 on July 28, up from 132 on July 19 — reflecting 051/052's tables landing, plus other changes).
+2. Attempted the `claude.ai Supabase` MCP connector (newly available this session) as a possible faster/authoritative path — `list_projects` was denied by the permission gate, so this pass reverted to the proven direct-PostgREST method rather than retrying.
+3. Also considered the Supabase Management API PAT from `BLUEPRINT_v2.md` §8.3 for `supabase_migrations.schema_migrations` — **not re-attempted this session** since it has returned 401 on every prior check (project memory `benavora-management-api-pat-rejected`); PostgREST introspection remains the sole source of truth.
+4. **Parsed all 112 `.sql` files** now in `supabase/migrations/` (up from 108 on July 28 — four new files: `107_corporate_prospects.sql`, `108_corporate_prospects_ea06_ea10.sql`, `109_corporate_prospects_ag22_propensity_scoring.sql`, `110_scrape_jobs_universal_scraper.sql`). Extracted every `CREATE TABLE` and `ALTER TABLE ... ADD COLUMN` statement, including those nested inside `DO $$ BEGIN ... END $$` conditional blocks (a pattern used by ~10 migrations, e.g. 072/099/100/101/104/105, that the July 28 tooling appears to have skipped) and multi-column `ADD COLUMN x, ADD COLUMN y` clauses under a single `ALTER TABLE` (e.g. 039, 106).
+5. Checked every extracted table/column against the live schema from step 1.
+6. As a supplementary check (out of the original audit's stated scope, but cheap to verify since PostgREST exposes enum value lists inline on any column using that enum type), diffed every `ALTER TYPE agent_type ADD VALUE` and the one `ALTER TYPE subscription_tier ADD VALUE` statement across all 112 files against the live enum value lists. Findings below.
+7. For every newly-missing table/column, grepped `src/`, `worker/`, and `scripts/` for live consumers, and where a consumer was found, read the actual query/write code to determine whether the gap is a **currently-active bug** (the live code queries/writes the missing name) or a **dead/superseded design** (no live code references it, or the app already uses a different column name that IS live).
+
+**Same caveat as before:** this is table/column *existence*, not RLS policy correctness (PostgREST introspection doesn't expose `pg_policies`).
 
 ## Summary
 
-- **Total migrations audited:** 108
-- **APPLIED** (every CREATE TABLE / ADD COLUMN checked was found live): **80**
-- **NOT APPLIED** (at least one missing table or column): **28**
-- **Distinct missing tables:** 33
-- **Distinct missing columns on existing tables:** 14 (plus 2 grouped multi-column redesigns, see below)
-
-### Duplicate migration-number collisions (found during parsing, worth flagging on their own)
-
-Two pairs of files share the same leading number. This makes "migration 002" or "migration 052" an ambiguous reference in any future governance doc or code comment — both should be confirmed/renamed before more migrations are added on top:
-
-- `002_phases_2_5.sql` and `002_register_organization.sql`
-- `052_governance_layer.sql` and `052_webhook_configs.sql` — **both are NOT APPLIED** (see below). Notably, `052_webhook_configs.sql` exists specifically to create `webhook_configs`, and `051_submission_intelligence.sql` *also* tries to create `webhook_configs` — neither succeeded.
-
-## Migrations — NOT APPLIED (28 of 108)
-
-Ordered by filename. For each: the missing tables/columns this migration defines, and every live code path found referencing them.
-
-### `008_stripe_billing.sql` — NOT APPLIED
-
-**Missing tables:**
-
-- `stripe_webhook_events` — Stripe webhook idempotency table. Live code path.
-  - Live code references:
-    - `src/app/api/webhooks/stripe/route.ts (idempotency check + insert, lines ~56, 76)`
-
-### `012_opportunity_match_percentage.sql` — NOT APPLIED
-
-**Missing columns (table exists, column does not):**
-
-- `opportunities.is_high_priority` — Actively written by the live AG-02 eligibility scorer (src/lib/agents/eligibility-scorer.ts, wired into the nightly autonomous pipeline and agent_queue) and read by 4 UI components. Every autonomous eligibility-scoring run since migration 012 has been writing to a column that does not exist -- this is a genuine, currently-active silent-failure risk on a wired nightly agent.
-  - Live code references:
-    - `src/lib/agents/eligibility-scorer.ts:185`
-    - `src/components/opportunities/OpportunityTable.tsx:297`
-    - `src/components/opportunities/OpportunityDetail.tsx:324,1075,1078`
-    - `src/components/opportunities/OpportunityCard.tsx:39`
-    - `src/lib/grants/grants-service.ts:91`
-- `opportunities.match_mismatch_reasons` — Same write path as is_high_priority -- eligibility-scorer.ts:188.
-  - Live code references:
-    - `src/lib/agents/eligibility-scorer.ts:188`
-    - `src/components/opportunities/OpportunityDetail.tsx:1083`
-    - `src/lib/grants/grants-service.ts:92`
-
-### `020_automation_sessions.sql` — NOT APPLIED
-
-**Missing columns (table exists, column does not):**
-
-- `automation_sessions.session_type` — Only found in TypeScript type definitions (src/types/automation.ts), not in an active Supabase query. The actual runtime appears to use the separate, live automation_steps/automation_screenshots child tables (migration 002) instead of these JSONB columns -- likely a superseded design, lower risk than the AutoApply items above.
-  - Live code references:
-    - `src/types/automation.ts (type only)`
-- `automation_sessions.steps` — Same superseded-design pattern as session_type -- type-only reference, real runtime uses automation_steps table.
-  - Live code references:
-    - `src/types/automation.ts:189 (type only)`
-- `automation_sessions.screenshots` — Same superseded-design pattern -- type-only reference, real runtime uses automation_screenshots table.
-  - Live code references:
-    - `src/types/automation.ts:189, src/components/automation/automation.ts:313 (types only)`
-- `automation_sessions.approval_required_at` — No live query reference found beyond the migration file itself.
-  - No live code references found.
-
-### `025_fix_alerts.sql` — NOT APPLIED
-
-**Missing columns (table exists, column does not):**
-
-- `opportunities.is_high_priority` — Actively written by the live AG-02 eligibility scorer (src/lib/agents/eligibility-scorer.ts, wired into the nightly autonomous pipeline and agent_queue) and read by 4 UI components. Every autonomous eligibility-scoring run since migration 012 has been writing to a column that does not exist -- this is a genuine, currently-active silent-failure risk on a wired nightly agent.
-  - Live code references:
-    - `src/lib/agents/eligibility-scorer.ts:185`
-    - `src/components/opportunities/OpportunityTable.tsx:297`
-    - `src/components/opportunities/OpportunityDetail.tsx:324,1075,1078`
-    - `src/components/opportunities/OpportunityCard.tsx:39`
-    - `src/lib/grants/grants-service.ts:91`
-- `opportunities.match_mismatch_reasons` — Same write path as is_high_priority -- eligibility-scorer.ts:188.
-  - Live code references:
-    - `src/lib/agents/eligibility-scorer.ts:188`
-    - `src/components/opportunities/OpportunityDetail.tsx:1083`
-    - `src/lib/grants/grants-service.ts:92`
-
-### `026_fix_alerts_schema.sql` — NOT APPLIED
-
-**Missing columns (table exists, column does not):**
-
-- `opportunities.is_high_priority` — Actively written by the live AG-02 eligibility scorer (src/lib/agents/eligibility-scorer.ts, wired into the nightly autonomous pipeline and agent_queue) and read by 4 UI components. Every autonomous eligibility-scoring run since migration 012 has been writing to a column that does not exist -- this is a genuine, currently-active silent-failure risk on a wired nightly agent.
-  - Live code references:
-    - `src/lib/agents/eligibility-scorer.ts:185`
-    - `src/components/opportunities/OpportunityTable.tsx:297`
-    - `src/components/opportunities/OpportunityDetail.tsx:324,1075,1078`
-    - `src/components/opportunities/OpportunityCard.tsx:39`
-    - `src/lib/grants/grants-service.ts:91`
-- `opportunities.match_mismatch_reasons` — Same write path as is_high_priority -- eligibility-scorer.ts:188.
-  - Live code references:
-    - `src/lib/agents/eligibility-scorer.ts:188`
-    - `src/components/opportunities/OpportunityDetail.tsx:1083`
-    - `src/lib/grants/grants-service.ts:92`
-
-### `039_funder_relationship_agent.sql` — NOT APPLIED
-
-**Missing columns (table exists, column does not):**
-
-- `funder_relationship_scores.trend` — Actively written by the live AG-19 FunderRelationshipAgent (wired into agent_queue case 'funder_relationship' per AGENTS_v2.md).
-  - Live code references:
-    - `src/lib/agents/funder-relationship.ts`
-- `funder_relationship_scores.recent_events` — Actively read by the same live agent.
-  - Live code references:
-    - `src/lib/agents/funder-relationship.ts:109`
-- `funder_relationship_scores.is_stale` — Actively written by the same live agent.
-  - Live code references:
-    - `src/lib/agents/funder-relationship.ts:146`
-
-### `051_submission_intelligence.sql` — NOT APPLIED
-
-**Missing tables:**
-
-- `request_profiles` — AUTOAPPLY_ARCHITECTURE_V2 Request Profile System. Confirmed missing per project memory 'benavora-request-profiles-table-missing-blocks-autoapply' (2026-07-28) -- this is the current AutoApply blocker.
-  - Live code references:
-    - `src/app/api/autoapply/profiles/route.ts`
-    - `src/app/api/autoapply/profiles/[id]/route.ts`
-    - `src/lib/autoapply/auto-queue-populator.ts`
-    - `src/lib/autoapply/submission-validator.ts`
-    - `src/lib/autoapply/receipt-generator.ts (type import)`
-    - `src/components/autoapply/SubmissionPreview.tsx`
-    - `worker/queue-processor.ts:549`
-- `kb_extended_needs` — No live code references found anywhere in src/, worker/, or scripts/ beyond the migration file itself. Appears genuinely dead/unused -- lower priority than the others.
-  - No live code references found.
-- `pitch_cache` — Live code path, but written defensively -- pitch-personalizer.ts already contains comments acknowledging the table 'may not exist yet' and degrades gracefully. Confirms this gap was previously suspected/worked around, not fully fixed.
-  - Live code references:
-    - `src/lib/autoapply/pitch-personalizer.ts (lines 73, 84, 100, 212, 251, 259 -- explicit 'may not exist yet' comments)`
-- `org_documents` — Live code path -- AutoApply document vault.
-  - Live code references:
-    - `src/lib/autoapply/document-vault.ts`
-    - `src/lib/autoapply/submission-validator.ts:190`
-    - `src/components/autoapply/SubmissionPreview.tsx:299`
-    - `src/components/autoapply/ManualQueue.tsx:339`
-    - `src/app/(dashboard)/autoapply/documents/page.tsx:212`
-- `submission_receipts` — Live code path -- PDF receipt generation after every AutoApply submission.
-  - Live code references:
-    - `src/lib/autoapply/receipt-generator.ts:336`
-- `grant_agreements` — Live code path -- post-award agreement tracking.
-  - Live code references:
-    - `src/app/api/autoapply/agreements/route.ts`
-    - `src/app/api/autoapply/agreements/[id]/route.ts`
-    - `src/lib/autoapply/response-analytics.ts:342,396`
-- `webhook_configs` — Live code path -- both migration 051 and migration 052_webhook_configs.sql attempt to create this same table (see numbering collision note). Neither succeeded.
-  - Live code references:
-    - `src/app/api/autoapply/webhooks/route.ts`
-    - `src/lib/autoapply/webhook-notifier.ts:95`
-    - `src/app/(dashboard)/autoapply/webhooks/page.tsx:136`
-- `cross_client_submissions` — Live code path -- anonymized cross-tenant dedup log.
-  - Live code references:
-    - `src/lib/autoapply/submission-controls.ts (lines 81, 192, 263)`
-
-**Missing columns (table exists, column does not):**
-
-- `submission_queue.request_profile_id` — FK link to the also-missing request_profiles table -- part of the same AutoApply Request Profile System gap.
-  - Live code references:
-    - `migration 051 only; no direct code reference to this exact column name found, but downstream of the request_profiles gap`
-- `autoapply_submissions.request_profile_id`
-- `autoapply_submissions.submission_channel`
-- `autoapply_submissions.personalized_pitch`
-- `autoapply_submissions.optimized_amount`
-- `autoapply_submissions.timing_score`
-- `autoapply_submissions.confirmation_data`
-- `autoapply_submissions.documents_attached`
-
-### `052_governance_layer.sql` — NOT APPLIED
-
-**Missing tables:**
-
-- `funder_relationships` — Live code path -- AutoApply risk engine and relationship manager (distinct from funder_relationship_scores, which does exist).
-  - Live code references:
-    - `src/lib/autoapply/risk-engine.ts:98,129`
-    - `src/lib/autoapply/relationship-manager.ts (6 call sites)`
-    - `src/lib/autoapply/follow-up-scheduler.ts:159`
-- `queue_controls` — Live code path -- AutoApply queue pause/kill-switch control plane referenced in Behavioral Contracts. Central to the AutoApply Ops admin page.
-  - Live code references:
-    - `src/lib/autoapply/queue-controls.ts (12 call sites)`
-    - `src/lib/drafts/submission-bridge.ts:280`
-    - `src/app/api/admin/autoapply-ops/route.ts:70`
-- `submission_usage` — Live code path -- monthly/daily submission usage tracking for tier enforcement.
-  - Live code references:
-    - `src/lib/autoapply/usage-meter.ts (7 call sites)`
-    - `src/lib/autoapply/alerting.ts:76`
-    - `src/lib/autoapply/response-analytics.ts:402`
-    - `src/app/api/admin/autoapply-ops/route.ts:135`
-    - `src/app/(dashboard)/autoapply/usage/UsagePageClient.tsx:297`
-- `tier_limits` — Live code path -- tier-based usage caps (usage-meter.ts explicitly has hardcoded fallback constants for when this table isn't seeded, but the table itself is still queried first).
-  - Live code references:
-    - `src/lib/autoapply/usage-meter.ts:172,276,369,424`
-    - `src/app/(dashboard)/autoapply/usage/UsagePageClient.tsx:307`
-
-**Missing columns (table exists, column does not):**
-
-- `submission_queue.risk_score` — Part of migration 052_governance_layer.sql's risk-gating design.
-  - Live code references:
-    - `migration 052_governance_layer.sql only; risk scoring itself lives in src/lib/autoapply/risk-engine.ts but was not confirmed writing to this exact column name`
-- `submission_queue.risk_factors` — Same migration 052_governance_layer.sql risk-gating design as risk_score.
-  - Live code references:
-    - `migration 052_governance_layer.sql only`
-
-### `052_webhook_configs.sql` — NOT APPLIED
-
-**Missing tables:**
-
-- `webhook_configs` — Live code path -- both migration 051 and migration 052_webhook_configs.sql attempt to create this same table (see numbering collision note). Neither succeeded.
-  - Live code references:
-    - `src/app/api/autoapply/webhooks/route.ts`
-    - `src/lib/autoapply/webhook-notifier.ts:95`
-    - `src/app/(dashboard)/autoapply/webhooks/page.tsx:136`
-
-### `053_multichannel_analytics.sql` — NOT APPLIED
-
-**Missing tables:**
-
-- `session_recordings` — Live code path -- Playwright .webm video audit trail per AutoApply submission.
-  - Live code references:
-    - `worker/queue-processor.ts:1348`
-    - `src/app/(dashboard)/autoapply/recordings/page.tsx:301,369`
-- `ab_test_variants` — Live code path -- A/B testing of pitch styles.
-  - Live code references:
-    - `src/app/api/autoapply/ab-tests/route.ts`
-    - `src/lib/autoapply/ab-testing.ts (6 call sites)`
-
-**Missing columns (table exists, column does not):**
-
-- `autoapply_submissions.variant_id`
-- `autoapply_submissions.response_received_at`
-- `autoapply_submissions.follow_up_status`
-
-### `054_email_calendar_integration.sql` — NOT APPLIED
-
-**Missing tables:**
-
-- `email_threads` — No live code references found. The actually-live email thread table is 'synced_email_threads' (migration 002_phases_2_5.sql), confirmed present in production. This migration 054 table appears to be an abandoned/superseded redesign, not a silent-failure risk.
-  - No live code references found.
-- `email_messages` — No live code references found. The actually-live email message table is 'synced_email_messages' (migration 002_phases_2_5.sql), confirmed present in production. Same superseded-redesign pattern as email_threads.
-  - No live code references found.
-
-### `060_grantmaker_profiles.sql` — NOT APPLIED
-
-**Missing columns (table exists, column does not):**
-
-- `intelligence_grantmaker_profiles` — 9 columns added by this migration, none present: `foundation_id`, `name`, `total_annual_giving`, `program_priorities`, `typical_award_range`, `language_patterns`, `application_url`, `last_profiled_at`, `profile_data`
-  - No live code found querying intelligence_grantmaker_profiles by any of migration 060's new column names (foundation_id, name, total_annual_giving, program_priorities, typical_award_range, language_patterns, application_url, last_profiled_at, profile_data). All real consumers (grantmaker-profiles.ts, funder-recommender.ts, funder-intel.ts, etc.) still use the ORIGINAL migration-048 schema (funder_id, priorities, avg_award_amount, award_range_min/max, geographic_focus, typical_language, common_keywords, decision_timeline, application_tips, source, last_updated_at, embedding) -- which IS live. Migration 060 looks like an abandoned redesign that was never adopted by any code, not an active silent-failure risk.
-
-### `078_donor_discovery_prospects_scored_at.sql` — NOT APPLIED
-
-**Missing columns (table exists, column does not):**
-
-- `donor_discovery_prospects.scored_at` — Actively written by the live donor-discovery scoring worker job on every run, and used to find stale/unscored prospects. If this column doesn't exist, src/worker/jobs/score-donor-prospect.ts's `.or('scored_at.is.null,scored_at.lt....')` filter and the `.update({..., scored_at: ...})` call would both fail. This is a strong candidate root cause for project memory 'benavora-donor-discovery-pipeline-empty-in-prod' (2026-07-20: all donor discovery tables confirmed empty except taxonomy).
-  - Live code references:
-    - `src/worker/jobs/score-donor-prospect.ts:76`
-    - `src/lib/donor-discovery/scoring-engine.ts:516`
-    - `src/components/donor-discovery/ProspectDetail.tsx:531`
-
-### `079_donor_discovery_prospects_enrichment_private.sql` — NOT APPLIED
-
-**Missing columns (table exists, column does not):**
-
-- `donor_discovery_prospects.enrichment_private` — Actively read/written by the live connector-enrichment worker job on every run.
-  - Live code references:
-    - `src/worker/jobs/run-connector-enrichment.ts:120,200,204,246`
-
-### `080_org_settings.sql` — NOT APPLIED
-
-**Missing tables:**
-
-- `org_settings` — Live code path -- powers the AutoApply automation-mode toggle API (GET/PATCH). This is a likely contributor to the AutoApply automation_level issues already tracked in project memory.
-  - Live code references:
-    - `src/app/api/autoapply/mode/route.ts:26,68`
-
-### `082_outreach_templates.sql` — NOT APPLIED
-
-**Missing tables:**
-
-- `outreach_templates` — Live code path -- reusable multi-channel outreach templates.
-  - Live code references:
-    - `src/app/api/outreach/templates/route.ts`
-    - `src/app/(dashboard)/outreach/templates/page.tsx:14`
-
-### `083_followup_sequences.sql` — NOT APPLIED
-
-**Missing tables:**
-
-- `followup_sequences` — Live code path -- multi-step post-submission follow-up sequences.
-  - Live code references:
-    - `src/app/api/outreach/sequences/route.ts`
-    - `src/app/(dashboard)/outreach/sequences/page.tsx:12`
-- `followup_enrollments` — Live code path -- per-application progress through a followup_sequence (FK dependency on followup_sequences, also missing).
-  - Live code references:
-    - `referenced via followup_sequences relations in src/types/database.ts:4899`
-
-### `084_grant_financials.sql` — NOT APPLIED
-
-**Missing tables:**
-
-- `grant_budgets` — Live code path -- per-application budget envelope. NOTE: this table name collides with the ALREADY-DOCUMENTED SCHEMA_REGISTRY_v2.md finding that grant_budgets does not exist in prod (July 19 2026 audit). This audit independently re-confirms that finding via direct schema introspection.
-  - Live code references:
-    - `src/app/api/financials/budgets/route.ts`
-    - `src/app/api/applications/[id]/budget/route.ts`
-    - `src/app/api/applications/[id]/reconcile/route.ts:37`
-    - `src/app/(dashboard)/financials/page.tsx:19,95`
-- `grant_expenses` — Live code path -- expense line items against a grant_budgets envelope. Same SCHEMA_REGISTRY_v2.md corroboration as grant_budgets.
-  - Live code references:
-    - `src/app/api/financials/expenses/route.ts`
-    - `src/app/api/applications/[id]/expenses/route.ts`
-    - `src/app/api/applications/[id]/reconcile/route.ts:50`
-    - `src/app/(dashboard)/financials/page.tsx:20,98`
-
-### `085_compliance_requirements.sql` — NOT APPLIED
-
-**Missing tables:**
-
-- `compliance_requirements` — Live code path -- manually tracked compliance obligations, also surfaced in the Intelligence Briefing panel and unified search.
-  - Live code references:
-    - `src/app/api/compliance/route.ts`
-    - `src/components/intelligence/IntelligenceBriefingPanel.tsx:77`
-    - `src/lib/intelligence/unified-search.ts`
-    - `src/app/api/intelligence/briefing/route.ts`
-
-### `086_white_label.sql` — NOT APPLIED
-
-**Missing tables:**
-
-- `consultant_client_access` — Live code path -- White-label consultant portal access. Also independently documented as missing in SCHEMA_REGISTRY_v2.md's July 19 audit.
-  - Live code references:
-    - `src/app/api/consultant/clients/route.ts (3 call sites)`
-
-### `087_notification_preferences.sql` — NOT APPLIED
-
-**Missing tables:**
-
-- `notification_preferences` — Live code path -- gates ALL notification dispatch per Behavioral Contracts §32. If missing, notify.ts's gating query fails/defaults, meaning per-user notification preferences are not actually being honored.
-  - Live code references:
-    - `src/lib/notifications/notify.ts:31`
-    - `src/app/api/settings/notifications/route.ts:40,100`
-
-### `089_financial_reconciliation.sql` — NOT APPLIED
-
-**Missing tables:**
-
-- `grant_reconciliation_reports` — Live code path -- computed budget-vs-actual reports. Depends on grant_budgets/grant_expenses, both also missing.
-  - Live code references:
-    - `src/app/api/applications/[id]/reconcile/route.ts:75`
-    - `src/lib/reports/impact-report.ts (comment acknowledges this gap already, citing the July 19 2026 audit)`
-
-**ADD COLUMN targets a table that itself does not exist** (downstream of a missing table above):
-
-- `grant_budgets.line_items`
-- `grant_budgets.total_approved`
-- `grant_budgets.updated_at`
-- `grant_expenses.application_id`
-- `grant_expenses.receipt_url`
-
-### `090_compliance_calendar.sql` — NOT APPLIED
-
-**Missing tables:**
-
-- `compliance_events` — Live code path -- compliance calendar (reports/audits/renewals/meetings/filings), distinct from compliance_requirements.
-  - Live code references:
-    - `src/app/api/compliance/events/route.ts`
-    - `src/app/api/compliance/events/[id]/route.ts`
-    - `src/app/(dashboard)/compliance/page.tsx:89`
-
-### `096_knowledge_engine.sql` — NOT APPLIED
-
-**Missing columns (table exists, column does not):**
-
-- `intelligence_funded_proposals.embedding`
-
-### `097_funding_sources.sql` — NOT APPLIED
-
-**Missing tables:**
-
-- `funding_sources` — Live code path -- shared, non-org-scoped funding source registry (100+ sources per Directive 5).
-  - Live code references:
-    - `src/app/api/sources/registry/route.ts`
-    - `src/app/(dashboard)/research/page.tsx:561`
-    - `src/lib/sources/state-sources-registry.ts`
-    - `src/lib/sources/funding-source-registry.ts`
-
-### `102_org_portal_accounts.sql` — NOT APPLIED
-
-**Missing tables:**
-
-- `org_portal_accounts` — Live code path -- AutoApply portal account verification state (e.g. Walmart Spark Good).
-  - Live code references:
-    - `worker/queue-processor.ts:1695,1702`
-    - `scripts/setup-sparkgood-account.ts (multiple)`
-
-### `103_schoolfunder.sql` — NOT APPLIED
-
-**Missing tables:**
-
-- `schoolfunder_students` — Live code path -- SchoolFunder is a real, live Faith Foundation showcase feature per nav-items.ts (confirmed NOT removed per STATE_OF_THE_BUILD.md July 23 session). This entire feature is backed by 3 tables, none of which exist in prod.
-  - Live code references:
-    - `src/app/api/schoolfunder/route.ts`
-    - `src/app/api/schoolfunder/hours/route.ts`
-    - `src/app/api/schoolfunder/donate/route.ts`
-    - `src/app/(dashboard)/schoolfunder/page.tsx:117`
-- `schoolfunder_volunteer_hours` — Same SchoolFunder feature as schoolfunder_students -- missing table.
-  - Live code references:
-    - `src/app/api/schoolfunder/hours/route.ts:58`
-    - `src/app/(dashboard)/schoolfunder/page.tsx:137`
-- `schoolfunder_donations` — Same SchoolFunder feature -- missing table.
-  - Live code references:
-    - `src/app/api/schoolfunder/route.ts:55`
-    - `src/app/api/schoolfunder/donate/route.ts:84`
-    - `src/app/(dashboard)/schoolfunder/page.tsx:124`
-
-### `106_intelligence_library_schema_upgrade.sql` — NOT APPLIED
-
-**Missing columns (table exists, column does not):**
-
-- `intelligence_funded_proposals` — 20 columns added by this migration, none present: `funder_category`, `ntee_major`, `ntee_code`, `success_factors`, `keywords`, `persuasive_elements`, `winning_phrases`, `theory_of_change`, `evaluation_approach`, `budget_structure`, `geographic_scope`, `org_size_category`, `submission_timing`, `application_word_count`, `sections_included`, `ai_quality_score`, `is_verified`, `source_type`, `import_batch`, `full_text_search_vector`
-  - Actively referenced by real, live code -- pattern-extractor.ts, proposals-query.ts, draft-generation-agent.ts (platform_learning_patterns consumer), grant-style-guide.ts, and the /api/intelligence/library/search route. This matches an ALREADY-DOCUMENTED gap: STATE_OF_THE_BUILD.md's July 23 2026 session note explicitly states 'winning-phrases/persuasive-elements sections... only render when migration 106's columns are populated (they are not, in prod, as of this session)'. This audit confirms that observation at the full-migration level (19 of 19 added columns absent) rather than just the two fields previously spot-checked.
-  - Live code references:
-    - `src/lib/intelligence/pattern-extractor.ts`
-    - `src/lib/intelligence/proposals-query.ts`
-    - `src/app/api/intelligence/library/search/route.ts`
-    - `src/lib/agents/draft-generation-agent.ts`
-    - `src/lib/intelligence/grant-style-guide.ts`
-    - `src/app/(dashboard)/intelligence-library/page.tsx`
-
-## Migrations — APPLIED (80 of 108)
-
-Every `CREATE TABLE` / `ADD COLUMN` statement in these migrations was confirmed present in the live production schema.
+- **Total migration files:** 112 (was 108)
+- **APPLIED** (every `CREATE TABLE`/`ADD COLUMN` checked, found live): **55**
+- **NOT APPLIED** (at least one missing table or column): **41**
+- **NO_DDL** (no `CREATE TABLE`/`ADD COLUMN` in the file — enum additions, RLS fixes, data backfills; not part of the table/column check): **16**, three of which (005, 006, 007) turned out to have their *sole* statement — an enum value addition — also never applied (see enum section below)
+
+### Migrations 051 and 052 — confirmed status
+
+**051 (`051_submission_intelligence.sql`): FULLY APPLIED, confirmed.** All 8 tables now live with the exact columns the migration defines: `request_profiles`, `kb_extended_needs`, `pitch_cache`, `org_documents`, `submission_receipts`, `grant_agreements`, `webhook_configs`, `cross_client_submissions`. All 8 `submission_queue`/`autoapply_submissions` columns (`request_profile_id`, `submission_channel`, `personalized_pitch`, `optimized_amount`, `timing_score`, `confirmation_data`, `documents_attached`) are present. This was the AutoApply blocker from project memory `benavora-request-profiles-table-missing-blocks-autoapply` — it is now resolved.
+
+**"052" is two files, and only one of them was actually fixed:**
+- `052_webhook_configs.sql`: **NOT applied, and its gap now masks a live bug.** `webhook_configs` exists — but it was created by 051's definition (`webhook_type`, `active`, no `updated_at`), not this file's (`type`, `is_active`, `updated_at`). Since `051_submission_intelligence.sql` and `052_webhook_configs.sql` both use `CREATE TABLE IF NOT EXISTS webhook_configs` with different column names for the same concept, whichever ran first "won" and the other became a permanent no-op. **`src/lib/autoapply/webhook-notifier.ts:96,98` queries `.select('id, type, webhook_url, events').eq('is_active', true)` — both `type` and `is_active` are columns that do not exist on the live table.** This means the query errors on every call and `WebhookNotifier.notify()` silently returns without sending any webhook, for every org, for every event type, always. This is a new, currently-active bug this pass found — not present in the July 28 report at all (it only flagged the table as fully missing, which is no longer the case now that 051 landed).
+- `052_governance_layer.sql`: **NOT applied — this is the larger and more consequential "052" file, and it appears Reid's manual fix did not include it.** `funder_relationships`, `queue_controls`, `submission_usage`, `tier_limits` are all still missing, and `submission_queue.risk_score`/`risk_factors` are still missing. This is the entire AutoApply governance/risk-gating/tier-limit layer — unchanged from July 28, still a real gap with 20+ live call sites across `risk-engine.ts`, `relationship-manager.ts`, `follow-up-scheduler.ts`, `usage-meter.ts`, `alerting.ts`, `response-analytics.ts`, and `/api/admin/autoapply-ops/route.ts`.
+
+## Highest-priority findings — NEW this pass (beyond 051/052)
+
+These were marked "APPLIED" by the July 28 audit (or not covered at all, for 107-110) but are confirmed broken against the live schema right now:
+
+1. **`success_probability_scores.data_quality`/`updated_at` (migration 038) — the live, wired Success Probability Agent (Agent 22) throws on every run.** `src/lib/agents/success-probability.ts:166-179` does `.upsert({ ..., data_quality: dataQuality, calculated_at: ..., updated_at: ... }, { onConflict: "application_id" })`. Neither `data_quality` nor `updated_at` exists on the live table (live columns: `id, organization_id, application_id, probability_score, factors, calculated_at`). The upsert errors, and the code explicitly `throw new AgentError("Failed to save probability score.", "write_failed")` on that error — this is not a silent no-op, it's a hard failure on every invocation of a live agent.
+2. **`funder_giving_history.grant_purpose` (migration 037) — Competitor Intel Agent's read fails.** `src/lib/agents/competitor-intel.ts:97` selects `"recipient_name, amount, grant_purpose, fiscal_year"` from `funder_giving_history`. The live table has `purpose`, not `grant_purpose` (and `recipient_ein`/`source_filing_url` instead of the migration's `source`) — the table was evidently created out-of-band with a different column layout than the checked-in `037_giving_history.sql` file defines. The query fails, breaking the agent's giving-history read. (Its later write to `competitor_tracking.grant_purpose` is fine — that column does exist on `competitor_tracking`, which was created by migration 040 instead.)
+3. **`automation_notifications.title`/`related_entity_type`/`related_entity_id` (migration 036) — the notification dispatcher's insert shape doesn't match the live table.** Live table (confirmed via direct introspection, matching `SCHEMA_REGISTRY_v2.md`'s documented columns exactly): `id, organization_id, session_id, event_type, message, is_read, sent_via, created_at`. No `title`, no `related_entity_*`. `CREATE TABLE IF NOT EXISTS` no-op'd against a table that already existed with a different, smaller shape (note the live table also has a `session_id` column this migration file never mentions — it was created by an entirely different, unidentified process).
+4. **`custom_api_connections.error_count` (migration 034) — Agent 19's auto-pause-at-3-failures logic is broken.** `src/lib/agents/custom-api.ts:73,118,129,135` selects, reads, and increments `error_count` to auto-pause a connection after 3 consecutive failures (per `BEHAVIORAL_CONTRACTS §20`). Column doesn't exist live — every read of `conn.error_count` returns `undefined`/errors, so the auto-pause safety mechanism cannot function.
+5. **`agent_registry.avg_tokens_per_run` (migration 094) — `/api/agents/registry` breaks.** `src/app/api/agents/registry/route.ts:52` selects this column by name directly. Missing live.
+6. **`organizations.extended_profile` (migration 104) — the Knowledge Base Editor 10-section profile UI has no backing column.** 5 live consumers found (`dashboard/page.tsx`, `knowledge-base/edit/page.tsx`, `/api/knowledge-base/route.ts`, `lib/knowledge-base/profile.ts`, `src/types/database.ts`). The migration file's own header explicitly says "NOT YET APPLIED to the live database as of this migration file's creation" — self-documented, and this pass confirms that's still true.
+7. **`organizational_digital_twins.twin_auto_populate_log` (migration 101, root tree) — twin auto-populate's audit log has nowhere to write.** Live consumer: `src/lib/intelligence/twin-auto-populate.ts`. Note: the identical column is also defined in `src/supabase/migrations/102_twin_auto_populate_log.sql` (the parallel migrations tree, project memory `benavora-two-parallel-migrations-directories`) — neither fork's version has landed.
+8. **`applications.metadata` (migration 105, root tree) — Narrative Humanizer's `humanization_score` has nowhere to write.** Live consumers: `src/lib/intelligence/narrative-humanizer.ts`, `src/lib/agents/draft-generation-agent.ts`, `/api/drafts/[id]/humanize/route.ts`, `/api/drafts/[id]/route.ts`, `DraftQualityPanel.tsx`. Same dual-fork pattern — also defined in `src/supabase/migrations/103_narrative_humanizer.sql`, also not live.
+9. **`prospects.contact_name`/`contact_title` (migration 100) — Sales Outreach personalization has no named contact.** Live consumer: `scripts/seed-outreach-prospects.ts` (per the migration's own header, this is the intended write path). Contradicts project memory `benavora-outreach-table-names-collide`, which stated "prospects needed migration 100 for contact_name/contact_title" as if resolved — it was written but never actually landed live. That memory should be treated as describing an intended fix, not a confirmed one.
+10. **`funder_relationship_scores.trend`/`recent_events`/`is_stale` (migration 039) — unchanged from July 28, still broken.** Confirmed again: live table has `id, organization_id, funder_id, score, events, last_updated_at, created_at` — none of the three AG-19 FunderRelationshipAgent columns exist.
+
+## Confirmed dead/superseded — not active bugs (lower priority)
+
+These showed up as "missing" against their originating migration file, but the live app already uses a different (live) column name for the same purpose, and no code references the missing name:
+
+- **`agent_configurations.organization_id`/`updated_at` (migration 094)** and **`discovery_runs`/`discovery_matches.organization_id` (migration 095)** — all three tables are actually defined by `src/supabase/migrations/075_agent_marketplace.sql` (the *other* migrations tree) using `org_id`, which **is** what's live and what all real consumers (`/api/agents/registry/*`, `/api/agents/discovery/route.ts`, `morning-digest.ts`) query. 094/095's `organization_id` additions in the root tree are an abandoned parallel-naming attempt.
+- **`knowledge_queries.organization_id` (migration 096)** — same pattern; live/real code uses `org_id`. (096's other gap, `intelligence_funded_proposals.embedding`, is real and unchanged from July 28 — see below.)
+- **`automation_queue.worker_id` (migration 035)** — no live code references it (the `worker_id` matches found in `WorkerStatus.tsx`/`/api/admin/system/route.ts` are for the unrelated, live `worker_status` table).
+- **`intelligence_grantmaker_profiles` redesign (migration 060)** — unchanged from July 28's conclusion: abandoned redesign, no live consumer uses the new column names.
+- **`automation_sessions` extra columns (migration 020)**, **`scraping_targets.updated_at` (migrations 034/041)** — unchanged from July 28: type-only or cosmetic, no functional live-code dependency found.
+
+## Supplementary finding: `agent_type` / `subscription_tier` enum gaps (new this pass, outside original scope)
+
+The July 28 audit explicitly excluded `ALTER TYPE ... ADD VALUE` statements. Since PostgREST's OpenAPI introspection conveniently inlines the full live enum value list on any column using that type, this pass diffed every `ALTER TYPE agent_type ADD VALUE` / `ALTER TYPE subscription_tier ADD VALUE` statement across all 112 files against production. **Missing agent_type values:**
+
+- `browser_automation` (005), `email_matching` (006), `email_campaign` (007) — three early, otherwise-DDL-free migrations whose *entire content* is one enum add, and none of the three ever landed.
+- `custom_scrape_research`, `giving_history_extractor`, `competitor_intelligence`, `semantic_matching`, `automation_worker`, `csv_import`, `notification_dispatcher`, `financial_reconciliation` — all from `033_integration_keys.sql`'s enum block.
+- `automation_worker` (035, duplicate attempt), `giving_history_extractor` (037, duplicate attempt), `competitor_intelligence` (040, duplicate attempt) — same three values, attempted again in later files, still not live.
+- `ea01_giving_detector` through `ea05_career_page_analyzer` (107), `ea06_press_release_analyzer` through `ea10_social_media_analyzer` (108), `ag22_propensity_scoring` (109) — the entire Corporate Intelligence Engine agent-type roster. Each of these three files self-documents "NOT CONFIRMED APPLIED TO PRODUCTION this session" in its own header, and this pass confirms that self-assessment is correct.
+
+**Missing subscription_tier value:** `consultant` (021_billing_tables.sql) — the White-Label Consultant plan tier cannot actually be set on `subscriptions.tier` in production; the live enum is still just `free, starter, professional, enterprise`.
+
+This directly compounds project memory `benavora-agent-type-enum-gap` (previously only ag-25/ag-28/autonomous_orchestrator were known missing) — the real gap is significantly larger. Any agent whose `agent_type` value isn't in the live enum will fail its `agent_runs` insert with a type-constraint violation the moment it tries to log a run. Worth a dedicated follow-up pass rather than folding entirely into this table/column-scoped audit.
+
+## Migrations — NOT APPLIED (41 of 112)
+
+Ordered by filename. Entries unchanged from July 28 are marked *(unchanged)*; everything else is new to this pass.
+
+### `008_stripe_billing.sql` — NOT APPLIED *(unchanged)*
+- Missing table: `stripe_webhook_events`. Live consumer: `src/app/api/webhooks/stripe/route.ts` (idempotency check + insert).
+
+### `012_opportunity_match_percentage.sql` / `025_fix_alerts.sql` / `026_fix_alerts_schema.sql` — NOT APPLIED *(unchanged)*
+- Missing columns: `opportunities.is_high_priority`, `opportunities.match_mismatch_reasons`. Actively written by the live, nightly-wired AG-02 eligibility scorer (`src/lib/agents/eligibility-scorer.ts:185,188`) and read by 4 UI components. Still the highest-standing active-agent write failure carried over from July 28 — unresolved across three separate attempts (012, 025, 026) to add the same two columns.
+
+### `020_automation_sessions.sql` — NOT APPLIED *(unchanged, low priority)*
+- Missing columns: `session_type`, `steps`, `screenshots`, `approval_required_at`. Type-only references in `src/types/automation.ts`; real runtime uses the live `automation_steps`/`automation_screenshots` child tables instead. Superseded design.
+
+### `034_custom_connections.sql` — NOT APPLIED *(new finding)*
+- Missing columns: `custom_api_connections.error_count` (active bug — see priority finding #4 above), `scraping_targets.updated_at` (cosmetic, no functional consumer found).
+
+### `035_automation_queue.sql` — NOT APPLIED *(new finding, low priority)*
+- Missing column: `automation_queue.worker_id`. No live consumer found — dead column.
+
+### `036_automation_notifications.sql` — NOT APPLIED *(new finding — priority #3 above)*
+- Missing columns: `title`, `related_entity_type`, `related_entity_id`.
+
+### `037_giving_history.sql` — NOT APPLIED *(new finding — priority #2 above)*
+- Missing columns: `funder_giving_history.grant_purpose`, `funder_giving_history.source`. Live table instead has `purpose`/`recipient_ein`/`source_filing_url` — created out-of-band with a different schema than this checked-in file.
+
+### `038_intelligence_tables.sql` — NOT APPLIED *(new finding — priority #1 above, most severe of this batch)*
+- Missing columns: `funder_relationship_scores.relationship_score/total_interactions/successful_applications/last_interaction_at/notes/updated_at`, `success_probability_scores.data_quality/created_at/updated_at`, `competitor_tracking.opportunity_id/estimated_applicants/competition_level/observed_at`.
+- This migration's `CREATE TABLE` (no `IF NOT EXISTS`) statements for all three tables define schemas that don't match what's live at all — all three tables exist in production today with entirely different column sets, evidently created by other means (competitor_tracking's live shape matches migration 040 instead; the other two match no other migration file found in either tree). `success_probability_scores` is the active-throw bug (#1 above).
+
+### `039_funder_relationship_agent.sql` — NOT APPLIED *(unchanged — priority #10 above)*
+- Missing columns: `trend`, `recent_events`, `is_stale` on `funder_relationship_scores`.
+
+### `041_scraping_targets.sql` — NOT APPLIED *(new finding, low priority — duplicate of 034's `scraping_targets.updated_at`)*
+
+### `052_governance_layer.sql` — NOT APPLIED *(unchanged — see "052" section above)*
+- Missing tables: `funder_relationships`, `queue_controls`, `submission_usage`, `tier_limits`. Missing columns: `submission_queue.risk_score`, `risk_factors`.
+
+### `052_webhook_configs.sql` — NOT APPLIED *(status changed — table now exists via 051, but this file's specific columns still don't; new active bug found — see "052" section above)*
+- Missing columns: `webhook_configs.type`, `is_active`, `updated_at` (live table has `webhook_type`/`active`, no `updated_at`, from 051's competing definition).
+
+### `053_multichannel_analytics.sql` — NOT APPLIED *(unchanged)*
+- Missing tables: `session_recordings` (`worker/queue-processor.ts:1348`, `/autoapply/recordings/page.tsx`), `ab_test_variants` (`/api/autoapply/ab-tests/route.ts`, `lib/autoapply/ab-testing.ts`). Missing columns: `autoapply_submissions.variant_id/response_received_at/follow_up_status`.
+
+### `054_email_calendar_integration.sql` — NOT APPLIED *(unchanged, superseded/no risk)*
+- Missing tables: `email_threads`, `email_messages` — no live references; the actually-live equivalents are `synced_email_threads`/`synced_email_messages` (migration 002).
+
+### `060_grantmaker_profiles.sql` — NOT APPLIED *(unchanged, abandoned redesign)*
+- 9 columns missing on `intelligence_grantmaker_profiles`; no live code references any of the new names, all real consumers still use the original migration-048 schema (live).
+
+### `078_donor_discovery_prospects_scored_at.sql` — NOT APPLIED *(unchanged)*
+- Missing column: `donor_discovery_prospects.scored_at`. Live consumers: `worker/jobs/score-donor-prospect.ts:76`, `scoring-engine.ts:516`, `ProspectDetail.tsx:531`. Still a strong candidate root cause for `benavora-donor-discovery-pipeline-empty-in-prod`.
+
+### `079_donor_discovery_prospects_enrichment_private.sql` — NOT APPLIED *(unchanged)*
+- Missing column: `donor_discovery_prospects.enrichment_private`. Live consumer: `worker/jobs/run-connector-enrichment.ts:120,200,204,246`.
+
+### `080_org_settings.sql` — NOT APPLIED *(unchanged)*
+- Missing table: `org_settings`. Live consumer: `/api/autoapply/mode/route.ts:26,68` (automation-mode toggle).
+
+### `082_outreach_templates.sql` — NOT APPLIED *(unchanged)*
+- Missing table: `outreach_templates`. Live consumers: `/api/outreach/templates/route.ts`, `/outreach/templates/page.tsx`.
+
+### `083_followup_sequences.sql` — NOT APPLIED *(unchanged)*
+- Missing tables: `followup_sequences`, `followup_enrollments`. Live consumers: `/api/outreach/sequences/route.ts`, `/outreach/sequences/page.tsx`.
+
+### `084_grant_financials.sql` — NOT APPLIED *(unchanged)*
+- Missing tables: `grant_budgets`, `grant_expenses`. Live consumers across `/api/financials/*`, `/api/applications/[id]/{budget,expenses,reconcile}`, `/financials/page.tsx`.
+
+### `085_compliance_requirements.sql` — NOT APPLIED *(unchanged)*
+- Missing table: `compliance_requirements`. Live consumers: `/api/compliance/route.ts`, `IntelligenceBriefingPanel.tsx`, `lib/intelligence/unified-search.ts`, `/api/intelligence/briefing/route.ts`.
+
+### `086_white_label.sql` — NOT APPLIED *(unchanged)*
+- Missing table: `consultant_client_access`. Live consumer: `/api/consultant/clients/route.ts`.
+
+### `087_notification_preferences.sql` — NOT APPLIED *(unchanged)*
+- Missing table: `notification_preferences`. Live consumer: `lib/notifications/notify.ts:31` — gates all notification dispatch per Behavioral Contracts §32.
+
+### `089_financial_reconciliation.sql` — NOT APPLIED *(unchanged)*
+- Missing table: `grant_reconciliation_reports`; downstream missing columns on the also-missing `grant_budgets`/`grant_expenses`.
+
+### `090_compliance_calendar.sql` — NOT APPLIED *(unchanged)*
+- Missing table: `compliance_events`. Live consumers: `/api/compliance/events/route.ts`, `/api/compliance/events/[id]/route.ts`, `/compliance/page.tsx:89`.
+
+### `094_agent_registry.sql` — NOT APPLIED *(new finding, mixed severity)*
+- `agent_registry.avg_tokens_per_run` — **active bug** (priority #5 above). `agent_configurations.organization_id/updated_at` — dead/superseded (app uses live `org_id`).
+
+### `095_discovery_matches.sql` — NOT APPLIED *(new finding, superseded — no active bug)*
+- `discovery_runs.organization_id`, `discovery_matches.organization_id` — both superseded by the live `org_id` naming from the other migrations tree.
+
+### `096_knowledge_engine.sql` — NOT APPLIED *(partially unchanged, partially new)*
+- `intelligence_funded_proposals.embedding` — unchanged from July 28, real gap (pgvector embeddings never land). `knowledge_queries.organization_id` — new finding this pass, superseded/no active bug (app uses `org_id`).
+
+### `097_funding_sources.sql` — NOT APPLIED *(unchanged)*
+- Missing table: `funding_sources`. Live consumers: `/api/sources/registry/route.ts`, `/research/page.tsx:561`, `lib/sources/*-registry.ts`.
+
+### `100_prospects_contact_fields.sql` — NOT APPLIED *(new finding — priority #9 above)*
+
+### `101_twin_auto_populate_log.sql` — NOT APPLIED *(new finding — priority #7 above)*
+
+### `102_org_portal_accounts.sql` — NOT APPLIED *(unchanged)*
+- Missing table: `org_portal_accounts`. Live consumers: `worker/queue-processor.ts:1695,1702`, `scripts/setup-sparkgood-account.ts`.
+
+### `103_schoolfunder.sql` — NOT APPLIED *(unchanged)*
+- Missing tables: `schoolfunder_students`, `schoolfunder_volunteer_hours`, `schoolfunder_donations`. All of `/api/schoolfunder/*` and `/schoolfunder/page.tsx` remain built against a schema never applied.
+
+### `104_organizations_extended_profile.sql` — NOT APPLIED *(new finding — priority #6 above)*
+
+### `105_applications_metadata_column.sql` — NOT APPLIED *(new finding — priority #8 above)*
+
+### `106_intelligence_library_schema_upgrade.sql` — NOT APPLIED *(unchanged)*
+- All 19 added columns on `intelligence_funded_proposals` still absent (`funder_category`, `ntee_major`, `ntee_code`, `success_factors`, `keywords`, `persuasive_elements`, `winning_phrases`, `theory_of_change`, `evaluation_approach`, `budget_structure`, `geographic_scope`, `org_size_category`, `submission_timing`, `application_word_count`, `sections_included`, `ai_quality_score`, `is_verified`, `source_type`, `import_batch`, `full_text_search_vector`).
+
+### `107_corporate_prospects.sql` — NOT APPLIED *(new file, not in July 28 audit)*
+- Missing table: `corporate_prospects` — the master Corporate Intelligence Engine table (SCHEMA_REGISTRY_v2.md table 36), documented as a live-consumer target since it's the write destination for EA-01 through EA-10 enrichment agents, but the table itself has never existed in production (independently re-confirmed here — this migration file's own header already flags it as "NOT CONFIRMED APPLIED").
+
+### `110_scrape_jobs_universal_scraper.sql` — NOT APPLIED *(new file, not in July 28 audit)*
+- Missing tables: `scrape_jobs`, `scrape_results` — backing the Universal Scraper feature referenced in recent commits (`queue-10-universal-scraper-verification.yaml`, `5ee9528`).
+
+## Migrations — APPLIED (55 of 112)
+
+Every `CREATE TABLE` / `ADD COLUMN` statement in these migrations — including ones nested in `DO $$...$$` blocks — was confirmed present in the live production schema.
 
 <details>
 <summary>Expand full list</summary>
 
 - `001_initial_schema.sql`
 - `002_phases_2_5.sql`
-- `002_register_organization.sql`
 - `003_onboarding.sql`
-- `004_research_cron.sql`
-- `005_browser_automation_agent_type.sql`
-- `006_email_matching_agent_type.sql`
-- `007_email_campaign_agent.sql`
 - `009_draft_versions.sql`
 - `010_opportunity_source_type.sql`
 - `011_search_profile_configuration.sql`
@@ -461,49 +209,36 @@ Every `CREATE TABLE` / `ADD COLUMN` statement in these migrations was confirmed 
 - `016_renewals.sql`
 - `017_success_patterns.sql`
 - `018_email_activity.sql`
-- `021_billing_tables.sql`
-- `022_fix_model_name.sql`
 - `022_usage_tracking.sql`
 - `023_onboarding_step.sql`
 - `024_audit_logs.sql`
 - `027_missing_columns.sql`
-- `028_increase_tokens.sql`
-- `033_integration_keys.sql`
-- `034_custom_connections.sql`
-- `035_automation_queue.sql`
-- `036_automation_notifications.sql`
-- `037_giving_history.sql`
-- `038_intelligence_tables.sql`
+- `033_integration_keys.sql` *(table/column-level only — its enum additions are a separate, partial gap; see enum section)*
 - `040_competitor_intel_agent.sql`
-- `041_scraping_targets.sql`
 - `042_historical_awards.sql`
 - `043_opportunity_documents.sql`
-- `044_nofa_pdfs_bucket.sql`
 - `045_autoapply_tables.sql`
 - `046_foundation_directory.sql`
 - `047_worker_status.sql`
 - `048_grant_intelligence.sql`
 - `049_auto_queue_config.sql`
 - `050_funder_credentials.sql`
+- `051_submission_intelligence.sql` — **newly confirmed applied this session**
 - `053_autoapply_missing_columns.sql`
 - `054_funders_contact_email.sql`
 - `055_admin_sales_outreach.sql`
 - `055_sequence_enrollment_variables.sql`
 - `056_four_tier_admin_system.sql`
 - `057_draft_automation_pipeline.sql`
-- `058_backfill_opportunity_deadlines.sql`
 - `058_lead_enrichment_system.sql`
 - `059_budget_patterns.sql`
 - `061_corporate_giving_targets.sql`
 - `062_community_foundations.sql`
 - `063_white_label.sql`
-- `064_drop_orphaned_email_tables.sql`
 - `065_autoapply_follow_ups.sql`
-- `066_fix_autoapply_rls_policies.sql`
 - `067_donor_discovery_foundation.sql`
 - `068_donor_discovery_crawler_core.sql`
 - `069_donor_discovery_places_adapter.sql`
-- `070_donor_discovery_request_claim.sql`
 - `071_donor_discovery_directory_dedup.sql`
 - `072_foundation_directory_990_enrichment.sql`
 - `073_onboarding_progress.sql`
@@ -514,41 +249,44 @@ Every `CREATE TABLE` / `ADD COLUMN` statement in these migrations was confirmed 
 - `081_foundation_profiles.sql`
 - `088_foundation_profiles_enrichment.sql`
 - `091_funder_relationship_events.sql`
-- `092_consultant_client_access_check.sql`
 - `093_digital_twins.sql`
-- `094_agent_registry.sql`
-- `095_discovery_matches.sql`
 - `098_nonprofits_bmf.sql`
 - `099_nonprofits_enrichment.sql`
-- `100_prospects_contact_fields.sql`
-- `101_twin_auto_populate_log.sql`
-- `104_organizations_extended_profile.sql`
-- `105_applications_metadata_column.sql`
 
 </details>
 
-## Highest-priority findings (beyond the already-known 051/request_profiles gap)
+## Migrations — NO_DDL (16 of 112)
 
-1. **`opportunities.is_high_priority` / `opportunities.match_mismatch_reasons` (migration 012)** — actively written on every run of the live, nightly-wired AG-02 eligibility scorer (`src/lib/agents/eligibility-scorer.ts`) and read by 4 UI components (OpportunityTable, OpportunityDetail ×2, OpportunityCard). This is a currently-active write failure on a wired autonomous agent, not a dormant/dead-code risk.
-2. **`donor_discovery_prospects.scored_at` (migration 078)** — the live donor-discovery scoring worker job (`src/worker/jobs/score-donor-prospect.ts`) filters on and writes this column on every run. Plausible root cause (or contributing factor) for project memory `benavora-donor-discovery-pipeline-empty-in-prod` (all donor discovery tables confirmed empty except taxonomy, 2026-07-20).
-3. **`org_settings` (migration 080)** — powers `/api/autoapply/mode/route.ts`, the AutoApply automation-mode toggle API. Likely contributor to the AutoApply `automation_level` issues already tracked in project memory.
-4. **`funder_relationship_scores.trend/recent_events/is_stale` (migration 039)** — actively read/written by the live, queue-wired AG-19 FunderRelationshipAgent (`src/lib/agents/funder-relationship.ts`).
-5. **`notification_preferences` (migration 087)** — gates all notification dispatch per Behavioral Contracts §32 (`src/lib/notifications/notify.ts`). If this table is missing, per-user notification preferences are not actually being honored platform-wide.
-6. **Duplicate `052` migration filenames, both unapplied** — `052_governance_layer.sql` and `052_webhook_configs.sql`. The whole `queue_controls` / `submission_usage` / `tier_limits` / `funder_relationships` / risk-scoring governance layer (52) and the AutoApply webhook notification system (also 52) are both fully absent from production, and both have substantial live consumer code already written against them (queue-controls.ts alone has 12 call sites).
-7. **The whole AutoApply "Request Profile System" (migration 051) is far larger than just `request_profiles`** — 8 tables total (`request_profiles`, `kb_extended_needs`, `pitch_cache`, `org_documents`, `submission_receipts`, `grant_agreements`, `webhook_configs`, `cross_client_submissions`) plus 8 columns on `submission_queue`/`autoapply_submissions`. Every one of these except `kb_extended_needs` has live consumer code. This is a much bigger gap than the single-table framing in prior sessions suggested.
-8. **SchoolFunder (migration 103) has zero backing tables in production** — all 3 tables (`schoolfunder_students`, `schoolfunder_volunteer_hours`, `schoolfunder_donations`) are missing, despite SchoolFunder being confirmed a real, live, intentionally-kept feature (STATE_OF_THE_BUILD.md, July 23 2026 session: "SchoolFunder was NOT removed... real and live"). Every route under `/api/schoolfunder/*` and the `/schoolfunder` dashboard page will fail against production today.
-9. **Financial Reconciliation (migrations 084/089) has zero backing tables** — `grant_budgets`, `grant_expenses`, `grant_reconciliation_reports` all missing, independently corroborating SCHEMA_REGISTRY_v2.md's July 19, 2026 finding. The `/financials` page and all `/api/applications/[id]/{budget,expenses,reconcile}` routes are built against a schema that was never applied.
-10. **Compliance (migrations 085/087/090) has zero backing tables** — `compliance_requirements`, `notification_preferences`, `compliance_events` all missing. The `/compliance` calendar page and `/api/compliance*` routes are affected.
+No `CREATE TABLE`/`ADD COLUMN` statement found — enum additions, RLS-only fixes, or data backfills. Not part of the table/column check, but three of these (marked below) turned out to have their sole statement — an enum value addition — also never applied; see the enum section above.
 
-## Lower-priority / likely-abandoned findings
-
-- **`intelligence_grantmaker_profiles` (migration 060)** — a 9-column redesign that no live code was found to reference by its new column names. All real consumers still use the original migration-048 schema, which is live. Looks like an abandoned redesign, not an active risk.
-- **`email_threads` / `email_messages` (migration 054)** — no live code references. The actually-live equivalent tables are `synced_email_threads` / `synced_email_messages` (migration 002, confirmed present in production). Superseded design, not a risk.
-- **`automation_sessions.session_type/steps/screenshots/approval_required_at` (migration 020)** — only found in TypeScript type definitions, not in an active query. The real runtime uses the separate, live `automation_steps`/`automation_screenshots` child tables instead. Superseded design, not a risk.
-- **`kb_extended_needs` (migration 051)** — no live code references found anywhere. Genuinely dead.
+- `002_register_organization.sql`
+- `004_research_cron.sql`
+- `005_browser_automation_agent_type.sql` — **enum value `browser_automation` also missing live**
+- `006_email_matching_agent_type.sql` — **enum value `email_matching` also missing live**
+- `007_email_campaign_agent.sql` — **enum value `email_campaign` also missing live**
+- `021_billing_tables.sql` — **enum value `consultant` (subscription_tier) also missing live**
+- `022_fix_model_name.sql`
+- `028_increase_tokens.sql`
+- `044_nofa_pdfs_bucket.sql`
+- `058_backfill_opportunity_deadlines.sql`
+- `064_drop_orphaned_email_tables.sql`
+- `066_fix_autoapply_rls_policies.sql`
+- `070_donor_discovery_request_claim.sql`
+- `092_consultant_client_access_check.sql`
+- `108_corporate_prospects_ea06_ea10.sql` — all 5 EA-06..EA-10 enum values missing live (self-documented as unapplied in the file's own header)
+- `109_corporate_prospects_ag22_propensity_scoring.sql` — `ag22_propensity_scoring` enum value missing live (self-documented as unapplied)
 
 ## Not covered by this audit
 
-- `src/supabase/migrations/` (32 files, the second parallel migrations directory per project memory `benavora-two-parallel-migrations-directories`) — out of scope; this audit only covers root `supabase/migrations/` as the task specified.
-- RLS policy text (PostgREST introspection does not expose `pg_policies`) — table/column *existence* was verified, not policy correctness.
-- Postgres `enum` type values added via `ALTER TYPE ... ADD VALUE` (e.g. the `agent_type` gap documented in AGENTS_v2.md §1.2) — out of scope; this audit covers `CREATE TABLE`/`ALTER TABLE ... ADD COLUMN` only, per the task.
+- `src/supabase/migrations/` (the second parallel migrations tree, project memory `benavora-two-parallel-migrations-directories`) — out of scope for the table/column pass, same as July 28, though this pass did cross-reference it twice (for `agent_configurations`/`discovery_runs`/`discovery_matches`'s real `org_id` origin via `075_agent_marketplace.sql`, and for the duplicate `applications.metadata`/`organizational_digital_twins.twin_auto_populate_log` definitions in `103_narrative_humanizer.sql`/`102_twin_auto_populate_log.sql`).
+- RLS policy text (PostgREST introspection does not expose `pg_policies`) — table/column *existence* verified, not policy correctness.
+- A full, exhaustive diff of every `ALTER TYPE ... ADD VALUE` across every enum type in every migration — the supplementary section above covers `agent_type` and `subscription_tier` only (the two enum types this session's investigation happened to touch); other enums (`pipeline_stage`, `funder_category`, etc.) were not systematically diffed and would be worth a dedicated follow-up pass given how many gaps turned up in just these two.
+
+## Next steps (priority order)
+
+1. **`success_probability_scores` (migration 038)** — the Success Probability Agent throws on every run right now. This is the single most severe active-code-path break found this session; fix ahead of everything else in this list.
+2. **`052_webhook_configs.sql` column mismatch** — cheap one-column-rename-or-add fix; currently silently disables all AutoApply webhook notifications.
+3. **`052_governance_layer.sql`** — apply in full; this is the AutoApply kill-switch/tier-limit/risk-gating layer, still entirely absent despite 051 landing.
+4. **`opportunities.is_high_priority`/`match_mismatch_reasons` (012/025/026)** — carried over three sessions now as the highest-standing wired-agent write failure; still unresolved.
+5. **`agent_type` enum gaps** — a dedicated pass to add every missing value in one batch (18+ values across 8 files), since any of these agents will hard-fail their `agent_runs` insert the moment they're actually invoked.
+6. Everything else in the NOT-APPLIED list, roughly in the order given (grant financials/compliance/SchoolFunder/corporate intelligence remain the largest fully-unbuilt-in-prod feature areas).
