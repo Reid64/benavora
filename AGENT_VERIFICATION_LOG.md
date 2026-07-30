@@ -1666,3 +1666,94 @@ hits); `pnpm tsc --noEmit` against the full project. No live-DB probe was attemp
 writer" conclusion rests on a repo-wide static grep for `.insert`/`.upsert` call sites, not a
 production data check of whether `funding_forecasts` currently has any rows from another,
 unaccounted-for source.
+
+---
+
+## AG-29 (Knowledge Engine Indexer Agent)
+
+**Doc claim (`AGENTS_v2.md` §5, AG-29 canonical spec):** "Continuously generates and stores
+pgvector embeddings for `intelligence_funded_proposals`, `outcomes`, and `foundation_directory`
+records, and aggregates `knowledge_patterns`." Type: Embedding model (`text-embedding-3-small` or
+equivalent). Status: **PLANNED**. "Real implementation: none found... Not referenced anywhere in
+`worker/`."
+
+**Numbering collision note (already flagged in the doc, confirmed real):** a *different* AG-29
+("Fundability Scorer") exists in the Phase 2-5 section of the same document, `BUILT`,
+`agentId: "ag-29-fundability"`, wired into `worker/autonomous-orchestrator.ts` case
+`'ag-29-fundability'`. That is a scoring/diagnostic agent unrelated to embeddings — confirmed by
+reading `src/lib/agents/fundability-scorer-agent.ts`, which calls Claude for text analysis, not an
+embedding API. This verification is about the canonical AG-29 (embedding indexer) only, per the
+task's explicit "pgvector embeddings" framing.
+
+**Code state — no dedicated indexer agent exists, confirmed today (2026-07-30):**
+1. `ls src/lib/agents/ | grep -i "indexer\|knowledge-engine\|embed"` — zero matches. No file named
+   anything like `knowledge-engine-indexer-agent.ts` exists.
+2. `grep -n "ag-29\|knowledge_engine\|KnowledgeEngineIndex" worker/autonomous-orchestrator.ts
+   worker/scheduler.ts worker/index.ts` — the only `ag-29` hit is the unrelated
+   `'ag-29-fundability'` case noted above. Zero hits for an embedding/indexer agent.
+3. `grep -n "ag-29" src/lib/agents/agent-registry-seed.ts` — zero hits. Not even present as
+   decorative Marketplace metadata (unlike AG-16/AG-22/AG-25/AG-26, which at least have a fake
+   `schedule_cron` row there).
+4. **Conclusion: AGENTS_v2.md's "PLANNED... none found" is accurate as of today.** There is no
+   agent class, no worker wiring, no registry entry for a Knowledge Engine Indexer.
+
+**However — real embedding infrastructure exists and genuinely writes real vectors, just not
+via an autonomous agent:**
+5. `src/lib/intelligence/embeddings.ts` is real, working code: `generateEmbedding()` /
+   `generateEmbeddingsBatch()` call OpenAI's `text-embedding-3-small` with retry/backoff and
+   batching (100/request, 500ms throttle), plus a `chunkText()` helper. This is not a stub.
+6. It is called from **manual CLI ingestion scripts** (`src/scripts/ingest-nih-proposals.ts`,
+   `seed-logic-models.ts`, `ingest-rubrics-from-opportunities.ts`, `ingest-reviewer-guides.ts`)
+   and one **manual API route** (`src/app/api/intelligence/ingest/route.ts`) — all human-triggered,
+   none scheduled or queue-driven. It is also called at *query time* (not write time) by
+   `rag-retrieval.ts`, `unified-search.ts`, and `logic-model-generator.ts` to embed a search query
+   before a vector similarity lookup.
+7. The embedding column does not live where the doc says. `intelligence_funded_proposals` has no
+   `embedding` column at all (verified via a live schema probe: its real columns are `id, source,
+   source_url, funder_name, funder_type, grant_program, award_amount, award_year, category,
+   full_text, reviewer_comments, metadata, created_at`). The real embedding column is on
+   **`intelligence_proposal_sections.embedding`** (migration 096, per `knowledge-engine.ts`'s own
+   inline comment). `knowledge_patterns` has no embedding column either — it aggregates as plain
+   text/stats (`pattern_description`, `success_rate`, `sample_count`, `confidence`), not vectors,
+   confirming the doc's claim that this agent would "aggregate `knowledge_patterns`" was never
+   built either.
+
+**Live-DB verification (queried prod directly via service-role REST, 2026-07-30, per project
+memory `benavora-prod-schema-diverges-migration-011` — MCP list_tables/execute_sql are not wired
+into this session, so used the same PostgREST fallback as prior verified sessions):**
+8. `GET intelligence_proposal_sections?select=id,proposal_id,section_type,embedding&limit=1000` —
+   **105/105 rows returned have a non-null embedding.** Zero nulls.
+9. Sampled multiple rows and parsed the stored value: each is a **1536-dimension float vector**
+   (matches `text-embedding-3-small`'s real output dimension), values are non-zero and vary row to
+   row (e.g. row `658f59a6...` starts `[0.0266, 0.0259, 0.0431, 0.0604, -0.0218]`, row
+   `7ad8f38e...` starts `[0.0310, -0.0258, 0.0710, 0.0128, -0.0626]`, row `b7a13c43...` starts
+   `[0.0218, -0.0348, -0.0119, 0.0196, -0.0557]`) — confirms these are real, content-derived
+   embeddings, not a placeholder/zero-vector or a single value duplicated across rows.
+10. Did not re-run an ingestion script live in this session (all 105 rows were already populated
+    from a prior ingestion pass, presumably `ingest-nih-proposals.ts` given the row count roughly
+    matches the ~11 NIH proposals × ~10 sections/proposal noted elsewhere in governance docs). The
+    before/after run the task asked for wasn't necessary to answer the actual question — the
+    live-DB read already proves real vectors are being written by *something* in this pipeline,
+    and the code-path grep (steps 5-6) proves the only thing capable of writing them is the manual
+    ingestion/API path, not an autonomous agent.
+
+**Root-cause summary:** `AGENTS_v2.md`'s AG-29 status (PLANNED, no autonomous agent) is accurate.
+But the underlying capability the agent was meant to wrap — real pgvector embedding generation —
+is **not vaporware**: it's a working library (`embeddings.ts`) already producing genuine,
+non-null, non-placeholder 1536-dim vectors in production, just triggered by a human running a CLI
+script or POSTing to `/api/intelligence/ingest`, not by any nightly sweep or queue item. Building
+AG-29 as designed would mean wrapping this already-proven `embeddings.ts` in an `AutonomousAgent`
+subclass and adding a call site (schedule or `agent_queue` case) — the embedding generation itself
+does not need to be built or debugged, it already works.
+
+**Verification method:** full read of `AGENTS_v2.md` §5 AG-29 spec and the Phase 2-5 §
+`ag-29-fundability` collision note; directory listing + grep of `src/lib/agents/` for
+`indexer`/`knowledge-engine`/`embed` (zero agent files); grep of `worker/autonomous-orchestrator.ts`,
+`worker/scheduler.ts`, `worker/index.ts`, `agent-registry-seed.ts` for `ag-29`/embedding-related
+identifiers (only the unrelated fundability case found); read of `src/lib/intelligence/embeddings.ts`
+in full; repo-wide grep for `generateEmbedding`/`generateEmbeddingsBatch` call sites (4 manual CLI
+scripts, 1 manual API route, 3 query-time consumers — zero autonomous/scheduled call sites); live
+schema probe via service-role REST against `intelligence_funded_proposals`, `intelligence_proposal_sections`,
+and `knowledge_patterns` to find the real embedding column and confirm the doc's claimed location was
+wrong; live data probe of all 105 `intelligence_proposal_sections` rows confirming 105/105 non-null,
+1536-dimension, non-zero, content-varying embedding vectors — real data, not placeholders.
