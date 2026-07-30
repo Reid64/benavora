@@ -1,661 +1,315 @@
 # BENAVORA — Testing Strategy v2.0
 ## Supersedes: TESTING.md v1.0 + TESTING-GUIDE.md
-## Date: July 17, 2026
-## Status: CANONICAL — All test types, schedules, and CI/CD requirements defined here.
-## Automation: GitHub Actions runs full suite nightly at 11PM CST (5AM UTC).
+## Rewritten: July 29, 2026 — prior version described a Jest-based stack that never existed in this repo. This version is verified against the real `vitest.config.ts`, `playwright.config.ts`, `package.json`, and a full file listing of `src/__tests__/`, `tests/`, and `e2e/` as of this date.
+## Status: CANONICAL — reflects what is actually on disk, not an aspirational stack.
 
 ---
 
 ## Testing Philosophy
 
-**Rule 1:** No feature ships without at least one unit test, one integration test, and one E2E path.
-**Rule 2:** Every previously fixed bug gets a regression test before the fix is merged.
+**Rule 1:** No feature ships without at least one unit test, one integration test, and one E2E path. *(Aspirational — not consistently enforced today; see gaps noted throughout this document.)*
+**Rule 2:** Every previously fixed bug gets a regression test before the fix is merged. *(Aspirational — no dedicated regression-test file exists in this repo; see Section 6.)*
 **Rule 3:** FORGE validates compile gates only — all runtime behavior is validated by this test suite.
-**Rule 4:** Visual regression tests are the source of truth for UI quality — not human memory.
-**Rule 5:** Test coverage of AI routes must mock the Anthropic API — never call the real API in tests.
+**Rule 4:** Visual regression tests are the source of truth for UI quality — not human memory. *(Aspirational — no visual regression tooling exists in this repo; see Section 7.)*
+**Rule 5:** Test coverage of AI routes must mock the Anthropic API — never call the real API in tests. *(True today — `tests/setup.ts` mocks `@anthropic-ai/sdk` via Vitest's `vi.mock`, loaded as Vitest's global `setupFiles` entry. E2E tests under `tests/e2e/`/`e2e/` run against the real dev server and real Supabase project per their own file-header comments — Rule 5 applies to the Vitest suite, not E2E.)*
 
 ---
 
-## Test Stack
+## Test Stack (real)
 
-| Type | Tool | Location | Command |
+| Type | Tool | Config | Command |
 |---|---|---|---|
-| Unit | Jest + ts-jest | `src/__tests__/unit/` | `pnpm test:unit` |
-| Integration | Jest + Supabase | `src/__tests__/integration/` | `pnpm test:integration` |
-| E2E | Playwright | `e2e/` | `pnpm test:e2e` |
-| Visual Regression | Playwright | `e2e/visual/` | `pnpm test:visual` |
-| Smoke | Jest | `src/__tests__/smoke/` | `pnpm test:smoke` |
-| API | Jest + supertest | `src/__tests__/api/` | `pnpm test:api` |
-| Accessibility | axe-playwright | `e2e/a11y/` | `pnpm test:a11y` |
-| Cross-Browser | Playwright multi | `e2e/` | `pnpm test:cross-browser` |
-| Performance/Soak | Custom CLI | `scripts/test-soak.ts` | `pnpm test:soak` |
-| Migration | Custom | `src/__tests__/migrations/` | `pnpm test:migrations` |
+| Unit / integration (Vitest) | Vitest 2.x + `@vitest/coverage-v8` | `vitest.config.ts` | `pnpm test:unit` |
+| E2E | Playwright (`@playwright/test`) | `playwright.config.ts` | `pnpm test:e2e` |
+| Smoke (Vitest, API status codes) | Vitest | `vitest.config.ts` | `pnpm test:smoke` |
+| Smoke (Playwright, real browser) | Playwright | `playwright.config.ts` (project `public`, file `tests/smoke.spec.ts`; project `critical-paths`, file `e2e/smoke.spec.ts`) | part of `pnpm test:e2e` / `pnpm test` |
 
-**Jest config:** `jest.config.ts` — preset ts-jest, environment node, `@/` alias mapped to `src/`
-**Playwright config:** `playwright.config.ts` — base URL from env, 3 browsers, screenshot on failure
+There is no Jest anywhere in this repo — no `jest.config.ts`, no `ts-jest`, no `jest` dependency in `package.json`. There is no separate "integration" or "API" test *tool* distinct from Vitest — API-route tests (`tests/api/`) are plain Vitest test files that mock Supabase and Anthropic, not a Supertest-against-a-live-server setup.
+
+**Vitest config (`vitest.config.ts`, verbatim structure):**
+- `environment: "node"`
+- `include`: `src/**/*.test.ts`, `src/**/*.spec.ts`, `tests/**/*.test.ts`
+- `exclude`: `node_modules`, `.next`, `tests/e2e/**`
+- `passWithNoTests: true`
+- `setupFiles: ["tests/setup.ts"]` — mocks `@supabase/ssr`, `next/headers`, and `@anthropic-ai/sdk` globally for every Vitest run
+- `testTimeout: 30000`
+- `coverage`: provider `v8`, threshold `lines: 60`
+- alias: `@` → `./src`
+
+Because `exclude` only excludes `tests/e2e/**` and `include` only matches `.test.ts`/`.spec.ts` files under `src/` and `tests/`, the root-level `e2e/*.spec.ts` files are **not** picked up by Vitest at all — they exist entirely outside the Vitest include pattern and are Playwright-only.
+
+**Playwright config (`playwright.config.ts`, verbatim structure):**
+- `testDir: "."` (project root) — both `tests/` and `e2e/` are resolved from here; `testIgnore` excludes `.claude/**` and `node_modules/**` so nested worktree checkouts don't multiply the suite.
+- Four projects:
+  - `setup` — runs `tests/e2e/auth.setup.ts`, authenticates the dedicated test owner, seeds a minimal real dataset, saves browser storage state.
+  - `public` — unauthenticated flows: `tests/smoke.spec.ts` + `tests/e2e/public/**/*.spec.ts`. No session.
+  - `authed` — everything under `tests/e2e/authed/**/*.spec.ts`. Depends on `setup`, reuses its saved storage state (`tests/e2e/.auth/owner.json`).
+  - `critical-paths` — the root-level `e2e/**/*.spec.ts` files. Depends on `setup`; these specs perform their own login (`PLAYWRIGHT_TEST_EMAIL`/`PLAYWRIGHT_TEST_PASSWORD` env vars, falling back to the dedicated test account in `tests/e2e/helpers.ts`).
+- `webServer`: runs `pnpm dev` automatically, reuses an existing server outside CI.
+- `globalSetup: "./tests/e2e/global-setup.ts"` — ensures the Chromium binary is installed before any project launches a browser.
+- E2E tests run against the **real** Supabase project and a **real** dev server (no mocks) — this is explicit in `tests/e2e/helpers.ts`'s own header comment, citing CLAUDE.md Iron Law #8.
 
 ---
 
-## Package.json Scripts
+## Package.json Scripts (real, verbatim from `package.json`)
+
+Only test-relevant scripts are shown here (the file also has ~60 non-test scripts for scraping/ingestion/enrichment CLIs, out of scope for this document):
 
 ```json
 {
-  "test": "jest",
-  "test:unit": "jest src/__tests__/unit",
-  "test:integration": "jest src/__tests__/integration",
-  "test:smoke": "jest src/__tests__/smoke",
-  "test:api": "jest src/__tests__/api",
-  "test:migrations": "jest src/__tests__/migrations",
-  "test:e2e": "playwright test e2e/",
-  "test:visual": "playwright test e2e/visual/",
-  "test:a11y": "playwright test e2e/a11y/",
-  "test:cross-browser": "playwright test --project=chromium --project=firefox --project=webkit",
-  "test:soak": "tsx scripts/test-soak.ts",
-  "test:all": "pnpm test:unit && pnpm test:integration && pnpm test:smoke && pnpm test:api"
+  "lint": "next lint",
+  "typecheck": "tsc --noEmit",
+  "test": "playwright test --reporter=list",
+  "test:unit": "vitest run",
+  "test:all": "vitest run && playwright test --reporter=list",
+  "test:watch": "vitest",
+  "test:coverage": "vitest run --coverage",
+  "test:smoke": "vitest run src/__tests__/smoke",
+  "test:e2e": "playwright test",
+  "test:e2e:ui": "playwright test --ui"
 }
 ```
 
----
+Notes on what this actually means:
+- **`pnpm test` runs Playwright, not Vitest.** This is easy to misread — the bare `test` script is the full E2E suite (`playwright test --reporter=list`), covering all four Playwright projects above. Unit tests must be invoked explicitly via `pnpm test:unit`.
+- **`test:smoke` is a Vitest run**, not a Playwright run — it runs only `src/__tests__/smoke/` (see Section 2 below). The separate Playwright smoke specs (`tests/smoke.spec.ts`, `e2e/smoke.spec.ts`) run as part of `test:e2e`/`test`, not `test:smoke`.
+- **`test:all` runs both suites back to back** (Vitest, then the full Playwright suite).
 
-## Section 1: Unit Tests
-
-Location: `src/__tests__/unit/`
-Run time: < 30 seconds total
-Mocks: All DB calls mocked. All Anthropic API calls mocked. No network calls.
-
-### 1.1 Intelligence Engine Tests
-
-**File:** `src/__tests__/unit/grant-probability-engine.test.ts`
-- computeGrantProbability returns score between 0 and 100
-- Score is 0 when deadline is past
-- Confidence is 'high' when all 4 factors have real data
-- Confidence is 'low' when 0 factors have real data
-- Recommendation is 'apply' when score >= 70
-- Recommendation is 'skip' when score < 40
-- Recommendation is 'consider' when score is 40-69
-- Returns valid object structure even when opportunity has no eligibility_score
-
-**File:** `src/__tests__/unit/semantic-matcher.test.ts`
-- matchFunders returns empty array when no foundations exist
-- Score is between 0 and 1 for all results
-- Results are sorted by score descending
-- State filter correctly reduces results
-- Tokenizer removes stop words correctly
-
-**File:** `src/__tests__/unit/digital-twin-builder.test.ts`
-- buildDigitalTwin returns valid twin object structure
-- twin_completeness_score is 0 when org has no KB entries or outcomes
-- twin_completeness_score is 100 when all 10 factors are present
-- service_areas extracted from org.city + org.state when not explicitly set
-- proven_narrative_patterns populated from awarded outcome KB categories
-
-**File:** `src/__tests__/unit/success-probability.test.ts`
-- computeSuccessProbability returns score 0-100
-- Factor 2 (category win rate) defaults to 0.3 when no outcome history
-- Factor 3 (deadline proximity) returns 0 when deadline is under 15 days
-- Factor 4 (knowledge base) returns 0.2 when no KB entries
-
-**File:** `src/__tests__/unit/deadline-predictor.test.ts`
-- predictDeadlines returns array (may be empty)
-- Predictions include confidence score between 0 and 1
-- Predictions include basis string
-- Historical patterns correctly calculate average day-of-year
-
-**File:** `src/__tests__/unit/relationship-scorer.test.ts`
-- computeRelationshipScore returns score 0-100
-- Award event contributes +30
-- Rejection event contributes -10
-- Score is capped at 100 on overflow
-- Score is floored at 0 on underflow
-- Momentum is 'rising' when last 90 days score exceeds prior 90 days
-
-**File:** `src/__tests__/unit/board-report-generator.test.ts`
-- generateBoardReport returns all required fields
-- Returns zero-value metrics when org has no data
-- Date range correctly filters opportunities and applications
-- Narrative summary is non-empty string
-
-**File:** `src/__tests__/unit/knowledge-engine.test.ts`
-- queryKnowledgeEngine returns {patterns, proposals, insights} structure
-- Empty results return empty arrays not null
-- Query logged to knowledge_queries table
-
-**File:** `src/__tests__/unit/outcome-analyzer.test.ts`
-- analyzeOutcomes returns successRate null when outcomes < MIN_OUTCOMES_FOR_RATE
-- successRate calculated correctly for awarded/total ratio
-- totalAwarded sums awarded_amount for result='awarded' only
-- Empty array returns all null/zero values safely
-
-### 1.2 Data Pipeline Tests
-
-**File:** `src/__tests__/unit/propublica-client.test.ts`
-- enrichFoundationFromProPublica returns null on 404
-- enrichFoundationFromProPublica returns null on network error
-- Returns structured object with correct field mapping on success
-- Rate limit delay is enforced between calls
-
-**File:** `src/__tests__/unit/samgov-client.test.ts`
-- Correctly maps SAM.gov response fields to opportunity schema
-- Deduplicates by external_id
-- Returns empty array on API error
-
-**File:** `src/__tests__/unit/naics-labels.test.ts`
-- NAICS_FRIENDLY_LABELS contains entries for all major sectors
-- NAICS_CATEGORIES groups codes correctly
-- No duplicate NAICS codes across categories
+**Scripts referenced by the prior version of this document that do not exist in `package.json` and are NOT yet implemented:** `test:integration`, `test:api`, `test:migrations`, `test:visual`, `test:a11y`, `test:cross-browser`, `test:soak`. If any of these are wanted, they need to be added — do not assume they exist because a prior doc described them.
 
 ---
 
-## Section 2: Integration Tests
+## Section 1: Real File Inventory
 
-Location: `src/__tests__/integration/`
-Run time: < 2 minutes
-Uses: Real Supabase test instance (separate from production)
-Test org: Created fresh per test run, deleted after
+This is the complete, verified file list under `src/__tests__/`, `tests/`, and `e2e/` as of July 29, 2026 (via a recursive file listing of all three directories) — not a curated subset.
 
-**Environment:** Requires `SUPABASE_URL_TEST` and `SUPABASE_SERVICE_ROLE_KEY_TEST` env vars.
+### 1.1 `src/__tests__/` — Vitest (picked up by `include: "src/**/*.test.ts"`)
 
-### 2.1 Database Round-Trip Tests
-
-**File:** `src/__tests__/integration/organizations.test.ts`
-- Create organization — verify all required fields persisted
-- RLS: org A cannot read org B's data with org A's JWT
-- onboarding_completed defaults to false on creation
-- subscription_tier defaults to 'free'
-
-**File:** `src/__tests__/integration/opportunities.test.ts`
-- Create opportunity — verify all fields persisted including probability_score null
-- Update probability_score — verify opportunity_probability_scores upsert
-- Filter by probability_score range returns correct subset
-- Filter by status returns correct subset
-- Soft delete (status='closed') removes from default query
-
-**File:** `src/__tests__/integration/applications.test.ts`
-- Stage transition writes application_stage_history record
-- Clone writes new application with draft_content adapted
-- Budget upsert merges line_items correctly
-- Reconciliation reads budget and expenses, writes report
-
-**File:** `src/__tests__/integration/agent-runs.test.ts`
-- Insert agent_run with status='pending'
-- Update to 'completed' with output_summary
-- Query by agent_type returns correct subset
-- Org scoping confirmed — other org's runs invisible
-
-**File:** `src/__tests__/integration/foundation-directory.test.ts`
-- Read foundation by EIN
-- Upsert enrichment jsonb merges (does not overwrite) existing fields
-- enrichment_completed_at updates correctly
-- GIN index query on enrichment jsonb executes under 100ms for 133K records
-
-**File:** `src/__tests__/integration/corporate-prospects.test.ts`
-- Insert corporate_prospect — verify unique constraint on (legal_name, city, state)
-- Upsert scores jsonb — verify all 10 scores present
-- Upsert giving_dna jsonb — verify primary_style populated
-- GIN index query on scores executes correctly
-
-**File:** `src/__tests__/integration/digital-twins.test.ts`
-- Upsert organizational_digital_twins — verify UNIQUE(org_id)
-- twin_completeness_score persists correctly
-- Rebuild (upsert) does not create duplicate records
-
-**File:** `src/__tests__/integration/discovery-matches.test.ts`
-- Insert discovery_match — verify org scoping
-- Status update (pending → added) persists
-- Dismissed matches excluded from pending count
-
-### 2.2 RLS Policy Tests
-
-**File:** `src/__tests__/integration/rls.test.ts`
-- Every org-scoped table: cross-org SELECT returns 0 rows
-- Every org-scoped table: cross-org INSERT returns RLS violation
-- Every org-scoped table: cross-org UPDATE returns 0 rows affected
-- Service role bypasses RLS correctly
-- Shared tables (foundation_directory, corporate_prospects): readable by all orgs
-- pig_nodes and pig_edges: readable by all, writable by service role only
-
----
-
-## Section 3: API Tests
-
-Location: `src/__tests__/api/`
-Run time: < 3 minutes
-Uses: Supertest against local Next.js dev server
-
-### 3.1 Authentication Tests (all routes)
-
-Every protected API route must be tested for:
-- No auth token → 401
-- Expired token → 401
-- Valid token, wrong org → 403 or 404
-- Viewer role on write endpoints → 403
-
-### 3.2 Core API Route Tests
-
-| Route | Test Cases |
+| File | Covers |
 |---|---|
-| GET /api/opportunities | Auth, tenant scope, probability filter, status filter, sort by probability |
-| POST /api/opportunities | Auth, required fields, opportunity_keywords created |
-| PATCH /api/opportunities/[id] | Auth, valid fields, cross-tenant 404 |
-| POST /api/intelligence/grant-probability | Auth, valid opportunity returns score object, missing opportunity 404 |
-| GET /api/intelligence/digital-twin | Auth, returns twin or empty twin for new org |
-| POST /api/intelligence/digital-twin | Auth, triggers rebuild, returns updated twin |
-| POST /api/intelligence/knowledge-query | Auth, valid query returns {patterns, proposals, insights} |
-| POST /api/intelligence/reputation | Auth, valid entity returns signals array |
-| PATCH /api/intelligence/reputation | Auth, valid alertId updates status |
-| GET /api/agents/registry | Auth, returns all agents with org-specific enabled status |
-| POST /api/agents/registry/configure | Auth, upserts agent_configurations, viewer 403 |
-| POST /api/agents/discovery | Auth, triggers discovery run, returns {matched, found, sources} |
-| POST /api/agents/morning-digest | Auth, creates alert if matches exist |
-| GET /api/agents/disaster | Auth, returns FEMA declarations array |
-| POST /api/agents/disaster | Auth, creates disaster_response_campaigns record |
-| POST /api/applications/[id]/clone | Auth, creates new application with adapted draft |
-| POST /api/applications/[id]/budget | Auth, upserts grant_budgets |
-| GET /api/applications/[id]/reconcile | Auth, returns reconciliation report |
-| GET /api/foundations | Auth (shared data — all orgs can read), pagination |
-| GET /api/foundations/[id]/profile | Auth, returns profile or triggers computation |
-| POST /api/import/csv | Auth, valid mapping imports records, returns counts |
-| GET /api/reports/board-report | Auth, date range required, returns all fields |
-| POST /api/compliance/events | Auth, required fields, recurrence creates future events |
-| GET /api/match/foundations | Auth, mission required, returns ranked array |
-| POST /api/donor-discovery/discover | Auth, naicsCode required, returns prospects |
-| POST /api/donor-discovery/prospects/[id]/route-to-autoapply | Auth, returns queued status |
-| POST /api/donor-discovery/prospects/[id]/route-to-email | Auth, creates campaign record |
-| GET /api/admin/platform-metrics | Owner role only, returns platform-wide metrics |
-| POST /api/admin/orgs/[id]/suspend | Owner role only, updates org status |
-| POST /api/consultant/clients | Owner role only, creates access record |
+| `src/__tests__/smoke/api-smoke.test.ts` | API smoke checks — the file Vitest runs via `pnpm test:smoke` |
+| `src/__tests__/unit/board-report.test.ts` | `generateBoardReport()` |
+| `src/__tests__/unit/semantic-matcher.test.ts` | `matchFunders()` |
+| `src/__tests__/unit/success-probability.test.ts` | `computeSuccessProbability()` |
+
+Note: the prior version of this document named a file `board-report-generator.test.ts` — the real file is `board-report.test.ts`. It also listed unit test files for `grant-probability-engine`, `digital-twin-builder`, `deadline-predictor`, `relationship-scorer`, `knowledge-engine`, `outcome-analyzer`, `propublica-client`, `samgov-client`, and `naics-labels` — **none of these exist**. Only the four files above are real.
+
+### 1.2 `tests/api/` — Vitest, API route logic (mocked Supabase/Anthropic, not a live server)
+
+| File | Covers (from real `describe()` blocks) |
+|---|---|
+| `tests/api/admin-sales.test.ts` | Admin route 403 gating for non-admins; `POST /api/admin/domains`; `POST /api/admin/prospects` (CSV import); `POST /api/admin/campaigns`; `SalesCampaignEngine.processQueuedSends` suppression check and daily budget enforcement |
+| `tests/api/analytics.test.ts` | `GET /api/analytics/summary`, `/funnel`, `/financials` |
+| `tests/api/auth.test.ts` | `GET /api/auth/callback`, `POST /api/auth/log-event` |
+| `tests/api/autoapply.test.ts` | `POST /api/autoapply/queue`; `GET`/`POST`/`DELETE /api/autoapply/controls` |
+| `tests/api/calendar.test.ts` | `POST /api/calendar/sync` |
+| `tests/api/donor-discovery-requests.test.ts` | `POST`/`GET /api/donor-discovery/requests`, `GET /api/donor-discovery/requests/[id]` |
+| `tests/api/email.test.ts` | `GET /api/email/auth`, `POST /api/email/sync`, `/link`, `/send` |
+| `tests/api/grants.test.ts` | `GET /api/grants`, `PATCH /api/grants/[id]`, `GET /api/grants/[id]` |
+| `tests/api/intelligence.test.ts` | `POST /api/intelligence/ingest`, `POST /api/intelligence/logic-model` |
+| `tests/api/research.test.ts` | `POST /api/agents/research` |
+
+### 1.3 `tests/lib/` — Vitest, library/service-layer unit tests
+
+| File | Covers |
+|---|---|
+| `tests/lib/compliance.test.ts` | `EmailComplianceEngine.enforceCompliance`, unsubscribe token handling |
+| `tests/lib/crawler-core.test.ts` | `DomainRateLimiter`, `normalizeDomain` |
+| `tests/lib/directory.test.ts` | `upsertDirectoryRecord`, `findOrCreateProspect` (donor-discovery directory) |
+| `tests/lib/encryption.test.ts` | `encryptToken` / `decryptToken` |
+| `tests/lib/google-places.test.ts` | Google Places adapter `enumerate()` budget guard |
+| `tests/lib/rubric-extractor.test.ts` | `extractRubricFromText`, `extractRubricFromOpportunity` |
+| `tests/lib/template-engine.test.ts` | `EmailTemplateEngine.renderTemplate`, `.validateTemplate` |
+| `tests/lib/unsubscribe-agent.test.ts` | `UnsubscribeAgent.classifyReply`, `.processIncomingReply` (unsubscribe suppression, positive-reply sequence pause) |
+| `tests/lib/warmup-engine.test.ts` | `WarmupEngine.advanceWarmup`, `.getDailyBudget` |
+
+### 1.4 `tests/unit/` — Vitest
+
+| File | Covers |
+|---|---|
+| `tests/unit/autonomous-base.test.ts` | `AUTONOMOUS_HARD_LIMITS`, `AutonomousAgent#logDecision`/`#startRun`/`#completeRun` |
+| `tests/unit/draft-generation.test.ts` | `DraftGenerationAgent` hard limits |
+
+### 1.5 `tests/` support files (not test files themselves — shared fixtures/mocks used by the files above)
+
+| File | Purpose |
+|---|---|
+| `tests/setup.ts` | Vitest global `setupFiles` entry — mocks `@supabase/ssr`, `next/headers`, `@anthropic-ai/sdk` (see Test Stack section above) |
+| `tests/factories/index.ts` | Mock data factories (`createMockOrganization`, etc.) typed against `Tables<...>` from `@/types/database` |
+| `tests/helpers/supabase-mock.ts` | Shared Supabase client mock helper |
+| `tests/.gitkeep` | Empty placeholder, not a test |
+
+### 1.6 `tests/e2e/` — Playwright support + specs (excluded from Vitest by `vitest.config.ts`'s `exclude`)
+
+| File | Purpose |
+|---|---|
+| `tests/e2e/auth.setup.ts` | Playwright `setup` project — authenticates the real test owner account, seeds minimal real data, saves storage state |
+| `tests/e2e/global-setup.ts` | Ensures Chromium is installed before any project runs |
+| `tests/e2e/helpers.ts` | `loadEnv()`, `TEST_USER`/`ONBOARDING_USER`/`ADMIN_NON_OWNER_USER` real test-account definitions (real emails: `owner.e2e@benavora-test.dev`, `onboarding.e2e@benavora-test.dev`, `admin-non-owner.e2e@benavora-test.dev` — **not** the `beta1/2/3@benavora-test.com` accounts a prior version of this document described), seed helpers. Includes a `globalThis.WebSocket` polyfill for Node 20 (required by `@supabase/realtime-js`). |
+| `tests/e2e/.auth/owner.json`, `tests/e2e/.auth/onboarding.json` | Saved Playwright storage-state files produced by `auth.setup.ts` |
+| `tests/e2e/public/auth.spec.ts` | Unauthenticated auth flows |
+| `tests/e2e/public/login-theme.spec.ts` | Login page visual/theme checks |
+| `tests/e2e/authed/*.spec.ts` (15 files: `automation`, `dashboard`, `deadlines`, `documents`, `draft-generator`, `email-calendar`, `funders`, `knowledge-base`, `onboarding-progress`, `onboarding`, `opportunities`, `pipeline`, `research`, `saas`, `settings`, `ui-redesign`) | Authenticated dashboard flows, one spec file per feature area, run under the `authed` Playwright project with the saved owner storage state |
+
+### 1.7 `tests/smoke.spec.ts` — Playwright, `public` project
+
+Baseline landing-page smoke test (asserts the hero H1 and nav logo render). Exists specifically so `playwright test` has at least one spec in the `public` project — Playwright exits non-zero on "No tests found" otherwise.
+
+### 1.8 `e2e/` (project root) — Playwright, `critical-paths` project
+
+| File | Purpose |
+|---|---|
+| `e2e/admin-owner-gate.spec.ts` | Owner-only admin route gating |
+| `e2e/admin-sales.spec.ts` | Admin sales outreach flows |
+| `e2e/autoapply-dashboard.spec.ts` | AutoApply dashboard |
+| `e2e/billing-gates.spec.ts` | Billing/subscription gating |
+| `e2e/dashboard.spec.ts` | Dashboard page |
+| `e2e/donor-discovery-prospects.spec.ts` | Donor discovery prospects flow |
+| `e2e/draft-generation.spec.ts` | Draft generator flow |
+| `e2e/email-integration.spec.ts` | Email integration |
+| `e2e/grant-pipeline.spec.ts` | Application pipeline |
+| `e2e/onboarding.spec.ts` | Onboarding wizard |
+| `e2e/smoke.spec.ts` | Full logged-in critical-page smoke sweep — logs in once, then visits `/dashboard`, `/funders`, `/contacts`, `/opportunities`, `/applications`, `/draft-generator`, `/documents`, `/knowledge-base`, `/deadlines`, `/analytics` (falls back to `/outcomes/analytics`), `/autoapply`, `/intelligence-library`, `/email`, `/settings`, `/settings/integrations` — asserts non-error status and a visible `<main>` on each, using soft assertions so one failing page doesn't abort the rest |
+| `e2e/tenant-isolation.spec.ts` | Cross-org RLS/tenant isolation checks (real browser-driven, not the DB-level RLS unit tests the prior doc described) |
 
 ---
 
-## Section 4: E2E Tests (Playwright)
+## Section 2: What the prior version of this document got wrong (for anyone diffing against it)
 
-Location: `e2e/`
-Run time: < 10 minutes
-Base URL: `process.env.BASE_URL` (local or Vercel preview)
-Auth: Test account `beta1@benavora-test.com` / `BetaTest2026` (onboarding_completed=true)
-
-### 4.1 Authentication Flow
-**File:** `e2e/auth.spec.ts`
-- Register new account → lands on onboarding
-- Login with valid credentials → lands on dashboard
-- Login with invalid credentials → shows error toast
-- Session expiry → redirect to login
-- Skip onboarding → lands on dashboard with all features accessible
-
-### 4.2 Dashboard
-**File:** `e2e/dashboard.spec.ts`
-- FlightPathHUD renders 6 colored cards
-- Each HUD card flip shows back face on hover
-- Each HUD card click navigates to correct page
-- Today's Action Items rows are clickable
-- Upcoming Deadlines panel shows dark navy styling
-- Quick Actions buttons navigate correctly
-
-### 4.3 Opportunity Probability Engine
-**File:** `e2e/probability.spec.ts`
-- Opportunity list shows probability badges with correct colors
-- Sort by Probability (High to Low) reorders list
-- Filter by 70%+ shows only high-probability opportunities
-- Run Scoring button triggers batch score and shows completion toast
-- Clicking opportunity navigates to detail page
-
-### 4.4 Application Pipeline
-**File:** `e2e/pipeline.spec.ts`
-- Kanban board renders all 12 stage columns
-- Drag card between stages — card moves and toast shown
-- Click card opens application detail
-- Generate Draft button shows loading then draft content
-- Clone button opens opportunity selector modal
-
-### 4.5 Research Hub
-**File:** `e2e/research.spec.ts`
-- Research resources grid renders 21 pinned cards
-- Search filters cards in real time
-- Funder Match textarea + submit returns results
-- Run Discovery button triggers discovery run and shows toast
-
-### 4.6 Intelligence Hub
-**File:** `e2e/intelligence.spec.ts`
-- Digital Twin page loads with completeness score
-- Rebuild Twin button triggers rebuild and updates score
-- Knowledge Engine query returns results in 3 sections
-- Reputation monitor shows alert cards with severity colors
-- Disaster Response page shows FEMA declarations
-
-### 4.7 Agent Marketplace
-**File:** `e2e/agent-marketplace.spec.ts`
-- /settings/agents renders all agent cards grouped by plan
-- Toggle ON enables agent and shows success toast
-- Toggle OFF disables agent and shows toast
-- Locked agents show lock icon not toggle
-- Click lock icon shows upgrade modal
-
-### 4.8 Admin Dashboard
-**File:** `e2e/admin.spec.ts`
-- /admin loads for owner role
-- /admin redirects viewer role to /dashboard
-- Platform metrics show counts
-- Org list table renders with click-through links
-
-### 4.9 Donor Discovery
-**File:** `e2e/donor-discovery.spec.ts`
-- NAICS category cards render on /donor-discovery/discover
-- Select category shows sub-types
-- Search returns prospect cards
-- Route to AutoApply shows queued confirmation
-- Route to Email shows added confirmation
-
-### 4.10 Import Wizard
-**File:** `e2e/import.spec.ts`
-- Drop CSV shows preview table (Step 1)
-- Column mapping dropdowns populate (Step 2)
-- Import executes and shows result counts (Step 3)
-- Error CSV shows failed count with error list
-
-### 4.11 Compliance Calendar
-**File:** `e2e/compliance.spec.ts`
-- /compliance renders event list grouped by month
-- Add Event form submits and event appears
-- Mark Complete updates event state
-- Color coding: overdue=red, this week=amber, upcoming=blue
-
-### 4.12 Financial Reconciliation
-**File:** `e2e/financials.spec.ts`
-- /financials renders applications with budget data
-- Add budget line item updates total
-- Reconcile button computes variance and shows compliance badge
+- **Tool:** claimed Jest + ts-jest + Supertest + axe-playwright. Reality: Vitest for unit/integration/API-mock tests, Playwright for everything E2E (including smoke, and including what the prior doc called "visual regression," "accessibility," and "cross-browser" — none of which have any real implementation in this repo; see Section 7).
+- **Directory structure:** claimed `src/__tests__/unit/`, `src/__tests__/integration/`, `src/__tests__/api/`, `src/__tests__/smoke/`, `src/__tests__/migrations/`, plus `e2e/visual/`, `e2e/a11y/`. Reality: only `src/__tests__/smoke/` and `src/__tests__/unit/` exist under `src/__tests__/`, each with far fewer files than claimed; API and lib-level tests actually live under `tests/api/` and `tests/lib/`, a directory the prior doc never mentioned; there is no `integration/`, `migrations/`, `visual/`, or `a11y/` directory anywhere in the repo.
+- **Scripts:** claimed `test:integration`, `test:api`, `test:migrations`, `test:visual`, `test:a11y`, `test:cross-browser`, `test:soak` all exist in `package.json`. None do.
+- **Test accounts:** claimed `beta1@benavora-test.com` / `beta2@...` / `beta3@...`. Reality: `owner.e2e@benavora-test.dev`, `onboarding.e2e@benavora-test.dev`, `admin-non-owner.e2e@benavora-test.dev`, defined in `tests/e2e/helpers.ts`.
+- **Mock library:** claimed Jest mocks (`jest.mock(...)`) for the Anthropic SDK. Reality: Vitest mocks (`vi.mock(...)`) in `tests/setup.ts`, applied globally via `setupFiles`, not per-test-file.
 
 ---
 
-## Section 5: Visual Regression Tests
+## Section 3: CI/CD Pipeline (real, verbatim)
 
-Location: `e2e/visual/`
-Tooling: Playwright screenshot comparison
-Baseline: Committed PNG snapshots in `e2e/visual/snapshots/`
-Threshold: Fail on > 2% pixel difference
-Run: Nightly + on PR when UI files change
+Two workflow files exist in `.github/workflows/`. There is no third workflow — no `e2e.yml` exists anywhere in this repo.
 
-### Pages with Visual Baselines
-
-| Page | Snapshot File | Key Elements |
-|---|---|---|
-| /dashboard | dashboard.png | HUD cards colors, hero banner, layout |
-| /opportunities | opportunities.png | Probability badges, sort controls |
-| /applications | applications.png | Kanban columns, card colors |
-| /research | research.png | 3x7 resource grid |
-| /intelligence/twin | twin.png | Completeness score circle |
-| /intelligence/reputation | reputation.png | Alert severity color bands |
-| /settings/agents | agents.png | Agent cards, plan badges, toggles |
-| /command-center | command-center.png | Dark navy panels |
-| /intelligence/disaster | disaster.png | Declaration cards, emergency funds |
-
-### Visual Regression Rules
-- Any change to `globals.css` triggers full visual regression suite
-- Any change to `src/components/dashboard/` triggers dashboard snapshot update
-- Snapshot updates require explicit `pnpm test:visual --update-snapshots` — never auto-update
-- Failed visual tests block deployment until reviewed and approved
-
----
-
-## Section 6: Smoke Tests
-
-Location: `src/__tests__/smoke/`
-Purpose: Verify critical routes respond before every deployment
-Run time: < 15 seconds
-
-**File:** `src/__tests__/smoke/api-smoke.test.ts`
-
-Routes tested (expect non-500, accept 200 or 401):
-- GET /api/alerts
-- GET /api/opportunities
-- GET /api/funders
-- GET /api/agents/research/status
-- GET /api/automation/stats
-- GET /api/foundations
-- GET /api/agents/registry
-- GET /api/intelligence/digital-twin
-- GET /api/admin/platform-metrics
-- GET /api/donor-discovery/prospects
-
-**Smoke test rule:** If any smoke test fails, deployment is blocked. No exceptions.
-
----
-
-## Section 7: Database Migration Tests
-
-Location: `src/__tests__/migrations/`
-Purpose: Verify every migration is idempotent and non-destructive
-
-**File:** `src/__tests__/migrations/idempotency.test.ts`
-- Run each migration SQL twice — second run must not error
-- All `CREATE TABLE IF NOT EXISTS` verified present
-- All `CREATE INDEX IF NOT EXISTS` verified present
-- All foreign key constraints verified present
-- Column types match schema registry spec
-
-**File:** `src/__tests__/migrations/data-integrity.test.ts`
-- Insert with NULL organization_id fails with constraint violation
-- Insert with invalid enum value fails with constraint violation
-- Insert duplicate EIN in foundation_directory fails with unique violation
-- Insert duplicate (legal_name, city, state) in corporate_prospects fails
-
----
-
-## Section 8: Accessibility Tests
-
-Location: `e2e/a11y/`
-Tool: @axe-core/playwright
-Standard: WCAG 2.1 AA
-Violations allowed: 0 critical, 0 serious
-
-**File:** `e2e/a11y/pages.spec.ts`
-
-Pages scanned:
-- /dashboard
-- /opportunities
-- /applications
-- /research
-- /intelligence
-- /settings/agents
-- /donor-discovery
-- /compliance
-- /reports
-- /admin (owner session)
-
-Each page: `await checkA11y(page, null, {runOnly: {type: 'tag', values: ['wcag2a', 'wcag2aa']}})`
-
----
-
-## Section 9: Cross-Browser Tests
-
-Playwright browsers: chromium, firefox, webkit (Safari)
-Run: Nightly + before production deploy
-
-Critical paths tested across all 3 browsers:
-- Login → Dashboard render
-- FlightPathHUD flip animation
-- Opportunity list with probability badges
-- Application kanban drag-and-drop
-- Agent marketplace toggle
-
----
-
-## Section 10: Soak Tests
-
-Location: `scripts/test-soak.ts`
-Purpose: Verify enrichment engine handles sustained load without memory leak or rate limit failures
-Schedule: Weekly (Sunday 2AM CST)
-
-**Soak scenario 1 — Foundation Enrichment:**
-- Run enrichFoundationFromProPublica for 500 records
-- Assert: no crashes, error rate < 5%, average response time < 2 seconds, no duplicate writes
-
-**Soak scenario 2 — Probability Scoring:**
-- Run computeGrantProbability for 1,000 opportunities across 10 orgs
-- Assert: all scores between 0-100, no null scores, runtime < 30 minutes
-
-**Soak scenario 3 — Discovery Agent:**
-- Run runOpportunityDiscovery 50 consecutive times with 1 second delay
-- Assert: no rate limit errors, dedup works correctly across runs, no duplicate discovery_matches
-
----
-
-## Section 11: Regression Tests
-
-**Rule:** Every bug fixed in production gets a regression test before the fix merges.
-
-**File:** `src/__tests__/unit/regressions.test.ts`
-
-Current regression tests:
-- IRS 990 stream parser: EIN at position 1 (zero-indexed) returns non-null value
-- IRS 990 stream parser: column headers trimmed before lookup (trailing carriage return handled)
-- Chunked Supabase .in() query: batches of 100 UUIDs max (PostgREST 400 fix)
-- FlightPathHUD: accentColor applied to front face backgroundColor (not back face only)
-- PowerShell Set-Content with [id] path: use [IO.File]::WriteAllText instead
-
----
-
-## Section 12: CI/CD Pipeline
-
-### GitHub Actions Workflows
-
-**File:** `.github/workflows/daily-tests.yml`
+**File: `.github/workflows/daily-tests.yml`** (verbatim):
 ```yaml
 name: Daily Test Suite
+
 on:
   schedule:
-    - cron: '0 5 * * *'  # 11PM CST = 5AM UTC
-  push:
-    branches: [main]
+    - cron: '0 5 * * *'
+  workflow_dispatch:
+
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
       - uses: actions/setup-node@v4
         with:
-          node-version: '18'
-      - run: npm install -g pnpm
-      - run: pnpm install
+          node-version: 18
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
       - run: pnpm test:unit
-      - run: pnpm test:smoke
-      - run: pnpm test:api
-      - run: pnpm test:migrations
 ```
 
-**File:** `.github/workflows/deploy-check.yml`
+Real behavior, corrected from the prior version of this document:
+- **No `push` trigger.** This runs on a nightly schedule (5AM UTC = 11PM CST, matching the intended cadence) and on manual `workflow_dispatch` — it does **not** also run on every push to `main`, contrary to what the prior doc claimed.
+- **Single step: `pnpm test:unit`.** That's the entire test job — `pnpm install` then `vitest run`. There is no `test:smoke`, `test:api`, or `test:migrations` step, because none of those scripts exist (see Section 2). This workflow does not run Playwright at all.
+
+**File: `.github/workflows/deploy-check.yml`** (verbatim):
 ```yaml
 name: Deploy Check
+
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
       - uses: actions/setup-node@v4
         with:
-          node-version: '18'
-      - run: npm install -g pnpm
-      - run: pnpm install
-      - run: pnpm build
+          node-version: 18
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Report build result
+        if: always()
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "✅ Build succeeded"
+          else
+            echo "❌ Build failed"
+          fi
 ```
 
-**File:** `.github/workflows/e2e.yml`
-```yaml
-name: E2E Tests
-on:
-  schedule:
-    - cron: '30 5 * * *'  # 11:30PM CST
-jobs:
-  e2e:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-      - run: npm install -g pnpm
-      - run: pnpm install
-      - run: pnpm exec playwright install --with-deps
-      - run: pnpm test:e2e
-      - uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: playwright-report
-          path: playwright-report/
-```
+Real behavior, corrected from the prior version of this document: this is manual-dispatch only (no `push` trigger either), and it only runs `pnpm build` — it does not run Playwright or upload any artifact.
 
-### Test Results Dashboard
+**E2E in CI: planned, not yet implemented.** No workflow currently runs `pnpm test:e2e` or `playwright test` in CI. The full E2E suite (`tests/e2e/`, `e2e/`) currently only runs when invoked locally (`pnpm test` or `pnpm test:e2e`), against a locally-started dev server per `playwright.config.ts`'s `webServer` block. If CI-driven E2E is wanted, a new workflow needs to be authored (installing Playwright browsers via `pnpm exec playwright install --with-deps`, providing real Supabase test-project credentials, and running against either the local dev server or a deployed preview URL) — do not assume one exists.
 
-**Route:** `/platform/test-results` (owner/admin only)
-
-Displays:
-- Pass/fail count per test category (unit, integration, smoke, E2E, visual)
-- Last run timestamp per category
-- Trend chart: pass rate over last 30 days
-- Failed test names with expandable error output
-- Visual regression diff viewer for failed snapshots
-
-**Schema:**
-```sql
-CREATE TABLE IF NOT EXISTS test_runs (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  run_date timestamptz NOT NULL DEFAULT now(),
-  test_type text NOT NULL,
-  passed integer DEFAULT 0,
-  failed integer DEFAULT 0,
-  skipped integer DEFAULT 0,
-  duration_seconds integer,
-  error_summary jsonb DEFAULT '[]',
-  triggered_by text DEFAULT 'github-actions'
-);
-CREATE INDEX IF NOT EXISTS idx_test_runs_date ON test_runs(run_date DESC);
-```
+**Test Results Dashboard (`/platform/test-results`), `test_runs` table:** not verified as part of this rewrite — out of scope for reconciling the test-tooling claims above. Do not assume it exists without checking `src/app/(dashboard)/platform/test-results/` and a migration defining `test_runs` directly.
 
 ---
 
-## Section 13: Test Data Management
+## Section 4: Coverage
 
-### Beta Test Accounts
-- `beta1@benavora-test.com` / `BetaTest2026` — onboarding_completed=true, use for E2E tests
-- `beta2@benavora-test.com` / `BetaTest2026` — fresh account for onboarding flow tests
-- `beta3@benavora-test.com` / `BetaTest2026` — viewer role for RBAC tests
-
-### Test Data Rules
-- Never run seed scripts in production — only against test Supabase instance
-- Seed script is NOT idempotent — truncate tables before re-seeding
-- E2E tests must clean up after themselves — delete created records in afterEach
-- Never hardcode production org IDs in test files — use env vars
-
-### Mock Strategy for AI Routes
-All Anthropic API calls in tests use Jest mocks:
-```typescript
-jest.mock('@anthropic-ai/sdk', () => ({
-  Anthropic: jest.fn().mockImplementation(() => ({
-    messages: {
-      create: jest.fn().mockResolvedValue({
-        content: [{ type: 'text', text: '{"score": 75, "confidence": "medium"}' }]
-      })
-    }
-  }))
-}));
-```
-
-Never call the real Anthropic API in any test. Token costs and rate limits make this impractical.
+`pnpm test:coverage` runs `vitest run --coverage` using the `v8` provider with a `lines: 60` threshold (from `vitest.config.ts`). There is no per-directory or per-file coverage breakdown configured beyond this single global lines threshold — no `branches`/`functions`/`statements` thresholds are set.
 
 ---
 
-## Section 14: Pre-Deploy Checklist
+## Section 5: Test Data Management
+
+### Real test accounts (`tests/e2e/helpers.ts`)
+- `TEST_USER` — email `owner.e2e@benavora-test.dev`, the primary owner-role account used by the `authed` Playwright project's saved storage state (`tests/e2e/.auth/owner.json`).
+- `ONBOARDING_USER` — email `onboarding.e2e@benavora-test.dev`, a fresh account for onboarding-flow tests (`tests/e2e/.auth/onboarding.json`).
+- `ADMIN_NON_OWNER_USER` — email `admin-non-owner.e2e@benavora-test.dev`, used for admin-vs-owner role-gating tests.
+
+### Vitest mock strategy (`tests/setup.ts`)
+`@supabase/ssr`, `next/headers`, and `@anthropic-ai/sdk` are mocked globally for every Vitest test via `setupFiles` — individual test files do not need their own `vi.mock` calls for these unless they need custom return values. The Anthropic mock returns a fixed `"Mock Claude response"` string; tests asserting on specific AI output content need a per-test override.
+
+### Playwright / E2E data strategy
+E2E tests run against the **real** Supabase project, not a mocked one — `tests/e2e/helpers.ts`'s own header comment states this explicitly, citing CLAUDE.md Iron Law #8 ("never use mocks or placeholder data in production code"). `auth.setup.ts` seeds a small, representative real dataset before the `authed` project's specs run.
+
+---
+
+## Section 6: Regression Tests
+
+**Rule (aspirational, per Testing Philosophy Rule 2):** every bug fixed in production should get a regression test before the fix merges. **Reality:** no dedicated `regressions.test.ts` file (or equivalent) exists anywhere in this repo. If this practice is wanted going forward, a home for these tests needs to be created — do not assume one already exists.
+
+---
+
+## Section 7: Not Yet Implemented
+
+The following test categories were described as existing in the prior version of this document. None have any real implementation (no config, no spec files, no `package.json` script) in this repo as of this rewrite. Treat all of them as **planned, not built**:
+
+- **Visual regression testing** — no `e2e/visual/` directory, no baseline snapshots, no `test:visual` script, no snapshot-diff tooling configured in `playwright.config.ts`.
+- **Accessibility testing** — no `e2e/a11y/` directory, no `@axe-core/playwright` dependency in `package.json`, no `test:a11y` script.
+- **Cross-browser testing** — `playwright.config.ts`'s four projects all use `devices["Desktop Chrome"]` only; there is no firefox/webkit project configured, and no `test:cross-browser` script.
+- **Soak / sustained-load testing** — no `scripts/test-soak.ts` file exists, no `test:soak` script.
+- **Dedicated migration idempotency tests** — no `test:migrations` script, no test file exercising migration SQL directly.
+- **Dedicated DB-level RLS integration tests** — `e2e/tenant-isolation.spec.ts` covers tenant isolation at the browser/E2E level (see Section 1.8), but there is no Vitest-level suite hitting a real test Supabase instance and asserting on RLS policies directly, contrary to what the prior document's "Section 2.2" described.
+- **CI-run E2E** — see Section 3 above; the Playwright suite is not wired into any GitHub Actions workflow yet.
+
+---
+
+## Section 8: Pre-Deploy Checklist (revised to match real scripts)
 
 Before every production deploy (manual or automated):
 
-- [ ] `pnpm build` passes with zero TypeScript errors
-- [ ] `pnpm test:smoke` passes — all critical routes return non-500
-- [ ] `pnpm test:unit` passes — zero unit test failures
-- [ ] `pnpm test:api` passes — zero API contract failures
-- [ ] No visual regression failures on dashboard, opportunities, or agent marketplace
-- [ ] `npx vercel deploy --prod` run manually (GitHub auto-deploy is broken)
+- [ ] `pnpm typecheck` (`tsc --noEmit`) passes with zero errors
+- [ ] `pnpm build` passes
+- [ ] `pnpm test:unit` passes (Vitest — covers `src/__tests__/`, `tests/api/`, `tests/lib/`, `tests/unit/`)
+- [ ] `pnpm test:e2e` passes locally if UI/flow-affecting changes were made (Playwright — not currently gated in CI, see Section 3)
+- [ ] `npx vercel deploy --prod` run manually (GitHub auto-deploy is broken per BLUEPRINT_v2.md §8.1)
 - [ ] Hard refresh on production URL confirms changes are live
-- [ ] FlightPathHUD stage colors verified in browser DevTools (inline styles rendering)
