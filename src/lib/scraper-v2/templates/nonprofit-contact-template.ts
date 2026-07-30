@@ -80,13 +80,19 @@ export async function runNonprofitContactTemplate(limit = 25): Promise<Nonprofit
     outputSchema: OUTPUT_SCHEMA,
   });
 
+  // No .order("id") here: found live 2026-07-30 that ordering this filtered
+  // query by id against the 1.97M-row nonprofits table times out in
+  // production (statement timeout) -- the planner walks the id index
+  // filtering row-by-row instead of using the filters directly. Dropping the
+  // order clause lets Postgres pick an efficient plan for the same 25 rows
+  // (verified <1s vs. timeout). limit() alone is sufficient; determinism
+  // across repeated runs isn't required here.
   const { data, error } = await supabase
     .from("nonprofits")
     .select("id, ein, name, website, contact_emails, officer_email, phone")
     .not("website", "is", null)
     .is("contact_emails", null)
     .gte("revenue_amount", MIN_REVENUE_FOR_CANDIDACY)
-    .order("id", { ascending: true })
     .limit(limit);
 
   if (error) {
