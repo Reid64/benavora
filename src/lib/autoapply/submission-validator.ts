@@ -256,6 +256,64 @@ export class SubmissionValidator {
     };
   }
 
+  /**
+   * Mutual-exclusion check against the *other* AutoApply implementation —
+   * "Agent 16" (`/api/agents/automation`, `automation_sessions` table,
+   * browser-automation with human approval) — for the same org+funder pair.
+   * These two pipelines (this one via `submission_queue`, the other via
+   * `automation_sessions`) have no shared lock otherwise and could
+   * independently target the same funder's portal at the same time.
+   *
+   * Deliberately NOT folded into checkOrgReadiness(): readiness is cached
+   * per-org (see queue-processor.ts's orgReadinessCache) and reused across
+   * every queue item for that org regardless of funder, so a per-funder
+   * check can't live inside it without stale-caching a conflict (or lack of
+   * one) from a different funder onto every other item for the same org.
+   */
+  async checkConcurrentAutomation(
+    organizationId: string,
+    funderId: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    supabase: any,
+  ): Promise<{ conflict: boolean; sessionId?: string }> {
+    const { data } = await supabase
+      .from("automation_sessions")
+      .select("id")
+      .eq("organization_id", organizationId)
+      .eq("funder_id", funderId)
+      // Every automation_status value except the terminal ones (submitted /
+      // failed / cancelled) — mirrors the enum in migration 002_phases_2_5.sql.
+      .in("status", ["pending", "in_progress", "awaiting_approval", "approved"])
+      .limit(1)
+      .maybeSingle();
+
+    return data ? { conflict: true, sessionId: (data as { id: string }).id } : { conflict: false };
+  }
+
+  /**
+   * The mirror-image check, used by the *other* direction: before
+   * `/api/agents/automation` starts a new browser-automation session, is
+   * this org+funder already active in the `submission_queue` pipeline? Same
+   * org+funder scope as checkConcurrentAutomation() above, opposite table.
+   */
+  async checkConcurrentSubmissionQueue(
+    organizationId: string,
+    funderId: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    supabase: any,
+  ): Promise<{ conflict: boolean; queueItemId?: string }> {
+    const { data } = await supabase
+      .from("submission_queue")
+      .select("id")
+      .eq("organization_id", organizationId)
+      .eq("funder_id", funderId)
+      .in("status", ["pending", "processing"])
+      .limit(1)
+      .maybeSingle();
+
+    return data ? { conflict: true, queueItemId: (data as { id: string }).id } : { conflict: false };
+  }
+
   async detectExistingSubmission(
     page: unknown,
   ): Promise<{ hasPending: boolean; message?: string }> {

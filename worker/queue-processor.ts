@@ -512,6 +512,26 @@ export class QueueProcessor {
       console.log(`[QueueProcessor] Org ${orgId} using own API keys`);
     }
 
+    // --- Mutual exclusion vs. the other AutoApply pipeline ("Agent 16" browser
+    // automation, /api/agents/automation + automation_sessions) — both can
+    // independently target the same org+funder with no shared lock otherwise.
+    // Checked per-item (not cached like org readiness below) since a conflict
+    // is genuinely per org+funder, not per org.
+    const concurrentAutomation = await this.submissionValidator
+      .checkConcurrentAutomation(orgId, funderId, this.supabase)
+      .catch((e: unknown) => {
+        console.warn(
+          '[QueueProcessor] concurrent-automation check failed (proceeding):',
+          e instanceof Error ? e.message : String(e),
+        );
+        return { conflict: false as const };
+      });
+    if (concurrentAutomation.conflict) {
+      throw new SkipError(
+        `concurrent_automation_conflict: active automation_sessions row ${concurrentAutomation.sessionId ?? 'unknown'} exists for this org+funder`,
+      );
+    }
+
     // --- Org readiness (cached per org, cleared on idleâ†’active transition) ---
     let orgReadinessReport: ReadinessReport;
     if (!this.orgReadinessCache.has(orgId)) {

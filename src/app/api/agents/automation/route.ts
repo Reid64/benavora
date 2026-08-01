@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { AgentError } from "@/lib/agents/base-agent";
 import { BrowserAutomationAgent } from "@/lib/agents/browser-automation";
 import { withUsageCheck } from "@/lib/billing/usage-middleware";
+import { SubmissionValidator } from "@/lib/autoapply/submission-validator";
 
 // Browser Automation start endpoint (AGENTS.md Agent 16, BEHAVIORAL_CONTRACTS
 // §18). POST { applicationId } authenticates the user, derives organization_id
@@ -106,6 +107,46 @@ export async function POST(request: Request) {
       "feature_disabled",
       403,
     );
+  }
+
+  // Mutual exclusion vs. the other AutoApply pipeline (submission_queue /
+  // worker/queue-processor.ts, Railway) — both can independently target the
+  // same org+funder with no shared lock otherwise. Resolve the funder the
+  // same way BrowserAutomationAgent's own loadContext() does (application ->
+  // opportunity -> funder); if it can't be resolved here either, skip the
+  // check and let agent.run() surface its own "no target URL" error shortly.
+  const { data: applicationRow } = await supabase
+    .from("applications")
+    .select("opportunity_id")
+    .eq("id", applicationId.trim())
+    .eq("organization_id", organizationId)
+    .maybeSingle();
+
+  let conflictFunderId: string | null = null;
+  if (applicationRow?.opportunity_id) {
+    const { data: opportunityRow } = await supabase
+      .from("opportunities")
+      .select("funder_id")
+      .eq("id", applicationRow.opportunity_id as string)
+      .eq("organization_id", organizationId)
+      .maybeSingle();
+    conflictFunderId = (opportunityRow?.funder_id as string | null) ?? null;
+  }
+
+  if (conflictFunderId) {
+    const { conflict } = await new SubmissionValidator().checkConcurrentSubmissionQueue(
+      organizationId,
+      conflictFunderId,
+      supabase,
+    );
+
+    if (conflict) {
+      return jsonError(
+        "This funder already has a pending AutoApply submission queued for your organization. Wait for it to finish, or cancel it, before starting a manual browser-automation session.",
+        "concurrent_submission_queue_conflict",
+        409,
+      );
+    }
   }
 
   // The agent scopes every query by organization_id explicitly, so the session
