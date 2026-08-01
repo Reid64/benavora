@@ -1901,3 +1901,53 @@ REST queries against the production database (`vbjplpquqxxfbpazyalt`) reproducin
 a full-table newest-row check on `agent_runs` to establish pipeline staleness. All queries and their
 raw JSON responses were inspected directly; no mocks, no fabricated timestamps. Temporary query
 scripts were deleted before this commit and were never staged.
+
+---
+
+## `agent_type` enum gap — fix staged, not applied (no DDL path available this session)
+
+Follow-up to the AG-15/AG-17/AG-19/AG-25/AG-28/AG-30 entries above and `AGENTS_v2.md` §1.2. Those
+entries collectively establish the fix is 15 `ALTER TYPE agent_type ADD VALUE IF NOT EXISTS`
+statements — 7 for literals that already have a migration file in `src/supabase/migrations/` but
+were never applied to production (`ag-17-discovery`, `ag-19-relationship`,
+`ag-25-deadline-prediction`, `ag-30-donor-intent`, `ag-38-self-improvement`, `ag-digest`,
+`autonomous_orchestrator`), and 8 for literals with no migration in either tree at all
+(`ag-15-probability`, `ag-28-followup`, `ag-02`, `ag-03-deadline-extraction`,
+`ag-04-fit-analysis`, `ag-05-draft`, `ag-06-budget-builder`, `ag-07-compliance-check`).
+
+**This session confirmed every automated DDL path is currently dead, not just the previously-known
+Management API PAT:**
+
+1. **Management API PAT** (`BLUEPRINT_v2.md` §8.3, `sbp_a63...`) — re-tested live against
+   `POST https://api.supabase.com/v1/projects/vbjplpquqxxfbpazyalt/database/query`:
+   `401 {"message":"Unauthorized"}`. Same dead-token finding as
+   `benavora-management-api-pat-rejected` (2026-07-19), still true today.
+2. **Supabase MCP connector** (`execute_sql`, `get_project`) — `list_projects` returns only two
+   unrelated projects (`tarritrix`, `tarritrix-audit`, org `vlipoynwopxlkdbnwpug`); this project
+   (`vbjplpquqxxfbpazyalt`) isn't in the list at all, and `get_project(vbjplpquqxxfbpazyalt)`
+   returns `MCP error -32600: You do not have permission to perform this action`. This is a more
+   precise finding than the prior `benavora-supabase-mcp-unauthorized` memory — it isn't a generic
+   permission error on this project, the connector is authenticated to an entirely different
+   Supabase account that has never had access to this project.
+3. **Supabase CLI** (`supabase projects list`) — same two unrelated projects, same account, same
+   zero access. Confirms items 2 and 3 share one underlying auth session, not two independent
+   failures.
+4. **Direct `psql` connection** — `psql` is installed on this machine (scoop), but no
+   `DATABASE_URL`/direct Postgres connection string or DB password exists anywhere checked
+   (`.env.local`, Railway `benavora-worker` variables, Vercel production env, this repo) —
+   reconfirms the identical finding already independently made in `DEMO_READINESS_AUDIT.md`,
+   `RLS_POLICY_AUDIT.md`, and `STORAGE_POLICY_AUDIT.md`. The service-role key is a PostgREST JWT,
+   not a Postgres role password, and cannot be used as one.
+
+**Deliverable instead of a claimed fix**: `fix-agent-type-enum-gap.sql` at the repo root — all 15
+statements as separate, independently-committing DDL statements (relying on `psql`'s default
+no-implicit-transaction behavior, not a `BEGIN`/`COMMIT` wrapper), plus a verification query
+(`SELECT unnest(enum_range(NULL::agent_type)) ...`). The file's own header explains why running it
+via `psql -f` (or one Studio SQL Editor line at a time) matters: pasting all 15 as one multi-statement
+Studio batch is the same failure shape already documented for migrations 093/088, where a later
+statement's error silently rolled back everything after it within one implicit transaction.
+
+**Recommendation:** Reid runs `fix-agent-type-enum-gap.sql` via `psql` once a direct connection
+string + DB password is available (Supabase dashboard → Project Settings → Database → Connection
+string), then re-runs the verification query to confirm all 15 literals are present before any
+future session marks this gap closed.
