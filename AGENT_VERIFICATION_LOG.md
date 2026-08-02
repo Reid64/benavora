@@ -2071,3 +2071,80 @@ not just the surface error text; a repo-wide grep reconfirming `RelationshipBuil
 never instantiated outside its own file, and a direct read of
 `worker/autonomous-orchestrator.ts`'s substitution logic. The throwaway test script was deleted
 after use and was never committed.
+
+---
+
+## Both new bugs from the AG-17/AG-30 re-verification — fixed and re-verified live
+
+Follow-up to the entry immediately above. Both root causes were precisely diagnosed there; this
+entry fixes both and re-runs AG-17/AG-30 live to confirm.
+
+### Fix 1 — `agent_decisions` was missing 3 of its 16 migration-080 columns, not just `action_payload`
+
+Re-checked the live schema precisely (not just the one error message): production `agent_decisions`
+was missing **`agent_run_id`, `action_payload`, AND `human_reviewer_id`** —
+`src/supabase/migrations/080_autonomous_agent_infrastructure.sql`'s full original definition. Only
+`action_payload` had surfaced in the prior entry's error text because `AutonomousAgent.logDecision()`
+happened to hit it; `agent_run_id` is written by that exact same insert and would have failed next,
+identically, had only `action_payload` been patched.
+
+Added a new migration, `src/supabase/migrations/104_agent_decisions_missing_columns.sql`
+(`ALTER TABLE agent_decisions ADD COLUMN IF NOT EXISTS ...` for all three, matching 080's original
+types/defaults exactly), and applied it directly to production via the now-working `DATABASE_URL`
+psql connection (`STANDING_DIRECTIVES.md` DIRECTIVE-017) — each statement run separately, not batched.
+Verified live afterward via the `GET /rest/v1/` OpenAPI schema (not just `psql`'s "ALTER TABLE"
+success message): all three columns now present with the correct types
+(`agent_run_id`/`human_reviewer_id` uuid FKs, `action_payload` jsonb).
+
+### Fix 2 — `DonorIntentMonitorAgent.loadOrgProfile()` queried the wrong column
+
+`organizations` has `service_area` (singular, free text) live; `service_areas` (plural, `text[]`)
+belongs to a different table (`organizational_digital_twins`) and was never a real `organizations`
+column at all. Fixed in `src/lib/agents/donor-intent-monitor-agent.ts`:
+- Removed `service_areas` from `OrgProfile` and from `loadOrgProfile()`'s `.select(...)`.
+- `geographicRelevanceFactor()`'s multi-state service-footprint match (previously
+  `(org.service_areas ?? []).some(area => ...)`) now checks the real singular column instead
+  (`(org.service_area ?? "").toUpperCase().includes(prospectState)`) — same intent (an org's
+  declared service footprint can extend beyond its mailing address), adapted to the column that
+  actually exists rather than dropped.
+- Updated two header comments that had documented the nonexistent plural column as real.
+
+### Re-verification: both agents run live again, same method, same real Faith Foundation org
+
+| Agent | Before this fix | After this fix |
+|---|---|---|
+| AG-17 `OpportunityDiscoveryAgent` | `failed` — `logDecision()` crashed on missing `action_payload` | **`completed`**, `success: true`. Real substantive run: `itemsFound: 30`, `itemsProcessed: 30`, `itemsQueued: 1`, zero errors. 33 real `agent_decisions` rows this run, `action_payload`/`agent_run_id` genuinely populated (e.g. `{"queuedCount": 20}`, `{"newCount": 30, "strategy": "expand_search", ...}` on `agent_run_id: "31d546af-..."`) — confirmed by reading the rows back, not the return value. |
+| AG-30 `DonorIntentMonitorAgent` | `failed` — `loadOrgProfile()` threw `"Could not load organization ..."` for every org | **`completed`**, `success: true`. `itemsFound: 0` — but now for a legitimate, already-documented, separate reason: `corporate_prospects is unavailable in this environment (Could not find the table 'public.corporate_prospects' in the schema cache)`, caught and reported cleanly in `errors[]` rather than crashing. Matches `benavora-corporate-prospects-confirmed-missing-breaks-outreach` project memory and this log's own AG-20/21/24 entries — not a new gap, just no longer masked by the column bug. |
+
+Both `agent_runs` rows independently re-queried and read back after the run.
+
+### Current real status of all 6 previously enum-blocked agents (AG-15/17/19/25/28/30)
+
+1. **AG-15 `ProbabilityScoringAgent`** — completes. Scoring itself degraded by the pre-existing,
+   separately-documented dead local `ANTHROPIC_API_KEY` (401) — not fixed here, out of scope.
+2. **AG-17 `OpportunityDiscoveryAgent`** — completes with real, substantive output. Fully working
+   as of this entry.
+3. **AG-19 `RelationshipBuilderAgent`** — completes when directly instantiated, but **still never
+   auto-instantiated in production** — `worker/autonomous-orchestrator.ts` still substitutes
+   `FunderRelationshipAgent`. Separate wiring gap, unchanged, not addressed by any fix in this or
+   the prior entry.
+4. **AG-25 `DeadlinePredictionAgent`** — completes cleanly, zero errors.
+5. **AG-28 `FollowupGeneratorAgent`** — completes via its documented no-op path when no queue
+   trigger is present; real end-to-end behavior with an actual trigger not exercised in either
+   session.
+6. **AG-30 `DonorIntentMonitorAgent`** — completes. Blocked from producing real signals only by the
+   separate, already-known missing `corporate_prospects` table — not a code defect in this agent.
+
+**Recommendation:** the `agent_type` enum gap and both new schema-drift bugs found while re-verifying
+it are now closed. Two genuinely separate, pre-existing gaps remain open and are out of scope for
+this pass: AG-19's wiring (needs a real call site or a decision to retire the class), and
+`corporate_prospects`'s missing table (needs migrations 107/108 applied, already documented
+elsewhere).
+
+**Verification method:** live schema re-check via `GET /rest/v1/` OpenAPI (`agent_decisions`,
+confirming all 3 columns present with correct types); live `psql` DDL application via the
+`DATABASE_URL` connection, each statement separate; `pnpm tsc --noEmit` clean on both edited files;
+live re-execution (`node`/`tsx`, no mocks) of both agents' real `run("manual")` against the real
+Faith Foundation org; every resulting `agent_runs` and `agent_decisions` row independently re-queried
+and read back, not inferred from the return value. Throwaway script deleted after use, never
+committed.

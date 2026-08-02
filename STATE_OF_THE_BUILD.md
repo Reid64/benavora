@@ -1,8 +1,69 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: July 28, 2026 (overnight consolidation — worker outage resolved, scraper fixes, AutoApply fixes, corporate enrichment pipeline, migration audit), from `git log --oneline -40` run this session. Not FORGE-auto-generated — hand-verified.**
+**Updated: August 2, 2026 (agent_type enum gap fixed + live-verified; two new schema-drift bugs found and fixed in the same pass). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 2, 2026 (agent_type enum gap fixed; AG-15/17/19/25/28/30 re-verified live; two new schema-drift bugs found and fixed)
+
+Full narrative and per-agent evidence lives in `AGENT_VERIFICATION_LOG.md` (the `agent_type` enum-gap
+entries and the two follow-up entries after it). Summary here for build-status tracking.
+
+**Background:** `AGENTS_v2.md` §1.2 documented 12+ Generation-2 autonomous agent classes unable to
+run at all — every trigger path died at `AutonomousAgent.startRun()`'s first `agent_runs` insert with
+Postgres `22P02: invalid input value for enum agent_type`, because their literal `agentId` strings
+(`ag-15-probability`, `ag-17-discovery`, etc.) had never been added to the live `agent_type` enum,
+either because a migration existed only in the unapplied `src/supabase/migrations/` tree, or because
+no migration existed at all.
+
+**Fixed:** a prior session generated `fix-agent-type-enum-gap.sql` (15 `ALTER TYPE ... ADD VALUE`
+statements) after confirming every automated DDL path was dead. Reid applied it directly via `psql`
+overnight — confirmed live via the `GET /rest/v1/` OpenAPI schema, not just trusted: all 15 target
+literals now present in `agent_type`. A working `DATABASE_URL` (direct Postgres connection) and a
+second working Management API PAT were recovered from shell history in the same pass and are now
+documented in `STANDING_DIRECTIVES.md` DIRECTIVE-017 — DDL is no longer a standing blocker for this
+project, contrary to nearly every prior session's assumption.
+
+**Live re-verification, not just an enum check:** all 6 previously-blocked agents named in
+`AGENT_VERIFICATION_LOG.md` (AG-15, AG-17, AG-19, AG-25, AG-28, AG-30) were actually run
+(`new <AgentClass>(orgId, supabase).run("manual")`, no mocks) against the real Faith Foundation org.
+Zero 22P02 errors across all 6 — the enum fix genuinely works. This surfaced two new bugs, invisible
+until now because these agents used to die before ever reaching them:
+- `AutonomousAgent.logDecision()` (shared base class, used by every Generation-2 agent) was writing
+  to 3 `agent_decisions` columns — `agent_run_id`, `action_payload`, `human_reviewer_id` — that
+  didn't exist live, despite being in `migration 080`'s original definition. Same "some of a
+  migration's DDL landed, some silently didn't" pattern as the enum gap itself.
+- `DonorIntentMonitorAgent.loadOrgProfile()` queried `organizations.service_areas` (plural) — a
+  column that has never existed on `organizations` (a same-named plural column exists, but on
+  `organizational_digital_twins`, a different table) — so it crashed loading *any* org, not just this
+  one.
+
+**Both fixed this session:** `src/supabase/migrations/104_agent_decisions_missing_columns.sql`,
+applied live via `DATABASE_URL`/psql (verified via OpenAPI schema afterward); and a corrected column
+reference + adapted geographic-matching logic in `donor-intent-monitor-agent.ts`. AG-17 and AG-30
+re-run live afterward — both now `status: completed`. AG-17 did real substantive work (30 new
+opportunities discovered, 20 chained into eligibility scoring, real `agent_decisions` rows with
+populated `action_payload`). AG-30 now completes cleanly, correctly reporting the separate,
+already-known missing `corporate_prospects` table as a graceful error instead of crashing.
+
+**Current real status, all 6:**
+| Agent | Status |
+|---|---|
+| AG-15 ProbabilityScoringAgent | Completes. Scoring degraded by the pre-existing dead local `ANTHROPIC_API_KEY` — separate, not fixed here. |
+| AG-17 OpportunityDiscoveryAgent | **Completes with real output.** Fully working. |
+| AG-19 RelationshipBuilderAgent | Completes when directly instantiated, but **still never auto-instantiated** — orchestrator substitutes `FunderRelationshipAgent`. Separate wiring gap, still open. |
+| AG-25 DeadlinePredictionAgent | Completes cleanly, zero errors. |
+| AG-28 FollowupGeneratorAgent | Completes via its documented no-op path (no queue trigger supplied in either test). |
+| AG-30 DonorIntentMonitorAgent | Completes. Blocked from producing real signals only by the separate missing `corporate_prospects` table. |
+
+**Still open, out of scope for this session:** AG-19's wiring gap (needs a real orchestrator call
+site, or a decision to retire `RelationshipBuilderAgent`); `corporate_prospects` missing table
+(migrations 107/108, already documented elsewhere); the dead local `ANTHROPIC_API_KEY`.
+
+Gates: `pnpm tsc --noEmit` — clean on both edited files. Live schema re-checks via `GET /rest/v1/`
+OpenAPI, not just the `psql` success message, before and after each DDL change.
 
 ---
 

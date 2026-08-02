@@ -1,12 +1,50 @@
 # BENAVORA — Session State
-## Last Updated: July 28, 2026
-## Mode: Governance sync — Universal Scraper build documentation (docs-only session)
+## Last Updated: August 2, 2026
+## Mode: agent_type enum gap fixed + live-verified; 2 new schema-drift bugs found and fixed
 
 ---
 
 ## Current Session
 
-**Date:** July 28, 2026
+**Date:** August 2, 2026
+**Focus:** Fix two confirmed bugs found while re-verifying the `agent_type` enum-gap fix (prior
+session's `AGENT_VERIFICATION_LOG.md` entry): (1) `AutonomousAgent.logDecision()` writing to
+`agent_decisions` columns that don't exist live, (2) `DonorIntentMonitorAgent.loadOrgProfile()`
+querying a nonexistent `organizations` column. Re-verify AG-17/AG-30 live after both fixes.
+**Status:**
+- Checked live schema precisely (`GET /rest/v1/` OpenAPI) rather than trusting the one error message
+  from the prior session — found `agent_decisions` was actually missing **3** columns from migration
+  080's definition, not 1: `agent_run_id`, `action_payload`, `human_reviewer_id`. `agent_run_id` is
+  also written by the same `logDecision()` insert and would have failed identically had only
+  `action_payload` been patched.
+- Wrote `src/supabase/migrations/104_agent_decisions_missing_columns.sql` (all 3, matching migration
+  080's original types/defaults) and applied it directly to production via the working `DATABASE_URL`
+  psql connection (`STANDING_DIRECTIVES.md` DIRECTIVE-017) — 3 separate statements, not batched.
+  Verified live afterward via the OpenAPI schema, not just `psql`'s success message.
+- Fixed `organizations.service_areas` → `organizations.service_area` in
+  `src/lib/agents/donor-intent-monitor-agent.ts` (`loadOrgProfile()`'s select, the `OrgProfile`
+  interface, and `geographicRelevanceFactor()`'s multi-state match logic, adapted to the real
+  singular free-text column rather than dropped). Updated two header comments that had documented
+  the nonexistent plural column as real.
+- Re-ran AG-17 and AG-30 live (`node`/`tsx`, no mocks) against the real Faith Foundation org. Both
+  now `status: completed`. AG-17 did real substantive work — 30 new opportunities discovered, 20
+  chained into eligibility scoring, real `agent_decisions` rows with genuinely populated
+  `action_payload`/`agent_run_id`. AG-30 now completes cleanly, correctly reporting the separate,
+  already-known missing `corporate_prospects` table as a caught error instead of crashing.
+- All 6 previously enum-blocked agents (AG-15/17/19/25/28/30) now have a current real status
+  documented in `AGENT_VERIFICATION_LOG.md` and `STATE_OF_THE_BUILD.md`. Two genuinely separate,
+  pre-existing gaps remain open and untouched: AG-19's wiring (never auto-instantiated — the
+  orchestrator substitutes `FunderRelationshipAgent`), and the missing `corporate_prospects` table.
+
+Appended full results to `AGENT_VERIFICATION_LOG.md`. Updated `STATE_OF_THE_BUILD.md` with a new
+session entry summarizing all 6 agents' current real status.
+**Commit:** `fix(agents): resolve agent_decisions.action_payload and organizations.service_areas column bugs, re-verify AG-17/AG-30` (this session).
+**Gates:** `pnpm tsc --noEmit` — clean on both edited files.
+
+---
+
+## Prior Session — July 28, 2026 (Universal Scraper build documentation)
+
 **Focus:** Documentation-only governance sync for the Universal Scraper build, steps uscraper-001 through 007, per `UNIVERSAL_SCRAPER_PRD.md`. No code written this session — read the 5 committed `feat(scraper-v2)` commits (`a3378c5`→`03a49cb`) plus 2 uncommitted/untracked file sets found in the working tree (`job-store.ts`, `templates/foundation-990-template.ts`, `templates/nonprofit-contact-template.ts`, `scripts/run-foundation-990-template.ts`, `scripts/run-nonprofit-contact-template.ts`), diffed the modified `foundation-scraper.ts`/`package.json`, and re-ran `pnpm tsc --noEmit` (0 errors, full project).
 **Status:** Documented all 7 steps honestly against actual evidence rather than commit-message claims alone:
 - **uscraper-001 (schema)** — migration 110 file committed, **not confirmed applied to prod** (same DDL-credential gap as 051/052/107).

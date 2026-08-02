@@ -32,8 +32,11 @@
 //      "warning", the closest real value to "needs attention now" without
 //      implying the platform itself is broken (which "error" would).
 //   2. "knowledge_base_profiles.geographic_data" - no such table exists.
-//      Org geography lives on `organizations` (city, state, service_area,
-//      service_areas[]) per SCHEMA_REGISTRY_v2.md - used directly below.
+//      Org geography lives on `organizations` (city, state, service_area -
+//      a single free-text column, not a service_areas[] array; that array
+//      belongs to organizational_digital_twins, a different table, per a
+//      live-schema check documented in AGENT_VERIFICATION_LOG.md) - used
+//      directly below.
 //   3. "Extract NTEE code from organizations table" - `organizations` has no
 //      ntee_code column (NTEE classification lives on `foundation_directory`,
 //      a different entity). Substitutes the org fields
@@ -68,7 +71,7 @@
 // #8 / #3).
 //
 // Geographic relevance is computed deterministically from real address data
-// (org city/state/service_areas vs corporate_prospects.address_city/
+// (org city/state/service_area vs corporate_prospects.address_city/
 // address_state via a static US state-adjacency table), not asked of the
 // model - this is exactly the "compare city/state" instruction in this
 // task's own spec, and a structured comparison is strictly more reliable
@@ -224,7 +227,6 @@ interface OrgProfile {
   tax_status: string | null;
   mission_statement: string | null;
   service_area: string | null;
-  service_areas: string[] | null;
   target_population: string | null;
   city: string | null;
   state: string | null;
@@ -308,11 +310,15 @@ function extractJsonArray(text: string): RawSignal[] {
 
 /** Deterministic geographic_relevance_factor (build task requirement 3):
  * same_city=1.0, same_state=0.7, adjacent_state=0.4, national=0.2. Also
- * treats an explicit match in organizations.service_areas as same_state-
+ * treats an explicit match in organizations.service_area as same_state-
  * equivalent, since an org's declared service footprint can extend beyond
- * its own mailing address (e.g. a Texas org whose service_areas also lists
- * "OK"). Insufficient address data on either side falls back to the
- * national floor rather than guessing. */
+ * its own mailing address (e.g. a Texas org whose service_area also names
+ * "OK"). organizations has only a single free-text service_area column, not
+ * a service_areas[] array (that array lives on organizational_digital_twins,
+ * a different table — confirmed against the live schema; the plural column
+ * this function used to reference here doesn't exist on organizations at
+ * all, see AGENT_VERIFICATION_LOG.md). Insufficient address data on either
+ * side falls back to the national floor rather than guessing. */
 function geographicRelevanceFactor(org: OrgProfile, prospect: ProspectRow): number {
   const orgState = org.state?.trim().toUpperCase() || null;
   const orgCity = org.city?.trim().toLowerCase() || null;
@@ -326,9 +332,7 @@ function geographicRelevanceFactor(org: OrgProfile, prospect: ProspectRow): numb
     return 0.7;
   }
 
-  const serviceAreaMatch = (org.service_areas ?? []).some(
-    (area) => area.trim().toUpperCase() === prospectState,
-  );
+  const serviceAreaMatch = (org.service_area ?? "").toUpperCase().includes(prospectState);
   if (serviceAreaMatch) return 0.7;
 
   if (orgState && (STATE_ADJACENCY[orgState] ?? []).includes(prospectState)) {
@@ -407,7 +411,7 @@ export class DonorIntentMonitorAgent extends AutonomousAgent {
     const { data } = await this.supabase
       .from("organizations")
       .select(
-        "id, name, tax_status, mission_statement, service_area, service_areas, target_population, city, state",
+        "id, name, tax_status, mission_statement, service_area, target_population, city, state",
       )
       .eq("id", this.orgId)
       .maybeSingle();
