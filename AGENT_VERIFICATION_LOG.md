@@ -1951,3 +1951,123 @@ statement's error silently rolled back everything after it within one implicit t
 string + DB password is available (Supabase dashboard → Project Settings → Database → Connection
 string), then re-runs the verification query to confirm all 15 literals are present before any
 future session marks this gap closed.
+
+---
+
+## `agent_type` enum gap — post-fix re-verification of AG-15/17/19/25/28/30
+
+**Context:** the enum fix (`fix-agent-type-enum-gap.sql`, all 15 `ALTER TYPE agent_type ADD VALUE`
+statements) was actually applied to production overnight via `psql` — confirmed live via
+`GET /rest/v1/` OpenAPI schema (`agent_runs.agent_type.enum` now contains all 15 target literals).
+This entry re-runs each of the 6 previously enum-blocked agents this document names for real,
+against the real Faith Foundation org (`b1ab7402-dfc2-4712-869f-70ea3566cc1d`), to confirm the fix
+actually unblocks them rather than trusting the enum check alone.
+
+**Verdict: the enum fix works — zero 22P02 errors across all 6 agents, every one successfully
+inserted a real `agent_runs` row with its own literal `agent_type`. 4 of 6 (AG-15, AG-19, AG-25,
+AG-28) reached `status: completed`. The other 2 (AG-17, AG-30) reached `status: failed` — but for
+reasons that have nothing to do with the enum: two separate, previously-invisible schema-drift bugs,
+newly exposed now that execution finally gets past the point that used to die instantly. AG-19's
+already-flagged wiring gap (never automatically instantiated; the orchestrator substitutes
+`FunderRelationshipAgent`) is reconfirmed still open — the enum fix does not touch it.**
+
+### Method
+
+Ran each agent for real via a throwaway script (`node`/`tsx`, deleted after use — not committed),
+`new <AgentClass>(orgId, supabase).run("manual")`, no mocks, real service-role client, against the
+real Faith Foundation org. For each: captured whether it threw (and specifically whether that throw
+was a 22P02 enum error), the returned `AutonomousAgentResult`, and then independently re-queried
+`agent_runs` for that `agent_type` to read the persisted row back directly rather than trusting the
+in-memory return value — same discipline as every other live-execution entry in this log.
+
+### Results
+
+| Agent | agent_type | Result | 22P02? | Notes |
+|---|---|---|---|---|
+| AG-15 `ProbabilityScoringAgent` | `ag-15-probability` | **completed** | No | `itemsFound: 20`, `scored: 0` — every per-opportunity Claude call hit the already-documented dead local `ANTHROPIC_API_KEY` (401), caught per-item, run still completed cleanly. |
+| AG-17 `OpportunityDiscoveryAgent` | `ag-17-discovery` | **failed** | No | New bug (below) — `logDecision()`'s first call throws on a missing `agent_decisions.action_payload` column. |
+| AG-19 `RelationshipBuilderAgent` | `ag-19-relationship` | **completed** | No | `fundersAnalyzed: 4` — every funder's relationship-memory lookup hit `Could not find the table 'public.relationship_memory' in the schema cache`, caught per-funder, run still completed. Never auto-instantiated (see below) — this run only happened because the script instantiated the class directly. |
+| AG-25 `DeadlinePredictionAgent` | `ag-25-deadline-prediction` | **completed** | No | `itemsFound: 15`, zero errors — fully clean run, no Claude call needed for this data state. |
+| AG-28 `FollowupGeneratorAgent` | `ag-28-followup` | **completed** | No | `loadTriggerPayload()` found no `agent_queue` row in `processing` status for this agent (none was manufactured for this test) — completed immediately via the agent's own documented no-op path (`"No valid follow-up trigger payload found..."`). A legitimate real code path, not a skipped test. |
+| AG-30 `DonorIntentMonitorAgent` | `ag-30-donor-intent` | **failed** | No | New bug (below) — `loadOrgProfile()` throws on a missing `organizations.service_areas` column. |
+
+Every row above was independently re-read from `agent_runs` after the run (not just the in-process
+return value) — `id`, `agent_type`, `status`, `started_at`/`completed_at` timestamps, and
+`output_summary`/`error_message` all confirmed present and matching.
+
+### New finding 1 — `AutonomousAgent.logDecision()` (base class, not AG-17-specific): `agent_decisions.action_payload` doesn't exist live
+
+`src/lib/agents/autonomous-base.ts`'s shared `logDecision()` inserts `action_payload: params.actionPayload ?? {}`
+into `agent_decisions`. Live schema (confirmed via `GET /rest/v1/` OpenAPI, not just this one error
+message) has no such column — `agent_decisions`'s real live columns are `action_taken, agent_id,
+confidence_score, created_at, decision_type, entity_id, entity_type, human_reviewed_at,
+human_verdict, id, org_id, reasoning, required_human_review`. `action_payload` is defined only in
+`src/supabase/migrations/080_autonomous_agent_infrastructure.sql:57` — absent from the root
+`supabase/migrations/` tree entirely (not even the table's own `CREATE TABLE` is there), the same
+two-parallel-migrations-directories pattern already documented elsewhere in this project.
+
+**Blast radius wider than AG-17 alone**: every one of the other 5 agents in this run returned an
+*empty* `decisions: []` array — meaning none of them happened to hit a decision-worthy branch in
+this data state, not that their `logDecision()` calls silently succeeded. Any agent's `logDecision()`
+call with a non-empty `actionPayload` will hit this identical crash whenever it's actually exercised.
+AG-17 is simply the one agent in this run whose very first Decision Phase step unconditionally logs
+one (`discovery_strategy_selected`), so it's the one that surfaced this immediately.
+
+**Why this was invisible until now**: AG-17 always died at `startRun()` (22P02) before ever reaching
+its first `logDecision()` call, so this bug had zero opportunity to fire in any prior session.
+
+### New finding 2 — `DonorIntentMonitorAgent.loadOrgProfile()`: queries `organizations.service_areas`, which doesn't exist
+
+`organizations` has `service_area` (singular) live — confirmed via the same OpenAPI schema check.
+`service_areas` (plural, `text[]`) is a real column, but on a different table entirely:
+`organizational_digital_twins` (`supabase/migrations/093_digital_twins.sql:30`). The agent's
+`.select("id, name, tax_status, mission_statement, service_area, service_areas, target_population, city, state")`
+requests both the real singular column and the twin table's plural one against the wrong table;
+PostgREST rejects the whole query when any requested column doesn't exist, so `loadOrgProfile()`
+returns `null` for every org, and `run()`'s `if (!org) throw ...` guard fires immediately — for
+every org, not just this one, since the bug is in the query itself, not this org's data.
+
+### AG-19 caveat reconfirmed, not fixed by the enum change
+
+Re-grepped for any real instantiation: `grep -rn "new RelationshipBuilderAgent" src/ worker/` still
+returns nothing except the class's own declaration. `worker/autonomous-orchestrator.ts`'s header
+comment (line 20) and its actual code (~line 1163-1166) still substitute `FunderRelationshipAgent`
+wherever "the relationship builder" is requested — unchanged from the prior AG-19 entry. **This is
+still a separate, still-open gap.** The enum fix makes `RelationshipBuilderAgent.run()` *capable* of
+completing (proven above), but nothing in production calls it. Reaching this agent in production
+requires closing the wiring gap, not just the enum gap.
+
+### Root-cause summary
+
+1. **Enum fix confirmed genuinely working, live, for all 6 agents** — zero 22P02 errors, zero enum-
+   related failures, every agent inserted a real `agent_runs` row under its own literal `agent_type`.
+2. **AG-15, AG-19, AG-25, AG-28 are now capable of completing real runs in production** (AG-15/19
+   still degraded by already-known, separate environmental issues — dead local Claude key,
+   missing `relationship_memory` table — not new).
+3. **AG-17 and AG-30 are blocked by two new, previously-unreachable schema-drift bugs**, not the
+   enum. Both are precisely diagnosed (missing `action_payload` column; wrong `service_areas`
+   column reference) and both would be quick fixes, but neither was in scope for this
+   re-verification pass.
+4. **AG-19's wiring gap (never auto-instantiated) is unchanged** — explicitly not closed by the enum
+   fix, exactly as previously flagged.
+
+**Recommendation:** (a) add `action_payload jsonb DEFAULT '{}'` to live `agent_decisions` via the
+now-working `DATABASE_URL`/Management API DDL path (`STANDING_DIRECTIVES.md` DIRECTIVE-017) — this
+unblocks `logDecision()` for every agent that calls it, not just AG-17; (b) fix
+`donor-intent-monitor-agent.ts`'s `loadOrgProfile()` to select `service_area` (singular) instead of
+`service_areas`; (c) `relationship_memory` table-missing is a pre-existing, separate gap worth its
+own investigation, not addressed here; (d) AG-19's wiring gap still needs either a real
+`RelationshipBuilderAgent` call site added to the orchestrator, or a decision that
+`FunderRelationshipAgent` is the intended permanent implementation and the richer class should be
+formally retired.
+
+**Verification method:** live execution (`node`/`tsx`, no mocks) of all 6 real, unmodified agent
+classes via their real `run("manual")` entry point against the real Faith Foundation org
+(`b1ab7402-dfc2-4712-869f-70ea3566cc1d`), service-role client, production database
+(`vbjplpquqxxfbpazyalt`); every resulting `agent_runs` row independently re-queried and read back
+after the run, not inferred from the return value; live `GET /rest/v1/` OpenAPI schema checks against
+`agent_decisions` and `organizations` to pinpoint both new bugs' exact missing/misreferenced columns,
+not just the surface error text; a repo-wide grep reconfirming `RelationshipBuilderAgent` is still
+never instantiated outside its own file, and a direct read of
+`worker/autonomous-orchestrator.ts`'s substitution logic. The throwaway test script was deleted
+after use and was never committed.
