@@ -664,27 +664,242 @@ Use this table to jump from a canonical `AG-XX` to the actual file(s) implementi
 
 ### AG-10: Grant DNA Analysis Agent
 
-- **Purpose:** Analyzes grant requirements and produces a structured "DNA profile" of what a
-  funder tends to require/reward.
-- **Type:** not determined — no matching file found.
-- **Model:** n/a.
-- **Tokens:** n/a.
-- **Tier Gate:** professional (as originally scoped).
-- **Real implementation:** none found in `src/lib/agents/`. Not listed as BUILT/PARTIAL/IN BUILD
-  in `FEATURE_REGISTRY_v2.md` either — appears to have never been started.
+**Enterprise build spec, written 2026-08-03.** Canonical purpose unchanged from the original scope
+(`AGENTS_v2.md`, `FEATURE_REGISTRY_v2.md`): "analyzes grant requirements and produces a structured
+DNA profile of what a funder tends to require/reward." This spec does not expand that purpose —
+it specifies the engineering depth needed to build it correctly. No implementation exists yet
+(confirmed by grep, `src/lib/agents/`, zero matches). Output table `funder_dna_profiles` did not
+exist either; created live 2026-08-03 (`src/supabase/migrations/106_funder_dna_profiles.sql`,
+applied via `DATABASE_URL`/psql, RLS included) specifically to give this spec a real, grounded
+output contract rather than an invented/hypothetical one.
 
-> **Numbering note:** the on-disk string `"ag-10-document-expiry"` does **not** belong to this
-> agent — it is `DocumentExpiryAgent`'s `agentId` (a currently-live, nightly, unrelated agent).
-> See 1.4.
+> **Numbering note (unchanged):** the on-disk string `"ag-10-document-expiry"` does **not** belong
+> to this agent — it is `DocumentExpiryAgent`'s `agentId` (a currently-live, nightly, unrelated
+> agent, built and enum-valid since migration 082). See §1.4. `FEATURE_REGISTRY_v2.md` row #210
+> ("AG-10 Document Expiry Monitor") is that unrelated agent, not this one — do not conflate when
+> scheduling or auditing "AG-10" activity.
+
+#### Trigger design
+
+**Two triggers, deliberately different cadences, because this agent tracks two different kinds of
+signal that move at different speeds:**
+
+1. **Event-chained (primary)** — fired via `agent_queue` (`trigger_source: "event"`, same
+   convention as AG-07 `RecursiveLearningAgent`'s existing per-outcome-insert wiring) whenever a
+   new `outcomes` row is inserted for an application whose opportunity has a non-null `funder_id`.
+   **Rationale:** an `outcomes` row (award/denial/partial, `funder_feedback`, `denial_reason`) is
+   ground truth about what a funder actually rewarded — the single strongest signal this agent
+   has, and genuinely rare (a typical org logs single-digit-to-low-double-digit outcomes per year
+   per funder). Recomputing the moment one arrives is cheap (bounded to one funder) and avoids the
+   profile ever being stale relative to the most recent real result.
+2. **Weekly schedule (secondary)** — `worker/scheduler.ts`, Sunday 3:00 AM CST (off-peak, matching
+   the existing weekly-cadence convention already used for `foundation-enrichment-weekly`). Scans
+   for funders with ≥1 new `opportunities` row since `funder_dna_profiles.last_analyzed_at` (or no
+   profile row at all). **Rationale:** requirement patterns (`eligibility_requirements`,
+   `required_documents`, `amount_min`/`amount_max`) are visible on `opportunities` the moment
+   they're posted, independent of whether an outcome has happened yet — but a single new posting
+   isn't worth an immediate recompute (opportunity volume per funder is typically a handful of
+   cycles per year; nightly would be near-total no-op churn). Weekly balances freshness against
+   wasted runs.
+
+Both paths call the same `run()` entry point with a `funderIds: string[]` scope resolved before
+`startRun()` — the event path scopes to the one funder from the triggering outcome; the schedule
+path scopes to every funder with new opportunities since last analysis, capped at
+`MAX_FUNDERS_PER_SCHEDULED_RUN = 25` per run (mirrors `MAX_PER_RUN`-style caps already used in
+`probability-scoring-agent.ts`) to keep a single scheduled run bounded regardless of platform
+growth — remaining funders roll to the next week's run rather than growing one run unboundedly.
+
+#### Input contract
+
+| Source | Columns read | Shape notes |
+|---|---|---|
+| `outcomes` | `id, organization_id, application_id, result, awarded_amount, requested_amount, funder_feedback, denial_reason, funder_category, opportunity_category, recorded_at` | `result` is a real enum-like text column (`awarded`/`denied`/`partial` per existing usage elsewhere in this codebase). Joined to `opportunities` via `application_id → applications.opportunity_id → opportunities.funder_id` (2-hop; `outcomes` itself carries no direct `funder_id`, confirmed live). |
+| `opportunities` | `id, organization_id, funder_id, category, eligibility_requirements, required_documents, amount_min, amount_max, deadline, status, recurrence` | `eligibility_requirements` is free `text` (not structured — parsed by Claude, not a rule engine); `required_documents` is a real `text[]` array; `category` is the real `public.funder_category` enum. |
+| `funders` | `id, organization_id, name, category, annual_giving_budget, geographic_focus` | Confirms the funder still exists and is still owned by the same org before writing (defense against a funder deleted mid-run). |
+| `funder_dna_profiles` (self, read-before-write) | `id, sample_size, requirement_patterns, reward_patterns, confidence` | Read once per funder at the start of each funder's processing to support incremental merge (see Idempotency below) — this agent never fully recomputes from zero if a prior profile exists, it updates it. |
+
+#### Process (numbered, with real branch logic)
+
+For each `funderId` in scope (processed sequentially within a run, not concurrently — see Cost
+budget below for why):
+
+1. **Load evidence.** Fetch all `opportunities` for this `funder_id` (any org — see the
+   cross-org design note below) and all `outcomes` joined through them, plus the existing
+   `funder_dna_profiles` row for this `(organization_id, funder_id)` pair if one exists.
+2. **Branch on evidence volume:**
+   - **Zero opportunities found** (funder has no posted opportunities on file at all): skip this
+     funder entirely, no row written, no decision logged — there is nothing to analyze. Counts
+     toward `itemsFound` but not `itemsProcessed`.
+   - **Opportunities exist, zero outcomes** (`sample_size` for reward_patterns stays 0): compute
+     `requirement_patterns` only (deterministic — see step 3) from the opportunity fields
+     directly, no Claude call needed. `reward_patterns` is written as `{}` and `confidence` as
+     `null` (explicitly "not enough data to say what gets rewarded," not a fabricated guess).
+   - **Opportunities and outcomes both exist**: full analysis, both `requirement_patterns` (step
+     3) and `reward_patterns` (step 4, Claude-assisted) computed.
+3. **Compute `requirement_patterns` (deterministic, no Claude call — this is the one place a rule
+   engine is strictly better than a language model, since the inputs are already structured):**
+   union of `required_documents` across all opportunities for this funder (frequency count per
+   document type), min/max/median of `amount_min`/`amount_max`, and the deadline-recurrence
+   distribution (`recurrence` value counts). Written as-is to `requirement_patterns` jsonb — no
+   interpretation needed, these are direct aggregates over real structured columns.
+4. **Compute `reward_patterns` (Claude-assisted — `eligibility_requirements`/`funder_feedback`/
+   `denial_reason` are free text, genuinely need language understanding, not just aggregation):**
+   build one prompt per funder containing every outcome's `result`, `awarded_amount` vs
+   `requested_amount` ratio, `funder_feedback`, and `denial_reason`, plus every opportunity's
+   `eligibility_requirements` text. Ask Claude to extract: (a) recurring themes across awarded
+   applications' stated eligibility that denied ones lacked, (b) whether award size correlates
+   with any observable factor mentioned in feedback (e.g. "prioritizes first-time applicants,"
+   "favors capital projects over general operating"), (c) a 0-100 confidence score for how
+   strongly the sample supports these patterns. **Threshold:** if `sample_size < 3` outcomes,
+   Claude is still called (there's no reason not to extract what little signal exists) but the
+   agent forces `confidence` to be capped at `min(claudeReportedConfidence, 40)` regardless of
+   what Claude reports — a small sample cannot honestly support high confidence, and this cap is
+   enforced in code, not left to the model's self-assessment.
+5. **Merge with existing profile, if one exists** (see Idempotency below), then upsert
+   `funder_dna_profiles` on `(organization_id, funder_id)`.
+6. **Log a decision** (`decisionType: "funder_dna_updated"`) with the new `sample_size` and
+   `confidence`, `actionPayload` containing the specific new patterns found this run (not the
+   full profile — just the delta, so a human reviewing decisions can see what changed without
+   re-deriving it from the stored jsonb).
+7. **Error isolation per funder:** each funder's steps 1-6 run inside its own `try/catch`; a
+   failure on funder N (Claude error, malformed data) is pushed to `errors[]` and the loop
+   continues to funder N+1 — one bad funder's data never aborts the whole run, matching the
+   per-item isolation pattern already established in `ProbabilityScoringAgent`/
+   `RelationshipBuilderAgent`.
+
+**Design note on cross-org scope (a real product decision, stated explicitly rather than left
+implicit):** `opportunities`/`outcomes` evidence for a given `funder_id` is read across **all**
+organizations that have that funder on file, not just the calling org — a funder's actual
+behavior (what it requires/rewards) is an objective fact about the funder, not something that
+differs by which org is asking, so pooling evidence produces a materially better-sampled profile
+than any single org could produce alone. The **output row** is still written per-org
+(`funder_dna_profiles.organization_id`), because different orgs may have different `funders.id`
+rows for what is nominally "the same" real-world funder (this platform has no cross-org funder
+identity resolution — confirmed, `funders` has no dedup/canonical-entity column) — so cross-org
+pooling happens at read time by matching on `funders.name` (best-effort text match, logged as a
+`matchedByName` count in the decision's `actionPayload` so a human can see how much of the sample
+came from name-matching vs. this exact org's own `funder_id`), not by a real foreign key. This is
+an explicit, documented trade-off — not a bug — for a future session to revisit if funder identity
+resolution is ever built.
+
+#### Output contract
+
+`funder_dna_profiles` (migration 106, applied live):
+
+| Column | Type | Written by this agent as |
+|---|---|---|
+| `organization_id` | uuid | the org that owns the `funders` row being profiled |
+| `funder_id` | uuid | FK to `funders.id` |
+| `requirement_patterns` | jsonb | `{ commonDocuments: [{type, frequency}], awardRange: {min, max, median}, recurrenceDistribution: {...} }` |
+| `reward_patterns` | jsonb | `{ themes: string[], sizeCorrelation: string \| null, matchedByName: number }` |
+| `typical_award_range_min`/`_max` | numeric | flattened out of `requirement_patterns.awardRange` for fast, index-friendly querying without unpacking jsonb |
+| `common_eligibility_themes` | text[] | flattened out of `reward_patterns.themes`, same reason |
+| `common_required_documents` | text[] | flattened out of `requirement_patterns.commonDocuments` |
+| `sample_size` | integer | count of outcomes actually used this run (not opportunities) |
+| `confidence` | numeric | 0-100, capped per step 4's rule |
+| `last_analyzed_at` | timestamptz | stamped every run, including zero-outcome runs (so the weekly scheduler's "new since last_analyzed_at" scope check is accurate) |
+
+#### Error handling and failure modes
+
+- **Transient failure (Claude API error, timeout):** retry up to 3 attempts with exponential
+  backoff (`1s, 2s, 4s` — the exact pattern already proven in `src/lib/intelligence/embeddings.ts`,
+  reused rather than inventing a new one), then treat as a permanent failure for this funder only.
+- **Permanent failure for one funder:** caught per-funder (process step 7), pushed to `errors[]`,
+  loop continues — never fails the whole run.
+- **Total run failure** (e.g. the initial funder-scope query itself fails): the outer `try/catch`
+  around the whole `run()` body calls `failRun()`, matching every other `AutonomousAgent` in this
+  codebase — a real `agent_runs` row with `status: 'failed'` and the real error message, not a
+  silent exit.
+- **Dead-letter / skip, not alert:** a permanently-failed funder is simply skipped for this run;
+  it will be retried automatically on the next scheduled run or the next outcome event for that
+  funder, whichever comes first — no separate dead-letter table needed, since re-attempt is
+  already built into the trigger design (unlike, say, a one-shot ingestion job).
+
+#### Idempotency
+
+Re-running this agent twice on the same input must not double-count evidence or corrupt the
+profile. Guaranteed by: (1) `requirement_patterns`/`reward_patterns` are always **recomputed from
+the full current evidence set**, not incrementally appended to — every run reads all
+`opportunities`/`outcomes` for the funder fresh and overwrites the jsonb columns with a complete
+new aggregate, so running twice with no new data produces byte-identical output (aggregation over
+an unchanged input set is deterministic for `requirement_patterns`; `reward_patterns` uses Claude,
+which is not perfectly deterministic token-for-token, but the underlying `sample_size`/
+`confidence`/`typical_award_range` numeric fields are recomputed from the same deterministic
+aggregation and will match). (2) The upsert targets `(organization_id, funder_id)`'s `UNIQUE`
+constraint (migration 106) — a second run for the same pair updates the same row, never inserts a
+duplicate. (3) `last_analyzed_at` is stamped on every run regardless of whether new data existed,
+so a re-run immediately after a successful run correctly finds nothing new to do on its next
+scheduled pass (no infinite reprocessing loop).
+
+#### Observability
+
+- `agent_runs`: `items_found` = funders considered, `items_processed` = funders that got a real
+  profile write (excludes the "zero opportunities" skip case), `output_summary` = JSON
+  `{funderIds: [...], newProfiles: N, updatedProfiles: N, skipped: N}`.
+- `agent_decisions`: one `funder_dna_updated` row per funder actually updated (not per run), with
+  `entityType: "funder"`, `entityId: funder.id`, `actionPayload` containing the specific new
+  patterns found (step 6) — a human debugging "why did this funder's profile change" reads this
+  row, not the source code.
+- A failed funder's specific error text lands in `errors[]`, which is part of `output_summary` —
+  visible without a database console, from the same `agent_runs` row the rest of this agent's
+  activity is already recorded in.
+
+#### Cost / token budget
+
+- Deterministic `requirement_patterns` step: $0, no API call.
+- `reward_patterns` Claude call: one call per funder with outcomes, model `claude-sonnet-4-6`
+  (`DEFAULT_MODEL`, already the project-wide default for structured-extraction agent tasks of
+  comparable complexity — see Model selection below). Estimated prompt size: ~500 tokens of
+  instructions + up to ~150 tokens per outcome (feedback/denial text, typically short) + ~100
+  tokens per opportunity's `eligibility_requirements`. For a funder with 10 outcomes and 15
+  opportunities on file (a generous real-world ceiling for a single funder on this platform today):
+  ~500 + 1,500 + 1,500 ≈ 3,500 input tokens, ~400 output tokens (structured JSON response).
+- **Per-run cost** (weekly scheduled run, worst case `MAX_FUNDERS_PER_SCHEDULED_RUN = 25` funders
+  all needing the Claude step): 25 × (3,500 in + 400 out) ≈ 87,500 input + 10,000 output tokens.
+  At Sonnet's published per-million-token pricing (~$3/$15 as of this spec's writing — re-verify
+  against current Anthropic pricing before relying on this number long-term, prices change), that's
+  roughly **$0.26 + $0.15 ≈ $0.41 per scheduled run**.
+- **Per-run cost** (event-chained, single funder): ≈ $0.02.
+- **Monthly estimate at expected volume:** 4 weekly runs (~$1.64) + event-chained runs bounded by
+  real outcome volume (a platform-wide handful to low hundreds of outcomes/month across all orgs,
+  each a ~$0.02 call) — **well under $10/month total at current platform scale**, growing
+  linearly with outcome volume, not funder count (the expensive step only fires when there's a
+  real outcome to analyze).
+
+#### Model selection
+
+`claude-sonnet-4-6` (`DEFAULT_MODEL`), not a cheaper/faster tier. **Justification:** this task is
+free-text pattern extraction across multiple documents (`funder_feedback`, `denial_reason`,
+`eligibility_requirements`) requiring genuine synthesis ("what do these 10 denial reasons have in
+common that the 6 awards don't") — not a classification or extraction task simple enough for a
+lighter model, and not a task where extended multi-step reasoning (a "thinking"-tier model) is
+needed either, since it's a single-pass synthesis over a bounded, already-fetched context window,
+not an open-ended research task. Sonnet is the same tier already used platform-wide for comparable
+structured-synthesis agent tasks (`ProbabilityScoringAgent`, `RelationshipBuilderAgent`'s Phase A).
+
+#### Autonomy level: full autonomy, no human-approval gate
+
+**This agent never takes an external action or writes anything a human would need to approve
+before it's acted on** — it only computes and stores an analytical profile that other
+agents/humans *read* later when deciding what to do (e.g. informing a draft-generation prompt or
+an eligibility score). Per the global hard limits (Section 0), human review is reserved for
+external actions (submissions, emails) and financial/pipeline-data writes — this agent does
+neither. **Self-healing:** per-funder failures are retried automatically by the next trigger
+(event or weekly schedule), not by the agent retrying itself in-process beyond the 3-attempt
+Claude backoff in step-level error handling. **Runaway governance:** bounded by
+`MAX_FUNDERS_PER_SCHEDULED_RUN = 25` per scheduled run and by the event trigger firing at most
+once per real `outcomes` insert (a genuinely rare, human-paced event, not a loop this agent
+controls the frequency of) — there is no code path by which this agent can trigger itself
+repeatedly or spend without a new, real, human-generated data point arriving first.
 
 **Autonomous Mode**
-- **Status:** PLANNED
-- **Trigger Type:** — (not designed yet)
-- **Trigger Condition:** —
-- **Decision Log:** —
-- **Chain Output:** —
-- **Hard Limits:** the global hard limits (Section 0) would apply to any future implementation.
-- **Human Review Required:** undetermined.
+- **Status:** PLANNED (spec complete, awaiting build — see `queue-13.yaml`)
+- **Trigger Type:** event (`agent_queue`, on `outcomes` insert) + schedule (weekly, Sunday 3:00 AM CST)
+- **Trigger Condition:** new `outcomes` row with a resolvable `funder_id`, or ≥1 new `opportunities` row since last analysis
+- **Decision Log:** `funder_dna_updated`, per funder actually updated
+- **Chain Output:** none — this agent is a pure information producer, nothing downstream is auto-triggered by it (other agents read `funder_dna_profiles` on their own schedule, not via a chain)
+- **Hard Limits:** the global hard limits (Section 0) apply; additionally never writes financial/pipeline data, only an analytical read-model
+- **Human Review Required:** no — see Autonomy level above
 
 ---
 
@@ -1046,18 +1261,111 @@ Use this table to jump from a canonical `AG-XX` to the actual file(s) implementi
 
 ### AG-23: Relationship Mapper Agent (RA-01)
 
-- **Purpose:** Discovers relationships between businesses, foundations, board members, and
-  nonprofits; populates `pig_nodes`/`pig_edges`.
-- **Type:** AI (Claude).
+**Enterprise build spec, written 2026-08-03 — with a load-bearing correction before anything
+else.** Per `BLUEPRINT_v2.md`'s own Phase 3 design ("Corporate Relationship Graph... extends
+`pig_nodes` and `pig_edges`... AG-23 (Relationship Mapper) is the sole writer of these edge
+types") and `AUTONOMOUS_PLATFORM_VISION.md` §7 ("this feature has no new agent number — it is an
+extension of AG-23"), **this capability is not unbuilt.** It is fully implemented as `AG-32`
+(`src/lib/agents/relationship-graph-builder-agent.ts`, `RelationshipGraphBuilderAgent`) — built
+under a different on-disk label during construction, but the same real, working code this spec
+would otherwise ask someone to build from scratch. Writing a second, competing implementation
+under a literal `AG-23`/`RA-01` label would create exactly the kind of duplicate-agent mess this
+project's `AGENT_VERIFICATION_LOG.md` has spent multiple sessions untangling for other numbers —
+**do not build new code for this spec.** What follows documents AG-32's real, already-implemented
+behavior at full engineering depth (since that's genuinely valuable and this spec's job either
+way), and specifies exactly what real, additional, non-duplicative work remains.
+
+- **Purpose (unchanged from canonical scope):** Discovers relationships between businesses,
+  foundations, board members, and nonprofits; populates `pig_nodes`/`pig_edges`.
+- **Type:** AI (Claude, `callClaudeWithWebSearch`).
 - **Tier Gate:** enterprise.
-- **Real implementation:** none found. `FEATURE_REGISTRY_v2.md` #80 lists this as PLANNED (Phase
-  3). `agent-registry-seed.ts` lists `ag-23` with a weekly Sunday cron — metadata only.
+- **Real implementation:** `AG-32` (Section 5 below) — see that entry for the full, corrected,
+  live-verified status as of 2026-08-03.
+
+#### What real work remains (the actual build task for `queue-14.yaml`)
+
+**1. Wiring — the only code gap that's genuinely this spec's to close.** AG-32 has zero schedule
+or queue wiring today (confirmed live, `worker/scheduler.ts`/`worker/autonomous-orchestrator.ts`
+grep). `BLUEPRINT_v2.md`'s nightly pipeline table specifies **"5:30 AM — AG-23: Relationship
+Mapper (incremental)"** — daily, incremental, not the weekly full-rebuild `AUTONOMOUS_PLATFORM_
+VISION.md`'s older Phase 3 table separately describes. **This spec adopts the daily-incremental
+design as canonical**, for a stated reason: `BLUEPRINT_v2.md` is this project's later, more
+authoritative source (per this document's own "Authority order," `AGENT_VERIFICATION_LOG.md` >
+direct code > `AGENTS_v2.md`'s own July 19 audit — `BLUEPRINT_v2.md` sits above the older Phase 3
+vision doc in the same hierarchy), and a daily-incremental sweep is the operationally correct
+design regardless: a full weekly rebuild re-processes every board member's web-search Claude call
+every week even when nothing about that person changed, while an incremental daily pass (scoped to
+board members added/updated since the agent's own `pig_nodes.updated_at` for their node, or with
+zero existing edges yet) does real work only where there's real new signal to find — materially
+cheaper at platform scale and fresher (a new board member's connections surface within a day, not
+up to a week later).
+
+**Trigger, precisely specified (AG-32's `run()` needs a scope parameter it doesn't currently take
+— see Chain Output below):** `worker/scheduler.ts`, daily, 5:30 AM CST. Scope query: board members
+where `is_active = true` AND (no `pig_nodes` row exists yet for `entity_table='board_members',
+entity_id=board_member.id`, OR the board member's `updated_at` is newer than their existing
+`pig_nodes.updated_at`). This is the "incremental" half of the design — a board member who was
+already fully processed and hasn't changed is never re-billed for a fresh Claude+web-search call.
+
+**2. The `corporate_prospects` blocker is explicitly NOT this spec's to fix.** AG-32 (and thus
+AG-23) cannot find prospect-side connections until that table exists — already the shared,
+well-documented blocker for AG-20/21/22/24/30 (migrations 107/108). `queue-14.yaml`'s
+live-verification step should confirm the agent reaches and fails cleanly at exactly this point
+(the same way AG-32's own re-verification did 2026-08-03) — reaching this specific, known,
+already-diagnosed failure point **is** the correct, successful outcome for this build task, not a
+bug to chase. Board-member-to-**funder** connections (which don't depend on `corporate_prospects`
+at all — `funders` is real and populated) should be fully exercised and should genuinely complete.
+
+#### Input contract (AG-32's real, live-confirmed sources — restated here for this spec's own completeness)
+
+| Source | Columns read | Notes |
+|---|---|---|
+| `board_members` | `id, organization_id, name, title, bio, is_active` | Real columns as of the 2026-08-03 fix — corrected from an earlier, wrong column set (`role`/`expertise`/`org_id`/`active`) that never existed live. |
+| `funders` | `id, name, website` | Not org-filtered in AG-32's current code (loads up to `MAX_FUNDERS_IN_PROMPT` across the board — a scope-tightening opportunity, not a correctness bug, since the prompt still only searches for connections to the funders actually passed in). |
+| `corporate_prospects` | `id, legal_name, website` | Confirmed still missing live — the blocker. |
+
+#### Output contract
+
+`pig_nodes` (now live, migration 077): `id, node_type, entity_id, entity_table, label, metadata,
+created_at, updated_at` — one node per board member (`entity_table: 'board_members'`) and per
+matched funder/prospect, upserted on `UNIQUE(entity_table, entity_id)`.
+`pig_edges` (now live): `id, source_node_id, target_node_id, relationship_type ('board_overlap'|
+'shared_executive'|'alumni_network'|'family_foundation_tie'), weight, evidence, verified, metadata,
+discovered_at` — `UNIQUE(source_node_id, target_node_id, relationship_type)`, so re-discovering the
+same edge on a later incremental run upserts rather than duplicates (see Idempotency).
+
+#### Process, error handling, idempotency, observability, cost, model selection, autonomy level
+
+**All identical to AG-32's real, already-implemented, already-live-verified behavior** — restating
+them under a second heading here would either duplicate Section 5's AG-32 entry verbatim (and
+risk drifting out of sync with it over time, the exact failure mode this whole renumbering effort
+has been fixing all week) or invite a future session to "improve" this copy independently and
+create two different descriptions of one real agent. **Authoritative source: the AG-32 entry,
+Section 5.** The one dimension worth stating here explicitly, since it doesn't exist in the current
+code and is this spec's own addition: **idempotency of the new daily-incremental trigger** — the
+scope query itself (step 1 above) is the idempotency guarantee for *triggering* correctly (a board
+member with an up-to-date `pig_nodes` row is never re-selected), layered on top of AG-32's own
+existing `UNIQUE(entity_table, entity_id)` / `UNIQUE(source_node_id, target_node_id,
+relationship_type)` upsert guarantees for the *writes* themselves.
+
+#### Autonomy level: full autonomy, no human-approval gate
+
+Same reasoning as AG-32's own design (informational graph-building, no external action, no
+financial/pipeline write) — this spec's only addition is the daily schedule itself, which is
+inherently self-governing in cost via the incremental scope query (a board member roster changes
+rarely; most days' scope is empty or near-empty).
 
 **Autonomous Mode**
-- **Status:** PLANNED
-- **Trigger Type / Condition / Decision Log / Chain Output:** not designed in code.
-- **Hard Limits:** the global hard limits (Section 0) would apply.
-- **Human Review Required:** undetermined.
+- **Status:** the underlying capability is BUILT (as AG-32) — this spec's own scope (daily
+  incremental wiring) is PLANNED, awaiting build (`queue-14.yaml`)
+- **Trigger Type:** schedule — daily, 5:30 AM CST, incremental scope (see above)
+- **Trigger Condition:** board member with no `pig_nodes` row yet, or updated since their existing node
+- **Decision Log:** inherits AG-32's existing `agent_decisions` behavior, unchanged
+- **Chain Output:** none — `run()` needs a new optional scope parameter (board member ID list) so
+  the scheduler can pass the incremental scope instead of always processing every active board
+  member; this is the one real, small code change this spec asks for beyond wiring
+- **Hard Limits:** inherits AG-32's existing hard limits (Section 0; never asserts an edge without evidence)
+- **Human Review Required:** no — see Autonomy level above
 
 ---
 
@@ -1137,35 +1445,340 @@ Use this table to jump from a canonical `AG-XX` to the actual file(s) implementi
 
 ### AG-26: Funding Forecast Agent
 
-- **Purpose:** Generates 90-day and 12-month probability-weighted funding forecasts.
-- **Type:** AI (Claude).
-- **Tier Gate:** professional.
-- **Real implementation:** none found. `FEATURE_REGISTRY_v2.md` #131–134 lists this as PLANNED
-  (schema `funding_forecasts` IN BUILD). `agent-registry-seed.ts` lists `ag-26` with a monthly
-  cron — metadata only.
+**Enterprise build spec, written 2026-08-03.** Canonical purpose unchanged: "generates 90-day and
+12-month probability-weighted funding forecasts." No implementation exists (confirmed by grep).
+Output table `funding_forecasts` existed only as an unapplied migration
+(`src/supabase/migrations/078_forecast_board.sql`) — applied live 2026-08-03 via `DATABASE_URL`/
+psql (with RLS added, migration 105), so this spec is grounded against the real live schema, not a
+hypothetical one. **A real downstream consumer already exists and has been silently reading an
+empty table**: `strategic-advisor-agent.ts` (AG-40) reads `funding_forecasts` defensively as one
+of its 7 input sources — building this agent lights up an already-deployed feature with real data
+for the first time, not just adding a new isolated capability.
+
+#### Trigger design
+
+**Schedule only — monthly, 1st of month, 4:00 AM CST** (`agent-registry-seed.ts` already carries
+this exact cron as decorative Marketplace metadata; this spec makes it real). **Rationale:** a
+90-day/12-month forecast is, by construction, a slow-moving number — the underlying inputs
+(open-opportunity pipeline, historical win rate) don't meaningfully shift day-to-day, and a monthly
+cadence matches how a development team actually consumes a forecast (a planning input reviewed
+periodically, not a live dashboard number). No event trigger: unlike AG-10's per-outcome
+event-chaining (where a single new data point materially changes one funder's profile), a single
+new opportunity or outcome moves a portfolio-level forecast by a negligible amount — event-firing
+here would be pure overhead with no meaningful freshness gain, correctly deferred to the monthly
+schedule.
+
+#### Input contract
+
+| Source | Columns read | Notes |
+|---|---|---|
+| `opportunities` | `id, organization_id, funder_id, amount_min, amount_max, deadline, status, category` | Filtered to `status = 'open'` and `deadline` within the forecast window (90 days or 365 days from `forecast_date`). |
+| `opportunity_probability_scores` | `opportunity_id, organization_id, overall_score, confidence` | AG-15's real, live output — this agent is a direct, real downstream consumer of AG-15, not a duplicate scoring pass. An open opportunity with no score row yet (AG-15 hasn't reached it) is treated as `overall_score: null` — see step 2's branch logic, not silently dropped or guessed at. |
+| `outcomes` | `organization_id, result, awarded_amount, recorded_at` | Trailing-12-month win rate and average award-to-request ratio, used to calibrate the probability-weighted projection against this org's actual real-world conversion history rather than trusting AG-15's scores in isolation. |
+| `organizations` | `id, annual_budget` | Context only — surfaced in `factors` so a human reading the forecast can judge scale (e.g. "$40K forecast against a $75K annual budget" reads very differently from the same number against a $2M budget). |
+
+#### Process (numbered, with real branch logic)
+
+Per org, once per scheduled run, for **each** of the two forecast periods (`'90_day'`, `'12_month'`
+— two separate rows written, not one row with two fields, matching `forecast_period text NOT NULL`
+being a single value per row):
+
+1. **Load open opportunities** within the period window (`deadline <= forecast_date + 90 days` or
+   `+ 365 days`), joined to their `opportunity_probability_scores` row if one exists.
+2. **Branch on scoring coverage:**
+   - **Zero open opportunities in window:** write a forecast row with
+     `projected_min/max/most_likely: 0`, `confidence: null`, `methodology` explaining "no open
+     opportunities in this window" — an explicit, honest zero, not a skipped row (a development
+     team asking "what's our 90-day forecast" deserves "$0, here's why" over silence).
+   - **Opportunities exist but none have an `overall_score` yet** (AG-15 hasn't caught up): still
+     produce a forecast using a neutral 0.5 probability weight for every unscored opportunity
+     (matching `computeGrantProbability()`'s own documented neutral-fallback convention for
+     missing signal — reusing an established platform convention rather than inventing a new
+     default), and set `confidence` no higher than 30 regardless of sample size, since the
+     forecast is leaning on a fallback, not real scores. `methodology` states explicitly how many
+     of N opportunities were score-backed vs. neutral-defaulted.
+   - **Normal case (some or all opportunities scored):** proceed to step 3.
+3. **Compute the probability-weighted projection (deterministic — no Claude call needed for the
+   core math, matching AG-10's design principle that structured numeric aggregation doesn't need
+   a language model):** for each opportunity, `expectedValue = midpoint(amount_min, amount_max) ×
+   (overall_score ?? 50) / 100 × (org's trailing-12-month win rate, or platform-neutral 0.3 if this
+   org has fewer than 3 recorded outcomes — same small-sample-neutral-default convention as
+   step 2). `projected_most_likely` = sum of all `expectedValue`s in the window.
+   `projected_min`/`projected_max` = the same sum computed at the 25th/75th percentile of each
+   opportunity's score distribution (a simple ±1 confidence-band widening, not a full Monte Carlo
+   simulation — proportionate to this agent's actual precision, not false precision).
+4. **One Claude call per org per run (not per opportunity — bounded, cheap):** given the
+   computed numbers plus the list of open opportunities/scores/recent outcomes, ask Claude to
+   write `key_risks` (e.g. "60% of projected value depends on 2 opportunities with sub-40
+   probability scores"), `key_opportunities` (e.g. "a historically reliable funder has 3 open
+   cycles this quarter"), and `recommended_actions` (e.g. "prioritize drafting for the two
+   highest-EV opportunities before their deadlines") — genuinely a synthesis/narrative task
+   suited to a language model, layered on top of deterministic math it does not get to override.
+5. **Upsert `funding_forecasts`** on `(org_id, forecast_date, forecast_period)` — see Idempotency.
+6. **Log a decision** (`decisionType: "forecast_generated"`) per org per period, with
+   `actionPayload` containing the headline number and the score-coverage ratio from step 2, so a
+   human can immediately tell how much to trust a given forecast without opening the jsonb.
+7. **Error isolation per org:** each org's steps 1-6 run in its own `try/catch`, matching every
+   other multi-org-scoped agent in this codebase — one org's bad data never blocks another's
+   forecast in the same monthly run.
+
+#### Output contract
+
+`funding_forecasts` (migration 078, live 2026-08-03):
+
+| Column | Written as |
+|---|---|
+| `org_id` | the organization this forecast is for |
+| `forecast_date` | the date this run executed (not the window end date) |
+| `forecast_period` | `'90_day'` or `'12_month'`, one row each |
+| `projected_min`/`_max`/`_most_likely` | step 3's computed values |
+| `confidence` | 0-100, capped per step 2's branch rules |
+| `methodology` | plain-text one-liner stating which branch (2a/2b/normal) produced this row and the score-coverage ratio |
+| `factors` | jsonb: `{orgAnnualBudget, openOpportunityCount, scoredCount, trailingWinRate, sampleSize}` |
+| `key_risks`/`key_opportunities`/`recommended_actions` | text[], from step 4's Claude call |
+
+#### Error handling and failure modes
+
+- **Transient (Claude API):** 3 attempts, exponential backoff (1s/2s/4s, the `embeddings.ts`
+  pattern reused). On exhaustion, the forecast row is still written using the deterministic
+  numbers from steps 1-3 with `key_risks`/`key_opportunities`/`recommended_actions` left as empty
+  arrays and `methodology` appended with "(narrative synthesis unavailable this run)" — a Claude
+  outage degrades the qualitative layer, never blocks the quantitative one, since the numeric
+  projection is the load-bearing part AG-40 actually consumes.
+- **Permanent failure for one org:** caught per-org (step 7), pushed to `errors[]`, loop continues.
+- **Total run failure:** outer `try/catch` → `failRun()`, real `agent_runs` row, `status: 'failed'`.
+- **Dead-letter / retry:** no separate dead-letter table — a failed org simply gets no forecast row
+  this month and is naturally retried next month's scheduled run; a stale/missing forecast is a
+  safe failure mode for an advisory number (unlike, say, a missed submission deadline).
+
+#### Idempotency
+
+Re-running twice for the same org+period on the same day must not create duplicate rows or corrupt
+existing ones. Guaranteed by an upsert on `UNIQUE(org_id, forecast_date, forecast_period)` — this
+constraint does not exist yet on the table as created by migration 078 and **must be added as part
+of this agent's own build task** (a small `ALTER TABLE funding_forecasts ADD CONSTRAINT ...`,
+explicitly called out here rather than silently assumed). Without it, `forecast_date` naturally
+changes day-to-day anyway (it's stamped at run time), so even without the constraint a second
+manual/retry run on the *same calendar day* is the only real double-write risk — the constraint
+closes that specific gap.
+
+#### Observability
+
+- `agent_runs`: `items_found` = orgs with ≥1 open opportunity, `items_processed` = orgs that got
+  both forecast rows written, `output_summary` = `{orgsProcessed, totalRowsWritten, orgsFailed}`.
+- `agent_decisions`: one `forecast_generated` row per org per period (two per org per run), with
+  the headline number and score-coverage ratio in `actionPayload` — a human debugging "why does
+  this org's forecast look off" reads this row before opening `funding_forecasts` directly.
+- Claude-outage degradation (per Error handling) is visible directly in `methodology`'s text, not
+  just in logs — a human reading the forecast itself sees why the qualitative fields are empty.
+
+#### Cost / token budget
+
+One Claude call per org per run (not per opportunity, not per period — the step-4 call covers both
+periods' context in one prompt to avoid doubling cost for two numbers that share the same input
+data). Estimated ~1,000 input tokens (opportunity list + scores + recent outcomes, bounded by a
+typical org's open-pipeline size) + ~300 output tokens (three short lists). At Sonnet's
+~$3/$15-per-million pricing (re-verify current pricing before relying on this long-term): roughly
+**$0.008 per org per month**. At an assumed near-term platform scale of dozens to low hundreds of
+active orgs, **well under $5/month total** — this is one of the cheapest agents in this batch by
+design (monthly cadence, one call per org, no per-opportunity Claude fan-out).
+
+#### Model selection
+
+`claude-sonnet-4-6`. Justification: the quantitative core (steps 1-3) is pure deterministic
+arithmetic, needing no model at all — the one Claude call is narrow, bounded-context narrative
+synthesis over already-computed numbers (risks/opportunities/recommended actions), the same
+complexity tier as AG-10's `reward_patterns` step and AG-26's sibling agents in this batch. No
+justification for a cheaper or a reasoning-tier model exists here: the task is neither trivial
+extraction nor open-ended multi-step research.
+
+#### Autonomy level: full autonomy, no human-approval gate
+
+Same reasoning as AG-10: this agent only writes an advisory analytical projection that a human
+(or AG-40 downstream) reads later — it takes no external action and touches no financial/pipeline
+record directly (it reads `opportunities`/`outcomes`, never writes to them). **Self-healing:** a
+failed org simply retries on next month's schedule, no in-agent retry loop beyond the 3-attempt
+Claude backoff. **Runaway governance:** bounded by the monthly cadence itself (this agent cannot
+be triggered more than once per month per org by design — no event path exists to fire it more
+often) and by one bounded Claude call per org per run, with no per-opportunity fan-out that could
+scale unboundedly with pipeline growth.
 
 **Autonomous Mode**
-- **Status:** PLANNED
-- **Trigger Type / Condition / Decision Log / Chain Output:** not designed in code.
-- **Hard Limits:** the global hard limits (Section 0) would apply.
-- **Human Review Required:** undetermined.
+- **Status:** PLANNED (spec complete, awaiting build — see `queue-15.yaml`)
+- **Trigger Type:** schedule — monthly, 1st of month, 4:00 AM CST
+- **Trigger Condition:** all orgs, unconditionally (a zero-opportunity org still gets an honest $0 forecast, per step 2)
+- **Decision Log:** `forecast_generated`, per org per period
+- **Chain Output:** none — AG-40 (Strategic Advisor) already reads this table on its own schedule; no chain needed
+- **Hard Limits:** the global hard limits (Section 0) apply; never writes to `opportunities`/`outcomes`, read-only against pipeline data
+- **Human Review Required:** no — see Autonomy level above
 
 ---
 
 ### AG-27: Board Meeting Packet Agent
 
-- **Purpose:** Generates a complete board meeting packet 48 hours before every scheduled meeting.
-- **Type:** AI (Claude).
-- **Tier Gate:** professional.
-- **Real implementation:** none found. `FEATURE_REGISTRY_v2.md` #135–139 lists this as PLANNED;
-  schema (`board_members`, `board_meetings`, `board_meeting_packets`) is IN BUILD.
-  `agent-registry-seed.ts` lists `ag-27` as event-triggered — metadata only, no code.
+**Enterprise build spec, written 2026-08-03.** Canonical purpose unchanged: "generates a complete
+board meeting packet 48 hours before every scheduled meeting." No implementation exists (confirmed
+by grep). Output/input tables (`board_meetings`, `board_meeting_packets`) existed only as an
+unapplied migration — applied live 2026-08-03 (migration 078, RLS added in migration 105).
+`board_members` was already real and live (confirmed via the AG-32 fix work the same day). This
+spec deliberately does **not** attempt `FEATURE_REGISTRY_v2.md` row #139 ("Plain Language
+Financials") — that is its own separate, still-PLANNED capability; this agent's financial section
+is a lightweight, real-data summary only, explicitly scoped below, not a claim to have built #139.
+
+#### Trigger design
+
+**Two triggers, because "48 hours before a future, arbitrarily-scheduled date" cannot be served
+by either mechanism alone:**
+
+1. **Daily schedule (primary and sufficient on its own)** — `worker/scheduler.ts`, daily, 2:00 AM
+   CST. Scope query: `board_meetings` where `status = 'scheduled'` AND `meeting_date` falls between
+   `now() + 47 hours` and `now() + 49 hours` (a 2-hour window around the 48-hour mark, not an exact
+   instant — a daily cron cannot land on an exact timestamp, and generating the packet anywhere in
+   a 47-49 hour lead time is functionally identical for a human reading it) AND no
+   `board_meeting_packets` row exists yet for this `meeting_id`. **Rationale:** this is the correct
+   primary trigger because it's the only one that reliably fires regardless of *when* the meeting
+   was originally scheduled — a meeting created a month in advance and a meeting created yesterday
+   both get caught by the same daily window check, with no dependency on catching an insert event
+   at the right moment.
+2. **Event-chained safety net (`agent_queue`, `trigger_source: "event"`)** — fired when a
+   `board_meetings` row is inserted or its `meeting_date` is updated to fall **within 48 hours of
+   right now** (i.e., someone schedules or reschedules a meeting with short notice). Without this,
+   a same-week emergency board meeting would silently miss its packet entirely, since the daily
+   schedule's next run might land after the 48-hour window has already closed. **This is not a
+   duplicate of the schedule trigger** — it only fires for the specific short-notice case the
+   schedule cannot reach, and its own idempotency guard (a real `board_meeting_packets` row check
+   before generating) means if both somehow overlap on the same meeting, only one packet is ever
+   produced (see Idempotency).
+
+#### Input contract
+
+| Source | Columns read | Notes |
+|---|---|---|
+| `board_meetings` | `id, org_id, meeting_date, meeting_type, agenda, status` | The triggering row. |
+| `board_members` | `id, organization_id, name, title, bio, is_active` | Recipient roster — `viewed_by` (output) is seeded empty and filled in later by the UI when each member actually opens the packet, not by this agent. |
+| `opportunities` | `id, organization_id, funder_id, name, amount_min, amount_max, deadline, status` | Filtered to `status = 'open'` with `deadline` in the next 90 days — the pipeline section. |
+| `outcomes` | `organization_id, result, awarded_amount, recorded_at` | Filtered to the period since the previous board meeting (or the trailing 90 days if this is the org's first packet) — "what happened since we last met." |
+| `organizations` | `annual_budget, total_staff, total_volunteers` | The lightweight financial-context section (see scope note above — not the full #139 feature). |
+
+#### Process (numbered, with real branch logic)
+
+1. **Resolve scope** (per trigger design above), then per matching meeting:
+2. **Branch on data availability, per section, independently — a packet with one thin section is
+   still a real, useful packet, not a failed run:**
+   - **Pipeline section:** if zero open opportunities in the 90-day window, write
+     `pipeline_summary: { count: 0, note: "No opportunities currently in the 90-day pipeline." }`
+     rather than omitting the section — a board should be told "nothing's in motion" as plainly as
+     "here's what's in motion."
+   - **Outcomes-since-last-meeting section:** if this is genuinely the org's first tracked meeting
+     (no prior `board_meeting_packets` row exists for this org), state that explicitly in the
+     section rather than silently defaulting to a 90-day lookback and implying it's "since last
+     meeting" when there wasn't one.
+   - **Financial section:** if `organizations.annual_budget` is null (not yet filled in during
+     onboarding), the section states "financial data not yet on file" rather than showing a blank
+     or a zero that could be misread as a real $0 budget.
+3. **One Claude call per meeting** (bounded — never per-opportunity or per-member fan-out):
+   given the assembled pipeline/outcomes/financial sections plus the meeting's own `agenda` text,
+   ask Claude for `recommended_discussion_items` — 3-5 board-relevant discussion prompts genuinely
+   grounded in what's in the packet (e.g. "Opportunity X's deadline falls before the next
+   scheduled meeting — does the board want to discuss go/no-go tonight?"), not generic
+   boilerplate. Every recommended item must cite the specific real fact from the packet it's
+   grounded in (`{item, groundedIn: "opportunities[3]"}` shape in the jsonb) — genuinely
+   verifiable against the same packet a reader already has, not an unfalsifiable AI summary.
+4. **Assemble and write `packet_content`** (see Output contract) to `board_meeting_packets`.
+5. **Log a decision** (`decisionType: "board_packet_generated"`), `entityType: "board_meeting"`,
+   `entityId: meeting.id`, `actionPayload`: which sections had real data vs. the "nothing to
+   report" fallback (step 2), so a human (or the board chair) can see at a glance how substantive
+   this packet actually is before opening it.
+6. **Notify** via `createNotification()` (the existing `AutonomousAgent` helper, writes to
+   `alerts`) — a real, useful in-app notice ("Board packet ready for the March 15 meeting"), not
+   an email (this agent never sends anything itself — see Autonomy level).
+7. **Error isolation per meeting:** each meeting's steps 2-6 run in its own `try/catch` — a run
+   scoped to multiple meetings across multiple orgs (the daily schedule can catch several
+   organizations' meetings in the same 48-hour window) never lets one org's bad data block
+   another's packet.
+
+#### Output contract
+
+`board_meeting_packets` (migration 078, live 2026-08-03):
+
+| Column | Written as |
+|---|---|
+| `org_id` | the meeting's org |
+| `meeting_id` | FK to the triggering `board_meetings` row |
+| `packet_content` | jsonb: `{ agenda, pipelineSummary: {count, opportunities: [...]}, outcomesSinceLastMeeting: {...}, financialSnapshot: {...}, recommendedDiscussionItems: [{item, groundedIn}], generatedFor: meetingDate }` |
+| `generated_at` | stamped at write time |
+| `viewed_by` | seeded `[]` — populated later by the packet-viewing UI (a small, obvious follow-on API route this spec flags but does not build — out of this agent's own scope, which is generation, not the read-tracking UI) |
+
+#### Error handling and failure modes
+
+- **Transient (Claude API):** 3 attempts, exponential backoff (1s/2s/4s). On exhaustion, the
+  packet is still written with all deterministic sections (pipeline/outcomes/financial) populated
+  and `recommendedDiscussionItems: []` plus a note — same degrade-gracefully-not-block pattern as
+  AG-26, since the deterministic sections are the load-bearing content a board actually needs.
+- **Permanent failure for one meeting:** caught per-meeting (step 7), pushed to `errors[]`, loop continues.
+- **Total run failure:** outer `try/catch` → `failRun()`.
+- **Dead-letter / retry:** none needed beyond the trigger's own idempotency check — a meeting that
+  failed today is still in-window tomorrow (the daily schedule's query naturally re-catches it
+  until either a packet exists or the meeting date passes), so retry is inherent to the trigger
+  design, not a separate mechanism.
+
+#### Idempotency
+
+The core guarantee is the scope query itself (step 1): "no `board_meeting_packets` row exists yet
+for this `meeting_id`" excludes any meeting that's already been packeted, so the daily schedule and
+the event-chained safety net can never both generate a packet for the same meeting — whichever
+fires first wins, the second is a no-op by construction (the meeting simply won't appear in its
+scope query anymore). No upsert-on-conflict is needed at the database level because the trigger
+logic itself prevents the double-write from ever being attempted — this is a stronger guarantee
+than relying on a unique constraint to reject a duplicate after the fact, though a
+`UNIQUE(meeting_id)` constraint should still be added as defense-in-depth (explicitly flagged as
+part of this agent's own build task, same as AG-26's forecast uniqueness constraint).
+
+#### Observability
+
+- `agent_runs`: `items_found` = meetings in scope, `items_processed` = packets actually written,
+  `output_summary` = `{meetingIds: [...], sectionsWithRealData: N, sectionsFallback: N}`.
+- `agent_decisions`: one `board_packet_generated` row per meeting, with the per-section
+  data-availability breakdown from step 2/5 — a human asking "why does this packet look thin" reads
+  this row, not the jsonb content itself.
+- A `createNotification()` alert per successful packet (step 6) is itself an observability signal
+  visible in-app, not just in `agent_runs`.
+
+#### Cost / token budget
+
+One Claude call per meeting (step 3), ~800-1,200 input tokens (pipeline + outcomes + financial
+context, bounded by a typical org's near-term pipeline size) + ~300 output tokens (3-5 short,
+grounded discussion items). At Sonnet's ~$3/$15-per-million pricing: roughly **$0.007 per packet**.
+Board meetings are inherently infrequent (monthly-to-quarterly per org, per this feature's own
+premise) — **well under $1/month total even at platform-wide scale in the near term**, the
+cheapest agent in this batch by trigger frequency alone.
+
+#### Model selection
+
+`claude-sonnet-4-6`. Justification: identical complexity tier to AG-26's step 4 — bounded-context
+narrative synthesis grounded in already-assembled real data, not open-ended generation and not
+simple classification. No case for a cheaper or reasoning-tier model.
+
+#### Autonomy level: full autonomy for generation, explicitly no submit/send capability at all
+
+**This agent never sends anything to anyone** — it writes a packet a human opens in-app and an
+in-app notification that a packet is ready. Per the original spec's own implication ("notify-only,
+not submit-capable," carried forward from this section's prior PLANNED entry) and the global hard
+limit `NEVER_SEND_EMAIL_WITHOUT_APPROVAL`, there is no code path in this design where the agent
+emails the packet to board members directly — `viewed_by`/distribution is deliberately left to a
+human-driven UI flow, not this agent. **Self-healing:** a failed meeting retries automatically via
+the next daily schedule run (per Idempotency's trigger-level retry). **Runaway governance:** bounded
+by real board-meeting cadence (a fundamentally infrequent, human-scheduled event this agent has no
+ability to create or accelerate) and by one bounded Claude call per meeting with no fan-out.
 
 **Autonomous Mode**
-- **Status:** PLANNED
-- **Trigger Type / Condition / Decision Log / Chain Output:** not designed in code.
-- **Hard Limits:** the global hard limits (Section 0) would apply.
-- **Human Review Required:** undetermined (original spec implies notify-only, not submit-capable).
+- **Status:** PLANNED (spec complete, awaiting build — see `queue-16.yaml`)
+- **Trigger Type:** schedule (daily, 2:00 AM CST, 48h-window scope) + event (short-notice meeting creation/reschedule)
+- **Trigger Condition:** see Trigger design above
+- **Decision Log:** `board_packet_generated`, per meeting
+- **Chain Output:** none
+- **Hard Limits:** the global hard limits (Section 0) apply; explicitly never sends/distributes the packet itself, generation only
+- **Human Review Required:** no approval gate on generation (nothing external happens); distribution/viewing is entirely human-driven by design, not an approval gate on this agent's own output
 
 ---
 
@@ -1218,21 +1831,203 @@ Use this table to jump from a canonical `AG-XX` to the actual file(s) implementi
 
 ### AG-29: Knowledge Engine Indexer Agent
 
-- **Purpose:** Continuously generates and stores pgvector embeddings for
-  `intelligence_funded_proposals`, `outcomes`, and `foundation_directory` records, and aggregates
-  `knowledge_patterns`.
-- **Type:** Embedding model (not Claude — `text-embedding-3-small` or equivalent per original
-  spec).
-- **Tier Gate:** professional.
-- **Real implementation:** none found. `FEATURE_REGISTRY_v2.md` #170 lists this as PLANNED;
-  schema (`knowledge_patterns`, `intelligence_funded_proposals.embedding`) is IN BUILD. Not
-  referenced anywhere in `worker/`.
+**Enterprise build spec, written 2026-08-03.** Canonical purpose unchanged: "continuously generates
+and stores pgvector embeddings for `intelligence_funded_proposals`, `outcomes`, and
+`foundation_directory` records, and aggregates `knowledge_patterns`." No dedicated agent class
+exists (confirmed by grep — `src/lib/agents/`, zero matches for indexer/knowledge-engine/embed).
+**Unlike every other agent in this batch, the hard part is already built and proven**:
+`src/lib/intelligence/embeddings.ts`'s `generateEmbedding()`/`generateEmbeddingsBatch()` (OpenAI
+`text-embedding-3-small`, real retry/backoff, real batching) is live-verified — a direct production
+query found 105/105 `intelligence_proposal_sections` rows with genuine, non-null, content-varying
+1536-dimension vectors. **This spec is about wrapping proven code in a real trigger, not building
+new embedding logic.**
+
+#### Scope correction, stated explicitly
+
+The original spec's claimed embedding column, `intelligence_funded_proposals.embedding`, does not
+exist (confirmed live) — the real column is `intelligence_proposal_sections.embedding`
+(migration 048), already proven. `outcomes.embedding` and `foundation_directory.embedding` never
+existed on either table at all — added live 2026-08-03 (migration 107,
+`extensions.vector(1536)`, matching the exact type already proven on `intelligence_proposal_
+sections`) specifically so this spec's full 3-source scope is buildable against real schema, not
+two-thirds hypothetical.
+
+#### Trigger design: genuine 24/7 autonomous operation — this agent's own purpose statement says "continuously," and the design should honor that literally
+
+**This is the one agent in this batch built for true continuous/event-driven background
+operation, not a periodic schedule.** Embedding generation has no meaningful "batch window" the
+way a monthly forecast or a nightly enrichment sweep does — a new `intelligence_proposal_sections`/
+`outcomes`/`foundation_directory` row with real text content and no embedding yet is immediately
+useful to embed, since every consumer of these vectors (RAG retrieval, semantic search) benefits
+from the freshest possible index with no reason to intentionally delay.
+
+- **Primary trigger — event, per-insert.** Every write path that inserts a row into any of the 3
+  source tables with non-null text content and a null `embedding` enqueues an `agent_queue` item
+  (`trigger_source: "event"`), the same infrastructure `FollowupGeneratorAgent` (AG-28) already
+  uses for its own event-driven design — reused, not reinvented.
+- **Secondary trigger — continuous catch-up poll, not a fixed schedule.** `worker/index.ts` starts
+  this agent's own poll loop at boot (the same pattern `queueProcessor.start()`/
+  `ddRequestProcessor.start()` already establish for `worker/queue-processor.ts`/`worker/
+  dd-request-processor.ts` — a `while(!shuttingDown)` loop with a short sleep between empty
+  passes, not a cron entry), scanning for any row across the 3 tables with real content and a
+  still-null `embedding` that the event trigger might have missed (a write path added later that
+  forgets to enqueue, a queue item that failed and needs picking back up). Poll interval: 60
+  seconds when the last pass found nothing (matching `queue-processor.ts`'s own `SLEEP_MS`
+  convention), 0 seconds (immediately re-poll) when the last pass found and processed a full
+  batch — genuinely continuous under real load, not artificially throttled.
+- **Why not a nightly/weekly schedule, unlike most of this batch:** every other agent in this batch
+  produces an advisory analytical artifact where staleness of hours-to-days is harmless. A search
+  index is different — the entire value of "RAG retrieval pulls from the Knowledge Engine" (per
+  `BLUEPRINT_v2.md`'s stated future integration) degrades the longer new content sits unembedded,
+  and unlike the other agents, there is no natural "this doesn't need to be fresher than X" argument
+  to justify batching it.
+
+#### Input contract
+
+| Source | Columns read | Notes |
+|---|---|---|
+| `intelligence_proposal_sections` | `id, proposal_id, section_type, section_text, embedding` | Scope: `embedding IS NULL AND section_text IS NOT NULL`. |
+| `outcomes` | `id, organization_id, narrative_snapshot, funder_feedback, denial_reason, embedding` | Scope: `embedding IS NULL AND (narrative_snapshot IS NOT NULL OR funder_feedback IS NOT NULL)` — an outcome with neither field populated has no real text to embed and is correctly never selected, not an error case. |
+| `foundation_directory` | `id, name, programs, enrichment, embedding` | Scope: `embedding IS NULL AND (programs IS NOT NULL OR enrichment->>'mission' IS NOT NULL)`. |
+| `knowledge_patterns` (aggregation target, read for merge) | `pattern_type, category, sample_count, confidence` | Read before the aggregation step (below) to merge into, not overwrite. |
+
+#### Process (numbered, with real branch logic)
+
+1. **Claim a batch** (poll or event-triggered — same downstream logic either way): up to
+   `EMBEDDING_BATCH_SIZE = 100` rows across the 3 source tables combined (matching
+   `generateEmbeddingsBatch()`'s own existing 100-per-request design, reused not reinvented),
+   prioritized event-triggered rows first, then oldest-pending catch-up rows.
+2. **Branch on text availability, per row** (already scoped out at the query level in step 1's
+   `WHERE`, but restated as an explicit branch since a race is possible — a row could be updated
+   to null out its text between the scope query and processing): if the row's real text field is
+   now empty/null, skip it silently, no error — not a failure, just no longer eligible.
+3. **Chunk long text** (`chunkText()`, already real and proven in `embeddings.ts`, default
+   500 tokens/chunk with 50-token overlap) — for `foundation_directory`, `programs` (jsonb array)
+   is flattened to plain text first; for `outcomes`, `narrative_snapshot` +
+   `funder_feedback`/`denial_reason` are concatenated with clear section labels so the resulting
+   embedding represents the whole outcome, not just one field arbitrarily.
+4. **Call `generateEmbeddingsBatch()`** (real, unmodified — this agent does not reimplement
+   embedding generation, it calls the existing library function directly) on the batch's chunked
+   texts.
+5. **Write embeddings back.** For a chunked row (text exceeded one chunk), only the **first
+   chunk's** embedding is stored in that row's single `embedding` column — this is a real,
+   deliberate simplification stated plainly, not hidden: true multi-chunk-per-row embedding
+   storage would need a join table (matching the pattern `intelligence_proposal_sections` itself
+   already uses — one row per section, not one row per document), which is out of this spec's
+   scope for `outcomes`/`foundation_directory` specifically since neither table is naturally
+   pre-split into sections the way proposal text already is. Flagged as a known precision
+   trade-off for a future session, not silently glossed over.
+6. **Knowledge pattern aggregation** (the purpose statement's second half, distinct from
+   embedding): runs as a **separate, lower-frequency pass** within the same agent — every 24
+   hours (tracked via a `last_pattern_aggregation_at` value in `org_autonomous_config` or a
+   dedicated small state row, whichever this agent's own build task finds cleaner — explicitly
+   left as a build-time implementation choice, not over-specified here since it doesn't change
+   behavior). Aggregates newly-embedded `outcomes` by `funder_category`/`opportunity_category`
+   into `knowledge_patterns`, incrementing `sample_count` and recomputing `success_rate`/
+   `confidence` — **merges into existing pattern rows (`WHERE pattern_type = X AND category = Y`),
+   never overwrites wholesale**, consistent with `knowledge_patterns` being genuinely
+   cross-session cumulative data.
+7. **Log a decision only for the aggregation pass** (`decisionType: "patterns_aggregated"`,
+   once/day) — **not per embedding batch**, since embedding generation is a high-frequency,
+   low-individual-significance operation (per-batch decision logging at this volume would flood
+   `agent_decisions` with noise no human would ever read) — `agent_runs` itself is the correct,
+   sufficient audit trail for routine embedding activity (see Observability).
+8. **Error isolation per row within a batch:** a single row's embedding failure (rare — mostly
+   malformed/empty text after chunking) is caught, logged to `errors[]`, and that row is left with
+   `embedding: null` for the next pass to retry — the rest of the batch proceeds unaffected.
+
+#### Output contract
+
+| Column | Table | Written as |
+|---|---|---|
+| `embedding` | `intelligence_proposal_sections` | `extensions.vector(1536)`, real OpenAI output |
+| `embedding` | `outcomes` (new, migration 107) | same |
+| `embedding` | `foundation_directory` (new, migration 107) | same |
+| `knowledge_patterns` rows | (existing table) | merged/upserted, never replaced wholesale (step 6) |
+
+#### Error handling and failure modes
+
+- **Transient (OpenAI API):** the existing `generateEmbedding()` retry (3 attempts, exponential
+  backoff `Math.pow(2, attempt) * 1000` — 1s/2s/4s, the real, already-proven implementation, not
+  a new one this agent adds) is reused as-is via `generateEmbeddingsBatch()`.
+- **Permanent failure for one row:** caught per-row (step 8) within the batch, `embedding` stays
+  null, naturally retried by the next poll pass (the row is still selected by the same `WHERE
+  embedding IS NULL` scope query) — no separate dead-letter table needed, retry is inherent to the
+  continuous-poll design itself.
+- **Total run failure** (e.g. OpenAI fully down, all 3 retries exhausted for the whole batch): the
+  poll loop's own outer error boundary logs and sleeps the standard interval before trying again —
+  matching `queue-processor.ts`'s own established crash-resilience pattern (a single bad pass
+  doesn't kill the whole worker process), not a new pattern.
+
+#### Idempotency
+
+Re-processing is structurally prevented, not just handled gracefully: the scope query itself
+(`embedding IS NULL`) excludes any row that already has a real embedding, so a row can never be
+embedded twice by this agent's normal operation. The only way to force re-embedding is an explicit
+`embedding = NULL` reset by a human/migration — which is the correct behavior (embeddings should be
+stable once computed from unchanged text) and requires no special-casing in this agent's own logic.
+Pattern aggregation (step 6) is idempotent by construction via its merge-not-replace upsert.
+
+#### Observability
+
+- `agent_runs`: **one row per batch processed**, not per individual embedding (at potentially
+  hundreds of embeddings/day under real load, a per-item `agent_runs` row would be excessive
+  volume for no diagnostic benefit) — `items_found`/`items_processed` = batch size,
+  `output_summary` = `{sourceBreakdown: {sections: N, outcomes: N, foundations: N}, failed: N}`.
+- `agent_decisions`: only the daily `patterns_aggregated` entry (step 7) — a human debugging
+  "why is search quality degrading" checks recent `agent_runs` rows' `failed` counts and
+  `errors[]` text directly, without needing to read source code to understand what happened.
+- `worker_status` heartbeat (the existing platform-wide worker health table) reflects this agent's
+  poll loop the same way `queue-processor.ts`'s loop already does — a stalled indexer is visible
+  in the same place a stalled submission queue already would be, not a new monitoring surface.
+
+#### Cost / token budget
+
+OpenAI `text-embedding-3-small` pricing (not Claude — this is the one agent in this batch that
+uses a different model family entirely, per its own original spec): approximately $0.02 per
+million tokens as of this spec's writing (re-verify current pricing before relying on this
+long-term). At `EMBEDDING_BATCH_SIZE = 100` rows/batch, ~200 tokens/row average (post-chunking):
+~20,000 tokens/batch ≈ **$0.0004/batch**. At a sustained real-world rate of a few hundred new
+rows/day across all 3 sources combined (a generous estimate at current platform content-creation
+volume): **a few cents per day, well under $5/month** — by far the cheapest agent in this batch
+per unit of real work done, since embedding models are priced roughly two orders of magnitude
+below a comparable-volume Claude workload.
+
+#### Model selection
+
+`text-embedding-3-small` (OpenAI, not Claude) — **unchanged from the original spec, and correct
+as originally scoped.** Justification: embedding generation is a fundamentally different task
+class from every other agent in this batch (numeric vector representation, not text generation or
+synthesis) — no Claude model tier is the right tool for this job at all, and substituting one
+would be strictly worse on both cost and fitness-for-purpose. This is the one agent in this batch
+where "which Claude model" is the wrong question entirely, stated explicitly rather than defaulting
+to `DEFAULT_MODEL` out of pattern-matching habit.
+
+#### Autonomy level: full autonomy, 24/7, no human-approval gate — this batch's clearest case for it
+
+**No external action, no financial/pipeline write, no content generation a human would need to
+review** — this agent transforms existing, already-approved text into a numeric index of that same
+text. There is no meaningful sense in which a human could "approve" an embedding vector. **This is
+the correct default-to-full-autonomy case the other agents in this batch had to individually
+justify against; this one needs no such justification — it is definitionally advisory
+infrastructure, one layer more removed from action than even AG-10's analytical profile.**
+**Self-healing:** the continuous poll loop retries any row that failed on its own, every pass,
+indefinitely, with no manual intervention ever required for a transient failure. **Rate/cost
+governance so it cannot runaway-spend:** hard-capped at `EMBEDDING_BATCH_SIZE = 100`/poll pass, the
+poll loop sleeps 60s between empty passes (bounding worst-case polling frequency even under a bug
+that somehow made every pass "empty" instantly), and cost is inherently self-limiting since it can
+only ever process rows that genuinely exist with genuinely null embeddings — there is no code path
+by which this agent could process the same content twice or spend against synthetic/looped input.
 
 **Autonomous Mode**
-- **Status:** PLANNED
-- **Trigger Type / Condition / Decision Log / Chain Output:** not designed in code.
-- **Hard Limits:** the global hard limits (Section 0) would apply.
-- **Human Review Required:** no (indexing only).
+- **Status:** PLANNED (spec complete, awaiting build — see `queue-19.yaml`)
+- **Trigger Type:** event (per-insert, all 3 source tables) + continuous background poll (not a fixed schedule)
+- **Trigger Condition:** any row across the 3 sources with real text content and `embedding IS NULL`
+- **Decision Log:** `patterns_aggregated`, once/day only (embedding activity itself is not
+  individually decision-logged, per Observability's stated reasoning)
+- **Chain Output:** none
+- **Hard Limits:** the global hard limits (Section 0) apply
+- **Human Review Required:** no — see Autonomy level above
 
 ---
 
@@ -1253,46 +2048,375 @@ Use this table to jump from a canonical `AG-XX` to the actual file(s) implementi
 
 ### AG-41: Impact Simulation Agent
 
-> **Renumbered from AG-28, 2026-08-02.** This is the same never-built spec that used to occupy
-> AG-28 — content unchanged, only the number moved, to free AG-28 for the real, live
-> `FollowupGeneratorAgent` (see AG-28 above). This agent still has no real implementation as of
-> this renumbering; moving it did not build it.
+> **Renumbered from AG-28, 2026-08-02.** Content below is a full enterprise spec written
+> 2026-08-03 — purpose unchanged from the original never-built AG-28 spec, only the number moved
+> (to free AG-28 for the real, live `FollowupGeneratorAgent`) and the engineering depth added.
 
-- **Purpose:** Models what-if strategic scenarios (financial, capacity, beneficiary impact) before
-  a decision is made.
-- **Type:** AI (Claude).
-- **Tier Gate:** enterprise.
-- **Real implementation:** none found. `FEATURE_REGISTRY_v2.md` #140–142 lists this as PLANNED;
-  schema (`impact_simulations`) is IN BUILD.
+**Purpose (unchanged):** Models what-if strategic scenarios (financial, capacity, beneficiary
+impact) before a decision is made. No implementation exists (confirmed by grep). Output table
+`impact_simulations` existed only as an unapplied migration — applied live 2026-08-03 (migration
+078, RLS added migration 105).
+
+#### Trigger design: manual only — deliberately no schedule or event trigger
+
+**This is the one agent in this batch where autonomous/background triggering would be actively
+wrong, not just unnecessary.** A what-if scenario only has meaning in response to a specific
+question a human is actually asking ("what happens if we lose our top funder," "what if we cut the
+housing program's budget 20%") — there is no natural cadence or data event that should cause this
+agent to spontaneously generate a hypothetical nobody asked for. **Trigger:** a real API route
+(`POST /api/agents/simulate`, this spec's own small addition, mirroring the existing
+`requireRole("writer")` + server-derived `organizationId` pattern every other write-triggering
+route in this codebase already uses) called directly from a UI form where a human selects a
+scenario type and its parameters. `trigger_source: "manual"` on every `agent_runs` row this agent
+ever produces — there is no other value that row should ever take for this specific agent.
+
+#### Input contract
+
+| Source | Columns read | Notes |
+|---|---|---|
+| `organizations` | `annual_budget, total_staff, total_volunteers` | Baseline scale, for every scenario type. |
+| `funders` | `id, name, annual_giving_budget` | For `lose_funder`/`gain_funder` scenarios. |
+| `outcomes` | `organization_id, result, awarded_amount, recorded_at` | Historical realized revenue, filtered to trailing 12 months, for baseline calibration. |
+| `opportunities` | `organization_id, funder_id, amount_min, amount_max, status, deadline` | Open pipeline, for scenarios that ask "what if a funder's opportunities disappeared/appeared." |
+| `funding_forecasts` | `org_id, forecast_period, projected_most_likely, factors` | **Real cross-agent input** — this agent's baseline-case number for `lose_funder`/`gain_funder`/`budget_cut` scenarios is AG-26's most recent `'12_month'` forecast, not a number this agent recomputes independently. If no forecast row exists yet (AG-26 hasn't run for this org), the agent computes a minimal fallback baseline directly from `outcomes`' trailing-12-month sum and states in `simulation_result.methodology` that it used the fallback, not AG-26's real forecast. |
+
+#### Process (numbered, with real branch logic)
+
+1. **Validate `scenario_type`** against a fixed, supported set — **not arbitrary free text**, since
+   an unbounded scenario space cannot get grounded deterministic math (step 2) and would push this
+   entire agent into pure, ungrounded Claude speculation, which is exactly the failure mode a
+   "what would embarrass a senior engineer" spec must not permit. Four supported types, chosen to
+   cover the realistic strategic questions this feature's own purpose statement names (financial,
+   capacity, beneficiary impact): `'lose_funder'`, `'gain_funder'`, `'program_expansion'`,
+   `'budget_cut'`. An unsupported `scenario_type` is rejected at the API layer (400, before
+   `startRun()` is ever called) — not a failure this agent's own error handling needs to absorb.
+2. **Load the real baseline** (organizations + trailing-12-month outcomes + the most recent
+   `funding_forecasts` row per the input contract's fallback rule).
+3. **Branch on `scenario_type`, each with real deterministic math first:**
+   - **`lose_funder`** (`scenario_params: {funderId}`): sum that funder's trailing-12-month
+     `outcomes.awarded_amount` plus the `amount_min`/`amount_max` midpoint of their still-open
+     `opportunities`; compute this as a % of the baseline forecast. If this funder has zero
+     historical outcomes and zero open opportunities (a funder on file that's never actually
+     produced anything), the deterministic impact is genuinely $0 — the agent states this plainly
+     rather than inventing a hypothetical loss for a funder that was never contributing.
+   - **`gain_funder`** (`scenario_params: {estimatedAnnualAmount}`): the human-supplied estimate
+     is added directly to the baseline — this scenario type is explicitly speculative by its own
+     input (there's no real funder to derive numbers from), so `confidence` is capped at 50
+     regardless of anything else, and `simulation_result` states plainly that this projection
+     depends entirely on the accuracy of the human-supplied estimate, not platform data.
+   - **`program_expansion`** (`scenario_params: {newProgramAnnualBudget, additionalStaffCount}`):
+     computes the ratio of the new cost against `organizations.annual_budget` and flags (not
+     blocks — this agent never blocks a real decision) if the addition would exceed a
+     configurable threshold of current budget (default 25%) as a `key_risks` entry.
+   - **`budget_cut`** (`scenario_params: {cutPercentage}`): applies the cut against the baseline
+     forecast and — this is the "beneficiary impact" half of the purpose statement — cross-
+     references `organizations`' program data (via `knowledge_base` category `program_description`
+     rows, already real and populated per this project's own history) to name which real, on-file
+     programs would be most exposed, rather than a generic "services may be reduced" non-answer.
+4. **One Claude call per simulation** (never per-scenario-branch fan-out — one simulation is one
+   call): given the deterministic baseline and branch-specific numbers from step 3, ask Claude to
+   write `key_risks`, `key_opportunities` (mitigating factors, e.g. "3 other funders in the
+   pipeline could offset part of this"), and a plain-language narrative summary — the same
+   grounded-synthesis-over-real-numbers pattern as AG-26/AG-27, not free-floating speculation.
+5. **Write `impact_simulations`** (see Output contract).
+6. **Log a decision** (`decisionType: "simulation_completed"`), `actionPayload` containing the
+   scenario type and headline number.
+7. **This agent processes exactly one scenario per `run()` call** (unlike every other agent in
+   this batch, which loop over multiple orgs/funders/meetings) — there is no batch/loop error
+   isolation to design, since a manual, single-scenario trigger has nothing to isolate a failure
+   from. The outer `try/catch` around `run()`'s body is the only error boundary needed.
+
+#### Output contract
+
+`impact_simulations` (migration 078, live 2026-08-03):
+
+| Column | Written as |
+|---|---|
+| `org_id` | the requesting org |
+| `scenario_type` | one of the 4 supported values (step 1) |
+| `scenario_params` | the human-supplied input, stored verbatim for audit/reproducibility |
+| `simulation_result` | jsonb: `{baselineUsed: 'forecast'\|'fallback', deterministicImpact: {min,max,mostLikely}, keyRisks: [...], keyOpportunities: [...], narrative: string, exposedPrograms: [...] (budget_cut only)}` |
+| `confidence` | text (not numeric — deliberately coarser than the other agents' 0-100 scores, since a hypothetical scenario's "confidence" is inherently a judgment call, not a measurable statistic): `'high'` (real funder/forecast data used throughout), `'medium'` (fallback baseline used), `'low'` (`gain_funder`, inherently speculative input) |
+| `created_by` | the requesting user's profile id (real, since this is always a manual, human-initiated action) |
+
+#### Error handling and failure modes
+
+- **Transient (Claude API):** 3 attempts, exponential backoff (1s/2s/4s). On exhaustion, the
+  simulation still writes with the full deterministic `deterministicImpact` numbers (step 3) and
+  empty `keyRisks`/`keyOpportunities`/`narrative`, `confidence` unchanged — the numeric projection
+  is real and useful even without the narrative layer.
+- **Permanent failure:** since this agent processes one scenario per call with no internal loop
+  (step 7), a permanent failure fails the whole (single-item) run — correctly calls `failRun()`,
+  and the API route surfaces a real error to the human who requested it (this is a synchronous,
+  human-waiting-for-a-response action, unlike every other agent in this batch — the human gets an
+  immediate, real answer, not a silent background retry).
+- **Dead-letter:** not applicable — a failed simulation is simply re-requested by the human if they
+  still want an answer, exactly like any other synchronous API action failing.
+
+#### Idempotency
+
+**Re-running the same scenario twice is expected, normal behavior, not a bug to prevent** — a human
+comparing "what if we cut 10%" against "what if we cut 20%" runs this agent multiple times with
+different `scenario_params` by design, and running the *exact same* params twice should simply
+produce a second, independent `impact_simulations` row (no upsert, no uniqueness constraint) —
+unlike every other agent in this batch, idempotency here means "each simulation is its own
+immutable historical record," not "never double-write." This is a deliberate, stated design choice:
+a board later asking "what scenario did we actually run before making this decision" needs the
+real historical record of every simulation requested, not a single mutable row that the next
+request would silently overwrite.
+
+#### Observability
+
+- `agent_runs`: one row per simulation request, `items_found`/`items_processed`: 1/1 (or 1/0 on
+  failure) — this agent's `agent_runs` history is itself a complete audit trail of every "what if"
+  ever asked, by whom (`triggered_by`), and when.
+- `agent_decisions`: one `simulation_completed` row per run, `entityType: "organization"`, headline
+  number in `actionPayload`.
+- Because this is a synchronous, human-waiting action, the primary observability channel is the
+  API response itself, not a human needing to check `agent_runs` after the fact — logging still
+  happens for the same audit-trail reason every other agent in this codebase logs.
+
+#### Cost / token budget
+
+One Claude call per simulation, ~600-900 input tokens (baseline + branch-specific numbers,
+bounded) + ~400 output tokens (narrative + risk/opportunity lists). At Sonnet's ~$3/$15-per-million
+pricing: roughly **$0.008 per simulation**. Volume is inherently human-paced (nobody runs hundreds
+of what-ifs per day) — realistically **a few dollars a month at most even under heavy strategic-
+planning-season usage**, not a cost concern at any plausible scale.
+
+#### Model selection
+
+`claude-sonnet-4-6`. Justification: same bounded-synthesis-over-real-numbers tier as AG-26/AG-27.
+Explicitly **not** a reasoning/extended-thinking tier model, despite "strategic scenario modeling"
+sounding like it might warrant one — the actual hard part (the deterministic math per scenario
+type) is already done in code before Claude is ever called; the model's job is narrative synthesis
+over a small, already-computed number set, not multi-step reasoning from scratch.
+
+#### Autonomy level: human-triggered by design, not a gate on an otherwise-autonomous agent
+
+This is not "autonomy with an approval gate bolted on" — it's a fundamentally on-demand tool, the
+same category as a calculator or a report generator, not a background monitor with a human check
+before it acts. It never runs unless a human asks a specific question (Trigger design above), and
+its output is read-only advisory data no other process acts on automatically (`Hard Limits`,
+carried forward unchanged: "never overwrites live financial/pipeline data — a simulation is a
+read-only projection by definition"). **Self-healing/runaway governance are structurally
+inapplicable** — there is no autonomous loop to heal or govern; volume is bounded by real human
+request rate, which needs no code-level rate limit beyond the standard per-org `agent_runs` quota
+already enforced platform-wide for every agent route.
 
 **Autonomous Mode**
-- **Status:** PLANNED
-- **Trigger Type / Condition / Decision Log / Chain Output:** not designed in code.
-- **Hard Limits:** the global hard limits (Section 0) would apply; never overwrites live
-  financial/pipeline data — a simulation is a read-only projection by definition.
-- **Human Review Required:** no (a simulation result is inherently advisory).
+- **Status:** PLANNED (spec complete, awaiting build — see `queue-17.yaml`)
+- **Trigger Type:** manual only (`POST /api/agents/simulate`)
+- **Trigger Condition:** a human submits a valid `scenario_type` + `scenario_params`
+- **Decision Log:** `simulation_completed`, one per run
+- **Chain Output:** none
+- **Hard Limits:** the global hard limits (Section 0) apply; never overwrites live
+  financial/pipeline data — a simulation is a read-only projection by definition
+- **Human Review Required:** no approval gate needed (nothing external happens, output is
+  read-only advisory data) — but note this is different from "fully autonomous": the entire
+  action only exists *because* a human triggered it, every time
 
 ---
 
 ### AG-42: Change Monitor Agent (CM-01)
 
-> **Renumbered from AG-30, 2026-08-02.** This is the same never-built spec that used to occupy one
-> of AG-30's two conflicting sections — content unchanged, only the number moved, to leave AG-30
-> permanently and unambiguously the real, live Donor Intent Monitor (see the AG-30 retirement note
-> above and its full spec in the Phase 2-5 addendum). This agent still has no real implementation
-> as of this renumbering; moving it did not build it.
+> **Renumbered from AG-30, 2026-08-02.** Content below is a full enterprise spec written
+> 2026-08-03 — purpose unchanged from the original never-built AG-30/CM-01 spec, only the number
+> moved (to leave AG-30 permanently the real, live Donor Intent Monitor) and the engineering depth
+> added.
 
-- **Purpose:** Detects changes in monitored corporate entities (website, leadership, IRS BMF
-  status) and triggers re-enrichment.
-- **Type:** AI (Claude) + web diff.
-- **Tier Gate:** enterprise.
-- **Real implementation:** none found. `FEATURE_REGISTRY_v2.md` #96 lists this as PLANNED.
+**Purpose (unchanged):** Detects changes in monitored corporate entities (website, leadership, IRS
+BMF status) and triggers re-enrichment. No implementation exists (confirmed by grep). Output table
+`corporate_monitoring_events` existed only as an unapplied migration (`src/supabase/migrations/
+077_intelligence_graph.sql`) — applied live 2026-08-03 (RLS added migration 105).
+
+#### Scope correction, stated explicitly rather than silently narrowed
+
+The canonical purpose names "corporate entities" and the real, already-designed output table is
+keyed by `prospect_id` (→ `corporate_prospects`) — but `corporate_prospects` **does not exist in
+production** (confirmed live, 404, the same shared blocker as AG-20/21/22/24/32). Building this
+agent scoped *only* to a table that doesn't exist would make it permanently untestable and
+permanently non-functional, which fails this spec's own live-verification requirement before it's
+even built. **This spec extends the monitored-entity scope to also cover `foundation_directory`**
+— real, populated (133,000+ rows), and a legitimate match for the canonical purpose's own named
+signal ("IRS BMF status" is literally a `foundation_directory` field:
+`foundation_type`/`subsection_code`/`status`, sourced from the IRS Business Master File). This is
+not scope invention beyond the agent's stated purpose — "IRS BMF status" was already named in the
+purpose statement before this spec existed; it simply had no buildable/testable home under the
+`corporate_prospects`-only design. The `corporate_prospects` half of this agent is still fully
+specified below and will activate automatically once that table exists (see step 1's graceful
+degradation) — nothing about it is removed, only made non-blocking.
+
+#### Trigger design
+
+**Schedule only — daily, 5:00 AM CST** (ahead of the `foundation-enrichment-weekly` job already in
+`worker/scheduler.ts`, so a detected change can be re-enrichment-queued and picked up by that same
+run later the same week rather than waiting a further week). **Rationale:** "did this entity's
+website/leadership/status change" is a slow-moving, non-urgent signal — nothing about it warrants
+event-driven immediacy, and a daily sweep bounded by a per-run cap (below) keeps the platform's
+full monitored set cycled through on a predictable, cost-governed cadence rather than either
+checking everything nightly (wasteful — most entities don't change day to day) or waiting for a
+human to notice and manually re-trigger (defeats the entire point of a change *monitor*).
+
+#### Input contract
+
+| Source | Columns read | Notes |
+|---|---|---|
+| `corporate_prospects` | (schema not live — see Scope correction; once it exists, expected shape per its own design intent: `id, legal_name, website, enrichment` — this agent reads it defensively, exactly like every other agent in this codebase already does for this same table, and simply finds zero rows today) | |
+| `foundation_directory` | `id, name, website, officers, foundation_type, subsection_code, status, enrichment, enriched_web_at` | The real, working half of this agent's scope. `officers` is real jsonb (populated by the existing 990/web enrichment pipeline). |
+| `corporate_monitoring_events` (self, read-before-write) | `prospect_id, change_detected, created_at` | Most recent prior snapshot per prospect, for diffing (see Idempotency). |
+
+#### Process (numbered, with real branch logic)
+
+1. **Build scope, capped per run** (`MAX_ENTITIES_PER_RUN = 200` — a deliberately bounded daily
+   sweep, not a full-table scan; see Cost budget for why):
+   - `corporate_prospects`, ordered by last-checked ascending — **query wrapped in the same
+     try/catch-and-treat-as-empty pattern already established for this exact table elsewhere in
+     this codebase** (e.g. `DonorIntentMonitorAgent`'s own handling), so a missing table degrades
+     to "zero prospects in scope" rather than failing the whole run.
+   - `foundation_directory`, ordered by `enriched_web_at ASC NULLS FIRST` (never-checked rows
+     first, then oldest-checked), filtered to rows enriched at least once already (a
+     never-enriched row has no baseline to diff against — that's this agent's own enrichment
+     agent's job, not this one's, per Core Data Principle of not duplicating another agent's
+     responsibility).
+2. **Per entity, fetch current state:**
+   - **Website check:** a lightweight HTTP HEAD/GET against the on-file `website` URL (reusing
+     `StealthEngine.fetchPage()`, the same fetcher every other web-touching agent in this codebase
+     already uses — not a new HTTP client). A changed final-redirect URL, or a 404/timeout where
+     the site previously resolved, is itself a real, loggable change signal, not just a fetch
+     failure to swallow silently.
+   - **Leadership/status check (foundation_directory only — no live web fetch needed):** compares
+     the row's current `officers` jsonb and `foundation_type`/`subsection_code`/`status` against
+     the last snapshot stored in that row's own `enrichment.change_monitor_snapshot` key (see
+     Output contract) — this is a pure diff against already-enriched data, catching drift produced
+     by *other* agents' enrichment runs since this agent last looked, not a fresh Claude
+     extraction. This deliberately reuses data other agents already gathered rather than
+     re-deriving it.
+3. **Branch on diff result:**
+   - **No change:** update the last-checked timestamp only (`foundation_directory.enriched_web_at`
+     is intentionally *not* touched here — that column means "the web-enrichment agent last ran,"
+     a different fact than "the change monitor last checked"; this agent's own check timestamp
+     lives in `enrichment.change_monitor_last_checked_at`, a new key in the same real jsonb
+     column, not a new top-level column). No event row, no Claude call — the common case is cheap
+     by design.
+   - **A real change detected** (website URL changed, an officer name present in the old snapshot
+     is absent from the new one, or `status`/`foundation_type` differs): **one Claude call** (see
+     step 4) to characterize the change in plain language, then write the event/update (Output
+     contract) and **chain-queue re-enrichment** — `queueChainedAgent('foundation-990-enrichment',
+     priority: 50, {foundationId})` for a `foundation_directory` change (routing to the existing,
+     already-real weekly enrichment pipeline, run out-of-cycle for just this one entity rather than
+     waiting for the next full weekly sweep), or the equivalent prospect-enrichment chain target
+     once `corporate_prospects`/its enrichment agents exist.
+4. **Claude call (only on a detected change, never on the common no-change case — see Cost
+   budget):** given the old snapshot and new snapshot, ask for a one-sentence plain-language
+   description of what changed and a `severity` classification (`'minor'` — e.g. a title update on
+   an unchanged website; `'notable'` — a leadership change or site redesign; `'material'` — a
+   status/foundation-type change, which can affect eligibility scoring elsewhere in the platform).
+5. **Log a decision** (`decisionType: "entity_change_detected"`) only for `'notable'`/`'material'`
+   severity — a `'minor'` change is recorded in the event/enrichment write (step 3) but does not
+   also generate a decision-log entry, keeping `agent_decisions` reserved for changes a human would
+   actually want surfaced, not every trivial diff.
+6. **Error isolation per entity:** each entity's steps 2-5 run in its own `try/catch` — one
+   unreachable website or malformed jsonb never blocks the rest of the day's 200-entity sweep.
+
+#### Output contract
+
+**`corporate_monitoring_events`** (migration 077, live 2026-08-03) — used once `corporate_prospects`
+exists: `id, prospect_id, event_type ('website_changed'|'status_changed'), description,
+change_detected (jsonb: {field, oldValue, newValue, severity}), created_at`.
+
+**`foundation_directory.enrichment`** (existing real jsonb column, extended with new keys under
+this agent's own namespace to avoid colliding with the existing `propublica`/other enrichment
+sources already stored there): `enrichment.change_monitor_snapshot` (the current officers/status/
+website snapshot, for next run's diff), `enrichment.change_monitor_last_checked_at`,
+`enrichment.change_monitor_last_change` (`{description, severity, detectedAt}`, only present when
+a change was ever found — absent, not null, when no change has ever been detected, so its mere
+presence is itself a meaningful signal).
+
+#### Error handling and failure modes
+
+- **Transient (website fetch timeout, Claude API):** 3 attempts, exponential backoff (1s/2s/4s).
+  On website-fetch exhaustion specifically, the failure to reach a previously-reachable site *is
+  itself* logged as a `'notable'`-severity change (a site going unreachable is real signal, not
+  noise to discard) rather than silently retried forever.
+- **Permanent failure for one entity:** caught per-entity (step 6), pushed to `errors[]`, loop continues.
+- **Total run failure:** outer `try/catch` → `failRun()`.
+- **`corporate_prospects` missing entirely:** not a failure at all (per step 1's graceful
+  degradation) — `itemsFound` for that half of the scope is simply 0, and `output_summary` states
+  this plainly rather than the run failing or silently pretending that half of its job doesn't
+  exist.
+
+#### Idempotency
+
+Re-running twice on the same day (e.g. a manual re-trigger) is safe because every write is either
+(a) a genuinely new, timestamped `corporate_monitoring_events` row — a second run finding the exact
+same change again would write a second event, which is correct, not a bug: an unresolved change
+that's still present on a later check is real information ("still broken as of today"), not a
+duplicate to suppress — or (b) an overwrite of `foundation_directory.enrichment`'s
+`change_monitor_snapshot`/`_last_checked_at` keys, which are always replaced wholesale with the
+current state, never appended to — running twice with no real change in between produces the exact
+same final jsonb value both times (true idempotence for the directory-scoped half), while the
+event-log half is intentionally append-only (idempotence at the "correctness" level — never
+corrupts or double-counts — not at the "identical output" level, which is the correct distinction
+for an event log vs. a snapshot).
+
+#### Observability
+
+- `agent_runs`: `items_found` = entities in scope (both halves combined), `items_processed` =
+  entities actually checked (excludes any skipped by transient failure), `output_summary` =
+  `{corporateProspectsChecked, foundationDirectoryChecked, changesDetected, corporateProspectsTableMissing: bool}`.
+- `agent_decisions`: one `entity_change_detected` row per `'notable'`/`'material'` change (step 5) —
+  a human debugging "why did this foundation get re-enriched out of cycle" reads this row first.
+- The chained re-enrichment queue item itself (step 3) is independently visible in `agent_queue`,
+  giving a second, cross-checkable trail from "change detected" to "re-enrichment actually ran."
+
+#### Cost / token budget
+
+Claude is called **only on a detected change** (step 4), not per entity in scope — the common case
+(no change) costs one lightweight HTTP fetch and zero tokens. Estimated real change rate: low
+single-digit percent of entities per daily check (organizational websites/leadership don't churn
+often). At `MAX_ENTITIES_PER_RUN = 200`/day and a generous 5% daily change rate: ~10 Claude calls/
+day, ~300 input + ~100 output tokens each (a tightly bounded single-sentence classification task).
+At Sonnet's ~$3/$15-per-million pricing: **roughly $0.01/day, well under $1/month** — this agent's
+real cost driver is the 200 daily website fetches (infrastructure cost, not token cost), not Claude
+usage.
+
+#### Model selection
+
+`claude-sonnet-4-6`. Justification: this is the lightest-weight Claude task in this entire batch —
+a single-sentence classification over a small, pre-computed diff, not synthesis or extraction from
+raw text. Sonnet is used for consistency with every other agent in this batch and the platform's
+established default (`DEFAULT_MODEL`) rather than because this specific call demands that tier —
+a cheaper/faster model would likely suffice here if the platform ever introduces one as a distinct
+tier; noting this honestly rather than over-justifying a choice made mainly for consistency.
+
+#### Autonomy level: full autonomy, no human-approval gate — with an explicit escalation path for material changes
+
+**This agent never takes an external action itself** — the "re-enrichment" it triggers is itself
+another agent's existing, already-autonomous, already-approved pipeline (the weekly foundation
+enrichment job), not a new capability this agent invents authority to invoke. Per the global hard
+limits, human review is reserved for external actions and financial/pipeline writes; this agent
+does neither. **Self-healing:** per-entity failures retry automatically on the next daily sweep
+(entities aren't removed from scope on failure, they simply reappear in tomorrow's ordered-by-
+last-checked query). **Runaway governance:** hard-capped at `MAX_ENTITIES_PER_RUN = 200`/day
+regardless of platform growth (excess entities roll to the next day, exactly like AG-10's
+`MAX_FUNDERS_PER_SCHEDULED_RUN` design), and Claude is invoked only on an actual detected change,
+not per entity scanned — cost scales with real-world change events, not with monitored-set size.
+**Material-severity changes still don't require approval before this agent acts** (queueing
+re-enrichment is a safe, read-only-triggering action) but are the one output this agent produces
+that's specifically flagged (`agent_decisions`, step 5) for a human to *notice*, even though none
+is required to *approve* it first — the right design for a detector whose job is surfacing signal,
+not gatekeeping a decision.
 
 **Autonomous Mode**
-- **Status:** PLANNED
-- **Trigger Type / Condition / Decision Log / Chain Output:** not designed in code.
-- **Hard Limits:** the global hard limits (Section 0) would apply.
-- **Human Review Required:** undetermined.
+- **Status:** PLANNED (spec complete, awaiting build — see `queue-18.yaml`)
+- **Trigger Type:** schedule — daily, 5:00 AM CST
+- **Trigger Condition:** unconditional daily sweep, capped at 200 entities/run, oldest-checked first
+- **Decision Log:** `entity_change_detected`, notable/material severity only
+- **Chain Output:** `foundation-990-enrichment` (real, existing) on a detected `foundation_directory`
+  change; the equivalent prospect-enrichment chain once `corporate_prospects` exists
+- **Hard Limits:** the global hard limits (Section 0) apply
+- **Human Review Required:** no — see Autonomy level above
 
 ---
 
@@ -1563,39 +2687,48 @@ that produced them; each spec's Dependencies line states the correct source agen
 
 ### AG-32: Relationship Graph Builder
 
+> **Status corrected 2026-08-03 — this section was stale.** It previously said "Status: PLANNED...
+> Real implementation: none found" — that has not been true for some time. This is a real, built,
+> `AutonomousAgent` class, live-tested twice in `AGENT_VERIFICATION_LOG.md`'s AG-32 entries
+> (2026-08-02/03): the `agent_type` enum gap was fixed and confirmed live; a real `board_members`
+> column-mismatch bug was found and fixed; the agent now genuinely completes real work
+> (`boardMembersAnalyzed`, real board member data loaded and processed) up to the point where it
+> hits the still-open `corporate_prospects` missing-table blocker (shared with AG-20/21/22/24/30).
+
 - **Phase:** 3
-- **Status:** PLANNED
+- **Status:** BUILT — BLOCKED (verified live 2026-08-02/03)
 - **Purpose:** Discovers and maps relationship edges between corporate entities, foundations, board
-  members, and nonprofits ??? board overlaps, alumni networks, shared past employers, family
-  foundation ties ??? into `pig_nodes`/`pig_edges`, surfacing warm introduction pathways in place of
-  cold outreach. Full build-out of Pillar 1 (Philanthropic Intelligence Graph), including the
-  force-directed `/research/graph` explorer and shortest-path finder specified but not yet built.
+  members, and nonprofits — board overlaps, alumni networks, shared past employers, family
+  foundation ties — into `pig_nodes`/`pig_edges`, surfacing warm introduction pathways in place of
+  cold outreach.
 - **Type:** analysis
-- **Model:** claude-sonnet-4-6
-- **Estimated tokens per run:** ~2,500 input / ~1,000 output per entity pair evaluated; run as a
-  weekly full-graph rebuild rather than per-entity, per `AUTONOMOUS_PLATFORM_VISION.md`'s own
-  Phase 3 blueprint ("AG-23 full weekly rebuild").
-- **Tier gate:** enterprise (Pillar 1 / PIG is the same enterprise-gated feature AG-23 already
-  targets, per `PRD_v2.md` ??12 pricing table).
-- **Trigger:** schedule ??? weekly full-graph rebuild.
-- **Input sources:** `corporate_relationships`, `corporate_relationship_people`, `funders`,
-  `contacts`, `foundation_directory`, `board_members` (org's own board, for self-referencing edges).
-- **Output:** `pig_nodes` / `pig_edges` rows (relationship_type values extended beyond the current
-  set to cover board-overlap/alumni/family-foundation edges); indexes for graph-query performance.
+- **Model:** claude-sonnet-4-6, via `callClaudeWithWebSearch` (real web search grounding per board
+  member, not training-data recall)
+- **Real implementation:** `src/lib/agents/relationship-graph-builder-agent.ts`, class
+  `RelationshipGraphBuilderAgent extends AutonomousAgent`, `agentId: "ag-32-relationship-graph"`.
+- **Tier gate:** enterprise.
+- **Trigger (actual):** manual only — no schedule, no queue wiring exists in
+  `worker/scheduler.ts`/`worker/autonomous-orchestrator.ts` today, despite
+  `AUTONOMOUS_PLATFORM_VISION.md` describing a weekly full-graph rebuild. This is the exact wiring
+  gap AG-23's spec (Section 5, above) exists to close — see that spec for the full schedule design
+  and rationale (5:30 AM CST daily incremental, not weekly, per `BLUEPRINT_v2.md`'s own nightly
+  pipeline table).
+- **Input sources (real, live-confirmed 2026-08-03, corrected from this section's prior claims):**
+  `board_members` (`organization_id`, `name`, `title`, `bio`, `is_active` — corrected 2026-08-03,
+  see `AGENT_VERIFICATION_LOG.md`), `funders` (`id`, `name`, `website`), `corporate_prospects`
+  (**confirmed still missing live, 404 PGRST205, as of 2026-08-03** — this is the blocker).
+  `corporate_relationships`/`corporate_relationship_people` (this section's prior claimed input
+  sources) do not exist anywhere in either migration tree — not real, never were.
+- **Output:** `pig_nodes`/`pig_edges` — **now live** (migration `077_intelligence_graph.sql`,
+  applied 2026-08-03 via `DATABASE_URL`/psql; previously undiscovered that this table was never
+  applied either, despite being referenced as real throughout multiple prior `AGENT_VERIFICATION_LOG.md`
+  entries for AG-19/AG-32 — corrected the same day).
 - **Chains to:** none designed.
 - **Hard limits:** never asserts an edge without `evidence`; `verified boolean` defaults false and
   is never silently flipped true without a documented source.
-- **Dependencies:** this is explicitly the same agent as AG-23 (Relationship Mapper Agent,
-  Section 5), which is itself PLANNED with no file found. `pig_nodes`/`pig_edges` exist (migration
-  094, per Section 6 table 59-60) but are unpopulated. Per `AUTONOMOUS_PLATFORM_VISION.md` ??7,
-  this feature has **no new agent number** ??? it is an extension of AG-23, not a distinct agent;
-  see the Numbering note above before assigning `AG-32` in any schema.
-- **FORGE queue:** not yet scoped into a `queue.yaml`. Blueprint in
-  `AUTONOMOUS_PLATFORM_VISION.md` ??7, Phase 3 table, two rows: "Corporate Relationship Graph"
-  (extends `pig_edges` with new `relationship_type` values, `/api/intelligence/relationship-paths`,
-  `/research/graph` node expansion panel) and "Philanthropic Intelligence Graph (full)" (graph-query
-  indexes, `/api/intelligence/graph/shortest-path`, `/research/graph` force-directed explorer + PDF
-  export).
+- **Remaining blocker:** `corporate_prospects` table (migrations 107/108, already documented
+  elsewhere as the shared blocker for AG-20/21/22/24/30) — once that exists, this agent is
+  otherwise fully functional end-to-end.
 
 ---
 
