@@ -1,12 +1,65 @@
 # Benavora — Full-Schema `anon`-Grant Exposure Audit
 
-## Status: DISCOVERY ONLY — nothing in this document has been remediated.
-## Date: August 3, 2026
+## Status: PARTIALLY REMEDIATED — see §8 for exactly what changed and what's still open.
+## Date: August 3, 2026 (discovery pass); remediation pass same day, second session.
 ## Scope: All 162 real tables (`pg_class.relkind = 'r'`) live in the `public` schema, production project `vbjplpquqxxfbpazyalt`, queried directly via `DATABASE_URL`.
 
 ---
 
-## 0. Why this document exists
+## 8. Remediation status (second pass, same day)
+
+**12 of 162 tables are now fully secured** (RLS enabled, `anon` grants fully revoked, correct
+`authenticated` policy applied, verified live against real query shapes from actual app code — same
+discipline as the original `foundation_directory`/`corporate_prospects` fixes):
+
+| Table | Fix | Migration | Policy shape |
+|---|---|---|---|
+| `corporate_prospects` | (prior session) | `111` | No `authenticated` policy — no real read path exists |
+| `foundation_directory` | (prior session) | `112` | `authenticated`-only shared read |
+| `nonprofits` | 1.98M rows, largest table in the schema | `114` | `authenticated`-only shared read |
+| `form_templates` | RLS was off despite 4 correct org-scoped policies already existing in `pg_policies` (migration drift) — also closes 2 live cross-tenant IDOR call sites with no app-level tenant filter | `115` | Org-scoped (pre-existing policies, just now enforced) |
+| `organizational_digital_twins` | RLS off, zero live policies despite 2 migration tracks claiming to add one | `116` | Org-scoped (new policy, most sensitive table fixed this pass — `financial_profile`/`board_composition`/`known_weaknesses`) |
+| `intelligence_budget_patterns` | RLS off | `117` | `authenticated`-only shared read |
+| `donor_discovery_directory` | RLS off, 133,780 rows | `118` | `authenticated`-only shared read |
+| `intelligence_funded_proposals` | RLS off, 3,169 rows | `119` | `authenticated` shared read + insert (real write path via `/api/intelligence/ingest`) |
+| `donor_discovery_taxonomy` | RLS off, 1,345 rows | `120` | `authenticated`-only shared read |
+| `opportunity_probability_scores` | RLS off, zero live policies despite migration 093 claiming to add one — also closes a live cross-tenant leak at `opportunities/page.tsx:180` (zero app-level org filter) | `121` | Org-scoped (new policy) |
+| `intelligence_proposal_sections` | RLS off, 105 rows | `122` | `authenticated` shared read + insert (real write path via `/api/intelligence/ingest`) |
+| `knowledge_patterns` | RLS off, 33 rows | `123` | `authenticated`-only shared read |
+
+**95 of 162 tables (all of former Category B) had their universal `TRUNCATE` bypass closed** in one
+batch migration (`113`) — `anon`'s `TRUNCATE` grant revoked across all 95 in a single statement, since
+this was identical across every one of them (this project's default-privilege pattern, not
+per-table). **Not otherwise reclassified**: this pass did not re-verify each of the 95 tables'
+existing `SELECT`/`INSERT`/`UPDATE`/`DELETE` policies for correctness — `RLS_POLICY_AUDIT.md`
+and `rls.test.ts` already found real exceptions among them (24 of 100 org-scoped tables leak
+cross-org `SELECT`), so treat these 95 as "TRUNCATE-safe" specifically, not "fully audited."
+`authenticated` still holds `TRUNCATE` on all 95 — out of scope for this pass, flagged in `113`'s own
+header, not touched.
+
+**55 of 162 tables (former Category C, minus the 10 fixed above) remain completely untouched** —
+RLS still disabled, fully open to `anon` for every operation. Per this task's explicit instruction,
+these were deliberately left for a follow-up pass rather than designing 55 more table policies in one
+prompt. Ranked by row count, the largest remaining exposures are (§5's original table, minus the 10
+now fixed): `agent_configurations`, `intelligence_evaluation_frameworks`, `intelligence_grant_dna_scores`,
+`intelligence_grantmaker_profiles`, `intelligence_logic_models`, `intelligence_narrative_patterns`,
+`intelligence_need_data`, `intelligence_post_award_reports`, `intelligence_scoring_rubrics`,
+`kb_extended_needs`, `platform_admins`, `funder_credentials`, `foundation_profiles`, `pitch_cache`,
+and 41 more near-empty tables — see §5 below for the full original list (still accurate for what
+remains unfixed; the 10 rows for tables now fixed are the only ones no longer current).
+
+Every fix in this section was independently verified live, not assumed from migration success output:
+`anon` tested directly at the Postgres role level (`SET LOCAL ROLE anon`) against `SELECT`,
+`INSERT`, `UPDATE`, `DELETE`, and `TRUNCATE` on every one of the 9 individually-designed tables plus
+a 5-table random sample of the 95 batch-fixed tables — all blocked (`42501`). `authenticated` was
+tested against real query shapes copied from the actual consuming code (e.g. `intelligence_budget_
+patterns`' `program_category`/`grant_type` lookup, `intelligence_funded_proposals`' real `INSERT`
+path), not synthetic queries. `service_role` was confirmed unaffected on every table (full row counts
+still visible, matching pre-fix counts).
+
+---
+
+## 0. Why this document exists (original discovery pass, unchanged below)
 
 Two incidents this session — `corporate_prospects` (before it was created) and `foundation_directory`
 (133,812 rows, found live fully open to the anon key) — traced to the same root cause: this project's
@@ -65,6 +118,10 @@ specifically, which neither of those prior passes queried directly.
 ---
 
 ## 2. Summary
+
+**This section (§2-§7) is the original discovery-pass snapshot from earlier August 3, 2026 — counts
+below are as they were BEFORE remediation. See §8 above for current status: 12 tables now fully
+fixed, 95 tables' `TRUNCATE` bypass closed, 55 tables still exactly as described below.**
 
 | Category | Count | Meaning |
 |---|---|---|

@@ -1,8 +1,51 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 3, 2026 (`corporate_prospects` table created and RLS-hardened live, closing the blocker shared by AG-20/21/22/24/30/32 since 2026-07-20; AG-20/21/30/32 re-verified as genuine full successes, AG-22 hits a separate pre-existing `ANTHROPIC_API_KEY` blocker, AG-24 confirmed unbuilt; AG-29's cold-start anomaly investigated via real Railway logs — root cause traced to a real, unrelated logging gap that discards the error text by design, not resolved. See `AGENT_VERIFICATION_LOG.md`'s two newest entries for full evidence). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 3, 2026 (anon-grant exposure remediation: 12 of 162 public-schema tables now fully secured, 95 more had their universal `TRUNCATE` bypass closed, 55 remain open for a follow-up pass — see `ANON_GRANT_AUDIT.md` §8 for full per-table detail). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 3, 2026 (anon-grant exposure remediation: 12 of 162 tables fully secured, 95 TRUNCATE-hardened, 55 remain)
+
+Full evidence in `ANON_GRANT_AUDIT.md` §8. Summary here for build-status tracking.
+
+`ANON_GRANT_AUDIT.md`'s discovery pass (earlier the same day) found only 2 of 162 `public`-schema
+tables were actually safe from the `anon` key — every other table inherited this project's permissive
+`ALTER DEFAULT PRIVILEGES` default and nobody had ever revoked it. This session remediated the
+highest-priority slice of that finding:
+
+**Fully secured (12 of 162):** `corporate_prospects`, `foundation_directory` (prior session), plus
+`nonprofits` (1.98M rows — the single largest table in the schema), `form_templates`,
+`organizational_digital_twins`, `intelligence_budget_patterns`, `donor_discovery_directory`,
+`intelligence_funded_proposals`, `donor_discovery_taxonomy`, `opportunity_probability_scores`,
+`intelligence_proposal_sections`, `knowledge_patterns` (migrations 114-123). Each was fixed only
+after reading every real `.from(table)` call site in the actual codebase (not guessed) to determine
+whether it's genuinely shared/global reference data (unconditional `authenticated`-read policy) or
+real per-org tenant data (`organization_id`-scoped policy) — two tables (`form_templates`,
+`opportunity_probability_scores`) turned out to already have correct policies sitting in the database
+that were simply never enforced because RLS itself was off, a third (`organizational_digital_twins`)
+had zero live policies despite two migration tracks claiming to add one. Fixing `form_templates` and
+`opportunity_probability_scores` also closed two live, real cross-tenant IDOR/data-leak call sites
+found as a byproduct (application code with zero tenant filter, relying entirely on RLS that wasn't
+there). Every fix independently verified live: `anon` blocked on `SELECT`/`INSERT`/`UPDATE`/`DELETE`/
+`TRUNCATE` (`42501` on all 9 tables designed this session), `authenticated` confirmed working via real
+query shapes copied from the actual consuming pages/routes (not synthetic queries), `service_role`
+confirmed unaffected.
+
+**TRUNCATE-hardened (95 of 162, migration 113):** every table that already had RLS enabled with real
+policies still carried `anon`'s `TRUNCATE` grant — the single most important structural finding of
+this audit, since Postgres RLS policies never govern `TRUNCATE` at all (privilege-gated only, exactly
+like `DROP TABLE`), so a table with flawless org-scoped read/write policies was still fully
+truncatable by the public anon key. Closed in one batch migration since it was identical across all
+95 (not a per-table policy design problem). Not otherwise re-audited — `RLS_POLICY_AUDIT.md` and
+`rls.test.ts` already found real exceptions among these 95 tables' other policies (24 of 100
+org-scoped tables leak cross-org `SELECT`), so "TRUNCATE-safe" is not the same claim as "fully
+audited."
+
+**Still fully open (55 of 162):** RLS disabled, every operation open to `anon`, exactly as
+`ANON_GRANT_AUDIT.md`'s discovery pass described. Deliberately left for a follow-up pass per this
+session's explicit scope — designing 55 more table policies in one prompt was out of scope.
 
 ---
 
