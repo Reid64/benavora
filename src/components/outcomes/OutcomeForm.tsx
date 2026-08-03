@@ -186,6 +186,17 @@ export function OutcomeForm({ application, onSaved, onCancel }: OutcomeFormProps
       }).catch(() => undefined);
     }
 
+    // Trigger AG-29 (Knowledge Engine Indexer Agent) - event-chained on every
+    // outcomes insert so its embedding is generated as soon as possible
+    // rather than waiting for the continuous poll loop's next catch-up pass.
+    // Best-effort, same as the triggers above: queues an agent_queue row,
+    // never blocks the user.
+    void fetch("/api/autonomous/knowledge-indexer-trigger", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rowId: data.id }),
+    }).catch(() => undefined);
+
     setSubmitting(false);
     onSaved?.();
   }

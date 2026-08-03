@@ -1,10 +1,61 @@
 # BENAVORA — Session State
 ## Last Updated: August 3, 2026
-## Mode: AG-42 Change Monitor Agent live-verified — own logic confirmed working, new downstream chain-target bug found
+## Mode: AG-29 Knowledge Engine Indexer Agent built per enterprise spec
 
 ---
 
 ## Current Session (most recent)
+
+**Date:** August 3, 2026
+**Focus:** Build AG-29 (Knowledge Engine Indexer Agent) per its full `AGENTS_v2.md` enterprise
+spec — the one agent designed for genuine continuous/24-7 operation rather than a periodic
+schedule. Wrap the already-proven `src/lib/intelligence/embeddings.ts` in a real
+`AutonomousAgent` with a real poll loop and real event-trigger wiring, without modifying that
+library.
+**Status:**
+- Confirmed live (PostgREST OpenAPI, not just migration files) before writing any code:
+  `outcomes.embedding`/`foundation_directory.embedding` (migration 107) and the pre-existing
+  `intelligence_proposal_sections.embedding` all exist; `foundation_directory.programs`/
+  `enrichment` and `knowledge_patterns`'s real single `category` column also confirmed.
+- Built `src/lib/agents/knowledge-indexer-agent.ts` (`KnowledgeIndexerAgent`, `agentId:
+  "ag-29-knowledge-indexer"`) — platform-wide/unscoped, same `SYSTEM_ORG_ID` shape as AG-36/AG-38.
+  One batch pass per `run()`: event-triggered row first (if fired that way), then oldest-pending
+  catch-up rows up to 100, chunked via the real `chunkText()`, first-chunk-only embedding written
+  back per row (stated simplification), retried batch call to the unmodified
+  `generateEmbeddingsBatch()`. Separate 24h-cadence `knowledge_patterns` aggregation pass, merge
+  not replace.
+- Built `worker/knowledge-indexer-processor.ts` — continuous poll loop mirroring
+  `worker/dd-request-processor.ts`'s shape exactly (60s sleep on empty pass, immediate re-poll on
+  a full 100-row batch). Wired into `worker/index.ts` boot (`knowledgeIndexerProcessor.start()`)
+  alongside `queueProcessor`/`ddRequestProcessor`, plus graceful shutdown wiring. Added
+  `routeQueueItem()` case in `worker/autonomous-orchestrator.ts` for event-triggered/manual runs.
+- Wired the event-trigger enqueue (reusing `agent_queue`, same convention as AG-10/AG-28) at each
+  table's real write path: `OutcomeForm.tsx` + new
+  `/api/autonomous/knowledge-indexer-trigger` route (outcomes); `src/scripts/ingest-nih-proposals.ts`
+  (intelligence_proposal_sections, only on inline-embed failure — the successful path already
+  embeds inline there); `foundation-scraper.ts`'s `processFoundation()` (foundation_directory —
+  honestly noted as mostly a no-op today since that function doesn't yet write `programs`/
+  `enrichment.mission`, with the continuous poll as the real catch-all for this table).
+- Wrote `src/supabase/migrations/111_ag29_knowledge_indexer_enum.sql` (enum value + `SYSTEM_ORG_ID`
+  seed row) and applied it live via a Node `pg` client (`psql` itself failed on a DNS resolution
+  quirk in this session's sandbox despite the same host resolving fine via Node — used `pg`,
+  already a project dependency, instead). Verified live two ways: a direct `pg` query against
+  `enum_range(NULL::agent_type)`, and the PostgREST OpenAPI schema — both confirm
+  `ag-29-knowledge-indexer` is now a valid enum value; the seeded org row was also confirmed
+  present. All temporary verification scripts deleted after use, none committed.
+- `pnpm tsc --noEmit`: zero errors in any new/edited file (confirmed by searching the full error
+  output for each touched file's name — no matches); the 42 remaining error lines are pre-existing,
+  confined to the same `src/__tests__/**` files prior sessions have already flagged as unrelated.
+- **Not done this session:** no live `generateEmbeddingsBatch()` call was actually exercised
+  against real pending rows (no working `OPENAI_API_KEY` call was made) — this is BUILT —
+  UNVERIFIED, not BUILT — VERIFIED, until a future session runs it live the way
+  `AGENT_VERIFICATION_LOG.md`'s other entries do.
+**Commit:** `feat(agents): build AG-29 Knowledge Engine Indexer Agent per enterprise spec` (this session).
+**Gates:** `pnpm tsc --noEmit` — 0 errors in touched files (pre-existing unrelated test-file errors only).
+
+---
+
+## Prior Session — August 3, 2026 (AG-42 live end-to-end verification)
 
 **Date:** August 3, 2026
 **Focus:** Live-test `ChangeMonitorAgent` (AG-42) against real production data, no mocks, per the

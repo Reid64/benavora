@@ -185,6 +185,9 @@ async function main(): Promise<void> {
   // Dynamic import AFTER env is loaded — embeddings.ts initialises OpenAI client
   // with process.env.OPENAI_API_KEY at module load time.
   const { generateEmbeddingsBatch } = await import('../lib/intelligence/embeddings');
+  const { enqueueKnowledgeIndexerTrigger } = await import(
+    '../lib/agents/knowledge-indexer-agent'
+  );
 
   // Node < 22 has no native WebSocket; supabase-js's realtime client needs one.
   // This script never opens a realtime channel, but createClient wires it eagerly.
@@ -390,26 +393,53 @@ async function main(): Promise<void> {
       // Step 5: generate embeddings and update each section
       log('  Generating embeddings...');
       const sectionTexts = insertedSections.map((s) => s.section_text);
-      const embeddings = await generateEmbeddingsBatch(sectionTexts);
-
-      for (let j = 0; j < insertedSections.length; j++) {
-        const section = insertedSections[j];
-        const embedding = embeddings[j];
-        if (!section || !embedding) continue;
-
-        const { error: updateError } = await supabase
-          .from('intelligence_proposal_sections')
-          .update({ embedding })
-          .eq('id', section.id);
-
-        if (updateError) {
-          process.stderr.write(
-            `  Error updating embedding for section ${section.id}: ${updateError.message}\n`,
-          );
-        }
+      let embeddings: number[][] | null = null;
+      try {
+        embeddings = await generateEmbeddingsBatch(sectionTexts);
+      } catch (embedErr) {
+        process.stderr.write(
+          `  Embedding batch failed for proposal ${proposal.id}: ${embedErr instanceof Error ? embedErr.message : String(embedErr)}\n`,
+        );
       }
 
-      log(`  Done — ${insertedSections.length} section(s) embedded`);
+      if (embeddings) {
+        for (let j = 0; j < insertedSections.length; j++) {
+          const section = insertedSections[j];
+          const embedding = embeddings[j];
+          if (!section || !embedding) continue;
+
+          const { error: updateError } = await supabase
+            .from('intelligence_proposal_sections')
+            .update({ embedding })
+            .eq('id', section.id);
+
+          if (updateError) {
+            process.stderr.write(
+              `  Error updating embedding for section ${section.id}: ${updateError.message}\n`,
+            );
+          }
+        }
+        log(`  Done — ${insertedSections.length} section(s) embedded`);
+      } else {
+        // Embedding failed for the whole batch (generateEmbeddingsBatch has
+        // no partial-success return) - rather than leave these sections
+        // silently embedding: null forever, enqueue an AG-29 Knowledge
+        // Indexer event trigger per row so the continuous poll/event path
+        // (src/lib/agents/knowledge-indexer-agent.ts) retries them, per
+        // AGENTS_v2.md's AG-29 spec.
+        for (const section of insertedSections) {
+          await enqueueKnowledgeIndexerTrigger(
+            supabase,
+            'intelligence_proposal_sections',
+            section.id,
+          ).catch((queueErr: unknown) => {
+            process.stderr.write(
+              `  Failed to enqueue knowledge indexer retry for section ${section.id}: ${queueErr instanceof Error ? queueErr.message : String(queueErr)}\n`,
+            );
+          });
+        }
+        log(`  Queued ${insertedSections.length} section(s) for retry via AG-29 Knowledge Indexer`);
+      }
 
       // Polite delay between proposals
       if (i < toProcess.length - 1) {

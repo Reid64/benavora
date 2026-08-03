@@ -1,8 +1,115 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 3, 2026 (AG-42 Change Monitor Agent live-verified against real production data — its own detect+chain-queue logic is confirmed genuinely working; a new, real downstream chain-target bug found in the same pass). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 3, 2026 (AG-29 Knowledge Engine Indexer Agent built per enterprise spec — real embedding batch processor + 24h pattern-aggregation pass, continuous poll loop wired into worker boot, agent_type enum value applied live). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 3, 2026 (AG-29 Knowledge Engine Indexer Agent built per enterprise spec)
+
+Built per `AGENTS_v2.md`'s AG-29 canonical spec (Section 5, "Knowledge Engine Indexer Agent") —
+previously **NOT-BUILT** as an autonomous agent (only the underlying `embeddings.ts` library existed,
+manual-CLI-triggered only; see `AGENT_VERIFICATION_LOG.md`'s AG-29 entry and
+`NOT_BUILT_MASTER_INVENTORY.md` row #170). This session builds the actual agent the spec called for,
+without modifying the already-proven `src/lib/intelligence/embeddings.ts` (`generateEmbedding()`/
+`generateEmbeddingsBatch()`/`chunkText()`) — confirmed live-verified before writing any code (105/105
+`intelligence_proposal_sections` rows already carry genuine, non-null, content-varying 1536-dim
+vectors), consistent with the spec's own framing of the embedding-generation step as the one piece
+that's already real and proven.
+
+**Pre-flight, confirmed live before writing code (not assumed from migration files):** queried the
+production PostgREST OpenAPI schema directly and confirmed migration 107's `outcomes.embedding` and
+`foundation_directory.embedding` columns exist live, alongside the pre-existing
+`intelligence_proposal_sections.embedding` (migration 048) and `foundation_directory.programs`/
+`enrichment` (migrations 058/072) the spec's input contract depends on. `knowledge_patterns`'s real
+live columns (`id, pattern_type, category, funder_name, pattern_description, success_rate,
+sample_count, confidence, created_at, updated_at`) were also confirmed — notably a single `category`
+column, not separate `funder_category`/`opportunity_category` columns the spec's prose implies;
+implemented against the one real column that exists rather than fabricating a second.
+
+**Built:**
+- `src/lib/agents/knowledge-indexer-agent.ts` — `KnowledgeIndexerAgent extends AutonomousAgent`,
+  `agentId: "ag-29-knowledge-indexer"`. **Platform-wide, not org-scoped** — same shape as AG-36
+  (Learning Network Aggregator) / AG-38 (Self-Improvement Agent): constructor takes only `supabase`,
+  uses a well-known `SYSTEM_ORG_ID` (`00000000-0000-4000-8000-000000000029`) as its FK target for
+  `agent_runs`/`agent_decisions`/`agent_queue`, and never filters its actual data queries by
+  organization_id (embeddings are cross-org/shared or, for outcomes, processed regardless of which
+  org recorded them — the agent only ever writes a vector back, never surfaces text cross-org).
+  `run()` does one batch pass: claims up to `EMBEDDING_BATCH_SIZE = 100` rows across the 3 source
+  tables (an event-triggered specific row first, if this run was fired that way, then oldest-pending
+  catch-up rows), chunks each row's text via the real `chunkText()` and embeds only the **first
+  chunk** per row (explicit, stated simplification, not hidden — matches the spec's own step 5), then
+  writes each embedding back. A single retryable-with-backoff call to the unmodified
+  `generateEmbeddingsBatch()` covers the whole batch (see the file's header comment for why the
+  retry loop lives at this call site rather than inside `embeddings.ts` — that library function has
+  no retry of its own, only the singular `generateEmbedding()` does, a discrepancy from the spec's
+  literal text worth flagging honestly). Separately, once per 24h (tracked via the most recent
+  completed `agent_runs` row for this agent whose `output_payload.ranPatternAggregation` is true —
+  no new state table needed), aggregates embedded outcomes by category into `knowledge_patterns`,
+  merging into existing rows rather than replacing them wholesale.
+- `worker/knowledge-indexer-processor.ts` — the continuous poll loop, structurally mirroring
+  `worker/dd-request-processor.ts`'s own poll-loop shape (`running`/`processing`/`idleResolvers`,
+  `start()`/`stop()`/`waitForIdle()` module wrappers). Cadence per the spec: 60s sleep when a pass
+  embeds nothing, immediate re-poll when a pass fills a full 100-row batch. Wired into
+  `worker/index.ts`'s boot sequence (`knowledgeIndexerProcessor.start(supabase)`) alongside
+  `queueProcessor.start()`/`ddRequestProcessor.start()` — not a cron entry, per the spec's explicit
+  rejection of a periodic schedule for this one agent.
+- `worker/autonomous-orchestrator.ts` — new `case 'ag-29-knowledge-indexer':` in `routeQueueItem()`,
+  same platform-wide pattern already established for `ag-36-learning-network`/`ag-38-self-improvement`
+  (`item.org_id` ignored).
+- **Event-trigger wiring** (the spec's "primary" trigger, reusing `agent_queue` infra the same way
+  AG-10/AG-28 already do, not a new mechanism) for all 3 source tables, each at its real write path:
+  - `outcomes` → `src/components/outcomes/OutcomeForm.tsx` (best-effort `fetch`, same convention as
+    the existing AG-07/AG-19/AG-10 triggers already fired from this exact call site) → new route
+    `src/app/api/autonomous/knowledge-indexer-trigger/route.ts` (mirrors `/api/autonomous/
+    grant-dna-trigger` exactly: `requireRole("writer")`, org_id derived server-side).
+  - `intelligence_proposal_sections` → `src/scripts/ingest-nih-proposals.ts` (confirmed this is the
+    real, schema-correct ingestion script — a separate, stale duplicate at
+    `src/lib/intelligence/ingest-nih-proposals.ts` inserts a `content` column that doesn't exist on
+    the live table and was left untouched, out of scope): when the inline
+    `generateEmbeddingsBatch()` call already made there fails for a whole batch, each inserted
+    section is now enqueued via `enqueueKnowledgeIndexerTrigger()` instead of silently staying
+    `embedding: null` forever with no retry path.
+  - `foundation_directory` → `src/lib/scraper/foundation-scraper.ts`'s `processFoundation()`: enqueues
+    after every successful update. Noted honestly in-code: this function doesn't currently write
+    `programs`/`enrichment.mission` itself (only `website`/`email`/`phone`/`enrichment.contact_*`), so
+    today this is mostly a no-op safety net (the indexer's own real-content check simply skips rows
+    with nothing to embed) — real coverage for this table currently comes from the continuous poll's
+    own catch-up scan, exactly the role the spec designed it for ("scanning for any row... that the
+    event trigger might have missed").
+- `src/supabase/migrations/111_ag29_knowledge_indexer_enum.sql` — adds `'ag-29-knowledge-indexer'` to
+  the live `agent_type` enum and seeds the `SYSTEM_ORG_ID` organizations row (idempotent,
+  `ON CONFLICT DO NOTHING`) so the agent's very first run in any environment doesn't have to lazily
+  provision it under load (the agent's own `ensureSystemOrg()` remains as defense-in-depth,
+  matching AG-36/AG-38's own belt-and-suspenders convention).
+
+**Applied live and independently verified, not just written to a migration file:** ran the migration
+directly against production via a `pg` client (Node, `.env.local`'s `DATABASE_URL`) — `psql` itself
+failed with a DNS resolution error in this session's sandbox (`could not translate host name`) despite
+Node's own `dns.lookup()`/raw TCP connect to the same host succeeding immediately over IPv6; used
+`pg` (already a project dependency) instead of spending further time on the `psql`-specific failure.
+Confirmed live afterward via **two independent checks**: (1) a direct `pg` query against
+`enum_range(NULL::agent_type)` — `ag-29-knowledge-indexer` present; (2) the PostgREST OpenAPI schema
+(`GET /rest/v1/`) — `agent_runs.agent_type`'s enum list includes it too. The seeded system-org row was
+also confirmed present via a direct query. All temporary verification scripts were deleted after use;
+none were committed.
+
+**Gates:** `pnpm tsc --noEmit` — confirmed zero errors in every new/edited file (searched the full
+error output specifically for `knowledge-indexer`, `foundation-scraper`, `ingest-nih-proposals`,
+`OutcomeForm`, `autonomous-orchestrator`, `worker/index` — no matches). The 42 remaining error lines
+are 100% pre-existing, confined to `src/__tests__/unit/{deadline-predictor,outcome-analyzer,
+samgov-client,regressions}.test.ts` and two `src/__tests__/integration/*.catch()`-on-builder issues —
+the same pre-existing test-only failure set this file's prior sessions have repeatedly confirmed is
+unrelated to whatever was actually built that session.
+
+**Not done this session, flagged rather than silently skipped:** the agent's real-world embedding
+throughput/accuracy was not live-load-tested against a real batch of pending rows (no live
+`OPENAI_API_KEY` call was made) — this session verified the code compiles clean, the schema
+prerequisites are live, and the enum/org-seed migration applied correctly, not that a real
+`generateEmbeddingsBatch()` call against real pending rows succeeds end-to-end in production. A
+future session should do that live-execution pass the same way `AGENT_VERIFICATION_LOG.md`'s other
+entries do, before marking this agent BUILT — VERIFIED rather than BUILT — UNVERIFIED.
 
 ---
 

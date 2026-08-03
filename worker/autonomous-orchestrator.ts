@@ -1817,6 +1817,22 @@ async function routeQueueItem(
       const result = await agent.run('event');
       return `ag-27-board-packet completed (itemsProcessed=${result.itemsProcessed}/${result.itemsFound})`;
     }
+    case 'ag-29-knowledge-indexer': {
+      // AG-29, src/lib/agents/knowledge-indexer-agent.ts — platform-wide, not
+      // per-org (constructor takes only `supabase`, same shape as
+      // ag-36-learning-network/ag-38-self-improvement above) — item.org_id is
+      // ignored. Continuous poll loop already runs this agent independently
+      // via worker/knowledge-indexer-processor.ts, started at worker boot;
+      // this case handles event-triggered rows enqueued by
+      // enqueueKnowledgeIndexerTrigger() (outcomes insert, NIH proposal
+      // ingestion) and adds an on-demand path for the same agentId literal.
+      const { KnowledgeIndexerAgent } = await import(
+        '../src/lib/agents/knowledge-indexer-agent.js'
+      );
+      const agent = new KnowledgeIndexerAgent(supabase);
+      const result = await agent.run('event');
+      return `ag-29-knowledge-indexer completed (itemsProcessed=${result.itemsProcessed}/${result.itemsFound})`;
+    }
     case 'foundation-990-enrichment': {
       // AG-42 Change Monitor's chain target for a detected
       // foundation_directory change (queueChainedAgent(

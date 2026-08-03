@@ -50,6 +50,7 @@ import unzipper from "unzipper";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { StealthEngine } from "@/lib/scraper/stealth-engine";
 import { IRS990Source } from "@/lib/enrichment/sources/irs990";
+import { enqueueKnowledgeIndexerTrigger } from "@/lib/agents/knowledge-indexer-agent";
 
 // --- config ------------------------------------------------------------------
 
@@ -653,6 +654,20 @@ async function processFoundation(
       log(`WARN [${row.id}] failed to write enrichment: ${error.message}`);
       return { enriched: false, strategy: "none" };
     }
+
+    // AG-29 Knowledge Engine Indexer event trigger: this update doesn't
+    // itself write `programs`/`enrichment.mission` (the fields the indexer
+    // embeds), but a future enrichment pass on this same row might have -
+    // enqueueing here is a cheap, safe no-op via the indexer's own
+    // embedding-IS-NULL / real-content check whenever it doesn't. Best
+    // effort - never blocks or fails the scrape itself.
+    await enqueueKnowledgeIndexerTrigger(supabase, "foundation_directory", row.id).catch(
+      (queueErr: unknown) => {
+        log(
+          `WARN [${row.id}] failed to enqueue knowledge indexer trigger: ${queueErr instanceof Error ? queueErr.message : String(queueErr)}`,
+        );
+      },
+    );
 
     return { enriched: true, strategy };
   } catch (err) {
