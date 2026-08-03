@@ -1027,6 +1027,53 @@ export async function runLearningNetworkPipeline(
   }
 }
 
+/**
+ * AG-10 Grant DNA Analysis Agent weekly pipeline: unlike AG-36/AG-38 (which
+ * are platform-level, not per-org), AG-10's output (funder_dna_profiles) is
+ * scoped per (organization_id, funder_id) — so this iterates every active
+ * org and runs GrantDnaAgent's 'schedule' scope (every funder with new
+ * opportunities since last analysis, capped at MAX_FUNDERS_PER_SCHEDULED_RUN)
+ * for each. Self-gated to Sunday only (isSundayChicago()), same
+ * approximation of weekly cadence as the AG-36 pipeline above —
+ * worker/scheduler.ts has no day-of-week concept, only fixed hour:minute
+ * jobs that fire once per calendar day.
+ */
+export async function runGrantDnaWeeklyPipeline(
+  supabase: SupabaseClient,
+): Promise<void> {
+  if (!isSundayChicago()) {
+    console.log(
+      '[AutonomousOrchestrator] AG-10 grant DNA weekly pipeline skipped (not Sunday, America/Chicago).',
+    );
+    return;
+  }
+
+  const orgs = await getActiveOrgs(supabase);
+  console.log(
+    `[AutonomousOrchestrator] AG-10 grant DNA weekly pipeline starting for ${orgs.length} active org(s).`,
+  );
+
+  const { GrantDnaAgent } = await import('../src/lib/agents/grant-dna-agent.js');
+
+  for (const org of orgs) {
+    try {
+      const agent = new GrantDnaAgent(org.id, supabase);
+      const result = await agent.run('schedule');
+      console.log(
+        `[AutonomousOrchestrator] AG-10 org ${org.id} complete: ${result.itemsProcessed}/${result.itemsFound} profile(s) updated, success=${result.success}.`,
+      );
+    } catch (err) {
+      console.error(
+        `[AutonomousOrchestrator] AG-10 grant DNA pipeline failed for org ${org.id}:`,
+        errMsg(err),
+      );
+    }
+    await sleep(SLEEP_BETWEEN_ORGS_MS);
+  }
+
+  console.log('[AutonomousOrchestrator] AG-10 grant DNA weekly pipeline complete.');
+}
+
 // --- agent_queue processor --------------------------------------------------------
 
 interface AgentQueueRow {
@@ -1346,6 +1393,19 @@ async function routeQueueItem(
       const agent = new AutonomousDigestAgent(orgId, supabase);
       const result = await agent.run('manual');
       return `ag-digest completed (itemsProcessed=${result.itemsProcessed}/${result.itemsFound})`;
+    }
+    case 'ag-10-grant-dna': {
+      // AG-10, src/lib/agents/grant-dna-agent.ts — event-driven off a new
+      // `outcomes` insert (POST /api/autonomous/grant-dna-trigger, enqueues
+      // input_payload: { funderId }), same convention as 'ag-28-followup'
+      // above. Also wired into a dedicated Sunday 3AM CST weekly slot via
+      // runGrantDnaWeeklyPipeline() — this case adds the on-demand/event path.
+      const { GrantDnaAgent } = await import(
+        '../src/lib/agents/grant-dna-agent.js'
+      );
+      const agent = new GrantDnaAgent(orgId, supabase);
+      const result = await agent.run('event');
+      return `ag-10-grant-dna completed (itemsProcessed=${result.itemsProcessed}/${result.itemsFound})`;
     }
     default:
       throw new Error(`Unknown agent_queue agent_id: "${item.agent_id}".`);

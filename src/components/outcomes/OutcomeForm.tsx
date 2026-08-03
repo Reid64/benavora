@@ -174,6 +174,18 @@ export function OutcomeForm({ application, onSaved, onCancel }: OutcomeFormProps
       }).catch(() => undefined);
     }
 
+    // Trigger AG-10 (Grant DNA Analysis Agent) - per AGENTS_v2.md's spec,
+    // event-chained on every outcomes insert for an application whose
+    // opportunity has a non-null funder_id. Best-effort, same as the two
+    // triggers above: queues an agent_queue row, never blocks the user.
+    if (application.funderId) {
+      void fetch("/api/autonomous/grant-dna-trigger", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ funderId: application.funderId }),
+      }).catch(() => undefined);
+    }
+
     setSubmitting(false);
     onSaved?.();
   }

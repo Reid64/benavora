@@ -92,6 +92,25 @@ const jobs: ScheduledJob[] = [
       ),
   },
   {
+    // AG-10 Grant DNA Analysis Agent — per-org, weekly, Sunday 3:00 AM CST
+    // per AGENTS_v2.md's AG-10 spec ("off-peak, matching the existing
+    // weekly-cadence convention already used for foundation-enrichment-
+    // weekly"). Shares this hour:minute slot with foundation-enrichment-
+    // weekly below — jobs at the same slot all fire independently, matching
+    // this file's existing precedent (e.g. AG-36 at hour 6 self-guards
+    // Sunday inside its own pipeline function rather than needing a unique
+    // slot). Real day-of-week gating lives inside
+    // runGrantDnaWeeklyPipeline() (isSundayChicago()), not here.
+    name: 'AG-10 grant DNA weekly pipeline',
+    hour: 3,
+    minute: 0,
+    lastFiredOnDateKey: null,
+    run: (supabase) =>
+      import('./autonomous-orchestrator.js').then(
+        ({ runGrantDnaWeeklyPipeline }) => runGrantDnaWeeklyPipeline(supabase),
+      ),
+  },
+  {
     // Foundation directory enrichment (STANDING_DIRECTIVES.md Directive 1,
     // src/lib/scraper/foundation-scraper.ts). Weekly, Sunday 3AM CST — same
     // precedent as the AG-36 entry above: this file has no day-of-week
