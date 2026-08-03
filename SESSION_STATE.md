@@ -1,10 +1,53 @@
 # BENAVORA — Session State
 ## Last Updated: August 3, 2026
-## Mode: AG-27 Board Meeting Packet Agent built and wired per enterprise spec
+## Mode: AG-27 Board Meeting Packet Agent live-verified end-to-end against real org data
 
 ---
 
 ## Current Session (most recent)
+
+**Date:** August 3, 2026
+**Focus:** Live-test AG-27 (`BoardPacketAgent`) against the real Faith Foundation org
+(`b1ab7402-dfc2-4712-869f-70ea3566cc1d`), no mocks — closing the gap the prior same-day build
+session explicitly left open ("zero rows in production... nothing could be live-execution-tested...
+a future session should create a real board_meetings row and re-run this agent live once one
+exists").
+**Status:**
+- Confirmed migration 111 is genuinely applied live (`agent_type` enum value + `UNIQUE(meeting_id)`
+  constraint), not just committed — checked directly via `DATABASE_URL`/psql before touching anything.
+  This agent does **not** carry the enum-gap problem that blocked AG-15/17/19/25/28/30 for weeks.
+- Created one real, explicitly-marked-synthetic `board_meetings` row (`meeting_date` set to the exact
+  outer edge of the daily-schedule's `[today, today+2]` window), then invoked the real, unmodified,
+  exported `runBoardPacketDailyPipeline()` directly.
+- **All 5 requested checks confirmed:** (1) scope query correctly picked up the test meeting at the
+  edge of its window; (2) all three packet sections populated correctly — pipeline (42 real open
+  opportunities) and financial (real $75K budget/staff/volunteers) had real data, outcomes correctly
+  fell back to "first meeting, no outcomes" (this org's real `outcomes` table is genuinely empty);
+  (3) Claude-generated `recommendedDiscussionItems`/`groundedIn` citations **could not be verified**
+  — root-caused directly to the pre-existing dead local `ANTHROPIC_API_KEY` (401, confirmed via an
+  isolated Anthropic API call independent of this agent's code), not a defect in `BoardPacketAgent`
+  itself, which correctly degraded to an honest empty-item fallback rather than crashing or
+  fabricating; (4) idempotency confirmed at all three independent layers (scope-exclusion on a
+  second pipeline run, a real `23505` unique-violation on a raw duplicate insert, and the
+  application-level existence-check guard on a direct third `agent.run()` call) — packet count
+  stayed at exactly 1 throughout; (5) a real `createNotification()` `alerts` row confirmed written.
+- Cleaned up both synthetic rows (`board_meetings`, `board_meeting_packets`) and independently
+  re-verified both tables back to zero rows platform-wide, matching the pre-test state exactly. Kept
+  the real `agent_runs`/`agent_decisions`/`alerts` rows this live run genuinely produced, per this
+  project's established convention for live-verification sessions.
+- Appended full results to `AGENT_VERIFICATION_LOG.md`'s new "AG-27" entry; updated
+  `STATE_OF_THE_BUILD.md` with the current real status.
+
+**Net result:** AG-27 is now confirmed working end-to-end against real production data on every
+dimension except the Claude-generated discussion items, which remain blocked by a known,
+pre-existing environment issue (invalid local Anthropic API key) unrelated to this agent's own code.
+**Commit:** `test(agents): live-verify AG-27 Board Meeting Packet Agent against real data` (this session).
+**Gates:** not run this session — no application code changed, only test data (created and deleted)
+and governance/log documentation.
+
+---
+
+## Prior Session — August 3, 2026 (AG-27 build)
 
 **Date:** August 3, 2026
 **Focus:** Build AG-27 (Board Meeting Packet Agent) per `AGENTS_v2.md` §5's full enterprise spec,

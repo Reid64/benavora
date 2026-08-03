@@ -1,8 +1,75 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 3, 2026 (AG-27 Board Meeting Packet Agent built and wired per enterprise spec; enum + UNIQUE(meeting_id) constraint applied live). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 3, 2026 (AG-27 Board Meeting Packet Agent live-verified end-to-end against real Faith Foundation org data — daily-schedule scope, all three packet sections, triple-layer idempotency, and the real notification all confirmed working; the Claude-generated discussion-items citations remain blocked by the pre-existing dead local Anthropic API key, not a defect in this agent). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 3, 2026 (AG-27 Board Meeting Packet Agent — live end-to-end verification)
+
+Full evidence in `AGENT_VERIFICATION_LOG.md`'s new "AG-27" entry. Summary here for build-status
+tracking. This session closes the exact gap the prior same-day build session flagged as its own
+open item: *"Both `board_meetings` and `board_meeting_packets` currently have zero rows in
+production... nothing in this session could be live-execution-tested against real meeting data...
+A future session should create a real `board_meetings` row and re-run this agent live once one
+exists."*
+
+**Pre-flight, confirmed live (not assumed):** migration 111's `agent_type` enum value
+(`ag-27-board-packet`) and `UNIQUE(meeting_id)` constraint on `board_meeting_packets` are genuinely
+applied to production — this agent does **not** carry the enum-gap problem that blocked most of its
+siblings for weeks (AG-15/17/19/25/28/30). Faith Foundation org qualifies for `getActiveOrgs()`
+scope (`onboarding_completed: true`, subscription `active`); its 3 real board members are on file;
+`board_meetings`/`board_meeting_packets` were confirmed empty platform-wide (zero blast-radius risk
+from invoking the real, all-org daily pipeline function directly).
+
+**Test method:** inserted one real, explicitly-marked-synthetic `board_meetings` row for this org,
+`meeting_date` set to the exact outer edge of the daily-schedule scope window (`today+2`, computed
+via the same Chicago-timezone logic the orchestrator itself uses), then invoked the real, unmodified,
+exported `runBoardPacketDailyPipeline()` directly — no mocks.
+
+**Results, all live-confirmed:**
+1. **Scope query** correctly picked up the test meeting at the edge of its window — both by direct
+   query replication and by the real pipeline's own log output. **PASS.**
+2. **All three packet sections** populated correctly: pipeline (42 real open opportunities, real
+   data) and financial (real `$75,000` budget/staff/volunteers, real data) both had real content;
+   outcomes correctly fell back to the genuine "first meeting, no outcomes recorded" case — this
+   org's real `outcomes` table is genuinely empty, confirmed independently before the test, not a
+   bug. `agent_decisions.action_payload`'s self-reported `2/3 real, 1/3 fallback` tally matched the
+   packet content exactly. **PASS**, with one minor observation flagged for later: the pipeline
+   query's 90-day window has no lower bound, so a handful of already-past-deadline open
+   opportunities appeared alongside real upcoming ones — not fixed this session, out of scope.
+3. **Claude-generated discussion items / groundedIn citations** — **could not be verified.** The
+   agent's own 3-attempt retry genuinely exhausted against the same pre-existing dead local
+   `ANTHROPIC_API_KEY` (root-caused directly via an isolated call to the real Anthropic API, `401
+   authentication_error`) already blocking Claude calls for essentially every other agent in this
+   log, then correctly degraded to an empty item list with an honest `narrativeUnavailable` note
+   rather than crashing or fabricating output. This is confirmed as the pre-existing environment
+   blocker, **not a new defect in BoardPacketAgent** — but the actual citation-grounding behavior
+   itself remains unverified pending a valid key.
+4. **Idempotency — all three independent layers tested and held:** re-running the daily pipeline a
+   second time correctly found zero meetings in scope (scope-exclusion); a raw duplicate insert
+   against the live `UNIQUE(meeting_id)` constraint was rejected with a real `23505` error
+   (database-level backstop); a third, direct `agent.run("manual", [meetingId])` call found the
+   meeting but wrote nothing because its own pre-insert existence check caught it
+   (application-level guard). Packet count stayed at exactly 1 throughout. **PASS on all three.**
+5. **Real `createNotification()` alert** confirmed written — a genuine `alerts` row, correctly
+   org-scoped, with the shared `AutonomousAgent` implementation's exact message/dedup-key shape.
+   **PASS.**
+
+**Cleanup confirmed complete:** both synthetic rows (`board_meetings`, `board_meeting_packets`)
+deleted and independently re-verified gone, both by id and by a platform-wide row count on each
+table (`0`/`0`, matching the pre-test empty state exactly). The real `agent_runs`/`agent_decisions`/
+`alerts` rows this live run genuinely produced were kept as legitimate audit trail, per this
+project's established convention for live agent-verification sessions.
+
+**Net status:** AG-27 is now the rare case in this log where *every* dimension except the Claude
+call itself (blocked by a known, pre-existing environment issue, not this agent) is confirmed
+working end-to-end against real production data on the very first live test — no schema-drift bugs,
+no wiring gaps, no enum-gap block found.
+
+Gates: not re-run this session (no application code changed; only test data was written and
+deleted, and the two governance/log docs updated).
 
 ---
 

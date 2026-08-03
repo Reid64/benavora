@@ -3001,3 +3001,250 @@ cross-agent read this task asked about, without attempting (and without claiming
 a full `AG-40.run()`. All temporary verification scripts (6 `.mjs` files at the repo root, 3 `.ts`
 files under `scripts/`) were deleted after use; `git status` confirmed clean of any new files before
 committing; no repo files were modified except this log.
+
+---
+
+## AG-27
+
+**Spec under test:** `AGENTS_v2.md` §5, AG-27 "Board Meeting Packet Agent" — a July-19-dated section
+of that document still describes this as PLANNED with "no implementation exists." That is stale:
+`FEATURE_REGISTRY_v2.md` row #137 confirms an "Enterprise build spec, written 2026-08-03," and a
+same-day commit (`8943220`, "feat(agents): build AG-27 Board Meeting Packet Agent per enterprise
+spec") shipped a real implementation. **This entry is the first live, functional (not just
+compile-gate) verification of that implementation**, run against the real Faith Foundation org
+(`b1ab7402-dfc2-4712-869f-70ea3566cc1d`) with a real, temporary test `board_meetings` row — no
+mocks, per this project's established live-verification discipline for autonomous agents.
+
+**Real file:** `src/lib/agents/board-packet-agent.ts`, class `BoardPacketAgent extends
+AutonomousAgent`, `agentId: "ag-27-board-packet"`. Wired into `worker/autonomous-orchestrator.ts`
+two ways: `runBoardPacketDailyPipeline()` (daily-schedule primary trigger, exported and directly
+callable) and `agent_queue` case `'ag-27-board-packet'` (event-chained safety net for short-notice
+meetings). Migration `src/supabase/migrations/111_ag27_board_packet.sql` adds the `agent_type` enum
+value and a `UNIQUE(meeting_id)` constraint on `board_meeting_packets`.
+
+### Pre-flight: confirm the migration actually landed live, not just committed
+
+Checked directly via `DATABASE_URL`/`psql` before touching any agent code, per this project's
+standing "migration file exists ≠ applied live" discipline (the exact failure mode that blocked
+AG-15/17/19/25/28/30 for weeks, per this log's earlier `agent_type` enum-gap entries):
+
+- `agent_type` enum: `SELECT unnest(enum_range(NULL::agent_type))` filtered to `ag-27%` → returns
+  exactly `ag-27-board-packet`. **Live and present.**
+- `board_meeting_packets` constraints: `board_meeting_packets_meeting_id_unique — UNIQUE
+  (meeting_id)` confirmed present, alongside the pre-existing PK and the `ON DELETE CASCADE` FK to
+  `board_meetings`. **Live and present.**
+- `board_meetings`/`board_meeting_packets` live column sets both match exactly what the agent's own
+  code and header comment claim (`board_meetings`: `id, org_id, meeting_date [date], meeting_type,
+  agenda, status, created_at`; `board_meeting_packets`: `id, org_id, meeting_id, packet_content
+  [jsonb], generated_at, viewed_by [array]`).
+
+Migration 111 is genuinely live, not just a committed file — this agent does not inherit the
+enum-gap problem that blocked most of its siblings.
+
+### Pre-flight: org/data state, checked before writing any test data
+
+- Org: `FAITH Foundation`, `onboarding_completed: true`, `annual_budget: 75000`, `total_staff: 2`,
+  `total_volunteers: 2`. Subscription `status: 'active'` — this org is a genuine member of
+  `getActiveOrgs()`'s scope, not something that would need special-casing to reach the daily
+  pipeline.
+- `board_members` for this org: 3 real, `is_active: true` rows — Reid Whitesides (Founder &
+  President), Pastor Juan Valdez (Secretary & Protector), Scott Ellis (Treasurer) — matching the
+  AG-32 entries earlier in this log exactly.
+- `board_meetings` and `board_meeting_packets`: **0 rows in all of production, every org**, before
+  this test — confirming (a) no blast radius risk from invoking the real, exported, all-org
+  `runBoardPacketDailyPipeline()` function directly (no other org has a meeting that could
+  accidentally get swept up), and (b) this test is a genuine first exercise of this agent against
+  live data, not a repeat.
+- `opportunities` for this org: 209 total `status='open'` rows; `outcomes` for this org: **0 rows**
+  — a real, not fabricated, empty outcomes history for this org, directly relevant to check 2 below.
+
+### Test data created (synthetic, stated explicitly, deleted after — see cleanup below)
+
+One real `board_meetings` row, inserted via the live service-role client:
+```json
+{
+  "org_id": "b1ab7402-dfc2-4712-869f-70ea3566cc1d",
+  "meeting_date": "2026-08-05",
+  "meeting_type": "board_meeting",
+  "status": "scheduled",
+  "agenda": "SYNTHETIC TEST MEETING — AG-27 BoardPacketAgent live verification pass, 2026-08-03. This row and its generated packet are test data and will be deleted after verification. Review Q3 pipeline and recent funder outcomes."
+}
+```
+`meeting_date` was set to exactly `chicagoDateString(now, +2)` — computed via the identical
+`Intl.DateTimeFormat`/`America/Chicago` logic `resolveBoardPacketScope()` itself uses (read directly
+from `worker/autonomous-orchestrator.ts:201-213`), landing the test meeting on the **outer edge** of
+the spec's `[today, today+2]` window — a deliberately tight, non-trivially-passing case, not a
+comfortably-mid-window date.
+
+### Check 1 — daily-schedule scope query picks up the test meeting within its window
+
+Replicated `resolveBoardPacketScope()`'s exact query (`status='scheduled' AND meeting_date BETWEEN
+today AND today+2`, read directly from the orchestrator source, not guessed) against the live DB
+before invoking anything: the test meeting (`meeting_date: 2026-08-05`, window `[2026-08-03,
+2026-08-05]`) was correctly returned as a scope candidate.
+
+**Result: PASS.** Then invoked the real, unmodified, exported `runBoardPacketDailyPipeline(supabase)`
+directly (`node --import tsx`, dynamic `import("../worker/autonomous-orchestrator.ts")` — no mock,
+no reimplementation) — its own log output confirmed the same conclusion independently: `"AG-27 board
+packet daily pipeline starting for 1 org(s)"` → `"AG-27 org b1ab7402-... complete: 1 meeting(s)
+scoped, 1/1 packet(s) written, success=true."`
+
+### Check 2 — all three packet sections populated with real data, or a genuine "nothing to report" fallback
+
+Read the persisted `board_meeting_packets.packet_content` back in full after the run:
+
+| Section | Result | Honest reason |
+|---|---|---|
+| `pipelineSummary` | **Real data.** `count: 42`, 42 real opportunity names/categories/amounts/deadlines (CEVSS, Texas CDBG-Housing, SHOP, DOE Office of Science, etc.) — genuinely this org's real `opportunities` rows with `status='open'` and `deadline <= now+90d`. | This org has 209 real open opportunities; 42 fall inside the 90-day upper-bound window as coded (no lower bound — a small number of already-past deadlines, e.g. one dated `2022-06-15`, are included because `buildPipelineSummary()`'s query is `lte(deadline, windowEnd)` only, with no `gte(deadline, today)` floor; this is the agent's real, as-shipped behavior, not something this verification pass was asked to fix, but worth flagging for a future session). |
+| `outcomesSinceLastMeeting` | **Genuine "nothing to report" fallback**, both halves: `isFirstMeeting: true` (correctly detected — 0 prior `board_meeting_packets` rows existed for this org before this run) and `count: 0` (correctly reflects this org's real, empty `outcomes` table, confirmed 0 rows in the pre-flight check above) — `note: "This is the first tracked board meeting for this organization — showing outcomes from the trailing 90 days rather than \"since last meeting.\" No outcomes were recorded in this window."` | This org genuinely has zero recorded outcomes — not a bug, not a fabricated fallback; both the "first meeting" framing and the "no outcomes" framing are independently and simultaneously true for this org's real state. |
+| `financialSnapshot` | **Real data.** `annualBudget: 75000, totalStaff: 2, totalVolunteers: 2` — this org's real `organizations` row, `annual_budget` is non-null so no fallback note was attached. | Matches the pre-flight org read exactly. |
+
+`agent_decisions.action_payload` independently confirms the same tally: `{"sectionsWithRealData": 2,
+"sectionsFallback": 1, "itemCount": 0}` — the agent's own self-reported bookkeeping matches what was
+directly observed in the packet content, not just asserted.
+
+**Result: 2/3 sections real data, 1/3 genuine fallback — correctly reported as such in both the
+packet and the decision log. PASS**, with the pipeline-window lower-bound observation flagged above
+for a future session (not fixed here, out of this verification pass's scope).
+
+### Check 3 — Claude-generated `recommendedDiscussionItems` groundedIn citations — BLOCKED, not fabricated
+
+`recommendedDiscussionItems: []`, and `packetContent.narrativeUnavailable: "Discussion-item synthesis
+unavailable this run (Claude call failed after 3 attempts)."` — the agent's own documented
+degrade-gracefully path (spec's Error handling section: 3-attempt exponential backoff, then ship the
+deterministic sections with an empty item list rather than blocking the whole packet) fired for
+real.
+
+**Root-caused, not just observed:** made a direct, isolated `POST /v1/messages` call to the real
+Anthropic API using the exact `ANTHROPIC_API_KEY` from `.env.local` (bypassing this agent, this
+project's `callClaude()` wrapper, and any retry logic entirely) — result:
+```
+status: 401
+{"type":"error","error":{"type":"authentication_error","message":"API key is invalid."}}
+```
+This is the identical, already-standing local-environment blocker documented repeatedly elsewhere in
+this log (AG-20, AG-21, AG-24, AG-15's scoring step, AG-26/AG-40's narrative steps, etc.) — **not a
+new defect in `BoardPacketAgent`**. The agent's own 3-attempt retry (`callClaudeWithRetry()`,
+1s/2s/4s backoff) genuinely ran and genuinely exhausted against this same dead key, then correctly
+fell through to its documented degraded output rather than crashing the run or fabricating discussion
+items.
+
+**Result: could not be verified this session — blocked by the pre-existing invalid local Claude API
+key, not a defect in this agent.** The `groundedIn`-citation spot-check this check asked for could
+not be performed because zero discussion items were generated. This should be re-attempted in a
+future session with a valid `ANTHROPIC_API_KEY` before `recommendedDiscussionItems` is trusted as
+functioning correctly end-to-end — everything upstream of the Claude call (prompt construction,
+citing real `opportunities[i]` indices, the degrade-on-failure path) is confirmed working; the
+actual generation-and-citation behavior itself is not.
+
+### Check 4 — idempotency, tested three independent ways
+
+1. **Scope-exclusion (the primary guarantee):** re-invoked the real `runBoardPacketDailyPipeline()`
+   a second time. Its own log: `"AG-27 board packet daily pipeline: no meetings need a packet
+   today."` — the meeting no longer appeared in scope because a packet already existed. Confirmed
+   independently: exactly 1 `board_meeting_packets` row for this meeting after the second run (no
+   duplicate). **PASS.**
+2. **Raw duplicate insert against the live `UNIQUE(meeting_id)` constraint**, bypassing the
+   application layer entirely: attempted a second, direct `board_meeting_packets` insert for the
+   same `meeting_id` via the service-role client. Result: rejected with `code: "23505"`, `"duplicate
+   key value violates unique constraint \"board_meeting_packets_meeting_id_unique\""`. **PASS** —
+   this is the real, live database-level backstop the spec calls for, not just the application-level
+   guard.
+3. **Direct third invocation of the agent itself** (`new BoardPacketAgent(orgId, supabase).run("manual",
+   [meetingId])`, bypassing the daily-schedule scope query's exclusion entirely, to test
+   `processOneMeeting()`'s own pre-insert existence check in isolation): returned
+   `{"success":true,"itemsFound":1,"itemsProcessed":0,...}` — found the meeting (since it was
+   explicitly passed in), but wrote nothing (`itemsProcessed: 0`) because its own existence check
+   found the packet already there. Packet count confirmed still 1 afterward. **PASS.**
+
+All three independent layers of the idempotency guarantee (scope-query exclusion, application-level
+existence check, database-level unique constraint) were each individually exercised and each held.
+
+### Check 5 — real `createNotification()` alert written
+
+Queried `alerts` for this org filtered to `dedup_key ILIKE 'autonomous:ag-27-board-packet:%'` after
+the run:
+```json
+{
+  "type": "system",
+  "severity": "info",
+  "message": "Board packet ready: Board packet ready for the 2026-08-05 board_meeting meeting.",
+  "dedup_key": "autonomous:ag-27-board-packet:board_packet_ready:d2b95671-2ae0-41b7-bc2c-dfb5e1696069"
+}
+```
+A real row, correctly org-scoped, with the exact `type: "system"`/`title: message` concatenation and
+`autonomous:{agentId}:{type}:{uuid}` dedup-key shape `AutonomousAgent.createNotification()`'s shared
+implementation writes for every agent in this codebase. **PASS.**
+
+### `agent_runs` row, independently re-queried
+
+```json
+{
+  "agent_type": "ag-27-board-packet",
+  "status": "completed",
+  "items_found": 1,
+  "items_processed": 1,
+  "output_summary": "1/1 board packet(s) written."
+}
+```
+Confirms the run completed cleanly end-to-end, matching every other result observed directly in
+this entry — not inferred from the in-process return value alone.
+
+### Cleanup — confirmed complete
+
+Deleted the test `board_meeting_packets` row (1 row) then the test `board_meetings` row (1 row) via
+the service-role client (the packet row's FK is `ON DELETE CASCADE` off `board_meetings`, so it
+would have cascaded automatically regardless — deleted explicitly first anyway rather than relying
+on the cascade blindly). Re-queried both by id afterward: zero rows remaining for either. Re-queried
+both tables' full row counts platform-wide afterward: **`board_meetings: 0`, `board_meeting_packets:
+0`** — back to the exact pre-test empty state confirmed in the pre-flight check above. The real
+`agent_runs`/`agent_decisions`/`alerts` rows this live run genuinely produced were **not** deleted —
+consistent with this log's established convention (see the AG-16/AG-17/AG-26 entries above) of
+treating a real agent-run's audit trail as legitimate history to keep, not test pollution to scrub;
+`agent_decisions.entity_id` has no FK constraint back to `board_meetings` (confirmed via
+`pg_constraint` before cleanup), so the now-dangling `entity_id` reference is harmless and consistent
+with how a real meeting's own eventual deletion would behave in production too.
+
+### Root-cause summary
+
+1. **`AGENTS_v2.md`'s AG-27 spec is stale** (July 19 dated, "PLANNED, no implementation exists") —
+   superseded by the 2026-08-03 build; this entry is the first live confirmation that build actually
+   works, not just compiles.
+2. **Confirmed working end-to-end, live, against real data:** the daily-schedule trigger, its
+   day-granularity window logic, the deterministic pipeline/outcomes/financial sections (including
+   both the real-data and genuine-fallback cases), the `agent_decisions`/`agent_runs`/`alerts` audit
+   trail, and all three independent layers of the idempotency guarantee.
+3. **Not verified, blocked by a pre-existing, already-documented environment issue, not a defect in
+   this agent:** the Claude-generated `recommendedDiscussionItems` and their `groundedIn` citations —
+   the local `ANTHROPIC_API_KEY` is invalid, confirmed via a direct, isolated API call independent of
+   this agent's own code.
+4. **New, minor observation for a future session:** `buildPipelineSummary()`'s 90-day window has no
+   lower bound, so already-past-deadline open opportunities can appear in a packet's pipeline
+   section — not fixed here, flagged for later.
+
+**Recommendation:** re-run this same test (or simply invoke `agent.run("manual", [meetingId])`
+against a fresh test meeting) once a valid `ANTHROPIC_API_KEY` is available, specifically to verify
+`recommendedDiscussionItems` are genuinely grounded (each `groundedIn` value should resolve to a real
+index/field in the same packet's `pipelineSummary`/`outcomesSinceLastMeeting`/`financialSnapshot`/
+`agenda`) before trusting that half of this agent's output. Consider adding a `gte(deadline, today)`
+floor to `buildPipelineSummary()`'s query so a board packet doesn't list opportunities whose deadline
+has already passed.
+
+**Verification method:** live schema checks via `DATABASE_URL`/`psql` (enum value, unique constraint,
+both tables' real column sets) before writing any test data; live pre-flight reads of the real org,
+board members, existing `board_meetings`/`board_meeting_packets`/`opportunities`/`outcomes` state;
+one real, temporary `board_meetings` row inserted via the service-role client with an explicit
+"SYNTHETIC TEST MEETING" agenda marker; direct invocation of the real, unmodified, exported
+`runBoardPacketDailyPipeline()` from `worker/autonomous-orchestrator.ts` (via `node --import tsx`
+dynamic import, no mocks) as the primary end-to-end test, re-invoked a second time for the
+scope-exclusion idempotency check; a raw duplicate `board_meeting_packets` insert to independently
+test the live `UNIQUE(meeting_id)` constraint; a third, direct `BoardPacketAgent.run("manual", ...)`
+invocation to test the application-level existence-check guard in isolation; every
+`board_meeting_packets`/`agent_runs`/`agent_decisions`/`alerts` row independently re-queried and read
+back after each step, never trusted from an in-process return value alone; a direct, isolated
+`POST /v1/messages` call to the real Anthropic API (bypassing this agent's own code entirely) to
+root-cause the empty-discussion-items result as the pre-existing invalid-API-key blocker rather than
+a defect in this agent. Both synthetic test rows were deleted after verification and confirmed gone,
+independently, by id and by a platform-wide row count on both tables. All temporary verification
+scripts (6 files under `scripts/`) were deleted after use; no repo files were modified except this
+log, `STATE_OF_THE_BUILD.md`, and `SESSION_STATE.md`.
