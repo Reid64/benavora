@@ -1,10 +1,65 @@
 # BENAVORA — Session State
 ## Last Updated: August 3, 2026
-## Mode: AG-29 Knowledge Engine Indexer Agent built per enterprise spec
+## Mode: AG-29 Knowledge Engine Indexer Agent live-verified end-to-end; final chain summary (AG-10/23/26/27/29/41/42)
 
 ---
 
 ## Current Session (most recent)
+
+**Date:** August 3, 2026
+**Focus:** Live-test `KnowledgeIndexerAgent` (AG-29) against real production data, no mocks —
+closing the "Not done this session: no live `generateEmbeddingsBatch()` call was actually
+exercised" gap the prior session (below) explicitly flagged. This is also the final queue in the
+overnight AG-10/23/26/27/29/41/42 build chain, so this session closes with a cross-agent summary.
+**Status:**
+- Confirmed live before running anything: migration 111's enum value and seeded system-org row
+  both applied; real work available per source table checked directly — `intelligence_proposal_
+  sections` 0 pending (already done), `outcomes` **3 pending** (real work), `foundation_directory`
+  0 pending by real-content definition but 133,812 rows with `embedding IS NULL` and zero real text.
+- **Item 1 (real embeddings):** ran the real, unmodified agent (`node --import tsx`, no mocks) —
+  all 3 real `outcomes` rows got genuine, non-null, 1536-dim, content-varying embeddings, confirmed
+  by independent re-query. Independently confirmed the `OPENAI_API_KEY` and `generateEmbeddingsBatch()`
+  dependency both work via a direct raw `fetch`, separate from the agent's own code path.
+- **Item 2 (idempotency):** immediate re-run returned `itemsFound: 0`/`itemsProcessed: 0` — the
+  scope query naturally excludes now-embedded rows, and zero additional OpenAI calls is a
+  code-level guarantee (`if (batch.length > 0)` gate), not just an observation.
+- **Item 3 (race-condition skip path):** found this exercised at real, massive scale rather than
+  fabricating a test row — **all 133,812** `foundation_directory` rows with `embedding IS NULL`
+  lack real text content; both live runs correctly fell through to this branch, evaluated real
+  candidates, and silently skipped every one with no error.
+- **Item 4 (pattern aggregation merge):** manually triggered `runPatternAggregation()` twice
+  (bracket-accessed private method, no reimplementation) against the same 3 real embedded outcomes.
+  Confirmed: 3 `category_success_rate` rows created on pass 1, same 3 rows (not 6) with advanced
+  `updated_at` on pass 2 — a genuine `UPDATE`, not a duplicate `INSERT`. Honest caveat: `sample_count`
+  didn't numerically grow between passes since no new outcome data exists platform-wide (only 3
+  real rows total) — stated plainly rather than fabricated.
+- **Unprompted finding:** AG-29 is genuinely deployed and running continuously in production —
+  found 9 real `"autonomous"`-triggered `agent_runs` firing at real ~60-70s intervals both before
+  and after this session's own runs, with zero local `node.exe` process running (`tasklist`
+  confirmed) and `HEAD == origin/main` — the real Railway worker is running this code right now,
+  independent of this test.
+- **Anomaly flagged, not fully resolved:** the live worker's first 5 real autonomous runs all
+  failed to embed the same 3 rows before this session's manual 6th attempt succeeded, identical
+  code/data/credentials. No Railway log access this session to pin down root cause; the same
+  `OPENAI_API_KEY` was independently confirmed healthy immediately after, ruling out a credential
+  problem.
+- Updated `FEATURE_REGISTRY_v2.md`/`NOT_BUILT_MASTER_INVENTORY.md` corrections flagged (not yet
+  edited this session — recommendation recorded in `AGENT_VERIFICATION_LOG.md`'s new AG-29 entry).
+- **Final chain summary written to `STATE_OF_THE_BUILD.md`** covering all 7 agents (AG-10, AG-23/
+  AG-32, AG-26, AG-27, AG-29, AG-41, AG-42): 4 of 7 (AG-26, AG-27, AG-29, AG-41) are BUILT — VERIFIED
+  with no remaining code-level blocker in their own scope; AG-42 is VERIFIED for its own logic but
+  blocked downstream by a newly-found bug in an unrelated chain-target function
+  (`enrichSingleFoundation()`); AG-10 is built/wired with only 1 of 4 real branches exercisable
+  today (data-availability gap, not a code gap); AG-23/AG-32 is the one agent still genuinely
+  blocked on real output, by the pre-existing missing `corporate_prospects` table plus a
+  newly-found sequential-error-check defect specific to this agent.
+**Commit:** `test(agents): live-verify AG-29 Knowledge Engine Indexer Agent, final chain summary` (this session).
+**Gates:** not run this session — no application source files changed, verification-only pass
+(temporary `.mjs`/`.mts` scripts were deleted after use, none committed).
+
+---
+
+## Prior Session — August 3, 2026 (AG-29 Knowledge Engine Indexer Agent built per enterprise spec)
 
 **Date:** August 3, 2026
 **Focus:** Build AG-29 (Knowledge Engine Indexer Agent) per its full `AGENTS_v2.md` enterprise

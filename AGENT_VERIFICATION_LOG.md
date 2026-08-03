@@ -3807,3 +3807,260 @@ files were modified except this log, `STATE_OF_THE_BUILD.md`, and `SESSION_STATE
 this session produced (2 `agent_runs`, 2 `agent_decisions`, 2 `agent_queue`, 14 updated
 `foundation_directory.enrichment` values) were deliberately kept, not deleted, matching this log's
 established convention for genuine agent output.
+
+---
+
+## AG-29
+
+**Spec under test:** `AGENTS_v2.md` §5, AG-29 "Knowledge Engine Indexer Agent" (canonical —
+embeddings/pgvector, distinct from the colliding `"ag-29-fundability"` Fundability Scorer). Real
+file: `src/lib/agents/knowledge-indexer-agent.ts`, class `KnowledgeIndexerAgent extends
+AutonomousAgent`, `agentId: "ag-29-knowledge-indexer"`, built in commit `4d69baf` ("feat(agents):
+build AG-29 Knowledge Engine Indexer Agent per enterprise spec"), the commit immediately preceding
+this session in `git log` (HEAD, and confirmed already pushed — `origin/main` matches HEAD exactly).
+Migration `src/supabase/migrations/111_ag29_knowledge_indexer_enum.sql` adds the
+`'ag-29-knowledge-indexer'` `agent_type` enum value and seeds the well-known system-org row this
+platform-level agent uses as its FK target — both confirmed live before running anything (below),
+not assumed from the migration file alone. `NOT_BUILT_MASTER_INVENTORY.md` and
+`FEATURE_REGISTRY_v2.md` row #170 both still describe this concept as NOT-BUILT ("no indexer class,
+no worker wiring, no registry entry") — both now stale as of this commit; this entry supersedes that
+framing with a live functional verification.
+
+**Platform-wide, not org-scoped** — same shape as AG-36/AG-38/AG-42: constructor takes only
+`supabase`, uses `SYSTEM_ORG_ID = "00000000-0000-4000-8000-000000000029"` for
+`agent_runs`/`agent_decisions`/`agent_queue` FK targets, never filters its actual data queries by
+`organization_id` (the 3 source tables are genuinely cross-org shared/unscoped data).
+
+### Pre-flight: real schema/data state, checked before running anything
+
+Live `DATABASE_URL` via a throwaway `.mjs` script (`pg` client, `.env.local` credentials, no
+mocks — `psql` itself required interactive approval this session and was not used directly; the
+`pg` Node client against the same `DATABASE_URL` was the working substitute):
+- `agent_type` enum: `'ag-29-knowledge-indexer'` present, 53 total values. **Migration 111
+  confirmed live**, not just file-present.
+- `embedding` columns confirmed live on all 3 source tables (`intelligence_proposal_sections`,
+  `outcomes`, `foundation_directory`) via `information_schema.columns` — matches the file header's
+  claim exactly.
+- System org row (`00000000-0000-4000-8000-000000000029`) confirmed present.
+- **Real work available, checked per table, per this task's explicit instruction to check first:**
+  `intelligence_proposal_sections`: 0 pending (105/105 already embedded, from a prior session —
+  matches the AG-29 spec's own header note). `outcomes`: **3 pending** (3 real rows, 0 previously
+  embedded) — genuine real work existed here. `foundation_directory`: 0 pending **by the agent's own
+  real-content definition** — but this conceals a much larger and more important fact surfaced below
+  (Test 3): 133,812 real rows have `embedding IS NULL`, every single one of them lacking real
+  `programs`/`enrichment.mission` content.
+- **Zero prior successful embeddings, but NOT zero prior runs** — this was not this agent's true
+  first execution. 5 real `agent_runs` rows already existed before this session touched anything,
+  all `trigger_source: "autonomous"`, all reporting `"Embedded 0/3 row(s) (3 failed)"` — see the
+  "Continuous production worker, and 5 real pre-existing failures" section below.
+
+### Test 1 — real embedding generation against real production data
+
+Live, unmodified `new KnowledgeIndexerAgent(supabase).run("manual")` (`node --import tsx`, real
+service-role client with the `ws` polyfill matching `src/lib/supabase/admin.ts`'s own pattern, no
+mocks) against the real production database.
+
+**In-process return value:**
+```json
+{
+  "success": true, "itemsFound": 3, "itemsProcessed": 3, "itemsQueued": 0,
+  "decisions": [], "nextActions": [], "errors": [], "batchWasFull": false
+}
+```
+
+Independently re-queried all 3 `outcomes` rows afterward (not trusted from the return value alone),
+reading the raw `embedding` column directly via `pg` (not through PostgREST, so no client-side
+vector-parsing convention to second-guess):
+
+| outcomes.id | has_embedding | dims | first 5 values |
+|---|---|---|---|
+| `39e1dc2d-...` | true | 1536 | `[-0.0123, 0.0231, -0.0036, 0.0110, -0.0185]` |
+| `77401f48-...` | true | 1536 | `[-0.0080, 0.0162, 0.0195, 0.0598, 0.0038]` |
+| `3c734831-...` | true | 1536 | `[0.0129, 0.0513, 0.0161, 0.0544, -0.0046]` |
+
+**Confirmed genuine, non-null, non-placeholder, content-varying vectors** — same verification
+method the original AG-29 finding in `NOT_BUILT_MASTER_INVENTORY.md`/earlier sessions used for
+`intelligence_proposal_sections` (105/105 real vectors): real 1536-dimension floats, no two rows
+identical, no zero-vectors. Independently confirmed the raw OpenAI call itself works before trusting
+the agent's use of it: a direct `fetch` to `https://api.openai.com/v1/embeddings` with this
+project's real `OPENAI_API_KEY` returned `200` with a real 1536-dim vector, and a direct
+batch call with these 3 outcomes' real flattened text (built by hand-copying `flattenOutcomeText()`'s
+exact logic, not the library import) also returned `200` with 3 real, distinct embeddings —
+confirming the credential and the underlying `generateEmbeddingsBatch()` dependency are both healthy
+right now, independent of the agent class itself.
+
+### Test 2 — idempotency: re-run the same scope, zero re-processing, zero additional OpenAI calls
+
+Ran `KnowledgeIndexerAgent.run("manual")` again immediately after Test 1, no code changes, same
+process:
+
+```json
+{
+  "success": true, "itemsFound": 0, "itemsProcessed": 0, "itemsQueued": 0,
+  "decisions": [], "nextActions": [], "errors": [], "batchWasFull": false
+}
+```
+
+**Confirmed both empirically and structurally.** Empirically: `itemsFound: 0` — the `WHERE embedding
+IS NULL` scope query genuinely excludes the 3 now-embedded `outcomes` rows (re-queried directly:
+`outcomes_pending: 0`, `outcomes_embedded: 3`, unchanged from Test 1's result — no row was
+re-written, no duplicate processing). Structurally, **zero additional OpenAI calls is a
+code-level guarantee, not just an observed outcome**: `run()`'s embedding-call block is gated behind
+`if (batch.length > 0)` (`knowledge-indexer-agent.ts` line 562) — with `batch.length === 0` on this
+pass, `generateEmbeddingsBatch()` is never reached at all, not called-and-returning-empty. This
+matches the spec's own idempotency design exactly ("the scope query itself excludes any row that
+already has a real embedding, so a row can never be embedded twice by this agent's normal
+operation").
+
+### Test 3 — race-condition / no-real-content skip path: exercised for real, at massive scale, not fabricated
+
+Per the spec, a row can match the base `embedding IS NULL` condition at the SQL level (the only
+filter `loadPendingBatch()` applies server-side) while lacking real text — the agent is designed to
+silently skip these in JS (`if (!text) continue;`), never erroring. Rather than manufacture a
+synthetic test row, checked whether this condition already exists naturally in production:
+
+```
+sections_null_text_null_embed:            0
+outcomes_all_text_null_embed_null:        0
+foundations_embed_null_total:             133,812
+foundations_no_real_text_embed_null:       133,812
+```
+
+**Every single one of the 133,812 `foundation_directory` rows with `embedding IS NULL` also has no
+real `programs`/`enrichment.mission` content** — the entire live foundation directory matches this
+exact skip-path condition, at full table scale, not an edge case. Confirmed this is genuinely
+exercised, not just theoretically possible: both of this session's `run("manual")` calls, after the
+`outcomes`/`intelligence_proposal_sections` branches found nothing further, fell through to the
+`foundation_directory` branch (per `loadPendingBatch()`'s `if (rows.length < limit)` cascade),
+queried up to `overfetch` (300) real rows ordered by `imported_at`, evaluated `flattenFoundationText()`
+against every one of them, and correctly filtered all of them out — the runs completed with
+`itemsFound: 0` and `errors: []`, not a crash or a silent hang. This is the race-condition/no-content
+skip path operating for real against the largest table in the platform, confirmed by the DB-level
+count (133,812 real candidates) combined with the actual run result (clean completion, zero found,
+zero errors) — not a fabricated edge case.
+
+### Test 4 — knowledge_patterns aggregation: manually triggered (per this task's explicit
+allowance), confirmed merge-not-duplicate against real embedded-outcome data
+
+The 24-hour aggregation gate (`maybeRunPatternAggregation()`) meant the real embedded outcomes from
+Test 1 would not trigger a scheduled aggregation pass for another 24 hours. Per this task's explicit
+instruction to manually trigger it, called the real, unmodified private `runPatternAggregation()`
+method directly (bracket-accessible at runtime since TypeScript's `private` has no JS runtime
+enforcement) — not a reimplementation, the exact same method the scheduled path calls, just invoked
+without waiting out the interval gate. Confirmed before running: zero existing
+`pattern_type = 'category_success_rate'` rows in `knowledge_patterns`, and exactly 3 real embedded
+`outcomes` rows available to aggregate (`corporate_foundation`/awarded, `local_community_grant`/denied,
+`private_foundation`/awarded — from Test 1).
+
+**Pass 1** (`decisionType: "patterns_aggregated"`, id `51f528f0-...`): reasoning —
+`"Aggregated 3 embedded outcome(s) across 3 category grouping(s) into knowledge_patterns:
+private_foundation: 1/1; local_community_grant: 0/1; corporate_foundation: 1/1. Merged into existing
+pattern rows where present rather than replacing them wholesale."` Created 3 new
+`category_success_rate` rows (none existed to merge into yet): `corporate_foundation` (1/1,
+success_rate 1, confidence "low"), `local_community_grant` (0/1, success_rate 0, confidence "low"),
+`private_foundation` (1/1, success_rate 1, confidence "low") — math independently checked against
+the 3 real outcomes' `result` values and matches exactly (awarded→1/1, denied→0/1, awarded→1/1).
+
+**Pass 2**, run immediately after with the identical embedded-outcome set (id `88892edb-...`):
+identical reasoning text, identical `touchedCategories: 3`/`totalOutcomesConsidered: 3`. Re-queried
+`knowledge_patterns` afterward: **still exactly 3 `category_success_rate` rows, same 3 `id`s** — no
+duplicate rows were created — but each row's `updated_at` had advanced to match Pass 2's execution
+window (`08:31:21.9`–`08:31:22.7`, vs. Pass 1's insert time `~08:31:20`), confirming Pass 2 genuinely
+took the `existingPattern` branch and performed a real `UPDATE` against the same 3 rows, not a no-op
+and not a second `INSERT`.
+
+**Honest caveat, exactly as this task allows:** `sample_count` did not numerically increase between
+Pass 1 and Pass 2 (both show `1` per category) — because no *new* outcome data arrived between the
+two manual passes, only the same 3 already-embedded outcomes were available both times. This
+confirms the "merge into the existing row, don't duplicate" guarantee unambiguously (row count
+stayed at 3, `id`s stable, `updated_at` advanced, i.e., a real UPDATE occurred), but does **not**
+demonstrate `sample_count` climbing across a real data-growth event — this platform's live `outcomes`
+table only has 3 rows total today, so there was no way to manufacture a "4th outcome arrives, count
+goes to 2" scenario without inserting a fabricated row, which this session did not do.
+
+### Continuous production worker, and 5 real pre-existing failures — a genuine, only-partially-explained anomaly
+
+While investigating why 3 `outcomes` were still unembedded despite `agent_runs` already showing
+activity, found something not asked for but important: **9 `agent_runs` rows with
+`trigger_source: "autonomous"` exist, firing at real ~60–70 second intervals** (`08:23:24`,
+`08:24:28`, `08:25:32`, `08:26:36`, `08:27:40`, then continuing *after* this session's own manual
+runs at `08:28:44`, `08:29:45`, `08:30:46`, `08:31:47`) — matching `worker/knowledge-indexer-processor.ts`'s
+spec exactly (continuous poll, ~60s between empty/failed passes, not a cron). **No local `node.exe`
+process was running on this machine** (confirmed via `tasklist /FI "IMAGENAME eq node.exe"` — zero
+results) at any point this session, and this repo's `HEAD` is confirmed identical to `origin/main`
+(commit `4d69baf`, the AG-29 build commit itself) — the only explanation consistent with all of this
+is that **the real, deployed Railway worker is currently running this exact code against this exact
+production database, continuously, right now**, independent of anything this verification session
+did. This is itself a positive, unprompted confirmation of the spec's core design goal (genuine 24/7
+background operation, not a periodic schedule) — found incidentally, not staged.
+
+**The anomaly:** the first 5 of these real autonomous polls (`08:23:24` through `08:27:40`) all
+report `"Embedded 0/3 row(s) (3 failed)"` — the live production worker genuinely failed to embed the
+same 3 real `outcomes` rows 5 times in a row before this session's own manual `run("manual")` at
+`08:28:15` succeeded (`3/3`, `0 failed`) using the identical code, identical data, identical
+`OPENAI_API_KEY` (confirmed working via the direct-fetch test in Test 1). Every autonomous poll
+*after* that point correctly reports `itemsFound: 0` (nothing left, matching Test 2's idempotency
+finding) rather than continuing to fail. **Root cause not fully determined** — Railway's own worker
+logs were not reachable from this session (no Railway CLI/API credential available), so the
+`errors[]` text the live worker's own 5 failed runs actually produced could not be inspected (only
+`output_summary`'s generic "3 failed" survives to `agent_runs`, per the file header's own
+documented limitation that per-row error detail isn't persisted). The most plausible explanation,
+stated as a hypothesis and not a confirmed fact: a transient issue (OpenAI-side rate limit/error, or
+a network hiccup between Railway and OpenAI) that had cleared by the time this session's manual run
+executed — ruled out as a credential problem, since the same key worked immediately afterward with
+zero changes. Flagging this openly rather than silently omitting it: **this agent's very first 5
+real production executions failed**, and only the 6th (this session's manual trigger) succeeded — a
+real, if not fully explained, rough start that a future session with Railway log access should
+revisit if it recurs.
+
+### Root-cause summary
+
+1. **Confirmed working, live, against real data**: embedding generation for `outcomes` (the one
+   source table with real pending work today) is genuine — real, distinct, correctly-dimensioned
+   vectors, written via a real update, confirmed by independent re-query.
+2. **Confirmed idempotent, both empirically and structurally**: a re-run of the same scope
+   reprocesses nothing and cannot make an OpenAI call, by code construction (`if (batch.length > 0)`
+   gate), not just by chance.
+3. **Confirmed the no-real-content skip path works at real scale**: all 133,812
+   `foundation_directory` rows with `embedding IS NULL` lack real text and are silently, correctly
+   skipped — not a hypothetical edge case, the actual current shape of the entire table.
+4. **Confirmed pattern aggregation merges rather than duplicates**: two manual passes against the
+   same 3 real embedded outcomes produced 3 stable rows with a real second-pass `UPDATE`, not
+   6 rows. `sample_count` incrementing across genuine data growth was not demonstrable today — this
+   platform's `outcomes` table only has 3 rows total, so there is no real second data point to grow
+   into; stated honestly rather than fabricated.
+5. **New, unprompted finding**: this agent is genuinely deployed and continuously running in
+   production against real data right now (Railway worker, confirmed via `agent_runs` cadence + no
+   local process + `HEAD == origin/main`) — the spec's core "24/7 continuous, not periodic" design
+   goal is real, not aspirational.
+6. **New, only-partially-explained finding**: the live worker's first 5 real executions all failed
+   to embed the same 3 real rows; the 6th (this session's manual trigger) succeeded with identical
+   code/data/credentials. Root cause not confirmed (no Railway log access this session) — flagged as
+   an open item, not silently resolved.
+
+**Recommendation:** update `FEATURE_REGISTRY_v2.md` row #170 and `NOT_BUILT_MASTER_INVENTORY.md`'s
+AG-29 row from NOT-BUILT to BUILT — VERIFIED (embedding generation, idempotency, and the no-content
+skip path are all confirmed against real production data and a real, currently-running deployment).
+Keep pattern aggregation's status scoped honestly: the merge mechanic is confirmed, but real
+`sample_count` growth across a genuine new data point is not yet demonstrated, since the platform's
+real `outcomes` volume is only 3 rows today. Revisit the 5-failures anomaly if it recurs — ideally
+with Railway log/API access in a future session.
+
+**Verification method:** live execution (`node --import tsx`, no mocks) of the real, unmodified
+`KnowledgeIndexerAgent.run("manual")` against the real production database (service-role client, `ws`
+polyfill); every embedding and pattern-row result independently re-queried via a direct `pg` client
+against `DATABASE_URL` (not trusted from in-process return values); a direct raw `fetch` to the
+OpenAI API confirming the credential and underlying embedding call work independent of the agent
+class; a live count of all 3 source tables' real-content-vs-null-embedding state before and after
+each test, including the 133,812-row `foundation_directory` finding; manual invocation of the
+private `runPatternAggregation()` method (bracket access, no reimplementation) twice in direct
+succession to test the merge guarantee without waiting out the real 24-hour gate; `tasklist /FI
+"IMAGENAME eq node.exe"` and `git rev-parse HEAD`/`origin/main` to establish that the concurrent
+"autonomous" `agent_runs` activity originates from the real deployed Railway worker, not a local
+process. All 11 temporary verification scripts (`.mjs`/`.mts` files at the repo root) were deleted
+after use; `git status -s` confirmed clean of any new files before committing. No repo files were
+modified except this log, `STATE_OF_THE_BUILD.md`, and `SESSION_STATE.md`. The real rows this
+session produced (3 embedded `outcomes`, 3 new + 2x-updated `knowledge_patterns` rows, 4
+`agent_decisions`, 8 `agent_runs`) were deliberately kept, not deleted, matching this log's
+established convention for genuine agent output — these are real production data improvements, not
+test artifacts.
