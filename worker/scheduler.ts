@@ -162,6 +162,26 @@ const jobs: ScheduledJob[] = [
       ),
   },
   {
+    // AG-26 Funding Forecast Agent — per-org, monthly, 1st of month 4:00 AM
+    // CST, per AGENTS_v2.md's AG-26 spec ("a 90-day/12-month forecast is,
+    // by construction, a slow-moving number... a monthly cadence matches
+    // how a development team actually consumes a forecast"). Shares this
+    // hour:minute slot with 'AG-38 self-improvement pipeline' above — jobs
+    // at the same slot fire independently (same precedent as AG-10/
+    // foundation-enrichment-weekly both at 3:00). Real month-of-year gating
+    // lives inside runFundingForecastMonthlyPipeline() (isFirstOfMonthChicago()),
+    // not here.
+    name: 'AG-26 funding forecast monthly pipeline',
+    hour: 4,
+    minute: 0,
+    lastFiredOnDateKey: null,
+    run: (supabase) =>
+      import('./autonomous-orchestrator.js').then(
+        ({ runFundingForecastMonthlyPipeline }) =>
+          runFundingForecastMonthlyPipeline(supabase),
+      ),
+  },
+  {
     // Nonprofit contact-enrichment agent (STANDING_DIRECTIVES.md Directive 1,
     // src/lib/scraper/nonprofit-scraper.ts). Weekly, Sunday 4AM CST — staggered
     // one hour after foundation-enrichment-weekly (3AM) so the two scrapers'

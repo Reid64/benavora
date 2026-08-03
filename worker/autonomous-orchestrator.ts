@@ -65,6 +65,12 @@
 //     half already has a live call site at
 //     /api/autonomous/track-submission). Gated monthly (isFirstOfMonthChicago)
 //     to match its own "monthly correlation-analysis pass" design.
+//   requested AG-26 FundingForecastAgent -> FundingForecastAgent (AG-26, exact match)
+//     src/lib/agents/funding-forecast-agent.ts. Per-org, monthly. Its spec's
+//     own "Trigger Type: schedule — monthly, 1st of month, 4:00 AM CST" is
+//     honored literally with a real, dedicated worker/scheduler.ts slot
+//     (mirrors AG-38's precedent) rather than folded into the 2AM sweep —
+//     see runFundingForecastMonthlyPipeline() below.
 //   requested AG-36 LearningNetworkAggregatorAgent -> LearningNetworkAggregatorAgent (AG-36, exact match)
 //     src/lib/agents/learning-network-aggregator-agent.ts. Platform-wide, not
 //     per-org (constructor takes only `supabase`, same shape as AG-38) — runs
@@ -1072,6 +1078,58 @@ export async function runGrantDnaWeeklyPipeline(
   }
 
   console.log('[AutonomousOrchestrator] AG-10 grant DNA weekly pipeline complete.');
+}
+
+/**
+ * AG-26 Funding Forecast Agent monthly pipeline: per AGENTS_v2.md's AG-26
+ * spec ("Trigger Type: schedule — monthly, 1st of month, 4:00 AM CST...
+ * Trigger Condition: all orgs, unconditionally"). Unlike AG-10/AG-36 (Sunday
+ * -gated), this self-gates on isFirstOfMonthChicago() — worker/scheduler.ts
+ * has no month-of-year concept, only fixed hour:minute jobs that fire once
+ * per calendar day, so monthly cadence is approximated the same way this
+ * file's own isFirstOfMonthChicago() already approximates it for the
+ * AG-08..AG-12/AG-35/AG-39 steps folded into the 2AM sweep — the difference
+ * here is AG-26 gets its own dedicated 4:00 AM scheduler.ts slot (spec's
+ * explicit fixed clock time) rather than sharing the 2AM per-org sweep.
+ * Runs unconditionally for every active org — a zero-opportunity org still
+ * gets an honest $0 forecast, per the spec's own step 2 branch a.
+ */
+export async function runFundingForecastMonthlyPipeline(
+  supabase: SupabaseClient,
+): Promise<void> {
+  if (!isFirstOfMonthChicago()) {
+    console.log(
+      '[AutonomousOrchestrator] AG-26 funding forecast monthly pipeline skipped (not the 1st of the month, America/Chicago).',
+    );
+    return;
+  }
+
+  const orgs = await getActiveOrgs(supabase);
+  console.log(
+    `[AutonomousOrchestrator] AG-26 funding forecast monthly pipeline starting for ${orgs.length} active org(s).`,
+  );
+
+  const { FundingForecastAgent } = await import(
+    '../src/lib/agents/funding-forecast-agent.js'
+  );
+
+  for (const org of orgs) {
+    try {
+      const agent = new FundingForecastAgent(org.id, supabase);
+      const result = await agent.run('schedule');
+      console.log(
+        `[AutonomousOrchestrator] AG-26 org ${org.id} complete: ${result.itemsProcessed} row-set(s) written, success=${result.success}.`,
+      );
+    } catch (err) {
+      console.error(
+        `[AutonomousOrchestrator] AG-26 funding forecast pipeline failed for org ${org.id}:`,
+        errMsg(err),
+      );
+    }
+    await sleep(SLEEP_BETWEEN_ORGS_MS);
+  }
+
+  console.log('[AutonomousOrchestrator] AG-26 funding forecast monthly pipeline complete.');
 }
 
 // Per-org cap on how many incremental board-member candidates get processed
