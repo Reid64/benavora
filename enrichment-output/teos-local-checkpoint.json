@@ -1,0 +1,15 @@
+{
+  "completedZips": [
+    "2023_TEOS_XML_01A"
+  ],
+  "filingsParsed": 21513,
+  "parseFailed": 0,
+  "einsExtracted": 20585,
+  "matchedFoundation": 2044,
+  "updatedFoundation": 2044,
+  "matchedNonprofits": 19166,
+  "updatedNonprofits": 19166,
+  "unmatched": 1415,
+  "startedAt": "2026-08-01T03:34:59.127Z",
+  "updatedAt": "2026-08-01T04:56:35.630Z"
+}

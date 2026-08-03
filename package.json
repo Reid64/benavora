@@ -57,6 +57,7 @@
         "acquire:prospects": "tsx scripts/acquire-corporate-prospects.ts",
         "populate:all": "tsx scripts/populate-all-data.ts",
         "enrich:990xml": "tsx scripts/enrich-990-xml.ts",
+        "import:teos-local": "tsx scripts/import-teos-local.ts",
         "enrich:nonprofit-websites": "tsx scripts/enrich-website-contacts.ts",
         "enrich:contacts": "tsx scripts/enrich-website-contacts.ts",
         "enrich:nonprofits-pp": "tsx scripts/enrich-nonprofits-bmf-propublica.ts",
