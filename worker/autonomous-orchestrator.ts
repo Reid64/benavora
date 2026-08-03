@@ -1074,6 +1074,163 @@ export async function runGrantDnaWeeklyPipeline(
   console.log('[AutonomousOrchestrator] AG-10 grant DNA weekly pipeline complete.');
 }
 
+// Per-org cap on how many incremental board-member candidates get processed
+// in a single daily pass — mirrors AG-10's MAX_FUNDERS_PER_SCHEDULED_RUN
+// design (a bounded scheduled run regardless of platform growth; any
+// remaining candidates roll to the next day's run rather than growing one
+// run unboundedly). Board rosters change rarely, so this should rarely bind
+// in practice — it exists as a safety cap, not a tuned throughput target.
+const MAX_BOARD_MEMBERS_PER_INCREMENTAL_RUN = 25;
+
+interface IncrementalBoardMemberCandidate {
+  id: string;
+  organization_id: string;
+}
+
+/**
+ * Resolves AG-23's incremental scope query (AGENTS_v2.md §5, AG-23 spec):
+ * "board member with no pig_nodes row yet, or updated since their existing
+ * node". Implemented client-side (fetch both sides, diff in JS) rather than
+ * a single SQL NOT EXISTS/LEFT JOIN, since supabase-js has no join syntax
+ * for this shape and every other cross-table diff in this codebase's agents
+ * (e.g. relationship-graph-builder-agent.ts's own rules 5-8) already uses
+ * this same fetch-then-filter pattern.
+ *
+ * Scoped to `activeOrgIds` (onboarding_completed + active/trialing
+ * subscription, per getActiveOrgs() — the same scoping every other per-org
+ * nightly step in this file already applies) so this never processes a
+ * board member belonging to an inactive or unonboarded org.
+ *
+ * Returns candidates grouped by org — one entry in the returned map per org
+ * that has at least one board member needing processing. An org with zero
+ * candidates is simply absent from the map (not an empty array), so the
+ * caller only invokes the agent for orgs that actually have real work.
+ */
+async function resolveIncrementalBoardMemberScope(
+  supabase: SupabaseClient,
+  activeOrgIds: Set<string>,
+): Promise<Map<string, string[]>> {
+  const { data: boardRows, error: boardError } = await supabase
+    .from('board_members')
+    .select('id, organization_id, updated_at')
+    .eq('is_active', true);
+
+  if (boardError || !boardRows || boardRows.length === 0) {
+    if (boardError) {
+      console.error(
+        '[AutonomousOrchestrator] AG-23 scope resolution failed to load board_members:',
+        boardError.message,
+      );
+    }
+    return new Map();
+  }
+
+  const { data: nodeRows, error: nodeError } = await supabase
+    .from('pig_nodes')
+    .select('entity_id, updated_at')
+    .eq('entity_table', 'board_members');
+
+  if (nodeError) {
+    console.error(
+      '[AutonomousOrchestrator] AG-23 scope resolution failed to load pig_nodes:',
+      nodeError.message,
+    );
+    return new Map();
+  }
+
+  const nodeUpdatedAtByEntityId = new Map<string, string>(
+    (nodeRows ?? []).map((n) => [n.entity_id as string, n.updated_at as string]),
+  );
+
+  const candidates: IncrementalBoardMemberCandidate[] = [];
+  for (const member of boardRows as Array<{
+    id: string;
+    organization_id: string;
+    updated_at: string;
+  }>) {
+    if (!activeOrgIds.has(member.organization_id)) continue;
+
+    const nodeUpdatedAt = nodeUpdatedAtByEntityId.get(member.id);
+    const needsProcessing =
+      !nodeUpdatedAt || new Date(member.updated_at) > new Date(nodeUpdatedAt);
+    if (needsProcessing) {
+      candidates.push({ id: member.id, organization_id: member.organization_id });
+    }
+  }
+
+  const byOrg = new Map<string, string[]>();
+  for (const candidate of candidates) {
+    const existing = byOrg.get(candidate.organization_id);
+    if (existing) {
+      if (existing.length < MAX_BOARD_MEMBERS_PER_INCREMENTAL_RUN) {
+        existing.push(candidate.id);
+      }
+    } else {
+      byOrg.set(candidate.organization_id, [candidate.id]);
+    }
+  }
+  return byOrg;
+}
+
+/**
+ * AG-23/AG-32 Relationship Mapper — daily incremental pipeline
+ * (AGENTS_v2.md §5, AG-23 spec). Resolves resolveIncrementalBoardMemberScope()
+ * above, then runs RelationshipGraphBuilderAgent (the real AG-32
+ * implementation AG-23's own spec identifies as this capability — see that
+ * file's header) once per org that has at least one candidate, scoped to
+ * just those board member ids via the new optional run() parameter. Org-
+ * level rules 5-8 and the corporate_intent_signals seed still run every
+ * time the agent runs for an org, per the agent's own design — only the
+ * Claude+web-search board-member connection discovery (rules 1-4) is scoped
+ * incrementally.
+ *
+ * Unlike AG-10/AG-36 above, this is NOT gated to a single day of the week —
+ * AG-23's spec calls for a daily sweep specifically because it's
+ * incremental (only orgs/board-members with real new signal do any work),
+ * not a periodic full rebuild.
+ */
+export async function runRelationshipGraphIncrementalPipeline(
+  supabase: SupabaseClient,
+): Promise<void> {
+  const activeOrgs = await getActiveOrgs(supabase);
+  const activeOrgIds = new Set(activeOrgs.map((o) => o.id));
+
+  const scopeByOrg = await resolveIncrementalBoardMemberScope(supabase, activeOrgIds);
+  if (scopeByOrg.size === 0) {
+    console.log(
+      '[AutonomousOrchestrator] AG-23 relationship graph incremental pipeline: no board members need processing today.',
+    );
+    return;
+  }
+
+  console.log(
+    `[AutonomousOrchestrator] AG-23 relationship graph incremental pipeline starting for ${scopeByOrg.size} org(s).`,
+  );
+
+  const { RelationshipGraphBuilderAgent } = await import(
+    '../src/lib/agents/relationship-graph-builder-agent.js'
+  );
+
+  for (const [orgId, boardMemberIds] of scopeByOrg) {
+    try {
+      const agent = new RelationshipGraphBuilderAgent(orgId, supabase);
+      const result = await agent.run('schedule', boardMemberIds);
+      console.log(
+        `[AutonomousOrchestrator] AG-23 org ${orgId} complete: ${boardMemberIds.length} board member(s) scoped, ` +
+          `${result.itemsProcessed}/${result.itemsFound} item(s) processed, success=${result.success}.`,
+      );
+    } catch (err) {
+      console.error(
+        `[AutonomousOrchestrator] AG-23 relationship graph incremental pipeline failed for org ${orgId}:`,
+        errMsg(err),
+      );
+    }
+    await sleep(SLEEP_BETWEEN_ORGS_MS);
+  }
+
+  console.log('[AutonomousOrchestrator] AG-23 relationship graph incremental pipeline complete.');
+}
+
 // --- agent_queue processor --------------------------------------------------------
 
 interface AgentQueueRow {

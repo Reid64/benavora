@@ -1,8 +1,70 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 3, 2026 (AG-10 live-verified: agent_type enum gap + a second, previously-undocumented agent_runs.output_payload gap both fixed live; zero-opportunity skip branch confirmed working; branches 1/2/4 honestly unreachable with this org's real data). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 3, 2026 (AG-23/AG-32 Relationship Mapper wired into a new daily 5:30 AM CST incremental schedule — real code shipped, run() gained an optional scope parameter, but the schedule has not yet fired live; still blocked downstream by the known missing `corporate_prospects` table). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 3, 2026 (AG-23/AG-32 Relationship Mapper wired into daily incremental schedule)
+
+Per `AGENTS_v2.md`'s AG-23 spec (Section 5), which states outright that the AG-23/RA-01
+"Relationship Mapper" concept is already fully implemented as AG-32
+(`src/lib/agents/relationship-graph-builder-agent.ts`, `RelationshipGraphBuilderAgent`) and that a
+second, competing AG-23-labeled implementation would be wrong — verified this by reading the real
+file in full (1,224 lines) before writing any code, not by taking the spec's word for it. Confirmed:
+the file's own header comment independently makes the same identification
+("this feature has 'no new agent number' — it is an extension of AG-23"), and it is real, working
+code (rules 1-4 board-member connection discovery via Claude+web-search, rules 5-8 deterministic
+org-level foundation-matching, both writing to the real, live `pig_nodes`/`pig_edges` tables). No
+new agent class was built.
+
+**What shipped — the two real gaps the spec identified, both closed:**
+
+1. **`RelationshipGraphBuilderAgent.run()` gained an optional `boardMemberIds?: string[]` scope
+   parameter.** When provided (non-empty), the board-member query is restricted to that id list via
+   `.in("id", ...)` instead of loading every active board member for the org (still capped at the
+   existing `MAX_BOARD_MEMBERS_PER_RUN = 10`). Org-level rules 5-8 and the `corporate_intent_signals`
+   node-seeding step are unaffected by this scope — per the spec, only the expensive Claude+
+   web-search board-member discovery (rules 1-4) needed to become incrementally scopable.
+2. **A new daily 5:30 AM CST scheduler job** — `'AG-23 relationship graph incremental pipeline'` in
+   `worker/scheduler.ts`, calling a new exported `runRelationshipGraphIncrementalPipeline()` in
+   `worker/autonomous-orchestrator.ts`. Per the spec's own design and stated rationale (a daily
+   incremental sweep does real work only where there's real new signal — a board member with no
+   `pig_nodes` row yet, or updated since their existing node's `updated_at` — versus a weekly full
+   rebuild re-running every board member's web-search call even when nothing changed), the caller
+   resolves this incremental scope itself (`resolveIncrementalBoardMemberScope()`, a client-side
+   fetch-and-diff over `board_members` vs. `pig_nodes` — supabase-js has no `NOT EXISTS`/`LEFT JOIN`
+   syntax for this, so this follows the same fetch-then-filter pattern already used by this agent's
+   own rules 5-8), scoped to active orgs only (`getActiveOrgs()`, matching every other per-org
+   nightly step's convention) and capped per org at a new
+   `MAX_BOARD_MEMBERS_PER_INCREMENTAL_RUN = 25` safety bound (mirroring AG-10's
+   `MAX_FUNDERS_PER_SCHEDULED_RUN` design — excess candidates roll to the next day's run rather than
+   growing one run unboundedly). Only orgs with ≥1 real candidate get a `run('schedule', ids)` call;
+   an org with nothing to do is simply absent from the resolved scope map, not an empty no-op call.
+
+**Explicitly not attempted, per the task's own instruction:** the `corporate_prospects` missing-table
+blocker (shared with AG-20/21/22/24/30, confirmed still absent live as of the AG-32 re-verification
+entries in `AGENT_VERIFICATION_LOG.md`). Reaching that known failure point cleanly for the
+`corporate_prospects`-dependent half of this agent's work is this task's correct, expected outcome —
+not a bug to chase. Board-member-to-**funder** connections and the deterministic rules 5-8
+(`foundation_directory`-scoped, no dependency on `corporate_prospects` at all) are unaffected by that
+blocker and should fully complete once this schedule actually fires.
+
+**Not yet done, flagged honestly:** the new 5:30 AM CST job has not fired live yet (scheduled work,
+not manually invoked this session) — the code is real and both `tsc` gates are clean, but "the
+schedule genuinely runs and produces real incremental output in production" has not been directly
+observed the way, e.g., AG-10/AG-17/AG-30's live re-runs were in earlier sessions. A future session
+should either wait for a natural 5:30 AM CST firing and check `agent_runs`/`agent_decisions` for a
+real `ag-32-relationship-graph` row with `trigger_source: 'schedule'`, or manually invoke
+`runRelationshipGraphIncrementalPipeline()` against the live worker to confirm end-to-end.
+
+Gates: `pnpm tsc --noEmit` — zero errors in all three edited files
+(`src/lib/agents/relationship-graph-builder-agent.ts`, `worker/autonomous-orchestrator.ts`,
+`worker/scheduler.ts`); the only errors in the full run are the same pre-existing,
+`src/__tests__/**`-confined failures documented across every prior session in this file, untouched
+by and unrelated to this change. `pnpm tsc -p worker/tsconfig.json --noEmit` — fully clean, zero
+output.
 
 ---
 

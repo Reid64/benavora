@@ -140,6 +140,28 @@ const jobs: ScheduledJob[] = [
     },
   },
   {
+    // AG-23/AG-32 Relationship Mapper — daily incremental pipeline, per
+    // AGENTS_v2.md AG-23 spec. Unlike the AG-10/AG-36 weekly jobs above,
+    // this fires every day: it's incremental (resolveIncrementalBoardMemberScope
+    // in autonomous-orchestrator.ts only selects board members with no
+    // pig_nodes row yet, or updated since their existing node), so most
+    // days' scope is empty or near-empty and a daily cadence costs nothing
+    // extra while surfacing a new/changed board member's connections within
+    // a day instead of waiting up to a week. Deliberately adopts
+    // BLUEPRINT_v2.md's daily-incremental design over
+    // AUTONOMOUS_PLATFORM_VISION.md's older weekly-full-rebuild framing —
+    // see AGENTS_v2.md's AG-23 spec for the full reasoning.
+    name: 'AG-23 relationship graph incremental pipeline',
+    hour: 5,
+    minute: 30,
+    lastFiredOnDateKey: null,
+    run: (supabase) =>
+      import('./autonomous-orchestrator.js').then(
+        ({ runRelationshipGraphIncrementalPipeline }) =>
+          runRelationshipGraphIncrementalPipeline(supabase),
+      ),
+  },
+  {
     // Nonprofit contact-enrichment agent (STANDING_DIRECTIVES.md Directive 1,
     // src/lib/scraper/nonprofit-scraper.ts). Weekly, Sunday 4AM CST — staggered
     // one hour after foundation-enrichment-weekly (3AM) so the two scrapers'

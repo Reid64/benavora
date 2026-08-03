@@ -1,10 +1,65 @@
 # BENAVORA — Session State
 ## Last Updated: August 3, 2026
-## Mode: AG-10 live-verified — both blocking bugs (enum gap + agent_runs.output_payload gap) found and fixed live; zero-opportunity skip branch confirmed real
+## Mode: AG-23/AG-32 Relationship Mapper wired into a new daily 5:30 AM CST incremental schedule
 
 ---
 
-## Current Session
+## Current Session (most recent)
+
+**Date:** August 3, 2026
+**Focus:** Per `AGENTS_v2.md`'s AG-23 spec, confirm the AG-23/RA-01 "Relationship Mapper" concept
+is already fully implemented as AG-32 (`RelationshipGraphBuilderAgent`) — not build a second,
+competing agent class — then close the two real gaps the spec identifies: (1) an optional
+board-member-id scope parameter on `run()`, (2) daily 5:30 AM CST scheduler wiring per the spec's
+incremental-vs-weekly-rebuild design.
+**Status:**
+- Read `src/lib/agents/relationship-graph-builder-agent.ts` in full (1,224 lines) before writing any
+  code — confirmed the spec's claim independently: the file's own header comment already
+  self-identifies as "the same agent as AG-23," and it is real, working code (Claude+web-search
+  board-member connection discovery, plus four deterministic org-level foundation-matching rules),
+  not a stub. No new agent class was built, per the spec's explicit instruction.
+- Added `boardMemberIds?: string[]` as an optional second parameter to
+  `RelationshipGraphBuilderAgent.run()`. When provided and non-empty, the board-member query scopes
+  to `.in("id", boardMemberIds)` instead of every active board member for the org (still capped at
+  the existing `MAX_BOARD_MEMBERS_PER_RUN`). Org-level rules 5-8 and the `corporate_intent_signals`
+  seed step are unaffected — untouched by this parameter, matching the spec's own scoping.
+- Implemented the incremental scope query as **caller-side** resolution (per the task's explicit
+  guidance), in a new `resolveIncrementalBoardMemberScope()` function in
+  `worker/autonomous-orchestrator.ts`: fetches active board members and existing `pig_nodes` rows
+  (`entity_table='board_members'`) separately and diffs them in JS (no board `pig_nodes` row yet, OR
+  the board member's `updated_at` is newer than their node's `updated_at`) — supabase-js has no
+  `NOT EXISTS`/`LEFT JOIN` syntax for this, so this follows the same fetch-then-filter pattern the
+  agent's own rules 5-8 already use. Scoped to active orgs only (`getActiveOrgs()`, matching every
+  other per-org nightly step), capped per org at a new `MAX_BOARD_MEMBERS_PER_INCREMENTAL_RUN = 25`
+  safety bound (mirroring AG-10's `MAX_FUNDERS_PER_SCHEDULED_RUN` design).
+- Added a new exported `runRelationshipGraphIncrementalPipeline()` that calls the scope resolver,
+  then calls `RelationshipGraphBuilderAgent.run('schedule', boardMemberIds)` once per org that
+  actually has ≥1 candidate (orgs with zero candidates are simply absent from the scope map, not an
+  empty no-op call).
+- Wired a new `worker/scheduler.ts` job, `'AG-23 relationship graph incremental pipeline'`, at 5:30
+  AM CST daily — **not** gated to a single day of the week like the AG-10/AG-36 weekly jobs, per the
+  spec's own explicit reasoning for choosing daily-incremental over weekly-full-rebuild.
+- **Did not** attempt to fix the `corporate_prospects` missing-table blocker, per the task's explicit
+  instruction — that table is confirmed still absent live (per `AGENT_VERIFICATION_LOG.md`'s AG-32
+  re-verification entries) and reaching that known failure point cleanly for the
+  `corporate_prospects`-dependent half of this agent's work is the correct, expected outcome here,
+  not a bug.
+- **Honest gap, not yet resolved this session:** the new 5:30 AM CST job has not fired live yet — no
+  manual invocation was run against the live worker/database this session, so "the schedule actually
+  fires and produces a real incremental run in production" is unverified, only "the code compiles and
+  is wired correctly" is confirmed. Flagged as the clear next step for whoever picks this up.
+
+Updated `STATE_OF_THE_BUILD.md` with a full session entry (see "SESSION — August 3, 2026 (AG-23/AG-32
+Relationship Mapper wired into daily incremental schedule)").
+**Commit:** `feat(agents): wire AG-23/AG-32 Relationship Mapper into daily incremental schedule`
+(this session).
+**Gates:** `pnpm tsc --noEmit` — zero errors in the three edited files (only pre-existing, unrelated
+`src/__tests__/**` failures in the full run, same set documented in every prior session in this
+file). `pnpm tsc -p worker/tsconfig.json --noEmit` — fully clean.
+
+---
+
+## Prior Session — August 3, 2026 (AG-10 live-verified)
 
 **Date:** August 3, 2026
 **Focus:** Live-test `GrantDnaAgent` (AG-10) against the real Faith Foundation org

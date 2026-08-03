@@ -53,15 +53,31 @@
 //     reads a bounded, recency-ordered slice of the shared pool instead of
 //     an org-filtered query, and that limitation is intentional, not a bug.
 //   - `agent_type` on `agent_runs` is a strict Postgres enum
-//     (AGENTS_v2.md §1.2). No migration has ever added an `ag-32-*` value.
-//     Exactly like the eleven other unwired AutonomousAgent subclasses
-//     documented in AGENTS_v2.md §1.2 (e.g. draft-generation-agent.ts,
-//     eligibility-scoring-agent.ts), this.startRun()'s agent_runs insert
-//     will fail against the live schema until a future migration adds
-//     'ag-32-relationship-graph' via ALTER TYPE ... ADD VALUE IF NOT
-//     EXISTS. This file is built and ready; it is not wired into any
-//     scheduler, queue route, or `routeQueueItem()` case, matching every
-//     other PLANNED agent's status in this codebase — see AGENTS_v2.md §1.1.
+//     (AGENTS_v2.md §1.2). RESOLVED 2026-08-02: 'ag-32-relationship-graph'
+//     was added live (see AGENT_VERIFICATION_LOG.md's enum-gap entries) and
+//     this agent was independently re-run and confirmed reaching real work
+//     (real board_members data loaded) up to the known corporate_prospects
+//     table-missing blocker (shared with AG-20/21/22/24/30) — no longer
+//     unreachable at startRun().
+//
+// --- Scheduler wiring, added 2026-08-03 (AG-23 spec, AGENTS_v2.md §5) ------
+//
+// run() now accepts an optional `boardMemberIds` scope parameter (see its
+// own doc comment below) so a caller can restrict a run to a specific set
+// of board members instead of always processing every active one. This is
+// wired into worker/scheduler.ts as a new daily 5:30 AM CST job
+// ('AG-23 relationship graph incremental pipeline' ->
+// runRelationshipGraphIncrementalPipeline in worker/autonomous-orchestrator.ts),
+// which resolves the incremental scope per org (board members with no
+// pig_nodes row yet, or updated since their existing node's updated_at) and
+// only calls run() for orgs that actually have candidates. Per AG-23's own
+// spec: daily-incremental was chosen over a weekly full-rebuild because a
+// full rebuild re-runs every board member's web-search Claude call weekly
+// even when nothing changed, while the incremental scope only does real
+// work where there's real new signal — cheaper at platform scale and
+// fresher (a new board member's connections surface within a day, not up
+// to a week later). Rules 5-8 (org-level) and the corporate_intent_signals
+// seed are unaffected by this scope — see the header on run() below.
 //
 // --- Phase 2 discovery rules (rules 5-8), added July 19, 2026 ---------------
 //
@@ -931,8 +947,23 @@ export class RelationshipGraphBuilderAgent extends AutonomousAgent {
     return seeded;
   }
 
+  /**
+   * @param boardMemberIds - Optional scope: when provided (and non-empty),
+   * only these board member ids are candidates for rules 1-4's Claude+
+   * web-search connection discovery, instead of every active board member
+   * for the org (up to MAX_BOARD_MEMBERS_PER_RUN). This is the caller-side
+   * incremental-scope hook AGENTS_v2.md's AG-23 spec asks for — the actual
+   * "which board members need processing" query (no pig_nodes row yet, or
+   * updated since their existing node) lives in the caller
+   * (worker/autonomous-orchestrator.ts's runRelationshipGraphIncrementalPipeline),
+   * not here, so this agent stays a pure "process this scope" function.
+   * Rules 5-8 (org-level) and the corporate_intent_signals seed are
+   * unaffected by this param — they always run once per invocation
+   * regardless of board member scope, matching the existing code below.
+   */
   override async run(
     triggerSource: TriggerSource,
+    boardMemberIds?: string[],
   ): Promise<AutonomousAgentResult> {
     const runId = await this.startRun(triggerSource);
     const errors: string[] = [];
@@ -944,13 +975,20 @@ export class RelationshipGraphBuilderAgent extends AutonomousAgent {
     let oneHopConnections = 0;
 
     try {
+      let boardQuery = this.supabase
+        .from("board_members")
+        .select("id, name, title, bio")
+        .eq("organization_id", this.orgId)
+        .eq("is_active", true);
+      if (boardMemberIds && boardMemberIds.length > 0) {
+        // Scoped run (incremental daily job) — restrict to the caller-
+        // resolved candidate set instead of every active board member.
+        boardQuery = boardQuery.in("id", boardMemberIds);
+      }
+      boardQuery = boardQuery.limit(MAX_BOARD_MEMBERS_PER_RUN);
+
       const [boardRes, funderRes, prospectRes] = await Promise.all([
-        this.supabase
-          .from("board_members")
-          .select("id, name, title, bio")
-          .eq("organization_id", this.orgId)
-          .eq("is_active", true)
-          .limit(MAX_BOARD_MEMBERS_PER_RUN),
+        boardQuery,
         this.supabase
           .from("funders")
           .select("id, name, website")
