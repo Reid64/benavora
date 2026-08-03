@@ -1,8 +1,45 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 3, 2026 (AG-23/AG-32 Relationship Mapper wired into a new daily 5:30 AM CST incremental schedule — real code shipped, run() gained an optional scope parameter, but the schedule has not yet fired live; still blocked downstream by the known missing `corporate_prospects` table). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 3, 2026 (AG-23/AG-32's new scheduled/incremental wiring live-verified — the scope query and boardMemberIds parameter both work correctly, but a real, previously-unstated defect means board-to-funder connection search does NOT yet run even though funders has no data dependency on the still-missing corporate_prospects table; corrects the prior same-day session's optimistic "should fully complete" claim). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 3, 2026 (AG-23/AG-32 scheduled incremental wiring: live-verified, one real defect found)
+
+Live-tested the scheduled/incremental wiring shipped in the session immediately below this one
+(`acc07cb`), against the real Faith Foundation org, no mocks — calling
+`RelationshipGraphBuilderAgent.run('schedule', boardMemberIds)` exactly the way
+`runRelationshipGraphIncrementalPipeline()` does. Full detail in `AGENT_VERIFICATION_LOG.md`'s new
+`## AG-23 — scheduled incremental wiring, live-verified against the real scoped run() path` entry.
+
+**Confirmed working:** the incremental scope-resolution query (`resolveIncrementalBoardMemberScope()`)
+correctly identifies both cases — "needs processing" (real data: all 3 of this org's real board
+members, since none has ever had a successful `pig_nodes` write) and "already up to date" (an
+isolated synthetic-row test, since this org's real data can't reach that state — the agent has never
+completed successfully). `run()`'s new `boardMemberIds` scope parameter correctly restricts the
+candidate set. The `pig_nodes`/`pig_edges` `UNIQUE` constraints backing the idempotency guarantee were
+verified directly using the agent's own real upsert patterns — both correctly reject/merge duplicates.
+
+**Correction to the prior session's claim below:** that entry states board-to-funder connections
+"are unaffected by [the `corporate_prospects`] blocker and should fully complete once this schedule
+actually fires." **This is not what happens.** Reading and live-testing `run()` shows `board_members`,
+`funders`, and `corporate_prospects` are fetched in one `Promise.all`, then error-checked
+*sequentially* — `corporate_prospects`'s error is thrown before the board-member loop (rules 1-4,
+the actual connection search) ever starts. So even though `funders` loads real, populated data with
+zero error, the connection-search loop never runs at all right now — confirmed live: `pig_nodes`/
+`pig_edges` counts stayed at 0/0 across two full scoped runs, not just the prospects-specific half.
+This is a real, independently fixable defect (reorder the error handling to degrade `corporate_prospects`
+to an empty array on failure instead of aborting) distinct from the already-known missing-table
+blocker itself — not fixed this session, per the task's scope (live-test only), but now documented
+precisely rather than left as an optimistic assumption.
+
+**`corporate_prospects` blocker:** reconfirmed via a fresh, independent raw REST check — identical
+`404 PGRST205` signature as every prior AG-20/21/22/24/30/32 finding. Not a regression from the new
+wiring; the wiring correctly reaches the same, already-diagnosed failure point.
+
+Gates: not run this session (no source files changed — verification only).
 
 ---
 

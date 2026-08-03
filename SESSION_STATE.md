@@ -1,10 +1,54 @@
 # BENAVORA — Session State
 ## Last Updated: August 3, 2026
-## Mode: AG-23/AG-32 Relationship Mapper wired into a new daily 5:30 AM CST incremental schedule
+## Mode: AG-23/AG-32 scheduled incremental wiring live-verified — one real defect found (board-to-funder search doesn't run yet)
 
 ---
 
 ## Current Session (most recent)
+
+**Date:** August 3, 2026
+**Focus:** Close the "honest gap" flagged by the prior same-day session (below): live-test the new
+scheduled/incremental wiring's scoped `run()` path against the real Faith Foundation org
+(`b1ab7402-dfc2-4712-869f-70ea3566cc1d`), no mocks, then independently re-query `agent_runs`/
+`pig_nodes`/`pig_edges` to confirm what actually happened — the prior session only confirmed the code
+compiles and is wired, not that it produces correct behavior when actually run.
+**Status:**
+- Called `RelationshipGraphBuilderAgent.run('schedule', boardMemberIds)` live, exactly the shape
+  `runRelationshipGraphIncrementalPipeline()` uses, twice in sequence (idempotency check).
+- **Confirmed working:** the incremental scope query correctly identifies both "needs processing"
+  (real data — all 3 of this org's real board members, since none has ever had a successful
+  `pig_nodes` write) and "already up to date" (isolated synthetic-row test, since real data can't
+  reach that state yet — the agent has never completed a run for this org). The `boardMemberIds`
+  scope parameter correctly restricts the candidate set.
+- **Confirmed broken, a real defect not previously stated explicitly:** board-member-to-funder
+  connection search does **not** run today, scoped or unscoped. `run()` fetches `board_members`,
+  `funders`, and `corporate_prospects` in one `Promise.all`, then checks errors *sequentially* before
+  the connection-search loop starts — so `corporate_prospects`'s error aborts the whole run before
+  the loop is ever reached, even though `funders` loaded real, populated data with zero error. This
+  directly contradicts the prior session's claim (line ~50 below) that board-to-funder connections
+  "are unaffected by [the corporate_prospects] blocker and should fully complete once this schedule
+  actually fires" — confirmed live: `pig_nodes`/`pig_edges` counts stayed at 0/0 across both scoped
+  runs, not just the prospects-specific half.
+- Verified the `corporate_prospects` blocker itself is unchanged (fresh raw REST check, identical
+  `404 PGRST205` signature as every prior AG-20/21/22/24/30/32 finding) — not a regression from the
+  new wiring.
+- Verified the `pig_nodes`/`pig_edges` `UNIQUE` constraints directly (using the agent's own real
+  upsert patterns) since the blocked full run can't itself demonstrate a genuine duplicate-prevention
+  test — both constraints confirmed sound.
+- All synthetic/test data (one `pig_nodes` row, one `pig_edges` row, one throwaway target node) was
+  deleted immediately after use; full cleanup independently re-confirmed via a final query.
+
+Appended a new `## AG-23` entry to `AGENT_VERIFICATION_LOG.md`, cross-referencing the existing
+`## AG-32` entries rather than duplicating them. Updated `STATE_OF_THE_BUILD.md` with a new session
+entry above the prior one, explicitly correcting its optimistic claim.
+**Commit:** `test(agents): live-verify AG-23/AG-32 scheduled wiring, confirm corporate_prospects
+blocker unchanged` (this session).
+**Gates:** not run — no source files changed, verification only (three throwaway scripts were
+created and deleted, never committed).
+
+---
+
+## Prior Session — August 3, 2026 (AG-23/AG-32 Relationship Mapper wired into daily incremental schedule)
 
 **Date:** August 3, 2026
 **Focus:** Per `AGENTS_v2.md`'s AG-23 spec, confirm the AG-23/RA-01 "Relationship Mapper" concept

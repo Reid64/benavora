@@ -2549,3 +2549,188 @@ Every throwaway script and debug `agent_runs`/`agent_queue` row created during t
 debugging was deleted before the final verification pass; the two real `agent_queue` rows used for
 Run 2/Run 3 were deleted immediately after use. No repo files were left behind beyond the two real
 migration files.
+
+---
+
+## AG-23 — scheduled incremental wiring, live-verified against the real scoped `run()` path
+
+**Spec under test:** `AGENTS_v2.md` §5, AG-23's "What real work remains" section — the daily
+5:30 AM CST incremental scheduler wiring closed in commit `acc07cb`
+(`feat(agents): wire AG-23/AG-32 Relationship Mapper into daily incremental schedule`):
+`worker/scheduler.ts`'s new job → `runRelationshipGraphIncrementalPipeline()` in
+`worker/autonomous-orchestrator.ts` → `resolveIncrementalBoardMemberScope()` (board members with no
+`pig_nodes` row yet, or updated since their existing node's `updated_at`) → a scoped
+`RelationshipGraphBuilderAgent.run('schedule', boardMemberIds)` call, one per org with ≥1 candidate.
+**This entry is deliberately not a duplicate of the existing `## AG-32` entries above** — per this
+document's own single-source-of-truth convention, this entry covers only what's new since those
+entries (the scoped-run wiring itself); the underlying agent's history (enum gap, `board_members`
+column fix, `corporate_prospects` blocker discovery) is not re-derived here — see `## AG-32
+board_members column bug — fixed, re-verified live, downstream blocker confirmed identical to
+AG-20/21/22/24/30` above for that.
+
+**Verdict: the new scheduled/incremental wiring itself works correctly — the scope-resolution query
+correctly distinguishes "needs processing" from "already up to date," and `run()`'s new
+`boardMemberIds` scope parameter correctly restricts which board members are candidates. But the
+scoped path inherits the exact same `corporate_prospects` blocker as every unscoped run, and a new,
+more consequential finding surfaced while confirming this: because the `corporate_prospects` fetch
+is bundled into the same `Promise.all` as `board_members`/`funders` and its error is checked and
+thrown before the board-member loop ever starts, the scoped wiring change does not currently let
+ANY board-member-to-funder connection search run — not even though `funders` is real, populated,
+and does not itself error. Task item 2's premise ("this part should not be blocked") does not hold
+against the code as it exists today — stated plainly below, not glossed over.**
+
+### Method
+
+Live execution (`node --import tsx`, no mocks) against the real Faith Foundation org
+(`b1ab7402-dfc2-4712-869f-70ea3566cc1d`), service-role client, production database
+(`vbjplpquqxxfbpazyalt`), calling `RelationshipGraphBuilderAgent.run('schedule', boardMemberIds)`
+exactly the way `runRelationshipGraphIncrementalPipeline()` does — same trigger-source string, same
+scoped-array argument shape, same class import. `resolveIncrementalBoardMemberScope()`'s own query
+logic (board_members left-joined against pig_nodes by `entity_id`/`updated_at` comparison) was
+reproduced verbatim in the test script from `worker/autonomous-orchestrator.ts`, not reimplemented
+from memory. Two throwaway scripts were used and deleted immediately after use; a third confirmed
+full cleanup. No repo files were left behind.
+
+### Item 1 — incremental scope query: both branches confirmed, one via real data, one via an isolated synthetic test
+
+**"Needs processing" branch — confirmed with real data, no fabrication needed.** This org's 3 real,
+active board members (Reid Whitesides, Pastor Juan Valdez, Scott Ellis) have never had a successful
+`pig_nodes` write (blocked by `corporate_prospects` since before this session — see the AG-32
+entries above), so `pig_nodes` has zero `entity_table='board_members'` rows for this org. The scope
+query correctly flagged all 3 as `NEEDS PROCESSING` (no `pig_nodes` row found for their `entity_id`),
+both before and after both live-run attempts below.
+
+**"Already up to date" branch — this org's real data honestly does not allow demonstrating this**,
+exactly as the task anticipated as a possibility: since the agent has never once completed
+successfully for this org, no board member has a real `pig_nodes` row with a real `updated_at` to
+compare against. Rather than leave this unverified, the scope-resolution *query logic* (not the full
+agent run) was tested in isolation: a synthetic `pig_nodes` row was seeded for one board member
+(Reid Whitesides) with `updated_at` set one year in the future, clearly labeled
+(`label: "TEST-SYNTHETIC-..."`, `metadata: {synthetic_test: true}`), and the same scope query was
+re-run. Result: Reid Whitesides correctly flagged `UP TO DATE (correctly skipped)` while the other
+two members correctly remained `NEEDS PROCESSING` — confirming the comparison logic
+(`!nodeUpdatedAt || new Date(member.updated_at) > new Date(nodeUpdatedAt)`) behaves correctly in
+both directions. The synthetic row was deleted immediately after, and the scope was re-verified back
+to all 3 `NEEDS PROCESSING` afterward — this is a code-logic verification of the query itself, stated
+explicitly as such, not a claim that the real agent run ever reached this state on its own.
+
+### Item 2 — board-member-to-funder connection search: does NOT run today, contrary to the task's premise
+
+Reading `run()` (`relationship-graph-builder-agent.ts` lines ~990–1017) shows `board_members`,
+`funders`, and `corporate_prospects` are all fetched in one `Promise.all`, then checked for errors
+**sequentially, in that order, before the board-member loop (rules 1-4, the Claude+web-search
+connection search) ever starts**. `funders` loaded successfully both live runs below (real, populated
+data, zero error) — but because `prospectRes.error` is checked and thrown immediately after, the
+function never reaches the `for (const member of boardMembers)` loop at all. **This means the
+board-to-funder connection search — the specific capability this task asked to confirm "should not
+be blocked" — has never executed once in this codebase's history, scoped or unscoped, and does not
+execute in this session's live test either.** This is a real, previously-implicit consequence of the
+query bundling that the existing AG-32 entries documented as a symptom (the run fails at the
+prospects query) without stating this specific downstream implication (the funder-only path is
+blocked too, even though it has no real dependency on `corporate_prospects` succeeding). Confirmed
+directly: `pig_nodes`/`pig_edges` counts were 0 before and remained 0 after both live scoped runs
+below — zero connection-search work of any kind was attempted, board-to-funder or otherwise.
+
+### Item 3 — `corporate_prospects` blocker: same root cause, confirmed via a fresh raw REST check, not a regression
+
+Direct `GET {SUPABASE_URL}/rest/v1/corporate_prospects?select=id&limit=1` (service-role key,
+independent of the agent's own error handling):
+```
+HTTP 404
+{"code":"PGRST205","details":null,"hint":"Perhaps you meant the table 'public.corporate_relationships'","message":"Could not find the table 'public.corporate_prospects' in the schema cache"}
+```
+Identical code, message, and hint to every prior AG-20/21/22/24/30/32 finding of this exact blocker
+in this log — confirmed today, not assumed stale. The two live `RelationshipGraphBuilderAgent` runs
+below failed with the agent's own wrapped version of the identical error
+(`"Failed to load corporate prospects: Could not find the table 'public.corporate_prospects' in the
+schema cache"`), matching this raw check exactly. Not a new regression from the scheduler-wiring
+change — the wiring change correctly reaches the same, already-diagnosed failure point.
+
+### Item 4 — idempotency: the full scoped run is trivially idempotent (writes nothing, twice), so the real UNIQUE-constraint guarantees were verified directly and independently instead
+
+**Run 1** — `run('schedule', ['885933d2-c2de-4e4c-9504-9402ae4bc0d9', '2e6591ed-d810-41f2-bfcb-e29ef209a01f', '27c31e3f-b1fa-4507-81b0-9c0606e9df8c'])`
+(all 3 real active board members, since all 3 needed processing): failed immediately with the
+`corporate_prospects` error above. Re-queried `agent_runs` afterward — real row confirmed:
+`id: 6e377a57-a042-4b22-9e7a-5efe19eed631, agent_type: ag-32-relationship-graph, status: failed,
+trigger_source: schedule, items_found: 0, items_processed: 0`. `pig_nodes`/`pig_edges` counts:
+0/0, unchanged from before the run.
+
+**Run 2** — identical scope, run again immediately after Run 1: failed identically.
+`agent_runs` row: `id: 89b957d5-12ca-4268-9263-758718d9f58f, status: failed, trigger_source:
+schedule, items_found: 0, items_processed: 0`. `pig_nodes`/`pig_edges` counts: still 0/0.
+
+**So the real idempotency claim to test — "re-running the same scope twice doesn't create duplicate
+`pig_nodes`/`pig_edges` rows" — cannot be demonstrated via the full run today, since the full run
+never reaches a write.** Rather than leave this unverified, the two `UNIQUE` constraints that would
+enforce it were tested directly, using the exact upsert patterns the agent's own code uses
+(`ensurePigNode()`'s `upsert(..., {onConflict: "entity_table,entity_id"})` and the edge-write's
+`upsert(..., {onConflict: "source_node_id,target_node_id,relationship_type"})`), not a hand-rolled
+substitute:
+- `pig_nodes` `UNIQUE(entity_table, entity_id)`: a plain duplicate `INSERT` for the same
+  `(entity_table, entity_id)` was correctly rejected by Postgres (`23505 duplicate key value
+  violates unique constraint "pig_nodes_entity_table_entity_id_key"`). The real upsert pattern
+  (`onConflict: "entity_table,entity_id"`) correctly merged into the same row instead of erroring —
+  row count for that `(entity_table, entity_id)` pair confirmed at exactly 1 after both attempts.
+- `pig_edges` `UNIQUE(source_node_id, target_node_id, relationship_type)`: a first insert succeeded;
+  an identical second insert (same source/target/relationship_type, different `evidence` text) was
+  correctly rejected (`23505 duplicate key value violates unique constraint
+  "pig_edges_source_node_id_target_node_id_relationship_type_key"`). Row count for that exact tuple
+  confirmed at exactly 1.
+
+All synthetic rows (1 `pig_nodes`, 1 `pig_edges`, plus a synthetic target node) were deleted
+immediately after each test. Full cleanup independently re-confirmed via a fresh query afterward:
+`pig_nodes(entity_table='board_members')` count 0, zero rows matching the `TEST-SYNTHETIC%` label
+pattern anywhere, zero `pig_edges` rows platform-wide — org and platform state fully restored to the
+pre-test baseline (which was itself 0/0, since the agent has never successfully written a real row
+for this org).
+
+**Net idempotency verdict:** the real constraints that would prevent duplicate writes on a genuine
+re-run are confirmed sound and match the agent's actual write code exactly, verified directly rather
+than inferred from reading the schema alone (per this log's established discipline — "structurally
+sound" from a code read is not the same as "live-verified"). Whether the *agent's own two live runs*
+were idempotent is true only in the vacuous sense that a run which writes nothing cannot create a
+duplicate of nothing — this is stated explicitly rather than presented as equivalent to a genuine
+idempotency test of real write activity.
+
+### Root-cause summary
+
+1. **The new scheduler wiring itself is correct and works as designed** — `resolveIncrementalBoard
+   MemberScope()`'s query logic correctly distinguishes needs-processing from up-to-date board
+   members (both branches confirmed, one via real org data, one via an isolated synthetic test), and
+   `run()`'s new `boardMemberIds` parameter correctly scopes which members are candidates.
+2. **The scoped path inherits the identical `corporate_prospects` blocker as every unscoped run** —
+   confirmed via a fresh, independent raw REST check today, same error signature, not a regression.
+3. **New finding, not previously stated explicitly**: the board-to-funder connection search (rules
+   1-4) does not run today under any trigger — scoped or unscoped, scheduled or manual — because its
+   own `Promise.all`/sequential-error-check structure means a `corporate_prospects` failure blocks it
+   even though it has no real data dependency on that table succeeding. This is a real, fixable
+   defect distinct from the already-documented `corporate_prospects` blocker itself: reordering the
+   error checks (check `boardRes`/`funderRes` and proceed with the loop even if `prospectRes.error`
+   is set, treating prospects as an empty array on failure — the same graceful-degradation pattern
+   `AG-30`'s `loadOrgProfile()` fix already established elsewhere in this codebase) would let real
+   board-to-funder discovery work today, without waiting on `corporate_prospects` at all.
+4. **Idempotency**: the real `UNIQUE` constraints backing this guarantee are confirmed sound and
+   exercised via the agent's actual upsert patterns, independently of the blocked full run.
+
+**Recommendation:** (a) apply migrations 107/108 to unblock `corporate_prospects` (already the
+standing recommendation across every AG-20/21/22/24/30/32 entry); (b) as a smaller, independent fix
+that would unblock real value *before* that — reorder `run()`'s error handling so a
+`corporate_prospects` load failure degrades to an empty prospects array (with the failure still
+recorded in `errors[]`) instead of aborting the whole run, letting the board-to-funder half of rules
+1-4 (and rules 5-8, which also currently never run — see the `else { errors.push(...) }` fallback
+already visible at line ~1204 for the *org-load-failure* case, a similar pattern) execute against
+real, populated `funders` data today.
+
+**Verification method:** live execution (`node --import tsx`, no mocks) of the real, unmodified
+`RelationshipGraphBuilderAgent.run('schedule', boardMemberIds)` — the exact call shape
+`runRelationshipGraphIncrementalPipeline()` uses — against the real Faith Foundation org, twice in
+sequence; every `agent_runs` row independently re-queried and read back after each run; a direct raw
+REST check against `corporate_prospects` independent of the agent's own error handling; the real
+`resolveIncrementalBoardMemberScope()` query logic reproduced verbatim and run against real org data
+before and after both live runs, plus against an isolated synthetic `pig_nodes` row to exercise the
+"already up to date" branch the org's real data cannot yet reach; the real `pig_nodes`/`pig_edges`
+`UNIQUE` constraints tested directly via both a plain duplicate `INSERT` and the agent's own real
+`upsert(..., {onConflict: ...})` pattern, for both tables. All synthetic/test rows were deleted
+immediately after use and full cleanup was independently re-confirmed via a final query showing
+`pig_nodes`/`pig_edges` counts back to their exact pre-test baseline (0/0). Three throwaway scripts
+were created and deleted during this session; none were committed.
