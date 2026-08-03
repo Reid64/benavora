@@ -2148,3 +2148,91 @@ live re-execution (`node`/`tsx`, no mocks) of both agents' real `run("manual")` 
 Faith Foundation org; every resulting `agent_runs` and `agent_decisions` row independently re-queried
 and read back, not inferred from the return value. Throwaway script deleted after use, never
 committed.
+
+---
+
+## `ag-18-reputation` / `ag-32-relationship-graph` enum gap — closed and live-tested
+
+Follow-up to the AG-15/17/19/25/28/30 enum-gap work: those two literals were explicitly flagged as
+**not** part of the original 15-value fix batch and still enum-blocked. Closed the same way today.
+
+### Enum fix
+
+Confirmed missing first, not assumed: `psql "$DATABASE_URL" -c "SELECT unnest(enum_range(NULL::agent_type))..."` — 45 values, neither literal present. Applied both as separate statements via the
+same `DATABASE_URL`/psql path (`STANDING_DIRECTIVES.md` DIRECTIVE-017):
+
+```sql
+ALTER TYPE agent_type ADD VALUE IF NOT EXISTS 'ag-18-reputation';
+ALTER TYPE agent_type ADD VALUE IF NOT EXISTS 'ag-32-relationship-graph';
+```
+
+Verified live afterward via the `GET /rest/v1/` OpenAPI schema (not just `psql`'s success message):
+47 values now, both literals present.
+
+### Live re-test, same method as the AG-15/17/19/25/28/30 pass (real org, no mocks)
+
+`new <AgentClass>(orgId, supabase).run("manual")` against the real Faith Foundation org
+(`b1ab7402-dfc2-4712-869f-70ea3566cc1d`), service-role client, production database. Every
+`agent_runs` row independently re-queried and read back after the run.
+
+| Agent | agent_type | Result | 22P02? | Notes |
+|---|---|---|---|---|
+| AG-18 `ReputationIntelligenceAgent` | `ag-18-reputation` | **completed** | No | `itemsFound: 4` (4 real funders checked via `checkEntityReputation()`), `signalsFound: 0` — no reputation-risk signals detected for any of them this run, zero errors. Clean, real completion. |
+| AG-32 `RelationshipGraphBuilderAgent` | `ag-32-relationship-graph` | **failed** | No | New bug (below), unrelated to the enum. |
+
+Both rows confirmed present and correct in `agent_runs` via a fresh query after the run (`id`,
+`agent_type`, `status`, timestamps, `output_summary`/`error_message` all read back, not inferred
+from the in-process return value).
+
+### New finding — `RelationshipGraphBuilderAgent`'s `board_members` query uses columns that don't exist, at all
+
+`run()` queries `board_members` with `.select("id, name, role, expertise").eq("org_id",
+this.orgId).eq("active", true)`. Live schema (`GET /rest/v1/` OpenAPI, not just the surface error
+message) confirms **none of `role`, `expertise`, `org_id`, or `active` exist on the real table** —
+its actual columns are `id, name, title, bio, email, phone, organization_id, is_active, start_date,
+created_at, updated_at`. This is a materially larger mismatch than the single-column bugs found in
+the AG-17/AG-30 pass — effectively the whole query assumes a different column-naming convention than
+the table that's actually live (the real convention — `organization_id`/`is_active`/`title` — is the
+same one `digital-twin-builder.ts` correctly uses against this same table, confirmed in the AG-16
+entry earlier in this log). PostgREST rejects the whole query when any requested column is missing,
+so `boardRes.error` is set and `run()`'s `if (boardRes.error) throw ...` guard fires on the very
+first line of the `try` block — before the `funders`/`corporate_prospects` queries in the same
+`Promise.all` are even checked.
+
+**Layered-blocker caveat, not confirmed either way this pass:** this run's `corporate_prospects`
+query (the same missing table blocking AG-20/21/22/24/30) races the `board_members` query in the
+same `Promise.all` and would very likely also error — but because `board_members`'s error is
+checked first in the code, we can't tell from this run alone whether `corporate_prospects` would
+also block afterward. Fixing only the `board_members` columns might just surface `corporate_prospects`
+as a second blocker immediately behind it, the same layered pattern already seen for AG-30. Flagging
+this rather than assuming a `board_members` fix alone would fully unblock the agent.
+
+**Why this was invisible until today:** this agent always died at `startRun()` (22P02) before ever
+reaching this query, on every prior run in this log's history — this is the first time it has ever
+executed past that line.
+
+### Root-cause summary
+
+1. **Enum fix confirmed working for both literals** — zero 22P02 errors, both agents inserted a
+   real `agent_runs` row under their own literal `agent_type`.
+2. **AG-18 (`ReputationIntelligenceAgent`) is now fully capable of completing real runs.** Still
+   orphaned in production wiring — unchanged from the original AG-18 entry, `new
+   ReputationIntelligenceAgent` appears nowhere outside its own file — but the enum was the only
+   thing actually stopping it from working when invoked, and that's now fixed.
+3. **AG-32 (`RelationshipGraphBuilderAgent`) is blocked by a new, previously-unreachable
+   `board_members` column-naming bug**, not the enum. Not fixed this pass (not requested) — precisely
+   diagnosed instead, including the likely second blocker (`corporate_prospects`) it may be masking.
+
+**Recommendation:** fix `RelationshipGraphBuilderAgent`'s `board_members` query to the real columns
+(`organization_id`, `is_active`, `title` in place of `org_id`, `active`, `role`; `expertise` has no
+real equivalent column and would need either a schema decision or removal from the query) in a
+future session, then re-test — expect `corporate_prospects` to surface as the next blocker
+immediately afterward, the same layered pattern as AG-30/AG-20/21/22/24.
+
+**Verification method:** live `psql` query against `agent_type`'s enum range before applying
+anything (not assumed missing); live DDL application via `DATABASE_URL`, each statement separate;
+live schema re-check via `GET /rest/v1/` OpenAPI both before and after; live execution (`node`/`tsx`,
+no mocks) of both agents' real `run("manual")` against the real Faith Foundation org; every
+resulting `agent_runs` row independently re-queried and read back; live schema check of
+`board_members`'s real columns to precisely diagnose the new bug rather than stopping at the surface
+error text. Throwaway script deleted after use, never committed.
