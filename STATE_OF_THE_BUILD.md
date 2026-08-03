@@ -1,8 +1,96 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 3, 2026 (AG-26 Funding Forecast Agent live-execution-tested against real production data — confirmed BUILT and working, not just compile-clean). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 3, 2026 (AG-27 Board Meeting Packet Agent built and wired per enterprise spec; enum + UNIQUE(meeting_id) constraint applied live). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 3, 2026 (AG-27 Board Meeting Packet Agent built per enterprise spec)
+
+Built `src/lib/agents/board-packet-agent.ts` (`BoardPacketAgent extends AutonomousAgent`,
+`agentId: "ag-27-board-packet"`) per `AGENTS_v2.md` §5's AG-27 spec, read end to end before writing
+any code. Deliberately did **not** attempt `FEATURE_REGISTRY_v2.md` row #139 ("Plain Language
+Financials") — the financial section this agent writes is a lightweight, real-data snapshot only,
+per the spec's own explicit scoping note.
+
+**Confirmed live before writing anything** (via `DATABASE_URL`/psql, not assumed from the spec
+text): `board_meetings` (`id, org_id, meeting_date [date, NOT timestamptz], meeting_type, agenda,
+status, created_at`) and `board_meeting_packets` (`id, org_id, meeting_id [FK -> board_meetings.id
+ON DELETE CASCADE, nullable], packet_content jsonb NOT NULL, generated_at, viewed_by text[]`) both
+already existed live with RLS enabled (migration 078, RLS added migration 105), exactly matching the
+spec's assumed column set — except `board_meeting_packets` had no `UNIQUE(meeting_id)` constraint
+yet (a plain PK on `id` plus a non-unique FK only), matching the spec's own "should still be added
+as part of this agent's own build task" note. `board_members`' real live columns are
+`organization_id/name/title/bio/is_active` (confirmed, not the `org_id/active/role/expertise`
+columns an earlier session's AG-32 bug once assumed) — not used directly by this agent, but checked
+for consistency since it sits in the same "board" feature area. Both `board_meetings` and
+`board_meeting_packets` currently have **zero rows in production** — no real board meeting has ever
+been created — so nothing in this session could be live-execution-tested against real meeting data;
+this build is compile-clean and wired, not live-verified end-to-end (unlike AG-26 below, which had
+real orgs/opportunities to test against). A future session should create a real `board_meetings` row
+and re-run this agent live once one exists.
+
+**Genuine interpretive choice, stated explicitly rather than silently picked:** `meeting_date` is a
+`DATE` column with no time component, so the spec's literal "47-49 hour window" can't be implemented
+at hour granularity. Widened the daily-schedule scope query to "meeting_date within
+`[today, today+2 days]` inclusive" rather than "exactly 2 days out" — a narrow one-day match would
+only ever catch a given meeting on a single calendar day's run, which contradicts the spec's own
+Idempotency section claim that a failed meeting is "still in-window tomorrow" until it gets a packet
+or its date passes. The widened window makes that retry guarantee actually true. Full reasoning is
+in the file's own header comment.
+
+**Both triggers wired, per spec:**
+1. **Daily schedule (primary)** — new `worker/scheduler.ts` job at 2:00 AM CST (shares the slot with
+   `'nightly autonomous pipeline'`, matching this file's established multi-job-per-slot precedent).
+   `resolveBoardPacketScope()`/`runBoardPacketDailyPipeline()` in `worker/autonomous-orchestrator.ts`
+   scope to `board_meetings` with `status='scheduled'`, in the widened window above, with no
+   `board_meeting_packets` row yet — then call `agent.run('schedule', meetingIds)`, mirroring AG-23's
+   `resolveIncrementalBoardMemberScope() -> run('schedule', ids)` convention.
+2. **Event-chained safety net** — new `POST /api/autonomous/board-packet-trigger` route (mirrors
+   `/api/autonomous/grant-dna-trigger`/`followup-trigger` exactly: `requireRole("writer")`,
+   server-derived `organizationId`, rate-limited) validates the meeting is `status='scheduled'` and
+   within 48 hours, then enqueues `agent_queue` (`agent_id: "ag-27-board-packet"`,
+   `trigger_source: "event"`, `input_payload: { meetingId }`). Routed from the queue via a new
+   `routeQueueItem()` case in `worker/autonomous-orchestrator.ts`, resolved inside the agent via
+   `loadEventScope()` (reads the queue row the worker marked `processing`), mirroring
+   `GrantDnaAgent.loadEventScope()`/`FollowupGeneratorAgent.loadTriggerPayload()` exactly. No real
+   UI currently creates/reschedules `board_meetings` rows (confirmed by grep — zero API routes
+   reference `board_meetings` anywhere in the repo before this session), so this route is real,
+   working infrastructure with no live caller yet; a future `board_meetings` CRUD build should call
+   it on create/reschedule for a short-notice meeting.
+
+**Idempotency, per spec:** the schedule scope query itself excludes already-packeted meetings.
+`processOneMeeting()` adds a second, defense-in-depth existence check (the event path has no scope
+query of its own to exclude on), and a `23505` unique-violation on the insert is caught and treated
+as a legitimate no-op — the real backstop underneath both checks is the new
+`UNIQUE(meeting_id)` constraint (migration 111).
+
+**Process implemented exactly per spec's numbered steps:** per-section zero-data branch logic
+(pipeline: explicit `"No opportunities currently in the 90-day pipeline."` rather than an omitted
+section; outcomes: explicit "first tracked meeting, showing trailing 90 days" vs. "since the
+`<date>` meeting" framing, derived by checking whether any `board_meeting_packets` row exists for
+the org at all, then finding the most recent earlier-dated packeted meeting; financial: explicit
+`"Financial data not yet on file."` when `annual_budget` is null) — one bounded Claude call per
+meeting for `recommendedDiscussionItems`, each item required to carry a `groundedIn` citation
+(`"opportunities[2]"`/`"outcomes"`/`"financial"`/`"agenda"`) back to a real assembled fact, with
+3-attempt exponential backoff (1s/2s/4s, the pattern already proven in `embeddings.ts`/AG-10/AG-26)
+and graceful degradation to an empty item list (deterministic sections still written) on total
+Claude failure — `createNotification()` fires a real in-app alert on successful generation. Per-org
+try/catch isolation at the orchestrator level (matching AG-23/AG-26) plus per-meeting try/catch
+inside `run()` for orgs with more than one meeting due a packet in the same run.
+
+**Migration applied live** (`src/supabase/migrations/111_ag27_board_packet.sql`, via `DATABASE_URL`/
+psql per `STANDING_DIRECTIVES.md` DIRECTIVE-017): `ALTER TYPE agent_type ADD VALUE IF NOT EXISTS
+'ag-27-board-packet'` and `ALTER TABLE board_meeting_packets ADD CONSTRAINT
+board_meeting_packets_meeting_id_unique UNIQUE (meeting_id)`. Both confirmed live afterward — the
+enum value via the live `GET /rest/v1/` OpenAPI schema (not just `psql`'s success message), the
+constraint via a direct `pg_constraint` query.
+
+Gates: `pnpm tsc --noEmit` — 0 new errors; the 38 pre-existing errors are all confined to
+`src/__tests__/**` (same baseline count documented in `AGENT_VERIFICATION_LOG.md`'s AG-19 entry) —
+none touch `board-packet-agent.ts`, `autonomous-orchestrator.ts`, `scheduler.ts`, or the new API
+route. All temporary verification scripts were deleted after use.
 
 ---
 

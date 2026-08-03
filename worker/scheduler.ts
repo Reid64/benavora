@@ -182,6 +182,24 @@ const jobs: ScheduledJob[] = [
       ),
   },
   {
+    // AG-27 Board Meeting Packet Agent — per-org, daily, 2:00 AM CST, per
+    // AGENTS_v2.md's AG-27 spec ("Daily schedule (primary)... 2:00 AM CST").
+    // Shares this hour:minute slot with 'nightly autonomous pipeline' above
+    // — jobs at the same slot fire independently (same precedent as AG-10/
+    // foundation-enrichment-weekly both at 3:00, AG-26/AG-38 both at 4:00).
+    // Scope resolution (which meetings are due a packet today) lives inside
+    // runBoardPacketDailyPipeline()/resolveBoardPacketScope() in
+    // autonomous-orchestrator.ts, not here.
+    name: 'AG-27 board packet daily pipeline',
+    hour: 2,
+    minute: 0,
+    lastFiredOnDateKey: null,
+    run: (supabase) =>
+      import('./autonomous-orchestrator.js').then(
+        ({ runBoardPacketDailyPipeline }) => runBoardPacketDailyPipeline(supabase),
+      ),
+  },
+  {
     // Nonprofit contact-enrichment agent (STANDING_DIRECTIVES.md Directive 1,
     // src/lib/scraper/nonprofit-scraper.ts). Weekly, Sunday 4AM CST — staggered
     // one hour after foundation-enrichment-weekly (3AM) so the two scrapers'

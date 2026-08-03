@@ -1,10 +1,65 @@
 # BENAVORA — Session State
 ## Last Updated: August 3, 2026
-## Mode: AG-26 Funding Forecast Agent live-verified end-to-end against real production data — confirmed BUILT and working
+## Mode: AG-27 Board Meeting Packet Agent built and wired per enterprise spec
 
 ---
 
 ## Current Session (most recent)
+
+**Date:** August 3, 2026
+**Focus:** Build AG-27 (Board Meeting Packet Agent) per `AGENTS_v2.md` §5's full enterprise spec,
+read end to end before writing any code. Wire both triggers (daily 2AM CST schedule + event-chained
+short-notice safety net), apply the `agent_type` enum value and a `UNIQUE(meeting_id)` defense-in-
+depth constraint live, and confirm the TypeScript gate is clean.
+**Status:**
+- Confirmed live before writing anything (via `DATABASE_URL`/psql): `board_meeting_packets` and
+  `board_meetings` (migration 078, RLS added migration 105) already existed with the spec's assumed
+  columns; `board_members`'s real live columns are `organization_id/name/title/bio/is_active`
+  (confirmed, not the columns an earlier session's AG-32 bug once assumed). Both `board_meetings` and
+  `board_meeting_packets` have **zero rows in production** — no real meeting has ever been created —
+  so this build is compile-clean and wired, not live-execution-verified against real data (stated
+  explicitly, unlike AG-26 below which had real orgs to test against).
+- Built `src/lib/agents/board-packet-agent.ts` (`BoardPacketAgent extends AutonomousAgent`,
+  `agentId: "ag-27-board-packet"`) implementing the spec's numbered process: per-section zero-data
+  branch logic (pipeline/outcomes/financial, each with an explicit "nothing to report" fallback
+  rather than an omitted section), one bounded Claude call per meeting for
+  `recommendedDiscussionItems` with a required `groundedIn` citation per item, 3-attempt exponential
+  backoff with graceful degradation to deterministic-sections-only on total Claude failure, and a
+  real `createNotification()` call on successful generation.
+- Genuine interpretive choice, stated in the file's own header: `board_meetings.meeting_date` is a
+  `DATE` column (no time component), so the spec's literal "47-49 hour window" can't be implemented
+  at hour granularity. Widened the daily-schedule scope query to `[today, today+2 days]` inclusive
+  rather than "exactly 2 days out" — a narrow match would only catch a meeting on one calendar day's
+  run, contradicting the spec's own claim that a failed meeting stays "in-window tomorrow" until it
+  gets a packet or its date passes.
+- Wired both triggers: (1) a new `worker/scheduler.ts` job at 2:00 AM CST calling a new
+  `resolveBoardPacketScope()`/`runBoardPacketDailyPipeline()` pair in
+  `worker/autonomous-orchestrator.ts` (mirrors AG-23's `run('schedule', ids)` scoped-array
+  convention); (2) a new `POST /api/autonomous/board-packet-trigger` route (mirrors
+  `grant-dna-trigger`/`followup-trigger` exactly — `requireRole("writer")`, server-derived
+  `organizationId`, rate-limited, validates the meeting is within 48 hours) enqueueing
+  `agent_queue` with `trigger_source: "event"`, routed via a new `routeQueueItem()` case. Confirmed
+  by grep: no existing UI/route creates `board_meetings` rows yet, so this route has no live caller
+  today — real, working infrastructure ahead of its own future CRUD build, stated as such.
+- Applied migration `111_ag27_board_packet.sql` live via `DATABASE_URL`/psql
+  (`STANDING_DIRECTIVES.md` DIRECTIVE-017): the `'ag-27-board-packet'` enum value and a
+  `UNIQUE(meeting_id)` constraint on `board_meeting_packets` (the spec's own explicit "defense in
+  depth" instruction, matching AG-26's `funding_forecasts` uniqueness precedent). Both confirmed live
+  afterward — the enum via the live `GET /rest/v1/` OpenAPI schema, the constraint via a direct
+  `pg_constraint` query — not just trusted from `psql`'s success message.
+- `pnpm tsc --noEmit`: 0 new errors. The 38 pre-existing errors are all confined to
+  `src/__tests__/**` (same baseline documented in `AGENT_VERIFICATION_LOG.md`'s AG-19 entry); none
+  touch any file this session changed.
+
+Updated `STATE_OF_THE_BUILD.md` with a new session entry. All temporary verification scripts
+(schema checks, migration apply, OpenAPI/constraint verification) were deleted after use — none
+committed.
+**Commit:** `feat(agents): build AG-27 Board Meeting Packet Agent per enterprise spec` (this session).
+**Gates:** `pnpm tsc --noEmit` — clean (0 new errors vs. the established 38-error test-tree baseline).
+
+---
+
+## Prior Session — August 3, 2026 (AG-26 Funding Forecast Agent live-verified end-to-end)
 
 **Date:** August 3, 2026
 **Focus:** Live-test `FundingForecastAgent` (built in the immediately-prior session, entry below)

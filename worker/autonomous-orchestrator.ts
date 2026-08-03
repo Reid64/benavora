@@ -189,6 +189,29 @@ function isSundayChicago(): boolean {
   return chicagoDateParts(new Date()).weekday === 0;
 }
 
+/**
+ * Calendar date (YYYY-MM-DD) `addDays` days from `now`, formatted in
+ * America/Chicago — used by AG-27's daily scope query (resolveBoardPacketScope)
+ * against board_meetings.meeting_date, a DATE column with no time component.
+ * Plain ms arithmetic on `now` before formatting is a deliberate, minor
+ * approximation (not DST-exact) — acceptable here since the query only needs
+ * day granularity, not an exact instant (see board-packet-agent.ts's file
+ * header for the full reasoning on why this window is day-granular at all).
+ */
+function chicagoDateString(now: Date, addDays: number): string {
+  const target = new Date(now.getTime() + addDays * 24 * 60 * 60 * 1000);
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Chicago',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  const parts = formatter.formatToParts(target);
+  const get = (type: string): string =>
+    parts.find((p) => p.type === type)?.value ?? '01';
+  return `${get('year')}-${get('month')}-${get('day')}`;
+}
+
 // --- org_autonomous_config ---------------------------------------------------
 
 interface OrgAutonomousConfig {
@@ -1289,6 +1312,136 @@ export async function runRelationshipGraphIncrementalPipeline(
   console.log('[AutonomousOrchestrator] AG-23 relationship graph incremental pipeline complete.');
 }
 
+/**
+ * Resolves AG-27's daily schedule scope (AGENTS_v2.md §5, AG-27 spec):
+ * board_meetings with status='scheduled', meeting_date within
+ * [today, today+2 days] (America/Chicago, inclusive — see
+ * board-packet-agent.ts's file header for why this is a widened window
+ * rather than the spec's literal "exactly 47-49 hours out"), and no
+ * board_meeting_packets row yet for meeting_id. Fetch-then-filter (not a
+ * single SQL join), matching every other cross-table scope query already
+ * established in this file (resolveIncrementalBoardMemberScope above).
+ *
+ * Scoped to `activeOrgIds` (onboarding_completed + active/trialing
+ * subscription, per getActiveOrgs()) so this never processes a meeting
+ * belonging to an inactive or unonboarded org.
+ *
+ * Returns meeting ids grouped by org — an org with zero candidates is
+ * simply absent from the map, so the caller only invokes the agent for
+ * orgs that actually have a meeting due a packet.
+ */
+async function resolveBoardPacketScope(
+  supabase: SupabaseClient,
+  activeOrgIds: Set<string>,
+): Promise<Map<string, string[]>> {
+  const todayStr = chicagoDateString(new Date(), 0);
+  const windowEndStr = chicagoDateString(new Date(), 2);
+
+  const { data: meetingRows, error: meetingError } = await supabase
+    .from('board_meetings')
+    .select('id, org_id')
+    .eq('status', 'scheduled')
+    .gte('meeting_date', todayStr)
+    .lte('meeting_date', windowEndStr);
+
+  if (meetingError || !meetingRows || meetingRows.length === 0) {
+    if (meetingError) {
+      console.error(
+        '[AutonomousOrchestrator] AG-27 scope resolution failed to load board_meetings:',
+        meetingError.message,
+      );
+    }
+    return new Map();
+  }
+
+  const scoped = (meetingRows as { id: string; org_id: string }[]).filter((m) =>
+    activeOrgIds.has(m.org_id),
+  );
+  if (scoped.length === 0) return new Map();
+
+  const meetingIds = scoped.map((m) => m.id);
+  const { data: packetRows, error: packetError } = await supabase
+    .from('board_meeting_packets')
+    .select('meeting_id')
+    .in('meeting_id', meetingIds);
+
+  if (packetError) {
+    console.error(
+      '[AutonomousOrchestrator] AG-27 scope resolution failed to load board_meeting_packets:',
+      packetError.message,
+    );
+    return new Map();
+  }
+
+  const alreadyPacketed = new Set(
+    (packetRows ?? [])
+      .map((p) => p.meeting_id as string | null)
+      .filter((id): id is string => typeof id === 'string'),
+  );
+
+  const byOrg = new Map<string, string[]>();
+  for (const m of scoped) {
+    if (alreadyPacketed.has(m.id)) continue;
+    const existing = byOrg.get(m.org_id);
+    if (existing) existing.push(m.id);
+    else byOrg.set(m.org_id, [m.id]);
+  }
+  return byOrg;
+}
+
+/**
+ * AG-27 Board Meeting Packet Agent — daily schedule pipeline (AGENTS_v2.md
+ * §5, AG-27 spec). Resolves resolveBoardPacketScope() above, then runs
+ * BoardPacketAgent once per org that has ≥1 meeting due a packet, scoped to
+ * just those meeting ids via run()'s optional meetingIds parameter — same
+ * convention as runRelationshipGraphIncrementalPipeline (AG-23) above.
+ *
+ * Not gated to a single day of the week — unlike AG-10/AG-36, a board
+ * meeting's 48-hour lead time genuinely needs a daily check, not a periodic
+ * sweep.
+ */
+export async function runBoardPacketDailyPipeline(
+  supabase: SupabaseClient,
+): Promise<void> {
+  const activeOrgs = await getActiveOrgs(supabase);
+  const activeOrgIds = new Set(activeOrgs.map((o) => o.id));
+
+  const scopeByOrg = await resolveBoardPacketScope(supabase, activeOrgIds);
+  if (scopeByOrg.size === 0) {
+    console.log(
+      '[AutonomousOrchestrator] AG-27 board packet daily pipeline: no meetings need a packet today.',
+    );
+    return;
+  }
+
+  console.log(
+    `[AutonomousOrchestrator] AG-27 board packet daily pipeline starting for ${scopeByOrg.size} org(s).`,
+  );
+
+  const { BoardPacketAgent } = await import(
+    '../src/lib/agents/board-packet-agent.js'
+  );
+
+  for (const [orgId, meetingIds] of scopeByOrg) {
+    try {
+      const agent = new BoardPacketAgent(orgId, supabase);
+      const result = await agent.run('schedule', meetingIds);
+      console.log(
+        `[AutonomousOrchestrator] AG-27 org ${orgId} complete: ${meetingIds.length} meeting(s) scoped, ` +
+          `${result.itemsProcessed}/${result.itemsFound} packet(s) written, success=${result.success}.`,
+      );
+    } catch (err) {
+      console.error(
+        `[AutonomousOrchestrator] AG-27 board packet daily pipeline failed for org ${orgId}:`,
+        errMsg(err),
+      );
+    }
+    await sleep(SLEEP_BETWEEN_ORGS_MS);
+  }
+
+  console.log('[AutonomousOrchestrator] AG-27 board packet daily pipeline complete.');
+}
+
 // --- agent_queue processor --------------------------------------------------------
 
 interface AgentQueueRow {
@@ -1621,6 +1774,19 @@ async function routeQueueItem(
       const agent = new GrantDnaAgent(orgId, supabase);
       const result = await agent.run('event');
       return `ag-10-grant-dna completed (itemsProcessed=${result.itemsProcessed}/${result.itemsFound})`;
+    }
+    case 'ag-27-board-packet': {
+      // AG-27, src/lib/agents/board-packet-agent.ts — event-chained safety
+      // net for a meeting created/rescheduled with less than 48 hours'
+      // notice (POST /api/autonomous/board-packet-trigger). Also wired into
+      // a dedicated daily 2AM CST slot via runBoardPacketDailyPipeline() —
+      // this case adds the event/on-demand path.
+      const { BoardPacketAgent } = await import(
+        '../src/lib/agents/board-packet-agent.js'
+      );
+      const agent = new BoardPacketAgent(orgId, supabase);
+      const result = await agent.run('event');
+      return `ag-27-board-packet completed (itemsProcessed=${result.itemsProcessed}/${result.itemsFound})`;
     }
     default:
       throw new Error(`Unknown agent_queue agent_id: "${item.agent_id}".`);
