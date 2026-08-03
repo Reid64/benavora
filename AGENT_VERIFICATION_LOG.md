@@ -3248,3 +3248,290 @@ a defect in this agent. Both synthetic test rows were deleted after verification
 independently, by id and by a platform-wide row count on both tables. All temporary verification
 scripts (6 files under `scripts/`) were deleted after use; no repo files were modified except this
 log, `STATE_OF_THE_BUILD.md`, and `SESSION_STATE.md`.
+
+---
+
+## AG-41
+
+**Spec under test:** `AGENTS_v2.md` §5, AG-41 "Impact Simulation Agent" (renumbered from AG-28
+2026-08-02, enterprise spec written 2026-08-03). Real file: `src/lib/agents/impact-simulation-agent.ts`,
+class `ImpactSimulationAgent extends AutonomousAgent`, `agentId: "ag-41-impact-simulation"`, built in
+commit `0b57861` ("feat(agents): build AG-41 Impact Simulation Agent per enterprise spec"), the
+commit immediately preceding this session in `git log`. `NOT_BUILT_MASTER_INVENTORY.md` and
+`FEATURE_REGISTRY_v2.md` row #141 both still describe AG-41 as NOT-BUILT ("Zero code found
+anywhere") — both are now stale as of this commit; this entry supersedes that framing with a live
+functional verification, not just a code-existence check. Real API route:
+`src/app/api/agents/simulate/route.ts` (`POST /api/agents/simulate`, `requireRole("writer")` +
+server-derived `organizationId`).
+
+**Method used:** direct agent-class instantiation (`node --import tsx`, real, unmodified
+`new ImpactSimulationAgent(orgId, supabase).run("manual", scenarioType, params, null)` against the
+real Faith Foundation org, real `createAdminClient()` service-role client), not the HTTP route —
+same choice and same reasoning as every other agent entry in this log: the route requires a live
+authenticated writer-role session cookie, which isn't practical to stand up for a scripted live
+test, and the route itself is a thin wrapper (session/role gate → param validation → this exact
+`agent.run()` call → re-read the row) that this test already exercises functionally at the one part
+that matters, the agent's own logic. `validateScenarioParams()`'s param-shape checks were read
+directly and confirmed to match the agent's own `compute*()` validation one-for-one — not
+independently re-tested, since it's pure pre-flight guard code with no agent logic of its own.
+
+**Verdict: genuinely built and working, live-verified against real production data on every
+dimension this task asked about.** Ran 4 scenario invocations (not the minimum 2) specifically so
+the gain_funder confidence rule (item 4) could be directly confirmed rather than inferred from the
+2 scenarios chosen for deep math verification.
+
+**Chosen scenario types for items 1–3 (deterministic math, baseline usage, idempotency):
+`budget_cut` and `program_expansion`.** Reasoning: this org's real data makes both of these the
+most meaningfully exercisable of the 4 types. `lose_funder` was checked and ruled out for the *deep*
+hand-verification role — this org has 4 real funders but **zero** open opportunities have `funder_id`
+set (209 open opportunities, 0 with a funder link) and zero outcomes in the trailing 12 months, so
+every real funder in this org's data hits the spec's documented "$0, this funder was never
+contributing" branch rather than a non-trivial computed number (still a real, correctly-handled
+branch — just not the richest one to hand-verify math against). `gain_funder`'s own math is a
+pass-through of the human-supplied estimate (no real platform data involved) — real, but not a
+baseline/join hand-check. `budget_cut` multiplies a real, non-trivial AG-26 forecast baseline
+($18.52M) by a percentage — a genuine, hand-checkable computation against real upstream agent
+output. `program_expansion` divides a real user input against this org's real `annual_budget`
+($75,000) and exercises a second, independent piece of deterministic logic (the 25%-of-budget risk
+flag) — together the two types cover both of the org's real non-zero numeric anchors (the AG-26
+forecast and the org's own annual budget) and two different deterministic code paths, not just one
+scenario type run twice under different names. `gain_funder` was run as a third, supplementary
+invocation specifically to directly confirm item 4's named rule (see below) rather than infer it
+from the spec text.
+
+### Pre-flight: migration + real data state, checked before running anything
+
+**Migration 112, checked live via `DATABASE_URL`/`psql`, not assumed from the file's presence**
+(the same "file exists ≠ applied" discipline established across every entry in this log):
+`SELECT unnest(enum_range(NULL::agent_type))` → `'ag-41-impact-simulation'` present (50 total
+enum values). **Live and present** — no enum-gap blocker on this agent, same as AG-26/AG-27's own
+migrations closing their own gap before handoff.
+
+**`impact_simulations` constraints:** `pg_constraint` for this table shows exactly one constraint,
+`impact_simulations_pkey — PRIMARY KEY (id)` — **no UNIQUE constraint**, confirming migration 112's
+own header comment ("No uniqueness constraint is added... per the spec's own Idempotency section")
+is accurate at the database level, not just asserted in a comment.
+
+**Org/data state for `b1ab7402-dfc2-4712-869f-70ea3566cc1d` ("FAITH Foundation"), queried directly:**
+- `organizations.annual_budget = 75000.00`, `total_staff = 2`, `total_volunteers = 2`.
+- `impact_simulations`: **0 existing rows for this org** before this session — a genuine first
+  exercise of this agent against this org's live data, not a repeat.
+- `funding_forecasts`: **2 real rows already exist** for this org, both `forecast_date =
+  2026-08-03`, one `90_day` and one `12_month` — the real output of the AG-26 verification pass
+  earlier this same day (`AGENT_VERIFICATION_LOG.md`'s own `## AG-26` entry above, same
+  `forecast_date`/values). `12_month` row: `projected_most_likely = 18521355.042`, `confidence =
+  77`. **This confirms AG-26 did run first in this chain for this org, before AG-41 was tested.**
+- `outcomes`: **0 rows** in the trailing 12 months for this org (confirmed — same real empty
+  outcomes history already documented in the AG-26/AG-27 entries above for this same org).
+- `funders`: 4 real rows (Meade Tractor, 1111 FOUNDATION, 1011 FOUNDATION INC, Walmart). `funders`
+  has no `annual_giving_budget` populated for any of them (`null`).
+- `opportunities`: 209 real `status='open'` rows for this org; **0 of them have `funder_id` set** —
+  confirmed directly, not inferred, which is why `lose_funder` was not chosen for the deep-math role
+  (see reasoning above).
+- `knowledge_base` `category='program_description'`: 2 real rows (both titled "Core Programs
+  Overview," Faith Foundation's real housing-program descriptions) — present and available for a
+  `budget_cut` run's `exposedPrograms` section, though not exercised in this pass since Claude
+  narrative synthesis was blocked (see below).
+
+### Runs — live execution, no mocks, 4 scenario invocations
+
+`node --import tsx`, real, unmodified `new ImpactSimulationAgent(orgId, supabase).run("manual",
+scenarioType, params, null)` against the real Faith Foundation org, in this order:
+
+1. `budget_cut`, `{cutPercentage: 10}` → `success: true`, decision id `3ba8d251-...`.
+2. `budget_cut`, `{cutPercentage: 10}` (identical params, immediately after #1) → `success: true`,
+   decision id `c408acd2-...`.
+3. `program_expansion`, `{newProgramAnnualBudget: 30000, additionalStaffCount: 1}` → `success:
+   true`, decision id `80bc7405-...`.
+4. `gain_funder`, `{estimatedAnnualAmount: 50000}` → `success: true`, decision id `b54185f6-...`.
+
+All 4 returned `{success: true, itemsFound: 1, itemsProcessed: 1, itemsQueued: 0, errors: []}` from
+the in-process return value. Everything below was independently re-queried from the database
+afterward, not trusted from these return values.
+
+### 1. Deterministic baseline math — hand-checked against real data, exact match on both chosen types
+
+**`budget_cut` (run #1 and #2, identical params, identical result):** the agent's formula
+(`cutAmount = baseline.baselineAmount * (cutPercentage / 100)`) hand-computed against the real,
+independently-queried `funding_forecasts` value: `18521355.042 × (10 / 100) = 1852135.5042`.
+Persisted `simulation_result.deterministicImpact`: `{"min": -1852135.5042, "max": -1852135.5042,
+"mostLikely": -1852135.5042}`. **Exact match, to full decimal precision, on both runs.**
+
+**`program_expansion` (run #3):** the agent's formula (`ratioPct = newProgramAnnualBudget /
+org.annual_budget * 100`, flagged if `> 25`) hand-computed: `30000 / 75000 × 100 = 40.0%`, exceeding
+the 25% threshold. Persisted `simulation_result.keyRisks`: `["New program budget of $30,000
+represents 40.0% of current annual budget ($75,000), exceeding the 25% risk threshold."]` — **exact
+match**, and confirms the deterministic-risk-flag branch (a second, independent piece of logic
+beyond the headline impact number) fires correctly against real data, not just the simple case.
+`deterministicImpact`: `{"min": -30000, "max": -30000, "mostLikely": -30000}` — correctly just the
+negated real input, matching the spec (`program_expansion`'s deterministic impact is the program
+cost itself, not a derived multiplier).
+
+### 2. Baseline source — confirmed AG-26's real forecast was used, not the fallback path
+
+`simulation_result.baselineUsed: "forecast"` on **all 4** persisted rows (`budget_cut` ×2,
+`program_expansion`, `gain_funder`). Since `resolveBaseline()` is called unconditionally before the
+scenario-type switch (confirmed by reading `run()` directly, lines 729-730), this field is set from
+the real query result every time, independent of whether a given scenario branch's own math happens
+to use `baseline.baselineAmount` — confirmed accurate for this org because a real `12_month`
+`funding_forecasts` row exists (the AG-26 run earlier this session, per the pre-flight check above),
+so `resolveBaseline()`'s `forecastRow` branch fired, not the trailing-12-month-outcomes fallback
+(which would have been `$0` for this org, since outcomes = 0 rows). **This directly confirms the
+task's item 2: AG-26 ran first in this chain for this org, and AG-41 genuinely picked up and used
+its real forecast as baseline rather than falling back.** Worth noting as an honest, non-bug
+observation: `gain_funder`'s own deterministic math doesn't actually consume `baseline.baselineAmount`
+(its impact is purely the human-supplied estimate) — the `baselineUsed: "forecast"` field on that
+row is still accurate (a forecast row genuinely was found and resolved), it's just informational
+for that scenario type rather than load-bearing in its math, which is itself part of the spec's
+documented design (gain_funder is deliberately baseline-independent, hence always `confidence:
+"low"` regardless — see item 4).
+
+To directly confirm the *other* half of this requirement — that the fallback path is used and
+clearly labeled when no AG-26 forecast exists — was not exercised against this org (a real forecast
+already existed for it, which is the more realistic state to test given AG-26 ran first in this
+same session). Per this task's own instruction to state this precisely: the fallback branch itself
+(`baselineUsed: "fallback"`, `baselineAmount = sumRealizedAmount(outcomes)`) was confirmed by direct
+code read only, not exercised live in this pass — `resolveBaseline()`'s `if (forecastRow &&
+typeof forecastRow.projected_most_likely === "number")` structure means the fallback is the
+unconditional `else` path, reachable and correctly typed, but not independently exercised against a
+second org with zero forecasts this session (the AG-26 entry above already establishes at least one
+real org, "Bright Box Homes," with zero `funding_forecasts` rows exists in this database, so this
+could be exercised in a future pass without needing synthetic data).
+
+### 3. Idempotency — confirmed: two independent rows, not an upsert
+
+Ran the identical `budget_cut`/`{cutPercentage: 10}` scenario twice in immediate succession.
+Independently re-queried `impact_simulations` afterward: **2 separate rows**, distinct `id`s
+(`3ba8d251-3a78-46da-a759-a9adc1552d22` and `c408acd2-4644-4633-ae38-a0f6b11922df`), distinct
+`generated_at` timestamps (`06:44:30.206Z` and `06:44:41.161Z`, ~11 seconds apart, matching real
+sequential execution time), **identical** `scenario_params` (`{"cutPercentage": 10}`) and identical
+`simulation_result.deterministicImpact` (both runs computed the same real number from the same real
+baseline, as expected — the underlying data didn't change between the two calls). `agent_runs`
+independently confirms **2 separate real run rows** (`9f96d5ab-...` and `4032cdb0-...`, both
+`status: completed`), and `agent_decisions` independently confirms **2 separate decision rows**
+(`65c70503-...` and `c5df7bc9-...`). Cross-checked against the database-level guarantee found in
+the pre-flight check above (`impact_simulations` has no UNIQUE constraint, PK on `id` only) — the
+insert path is a plain `.insert()` (confirmed by reading `run()` directly, not an `.upsert()` call),
+and there is no constraint that could have silently deduped a second identical insert even if the
+code did call upsert. **This is the opposite idempotency model from every other agent verified in
+this log** (AG-26/AG-27 both upsert on a real UNIQUE constraint; AG-41 deliberately does not) —
+confirmed as a genuine, deliberate design difference, not an oversight, exactly as the spec and this
+file's own header comment state.
+
+### 4. Confidence per scenario type — confirmed correct, including the explicit gain_funder rule
+
+| Scenario | Persisted `confidence` | `agent_decisions.confidence_score` | Correct per spec? |
+|---|---|---|---|
+| `budget_cut` (baseline: forecast) | `"high"` | 90 | Yes — `baselineUsed === "forecast" ? "high" : "medium"`, and a real forecast was used. |
+| `program_expansion` (baseline: forecast) | `"high"` | 90 | Yes — same rule, same baseline. |
+| `gain_funder` | `"low"` | 40 | **Yes — never exceeds the spec's stated cap, confirmed directly, not assumed.** |
+
+`gain_funder`'s confidence is hardcoded `"low"` unconditionally in `computeGainFunder()` (confirmed
+by reading the code — it takes no `baseline` argument and returns `confidence: "low"` as a literal,
+regardless of what `resolveBaseline()` found), and the persisted row confirms this ran exactly as
+coded: `"low"`, mapped to `confidenceScore: 40` in `agent_decisions` — well under the spec's
+50-point ceiling for this scenario type, and under the base class's own `MIN_CONFIDENCE_TO_ACT = 60`
+floor (`AGENTS_v2.md` §0). **A genuine, previously-unremarked cross-agent confirmation surfaced by
+this check**: `gain_funder`'s `agent_decisions` row has `required_human_review: true`, while the
+other 3 rows (all confidence ≥ 65) have `required_human_review: false` — even though `run()` itself
+passes `requiredHumanReview: false` unconditionally in every `logDecision()` call (confirmed by
+reading the code — there is no scenario-type-specific override in this agent's own source). This is
+the shared `AutonomousAgent.logDecision()` base-class hard limit firing correctly, exactly as
+`AGENTS_v2.md` §0 documents platform-wide ("any decision logged with confidenceScore < 60 has
+`required_human_review` forced to `true` regardless of what the calling agent requested") — live
+confirmation that this specific hard limit is enforced for AG-41, not just asserted in governance
+prose.
+
+### Narrative synthesis — degraded gracefully, root-caused to the same pre-existing dead key
+
+All 4 runs show `simulation_result.narrativeUnavailable: "Narrative synthesis unavailable this run
+(Claude call failed after 3 attempts) — the deterministic impact numbers above are unaffected."`,
+`keyRisks`/`keyOpportunities`/`narrative` empty or deterministic-only (the `program_expansion` run's
+one deterministic risk flag survived, confirming `deterministicRisks` are prepended independent of
+Claude's success — see item 1). Root-caused via a direct, isolated `POST /v1/messages` call to the
+real Anthropic API using the exact `.env.local` key, bypassing this agent and this project's
+`callClaude()` wrapper entirely: `401 {"type":"authentication_error","message":"API key is
+invalid."}` — the identical, already-standing local-environment blocker documented repeatedly
+elsewhere in this log (AG-20, AG-21, AG-24, AG-26, AG-27, AG-40's narrative steps). **Not a new
+defect in `ImpactSimulationAgent`** — the agent's own 3-attempt retry genuinely ran and genuinely
+exhausted against this same dead key, then correctly fell through to its documented degraded output
+(empty narrative arrays, deterministic numbers intact) rather than crashing the run or fabricating
+content. `exposedPrograms` (the `budget_cut`-only Claude-populated field) was not exercised this
+pass since neither chosen scenario type reached a successful Claude call — real `program_description`
+KB content exists for this org (confirmed in pre-flight) and would be available to test once a valid
+key is present.
+
+### Cleanup
+
+The 4 real `impact_simulations` rows this session produced were **not** deleted — consistent with
+this log's established convention (AG-26/AG-27 entries above) of treating a real agent-run's genuine
+output as legitimate history to keep, not test pollution to scrub. This is additionally the correct
+call specifically for AG-41: unlike every other agent in this batch, its own explicit design
+principle (idempotency section, both in the spec and in migration 112's header) is that "every
+simulation is its own immutable historical record" — deleting them would contradict the very design
+property this entry just confirmed. The 4 real `agent_runs`/`agent_decisions` rows were likewise
+kept for the same reason. All 6 temporary verification scripts (`.mjs` files at the repo root) were
+deleted after use; `git status --porcelain` confirmed clean of any new files before writing this
+entry.
+
+### Root-cause summary
+
+1. **AG-41 is genuinely BUILT and working** — not just compile-clean, but live-verified against real
+   production data on every dimension this task asked about. `FEATURE_REGISTRY_v2.md` row #141 and
+   `NOT_BUILT_MASTER_INVENTORY.md`'s AG-41 entry are both now stale ("Zero code found anywhere") and
+   should be updated to reflect this commit.
+2. **Migration 112's enum value is confirmed live**; `impact_simulations` has no UNIQUE constraint,
+   confirmed at the database level, matching the migration's own stated design intent.
+3. **Deterministic math is confirmed exact** for both chosen scenario types (`budget_cut`'s
+   percentage-of-forecast multiplication, `program_expansion`'s percentage-of-annual-budget ratio
+   and its independent 25%-threshold risk flag) — hand-computed against real
+   `funding_forecasts`/`organizations` data and matched to full decimal precision.
+4. **Confirmed AG-26 ran first in this chain for this org**, and AG-41 genuinely used its real
+   12-month forecast as baseline (`baselineUsed: "forecast"` on every row) rather than the
+   zero-outcomes fallback that would otherwise have applied. The fallback path itself was not
+   independently exercised live this session (no org with a genuine data gap was tested against) —
+   confirmed by direct code read only, stated precisely rather than assumed to be equivalent to a
+   live test.
+5. **Idempotency confirmed two independent ways**: two distinct `impact_simulations` rows (distinct
+   ids/timestamps, identical params) from running the same scenario twice, and a database-level
+   confirmation that no UNIQUE constraint exists to have silently deduped them even if the code had
+   attempted an upsert (it doesn't — plain `.insert()`, confirmed by direct code read).
+6. **`gain_funder`'s confidence rule confirmed correct**: hardcoded `"low"` (mapped to `confidenceScore:
+   40`), never approaching the spec's 50-point ceiling — and this pass additionally confirmed, as a
+   genuine cross-agent finding, that the shared `AutonomousAgent.logDecision()` base class correctly
+   force-overrides `required_human_review` to `true` for this low-confidence decision even though
+   this agent's own code requested `false`, live-confirming a platform-wide hard limit
+   (`AGENTS_v2.md` §0) actually fires for AG-41's real output, not just in governance prose.
+7. **Not verified this pass, blocked by the same pre-existing, already-documented invalid local
+   Claude API key**: the Claude-generated `keyRisks`/`keyOpportunities`/`narrative` content and the
+   `budget_cut`-only `exposedPrograms` grounding against real Knowledge Base program descriptions.
+   Root-caused via a direct, isolated API call, not just observed as a symptom — confirmed to be the
+   same standing environment blocker, not a defect in this agent.
+
+**Recommendation:** re-run at least one `budget_cut` scenario (real `program_description` KB content
+already exists for this org, confirmed in pre-flight) once a valid `ANTHROPIC_API_KEY` is available,
+specifically to verify `exposedPrograms` genuinely names only the 2 real, on-file program
+descriptions rather than inventing one, and that `keyRisks`/`keyOpportunities`/`narrative` are
+grounded in the real numbers already computed (per the spec's own "every claim must trace back to a
+number or fact you were given" system prompt instruction) rather than generic. Also worth a future
+pass: exercise the `fallback` baseline branch live (a real zero-forecast org, e.g. "Bright Box
+Homes," already identified in the AG-26 entry above, would exercise it without needing synthetic
+data) to complete this entry's item 2 with a live-observed fallback case, not just a code read.
+
+**Verification method:** live schema checks via `DATABASE_URL`/`psql` (enum value, constraint set)
+before running anything; live pre-flight reads of the real org, funders, opportunities, outcomes,
+existing `funding_forecasts`, and `knowledge_base` program-description rows; 4 live executions
+(`node --import tsx`, no mocks) of the real, unmodified, exported `ImpactSimulationAgent.run("manual",
+...)` against the real Faith Foundation org — 2 identical `budget_cut` calls for the idempotency
+check, 1 `program_expansion` call, 1 `gain_funder` call; every `impact_simulations`/`agent_runs`/
+`agent_decisions` row independently re-queried via direct `psql`/`DATABASE_URL` afterward, never
+trusted from the in-process return value; the agent's exact deterministic formulas for both chosen
+scenario types reproduced by hand against the same real data and matched to full decimal precision;
+a direct, isolated `POST /v1/messages` call to the real Anthropic API (bypassing this agent and its
+`callClaude()` wrapper entirely) to root-cause the narrative-degradation result as the pre-existing
+invalid-API-key blocker rather than a defect in this agent. All 6 temporary verification scripts
+(`.mjs` files at the repo root) were deleted after use; `git status --porcelain` confirmed clean of
+any new files before committing; no repo files were modified except this log, `STATE_OF_THE_BUILD.md`,
+and `SESSION_STATE.md`. The 4 real `impact_simulations`/`agent_runs`/`agent_decisions` rows this
+session produced were deliberately kept, not deleted, per this agent's own "every simulation is an
+immutable historical record" design principle.

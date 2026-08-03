@@ -1,10 +1,64 @@
 # BENAVORA — Session State
 ## Last Updated: August 3, 2026
-## Mode: AG-41 Impact Simulation Agent built per enterprise spec (build-only, not yet live-tested)
+## Mode: AG-41 Impact Simulation Agent — live end-to-end verification complete, genuinely working
 
 ---
 
 ## Current Session (most recent)
+
+**Date:** August 3, 2026
+**Focus:** Live-test `ImpactSimulationAgent` (AG-41) against the real Faith Foundation org
+(`b1ab7402-dfc2-4712-869f-70ea3566cc1d`), no mocks — the follow-up live-verification pass the prior
+session explicitly deferred.
+**Status:**
+- Used direct agent-class instantiation (`node --import tsx`, real `new
+  ImpactSimulationAgent(orgId, supabase).run("manual", ...)`), not the HTTP route — the route needs a
+  live authenticated writer-role session, impractical to script, and is a thin wrapper around the
+  same call this test exercises directly.
+- Pre-flight confirmed live: migration 112's enum value present (50 total `agent_type` values);
+  `impact_simulations` has no UNIQUE constraint (PK only); this org already had 2 real
+  `funding_forecasts` rows from the same-day AG-26 verification pass; 0 outcomes trailing 12mo; 209
+  open opportunities, 0 with `funder_id` set.
+- Ran 4 live scenarios: `budget_cut` twice (idempotency), `program_expansion`, and `gain_funder`
+  (confidence-rule check). Chose `budget_cut`/`program_expansion` for deep math verification since
+  this org's real data makes `lose_funder` trivially $0 for every real funder on file (no
+  funder-linked open opportunities).
+- **All 4 confirmed working, hand-checked against real data:**
+  1. `budget_cut` math exact to full decimal precision (`18,521,355.042 × 10% = 1,852,135.5042`,
+     matches persisted row byte-for-byte). `program_expansion`'s 25%-of-budget risk flag also exact
+     (`30,000/75,000 = 40.0%`, correctly flagged).
+  2. `baselineUsed: "forecast"` on every row — confirmed AG-26 ran first in this chain and AG-41
+     genuinely used its real output, not the fallback. (Fallback branch itself not exercised live
+     this pass — no zero-forecast org tested — confirmed by code read only, stated as such.)
+  3. Idempotency confirmed: identical `budget_cut` params run twice produced 2 distinct rows
+     (different ids/timestamps), not an upsert — plus confirmed no DB constraint could have deduped
+     them regardless, since the insert path is a plain `.insert()`.
+  4. `gain_funder` confidence hardcoded `"low"` (confidenceScore 40), well under the spec's 50-point
+     ceiling — and surfaced a genuine cross-agent finding: the shared
+     `AutonomousAgent.logDecision()` base class correctly force-overrode `required_human_review` to
+     `true` for this low-confidence decision even though the agent's own code passed `false`, live
+     confirmation of a platform-wide hard limit (`AGENTS_v2.md` §0) actually firing.
+- Claude-generated narrative content (`keyRisks`/`keyOpportunities`/`narrative`/`exposedPrograms`)
+  was not verifiable this pass — root-caused via a direct, isolated `POST /v1/messages` call to the
+  real Anthropic API (bypassing this agent's code) to the same pre-existing invalid local
+  `ANTHROPIC_API_KEY` (401) documented everywhere else in this project. The agent's own 3-attempt
+  retry ran and correctly degraded to empty narrative arrays with the deterministic numbers intact.
+- The 4 real `impact_simulations`/`agent_runs`/`agent_decisions` rows produced were deliberately kept
+  (not deleted) — consistent with this agent's own "every simulation is an immutable historical
+  record" design. 6 temporary verification scripts deleted after use; `git status --porcelain`
+  confirmed clean before committing.
+
+Full detail in `AGENT_VERIFICATION_LOG.md`'s new `## AG-41` entry and
+`STATE_OF_THE_BUILD.md`'s "SESSION — August 3, 2026 (AG-41 Impact Simulation Agent — live end-to-end
+verification)" entry.
+**Commit:** `test(agents): live-verify AG-41 Impact Simulation Agent against real data` (this
+session).
+**Gates:** not re-run this session — no application code changed, this was a live-data verification
+pass against already-built, already-compiled code.
+
+---
+
+## Prior Session — August 3, 2026 (AG-41 Impact Simulation Agent — build per enterprise spec)
 
 **Date:** August 3, 2026
 **Focus:** Build AG-41 (`ImpactSimulationAgent`, `AGENTS_v2.md` §5) per enterprise spec — read the

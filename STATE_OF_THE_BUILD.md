@@ -1,8 +1,74 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 3, 2026 (AG-41 Impact Simulation Agent built per enterprise spec — enum applied and confirmed live via PostgREST OpenAPI, code compiles clean; NOT yet live-execution-tested against real data — no session has run a real simulation through this agent's Claude call yet). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 3, 2026 (AG-41 Impact Simulation Agent — live end-to-end verification: genuinely BUILT and working against real production data; deterministic math and idempotency both confirmed exact; Claude narrative synthesis blocked only by the pre-existing invalid local ANTHROPIC_API_KEY). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 3, 2026 (AG-41 Impact Simulation Agent — live end-to-end verification)
+
+Full detail and every hand-checked number lives in `AGENT_VERIFICATION_LOG.md`'s new `## AG-41`
+entry, appended after the `## AG-27` entries. Summary here for build-status tracking, following the
+same pattern already established for the AG-26/AG-27 verification entries below.
+
+**Method:** direct agent-class instantiation (`node --import tsx`, real, unmodified `new
+ImpactSimulationAgent(orgId, supabase).run("manual", scenarioType, params, null)`), not the HTTP
+route — the route requires a live authenticated writer-role session, impractical for a scripted live
+test, and is a thin wrapper around the same `agent.run()` call this test exercises directly.
+
+**Pre-flight, confirmed live before running anything:** migration 112's `'ag-41-impact-simulation'`
+enum value is live (50 total `agent_type` values). `impact_simulations` has no UNIQUE constraint —
+PK on `id` only, matching migration 112's own stated design (every simulation is deliberately an
+independent, immutable record, not deduped). Real Faith Foundation org data: 0 existing
+`impact_simulations` rows before this session; 2 real `funding_forecasts` rows already present
+(AG-26's own real output from earlier the same day, `12_month` `projected_most_likely =
+18,521,355.042`); 0 outcomes in the trailing 12 months; 4 real funders but 0 of 209 open
+opportunities have `funder_id` set.
+
+**Ran 4 live scenario invocations** — `budget_cut` (twice, identical params, for idempotency),
+`program_expansion`, and `gain_funder` (to directly confirm its confidence rule). Chose `budget_cut`
+and `program_expansion` for deep math verification since they exercise this org's two real non-zero
+numeric anchors (the AG-26 forecast and the org's own `annual_budget`); `lose_funder` was checked and
+correctly hits the documented "$0, this funder was never contributing" branch for every real funder
+this org has, since no open opportunity is funder-linked.
+
+**All 4 confirmed working:**
+1. **Deterministic math exact, hand-checked to full decimal precision** — `budget_cut`:
+   `18,521,355.042 × 10% = 1,852,135.5042`, matches persisted row exactly. `program_expansion`:
+   `30,000 / 75,000 × 100 = 40.0%`, correctly exceeds the 25% risk threshold and the deterministic
+   risk-flag text matches exactly.
+2. **Baseline confirmed as AG-26's real forecast**, not the fallback — `baselineUsed: "forecast"` on
+   every row, confirming AG-26 genuinely ran first in this chain for this org and AG-41 picked up its
+   real output. (The fallback branch itself was not exercised live this pass — no zero-forecast org
+   was tested against — confirmed by direct code read only, stated precisely per this task's own
+   instruction not to assume equivalence to a live test.)
+3. **Idempotency confirmed two independent ways**: running the identical `budget_cut` scenario twice
+   produced 2 distinct `impact_simulations` rows (distinct ids/timestamps, identical params) — not an
+   upsert — plus independent confirmation there is no database-level UNIQUE constraint that could
+   have deduped them even if the code had attempted one (it doesn't; plain `.insert()`).
+4. **`gain_funder`'s confidence rule confirmed correct**: hardcoded `"low"` (mapped to
+   `confidenceScore: 40`), well under the spec's 50-point ceiling. A genuine cross-agent finding
+   surfaced in the process: the shared `AutonomousAgent.logDecision()` base class correctly
+   force-overrides `required_human_review` to `true` for this decision even though this agent's own
+   code requested `false` — live confirmation that the platform-wide `MIN_CONFIDENCE_TO_ACT`-adjacent
+   hard limit (`AGENTS_v2.md` §0) actually fires for AG-41's real output.
+
+**Not verified this pass, root-caused rather than just observed:** Claude-generated
+`keyRisks`/`keyOpportunities`/`narrative` content and `budget_cut`'s `exposedPrograms` grounding —
+blocked by the same pre-existing invalid local `ANTHROPIC_API_KEY` (confirmed via a direct, isolated
+`POST /v1/messages` call bypassing this agent's code entirely, `401 authentication_error`), not a
+defect in this agent. The agent's own 3-attempt retry ran and correctly degraded to empty narrative
+arrays with the deterministic numbers intact, exactly as its Error handling design specifies.
+
+**Cleanup:** the 4 real `impact_simulations`/`agent_runs`/`agent_decisions` rows this session
+produced were deliberately kept, not deleted — consistent with this agent's own "every simulation is
+an immutable historical record" design and this log's established convention for genuine agent
+output. 6 temporary verification scripts were deleted after use; `git status --porcelain` confirmed
+clean before committing.
+
+Gates: not re-run this session (no application code changed; this was a live-data verification pass
+against already-built, already-compiled code from the prior session below).
 
 ---
 
