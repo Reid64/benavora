@@ -1,8 +1,58 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 3, 2026 (AG-26 Funding Forecast Agent built per enterprise spec, wired into a real monthly scheduler slot, enum + UNIQUE constraint applied live — not yet live-execution-tested against real production data). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 3, 2026 (AG-26 Funding Forecast Agent live-execution-tested against real production data — confirmed BUILT and working, not just compile-clean). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 3, 2026 (AG-26 Funding Forecast Agent live-verified end-to-end)
+
+Live-tested `FundingForecastAgent` (built in the immediately-prior session, entry below) against the
+real Faith Foundation org (`b1ab7402-dfc2-4712-869f-70ea3566cc1d`), no mocks. Full evidence in
+`AGENT_VERIFICATION_LOG.md`'s new "AG-26" entry; summary here.
+
+**Confirmed live before running anything**: migration 110's enum value (`'ag-26-forecast'`) and its
+`UNIQUE(org_id, forecast_date, forecast_period)` constraint on `funding_forecasts` were both already
+applied to production (the prior session's own build-time verification held) — this session had
+nothing to unblock, only to verify end-to-end.
+
+**All 6 things this task asked to confirm were checked directly against the database, not inferred:**
+1. **Both `90_day` and `12_month` rows write in one run** — confirmed: 2 real `funding_forecasts`
+   rows from a single `run("manual")` call, plus 2 matching `agent_decisions` rows.
+2. **Neutral-fallback for unscored opportunities** — confirmed working: this org's real data has
+   partial score coverage (32/42 and 34/44 scored), and the 10 unscored opportunities in each window
+   correctly used the neutral fallback score of 50 in the sum, not a crash or silent skip. The
+   specific all-unscored/"confidence capped at exactly 30" sub-case has no real org in this database
+   that reaches it today (every org with open opportunities has at least partial score coverage) —
+   verified instead by direct code read rather than presented as a live observation.
+3. **Zero-opportunity org → honest $0 forecast** — confirmed against a second real org ("Bright Box
+   Homes", zero open opportunities, not a fabricated fixture): 2 real rows, `projected_most_likely:
+   0`, `confidence: null`, clear methodology text, not a skipped row.
+4. **Deterministic math hand-verified byte-for-byte** — reproduced the exact formula independently
+   against the same real `opportunities`/`opportunity_probability_scores` data and matched the
+   persisted values to full decimal precision on both windows (`18521355.042` / `3908692.5045` /
+   `33134017.5795`). Traced why both windows produced identical numbers despite different
+   opportunity counts (the 2 extra 12-month-only opportunities both have null/zero amounts,
+   contributing $0) — confirmed as correct behavior, not a bug.
+5. **Idempotency confirmed** — re-ran the same org same day; `funding_forecasts` still exactly 2
+   rows, and both rows' `id`/`created_at` were byte-identical to run 1, confirming a genuine
+   update-in-place via the `UNIQUE` constraint, not a duplicate insert or silent no-op.
+6. **AG-40's read of AG-26's output** — the specific `loadLatestForecast()` method was called
+   directly and confirmed to now return real data for this org instead of `null`. A full
+   `AG-40.run()` was not attempted (blocked by the same dead local `ANTHROPIC_API_KEY` documented
+   elsewhere in this project) — stated explicitly rather than assumed. Found one real,
+   previously-undocumented design fact in the process: because both period rows share the same
+   `forecast_date`, AG-40's `order by forecast_date desc limit 1` has no tiebreaker on
+   `forecast_period` — which period AG-40 sees is not guaranteed/deterministic, and AG-40 has no way
+   to see both. Not a defect in AG-26; worth flagging for AG-40's own future maintenance.
+
+**Net status: AG-26 is genuinely BUILT and working**, not just compile-clean — `FEATURE_REGISTRY_v2.md`
+row #132 and `NOT_BUILT_MASTER_INVENTORY.md`'s AG-26 entry (both still say "zero agent code exists")
+are now stale as of the build commit and should be corrected in a future governance-sync pass.
+
+Gates: not re-run this session (no code changed — verification only). All 9 throwaway verification
+scripts were deleted after use; `git status` confirmed clean before committing.
 
 ---
 

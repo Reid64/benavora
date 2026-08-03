@@ -1,10 +1,55 @@
 # BENAVORA — Session State
 ## Last Updated: August 3, 2026
-## Mode: AG-26 Funding Forecast Agent built per enterprise spec, wired into a real monthly scheduler slot
+## Mode: AG-26 Funding Forecast Agent live-verified end-to-end against real production data — confirmed BUILT and working
 
 ---
 
 ## Current Session (most recent)
+
+**Date:** August 3, 2026
+**Focus:** Live-test `FundingForecastAgent` (built in the immediately-prior session, entry below)
+against the real Faith Foundation org (`b1ab7402-dfc2-4712-869f-70ea3566cc1d`), no mocks, then
+independently re-query the resulting `agent_runs`/`funding_forecasts` rows — closing the "not yet
+live-execution-tested" gap the prior session explicitly flagged as out of its own scope.
+**Status:**
+- Confirmed migration 110's enum value (`'ag-26-forecast'`) and `UNIQUE(org_id, forecast_date,
+  forecast_period)` constraint were both already live (the prior session's own verification held) —
+  nothing to unblock, only to verify.
+- Ran the real, unmodified agent (`node --import tsx`, no mocks) against Faith Foundation. Both
+  `90_day` and `12_month` rows written in one run, independently re-queried and confirmed — real
+  `agent_runs` row (`status: completed`), 2 real `funding_forecasts` rows, 2 matching
+  `agent_decisions` rows with populated `action_payload`.
+- Confirmed the neutral-fallback branch: 10 unscored opportunities per window correctly used the
+  neutral score of 50 in the sum, not a crash. The specific all-unscored/"confidence capped at 30"
+  sub-case has no real org in this database that reaches it (every org with open opportunities has
+  at least partial score coverage) — verified via direct code read instead, stated as such.
+- Ran the agent against a second real org ("Bright Box Homes," zero open opportunities, not
+  fabricated) to confirm the honest-$0-forecast branch: 2 real rows, `projected_most_likely: 0`,
+  `confidence: null`, clear methodology, not skipped.
+- Hand-verified the deterministic math independently against the same real
+  `opportunities`/`opportunity_probability_scores` data — matched the persisted values to full
+  decimal precision on both windows. Traced why both windows produced identical numbers (2 extra
+  12-month-only opportunities both have null/zero amounts) and confirmed it's correct, not a bug.
+- Confirmed idempotency: re-ran same org same day — `funding_forecasts` still exactly 2 rows, both
+  rows' `id`/`created_at` byte-identical to run 1 (genuine update-in-place, not a duplicate insert).
+- Called `StrategicAdvisorAgent`'s private `loadLatestForecast()` directly and confirmed it now
+  returns real AG-26 data for this org instead of `null`. A full `AG-40.run()` was not attempted
+  (blocked by the dead local `ANTHROPIC_API_KEY`) — stated explicitly, not assumed. Found one real
+  design fact: since both period rows share `forecast_date`, AG-40's `order by forecast_date desc
+  limit 1` has no tiebreaker on `forecast_period` — which period AG-40 sees isn't deterministic, and
+  it can't see both. Not a defect in AG-26; flagged for AG-40's own future maintenance.
+
+Appended full results to `AGENT_VERIFICATION_LOG.md` under a new "AG-26" entry. Updated
+`STATE_OF_THE_BUILD.md` with a new session entry reflecting AG-26 as genuinely BUILT and working,
+not just compile-clean — `FEATURE_REGISTRY_v2.md` row #132 and `NOT_BUILT_MASTER_INVENTORY.md`'s
+AG-26 entry are both now stale and flagged for a future governance-sync correction.
+**Commit:** `test(agents): live-verify AG-26 Funding Forecast Agent against real data` (this session).
+**Gates:** not re-run this session (no code changed — verification only, 9 throwaway scripts created
+and deleted, none committed).
+
+---
+
+## Prior Session — August 3, 2026 (AG-26 Funding Forecast Agent built per enterprise spec)
 
 **Date:** August 3, 2026
 **Focus:** Build AG-26 Funding Forecast Agent per `AGENTS_v2.md` §5's enterprise spec (read end to
