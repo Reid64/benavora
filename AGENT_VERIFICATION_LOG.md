@@ -3535,3 +3535,275 @@ any new files before committing; no repo files were modified except this log, `S
 and `SESSION_STATE.md`. The 4 real `impact_simulations`/`agent_runs`/`agent_decisions` rows this
 session produced were deliberately kept, not deleted, per this agent's own "every simulation is an
 immutable historical record" design principle.
+
+---
+
+## AG-42
+
+**Spec under test:** `AGENTS_v2.md` §5, AG-42 "Change Monitor Agent (CM-01)" (renumbered from
+AG-30 2026-08-02, enterprise spec written 2026-08-03). Real file:
+`src/lib/agents/change-monitor-agent.ts`, class `ChangeMonitorAgent extends AutonomousAgent`,
+`agentId: "ag-42-change-monitor"`, built in commit `9a94998` ("feat(agents): build AG-42 Change
+Monitor Agent per enterprise spec"), the commit immediately preceding this session in `git log`.
+`NOT_BUILT_MASTER_INVENTORY.md` and `FEATURE_REGISTRY_v2.md` row #96 both still describe AG-42 as
+NOT-BUILT ("Zero code exists anywhere") — both are now stale as of this commit; this entry
+supersedes that framing with a live functional verification, not just a code-existence check.
+Migration `src/supabase/migrations/113_ag42_change_monitor.sql` adds the `'ag-42-change-monitor'`
+enum value only — `corporate_monitoring_events` (migration 077) and `foundation_directory.enrichment`
+(migration 072) both already existed live, per the migration's own header comment.
+
+**Not org-scoped, unlike most agents in this log** — per the file's own header, this agent is
+platform-level (monitors `foundation_directory`/`corporate_prospects`, neither of which carries
+`organization_id`) and lazily provisions a well-known synthetic "system" organization row
+(`SYSTEM_ORG_ID = "00000000-0000-4000-8000-000000000042"`) to satisfy `agent_runs`/`agent_decisions`'
+NOT NULL FK constraints, the same pattern already established by AG-36 (Learning Network
+Aggregator). `run()` takes no scope/cap parameter — `MAX_ENTITIES_PER_RUN = 200` is the agent's own
+hardcoded ceiling.
+
+**Cap used for this test, stated explicitly per this task's instruction:** did not modify
+`MAX_ENTITIES_PER_RUN` or the agent's own scope query. The real, live `foundation_directory` scope
+query (`enriched_web_at IS NOT NULL`, oldest-checked-first) returned only **14 real rows** total in
+production today — already far below both the 200/run ceiling and the full 133,000-row table, with
+no synthetic `LIMIT` needed to keep this test small. `corporate_prospects` returned 0 (table
+missing, see Test 1). So the real cap exercised this run was **14 foundation_directory rows, 0
+corporate_prospects rows** — the entire real eligible population, not a slice of a larger one.
+
+### Pre-flight: real schema/data state, checked before running anything
+
+Live `DATABASE_URL`/`psql`-equivalent (`pg` client via a throwaway `.mjs` script, `.env.local`
+credentials, no mocks):
+- `agent_type` enum: `'ag-42-change-monitor'` present, 52 total values. **Migration 113 confirmed
+  live**, not just file-present.
+- `corporate_monitoring_events` columns: `id, prospect_id, event_type, description,
+  change_detected (jsonb), created_at` — matches the migration header's claim exactly.
+- `corporate_prospects`: confirmed **does not exist** in production
+  (`information_schema.tables` lookup, not a query-time 404) — same standing blocker documented
+  for AG-20/21/22/24/30/32 throughout this log.
+- `foundation_directory` rows with `enriched_web_at IS NOT NULL`: **14** — the real, live scope.
+- **Zero prior state for this agent, confirmed before touching anything**: 0 `foundation_directory`
+  rows anywhere with an `enrichment.change_monitor_snapshot` key, 0 `agent_runs` rows with
+  `agent_type = 'ag-42-change-monitor'`, 0 `corporate_monitoring_events` rows total. This is
+  genuinely this agent's first-ever execution against real data, not a repeat.
+
+### Run 1 — baseline establishment, live execution, no mocks
+
+`node --import tsx`, real, unmodified `new ChangeMonitorAgent(supabase).run("manual")` against the
+real production database (real service-role client, `ws` polyfill for Node 20, matching
+`src/lib/supabase/admin.ts`'s own pattern).
+
+**In-process return value:**
+```json
+{
+  "success": true, "itemsFound": 14, "itemsProcessed": 14, "itemsQueued": 0,
+  "decisions": [], "nextActions": [],
+  "errors": [
+    "corporate_prospects is unavailable in this environment (table does not exist in production as of 2026-08-03) — zero corporate prospects in scope this run; the foundation_directory half below is unaffected.",
+    "Failed to update change-monitor timestamp for foundation 0007d917-7889-4512-99a1-8572748c85ef: TypeError: fetch failed"
+  ]
+}
+```
+
+Independently re-queried `agent_runs` afterward (not trusted from the return value alone):
+`status: "completed"`, `items_found: 14`, `items_processed: 14`, `output_summary: "Checked 0
+corporate prospect(s) and 14 foundation(s); 0 change(s) detected. (corporate_prospects table missing
+this run.)"`, `output_payload: {"changesDetected":0,"corporateProspectsChecked":0,
+"foundationDirectoryChecked":14,"corporateProspectsTableMissing":true}`.
+
+**1. `corporate_prospects` degrades to zero without failing the run — confirmed via the real
+message, not just "it didn't crash."** The exact sentence above (`"corporate_prospects is
+unavailable in this environment..."`) is present in both the in-process `errors[]` array and the
+persisted `agent_runs.output_summary`/`output_payload.corporateProspectsTableMissing: true`. The
+run's own top-level `status` is `"completed"`, not `"failed"` — the table-missing condition is
+carried as data in the result, exactly as the spec's graceful-degradation design intends, not
+swallowed silently and not treated as fatal.
+
+**2. At least one real `foundation_directory` row checked; website/officers/status fetched; every
+checked row's `change_monitor_snapshot` newly written as a baseline, not a "change" against
+nothing — confirmed for 13 of 14 rows.** Re-queried all 14 rows directly: 13 now carry a real
+`enrichment.change_monitor_snapshot` (`officers`, `foundation_type`, `subsection_code`, `status`
+mirroring the row's real live column values exactly, plus `website_reachable: false` for every row
+with a real-but-malformed website string — `"N/A"`, `"N A"`, `"www.FWBusinessPress. com"` — StealthEngine
+correctly attempted and failed to navigate each, confirmed live in the run's own stderr output
+(`page.goto: Protocol error ... Cannot navigate to invalid URL`), a correct real-world result, not
+a bug) and a real `change_monitor_last_checked_at` timestamp. Rows with `website: null` correctly
+got no `website_reachable` key at all (matches the code's `reachableNow !== undefined` guard — no
+website means no reachability check was ever attempted, so none is recorded). **Zero changes
+detected and zero decisions logged on this run** (`changesDetected: 0`, `decisions: []`) —
+confirmed correct per the spec: `diffFoundationFields()` returns `[]` immediately when `snapshot`
+is `null` (line 295), and the website-reachability comparison is likewise gated on a prior snapshot
+existing (line 428) — so a first-ever run genuinely establishes a baseline rather than manufacturing
+a false "change" against no prior data, exactly as this task's item 2 asked to confirm.
+
+**One real, genuine defect found on this run, not previously documented**: foundation
+`0007d917-7889-4512-99a1-8572748c85ef` ("JOSEPH AND JUDITH H JOHNSON FAMILYFOUNDATION") failed its
+`change_monitor_snapshot` write with `TypeError: fetch failed` — a transient network failure on the
+Supabase REST `.update()` call itself (not a StealthEngine/website error; this row's website is
+`"N/A"`, handled identically to the other 12 non-null-website rows). Correctly isolated: pushed to
+`errors[]`, the run still completed with `success: true`, and the other 13 rows were unaffected —
+confirming the per-row error-isolation design works, not just in the code's structure but in a real
+failure that actually occurred. Re-checked after run 2 (below): this same row's snapshot write
+succeeded on the very next run with no code change, confirming this was a one-off transient network
+blip, not a reproducible bug in the agent.
+
+**4. `change_monitor_last_checked_at` updates on every check, including no-change checks —
+confirmed.** All 13 successfully-written rows carry a fresh timestamp from this run
+(`2026-08-03T07:1x:xx`), even though every one of them had `allChanges.length === 0` (no snapshot
+existed yet, so nothing could diff as "changed") — the timestamp write happens on the dedicated
+`allChanges.length === 0` branch (lines 460-476), independent of whether a change was detected,
+exactly as the spec requires.
+
+### Synthetic test setup — clearly a fabricated test of the diff logic, not a real detected change
+
+Per this task's instruction, manually altered two real rows' **stored snapshots only** (never the
+live `foundation_directory` columns themselves) via direct SQL, to simulate a change on the next
+run:
+- **Row A** (Brooks Family Charitable Trust, `0002f373-...`): `enrichment.change_monitor_snapshot.
+  website_reachable` set to `true` (the real value, confirmed in run 1, is `false`) — this
+  specifically targets the spec's **fixed-exception path** ("a previously-reachable website going
+  unreachable ... is itself logged as notable without a Claude call").
+- **Row B** (Camp County Youth Project Show, `00033a6c-...`): `enrichment.change_monitor_snapshot.
+  status` set to `"99"` (the real live value is `"01"`) — this targets the **general Claude-classified
+  diff path**.
+
+Confirmed via a direct read immediately before run 2 that both alterations landed exactly as
+intended and nothing else on either row changed.
+
+### Run 2 — synthetic-diff re-run, live execution, no mocks
+
+Same unmodified `new ChangeMonitorAgent(supabase).run("manual")` call, no code changes between runs.
+
+**In-process return value:**
+```json
+{
+  "success": true, "itemsFound": 14, "itemsProcessed": 14, "itemsQueued": 0,
+  "decisions": ["3f3bc603-bdc2-46cc-99c0-6c07e1000e10", "a900e40d-a48c-4414-a9c4-7392bd8113e0"],
+  "nextActions": [],
+  "errors": ["corporate_prospects is unavailable in this environment ..."]
+}
+```
+`agent_runs` (re-queried): `status: "completed"`, `output_summary: "Checked 0 corporate prospect(s)
+and 14 foundation(s); 2 change(s) detected. ..."`, `output_payload.changesDetected: 2`. Exactly the 2
+synthetic alterations, no more, no fewer — confirming the other 12 real, unaltered rows correctly
+produced zero false-positive diffs against their own now-real baseline snapshots from run 1.
+
+**3. Diff fires, an entry is written with the correct severity, and a chain-queue item is created
+for notable/material severity — confirmed for both synthetic rows, with one genuine new bug found
+downstream.**
+
+| Row | Path exercised | `agent_decisions` reasoning | `action_payload.severity` | `change_monitor_last_change` (foundation_directory) | `agent_queue` (`foundation-990-enrichment`) created? |
+|---|---|---|---|---|---|
+| A (Brooks Family) | Fixed exception (no Claude call) | "BROOKS FAMILY CHARITABLE TRUST's website (www.FWBusinessPress. com) is no longer reachable — it previously resolved." | `notable` | Present, matches exactly | **Yes** — real row, correct `foundationId`, priority 50, `trigger_source: "chain"`, `chained_from_run_id` set to this run's real `agent_runs.id` |
+| B (Camp County) | General diff → Claude classification attempted, failed, fell back | "1 field(s) changed for CAMP COUNTY YOUTH PROJECT SHOW (Claude classification unavailable: 401 ... API key is invalid.)" | `notable` (the code's documented exhaustion fallback) | Present, matches exactly | **Yes** — same shape as Row A |
+
+Both decisions logged with `confidence_score: 75`, `required_human_review: false`, `entity_type:
+"foundation"`, `entity_id` correctly matching each row — all confirmed by direct re-query of
+`agent_decisions`, not the in-process return value. Row A's fixed-exception path is confirmed to
+have genuinely skipped the Claude call (no `401`/exhaustion text in its reasoning, unlike Row B) —
+the two rows exercise the two textually-distinct branches the code actually has, not the same
+branch twice.
+
+**Real, live-reproduced local-Claude-key blocker, already standing throughout this log**: Row B's
+reasoning text shows the exact `401 {"type":"authentication_error","message":"API key is invalid."}`
+from `classifyChange()`'s 3-attempt exhaustion — the same dead local `ANTHROPIC_API_KEY` documented
+for AG-20/21/24/26/27/41 elsewhere in this log. Confirms the code's documented fallback (default to
+`"notable"` rather than silently dropping a real detected diff) genuinely fires under a real
+Claude failure, not just in theory — but also means **no field-change severity has ever actually
+been classified `"material"` in this environment**, since every Claude-classification attempt in
+today's environment necessarily exhausts to the fixed `"notable"` fallback. This is a real,
+practical limitation of the current environment (not a code defect) worth flagging: until a valid
+key is present, this agent's severity output for any Claude-routed change is always `"notable"`,
+never `"material"`, regardless of what actually changed.
+
+**Genuine new defect found, downstream of `ChangeMonitorAgent` itself — the chain target fails in
+production today.** Both `agent_queue` rows were picked up and processed almost instantly by the
+real, live, continuously-polling Railway worker (`started_at`/`completed_at` ~90-100ms apart,
+confirming a real external process reacted to the insert, not this session's own scripts — neither
+temp script ever called `routeQueueItem`/`processAgentQueue`). Both ended `status: "failed"`,
+`retry_count: 3/3`, `error_message: "Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY"`.
+Root-caused by reading the actual code path: `worker/autonomous-orchestrator.ts`'s
+`'foundation-990-enrichment'` case (line 1820) calls `enrichSingleFoundation(foundationId)` with
+**no `supabase` parameter**, even though `routeQueueItem(supabase, item)` already has a real,
+working client passed in (confirmed working — every other case in the same `switch` reuses it
+successfully in production today). `enrichSingleFoundation()` (`src/lib/scraper/foundation-scraper.ts`,
+line 795) instead calls `createAdminClient()` independently, which reads
+`process.env.NEXT_PUBLIC_SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` — the Next.js web-app's env var
+naming convention (`src/lib/supabase/admin.ts`). The real Railway worker's own bootstrap
+(`worker/index.ts` lines 21-22) reads `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` (no `NEXT_PUBLIC_`
+prefix) and never sets the `NEXT_PUBLIC_`-prefixed name in its own process environment — so
+`createAdminClient()`'s env check throws immediately, every time, for this one chain target
+specifically. **This means the chain-queue creation half of this agent's design is fully confirmed
+working (this task's own bar for success), but the actual re-enrichment this agent exists to
+trigger cannot execute in production today** — a real, live-reproduced gap, not a hypothetical one,
+and not a defect in `ChangeMonitorAgent`'s own code.
+
+### Cleanup
+
+The synthetic snapshot alterations were not manually reverted — both rows' `change_monitor_snapshot`
+were already overwritten wholesale with the real, true current values by the agent's own run 2 write
+(confirmed in the re-query above: both rows now show real, non-synthetic values, e.g. Row A's
+`website_reachable: false`, the true value), which is itself a live confirmation of the spec's
+"always overwritten wholesale, never appended to" idempotency design — the synthetic state was
+self-correcting by the agent's own normal operation, not something requiring manual cleanup. The
+real `agent_runs`/`agent_decisions`/`agent_queue`/`foundation_directory.enrichment` rows this session
+produced were kept, not deleted, per this log's established convention (AG-26/27/41 entries above)
+of treating genuine agent output as legitimate history. All 7 temporary verification scripts (`.mjs`
+files at the repo root) were deleted after use; `git status --porcelain` confirmed clean of any new
+files before writing this entry.
+
+### Root-cause summary
+
+1. **AG-42 is genuinely BUILT and its own logic is confirmed working end-to-end against real
+   production data on all 4 dimensions this task asked about**: graceful `corporate_prospects`
+   degradation, real baseline establishment for `foundation_directory`, correct diff/severity/
+   chain-queue-creation on a synthetic detected change, and per-check timestamp updates regardless
+   of outcome. `FEATURE_REGISTRY_v2.md` row #96 and `NOT_BUILT_MASTER_INVENTORY.md`'s AG-42 entry
+   are both now stale ("Zero code exists anywhere") and should be updated to reflect commit
+   `9a94998` and this verification.
+2. **Migration 113's enum value confirmed live** (52 total values, `'ag-42-change-monitor'`
+   present) — no enum-gap blocker, unlike several earlier agents in this log.
+3. **One transient, non-reproducible network failure** on a single row's snapshot write in run 1,
+   correctly isolated by the existing per-row error handling and self-resolved on the very next run
+   with no code change — not a defect.
+4. **The local dead-Claude-key blocker (standing throughout this log) means this agent's Claude-
+   classified severity output can currently only ever be `"notable"`** (the documented exhaustion
+   fallback), never genuinely `"material"`, in this environment — a real, practical limitation
+   distinct from the fixed-exception path, which correctly bypasses Claude entirely and was
+   confirmed to do so.
+5. **New, genuine, live-reproduced defect**: the `'foundation-990-enrichment'` chain target
+   (`worker/autonomous-orchestrator.ts`'s case handler → `enrichSingleFoundation()` →
+   `createAdminClient()`) fails 100% of the time in the real production Railway worker due to an
+   env-var-naming mismatch (`NEXT_PUBLIC_SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` vs. the worker's
+   actual `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY`), confirmed by two real queue items both
+   exhausting 3/3 retries with the exact same error message within the live worker's own real,
+   near-instant pickup. This blocks the actual out-of-cycle re-enrichment this agent exists to
+   trigger — `ChangeMonitorAgent`'s own responsibility (detect + queue) is fully discharged
+   correctly; the break is entirely in the chain target's own wiring.
+
+**Recommendation:** fix the `'foundation-990-enrichment'` case in
+`worker/autonomous-orchestrator.ts` to pass the already-available `supabase` client into
+`enrichSingleFoundation(foundationId, supabase)` instead of having that function construct its own
+via `createAdminClient()` — a small signature change, matching every other case in the same
+`switch` statement's existing pattern. Re-verify with a fresh synthetic-change run afterward to
+confirm the chain target actually completes end-to-end, not just that the queue item is created.
+Separately, once a valid `ANTHROPIC_API_KEY` is available, re-run the general-diff path (Row B's
+scenario) to confirm a change Claude would genuinely classify `"material"` (e.g. a `foundation_type`
+change) produces that severity rather than the current always-`"notable"` fallback.
+
+**Verification method:** live schema checks via a direct Postgres connection (`.env.local`
+`DATABASE_URL`, `pg` client, no mocks) before running anything — enum value, table columns,
+`corporate_prospects` existence, real scope-query row count, zero prior agent state; 2 live
+executions (`node --import tsx`, no mocks) of the real, unmodified, exported `ChangeMonitorAgent.
+run("manual")` against the real production database — the first a genuine first-ever baseline run,
+the second after a manual, explicitly-synthetic SQL alteration of two rows' stored snapshots only
+(never the live `foundation_directory` columns); every `agent_runs`/`agent_decisions`/`agent_queue`/
+`foundation_directory.enrichment` row independently re-queried via direct SQL afterward, never
+trusted from the in-process return value; the `'foundation-990-enrichment'` chain-target failure
+root-caused by direct code reads of `worker/autonomous-orchestrator.ts`'s case handler,
+`foundation-scraper.ts`'s `enrichSingleFoundation()`, `src/lib/supabase/admin.ts`'s
+`createAdminClient()`, and `worker/index.ts`'s own env-var bootstrap — not inferred from the error
+message alone. All 7 temporary verification scripts (`.mjs` files at the repo root) were deleted
+after use; `git status --porcelain` confirmed clean of any new files before committing. No repo
+files were modified except this log, `STATE_OF_THE_BUILD.md`, and `SESSION_STATE.md`. The real rows
+this session produced (2 `agent_runs`, 2 `agent_decisions`, 2 `agent_queue`, 14 updated
+`foundation_directory.enrichment` values) were deliberately kept, not deleted, matching this log's
+established convention for genuine agent output.

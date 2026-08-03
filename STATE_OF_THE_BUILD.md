@@ -1,8 +1,71 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 3, 2026 (AG-42 Change Monitor Agent built per enterprise spec — compile-clean and wired, not yet live-execution-tested; see this session's entry below for why). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 3, 2026 (AG-42 Change Monitor Agent live-verified against real production data — its own detect+chain-queue logic is confirmed genuinely working; a new, real downstream chain-target bug found in the same pass). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 3, 2026 (AG-42 Change Monitor Agent — live end-to-end verification)
+
+Full evidence in `AGENT_VERIFICATION_LOG.md`'s new `## AG-42` entry; summary here. The prior
+session's build (below) left this agent compile-clean and wired but not live-execution-tested —
+this session ran it for real, twice, against the real production database (no mocks), against the
+real live scope: **14 real `foundation_directory` rows** (the entire real eligible population
+today, `enriched_web_at IS NOT NULL`) and **0 `corporate_prospects` rows** (table still absent).
+
+**Confirmed working, all four dimensions this pass was scoped to check:**
+1. `corporate_prospects` degrades to zero in scope without failing the run — the real message
+   ("table does not exist in production as of 2026-08-03 — zero corporate prospects in scope this
+   run; the foundation_directory half below is unaffected") is present in both the in-process
+   result and the persisted `agent_runs.output_summary`, and the run's own `status` is
+   `"completed"`, not `"failed"`.
+2. Run 1 (genuinely this agent's first-ever execution — confirmed zero prior `agent_runs`/snapshot
+   rows beforehand) checked all 14 real rows, fetched real website/officers/status, and wrote a
+   fresh `change_monitor_snapshot` baseline on 13 of 14 — correctly detecting **zero** changes,
+   since a first-ever run has no prior snapshot to diff against (exactly the spec's intended
+   behavior, not a bug).
+3. A manually-constructed synthetic second run (two rows' **stored snapshots only** altered by
+   direct SQL, real `foundation_directory` columns never touched) confirmed: the diff fires, a
+   decision is logged with the correct severity for both the fixed-exception (website-degraded, no
+   Claude call) and general (Claude-classified) paths, and a real `agent_queue` chain item
+   targeting `foundation-990-enrichment` is created for both — this agent's own detect+queue
+   responsibility is fully discharged correctly.
+4. `change_monitor_last_checked_at` updates on every check, confirmed on both no-change rows (run
+   1) and changed rows (run 2).
+
+**One transient, non-reproducible defect found and self-resolved**: one row's snapshot write
+failed with a `TypeError: fetch failed` network blip on run 1, correctly isolated (the run still
+completed, other 13 rows unaffected), and succeeded with no code change on run 2.
+
+**One real, practical environment limitation confirmed**: the local dead `ANTHROPIC_API_KEY`
+(standing blocker throughout this codebase's agent-verification history) means every
+Claude-classified severity in this environment today falls back to the documented `"notable"`
+exhaustion default — no change has ever actually been classified `"material"` here, though the
+fallback path itself is confirmed correctly triggered by a real Claude failure, not a code defect.
+
+**One new, genuine, live-reproduced bug found downstream of this agent** — not a defect in
+`ChangeMonitorAgent` itself. Both synthetic runs' chain-queue items were picked up almost instantly
+by the real, live, continuously-polling Railway worker and both failed 3/3 retries with `"Missing
+NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY"`. Root-caused by direct code read:
+`worker/autonomous-orchestrator.ts`'s `'foundation-990-enrichment'` case calls
+`enrichSingleFoundation(foundationId)` without the `supabase` client `routeQueueItem()` already has
+available (every other case in the same switch reuses it successfully); `enrichSingleFoundation()`
+instead calls `createAdminClient()` independently, which reads the Next.js web-app's env var names
+(`NEXT_PUBLIC_SUPABASE_URL`) rather than the worker's own (`SUPABASE_URL`, set in
+`worker/index.ts`). **The out-of-cycle re-enrichment this agent exists to trigger cannot execute in
+production today** — the fix is a small signature change (pass `supabase` through), not addressed
+in this pass since it was scoped to verification, not remediation.
+
+**Current real status: AG-42's own logic (detect + baseline + diff + severity + chain-queue
+creation) is genuinely BUILT and VERIFIED working end-to-end against real production data.** Its
+one real-world effect (triggering out-of-cycle foundation re-enrichment) is currently blocked by an
+unrelated, newly-discovered bug in the chain target's own wiring.
+
+Cleanup: all 7 temporary `.mjs` verification scripts deleted after use; `git status --porcelain`
+confirmed clean of new files. The real rows this session produced (2 `agent_runs`, 2
+`agent_decisions`, 2 `agent_queue`, 14 updated `foundation_directory.enrichment` values) were kept,
+not deleted, per this log's established convention for genuine agent output.
 
 ---
 

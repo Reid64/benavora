@@ -1,10 +1,59 @@
 # BENAVORA — Session State
 ## Last Updated: August 3, 2026
-## Mode: AG-42 Change Monitor Agent built per enterprise spec — compile-clean and wired, not yet live-execution-tested
+## Mode: AG-42 Change Monitor Agent live-verified — own logic confirmed working, new downstream chain-target bug found
 
 ---
 
 ## Current Session (most recent)
+
+**Date:** August 3, 2026
+**Focus:** Live-test `ChangeMonitorAgent` (AG-42) against real production data, no mocks, per the
+prior session's own flagged follow-up (built + wired but never actually run).
+**Status:**
+- Confirmed the real live scope before running anything: 14 real `foundation_directory` rows
+  (`enriched_web_at IS NOT NULL`, the entire real eligible population today — no synthetic cap
+  needed), 0 `corporate_prospects` rows (table still absent), 0 prior `agent_runs`/snapshot rows
+  for this agent (genuinely its first-ever execution).
+- **Run 1** (`node --import tsx`, real service-role client, no mocks): `success: true`,
+  `itemsFound: 14`, `changesDetected: 0`. Confirmed the real `corporate_prospects` degrade-to-zero
+  message is present in both the in-process result and the persisted `agent_runs.output_summary`,
+  and the run's own `status` is `"completed"`. Confirmed 13 of 14 rows got a real
+  `change_monitor_snapshot` baseline (officers/foundation_type/subsection_code/status/
+  website_reachable, all matching live truth) with zero false "changes" against no prior data —
+  exactly the spec's intended first-run behavior. One row's write failed with a transient
+  `TypeError: fetch failed` network blip, correctly isolated (run still completed); self-resolved
+  on run 2 with no code change.
+- **Synthetic test**: manually altered two rows' *stored snapshots only* via direct SQL (never the
+  real `foundation_directory` columns) — one to fake a "was reachable, isn't now" website
+  transition (targets the fixed-exception path, no Claude needed), one to fake a stale `status`
+  value (targets the general Claude-classified diff path).
+- **Run 2**: `changesDetected: 2`, exactly the 2 synthetic rows, zero false positives on the other
+  12 real rows. Both produced a real `agent_decisions` row (severity `notable` on both — one via
+  the fixed exception, one via Claude-classification exhaustion against the standing dead local
+  `ANTHROPIC_API_KEY`, correctly falling back per spec rather than dropping the diff) and a real
+  `agent_queue` chain item targeting `foundation-990-enrichment`. Confirmed
+  `change_monitor_last_checked_at` updates on every check in both runs, changed or not.
+- **New, genuine, live-reproduced bug found downstream, not in this agent**: both chain-queue items
+  were picked up almost instantly by the real, live Railway worker and both failed 3/3 retries with
+  `"Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY"`. Root-caused:
+  `worker/autonomous-orchestrator.ts`'s `'foundation-990-enrichment'` case doesn't pass its already-
+  available `supabase` client into `enrichSingleFoundation()`, which instead calls
+  `createAdminClient()` and reads the Next.js web-app's env var names, not the worker's own
+  (`SUPABASE_URL`, set in `worker/index.ts`). Fix is a small signature change; not made this pass
+  since it was scoped to verification, not remediation.
+- **Current real status**: `ChangeMonitorAgent`'s own detect+baseline+diff+severity+chain-queue
+  logic is genuinely BUILT and VERIFIED working end-to-end against real data. Its one real-world
+  effect (out-of-cycle re-enrichment) is blocked by the newly-found chain-target bug above.
+
+Appended full evidence to `AGENT_VERIFICATION_LOG.md`'s new `## AG-42` entry. Updated
+`STATE_OF_THE_BUILD.md` with the live-verification summary.
+**Commit:** `test(agents): live-verify AG-42 Change Monitor Agent against real data` (this session).
+**Gates:** no code changed this session (verification only) — nothing to re-run `pnpm tsc --noEmit`
+against beyond the prior session's already-clean state.
+
+---
+
+## Prior Session — August 3, 2026 (AG-42 Change Monitor Agent built per enterprise spec)
 
 **Date:** August 3, 2026
 **Focus:** Build `ChangeMonitorAgent` (AG-42, CM-01) per `AGENTS_v2.md` §5's enterprise spec — the
