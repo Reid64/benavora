@@ -42,7 +42,7 @@ An additional tier system was added 2026-07-30 for agent rows (AG-15–AG-30 ran
 | 86 | Discovery Preferences | PLANNED | User-configurable source/category filters, Phase 2 |
 | 87 | Corporate Prospects Table | BUILT, live-apply unconfirmed | Migration 107 exists; table 404'd as of 2026-07-20 (see AG-20/21/22/24 findings — still broken as of tonight) |
 | 92 | Corporate Giving DNA | PLANNED | Per-company profile, Phase 2 |
-| 96 | Change Monitor (CM-01, canonical AG-30) | NOT-BUILT | Confirmed zero code exists anywhere for change-detection/re-enrichment trigger |
+| 96 | Change Monitor (CM-01, **AG-42**, renumbered from AG-30 2026-08-02) | NOT-BUILT | Confirmed zero code exists anywhere for change-detection/re-enrichment trigger. Renumbered off AG-30 to resolve a collision with the real, live Donor Intent Monitor, which now permanently owns AG-30 — see `AGENTS_v2.md` §1.4. |
 | 97 | Corporate Marketplace | PLANNED | Prospect search UI + filter engine, Phase 2 |
 | 98 | Relationship Memory | IN BUILD (likely stale) | `relationship_memory` table — same stale-snapshot issue as row 79 |
 | 99 | Signal Monitoring | PLANNED | LinkedIn + news + 990 watching, Phase 2 |
@@ -59,7 +59,7 @@ An additional tier system was added 2026-07-30 for agent rows (AG-15–AG-30 ran
 | 138 | Board Member Portal | PLANNED | Phase 3 |
 | 139 | Plain Language Financials | PLANNED | Phase 3 |
 | 140 | Simulation Schema | Same live-table caveat as 135-136 | `impact_simulations` |
-| 141 | Simulation Agent (AG-28, canonical Impact Simulation) | NOT-BUILT | Zero code found anywhere. Note: on-disk literal `"ag-28-followup"` belongs to a *different*, unrelated, actually-live Follow-Up Generator agent — don't conflate |
+| 141 | Simulation Agent (**AG-41**, renumbered from AG-28 2026-08-02, canonical Impact Simulation) | NOT-BUILT | Zero code found anywhere. Renumbered off AG-28 to resolve a collision with the real, live Follow-Up Generator agent (`"ag-28-followup"`), which now permanently owns AG-28 — see `AGENTS_v2.md` §1.4. |
 | 142 | Simulator UI | PLANNED | `/intelligence/simulate`, Phase 4 |
 | 144–146 | Narrative Gap / Geographic Gap / Gap Recommendations | PLANNED | Rest of Pillar 14 unbuilt, Phase 2 |
 | 151 | Auto-Monitor on Add | PLANNED | Auto-enroll new funders in reputation monitoring, Phase 2 |
@@ -138,7 +138,7 @@ collapsed into one label.
 | **AG-19 Relationship Builder — capability only, not production wiring** | Re-confirmed working 2026-08-02: completes a real run with zero enum errors when directly instantiated. **This does NOT mean it's wired — see category 2, its actual production status.** |
 | AG-25 Disaster Response (canonical, manual API route) | Spec matches code exactly, no drift; two real functions. (Reachable only manually — see category 2 for the missing automatic cron.) |
 | **AG-25's on-disk collision: Deadline Prediction Agent (`ag-25-deadline-prediction`)** | **Fixed and re-verified live 2026-08-02.** Enum gap closed; re-run completed cleanly, `itemsFound: 15`, zero errors. |
-| AG-28's on-disk collision: Follow-Up Generator Agent (`ag-28-followup`) | Enum gap closed, re-verified 2026-08-02: completes via its documented no-op path when no `agent_queue` trigger is present. A full trigger-driven run (with a real applicationId payload) has not been exercised in this log yet. |
+| **AG-28 Follow-Up Generator Agent** (`ag-28-followup` — AG-28 now its permanent, sole number as of 2026-08-02, no longer just an "on-disk collision") | Enum gap closed, re-verified 2026-08-02: completes via its documented no-op path when no `agent_queue` trigger is present. A full trigger-driven run (with a real applicationId payload) has not been exercised in this log yet. |
 | AG-29's on-disk collision: Fundability Scorer (`ag-29-fundability`) | Real, wired into `worker/autonomous-orchestrator.ts`. Not independently live-execution-tested in this log. |
 | AG-29 canonical — underlying capability, not an agent | `src/lib/intelligence/embeddings.ts` is real and live-verified (105/105 `intelligence_proposal_sections` rows have genuine, non-placeholder 1536-dim embeddings) — but this is manually-triggered library code, not an autonomous agent. See category 4 for the agent itself. |
 
@@ -165,7 +165,7 @@ collapsed into one label.
 | AG-21 Executive Biography Analyzer (EA-08) | Same two blockers as AG-20. Worse accuracy (0/6 real hits); a Claude-throws error path silently drops the enrichment patch. |
 | AG-22 Propensity Scoring | Same two blockers as AG-20/21 (downstream in the same enrichment chain). Rubric math itself verified to discriminate real inputs — the blocker is upstream data, not this agent's own logic. |
 | AG-24 Personalized Outreach Generator | Real, live-wired (`/api/intelligence/outreach/generate` → `/donor-discovery/outreach` UI) — blocked at runtime by the same `corporate_prospects`/API-key issues as AG-20/21/22. |
-| **AG-30's real implementation: Donor Intent Monitor (`ag-30-donor-intent`)** | **Enum gap fixed 2026-08-02, and a second real bug fixed in the same pass** — `loadOrgProfile()` was querying a nonexistent `organizations.service_areas` column (fixed to the real `service_area`). Re-verified live: the run now completes cleanly instead of crashing — but produces zero real signals because `corporate_prospects` doesn't exist in production, the same table-missing blocker as AG-20/21/22/24. Reported as a clean, caught error rather than a crash — a real improvement, but still blocked. |
+| **AG-30 Donor Intent Monitor** (`ag-30-donor-intent` — AG-30 now its permanent, sole number as of 2026-08-02) | **Enum gap fixed 2026-08-02, and a second real bug fixed in the same pass** — `loadOrgProfile()` was querying a nonexistent `organizations.service_areas` column (fixed to the real `service_area`). Re-verified live: the run now completes cleanly instead of crashing — but produces zero real signals because `corporate_prospects` doesn't exist in production, the same table-missing blocker as AG-20/21/22/24. Reported as a clean, caught error rather than a crash — a real improvement, but still blocked. |
 
 ### 4. NOT BUILT AT ALL
 
@@ -175,9 +175,9 @@ collapsed into one label.
 | AG-23 Relationship Mapper (RA-01), under this specific identity | Same thin template. (The real capability exists under AG-32 — category 2 above — not under this name.) |
 | AG-26 Funding Forecast | Same thin template. Zero code confirmed by direct grep of `src/lib/agents/`; `funding_forecasts` table exists (migration 078) but has no writer anywhere in the repo. |
 | AG-27 Board Meeting Packet | Same thin template. |
-| AG-28 Impact Simulation, under this specific identity | Same thin template. (The on-disk `"ag-28-followup"` is a different, real, live agent — category 1 above — not this one.) |
+| **AG-41 Impact Simulation** (renumbered from AG-28, 2026-08-02) | Same thin template. AG-28 is now permanently the real, live Follow-Up Generator Agent (category 1 above) — this phantom spec was moved to AG-41 to resolve the collision permanently; content unchanged, still zero code. See `AGENTS_v2.md` §1.4. |
 | AG-29 Knowledge Engine Indexer, as an autonomous agent | Same thin template — no indexer class, no worker wiring, no registry entry. (The underlying embedding-generation capability is real — see category 1's note. The colliding `"ag-29-fundability"` is also a different, real agent — category 1.) |
-| AG-30 Change Monitor (CM-01), under this specific identity | Same thin template. Zero code, zero wiring. (The on-disk `"ag-30-donor-intent"` is a different, real agent — category 3 above, not this one.) |
+| **AG-42 Change Monitor (CM-01)** (renumbered from AG-30, 2026-08-02) | Same thin template. Zero code, zero wiring. AG-30 is now permanently the real, live Donor Intent Monitor (category 3 above) — this phantom spec was moved to AG-42 to resolve the collision permanently; content unchanged, still zero code. See `AGENTS_v2.md` §1.4. |
 
 **Cross-reference finding for category 4, as requested:** all 7 NOT-BUILT canonical agents share the
 exact same short template in `AGENTS_v2.md` — a one-to-two-sentence purpose statement, a type (AI/
@@ -194,8 +194,10 @@ is a strict Postgres enum. As of 2026-07-30, at least 15 real agent-ID literals 
 never been added to it, so every one of those agents failed at the very first `agent_runs` insert
 (`22P02: invalid input value for enum agent_type`). **Fixed live in production 2026-08-01/02** — all
 15 target literals confirmed present via the live PostgREST OpenAPI schema, and 6 of the affected
-agents (AG-15's wrapper, AG-17, AG-19, AG-25's collision, AG-28's collision, AG-30's collision)
-individually re-run live to confirm. **Two literals used by other real agents were NOT part of that
+agents (AG-15's wrapper, AG-17, AG-19, the Deadline Prediction Agent sharing AG-25's on-disk
+literal, and the real AG-28/AG-30 — both now permanently renumbered off their old phantom-spec
+collisions as of 2026-08-02, see `AGENTS_v2.md` §1.4) individually re-run live to confirm. **Two
+literals used by other real agents were NOT part of that
 fix batch and remain enum-blocked today**: `ag-18-reputation` (the orphaned `ReputationIntelligenceAgent`
 class) and `ag-32-relationship-graph` (the real AG-23/RA-01 capability). Don't assume "the enum gap
 is fixed" applies platform-wide — it was fixed for the 15 specific literals in

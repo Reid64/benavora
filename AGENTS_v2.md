@@ -177,11 +177,32 @@ alone is not a reliable identifier across code and docs:
 | AG-11 — Cold Outreach Agent | `ag-11-knowledge-gap` = **Knowledge Gap Agent** (unrelated) |
 | AG-12 — AutoApply Agent | `ag-12-search-optimizer` = **Search Profile Optimizer Agent** (unrelated) |
 | AG-25 — Disaster Response Agent | `ag-25-deadline-prediction` = **Deadline Prediction Agent** (unrelated) |
-| AG-28 — Impact Simulation Agent | `ag-28-followup` = **Follow-Up Generator Agent** (unrelated) |
+
+**AG-28 resolved, 2026-08-02 — no longer a collision, do not re-add a row for it.** The phantom
+"Impact Simulation Agent" that used to occupy AG-28 (zero real code, ever) was renumbered to AG-41.
+AG-28 is now permanently and unambiguously the real, live `FollowupGeneratorAgent`
+(`agentId: "ag-28-followup"`) — see its full spec at AG-28 in Section 5 below, replacing the old
+Impact Simulation spec at that position. AG-30 had the same class of problem in a different shape
+(two separate `### AG-30:` headers in this same document, not an on-disk-literal mismatch) —
+resolved the same day the same way: the phantom "Change Monitor Agent (CM-01)" was renumbered to
+AG-42, leaving the existing `### AG-30: Donor Intent Monitor` section (Phase 2-5 section below) as
+this document's sole AG-30.
+
+**AG-25 deliberately NOT resolved this way.** Unlike AG-28/AG-30, `ag-25-deadline-prediction`'s
+canonical counterpart (Disaster Response Agent, this row above) is real, working code — not a
+phantom spec — and its own source files (`disaster-response-agent.ts`,
+`api/agents/disaster/route.ts`) explicitly self-identify as "AGENTS_v2.md AG-25" in their header
+comments. Renumbering the canonical spec here would desync those files' own self-description from
+this document without touching code, which this pass was explicitly scoped to avoid. AG-25 remains
+a genuine dual-identity number by design, not an oversight — see the numbering note under AG-25 in
+Section 5.
 
 This document keeps the original 30 canonical `AG-XX` names/purposes (Section 5) because that is
-the taxonomy the product/business side already knows. Every per-agent spec below states its real
-on-disk `agent_type`/`agent_id` literal explicitly so the two schemes never get silently conflated.
+the taxonomy the product/business side already knows — except AG-28 and AG-30 as of 2026-08-02,
+which now permanently point at their real live agents instead of the phantom concepts that used to
+sit there (renumbered to AG-41/AG-42 respectively; never to be reused for anything else). Every
+per-agent spec below states its real on-disk `agent_type`/`agent_id` literal explicitly so the two
+schemes never get silently conflated.
 
 ### 1.5 Files in `src/lib/agents/` with no corresponding spec anywhere in this document
 
@@ -271,9 +292,11 @@ require `export const maxDuration = 300` (`vercel.json` + route-level).
 | AG-25 | Disaster Response Agent | Deterministic + AI | PLANNED | manual API route only (no cron) | none |
 | AG-26 | Funding Forecast Agent | AI (Claude) | PLANNED | — | none |
 | AG-27 | Board Meeting Packet Agent | AI (Claude) | PLANNED | — | none |
-| AG-28 | Impact Simulation Agent | AI (Claude) | PLANNED | — | none |
+| AG-28 | Follow-Up Generator Agent (renumbered here 2026-08-02, was phantom "Impact Simulation" — see AG-41) | AI (Claude) | ENABLED (event) | event (`agent_queue`, stage transition) | none |
 | AG-29 | Knowledge Engine Indexer Agent | Embedding model | PLANNED | — | none |
-| AG-30 | Change Monitor Agent (CM-01) | AI (Claude) | PLANNED | — | none |
+| AG-30 | Donor Intent Monitor (renumbered here 2026-08-02, was phantom "Change Monitor" — see AG-42; full spec still in Phase 2-5 addendum) | AI (Claude) + web search | ENABLED (manual/on-demand) | manual API route only | none |
+| AG-41 | Impact Simulation Agent | AI (Claude) | PLANNED | — | none |
+| AG-42 | Change Monitor Agent (CM-01) | AI (Claude) | PLANNED | — | none |
 
 ---
 
@@ -309,9 +332,11 @@ Use this table to jump from a canonical `AG-XX` to the actual file(s) implementi
 | AG-25 | `disaster-response-agent.ts` | `pollFEMADeclarations()` / `deployDisasterResponse()` | none logged (plain functions) |
 | AG-26 | not found | — | — |
 | AG-27 | not found (schema exists: `board_members`, `board_meetings`, `board_meeting_packets`) | — | — |
-| AG-28 | not found (schema exists: `impact_simulations`) — do not confuse with live `ag-28-followup` | — | `ag-28-followup` belongs to Follow-Up Generator, not this agent |
+| AG-28 | `followup-generator-agent.ts` (renumbered onto AG-28 2026-08-02 — real, was previously documented only via the on-disk-literal collision note) | `FollowupGeneratorAgent` | `ag-28-followup` |
 | AG-29 | not found (schema exists: `knowledge_patterns`, `intelligence_funded_proposals.embedding`) | — | — |
-| AG-30 | not found | — | — |
+| AG-30 | `donor-intent-monitor-agent.ts` (renumbered onto AG-30 2026-08-02 — real, full spec in Phase 2-5 addendum) | `DonorIntentMonitorAgent` | `ag-30-donor-intent` |
+| AG-41 | not found (schema exists: `impact_simulations`) — formerly AG-28, renumbered 2026-08-02 | — | — |
+| AG-42 | not found — formerly AG-30, renumbered 2026-08-02 | — | — |
 
 ---
 
@@ -1111,26 +1136,50 @@ Use this table to jump from a canonical `AG-XX` to the actual file(s) implementi
 
 ---
 
-### AG-28: Impact Simulation Agent
+### AG-28: Follow-Up Generator Agent
 
-- **Purpose:** Models what-if strategic scenarios (financial, capacity, beneficiary impact) before
-  a decision is made.
-- **Type:** AI (Claude).
-- **Tier Gate:** enterprise.
-- **Real implementation:** none found. `FEATURE_REGISTRY_v2.md` #140–142 lists this as PLANNED;
-  schema (`impact_simulations`) is IN BUILD.
+> **Renumbering note, 2026-08-02:** AG-28 previously named a phantom "Impact Simulation Agent" spec
+> with zero real code, ever (`FEATURE_REGISTRY_v2.md` #140–142, PLANNED). That spec has been moved
+> to **AG-41** (Section 5, after AG-40) — it was never built and this renumbering doesn't change
+> that. AG-28 is now permanently the real, live agent below, matching what the on-disk
+> `agent_type` literal `"ag-28-followup"` has actually meant all along. **AG-28 must never be
+> reassigned to anything else again** — see `AGENT_VERIFICATION_LOG.md`'s enum-gap entries and
+> `NOT_BUILT_MASTER_INVENTORY.md` for the verification history behind this decision.
 
-> **Numbering note:** the on-disk string `"ag-28-followup"` does **not** belong to this agent —
-> it is `FollowupGeneratorAgent`'s `agentId` (a currently-live, event-driven, unrelated
-> follow-up-scheduling agent — see its real spec in the cross-reference table, Section 4, and
-> 1.4). Do not confuse the two when auditing `agent_queue`/`agent_runs` data for "AG-28 activity."
+- **Purpose:** Generates and schedules stage-appropriate follow-up correspondence (check-in,
+  thank-you, or feedback-request) the moment an application transitions to `submitted`, `awarded`,
+  or `denied` — drafted for a human to review and send, never sent automatically.
+- **Type:** AI (Claude, `DEFAULT_MODEL`) for the drafted email body; deterministic scheduling logic
+  (14-day check-in after submission, 3-day thank-you after award) around it.
+- **Tier Gate:** not separately gated beyond standard autonomous-agent access.
+- **Real implementation:** `src/lib/agents/followup-generator-agent.ts`, class
+  `FollowupGeneratorAgent extends AutonomousAgent`, `agentId: "ag-28-followup"` (matches the
+  `agent_type` enum value, fixed live 2026-08-02). Writes one row per follow-up to
+  `application_followups` (migration 081) — deliberately not the pre-existing, incompatible
+  `follow_up_sequences` table (a template+enrollment pair with a different shape). Distinct from
+  an older, unrelated agent of a similar name, `src/lib/agents/follow-up-generator.ts`
+  (`FollowUpGeneratorAgent`, `BaseAgent` pattern, manually/chain-triggered, generates one fixed
+  3-step sequence and stores it as an application note) — do not conflate the two files.
+- **Live-verified 2026-08-02** (`AGENT_VERIFICATION_LOG.md`): completes a real run with zero enum
+  errors. When no `agent_queue` item is actively `processing` for this org/agent, it completes
+  immediately via its own documented no-op path (`"No valid follow-up trigger payload found..."`)
+  rather than erroring — a full trigger-driven run (real `applicationId`/stage-transition payload)
+  has not yet been exercised live in this log.
 
 **Autonomous Mode**
-- **Status:** PLANNED
-- **Trigger Type / Condition / Decision Log / Chain Output:** not designed in code.
-- **Hard Limits:** the global hard limits (Section 0) would apply; never overwrites live
-  financial/pipeline data — a simulation is a read-only projection by definition.
-- **Human Review Required:** no (a simulation result is inherently advisory).
+- **Status:** ENABLED (event-driven)
+- **Trigger Type:** event — fired by a pipeline stage transition, not a schedule or manual button.
+- **Trigger Condition:** `POST /api/autonomous/followup-trigger` enqueues an `agent_queue` row
+  (`agent_id: "ag-28-followup"`, `input_payload: { applicationId, newStage, previousStage }`) when
+  an application moves to `submitted`, `awarded`, or `denied`; routed from the queue by
+  `worker/autonomous-orchestrator.ts`'s `routeQueueItem()`.
+- **Decision Log:** yes — logs a `agent_decisions` row per follow-up scheduled (`decisionType:
+  "followup_scheduled"`, confidence 90 — routine, low-risk scheduling only).
+- **Chain Output:** none.
+- **Hard Limits:** file-level hard limit stated in its own header comment — schedules follow-ups
+  only, every record created has `status: 'scheduled'`, this agent never sends an email itself.
+- **Human Review Required:** yes — every drafted follow-up is queued for a human to review and
+  send, per the global "never send email without approval" hard limit.
 
 ---
 
@@ -1154,7 +1203,51 @@ Use this table to jump from a canonical `AG-XX` to the actual file(s) implementi
 
 ---
 
-### AG-30: Change Monitor Agent (CM-01)
+> **AG-30 renumbered, 2026-08-02.** This document used to have two separate `### AG-30:` sections —
+> a phantom "Change Monitor Agent (CM-01)" here (zero real code, ever;
+> `FEATURE_REGISTRY_v2.md` #96, PLANNED) and the real, live `### AG-30: Donor Intent Monitor`
+> section further below in the Phase 2-5 addendum. That was the actual collision: not an
+> on-disk-literal mismatch like AG-28's, but this single document contradicting itself about what
+> "AG-30" means. Resolved by moving the phantom Change Monitor spec to **AG-42** (Section 5, after
+> AG-41) — see it there; it was never built and this renumbering doesn't change that. **AG-30 is
+> now permanently and unambiguously Donor Intent Monitor** (`agentId: "ag-30-donor-intent"`,
+> matches the `agent_type` enum value, fixed live 2026-08-02, live-verified working the same day —
+> see `AGENT_VERIFICATION_LOG.md`). Its full spec is unchanged and still lives at the Phase 2-5
+> `### AG-30: Donor Intent Monitor` section — not duplicated here to avoid two copies drifting
+> apart. **AG-30 must never be reassigned to anything else again.**
+
+---
+
+### AG-41: Impact Simulation Agent
+
+> **Renumbered from AG-28, 2026-08-02.** This is the same never-built spec that used to occupy
+> AG-28 — content unchanged, only the number moved, to free AG-28 for the real, live
+> `FollowupGeneratorAgent` (see AG-28 above). This agent still has no real implementation as of
+> this renumbering; moving it did not build it.
+
+- **Purpose:** Models what-if strategic scenarios (financial, capacity, beneficiary impact) before
+  a decision is made.
+- **Type:** AI (Claude).
+- **Tier Gate:** enterprise.
+- **Real implementation:** none found. `FEATURE_REGISTRY_v2.md` #140–142 lists this as PLANNED;
+  schema (`impact_simulations`) is IN BUILD.
+
+**Autonomous Mode**
+- **Status:** PLANNED
+- **Trigger Type / Condition / Decision Log / Chain Output:** not designed in code.
+- **Hard Limits:** the global hard limits (Section 0) would apply; never overwrites live
+  financial/pipeline data — a simulation is a read-only projection by definition.
+- **Human Review Required:** no (a simulation result is inherently advisory).
+
+---
+
+### AG-42: Change Monitor Agent (CM-01)
+
+> **Renumbered from AG-30, 2026-08-02.** This is the same never-built spec that used to occupy one
+> of AG-30's two conflicting sections — content unchanged, only the number moved, to leave AG-30
+> permanently and unambiguously the real, live Donor Intent Monitor (see the AG-30 retirement note
+> above and its full spec in the Phase 2-5 addendum). This agent still has no real implementation
+> as of this renumbering; moving it did not build it.
 
 - **Purpose:** Detects changes in monitored corporate entities (website, leadership, IRS BMF
   status) and triggers re-enrichment.
@@ -1306,7 +1399,7 @@ agent numbers to roughly the same feature set, and the two schemes disagree on f
 | AG-31 | National Forecast Agent | **AG-32** (National Forecast Agent) |
 | AG-32 | Relationship Graph Builder | No new number ??? "Extends AG-23 (Relationship Mapper)" |
 | AG-36 | Learning Network Aggregator | No new number ??? "Extends AG-29" (Knowledge Engine Indexer) |
-| AG-37 | Simulation Agent | No new number ??? "Extends AG-28" (Impact Simulation Agent); the vision doc's own **AG-37** is Multi-Agent Negotiation, not this |
+| AG-37 | Simulation Agent | No new number ??? "Extends AG-28" (Impact Simulation Agent, renumbered to **AG-41** 2026-08-02 — AG-28 is now Follow-Up Generator, see Section 5); the vision doc's own **AG-37** is Multi-Agent Negotiation, not this |
 | AG-38 | Self-Improvement Agent | Vision doc calls this **AG-36** (Autonomous Continuous Improvement Engine); the vision doc's own **AG-38** is Community Resource Graph, not this |
 
 **AG-29 is additionally a hard collision, not just a cross-doc mismatch:** Section 5 of this same
@@ -1644,8 +1737,9 @@ that produced them; each spec's Dependencies line states the correct source agen
   financial/pipeline data"; only inserts into the `simulation_scenarios` projection table.
 - **FORGE queue:** not yet scoped into a `queue.yaml`. Original design extended `impact_simulations`
   with a `scenario_comparison_id` column; the shipped implementation instead uses a dedicated
-  `simulation_scenarios` table, independent of the (still-unbuilt, Section 5) AG-28 Impact
-  Simulation Agent it was originally meant to extend.
+  `simulation_scenarios` table, independent of the (still-unbuilt, Section 5) Impact
+  Simulation Agent it was originally meant to extend — renumbered from AG-28 to **AG-41** 2026-08-02
+  (AG-28 is now permanently Follow-Up Generator Agent, see Section 5).
 
 ---
 
