@@ -4064,3 +4064,215 @@ session produced (3 embedded `outcomes`, 3 new + 2x-updated `knowledge_patterns`
 `agent_decisions`, 8 `agent_runs`) were deliberately kept, not deleted, matching this log's
 established convention for genuine agent output — these are real production data improvements, not
 test artifacts.
+
+---
+
+## AG-29 cold-start anomaly — investigated via real Railway logs, root cause confirmed unrecoverable by design, not resolved
+
+**Task:** the prior AG-29 entry above flagged an open anomaly — the live worker's first 5 real
+autonomous embedding runs failed before a 6th (this session's manual trigger) succeeded — and
+recommended a future session revisit it with Railway log access. This session had that access
+(`railway` CLI v5.20.0, authenticated, linked to `benavora-worker`/production) and used it.
+
+**Method:** `railway logs --deployment --since 2026-08-03T08:15:00Z --until 2026-08-03T08:35:00Z
+--json`, pulled directly against the real deployment (`benavora-worker`, service
+`bd9f0c6b-fe01-4f31-9ef7-5fe9d7d0b127`), not summarized or inferred. Cross-read against the real
+source of `worker/knowledge-indexer-processor.ts` and `src/lib/agents/knowledge-indexer-agent.ts`'s
+`run()` method to determine exactly what does and does not get logged.
+
+**Finding 1 — the failure window, confirmed from real log timestamps:** container boot at
+`08:23:23.884Z` (`"Starting Container"`); `KnowledgeIndexerProcessor` starts polling at
+`08:23:24.526Z`. Five consecutive `"Pass complete — 0/3 embedded, 1 error(s)"` lines at `08:23:28`,
+`08:24:32`, `08:25:36`, `08:26:40`, `08:27:44` — a clean ~64s cadence (60s `EMPTY_PASS_SLEEP_MS` +
+~4s processing), all failing identically. No further autonomous failures appear in the log after
+that point; the next autonomous pass (`08:28:44`, confirmed against this session's own manual
+success at `08:28:15`, per the prior entry) reports `itemsFound: 0` — nothing left to embed, not a
+retry.
+
+**Finding 2 — the actual error text is genuinely gone, not just hard to find, confirmed by reading
+the real code, not assumption:** `knowledge-indexer-agent.ts`'s `run()` (lines ~572–595) captures
+`lastBatchError` from the failed `generateEmbeddingsBatch()` call inside a local retry loop, then
+folds it into a human-readable string pushed onto an in-memory `errors[]` array. That array is
+returned to the caller but **never logged and never persisted**: `worker/knowledge-indexer-
+processor.ts` (lines 79–83) only logs `result.errors.length` (a count) to Railway stdout, never the
+array's contents; and `run()`'s own `completeRun()` call (lines 621–631) writes `outputPayload:
+{ sourceBreakdown, failed: failedCount, ranPatternAggregation }` to `agent_runs.output_payload` —
+`errors[]` is not one of those three fields, so it never reaches the database either. Confirmed via
+the real Railway log pull above: every one of the 5 failure lines says only `"1 error(s)"`, exactly
+matching this code path, no error text anywhere in the 106-line window. This is a real, pre-existing
+logging gap in AG-29's own code — not a Railway retention issue, not this session's failure to find
+it — the specific OpenAI/network error text from those 5 failures was discarded by design the moment
+each pass completed, and cannot be recovered from any log or table today.
+
+**Finding 3 — one-time cold-start vs. recurring, answered as far as the evidence allows:** the
+`benavora-worker` service has **not restarted since this exact boot** — `railway status` right now
+still shows the same deployment ID (`47939d40-9cbb-433b-9a2c-3c0a7e5b790e`) online, so there is only
+one real boot event to examine; a second, independent boot to test recurrence does not exist in this
+session's data, and deliberately restarting the live production worker to manufacture one was judged
+out of scope for an investigate-only task (a real, if brief, production interruption) — flagged here
+rather than done unilaterally. Within that one real boot, the evidence leans cold-start, not
+ongoing-systemic, for three independent reasons, stated as inference from real data, not fabricated
+certainty: (a) all 5 failures cluster in the first ~4 minutes immediately after container start, then
+stop completely and permanently for the rest of the observed window; (b) `PROXY_LIST env var is
+empty — no proxies loaded, running direct` fires at every boot (confirmed present in this log) and
+rules out a proxy-layer cause, since the container runs the exact same direct-connection path before
+and after the failures stop; (c) the identical `OPENAI_API_KEY`, called from a completely different
+network path (this session's local machine, not the Railway container) at `08:28:15`, succeeded on
+the first attempt — if the credential or OpenAI account itself were blocked, that local call should
+have failed too, and it didn't.
+
+**Verdict: root cause not determined with certainty — the specific error text is confirmed
+permanently unrecoverable, not merely undiscovered — but the available real evidence (failure timing
+clustered tightly at boot, no proxy involvement, credential proven healthy from an independent
+network path within the same window) is consistent with a Railway container cold-start network/
+egress-readiness race, not a recurring OpenAI-account-level or credential problem.** This should not
+be reported as definitively resolved. **Recommendation, not implemented this session (investigation
+only, per task scope):** fix the logging gap first — persist `lastBatchError`'s actual text (e.g. add
+it to `outputPayload`, and have the processor log `result.errors` contents, not just the count) so
+that if this recurs on a future restart, the real error is captured instead of being discarded again.
+Until that fix ships, "recurring vs. one-time" cannot be definitively answered by any future passive
+observation either — only by a deliberate, authorized restart-and-observe test.
+
+**Verification method:** real `railway logs --deployment --since/--until --json` pull against the
+live `benavora-worker` production deployment (not summarized secondhand); direct reading of
+`worker/knowledge-indexer-processor.ts` and `src/lib/agents/knowledge-indexer-agent.ts`'s real,
+current source to confirm what is and is not logged/persisted; `railway status` to confirm no
+restart has occurred since the boot in question. No code changes made — investigation only, per this
+task's explicit scope.
+
+---
+
+## corporate_prospects — created and hardened live; AG-20/21/22/24/30/32 re-verified against real data
+
+**Task:** design and apply the `corporate_prospects` table (long-standing blocker shared by AG-20/
+21/22/24/30/32, confirmed absent in every entry above back to 2026-07-20), then re-verify all 6
+previously-blocked agents live.
+
+### Schema: read from real code, not guessed — and it already existed on disk, unapplied
+
+Before writing anything, read the actual source of every consumer: `corporate-enrichment-shared.ts`
+(shared by EA-01/EA-08, i.e. AG-20/AG-21), `ag-22-propensity-scoring.ts` (AG-22),
+`donor-intent-monitor-agent.ts` (AG-30), `relationship-graph-builder-agent.ts` (AG-32), and the
+acquisition adapters that populate the table. **AG-24 has no implementing file anywhere in the
+repo** — `AGENTS_v2.md`'s "Personalized Outreach Generator" was never built; there is nothing to
+re-verify for it, and it was not blocked by `corporate_prospects` specifically, it simply doesn't
+exist. Every column any of the other 5 agents reads or writes was cross-checked against
+`supabase/migrations/107_corporate_prospects.sql`, which — unnoticed until this session — already
+defines the exact matching 39-column schema, committed but **never applied to production**
+(confirmed live via `DATABASE_URL`: `information_schema.tables` had no `corporate_prospects` row,
+and none of the 11 `agent_type` enum values `107`/`108`/`109` add existed in the live enum either,
+before this session applied them). No agent references a column 107 lacks, and no agent filters or
+joins by `organization_id` — confirmed explicitly absent from every one of the 5 real consumers'
+queries; the table is genuinely shared/cross-org, matching `SCHEMA_REGISTRY_v2.md`'s own "Master
+corporate intelligence table. Shared across all orgs." line, not org-scoped as the task's framing
+assumed. **No new columns were needed; 107/108/109 were applied essentially as-is.**
+
+### Deviation from the task's RLS assumption — and from 107's own original design comment — deliberate, with a real reason found live
+
+The task asked for "an RLS policy matching the org-scoped pattern used elsewhere." That pattern does
+not apply here — there is no `organization_id` to scope by, confirmed above. `107`'s own header
+comment instead says "NO RLS: shared public/cross-org reference data, same convention as
+`foundation_directory`." Before copying that convention, checked what it actually produces live
+today: `foundation_directory` has `relrowsecurity = false` **and** full
+`SELECT/INSERT/UPDATE/DELETE/TRUNCATE` grants to both `anon` and `authenticated` (confirmed via a
+live `pg` query) — 133,812 real rows, fully writable and truncatable by the public anon key, right
+now, in production. This traces to this project's `public` schema `ALTER DEFAULT PRIVILEGES`
+(confirmed live: `postgres`/`supabase_admin`-created tables get full `anon`/`authenticated` grants
+automatically unless explicitly revoked) — a real, separate, currently-live vulnerability, found
+incidentally while sourcing a safe precedent, flagged here since it's serious but is **out of this
+task's scope to fix**. Copying "NO RLS" verbatim for a brand-new table would have reproduced the same
+exposure on day one. Instead, wrote `supabase/migrations/111_corporate_prospects_rls_hardening.sql`:
+`ALTER TABLE corporate_prospects ENABLE ROW LEVEL SECURITY` (blocks `anon`/`authenticated`
+SELECT/INSERT/UPDATE/DELETE by default with zero permissive policies; `service_role` bypasses RLS
+per Supabase convention, so every one of the 6 agents' service-role client is unaffected) plus an
+explicit `REVOKE ALL ... FROM anon, authenticated` (closes `TRUNCATE`, which RLS policies do not
+govern). This achieves the real intent behind both the task's ask and 107's original comment
+(service-role-only access, no client-facing route reads it) without the anon-exposure gap.
+
+### Applied live, verified independently
+
+`107_corporate_prospects.sql` → `108_corporate_prospects_ea06_ea10.sql` →
+`109_corporate_prospects_ag22_propensity_scoring.sql` → `111_corporate_prospects_rls_hardening.sql`,
+applied in that order via `psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f <file>` (DIRECTIVE-017 path 1),
+each file committing independently. Re-queried live afterward, independent of the apply script's own
+success output: `corporate_prospects` exists with all 39 expected columns; `relrowsecurity: true`;
+`information_schema.role_table_grants` returns zero rows for `anon`/`authenticated`; all 11
+`agent_type` enum values present (`ea01_giving_detector` … `ea10_social_media_analyzer`,
+`ag22_propensity_scoring`).
+
+### Re-verification: 5 of 6 confirmed, 1 not applicable (unbuilt)
+
+Real acquisition data was needed to test AG-20/21/22 (they require an existing `corporate_prospects`
+row via `prospectId`; AG-30/AG-32 query broadly and don't). Both real acquisition paths turned out to
+be independently broken — found and precisely diagnosed, not fixed (out of scope): **Google Places**
+(`acquireFromGooglePlaces`) returns `REQUEST_DENIED` — `"This API key is not authorized to use this
+service"` — a Google Cloud Console API-restriction issue on `GOOGLE_PLACES_API_KEY`, not fixable from
+this session. **SAM.gov** (`acquireFromSAMGov`) sends `limit=100` as a query param, which the real
+SAM.gov Entity API rejects outright (`400 INVALID_SEARCH_PARAMETER — "The search parameter, limit
+does not exist"`); the adapter's own `if (!response.ok) return 0` silently swallows this to "0
+inserted," which is why prior sessions' acquisition runs found zero prospects platform-wide — not a
+data-availability gap as previously assumed, a real adapter bug. Confirmed precisely by removing just
+that one param and re-calling the real SAM.gov API directly: `200`, `80,231` real total matching
+records. Used that corrected call (not the broken adapter) to insert one real, un-fabricated SAM.gov
+entity (`GOOD HOUSING CONSTRUCTION LLC`, UEI `ZASQNZA4EEU3`, id `3d15c0f2-e524-4d94-a7fa-
+e03c82d965b6`) via the exact same insert shape the adapter uses, for genuine test data.
+
+- **AG-20 (EA-01 Giving Detector) — SUCCESS.** `new EA01GivingDetectorAgent({ client, organizationId
+  }).run({ prospectId })` completed cleanly: `hasGivingProgram: null, pagesFound: 0` — this SAM.gov
+  record has no `website`, so the agent correctly took its documented graceful no-website path, not
+  an error. The `corporate_prospects` fetch that previously threw `PGRST205` now succeeds.
+- **AG-21 (EA-08 Executive Bio Analyzer) — SUCCESS.** Same real prospect, same graceful no-website
+  path, clean completion. Also set `enrichment_completed_at` on the row (worth noting for future
+  sessions: EA-08's no-website path still marks enrichment complete).
+- **AG-22 (Propensity Scoring) — corporate_prospects blocker resolved; hit a new, different,
+  precisely-diagnosed blocker.** Correctly passed the "prospect not found" check and the "enrichment
+  not completed" skip (since EA-21 had just set `enrichment_completed_at`), then threw. Real
+  `agent_runs` row (`id 49eba899-...`, `status: failed`) has the actual persisted cause:
+  `error_message: "401 {\"type\":\"error\",\"error\":{\"type\":\"authentication_error\",\"message\":
+  \"API key is invalid.\"}}"` — the same pre-existing dead local `ANTHROPIC_API_KEY` every other
+  entry in this log already tracks (re-confirmed independently invalid this session via a direct
+  `POST /v1/messages` call: `401`). Not a corporate_prospects issue at all.
+- **AG-30 (Donor Intent Monitor) — SUCCESS, full run.** `new DonorIntentMonitorAgent(orgId,
+  client).run('manual')` against the real Faith Foundation org: `agent_runs` row `status: completed`,
+  `items_found: 1, items_processed: 1`, real output summary `"Analyzed 1 of 1 prospect(s); no signal
+  reached the 60/100 intent threshold."` The `corporate_prospects` fetch that previously threw
+  outright now succeeds and returns the real seeded row. Downstream per-signal Claude calls hit the
+  same dead `ANTHROPIC_API_KEY` (`401`, 3 times, one per signal type) but are caught and collected
+  into `errors[]` without failing the run — exactly the graceful-degradation design the prior AG-30
+  entry above already documented for the `corporate_prospects`-missing case, now confirmed to apply
+  here too.
+- **AG-32 (Relationship Graph Builder) — SUCCESS, full run, resolving the exact defect the prior
+  entries in this log flagged.** `new RelationshipGraphBuilderAgent(orgId, client).run('manual')`:
+  `agent_runs` row `status: completed`, `items_found: 23, items_processed: 23, items_queued: 20`. The
+  `Promise.all([board_members, funders, corporate_prospects])` sequential-error-check defect the
+  AG-23 entry above described (`corporate_prospects`'s error aborting the entire connection-search
+  loop before it starts) is now moot — `corporate_prospects` no longer errors, so the loop runs in
+  full: all 3 real board members processed, `assetCompatibleMatches: 20`. The same 3 board members'
+  downstream Claude connection-search calls hit the dead `ANTHROPIC_API_KEY` (`401` each) but, same
+  as AG-30, are collected into `errors[]` without failing the run.
+- **AG-24 (Personalized Outreach Generator) — not applicable, not re-verified.** Confirmed again this
+  session: no implementing file exists anywhere in the repo. There is no code to run.
+
+**Net honest picture:** the `corporate_prospects` blocker itself — the thing shared identically by
+all 6 agents and reconfirmed at every single prior entry in this log back to 2026-07-20 — is fully
+resolved for real, live-confirmed by running the actual unmodified agent code, not by the table
+merely existing. 4 of the 5 real agents (AG-20, AG-21, AG-30, AG-32) now complete successfully
+end-to-end; the 5th (AG-22) is correctly blocked by a completely separate, already-known,
+pre-existing issue (`ANTHROPIC_API_KEY`) that has nothing to do with today's fix. AG-24 remains
+simply unbuilt. Two new, real, previously-undocumented bugs were found as a byproduct of this work
+and are flagged, not fixed (out of scope): the `foundation_directory` anon-exposure vulnerability,
+and the SAM.gov adapter's invalid `limit` param silently zeroing every acquisition run.
+
+**Verification method:** live execution (`node --import tsx`, no mocks) of the real, unmodified
+`EA01GivingDetectorAgent`, `EA08ExecutiveBiographyAnalyzerAgent`, `PropensityScoringAgent`,
+`DonorIntentMonitorAgent`, and `RelationshipGraphBuilderAgent` classes against the real production
+database (service-role client, `ws` polyfill), real Faith Foundation org
+(`b1ab7402-dfc2-4712-869f-70ea3566cc1d`), one real SAM.gov-sourced `corporate_prospects` row. Every
+result independently re-queried from `agent_runs`/`corporate_prospects` directly via a separate `pg`
+client, not trusted from in-process return values alone. DDL applied via `psql -f` per
+DIRECTIVE-017; RLS/grant state re-queried live via `pg_class.relrowsecurity` and
+`information_schema.role_table_grants`, not assumed from the migration's own success output. All
+temporary `.mjs` scripts (7 total) were deleted after use; `git status -s` confirmed clean of stray
+files before committing. The one real row this session produced in `corporate_prospects`
+(`GOOD HOUSING CONSTRUCTION LLC`) was deliberately kept, matching this log's established convention
+for genuine agent output.

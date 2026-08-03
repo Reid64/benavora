@@ -1,8 +1,54 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 3, 2026 (AG-29 Knowledge Engine Indexer Agent live-verified end-to-end against real production data — real embeddings confirmed, idempotency confirmed, no-content skip path confirmed at 133,812-row scale, pattern-aggregation merge confirmed; this is also the final queue in the AG-10/23/26/27/29/41/42 overnight build chain — see the chain summary below). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 3, 2026 (`corporate_prospects` table created and RLS-hardened live, closing the blocker shared by AG-20/21/22/24/30/32 since 2026-07-20; AG-20/21/30/32 re-verified as genuine full successes, AG-22 hits a separate pre-existing `ANTHROPIC_API_KEY` blocker, AG-24 confirmed unbuilt; AG-29's cold-start anomaly investigated via real Railway logs — root cause traced to a real, unrelated logging gap that discards the error text by design, not resolved. See `AGENT_VERIFICATION_LOG.md`'s two newest entries for full evidence). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 3, 2026 (`corporate_prospects` created live, closing a 2-week-old shared blocker; AG-29 cold-start anomaly investigated)
+
+Full evidence in `AGENT_VERIFICATION_LOG.md`'s two newest entries. Summary here for build-status
+tracking.
+
+**Part 1 — AG-29 anomaly (investigation only, not resolved):** pulled real Railway logs (`railway
+logs --deployment --since/--until --json`) for the exact window the prior session flagged (5 failed
+autonomous embedding runs before a 6th manual one succeeded). Confirmed from real log timestamps that
+all 5 failures cluster in the first ~4 minutes immediately after container boot, then stop
+permanently. Confirmed from real code (`knowledge-indexer-agent.ts`, `worker/knowledge-indexer-
+processor.ts`) that the actual OpenAI error text is captured locally but never logged or persisted
+anywhere — only an error *count* survives, by design, not by bad luck this session. Root cause is
+therefore not fully determined (the evidence doesn't exist to determine it with certainty), but the
+available signal (failure timing tightly at boot, no proxy involvement, the same credential working
+immediately from an independent network path) leans cold-start network-readiness race, not a
+recurring account-level problem. Recommended fix (not implemented, investigation-only scope): persist
+the real error text so a future recurrence is actually diagnosable.
+
+**Part 2 — `corporate_prospects`, blocking AG-20/21/22/24/30/32 since 2026-07-20, created and
+hardened live.** Read all 6 consuming agents' real source before writing anything: none filter or
+join by `organization_id` — the table is genuinely shared/cross-org, not org-scoped. Discovered
+`supabase/migrations/107-109_corporate_prospects*.sql` already existed on disk with the exact correct
+39-column schema, committed weeks ago but never applied (confirmed live: table absent,
+all 11 related `agent_type` enum values missing). Deliberately deviated from 107's own "NO RLS, same
+convention as `foundation_directory`" design comment after checking what that convention actually
+produces live today: `foundation_directory` has RLS disabled **and** full
+`SELECT/INSERT/UPDATE/DELETE/TRUNCATE` grants open to `anon` — a real, currently-live vulnerability
+found incidentally, flagged but out of scope to fix here. Wrote
+`111_corporate_prospects_rls_hardening.sql` instead: RLS enabled with zero permissive policies (locks
+out `anon`/`authenticated`, service-role unaffected) plus an explicit grant revoke. Applied
+107→108→109→111 live via `psql -f` (DIRECTIVE-017 path 1); re-verified independently via `pg_class`/
+`information_schema` queries, not the apply script's own success output.
+
+Re-verified all 6 agents live against real data (one real SAM.gov-sourced prospect row, seeded after
+discovering both existing acquisition adapters are independently broken — Google Places:
+`GOOGLE_PLACES_API_KEY` is `REQUEST_DENIED` at the Cloud Console level; SAM.gov: the adapter sends an
+invalid `limit` query param that the real API rejects with `400`, silently swallowed to "0 inserted"
+— both flagged, neither fixed, out of scope): **AG-20, AG-21, AG-30, AG-32 all now complete
+successfully end-to-end**, confirmed via real `agent_runs` rows, not assumed from the table merely
+existing. **AG-22** correctly clears the `corporate_prospects` blocker and then hits a real, different,
+precisely-diagnosed one — the separate, already-known dead local `ANTHROPIC_API_KEY` (`agent_runs.
+error_message`: real `401`). **AG-24** has no implementing file anywhere in the repo — confirmed
+again, not re-verified because there's nothing to run.
 
 ---
 
@@ -96,7 +142,7 @@ above:
 | Agent | Real status | What works, live-confirmed | What remains blocked |
 |---|---|---|---|
 | **AG-10** Grant DNA Analysis | BUILT — PARTIALLY VERIFIED | Zero-opportunity skip branch (branch 3) confirmed real end-to-end against the real Faith Foundation org. Two real, previously-undocumented bugs found and fixed this chain (`agent_type` enum gap; `agent_runs.output_payload` missing column — the latter also silently affecting `AutonomousDigestAgent`/`StrategicAdvisorAgent`, flagged for a future audit). | Branches 1/2/4 (requirement-pattern/reward-pattern computation) are structurally sound by code review but have no real funder-with-opportunities-or-outcomes data anywhere on the platform to exercise them against — a data-availability gap, not a code defect. |
-| **AG-23 / AG-32** Relationship Mapper | BUILT — BLOCKED | Daily incremental scheduling and scope-resolution logic confirmed correct; `pig_nodes`/`pig_edges` idempotency constraints confirmed. | Two stacked blockers: (1) the long-standing missing `corporate_prospects` table (shared with AG-20/21/22/24/30); (2) a newly-found defect this chain — `run()`'s sequential error-checking aborts the *entire* connection-search loop (including real, populated board-member↔funder data) the instant `corporate_prospects`'s fetch errors, rather than degrading that one input to empty and continuing. `pig_nodes`/`pig_edges` stayed at 0/0 across live-tested runs as a direct result. |
+| **AG-23 / AG-32** Relationship Mapper | BUILT — VERIFIED (2026-08-03 update) | **`corporate_prospects` created and applied live 2026-08-03** — both stacked blockers this row previously described are resolved: the table exists (39 columns, RLS-hardened), and with it gone the sequential-error-check defect is moot since `corporate_prospects` no longer errors. Live re-run (`run('manual')` against the real Faith Foundation org): `agent_runs status: completed`, `items_found: 23, items_processed: 23, items_queued: 20`, all 3 real board members processed, `assetCompatibleMatches: 20`. | Downstream Claude connection-search calls (per board member) hit the separate, pre-existing dead `ANTHROPIC_API_KEY` — caught into `errors[]`, does not fail the run. |
 | **AG-26** Funding Forecast | BUILT — VERIFIED | Fully working end-to-end: both `90_day`/`12_month` rows write per run, neutral-fallback scoring, zero-opportunity-org honest $0 forecast, deterministic math hand-verified to full decimal precision, idempotent upsert confirmed, and AG-40's real downstream read of this agent's output confirmed working. | Nothing outstanding for this agent's own scope. |
 | **AG-27** Board Meeting Packet | BUILT — VERIFIED | Fully working end-to-end on its first live test: scope query, all three packet sections (including the honest "no outcomes yet" fallback), all three idempotency layers (scope-exclusion, DB `UNIQUE` constraint, application-level guard), and the real `createNotification()` alert all confirmed against real production data. | Claude-generated discussion items/citations unverified — blocked by the pre-existing dead local `ANTHROPIC_API_KEY`, not a defect in this agent; degrades to an honest empty list rather than crashing. |
 | **AG-29** Knowledge Engine Indexer | BUILT — VERIFIED | Real embedding generation, idempotency, and the no-content skip path (at 133,812-row scale) all confirmed against real production data this session; confirmed genuinely running continuously in the real deployed Railway environment. Pattern-aggregation merge (not duplicate) mechanic confirmed. | `sample_count` growth across genuinely new data not demonstrable (only 3 real `outcomes` rows exist platform-wide today). One only-partially-explained anomaly: the live worker's first 5 real executions failed before a 6th succeeded — root cause undetermined, flagged for a future session with Railway log access. |
@@ -1143,7 +1189,7 @@ already-known missing `corporate_prospects` table as a graceful error instead of
 | AG-19 RelationshipBuilderAgent | Completes when directly instantiated, but **still never auto-instantiated** — orchestrator substitutes `FunderRelationshipAgent`. Separate wiring gap, still open. |
 | AG-25 DeadlinePredictionAgent | Completes cleanly, zero errors. |
 | AG-28 FollowupGeneratorAgent | Completes via its documented no-op path (no queue trigger supplied in either test). |
-| AG-30 DonorIntentMonitorAgent | Completes. Blocked from producing real signals only by the separate missing `corporate_prospects` table. |
+| AG-30 DonorIntentMonitorAgent | **Completes with real output as of 2026-08-03** — `corporate_prospects` created live; re-run against the real Faith Foundation org: `agent_runs status: completed`, `items_found: 1, items_processed: 1`. Per-signal Claude calls still hit the separate dead `ANTHROPIC_API_KEY`, caught into `errors[]` without failing the run. |
 
 **Still open, out of scope for this session:** AG-19's wiring gap (needs a real orchestrator call
 site, or a decision to retire `RelationshipBuilderAgent`); `corporate_prospects` missing table

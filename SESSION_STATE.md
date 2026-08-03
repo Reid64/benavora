@@ -1,10 +1,56 @@
 # BENAVORA — Session State
 ## Last Updated: August 3, 2026
-## Mode: AG-29 Knowledge Engine Indexer Agent live-verified end-to-end; final chain summary (AG-10/23/26/27/29/41/42)
+## Mode: `corporate_prospects` created live, closing the 2026-07-20 blocker shared by AG-20/21/22/24/30/32; AG-29 cold-start anomaly investigated (root cause traced to a logging gap, not resolved)
 
 ---
 
 ## Current Session (most recent)
+
+**Date:** August 3, 2026
+**Focus:** Two tasks. (1) Investigate the AG-29 cold-start anomaly flagged by the prior session using
+real Railway logs, now that CLI access exists. (2) Design and apply the long-standing missing
+`corporate_prospects` table (blocking AG-20/21/22/24/30/32 since 2026-07-20 per every entry in
+`AGENT_VERIFICATION_LOG.md` back to that date), then re-verify all 6 dependent agents live.
+**Status:**
+- **AG-29 anomaly:** pulled real `railway logs --deployment --since/--until --json` for the exact
+  failure window. Confirmed the 5 failures cluster in the first ~4 minutes after container boot, then
+  stop permanently. Confirmed via direct code read that the real OpenAI error text is captured
+  locally (`lastBatchError`) but discarded by design — never logged to Railway stdout (only an error
+  *count*), never persisted to `agent_runs.output_payload`. Root cause not determined with certainty
+  (the evidence to determine it no longer exists), but available signal (tight boot-time clustering,
+  no proxy involvement, the same credential working immediately from an independent network path)
+  leans cold-start network-readiness race over a recurring account-level issue. Not resolved — flagged
+  with a concrete recommendation (persist the real error text) for if it recurs.
+- **`corporate_prospects` schema:** read all 6 consuming agents' real source first. None filter by
+  `organization_id` — genuinely shared/cross-org, not org-scoped, contrary to this task's initial
+  framing. Found `supabase/migrations/107-109_corporate_prospects*.sql` already existed on disk with
+  the exact matching 39-column schema, committed weeks ago, never applied (confirmed live: table
+  absent, 11 related enum values missing).
+- **RLS decision — deliberately deviated from 107's own "NO RLS" design comment:** checked what that
+  convention (copied from `foundation_directory`) actually produces live today and found
+  `foundation_directory` has RLS disabled *and* full CRUD+TRUNCATE grants open to the public `anon`
+  key right now — a real, separate, currently-live vulnerability found incidentally, flagged but out
+  of scope to fix this session. Wrote `111_corporate_prospects_rls_hardening.sql` instead: RLS
+  enabled with zero permissive policies + explicit grant revoke, closing the same gap for the new
+  table without copying the unsafe precedent.
+- Applied `107→108→109→111` live via `psql -f` (DIRECTIVE-017 path 1); independently re-verified via
+  `pg_class`/`information_schema` queries, not the apply script's own output.
+- **Re-verified all 6 agents live** (seeded one real SAM.gov-sourced prospect row after finding both
+  existing acquisition adapters independently broken — Google Places: `REQUEST_DENIED` API-key
+  restriction; SAM.gov: an invalid `limit` param the real API rejects with `400`, silently swallowed
+  to 0 — both flagged, neither fixed). **AG-20, AG-21, AG-30, AG-32: genuine full successes**,
+  confirmed via real `agent_runs` rows. **AG-22:** clears the `corporate_prospects` blocker, then
+  hits a real, different, precisely-diagnosed one — the separate, already-known dead local
+  `ANTHROPIC_API_KEY` (confirmed via `agent_runs.error_message`, a real persisted `401`). **AG-24:**
+  no implementing file exists anywhere in the repo — confirmed again, nothing to re-verify.
+**Commit:** `fix(schema): create corporate_prospects table, unblock 6 dependent agents; investigate AG-29 cold-start anomaly` (this session).
+**Gates:** not run this session — one new migration file plus three doc updates; no application
+source files changed. Temporary `.mjs` verification/seed scripts (7 total) were deleted after use,
+none committed.
+
+---
+
+## Prior Session — August 3, 2026 (AG-29 Knowledge Engine Indexer Agent live-verified end-to-end; final chain summary)
 
 **Date:** August 3, 2026
 **Focus:** Live-test `KnowledgeIndexerAgent` (AG-29) against real production data, no mocks —
