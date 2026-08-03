@@ -1,10 +1,59 @@
 # BENAVORA — Session State
 ## Last Updated: August 3, 2026
-## Mode: AG-27 Board Meeting Packet Agent live-verified end-to-end against real org data
+## Mode: AG-41 Impact Simulation Agent built per enterprise spec (build-only, not yet live-tested)
 
 ---
 
 ## Current Session (most recent)
+
+**Date:** August 3, 2026
+**Focus:** Build AG-41 (`ImpactSimulationAgent`, `AGENTS_v2.md` §5) per enterprise spec — read the
+full spec first (Trigger design section specifically, since this is the one agent in the AG-10/23/
+26/27/29/41/42 batch explicitly designed for manual-trigger-only, never a schedule/event), confirm
+`impact_simulations` live via a real query before writing code, implement exactly the 4 fixed
+`scenario_type` values with real deterministic math per branch before the one Claude call, build
+`POST /api/agents/simulate`, apply the `agent_type` enum value live, run the tsc gate.
+**Status:**
+- Confirmed `impact_simulations` already exists live (migration 078, RLS added migration 105) with
+  the spec's exact column set (`org_id, scenario_type, scenario_params jsonb, simulation_result
+  jsonb, confidence text, generated_at, created_by`) via a direct `\d impact_simulations` query —
+  not assumed from the spec text alone.
+- Built `src/lib/agents/impact-simulation-agent.ts` — `lose_funder`/`gain_funder`/
+  `program_expansion`/`budget_cut` as a fixed closed set (no 5th/free-text type). Each branch
+  computes its real `deterministicImpact` in code first; `lose_funder` resolves the funder's real
+  historical/pipeline value via the `outcomes → applications → opportunities` 2-hop join since
+  `outcomes` has no direct `funder_id`. Baseline prefers AG-26's real `funding_forecasts` 12-month
+  row, falls back to the org's own trailing-12-month realized outcomes. One Claude call per
+  simulation with 3-attempt backoff, degrading gracefully (not blocking) on exhaustion.
+- Found and resolved an internal inconsistency in the spec itself: the Process section describes
+  `gain_funder`'s confidence as "capped at 50" (numeric), while the Output contract and the live
+  schema both say `confidence` is `text` (`'high'`/`'medium'`/`'low'`). Followed the schema-grounded
+  Output contract — documented the reconciliation explicitly in the file's header comment rather
+  than silently picking one.
+- Built `POST /api/agents/simulate` — `requireRole("writer")`, server-derived `organizationId`/
+  `userId`, `scenario_type` validated against the fixed set at the route layer (400 otherwise, per
+  the spec), plus minimal per-branch param shape validation before spending an agent run on a
+  doomed request.
+- Wrote `src/supabase/migrations/112_ag41_impact_simulation.sql` (adds
+  `'ag-41-impact-simulation'` to the `agent_type` enum) and applied it directly to production via
+  `DATABASE_URL`/psql — confirmed live two ways: a `psql` enum re-query and a fresh
+  `GET /rest/v1/` PostgREST OpenAPI schema fetch, both showing the value present.
+- `pnpm tsc --noEmit` — zero errors in either new file. ~30 pre-existing errors remain, all
+  confined to `src/__tests__/**`, unrelated to this change.
+- **Not done this session, stated explicitly**: no live `run()` invocation against real data — this
+  was a build-only task, unlike AG-26/AG-27 which each got a separate live-verification session. A
+  future session should run a real scenario (e.g. `lose_funder` against a real funder with real
+  outcome/pipeline history) through the actual API route and record the real result.
+
+Full detail in `STATE_OF_THE_BUILD.md`'s "SESSION — August 3, 2026 (AG-41 Impact Simulation Agent
+— build per enterprise spec)" entry.
+**Commit:** `feat(agents): build AG-41 Impact Simulation Agent per enterprise spec` (this session).
+**Gates:** `pnpm tsc --noEmit` — clean on both new files (`impact-simulation-agent.ts`,
+`api/agents/simulate/route.ts`); ~30 pre-existing, unrelated `src/__tests__/**` errors untouched.
+
+---
+
+## Prior Session — August 3, 2026 (AG-27 Board Meeting Packet Agent — live end-to-end verification)
 
 **Date:** August 3, 2026
 **Focus:** Live-test AG-27 (`BoardPacketAgent`) against the real Faith Foundation org

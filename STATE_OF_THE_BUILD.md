@@ -1,8 +1,101 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 3, 2026 (AG-27 Board Meeting Packet Agent live-verified end-to-end against real Faith Foundation org data — daily-schedule scope, all three packet sections, triple-layer idempotency, and the real notification all confirmed working; the Claude-generated discussion-items citations remain blocked by the pre-existing dead local Anthropic API key, not a defect in this agent). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 3, 2026 (AG-41 Impact Simulation Agent built per enterprise spec — enum applied and confirmed live via PostgREST OpenAPI, code compiles clean; NOT yet live-execution-tested against real data — no session has run a real simulation through this agent's Claude call yet). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 3, 2026 (AG-41 Impact Simulation Agent — build per enterprise spec)
+
+**Focus:** Build AG-41 (`AGENTS_v2.md` §5, "Impact Simulation Agent" — renumbered from AG-28 on
+2026-08-02; AG-28 is now permanently Follow-Up Generator Agent). Purpose: models what-if
+strategic scenarios (financial, capacity, beneficiary impact) via 4 fixed scenario types, manual
+trigger only, never scheduled/event-driven — the spec is explicit that an autonomous trigger
+would be wrong for this agent, since a hypothetical scenario only has meaning in response to a
+specific question a human is actually asking.
+
+**What shipped:**
+- **`src/lib/agents/impact-simulation-agent.ts`** — `ImpactSimulationAgent extends
+  AutonomousAgent`, `agentId: "ag-41-impact-simulation"`. Implements exactly the spec's 4
+  supported `scenario_type` values (`lose_funder`, `gain_funder`, `program_expansion`,
+  `budget_cut`) as a fixed, closed set — no free-text scenario types, per the spec's own
+  reasoning that an unbounded scenario space breaks the deterministic-math-first design. Each
+  branch computes its real deterministic `deterministicImpact` (min/max/mostLikely) in plain
+  code before the one bounded Claude call per simulation (narrative/risks/opportunities only,
+  never the numbers themselves):
+  - `lose_funder`: sums the funder's real trailing-12-month realized outcomes (resolved via the
+    `outcomes.application_id → applications.opportunity_id → opportunities.funder_id` 2-hop
+    join, since `outcomes` carries no direct `funder_id` — confirmed live, same gap AG-10's spec
+    documents) plus the funder's still-open pipeline value. Genuinely $0 impact, stated plainly,
+    when a funder has neither.
+  - `gain_funder`: the human-supplied `estimatedAnnualAmount` added directly, confidence always
+    `'low'` — this scenario's own input is inherently speculative.
+  - `program_expansion`: flags — deterministically, not left to Claude — when the new program's
+    budget exceeds a 25%-of-current-annual-budget threshold, guaranteeing that risk entry is
+    always present in `keyRisks` regardless of what Claude returns.
+  - `budget_cut`: cross-references real `knowledge_base` `category='program_description'` rows
+    so Claude names only real, on-file programs in `exposedPrograms`, never inventing one.
+  - Baseline resolution (all branches except `gain_funder`): prefers the org's most recent real
+    AG-26 `funding_forecasts` `'12_month'` row (`baselineUsed: 'forecast'`, confidence `'high'`);
+    falls back to the org's own trailing-12-month realized-outcomes sum
+    (`baselineUsed: 'fallback'`, confidence `'medium'`) when no forecast exists yet.
+  - **Interpretive reconciliation, documented in the file's own header comment**: the spec is
+    internally inconsistent between its Process section ("confidence is capped at 50," numeric
+    phrasing) and its Output contract ("confidence | text... 'high'/'medium'/'low'," matching the
+    live schema's `confidence text` column). Followed the schema-grounded Output contract:
+    `gain_funder` always maps to the lowest tier (`'low'`), the other three branches map to
+    `'high'`/`'medium'` per which baseline was used.
+  - Claude call: 3-attempt exponential backoff (1s/2s/4s), the pattern already proven in
+    `embeddings.ts` and reused by AG-10/AG-26/AG-27. On exhaustion, the simulation still writes
+    with the real deterministic numbers and a `narrativeUnavailable` note — never blocked on
+    Claude, per the spec's Error handling section.
+  - No upsert/dedup — every call is an independent `.insert()`, per the spec's own explicit
+    Idempotency section: "each simulation is its own immutable historical record," unlike every
+    other agent in this batch.
+  - `trigger_source` is hardcoded to `"manual"` inside `startRun()` regardless of what's passed
+    into `run()` — a second, structural guarantee (beyond simply never wiring a schedule/event
+    path anywhere) that this agent can never be triggered by anything but the one real route.
+- **`src/app/api/agents/simulate/route.ts`** — `POST` only, `requireRole("writer")` +
+  server-derived `organizationId`/`userId` (never from the request body, Behavioral Contracts
+  §2), `maxDuration = 300` per BLUEPRINT_v2.md §8.1. Validates `scenario_type` against the fixed
+  set at the route layer (400 for anything else, per the spec), plus minimal per-branch
+  `scenario_params` shape validation (400 before spending an `agent_runs` row/Claude call on an
+  obviously-malformed request) — the agent's own `compute*()` methods re-validate independently
+  as defense-in-depth, since the agent class is also directly callable outside this route. Follows
+  the same "hand the created row's id back via the `decisions` array, then re-query it" convention
+  AG-37's `SimulationAgent`/`/api/reports/simulate` route already established for this exact
+  synchronous "human is waiting for a real answer" use case — the logged `agent_decisions` row
+  itself still uses `entityType: 'organization'`/`entityId: this.orgId` per the spec's own
+  Observability section; the `decisions` array return value is independently repurposed to carry
+  the `impact_simulations` row's real id, not conflated with what's stored in the DB row.
+- **`src/supabase/migrations/112_ag41_impact_simulation.sql`** — adds
+  `'ag-41-impact-simulation'` to the `agent_type` enum (the same enum-gap pattern that blocked
+  AG-15/17/19/25/28/30 for weeks — AGENTS_v2.md §1.2). **Applied directly to production** via the
+  working `DATABASE_URL`/psql connection (STANDING_DIRECTIVES.md DIRECTIVE-017) and **confirmed
+  live two independent ways**: a `psql` re-query of `enum_range(NULL::agent_type)` and a fresh
+  `GET /rest/v1/` PostgREST OpenAPI schema fetch, both showing `ag-41-impact-simulation` present
+  (51 total enum values as of this check). No table migration was needed — `impact_simulations`
+  already existed live (migration 078, RLS added migration 105) with exactly the spec's column
+  set, confirmed via a live `\d impact_simulations` query before writing any code, not assumed.
+
+**What was NOT done this session, stated explicitly rather than left implicit:** no live
+`ImpactSimulationAgent.run()` invocation was made against real data — unlike the AG-26/AG-27
+sessions, which each had a separate live-verification pass, this task's scope was build-only.
+The agent has not yet been exercised end-to-end against a real org, so its actual Claude-call
+behavior, the real join-resolution correctness for `lose_funder`, and the real `POST
+/api/agents/simulate` route's request/response cycle are all **unverified against live data** —
+confirmed only by direct code read, `pnpm tsc --noEmit`, and the live schema/enum checks above. A
+future session should create a real simulation request against a real org (e.g. `lose_funder`
+against a real funder with real outcome/pipeline history) and record the actual result, the same
+way AG-26/AG-27 each got a dedicated live-verification session.
+
+Gates: `pnpm tsc --noEmit` — zero errors in either new file
+(`src/lib/agents/impact-simulation-agent.ts`, `src/app/api/agents/simulate/route.ts`). The full
+run reports ~30 pre-existing errors, all confined to `src/__tests__/**` (deadline-predictor,
+outcome-analyzer, regressions, samgov-client, organizations, storage-rls) — unrelated to and
+untouched by this session's change, consistent with this project's tsc gate being understood to
+exclude the test tree.
 
 ---
 
