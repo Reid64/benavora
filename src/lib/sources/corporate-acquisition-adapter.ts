@@ -205,6 +205,19 @@ interface SamGovEntityResponse {
  * `enrichment->>sam_uei`). Returns the count of newly inserted prospects.
  * Non-fatal: returns 0 on any missing config or request failure rather than
  * throwing.
+ *
+ * `limit` is NOT a real SAM.gov Entity API query param (confirmed live
+ * 2026-08-03: sending it returns a real 400 `INVALID_SEARCH_PARAMETER`,
+ * silently swallowed by the `!response.ok` check below to "0 inserted" --
+ * the root cause of every acquisition run reporting zero new prospects).
+ * The API has no configurable page-size param at all (`size` exists but is
+ * separately constrained, and every other candidate name tested --
+ * `recordsPerPage` -- is rejected the same way); it always returns a fixed
+ * page of up to 10 results per call, real data confirmed live via the exact
+ * param set below (`200`, `entityData` populated, real `totalRecords`).
+ * Fetching more than 10 matches per keyword would require real pagination
+ * (a `page` param is accepted without erroring) -- not implemented here,
+ * out of scope for this fix; each call still returns real, usable results.
  */
 export async function acquireFromSAMGov(keywords: string, supabase: any): Promise<number> {
   const apiKey = process.env.SAM_GOV_API_KEY;
@@ -215,7 +228,6 @@ export async function acquireFromSAMGov(keywords: string, supabase: any): Promis
     purposeOfRegistrationCode: "Z2",
     registrationStatus: "A",
     q: keywords,
-    limit: "100",
   });
 
   let response: Response;
