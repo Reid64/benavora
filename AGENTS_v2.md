@@ -80,6 +80,19 @@ live gaps — not historical ones already fixed.
 
 ### 1.2 `agent_type` enum gap — blocks 12 of the 17 Generation-2 classes at the database layer
 
+> **RESOLVED, 2026-08-02.** All 12 "MISSING" literals in the table below (plus 3 more found in the
+> same follow-up: `ag-30-donor-intent`, `ag-38-self-improvement`, `autonomous_orchestrator` — 15
+> total) were added to the live `agent_type` enum via `fix-agent-type-enum-gap.sql`, applied
+> directly to production through the `DATABASE_URL`/psql path (`STANDING_DIRECTIVES.md`
+> DIRECTIVE-017), and confirmed live via the PostgREST OpenAPI schema. 6 of the affected agents
+> (AG-15's wrapper, AG-17, AG-19, and the real agents behind AG-25/AG-28/AG-30's on-disk literals)
+> were individually re-run live to confirm they no longer fail at `startRun()`. Full evidence in
+> `AGENT_VERIFICATION_LOG.md`'s enum-gap entries. **The table and "Fix required... out of scope"
+> framing below are the original diagnosis, kept for history — do not read them as current status.**
+> Two literals used by other real agents were *not* part of that fix and remain genuinely missing
+> today: `ag-18-reputation` (orphaned `ReputationIntelligenceAgent`) and `ag-32-relationship-graph`
+> (the real AG-23/RA-01 capability, see AG-23's spec in Section 5).
+
 `agent_runs.agent_type` is a strict Postgres enum (`CREATE TYPE agent_type`, migration 001),
 extended piecemeal via `ALTER TYPE ... ADD VALUE` across the migration history.
 `AutonomousAgent.startRun()` inserts `agent_type = this.agentId` **directly and unconditionally**,
@@ -176,7 +189,7 @@ alone is not a reliable identifier across code and docs:
 | AG-10 — Grant DNA Analysis Agent | `ag-10-document-expiry` = **Document Expiry Agent** (unrelated) |
 | AG-11 — Cold Outreach Agent | `ag-11-knowledge-gap` = **Knowledge Gap Agent** (unrelated) |
 | AG-12 — AutoApply Agent | `ag-12-search-optimizer` = **Search Profile Optimizer Agent** (unrelated) |
-| AG-25 — Disaster Response Agent | `ag-25-deadline-prediction` = **Deadline Prediction Agent** (unrelated) |
+| AG-25 — Disaster Response Agent | `ag-25-deadline-prediction` = **Deadline Prediction Agent** (unrelated, and — as of 2026-08-02 — also confirmed live/working; this is a permanent both-real dual-use number, not a collision to fix) |
 
 **AG-28 resolved, 2026-08-02 — no longer a collision, do not re-add a row for it.** The phantom
 "Impact Simulation Agent" that used to occupy AG-28 (zero real code, ever) was renumbered to AG-41.
@@ -193,9 +206,12 @@ canonical counterpart (Disaster Response Agent, this row above) is real, working
 phantom spec — and its own source files (`disaster-response-agent.ts`,
 `api/agents/disaster/route.ts`) explicitly self-identify as "AGENTS_v2.md AG-25" in their header
 comments. Renumbering the canonical spec here would desync those files' own self-description from
-this document without touching code, which this pass was explicitly scoped to avoid. AG-25 remains
-a genuine dual-identity number by design, not an oversight — see the numbering note under AG-25 in
-Section 5.
+this document without touching code, which this pass was explicitly scoped to avoid. As of
+2026-08-02 the on-disk side (`DeadlinePredictionAgent`) is also confirmed live and working (the
+enum gap that used to block it is fixed) — so AG-25 now names two different, both-real, both-live
+agents, permanently, by deliberate decision. AG-25 remains a genuine dual-identity number by
+design, not an oversight — see the strengthened numbering note under AG-25 in Section 5 for the
+full explanation.
 
 This document keeps the original 30 canonical `AG-XX` names/purposes (Section 5) because that is
 the taxonomy the product/business side already knows — except AG-28 and AG-30 as of 2026-08-02,
@@ -1081,11 +1097,28 @@ Use this table to jump from a canonical `AG-XX` to the actual file(s) implementi
   AGENTS_v2.md describing a "poll every 6 hours" schedule and `agent-registry-seed.ts` listing
   `schedule_cron: "0 */6 * * *"` for `ag-25`, none of that is wired into any running process.
 
-> **Numbering note:** the on-disk string `"ag-25-deadline-prediction"` does **not** belong to
-> this agent — it is `DeadlinePredictionAgent`'s `agentId` (a completely unrelated, currently
-> unreachable, deadline-forecasting agent). This is the single most confusing collision in the
-> codebase: a human searching for "AG-25" in `agent_runs`/`agent_queue` data will find
-> deadline-prediction rows, not disaster declarations. See 1.4.
+> **Numbering note — AG-25 is a permanent dual-use number, by deliberate decision, not a bug to
+> fix.** Two completely unrelated real things both answer to "AG-25" in this codebase, and that is
+> accepted, known, permanent state:
+>
+> 1. **This spec** — the real, deployed Disaster Response Agent above
+>    (`disaster-response-agent.ts`, `api/agents/disaster/route.ts`), whose own source files
+>    self-identify as "AGENTS_v2.md AG-25" in their header comments.
+> 2. **The on-disk literal `"ag-25-deadline-prediction"`** — `DeadlinePredictionAgent`'s `agentId`,
+>    a completely unrelated deadline-forecasting agent. **Corrected 2026-08-02: this agent is no
+>    longer unreachable.** The `agent_type` enum gap that used to block it was fixed live in
+>    production, and it was independently re-run and confirmed working (`status: completed`, zero
+>    errors, real output) — see `AGENT_VERIFICATION_LOG.md`'s enum-gap entries. So both halves of
+>    this collision are now real, live, and working — not one real agent and one dead one.
+>
+> A human searching "AG-25" in `agent_runs`/`agent_queue` data will find deadline-prediction rows,
+> never disaster declarations (this spec's agent writes no `agent_type`/`agent_runs` row at all —
+> see "Real implementation" above). **Deliberately NOT resolved by renumbering**, unlike AG-28/AG-30
+> (see 1.4): unlike those two, which collided with a *phantom* never-built spec and were safely
+> renumbered off the phantom side with nothing to break, AG-25's canonical side (this spec) is real
+> working code whose own comments already claim "AG-25" — renumbering it here without touching that
+> code would desync the doc from the code instead of fixing anything. See 1.4 for the full
+> reasoning.
 
 **Autonomous Mode**
 - **Status:** PLANNED
