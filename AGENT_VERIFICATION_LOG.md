@@ -2236,3 +2236,107 @@ no mocks) of both agents' real `run("manual")` against the real Faith Foundation
 resulting `agent_runs` row independently re-queried and read back; live schema check of
 `board_members`'s real columns to precisely diagnose the new bug rather than stopping at the surface
 error text. Throwaway script deleted after use, never committed.
+
+---
+
+## AG-32 `board_members` column bug — fixed, re-verified live, downstream blocker confirmed identical to AG-20/21/22/24/30
+
+Follow-up to the entry immediately above. Fixed the query, re-ran AG-32 live, and confirmed the
+`corporate_prospects` error it now hits is genuinely the same root cause already documented
+elsewhere, not a coincidentally similar message.
+
+### The fix
+
+`RelationshipGraphBuilderAgent`'s `run()` queried `board_members` with `.select("id, name, role,
+expertise").eq("org_id", this.orgId).eq("active", true)`. None of `role`, `expertise`, `org_id`, or
+`active` exist on the live table (confirmed via `GET /rest/v1/` OpenAPI: real columns are `id,
+organization_id, name, title, bio, email, phone, start_date, is_active, created_at, updated_at`).
+
+**Root cause of the original mistake, traced to its source:** the file's own header comment cited
+`src/supabase/migrations/078_forecast_board.sql` as the source of truth for `board_members`'s
+columns (`org_id, name, email, role, committee, expertise, active`) — but that migration was never
+applied live. The table that's actually live is the original one from root
+`supabase/migrations/001_initial_schema.sql`, with a different column set entirely. Same
+two-parallel-migrations-directories pattern already documented elsewhere in this project, now
+confirmed to have caused a real code bug, not just a documentation mismatch.
+
+**No real "expertise" equivalent exists anywhere, live — checked, not assumed.** Queried the full
+live schema for any table with a skills/tags/committee concept related to board members (`board`,
+`committee`, `skill`, `tag` in table names): only `board_members` and an unrelated `onboarding_steps`
+table exist. No structured expertise/skills column exists on `board_members` or anywhere else.
+Per this task's explicit instruction not to invent a column or falsely conflate a different one:
+`expertise` was dropped from the query and the `BoardMemberRow` interface entirely — not replaced
+with a fake stand-in. `bio` (a different, real, free-text column — genuinely present, confirmed
+live with substantial real content for this org's 3 board members) is included in the prompt as its
+own separately-labeled `Bio:` field, distinct from a "Known expertise:" field it does not attempt to
+simulate.
+
+**Changes**, all in `src/lib/agents/relationship-graph-builder-agent.ts`:
+- Query: `role, expertise` → `title, bio`; `org_id`/`active` → `organization_id`/`is_active`.
+- `BoardMemberRow` interface: `role` → `title`, `expertise: string[] | null` → `bio: string | null`.
+- `buildConnectionSearchPrompt()`: `Role:` line now sources `member.title`; a new `Bio:` line
+  (null-safe, same pattern as the old expertise line) replaces the old `Known expertise:` line.
+- Header comment corrected to explain the real column set and why the original citation was wrong,
+  so a future reader doesn't reintroduce the same mistake from the same stale migration reference.
+
+`pnpm tsc --noEmit` clean on the edited file.
+
+### Re-verified live
+
+Same method as before — `new RelationshipGraphBuilderAgent(orgId, supabase).run("manual")` against
+the real Faith Foundation org, no mocks.
+
+**The `board_members` query now succeeds** — confirmed two ways, not just by absence of its old
+error: (1) a direct standalone query with the corrected columns returned all 3 real board members
+for this org (Reid Whitesides, Pastor Juan Valdez, Scott Ellis — real names, titles, and substantial
+real bio text, not placeholder data); (2) the agent's own run progressed past the `board_members`
+step entirely and failed on the *next* query instead, confirming per the "layered-blocker" caveat
+in the prior entry that `board_members` really was the first of (at least) two blockers stacked in
+the same `Promise.all`.
+
+**The next blocker is exactly the same `corporate_prospects` gap already documented for
+AG-20/21/22/24/30 — confirmed as the same root cause, not just a similar-looking error:**
+```
+error_message: "Failed to load corporate prospects: Could not find the table 'public.corporate_prospects' in the schema cache"
+```
+Verified directly via raw REST (`GET .../rest/v1/corporate_prospects?select=id&limit=1`), independent
+of the agent's own error-catching: identical `404 PGRST205` — `{"code":"PGRST205", "hint":"Perhaps
+you meant the table 'public.corporate_relationships'", "message":"Could not find the table
+'public.corporate_prospects' in the schema cache"}` — the same code, same message, same hint
+already seen for every other agent blocked by this table across this entire log. Same root cause,
+not a coincidence: this table genuinely does not exist in production.
+
+**Tooling note, not a finding about the agent:** an earlier check in this same session using
+`supabase-js`'s `.select(..., { count: "exact", head: true })` against `corporate_prospects`
+misleadingly returned `status: 204, error: null` — apparently a client-library quirk with
+`head: true` against a table PostgREST can't resolve, not a real success. The raw `curl` request
+above and the agent's own error both agree on `404`; that HEAD-request result was wrong and is
+flagged here so it isn't mistaken for a real "the table exists after all" finding in a future
+session.
+
+`agent_runs` row for this run, independently re-queried:
+```json
+{"status":"failed","error_message":"Failed to load corporate prospects: Could not find the table 'public.corporate_prospects' in the schema cache","items_found":0}
+```
+
+### Root-cause summary
+
+1. **The `board_members` column bug is fixed and confirmed working** — real board member data now
+   loads correctly for real orgs.
+2. **AG-32 is still blocked, by the same pre-existing, already-tracked `corporate_prospects`
+   missing-table gap as AG-20/21/22/24/30** — confirmed identical root cause via independent raw
+   REST verification, not assumed from a similar-looking message. This was accurately predicted as
+   likely in the prior entry's "layered-blocker" caveat.
+3. Not fixed here, correctly out of scope: `corporate_prospects` itself. Per the already-established
+   recommendation elsewhere in this log (migrations 107/108), fixing that table would very plausibly
+   unblock AG-32 immediately, the same way it would for the other 5 agents already blocked by it.
+
+**Verification method:** live schema check confirming no expertise/skills/tags table exists anywhere
+related to `board_members`; direct read of the file's header comment and the migration it cited to
+trace the bug to its actual source; `pnpm tsc --noEmit` on the edited file; live re-execution
+(`node`/`tsx`, no mocks) of the real, fixed `run("manual")` against the real Faith Foundation org; a
+standalone direct query of `board_members` with the corrected columns to independently confirm real
+data loads, not just that the error disappeared; the resulting `agent_runs` row re-queried and read
+back; raw `curl` against `corporate_prospects` to independently confirm the downstream error is a
+genuine `404`/missing table, not inferred from the agent's error text alone. Throwaway scripts
+deleted after use, never committed.

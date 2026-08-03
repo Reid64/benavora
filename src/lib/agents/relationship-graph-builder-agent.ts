@@ -18,10 +18,23 @@
 // migrations before writing this file:
 //   - There is no `knowledge_base_profiles` table (see draft-generation-
 //     agent.ts's header for the same finding re: org profile data). Board
-//     member / leadership records live in the real `board_members` table
-//     (org_id, name, email, role, committee, expertise, active —
-//     src/supabase/migrations/078_forecast_board.sql), not a
-//     "leadership_board section" of a nonexistent profiles table.
+//     member / leadership records live in the real `board_members` table,
+//     not a "leadership_board section" of a nonexistent profiles table.
+//     CORRECTED 2026-08-03 (AGENT_VERIFICATION_LOG.md, AG-32 entries): the
+//     column list originally cited here (org_id, name, email, role,
+//     committee, expertise, active) came from `src/supabase/migrations/
+//     078_forecast_board.sql` — that migration was never applied live (same
+//     two-parallel-migrations-directories pattern documented elsewhere in
+//     this project). The table that's actually live is the original one
+//     from root `supabase/migrations/001_initial_schema.sql`:
+//     id, organization_id, name, title, bio, email, phone, start_date,
+//     is_active, created_at, updated_at. No `role`/`committee`/`expertise`/
+//     `active`/`org_id` exist. This file's query and prompt-builder now use
+//     the real columns (`title` in place of `role`, `organization_id` in
+//     place of `org_id`, `is_active` in place of `active`); `expertise` has
+//     no real equivalent anywhere live, so it was dropped rather than
+//     invented — `bio` (a different, real, free-text column) is included in
+//     the prompt as its own separately-labeled field instead.
 //   - `pig_nodes` requires `entity_table` + `entity_id` pointing at a real
 //     row (UNIQUE(entity_table, entity_id)) and `pig_edges` requires
 //     `source_node_id`/`target_node_id` FKs into pig_nodes, not free-text
@@ -190,8 +203,13 @@ const NTEE_MAJOR_GROUP_KEYWORDS: Array<[string, string[]]> = [
 interface BoardMemberRow {
   id: string;
   name: string;
-  role: string | null;
-  expertise: string[] | null;
+  title: string | null;
+  // No real "expertise" tags/skills column exists anywhere on board_members
+  // or a related table (confirmed live, AGENT_VERIFICATION_LOG.md's AG-32
+  // entry) — `bio` (free-text) is the closest real signal and is included
+  // as its own labeled field in the prompt below, not conflated with a
+  // structured expertise list that doesn't exist.
+  bio: string | null;
 }
 
 interface FunderRow {
@@ -404,10 +422,8 @@ function buildConnectionSearchPrompt(
 
   const prompt = [
     `Board member: ${member.name}`,
-    member.role ? `Role: ${member.role}` : null,
-    member.expertise && member.expertise.length > 0
-      ? `Known expertise: ${member.expertise.join(", ")}`
-      : null,
+    member.title ? `Role: ${member.title}` : null,
+    member.bio ? `Bio: ${member.bio}` : null,
     "",
     "Known funders (search for connections to these):",
     funderLines || "(none on file)",
@@ -931,9 +947,9 @@ export class RelationshipGraphBuilderAgent extends AutonomousAgent {
       const [boardRes, funderRes, prospectRes] = await Promise.all([
         this.supabase
           .from("board_members")
-          .select("id, name, role, expertise")
-          .eq("org_id", this.orgId)
-          .eq("active", true)
+          .select("id, name, title, bio")
+          .eq("organization_id", this.orgId)
+          .eq("is_active", true)
           .limit(MAX_BOARD_MEMBERS_PER_RUN),
         this.supabase
           .from("funders")
