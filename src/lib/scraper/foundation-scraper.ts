@@ -777,3 +777,53 @@ export async function runFoundationScraper(startOffset?: number, maxToProcess?: 
     await pool.closeAll();
   }
 }
+
+/**
+ * Enriches exactly one foundation_directory row, out-of-cycle from the
+ * weekly full-directory sweep above — this is AG-42 Change Monitor's
+ * chain target (queueChainedAgent('foundation-990-enrichment', ...),
+ * src/lib/agents/change-monitor-agent.ts) when a real change is detected
+ * for a foundation between two nightly checks. Reuses processFoundation()/
+ * buildEinIndex() unchanged rather than re-implementing the waterfall for
+ * a single row, matching this file's own established precedent (see file
+ * header re: foundation-990-template.ts's reuse of buildEinIndex/tryIrs990).
+ *
+ * A single short-lived StealthEngine is spun up and torn down per call
+ * rather than reusing runFoundationScraper()'s multi-engine pool, since
+ * this always processes exactly one row, not a batch.
+ */
+export async function enrichSingleFoundation(
+  foundationId: string,
+): Promise<{ enriched: boolean; strategy: string } | null> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("foundation_directory")
+    .select("id, ein, name, city, state, website, email, phone")
+    .eq("id", foundationId)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  const row = data as FoundationRow;
+
+  const engine = new StealthEngine();
+  await engine.init();
+  const pool = new EnginePool([{ engine, lastRequestAt: 0 }]);
+  const irs990Source = new IRS990Source();
+  const googleBreaker: GoogleBreakerState = { consecutiveCaptchaBlocks: 0, tripped: false };
+  const batchZipCache = new Map<string, Promise<unzipper.CentralDirectory | null>>();
+
+  try {
+    const einIndex = row.website ? new Map<string, EinIndexEntry>() : await buildEinIndex(pool, supabase);
+    return await processFoundation(
+      row,
+      einIndex,
+      pool,
+      irs990Source,
+      supabase,
+      googleBreaker,
+      batchZipCache,
+    );
+  } finally {
+    await pool.closeAll();
+  }
+}

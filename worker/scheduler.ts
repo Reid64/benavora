@@ -111,6 +111,27 @@ const jobs: ScheduledJob[] = [
       ),
   },
   {
+    // AG-42 Change Monitor Agent (CM-01) — platform-level, daily, 5:00 AM
+    // CST, per AGENTS_v2.md's AG-42 spec ("Schedule only — daily, 5:00 AM
+    // CST"). Deliberately positioned in this array ahead of
+    // 'foundation-enrichment-weekly' below: a foundation_directory change
+    // this job detects is chain-queued as an out-of-cycle
+    // 'foundation-990-enrichment' item (see change-monitor-agent.ts), which
+    // lands and gets processed independently of the weekly sweep — the
+    // ordering here documents that relationship, it doesn't gate one job on
+    // the other (both fire on their own hour:minute regardless of array
+    // position). Unconditional — fires every day, not day-of-week gated,
+    // since MAX_ENTITIES_PER_RUN (200) already bounds cost per run.
+    name: 'AG-42 change monitor daily pipeline',
+    hour: 5,
+    minute: 0,
+    lastFiredOnDateKey: null,
+    run: (supabase) =>
+      import('./autonomous-orchestrator.js').then(
+        ({ runChangeMonitorDailyPipeline }) => runChangeMonitorDailyPipeline(supabase),
+      ),
+  },
+  {
     // Foundation directory enrichment (STANDING_DIRECTIVES.md Directive 1,
     // src/lib/scraper/foundation-scraper.ts). Weekly, Sunday 3AM CST — same
     // precedent as the AG-36 entry above: this file has no day-of-week

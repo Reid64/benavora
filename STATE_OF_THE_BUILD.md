@@ -1,8 +1,105 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 3, 2026 (AG-41 Impact Simulation Agent — live end-to-end verification: genuinely BUILT and working against real production data; deterministic math and idempotency both confirmed exact; Claude narrative synthesis blocked only by the pre-existing invalid local ANTHROPIC_API_KEY). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 3, 2026 (AG-42 Change Monitor Agent built per enterprise spec — compile-clean and wired, not yet live-execution-tested; see this session's entry below for why). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 3, 2026 (AG-42 Change Monitor Agent built per enterprise spec)
+
+Built `src/lib/agents/change-monitor-agent.ts` (`ChangeMonitorAgent extends AutonomousAgent`,
+`agentId: "ag-42-change-monitor"`) per `AGENTS_v2.md` §5's AG-42 spec, read end to end before writing
+any code — including its own "Scope correction" section, which is load-bearing: this agent is
+deliberately dual-scoped to both `corporate_prospects` (not live yet) and `foundation_directory`
+(real, 133,000+ rows), and building it scoped only to `corporate_prospects` would have made it
+permanently untestable, per the spec's own explicit warning.
+
+**Confirmed live before writing anything** (via `DATABASE_URL`/psql, not assumed from the spec
+text): `corporate_monitoring_events` already exists (migration 077, RLS added migration 105) with
+`id, prospect_id, event_type, description, change_detected jsonb, created_at`. `corporate_prospects`
+reconfirmed still absent from production (`PGRST205`, the same blocker already documented for
+AG-20/21/22/24/30/32) — this agent's `loadProspectScope()` degrades that half to "zero prospects in
+scope" rather than failing the run, the same try/catch-and-treat-as-empty pattern
+`DonorIntentMonitorAgent.loadProspects()` already established for this exact table.
+`foundation_directory`'s `officers`/`foundation_type`/`subsection_code`/`status`/`enrichment`/
+`enriched_web_at` columns are all real and live (migrations 046/058/072) — this is the genuinely
+testable, working half.
+
+**Two-branch scope implemented exactly per spec:** `corporate_prospects` gets first crack at the
+200-entity/run budget (`MAX_ENTITIES_PER_RUN`), `foundation_directory` fills whatever budget remains
+— since `corporate_prospects` returns empty immediately today, `foundation_directory` gets the full
+200-entity budget in practice, matching this task's own instruction that the foundation half should
+"actually work end to end today." `foundation_directory` scope is ordered oldest-checked-first among
+rows with a baseline (`enriched_web_at IS NOT NULL`) — the spec's own "ASC NULLS FIRST" wording is
+reconciled with its "filtered to rows enriched at least once already" wording (the two are
+individually consistent but read together are redundant: after filtering out nulls, "NULLS FIRST" is
+moot), stated as an explicit reconciliation in the file's own header rather than silently picked.
+
+**Reasoned adaptation, stated explicitly:** the spec's Process step 2 asks for "a changed
+final-redirect URL" as a website-check signal. `StealthEngine.fetchPage()` (the existing fetcher
+every other web-touching agent in this codebase already uses — confirmed via grep, no new HTTP
+client was added) does not expose the final post-redirect URL or raw HTTP status back to callers.
+Implemented as a reachability check instead (fetchPage() returned real HTML vs. returned null after
+its own internal retry/rotation exhaustion) — a documented, reasoned adaptation to the fetcher's real
+public surface, not a silent narrowing of the spec.
+
+**Severity classification implemented per spec:** one bounded Claude call (`DEFAULT_MODEL`, 200 max
+tokens) classifies a detected change as minor/notable/material, with the spec's own fixed exception
+applied directly (no Claude call): a previously-reachable foundation website going unreachable, with
+no other field changed in the same run, is logged as `'notable'` outright. `agent_decisions` only
+logs notable/material severities, exactly per spec step 5 — minor changes are still recorded in
+`foundation_directory.enrichment`/`corporate_monitoring_events`, just without a decision-log entry.
+On Claude classification exhaustion (3-attempt backoff, 1s/2s/4s, the pattern already proven in
+`embeddings.ts` and reused by AG-10/AG-26/AG-27/AG-41), falls back to `'notable'` rather than
+silently dropping an already-detected diff.
+
+**Chain-queue wired per spec:** any detected `foundation_directory` change (any severity) calls
+`queueChainedAgent("foundation-990-enrichment", 50, { foundationId })`. Added a new
+`enrichSingleFoundation()` export to `src/lib/scraper/foundation-scraper.ts` that reuses that file's
+existing, proven `processFoundation()`/`buildEinIndex()` unchanged for just the one changed row (same
+additive-export precedent that file already established for `buildEinIndex`/`tryIrs990`, reused by
+`foundation-990-template.ts`) — a single short-lived `StealthEngine` is spun up per call rather than
+reusing the weekly sweep's multi-engine pool, since this always processes exactly one row. Added a
+matching `routeQueueItem()` case (`'foundation-990-enrichment'`) in `worker/autonomous-orchestrator.ts`.
+No equivalent chain target exists yet for `corporate_prospects` (no EA-0X enrichment pipeline is
+wired into `worker/index.ts`'s boot sequence at all) — rather than queue into a `routeQueueItem()`
+case that doesn't exist (the "queues but never routes, retries 3x, dies in `failed`" failure mode
+`AGENTS_v2.md` §1.3 documents for other agents), that branch writes its
+`corporate_monitoring_events` row and stops there, noted explicitly in the file's own header.
+
+**Platform-level, not org-scoped** — same pattern as AG-36 (Learning Network Aggregator): neither
+`corporate_prospects` nor `foundation_directory` nor `corporate_monitoring_events` carries an
+`organization_id`. `ChangeMonitorAgent`'s constructor takes only `supabase`, and lazily provisions its
+own synthetic system-organization row (`ensureSystemOrg()`, sentinel id ending `...042`, distinct
+from AG-36's `...036`) to satisfy `agent_runs`/`agent_decisions`' NOT NULL FK constraints.
+
+**Trigger wired per spec:** new `worker/scheduler.ts` job, daily, 5:00 AM CST, unconditional (no
+day-of-week gate — `MAX_ENTITIES_PER_RUN` already bounds cost). Positioned in the jobs array ahead of
+`'foundation-enrichment-weekly'` (3AM Sunday) per the spec's own stated rationale, though the two jobs
+fire independently on their own hour:minute regardless of array order — the ordering documents the
+relationship (a detected change gets chain-queued and picked up out-of-cycle, not gated behind the
+weekly sweep), stated as such in the comment rather than implied. New
+`runChangeMonitorDailyPipeline()` in `worker/autonomous-orchestrator.ts` mirrors AG-36's platform-level
+pipeline shape exactly (`new ChangeMonitorAgent(supabase); await agent.run('schedule')`).
+
+**Migration applied live** (`src/supabase/migrations/113_ag42_change_monitor.sql`, via
+`DATABASE_URL`/psql per `STANDING_DIRECTIVES.md` DIRECTIVE-017): `ALTER TYPE agent_type ADD VALUE IF
+NOT EXISTS 'ag-42-change-monitor'`. Confirmed live afterward via the live PostgREST OpenAPI schema
+(`SELECT unnest(enum_range(NULL::agent_type))` via psql — 52 total values, `ag-42-change-monitor` the
+newest), not just `psql`'s success message.
+
+**Not yet live-execution-tested** — same disposition as the AG-27 build session: this task's scope
+was build + wire + enum + tsc-clean, not a live run. A future session should run `new
+ChangeMonitorAgent(supabase).run('manual')` against production and confirm a real `foundation_directory`
+row's `enrichment.change_monitor_snapshot` gets written on the first pass (no baseline yet → no-op
+detection is expected) and a real detected change surfaces correctly on a second pass after a
+snapshot exists.
+
+Gates: `pnpm tsc --noEmit` — 0 new errors; 38 pre-existing errors, all confined to
+`src/__tests__/**` (same baseline count documented in the AG-27 session below) — none touch
+`change-monitor-agent.ts`, `foundation-scraper.ts`, `autonomous-orchestrator.ts`, or `scheduler.ts`.
+All temporary verification scripts were deleted after use.
 
 ---
 

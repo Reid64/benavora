@@ -1,10 +1,60 @@
 # BENAVORA — Session State
 ## Last Updated: August 3, 2026
-## Mode: AG-41 Impact Simulation Agent — live end-to-end verification complete, genuinely working
+## Mode: AG-42 Change Monitor Agent built per enterprise spec — compile-clean and wired, not yet live-execution-tested
 
 ---
 
 ## Current Session (most recent)
+
+**Date:** August 3, 2026
+**Focus:** Build `ChangeMonitorAgent` (AG-42, CM-01) per `AGENTS_v2.md` §5's enterprise spec — the
+dual-scoped (`corporate_prospects` + `foundation_directory`) change-detection agent that queues
+out-of-cycle foundation re-enrichment on a detected change.
+**Status:**
+- Read the full AG-42 spec end to end first, including its own "Scope correction" section — this
+  agent must be dual-scoped, not scoped to `corporate_prospects` alone (which would make it
+  permanently untestable, per the spec's own explicit warning).
+- Confirmed live via `DATABASE_URL`/psql before writing code: `corporate_monitoring_events` already
+  exists (migration 077/105) with the spec's exact column set; `corporate_prospects` is still absent
+  from production (`PGRST205`, same blocker as AG-20/21/22/24/30/32); `foundation_directory`'s
+  `officers`/`foundation_type`/`subsection_code`/`status`/`enrichment`/`enriched_web_at` columns are
+  all real and live.
+- Built `src/lib/agents/change-monitor-agent.ts`: two-branch scope (`corporate_prospects` degrades to
+  empty via the same try/catch pattern `DonorIntentMonitorAgent` already established; `foundation_directory`
+  is the real, working half, gets the full 200-entity/run budget in practice), website reachability
+  check via `StealthEngine.fetchPage()` (documented adaptation — the fetcher doesn't expose a final
+  redirect URL, so "changed final-redirect URL" became a reachability diff instead), officers/status
+  diff against a stored `enrichment.change_monitor_snapshot` key, Claude severity classification
+  (minor/notable/material, with the spec's fixed "website degraded → notable, no Claude call"
+  exception), and `agent_decisions` logging restricted to notable/material only.
+- Wired the chain-queue: any detected `foundation_directory` change calls `queueChainedAgent`
+  (`'foundation-990-enrichment'`, priority 50, `{foundationId}`). Added a new
+  `enrichSingleFoundation()` export to `foundation-scraper.ts` (reuses `processFoundation()`/
+  `buildEinIndex()` unchanged) plus a matching `routeQueueItem()` case in
+  `autonomous-orchestrator.ts`. No live chain target exists yet for `corporate_prospects` — that
+  branch writes its `corporate_monitoring_events` row and stops, rather than queuing into a
+  nonexistent case.
+- Wired the daily 5:00 AM CST schedule into `worker/scheduler.ts` (unconditional, no day-of-week
+  gate) and a matching `runChangeMonitorDailyPipeline()` in `autonomous-orchestrator.ts`, mirroring
+  AG-36's platform-level (not org-scoped) pattern exactly — `ChangeMonitorAgent` lazily provisions
+  its own synthetic system-org row (`ensureSystemOrg()`) since neither monitored table carries an
+  `organization_id`.
+- Added migration `113_ag42_change_monitor.sql` (`ALTER TYPE agent_type ADD VALUE IF NOT EXISTS
+  'ag-42-change-monitor'`), applied live via `DATABASE_URL`/psql, confirmed via the live PostgREST
+  OpenAPI schema (52 total `agent_type` values afterward).
+- **Not yet live-execution-tested** — this session's scope was build + wire + enum + tsc-clean, not
+  a live run against real `foundation_directory` rows. Flagged as the next session's follow-up, same
+  disposition as the AG-27 build session before its own later live-verification pass.
+
+Updated `STATE_OF_THE_BUILD.md` with the full build narrative. Appended this entry to
+`SESSION_STATE.md`.
+**Commit:** `feat(agents): build AG-42 Change Monitor Agent per enterprise spec` (this session).
+**Gates:** `pnpm tsc --noEmit` — 0 new errors; 38 pre-existing errors, all confined to
+`src/__tests__/**` (same baseline as the AG-27 session) — none touch any file this session edited.
+
+---
+
+## Prior Session — August 3, 2026 (AG-41 Impact Simulation Agent — live end-to-end verification complete, genuinely working)
 
 **Date:** August 3, 2026
 **Focus:** Live-test `ImpactSimulationAgent` (AG-41) against the real Faith Foundation org

@@ -1057,6 +1057,35 @@ export async function runLearningNetworkPipeline(
 }
 
 /**
+ * AG-42 Change Monitor Agent (CM-01) pipeline: platform-level, not per-org
+ * (src/lib/agents/change-monitor-agent.ts's constructor takes only
+ * `supabase`, same shape as AG-36/AG-38 — it self-creates its own synthetic
+ * system-org row since foundation_directory/corporate_prospects are shared,
+ * cross-tenant reference data, not org-scoped). Unlike AG-36/AG-38, this
+ * one is NOT day-of-week gated — it runs unconditionally every time its
+ * daily 5:00 AM CST scheduler slot fires (AGENTS_v2.md AG-42 spec: "Schedule
+ * only — daily... unconditional daily sweep, capped at 200 entities/run").
+ */
+export async function runChangeMonitorDailyPipeline(
+  supabase: SupabaseClient,
+): Promise<void> {
+  console.log('[AutonomousOrchestrator] AG-42 change monitor daily pipeline starting.');
+  try {
+    const { ChangeMonitorAgent } = await import(
+      '../src/lib/agents/change-monitor-agent.js'
+    );
+    const agent = new ChangeMonitorAgent(supabase);
+    const result = await agent.run('schedule');
+    console.log(
+      `[AutonomousOrchestrator] AG-42 complete: ${result.itemsProcessed}/${result.itemsFound} entity(s) checked, ` +
+        `success=${result.success}.`,
+    );
+  } catch (err) {
+    console.error('[AutonomousOrchestrator] AG-42 change monitor daily pipeline failed:', errMsg(err));
+  }
+}
+
+/**
  * AG-10 Grant DNA Analysis Agent weekly pipeline: unlike AG-36/AG-38 (which
  * are platform-level, not per-org), AG-10's output (funder_dna_profiles) is
  * scoped per (organization_id, funder_id) — so this iterates every active
@@ -1787,6 +1816,22 @@ async function routeQueueItem(
       const agent = new BoardPacketAgent(orgId, supabase);
       const result = await agent.run('event');
       return `ag-27-board-packet completed (itemsProcessed=${result.itemsProcessed}/${result.itemsFound})`;
+    }
+    case 'foundation-990-enrichment': {
+      // AG-42 Change Monitor's chain target for a detected
+      // foundation_directory change (queueChainedAgent(
+      // 'foundation-990-enrichment', 50, {foundationId}),
+      // change-monitor-agent.ts). Routes to foundation-scraper.ts's
+      // existing, proven waterfall (processFoundation/buildEinIndex,
+      // unchanged) for just this one row, out-of-cycle from the weekly
+      // full-directory sweep — not org-scoped, foundation_directory has no
+      // organization_id.
+      const foundationId = requireString(item.input_payload, 'foundationId');
+      const { enrichSingleFoundation } = await import(
+        '../src/lib/scraper/foundation-scraper.js'
+      );
+      const result = await enrichSingleFoundation(foundationId);
+      return `foundation-990-enrichment completed for ${foundationId} (enriched=${result?.enriched ?? false}, strategy=${result?.strategy ?? 'none'})`;
     }
     default:
       throw new Error(`Unknown agent_queue agent_id: "${item.agent_id}".`);
