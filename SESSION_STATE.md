@@ -1,10 +1,46 @@
 # BENAVORA — Session State
-## Last Updated: August 3, 2026
-## Mode: `corporate_prospects` created live, closing the 2026-07-20 blocker shared by AG-20/21/22/24/30/32; AG-29 cold-start anomaly investigated (root cause traced to a logging gap, not resolved)
+## Last Updated: August 4, 2026
+## Mode: AutoApply + Research comprehensive live verification; Research wiring gaps resolved; TEOS enrichment attempted but blocked by real system memory constraints (0.49GB free of 15.42GB) — only 1 of 12 zips complete
 
 ---
 
 ## Current Session (most recent)
+
+**Date:** August 4, 2026
+**Focus:** Three workstreams. (1) AutoApply comprehensive live test — 4 existing integration test
+files run live plus one fresh end-to-end submission trace. (2) Research comprehensive live test — all
+9 research agent classes live-invoked, 4 wiring gaps resolved, 8-lane orchestrator re-tested. (3) TEOS
+local batch enrichment — attempt to run the remaining 11 zips (02A-12A) sequentially.
+**Status:**
+- **AutoApply:** the task's premise (`org_not_ready` already resolved "per prior session's fix") was
+  checked before testing and found false — `org_documents` is genuinely empty for Faith Foundation, so
+  `org_not_ready` is a real, current blocker, confirmed via a fresh live trace and a real Railway log
+  line (`"skipped: org_not_ready: Required organization information is incomplete"`). 18/24 tests
+  passed across the 4 files; one genuinely new bug found (`automation_sessions` missing a
+  `session_type` column) plus a new, undiagnosed failure point (a properly-seeded *ready* org's
+  full-pipeline test still ends `"failed"` with no downstream rows created).
+- **Research:** all 9 agent classes live-tested with real data — 4 returned genuine 0-result
+  completions (confirmed real via `search_profiles.last_run_at`), 1 (`grants_gov_research`) confirmed
+  to hang indefinitely (a real bug, reproduced twice), 3 threw real, specific errors (Simpler Grants
+  `401`, TX portal `404`, `custom_api_research`'s missing `error_count` column). All 4 previously-found
+  wiring gaps resolved as documentation, given the real bugs above made blind cron-wiring the wrong
+  call. The 8-lane orchestrator completed but 7 of 8 lanes hit a 60s timeout under real parallel-load
+  contention — a genuine finding not present when the same agents run individually.
+- **TEOS enrichment:** confirmed zip 01A was completed in a separate, earlier session (2026-08-01,
+  real checkpoint timestamps) — not new work this session. Attempted zips 02A-12A; the background
+  import was killed twice in a row at the same point in zip 02A's processing. Diagnosed the real cause
+  before a third attempt: system memory at 0.49GB free of 15.42GB total — a genuine resource
+  constraint, not a script bug. Stopped after the second kill per explicit instruction. Final state:
+  only zip 1A/12 complete; combined enrichment total remains at zip 1A's real numbers (2,044
+  foundations, 19,166 nonprofits updated). Resuming is checkpoint-safe, no code changes needed.
+**Commit:** `test: comprehensive AutoApply + Research live verification, fix Research wiring gaps, TEOS enrichment attempted (1 of 12 zips complete — blocked by system memory)` (this session; message adjusted from the originally-requested wording since TEOS did not reach "complete across all 12 zips").
+**Gates:** not run this session as a single pass — 6 files touched (5 research agent files with
+doc-comment wiring notes, `scheduler.ts`'s dead-code marker); each is a comment-only change, no
+logic modified.
+
+---
+
+## Prior Session — August 3, 2026 (`corporate_prospects` created live; AG-29 cold-start anomaly investigated; anon-grant audit + remediation; Google Places key saga closed)
 
 **Date:** August 3, 2026
 **Focus:** Two tasks. (1) Investigate the AG-29 cold-start anomaly flagged by the prior session using

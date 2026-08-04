@@ -1,3 +1,25 @@
+// ============================================================================
+// DEAD CODE — CONFIRMED UNWIRED, DO NOT TREAT AS LIVE CONFIGURATION
+// (2026-08-04 live-verification pass): every export in this file —
+// `TIER6_AGENT_DEFS` and all of `isDue`/`getActiveProfiles`/`dueProfiles`/
+// `markProfileRun`/`logRunStart`/`logRunEnd` — has zero importers anywhere in
+// src/ (repo-wide search, including tests). This cadence table is aspirational
+// only; it does not run anything and has not been wired to any route, cron,
+// or worker. The Tier 6 agents it describes are actually scheduled (or, in
+// most cases, deliberately NOT scheduled — see each agent file's own 2026-08-04
+// wiring-note comment) elsewhere:
+//   - grants_gov_research: NOT via this file's cadence — see grants-gov.ts
+//     (that class hangs; the real cron uses src/lib/sources/grantsgov-sync.ts)
+//   - sam_gov_research, simpler_grants_research, state_portal: manual-only by
+//     design/real-bug reasons documented in each file, not cron-scheduled
+//   - propublica_mining, custom_api_research: no live cron wiring found either
+// Do not extend or "fix" this file expecting it to start doing something —
+// nothing calls it. If Tier 6 cron scheduling is built for real, it should
+// most likely follow the pattern src/lib/agents/research/scheduler.ts and
+// /api/cron/research/route.ts already use for the base families (which ARE
+// live), not resurrect this file's unused shape.
+// ============================================================================
+//
 // Tier 6 agent scheduler (AGENTS.md Agents 15-20, BEHAVIORAL_CONTRACTS §17-21,
 // §33 Continuous Operation Contracts).
 //

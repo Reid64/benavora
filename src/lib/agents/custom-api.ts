@@ -12,6 +12,26 @@
 //
 // auth_config is read server-side only. Keys are never returned to the client
 // in plaintext (BEHAVIORAL_CONTRACTS §20).
+//
+// WIRING NOTE (2026-08-04): this class (CustomApiResearchAgent) is currently
+// DEAD CODE — confirmed via repo-wide search, nothing in src/ imports or
+// instantiates it. Its same-named route (`/api/agents/custom-api`) does not
+// call it either; that route just inserts a `pending` agent_runs row and
+// returns `{status:"queued"}` with nothing to ever process it. This is NOT
+// the same situation as a simple duplicate: `src/lib/agents/custom-scrape.ts`
+// (`CustomScrapeResearchAgent`, AGENTS.md Agent 20) deliberately reuses this
+// same `custom_api_research` agent_type by design (see that file's own
+// comment) but is a genuinely different feature — it scrapes client-assigned
+// URLs, not client-configured REST API connections (`custom_api_connections`
+// table) the way this class does. custom-scrape.ts is real and wired
+// (`/api/agents/custom-scrape`); this class's specific capability (polling a
+// configured REST API connection) has no working implementation anywhere.
+// Also found live-testing this session: this class currently throws on any
+// invocation regardless of wiring — its own query selects a column,
+// `error_count`, that does not exist on the live `custom_api_connections`
+// table (`42703 column custom_api_connections.error_count does not exist`).
+// Wiring this up would require fixing that schema mismatch first; not done
+// here (out of scope for this pass — live-test + wiring-decision only).
 
 import {
   AgentError,

@@ -1,8 +1,48 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 4, 2026 (Google Places API key saga fully closed — real key rotated across `.env.local`/Railway/Vercel, production redeployed, Places API (New) enabled, all 3 acquisition/discovery paths live-verified with real data). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 4, 2026 (AutoApply + Research comprehensive live verification; Research wiring gaps resolved; TEOS enrichment attempted but blocked by real system memory constraints — only 1 of 12 zips complete). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 4, 2026 (AutoApply + Research comprehensive live verification; Research wiring fixed; TEOS blocked by memory)
+
+Full evidence in `AGENT_VERIFICATION_LOG.md`'s three newest entries. Summary here for build-status
+tracking.
+
+**AutoApply:** the task's premise ("org_not_ready already resolved") was checked and found false
+before testing — `org_documents` is genuinely empty for Faith Foundation, so `org_not_ready` is a
+real, active blocker today, confirmed via a fresh live trace (real Railway log line: `"skipped:
+org_not_ready: Required organization information is incomplete"`). 4 existing integration test files
+run live: **18/24 tests passed** — `autoapply-compliance.test.ts` 7/7, `autoapply-mutual-exclusion.test.ts`
+4/5, `autoapply-queue.test.ts` 5/6, `form-analyzer-filler.test.ts` 0/4 (3 on the pre-existing dead
+`ANTHROPIC_API_KEY`, 1 on a new bug — `automation_sessions` missing a `session_type` column). One new,
+real, undiagnosed failure point found: even a properly-seeded *ready* org's full pipeline still ends
+`"failed"` with no `automation_sessions`/`autoapply_submissions` created.
+
+**Research:** all 9 research-related agent classes live-invoked with real data. 4 completed with 0
+real opportunities (genuine empty results, confirmed via `search_profiles.last_run_at` updating live —
+not early exits). `grants_gov_research` (`GrantsGovResearchAgent`) **hangs indefinitely** — a real,
+reproducible bug confirmed twice. `simpler_grants_research` threw a real `401`, `state_portal` a real
+`404`, `custom_api_research` a real schema error (`error_count` column doesn't exist). The 4 wiring
+gaps from the prior scope-discovery pass were resolved as documentation (code comments, not deletions,
+given the real bugs above make blind cron-wiring unsafe): `grants_gov_research`'s hang confirms
+`grantsgov-sync.ts` is correctly what the real cron uses instead; `sam_gov_research`/
+`simpler_grants_research`/`state_portal` documented as correctly manual-only for real, distinct
+reasons each; `custom_api_research` documented as a genuinely different, still-unwired feature from
+the live `custom-scrape.ts`; `scheduler.ts`'s `TIER6_AGENT_DEFS` marked as confirmed dead code. The
+8-lane orchestrator completed in ~75s but 7 of 8 lanes hit `BaseAgent`'s 60s timeout under real
+parallel-load contention — a genuine finding, not present when the same agents run individually.
+
+**TEOS enrichment:** attempted zips 02A-12A (11 remaining of 12 total; zip 01A was completed in a
+separate session on 2026-08-01, not new work). The background import was killed twice in a row at the
+same point in zip 02A's processing; diagnosed the real cause — **0.49 GB free of 15.42 GB total
+system memory** at the time of the second kill, not a script bug. Stopped after the second kill per
+explicit instruction rather than retrying a third time under the same unresolved constraint. **Only
+zip 1A/12 is complete this session** — the combined foundations/nonprofits total remains at zip 1A's
+real numbers (2,044 foundations, 19,166 nonprofits updated), not the full 12-zip total originally
+requested. Resuming is checkpoint-safe and requires no code changes once memory is available.
 
 ---
 

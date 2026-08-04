@@ -17,6 +17,18 @@
 //
 // Key contract (BEHAVIORAL_CONTRACTS §18): missing or invalid API key causes
 // the run to fail with a typed AgentError surfaced to the route handler.
+//
+// WIRING NOTE (2026-08-04): intentionally manual-trigger-only, not cron-
+// scheduled. Unlike the 4 base research families (which search platform-wide
+// with no per-org credential), this agent requires a real, client-supplied
+// SAM.gov API key from `integration_keys` — a cron sweep would need to
+// iterate every org, skip those with no key configured, and handle each org's
+// key independently, which is a real per-org-credential wiring project, not a
+// one-line cron addition. Live-tested directly this session (a real key,
+// housing-related keywords): completed successfully in ~19.5s, 0 opportunities
+// found — a genuine empty result, not an error. No blocking bug found in this
+// agent itself; the manual-only design is correct as-is given the per-org key
+// requirement, not an oversight.
 
 import {
   AgentError,

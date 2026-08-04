@@ -18,6 +18,20 @@
 //
 // Error handling: per-query HTTP failures are skipped (non-fatal). A total
 // fetch failure wraps in AgentError so BaseAgent can log status="failed".
+//
+// WIRING NOTE (2026-08-04 live-test finding, resolving the "duplicate
+// implementation" question against src/lib/sources/grantsgov-sync.ts): this
+// class (GrantsGovResearchAgent) was live-invoked directly and confirmed to
+// HANG INDEFINITELY (2+ minutes, zero output, never returned or threw) — a
+// real, reproducible bug, not a slow-but-completing call. `/api/cron/grantsgov`
+// intentionally does NOT use this class; it calls `grantsgov-sync.ts`'s
+// `syncGrantsGovForOrg()` instead, which is real, shared by 3 call sites
+// (on-demand route, daily cron, manual CLI script), and does not hang. That
+// routing is correct and should stay as-is — do NOT wire this class into any
+// cron/automated schedule until the hang is root-caused and fixed. This class
+// remains reachable only via the manual `/api/agents/grants-gov` route and the
+// `/api/agents/research` multi-source flow; both should be considered
+// user-triggered, not safe to run unattended, until this is resolved.
 
 import { callClaude } from "@/lib/ai/claude";
 import { decodeHtmlEntities } from "@/lib/utils/formatters";

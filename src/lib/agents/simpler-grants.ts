@@ -9,6 +9,16 @@
 //   category       = government_grant
 //   source         = simpler.grants.gov
 //   source_type    = government_federal  (nearest valid DB enum value)
+//
+// WIRING NOTE (2026-08-04): NOT cron-scheduled — live-tested directly this
+// session and it threw a real `401` from the Simpler.Grants.gov API despite
+// this file's own header comment ("no API key required") and the public API's
+// documented no-auth design. Root cause not diagnosed this session (out of
+// scope — a live-test + wiring-decision pass, not a fix pass); flagging that
+// the "no auth required" assumption above may be stale (API contract change)
+// or something in the request is missing a now-required header. Do not add
+// this to any cron schedule until the 401 is root-caused — an automated daily
+// job that fails every single run is worse than manual-only.
 
 import {
   AgentError,

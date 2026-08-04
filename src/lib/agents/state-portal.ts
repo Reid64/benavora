@@ -13,6 +13,20 @@
 // Behavioral contracts enforced:
 //   §21 — public pages only; 5s+ delay if multi-page; quality validation.
 //   §18 Agent — source set to state name; tier gate checked by route layer.
+//
+// WIRING NOTE (2026-08-04): NOT cron-scheduled, and correctly so — this agent
+// takes a single required `state` input per call and is tier-gated (Starter=1
+// state, Pro=5, Enterprise/Consultant=all), so which state(s) to run is a
+// per-org, per-tier configuration decision, not a single global cron entry
+// (a naive cron addition would run one hardcoded state for every org
+// regardless of relevance). Wiring this into automation would require
+// resolving each org's configured/allowed state(s) first — a real feature,
+// not a one-line schedule addition — and no such per-org state configuration
+// currently exists to resolve against. Live-tested directly this session
+// (state: "TX"): threw a real `404` from the Texas portal URL in the
+// built-in registry — the portal URL itself is stale/wrong, a separate real
+// bug from the scheduling question, not diagnosed further here (out of scope
+// for this pass).
 
 import { callClaude } from "@/lib/ai/claude";
 import {

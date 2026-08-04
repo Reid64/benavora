@@ -4276,3 +4276,140 @@ temporary `.mjs` scripts (7 total) were deleted after use; `git status -s` confi
 files before committing. The one real row this session produced in `corporate_prospects`
 (`GOOD HOUSING CONSTRUCTION LLC`) was deliberately kept, matching this log's established convention
 for genuine agent output.
+
+---
+
+## AutoApply — comprehensive live test (task premise contradicted, reported not forced)
+
+**Task premise checked before testing, found false:** the task asserted `org_not_ready` was already
+resolved "per prior session's fix... request_profiles + org_documents both populated." Verified live
+before running anything: `request_profiles` has 1 real row for Faith Foundation, but `org_documents`
+is genuinely **empty (0 rows)**. Read `checkOrgReadiness()` (`submission-validator.ts`): it requires
+both `501c3_letter` and `form_990` document types present in `org_documents` — with that table empty,
+`ready=false` and `org_not_ready` is a real, currently-active blocker, not a resolved one. Reported
+this discrepancy rather than fabricating a "cleared" result, matching this log's established
+convention (see the Sales Outreach precedent in `STATE_OF_THE_BUILD.md`).
+
+**4 existing test files run live** (`npx vitest run`, real production Faith Foundation org, no mocks):
+
+| File | Result |
+|---|---|
+| `autoapply-compliance.test.ts` | **7/7 PASS** |
+| `autoapply-mutual-exclusion.test.ts` | **4/5 PASS** — 1 fail: a real queue item never reached terminal state within 90s ("Is the Railway worker running?"), despite the worker clearly picking up other items correctly in the same run (a real, unexplained flake or timing edge case, not a dead worker) |
+| `autoapply-queue.test.ts` | **5/6 PASS** — 1 fail: a properly-seeded *ready* org's full-pipeline test still ends `status: "failed"` with zero `automation_sessions`/`autoapply_submissions` rows created — a real, new failure point downstream of org readiness, not yet diagnosed (out of scope for this pass, which was live-test only) |
+| `form-analyzer-filler.test.ts` | **0/4 PASS** — 3 fail on the pre-existing, already-known dead `ANTHROPIC_API_KEY` (`401`); 1 fails on a genuinely new bug: `automation_sessions` is missing a `session_type` column the code expects (`PGRST204`) |
+
+**Fresh end-to-end trace, real data, not part of the test suite:** inserted a real `submission_queue`
+row for the real Faith Foundation org + a real funder (`Meade Tractor`). Completed in ~15s:
+`pending → processing → skipped`. Confirmed via real Railway worker logs (`railway logs`, not
+inferred): `"[QueueProcessor] Item 66507aa9-... skipped: org_not_ready: Required organization
+information is incomplete — form filling will produce inaccurate submissions."` Did **not** reach
+`FormAnalyzerAgent` — no new `automation_sessions` or `form_templates` rows created by this run
+(confirmed by querying both tables immediately after). This is the real, current, reproducible
+behavior — not the "clears org_not_ready" outcome the task assumed.
+
+**Verification method:** `npx vitest run` against the 4 real integration test files (live Supabase,
+live Railway worker, live Anthropic API); one additional manual live trace via direct service-role
+inserts + Railway log correlation, independent of the test suite. No code fixed in this pass — live
+verification only, per task scope.
+
+---
+
+## Research — all 9 agent classes live-tested, 4 wiring gaps resolved, 8-lane orchestrator tested
+
+**All 9 research-related `AgentType` values live-invoked directly** (`node --import tsx`, real
+Faith Foundation org and its one real, keyword-rich `search_profiles` row, no mocks):
+
+| Agent | Result |
+|---|---|
+| `government_research` | Real completion (~11s), 0 opportunities found |
+| `corporate_research` | Real completion (~1.7s), 0 opportunities found |
+| `foundation_research` | Real completion (~60s), 0 opportunities found |
+| `local_sponsorship` | Real completion (~1.1s), 0 opportunities found |
+| `grants_gov_research` | **Hangs indefinitely** — confirmed via two separate live invocations, one run past 2 minutes with zero console output before being cut off. Never returns, never throws. A real, reproducible bug. |
+| `sam_gov_research` | Real completion (~19.5s, using the real `SAM_GOV_API_KEY`), 0 opportunities found |
+| `simpler_grants_research` | **Threw a real `401`** from the live Simpler.Grants.gov API — contradicts the file's own "no API key required" comment |
+| `state_portal` | **Threw a real `404`** from the Texas grant portal URL in the built-in registry |
+| `custom_api_research` | **Threw a real schema error**: `column custom_api_connections.error_count does not exist` (`42703`) — reproduced independently via a direct raw query matching the agent's exact `.select()` |
+
+The 4 zero-result completions are confirmed genuine full runs, not early exits: each one's
+`search_profiles.last_run_at` timestamp updated live to match the test's real execution time.
+
+**4 wiring gaps resolved, as documentation** (code comments added to each file; not code deletions —
+the real bugs found above made blind cron-wiring unsafe, so the resolution is "document the correct
+current state," matching the task's own offered alternative to a code fix):
+1. **`grants_gov_research`**: `grants-gov.ts`'s `GrantsGovResearchAgent` class is the one that hangs.
+   `/api/cron/grantsgov` correctly does NOT use it — it calls `grantsgov-sync.ts`'s
+   `syncGrantsGovForOrg()` instead, which is real, shared by 3 call sites, and does not hang. Comment
+   added to `grants-gov.ts` documenting this finding and warning not to wire the class into any cron
+   until the hang is root-caused.
+2. **`sam_gov_research` / `simpler_grants_research` / `state_portal`**: comments added to each file
+   documenting why manual-only is currently correct — a real per-org-credential requirement (SAM.gov),
+   a live `401` bug (Simpler Grants), and per-org/tier state-selection complexity plus a stale portal
+   URL (state portal) respectively. No authoritative "intended design" doc exists for these (AGENTS.md's
+   Agent 15-19 sections are confirmed absent from the repo, matching prior-session findings) — these
+   are evidence-based judgment calls, not derived from a missing spec.
+3. **`custom_api_research`**: comment added to `custom-api.ts` clarifying `custom-scrape.ts`
+   (`CustomScrapeResearchAgent`, Agent 20) intentionally reuses this same enum value by design and is
+   the real, wired implementation; `CustomApiResearchAgent`'s distinct capability (polling configured
+   REST connections, not scraping assigned URLs) remains genuinely unwired and has its own schema bug.
+4. **`scheduler.ts`**: `TIER6_AGENT_DEFS` and all its helper exports marked with a prominent dead-code
+   header — confirmed zero importers anywhere in `src/`, including tests.
+
+**8-lane orchestrator (`runResearchAgentsInParallel`) live-tested**, all 8 lanes, real Faith Foundation
+data, `autoValidate: true`: completed in ~75s, but **7 of 8 lanes hit `BaseAgent`'s internal 60s
+timeout** — a genuine resource-contention finding, since the same underlying agent classes completed
+in 1-60s each when run individually (not in parallel) earlier in this same session. Only the
+`grants_gov_api` lane (which uses `GovernmentGrantsResearchAgent` with a focus config, NOT the
+separately-hanging standalone `GrantsGovResearchAgent` class — confirmed these are different classes)
+completed within its own 60s window. Since every lane returned 0 real opportunities,
+`totalFound/totalCreated/duplicatesRemoved/opportunitiesValidated/opportunitiesVerified` were all 0 —
+the dedup and consensus-validation code paths executed without erroring, but had no real
+duplicate/found data to meaningfully exercise this pass. Not confirmed correct with real data; only
+confirmed non-crashing.
+
+**Verification method:** direct live invocation of every agent class (`node --import tsx`, real
+service-role client, real Faith Foundation org/search profile, no mocks); the orchestrator run via
+its real public entry point with a bounded `Promise.race` safety timeout, not a modified/mocked
+version. All temporary `.mjs` scripts deleted after use.
+
+---
+
+## TEOS local batch enrichment — attempted, blocked by real system memory constraint (not a code bug)
+
+**Task premise checked:** a prior, separate session (2026-08-01, confirmed via the real
+`enrichment-output/teos-local-checkpoint.json` timestamps — `startedAt`/`updatedAt` both August 1, well
+before this conversation) completed zip `2023_TEOS_XML_01A`: 21,513 filings parsed, 2,044 foundations
+matched/updated, 19,166 nonprofits matched/updated, 1,415 unmatched EINs logged. This is real,
+verified prior work — not fabricated — but it is only 1 of the 12 real zip files
+(`C:\Users\manag\Documents\BENAVORA SaaS\irs-990-zips\`, confirmed to exist, 2023_TEOS_XML_01A..12A).
+
+**This session:** ran `pnpm import:teos-local` (no `--zip` flag — auto-resumes from checkpoint,
+processes all remaining zips sequentially per the script's own design). Confirmed live: "11/12 ZIP(s)
+to process this run," correctly skipping the already-completed 01A. Zip `02A` (40,304 filings, 38,442
+distinct EINs — ~87% more than zip 1A) began parsing successfully both attempts, but the background
+process was **killed twice in a row**, both times at essentially the identical point (right after
+parsing completes, before the checkpoint could be written — checkpointing is per-completed-zip only,
+so no partial zip-2A progress persisted). Diagnosed the real cause before a third attempt: system
+memory check (`Get-CimInstance Win32_OperatingSystem`) showed **0.49 GB free of 15.42 GB total** at
+the time of the second kill — this machine is under genuine, severe memory pressure (likely from other
+concurrent processes/sessions on the same machine, given the multiple `.claude/worktrees/agent-*`
+directories visible in `git status` all session), independent of anything wrong with the import
+script itself. 1,919 real unmatched-EIN rows were appended to
+`enrichment-output/teos-local-unmatched-eins.csv` across the two attempts before each kill — genuine
+partial work occurred, just never reached a checkpoint save.
+
+**Decision, per explicit instruction after this finding: stop here, do not retry a third time under
+the same memory conditions.** Final state this session: **only zip 1A/12 is complete** (pre-existing
+from 2026-08-01, not new work this session). Zips 02A-12A were not completed. The combined
+foundations/nonprofits enrichment total across all zips remains at zip 1A's real numbers: 2,044
+foundations updated, 19,166 nonprofits updated, 1,415 unmatched — not the full 12-zip total the task
+requested. Resuming zips 02A-12A in a future session (once memory is available) should work cleanly
+via the same checkpoint-resume mechanism — no code changes needed, no data corruption risk (writes are
+fill-only-missing, idempotent).
+
+**Verification method:** real checkpoint file inspection (`teos-local-checkpoint.json`), real
+background process output logs, real `Get-CimInstance Win32_OperatingSystem` memory check, real `git
+status`/`git diff --stat` on the unmatched-EINs CSV to confirm genuine partial progress. No fix
+attempted — this was a live-run + honest-status-report pass, correctly halted rather than continuing
+to retry a diagnosed, unresolved resource constraint.
