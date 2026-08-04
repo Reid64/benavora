@@ -1,8 +1,57 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 3, 2026 (anon-grant exposure remediation: 12 of 162 public-schema tables now fully secured, 95 more had their universal `TRUNCATE` bypass closed, 55 remain open for a follow-up pass — see `ANON_GRANT_AUDIT.md` §8 for full per-table detail). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 4, 2026 (Google Places API key saga fully closed — real key rotated across `.env.local`/Railway/Vercel, production redeployed, Places API (New) enabled, all 3 acquisition/discovery paths live-verified with real data). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 4, 2026 (Google Places API key saga — fully closed, all 3 paths verified working)
+
+Full investigation trail spans several sessions on 2026-08-03/04; this entry is the final, closing
+status. **Bottom line: the entire multi-session Google Places investigation is resolved. All three
+real code paths that depend on `GOOGLE_PLACES_API_KEY` are confirmed working against live production
+with real data, not assumed from a passing build.**
+
+**What was wrong:** `.env.local`, Railway (`benavora-worker`), Vercel production, and this repo's own
+`STANDING_DIRECTIVES.md`/`BLUEPRINT_v2.md` all held `AIzaSyA3sJ1v...jlt0` — a real, live key, but on
+an unrelated GCP project (`778643669392`), not the actual "benavora" project. Proven stale by two
+independent facts: `.env.local`'s own filesystem timestamps (May 31/June 10, 2026) and `git log -S`
+showing that value first committed to the docs on 2026-07-16/17 — both well before the real
+"benavora" GCP project (`69925994408`) was created on 2026-07-26. It was never rotated out.
+
+**What was fixed, in order:**
+1. Real key (`AIzaSyD-vLOdvdNAcPgExWD5MvaCQkK4jGjmBZY`, project `69925994408`) identified by Reid
+   directly in the Cloud Console, confirmed via live API calls (not trusted blind).
+2. Rotated into `.env.local`, Railway (`benavora-worker`), and Vercel production. Docs corrected
+   (`STANDING_DIRECTIVES.md`, `BLUEPRINT_v2.md`) with the provisioning-history note so this doesn't
+   drift again.
+3. **Vercel required an explicit production redeploy** (`npx vercel deploy --prod`) — env var
+   changes don't take effect on already-running serverless functions. Confirmed via a live test that
+   *before* the redeploy, production was still resolving to the stale project (`778643669392`); after
+   redeploying (`dpl_GtrDEsptQbocXtu9dGA5qKZnFPW5`, aliased to `www.benavora.com`), it correctly
+   resolved to `69925994408`.
+4. **Places API (New) was not enabled on project `69925994408`** — a genuinely separate blocker from
+   the wrong key, surfaced only after the key/redeploy fix (`SERVICE_DISABLED`, not
+   `API_KEY_SERVICE_BLOCKED`). Reid enabled it in Cloud Console.
+
+**Final live verification, 2026-08-04, all 3 paths, real data, real Faith Foundation production
+session (magic-link-generated via the service-role admin API, no password used/needed):**
+- **`acquireFromGooglePlaces()`** (legacy Places Text Search, used by `corporate-acquisition-adapter.ts` /
+  `/api/prospects/acquire` / `scripts/acquire-corporate-prospects.ts`) — **PASS**, run twice across
+  this investigation with different NAICS codes near Burnet, TX: 19 real building-material suppliers,
+  then 11 real roofing companies, all with real names/websites, written into `corporate_prospects`.
+- **`/api/donor-discovery/discover`** (Places API New) on live production — **PASS**: `200`, 50 real
+  plumbing companies returned (names, addresses, phone numbers, ratings, coordinates) for a real
+  search near Marble Falls, TX. Previously failed with `API_KEY_SERVICE_BLOCKED` (stale key), then
+  `SERVICE_DISABLED` (API not enabled), now genuinely succeeds.
+- **`/api/donor-discovery/geocode`** (Geocoding) on live production — **PASS**: `200`, real geocoded
+  result for Marble Falls, TX (`from_cache: false`, confirmed a fresh call, not a stale cache hit from
+  before the key rotation). Independently confirmed this is the *new* key's own capability (not a
+  coincidental old-key pass) via a direct raw Geocoding call using the current `.env.local` value.
+
+**No open items remain in this investigation.** All three consumers of `GOOGLE_PLACES_API_KEY` in
+this codebase are live-verified working end-to-end.
 
 ---
 
