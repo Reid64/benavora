@@ -19,7 +19,14 @@
 5. Foundation website scraper — contact pages, emails, phones, officer names, giving priorities
 6. OpenCorporates — registered agent, state filing data, incorporation date
 7. Wikipedia/Wikidata — for major foundations (assets > $100M)
-8. Google Maps Places API (key: AIzaSyA3sJ1vkNp1AvPLfKY_5uaiJK0FBiwjlt0) — address verification, phone
+8. Google Maps Places API (key: AIzaSyD-vLOdvdNAcPgExWD5MvaCQkK4jGjmBZY, GCP project 69925994408
+   "benavora", created 2026-07-26 — corrected 2026-08-03; the previously-documented
+   AIzaSyA3sJ1v...jlt0 value was a stale pre-provisioning key on an unrelated project
+   (778643669392), first written into this doc 2026-07-16, 10 days before the real "benavora" GCP
+   project existed, and never rotated out. See STATE_OF_THE_BUILD.md's 2026-08-03 session for the
+   live-verified diagnosis. Restricted to 35 APIs in Cloud Console — if a future Places/Maps call
+   fails with SERVICE_DISABLED or API_KEY_SERVICE_BLOCKED, check that restriction list before
+   assuming the key itself is wrong again) — address verification, phone
 9. SEC EDGAR — foundations with investment portfolios
 10. State charity registration filings — CA, NY, TX, FL, IL AG databases (public records)
 11. DuckDuckGo / SearXNG web search — fallback name+city+state search for any missing website

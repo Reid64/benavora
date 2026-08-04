@@ -616,7 +616,7 @@ cd C:\Users\manag\Documents\FORGE; $env:NODE_OPTIONS="--max-old-space-size=8192"
 |---|---|---|
 | Supabase Management | `sbp_a63596024b79b5964d2dc2971ac9d4cc77a112c1` | Never expose to client |
 | SAM.gov | `SAM-ca328c91-250e-4b51-a4cc-ab90ef5aab7a` | Federal opportunities |
-| Google Places | `AIzaSyA3sJ1vkNp1AvPLfKY_5uaiJK0FBiwjlt0` | Business discovery |
+| Google Places | `AIzaSyD-vLOdvdNAcPgExWD5MvaCQkK4jGjmBZY` | GCP project `69925994408` ("benavora", created 2026-07-26). Corrected 2026-08-03 — the prior value (`AIzaSyA3sJ1v...jlt0`) was a stale key on an unrelated project (`778643669392`), documented here 2026-07-17, 10 days before "benavora" existed, and never updated. Restricted to 35 APIs in Cloud Console; see STANDING_DIRECTIVES.md §2's fuller note. |
 | Vercel project | `prj_7pn7UmQQsiEjTIHH58cfUU84p6xc` | Deployment |
 | Vercel team | `team_LakHkpsa9gL4kTe1WZIHBJaR` | Account scope |
 | Railway worker | `bd9f0c6b-fe01-4f31-9ef7-5fe9d7d0b127` | Background jobs |
