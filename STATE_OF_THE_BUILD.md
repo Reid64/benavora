@@ -1,8 +1,22 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 4, 2026 (AutoApply + Research comprehensive live verification; Research wiring gaps resolved; TEOS enrichment attempted but blocked by real system memory constraints — only 1 of 12 zips complete). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 4, 2026 (DNS/domain task re-run — session sandbox blocked all live re-verification; no new evidence gathered, prior findings unchanged). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 4, 2026 (DNS/domain verification task — blocked by sandbox, no live re-check possible)
+
+Task asked to check/verify Vercel domain config for benavora.com, add the domain if missing, verify DNS propagation via `nslookup`, and refresh `DNS_SETUP_GUIDE.md`/this file. Per the "DOMAIN" section below, this was already done and verified live in the July 21/22 sessions (DNS resolving to `76.76.21.21`, `308` redirect to `www.benavora.com` confirmed via `curl`). This session could not independently reconfirm or add anything:
+
+- **This session's sandbox has zero filesystem access outside `C:\Users\manag\Documents\benavora\`** — `C:\Users\manag\Documents\FORGE\projects\benavora\` (needed for the DIRECTIVE-016 governance-doc sync step) is unreachable; `Test-Path`/`ls` against it are hard-blocked, not just permission-prompted.
+- **All network-touching shell commands were auto-blocked pending approval** (`vercel whoami`, `vercel domains ls`, `nslookup benavora.com 8.8.8.8`, via both the Bash and PowerShell tools, including with sandboxing explicitly disabled) — this is a non-interactive session with no path to grant that approval. `git status`/`git log` (no network) ran fine, confirming the block is specifically network-related, not a blanket shell lockout.
+- Net effect: no live check of Vercel's domain list, no ability to add benavora.com if it were somehow missing, and no fresh `nslookup` result. `DNS_SETUP_GUIDE.md` was created/refreshed with the requested record table, but its "current status" section is explicitly marked as carried forward from July 22, not reconfirmed today.
+
+**Nothing in this session contradicts the DOMAIN section below** — there is just no new evidence. Next session with an interactive shell (able to approve `vercel`/`nslookup` calls) or direct access to the FORGE projects folder should re-run the actual verification commands before this gets marked reconfirmed again.
+
+Gates: not applicable — no code changed, docs-only session blocked on tooling.
 
 ---
 
