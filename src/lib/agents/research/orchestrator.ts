@@ -107,6 +107,22 @@ export async function runResearchAgentsInParallel(
     triggeredBy: options.triggeredBy ?? null,
     model: options.model,
     maxTokens: options.maxTokens,
+    // Real bottleneck found + fixed 2026-08-05: web-fetcher.ts's per-domain
+    // rate limiter (RATE_LIMIT=10 req/RATE_WINDOW_MS=60s) uses a
+    // module-level Map shared by every lane in this process -- when lanes
+    // are run individually (manual trigger, one at a time) that's invisible,
+    // but this orchestrator runs all 8 lanes in TRUE parallel, and several
+    // share overlapping search-engine/source domains. Confirmed live: 7/8
+    // lanes hit BaseAgent's 60s default timeout under real concurrent load,
+    // even though every one of those same agent classes completes in
+    // 1-60s when run alone (no rate-limit contention to wait through).
+    // None of the 4 base agent classes override timeoutMs, so they all fell
+    // back to the 60s default -- too tight for a lane that legitimately has
+    // to queue behind up to 7 siblings for the same domain's shared budget.
+    // 180s gives real headroom for that queuing without matching
+    // GrantsGovResearchAgent's 270s (calibrated for a different, unrelated
+    // two-pass-fetch design, not this contention pattern).
+    timeoutMs: 180_000,
   };
   const profileIds = options.profileIds ?? null;
 

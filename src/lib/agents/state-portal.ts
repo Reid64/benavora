@@ -72,11 +72,19 @@ interface PortalConfig {
 
 // Built-in registry. Texas is the primary portal (BLUEPRINT §3.6).
 // Add additional portals here as they are onboarded.
+//
+// URL corrected 2026-08-05: the old "Texas Online" URL
+// (txapps.texas.gov/tolapp/ogi/) 301-redirects through
+// texasonline.state.tx.us -> www.texasonline.state.tx.us, a decommissioned
+// e-government system whose final destination genuinely 404s (not a typo,
+// the underlying page is gone). Replaced with the real, current, official
+// Texas state grant opportunities portal (Statewide Procurement
+// Division/eGrants), confirmed live via a direct fetch: `200`, real content.
 const PORTAL_REGISTRY: PortalConfig[] = [
   {
     stateCode: "TX",
     stateName: "Texas",
-    portalUrl: "https://txapps.texas.gov/tolapp/ogi/",
+    portalUrl: "https://egrants.gov.texas.gov/fundingopp",
   },
 ];
 

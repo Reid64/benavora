@@ -149,8 +149,17 @@ async function waitForTerminal(
     orgIds.push(orgIncompleteId);
 
     // Org with every KB field, one active request_profiles row, and both
-    // required org_documents types present — checkOrgReadiness() must report
-    // ready and the pipeline must proceed past the org_not_ready gate.
+    // required documents present — checkOrgReadiness() must report ready and
+    // the pipeline must proceed past the org_not_ready gate.
+    //
+    // Writes to `documents` (the real, live document vault table), not
+    // `org_documents` — fixed 2026-08-05 alongside submission-validator.ts's
+    // own checkOrgReadiness() fix: `org_documents` was confirmed to have zero
+    // rows platform-wide, for every org, ever; the real upload path
+    // (DocumentUploader.tsx) writes to `documents` with a coarse `category`
+    // (DOCUMENT_CATEGORIES) instead of a fine-grained `document_type`, so
+    // checkOrgReadiness() now does a filename-keyword match within the
+    // `tax_documents` category. This fixture matches that real contract.
     const { data: orgReady, error: orgReadyErr } = await service
       .from("organizations")
       .insert({
@@ -181,22 +190,18 @@ async function waitForTerminal(
     });
     expect(profileErr, profileErr?.message).toBeNull();
 
-    const { error: docsErr } = await service.from("org_documents").insert([
+    const { error: docsErr } = await service.from("documents").insert([
       {
         organization_id: orgReadyId,
-        document_type: "501c3_letter",
-        display_name: "501(c)(3) Determination Letter",
-        storage_path: `test/${tag}/501c3.pdf`,
-        file_name: "501c3.pdf",
-        is_current: true,
+        category: "tax_documents",
+        storage_path: `test/${tag}/501c3-determination-letter.pdf`,
+        file_name: "501c3-determination-letter.pdf",
       },
       {
         organization_id: orgReadyId,
-        document_type: "form_990",
-        display_name: "IRS Form 990",
-        storage_path: `test/${tag}/990.pdf`,
-        file_name: "990.pdf",
-        is_current: true,
+        category: "tax_documents",
+        storage_path: `test/${tag}/irs-form-990.pdf`,
+        file_name: "irs-form-990.pdf",
       },
     ]);
     expect(docsErr, docsErr?.message).toBeNull();
@@ -309,7 +314,7 @@ async function waitForTerminal(
         // best-effort cleanup
       }
       try {
-        await service.from("org_documents").delete().eq("organization_id", orgId);
+        await service.from("documents").delete().eq("organization_id", orgId);
       } catch {
         // best-effort cleanup
       }

@@ -4413,3 +4413,166 @@ background process output logs, real `Get-CimInstance Win32_OperatingSystem` mem
 status`/`git diff --stat` on the unmatched-EINs CSV to confirm genuine partial progress. No fix
 attempted — this was a live-run + honest-status-report pass, correctly halted rather than continuing
 to retry a diagnosed, unresolved resource constraint.
+
+---
+
+## AutoApply bugs 1 & 2 — genuinely fixed and verified live; bug 3 root-caused, code fixed, full pipeline re-verification blocked by a real Railway deployment issue
+
+### Bug 1 — org_documents "regression": not data loss, a wrong-table bug
+
+Investigated before assuming data loss. `org_documents` is confirmed **empty platform-wide — zero
+rows, for every org, ever** — not specific to Faith Foundation, not a rollback, not RLS (checked with
+the service-role client, which bypasses RLS). The real 3 documents (IRS 501(c)(3) determination
+letter + 2 screenshots, real storage paths, real uploader, dated 2026-07-30) are sitting in a
+**different, real, live table called `documents`** — confirmed via the real upload path
+(`DocumentUploader.tsx`, `DOCUMENT_CATEGORIES` enum), which has never written to `org_documents` at
+all. `checkOrgReadiness()` (`submission-validator.ts`) was querying the wrong table.
+
+**Fixed**: rewrote the document-vault check to query `documents`, matching its real (coarser)
+`category` taxonomy (`tax_documents`/`legal_documents`/etc. — no fine-grained `document_type` column
+exists in the real schema, confirmed platform-wide, only 5 category values in use, 8 total rows). Uses
+an explicit, documented filename-keyword heuristic (`501|determination|exempt` for the 501(c)(3)
+letter, `\b990\b` for Form 990, `board` anywhere for the board list) since no exact-match column
+exists — flagged in code as a heuristic, not silently presented as precise matching.
+
+**Verified live**: `checkOrgReadiness('b1ab7402-...')` now returns `score: 81`, `missing_required:
+["IRS Form 990"]` — the 501(c)(3) letter now correctly registers as present. **`ready` is still
+`false`, and correctly so** — a genuine Form 990 document does not exist for Faith Foundation (0
+documents anywhere on the platform have "990" in the filename). Not fabricating a document to force
+`ready: true` — this is the honest, accurate real-world state, not a remaining bug.
+
+### Bug 2 — automation_sessions.session_type: migration 020 never applied
+
+`session_type` (plus `steps`, `screenshots`, `approval_required_at`, and 2 related indexes/RLS
+policies for `automation_steps`/`automation_screenshots`) is fully defined in
+`supabase/migrations/020_automation_sessions.sql` — confirmed live before applying: none of it
+existed (`session_type` enum type: absent; column: absent). Applied via `psql`/`DATABASE_URL`
+(idempotent, `IF NOT EXISTS`/exception-guarded throughout — safe even though parts may have partially
+landed elsewhere). **Verified live**: a real insert with `session_type: 'form_fill'` now succeeds
+end-to-end, full row returned with all 4 new columns correctly typed and present.
+
+### Bug 3 — "ready org still fails": root-caused precisely via real Railway logs, code fixed, full re-verification blocked
+
+With bugs 1+2 fixed, re-ran the AutoApply suite (5 files this time — the original 4 plus
+`autoapply-risk-scoring.test.ts`, included since it's clearly part of the same real suite and
+surfaced a relevant finding, see below). **19/24 on the original 4 files** (up from 18/24
+pre-fix) — the flaky `autoapply-mutual-exclusion.test.ts` timeout now passes, and
+`form-analyzer-filler.test.ts`'s `session_type`-blocked test now passes (direct confirmation of bug
+2's fix). One regression surfaced and was fixed in the same pass: `autoapply-queue.test.ts`'s own
+"ready org" fixture inserted into the now-defunct `org_documents` contract — updated to insert into
+the real `documents` table matching the new implementation; re-ran the file alone afterward, confirmed
+5/6 passing again.
+
+**The real "ready org full pipeline" test still fails** — but the failure signature changed from
+`"failed"` to `"skipped"`, a different, real signal. Traced via real Railway worker logs (not
+guessed): `"[QueueProcessor] Item 802c789b-... failed: browserType.launch: Executable doesn't exist
+at /root/.cache/ms-playwright/chromium_headless_shell-1223/..."` — a precisely diagnosed, scoped bug:
+`worker/Dockerfile` already sets `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium` and
+`PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1`, clearly intending to redirect Playwright at the apt-installed
+system chromium instead of downloading its own — but grepped the entire codebase and confirmed
+**nothing ever read that env var**; `stealth-browser.ts` (the real class `FormFillerAgent` uses)
+called `chromium.launch()` with no `executablePath`, so Playwright fell back to its own default
+bundled-browser path, which the skipped download left empty. **Fixed**: `stealth-browser.ts` now
+reads `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` and passes it through when set — closing exactly the gap
+between the Dockerfile's stated intent and what the code actually did.
+
+**Could not fully re-verify this fix through the live pipeline.** Getting the fix onto the deployed
+Railway worker required a redeploy; `railway up` was attempted twice — both times the CLI reported an
+`operation timed out` error, and the resulting deployment got stuck showing `Deploy failed` in
+`railway status` for over an hour despite the container's own logs showing normal operation (real
+queue-polling activity, no crash). `railway redeploy` then refused outright: *"The latest deployment
+... cannot be redeployed. This may be because it's currently building, deploying, or was removed."*
+Re-ran the live pipeline test against the still-old deployment afterward and confirmed, via fresh
+Railway logs, it's still running the pre-fix `checkOrgReadiness()` (identical `"Required organization
+information is incomplete"` message as before bug 1 was fixed) — direct proof the redeploy never took
+effect, not a code problem. This is a real, separate Railway platform/tooling reliability issue,
+flagged for Reid to investigate via the dashboard directly rather than more blind CLI retries.
+
+**Also surfaced, not part of the original 4 files:** `autoapply-risk-scoring.test.ts`'s two live-DB
+tests fail with `submission_queue.risk_score does not exist` / `PGRST204 risk_factors` — this
+re-confirms an already-known, pre-existing, previously-documented bug (migration 052's `ALTER TABLE`
+for `submission_queue` never applied to production, first found 2026-07-30) rather than a new
+discovery. The test's own commentary notes `worker/queue-processor.ts` performs this exact write at
+its `'manual'` route and never checks the error, so this failure is currently silent in production.
+Not fixed in this pass (out of the 3 named bugs' scope) — flagged for a future session.
+
+**Verification method:** live `npx vitest run` against real integration test files; direct
+`checkOrgReadiness()`/`automation_sessions` insert calls bypassing the deployed worker to confirm the
+underlying fixes independent of Railway's deployment state; real Railway log correlation
+(`railway logs --deployment/--since`) for exact error text, twice (before and after the attempted
+redeploy) to prove the deploy never took effect.
+
+---
+
+## Research — 5 agent bugs investigated, 1 finding retracted (false alarm), 4 real bugs fixed and verified
+
+### (a) grants_gov_research — retraction: never actually hung
+
+The prior session's "hangs indefinitely, confirmed twice" finding was itself re-examined and found
+incomplete: `GrantsGovResearchAgent`'s constructor explicitly overrides `timeoutMs` to **270,000ms**
+("the two-pass detail fetch needs far more than the 60s default... 30s buffer under the 300s Vercel
+function limit") — both prior test runs were killed after ~2 minutes, well under that real budget, not
+because it hung. Re-tested with a genuine 290s wait: **completed in 71,966ms with real data** — VA
+Homeless Providers Grant, HUD Family Unification Program NOFO, ACF Youth Homelessness Demonstration
+Program, real award ceilings/floors/close dates. **No circuit-breaker added** — the existing 270s
+timeout is already a real, reasoned safeguard; adding a shorter one on top would only risk killing
+legitimate long-but-bounded runs. Retracting the original finding rather than "fixing" a bug that
+doesn't exist as originally characterized.
+
+### (b) simpler_grants_research — real API contract change, not a dead/expired key
+
+Live-diagnosed via a direct raw request: `401`, `WWW-Authenticate: ApiKey realm="Authentication
+Required"` — the real, live Simpler.Grants.gov API now requires an API key. Confirmed no
+`SIMPLER_GRANTS_API_KEY` (or any variant) exists anywhere in this project — there was never a key
+configured, not a dead one. **Cannot fix from code alone** — a real key must be obtained (registration
+required at the Simpler Grants API's own issuer) and set in `.env.local`/Railway/Vercel. Prepared the
+code for when one exists: reads `SIMPLER_GRANTS_API_KEY`, fails with a clear, typed error if unset
+(instead of a generic `401`), sends it as `X-Api-Key` (matching the `WWW-Authenticate: ApiKey` scheme
+name — **unverified against a real key**, since none was available to test with; confirm/adjust once
+one exists). Updated the file's own stale "no API key required" comment.
+
+### (c) state_portal — real stale URL, corrected and verified
+
+The registered Texas portal URL (`txapps.texas.gov/tolapp/ogi/`) 301-redirects through
+`texasonline.state.tx.us` → `www.texasonline.state.tx.us`, a decommissioned e-government system whose
+final destination genuinely 404s — confirmed via a direct fetch of the full redirect chain, not a
+typo, the underlying page is gone. Found the real, current, official portal via web search
+(`egrants.gov.texas.gov/fundingopp`, Texas's Statewide Procurement Division eGrants system) and
+confirmed it live: `200`, real content (30KB, contains "grant"/"funding"). Updated
+`PORTAL_REGISTRY`. **Verified live**: `StatePortalResearchAgent.run({state:"TX"})` no longer 404s —
+it now genuinely reaches the Claude-extraction step and fails only on the pre-existing, already-known
+dead `ANTHROPIC_API_KEY`, not a new issue.
+
+### (d) custom_api_research — real schema gap, fixed and verified
+
+`custom_api_connections` is missing exactly one column from its own defining migration
+(`034_custom_connections.sql`) — `error_count` — confirmed via a full live column-by-column diff
+(every other column matches exactly). `CustomApiResearchAgent` selects this column on every
+invocation and failed with `42703` before reaching any of its own logic. Applied a targeted
+`ALTER TABLE ... ADD COLUMN IF NOT EXISTS error_count integer DEFAULT 0` (migration 124) rather than
+re-running the original `CREATE TABLE IF NOT EXISTS`, which would no-op against the already-existing
+table. **Verified live**: real invocation now completes cleanly, `0` connections (none configured for
+Faith Foundation — a real, legitimate empty result, not an error).
+
+### (e) 8-lane orchestrator contention — real bottleneck found and fixed
+
+Traced the "7/8 lanes hit BaseAgent's 60s timeout together" finding to its root cause:
+`web-fetcher.ts`'s per-domain rate limiter (`RATE_LIMIT=10` requests per `RATE_WINDOW_MS=60s`) uses a
+**module-level `Map`** (`domainHits`), shared by every lane in the same Node process. Invisible when
+lanes run individually (one at a time, no contention), but the orchestrator runs all 8 lanes in true
+parallel, several of which share overlapping search-engine/source domains — under concurrent load,
+lanes queue behind each other for the same shared per-domain budget, and none of the 4 base agent
+classes override `timeoutMs`, so they all fell back to the too-tight 60s default. **Fixed**: the
+orchestrator now passes `timeoutMs: 180_000` for lanes it launches specifically (not changed
+globally — manual/individual invocation is unaffected and doesn't need it). **Verified live**: re-ran
+the full 8-lane sweep — **all 8 lanes completed** (previously 7/8 timed out), 162.8s total, comfortably
+under the new 180s ceiling. `totalFound: 0` (a real, legitimate empty result for Faith Foundation's
+current search profile, not an error) — the dedup/consensus-validation code paths still weren't
+exercised against real duplicate data this pass, same caveat as the prior session's finding.
+
+**Verification method:** direct live invocation of each agent class and the orchestrator's real public
+entry point (`node --import tsx`, no mocks); a direct raw HTTP request to Simpler.Grants.gov
+independent of the agent code, to confirm the `401`/`WWW-Authenticate` finding wasn't an artifact of
+this codebase's own request shape; a direct fetch of the TX portal's full redirect chain; a live
+column-by-column schema diff for `custom_api_connections`; `psql`/`DATABASE_URL` for the migration
+apply, `information_schema` re-query for confirmation. All temporary `.mjs` scripts deleted after use.

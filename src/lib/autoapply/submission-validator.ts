@@ -186,15 +186,39 @@ export class SubmissionValidator {
     }
 
     // --- Document vault check ---
+    // FIXED 2026-08-05: this used to query `org_documents.document_type`, a
+    // table confirmed live (2026-08-04) to have ZERO rows platform-wide, for
+    // every org, ever -- not a data-loss bug, a wrong-table bug. Real uploads
+    // go through the actual document vault UI (DocumentUploader.tsx ->
+    // `documents` table, DOCUMENT_CATEGORIES enum from
+    // src/lib/utils/constants.ts), which has no fine-grained "document_type"
+    // column -- only a coarse `category` (tax_documents/legal_documents/etc).
+    // There is no exact "501c3_letter" vs "form_990" distinction available in
+    // the real schema, so this now does a filename-keyword match within the
+    // `tax_documents` category -- an explicit, documented heuristic, not a
+    // guess dressed up as exact matching. If this proves too loose/strict in
+    // practice, the real fix is adding a proper document_type/subcategory
+    // column to `documents`, not tightening the regex further.
     const { data: docs } = await supabase
-      .from("org_documents")
-      .select("document_type")
-      .eq("organization_id", orgId)
-      .eq("is_current", true);
+      .from("documents")
+      .select("file_name, category")
+      .eq("organization_id", orgId);
 
-    const presentDocs = new Set(
-      ((docs ?? []) as Array<{ document_type: string }>).map((d) => d.document_type),
+    const taxDocs = ((docs ?? []) as Array<{ file_name: string; category: string }>).filter(
+      (d) => d.category === "tax_documents",
     );
+    const allDocNames = ((docs ?? []) as Array<{ file_name: string }>).map((d) => d.file_name);
+
+    const presentDocs = new Set<string>();
+    if (taxDocs.some((d) => /501|determination|exempt/i.test(d.file_name))) {
+      presentDocs.add("501c3_letter");
+    }
+    if (taxDocs.some((d) => /\b990\b/i.test(d.file_name))) {
+      presentDocs.add("form_990");
+    }
+    if (allDocNames.some((n) => /board/i.test(n))) {
+      presentDocs.add("board_list");
+    }
 
     const docRequired: Array<[string, string]> = [
       ["501c3_letter", "501(c)(3) determination letter"],

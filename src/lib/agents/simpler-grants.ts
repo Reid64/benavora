@@ -1,8 +1,24 @@
 // Simpler Grants Research Agent — polls the public Simpler.Grants.gov v1 API.
 //
-// Sends a POST search request (no API key required) for federal opportunities
-// matching the supplied keywords. Deduplicates by name and url before inserting
-// new records into the opportunities table.
+// Sends a POST search request for federal opportunities matching the supplied
+// keywords. Deduplicates by name and url before inserting new records into the
+// opportunities table.
+//
+// API KEY NOTE (corrected 2026-08-05): this file's original comment said "no
+// API key required" -- that is no longer true. Confirmed live via a direct
+// raw request: the real API now returns `401` with
+// `WWW-Authenticate: ApiKey realm="Authentication Required"` -- a real API
+// contract change (or this endpoint always required a key and the "no auth"
+// assumption was wrong from the start; either way, it's required now). No
+// `SIMPLER_GRANTS_API_KEY` value exists anywhere in this project -- this is
+// not a dead/expired key, there was never a key configured at all. A real key
+// needs to be obtained (register at https://simpler.grants.gov or wherever
+// Simpler Grants issues API access) and set as `SIMPLER_GRANTS_API_KEY` in
+// `.env.local`/Railway/Vercel before this agent can work again -- not
+// fixable from code alone. The header name below (`X-Api-Key`) matches the
+// `WWW-Authenticate: ApiKey` scheme's own naming but is UNVERIFIED against a
+// real key (none was available to test with this session) -- confirm the
+// exact expected header once a real key exists, adjust if wrong.
 //
 // Field mapping (task spec):
 //   name           = opportunity_title
@@ -144,11 +160,24 @@ export class SimplerGrantsResearchAgent extends BaseAgent<
       pagination: { page_size: pageSize, page_offset: pageOffset },
     };
 
+    const apiKey = process.env.SIMPLER_GRANTS_API_KEY;
+    if (!apiKey) {
+      throw new AgentError(
+        "SIMPLER_GRANTS_API_KEY is not set — the Simpler Grants API now requires an API key (confirmed live 2026-08-05); no key has been obtained yet.",
+        "missing_api_key",
+        503,
+      );
+    }
+
     let rawBody: SimplerGrantsResponse;
     try {
       const response = await fetch(SIMPLER_GRANTS_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          "X-Api-Key": apiKey,
+        },
         body: JSON.stringify(requestBody),
         signal: AbortSignal.timeout(30_000),
       });

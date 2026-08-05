@@ -359,6 +359,19 @@ export class StealthBrowser {
     if (options?.proxy) {
       launchArgs.proxy = { server: options.proxy };
     }
+    // worker/Dockerfile installs the system `chromium` package (apt) and sets
+    // PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH + PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+    // specifically so Playwright's own browser download is skipped in favor
+    // of that system binary -- but this call never actually read the env var
+    // and passed it as `executablePath`, so Playwright fell back to its own
+    // default bundled-browser path (which the skipped download left empty),
+    // failing live in production with "browserType.launch: Executable
+    // doesn't exist at /root/.cache/ms-playwright/...". Fixed 2026-08-05: the
+    // Dockerfile's intent was always to redirect here, it was just never
+    // wired up. No effect outside the container (env var unset locally).
+    if (process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH) {
+      launchArgs.executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
+    }
     const browser = await chromium.launch(launchArgs);
 
     const context = await browser.newContext({
