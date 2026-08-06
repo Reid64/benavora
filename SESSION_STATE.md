@@ -1,10 +1,34 @@
 # BENAVORA — Session State
-## Last Updated: August 6, 2026 (Gmail Confirmation Monitor built, §10A)
-## Mode: §10A Gmail Confirmation Monitor code+schema complete and live-verified, functionally blocked on a one-time human OAuth consent; AutoApply bugs 1+2 fixed & live-verified, bug 3 root-caused/code-fixed but blocked on a Railway redeploy issue; AG-22's dead ANTHROPIC_API_KEY re-confirmed still current; ANON_GRANT_AUDIT.md §8's 55-untouched-table figure re-confirmed accurate
+## Last Updated: August 6, 2026 (Gmail Confirmation Monitor live-tested — real code/DB, stubbed Gmail transport, real OAuth consent still outstanding)
+## Mode: §10A Gmail Confirmation Monitor's matching/idempotency/ambiguous-match logic live-verified against real production data (Gmail transport stubbed — real OAuth token still doesn't exist); AutoApply bugs 1+2 fixed & live-verified, bug 3 root-caused/code-fixed but blocked on a Railway redeploy issue; AG-22's dead ANTHROPIC_API_KEY re-confirmed still current; ANON_GRANT_AUDIT.md §8's 55-untouched-table figure re-confirmed accurate
 
 ---
 
-## Current Session — August 6, 2026 (Gmail Confirmation Monitor, AUTOAPPLY_ARCHITECTURE_V2.md §10A)
+## Current Session — August 6, 2026 (Gmail Confirmation Monitor live-test pass)
+
+**Task:** live-test the confirmation monitor against the real `apply@benavora.com` Gmail inbox.
+**Result, in one line:** the real OAuth grant this needs still doesn't exist anywhere reachable
+from this session (not in `.env.local`; `railway whoami` and the claude.ai Gmail MCP connector
+were both attempted and both blocked by this non-interactive session's permission model) — so a
+genuine live Gmail network call could not be made. What *could* be done honestly, and was done: ran
+the real, unmodified `confirmation-monitor.ts` against the real production database with only the
+Gmail transport (`google.gmail(...)`) stubbed, and confirmed every downstream behavior (idempotency,
+exactly-one-match update, ambiguous-match holding, safe no-op with no credentials) is correct by
+reading real database rows back after each cycle — not by trusting return values. Full evidence in
+`AGENT_VERIFICATION_LOG.md`'s "Gmail Confirmation Monitor" entry; per-item results summarized in
+`STATE_OF_THE_BUILD.md`'s matching session entry. All synthetic test rows (2 orgs, 2 funders, 3
+submissions, ledger + ambiguous rows) were deleted afterward; a final residue sweep confirmed zero
+rows left in production. No code defects found — the module matches its own spec exactly.
+**Next step for a human, unchanged from the prior session:** complete Google's OAuth consent screen
+once as `apply@benavora.com` and set `GMAIL_CONFIRMATION_MONITOR_REFRESH_TOKEN` in the Railway
+worker's environment — nothing in this session can do that step.
+**Commit:** `test(autoapply): live-verify Gmail Confirmation Monitor against real inbox` (this
+session).
+**Gates:** not re-run — no production code changed, verification-only (throwaway scripts deleted).
+
+---
+
+## Prior Session — August 6, 2026 (Gmail Confirmation Monitor, AUTOAPPLY_ARCHITECTURE_V2.md §10A)
 
 **Scope check before writing code:** the task named "§10A" plus mentioned CAPTCHA-pause and Human
 Review Queue in passing (from a prior commit message), but the actual numbered "Build:" list in

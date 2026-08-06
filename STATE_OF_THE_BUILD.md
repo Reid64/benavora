@@ -1,8 +1,54 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 6, 2026 (Gmail Confirmation Monitor built per AUTOAPPLY_ARCHITECTURE_V2.md §10A — schema live, code compiles, blocked on a one-time human OAuth consent nothing here can perform). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 6, 2026 (Gmail Confirmation Monitor live-verified against real production data with a stubbed Gmail transport — real Google OAuth consent for apply@benavora.com still not completed by anyone, still the sole remaining blocker). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 6, 2026 (Gmail Confirmation Monitor live-verified — real code, real DB, stubbed Gmail transport)
+
+Full evidence in `AGENT_VERIFICATION_LOG.md`'s "Gmail Confirmation Monitor" entry. Summary here:
+
+- **Confirmed the real configured inbox is `apply@benavora.com`** — the only address referenced
+  anywhere in code, schema, or docs; no alternate/configurable address exists.
+- **Confirmed the OAuth blocker from the prior session is still unresolved and still cannot be
+  closed from this session**: `GMAIL_CONFIRMATION_MONITOR_REFRESH_TOKEN` is absent from
+  `.env.local`; `railway whoami` (to check Railway's copy) and the separate claude.ai Gmail MCP
+  connector (to identify what account it's even connected to) were both attempted and both
+  blocked by this session's non-interactive permission model. **A genuine live Gmail API round-trip
+  was not performed and could not be performed this session.**
+- **Confirmed, live, with today's real (credential-less) environment**: every call to
+  `runConfirmationMonitorCycle()` safely no-ops (`skipped: "missing_credentials"`) rather than
+  crashing — directly observed, not assumed.
+- **Confirmed working, via the real unmodified module run against the real production database
+  with only the Gmail transport (`google.gmail(...)`) stubbed** (everything downstream — matching,
+  idempotency, DB writes — is real, unmodified code, explicitly not a claim that a real Gmail
+  network call succeeded):
+  - Idempotency: an immediate second cycle against the same 3 messages processed 0 new messages
+    (all already in the ledger) and made 0 additional Gmail `get()` calls.
+  - Exactly-one-match: a real, synthetic test submission's `confirmation_email_received`/
+    `confirmation_received_at` were correctly updated; `confirmation_number` stayed null because
+    the local `ANTHROPIC_API_KEY` is still dead (re-confirmed live, `401`) — matching the code's
+    own documented "extraction failure never blocks the match" behavior, not a bug.
+  - Ambiguous match: two real, synthetic open submissions to the same funder both matched one
+    test email → landed in `autoapply_confirmation_ambiguous_matches` with
+    `status: 'needs_manual_match'`, and neither submission was auto-resolved.
+- All synthetic test data (2 orgs, 2 funders, 3 submissions, plus ledger/ambiguous rows) was
+  deleted afterward; a final residue sweep across every touched table confirmed zero rows left in
+  production.
+- No code defects found in `confirmation-monitor.ts` — every behavior matched its own header
+  comments and `AUTOAPPLY_ARCHITECTURE_V2.md` §10A exactly.
+
+**Still unchanged, still the sole real blocker:** someone with access to `apply@benavora.com`
+needs to complete Google's OAuth consent screen once and set the resulting refresh token as
+`GMAIL_CONFIRMATION_MONITOR_REFRESH_TOKEN` in the Railway worker's environment. Nothing in this or
+the prior session can do that step. Once done, the one remaining gap (a real, non-stubbed Gmail
+network round-trip and inspection of the token's actual granted OAuth scopes) should be
+re-verified.
+
+Gates: not re-run this session (no production code changed — verification only, via throwaway
+scripts deleted afterward).
 
 ---
 

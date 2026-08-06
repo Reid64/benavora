@@ -4576,3 +4576,258 @@ independent of the agent code, to confirm the `401`/`WWW-Authenticate` finding w
 this codebase's own request shape; a direct fetch of the TX portal's full redirect chain; a live
 column-by-column schema diff for `custom_api_connections`; `psql`/`DATABASE_URL` for the migration
 apply, `information_schema` re-query for confirmation. All temporary `.mjs` scripts deleted after use.
+
+---
+
+## Gmail Confirmation Monitor
+
+**Spec under test:** `AUTOAPPLY_ARCHITECTURE_V2.md` §10A, "Gmail Confirmation Monitor" — a
+read-only poller against exactly one dedicated inbox (`apply@benavora.com`) that lists/reads
+recent messages, matches them to open `autoapply_submissions` rows by sender domain (matched
+against the submission's funder's `giving_portal_url`) + org-name substring in the subject/body,
+and on exactly one match updates `confirmation_email_received`/`confirmation_received_at`/
+`confirmation_number`; on more than one match, writes to
+`autoapply_confirmation_ambiguous_matches` instead of auto-resolving. Real file:
+`src/lib/autoapply/confirmation-monitor.ts`. Real schema: migration
+`114_gmail_confirmation_monitor.sql`. Prior session (`STATE_OF_THE_BUILD.md`, 2026-08-06) built
+this and stated plainly it was "blocked on a one-time human OAuth consent nothing here can
+perform" — never previously run against real data in any form. This entry is that first real run.
+
+**Verdict: the configured inbox is confirmed to be `apply@benavora.com`, and the real OAuth grant
+this module needs (`GMAIL_CONFIRMATION_MONITOR_REFRESH_TOKEN`) still does not exist anywhere
+reachable from this session — a genuine, unresolved blocker, not a permission nuance, so a truly
+live network call to the real Gmail API could not be made. What *was* done instead, and is
+reported honestly as a substitute, not a live test: the real, unmodified
+`confirmation-monitor.ts` module was run against the real production database with only its
+Gmail *transport* stubbed (the `google.gmail(...)` client itself, not the module's own logic) —
+proving every downstream behavior the task asked about (idempotency, exactly-one-match write,
+ambiguous-match holding, no-op safety) is correct, real, and DB-verified, while being explicit
+that this is not the same claim as "a real Gmail API round-trip succeeded."**
+
+### 1. Confirming the real configured address, and that the OAuth grant was never completed
+
+Grepped the whole repo for every Gmail-monitor-related credential/address reference
+(`GMAIL_CONFIRMATION_MONITOR_REFRESH_TOKEN`, `apply@benavora`) — all hits agree on one address,
+`apply@benavora.com`, across the code (`confirmation-monitor.ts`'s own header), the schema
+migration's header comment, `AUTOAPPLY_ARCHITECTURE_V2.md` §5A/§10A, and this project's own prior
+`STATE_OF_THE_BUILD.md`/`SESSION_STATE.md` entries — no second or conflicting address anywhere.
+Confirmed no config override exists (e.g. an env var naming a different mailbox) — the address is
+hardcoded into the design, not configurable.
+
+Checked `.env.local` directly (`grep -o '^[A-Z_]*=' .env.local`, names only, no values printed):
+`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GMAIL_CONFIRMATION_MONITOR_REFRESH_TOKEN` are
+**all three absent** — the only Google-prefixed var present is `GOOGLE_PLACES_API_KEY`, an
+unrelated key (per project memory, the Donor Discovery Places integration). Cross-checked the env
+var *names* the code actually reads (`gmail-auth.ts` uses the identical `GOOGLE_CLIENT_ID`/
+`GOOGLE_CLIENT_SECRET` names) to rule out a naming mismatch as the cause. Attempted to check the
+live Railway worker's environment directly via the Railway CLI (`railway whoami`) as a way to
+settle whether the credential exists in production even though it's absent locally — **blocked**:
+the sandboxed shell in this session refused the command ("this command requires approval") on two
+separate invocation attempts, consistent with this session having no path to inspect Railway env
+vars. Attempted to use the `claude.ai Gmail` MCP connector (available in this session, a
+completely separate integration from this module's own OAuth path) to at least identify what
+Google account it's connected to, in case that answered "confirm the real configured address" —
+**also blocked**: `mcp__claude_ai_Gmail__search_threads` returned "Claude requested permissions...
+but you haven't granted it yet," and this is a non-interactive session, so no approval could be
+obtained. Neither blocked path changes the conclusion — `confirmation-monitor.ts`'s own hardcoded
+comments, the schema migration, and the architecture doc are unanimous and specific about
+`apply@benavora.com`, and there is no code path by which a different address could be "the real
+configured one" instead.
+
+**Conclusion: `apply@benavora.com` is confirmed as the real configured (and only) address.
+The one-time human OAuth consent this module needs has not been completed** — no refresh token
+exists in `.env.local`, and this non-interactive session has no mechanism to complete an OAuth
+consent screen or discover a token that might exist only in Railway's environment. This matches
+`confirmation-monitor.ts`'s own header comment exactly: *"That refresh token can only be produced
+by a human completing the OAuth consent screen once... there is no way to automate that single
+step."*
+
+### 2. Confirmed real: the actual current default behavior is a safe no-op, not a crash
+
+Before attempting anything else, ran the real, completely unmodified module against the real
+production Supabase client with the real (credential-less) `.env.local` exactly as it exists
+today (`node --import tsx`, no monkey-patching of any kind):
+
+```
+GOOGLE_CLIENT_ID set? false
+GOOGLE_CLIENT_SECRET set? false
+GMAIL_CONFIRMATION_MONITOR_REFRESH_TOKEN set? false
+[gmail-confirmation-monitor] Skipping cycle — GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET /
+GMAIL_CONFIRMATION_MONITOR_REFRESH_TOKEN not fully configured. ...
+real (unmodified-env) cycle result: {"skipped":"missing_credentials","messagesListed":0,
+"messagesProcessed":0,"matched":0,"ambiguous":0,"noMatch":0}
+```
+
+This is a real, live-confirmed fact about the module's current production-adjacent behavior, not
+an assumption: today, in this environment, every call to `runConfirmationMonitorCycle()`
+degrades to a clean no-op rather than throwing — exactly as documented, and directly relevant to
+item 1's "does not modify anything" requirement, since a no-op trivially satisfies it (there is
+nothing to modify when the cycle never reaches Gmail at all).
+
+### 3. What was actually tested: the real code, real database, stubbed Gmail transport
+
+Since a genuine live Gmail round-trip is blocked (item 1 above), the only way to honestly exercise
+items 2–4 was to run the real, unmodified `confirmation-monitor.ts` — imported directly, not
+copied or reimplemented — against the real production database, with fake credentials set (so
+`hasCredentials()` passes) and `googleapis`'s exported `google.gmail` **function** replaced with
+an in-memory stub that returns controlled fixture data from `users.messages.list`/`.get` — the
+only two Gmail methods this module ever calls (confirmed by grepping the file for every
+`gmail.users.messages.*` call site: exactly `list` and `get`, nothing else — no `.send`,
+`.modify`, `.trash`, `.delete`, `.batchModify`, or `.insert` anywhere in the file). This is
+explicitly **not** a live Gmail API test — the transport layer is fake — but every line of code
+downstream of that call (the idempotency-ledger lookup, `findMatches()`'s domain/org-name
+matching, the exactly-one-match update path, the ambiguous-match holding path, and every real
+database write) is the real, unmodified production code, exercised against the real production
+tables.
+
+**Static scope check** (item 1's "confirm the granted scope isn't broader than gmail.readonly" —
+the closest honest substitute available without a real token to inspect): grepped
+`confirmation-monitor.ts` for every `gmail.users.messages.<method>` call —
+`['list', 'get']`, confirmed programmatically, not by eye. Neither is a write-capable Gmail API
+method; `gmail.readonly` is sufficient for both and no broader scope is exercised or requested
+anywhere in this file. This does not prove the *actual granted* scope on a real token (no real
+token exists to inspect, per item 1) — it proves the *code itself* never attempts anything beyond
+read access, which is the strongest static guarantee available under this blocker.
+
+**Test data (synthetic, real writes, fully cleaned up afterward):** two real organizations, two
+real funders (portal domains `portal.tmpgmailtest-onematch-<stamp>.example` and
+`portal.tmpgmailtest-ambiguous-<stamp>.example` — fictitious, guaranteed never to collide with any
+real production funder), and three real `autoapply_submissions` rows: one for the exactly-one-match
+case, and two both referencing the *same* org+funder for the ambiguous case (two still-open
+submissions to the same funder — the realistic reason this code's ambiguous path exists at all:
+a single confirmation email can't tell you which of two open requests to the same funder it
+confirms). Three synthetic Gmail message fixtures: one from the one-match funder's domain
+containing that org's exact name plus a fake confirmation number (`CONF-9981-TEST`), one from the
+ambiguous funder's domain containing that org's name (matching both open submissions), and one
+from a completely unrelated domain with no relevant content (a `no_match` control case).
+
+### 4. Live results — Cycle 1 (first-ever real run, ledger confirmed empty beforehand)
+
+Confirmed via direct `psql`/`DATABASE_URL` query before running anything: both new tables from
+migration 114 were genuinely empty (`0` rows each) and zero `autoapply_submissions` rows anywhere
+had `confirmation_email_received = true` — this really is the first time this code has ever
+executed against real data, matching the prior session's own "never run" claim.
+
+```
+=== CYCLE 1 (first run — ledger empty) ===
+[gmail-confirmation-monitor] Confirmation-number extraction failed: 401
+  {"type":"error","error":{"type":"authentication_error","message":"API key is invalid."}}
+[gmail-confirmation-monitor] Cycle complete — 3/3 new (matched=1 ambiguous=1 no_match=1)
+{ "messagesListed": 3, "messagesProcessed": 3, "matched": 1, "ambiguous": 1, "noMatch": 1 }
+```
+
+Read back from the real database afterward, not inferred from the return value:
+
+- `autoapply_confirmation_processed_messages` — exactly 3 new rows, one per fixture, with the
+  correct `match_status` each (`matched` / `ambiguous` / `no_match`) and the matched row's
+  `matched_submission_id` pointing at the real one-match submission's real id.
+- `autoapply_confirmation_ambiguous_matches` — exactly 1 row, `candidate_submission_ids`
+  containing **both** real ambiguous-case submission ids, `status: 'needs_manual_match'` — **not**
+  auto-resolved to either candidate, confirmed by reading the row directly (item 4's core
+  requirement).
+- The one-match submission: `confirmation_email_received: true`,
+  `confirmation_received_at` set to a real timestamp, `confirmation_number: null`. The `null` is
+  expected and separately explained, not a bug in this code: `extractConfirmationNumber()` made a
+  real call to the live Anthropic API using the real (already known-bad, per prior sessions)
+  local `ANTHROPIC_API_KEY`, got a genuine `401 authentication_error`, and — per its own documented
+  design ("extraction failure never blocks the match itself... the definitive signal is
+  `confirmation_email_received`, not the number") — correctly still recorded the match and simply
+  left the number unset rather than failing the whole update. Independently re-confirmed the key is
+  still dead via a direct raw HTTPS call to `api.anthropic.com` outside any SDK: `401`, same message
+  as prior sessions.
+- Both ambiguous-case submissions: `confirmation_email_received` still `false` on both — confirmed
+  directly, not assumed — exactly item 4's "must not be silently auto-resolved" requirement.
+
+### 5. Live results — Cycle 2 (immediate re-run, same 3 messages, idempotency)
+
+```
+=== CYCLE 2 ===
+{ "messagesListed": 3, "messagesProcessed": 0, "matched": 0, "ambiguous": 0, "noMatch": 0 }
+ledger row count for these 3 ids after cycle 2 (must still be 3, no duplicates): 3
+ambiguous_matches row count for this id after cycle 2 (must still be 1, no duplicates): 1
+```
+
+The stub's `list()` still "found" all 3 messages again (`messagesListed: 3` — realistic, since a
+real Gmail `after:` filter would also still return them on a second poll within the same window),
+but `messagesProcessed: 0` — every one of the 3 ids was already present in
+`autoapply_confirmation_processed_messages` from cycle 1, so the idempotency filter (which runs
+*before* any message body is even fetched) excluded all of them. Confirmed via the call log
+instrumented in the stub itself: `get()` was called exactly 3 times total across *both* cycles
+combined (all 3 in cycle 1, zero in cycle 2) — proving the idempotency check isn't just skipping
+the *write*, it's skipping the *fetch* entirely for already-ledgered messages, exactly matching
+the code's own stated design ("this also makes a retried attempt naturally resume... since
+messages it already ledgered are excluded here too"). Row counts in both tables were re-queried
+directly after cycle 2 and confirmed unchanged (3 and 1 respectively) — no duplicate rows, no
+double-processing.
+
+### 6. Cleanup and residue verification
+
+All synthetic rows were deleted after the test: 3 `autoapply_submissions`, 2 `funders`, 2
+`organizations`, 3 `autoapply_confirmation_processed_messages`, 1
+`autoapply_confirmation_ambiguous_matches`. One real, minor snag hit and resolved during cleanup —
+worth recording since it reproduces a previously-documented gotcha in a new context: deleting the
+two synthetic `organizations` rows initially failed with a real foreign-key violation
+(`"update or delete on table \"organizations\" violates foreign key constraint
+\"platform_config_organization_id_fkey\""`) — the same `organizations` → auto-populated
+`platform_config` race already documented in this project's RLS test-suite session
+(`src/__tests__/integration/rls.test.ts`'s own cleanup-retry logic). Resolved the same way: delete
+`platform_config` rows for the org first, then retry the `organizations` delete. Also found and
+cleaned up 2 leftover organizations (and their funders) from an earlier failed test-harness attempt
+in this same session (an invalid `autoapply_submissions.status` value used before the real check
+constraint's allowed values — `queued`/`in_progress`/`submitted`/`failed`/`captcha_blocked`/
+`account_required`/`site_error`/`already_submitted` — were looked up) that had inserted its
+organizations/funders before failing on the submissions insert. Final full-table residue sweep,
+re-queried directly after all cleanup:
+
+```
+{ orgs: 0, funders: 0, subs: 0, ledger: 0, ambig: 0 }
+```
+
+All zero — the production database is confirmed clean, with no synthetic data left behind.
+
+### Root-cause summary
+
+1. **Confirmed:** `apply@benavora.com` is the real, sole configured inbox — no other address
+   exists anywhere in code, schema, or docs.
+2. **Confirmed, unresolved, genuine blocker (not fixed this session, not fixable from this
+   session):** the `GMAIL_CONFIRMATION_MONITOR_REFRESH_TOKEN` this module needs does not exist in
+   `.env.local`, cannot be produced without a human completing a one-time OAuth consent screen as
+   `apply@benavora.com`, and this session has no path (interactive OAuth, Railway CLI, or the
+   separate claude.ai Gmail MCP connector) to either produce it or independently verify Railway's
+   copy of it, if one exists there. **A true, real Gmail API round-trip was not and could not be
+   performed.**
+3. **Confirmed working, via the real code against the real database with only the Gmail transport
+   stubbed:** idempotency (item 2), the exactly-one-match update path (item 3, modulo the
+   separately-explained and pre-existing dead Anthropic key affecting only the optional
+   confirmation-number extraction), and the ambiguous-match holding path (item 4) all behave
+   exactly as designed — verified by reading real database rows back after each cycle, not by
+   trusting return values alone.
+4. **Confirmed, real, current default behavior:** with today's actual (credential-less)
+   environment, the module safely no-ops every cycle rather than crashing or attempting a request
+   it can't complete — directly observed, not assumed.
+5. No code defects were found in `confirmation-monitor.ts` itself during this pass — every
+   behavior matched its own header comments and `AUTOAPPLY_ARCHITECTURE_V2.md` §10A exactly.
+
+**Recommendation:** unchanged from the prior session — someone with access to `apply@benavora.com`
+needs to complete the OAuth consent screen once and set the resulting refresh token as
+`GMAIL_CONFIRMATION_MONITOR_REFRESH_TOKEN` in the Railway worker's environment (not `.env.local` —
+this runs inside `worker/index.ts`'s boot sequence, per the module's own `start()`/`stop()`
+exports already wired there). Until that happens, this feature will continue to safely no-op in
+production exactly as it does in this session — never crash, never silently fail, just never do
+its actual job. Once a real token exists, the next verification pass should re-run this same
+matching/idempotency/ambiguous logic against a real, organically-received confirmation email
+(or a deliberately-sent real test email to the real inbox) to close the one gap this session
+could not: a genuine, non-stubbed Gmail network round-trip and a real inspection of the token's
+granted OAuth scopes.
+
+**Verification method:** live execution of the real, unmodified `confirmation-monitor.ts` (via
+`node --import tsx`, both with its real credential-less environment as-is, and separately with a
+stubbed `googleapis` transport layer) against the real production database
+(`vbjplpquqxxfbpazyalt`); real Supabase writes/reads for all assertions (never trusting in-process
+return values alone); a direct raw HTTPS call to `api.anthropic.com` independent of any SDK to
+reconfirm the known-dead local Anthropic key; a static grep-based scope check of every
+`gmail.users.messages.*` call site in the file; attempted (and honestly reported as blocked)
+`railway whoami` and `mcp__claude_ai_Gmail__search_threads` calls to try to independently locate or
+identify any Gmail credential this session doesn't already know about. All temporary `.mjs`/`.ts`
+scripts and all synthetic database rows were deleted after use; a final residue sweep confirmed
+zero rows left behind across every table touched.
