@@ -85,15 +85,24 @@ Sections 1\-16 remain as defined in BEHAVIORAL\_CONTRACTS\.md v1\.0\. This docum
 - Daily submission cap enforced: count completed items for today\. If >= tier limit, set remaining queued items to status='paused' with reason\.
 - Deleting an application CASCADE deletes its queue entries\.
 
-# __24\. CAPTCHA Solving Contracts__
+# __24\. CAPTCHA Solving Contracts__ __\(superseded 2026\-08\-06 — see AUTOAPPLY\_ARCHITECTURE\_V2\.md §10B\)__
 
-- 2Captcha API key stored in integration\_keys with service\_name='two\_captcha'
-- If no key configured: CAPTCHA detection pauses session for human intervention \(existing behavior, no regression\)
-- Supported types: image CAPTCHA, reCAPTCHA v2, hCaptcha\. reCAPTCHA v3 NOT supported \(requires browser scoring\)\.
-- 3 solve attempts per CAPTCHA\. If all fail: pause for human with screenshot\.
-- Solve timeout: 60 seconds per attempt\. After timeout, count as failure\.
-- Cost tracking: log each solve attempt with cost \($0\.00059 for image, $0\.00299 for reCAPTCHA/hCaptcha\) in agent\_runs\.
-- Never auto\-solve CAPTCHAs that appear to be security challenges \(unusual patterns, account lockout warnings\)\. Pause for human\.
+- __This section supersedes its own prior version in full, not additively__\. Benavora does not build or continue any CAPTCHA\-solving capability\. The retired language below \(3 solve attempts, 60s timeout, cost\-tracking, and the old plain\-CAPTCHA\-vs\-security\-challenge distinction\) no longer describes real system behavior — kept beneath this line for history only, not as guidance\.
+- __Every detection pauses, unconditionally__\. Whether `TWOCAPTCHA_API_KEY` is configured no longer matters — there is no auto\-solve path in `worker/queue\-processor\.ts`'s submission pipeline\. The old plain\-CAPTCHA\-vs\-security\-challenge distinction is retired: both signal classes pause the same way, every time, with no exception and no "if the risk score is low enough\."
+- Detection is a union of two signals, either one triggers the pause: \(1\) `CaptchaSolver\.detectCaptcha\(page\)` returning a non\-null `type` \(`recaptcha_v2` \| `recaptcha_v3` \| `hcaptcha` \| `turnstile`\), reusing its existing classification verbatim; \(2\) a bounded page\-text keyword heuristic for non\-CAPTCHA verification challenges — `"verify you're human"`, `"unusual activity"`, `"account has been locked"`, `"enter the code sent to"`, `"two\-factor"`, `"one\-time passcode"`, `"security check"`\.
+- On detection: the fill pipeline stops immediately \(no retry\-the\-login loop, no attempt to proceed past the challenge\)\. A screenshot is captured and tagged `captcha_detected`\. The `submission_queue` row is updated to `status='paused_verification'` with `pause_reason`, `paused_at`, and `paused_screenshot_path` set; `paused_history` \(jsonb\) accumulates every pause event across resume attempts and `resume_count` tracks how many times a human has resumed\. `createApprovedAutomationSession\(\)` is never reached for a paused item — nothing is "mid\-submission" to roll back\.
+- The only way past a detected challenge is a human resolving it out\-of\-band and clicking resume via the Human Review Queue UI \(AUTOAPPLY\_ARCHITECTURE\_V2\.md §10C\)\. Resume means retry from the top \(a fresh page navigation on the next queue pass\), not continuing inside the paused browser session — the original page/context is not kept alive across the pause\.
+- __Known residual gap, not closed by this policy change alone__: `src/lib/autoapply/form-filler-agent\.ts`'s own `checkCaptcha\(\)` \(fires after login\-gating, during actual field\-by\-field fill and on every multi\-page navigation — i\.e\. after an `automation_sessions` row has already been approved for that attempt\) still calls `CaptchaSolver\.solveCaptcha\(\)`/`injectSolution\(\)` and will silently solve a CAPTCHA encountered mid\-fill if `TWOCAPTCHA_API_KEY` is configured\. This was out of scope for the 2026\-08\-06 build \(which covered only `queue\-processor\.ts`'s pre\-fill check\) and needs its own follow\-up before this contract's "every detection pauses, unconditionally" claim is true platform\-wide, not just at the pre\-fill checkpoint\. `src/lib/scraper/stealth\-engine\.ts` \(the unrelated Directive\-1 web scraper, not part of AutoApply submissions\) also still calls `solveCaptcha\(\)`/`injectSolution\(\)` and is unaffected by this contract, which governs AutoApply submissions only\.
+
+## Retired language \(superseded 2026\-08\-06 — do not follow\)
+
+- ~~2Captcha API key stored in integration\_keys with service\_name='two\_captcha'~~
+- ~~If no key configured: CAPTCHA detection pauses session for human intervention \(existing behavior, no regression\)~~
+- ~~Supported types: image CAPTCHA, reCAPTCHA v2, hCaptcha\. reCAPTCHA v3 NOT supported \(requires browser scoring\)\.~~
+- ~~3 solve attempts per CAPTCHA\. If all fail: pause for human with screenshot\.~~
+- ~~Solve timeout: 60 seconds per attempt\. After timeout, count as failure\.~~
+- ~~Cost tracking: log each solve attempt with cost \($0\.00059 for image, $0\.00299 for reCAPTCHA/hCaptcha\) in agent\_runs\.~~
+- ~~Never auto\-solve CAPTCHAs that appear to be security challenges \(unusual patterns, account lockout warnings\)\. Pause for human\.~~
 
 # __25\. Success Probability Contracts__
 

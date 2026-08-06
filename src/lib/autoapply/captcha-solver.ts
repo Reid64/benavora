@@ -1,6 +1,31 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Solver } from '@2captcha/captcha-solver';
 
+/**
+ * detectCaptcha() below is the live, current-policy entry point for AutoApply's
+ * own submission pipeline (worker/queue-processor.ts): every detection there now
+ * pauses for a human, per AUTOAPPLY_ARCHITECTURE_V2.md §10B — Benavora does not
+ * build or continue any CAPTCHA-solving capability.
+ *
+ * solveCaptcha()/injectSolution() below are NOT dead code and could not be
+ * deleted as part of §10B's build: a repo-wide grep (2026-08-06) found two other
+ * real, active callers that still solve —
+ *   - src/lib/autoapply/form-filler-agent.ts's checkCaptcha() (fires after
+ *     login-gating, during actual field-by-field fill and on every multi-page
+ *     navigation — i.e. AFTER queue-processor.ts's own pre-fill pause check and
+ *     after createApprovedAutomationSession() has already run for that attempt)
+ *   - src/lib/scraper/stealth-engine.ts (the unrelated Directive-1 foundation/
+ *     nonprofit-directory enrichment scraper, not part of AutoApply submissions)
+ * Deleting these methods here would break both of those files' compilation.
+ * §10B's stated goal ("every detection pauses, unconditionally") is NOT fully
+ * realized platform-wide by the queue-processor.ts fix alone: form-filler-agent.ts
+ * will still silently solve a CAPTCHA encountered mid-fill via 2Captcha if
+ * TWOCAPTCHA_API_KEY is configured. This was out of scope for the explicit,
+ * line-numbered §10B build task (which named only queue-processor.ts's pre-fill
+ * block) and needs its own follow-up: mid-submission pause is a materially
+ * different problem than pre-submission pause, since an approved automation_sessions
+ * row already exists by the time checkCaptcha() runs inside fillAndSubmit().
+ */
 export interface CaptchaDetection {
   type: 'recaptcha_v2' | 'recaptcha_v3' | 'hcaptcha' | 'turnstile' | null;
   siteKey: string | null;

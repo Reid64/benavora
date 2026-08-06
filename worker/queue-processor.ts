@@ -121,6 +121,39 @@ class AccountSetupRequiredError extends Error {
   }
 }
 
+/**
+ * Thrown when a CAPTCHA or non-CAPTCHA verification challenge is detected
+ * before form-fill begins. Per AUTOAPPLY_ARCHITECTURE_V2.md §10B, Benavora
+ * does not solve CAPTCHAs or verification challenges — every detection
+ * pauses the item for a human to resolve out-of-band (§10C's Human Review
+ * Queue UI) and click resume. Distinct from SkipError/AccountSetupRequiredError
+ * so the poll loop persists 'paused_verification' (not 'skipped' or
+ * 'requires_account_setup') plus the reason and screenshot captured at
+ * detection time. The screenshot must be taken here (while the browser page
+ * is still open, before the outer loop's catch runs) — the reason and path
+ * are carried on the error so the poll loop can write both to submission_queue
+ * in one place, the same way AccountSetupRequiredError/SkipError already do.
+ */
+class CaptchaPauseError extends Error {
+  constructor(
+    public readonly pauseReason: string,
+    public readonly screenshotPath: string,
+  ) {
+    super(`verification_pause: ${pauseReason}`);
+    this.name = 'CaptchaPauseError';
+  }
+}
+
+const VERIFICATION_CHALLENGE_PHRASES = [
+  "verify you're human",
+  'unusual activity',
+  'account has been locked',
+  'enter the code sent to',
+  'two-factor',
+  'one-time passcode',
+  'security check',
+] as const;
+
 const WALMART_SPARKGOOD_PORTAL_TYPE = 'walmart_sparkgood';
 
 function classifyError(message: string): string {
@@ -303,6 +336,41 @@ export class QueueProcessor {
           await this.supabase
             .from('submission_queue')
             .update({ status: 'skipped', completed_at: new Date().toISOString() })
+            .eq('id', item.id);
+          await heartbeat.incrementProcessed();
+        } else if (err instanceof CaptchaPauseError) {
+          console.log(
+            `[QueueProcessor] Item ${item.id} paused for verification (${err.pauseReason}) — not solving, awaiting human resume`,
+          );
+          // Append (not overwrite) so a queue item paused more than once across
+          // resume attempts keeps its full pause history — read the current
+          // array first since Supabase-js has no jsonb-concat update operator.
+          const { data: currentRow } = await this.supabase
+            .from('submission_queue')
+            .select('paused_history')
+            .eq('id', item.id)
+            .maybeSingle();
+          const priorHistory = Array.isArray(
+            (currentRow as { paused_history?: unknown[] } | null)?.paused_history,
+          )
+            ? ((currentRow as { paused_history: unknown[] }).paused_history)
+            : [];
+          const pausedAt = new Date().toISOString();
+          // Deliberately no completed_at: a paused item is not terminal, it is
+          // awaiting a human resume (§10C), which retries from the top on the
+          // next queue pass rather than continuing this attempt.
+          await this.supabase
+            .from('submission_queue')
+            .update({
+              status: 'paused_verification',
+              pause_reason: err.pauseReason,
+              paused_at: pausedAt,
+              paused_screenshot_path: err.screenshotPath,
+              paused_history: [
+                ...priorHistory,
+                { reason: err.pauseReason, screenshotPath: err.screenshotPath, pausedAt },
+              ],
+            })
             .eq('id', item.id);
           await heartbeat.incrementProcessed();
         } else {
@@ -1148,24 +1216,48 @@ export class QueueProcessor {
       // Capture page state after login (the portal form, ready to be filled)
       preFillPath = await snap('pre_fill');
 
-      broadcastStep('Checking for CAPTCHA');
-      // CAPTCHA detection and solving before form filling
+      broadcastStep('Checking for CAPTCHA / verification challenge');
+      // Per AUTOAPPLY_ARCHITECTURE_V2.md §10B: Benavora does not solve CAPTCHAs or
+      // verification challenges. Detection is a union of two signals — either one
+      // triggers an unconditional pause, regardless of whether TWOCAPTCHA_API_KEY is
+      // configured. There is no auto-solve path here anymore (see captcha-solver.ts's
+      // own header for why solveCaptcha()/injectSolution() still exist as methods but
+      // are dead from this call site).
       const captchaDetection = await this.captchaSolver.detectCaptcha(page);
-      if (captchaDetection !== null && captchaDetection.type !== null) {
-        const hasApiKey = Boolean(process.env['TWOCAPTCHA_API_KEY']);
-        if (!hasApiKey) {
-          console.log(`[QueueProcessor] CAPTCHA detected: ${captchaDetection.type}, no solver configured`);
-          throw new Error('captcha_blocked');
-        }
+      const pageText = await page
+        .evaluate(() => document.body?.innerText ?? '')
+        .then((t: string) => t.toLowerCase())
+        .catch(() => '');
+      const verificationPhraseMatch =
+        VERIFICATION_CHALLENGE_PHRASES.find((phrase) => pageText.includes(phrase)) ?? null;
 
-        console.log(`[QueueProcessor] CAPTCHA detected: ${captchaDetection.type}, solving...`);
-        const token = await this.captchaSolver.solveCaptcha(captchaDetection, page);
-        if (token === null) {
-          throw new Error(`captcha_failed: solve returned null for ${captchaDetection.type}`);
-        }
+      if ((captchaDetection !== null && captchaDetection.type !== null) || verificationPhraseMatch !== null) {
+        const pauseReason =
+          captchaDetection !== null && captchaDetection.type !== null
+            ? ({
+                recaptcha_v2: 'captcha_recaptcha_v2',
+                recaptcha_v3: 'captcha_recaptcha_v3_unsupported',
+                hcaptcha: 'captcha_hcaptcha',
+                turnstile: 'captcha_turnstile',
+              } as Record<string, string>)[captchaDetection.type] ?? 'captcha_image'
+            : 'verification_challenge_detected';
 
-        await this.captchaSolver.injectSolution(page, captchaDetection, token);
-        console.log(`[QueueProcessor] CAPTCHA solution injected for ${captchaDetection.type}`);
+        console.log(
+          `[QueueProcessor] Verification challenge detected for ${funderName} (${pauseReason}) — ` +
+          `pausing for human review, not solving`,
+        );
+
+        // Screenshot while the page is still open — the finally block's browser.close()
+        // below would otherwise make this unrecoverable. Same captureAndUpload
+        // convention already used for page_load/pre_fill immediately above, tagged
+        // 'captcha_detected' per §10B.
+        const pausedScreenshotPath = await snap('captcha_detected');
+
+        // Stop the pipeline immediately: createApprovedAutomationSession() below is
+        // never reached, so no automation_sessions row exists for this attempt — there
+        // is nothing "mid-submission" to roll back. The poll loop's catch persists
+        // status='paused_verification' on submission_queue (see CaptchaPauseError).
+        throw new CaptchaPauseError(pauseReason, pausedScreenshotPath);
       }
 
       broadcastStep('Filling form');
@@ -1233,6 +1325,10 @@ export class QueueProcessor {
     } catch (err) {
       // Re-throw SkipErrors so the loop handles them as skips, not failures
       if (err instanceof SkipError) throw err;
+      // Re-throw CaptchaPauseError so the loop persists 'paused_verification'
+      // instead of creating a generic autoapply_submissions failure record —
+      // a pause is not a failure, it's a resumable stop pending a human (§10B).
+      if (err instanceof CaptchaPauseError) throw err;
 
       const message = err instanceof Error ? err.message : String(err);
       errorMessage = message;

@@ -1,8 +1,80 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 6, 2026 (Gmail Confirmation Monitor live-verified against real production data with a stubbed Gmail transport — real Google OAuth consent for apply@benavora.com still not completed by anyone, still the sole remaining blocker). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 6, 2026 (AutoApply CAPTCHA auto-solve removed from queue-processor.ts; unconditional detect-and-pause added per §10B — one known residual gap in form-filler-agent.ts flagged, not fixed). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 6, 2026 (AutoApply CAPTCHA auto-solve removed, unconditional pause added per §10B)
+
+Per `AUTOAPPLY_ARCHITECTURE_V2.md` §10B (Human-Safety & Confirmation Systems), Benavora does not
+build or continue any CAPTCHA-solving capability — the prior policy (up to 3 auto-solve attempts
+via 2Captcha, with only solve-failures or security-challenge-looking CAPTCHAs pausing for a human)
+is retired. Every detection now pauses the item for a human, unconditionally, regardless of
+`TWOCAPTCHA_API_KEY` configuration.
+
+**What actually changed, `worker/queue-processor.ts`:**
+- Deleted the `solveCaptcha()`/`injectSolution()` call block (the pre-fill CAPTCHA check at
+  ~line 1151-1169, run after login-gating and before `createApprovedAutomationSession()`/form-fill).
+- Added a union-based detection: `CaptchaSolver.detectCaptcha(page)`'s existing type classification
+  (`recaptcha_v2`/`recaptcha_v3`/`hcaptcha`/`turnstile`) **or** a bounded page-text keyword heuristic
+  for non-CAPTCHA verification challenges ("verify you're human", "unusual activity", "account has
+  been locked", "enter the code sent to", "two-factor", "one-time passcode", "security check") —
+  either signal triggers the pause.
+- Added a new `CaptchaPauseError` class (same pattern as the existing `SkipError`/
+  `AccountSetupRequiredError`): on detection, a screenshot is captured (`snap('captcha_detected')`,
+  the same `captureAndUpload` convention already used for page_load/pre_fill immediately above it)
+  while the browser page is still open, then the error is thrown and re-thrown out of `processItem`'s
+  own catch (bypassing the generic `autoapply_submissions`-insert/failure path entirely — a pause is
+  not a failure). The poll loop's outer catch persists `submission_queue.status='paused_verification'`
+  with `pause_reason`/`paused_at`/`paused_screenshot_path` set and appends to `paused_history`
+  (read-then-append, since Supabase-js has no jsonb-concat update operator) rather than overwriting
+  it, so a queue item paused more than once across resume attempts keeps its full history.
+  Deliberately no `completed_at` — a paused item is not terminal.
+- Confirmed live, not assumed: `createApprovedAutomationSession()` (~line 1182, now further down
+  after the inserted block) is structurally unreachable from this code path once
+  `CaptchaPauseError` is thrown — there is nothing "mid-submission" for a pre-fill pause to roll back.
+- Confirmed the poll loop's claim query (`dequeue()`) only selects `status='pending'`, so a paused
+  item can never be silently re-picked-up by the normal poll loop — it stays paused until an
+  explicit resume action (§10C, not built this session).
+
+**`src/lib/autoapply/captcha-solver.ts` — NOT deleted, per explicit instruction to report rather
+than silently break:** a repo-wide grep before touching anything found `CaptchaSolver.solveCaptcha()`/
+`injectSolution()` have two other real, active callers beyond `queue-processor.ts`:
+- `src/lib/autoapply/form-filler-agent.ts`'s own `checkCaptcha()` closure inside `fillAndSubmit()` —
+  fires *after* login-gating, during actual field-by-field form fill and on every multi-page
+  navigation, i.e. **after** `createApprovedAutomationSession()` has already approved an
+  `automation_sessions` row for that attempt. This is a structurally different, harder problem
+  (mid-submission pause vs. pre-submission pause) than what §10B's explicit, line-numbered
+  instructions scoped this build to.
+- `src/lib/scraper/stealth-engine.ts` — the unrelated Directive-1 foundation/nonprofit-directory
+  web scraper, not part of AutoApply submissions at all; out of scope for §10B's own subject matter.
+
+Deleting `solveCaptcha()`/`injectSolution()` would have broken both files' compilation. Left them in
+place, added a header comment on `captcha-solver.ts` documenting exactly this finding so a future
+reader doesn't assume "every CAPTCHA detection pauses" is fully true platform-wide. **Net effect: the
+policy is now correctly enforced at the one call site this task explicitly scoped (queue-processor.ts's
+pre-fill check) — it is genuinely NOT yet enforced at `form-filler-agent.ts`'s mid-fill check, which
+will still silently auto-solve via 2Captcha if `TWOCAPTCHA_API_KEY` is configured.** This is a real,
+material gap flagged for a dedicated follow-up, not a claim of full completion.
+
+**Schema:** `src/supabase/migrations/115_autoapply_captcha_pause_columns.sql` — added
+`pause_reason`/`paused_at`/`paused_screenshot_path`/`paused_history`/`resume_count` to
+`submission_queue`. Applied live via the `DATABASE_URL`/psql path (`STANDING_DIRECTIVES.md`
+DIRECTIVE-017) and confirmed live via the PostgREST OpenAPI schema afterward (all 5 columns present
+with the expected types) — not just a "the migration file exists" claim.
+
+**`BEHAVIORAL_CONTRACTS.md` §24** rewritten to state the new unconditional-pause policy explicitly,
+with the old 3-attempt/60s-timeout/plain-vs-security-challenge language moved under a clearly marked
+"Retired language" subsection rather than left standing as if still accurate, and the
+form-filler-agent.ts residual gap noted directly in the contract text.
+
+Gates: `pnpm tsc --noEmit` — zero errors on every file touched this session
+(`worker/queue-processor.ts`, `src/lib/autoapply/captcha-solver.ts`); the full run still reports the
+same pre-existing, unrelated errors confined to `src/__tests__/**` (deadline-predictor,
+outcome-analyzer, regressions, samgov-client, organizations, storage-rls) documented in prior
+sessions — none touch either edited file.
 
 ---
 
