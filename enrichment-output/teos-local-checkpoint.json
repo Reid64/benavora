@@ -1,15 +1,22 @@
 {
   "completedZips": [
-    "2023_TEOS_XML_01A"
+    "2023_TEOS_XML_01A",
+    "2023_TEOS_XML_02A",
+    "2023_TEOS_XML_03A",
+    "2023_TEOS_XML_04A",
+    "2023_TEOS_XML_05A",
+    "2023_TEOS_XML_06A",
+    "2023_TEOS_XML_07A",
+    "2023_TEOS_XML_08A"
   ],
-  "filingsParsed": 21513,
-  "parseFailed": 0,
-  "einsExtracted": 20585,
-  "matchedFoundation": 2044,
-  "updatedFoundation": 2044,
-  "matchedNonprofits": 19166,
-  "updatedNonprofits": 19166,
-  "unmatched": 1415,
+  "filingsParsed": 406826,
+  "parseFailed": 6,
+  "einsExtracted": 388384,
+  "matchedFoundation": 63304,
+  "updatedFoundation": 60279,
+  "matchedNonprofits": 362073,
+  "updatedNonprofits": 341212,
+  "unmatched": 26169,
   "startedAt": "2026-08-01T03:34:59.127Z",
-  "updatedAt": "2026-08-01T04:56:35.630Z"
+  "updatedAt": "2026-08-05T16:10:14.508Z"
 }
