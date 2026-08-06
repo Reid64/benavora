@@ -41,7 +41,11 @@ interface ExtendedRow extends ManualQueueRow {
   request_type?: string | null;
 }
 
-interface RiskFactor {
+// Exported so other review surfaces (e.g. ReviewQueuePage) can render the
+// exact same risk badge style rather than inventing a second one — per
+// AUTOAPPLY_ARCHITECTURE_V2.md §10C: "reuses ManualQueue.tsx's existing
+// RiskFactor badge rendering rather than inventing a second style."
+export interface RiskFactor {
   name: string;
   points: number;
   description: string;
@@ -96,7 +100,7 @@ interface PrepData {
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
-function riskScoreProps(score: number | null | undefined): {
+export function riskScoreProps(score: number | null | undefined): {
   color: BadgeColor;
   label: string;
 } {
@@ -161,7 +165,7 @@ function resolveKBValue(field: string, org: OrgProfile | null): string {
   return map[field] ?? "—";
 }
 
-function parseRiskFactors(raw: Json | null | undefined): RiskFactor[] {
+export function parseRiskFactors(raw: Json | null | undefined): RiskFactor[] {
   if (!raw || !Array.isArray(raw)) return [];
   return raw.flatMap((item) => {
     if (

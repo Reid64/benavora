@@ -1,8 +1,64 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 6, 2026 (AutoApply CAPTCHA auto-solve removed from queue-processor.ts; unconditional detect-and-pause added per §10B — one known residual gap in form-filler-agent.ts flagged, not fixed). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 6, 2026 (AutoApply Human Review Queue UI built per §10C, live-tested end-to-end; found and fixed a stale submission_queue CHECK constraint that had been silently failing queue-21's own paused_verification write since it shipped). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 6, 2026 (Human Review Queue UI, §10C — live bug found + fixed)
+
+Built the two-tab Human Review Queue UI (`AUTOAPPLY_ARCHITECTURE_V2.md` §10C): Tab 1 lists
+`submission_queue` rows paused by §10B's CAPTCHA/verification detection (Resume / Skip / Reassign);
+Tab 2 lists §10A's ambiguous Gmail confirmation matches (pick-the-right-submission / none-of-these).
+Full detail in `SESSION_STATE.md`'s matching entry — summary here for build-status tracking.
+
+**Live-verified, not just written:** `src/supabase/migrations/116_review_queue_rpc_functions.sql`'s
+three concurrency-guarded RPC functions (`resume_paused_submission_queue_item`, `skip_...`,
+`reassign_...`) were each run against real inserted `submission_queue` rows (real org, real funder)
+via `DATABASE_URL`/psql — correct state transition confirmed for all three, `paused_history`
+correctly appended with the pre-update `pause_reason`/`paused_at`, and the concurrency guard
+confirmed directly: a second `resume` call against an already-resumed row returns `NULL` (would
+surface as `409` at the API layer). All test rows were deleted afterward.
+
+**Real bug found and fixed, not part of either stated dependency (queue-21/queue-20) but
+directly blocking this build:** `submission_queue`'s `status` CHECK constraint
+(`submission_queue_status_check`) only allowed `pending/processing/completed/failed/skipped` —
+confirmed live via `pg_get_constraintdef()`, not assumed. This meant `worker/queue-processor.ts`'s
+own `status='paused_verification'` write (§10B, shipped in the immediately-preceding queue-21
+chain) has been **failing in production** every time a CAPTCHA/verification challenge fired, since
+before this session — reproduced live by attempting the identical write and getting the constraint
+violation. Same file's `'requires_account_setup'` and `'pending_manual'` writes were equally
+broken. Fixed via `src/supabase/migrations/117_submission_queue_status_check_fix.sql`, widening the
+constraint to the real, complete set of values `queue-processor.ts` actually writes (built by
+grepping every literal status assignment in that file, not guessed) — applied live, re-verified via
+`pg_get_constraintdef()` afterward.
+
+**One deliberate deviation from §10C's own literal SQL, confirmed necessary by reading the real
+worker code:** the spec's resume SQL sets `status='queued'`, but `worker/queue-processor.ts`'s real
+poll/claim query (`dequeue()`) only ever selects `.eq('status', 'pending')` — a `'queued'` row would
+never be picked up, silently stranding it forever. The RPC sets `'pending'` instead.
+
+**Cross-org scoping added beyond the spec's literal SQL** (both of §10C's queries have no org
+filter, and `autoapply_confirmation_ambiguous_matches`' candidate pool is genuinely platform-wide
+per `confirmation-monitor.ts`'s own `loadCandidates()`): Tab 1 is scoped to the caller's org via the
+session client's RLS plus an explicit filter; Tab 2 is fetched via the admin client (required — this
+table is RLS-enabled-no-policy and `REVOKE`d from `anon`/`authenticated` entirely, confirmed live)
+but filtered so a match with zero org-owned candidates is hidden entirely, and a match with some
+hidden peers reports a `hiddenCandidateCount` rather than leaking another org's identity.
+
+Also: `ManualQueue.tsx`'s existing `RiskFactor` interface / `parseRiskFactors()` / `riskScoreProps()`
+were exported (not duplicated) so the review queue's risk badges render identically, per §10C's own
+instruction. Found in passing that `ManualQueue.tsx`'s existing `handleReassign()` notification
+insert writes `title`/`related_entity_type`/`related_entity_id` to `automation_notifications` —
+none of which exist on the live table (confirmed via `information_schema.columns`) — meaning that
+insert has always silently failed; the new reassign route does not repeat this, using only the
+columns that actually exist.
+
+Gates: `pnpm tsc --noEmit` — 0 errors in every file this session touched; the full run's only errors
+are the same pre-existing, unrelated `src/__tests__/**` issues every prior session's gate section
+already documents (confirmed via `git status --porcelain src/__tests__` — nothing in that directory
+was touched this session).
 
 ---
 

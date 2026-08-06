@@ -1,10 +1,86 @@
 # BENAVORA — Session State
-## Last Updated: August 6, 2026 (CAPTCHA auto-solve removed from queue-processor.ts; unconditional detect-and-pause added per §10B)
-## Mode: §10B build complete at its explicitly-scoped call site (worker/queue-processor.ts pre-fill check); one real residual gap flagged, not fixed (form-filler-agent.ts's own mid-fill checkCaptcha() still solves via 2Captcha if TWOCAPTCHA_API_KEY is set); submission_queue pause columns applied live
+## Last Updated: August 6, 2026 (Human Review Queue UI built per §10C; live bug found + fixed: submission_queue's status CHECK constraint was stale, blocking queue-21's own paused_verification write)
+## Mode: §10C build complete — GET + 3 Tab-1 mutation routes (RPC-backed, concurrency-guarded) + 1 Tab-2 resolve route + two-tab page, all live-tested against real rows. Bonus fix: submission_queue_status_check widened to allow paused_verification/requires_account_setup/pending_manual, which were already being written live by queue-processor.ts and silently failing.
 
 ---
 
-## Current Session — August 6, 2026 (AutoApply: remove CAPTCHA auto-solve, add unconditional detect-and-pause per §10B)
+## Current Session — August 6, 2026 (AutoApply: Human Review Queue UI per §10C)
+
+**Task:** build the two-tab Human Review Queue UI (`AUTOAPPLY_ARCHITECTURE_V2.md` §10C) — one tab
+for `submission_queue` rows paused by §10B's CAPTCHA/verification detection, one tab for §10A's
+ambiguous Gmail confirmation matches. Depended on queue-21's `submission_queue` pause columns and
+queue-20's `autoapply_confirmation_ambiguous_matches` table — both confirmed live via `DATABASE_URL`
+before building anything (`information_schema.columns` + `to_regclass()`).
+
+**What was built:**
+- `src/supabase/migrations/116_review_queue_rpc_functions.sql` — three `SECURITY INVOKER` Postgres
+  functions (`resume_paused_submission_queue_item`, `skip_...`, `reassign_...`), each a single
+  conditional `UPDATE ... WHERE id + organization_id + status='paused_verification' ... RETURNING`
+  that also appends an audit entry to `paused_history` via `jsonb_build_object(...)` referencing the
+  row's own pre-update `pause_reason`/`paused_at` — an expression supabase-js's `.update()` builder
+  cannot send directly, so an RPC function was needed (same precedent as `022_usage_tracking.sql`'s
+  `increment_usage_tracking`, not a new pattern). `NULL` return = another reviewer already acted =
+  409 at the API layer, matching §10C's exact spec: "never a read-then-write."
+- `src/app/api/autoapply/review-queue/route.ts` (GET, both tabs) + `[id]/resume|skip|reassign` +
+  `ambiguous/[id]/resolve` (PATCH) route handlers, all `requireRole("writer")`-gated.
+- `src/app/(dashboard)/autoapply/review-queue/page.tsx` — two-tab client page (elapsed-time badges,
+  pause-reason labels, screenshot lightbox via signed URL, risk badges reusing `ManualQueue.tsx`'s
+  now-exported `RiskFactor`/`parseRiskFactors`/`riskScoreProps`, Skip/Reassign/Resolve modals).
+
+**Two deliberate deviations from §10C's literal spec, both found by testing live rather than
+reading the SQL and trusting it:**
+1. **Cross-org scoping the spec's SQL omits.** Both §10C's literal SQL queries
+   (`SELECT ... FROM submission_queue WHERE status='paused_verification'` and
+   `SELECT * FROM autoapply_confirmation_ambiguous_matches WHERE status='needs_manual_match'`) have
+   no org filter — and `autoapply_confirmation_ambiguous_matches`' own candidate pool is genuinely
+   platform-wide (`confirmation-monitor.ts`'s `loadCandidates()` has no org filter either). Exposing
+   another org's paused submissions/screenshots or Gmail-match candidates to any authenticated
+   "writer" would be a real cross-org leak. Tab 1 is scoped to the caller's org via the session
+   client (RLS, `066_fix_autoapply_rls_policies.sql`) plus an explicit `.eq()`; Tab 2 is fetched via
+   the admin client (required — this table has RLS-enabled-no-policy and is `REVOKE`d from
+   `anon`/`authenticated` entirely, confirmed live) but filtered so a match with zero org-owned
+   candidates is hidden, and a match with some hidden peers reports `hiddenCandidateCount` instead
+   of leaking their identity.
+2. **`resume` sets `status='pending'`, not `status='queued'` as §10C's own SQL literally says.**
+   Found by trying to reproduce §10C's SQL against a real row: `worker/queue-processor.ts`'s real
+   poll/claim query (`dequeue()`, ~line 408) only ever selects `.eq('status', 'pending')` — a
+   `'queued'` row would never be picked up by the real worker, silently stranding it forever,
+   directly contradicting §10C's own stated intent ("Resuming means retry from the top... a fresh
+   page navigation on the next queue pass"). Fixed by setting `'pending'` instead; documented in
+   both the migration and the route.
+
+**Real, previously-undiscovered bug found and fixed while live-testing the resume RPC (not part of
+either named dependency, but directly blocking this build and already silently blocking queue-21's
+own shipped code):** `submission_queue_status_check` only allowed `('pending', 'processing',
+'completed', 'failed', 'skipped')` — confirmed live via `pg_get_constraintdef()`. This meant:
+- `worker/queue-processor.ts`'s own CAPTCHA-detection write of `status='paused_verification'`
+  (§10B, shipped in the immediately-preceding queue-21 chain) has been **failing in production**
+  every time a CAPTCHA/verification challenge was hit, since before this session — reproduced live
+  by trying the exact same INSERT and getting `violates check constraint
+  "submission_queue_status_check"`.
+- Same file's `'requires_account_setup'` (line 328) and `'pending_manual'` (line 1008) writes were
+  equally broken.
+- My own resume RPC's `SET status='pending'` was already valid, but skip's `'skipped'` was the only
+  one of the three new §10C actions that happened to already be allowed.
+
+Fixed via `src/supabase/migrations/117_submission_queue_status_check_fix.sql` — widened the
+constraint to the real, complete set of values `queue-processor.ts` actually writes (grepped every
+literal `status:` assignment in that file to build the list, not guessed). Applied live via
+`DATABASE_URL`/psql, then live-tested all three RPC functions end-to-end against real inserted
+`submission_queue` rows (real org, real funder) — resume/skip/reassign all confirmed working,
+concurrency guard confirmed (a second resume call on an already-resumed row returns `NULL`), and
+every test row was deleted afterward, no residue left in production.
+
+**Commit:** `feat(autoapply): build Human Review Queue UI per §10C, concurrency-guarded resume`
+(this session).
+**Gates:** `pnpm tsc --noEmit` — 0 errors in every file this session touched or created (the full
+run's only errors are the same pre-existing, unrelated `src/__tests__/**` issues documented in
+every prior session's gate section — confirmed via `git status --porcelain src/__tests__`, nothing
+in that directory was touched this session).
+
+---
+
+## Prior Session — August 6, 2026 (AutoApply: remove CAPTCHA auto-solve, add unconditional detect-and-pause per §10B)
 
 **Task:** per `AUTOAPPLY_ARCHITECTURE_V2.md` §10B, Benavora does not build or continue CAPTCHA-solving.
 Every detection now pauses a `submission_queue` item for a human, unconditionally — the prior
