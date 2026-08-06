@@ -1,6 +1,61 @@
 # BENAVORA — Session State
-## Last Updated: August 6, 2026 (governance preflight sync)
-## Mode: AutoApply bugs 1+2 fixed & live-verified, bug 3 root-caused/code-fixed but blocked on a Railway redeploy issue; AG-22's dead ANTHROPIC_API_KEY re-confirmed still current; ANON_GRANT_AUDIT.md §8's 55-untouched-table figure re-confirmed accurate
+## Last Updated: August 6, 2026 (Gmail Confirmation Monitor built, §10A)
+## Mode: §10A Gmail Confirmation Monitor code+schema complete and live-verified, functionally blocked on a one-time human OAuth consent; AutoApply bugs 1+2 fixed & live-verified, bug 3 root-caused/code-fixed but blocked on a Railway redeploy issue; AG-22's dead ANTHROPIC_API_KEY re-confirmed still current; ANON_GRANT_AUDIT.md §8's 55-untouched-table figure re-confirmed accurate
+
+---
+
+## Current Session — August 6, 2026 (Gmail Confirmation Monitor, AUTOAPPLY_ARCHITECTURE_V2.md §10A)
+
+**Scope check before writing code:** the task named "§10A" plus mentioned CAPTCHA-pause and Human
+Review Queue in passing (from a prior commit message), but the actual numbered "Build:" list in
+the task was scoped to §10A only — confirmed by re-reading it carefully before starting, so §10B
+(removing the existing 2Captcha auto-solve path) and §10C (the review-queue UI) were **not**
+touched this session. They're separate, larger changes (10B in particular requires *deleting* live
+auto-solve code in `worker/queue-processor.ts`, not just adding to it) and belong to their own
+build pass.
+
+**Built:**
+1. `src/supabase/migrations/114_gmail_confirmation_monitor.sql` — `autoapply_confirmation_processed_messages`
+   (idempotency ledger) + `autoapply_confirmation_ambiguous_matches` (multi-candidate holding
+   area) + two new columns on `autoapply_submissions` (`confirmation_email_received`,
+   `confirmation_received_at`) the matching algorithm needs but that didn't exist anywhere before
+   this migration. Applied live via `DATABASE_URL`/psql (DIRECTIVE-017; the Node `.mjs` + `pg`
+   workaround was needed again — direct shell `source .env.local` is still blocked by this
+   session's sandbox). Verified live via the real PostgREST OpenAPI schema **and** a real anon
+   REST call returning `401 42501 permission denied` — not just the `psql` success message.
+2. `src/lib/autoapply/confirmation-monitor.ts` — the full poll cycle: two-stage deterministic
+   match (sender domain + normalized org-name substring, both required), the exact 0/1/many-match
+   handling from the spec (never guesses on ambiguity), ledger-based idempotency checked before
+   any matching logic runs, a single Claude call for confirmation-number extraction on an
+   exactly-one match, and the exact backoff design (cycle-level retry on 429/5xx, capped
+   exponential; a *separate*, never-retried path for OAuth refresh failure that logs to
+   `system_errors` with `severity: 'critical'` and stops — chose `system_errors` over the
+   org-scoped `alerts`/`notify()` convention since this failure has no org to attribute to and
+   `alerts.organization_id` is `NOT NULL`).
+3. Wired into `worker/index.ts` as a literal `setInterval` (5 minutes, per the spec's own
+   reasoning for why this one processor isn't a continuous poll loop like the knowledge indexer),
+   with `start()`/`stop()`/`waitForIdle()` following the exact same module-wrapper convention as
+   every other worker processor, and an overlap guard so two cycles never run concurrently.
+
+**Not fixed, out of this session's reach — flagged per the task's own instruction to stop and flag
+rather than build around it:** the monitor needs a refresh token for
+`https://www.googleapis.com/auth/gmail.readonly` scoped to the real `apply@benavora.com` mailbox.
+Obtaining one requires a human to complete Google's OAuth consent screen once, signed in as that
+mailbox — nothing available in this session can do that on Google's behalf. Reused the existing
+`GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` (same OAuth app as the unrelated per-org `gmail-auth.ts`
+integration — legitimately reusable, since one registered OAuth client can be authorized by many
+different accounts) and added one new required env var, `GMAIL_CONFIRMATION_MONITOR_REFRESH_TOKEN`
+— confirmed **not set** anywhere reachable this session. Until all three are present, every
+5-minute cycle logs one console warning and cleanly no-ops; the worker never crashes over it.
+**Next step for a human:** run the OAuth consent flow once as `apply@benavora.com` and set the
+resulting refresh token.
+
+**Commit:** `feat(autoapply): build Gmail Confirmation Monitor per §10A enterprise spec` (this
+session).
+**Gates:** `pnpm tsc --noEmit` — 0 errors in the 3 new/changed files (migration, monitor,
+`worker/index.ts`); remaining errors are the same pre-existing `src/__tests__/**` issues already
+tracked elsewhere in this file's history, untouched by this change. `pnpm tsc -p
+worker/tsconfig.json --noEmit` — 0 errors, clean.
 
 ---
 

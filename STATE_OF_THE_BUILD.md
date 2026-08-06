@@ -1,8 +1,96 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 6, 2026 (governance preflight sync — corrected stale AutoApply status, re-confirmed 3 other claims live). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 6, 2026 (Gmail Confirmation Monitor built per AUTOAPPLY_ARCHITECTURE_V2.md §10A — schema live, code compiles, blocked on a one-time human OAuth consent nothing here can perform). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 6, 2026 (Gmail Confirmation Monitor built, §10A — schema live, code complete, blocked on human OAuth consent)
+
+Built exactly the scope AUTOAPPLY_ARCHITECTURE_V2.md §10A specifies (only §10A — §10B's
+CAPTCHA-auto-solve removal and §10C's Human Review Queue UI are separate, later specs in the
+same document and were explicitly out of this session's scope, confirmed by re-reading the task
+before writing any code).
+
+**Schema — applied live and verified, not just committed:**
+`src/supabase/migrations/114_gmail_confirmation_monitor.sql` — two new platform-level tables
+(`autoapply_confirmation_processed_messages`, the idempotency ledger keyed on `gmail_message_id`;
+`autoapply_confirmation_ambiguous_matches`, the multi-candidate holding area §10A step 5
+describes) plus two columns §10A's matching algorithm reads/writes but that had no home in either
+new table — `autoapply_submissions.confirmation_email_received` /
+`.confirmation_received_at` (neither existed anywhere in the schema before this migration,
+confirmed by grep). Applied via the working `DATABASE_URL` psql connection
+(`STANDING_DIRECTIVES.md` DIRECTIVE-017) — the direct shell/`source .env.local` invocation is
+still blocked by this session's sandbox (`"Contains simple_expansion"`), so used the documented
+Node `.mjs` + `dotenv` + `pg` workaround instead, same as prior sessions. **Verified live
+afterward via the real PostgREST OpenAPI schema** (both tables' columns confirmed present,
+both new `autoapply_submissions` columns confirmed present) **and via a real anon REST call**
+(`GET .../autoapply_confirmation_processed_messages` as the anon key → `401 42501 permission
+denied`, not just an RLS-enabled-but-still-readable false negative) — not just trusted the
+`psql` success message, per this project's own standing caution about partial-apply migrations.
+RLS enabled with no permissive policy plus an explicit `REVOKE ALL ... FROM anon, authenticated`
+on both new tables, matching the `scrape_jobs`/`worker_status`/`queue_controls` service-role-only
+precedent (no `organization_id` column — a Gmail message can match a candidate across any org,
+and only the worker's service-role credentials ever touch these tables).
+
+**Code — `src/lib/autoapply/confirmation-monitor.ts`, compiles clean, matches the spec's exact
+decisions, not a simplified version:**
+- Two-stage deterministic match (sender-domain-equals-or-subdomain-of-`funders.giving_portal_url`
+  AND normalized-org-name-substring-in-subject-or-body), both required, no fuzzy/confidence
+  scoring — exactly §10A step 2's binary rule.
+- 0 matches → ledger `no_match`, no alert (a dedicated inbox gets real spam/bounces, per spec).
+  1 match → ledger `matched` + `autoapply_submissions` update (`confirmation_email_received`,
+  `confirmation_received_at`, and `confirmation_number` only if a single Claude call — reusing
+  `confirmation-parser.ts`'s proven model/prompt pattern, `claude-sonnet-4-6` — actually extracted
+  one; extraction failure never blocks the match, matching step 4's own wording). 2+ matches →
+  `autoapply_confirmation_ambiguous_matches` row + ledger `ambiguous`, **never auto-resolved by
+  any heuristic** (e.g. "most recent") — exactly step 5's explicit prohibition.
+- Idempotency ledger checked by primary key **before** any matching logic runs on every message;
+  the next cycle's `after:` bound is derived from `MAX(processed_at)` in the ledger (a real query,
+  not an in-process variable) — a worker restart can't reprocess or silently skip a window.
+- Backoff: the whole Gmail portion of a cycle (list + fetch loop) is retried as one unit on
+  429/5xx, exponential from 30s, capped at 30 min, up to 5 attempts within that cycle; retries
+  are naturally idempotent-safe since the already-ledgered-id filter reruns at the top of every
+  attempt. An OAuth refresh failure is detected separately (`invalid_grant`/`invalid_client` /
+  a "refresh token" error message) and is **never retried** — it writes one `system_errors` row
+  (`severity: 'critical'`, a real, admin-surfaced table per `src/app/api/admin/system/route.ts`,
+  chosen over the org-scoped `alerts`/`notify()` convention because this failure is genuinely
+  platform-wide, not attributable to any one org — `alerts.organization_id` is `NOT NULL` and
+  has no natural target here) and stops for that cycle, matching the spec's "needs a human to
+  re-authorize" framing exactly.
+- Wired as a literal `setInterval` (not a continuous poll loop like
+  `worker/knowledge-indexer-processor.ts`) directly per §10A's own stated reasoning — a Gmail poll
+  has a real, fixed, spec'd cadence, unlike embedding generation's "no meaningful batch window."
+  Started/stopped/awaited in `worker/index.ts` alongside every other processor, with an
+  overlap guard (a tick skips if the previous cycle is still running) rather than allowing
+  concurrent cycles.
+
+**Genuine, honestly-flagged gap — this monitor cannot actually run yet, and nothing in this
+session's scope could close it:** per the task's own explicit instruction to stop and flag
+anything that pulls toward reading a third party's or an org's own inbox rather than build it,
+the one piece of setup this monitor needs — a refresh token authorizing
+`https://www.googleapis.com/auth/gmail.readonly` against the real `apply@benavora.com` mailbox —
+can only be produced by a human completing Google's OAuth consent screen once, signed in as that
+mailbox. No credential, script, or API call available in this session can perform "click Allow"
+on Google's behalf. Reused `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` (the same OAuth app already
+registered for the unrelated per-org `gmail-auth.ts` integration — legitimately reusable, since
+it's one Google Cloud OAuth client authorized by many different accounts, not per-app
+credentials) and added exactly one new required env var, `GMAIL_CONFIRMATION_MONITOR_REFRESH_TOKEN`
+— **not yet set anywhere** (confirmed absent from `.env.local`; Vercel/Railway prod status
+unchecked, out of this session's reach). Until all three env vars are present, every 5-minute
+cycle logs one console warning and cleanly no-ops (`hasCredentials()` gate, matching this
+codebase's existing degrade-gracefully convention for `TWOCAPTCHA_API_KEY`/`RESEND_API_KEY`) —
+the worker never crashes over this. **Someone with access to `apply@benavora.com` needs to run
+the OAuth consent flow once and set the resulting refresh token before this feature does
+anything.**
+
+Gates: `pnpm tsc --noEmit` — 0 errors in `confirmation-monitor.ts`, `worker/index.ts`, or the
+migration; the only errors present are the same pre-existing, unrelated `src/__tests__/**`
+issues documented throughout this file's history (deadline-predictor, outcome-analyzer,
+regressions, samgov-client, two `.catch()`-on-builder issues) — untouched by, and unrelated to,
+this session's change. `pnpm tsc -p worker/tsconfig.json --noEmit` (the worker's own, narrower
+build target) — 0 errors, clean.
 
 ---
 

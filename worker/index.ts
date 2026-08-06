@@ -4,6 +4,7 @@ import * as heartbeat from './heartbeat.js';
 import * as queueProcessor from './queue-processor.js';
 import * as ddRequestProcessor from './dd-request-processor.js';
 import * as knowledgeIndexerProcessor from './knowledge-indexer-processor.js';
+import * as confirmationMonitor from '../src/lib/autoapply/confirmation-monitor.js';
 import * as scheduler from './scheduler.js';
 import {
   processAgentQueue,
@@ -71,6 +72,7 @@ async function shutdown(signal: string): Promise<void> {
   queueProcessor.stop();
   ddRequestProcessor.stop();
   knowledgeIndexerProcessor.stop();
+  confirmationMonitor.stop();
   scheduler.stop();
   stopAgentQueueProcessor();
 
@@ -80,6 +82,7 @@ async function shutdown(signal: string): Promise<void> {
       queueProcessor.waitForIdle(),
       ddRequestProcessor.waitForIdle(),
       knowledgeIndexerProcessor.waitForIdle(),
+      confirmationMonitor.waitForIdle(),
       agentQueueDone,
     ]),
     new Promise<void>((resolve) => setTimeout(resolve, FIVE_MINUTES_MS)),
@@ -136,6 +139,7 @@ async function main(): Promise<void> {
   queueProcessor.start(supabase, env.workerId, streamServer);
   ddRequestProcessor.start(supabase);
   knowledgeIndexerProcessor.start(supabase);
+  confirmationMonitor.start(supabase);
   scheduler.start(supabase);
   agentQueueDone = processAgentQueue(supabase).catch((err: unknown) => {
     console.error('[Worker] Agent queue processor crashed:', err);
