@@ -5468,3 +5468,125 @@ a live REST check confirming `system_errors` itself is reachable; `pnpm tsc --no
 files (zero errors) and a full-project run (only the same pre-existing `src/__tests__/**` errors
 documented in every prior entry in this log). The throwaway REST-check script was deleted after use
 and was never committed, matching this log's established convention.
+
+---
+
+## AG-22 — live re-verification of the BYOK fallback: no BYOK org exists, still blocked, admin alert confirmed firing for real
+
+**Follow-up to the entry immediately above.** That entry's own "Step 2 continued" already found, by
+querying the schema, that no org had a BYOK key on file and that `tier_limits` (the table
+`shouldUseOwnKeys()` checks first) doesn't exist live — so the BYOK fallback, while now real code, had
+no org to actually exercise it through. This entry re-confirms that today, live, is still true, and —
+the part the prior entry diagnosed but did not itself trigger — actually re-runs AG-22 for real to
+confirm both the still-blocked platform-key path **and** the new admin alert genuinely fire, rather
+than trusting the code read alone.
+
+**Step 1 — checked for a BYOK org before assuming there isn't one.** Live queries, service-role
+client, no mocks:
+- `tier_limits` — still `404 PGRST205: "Could not find the table 'public.tier_limits' in the schema
+  cache"`, unchanged since the prior entry. `shouldUseOwnKeys()`'s very first gate
+  (`allow_own_keys` lookup) therefore still resolves to `null` → `allowOwnKeys` defaults to `false`
+  for every org, unconditionally, before the function ever reaches the `platform_config` key check.
+- `platform_config` rows for `key IN ('own_key_anthropic', 'own_key_openai')`, across **all**
+  organizations, no `organization_id` filter — **zero rows**, confirmed via a direct query, not
+  inferred from the `tier_limits` gate alone (the two facts are independently true: even if
+  `tier_limits` existed and `allow_own_keys` were true for some tier, there is still no org with an
+  actual key on file to use). **No BYOK org exists today.** Nothing to test the BYOK success path
+  against.
+- Independently re-tested the current local `ANTHROPIC_API_KEY` against the raw Anthropic API
+  (`POST /v1/messages`, no SDK): `401 authentication_error: "API key is invalid."` — reproduced fresh
+  this session, the same dead platform credential as every prior entry touching this key.
+
+**Step 2 — re-ran the real, unmodified `PropensityScoringAgent` live** (`node --import tsx`, no
+mocks, no code changes) against the real Faith Foundation org (`b1ab7402-dfc2-4712-869f-70ea3566cc1d`,
+confirmed still live, `subscription_tier: "consultant"`) and a real `corporate_prospects` row with
+`enrichment_completed_at` already set (`3d15c0f2-e524-4d94-a7fa-e03c82d965b6`, "GOOD HOUSING
+CONSTRUCTION LLC" — the same row EA-01..EA-10 had already completed enrichment for, so this agent's
+own `enrichment_completed_at` self-gate would not skip it). `agent.run({ prospectId: ... })` threw
+`AgentError: "Agent execution failed. Please try again."` — `BaseAgent.run()`'s standard opaque
+wrapper for a non-`AgentError` failure, exactly as designed; the real error is in `agent_runs`, not
+the thrown message.
+
+**Step 3 — read the resulting `agent_runs` row back directly, not inferred from the thrown message.**
+A brand-new row, timestamped today, not the same row the entries above already documented:
+```json
+{
+  "id": "4104a019-4292-44e5-904f-17c97637f26b",
+  "organization_id": "b1ab7402-dfc2-4712-869f-70ea3566cc1d",
+  "status": "failed",
+  "error_message": "401 {\"type\":\"error\",\"error\":{\"type\":\"authentication_error\",\"message\":\"API key is invalid.\"},\"request_id\":null}",
+  "started_at": "2026-08-06T09:29:24.661+00:00",
+  "completed_at": "2026-08-06T09:29:26.53+00:00",
+  "duration_ms": 1869
+}
+```
+Identical failure mode to the prior entry's row (`49eba899-...`, 2026-08-03) — same 401, same message
+shape — but this is a fresh, independent reproduction today, not a stale reference to that old row.
+Confirmed `corporate_prospects.scores`/`scores_computed_at` for the test prospect are unchanged after
+the run (`scores: {}`, `scores_computed_at: null`) — the failure happened on the very first of the 9
+`scoreOne()` calls, before any score was computed or written, consistent with `execute()`'s straight-
+line loop over `SCORE_RUBRICS`.
+
+**Step 4 — confirmed the platform-key path, not a BYOK path, is what actually ran.** Since
+`shouldUseOwnKeys()` returned `{ useOwn: false }` (step 1), `ownApiKey` was `undefined`, so every
+`scoreOne()` call passed `apiKey: undefined` into `callClaude()` — the exact branch that uses
+`process.env.ANTHROPIC_API_KEY` and, on a 401, calls `reportPlatformKeyAuthFailure()`. This is
+directly confirmed, not assumed, by the new alert itself (step 5): its `message` field explicitly
+reads `"...on a callClaude call"` and carries the same raw 401 body — the code path that fires this
+alert is, by construction (`claude.ts`'s `if (!req.apiKey && isAuthError(err))` guard), only reachable
+when no `apiKey` override was supplied, i.e. the platform-key path. There is no ambiguity here: had a
+BYOK key been used and been invalid, this specific alert would never have fired at all (by design,
+per the prior entry's step 3 — "a bad BYOK key is that org's own configuration problem, not evidence
+of a platform-wide outage").
+
+**Step 5 — confirmed the admin alert genuinely fires, live, for the first time.** `system_errors` was
+empty (0 rows) immediately before this run (checked as part of step 1's query batch). Immediately
+after:
+```json
+{
+  "id": "c4fd5052-b1c6-49fd-a018-4762183ee9a7",
+  "source": "anthropic_api",
+  "error_type": "platform_key_authentication_error",
+  "severity": "critical",
+  "message": "Platform ANTHROPIC_API_KEY rejected by Anthropic (401 authentication_error) on a callClaude call. Every agent without a BYOK org key is degraded until this is replaced in Vercel prod env vars and local .env.local — no code-level workaround exists for an invalid credential. Raw error: 401 {\"type\":\"error\",\"error\":{\"type\":\"authentication_error\",\"message\":\"API key is invalid.\"},\"request_id\":null}",
+  "created_at": "2026-08-06T09:29:26.782426+00:00"
+}
+```
+Timestamp is 2 seconds after the run's own `started_at` — landed exactly where the code says it
+should, with the real 401 body embedded verbatim, not a placeholder. This is the first time this
+specific alert has ever been observed to actually fire against production, not just read as correct
+from the source (the prior entry verified the code path by reading it and confirming `system_errors`
+was reachable; it did not itself trigger a live 401 to watch the row land). Confirmed genuinely new
+(not a leftover from the prior session): `system_errors` held zero rows immediately before this run's
+step 1 query, and exactly one row — this one — immediately after.
+
+**Root-cause summary — nothing has changed since the prior entry, and that is the honest, complete
+answer:**
+1. **No BYOK org exists.** `platform_config` has zero `own_key_anthropic`/`own_key_openai` rows for
+   any org, and `tier_limits` (required for `shouldUseOwnKeys()` to ever return `true`) still doesn't
+   exist in production. There was no BYOK org to test AG-22's success path against this session, and
+   there still isn't one.
+2. **AG-22 is still fully blocked**, reproduced fresh today with a brand-new `agent_runs` row: the
+   platform `ANTHROPIC_API_KEY` is still rejected with the identical `401 authentication_error: "API
+   key is invalid."` No score was computed; `corporate_prospects.scores` for the test prospect is
+   unchanged.
+3. **The admin alert (step 3 of the prior entry's fix) is confirmed working, live, for real** — not
+   just present in code. A genuine `system_errors` row, `severity: critical`, landed within 2 seconds
+   of the failing run, with the real error text embedded.
+4. **This remains blocked on a credential only Reid can rotate.** No code-level action exists to fix
+   this further — the BYOK fallback and the admin alert are both now real, tested, working
+   infrastructure; what they are both correctly reporting is that the platform still has no valid
+   Anthropic API key, in production or locally.
+
+**Verification method:** live REST queries (service-role client, no mocks) against `tier_limits`
+(still 404), `platform_config` (zero BYOK rows, any org), and `organizations` (confirmed the test org
+still live); a raw `POST https://api.anthropic.com/v1/messages` call independent of this project's SDK
+wrapper (still 401, reproduced fresh); live execution (`node --import tsx`, no mocks, zero code
+changes) of the real, unmodified `PropensityScoringAgent.run()` against the real Faith Foundation org
+and a real `corporate_prospects` row with `enrichment_completed_at` already set; the resulting
+`agent_runs` row independently re-queried and read back, not inferred from the thrown `AgentError`;
+the `corporate_prospects` row re-queried after the run to confirm no scores were written; `system_errors`
+queried both immediately before (0 rows) and immediately after (1 new row) the live run to confirm the
+admin alert is genuinely new, not stale. All three throwaway verification scripts
+(`scripts/.tmp-ag22-verify.mjs`, `scripts/.tmp-ag22-run.mts`, `scripts/.tmp-ag22-check.mjs`) were
+deleted after use and were never committed, matching this log's established convention.

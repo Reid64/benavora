@@ -1,10 +1,60 @@
 # BENAVORA — Session State
-## Last Updated: August 6, 2026 (AG-22 dead-platform-key diagnosis: BYOK fallback wired, admin alert added, still genuinely blocked)
-## Mode: reconfirmed live that AG-22 is still blocked on a 401-rejected platform ANTHROPIC_API_KEY. Wired the real BYOK fallback (usage-meter.ts's shouldUseOwnKeys, previously fetched-but-unused in worker/queue-processor.ts, was never actually plumbed into any AI call anywhere) into callClaude()/callClaudeWithWebSearch() and AG-22 itself. Confirmed live it can't unblock anything yet — not just "no org has a key," but tier_limits (and the rest of migration 052_governance_layer.sql) doesn't exist in production at all, so UsageMeter is structurally inert platform-wide. Added a loud, admin-facing system_errors alert (already surfaced on /admin/system) for platform-key 401s, distinct from the buried per-run agent_runs.error_message. Did not touch .env.local. Final honest state: still blocked, requires Reid to supply a valid key.
+## Last Updated: August 6, 2026 (AG-22 live re-verification: no BYOK org exists, still blocked, admin alert confirmed genuinely firing)
+## Mode: re-ran the real, unmodified AG-22 (PropensityScoringAgent) live against the real Faith Foundation org and a real, already-enriched corporate_prospects row. Confirmed live — not assumed — that no BYOK org exists (platform_config has zero own_key_anthropic/own_key_openai rows anywhere; tier_limits still 404s live), so the run took the platform-key path and failed with the identical 401 authentication_error as every prior AG-22 entry, logged in a brand-new agent_runs row. Confirmed the admin alert added last session genuinely fires in production: system_errors held zero rows immediately before the run and exactly one new critical-severity row immediately after, landing 2 seconds after the run started with the real 401 body embedded. No code changed. Status is still, plainly, blocked — pending Reid supplying a valid ANTHROPIC_API_KEY.
 
 ---
 
-## Current Session — August 6, 2026 (AG-22 dead-platform-key diagnosis: BYOK fallback wired, admin alert added, still genuinely blocked)
+## Current Session — August 6, 2026 (AG-22 live re-verification: no BYOK org exists, still blocked, admin alert confirmed genuinely firing)
+
+**Task:** re-run AG-22 live against a real org. If the prior session's BYOK fallback found and wired a
+real BYOK org, test against it and confirm success using its own key. If no BYOK org exists, confirm
+AG-22 still fails with the same 401 against the platform key, and confirm the new admin alert (added
+last session, only verified-by-reading-code, never itself triggered) actually fires live.
+
+**What was checked, live, before assuming anything:**
+- `platform_config` for `key IN ('own_key_anthropic', 'own_key_openai')`, no organization filter —
+  **zero rows, for any org.** No BYOK org exists to test the success path against.
+- `tier_limits` (the table `UsageMeter.shouldUseOwnKeys()` must find `allow_own_keys: true` in before
+  it will even look for a key) — still `404 PGRST205`, unchanged since the prior session.
+- The current local `ANTHROPIC_API_KEY` against the raw Anthropic API directly (no SDK): still `401
+  authentication_error: "API key is invalid."`, reproduced fresh today.
+
+**Live run, not just a schema check.** Instantiated the real, unmodified `PropensityScoringAgent`
+(`node --import tsx`, no mocks) with the real Faith Foundation org
+(`b1ab7402-dfc2-4712-869f-70ea3566cc1d`) and called `.run({ prospectId })` against a real,
+already-enriched `corporate_prospects` row ("GOOD HOUSING CONSTRUCTION LLC",
+`3d15c0f2-e524-4d94-a7fa-e03c82d965b6`). It threw the standard `BaseAgent` opaque wrapper; the real
+error lives in `agent_runs`, read back directly:
+- New row `4104a019-4292-44e5-904f-17c97637f26b`, `started_at: 2026-08-06T09:29:24Z`, `status:
+  failed`, `error_message`: the identical `401 authentication_error: "API key is invalid."` as every
+  prior AG-22 entry — not the same old row, a fresh reproduction today.
+- `corporate_prospects.scores` for the test prospect: unchanged, `{}`, `scores_computed_at: null` —
+  the failure happened before any of the 9 rubric scores could be computed.
+
+**Admin alert — confirmed genuinely firing, not just correct in source.** `system_errors` held zero
+rows immediately before this run. Immediately after: exactly one new row —
+`severity: critical`, `source: anthropic_api`, `error_type: platform_key_authentication_error`,
+`created_at` 2 seconds after the run's own `started_at`, message body carrying the real 401 text
+verbatim. This is the first time this alert has actually been observed to land in production — the
+prior session verified it by reading the code and confirming `system_errors` was reachable; it never
+itself triggered a live 401 to watch the row appear.
+
+**Conclusion, honest and unchanged from the prior session's own honest conclusion:** AG-22 is still
+fully blocked on the dead platform `ANTHROPIC_API_KEY`. No BYOK org exists. No code-level action
+exists to fix this further — the BYOK fallback and the admin alert are both real, now-proven-live
+infrastructure; what they correctly report is that the platform still has no valid Anthropic key,
+anywhere. `.env.local` was not read for its value or modified, per standing instruction.
+
+Full evidence: `AGENT_VERIFICATION_LOG.md`'s new "AG-22 — live re-verification of the BYOK fallback"
+entry.
+
+**Commit:** `test(agents): live-verify AG-22 real current status after BYOK fallback attempt`.
+**Gates:** no source file changed this session (verification-only, three throwaway scripts written
+and deleted); nothing to re-check with `pnpm tsc --noEmit`.
+
+---
+
+## Prior Session — August 6, 2026 (AG-22 dead-platform-key diagnosis: BYOK fallback wired, admin alert added, still genuinely blocked)
 
 **Task:** AG-22 clears the `corporate_prospects` blocker but hits the already-diagnosed dead
 platform `ANTHROPIC_API_KEY` (401, per `AGENT_VERIFICATION_LOG.md`'s "Full Pipeline Handoff" entry).

@@ -1,8 +1,42 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 6, 2026 (AG-22 dead-platform-key diagnosis: BYOK fallback wired, admin alert added, still genuinely blocked; AutoApply ready-org pipeline re-verified live — still fails end to end; real root cause now identified: missing ffmpeg binary in the worker Docker image). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 6, 2026 (AG-22 live re-verification: no BYOK org exists, still blocked on the dead platform ANTHROPIC_API_KEY, admin alert confirmed genuinely firing live). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 6, 2026 (AG-22 live re-verification: no BYOK org exists, still blocked, admin alert confirmed firing)
+
+**Task:** the prior session (immediately below) wired a real BYOK fallback into AG-22 and added an
+admin alert for platform-key 401s, but diagnosed rather than triggered either live — it confirmed by
+reading the schema that no BYOK org existed and that `system_errors` was reachable, without itself
+running AG-22 again to watch either path actually fire. This session closes that gap: re-run AG-22
+live against a real org, and if a BYOK org exists now, test the real success path against it; if not,
+confirm the platform-key 401 still reproduces and that the new admin alert genuinely lands a row.
+
+**Result: no BYOK org exists (checked, not assumed) — AG-22 is still fully blocked on the same dead
+platform `ANTHROPIC_API_KEY`, reproduced fresh with a brand-new `agent_runs` row — and the admin alert
+is now confirmed to genuinely fire live, not just correct-by-reading-the-code.** `platform_config` has
+zero `own_key_anthropic`/`own_key_openai` rows for any organization, and `tier_limits` (the table
+`shouldUseOwnKeys()` must find `allow_own_keys: true` in before it will ever look for a key) still
+404s live — the same finding as the prior session, re-confirmed today. Re-ran the real, unmodified
+`PropensityScoringAgent` (`node --import tsx`, no mocks) against the real Faith Foundation org
+(`b1ab7402-dfc2-4712-869f-70ea3566cc1d`) and a real, already-enriched `corporate_prospects` row (GOOD
+HOUSING CONSTRUCTION LLC) — it threw, and the resulting `agent_runs` row (`4104a019-...`, started
+`2026-08-06T09:29:24Z`) shows the identical `401 authentication_error: "API key is invalid."` as every
+prior AG-22 entry. `corporate_prospects.scores` for the test prospect is unchanged (`{}`,
+`scores_computed_at: null`) — no score was computed. `system_errors` was empty immediately before this
+run and held exactly one new row immediately after — `severity: critical`, `source: "anthropic_api"`,
+timestamped 2 seconds after the run started, with the real 401 body embedded — confirming the admin
+alert added last session genuinely works end-to-end in production, not just in source.
+
+**Status, plainly: still blocked, pending Reid supplying a valid `ANTHROPIC_API_KEY`.** No code-level
+action was taken or is available this session — `.env.local` was not modified, per standing
+instruction. Full evidence in `AGENT_VERIFICATION_LOG.md`'s new "AG-22 — live re-verification" entry.
+
+Gates: no code changed this session (verification-only); `pnpm tsc --noEmit` not re-run since no
+source file was touched.
 
 ---
 
