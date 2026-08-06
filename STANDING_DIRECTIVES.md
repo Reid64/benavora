@@ -326,6 +326,54 @@ relying on them (tokens and passwords can rotate), but the default assumption go
 
 ---
 
+## DIRECTIVE-018: One Canonical Anthropic API Key — Prior Three Consolidated 2026-08-06
+
+### Rule
+There is now exactly **one** Anthropic API key for this project. Do not create, suggest, or fall back
+to a second one. If a session finds `401 authentication_error` from `api.anthropic.com`, treat it as
+either (a) this one key having been rotated again — check its current value and suffix in `.env.local`,
+Railway (`benavora-worker`), and Vercel (production) before assuming anything else is wrong, or (b) a
+`process.env` shadowing bug (see the "Why" section below) — not a reason to mint another key.
+
+### Where it lives (all three must always match)
+- **Local:** `.env.local` (gitignored, never committed) — `ANTHROPIC_API_KEY=...`
+- **Railway:** `benavora-worker` service, `production` environment — set via `railway variable set`
+- **Vercel:** `benavora` project, **Production** environment only (not Preview) — set via `vercel env add`
+
+Identify the current key by its last 6 characters, `DvwVdwAA`, when cross-checking across the three
+locations — never paste the full key into a committed file (this one included).
+
+### Why this directive exists
+As of 2026-08-06, three separate Anthropic API keys existed for this account/project (named in the
+console as "benavora", "new key", and "ANTHROPIC") — an artifact of repeated dead-key
+troubleshooting across multiple sessions (see `AGENT_VERIFICATION_LOG.md`'s AG-22 diagnosis entries
+and the `benavora-anthropic-key-invalid-local` / `benavora-google-places-key-blocked-samgov-fixed`
+memory pattern of "rotate and hope"). All three were consolidated down to one live key and the other
+two deleted in the Anthropic console on 2026-08-06, specifically to stop this project from
+accumulating silently-abandoned keys that make "which key is actually live" an open question every
+time a 401 shows up.
+
+Separately, that same day's investigation also found a **real `process.env` shadowing bug** on the
+local dev machine: a stale Windows *User*-level `ANTHROPIC_API_KEY` environment variable
+(literal placeholder value, not a real key) is inherited by every new shell, and most scripts in
+`scripts/` call `dotenv.config({ path: ".env.local" })` **without** `{ override: true }` — dotenv's
+default never overwrites an already-set `process.env` value. That means those scripts can silently
+run against the stale User-level variable instead of whatever is actually in `.env.local`, regardless
+of how correct the file's contents are. This was not fixed as part of this directive (a local-machine
+env var, not a repo file) — future sessions hitting an unexplained 401 locally should check
+`[Environment]::GetEnvironmentVariable('ANTHROPIC_API_KEY','User')` in PowerShell before assuming the
+file itself is wrong.
+
+### Redeploy requirement
+Updating the Railway/Vercel variable alone does not reach already-running instances — Railway needs
+its auto-triggered redeploy to finish (variable-set triggers one by default; don't pass
+`--skip-deploys` for a key rotation), and Vercel needs an explicit new `vercel deploy --prod` — an env
+var change alone does not get picked up by already-deployed serverless functions. Confirm via
+`railway status --json` / `vercel inspect <url>` that the new deployment is actually `SUCCESS`/`Ready`
+before treating the rotation as live.
+
+---
+
 ## Governance Update Requirements
 
 Every session that touches any Directive above must update:
