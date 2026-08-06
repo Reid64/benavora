@@ -1,16 +1,86 @@
 # Benavora — Full-Schema `anon`-Grant Exposure Audit
 
-## Status: PARTIALLY REMEDIATED — see §8 for exactly what changed and what's still open.
-## Date: August 3, 2026 (discovery pass); remediation pass same day, second session.
+## Status: `anon` EXPOSURE FULLY REMEDIATED across all 162 tables (SELECT/INSERT/UPDATE/DELETE) —
+## see §8 for exactly what changed and what's still open (`authenticated`'s TRUNCATE grant on ~95+
+## tables, and the separately-tracked 24-of-100 cross-org SELECT leak list in RLS_POLICY_AUDIT.md).
+## Date: August 3, 2026 (discovery pass); three remediation passes same day.
 ## Scope: All 162 real tables (`pg_class.relkind = 'r'`) live in the `public` schema, production project `vbjplpquqxxfbpazyalt`, queried directly via `DATABASE_URL`.
 
 ---
 
-## 8. Remediation status (second pass, same day)
+## 8. Remediation status (three passes, same day)
 
-**12 of 162 tables are now fully secured** (RLS enabled, `anon` grants fully revoked, correct
-`authenticated` policy applied, verified live against real query shapes from actual app code — same
-discipline as the original `foundation_directory`/`corporate_prospects` fixes):
+**Third pass (this session): all 55 remaining Category C tables closed.** Every table from the
+"55 remain completely untouched" list below (as of the second pass) was investigated individually —
+real app-code call sites grepped and read (not assumed from column names alone), then one of three
+policy shapes applied per DIRECTIVE-017's established discipline: org-scoped policy (has a real
+`organization_id`/`org_id` column and a real authenticated read/write path), authenticated-only
+shared read (genuinely cross-tenant reference/aggregate data by design, no tenant boundary to
+enforce), or a full lock-down with **no** authenticated policy at all (no real read/write path
+exists anywhere outside a `createAdminClient()`/service-role caller, which bypasses RLS regardless
+— matches the `corporate_prospects`/`platform_admins` precedent). Applied via 5 migrations
+(`118`–`122`, `src/supabase/migrations/`), all applied live via `DATABASE_URL`/psql per
+DIRECTIVE-017, each statement run individually (not batched) to avoid the partial-apply failure
+mode already documented for `agent_decisions`/`corporate_prospects`/`foundation_directory`.
+
+**Two new live cross-tenant IDOR findings, closed by this pass (same class as the
+`form_templates`/`opportunity_probability_scores` findings from the second pass):**
+- `autoapply_review_queue` — `src/components/autoapply/ReviewQueue.tsx` ('use client', browser
+  session-respecting Supabase client) calls `.from("autoapply_review_queue").select("*, funders(name)")`
+  with **zero** `organization_id` filter — relies entirely on RLS for tenant isolation. With RLS
+  disabled, any authenticated user of any org could read *and update/dismiss/resolve* every other
+  org's AutoApply failure-review items. No app-code change needed (matches the `migration 115`
+  precedent for this exact file's sibling `form_templates` finding): RLS is this codebase's designed
+  enforcement boundary for browser-client queries; migration `119` closes it.
+- `discovery_matches` — `src/app/api/agents/discovery/route.ts`'s own header comment asserted
+  "`discovery_matches` is RLS-scoped to the caller's real `organization_id`" — that claim was false
+  until migration `119`, since RLS was disabled. The route does apply an app-level `.eq()` filter
+  (partial mitigation for that one route), but `src/lib/agents/morning-digest.ts` reads the same
+  table the same way with no equivalent protection, and a raw PostgREST call had zero protection at
+  all either way. Migration `119` makes the route's own comment true.
+- `autoapply_screenshots` (migration `120`, its own file, join-based policy since this table has no
+  direct `organization_id` column) — same `ReviewQueue.tsx` component reads screenshots by bare
+  `submission_id` with no ownership check; closed via an `EXISTS` subquery against
+  `autoapply_submissions.organization_id`.
+
+**Live verification performed** (not assumed from migration success output): (1) `SELECT
+relrowsecurity, policy_count, anon_grants, authenticated_grants` re-queried for all 55 tables —
+confirmed `rls_enabled = true` and `anon_grants = 0` on every one; (2) a live unauthenticated
+`fetch` against `${SUPABASE_URL}/rest/v1/<table>?select=*` for all 55 tables using only the anon
+key — confirmed non-200 (blocked) on every one, zero leaks; (3) `SET LOCAL ROLE authenticated` +
+`request.jwt.claims` simulating a real signed-in user's `auth.uid()`, run against the real Faith
+Foundation org (`b1ab7402-dfc2-4712-869f-70ea3566cc1d`, which has real `submission_queue`/
+`autoapply_submissions` rows) — confirmed the org's own user sees its own real rows (2/2 and 1/1
+respectively, matching total counts), a shared-read table (`agent_registry`) and the already-fixed
+`knowledge_patterns` (33 rows) both remain queryable as expected, and `platform_admins` (no
+authenticated policy at all) correctly raises `permission denied`; (4) cross-tenant isolation
+explicitly re-tested by simulating a **different** org's user against the same real data — `SELECT
+count(*)` returned `0` (not 2) and an `UPDATE ... WHERE organization_id = 'b1ab7402-...'` affected
+`0` rows, confirming the org boundary actually holds, not just that a query returns without error.
+
+**Remaining, explicitly not touched by any pass:** the 95 `TRUNCATE`-hardened-only tables' other
+policies were not re-audited here either (same scope boundary as the second pass — see
+`RLS_POLICY_AUDIT.md`/`rls.test.ts`'s already-known 24-of-100 cross-org `SELECT` leak list, which
+this pass did not re-run or re-verify). `authenticated` still holds `TRUNCATE` on all 95 (and now
+on several of this pass's org-scoped/shared tables too, inherited from the same default-privilege
+pattern) — closing `authenticated`'s `TRUNCATE` grant specifically was out of scope for every pass
+so far and remains open platform-wide.
+
+**⚠️ Migration-number collision across the two parallel migration trees, flagged explicitly so a
+future session doesn't conflate them:** the third pass's 5 files (`118`–`122`) live in
+`src/supabase/migrations/` (that tree's own next-free numbers, per its own independent sequence —
+see [[benavora-two-parallel-migrations-directories]]). The second pass's 12 files (also numbered
+`111`–`123` in the table below) live in the **root** `supabase/migrations/` tree, a completely
+separate sequence. `118` through `122` therefore exist as two different files with two unrelated
+purposes, one in each tree — e.g. root `118_donor_discovery_directory_rls_hardening.sql` vs. src
+`118_priority_security_tables_rls_hardening.sql`. Both were applied live directly via
+`DATABASE_URL`/psql (not via either tree's own apply tooling), so this collision has no functional
+effect on production — it is a filesystem/documentation trap only. Distinguish by full filename,
+never by number alone.
+
+**Prior two passes, same day, superseded in count only (not in accuracy) by the above — 12 of 162
+tables secured** (RLS enabled, `anon` grants fully revoked, correct `authenticated` policy applied,
+verified live against real query shapes from actual app code):
 
 | Table | Fix | Migration | Policy shape |
 |---|---|---|---|
@@ -37,25 +107,42 @@ cross-org `SELECT`), so treat these 95 as "TRUNCATE-safe" specifically, not "ful
 `authenticated` still holds `TRUNCATE` on all 95 — out of scope for this pass, flagged in `113`'s own
 header, not touched.
 
-**55 of 162 tables (former Category C, minus the 10 fixed above) remain completely untouched** —
-RLS still disabled, fully open to `anon` for every operation. Per this task's explicit instruction,
-these were deliberately left for a follow-up pass rather than designing 55 more table policies in one
-prompt. Ranked by row count, the largest remaining exposures are (§5's original table, minus the 10
-now fixed): `agent_configurations`, `intelligence_evaluation_frameworks`, `intelligence_grant_dna_scores`,
-`intelligence_grantmaker_profiles`, `intelligence_logic_models`, `intelligence_narrative_patterns`,
-`intelligence_need_data`, `intelligence_post_award_reports`, `intelligence_scoring_rubrics`,
-`kb_extended_needs`, `platform_admins`, `funder_credentials`, `foundation_profiles`, `pitch_cache`,
-and 41 more near-empty tables — see §5 below for the full original list (still accurate for what
-remains unfixed; the 10 rows for tables now fixed are the only ones no longer current).
-
-Every fix in this section was independently verified live, not assumed from migration success output:
-`anon` tested directly at the Postgres role level (`SET LOCAL ROLE anon`) against `SELECT`,
+Every fix in these two passes was independently verified live, not assumed from migration success
+output: `anon` tested directly at the Postgres role level (`SET LOCAL ROLE anon`) against `SELECT`,
 `INSERT`, `UPDATE`, `DELETE`, and `TRUNCATE` on every one of the 9 individually-designed tables plus
 a 5-table random sample of the 95 batch-fixed tables — all blocked (`42501`). `authenticated` was
 tested against real query shapes copied from the actual consuming code (e.g. `intelligence_budget_
 patterns`' `program_category`/`grant_type` lookup, `intelligence_funded_proposals`' real `INSERT`
 path), not synthetic queries. `service_role` was confirmed unaffected on every table (full row counts
 still visible, matching pre-fix counts).
+
+### 8a. Third-pass detail — the 55 tables closed this session
+
+Migrations `118`–`122` (`src/supabase/migrations/`). Policy-shape column states the real reasoning
+found for each table, not a guess from its name — see each migration file's own comments for the
+full per-table investigation trail (grep results, exact call sites read, client type used).
+
+| Table | Migration | Policy shape | Real basis found |
+|---|---|---|---|
+| `funder_credentials` | 118 | Org-scoped, full CRUD | `CredentialManager` (`credential-manager.ts`), `.eq("organization_id", ...)` |
+| `platform_admins` | 118 | **No authenticated policy** | Only real path is `createAdminClient()` in `/api/platform/bootstrap`; highest-severity single finding in this whole audit |
+| `submission_queue` | 118 | Org-scoped (pre-existing policies, RLS was simply off) | 4 correct policies already in `pg_policies` from `066_fix_autoapply_rls_policies.sql`; queue-20/21 column drift checked, no policy references the drifted columns |
+| `autoapply_submissions` | 118 | Org-scoped (pre-existing policies, RLS was simply off) | Same as `submission_queue` |
+| `prospects`, `prospect_lists`, `sales_campaigns`, `sales_sends`, `suppression_list` | 118 | **No authenticated policy** | Benavora's own internal sales/outreach tool (`src/lib/admin/*`), `createAdminClient()` exclusively, gated at the app layer via `requireRole` |
+| `agent_configurations` | 118 | Org-scoped, full CRUD (uses `org_id`, not `organization_id`) | `/api/agents/registry/configure/route.ts`, `requireRole`-derived session client |
+| `webhook_configs` | 118 | Org-scoped, full CRUD | `webhook-notifier.ts`, `.eq('organization_id', orgId)` |
+| `adapter_usage_log`, `auto_queue_config`, `grant_agreements`, `knowledge_queries` (`org_id`), `org_learning_contributions` (`org_id`), `pitch_cache`, `solicitation_registrations`, `submission_receipts` | 119 | Org-scoped | Each traced to a real `.eq("organization_id"/"org_id", ...)` call in session-derived-client code |
+| `autoapply_review_queue` | 119 | Org-scoped — **live cross-tenant IDOR closed** | See §8 above |
+| `discovery_matches` | 119 | Org-scoped (`org_id`) — **live cross-tenant gap closed** | See §8 above |
+| `autoapply_screenshots` | 120 | Org-scoped via `EXISTS` subquery on `autoapply_submissions` (no direct org column) | Same `ReviewQueue.tsx` IDOR as above |
+| `agent_registry`, `enrichment_results`, `foundation_profiles`, `intelligence_evaluation_frameworks`, `intelligence_grantmaker_profiles`, `intelligence_logic_models`, `intelligence_need_data`, `intelligence_scoring_rubrics`, `platform_learning_patterns`, `worker_status` | 121 | Authenticated-only shared read (`foundation_profiles` also insert+update) | No org column; each confirmed read via a real session-respecting client with no tenant filter (genuinely cross-tenant reference/aggregate data by design) |
+| `agent_performance_metrics`, `ai_usage_log`, `community_foundation_registry`, `corporate_giving_targets`, `cross_client_submissions`, `dd_api_spend`, `dd_robots_cache`, `discovery_runs`, `donor_discovery_geocache`, `donor_discovery_tos_registry`, `enrichment_jobs`, `fundability_deficiencies`, `impersonation_log`, `improvement_proposals`, `intelligence_budget_templates`, `intelligence_grant_dna_scores`, `intelligence_narrative_patterns`, `intelligence_post_award_reports`, `kb_extended_needs`, `platform_tasks`, `sales_campaign_steps`, `sending_domains`, `system_errors` | 122 | **No authenticated policy** | Every real call site uses `createAdminClient()`, or (`fundability_deficiencies`, `discovery_runs`, and 9 `intelligence_*`/utility tables) zero call site exists anywhere in `src/` — orphaned/never-wired schema |
+
+**All 55 tables now show, live: `relrowsecurity = true`, `anon` grants = 0.** All 55 confirmed
+blocked for an unauthenticated request via a real `fetch` against the live PostgREST endpoint
+(non-200 on every one). Cross-tenant isolation explicitly re-verified for the org-scoped shape
+(a different org's simulated session sees `0` rows and can't `UPDATE` another org's real data),
+not just "RLS is on."
 
 ---
 

@@ -1,6 +1,54 @@
 # BENAVORA — Session State
-## Last Updated: August 6, 2026 (Human Review Queue UI's concurrency guard re-verified with genuinely concurrent races against real production data)
-## Mode: §10C build complete + concurrency guard re-verified. Prior session ran each RPC once; this session raced two truly concurrent calls per row (3x resume, 1x skip) — exactly one winner every time, real production data, real row re-queried after. Full HTTP-route-level (deployed Next.js PATCH + real browser session) test remains undone — blocked by this session's permission layer refusing to start a dev server and by the app's client-side-only login making a hand-rolled auth cookie unreliable to trust. See AGENT_VERIFICATION_LOG.md's "Human Review Queue UI" entry.
+## Last Updated: August 6, 2026 (all 55 remaining ANON_GRANT_AUDIT.md Category C tables closed)
+## Mode: RLS remediation complete for anon exposure — all 162 tables in the public schema now block anon SELECT/INSERT/UPDATE/DELETE. See ANON_GRANT_AUDIT.md §8/§8a and STATE_OF_THE_BUILD.md's matching session entry for full detail.
+
+---
+
+## Current Session — August 6, 2026 (RLS remediation: 55 remaining Category C tables)
+
+**Task:** close the 55 tables `ANON_GRANT_AUDIT.md` §5 documented as still fully open to `anon`
+(RLS disabled, zero policies) after the prior two remediation passes fixed 12 tables and closed a
+universal `TRUNCATE` bypass on 95 more.
+
+**What was done:**
+- Live-verified the 55-table list against the current database before trusting it — all 55
+  confirmed still `relrowsecurity = false` with 7 `anon` grants each (no drift since the audit was
+  written). Also verified `submission_queue`/`autoapply_submissions`'s schema per the task's
+  explicit warning about queue-20/21 column drift — both already had 4 correct org-scoped policies
+  from `066_fix_autoapply_rls_policies.sql` that were simply never enforced (RLS was off); none of
+  the new `pause_reason`/`paused_at`/etc. columns or the widened status CHECK constraint are
+  referenced by those policies, so no conflict.
+- For each of the 55, grepped `src/`/`worker/` for real read/write call sites and read the actual
+  code (not inferred from column names) before choosing a policy shape: org-scoped, authenticated
+  shared-read, or full lock-down (no authenticated policy — matches the `platform_admins`/
+  `corporate_prospects` precedent for tables whose only real caller is `createAdminClient()`).
+- Found and closed 2 new live cross-tenant IDOR gaps in the same class as the prior pass's
+  `form_templates`/`opportunity_probability_scores` findings: `ReviewQueue.tsx` (browser client)
+  reading `autoapply_review_queue` and `autoapply_screenshots` with zero `organization_id` filter,
+  and `/api/agents/discovery/route.ts`'s own header comment falsely claiming `discovery_matches`
+  was already RLS-scoped.
+- Wrote and applied 5 migrations directly via the `DATABASE_URL` psql connection
+  (`STANDING_DIRECTIVES.md` DIRECTIVE-017), each statement individually (not batched, per the
+  established partial-apply-failure precedent): `118_priority_security_tables_rls_hardening.sql`
+  (the 11 explicitly-prioritized tables), `119_org_scoped_tables_rls_hardening.sql` (10 more
+  org-scoped tables), `120_autoapply_screenshots_join_rls_hardening.sql` (join-based policy via
+  `autoapply_submissions`), `121_shared_reference_tables_rls_hardening.sql` (10 shared/reference
+  tables), `122_lockdown_no_authenticated_read_path_rls_hardening.sql` (23 tables with no real
+  authenticated read path).
+- Verified live, not from migration output alone: re-queried RLS/grant state for all 55 (confirmed
+  `rls_enabled=true`, `anon_grants=0`); ran a real unauthenticated `fetch` against all 55 live
+  PostgREST endpoints (all non-200, zero leaks); simulated two different real orgs' authenticated
+  sessions against real `submission_queue`/`autoapply_submissions` data to confirm each org sees
+  only its own rows and can't cross-org `UPDATE`; confirmed `platform_admins` correctly denies
+  `authenticated` entirely.
+- Updated `ANON_GRANT_AUDIT.md` §8 with the full third-pass detail (§8a per-table mapping) and
+  flagged a migration-number collision: this session's `src/supabase/migrations/118`–`122` are
+  unrelated files to the prior pass's root `supabase/migrations/118`–`123` (two independent
+  numbering sequences, both now overlapping in the 118–122 range).
+- Updated `STATE_OF_THE_BUILD.md` with a matching session entry.
+
+**Commit:** `fix(security): RLS + anon-revoke for remaining Category C tables per ANON_GRANT_AUDIT.md`.
+**Gates:** no TypeScript changed (SQL-only session); not re-run.
 
 ---
 

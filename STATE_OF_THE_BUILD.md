@@ -1,8 +1,58 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 6, 2026 (Human Review Queue UI's concurrency guard re-verified with genuinely concurrent races, 3x for resume + 1x for skip, against real production data — see below). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 6, 2026 (all 55 remaining ANON_GRANT_AUDIT.md Category C tables closed — RLS enabled + anon revoked across the full 162-table schema — see below). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 6, 2026 (RLS remediation complete: all 55 remaining Category C tables closed)
+
+Follow-up to `ANON_GRANT_AUDIT.md`'s discovery pass and two prior remediation passes (2026-08-03),
+which fixed 12 tables and closed the universal `TRUNCATE` bypass on 95 more, leaving 55 tables
+fully open to `anon` for every operation (RLS disabled, zero policies). This session closed all 55.
+
+**Method, per table (not a shortcut):** grepped `src/`/`worker/` for every real read/write call
+site of each table before choosing a policy, then applied one of three shapes — org-scoped policy
+(real `organization_id`/`org_id` column + real authenticated read/write path), authenticated-only
+shared read (genuinely cross-tenant reference/aggregate data, no tenant boundary needed), or full
+lock-down with no authenticated policy at all (every real call site uses `createAdminClient()`/
+service role, which bypasses RLS regardless — matches the `platform_admins`/`corporate_prospects`
+precedent from the prior passes). Applied via 5 new migrations in `src/supabase/migrations/`
+(`118`–`122`), each statement run individually via the `DATABASE_URL`/psql connection
+(`STANDING_DIRECTIVES.md` DIRECTIVE-017) to avoid the partial-apply failure mode already documented
+for `agent_decisions`/`corporate_prospects`.
+
+**Two more live cross-tenant IDOR findings, same class as the prior pass's `form_templates`/
+`opportunity_probability_scores` findings — closed, not just documented:**
+- `autoapply_review_queue` and `autoapply_screenshots` — both read by
+  `src/components/autoapply/ReviewQueue.tsx` (browser client, no `organization_id` filter at all)
+  — any authenticated user of any org could read and update/dismiss/resolve every other org's
+  AutoApply review-queue items and view their screenshots. No app-code change needed (matches the
+  established precedent for this exact file's sibling `form_templates` finding, migration 115 —
+  RLS is this codebase's designed enforcement layer for browser-client queries).
+- `discovery_matches` — `/api/agents/discovery/route.ts`'s own header comment asserted this table
+  "is RLS-scoped to the caller's real organization_id" — false until this session, since RLS was
+  disabled; `src/lib/agents/morning-digest.ts` reads the same table with no equivalent app-level
+  protection at all.
+
+**Live-verified, not assumed from migration success output:** all 55 tables confirmed
+`relrowsecurity = true` / `anon` grants = 0 via direct query; all 55 confirmed to return a non-200
+response to a real unauthenticated `fetch` against the live PostgREST endpoint; cross-tenant
+isolation explicitly re-tested by simulating two different real orgs' sessions (`SET LOCAL ROLE
+authenticated` + `request.jwt.claims`) against real `submission_queue`/`autoapply_submissions` data
+— the owning org sees its own rows, a different org sees zero and can't `UPDATE` them, and
+`platform_admins` (no authenticated policy) correctly raises `permission denied`.
+
+**Net effect:** all 162 tables in the schema now block `anon` for SELECT/INSERT/UPDATE/DELETE.
+Remaining, explicitly out of scope for this session: `authenticated`'s `TRUNCATE` grant on ~95+
+tables (a much lower-severity issue — requires a signed-in, attributable user, not an anonymous
+one), and the separately-tracked 24-of-100 cross-org `SELECT` leak list from
+`RLS_POLICY_AUDIT.md`/`rls.test.ts` (not re-run this session). Full per-table detail, migration
+mapping, and a flagged migration-number collision across the two parallel migration trees (both
+now have unrelated files numbered 118–122) in `ANON_GRANT_AUDIT.md` §8/§8a.
+
+Gates: no TypeScript changed (SQL-only session); not re-run.
 
 ---
 
