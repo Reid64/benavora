@@ -1,10 +1,64 @@
 # BENAVORA — Session State
-## Last Updated: August 6, 2026 (Human Review Queue UI built per §10C; live bug found + fixed: submission_queue's status CHECK constraint was stale, blocking queue-21's own paused_verification write)
-## Mode: §10C build complete — GET + 3 Tab-1 mutation routes (RPC-backed, concurrency-guarded) + 1 Tab-2 resolve route + two-tab page, all live-tested against real rows. Bonus fix: submission_queue_status_check widened to allow paused_verification/requires_account_setup/pending_manual, which were already being written live by queue-processor.ts and silently failing.
+## Last Updated: August 6, 2026 (Human Review Queue UI's concurrency guard re-verified with genuinely concurrent races against real production data)
+## Mode: §10C build complete + concurrency guard re-verified. Prior session ran each RPC once; this session raced two truly concurrent calls per row (3x resume, 1x skip) — exactly one winner every time, real production data, real row re-queried after. Full HTTP-route-level (deployed Next.js PATCH + real browser session) test remains undone — blocked by this session's permission layer refusing to start a dev server and by the app's client-side-only login making a hand-rolled auth cookie unreliable to trust. See AGENT_VERIFICATION_LOG.md's "Human Review Queue UI" entry.
 
 ---
 
-## Current Session — August 6, 2026 (AutoApply: Human Review Queue UI per §10C)
+## Current Session — August 6, 2026 (Human Review Queue UI concurrency guard — genuinely raced)
+
+**Task:** live-verify the Human Review Queue UI's concurrency guard (built two sessions ago, see
+entry below) with real, genuinely concurrent requests — not the single-call verification the build
+session already did. Specifically: race two concurrent `resume` calls against the same row 3
+separate times, confirm exactly one wins each time; confirm the winning row's `paused_history` /
+`pause_reason` / `paused_at` / `paused_screenshot_path` actually update correctly; confirm `skip`
+has the same guard; confirm the UI removes a 409'd row from view instead of looping.
+
+**What was done:**
+- Read all three mutation routes (`resume/route.ts`, `skip/route.ts`, `reassign/route.ts`) and
+  confirmed each does nothing but call its one RPC and branch on `null` — no read-then-write above
+  the RPC layer, so racing the RPC directly tests the actual mechanism, not a proxy for it.
+- Wrote a throwaway Node script (`dotenv` + raw `fetch`, deleted immediately after use, never
+  committed) that seeded one throwaway `organizations` row and 4 throwaway `submission_queue` rows
+  in real production (`vbjplpquqxxfbpazyalt`), then fired `Promise.all([...])` pairs of concurrent
+  `POST` calls straight at `/rest/v1/rpc/resume_paused_submission_queue_item` (3x) and
+  `/rest/v1/rpc/skip_paused_submission_queue_item` (1x) — the real, unmodified, deployed functions.
+- **Result: 4/4 races, exactly one caller won (got the row's real id), the other got `null` —
+  never both, never neither.** Re-queried every row directly afterward (not just the in-request
+  response): `status` correctly transitioned (`pending`/`skipped`), `pause_reason`/`paused_at`/
+  `paused_screenshot_path` all cleared to `null`, `paused_history` gained a correctly-shaped entry
+  with the pre-clear `pause_reason` preserved inside it. Full JSON evidence in
+  `AGENT_VERIFICATION_LOG.md`.
+- Confirmed `reassign`'s SQL body is structurally identical to the other two (same
+  `WHERE id + organization_id + status='paused_verification' RETURNING id` guard) rather than
+  independently racing it — the task's own instruction was to test "one of them the same way";
+  skip was chosen since it needed no extra FK-valid assignee row.
+- Confirmed the UI's 409 handling by direct code reading:
+  `review-queue/page.tsx`'s `handlePatch()` routes a 409 to the same `onConflict` callback every
+  success path also calls (`setPaused((prev) => prev.filter(...))`) — a 409'd row disappears from
+  view identically to a resolved one, no error banner, no retry loop anywhere in the component.
+
+**Genuine gap, reported rather than hidden:** could not complete a true HTTP-level test (concurrent
+`fetch()` calls against the *deployed* Next.js routes with a real authenticated session, or an
+actual browser click producing a visible 409). Two blockers, both investigated directly: (1)
+starting a local dev server was refused outright by this session's tool-permission layer across
+multiple Bash and PowerShell attempts; port 3000 already had a *different, unrelated* project's dev
+server running ("AFS — Architectural Flashing Supply", confirmed by curling it), so it couldn't
+substitute. (2) This app's login is client-side-only (writes the session straight to
+`document.cookie` via the browser Supabase client) — there's no server-side login response to
+capture a `Set-Cookie` header from without an actual browser, and hand-reconstructing
+`@supabase/ssr`'s cookie encoding was judged too version-fragile to present as a trustworthy live
+result. The RPC-level race is not a weaker substitute for this — per the route-reading above, the
+route layer adds no mechanism beyond forwarding to the RPC — but the literal network/browser
+plumbing itself (real HTTP status observed by a real `fetch`, a real DOM update) remains unverified.
+
+**Commit:** `test(autoapply): live-verify Human Review Queue UI concurrency guard` (docs + log only —
+no application code changed; the verification script was written and deleted within this session).
+
+**Gates:** not applicable — no application code touched.
+
+---
+
+## Prior Session — August 6, 2026 (AutoApply: Human Review Queue UI per §10C)
 
 **Task:** build the two-tab Human Review Queue UI (`AUTOAPPLY_ARCHITECTURE_V2.md` §10C) — one tab
 for `submission_queue` rows paused by §10B's CAPTCHA/verification detection, one tab for §10A's

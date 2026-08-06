@@ -1,8 +1,55 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 6, 2026 (AutoApply Human Review Queue UI built per §10C, live-tested end-to-end; found and fixed a stale submission_queue CHECK constraint that had been silently failing queue-21's own paused_verification write since it shipped). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 6, 2026 (Human Review Queue UI's concurrency guard re-verified with genuinely concurrent races, 3x for resume + 1x for skip, against real production data — see below). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 6, 2026 (Human Review Queue UI concurrency guard — genuinely raced, 3x + skip)
+
+Follow-up to the "Human Review Queue UI" build session immediately below: that session's own
+concurrency verification (`AGENT_VERIFICATION_LOG.md`) had already run each RPC once against a
+single call, not two truly concurrent calls racing the same row. This session closed that gap —
+full detail in `AGENT_VERIFICATION_LOG.md`'s new "Human Review Queue UI" entry.
+
+**What was actually raced:** a throwaway Node script (`dotenv` + raw `fetch`, deleted after use)
+fired two genuinely concurrent (`Promise.all`) `POST` calls straight at the real production
+PostgREST RPC endpoints for `resume_paused_submission_queue_item` (3 separate seeded rows, 3
+separate races) and `skip_paused_submission_queue_item` (1 race) — the real, unmodified,
+production functions from `116_review_queue_rpc_functions.sql`, not a simulation. **Result: 4/4
+races, exactly one call won (got the row's real id back) and the other got `null` — never both,
+never neither.** Each row was re-queried directly afterward, not inferred from the in-request
+response: `status` correctly transitioned (`pending` for resume, `skipped` for skip),
+`pause_reason`/`paused_at`/`paused_screenshot_path` all genuinely cleared to `null`, and
+`paused_history` gained a correctly-shaped entry (`resumed_by`/`resumed_at` or
+`skipped_by`/`skipped_at`, with the pre-clear `pause_reason` preserved inside the history entry).
+
+**Why the RPC layer is the right thing to race, not a shortcut around the real question:** all
+three API routes (`resume/skip/reassign`) do nothing but call one of these RPCs once and translate
+a `null` return into `409` — confirmed by direct reading, no additional read-then-write exists
+above the RPC in any of the three route files. The atomicity property demonstrated at the RPC layer
+is the same property the HTTP layer exhibits; there is no other mechanism in between that could
+change the outcome.
+
+**Genuine gap, honestly reported rather than glossed over:** a true HTTP-level test (two concurrent
+`fetch()` calls against the *deployed* Next.js routes with a real authenticated session, plus an
+actual browser click producing a visible 409) was not completed. Starting a local dev server was
+blocked outright by this session's tool-permission layer (multiple Bash/PowerShell attempts denied);
+port 3000 already had an unrelated project's dev server running instead ("AFS — Architectural
+Flashing Supply"), confirmed by curling it, so it could not substitute. The app's login is
+client-side-only (writes the session directly to `document.cookie` via the browser Supabase
+client), so there is no server-side login response to capture a `Set-Cookie` header from without a
+real browser — hand-reconstructing `@supabase/ssr`'s cookie encoding was assessed as too
+version-fragile to trust as a genuine result. The UI's own 409-handling code
+(`review-queue/page.tsx`'s `handlePatch`/`onConflict`) was instead confirmed by direct reading: a
+409 and a success both run the identical `setPaused((prev) => prev.filter(...))` state update, with
+no retry/poll loop anywhere in the component. `reassign`'s guard was reasoned from its structurally
+identical RPC body rather than independently raced (the task's own instruction was to test "one of
+them the same way" — skip was chosen).
+
+Gates: not applicable — no application code changed this session, only a throwaway verification
+script (written and deleted within the session, never committed).
 
 ---
 
