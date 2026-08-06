@@ -1,10 +1,72 @@
 # BENAVORA — Session State
-## Last Updated: August 6, 2026 (all 55 remaining ANON_GRANT_AUDIT.md Category C tables closed)
-## Mode: RLS remediation complete for anon exposure — all 162 tables in the public schema now block anon SELECT/INSERT/UPDATE/DELETE. See ANON_GRANT_AUDIT.md §8/§8a and STATE_OF_THE_BUILD.md's matching session entry for full detail.
+## Last Updated: August 6, 2026 (submission_queue error-visibility fix)
+## Mode: fixed the confirmed root cause behind AutoApply's "ready org ends failed/skipped, no downstream rows" gap — see this session's entry below and STATE_OF_THE_BUILD.md's matching entry for full evidence.
 
 ---
 
-## Current Session — August 6, 2026 (RLS remediation: 55 remaining Category C tables)
+## Current Session — August 6, 2026 (AutoApply: submission_queue missing error_message/risk_score/risk_factors columns)
+
+**Task:** fix the confirmed root cause behind the 2026-08-04 finding that a properly-seeded *ready*
+org's AutoApply pipeline ends in a terminal state with no explanation anywhere in the database.
+
+**Diagnosis (live evidence, summarized — full detail in `STATE_OF_THE_BUILD.md`'s matching entry):**
+- `automation_sessions.session_type` (one of three candidate causes named in the task): confirmed
+  **live and present** via PostgREST OpenAPI — ruled out, not a bug today.
+- `submission_queue.risk_score`/`.risk_factors` (migration 052's `ALTER TABLE submission_queue`):
+  confirmed **missing live** — that migration's statements for this table were never applied.
+  Reproduced with the existing live test (`autoapply-risk-scoring.test.ts`, "columns exist and are
+  readable" assertion failed as expected before the fix).
+- Read every terminal-state write path in `worker/queue-processor.ts`'s main loop directly and found
+  the real, previously-undocumented root cause: `submission_queue.error_message` **also does not
+  exist live**, yet the `AccountSetupRequiredError` branch already writes it — meaning that entire
+  `.update({status, error_message, completed_at})` call (all three fields, not just the one) has been
+  silently no-op-ing in production, since PostgREST rejects the whole request on any missing column
+  and the code never checked the update's `{error}` return. The `SkipError`/generic-`Error` branches
+  (the two paths that actually fire for a ready org) never even attempted to persist a reason — every
+  `skipped`/`failed` row in this table's history has carried zero diagnostic information.
+- Attempted to invoke `QueueProcessor.processItem()` directly to capture the real thrown error/stack
+  trace locally (Railway console logs aren't reachable from this session). Blocked: importing
+  `queue-processor.ts` transitively imports `worker/index.ts` (via `rate-limiter.ts`), whose
+  module-level `validateEnv()` either `process.exit(1)`s or fully boots the entire worker (scheduler,
+  DD processor, stream server) as a side effect — unsafe to run against production from an ad hoc
+  script. Not resolved this session; a real testability gap worth a future refactor.
+- Re-ran the existing live end-to-end test (`autoapply-queue.test.ts`, "real queue item for a ready
+  org") twice against the real deployed Railway worker with a genuinely ready org — reproduced the
+  exact 2026-08-04 symptom both times (`skipped` after ~65–83s, zero `automation_sessions`/
+  `autoapply_submissions` rows), confirming it's still live and current, not stale.
+
+**Fix:**
+- `supabase/migrations/125_submission_queue_error_visibility.sql` — adds `error_message text`,
+  `risk_score integer`, `risk_factors jsonb` to `submission_queue` via targeted
+  `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`. Applied live via `DATABASE_URL`/psql
+  (`STANDING_DIRECTIVES.md` DIRECTIVE-017), verified afterward via a fresh PostgREST OpenAPI schema
+  read — all three columns confirmed present.
+- `worker/queue-processor.ts`: every terminal-state `.update()` in the main loop's catch block
+  (`AccountSetupRequiredError`, `SkipError`, `CaptchaPauseError`, generic `Error`) now checks the
+  write's `{error}` and `console.error`s it on failure — a future schema gap on this table will fail
+  loudly, not silently. `SkipError`/generic-`Error` now persist `error_message` for the first time.
+  The risk-engine `'manual'`-route write also gets the same error-check treatment.
+- Re-ran `autoapply-risk-scoring.test.ts` live post-fix: all 7 tests pass, including the previously-
+  failing live persistence round-trip.
+
+**What remains genuinely unresolved, stated honestly:** the exact `SkipError` message for the
+"ready org, real form, ends skipped after ~70s" scenario itself was not captured this session (no
+Railway log access, direct local invocation blocked as above). The strongest candidate based on code
+reading — `FormAnalyzerAgent`'s two parallel, unwrapped Claude calls (`new Anthropic()`, no explicit
+timeout, SDK default retry) — fits the observed ~65-83s timing far better than any DB-only gate check
+earlier in the pipeline, but this is a hypothesis, not confirmed. **The concrete, verified result of
+this fix is that once it deploys to Railway, the next occurrence of this scenario will record its
+real reason in `submission_queue.error_message`, readable directly from the database** — closing the
+actual diagnosability gap the task described, independent of what that reason turns out to be.
+
+**Commit:** `fix(autoapply): resolve ready-org full-pipeline failure (real root cause from live diagnosis)` (this session).
+**Gates:** `pnpm tsc --noEmit` (worker/tsconfig.json) — 0 errors. Full-project `tsc --noEmit` — 0
+errors outside pre-existing, unrelated `src/__tests__/**` failures (none in `worker/` or the new
+migration).
+
+---
+
+## Prior Session — August 6, 2026 (RLS remediation: 55 remaining Category C tables)
 
 **Task:** close the 55 tables `ANON_GRANT_AUDIT.md` §5 documented as still fully open to `anon`
 (RLS disabled, zero policies) after the prior two remediation passes fixed 12 tables and closed a

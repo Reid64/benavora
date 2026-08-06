@@ -322,7 +322,7 @@ export class QueueProcessor {
       } catch (err) {
         if (err instanceof AccountSetupRequiredError) {
           console.log(`[QueueProcessor] Item ${item.id} requires account setup: ${err.message}`);
-          await this.supabase
+          const { error: updateErr } = await this.supabase
             .from('submission_queue')
             .update({
               status: 'requires_account_setup',
@@ -330,13 +330,22 @@ export class QueueProcessor {
               completed_at: new Date().toISOString(),
             })
             .eq('id', item.id);
+          if (updateErr) {
+            console.error(
+              `[QueueProcessor] Failed to persist requires_account_setup for item ${item.id}:`,
+              updateErr.message,
+            );
+          }
           await heartbeat.incrementProcessed();
         } else if (err instanceof SkipError) {
           console.log(`[QueueProcessor] Item ${item.id} skipped: ${err.message}`);
-          await this.supabase
+          const { error: updateErr } = await this.supabase
             .from('submission_queue')
-            .update({ status: 'skipped', completed_at: new Date().toISOString() })
+            .update({ status: 'skipped', error_message: err.message, completed_at: new Date().toISOString() })
             .eq('id', item.id);
+          if (updateErr) {
+            console.error(`[QueueProcessor] Failed to persist skip reason for item ${item.id}:`, updateErr.message);
+          }
           await heartbeat.incrementProcessed();
         } else if (err instanceof CaptchaPauseError) {
           console.log(
@@ -359,7 +368,7 @@ export class QueueProcessor {
           // Deliberately no completed_at: a paused item is not terminal, it is
           // awaiting a human resume (§10C), which retries from the top on the
           // next queue pass rather than continuing this attempt.
-          await this.supabase
+          const { error: pauseUpdateErr } = await this.supabase
             .from('submission_queue')
             .update({
               status: 'paused_verification',
@@ -372,14 +381,23 @@ export class QueueProcessor {
               ],
             })
             .eq('id', item.id);
+          if (pauseUpdateErr) {
+            console.error(
+              `[QueueProcessor] Failed to persist paused_verification for item ${item.id}:`,
+              pauseUpdateErr.message,
+            );
+          }
           await heartbeat.incrementProcessed();
         } else {
           const msg = err instanceof Error ? err.message : String(err);
           console.error(`[QueueProcessor] Item ${item.id} failed: ${msg}`);
-          await this.supabase
+          const { error: failUpdateErr } = await this.supabase
             .from('submission_queue')
-            .update({ status: 'failed', completed_at: new Date().toISOString() })
+            .update({ status: 'failed', error_message: msg, completed_at: new Date().toISOString() })
             .eq('id', item.id);
+          if (failUpdateErr) {
+            console.error(`[QueueProcessor] Failed to persist failure reason for item ${item.id}:`, failUpdateErr.message);
+          }
           await heartbeat.incrementFailed();
         }
       }
@@ -1001,7 +1019,7 @@ export class QueueProcessor {
 
       if (riskAssessment.recommendation === 'manual') {
         // Route to manual queue â€” store risk metadata and skip automated processing
-        await this.supabase
+        const { error: riskUpdateErr } = await this.supabase
           .from('submission_queue')
           .update({
             automation_mode: 'manual',
@@ -1010,6 +1028,12 @@ export class QueueProcessor {
             risk_factors: riskAssessment.factors,
           })
           .eq('id', queueItemId);
+        if (riskUpdateErr) {
+          console.error(
+            `[QueueProcessor] Failed to persist pending_manual risk routing for item ${queueItemId}:`,
+            riskUpdateErr.message,
+          );
+        }
 
         if (riskAssessment.shouldNotify) {
           void this.webhookNotifier.notify({
