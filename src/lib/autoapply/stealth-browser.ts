@@ -382,7 +382,6 @@ export class StealthBrowser {
       geolocation: tz.geolocation,
       permissions: ["geolocation"],
       deviceScaleFactor: 1,
-      recordVideo: { dir: '/tmp/recordings', size: { width: 960, height: 540 } },
     });
 
     await context.addInitScript({
@@ -410,10 +409,13 @@ export class StealthBrowser {
   }
 
   /**
-   * Returns the path to the recorded video file after the browser context has
-   * been closed (via context.close() or browser.close()). The .webm file is not
-   * written to disk until the context is fully closed, so this must only be
-   * called after close completes. Returns null if no recording was captured.
+   * launch() no longer requests recordVideo on the context (the worker's Docker
+   * image has no ffmpeg binary for Playwright's video recorder — see AGENT_
+   * VERIFICATION_LOG.md's 2026-08-06 "AutoApply Ready-Org Pipeline Fix" entry),
+   * so this always returns null now. Left in place — callers already treat null
+   * as "no recording" and skip the upload — rather than ripping out the whole
+   * downstream recording pipeline (session_recordings table, /autoapply/recordings
+   * page), which stays intact for if/when video recording is reinstated.
    */
   async getRecordingPath(): Promise<string | null> {
     if (this._page === null) return null;
