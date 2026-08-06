@@ -5193,3 +5193,161 @@ tables from the untouched Category B set, against the real production PostgREST 
 local JSON file for this write-up, then the throwaway script and its output file
 (`scripts/_verify-anon-remediation.mjs`, `scripts/_verify-anon-results.json`) were deleted after
 use — nothing left in the repo besides this log entry.
+
+---
+
+## AutoApply Ready-Org Pipeline Fix — re-verification, 2026-08-06
+
+**Spec under test:** whether commit `3a02cf5` (`fix(autoapply): resolve ready-org full-pipeline
+failure (real root cause from live diagnosis)`) actually made `src/__tests__/integration/
+autoapply-queue.test.ts`'s "real queue item for a ready org: proceeds past org_not_ready into real
+submission logic" test pass — i.e., whether a properly-seeded ready org's queue item now produces
+real `automation_sessions`/`autoapply_submissions` rows instead of terminating with no downstream
+evidence. That prior session was explicit that it had **not** confirmed this — its own entry states
+"What remains genuinely unresolved... the exact `SkipError` message... was not captured this
+session," and its "concrete, verified result" was limited to error-message columns now existing,
+not to the pipeline actually succeeding. This entry closes that open question with a live re-run,
+not an assumption.
+
+**Verdict: the diagnosability fix works exactly as designed — but the underlying pipeline still
+does not succeed for a ready org. Re-running the identical live test reproduced the identical
+symptom (terminal state, zero `automation_sessions`/`autoapply_submissions` rows) — the only
+difference from before is that the real root cause is now visible, for the first time, in
+`submission_queue.error_message`. It is a distinct, previously-undocumented environment defect in
+the Railway worker's Docker image (a missing `ffmpeg` binary Playwright's video recorder requires),
+unrelated to `org_not_ready`, `automation_level`, or anything else previously suspected.**
+
+### Step 1 — re-ran the exact same test file, unmodified, against the real deployed Railway worker
+
+`git status`/`git log` confirmed the fix commit (`3a02cf5`) was already on `main` and already pushed
+to `origin/main` before this session started (`railway.json`'s `watchPatterns` includes `worker/**`,
+so a push to `main` triggers an automatic Railway rebuild+redeploy of `benavora-worker` — no manual
+deploy step was needed or performed).
+
+Ran `src/__tests__/integration/autoapply-queue.test.ts` for real via `pnpm vitest run` (no mocks —
+this suite has no local/mocked worker; the `pending → processing → terminal` transition is driven
+entirely by the real, long-running Railway worker polling the real production `submission_queue`
+table). Full result, 6 tests:
+
+```
+✓ checkOrgReadiness() reports NOT ready when request_profiles/org_documents/KB fields are missing   412ms
+✓ checkOrgReadiness() reports ready when an active profile and both required documents are present   431ms
+✓ real queue item for an unready org: pending -> processing -> skipped, blocked by org_not_ready near-instantly   10888ms
+× real queue item for a ready org: proceeds past org_not_ready into real submission logic   63463ms
+  → expected the ready org to progress past org_not_ready into real submission logic; final queue
+    status was "skipped" with no automation_sessions/autoapply_submissions rows created: expected
+    false to be true
+✓ assessSubmissionRisk(): 'assisted' and 'full_auto' currently produce identical scores   998ms
+✓ assessSubmissionRisk(): 'manual_only' adds a real +40 point risk factor and forces a manual route   1128ms
+
+Test Files  1 failed (1)
+     Tests  1 failed | 5 passed (6)
+```
+
+**Same failure as before the fix** — a "ready" org (active `request_profiles` row, both required
+`documents` rows present, real `mission_statement`/`ein`/`founder_name`/etc.) still ends in a
+terminal state with zero `automation_sessions`/`autoapply_submissions` rows. The fix commit's own
+stated goal — closing the diagnosability gap — did not, and was never claimed to, guarantee the
+pipeline itself would start succeeding; this run confirms that gap is still open.
+
+### Step 2 — independent live reproduction, outside the test's own cleanup, to read the now-visible root cause directly
+
+The vitest suite's `afterAll` deletes every row it creates (including the failing queue item)
+before the process exits, so `error_message`/`risk_score`/`risk_factors` — the exact columns the
+prior session's fix added — were never inspected in Step 1. Wrote a standalone script
+(`diagnose-autoapply-skip.mjs`, real `@supabase/supabase-js` service-role client, the same
+`ws`-polyfill pattern every other live-DB script/suite in this repo uses on Node 20, no mocks)
+that reproduces the test's exact "ready org" fixture (org with real `mission_statement`/`ein`/
+`founder_name`/`contact_email`/`phone`, one active `request_profiles` row, both required
+`tax_documents` category `documents` rows, a funder pointed at the same safe dummy target
+`https://httpbin.org/forms/post` the test suite uses), inserts a `pending` `submission_queue` row,
+polls to a terminal state, **reads the full row back before deleting anything**, then cleans up.
+
+Real result, live production database, this session:
+
+```json
+{
+  "status": "failed",
+  "started_at": "2026-08-06T09:11:28.608+00:00",
+  "completed_at": "2026-08-06T09:11:37.587+00:00",
+  "error_message": "browserContext.newPage: Executable doesn't exist at /root/.cache/ms-playwright/ffmpeg-1011/ffmpeg-linux\n╔═════════════════════════════════════════════════════════════════╗\n║ Video rendering requires ffmpeg binary.                         ║\n║ Downloading it will not affect any of the system-wide settings. ║\n║ Please run the following command:                               ║\n║                                                                 ║\n║     npx playwright install ffmpeg                               ║\n║                                                                 ║\n║ <3 Playwright Team                                              ║\n╚═════════════════════════════════════════════════════════════════╝",
+  "risk_score": null,
+  "risk_factors": null
+}
+```
+`automation_sessions` for this funder: **0 rows**. `autoapply_submissions` for this funder: **0
+rows**. Independently re-confirmed by direct `select("*")` against both tables after the run
+claimed a terminal status — not inferred from the queue row alone, and not trusted from any
+in-process return value.
+
+**This is the fix working exactly as intended, and simultaneously proof the underlying pipeline
+still doesn't work.** Before commit `3a02cf5`, this exact failure mode produced `error_message:
+null` on every terminal row — the prior session verified that directly (the `AccountSetupRequiredError`
+branch's write was silently no-op-ing on the missing column, and the `SkipError`/generic-`Error`
+branches never even attempted to persist a reason). This session's run is the first time in this
+project's history that a `failed`/`skipped` `submission_queue` row has ever carried a real,
+diagnosable reason — and that reason turns out to be a genuine, previously-undocumented defect
+unrelated to every prior hypothesis (`org_not_ready`, `automation_level`, `FormAnalyzerAgent`
+timeout).
+
+### Step 3 — root-caused the real defect, not just the error text
+
+Traced `browserContext.newPage()`'s call site: `src/lib/autoapply/stealth-browser.ts:377-398`.
+`browser.newContext({ ..., recordVideo: { dir: '/tmp/recordings', size: { width: 960, height: 540 } } })`
+requests session-recording video — a real, intentional feature (session recordings are shown in the
+AutoApply review UI per `FEATURE_REGISTRY_v2.md`'s automation-monitor rows) — and Playwright's video
+recorder needs its own bundled `ffmpeg` binary to start recording. `context.newPage()` throws
+immediately, before any form-fill/submission logic runs, if that binary isn't present.
+
+Cross-checked against `worker/Dockerfile`: it installs the system `chromium` apt package and sets
+`PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` specifically to skip Playwright's own multi-hundred-MB browser
+download (a deliberate optimization — see the in-code comment at `stealth-browser.ts:362-371`
+documenting a *related*, already-fixed 2026-08-05 defect: that env var being set but never actually
+passed as `executablePath`). **`PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` also skips Playwright's
+separately-downloaded `ffmpeg` binary** — the system `chromium` apt package provides a chromium
+binary but no equivalent for Playwright's own ffmpeg build, and the Dockerfile never runs `npx
+playwright install ffmpeg` to fetch it independently. So every session that reaches
+`context.newPage()` in this container is guaranteed to hit this exact error, unconditionally — not
+a flake, not data-dependent, a deterministic environment gap.
+
+**Not fixed in this session** — out of this task's scope (live-verification only, per the task's own
+`test(...)` framing) and because two materially different fixes are both plausible (add a Dockerfile
+`RUN npx playwright install ffmpeg` step; or drop `recordVideo` from the context entirely if session
+recordings aren't load-bearing enough to justify the extra image size) and the right one is a product
+call, not a mechanical one this pass should make unilaterally.
+
+### Root-cause summary
+
+1. **The prior session's fix (migration 125 + `queue-processor.ts` error-checked writes) works as
+   designed** — `submission_queue.error_message` is now genuinely populated on a real failure,
+   confirmed live, for the first time in this project's history.
+2. **The ready-org pipeline itself is still broken** — re-running the identical test reproduced the
+   identical terminal symptom (no `automation_sessions`/`autoapply_submissions` rows) both times.
+   Do not read the prior session's commit title ("resolve ready-org full-pipeline failure") as
+   meaning the pipeline was fixed — it fixed diagnosability, not the failure itself, and this
+   session's evidence is the first confirmation of that distinction.
+3. **New, precisely diagnosed root cause**: `StealthBrowser.launch()`'s `recordVideo` context option
+   requires an `ffmpeg` binary the worker's Docker image never installs (a side effect of the
+   `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` optimization), so `context.newPage()` throws unconditionally
+   for every session — before `automation_sessions`/`autoapply_submissions` are ever written. This
+   supersedes every prior hypothesis in `SESSION_STATE.md`'s 2026-08-06 entry (`FormAnalyzerAgent`
+   timeout, DB-only gate check) — those were reasoned guesses made without log access; this is a
+   directly observed error string from a live run.
+
+**Recommendation:** either add `RUN npx playwright install ffmpeg` to `worker/Dockerfile` (keeps
+session recordings, adds image size/build time), or remove `recordVideo` from
+`stealth-browser.ts`'s `newContext()` call if recordings aren't essential (smaller image, no
+behavior change otherwise) — then re-run this exact test a third time to confirm real
+`automation_sessions`/`autoapply_submissions` rows finally appear.
+
+**Verification method:** live `pnpm vitest run` of the real, unmodified
+`autoapply-queue.test.ts` against the real deployed Railway worker and real production database
+(project `vbjplpquqxxfbpazyalt`), no mocks; a second, independent live reproduction
+(`diagnose-autoapply-skip.mjs`, real service-role Supabase client, no mocks) that inserts the same
+real fixture and reads the terminal row back *before* cleanup runs, specifically to inspect
+`error_message`/`risk_score`/`risk_factors`/`automation_sessions`/`autoapply_submissions` directly
+rather than trusting the vitest assertion's summary; direct reading of
+`src/lib/autoapply/stealth-browser.ts` and `worker/Dockerfile` to root-cause the error text rather
+than stopping at "test still fails." Both the vitest run's output log and the diagnostic script were
+temporary artifacts of this session; the diagnostic script and its output are not committed (deleted
+after use), matching this log's established convention for throwaway verification tooling.

@@ -1,10 +1,58 @@
 # BENAVORA — Session State
-## Last Updated: August 6, 2026 (submission_queue error-visibility fix)
-## Mode: fixed the confirmed root cause behind AutoApply's "ready org ends failed/skipped, no downstream rows" gap — see this session's entry below and STATE_OF_THE_BUILD.md's matching entry for full evidence.
+## Last Updated: August 6, 2026 (AutoApply ready-org pipeline re-verification: still fails, new real root cause found)
+## Mode: re-ran the exact live test the prior session's error-visibility fix was meant to unblock — the diagnosability fix works (error_message now populates), but the ready-org pipeline itself still produces zero automation_sessions/autoapply_submissions rows. New, precisely diagnosed cause: worker/Dockerfile never installs Playwright's ffmpeg binary, so StealthBrowser's recordVideo context option throws on every session. See this session's entry below, AGENT_VERIFICATION_LOG.md's "AutoApply Ready-Org Pipeline Fix" entry, and STATE_OF_THE_BUILD.md's matching entry for full evidence.
 
 ---
 
-## Current Session — August 6, 2026 (AutoApply: submission_queue missing error_message/risk_score/risk_factors columns)
+## Current Session — August 6, 2026 (AutoApply ready-org pipeline re-verification: still fails, real root cause found)
+
+**Task:** re-run the exact same live test that reproduced the ready-org pipeline failure in the
+prior session (the one commit `3a02cf5`'s error-visibility fix was meant to make diagnosable),
+against the same real ready-seeded org, no mocks — and independently re-query
+`automation_sessions`/`autoapply_submissions` after the test completes, rather than trusting the
+pipeline's own return value.
+
+**Result: the pipeline still fails end to end.** Re-ran `src/__tests__/integration/
+autoapply-queue.test.ts` live against the real deployed Railway worker (already redeployed
+automatically from the prior session's push, per `railway.json`'s `worker/**` watch pattern — no
+manual deploy needed). The "real queue item for a ready org" test failed identically to before:
+final status `skipped`, zero `automation_sessions`/`autoapply_submissions` rows for the funder —
+confirmed both by the vitest assertion itself and, independently, by a standalone script that
+reproduced the same real fixture and read the terminal row back *before* the test's own cleanup
+deleted it.
+
+**But the fix from the prior session genuinely works as intended.** That independent reproduction
+captured, for the first time in this project's history, a real, non-null `error_message` on a
+terminal `submission_queue` row: `browserContext.newPage: Executable doesn't exist at
+/root/.cache/ms-playwright/ffmpeg-1011/ffmpeg-linux ... Video rendering requires ffmpeg binary.`
+Traced to a real, previously-undocumented environment defect: `StealthBrowser.launch()`
+(`src/lib/autoapply/stealth-browser.ts:385`) requests `recordVideo` on every browser context, which
+needs Playwright's own `ffmpeg` binary — but `worker/Dockerfile` sets
+`PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` (a deliberate optimization to use the system `chromium` apt
+package instead of Playwright's multi-hundred-MB download) and never separately runs `npx
+playwright install ffmpeg`, so that binary is never present in the container. Every session hits
+this unconditionally, before any form-fill/submission logic runs — not a flake, not data-dependent.
+
+This supersedes every prior hypothesis for the ready-org symptom (`FormAnalyzerAgent` timeout,
+a DB-only gate check) — those were reasoned guesses made without log access in the prior session;
+this is a directly observed error string from a live run, made visible only because of that
+session's fix.
+
+**Not fixed this session** — out of scope for a live-verification pass, and because two materially
+different real fixes exist (add the missing `playwright install ffmpeg` step to the Dockerfile, or
+drop `recordVideo` entirely if session recordings aren't essential) and choosing between them is a
+product call, not a mechanical one.
+
+**Full evidence, both live runs (vitest suite + standalone reproduction script) with raw output:**
+`AGENT_VERIFICATION_LOG.md`, "AutoApply Ready-Org Pipeline Fix — re-verification, 2026-08-06."
+
+**Commit:** `test(autoapply): re-verify ready-org pipeline still fails end to end, new root cause found (ffmpeg missing in worker image)` (this session).
+**Gates:** not applicable — no production code changed this session (docs + a temporary, deleted
+verification script only).
+
+---
+
+## Prior Session — August 6, 2026 (AutoApply: submission_queue missing error_message/risk_score/risk_factors columns)
 
 **Task:** fix the confirmed root cause behind the 2026-08-04 finding that a properly-seeded *ready*
 org's AutoApply pipeline ends in a terminal state with no explanation anywhere in the database.
