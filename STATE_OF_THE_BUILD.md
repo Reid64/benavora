@@ -1,8 +1,58 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 4, 2026 (DNS/domain task re-run — session sandbox blocked all live re-verification; no new evidence gathered, prior findings unchanged). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 6, 2026 (governance preflight sync — corrected stale AutoApply status, re-confirmed 3 other claims live). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 6, 2026 (governance preflight sync, ahead of the queue-20..25 chain)
+
+Docs-only preflight, no application code touched. Read this file, `SESSION_STATE.md`,
+`AGENT_VERIFICATION_LOG.md`, and `NOT_BUILT_MASTER_INVENTORY.md` end to end, then live-checked 4
+specific claims rather than trusting them as written.
+
+**Found real drift on one of the four (the AutoApply "ready org still fails" line below, in the
+Aug 4 session entry) — corrected here rather than left for a downstream queue to trip over.** A
+same-day commit (`4ffbe41`, 2026-08-04 22:13, "commit uncommitted queue work from earlier today")
+landed *after* the Aug 4 entry below was written and already fixed 2 of the 3 real bugs behind that
+failure and root-caused/code-fixed the third — but this file's headline summary was never updated
+to reflect it. Full write-up is in `AGENT_VERIFICATION_LOG.md`'s "AutoApply bugs 1 & 2 — genuinely
+fixed and verified live; bug 3 root-caused, code fixed, full pipeline re-verification blocked by a
+real Railway deployment issue" entry. Corrected status, with today's live re-checks noted:
+
+- **Bug 1** (`checkOrgReadiness()` querying the wrong, permanently-empty `org_documents` table
+  instead of the real `documents` table) — fixed in `4ffbe41`. Not independently re-tested live
+  today; a straightforward query-target fix with no external-service dependency.
+- **Bug 2** (`automation_sessions.session_type` — migration 020 defined it but it was never applied
+  to production) — fixed in `4ffbe41` via a live `psql`/`DATABASE_URL` apply. **Re-confirmed live
+  today**: the column exists in production right now.
+- **Bug 3** ("ready org still fails") — root-caused via real Railway logs to `stealth-browser.ts`
+  never reading the `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` env var the worker's own Dockerfile sets.
+  **Code fix is committed** (`4ffbe41`), but as of Aug 4 the fix had **not been confirmed to reach
+  the deployed Railway worker** — two redeploy attempts failed/hung, and a post-attempt log check
+  showed the old pre-fix behavior still running. No commit or log entry since Aug 4 touches this
+  (checked through today's `0151386`, which is docs-only for a different feature). **Current live
+  state is genuinely unverified, not "still fails, undiagnosed"** — the failure below should not be
+  read as an open, unfixed bug; it should be read as "fixed in code, deployment status unconfirmed."
+  A `railway status` check was attempted this session and blocked by the sandbox's network-approval
+  gate — the next queue that touches AutoApply should check this directly before assuming either way.
+
+**Other three claims checked live, found accurate, no correction made:**
+- **AG-22 / dead local `ANTHROPIC_API_KEY`** — still current. Most recent `ag22_propensity_scoring`
+  `agent_runs` row (2026-08-03) still shows `status: failed`, real `401 API key is invalid`; a fresh
+  direct call to the Anthropic API with the exact `.env.local` key just now returned the same `401`.
+- **`AUTOAPPLY_ARCHITECTURE_V2.md` §10** (Gmail Confirmation Monitor, CAPTCHA/Verification Pause,
+  Human Review Queue UI) — confirmed present (§10A/§10B/§10C all in the file) and commit `0151386`
+  confirmed present in `git log` with the exact quoted message.
+- **`ANON_GRANT_AUDIT.md` §8's "55 of 162 tables remain completely untouched"** — spot-checked 3
+  (`agent_configurations`, `funder_credentials`, `platform_admins`) via live
+  `pg_class.relrowsecurity` — all 3 still `f` (RLS disabled), matching the doc.
+
+`AGENTS_v2.md`, `FEATURE_REGISTRY_v2.md`, and `NOT_BUILT_MASTER_INVENTORY.md` were read but not
+modified — none of the four checks contradicted a factual claim in them.
+
+Gates: not applicable — docs-only, no code changed.
 
 ---
 

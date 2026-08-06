@@ -1,10 +1,63 @@
 # BENAVORA — Session State
-## Last Updated: August 4, 2026
-## Mode: AutoApply + Research comprehensive live verification; Research wiring gaps resolved; TEOS enrichment attempted but blocked by real system memory constraints (0.49GB free of 15.42GB) — only 1 of 12 zips complete
+## Last Updated: August 6, 2026 (governance preflight sync)
+## Mode: AutoApply bugs 1+2 fixed & live-verified, bug 3 root-caused/code-fixed but blocked on a Railway redeploy issue; AG-22's dead ANTHROPIC_API_KEY re-confirmed still current; ANON_GRANT_AUDIT.md §8's 55-untouched-table figure re-confirmed accurate
 
 ---
 
-## Current Session (most recent)
+## Governance preflight sync — August 6, 2026 (no application code touched, docs-only)
+
+Ran ahead of the queue-20..25 chain to correct drift found between what's actually committed and
+what the two "current session" summaries below (both still headed "August 4, 2026") described.
+**The "properly-seeded ready org's full-pipeline test still ends `failed`, undiagnosed" line below
+is stale as of this sync** — a later commit the same day (`4ffbe41`, 2026-08-04 22:13, titled
+"commit uncommitted queue work from earlier today") already fixed 2 of the 3 real bugs behind that
+failure and root-caused/code-fixed the third. Full detail lives in
+`AGENT_VERIFICATION_LOG.md`'s "AutoApply bugs 1 & 2 — genuinely fixed and verified live; bug 3
+root-caused, code fixed, full pipeline re-verification blocked by a real Railway deployment issue"
+entry — that entry was never surfaced up into this file's headline summary, which is the drift this
+sync closes. Corrected status, live-reconfirmed today (2026-08-06), not just re-read from the log:
+
+- **Bug 1 (`org_documents` "regression")** — was a wrong-table bug, not data loss:
+  `checkOrgReadiness()` was querying the empty `org_documents` table while real documents live in
+  `documents`. Fixed in commit `4ffbe41`. Not independently re-tested live today, but the fix is a
+  straightforward query-target correction with no dependency on external services — no reason to
+  doubt it's held.
+- **Bug 2 (`automation_sessions.session_type` migration never applied)** — fixed in the same commit
+  via a live `psql`/`DATABASE_URL` apply. **Re-confirmed live today**: `session_type` exists on
+  `automation_sessions` in production right now (`information_schema.columns` query, this session).
+- **Bug 3 ("ready org still fails")** — root-caused via real Railway logs to a Playwright
+  executable-path gap (`stealth-browser.ts` never read the `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` env
+  var the Dockerfile sets). **Code fix is committed** (`4ffbe41`), but **full live re-verification
+  was blocked as of Aug 4** — two `railway up`/`railway redeploy` attempts failed/hung, and a
+  post-attempt Railway log check confirmed the deployed worker was still running the pre-fix
+  `checkOrgReadiness()` message. **No commit or log entry since Aug 4 touches this** (checked
+  `git log` through today's `0151386`, which is docs-only) — so as of this sync, bug 3's live state
+  is still genuinely unknown/unverified, not "still ends failed, undiagnosed" (the root cause is
+  known and the code is fixed) and not "confirmed working" either (the fix was never confirmed to
+  reach the deployed worker). A live Railway status check was attempted this session and blocked by
+  the sandbox's network-approval gate — flagging for whichever queue in the chain next touches
+  AutoApply to check `railway status` directly before assuming either outcome.
+- **AG-22 / dead local `ANTHROPIC_API_KEY`** — re-confirmed still current, not resolved by an
+  intervening key rotation: the most recent `agent_runs` row for `ag22_propensity_scoring`
+  (2026-08-03, live-queried this session) still shows `status: failed` with the real `401 API key is
+  invalid` error, and a fresh live call to the Anthropic API using the exact key in `.env.local`
+  returned the identical `401` just now. Nothing has changed here since the log's prior findings.
+- **`ANON_GRANT_AUDIT.md` §8's "55 of 162 tables remain completely untouched"** — spot-checked 3 of
+  the listed 55 (`agent_configurations`, `funder_credentials`, `platform_admins`) live via
+  `pg_class.relrowsecurity` — all 3 confirmed `f` (RLS still disabled), matching the doc. No
+  correction needed; figure still accurate.
+- **`AUTOAPPLY_ARCHITECTURE_V2.md` §10 (Gmail Confirmation Monitor / CAPTCHA-Verification Pause /
+  Human Review Queue UI)** — confirmed live in the file (§10A/§10B/§10C all present) and confirmed
+  the commit message quoted in the queue chain's premise (`0151386`) is real and present in
+  `git log`. No correction needed.
+
+No application code was written this session. `AGENTS_v2.md`, `FEATURE_REGISTRY_v2.md`, and
+`NOT_BUILT_MASTER_INVENTORY.md` were read but not modified — none of the four checks above
+contradicted a factual claim in them.
+
+---
+
+## Prior Session (August 4, 2026 — superseded in part by the sync above; kept verbatim for history)
 
 **Date:** August 4, 2026
 **Focus:** Three workstreams. (1) AutoApply comprehensive live test — 4 existing integration test
