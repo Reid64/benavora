@@ -3,6 +3,10 @@
 ## Status: `anon` EXPOSURE FULLY REMEDIATED across all 162 tables (SELECT/INSERT/UPDATE/DELETE) —
 ## see §8 for exactly what changed and what's still open (`authenticated`'s TRUNCATE grant on ~95+
 ## tables, and the separately-tracked 24-of-100 cross-org SELECT leak list in RLS_POLICY_AUDIT.md).
+## Independently re-verified 2026-08-06: all 55 tables from the third remediation pass re-tested
+## from a fresh script against live production (not by re-reading the remediation's own report) —
+## 55/55 confirmed blocked for a real unauthenticated request, zero leaks. Full per-table results in
+## AGENT_VERIFICATION_LOG.md's "ANON_GRANT_AUDIT — remaining Category C" entry.
 ## Date: August 3, 2026 (discovery pass); three remediation passes same day.
 ## Scope: All 162 real tables (`pg_class.relkind = 'r'`) live in the `public` schema, production project `vbjplpquqxxfbpazyalt`, queried directly via `DATABASE_URL`.
 
@@ -57,6 +61,15 @@ authenticated policy at all) correctly raises `permission denied`; (4) cross-ten
 explicitly re-tested by simulating a **different** org's user against the same real data — `SELECT
 count(*)` returned `0` (not 2) and an `UPDATE ... WHERE organization_id = 'b1ab7402-...'` affected
 `0` rows, confirming the org boundary actually holds, not just that a query returns without error.
+
+**Independently re-verified 2026-08-06 (separate session, fresh script, not a re-read of the above):**
+all 55 tables re-probed with a plain, unauthenticated `fetch` against the live production PostgREST
+endpoint using only the anon key — 55/55 confirmed blocked (`HTTP 401`, i.e. the underlying grant
+revocation itself, not just an RLS-policy-driven empty response). 5 control tables from the
+untouched Category B set (`opportunities`, `applications`, `funders`, `organizations`,
+`knowledge_base`) were also re-checked and confirmed unchanged from their pre-existing secured
+state — no regression from this pass's migrations. Full per-table results in
+`AGENT_VERIFICATION_LOG.md`'s "ANON_GRANT_AUDIT — remaining Category C" entry.
 
 **Remaining, explicitly not touched by any pass:** the 95 `TRUNCATE`-hardened-only tables' other
 policies were not re-audited here either (same scope boundary as the second pass — see

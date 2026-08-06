@@ -1,8 +1,43 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 6, 2026 (all 55 remaining ANON_GRANT_AUDIT.md Category C tables closed — RLS enabled + anon revoked across the full 162-table schema — see below). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 6, 2026 (independent re-verification: all 55 remaining ANON_GRANT_AUDIT.md Category C tables confirmed blocked live via a fresh, unauthenticated anon-key probe — see below). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 6, 2026 (independent re-verification of the 55-table RLS remediation)
+
+Follow-up, separate session, to the "RLS remediation complete" session immediately below. That
+session's own report already claimed all 55 tables were live-verified — this session independently
+re-tested that claim from scratch (fresh script, no reuse of the prior session's queries or output)
+rather than trusting the build step's self-report, per this session's explicit instructions.
+
+**Method:** read all 5 migration files (`118_priority_security_tables_rls_hardening.sql` through
+`122_lockdown_no_authenticated_read_path_rls_hardening.sql`) directly to rebuild the authoritative
+55-table list from their real `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` statements (11+10+1+10+23
+= 55, matching the doc's claimed count exactly). Ran a live, unauthenticated `fetch` — anon key
+only, no session, no service-role key — against `{SUPABASE_URL}/rest/v1/<table>?select=*&limit=1`
+for all 55, plus 5 control tables from the untouched Category B set (`opportunities`, `applications`,
+`funders`, `organizations`, `knowledge_base`) to confirm nothing outside the intended 55 was
+disturbed.
+
+**Result: 55/55 PASS — every table returned `HTTP 401` (the underlying Postgres grant revocation
+itself, not just an RLS-policy-driven empty response), zero leaks, zero inconclusive results.** All
+5 control tables remain exactly as before (`HTTP 200`, empty array — pre-existing RLS-policy denial,
+untouched by this session's migrations). No regression found.
+
+Appended full per-table pass/fail results to `AGENT_VERIFICATION_LOG.md`'s new "ANON_GRANT_AUDIT —
+remaining Category C" entry. Updated `ANON_GRANT_AUDIT.md`'s header and §8 with a pointer to this
+independent confirmation. Throwaway verification script and its JSON output
+(`scripts/_verify-anon-remediation.mjs`, `scripts/_verify-anon-results.json`) deleted after use —
+nothing left in the repo beyond the log entry and doc updates.
+
+**Still unresolved, unchanged from the prior session** (out of scope for a verification-only pass):
+`authenticated`'s `TRUNCATE` grant on ~95+ tables; the 24-of-100 cross-org `SELECT` leak list from
+`RLS_POLICY_AUDIT.md`/`rls.test.ts` (not re-run this session either).
+
+Gates: no TypeScript changed (verification-only session); not re-run.
 
 ---
 

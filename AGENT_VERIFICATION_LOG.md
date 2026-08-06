@@ -5043,3 +5043,153 @@ blocked rather than worked around with a shortcut that would misrepresent what w
 All throwaway rows (4 `submission_queue` rows, 1 `organizations` row) and the throwaway script
 (`scripts/verify-review-queue-concurrency.mjs`) were deleted immediately after use; the script's own
 final step re-confirmed both deletions succeeded before exiting.
+
+---
+
+## ANON_GRANT_AUDIT — remaining Category C (55 tables, migrations 118–122)
+
+**Spec under test:** `ANON_GRANT_AUDIT.md` §8's third-pass claim — 55 tables that were previously
+fully open to the `anon` key (RLS disabled, zero policies, matching `foundation_directory`'s
+pre-fix state) were closed via 5 migrations (`src/supabase/migrations/118` through `122`), each
+applied live via `DATABASE_URL`/psql, one statement at a time. That entry's own "live verification
+performed" section already claims all 55 were checked (schema-level `relrowsecurity`/`anon_grants`
+re-query, a live unauthenticated `fetch` against all 55, and a simulated-session cross-tenant
+re-test) — this entry independently reproduces the unauthenticated-`fetch` half of that claim from
+scratch, rather than trusting the prior pass's own report of its own work, per this session's
+instruction to re-verify rather than accept the build step's self-report.
+
+**Verdict: confirmed — all 55 tables are genuinely blocked for a real, unauthenticated anon-key
+request today, live in production. Zero leaks, zero inconclusive results. 5 control tables from the
+untouched Category B set (already RLS-secured before this session, not part of migrations
+118–122) were also re-checked and remain exactly as before — nothing was disturbed outside the
+intended 55.**
+
+### Method
+
+Read all 5 migration files directly (`118_priority_security_tables_rls_hardening.sql` through
+`122_lockdown_no_authenticated_read_path_rls_hardening.sql`) to build the authoritative table list
+from the actual `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` statements, rather than trusting
+`ANON_GRANT_AUDIT.md`'s own prose summary of them — this turned up exactly 11 + 10 + 1 + 10 + 23 =
+**55** distinct table names, matching the doc's claimed count with no discrepancy.
+
+For each of the 55, issued a live, unauthenticated `GET {SUPABASE_URL}/rest/v1/<table>?select=*&limit=1`
+using **only** the anon key (`NEXT_PUBLIC_SUPABASE_ANON_KEY` from `.env.local`, no session, no
+service-role key) via raw `fetch` (`node`, no SDK, no mocks) — the same real PostgREST endpoint the
+app itself talks to. Classified each response: `HTTP 401`/`403` = blocked at the grant layer
+(expected for these 55, since every one of them had `REVOKE ALL ... FROM anon` applied); `HTTP 200`
+with a non-empty array = a real, confirmed leak; `HTTP 200` with an empty array = blocked at the RLS
+policy layer (the shape expected for tables that still hold a stale `anon` grant but have a policy
+denying all rows — not the shape these 55 should have, since their grants were explicitly revoked,
+but treated as a pass either way since it still means zero real data reached an anonymous caller).
+
+For the control set, picked 5 tables **not** touched by migrations 118–122 and already covered by
+earlier remediation passes (`opportunities`, `applications`, `funders`, `organizations`,
+`knowledge_base` — all Category B, RLS-enabled with real org-scoped policies from prior sessions,
+untouched by this session's work) and ran the identical probe, to confirm this session's migrations
+didn't regress anything adjacent.
+
+### Results — all 55 fixed tables
+
+| # | Table | Migration | Result |
+|---|---|---|---|
+| 1 | `funder_credentials` | 118 | PASS — HTTP 401 |
+| 2 | `platform_admins` | 118 | PASS — HTTP 401 |
+| 3 | `submission_queue` | 118 | PASS — HTTP 401 |
+| 4 | `autoapply_submissions` | 118 | PASS — HTTP 401 |
+| 5 | `prospects` | 118 | PASS — HTTP 401 |
+| 6 | `prospect_lists` | 118 | PASS — HTTP 401 |
+| 7 | `sales_campaigns` | 118 | PASS — HTTP 401 |
+| 8 | `sales_sends` | 118 | PASS — HTTP 401 |
+| 9 | `suppression_list` | 118 | PASS — HTTP 401 |
+| 10 | `agent_configurations` | 118 | PASS — HTTP 401 |
+| 11 | `webhook_configs` | 118 | PASS — HTTP 401 |
+| 12 | `adapter_usage_log` | 119 | PASS — HTTP 401 |
+| 13 | `auto_queue_config` | 119 | PASS — HTTP 401 |
+| 14 | `autoapply_review_queue` | 119 | PASS — HTTP 401 |
+| 15 | `discovery_matches` | 119 | PASS — HTTP 401 |
+| 16 | `grant_agreements` | 119 | PASS — HTTP 401 |
+| 17 | `knowledge_queries` | 119 | PASS — HTTP 401 |
+| 18 | `org_learning_contributions` | 119 | PASS — HTTP 401 |
+| 19 | `pitch_cache` | 119 | PASS — HTTP 401 |
+| 20 | `solicitation_registrations` | 119 | PASS — HTTP 401 |
+| 21 | `submission_receipts` | 119 | PASS — HTTP 401 |
+| 22 | `autoapply_screenshots` | 120 | PASS — HTTP 401 |
+| 23 | `agent_registry` | 121 (shared read) | PASS — HTTP 401 |
+| 24 | `enrichment_results` | 121 (shared read) | PASS — HTTP 401 |
+| 25 | `foundation_profiles` | 121 (shared read) | PASS — HTTP 401 |
+| 26 | `intelligence_evaluation_frameworks` | 121 (shared read) | PASS — HTTP 401 |
+| 27 | `intelligence_grantmaker_profiles` | 121 (shared read) | PASS — HTTP 401 |
+| 28 | `intelligence_logic_models` | 121 (shared read) | PASS — HTTP 401 |
+| 29 | `intelligence_need_data` | 121 (shared read) | PASS — HTTP 401 |
+| 30 | `intelligence_scoring_rubrics` | 121 (shared read) | PASS — HTTP 401 |
+| 31 | `platform_learning_patterns` | 121 (shared read) | PASS — HTTP 401 |
+| 32 | `worker_status` | 121 (shared read) | PASS — HTTP 401 |
+| 33 | `agent_performance_metrics` | 122 (lockdown) | PASS — HTTP 401 |
+| 34 | `ai_usage_log` | 122 (lockdown) | PASS — HTTP 401 |
+| 35 | `community_foundation_registry` | 122 (lockdown) | PASS — HTTP 401 |
+| 36 | `corporate_giving_targets` | 122 (lockdown) | PASS — HTTP 401 |
+| 37 | `cross_client_submissions` | 122 (lockdown) | PASS — HTTP 401 |
+| 38 | `dd_api_spend` | 122 (lockdown) | PASS — HTTP 401 |
+| 39 | `dd_robots_cache` | 122 (lockdown) | PASS — HTTP 401 |
+| 40 | `discovery_runs` | 122 (lockdown) | PASS — HTTP 401 |
+| 41 | `donor_discovery_geocache` | 122 (lockdown) | PASS — HTTP 401 |
+| 42 | `donor_discovery_tos_registry` | 122 (lockdown) | PASS — HTTP 401 |
+| 43 | `enrichment_jobs` | 122 (lockdown) | PASS — HTTP 401 |
+| 44 | `fundability_deficiencies` | 122 (lockdown) | PASS — HTTP 401 |
+| 45 | `impersonation_log` | 122 (lockdown) | PASS — HTTP 401 |
+| 46 | `improvement_proposals` | 122 (lockdown) | PASS — HTTP 401 |
+| 47 | `intelligence_budget_templates` | 122 (lockdown) | PASS — HTTP 401 |
+| 48 | `intelligence_grant_dna_scores` | 122 (lockdown) | PASS — HTTP 401 |
+| 49 | `intelligence_narrative_patterns` | 122 (lockdown) | PASS — HTTP 401 |
+| 50 | `intelligence_post_award_reports` | 122 (lockdown) | PASS — HTTP 401 |
+| 51 | `kb_extended_needs` | 122 (lockdown) | PASS — HTTP 401 |
+| 52 | `platform_tasks` | 122 (lockdown) | PASS — HTTP 401 |
+| 53 | `sales_campaign_steps` | 122 (lockdown) | PASS — HTTP 401 |
+| 54 | `sending_domains` | 122 (lockdown) | PASS — HTTP 401 |
+| 55 | `system_errors` | 122 (lockdown) | PASS — HTTP 401 |
+
+**55/55 PASS.** Every table returned a bare `HTTP 401` (PostgREST's response when the underlying
+Postgres `GRANT` itself has been revoked for the connecting role — a stronger signal than an
+RLS-policy-driven empty array, consistent with every one of these 55 migrations issuing
+`REVOKE ALL ... FROM anon`, not just relying on RLS policy logic to deny rows). No table returned a
+row, and none was inconclusive.
+
+### Results — 5 control tables (untouched by migrations 118–122)
+
+| Table | Result |
+|---|---|
+| `opportunities` | BLOCKED (unchanged) — HTTP 200, empty array (pre-existing RLS policy denies all rows to anon) |
+| `applications` | BLOCKED (unchanged) — HTTP 200, empty array |
+| `funders` | BLOCKED (unchanged) — HTTP 200, empty array |
+| `organizations` | BLOCKED (unchanged) — HTTP 200, empty array |
+| `knowledge_base` | BLOCKED (unchanged) — HTTP 200, empty array |
+
+All 5 behave exactly as they did before this session (RLS-policy-driven empty array, not a grant
+revocation — these were never touched by migrations 118–122, and weren't expected to be). Confirms
+the 5 new migrations didn't have a side effect on adjacent, already-secured tables — no accidental
+half-migration or cross-table drift detected.
+
+### Root-cause summary
+
+1. **`ANON_GRANT_AUDIT.md` §8's third-pass claim is confirmed accurate** — all 55 tables it names as
+   fixed are genuinely blocked for a real unauthenticated request today, independently re-verified
+   from a fresh script against the live production PostgREST endpoint, not by re-reading the prior
+   pass's own report.
+2. **No regression found** on 5 spot-checked, already-secured tables outside the 55 — the migrations
+   were scoped correctly and didn't leak side effects.
+3. **Not re-tested in this pass** (out of scope per the task, already covered by the prior pass's own
+   report): cross-tenant `authenticated`-session isolation for the 32 org-scoped/shared-read tables
+   among the 55 (`ANON_GRANT_AUDIT.md` §8 already claims this was checked via a simulated-session
+   `SET LOCAL ROLE authenticated` test); the 95 `TRUNCATE`-only-hardened Category B tables' other
+   policies (tracked separately, `RLS_POLICY_AUDIT.md`'s 24-of-100 cross-org `SELECT` leak list);
+   `authenticated`'s still-open `TRUNCATE` grant.
+
+**Verification method:** live, unauthenticated `fetch` (`node`, no SDK, no mocks, anon key only)
+against `{SUPABASE_URL}/rest/v1/<table>?select=*&limit=1` for all 55 tables named in migrations
+118–122 (table list independently rebuilt by reading each migration file's `ALTER TABLE ... ENABLE
+ROW LEVEL SECURITY` statements directly, not copied from the audit doc's prose) plus 5 control
+tables from the untouched Category B set, against the real production PostgREST endpoint
+(project `vbjplpquqxxfbpazyalt`). Full raw results (status code + body per table) were written to a
+local JSON file for this write-up, then the throwaway script and its output file
+(`scripts/_verify-anon-remediation.mjs`, `scripts/_verify-anon-results.json`) were deleted after
+use — nothing left in the repo besides this log entry.
