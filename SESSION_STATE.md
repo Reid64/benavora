@@ -1,10 +1,62 @@
 # BENAVORA — Session State
-## Last Updated: August 6, 2026 (AutoApply ready-org pipeline re-verification: still fails, new real root cause found)
-## Mode: re-ran the exact live test the prior session's error-visibility fix was meant to unblock — the diagnosability fix works (error_message now populates), but the ready-org pipeline itself still produces zero automation_sessions/autoapply_submissions rows. New, precisely diagnosed cause: worker/Dockerfile never installs Playwright's ffmpeg binary, so StealthBrowser's recordVideo context option throws on every session. See this session's entry below, AGENT_VERIFICATION_LOG.md's "AutoApply Ready-Org Pipeline Fix" entry, and STATE_OF_THE_BUILD.md's matching entry for full evidence.
+## Last Updated: August 6, 2026 (AG-22 dead-platform-key diagnosis: BYOK fallback wired, admin alert added, still genuinely blocked)
+## Mode: reconfirmed live that AG-22 is still blocked on a 401-rejected platform ANTHROPIC_API_KEY. Wired the real BYOK fallback (usage-meter.ts's shouldUseOwnKeys, previously fetched-but-unused in worker/queue-processor.ts, was never actually plumbed into any AI call anywhere) into callClaude()/callClaudeWithWebSearch() and AG-22 itself. Confirmed live it can't unblock anything yet — not just "no org has a key," but tier_limits (and the rest of migration 052_governance_layer.sql) doesn't exist in production at all, so UsageMeter is structurally inert platform-wide. Added a loud, admin-facing system_errors alert (already surfaced on /admin/system) for platform-key 401s, distinct from the buried per-run agent_runs.error_message. Did not touch .env.local. Final honest state: still blocked, requires Reid to supply a valid key.
 
 ---
 
-## Current Session — August 6, 2026 (AutoApply ready-org pipeline re-verification: still fails, real root cause found)
+## Current Session — August 6, 2026 (AG-22 dead-platform-key diagnosis: BYOK fallback wired, admin alert added, still genuinely blocked)
+
+**Task:** AG-22 clears the `corporate_prospects` blocker but hits the already-diagnosed dead
+platform `ANTHROPIC_API_KEY` (401, per `AGENT_VERIFICATION_LOG.md`'s "Full Pipeline Handoff" entry).
+Reconfirm live, wire the real BYOK fallback if missing, add a loud admin alert distinct from
+`agent_runs`, and report the honest final state — including "still blocked" if that's where it lands.
+
+**Step 1 — reconfirmed live, unchanged.** Queried the latest `ag22_propensity_scoring` `agent_runs`
+row directly: `status: failed`, `error_message` still the identical `401 authentication_error: "API
+key is invalid."` Independently re-tested the current local key against the raw Anthropic API
+(no SDK): still `401` today, not a stale finding.
+
+**Step 2 — BYOK fallback: confirmed not wired, now wired for real.** `PropensityScoringAgent.execute()`
+called `callClaude()` directly with zero key-source check. `UsageMeter.shouldUseOwnKeys()` already
+existed and correctly decrypts a per-org key from `platform_config`, but its only call site anywhere
+(`worker/queue-processor.ts`) fetched it and only logged "using own API keys" — never passed the key
+into any real AI call. Fixed at the root: `src/lib/ai/claude.ts`'s `callClaude()`/
+`callClaudeWithWebSearch()` now accept an optional `apiKey` and build a fresh, uncached client per
+call when set (never reused across orgs via the module singleton). AG-22's `execute()` now checks
+`shouldUseOwnKeys(this.organizationId, this.client)` once per run and threads the key through every
+rubric call.
+
+**Confirmed live this doesn't unblock the already-tested path — and found a more precise reason
+than "no key configured."** `platform_config` has zero `own_key_anthropic`/`own_key_openai` rows for
+any org. Deeper: `UsageMeter.shouldUseOwnKeys()`'s first check, `tier_limits.allow_own_keys`, can
+never succeed — **`tier_limits` doesn't exist in production**, confirmed via direct REST (`404
+PGRST205`). Checked the other 3 tables its migration (`052_governance_layer.sql`) creates —
+`queue_controls`, `submission_usage`, `funder_relationships` — all four 404 live. `UsageMeter` is
+structurally inert platform-wide today, not an AG-22-specific gap. Not fixed this session:
+applying a 4-table migration that other live code (`submission_usage`, read by
+`checkAllowance()`'s cap enforcement) depends on is materially bigger and riskier than this task's
+actual scope, and deserves its own deliberate pass, not a side-effect here.
+
+**Step 3 — admin alert added.** `callClaude()`/`callClaudeWithWebSearch()` now insert a real
+`system_errors` row (`severity: "critical"`, throttled 10 min/process) whenever the **platform** key
+specifically (never BYOK) gets a 401. `system_errors` is live and already the exact table
+`/api/admin/system` renders as a loud red `error_count_24h` card on `/admin/system` — so this is
+visible within minutes, not only via a manual `agent_runs` query.
+
+**Step 4 — honest final state, written plainly, not softened:** AG-22 remains blocked on a dead
+platform `ANTHROPIC_API_KEY`; requires Reid to supply a valid key in Vercel prod env vars and local
+`.env.local`; no code-level workaround exists for an invalid credential. `.env.local` was not
+touched. What did genuinely improve: a platform-key 401 (from AG-22 or any other agent) now raises a
+real, loud, admin-visible alert instead of only being discoverable by hand-querying `agent_runs`; and
+the BYOK path is now real, functioning code rather than a decorative fetch-and-log, ready to take
+effect the moment migration 052 is applied and an org configures a key.
+
+**Commit:** `fix(agents): AG-22 BYOK fallback + admin alert on dead platform AI credential (diagnosis-first, honest scope)` (this session).
+**Gates:** `pnpm tsc --noEmit` — zero errors in the two files changed (`src/lib/ai/claude.ts`, `src/lib/agents/ag-22-propensity-scoring.ts`); full-project run shows only the same pre-existing `src/__tests__/**` errors already documented in every prior session.
+
+---
+
+## Prior Session — August 6, 2026 (AutoApply ready-org pipeline re-verification: still fails, real root cause found)
 
 **Task:** re-run the exact same live test that reproduced the ready-org pipeline failure in the
 prior session (the one commit `3a02cf5`'s error-visibility fix was meant to make diagnosable),

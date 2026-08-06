@@ -1,12 +1,21 @@
 import Anthropic from "@anthropic-ai/sdk";
 
+import { createAdminClient } from "@/lib/supabase/admin";
+
 /**
  * Claude API wrapper with token tracking.
  *
- * SERVER-ONLY. The API key is read from the server-only ANTHROPIC_API_KEY env
- * var and must never reach the client. Every call returns the tokens consumed
- * so callers (agents, AI routes) can persist usage to agent_runs.tokens_used
- * for cost monitoring (Behavioral Contracts §15, §16).
+ * SERVER-ONLY. The default API key is read from the server-only
+ * ANTHROPIC_API_KEY env var and must never reach the client. Every call
+ * returns the tokens consumed so callers (agents, AI routes) can persist
+ * usage to agent_runs.tokens_used for cost monitoring (Behavioral Contracts
+ * §15, §16).
+ *
+ * BYOK: callers may pass `apiKey` on the request to use an org's own,
+ * decrypted key (src/lib/autoapply/usage-meter.ts's `shouldUseOwnKeys()`)
+ * instead of the platform key — a fresh, uncached Anthropic client is built
+ * per call in that case so one org's key is never reused for another's
+ * request or mixed into the module-level singleton.
  */
 
 /** Default model. Overridable per call or via the `ai.model` platform_config flag. */
@@ -17,7 +26,13 @@ export const DEFAULT_MAX_TOKENS = 8192;
 
 let client: Anthropic | null = null;
 
-function getClient(): Anthropic {
+function getClient(apiKeyOverride?: string): Anthropic {
+  if (apiKeyOverride) {
+    // Never cached on the module singleton — a BYOK key is scoped to the one
+    // call that requested it.
+    return new Anthropic({ apiKey: apiKeyOverride });
+  }
+
   if (client) return client;
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -27,6 +42,52 @@ function getClient(): Anthropic {
 
   client = new Anthropic({ apiKey });
   return client;
+}
+
+function isAuthError(err: unknown): boolean {
+  const status = (err as { status?: unknown } | null)?.status;
+  return status === 401;
+}
+
+/**
+ * Best-effort, throttled admin alert when the PLATFORM's own ANTHROPIC_API_KEY
+ * (never a BYOK org key — that's a per-org config issue, not a platform
+ * outage) is rejected. Writes to `system_errors`, the same table
+ * /api/admin/system already surfaces as a loud, colored `error_count_24h`
+ * card on /admin/system — so a dead platform credential is visible there
+ * within minutes, not only discoverable by hand-querying agent_runs.
+ * Throttled per warm process to avoid flooding the table when many agents
+ * fail the same way in a short window; never throws, never blocks the
+ * caller's real error path.
+ */
+let lastPlatformAuthErrorAlertAt = 0;
+const PLATFORM_AUTH_ERROR_ALERT_THROTTLE_MS = 10 * 60 * 1000;
+
+async function reportPlatformKeyAuthFailure(
+  source: string,
+  err: unknown,
+): Promise<void> {
+  const now = Date.now();
+  if (now - lastPlatformAuthErrorAlertAt < PLATFORM_AUTH_ERROR_ALERT_THROTTLE_MS) {
+    return;
+  }
+  lastPlatformAuthErrorAlertAt = now;
+
+  try {
+    const admin = createAdminClient();
+    await admin.from("system_errors").insert({
+      source: "anthropic_api",
+      error_type: "platform_key_authentication_error",
+      message:
+        `Platform ANTHROPIC_API_KEY rejected by Anthropic (401 authentication_error) on a ${source} call. ` +
+        "Every agent without a BYOK org key is degraded until this is replaced in Vercel prod env vars " +
+        "and local .env.local — no code-level workaround exists for an invalid credential. " +
+        `Raw error: ${err instanceof Error ? err.message : String(err)}`,
+      severity: "critical",
+    });
+  } catch {
+    // Alerting must never mask or block the caller's real error.
+  }
 }
 
 export interface ClaudeUsage {
@@ -46,6 +107,14 @@ export interface ClaudeRequest {
   maxTokens?: number;
   /** Sampling temperature (0-1). */
   temperature?: number;
+  /**
+   * BYOK override — an org's own decrypted Anthropic key
+   * (usage-meter.ts's `shouldUseOwnKeys()`). When set, this call uses that
+   * key instead of the platform ANTHROPIC_API_KEY and a platform-key auth
+   * failure is never reported for it (a bad BYOK key is that org's own
+   * configuration problem, not a platform-wide outage).
+   */
+  apiKey?: string;
 }
 
 export interface ClaudeResponse {
@@ -66,13 +135,21 @@ export async function callClaude(req: ClaudeRequest): Promise<ClaudeResponse> {
   const model = req.model ?? DEFAULT_MODEL;
   const maxTokens = req.maxTokens ?? DEFAULT_MAX_TOKENS;
 
-  const message = await getClient().messages.create({
-    model,
-    max_tokens: maxTokens,
-    ...(req.system ? { system: req.system } : {}),
-    ...(req.temperature !== undefined ? { temperature: req.temperature } : {}),
-    messages: [{ role: "user", content: req.prompt }],
-  });
+  let message;
+  try {
+    message = await getClient(req.apiKey).messages.create({
+      model,
+      max_tokens: maxTokens,
+      ...(req.system ? { system: req.system } : {}),
+      ...(req.temperature !== undefined ? { temperature: req.temperature } : {}),
+      messages: [{ role: "user", content: req.prompt }],
+    });
+  } catch (err) {
+    if (!req.apiKey && isAuthError(err)) {
+      await reportPlatformKeyAuthFailure("callClaude", err);
+    }
+    throw err;
+  }
 
   const text = message.content
     .filter((block): block is Anthropic.TextBlock => block.type === "text")
@@ -123,14 +200,22 @@ export async function callClaudeWithWebSearch(
     max_uses: req.maxSearches ?? 5,
   } as unknown as Anthropic.Tool;
 
-  const message = await getClient().messages.create({
-    model,
-    max_tokens: maxTokens,
-    ...(req.system ? { system: req.system } : {}),
-    ...(req.temperature !== undefined ? { temperature: req.temperature } : {}),
-    messages: [{ role: "user", content: req.prompt }],
-    tools: [webSearchTool],
-  });
+  let message;
+  try {
+    message = await getClient(req.apiKey).messages.create({
+      model,
+      max_tokens: maxTokens,
+      ...(req.system ? { system: req.system } : {}),
+      ...(req.temperature !== undefined ? { temperature: req.temperature } : {}),
+      messages: [{ role: "user", content: req.prompt }],
+      tools: [webSearchTool],
+    });
+  } catch (err) {
+    if (!req.apiKey && isAuthError(err)) {
+      await reportPlatformKeyAuthFailure("callClaudeWithWebSearch", err);
+    }
+    throw err;
+  }
 
   const text = message.content
     .filter((block): block is Anthropic.TextBlock => block.type === "text")

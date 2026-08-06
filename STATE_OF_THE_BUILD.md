@@ -1,8 +1,81 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 6, 2026 (AutoApply ready-org pipeline re-verified live — still fails end to end; real root cause now identified: missing ffmpeg binary in the worker Docker image). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 6, 2026 (AG-22 dead-platform-key diagnosis: BYOK fallback wired, admin alert added, still genuinely blocked; AutoApply ready-org pipeline re-verified live — still fails end to end; real root cause now identified: missing ffmpeg binary in the worker Docker image). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 6, 2026 (AG-22 dead-platform-key diagnosis: BYOK fallback wired, admin alert added, still genuinely blocked)
+
+**Task:** AG-22 (Propensity Scoring Agent) has been blocked since the `AGENT_VERIFICATION_LOG.md`
+"Full Pipeline Handoff" entry on a dead local/platform `ANTHROPIC_API_KEY` (401). This session's job
+was diagnosis-first: reconfirm the 401 live, wire the real BYOK fallback if it wasn't already wired,
+add a loud admin-facing alert for this failure class, and write the honest final state — including
+if that state is still "blocked" — rather than implying a fix that doesn't fully land.
+
+**Step 1 — reconfirmed live, still the same failure.** Queried the most recent `ag22_propensity_scoring`
+`agent_runs` row directly: `status: failed`, `error_message: "401 {\"type\":\"error\",\"error\":
+{\"type\":\"authentication_error\",\"message\":\"API key is invalid.\"},\"request_id\":null}"`
+(started `2026-08-03T16:02:32Z`). Independently re-tested the *current* local `ANTHROPIC_API_KEY`
+directly against the raw Anthropic API (no SDK): still `401 authentication_error: "API key is
+invalid."`, today. Not a stale finding — reproduced fresh.
+
+**Step 2 — BYOK fallback: was not wired, is now wired.** `PropensityScoringAgent.execute()`
+(`src/lib/agents/ag-22-propensity-scoring.ts`) called `callClaude()` directly for all 9 rubric scores
+with no key-source check at all — confirmed by reading the file before touching it.
+`UsageMeter.shouldUseOwnKeys(orgId, supabase)` (`src/lib/autoapply/usage-meter.ts`) already existed
+and already correctly decrypts a per-org key from `platform_config` (keys `own_key_anthropic`/
+`own_key_openai`), but its only real call site anywhere in the repo was `worker/queue-processor.ts`,
+which fetches it and only `console.log`s "using own API keys" — never actually passes the key into
+any AI call. So even AutoApply's own BYOK config was, and remains, decorative.
+
+Fixed for real, not just for AG-22: `src/lib/ai/claude.ts`'s `callClaude()`/`callClaudeWithWebSearch()`
+now accept an optional `apiKey` on the request and build a fresh, uncached `Anthropic` client for
+that one call when set (the module-level singleton is never reused across orgs). AG-22's `execute()`
+now calls `shouldUseOwnKeys(this.organizationId, this.client)` once per run and threads the decrypted
+key through to every `scoreOne()` call if the org has one configured and its tier allows it.
+
+**Confirmed live: this does NOT unblock the specific path already tested, and for a more precise
+reason than "no org has a key yet."** Queried `platform_config` for `own_key_anthropic`/
+`own_key_openai` rows: zero, for any org. But tracing further: `UsageMeter.shouldUseOwnKeys()`'s
+first real check is a `tier_limits.allow_own_keys` lookup, and **`tier_limits` does not exist in
+production at all** — confirmed via a direct REST query (`404 PGRST205`), not inferred. It's created
+by `supabase/migrations/052_governance_layer.sql`, which also creates `queue_controls`,
+`submission_usage`, and `funder_relationships` — **all four tables 404 live**, confirmed individually.
+This means `UsageMeter.checkAllowance()`/`recordUsage()`/`shouldUseOwnKeys()` are structurally inert
+across the entire platform today, not just for AG-22 — every call silently falls through to a
+`.catch()`/`null`-coalesced default everywhere it's used (matches the `.catch()` pattern already
+visible in `worker/queue-processor.ts`'s own call site). This is a real, separate, pre-existing
+migration-application gap (the same class of gap `MIGRATION_AUDIT.md` already documented — duplicate
+`052_governance_layer.sql`/`052_webhook_configs.sql` filenames, both unapplied) — **not fixed in this
+session**, since applying a 4-table migration that other live code (`submission_usage`, already read
+by `UsageMeter.checkAllowance()`'s daily/monthly cap enforcement) depends on is a materially bigger,
+riskier action than this task's actual scope (wire AG-22's own AI-call key source), and deserves its
+own deliberate pass rather than a side-effect of an AI-credential diagnosis.
+
+**Step 3 — admin-facing alert added.** `callClaude()`/`callClaudeWithWebSearch()` now write a
+`system_errors` row (`source: "anthropic_api"`, `severity: "critical"`) whenever the **platform** key
+(never a BYOK key — that's a per-org config issue, not a platform outage) is rejected with a 401,
+throttled to once per 10 minutes per warm process so many agents failing the same way doesn't flood
+the table. `system_errors` is real and live (confirmed, `200`, reachable) and is already the exact
+table `/api/admin/system` reads into a loud, red-when-nonzero `error_count_24h` card on the real
+`/admin/system` dashboard (`SystemClient.tsx`) — so a dead platform credential now surfaces there
+within minutes of the next failing call, not only by hand-querying `agent_runs`.
+
+**Step 4 — honest final state.** The platform `ANTHROPIC_API_KEY` is still the only real key in
+play anywhere in production (BYOK is real code now but structurally unreachable until migration
+052's 4 tables are applied, and even then no org has a key configured), and it is still dead.
+**AG-22 remains blocked on a dead platform ANTHROPIC_API_KEY; requires Reid to supply a valid key in
+Vercel prod env vars and local `.env.local`; no code-level workaround exists for an invalid
+credential.** `.env.local`'s `ANTHROPIC_API_KEY` was not modified, per standing instruction — flagged
+and stopped on, not patched around. What *is* now true, independent of the key itself: (a) the
+platform never again silently loses this signal — the next platform-key 401, from AG-22 or any other
+agent, raises a real, loud, admin-visible alert; (b) the BYOK path is finally real code, not a
+decorative fetch-and-log, so the moment an org has a working key on file (once migration 052 is
+applied), that org's agents genuinely stop depending on the platform key.
+
+Gates: `pnpm tsc --noEmit` — zero errors in `src/lib/ai/claude.ts`, `src/lib/agents/ag-22-propensity-scoring.ts` (the two files changed this session). Full-project run still shows the same pre-existing, unrelated `src/__tests__/**` errors documented in every prior session's gate check.
 
 ---
 

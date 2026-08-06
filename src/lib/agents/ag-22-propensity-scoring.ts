@@ -50,6 +50,7 @@ import {
   truncateForClaude,
 } from "@/lib/agents/corporate-enrichment-shared";
 import { callClaude } from "@/lib/ai/claude";
+import { UsageMeter } from "@/lib/autoapply/usage-meter";
 import type { AgentType } from "@/types/agents";
 
 export interface AG22Input {
@@ -206,6 +207,7 @@ async function scoreOne(
   rubric: { id: string; name: string; keySignals: string },
   enrichmentJson: string,
   companySnapshot: string,
+  ownApiKey?: string,
 ): Promise<{ value: PropensityScoreValue; tokensUsed: number }> {
   const prompt = `You are scoring a corporate prospect for "${rubric.name}" (${rubric.id}) as part of a nonprofit donor-discovery propensity model.
 
@@ -220,7 +222,7 @@ ${truncateForClaude(enrichmentJson)}
 
 Return ONLY valid JSON: {"score": integer 0-100, "rationale": string (1-2 sentences), "top_factors": string[] (the specific key signals above that drove this score, at most 4)}`;
 
-  const result = await callClaude({ prompt, maxTokens: 400 });
+  const result = await callClaude({ prompt, maxTokens: 400, apiKey: ownApiKey });
   const parsed = parseClaudeJson<Partial<PropensityScoreValue>>(
     result.text,
     {},
@@ -388,6 +390,17 @@ export class PropensityScoringAgent extends BaseAgent<AG22Input, AG22Result> {
     const enrichmentJson = JSON.stringify(prospect.enrichment ?? {}, null, 2);
     const companySnapshot = buildCompanySnapshot(prospect);
 
+    // BYOK: if the triggering org's tier allows and has configured its own
+    // working Anthropic key (usage-meter.ts), use it instead of the platform
+    // ANTHROPIC_API_KEY for every scoring call this run. corporate_prospects
+    // is a shared, cross-org table (file header) with no org of its own, so
+    // "the triggering org's key" is the only meaningful scope here -- checked
+    // once per run, not once per rubric, since it can't change mid-run.
+    const ownKeys = await new UsageMeter()
+      .shouldUseOwnKeys(this.organizationId, this.client)
+      .catch(() => ({ useOwn: false as const }));
+    const ownApiKey = ownKeys.useOwn ? ownKeys.anthropicKey : undefined;
+
     const computed: Record<string, PropensityScoreValue> = {};
     let tokensUsed = 0;
 
@@ -396,6 +409,7 @@ export class PropensityScoringAgent extends BaseAgent<AG22Input, AG22Result> {
         rubric,
         enrichmentJson,
         companySnapshot,
+        ownApiKey,
       );
       computed[rubric.id] = value;
       tokensUsed += t;

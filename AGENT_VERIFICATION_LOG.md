@@ -5351,3 +5351,120 @@ rather than trusting the vitest assertion's summary; direct reading of
 than stopping at "test still fails." Both the vitest run's output log and the diagnostic script were
 temporary artifacts of this session; the diagnostic script and its output are not committed (deleted
 after use), matching this log's established convention for throwaway verification tooling.
+
+---
+
+## AG-22 — dead platform key re-diagnosed: BYOK fallback wired for real, admin alert added, still blocked
+
+**Follow-up to the "Full Pipeline Handoff" entry above**, which first found AG-22's 9 `scoreOne()`
+rubric calls throwing on an invalid local `ANTHROPIC_API_KEY` (401). This entry re-confirms that
+finding live, closes the one real code-level gap available (AG-22 never checked for a BYOK org key
+before falling back to the dead platform one), and precisely diagnoses why that fix still can't take
+effect today — going one level deeper than "no org has configured a key."
+
+**Step 1 — re-confirmed live, unchanged.** Queried the most recent `ag22_propensity_scoring`
+`agent_runs` row directly (service-role REST, no mocks): `status: failed`, `error_message: "401
+{\"type\":\"error\",\"error\":{\"type\":\"authentication_error\",\"message\":\"API key is
+invalid.\"},\"request_id\":null}"`, `started_at: 2026-08-03T16:02:32Z` — the exact same finding as
+the entry above, not a new failure. Independently re-tested the *current* local `ANTHROPIC_API_KEY`
+directly against the raw Anthropic API (`POST /v1/messages`, no SDK, so this isn't an artifact of
+this project's own client wrapper): `401 authentication_error: "API key is invalid."`, reproduced
+fresh today, not stale.
+
+**Step 2 — read `PropensityScoringAgent.execute()` (`src/lib/agents/ag-22-propensity-scoring.ts`)
+before changing anything.** It called `callClaude({ prompt, maxTokens: 400 })` directly for every one
+of its 9 rubric calls — zero key-source check, zero awareness of BYOK, confirmed by reading the file
+end to end. Then checked whether the platform's real BYOK plumbing
+(`UsageMeter.shouldUseOwnKeys(orgId, supabase)`, `src/lib/autoapply/usage-meter.ts`) was wired
+anywhere that could have been reused: its only call site in the entire repo (grepped `src/` and
+`worker/`) is `worker/queue-processor.ts` — which fetches the result and does exactly one thing with
+it: `console.log(...\`Org ${orgId} using own API keys\`)`. The decrypted key itself was never passed
+into any Anthropic client construction anywhere in the codebase, for AG-22 or anything else. BYOK was
+100% decorative before this session, not just missing for AG-22 specifically.
+
+**Fix, at the root rather than AG-22-only:** `src/lib/ai/claude.ts`'s `callClaude()`/
+`callClaudeWithWebSearch()` now take an optional `apiKey` on the request. When set, `getClient()`
+constructs a fresh, uncached `Anthropic` instance for that one call — deliberately never written to
+the module-level singleton, so one org's decrypted key can never leak into another org's or the
+platform's own subsequent call. `PropensityScoringAgent.execute()` now calls
+`new UsageMeter().shouldUseOwnKeys(this.organizationId, this.client)` once per run (not once per
+rubric — the answer can't change mid-run) and threads `ownApiKey` through every `scoreOne()` call.
+
+**Step 2 continued — confirmed live this does NOT unblock the already-tested path, and traced exactly
+why, one level past "no key configured."** `platform_config` has zero rows for either
+`own_key_anthropic` or `own_key_openai`, for any org — confirmed via direct REST query. That alone
+would already mean the fix can't help today. But tracing `shouldUseOwnKeys()`'s own logic further:
+its very first real check is a `tier_limits.allow_own_keys` lookup, and **`tier_limits` does not
+exist in production** — confirmed via a direct REST query returning `404 PGRST205
+"Could not find the table 'public.tier_limits' in the schema cache"`, not inferred from the migration
+file alone. Checked the other three tables `tier_limits`'s own migration
+(`supabase/migrations/052_governance_layer.sql`) creates in the same file — `queue_controls`,
+`submission_usage`, `funder_relationships` — and queried all three live too: **all four 404,
+identically.** This matches the duplicate-filename gap `MIGRATION_AUDIT.md` already flagged
+(`052_governance_layer.sql` / `052_webhook_configs.sql`, both unapplied) but goes further: this
+confirms, for the first time with a live query rather than a filename audit, that the entire
+`UsageMeter` class — `checkAllowance()`, `recordUsage()`, and `shouldUseOwnKeys()` alike — is
+structurally inert across the whole platform right now, not just for AG-22. Every one of its real
+call sites (`worker/queue-processor.ts`'s allowance check, usage recording, and BYOK check) has been
+silently falling through to a `.catch()`-provided default or a `null`-coalesced fallback this entire
+time, with no visible error anywhere, because the underlying query always 404s cleanly rather than
+throwing loudly.
+
+**Deliberately not fixed in this session:** applying `052_governance_layer.sql` (or just carving out
+`tier_limits`) was considered and rejected as out of this task's scope. `submission_usage` — one of
+the same migration's four tables — is read by `checkAllowance()`'s live daily/monthly cap enforcement
+path in `worker/queue-processor.ts`; applying it as a side-effect of an unrelated AI-credential
+diagnosis, without deliberately verifying its interaction with whatever cap-enforcement behavior is
+*currently* live (all defaults, given the table's absence), is a materially bigger and riskier action
+than "wire AG-22's own key source" and deserves its own dedicated pass.
+
+**Step 3 — admin alert added, platform-key failures only.** `callClaude()`/`callClaudeWithWebSearch()`
+now insert a `system_errors` row (`source: "anthropic_api"`, `error_type:
+"platform_key_authentication_error"`, `severity: "critical"`) whenever a call using the platform key
+(i.e. no `apiKey` override present) gets a 401 — throttled to once per 10 minutes per warm process
+via a module-level timestamp, so a burst of many agents failing the same way in the same window
+doesn't flood the table. Deliberately scoped to the platform key only: a bad BYOK key is that org's
+own configuration problem, not evidence of a platform-wide outage, so it does not raise this alert.
+Confirmed `system_errors` is real and live (`200`, reachable, empty) — not a table that would itself
+404 and silently swallow the alert. Confirmed it is already read by `/api/admin/system`'s
+`error_count_24h` and rendered as a red-when-nonzero stat card on the real `/admin/system` dashboard
+(`SystemClient.tsx`) — so this alert is genuinely loud and admin-visible today, not a new surface
+that still needs its own UI built.
+
+**Step 4 — honest final state, not softened.** AG-22 remains blocked on a dead platform
+`ANTHROPIC_API_KEY`; requires Reid to supply a valid key in Vercel prod env vars and local
+`.env.local`; no code-level workaround exists for an invalid credential. `.env.local`'s
+`ANTHROPIC_API_KEY` was not modified, read, or guessed at, per standing instruction. What genuinely
+changed: (1) the next platform-key 401, from AG-22 or any other agent calling `callClaude()`/
+`callClaudeWithWebSearch()`, now raises a real, loud, throttled, admin-visible alert instead of being
+discoverable only by hand-querying `agent_runs`; (2) BYOK is now real, functioning code end-to-end
+(client construction through to the agent call site) rather than a fetch-and-log no-op, ready to take
+effect the moment `tier_limits`/`submission_usage`/`queue_controls`/`funder_relationships` are applied
+and at least one org has a working key on file — neither of which is true today.
+
+**Root-cause summary:**
+1. The 401 itself is unchanged and reconfirmed live, both via `agent_runs` and a direct raw-API test.
+2. AG-22's own missing BYOK check is now fixed, and fixed at the shared `callClaude()`/
+   `callClaudeWithWebSearch()` layer so any future agent gets the same fallback for free, not just
+   AG-22.
+3. **New finding, more precise than "no BYOK key configured":** the entire `UsageMeter` class has
+   been structurally inert in production since it was written — `tier_limits` and 3 sibling tables
+   from the same migration file have never been applied, confirmed by direct live query, not filename
+   audit alone. This affects AutoApply's live usage-cap enforcement too, not only AG-22 — flagging for
+   a future session, not addressed here.
+4. A new, loud, admin-visible alert now exists for this entire failure class going forward.
+5. The correct, honest disposition remains: **blocked, pending Reid supplying a valid
+   `ANTHROPIC_API_KEY`.**
+
+**Verification method:** live REST queries (service-role client, no mocks) against `agent_runs`
+(latest AG-22 row), a raw `POST https://api.anthropic.com/v1/messages` call independent of this
+project's SDK wrapper (confirms the 401 isn't an artifact of this codebase's own client), and
+`platform_config`/`tier_limits`/`queue_controls`/`submission_usage`/`funder_relationships` (all
+individually queried, not assumed from the migration file); full reads of
+`src/lib/agents/ag-22-propensity-scoring.ts`, `src/lib/ai/claude.ts`,
+`src/lib/autoapply/usage-meter.ts`, and `worker/queue-processor.ts`'s BYOK call site before editing
+anything; repo-wide grep confirming `shouldUseOwnKeys` had exactly one call site before this session;
+a live REST check confirming `system_errors` itself is reachable; `pnpm tsc --noEmit` on both edited
+files (zero errors) and a full-project run (only the same pre-existing `src/__tests__/**` errors
+documented in every prior entry in this log). The throwaway REST-check script was deleted after use
+and was never committed, matching this log's established convention.
