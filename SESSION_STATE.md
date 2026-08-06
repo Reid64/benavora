@@ -1,10 +1,46 @@
 # BENAVORA — Session State
-## Last Updated: August 6, 2026 (AG-22 live re-verification: no BYOK org exists, still blocked, admin alert confirmed genuinely firing)
-## Mode: re-ran the real, unmodified AG-22 (PropensityScoringAgent) live against the real Faith Foundation org and a real, already-enriched corporate_prospects row. Confirmed live — not assumed — that no BYOK org exists (platform_config has zero own_key_anthropic/own_key_openai rows anywhere; tier_limits still 404s live), so the run took the platform-key path and failed with the identical 401 authentication_error as every prior AG-22 entry, logged in a brand-new agent_runs row. Confirmed the admin alert added last session genuinely fires in production: system_errors held zero rows immediately before the run and exactly one new critical-severity row immediately after, landing 2 seconds after the run started with the real 401 body embedded. No code changed. Status is still, plainly, blocked — pending Reid supplying a valid ANTHROPIC_API_KEY.
+## Last Updated: August 6, 2026 (TEOS local enrichment complete — all 12 zips processed)
+## Mode: finished the TEOS local batch enrichment that stalled at 1 of 12 zips on August 4 (killed twice by system memory exhaustion). Ran the remaining zips (02A-12A) sequentially to completion. Final cumulative numbers, read from the checkpoint file and cross-checked against the final zip's own cumulative log line: 705,147 filings parsed, 96,698 foundations enriched, 559,027 nonprofits enriched, 41,465 unmatched EINs logged for future review. Also part of this window: commit cd0d500 fixed a warning-log bug that printed [object Object] instead of serializing non-Error objects. Confirmed via full process-list command-line inspection that the import process has fully exited — no lingering PIDs.
 
 ---
 
-## Current Session — August 6, 2026 (AG-22 live re-verification: no BYOK org exists, still blocked, admin alert confirmed genuinely firing)
+## Current Session — August 6, 2026 (TEOS local enrichment complete — all 12 zips processed)
+
+**Task:** the August 4 session (below) stalled at 1 of 12 TEOS zips, killed twice in a row by system
+memory exhaustion (0.49 GB free of 15.42 GB total). This session's job: run the remaining zips
+(02A-12A) to completion, confirm the process fully exits when done, and record final numbers.
+
+**Result: all 12 zips completed.** Read `enrichment-output/teos-local-checkpoint.json` directly —
+`completedZips` lists all 12 ZIPs 01A through 12A. Final cumulative totals (checkpoint and the final
+zip's own cumulative log summary agree exactly):
+
+- **705,147** filings parsed (7 unparseable), **670,374** distinct EINs extracted
+- **foundation_directory:** 106,562 matched, **96,698** updated
+- **nonprofits:** 628,683 matched, **559,027** updated
+- **41,465** unmatched EINs (in neither table) — logged to
+  `enrichment-output/teos-local-unmatched-eins.csv` (47,148 lines incl. header) for future review
+
+**Bug fixed along the way:** commit `cd0d500` — `scripts/import-teos-local.ts`'s warning-path logger
+was interpolating non-`Error` objects straight into a template string, printing `[object Object]`
+instead of the actual warning content. Now serializes properly (`JSON.stringify` on non-Error values).
+This was a logging-only fix; it did not change enrichment logic or the resulting counts.
+
+**Process verification, not assumed:** enumerated every live `node.exe` process with its full command
+line before writing this entry (`wmic process where "name='node.exe'" get ProcessId,CommandLine`).
+All ten running instances trace to unrelated work — `pnpm dev` for this repo, `next dev` for two
+unrelated repos (Tarritrix, afs-website), and a `.scratch` verify script — none reference
+`import-teos-local.ts`. No lingering TEOS PIDs.
+
+**Status: TEOS local batch enrichment is done.** Resuming is no longer relevant — all 12 zips are in
+the checkpoint's `completedZips`. The 41,465 unmatched EINs are logged and available for a future
+targeted-matching pass if desired, not blocking anything today.
+
+Gates: not applicable — docs-only session; the only source change (`cd0d500`) was already committed
+separately as a standalone logging fix.
+
+---
+
+## SESSION — August 6, 2026 (AG-22 live re-verification: no BYOK org exists, still blocked, admin alert confirmed genuinely firing)
 
 **Task:** re-run AG-22 live against a real org. If the prior session's BYOK fallback found and wired a
 real BYOK org, test against it and confirm success using its own key. If no BYOK org exists, confirm

@@ -1,8 +1,41 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 6, 2026 (AG-22 live re-verification: no BYOK org exists, still blocked on the dead platform ANTHROPIC_API_KEY, admin alert confirmed genuinely firing live). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 6, 2026 (TEOS local enrichment complete — all 12 zips processed). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 6, 2026 (TEOS local enrichment complete — all 12 zips processed)
+
+**Task:** finish the TEOS local batch enrichment that stalled at 1 of 12 zips on August 4 (killed twice
+by system memory exhaustion — see the August 4 entry below). Run the remaining zips (02A-12A)
+sequentially, then confirm the import process has fully exited and record final numbers.
+
+**Result: all 12 zips completed.** Final cumulative numbers, read directly from
+`enrichment-output/teos-local-checkpoint.json` and cross-checked against
+`enrichment-output/teos-run-2023_TEOS_XML_12A.log`'s own cumulative summary line (both agree exactly):
+
+- **705,147** filings parsed (7 unparseable)
+- **670,374** distinct EINs extracted
+- **foundation_directory:** 106,562 matched, **96,698** updated
+- **nonprofits:** 628,683 matched, **559,027** updated
+- **41,465** unmatched EINs (in neither table) logged to
+  `enrichment-output/teos-local-unmatched-eins.csv` for future review
+
+Also fixed in this window: commit `cd0d500` ("fix(teos): properly serialize non-Error objects in
+warning log instead of printing `[object Object]`") — `scripts/import-teos-local.ts`'s warning-path
+logger was passing non-`Error` objects straight to a template string; it now serializes them properly
+so warnings during the remaining runs were legible instead of printing `[object Object]`.
+
+**Process check before writing this entry:** enumerated all live `node.exe` processes with their full
+command lines (`wmic process where "name='node.exe'" get ProcessId,CommandLine`) — every process
+belongs to unrelated dev servers (`pnpm dev`, two other repos' `next dev`, a `.scratch` verify script);
+none reference `import-teos-local.ts` or any TEOS script. The import process has fully exited, no
+lingering PIDs.
+
+Gates: not applicable — no source code changed this session beyond the already-committed `cd0d500` fix;
+docs-only update.
 
 ---
 
