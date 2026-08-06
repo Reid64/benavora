@@ -5590,3 +5590,109 @@ queried both immediately before (0 rows) and immediately after (1 new row) the l
 admin alert is genuinely new, not stale. All three throwaway verification scripts
 (`scripts/.tmp-ag22-verify.mjs`, `scripts/.tmp-ag22-run.mts`, `scripts/.tmp-ag22-check.mjs`) were
 deleted after use and were never committed, matching this log's established convention.
+
+---
+
+## AG-22 unblocked (new consolidated key) + AutoApply ready-org re-test + CAPTCHA pause live-verified — 2026-08-06
+
+**Task:** Reid rotated the platform Anthropic key — consolidated three keys in the Anthropic console
+("benavora", "new key", "ANTHROPIC") down to one, `...DvwVdwAA`, deleting the other two. This session's
+job: sync the new key to all three places it needs to live (`.env.local`, Railway `benavora-worker`,
+Vercel production), redeploy so it actually takes effect, then re-verify AG-22 and the two outstanding
+AutoApply items from the ffmpeg-fix session (`0dd9b70`, immediately above): the ready-org pipeline test,
+and a real manual verification of CAPTCHA detect-and-pause (never actually watched live before — every
+prior AutoApply session either didn't reach the CAPTCHA gate or wasn't testing it specifically).
+
+**Key sync — all three locations confirmed, not assumed.**
+- `.env.local`: already updated by Reid directly by the time this session read it (concurrent edit) —
+  confirmed byte-for-byte match to the intended value.
+- Railway: `railway variable set ANTHROPIC_API_KEY=... --service benavora-worker --environment
+  production` (no `--skip-deploys`, so the set itself triggers a redeploy). Polled `railway status
+  --json` until the new deployment (`0e92d4ce...`, same commit `0dd9b70`) reached `SUCCESS` before
+  treating it as live.
+- Vercel: `vercel env rm ANTHROPIC_API_KEY production` then `vercel env add ANTHROPIC_API_KEY
+  production` (value piped via stdin, not typed into a shell arg). Scoped to Production only (the prior
+  value covered Production+Preview — not restored, since only Production was requested).
+- Vercel redeploy: `vercel deploy --prod` (the CLI process itself hung after finishing per the known
+  51.7.0 quirk — memory `benavora-vercel-cli-hanging-process` — so it was backgrounded and polled via
+  `vercel inspect <url>` until `status: Ready`, then confirmed `www.benavora.com`/`benavora.com` were
+  actually aliased to the new deployment, not just that a deployment existed).
+
+**AG-22: fully unblocked, first clean run in this project's history.** Raw `fetch()` to
+`api.anthropic.com/v1/messages` with the new key: `200`, real completion. Live
+`PropensityScoringAgent.run()` against the real Faith Foundation org and the same `corporate_prospects`
+row used in every prior AG-22 entry (GOOD HOUSING CONSTRUCTION LLC): succeeded, `agent_runs` row
+`f41db38b-803b-49dd-ac50-db2c28165df4`, `status: "completed"`, `error_message: null`, `tokens_used:
+4634`. All 9 rubric scores (`PS-01`..`PS-10`) computed and written to `corporate_prospects.scores`,
+`scores_computed_at` populated. (First pass at this incorrectly passed a non-UUID string as
+`triggeredBy`, which made `agent_runs.triggered_by`'s insert fail with `22P02 invalid input syntax for
+type uuid` and silently returned `runId: null` — a bug in this session's own test harness, not the
+product; fixed by passing `null`, then re-ran clean.)
+
+**AutoApply ready-org test: still fails, but for a genuinely new reason — the ffmpeg fix and key both
+worked.** `pnpm vitest run src/__tests__/integration/autoapply-queue.test.ts`: same single failure as
+the 08-06 ffmpeg-diagnosis entry above (`expected...true, received false`), but the vitest suite's
+`afterAll` deletes the row before `error_message` can be read, so a standalone script replicating the
+exact "ready org" fixture (real org/request_profiles/documents, `httpbin.org/forms/post` target) was
+used to read the terminal row before cleanup:
+```json
+"status": "skipped",
+"error_message": "analyzer_failed: 400 {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"messages.0: user messages must have non-empty content\"},\"request_id\":\"...\"}"
+```
+Root cause traced to `src/lib/autoapply/form-analyzer-agent.ts:230` —
+`this.callClaude(AUTOMATION_SCAN_SYSTEM, pageText, 300)` sends `pageText` (the target page's
+`document.body.innerText`, extracted at `form-analyzer-agent.ts:306-311`) directly as the Claude
+message content with no empty-string guard. For this run `pageText` came back empty, and Anthropic's
+API rejects an empty user-message content with `400 invalid_request_error`. This is a new,
+previously-undocumented defect, unrelated to ffmpeg, `org_not_ready`, or the dead key — the pipeline
+now gets meaningfully further (past browser launch, past login-gating) than at any prior session, and
+fails at a different, later step each time a blocking defect is fixed, which is the expected pattern
+for this kind of layered diagnosis. **Not fixed this session** — out of the explicit re-verification
+scope this task was given; flagging for a follow-up session.
+
+**Second, separate real bug found while building the CAPTCHA test fixture (not yet hit by the ready-org
+test, but will be once the above is fixed):** `form-analyzer-agent.ts:249` writes an
+`automation_assessment` field on its `form_templates` insert, but no migration in either
+`supabase/migrations/` or `src/supabase/migrations/` — nor the live schema (confirmed via a real insert
+attempt: `PGRST204 Could not find the 'automation_assessment' column of 'form_templates' in the schema
+cache`) — has ever created that column. `FormAnalyzerAgent.analyzeAndStore()` will fail here the moment
+the `pageText`-empty bug above is fixed and a real analysis actually reaches this insert. Also not
+fixed this session — flagging alongside the above for the same follow-up.
+
+**CAPTCHA detect-and-pause (`queue-processor.ts`, §10B): verified live for the first time, working
+exactly as designed.** Because the ready-org path dies at `FormAnalyzerAgent` before ever reaching the
+CAPTCHA gate (which runs after `handleLoginGating`, later in `processItem()`), a second standalone
+fixture was built that seeds a fresh `form_templates` row (`last_verified_at: now`) so
+`needsReanalysis` is false and the pipeline skips straight past the broken analyzer to reach the gate
+being tested — pointed at Google's own official reCAPTCHA v2 demo page
+(`https://www.google.com/recaptcha/api2/demo`, the same "safe, non-live, third-party-provided test
+target" pattern this suite already uses `httpbin.org/forms/post` for). Result:
+```json
+"status": "paused_verification",
+"pause_reason": "captcha_recaptcha_v2",
+"paused_screenshot_path": "<org>/<funder>/pending/captcha_detected_....png",
+"completed_at": null
+```
+`automation_sessions` for that funder: **0 rows** — confirming the pause happened before
+`createApprovedAutomationSession()` ever ran, i.e. no approved session was ever created for an attempt
+that hit a CAPTCHA (the actual §10B guarantee: never even try to solve, not just "don't submit").
+Independently confirmed the screenshot is a real file, not just a path string: listed the
+`autoapply-screenshots` bucket directly and found a real 22KB PNG at the recorded path (plus
+`page_load`/`pre_fill` screenshots from the same run). All test rows and the three screenshots were
+deleted after verification.
+
+Note the caveat already documented in `captcha-solver.ts`'s own file header (unchanged by this
+session): this confirms only the **pre-fill** gate in `queue-processor.ts`. `form-filler-agent.ts`'s
+separate mid-fill `checkCaptcha()` still silently attempts a 2Captcha solve if `TWOCAPTCHA_API_KEY` is
+configured, and simply proceeds unsolved if it isn't — a materially different, still-open gap noted as
+its own follow-up in that file, not touched this session.
+
+**Verification method:** `railway status --json` / `vercel inspect` polled to a real terminal
+deployment state (not assumed from the deploy command's own exit); a raw fetch to
+`api.anthropic.com/v1/messages` independent of the SDK; live `PropensityScoringAgent.run()` with zero
+code changes; two standalone fixture scripts (ready-org replica, CAPTCHA-pause replica) built to read
+`submission_queue.error_message`/`pause_reason` before the row is deleted, since neither the real
+worker's own logs nor a vitest suite's `afterAll` leave that field inspectable after the fact; a direct
+Supabase Storage `list()` call to confirm the pause screenshot is a real uploaded file, not just a
+recorded path. All four throwaway scripts used this session were deleted after use, and the storage
+screenshots they produced were explicitly removed during cleanup — none were committed.

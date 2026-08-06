@@ -1,10 +1,63 @@
 # BENAVORA — Session State
-## Last Updated: August 6, 2026 (TEOS local enrichment complete — all 12 zips processed)
-## Mode: finished the TEOS local batch enrichment that stalled at 1 of 12 zips on August 4 (killed twice by system memory exhaustion). Ran the remaining zips (02A-12A) sequentially to completion. Final cumulative numbers, read from the checkpoint file and cross-checked against the final zip's own cumulative log line: 705,147 filings parsed, 96,698 foundations enriched, 559,027 nonprofits enriched, 41,465 unmatched EINs logged for future review. Also part of this window: commit cd0d500 fixed a warning-log bug that printed [object Object] instead of serializing non-Error objects. Confirmed via full process-list command-line inspection that the import process has fully exited — no lingering PIDs.
+## Last Updated: August 6, 2026 (Anthropic key consolidated across all 3 environments; AG-22 unblocked; CAPTCHA pause verified; 2 new AutoApply bugs found)
+## Mode: synced Reid's newly-consolidated Anthropic API key (three keys merged to one in the console) to .env.local, Railway (benavora-worker), and Vercel production, then redeployed both Railway and Vercel and polled each to a real terminal SUCCESS/Ready state (not assumed from the deploy commands' own exit) before treating the rotation as live. Re-ran AG-22 live: fully unblocked, first clean `completed` agent_runs row in this project's history, real 9-rubric scores computed and persisted. Re-ran the AutoApply ready-org pipeline test: still fails, but on a new root cause (FormAnalyzerAgent sends Claude an empty-content message, 400) — the ffmpeg fix and new key both demonstrably worked, since the pipeline gets meaningfully further than any prior session. Found a second new bug along the way: form_templates' automation_assessment column doesn't exist in any migration or live schema. Manually verified CAPTCHA detect-and-pause for the first time: a real queue item pointed at Google's own reCAPTCHA v2 demo page correctly paused (zero automation_sessions rows created) with a real screenshot confirmed in storage. Added DIRECTIVE-018 to STANDING_DIRECTIVES.md documenting the new canonical key (by suffix only, never plaintext, since that file is committed) and the env-var-shadowing bug found investigating the prior dead key. Full evidence in AGENT_VERIFICATION_LOG.md.
 
 ---
 
-## Current Session — August 6, 2026 (TEOS local enrichment complete — all 12 zips processed)
+## Current Session — August 6, 2026 (Anthropic key consolidated across all 3 environments; AG-22 unblocked; CAPTCHA pause verified; 2 new AutoApply bugs found)
+
+**Task:** sync the new consolidated Anthropic API key to all three live locations, redeploy so it takes
+effect, then re-verify AG-22 and the two outstanding AutoApply items from the immediately-prior ffmpeg-fix
+session (ready-org pipeline test, CAPTCHA detect-and-pause).
+
+**Key rotation — confirmed live in all three places, not assumed from the commands' own success output:**
+- Railway: `railway variable set` on `benavora-worker`/production (triggers an automatic redeploy by
+  default); polled `railway status --json` until the new deployment reached `SUCCESS`.
+- Vercel: old production value removed, new value added via stdin (never typed into a shell argument);
+  `vercel deploy --prod` run (backgrounded — the CLI process itself hangs after finishing, a known
+  51.7.0 quirk) and polled via `vercel inspect` until `Ready`, with the production domain aliases
+  (`www.benavora.com`, `benavora.com`) confirmed pointed at the new deployment.
+- `.env.local`: already updated by Reid directly (concurrent edit) by the time this session read it;
+  confirmed byte-for-byte match to the intended value rather than re-writing over it.
+
+**AG-22: fully unblocked.** Raw fetch to Anthropic with the new key: `200`. Live
+`PropensityScoringAgent.run()` against the real Faith Foundation org: `agent_runs` row
+`f41db38b-803b-49dd-ac50-db2c28165df4`, `status: "completed"`, `error_message: null`, `tokens_used:
+4634`. All 9 rubric scores computed and written to `corporate_prospects.scores` — the first clean
+completion this project has ever recorded for this agent.
+
+**AutoApply ready-org test: new root cause, real forward progress.** Still fails
+(`src/__tests__/integration/autoapply-queue.test.ts`), but the ffmpeg fix and the new key both
+demonstrably worked — the pipeline now dies later, at a different step, than every prior session. Root
+cause: `form-analyzer-agent.ts:230` sends the scraped page's `innerText` straight to Claude with no
+empty-content guard; it came back empty this run and Anthropic returned `400 invalid_request_error`.
+Not fixed — out of this session's re-verification scope, flagged for follow-up.
+
+**Second new bug, found building the CAPTCHA test fixture:** `form-analyzer-agent.ts`'s
+`form_templates` insert writes an `automation_assessment` column that doesn't exist in any migration or
+the live schema (`PGRST204` confirmed via a real insert attempt). Not yet reachable by the ready-org
+path until the bug above is fixed, but will fail there too. Not fixed this session.
+
+**CAPTCHA detect-and-pause: verified live for the first time.** Because the ready-org path dies before
+reaching this gate, a separate fixture pre-seeded a fresh `form_templates` row to skip past the broken
+analyzer and pointed a real queue item at Google's own reCAPTCHA v2 demo page. Result:
+`status: "paused_verification"`, `pause_reason: "captcha_recaptcha_v2"`, zero `automation_sessions` rows
+(pause happened before any approved session was ever created), and a real ~22KB screenshot independently
+confirmed to exist in the `autoapply-screenshots` bucket at the recorded path. All test rows and
+screenshots deleted after verification.
+
+**Governance:** added `DIRECTIVE-018` to `STANDING_DIRECTIVES.md` — the new canonical key (identified
+by its last 6 characters only, never the plaintext value, since that file is committed to git), the
+three-keys-consolidated-to-one context, and the `process.env` shadowing bug found while diagnosing the
+prior dead key (a stale Windows User-level `ANTHROPIC_API_KEY` env var that most scripts' bare
+`dotenv.config()` calls won't override without `{ override: true }`).
+
+Gates: no source files modified this session (config/docs only). AG-22 and AutoApply verification was
+live execution against real infrastructure (Railway, Vercel, Anthropic, Supabase), not a build/lint pass.
+
+---
+
+## SESSION — August 6, 2026 (TEOS local enrichment complete — all 12 zips processed)
 
 **Task:** the August 4 session (below) stalled at 1 of 12 TEOS zips, killed twice in a row by system
 memory exhaustion (0.49 GB free of 15.42 GB total). This session's job: run the remaining zips

@@ -1,8 +1,50 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 6, 2026 (TEOS local enrichment complete — all 12 zips processed). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 6, 2026 (Anthropic key consolidated + synced to all 3 environments; AG-22 fully unblocked; AutoApply CAPTCHA pause live-verified; 2 new AutoApply bugs found). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 6, 2026 (Anthropic key consolidated + synced to all 3 environments; AG-22 unblocked; CAPTCHA pause verified; 2 new AutoApply bugs found)
+
+**Task:** Reid consolidated three separate Anthropic API keys down to one in the Anthropic console.
+Sync the new key to `.env.local`, Railway (`benavora-worker`), and Vercel production; redeploy so it
+actually takes effect (env var changes alone don't reach already-running instances); re-verify AG-22
+clears its long-standing 401; re-run the two outstanding AutoApply verification items from the ffmpeg
+fix immediately below (ready-org pipeline test, CAPTCHA detect-and-pause manual verification).
+
+**Key rotation: all three environments confirmed live, not assumed.** Railway variable set (triggered
+an automatic redeploy of `benavora-worker`, polled to `SUCCESS`). Vercel production env var replaced
+(old value removed, new value added via stdin), then `vercel deploy --prod` run and polled to `Ready`,
+with `www.benavora.com`/`benavora.com`'s aliases confirmed pointed at the new deployment before treating
+it as live — not just that a deployment existed. `.env.local` was already updated by Reid directly.
+
+**AG-22: fully unblocked — first clean run in this project's history.** `agent_runs` row
+`f41db38b-...`, `status: "completed"`, `error_message: null`, real 9-rubric scores computed and
+persisted to `corporate_prospects.scores`. Full evidence in `AGENT_VERIFICATION_LOG.md`.
+
+**AutoApply ready-org test: still fails, new root cause (progress, not a regression).** The ffmpeg fix
+and new key both worked — the pipeline now gets further than ever before, failing at
+`FormAnalyzerAgent` instead: `src/lib/autoapply/form-analyzer-agent.ts:230` sends the target page's
+extracted `innerText` straight to Claude with no empty-string guard; when it came back empty this run,
+Anthropic rejected the request with `400 invalid_request_error: "messages.0: user messages must have
+non-empty content"`. Not fixed this session (out of the re-verification scope given), flagged for
+follow-up.
+
+**Second new bug found (not yet reachable by the above, but will be once it's fixed):**
+`form-analyzer-agent.ts`'s `form_templates` insert writes an `automation_assessment` field that no
+migration — in either `supabase/migrations/` or `src/supabase/migrations/` — has ever created
+(`PGRST204` confirmed live). Also not fixed this session.
+
+**AutoApply CAPTCHA detect-and-pause: verified live for the first time, working exactly as designed.**
+A real queue item pointed at Google's own reCAPTCHA v2 demo page reached `status: "paused_verification"`,
+`pause_reason: "captcha_recaptcha_v2"`, with zero `automation_sessions` rows created — confirming the
+pipeline paused before ever attempting to solve, not just before submitting. A real screenshot at the
+recorded path was independently confirmed in Storage, then cleaned up along with all test rows.
+
+Gates: no source files were modified this session (config/docs only); AG-22 and AutoApply verification
+was live execution against real infrastructure, not a build/lint/typecheck pass.
 
 ---
 
