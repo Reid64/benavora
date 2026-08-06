@@ -885,6 +885,241 @@ Export class UsageMeter:
 
 ---
 
+## 10. Human-Safety & Confirmation Systems (Enterprise Spec — added August 6, 2026)
+
+**Status:** CANONICAL. Written at the same rigor as AGENTS_v2.md's AG-10/AG-23/AG-26/AG-27/AG-29/
+AG-41/AG-42 specs (exact decisions, not categories) and grounded in a live read of the actual
+call sites below — not aspiration. Supersedes the lightweight sketch at §5A for Gmail matching and
+partially supersedes `BEHAVIORAL_CONTRACTS.md` §24 for CAPTCHA handling (see 10B — this is a real
+policy tightening, not additive).
+
+### 10A. Gmail Confirmation Monitor
+
+**Priority:** HIGH. Replaces §5A's sketch with exact, buildable decisions.
+
+**Scope guarantee:** read-only monitoring of exactly one dedicated Benavora-owned inbox
+(`apply@benavora.com`, per §5A). This is a **separate OAuth grant** from the per-org Gmail
+integrations already live at `src/lib/email/gmail-sync.ts` / `gmail-auth.ts` (those authenticate
+as an org's own connected mailbox for a different feature — outreach threads — and must never be
+confused with or reused for this monitor). The OAuth scope requested is exactly
+`https://www.googleapis.com/auth/gmail.readonly`. No `gmail.modify`, `gmail.send`, or
+`gmail.settings.*` scope is ever requested. This monitor never sends, labels, archives, or deletes
+a message — it only lists and reads.
+
+**Polling interval:** every 5 minutes, via `setInterval` inside the existing Railway worker process
+(`worker/index.ts` alongside `queue-processor.ts`) — matching this codebase's real scheduler pattern
+(`worker/scheduler.ts` is `setInterval`-based, not `node-cron`; see
+`WORKER_ARCHITECTURE_v2.md`). Not a Vercel cron route: Gmail polling needs a persistent process, not
+a 10-second serverless invocation.
+
+**Matching algorithm — deterministic, two-stage, no fuzzy/AI matching for the match decision itself:**
+
+1. **Candidate window:** for each incoming message, pull every `submission_queue` /
+   `autoapply_submissions` row with `submitted_at` between 0 and 21 days ago (chosen to close
+   *before* §5B's day-14 follow-up fires, so a real confirmation always has a chance to suppress an
+   unnecessary follow-up) and `confirmation_email_received IS NOT TRUE`. (This revises §5A's
+   "within 24h" window, which is too tight — confirmation emails routinely arrive days after
+   submission, per real portal behavior described in §4A/§5B.)
+2. **Deterministic match rule**, both conditions required:
+   - **Sender domain match:** the email's `From` header domain (e.g. `grants@fundername.org` →
+     `fundername.org`) exactly equals, or is a subdomain of, the candidate's
+     `funders.giving_portal_url` domain.
+   - **Org name match:** the candidate's `organizations.name`, normalized (lowercased, common
+     suffixes `inc`/`inc.`/`foundation`/`corp`/`corporation` stripped), appears as a substring
+     anywhere in the email's subject or body.
+   A message matches a candidate only if **both** conditions hold. No confidence score, no partial
+   credit — this is intentionally binary and auditable.
+3. **Zero matches:** log the message id to the processed-ledger (below) with
+   `match_status = 'no_match'` and stop. Do not alert on every unmatched message — a dedicated
+   inbox receives real spam/bounces.
+4. **Exactly one match:** update the matched row — `confirmation_email_received = true`,
+   `confirmation_number` (extracted via a single Claude call: *"Extract any confirmation number,
+   reference ID, or tracking number from this email. Return null if none is present."*, per §5A),
+   `confirmation_received_at = now()`. This also causes §5B's follow-up scheduler to skip the
+   sequence for this submission (per §5B's existing "skip if confirmation received" rule).
+5. **Ambiguous — more than one candidate matches the same message:** do **not** guess. Insert one
+   row into a new table `autoapply_confirmation_ambiguous_matches` (message id, the full array of
+   matched candidate submission ids, sender, subject, `received_at`,
+   `status = 'needs_manual_match'`). This surfaces in the Human Review Queue UI (10C) for a human
+   to pick the correct submission (or none). The monitor never auto-resolves an ambiguity by
+   picking "the most recent" or any other heuristic.
+
+**Idempotency — processed-message-ID ledger (not an in-memory cursor):**
+```sql
+CREATE TABLE IF NOT EXISTS autoapply_confirmation_processed_messages (
+  gmail_message_id text PRIMARY KEY,
+  processed_at timestamptz NOT NULL DEFAULT now(),
+  match_status text NOT NULL,          -- 'matched' | 'ambiguous' | 'no_match'
+  matched_submission_id uuid           -- null unless match_status = 'matched'
+);
+```
+Every message returned by `users.messages.list` is checked against this table by primary key
+**before** any matching logic runs; already-present ids are skipped. The next poll's `after:`
+query bound is derived from `MAX(processed_at)` in this table, not an in-process variable — so a
+worker restart never reprocesses or silently skips a window. This makes the 5-minute poll safe to
+overlap or retry without double-writing `autoapply_submissions`.
+
+**Failure / backoff handling:**
+- Gmail API `429`/`5xx` on a given poll cycle: exponential backoff starting at 30s, doubling, capped
+  at 30 minutes, up to 5 retries **within that cycle**. If all 5 are exhausted, log to
+  `system_errors` and stop for this cycle — the next scheduled 5-minute poll tries again from
+  scratch. The worker process itself never crashes or exits on a Gmail failure.
+- OAuth token refresh failure (the one hard dependency this monitor cannot route around): alert the
+  platform admin immediately (reuse the existing `alerts` admin-notification convention, per
+  §8H's alerting patterns) — this is not retried silently forever, since a dead refresh token needs
+  a human to re-authorize.
+
+### 10B. CAPTCHA / Verification Detection + Pause Logic
+
+**Priority:** CRITICAL. This section documents a real behavior **change**, not just new detection
+code — read the "supersession" note below before building.
+
+**What already exists (live, verified by reading `worker/queue-processor.ts`):**
+`CaptchaSolver.detectCaptcha(page)` (`src/lib/autoapply/captcha-solver.ts`) is already called during
+the fill pipeline, after login-gating and before form-fill (`queue-processor.ts` ~line 1151-1169).
+Today, if a CAPTCHA is detected **and** `TWOCAPTCHA_API_KEY` is configured, the worker calls
+`captchaSolver.solveCaptcha()` and `injectSolution()` and continues — i.e., **it auto-solves today**.
+This matches `BEHAVIORAL_CONTRACTS.md` §24's existing (looser) contract: plain image/reCAPTCHA
+v2/hCaptcha get up to 3 auto-solve attempts via 2Captcha; only solve-failures or CAPTCHAs
+*resembling security challenges* (account lockout language, unusual-pattern warnings) pause for a
+human.
+
+**Supersession — this is the material change:** per explicit instruction, Benavora does not build
+or continue CAPTCHA-solving. **Every** detection now pauses for a human, unconditionally — the
+plain/security-challenge distinction in §24 is retired, and whether `TWOCAPTCHA_API_KEY` is
+configured no longer matters. Concretely, this requires **removing**, not just adding to,
+existing code: the `solveCaptcha()`/`injectSolution()` call block in `queue-processor.ts`
+(~line 1161-1168) must be deleted, and `CaptchaSolver.solveCaptcha()` in
+`src/lib/autoapply/captcha-solver.ts` should become dead/unreachable (or be deleted outright if
+nothing else calls it). A FORGE build task that only *adds* pause logic beside the existing solve
+call, without removing the solve call, does not satisfy this spec — the auto-solve path would
+still fire first.
+
+**Exact detection signals** (all checked, any one match triggers the pause — union, not AND):
+1. `CaptchaSolver.detectCaptcha(page)` returns a non-null `type` — reuse its existing
+   classification (`recaptcha_v2` | `hcaptcha` | `image` | `recaptcha_v3` | `unknown`) verbatim;
+   do not reimplement CAPTCHA detection itself.
+2. A bounded page-text heuristic for non-CAPTCHA verification challenges, checked against the
+   rendered page's visible text (case-insensitive substring): `"verify you're human"`,
+   `"unusual activity"`, `"account has been locked"`, `"enter the code sent to"`,
+   `"two-factor"`, `"one-time passcode"`, `"security check"`. This is the same class of signal
+   `BEHAVIORAL_CONTRACTS.md` §24 already named ("security challenges... unusual patterns, account
+   lockout warnings") — formalized here as an explicit, exact keyword list rather than left
+   implicit, since no such list exists in the current code.
+
+**Exact state transition on detection:**
+1. Stop the fill pipeline immediately for this queue item — no retry-the-login loop, no attempt to
+   proceed past the challenge.
+2. Screenshot via the existing `screenshotManager.uploadAndRecord(...)` convention already used for
+   `page_load`/`pre_fill`/`post_fill`/`post_submit` — tag it `captcha_detected`.
+3. Update the `submission_queue` row:
+   ```sql
+   ALTER TABLE submission_queue ADD COLUMN IF NOT EXISTS pause_reason text;
+   ALTER TABLE submission_queue ADD COLUMN IF NOT EXISTS paused_at timestamptz;
+   ALTER TABLE submission_queue ADD COLUMN IF NOT EXISTS paused_screenshot_path text;
+   ALTER TABLE submission_queue ADD COLUMN IF NOT EXISTS paused_history jsonb DEFAULT '[]'::jsonb;
+   ALTER TABLE submission_queue ADD COLUMN IF NOT EXISTS resume_count integer DEFAULT 0;
+   -- status value 'paused_verification' added alongside the existing
+   -- pending/processing/queued/failed/paused values from BEHAVIORAL_CONTRACTS.md §23
+   UPDATE submission_queue SET
+     status = 'paused_verification',
+     pause_reason = 'captcha_recaptcha_v2' | 'captcha_hcaptcha' | 'captcha_image'
+                    | 'captcha_recaptcha_v3_unsupported' | 'verification_challenge_detected',
+     paused_at = now(),
+     paused_screenshot_path = '<from step 2>'
+   WHERE id = $queueItemId;
+   ```
+4. Crucially: `createApprovedAutomationSession(...)` (queue-processor.ts ~line 1182) is **never
+   reached** for a paused item — no `automation_sessions` row exists yet for this attempt. There is
+   nothing "mid-submission" to roll back.
+
+**Restatement — `NEVER_SUBMIT_EXTERNALLY` stays intact, and this never auto-solves anything:**
+`AUTONOMOUS_HARD_LIMITS.NEVER_SUBMIT_EXTERNALLY` (`src/lib/agents/autonomous-base.ts`, per
+AGENTS_v2.md §0) constrains `AutonomousAgent` subclasses — e.g.
+`AutoApplyAutonomousOrchestrator` (`worker/autoapply-autonomous-orchestrator.ts`), which already
+only ever enqueues into `submission_queue` and never calls a submit step itself (its own header
+comment cites this exact limit). That guarantee is unrelated to and unaffected by this section.
+This section constrains a different, lower layer: `queue-processor.ts`'s own deterministic,
+risk-gated auto-submission path (the one AG-12 describes as reaching
+`requires_human_approval = true` / `status = 'needs_review'` only at the *final* submit gate). This
+spec adds a **second, earlier** hard stop: even on that already-permitted automated path, a CAPTCHA
+or verification challenge is never solved by software — not via 2Captcha, not via any image-model
+bypass, not under any configuration. The only way past a detected challenge is a human resolving it
+out-of-band and clicking resume (10C). No exception, no "if the risk score is low enough."
+
+**Resume mechanism:** specified in 10C (the concurrency-guarded resume action). Resuming means
+**retry from the top** — a fresh page navigation on the next queue pass — not "continue inside the
+paused browser session." The original Playwright page/context is not kept alive across the pause;
+holding an idle authenticated browser session open indefinitely between a pause and a human's
+resume click is a real resource and security liability with an unbounded pause duration, so it is
+explicitly out of scope.
+
+### 10C. Human Review Queue UI
+
+**Priority:** CRITICAL — without this, 10B's pause has no way to un-pause, and 10A's ambiguous
+matches have no way to be resolved. One UI serves both, since both are "an automated pipeline
+stopped and needs a human decision" — no reason to build two separate queues.
+
+**Route:** `/autoapply/review-queue` (`src/app/(dashboard)/autoapply/review-queue/page.tsx`) — a
+new, standalone route, distinct from the existing `/autoapply` page's `ManualQueue.tsx` tab
+(`automation_mode = 'manual'` pre-submission routing, §8B) and from `/autoapply/[sessionId]`
+(single-session detail view). Do not fold this into `ManualQueue.tsx` itself — it is a different
+queue with a different resolution action (resume-a-pause vs. manually-complete-a-submission).
+
+**Query / ordering — two tabs, one page:**
+```sql
+-- Tab 1: CAPTCHA/verification-paused items
+SELECT sq.*, f.name AS funder_name, f.giving_portal_url, o.name AS org_name
+FROM submission_queue sq
+JOIN funders f ON f.id = sq.funder_id
+JOIN organizations o ON o.id = sq.organization_id
+WHERE sq.status = 'paused_verification'
+ORDER BY sq.paused_at ASC;  -- oldest-paused first — nothing silently ages out unseen
+
+-- Tab 2: ambiguous Gmail confirmation matches (10A)
+SELECT * FROM autoapply_confirmation_ambiguous_matches
+WHERE status = 'needs_manual_match'
+ORDER BY received_at ASC;
+```
+
+**Per-row information architecture (Tab 1):** funder name + portal URL (external link, opens in new
+tab, same convention as §8B's "Open Portal"), org name, `paused_at` rendered with an elapsed-time
+badge (e.g. "paused 3h ago"), `pause_reason` mapped to a human-readable label
+("reCAPTCHA v2 detected", "Verification challenge detected", etc.), the `paused_screenshot_path`
+thumbnail (click to enlarge, via a Supabase Storage signed URL, same pattern as §8B's screenshot
+handling), and risk_score/risk_factors if present (reuses `ManualQueue.tsx`'s existing
+`RiskFactor` badge rendering rather than inventing a second style). Actions: **Mark Resolved &
+Retry**, **Skip** (with a reason, mirroring §8B's `Skip` pattern:
+`not_worth_it | portal_broken | duplicate | other`), **Reassign** (to another team member).
+
+**Exact resume action, with a concurrency guard (two reviewers cannot both act on the same row):**
+```
+PATCH /api/autoapply/review-queue/[id]/resume
+```
+Implemented as a single conditional `UPDATE ... WHERE ... RETURNING`, never a read-then-write:
+```sql
+UPDATE submission_queue
+SET status = 'queued',
+    paused_history = paused_history || jsonb_build_object(
+      'reason', pause_reason, 'paused_at', paused_at,
+      'resumed_by', $reviewerId, 'resumed_at', now()
+    ),
+    pause_reason = NULL,
+    paused_at = NULL,
+    paused_screenshot_path = NULL,
+    resume_count = COALESCE(resume_count, 0) + 1
+WHERE id = $1 AND status = 'paused_verification'
+RETURNING id;
+```
+If this returns zero rows, another reviewer already resumed (or skipped/reassigned) this row
+between page-load and this click — Postgres's row-level locking on the `UPDATE` makes two
+concurrent PATCHes resolve to exactly one winner, never both. The API returns `409 Conflict` in
+that case; the UI shows "Already handled by another reviewer" and removes the row from the local
+list rather than retrying. The same `WHERE status = '<expected current status>'` guard pattern
+applies to `/skip` and `/reassign`.
+
+---
+
 ## Document Authority
 
 This addendum extends AUTOAPPLY_ARCHITECTURE.md. All items are approved for implementation in the specified phase order. Phase 3E incorporates both the original error recovery plan and new infrastructure requirements. Phases 3F, 3F-GOV, 3G, and 3H follow in sequence.
