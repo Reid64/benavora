@@ -7,16 +7,17 @@
     "2023_TEOS_XML_05A",
     "2023_TEOS_XML_06A",
     "2023_TEOS_XML_07A",
-    "2023_TEOS_XML_08A"
+    "2023_TEOS_XML_08A",
+    "2023_TEOS_XML_09A"
   ],
-  "filingsParsed": 406826,
+  "filingsParsed": 441896,
   "parseFailed": 6,
-  "einsExtracted": 388384,
-  "matchedFoundation": 63304,
-  "updatedFoundation": 60279,
-  "matchedNonprofits": 362073,
-  "updatedNonprofits": 341212,
-  "unmatched": 26169,
+  "einsExtracted": 421838,
+  "matchedFoundation": 68330,
+  "updatedFoundation": 61270,
+  "matchedNonprofits": 393469,
+  "updatedNonprofits": 347726,
+  "unmatched": 28214,
   "startedAt": "2026-08-01T03:34:59.127Z",
-  "updatedAt": "2026-08-05T16:10:14.508Z"
+  "updatedAt": "2026-08-06T06:22:12.405Z"
 }
