@@ -1,8 +1,94 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 7, 2026 (q33 preflight: confirmed real call signatures for the 4 proposal-factory generators — row #116 orchestration prerequisite). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 7, 2026 (row #116 — One-Click Proposal Package orchestrator built on q33 preflight's confirmed signatures, honest partial-failure handling). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 7, 2026 (row #116 — One-Click Proposal Package orchestrator built)
+
+Built on the q33 preflight entry directly below this one (real call signatures for rows
+#112-115). New route: `POST /api/proposals/generate-package`
+(`src/app/api/proposals/generate-package/route.ts`) — a fresh top-level route, not
+`/api/applications/[id]/generate-package`, because per q33 preflight an `applications` row is
+*optional* for 3 of the 4 generators and this endpoint's own first job is deciding whether to
+create one, so it takes `opportunityId` (not an existing application id) as its primary input.
+
+**Sequencing, and why:**
+- **Step 0 (first, always):** ensure an `applications` row exists for the opportunity — find the
+  most recent one, or create one at stage `drafting` if none exists. This isn't optional plumbing:
+  Document Assembly (#115) hard-requires an existing application (404s without one), and
+  Narrative's (#112) own best-effort mirror-onto-application write silently no-ops without one
+  too — creating the row first means that mirror write actually lands.
+- **Steps 1-3 (Narrative, Budget, Logic Model) run concurrently, not sequentially.** Checked each
+  generator's real reads before assuming this: Narrative (`generateDraft()`) reads
+  `opportunities`/`knowledge_base`/`draft_versions`; Budget (`BudgetAgent`) reads
+  `opportunities`/`programs`/KB `budget_justification` entries; Logic Model
+  (`generateLogicModel()`) reads only `organizations.name`. None reads another's output —
+  Narrative's write to `applications.draft_content` is never read by Budget or Logic Model. Real
+  independence confirmed, not assumed, so `Promise.all` is correct here, not just convenient.
+- **Step 4 (Document Assembly) always runs last, after `Promise.all` resolves.** It needs the
+  `applications` row (guaranteed by Step 0) and `opportunities.required_documents`; its checklist
+  is the "what's left" view once the 3 generated pieces exist, not a 4th content generator run in
+  parallel with the others.
+- Each of the 3 AI-calling routes' real gates (`checkTierGate`, `enforceLimit`, `withUsageCheck`,
+  `requireRole`, in-memory rate limits) are **not reimplemented** — the orchestrator imports each
+  sibling route's real exported `POST` handler and invokes it in-process with a constructed
+  `Request`. This is the same request-handling path each route already runs when called over HTTP
+  (auth via `cookies()` still resolves correctly, since it reads from Next's per-request context,
+  not from the `Request` object passed to the handler) — just without a real network round trip.
+- **Budget's `programId`**: q33 preflight found no FK from opportunities/applications to
+  `programs` and no primary-program flag, so this can't be auto-derived when ambiguous. The
+  orchestrator auto-resolves only when the org has exactly one program; with 0 it fails that step
+  with a clear message, with 2+ it fails that step and returns the org's real program list in
+  `availablePrograms` so the UI can offer a picker and retry with an explicit `programId` — it
+  never guesses.
+- **Logic Model's `program_description`**: sourced automatically from
+  `organizational_digital_twins.programs[].description` (the KB `program_description`-tagged
+  entries, pre-aggregated by the twin builder) rather than asking the user to retype it. If the
+  twin has no described program, that step fails with a clear message rather than fabricating
+  prose — this table isn't in the generated `src/types/database.ts` (known staleness, same gap
+  documented for `organizational_digital_twins` elsewhere in this file), so the route reads it
+  through the untyped `SupabaseClient` return type `createClient()` already uses project-wide.
+
+**Partial-failure response shape (the actual point of this endpoint):** HTTP status is 200 once
+the top-level preconditions succeed (opportunity found, application ensured), regardless of how
+many of the 4 steps failed. The body is always:
+```
+{
+  applicationId, applicationCreated,
+  availablePrograms?: [{id, name}],   // only present when Budget couldn't auto-resolve one
+  steps: {
+    narrative:        { status: "success", data } | { status: "failed", error, code? },
+    budget:           { status: "success", data } | { status: "failed", error, code? },
+    logicModel:       { status: "success", data } | { status: "failed", error, code? },
+    documentAssembly: { status: "success", data } | { status: "failed", error, code? },
+  },
+  summary: { succeeded, failed, total: 4 },
+}
+```
+A run with 3/4 real pieces and one honest `{status: "failed", error: "..."}` is the correct,
+expected output — never a package silently missing a piece with no indication. Each failed step
+carries the real error message/code the underlying route or precondition check produced (a real
+tier-gate 429 message, a real AI-call failure, or the program/description resolution messages
+above), not a generic "generation failed."
+
+**UI:** new `ProposalPackagePanel` component (`src/components/applications/
+ProposalPackagePanel.tsx`), wired as a new "Proposal Package" tab on the existing application
+detail page (`ApplicationDetail.tsx`, alongside Overview/Timeline/Notes/Assembly — matches that
+file's real existing convention of Tailwind utility classes with the navy/teal token set and the
+shared `@/components/ui` primitives, not inline hex; that inline-hex convention belongs to a
+different set of pages per Directive 4, not this one). One "Generate Full Package" button; on
+completion, 4 step cards (Narrative/Budget/Logic Model/Document Checklist) each show a
+success/failure badge, the real returned data (confidence scores, total requested, logic-model
+item count, document checklist with a real download link when complete), or the real failure
+message. When Budget's program is ambiguous, a picker sourced from the real `availablePrograms`
+list appears inline with a "Regenerate with this program" retry.
+
+**Gates:** `pnpm tsc --noEmit` — 0 new errors (verified before and after: the only errors present
+are the same pre-existing `src/__tests__/**` failures documented throughout this file; none touch
+the new route or component).
 
 ---
 

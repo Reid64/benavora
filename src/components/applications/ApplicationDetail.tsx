@@ -32,6 +32,7 @@ import {
 } from "@/components/ui";
 import { AssemblyPanel } from "@/components/documents/AssemblyPanel";
 import { ComplianceReport } from "@/components/applications/ComplianceReport";
+import { ProposalPackagePanel } from "@/components/applications/ProposalPackagePanel";
 import { StageTransitionModal } from "@/components/applications/StageTransitionModal";
 import {
   STAGE_COLOR,
@@ -51,12 +52,13 @@ import {
 import { isNonEmpty } from "@/lib/utils/validators";
 import type { Tables } from "@/types/database";
 
-type TabKey = "overview" | "timeline" | "notes" | "assembly";
+type TabKey = "overview" | "timeline" | "notes" | "package" | "assembly";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "overview", label: "Overview" },
   { key: "timeline", label: "Timeline" },
   { key: "notes", label: "Notes" },
+  { key: "package", label: "Proposal Package" },
   { key: "assembly", label: "Assembly" },
 ];
 
@@ -478,6 +480,9 @@ export function ApplicationDetail({ applicationId }: ApplicationDetailProps) {
           authorId={profile?.id ?? null}
           onAdded={load}
         />
+      )}
+      {tab === "package" && application.opportunity_id && (
+        <ProposalPackagePanel opportunityId={application.opportunity_id} />
       )}
       {tab === "assembly" && (
         <AssemblyPanel applicationId={application.id} />
