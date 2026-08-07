@@ -17,6 +17,13 @@
 // agent_decisions.entity_id is typed uuid, so a category slug (not a UUID)
 // cannot be stored there; entity_id is omitted and the category is carried
 // in reasoning/action_payload instead.
+//
+// The category list and the "which categories does this org have content
+// for" query are shared with src/lib/intelligence/narrative-gap-analysis.ts
+// (row #144) via knowledge-base-completeness.ts, so both stay in sync
+// against the same enum/query rather than drifting independently. This
+// agent's own org-wide weekly sweep is unchanged in behavior by that
+// extraction.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -24,11 +31,13 @@ import {
   AutonomousAgent,
   type AutonomousAgentResult,
 } from "@/lib/agents/autonomous-base";
+import {
+  STANDARD_KB_CATEGORIES as STANDARD_CATEGORIES,
+  getPresentKbCategories,
+} from "@/lib/agents/knowledge-base-completeness";
 import { callClaude, DEFAULT_MODEL } from "@/lib/ai/claude";
-import type { Enums } from "@/types/database";
 
 type TriggerSource = "autonomous" | "manual" | "chain" | "schedule" | "event";
-type KnowledgeBaseCategory = Enums<"knowledge_base_category">;
 
 const MIN_TOKENS = 1000;
 const MAX_TOKENS_PER_GAP = 150;
@@ -50,20 +59,6 @@ const KNOWLEDGE_GAP_SYSTEM_PROMPT =
   "one per line, in the same order the categories were given, so the response can " +
   "be matched back to each category by position.";
 
-/** The 10 real, non-'custom' knowledge_base_category enum values. */
-const STANDARD_CATEGORIES: KnowledgeBaseCategory[] = [
-  "mission",
-  "vision",
-  "need_statement",
-  "program_description",
-  "impact",
-  "capacity",
-  "sustainability",
-  "partnerships",
-  "budget_justification",
-  "organizational_history",
-];
-
 export class KnowledgeGapAgent extends AutonomousAgent {
   constructor(orgId: string, supabase: SupabaseClient) {
     super(orgId, "ag-11-knowledge-gap", supabase);
@@ -78,19 +73,7 @@ export class KnowledgeGapAgent extends AutonomousAgent {
     let tokensUsed = 0;
 
     try {
-      const { data: kbRows, error: kbError } = await this.supabase
-        .from("knowledge_base")
-        .select("category")
-        .eq("organization_id", this.orgId)
-        .in("category", STANDARD_CATEGORIES);
-
-      if (kbError) {
-        throw new Error(`Failed to load knowledge base: ${kbError.message}`);
-      }
-
-      const present = new Set(
-        (kbRows ?? []).map((r) => r.category as KnowledgeBaseCategory),
-      );
+      const present = await getPresentKbCategories(this.supabase, this.orgId);
       const missing = STANDARD_CATEGORIES.filter((c) => !present.has(c));
 
       if (missing.length === 0) {

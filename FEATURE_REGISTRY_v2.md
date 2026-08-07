@@ -336,7 +336,7 @@ row that log covers, the plain BUILT/PLANNED status below is replaced with one o
 | # | Feature | Status | Notes |
 |---|---|---|---|
 | 143 | Eligibility Gap Detection | BUILT | Eligibility scoring existing feature. |
-| 144 | Narrative Gap Analysis | PLANNED | KB completeness scoring vs funder requirements. Phase 2. |
+| 144 | Narrative Gap Analysis | BUILT | Per-opportunity KB completeness scoring vs a specific funder's own listed requirements, at `GET /api/opportunities/[id]/narrative-gap-analysis` (`src/lib/intelligence/narrative-gap-analysis.ts`). Extends AG-11 (Knowledge Gap Agent, row #211) rather than duplicating it — reuses AG-11's own `knowledge_base` presence query (extracted to `src/lib/agents/knowledge-base-completeness.ts`) but scores against a per-opportunity relevant-category subset (best-effort keyword match on `opportunities.required_documents`/`eligibility_requirements`, falling back to all 10 standard categories when nothing narrows it — no real per-funder requirement schema exists in the schema to key off instead) rather than AG-11's org-wide, always-all-10-categories weekly sweep. Request-scoped read, no `agent_runs`/`agent_decisions` writes. |
 | 145 | Geographic Gap Detection | PLANNED | Funder portfolio geographic analysis. Phase 2. |
 | 146 | Gap Recommendations | PLANNED | Specific improvement actions per gap. Phase 2. |
 
@@ -525,12 +525,16 @@ Ground-up replacement architecture per `UNIVERSAL_SCRAPER_PRD.md`: keyword + sch
 | Tier 4 Browser Automation | 7 | 7 | 0 | 0 | 0 |
 | Tier 5 SaaS Layer | 6 | 6 | 0 | 0 | 0 |
 | Tier 6 Full Autonomous | 26 | 20 | 2 | 0 | 4 |
-| Platform Vision Pillars | 93 | 28 | 2 | 19 | 44 |
+| Platform Vision Pillars | 93 | 29 | 2 | 19 | 43 |
 | Data Pipeline | 7 | 3 | 2 | 0 | 2 |
 | Scraper (Directive 1) | 5 | 5 | 0 | 0 | 0 |
 | Universal Scraper (uscraper-001-007) | 7 | 3 | 4 | 0 | 0 |
 | Testing | 8 | 3 | 0 | 0 | 5 |
-| **TOTAL** | **198** | **114** | **10** | **19** | **55** |
+| **TOTAL** | **198** | **115** | **10** | **19** | **54** |
+
+**2026-08-08 addendum:** row #144 (Narrative Gap Analysis) moved Planned→Built this session (see its
+row for detail) — Platform Vision Pillars 28→29 Built / 44→43 Planned, TOTAL 114→115 Built / 55→54
+Planned. Not otherwise re-tallied against the note below.
 
 **Note on the July 30 → August 7, 2026 agent-verification updates:** the AG-15–AG-42 rows above (and
 their Post-Launch Vision cross-references, #217/#218/#220/#225) use the finer-grained BUILT — VERIFIED

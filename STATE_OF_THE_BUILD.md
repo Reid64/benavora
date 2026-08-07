@@ -1,8 +1,67 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 7, 2026 (row #116 — One-Click Proposal Package orchestrator built on q33 preflight's confirmed signatures, honest partial-failure handling). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 8, 2026 (row #144 — per-opportunity Narrative Gap Analysis built, extends AG-11). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 8, 2026 (row #144 — per-opportunity Narrative Gap Analysis, extends AG-11)
+
+FEATURE_REGISTRY_v2.md row #144 ("Narrative Gap Analysis — KB completeness scoring vs funder
+requirements") was PLANNED. `src/lib/agents/knowledge-gap-agent.ts` (AG-11, row #211, already
+BUILT) was read in full first, per this task's explicit instruction — it already does real,
+live, weekly **org-wide** KB completeness scoring: checks the org's `knowledge_base` rows
+against all 10 real `knowledge_base_category` enum values (mission, vision, need_statement,
+program_description, impact, capacity, sustainability, partnerships, budget_justification,
+organizational_history — `custom` excluded, same as AG-11), flags missing ones, gets Claude to
+write a fill-in suggestion per gap, and logs a notification + `agent_decisions` rows. What it
+does **not** do — and what row #144 actually asks for — is score completeness against what a
+*specific funder/opportunity* requires, not the org's KB in the abstract.
+
+**What was reused vs. net-new:**
+- **Reused, extracted, not duplicated:** AG-11's `STANDARD_CATEGORIES` list and its
+  `knowledge_base` presence query were pulled into a new shared module,
+  `src/lib/agents/knowledge-base-completeness.ts` (`STANDARD_KB_CATEGORIES`,
+  `getPresentKbCategories(supabase, orgId, categories?)`). `knowledge-gap-agent.ts` itself was
+  refactored to call this helper instead of its own inline query — same query shape, same error
+  message text, zero behavior change to AG-11's weekly sweep (verified by diff: the only removed
+  code is the inline `.from("knowledge_base").select("category")...` block and the duplicate
+  `STANDARD_CATEGORIES` array declaration, replaced with a single `getPresentKbCategories()`
+  call whose thrown-error message is byte-identical to the old inline check's).
+- **Net-new:** `src/lib/intelligence/narrative-gap-analysis.ts`,
+  `computeNarrativeGapAnalysis(supabase, organizationId, opportunityId)`. Checked
+  `opportunities`' real columns (`src/types/database.ts`) for a structured per-opportunity
+  narrative-requirement schema first — none exists: `required_documents` is a free-text
+  `string[]` of document names (e.g. "Letters of Support"), `eligibility_requirements` is free
+  text, neither maps to `knowledge_base_category` values. Per the task's explicit instruction,
+  the honest fallback is used and stated in-file rather than inventing a schema: a best-effort
+  keyword match (`CATEGORY_KEYWORDS`, e.g. "budget narrative"/"budget justification" →
+  `budget_justification`, "letters of support" → `partnerships`) against
+  `required_documents`/`eligibility_requirements` *narrows* `relevantCategories` to only the
+  categories a match was found for; when nothing matches (the common case), it falls back to all
+  10 standard categories — the same set AG-11 checks org-wide. Every result carries a
+  `methodology` string stating explicitly which path was taken (narrowed vs. fallback), so a
+  caller can tell a real funder-specific read apart from the generic default. Returns a
+  **per-opportunity** `completenessScore` (0–100, over the relevant subset only), plus
+  `presentCategories`/`missingCategories` scoped to that subset — genuinely new output AG-11
+  doesn't produce.
+- **Route:** `GET /api/opportunities/[id]/narrative-gap-analysis` — `requireRole("viewer")`,
+  `organization_id` derived server-side from the session (never the request), org-scoped
+  opportunity lookup, same pattern as the existing `/api/opportunities/[id]/probability` and
+  `/api/applications/[id]/budget` routes. Request-scoped read only — no `agent_runs`/
+  `agent_decisions` rows are written (this is not a new scheduled agent, per the task's explicit
+  instruction not to duplicate AG-11's autonomous sweep or notification behavior).
+
+FEATURE_REGISTRY_v2.md row #144 moved PLANNED → BUILT with the AG-11 relationship stated inline;
+Platform Vision Pillars summary counts and the grand TOTAL row updated to match (Built 114→115,
+Planned 55→54).
+
+Gates: `pnpm tsc --noEmit` — zero new errors. Full run shows only pre-existing, unrelated failures
+confined to `src/__tests__/unit/{deadline-predictor,outcome-analyzer,samgov-client,regressions}.test.ts`
+and `src/__tests__/integration/{organizations,storage-rls}.test.ts` (the same files already
+documented as failing in this repo's prior sessions) — none touch `knowledge-gap-agent.ts`,
+`knowledge-base-completeness.ts`, `narrative-gap-analysis.ts`, or the new route.
 
 ---
 
