@@ -1,8 +1,92 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 7, 2026 (follow-up live-verification pass: confirmed zero real agent-written rows still exist in relationship_memory/relationship_recommendations; the funder_relationship_scores column bug from earlier today persists, reproduced independently). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 7, 2026 (real `agent_registry` seed script built and run against production — 43 rows, Pillar 17 row #157 closed). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 7, 2026 (agent_registry real seed script — Pillar 17 row #157 closed)
+
+Per `FEATURE_REGISTRY_v2.md` Pillar 17, row #156 (`agent_registry`/`agent_configurations` tables)
+and row #158 (`GET /api/agents/registry`) were already real; row #157 (Registry Seed Data) was the
+gap — the only seed content on disk, `src/lib/agents/agent-registry-seed.ts` (a 17-entry array),
+is never imported by the route or anything else (confirmed by grep before touching anything) and
+was additionally wrong on its `ag-28` row ("Impact Simulation Agent," stale since AG-28 was
+permanently renumbered to Follow-Up Generator Agent on 2026-08-02). Built
+`scripts/seed-agent-registry.ts` — a real, idempotent (`upsert` on `agent_id`, the real PK per
+migration 094) seed script following this repo's established `createAdminClient()` script pattern
+— and ran it for real against production.
+
+**Result, independently verified after the run (a second, separate script re-querying the table,
+not just trusting the seed script's own printed count):** `agent_registry` now has **43 real rows**.
+
+**Roster-building method:** rather than reuse the dead 17-entry array, built the roster fresh from
+`AGENTS_v2.md`'s AG-01 through AG-42 canonical sections cross-checked against live code this
+session — grepped every real `super(orgId, "...", supabase)` / `super(SYSTEM_ORG_ID, "...",
+supabase)` call across `src/lib/agents/*.ts` and `src/lib/intelligence/*.ts` for real `agentId`
+literals, and read `worker/scheduler.ts`'s `jobs` array for real cron cadences. **This surfaced
+that several agents this session's `AGENTS_v2.md` snapshot documents as PLANNED/NOT-BUILT are
+actually real and wired in current code** — the doc snapshot available in context predates this
+work: AG-10 (`grant-dna-agent.ts`, weekly Sunday 3AM), AG-26 (`funding-forecast-agent.ts`, monthly
+1st 4AM), AG-27 (`board-packet-agent.ts`, daily 2AM), AG-29-canonical (`knowledge-indexer-agent.ts`,
+continuous poll + event, via `worker/knowledge-indexer-processor.ts`), AG-36
+(`learning-network-aggregator-agent.ts`, now genuinely scheduled weekly at 6AM — no longer
+orphaned as previously documented), AG-41 (`impact-simulation-agent.ts`), AG-42
+(`change-monitor-agent.ts`, daily 5AM). Did not attempt to reconcile `AGENTS_v2.md`'s own text
+against this finding (out of scope for this task) — flagging it here so a future governance-sync
+session catches the drift.
+
+**agent_id values — real literals preferred over synthetic slugs, per the task's own guidance:**
+30 of the 43 rows use a real, on-disk `agentId`/`agentType` literal that a live agent class or
+`BaseAgent` subclass actually logs to `agent_runs` (e.g. `ag-17-discovery`, `ag-15-probability`,
+`eligibility_scoring`, `ag22_propensity_scoring`, `ea01_giving_detector`) — chosen specifically so
+a future Agent Log Viewer (`FEATURE_REGISTRY_v2.md` row #160) can join `agent_registry.agent_id`
+against real `agent_runs.agent_type` rows. 13 rows use a synthetic `ag-XX-slug` (e.g.
+`ag-06-draft-generator`, `ag-12-autoapply`, `ag-16-digital-twin`) for agents that are plain
+functions, multi-source API routes, or processor loops with no single logged `agent_type` — these
+will honestly show zero run history in any future Log Viewer, which is a correct empty state, not
+a bug, since the underlying capability isn't individually audit-logged today even though it may run
+live.
+
+**Deliberate one-row-per-real-agent decisions on known numbering collisions** (documented in
+`AGENTS_v2.md` §1.4, all preserved rather than silently resolved one way):
+- AG-23 (Relationship Mapper) and AG-32 (Relationship Graph Builder) are the same real agent under
+  two numbers — seeded once, under `ag-32-relationship-graph` (its real literal), named "AG-23 /
+  AG-32" to credit both.
+- AG-25 is a permanent dual-use number — the canonical Disaster Response Agent (plain functions,
+  no `agent_type`, manual-only) and the unrelated on-disk `DeadlinePredictionAgent`
+  (`ag-25-deadline-prediction`, nightly-scheduled, real) are both real — seeded as two distinct
+  rows (`ag-25-disaster-response` synthetic, `ag-25-deadline-prediction` real).
+- AG-29 names two distinct real agents (Knowledge Engine Indexer vs. Fundability Scorer) — seeded
+  as two distinct rows with their own real literals (`ag-29-knowledge-indexer`,
+  `ag-29-fundability`).
+- Two additional real, queue-wired agents (`ag-06-budget-builder`, `ag-07-compliance-check`) were
+  found whose on-disk numbers coincidentally collide with unrelated canonical AG-06/AG-07 slots
+  already used above (Draft Generator, Learning Agent) — seeded as their own rows with names that
+  explicitly disclaim canonical-number membership, since they're real and live but don't have a
+  dedicated `AGENTS_v2.md` AG-XX section of their own.
+
+**Not seeded — named explicitly per the task's request, not silently dropped:**
+- **AG-33 (Partnership Discovery Agent)** and **AG-34 (Personalization Engine)** — zero
+  implementation file exists anywhere in `src/lib/agents/` or `src/lib/intelligence/`, confirmed by
+  grep. Both remain genuinely PLANNED with no code to correlate against; left out of this pass
+  rather than seeded as placeholder rows (unlike AG-31 below).
+- **AG-31 (National Forecast Agent)** — also genuinely PLANNED with zero code, but seeded anyway
+  (`ag-31-national-forecast`, `active: true`, `schedule_cron: null`) using its real, non-fabricated
+  purpose description from `AGENTS_v2.md`'s Phase 2-5 addendum, since it directly extends the now-
+  real AG-26. This is an inconsistency worth a future session's attention: AG-31 got a row and
+  AG-33/AG-34 didn't, for no principled reason beyond this session's own judgment call — either all
+  three should get placeholder rows or none should.
+
+Confirmed `/settings/agents` (the real, already-BUILT Autonomous Settings Panel, row #213) was not
+touched — it is a genuinely different feature from this Agent Marketplace pillar, per
+`FEATURE_REGISTRY_v2.md`'s 2026-08-07 correction. `agent_configurations` was not pre-seeded either,
+per the task's explicit instruction — it's correctly populated per-org, on-demand, by the real
+`POST /api/agents/registry/configure` route.
+
+Gates: `pnpm tsc --noEmit` — 38 pre-existing errors, all confined to `src/__tests__/**` (matches
+this repo's known pattern); zero errors in `scripts/seed-agent-registry.ts`.
 
 ---
 
