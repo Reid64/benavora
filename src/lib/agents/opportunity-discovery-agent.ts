@@ -85,6 +85,49 @@
 //     queued once per new opportunity with `input_payload.opportunityId`
 //     (singular) — matching AG-02's documented on-demand queue contract,
 //     not `ag-02` (which is the dead Generation-2 twin's unreachable id).
+//
+// Discovery Preferences wiring (FEATURE_REGISTRY_v2.md #86, 2026-08-07):
+// migration 011's search_profiles configuration columns (source_type_filters,
+// focus_areas, populations_served, excluded_categories, excluded_funders,
+// min_amount/max_amount) were live in production and editable via the real
+// Search Profile Configuration page (/search-profiles/configure) but were
+// never read by this agent — every field this file selected from
+// search_profiles was just `id, name, keywords, last_run_at`. The sibling
+// AG-05 research-family pipeline (src/lib/agents/research/scheduler.ts)
+// already parses and consults all 8 columns, so this agent now reuses that
+// exact same module (getActiveProfiles/profileQueryTerms/profileExcludesFunder)
+// instead of re-deriving equivalent logic:
+//   - source_type_filters gates whether the federal sweep (Grants.gov/SAM.gov/
+//     Federal Register, tagged sourceType "government_federal") and the
+//     foundation-match batch (tagged "private_foundation") run at all — an
+//     empty filter list means no restriction, matching the Configuration
+//     page's own empty-state copy.
+//   - focus_areas/populations_served fold into the keyword query via
+//     `profileQueryTerms()` (already used by AG-05), honoring the
+//     Configuration page's literal promise ("Weighted themes folded into the
+//     agents' search queries").
+//   - excluded_funders is checked against each discovered title via
+//     `profileExcludesFunder()` — foundation-match titles embed the real
+//     foundation name (see mapFoundationMatch), federal titles are a
+//     best-effort substring match since neither source client exposes a
+//     distinct agency/funder field (see file header above).
+//   - min_amount/max_amount filter out discovered items with a known amount
+//     outside the profile's range.
+// Scope limit, stated rather than silently glossed over: the foundation-match
+// and land-bank batches are org-level, not tied to one profile, so they are
+// gated only by source_type_filters (via `anyProfileAllows`) — amount-range
+// and excluded-funder filtering apply to the per-profile federal sweep only,
+// where a single profile's preferences unambiguously apply. `categories`,
+// `excluded_categories`, `eligibility_filters`, and `agent_settings` remain
+// unconsulted by this agent — `agent_settings` is scoped to the AG-05 family
+// agents (a different agent_type namespace, see RESEARCH_FAMILIES), and
+// `categories`/`excluded_categories` (the fine-grained funder_category enum)
+// don't map cleanly onto this agent's own coarse insert category (always
+// "government_grant" or "private_foundation" — see mapGrantsGov/mapSamGov/
+// mapFoundationMatch below), so filtering on them would silently drop nearly
+// every result for any profile that set a specific funding-type toggle. Left
+// as an honest, open gap rather than wired in a way that would misrepresent
+// what the preference actually does.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -97,6 +140,12 @@ import {
   type FoundationMatch,
   type OrgProfile,
 } from "@/lib/intelligence/foundation-matcher";
+import {
+  getActiveProfiles,
+  profileExcludesFunder,
+  profileQueryTerms,
+  type ResearchSearchProfile,
+} from "@/lib/agents/research/scheduler";
 import {
   searchGrantsGovOpportunities,
   type GrantsGovNormalizedOpportunity,
@@ -171,13 +220,6 @@ interface DiscoveredOpportunity {
   sourceType: string;
 }
 
-interface SearchProfileRow {
-  id: string;
-  name: string;
-  keywords: string[] | null;
-  last_run_at: string | null;
-}
-
 interface FederalRegisterResult {
   document_number?: unknown;
   title?: unknown;
@@ -208,7 +250,7 @@ interface DiscoveryStateSnapshot {
   recentRuns: { itemsFound: number; status: string }[];
   recentRunsFoundZero: boolean;
   recentDiscoverySuccessRate: number | null;
-  activeProfiles: SearchProfileRow[];
+  activeProfiles: ResearchSearchProfile[];
   allProfilesRanRecently: boolean;
 }
 
@@ -219,7 +261,46 @@ interface StrategyDecision {
 
 interface SourceSweepResult {
   duplicatesSkipped: number;
+  /** Discovered items dropped by a source_type_filters/excluded_funders/
+   * amount-range preference, distinct from a true duplicate. */
+  preferenceFiltered: number;
   sweptProfileIds: string[];
+}
+
+/** True when a profile's source_type_filters allow the given source to run.
+ * An empty filter list means no restriction (all sources on), matching the
+ * Configuration page's own empty-state copy ("the agents weigh every source
+ * equally"). */
+function sourceTypeAllowed(
+  profile: ResearchSearchProfile,
+  sourceType: "government_federal" | "private_foundation",
+): boolean {
+  if (profile.sourceTypeFilters.length === 0) return true;
+  return profile.sourceTypeFilters.some((f) => f.source_type === sourceType);
+}
+
+/** True when at least one active profile allows the given source type — used
+ * to gate the org-level (not per-profile) foundation-match and skip-redundant
+ * batches, which aren't tied to a single profile's own configuration. */
+function anyProfileAllows(
+  profiles: ResearchSearchProfile[],
+  sourceType: "government_federal" | "private_foundation",
+): boolean {
+  if (profiles.length === 0) return true;
+  return profiles.some((p) => sourceTypeAllowed(p, sourceType));
+}
+
+/** True when a discovered amount (if known) falls within the profile's
+ * configured min/max range. An unknown amount is never excluded on this
+ * basis — most federal-source hits have no published amount. */
+function withinAmountRange(
+  profile: ResearchSearchProfile,
+  amount: number | null,
+): boolean {
+  if (amount === null) return true;
+  if (profile.minAmount !== null && amount < profile.minAmount) return false;
+  if (profile.maxAmount !== null && amount > profile.maxAmount) return false;
+  return true;
 }
 
 function toStr(val: unknown): string {
@@ -388,22 +469,29 @@ function formatDeadline(deadline: string | null): string {
 }
 
 /** Single joined-keyword phrase used by strategies that make one Grants.gov
- * call per profile (standard/deadline_focus/federal_shift). */
-function buildProfileKeyword(profile: SearchProfileRow): string {
+ * call per profile (standard/deadline_focus/federal_shift). Folds in the
+ * profile's weighted focus areas and populations-served tags (via
+ * `profileQueryTerms`, shared with AG-05) alongside its plain keywords, so
+ * the Configuration page's "focus areas" setting genuinely shapes the query
+ * instead of being silently ignored. */
+function buildProfileKeyword(profile: ResearchSearchProfile): string {
   return (
-    (profile.keywords ?? []).join(" ").slice(0, 50).trim() ||
+    profileQueryTerms(profile).join(" ").slice(0, 50).trim() ||
     profile.name ||
     "nonprofit grant"
   );
 }
 
-/** Up to EXPAND_SEARCH_MAX_KEYWORD_TERMS individual keyword terms, used by
- * the expand_search strategy in place of one joined phrase — a single
- * 50-char joined string is a narrower query surface than searching each
- * keyword independently, which is the whole point when the joined-phrase
- * approach has stopped returning anything new. */
-function buildExpandedKeywordTerms(profile: SearchProfileRow): string[] {
-  const raw = (profile.keywords ?? []).map((k) => k.trim()).filter(Boolean);
+/** Up to EXPAND_SEARCH_MAX_KEYWORD_TERMS individual terms, used by the
+ * expand_search strategy in place of one joined phrase — a single 50-char
+ * joined string is a narrower query surface than searching each term
+ * independently, which is the whole point when the joined-phrase approach
+ * has stopped returning anything new. Terms are keywords first, then
+ * weighted focus areas / populations served (`profileQueryTerms`), so
+ * expanding search surface also expands into the profile's configured
+ * themes, not just its plain keywords. */
+function buildExpandedKeywordTerms(profile: ResearchSearchProfile): string[] {
+  const raw = profileQueryTerms(profile).map((k) => k.trim()).filter(Boolean);
   if (raw.length === 0) return [profile.name || "nonprofit grant"];
   return raw.slice(0, EXPAND_SEARCH_MAX_KEYWORD_TERMS);
 }
@@ -542,7 +630,7 @@ export class OpportunityDiscoveryAgent extends AutonomousAgent {
     const [
       { count: opportunitiesLast7DaysRaw },
       { data: scoreRows },
-      { data: profileRows, error: profilesError },
+      activeProfiles,
       { data: recentRunRows },
     ] = await Promise.all([
       this.supabase
@@ -554,11 +642,14 @@ export class OpportunityDiscoveryAgent extends AutonomousAgent {
         .from("opportunity_probability_scores")
         .select("overall_score")
         .eq("organization_id", this.orgId),
-      this.supabase
-        .from("search_profiles")
-        .select("id, name, keywords, last_run_at")
-        .eq("organization_id", this.orgId)
-        .eq("is_active", true),
+      // Reuses the AG-05 research-family loader (src/lib/agents/research/
+      // scheduler.ts) instead of a bare id/name/keywords/last_run_at select,
+      // so this snapshot carries every migration-011 Discovery Preferences
+      // column (source_type_filters, focus_areas, min/max amount,
+      // excluded_funders, ...) already parsed into the same shape that
+      // module's own consumers use. Fails soft (logs + returns []) rather
+      // than throwing, matching that module's established behavior.
+      getActiveProfiles({ client: this.supabase, organizationId: this.orgId }),
       this.supabase
         .from("agent_runs")
         .select("items_found, status")
@@ -568,14 +659,6 @@ export class OpportunityDiscoveryAgent extends AutonomousAgent {
         .order("created_at", { ascending: false })
         .limit(STAGNANT_RUN_LOOKBACK),
     ]);
-
-    if (profilesError) {
-      throw new Error(
-        `Failed to load active search profiles: ${profilesError.message}`,
-      );
-    }
-
-    const activeProfiles = (profileRows ?? []) as SearchProfileRow[];
 
     const scores = ((scoreRows ?? []) as { overall_score: number | null }[])
       .map((r) => r.overall_score)
@@ -635,8 +718,8 @@ export class OpportunityDiscoveryAgent extends AutonomousAgent {
       activeProfiles.length > 0 &&
       activeProfiles.every(
         (p) =>
-          p.last_run_at !== null &&
-          new Date(p.last_run_at).getTime() >= redundancyWindowMs,
+          p.lastRunAt !== null &&
+          new Date(p.lastRunAt).getTime() >= redundancyWindowMs,
       );
 
     return {
@@ -656,7 +739,11 @@ export class OpportunityDiscoveryAgent extends AutonomousAgent {
   /** Shared dedup+insert+decision-log path for every source (federal sweep,
    * expanded sweep, foundation-match batch). Mutates newOpportunityIds/
    * decisions/errors in place and returns how many of `opportunities` were
-   * duplicates. */
+   * duplicates vs. dropped by a Discovery Preference. `profile`, when
+   * supplied, applies that profile's min/max amount range and
+   * excluded_funders list — see the file header for why this is only passed
+   * for per-profile sweeps, not the org-level foundation-match/land-bank
+   * batches. */
   private async insertDiscoveredOpportunities(
     opportunities: DiscoveredOpportunity[],
     runId: string,
@@ -664,11 +751,22 @@ export class OpportunityDiscoveryAgent extends AutonomousAgent {
     newOpportunityIds: string[],
     decisions: string[],
     errors: string[],
-  ): Promise<number> {
+    profile?: ResearchSearchProfile,
+  ): Promise<{ duplicatesSkipped: number; preferenceFiltered: number }> {
     let duplicatesSkipped = 0;
+    let preferenceFiltered = 0;
 
     for (const opp of opportunities) {
       if (!opp.externalTitle) continue;
+
+      if (
+        profile &&
+        (!withinAmountRange(profile, opp.amount) ||
+          profileExcludesFunder(profile, opp.externalTitle))
+      ) {
+        preferenceFiltered++;
+        continue;
+      }
 
       const alreadyExists = await existsInOpportunities(
         this.supabase,
@@ -726,23 +824,29 @@ export class OpportunityDiscoveryAgent extends AutonomousAgent {
       decisions.push(decisionId);
     }
 
-    return duplicatesSkipped;
+    return { duplicatesSkipped, preferenceFiltered };
   }
 
   /** Runs the foundation-match batch and inserts up to `limit` candidates.
    * Shared by every strategy that includes foundation matching — only the
    * limit varies (doubled under expand_search, skipped entirely under
-   * federal_shift/deadline_focus/skip_redundant). */
+   * federal_shift/deadline_focus/skip_redundant). Gated on `activeProfiles`'
+   * source_type_filters (see anyProfileAllows) — an org-level batch with no
+   * single profile to apply amount-range/excluded-funder filtering against. */
   private async runFoundationMatchBatch(
     limit: number,
     runId: string,
     newOpportunityIds: string[],
     decisions: string[],
     errors: string[],
-  ): Promise<number> {
+    activeProfiles: ResearchSearchProfile[],
+  ): Promise<{ duplicatesSkipped: number; preferenceFiltered: number }> {
+    if (!anyProfileAllows(activeProfiles, "private_foundation")) {
+      return { duplicatesSkipped: 0, preferenceFiltered: 0 };
+    }
     try {
       const orgProfile = await this.loadOrgProfile();
-      if (!orgProfile) return 0;
+      if (!orgProfile) return { duplicatesSkipped: 0, preferenceFiltered: 0 };
 
       const foundationMatches = await findMatchingFoundations(
         orgProfile,
@@ -764,7 +868,7 @@ export class OpportunityDiscoveryAgent extends AutonomousAgent {
       const message =
         err instanceof Error ? err.message : "Foundation matching failed.";
       errors.push(`foundation matching: ${message}`);
-      return 0;
+      return { duplicatesSkipped: 0, preferenceFiltered: 0 };
     }
   }
 
@@ -821,15 +925,21 @@ export class OpportunityDiscoveryAgent extends AutonomousAgent {
   /** One profile's federal-source sweep, parameterized so
    * standard/federal_shift/deadline_focus can share it while still varying
    * whether the Federal Register is included and how the insert is labeled
-   * for audit. */
+   * for audit. Skipped entirely when this profile's source_type_filters
+   * explicitly exclude "government_federal" (Discovery Preferences source
+   * toggle) — every source this sweep calls is tagged that sourceType. */
   private async sweepProfile(
-    profile: SearchProfileRow,
+    profile: ResearchSearchProfile,
     runId: string,
     newOpportunityIds: string[],
     decisions: string[],
     errors: string[],
     options: { includeFederalRegister: boolean; sourceLabelSuffix: string },
-  ): Promise<number> {
+  ): Promise<{ duplicatesSkipped: number; preferenceFiltered: number }> {
+    if (!sourceTypeAllowed(profile, "government_federal")) {
+      return { duplicatesSkipped: 0, preferenceFiltered: 0 };
+    }
+
     const keyword = buildProfileKeyword(profile);
     const calls: Promise<DiscoveredOpportunity[]>[] = [
       searchGrantsGovOpportunities(keyword).then((hits) => hits.map(mapGrantsGov)),
@@ -849,6 +959,7 @@ export class OpportunityDiscoveryAgent extends AutonomousAgent {
       newOpportunityIds,
       decisions,
       errors,
+      profile,
     );
   }
 
@@ -856,17 +967,18 @@ export class OpportunityDiscoveryAgent extends AutonomousAgent {
    * Federal Register) per active profile, plus a normal-sized foundation
    * match batch. This is the default when no branching signal fires. */
   private async executeStandard(
-    profiles: SearchProfileRow[],
+    profiles: ResearchSearchProfile[],
     runId: string,
     newOpportunityIds: string[],
     decisions: string[],
     errors: string[],
   ): Promise<SourceSweepResult> {
     let duplicatesSkipped = 0;
+    let preferenceFiltered = 0;
     const sweptProfileIds: string[] = [];
 
     for (const profile of profiles) {
-      duplicatesSkipped += await this.sweepProfile(
+      const result = await this.sweepProfile(
         profile,
         runId,
         newOpportunityIds,
@@ -874,21 +986,26 @@ export class OpportunityDiscoveryAgent extends AutonomousAgent {
         errors,
         { includeFederalRegister: true, sourceLabelSuffix: "standard sweep" },
       );
+      duplicatesSkipped += result.duplicatesSkipped;
+      preferenceFiltered += result.preferenceFiltered;
       sweptProfileIds.push(profile.id);
     }
 
-    duplicatesSkipped += await this.runFoundationMatchBatch(
+    const foundationResult = await this.runFoundationMatchBatch(
       FOUNDATION_MATCH_INSERT_LIMIT,
       runId,
       newOpportunityIds,
       decisions,
       errors,
+      profiles,
     );
+    duplicatesSkipped += foundationResult.duplicatesSkipped;
+    preferenceFiltered += foundationResult.preferenceFiltered;
 
     const orgProfile = await this.loadOrgProfile();
     await this.runLandBankBatch(orgProfile, runId, decisions, errors);
 
-    return { duplicatesSkipped, sweptProfileIds };
+    return { duplicatesSkipped, preferenceFiltered, sweptProfileIds };
   }
 
   /** EXECUTION — expand_search strategy: multiple individual keyword terms
@@ -898,16 +1015,22 @@ export class OpportunityDiscoveryAgent extends AutonomousAgent {
    * and single Federal Register phrasing have plausibly exhausted their
    * surface area against this org's existing opportunities. */
   private async executeExpandSearch(
-    profiles: SearchProfileRow[],
+    profiles: ResearchSearchProfile[],
     runId: string,
     newOpportunityIds: string[],
     decisions: string[],
     errors: string[],
   ): Promise<SourceSweepResult> {
     let duplicatesSkipped = 0;
+    let preferenceFiltered = 0;
     const sweptProfileIds: string[] = [];
 
     for (const profile of profiles) {
+      if (!sourceTypeAllowed(profile, "government_federal")) {
+        sweptProfileIds.push(profile.id);
+        continue;
+      }
+
       const terms = buildExpandedKeywordTerms(profile);
       const [grantsGovBatches, samGovHits, federalRegisterA, federalRegisterB] =
         await Promise.all([
@@ -924,26 +1047,32 @@ export class OpportunityDiscoveryAgent extends AutonomousAgent {
         ...federalRegisterB,
       ]);
 
-      duplicatesSkipped += await this.insertDiscoveredOpportunities(
+      const result = await this.insertDiscoveredOpportunities(
         discovered,
         runId,
         `profile ${profile.name} (expanded search, ${terms.length} keyword term(s))`,
         newOpportunityIds,
         decisions,
         errors,
+        profile,
       );
+      duplicatesSkipped += result.duplicatesSkipped;
+      preferenceFiltered += result.preferenceFiltered;
       sweptProfileIds.push(profile.id);
     }
 
-    duplicatesSkipped += await this.runFoundationMatchBatch(
+    const foundationResult = await this.runFoundationMatchBatch(
       EXPAND_SEARCH_FOUNDATION_LIMIT,
       runId,
       newOpportunityIds,
       decisions,
       errors,
+      profiles,
     );
+    duplicatesSkipped += foundationResult.duplicatesSkipped;
+    preferenceFiltered += foundationResult.preferenceFiltered;
 
-    return { duplicatesSkipped, sweptProfileIds };
+    return { duplicatesSkipped, preferenceFiltered, sweptProfileIds };
   }
 
   /** EXECUTION — federal_shift strategy: same federal sweep as standard, but
@@ -952,17 +1081,18 @@ export class OpportunityDiscoveryAgent extends AutonomousAgent {
    * federal sources carry firmer eligibility signals than the foundation
    * heuristic, so this run concentrates there instead. */
   private async executeFederalShift(
-    profiles: SearchProfileRow[],
+    profiles: ResearchSearchProfile[],
     runId: string,
     newOpportunityIds: string[],
     decisions: string[],
     errors: string[],
   ): Promise<SourceSweepResult> {
     let duplicatesSkipped = 0;
+    let preferenceFiltered = 0;
     const sweptProfileIds: string[] = [];
 
     for (const profile of profiles) {
-      duplicatesSkipped += await this.sweepProfile(
+      const result = await this.sweepProfile(
         profile,
         runId,
         newOpportunityIds,
@@ -974,10 +1104,12 @@ export class OpportunityDiscoveryAgent extends AutonomousAgent {
             "federal-shift sweep, foundation matching skipped this run",
         },
       );
+      duplicatesSkipped += result.duplicatesSkipped;
+      preferenceFiltered += result.preferenceFiltered;
       sweptProfileIds.push(profile.id);
     }
 
-    return { duplicatesSkipped, sweptProfileIds };
+    return { duplicatesSkipped, preferenceFiltered, sweptProfileIds };
   }
 
   /** EXECUTION — deadline_focus strategy: Grants.gov + SAM.gov only (both
@@ -987,7 +1119,7 @@ export class OpportunityDiscoveryAgent extends AutonomousAgent {
    * CRITICAL_DEADLINE_STRATEGY_THRESHOLD opportunities are already sitting
    * with a near deadline and no application started. */
   private async executeDeadlineFocus(
-    profiles: SearchProfileRow[],
+    profiles: ResearchSearchProfile[],
     runId: string,
     newOpportunityIds: string[],
     decisions: string[],
@@ -995,10 +1127,11 @@ export class OpportunityDiscoveryAgent extends AutonomousAgent {
     criticalDeadlineOpportunityIds: string[],
   ): Promise<SourceSweepResult> {
     let duplicatesSkipped = 0;
+    let preferenceFiltered = 0;
     const sweptProfileIds: string[] = [];
 
     for (const profile of profiles) {
-      duplicatesSkipped += await this.sweepProfile(
+      const result = await this.sweepProfile(
         profile,
         runId,
         newOpportunityIds,
@@ -1010,6 +1143,8 @@ export class OpportunityDiscoveryAgent extends AutonomousAgent {
             "deadline-focus sweep (Federal Register and foundation matching skipped -- neither source carries real deadline data)",
         },
       );
+      duplicatesSkipped += result.duplicatesSkipped;
+      preferenceFiltered += result.preferenceFiltered;
       sweptProfileIds.push(profile.id);
     }
 
@@ -1020,36 +1155,45 @@ export class OpportunityDiscoveryAgent extends AutonomousAgent {
       errors,
     );
 
-    return { duplicatesSkipped, sweptProfileIds };
+    return { duplicatesSkipped, preferenceFiltered, sweptProfileIds };
   }
 
   /** EXECUTION — skip_redundant strategy: every active profile already ran
    * within PROFILE_REDUNDANCY_WINDOW_DAYS, so this run makes exactly one
    * profile-agnostic SAM.gov call (its result set changes fastest of the
    * three federal sources) rather than repeating Grants.gov/Federal
-   * Register/foundation matching against data that was just re-fetched. */
+   * Register/foundation matching against data that was just re-fetched.
+   * Gated on `activeProfiles`' source_type_filters like the foundation-match
+   * batch — no single profile drives this call, so amount-range/excluded-
+   * funder filtering doesn't apply here either. */
   private async executeSkipRedundant(
     runId: string,
     newOpportunityIds: string[],
     decisions: string[],
     errors: string[],
+    activeProfiles: ResearchSearchProfile[],
   ): Promise<SourceSweepResult> {
+    if (!anyProfileAllows(activeProfiles, "government_federal")) {
+      return { duplicatesSkipped: 0, preferenceFiltered: 0, sweptProfileIds: [] };
+    }
+
     const samGovHits = await searchSamGovOpportunities();
     const discovered = dedupeWithinBatch(samGovHits.map(mapSamGov));
 
-    const duplicatesSkipped = await this.insertDiscoveredOpportunities(
-      discovered,
-      runId,
-      "SAM.gov new-postings sweep (skip-redundant strategy)",
-      newOpportunityIds,
-      decisions,
-      errors,
-    );
+    const { duplicatesSkipped, preferenceFiltered } =
+      await this.insertDiscoveredOpportunities(
+        discovered,
+        runId,
+        "SAM.gov new-postings sweep (skip-redundant strategy)",
+        newOpportunityIds,
+        decisions,
+        errors,
+      );
 
     // No profile-scoped source ran this branch, so no profile's
     // last_run_at should be bumped -- that would falsely mark a profile as
     // "recently swept" when its actual sources were skipped.
-    return { duplicatesSkipped, sweptProfileIds: [] };
+    return { duplicatesSkipped, preferenceFiltered, sweptProfileIds: [] };
   }
 
   /** Logs a required-human-review decision on each existing opportunity
@@ -1171,6 +1315,7 @@ export class OpportunityDiscoveryAgent extends AutonomousAgent {
             newOpportunityIds,
             decisions,
             errors,
+            snapshot.activeProfiles,
           );
           break;
         case "standard":
@@ -1199,14 +1344,18 @@ export class OpportunityDiscoveryAgent extends AutonomousAgent {
         decisionType: "discovery_observation",
         agentRunId: runId,
         reasoning:
-          `Strategy "${strategy}" produced ${newCount} new opportunity(ies) and skipped ` +
-          `${sweepResult.duplicatesSkipped} duplicate(s). Baseline: ${baselineText}.`,
+          `Strategy "${strategy}" produced ${newCount} new opportunity(ies), skipped ` +
+          `${sweepResult.duplicatesSkipped} duplicate(s), and dropped ` +
+          `${sweepResult.preferenceFiltered} result(s) that didn't match an active profile's ` +
+          `Discovery Preferences (source toggle, amount range, or excluded funder). ` +
+          `Baseline: ${baselineText}.`,
         confidenceScore: 80,
         actionTaken: "observed_results",
         actionPayload: {
           strategy,
           newCount,
           duplicatesSkipped: sweepResult.duplicatesSkipped,
+          preferenceFiltered: sweepResult.preferenceFiltered,
           errorCount: errors.length,
         },
       });
@@ -1289,6 +1438,7 @@ export class OpportunityDiscoveryAgent extends AutonomousAgent {
           strategy,
           newOpportunities: newCount,
           duplicatesSkipped: sweepResult.duplicatesSkipped,
+          preferenceFiltered: sweepResult.preferenceFiltered,
           eligibilityChainQueued,
           chainedToProbabilityScoring: didChainProbability,
           opportunityIds: newOpportunityIds,

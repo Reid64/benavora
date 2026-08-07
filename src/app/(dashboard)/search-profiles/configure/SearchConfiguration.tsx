@@ -375,8 +375,9 @@ export function SearchConfiguration() {
             {isEdit ? "Configure search profile" : "New search profile"}
           </h1>
           <p className="mt-1 max-w-2xl text-sm text-navy-500">
-            Everything here steers what the research agents hunt for. Settings are
-            read before every run.
+            Discovery Preferences — everything here steers what the research
+            agents hunt for, including the autonomous nightly discovery sweep.
+            Settings are read before every run.
           </p>
         </div>
       </div>
@@ -450,7 +451,7 @@ export function SearchConfiguration() {
       {/* Source-category filters with priority ranking */}
       <SectionCard
         title="Source categories & priority"
-        description="Bias the agents toward specific funding sources. Order sets priority - top = highest."
+        description="Toggle which funding sources the agents pursue -- including the nightly autonomous discovery sweep (Grants.gov, SAM.gov, Federal Register under Government Federal; foundation matching under Private Foundation). Order sets priority - top = highest."
       >
         <SourcePriorityField
           value={sourceFilters}

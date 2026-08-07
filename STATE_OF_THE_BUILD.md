@@ -1,8 +1,125 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 7, 2026 (registry #85 Personalized Match Feed built — deterministic Digital Twin affinity scoring blended with AG-15 probability, real feed page at `/intelligence/match-feed`). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 7, 2026 (registry #86 Discovery Preferences wired — AG-17 now reads migration 011's search_profiles config columns for the first time; existing Search Profile Configuration UI reused, not rebuilt). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 7, 2026 (Discovery Preferences wired — registry #86, AG-17 now reads migration 011's search_profiles config)
+
+**What shipped:** `FEATURE_REGISTRY_v2.md` #86 ("Discovery Preferences," PLANNED) — closed by wiring AG-17
+(`src/lib/agents/opportunity-discovery-agent.ts`, `OpportunityDiscoveryAgent`) to actually read the
+8 advanced configuration columns migration 011 added to `search_profiles`, not by building a new UI.
+
+**Live-checked before building anything, per this task's own instruction not to guess:**
+- Migration 011's 8 columns (`source_type_filters`, `focus_areas`, `geographic_scopes`,
+  `eligibility_filters`, `populations_served`, `excluded_categories`, `excluded_funders`,
+  `agent_settings`) are confirmed live in production (`psql "$DATABASE_URL"` via a throwaway
+  Node script per `benavora-live-network-secret-calls-need-approval`; direct shell `$VAR`
+  expansion is blocked by the sandbox).
+- Migration 010's `opportunity_source_type` **enum type does not exist live** — a real,
+  previously-undocumented finding. `opportunities.source_type` exists but as plain `text` with
+  default `'not_classified'`, added instead by migration 027 (`027_missing_columns.sql`, whose own
+  header comment already flags this as the real column, migration 010's enum abandoned). This
+  doesn't block anything: `search_profiles.source_type_filters` is `jsonb`, never referenced the
+  Postgres enum type at the DDL level, and both the UI (`OPPORTUNITY_SOURCE_TYPES` constant) and
+  AG-17's own `sourceType` string literals ("government_federal"/"private_foundation") already
+  match as plain strings on both sides — just noting the enum-type gap for accuracy.
+- A full, mature **Search Profile Configuration page already exists** at
+  `/search-profiles/configure` (`SearchConfiguration.tsx`, also embedded as a "Search Configuration"
+  tab on `/research`), backed by a shared, already-tested parser module
+  (`src/lib/research/profile-config.ts`). It already exposes UI controls for all 8 migration-011
+  columns — source-category toggles with priority ranking, weighted focus areas, geographic scopes,
+  eligibility pre-filters, population-served tags, excluded categories/funders, and per-(AG-05-
+  family)-agent schedule toggles. **No second, parallel settings UI was built** — per this task's
+  explicit instruction, this UI was reused/surfaced, not duplicated.
+
+**The real gap, found by reading AG-17's `perceiveState()`/strategy logic directly:** AG-17 selected
+only `id, name, keywords, last_run_at` from `search_profiles` — every one of migration 011's 8
+columns (and even the base `categories` column from migration 001) was live, user-editable via the
+real Configuration page, and **completely unconsulted by the one agent the task named as "the real
+discovery pipeline."** A user could set source toggles, focus areas, an amount range, and excluded
+funders, and AG-17's nightly sweep would silently ignore all of it — exactly the "preference that
+lies to the user" failure mode this task explicitly warned against.
+
+**Root-cause context, not previously documented:** a *different*, already-live pipeline —
+`src/lib/agents/research/scheduler.ts`, feeding the AG-05 research-family agents
+(`government-grants.ts`/`corporate-giving.ts`/`foundation-grants.ts`/`local-sponsorship.ts`) —
+already parses and consults all 8 columns via exported helpers (`getActiveProfiles`,
+`effectiveCategories`, `profileExcludesFunder`, `queryAugmentTerms`, `profileQueryTerms`,
+`profileAgentEnabled`). AG-17 (a separate, newer Generation-2 `AutonomousAgent`, wired into the
+nightly 2AM sweep per `AGENTS_v2.md`) never reused this module and had its own minimal, blind
+`search_profiles` query instead.
+
+**Fix — AG-17 now reuses `research/scheduler.ts` directly rather than re-deriving equivalent logic:**
+- `perceiveState()` now loads active profiles via `getActiveProfiles()` (same loader AG-05 uses)
+  instead of a bare `id/name/keywords/last_run_at` select — every strategy branch and execution
+  path now operates on the fully-parsed `ResearchSearchProfile` shape.
+- **Source toggle** (`source_type_filters`): a new `sourceTypeAllowed()`/`anyProfileAllows()` pair
+  gates whether the federal sweep (Grants.gov + SAM.gov + Federal Register, all tagged
+  `sourceType: "government_federal"`) and the foundation-match batch (tagged
+  `"private_foundation"`) run at all. Applied per-profile in `sweepProfile()`/`executeExpandSearch()`
+  (skips a profile's federal sweep entirely if explicitly disabled) and at the org level for the
+  foundation-match/skip-redundant batches (which aren't tied to one profile) via
+  `anyProfileAllows()`. An empty filter list means no restriction, matching the Configuration page's
+  own empty-state copy.
+- **Focus areas / populations served** (`focus_areas`, `populations_served`): `buildProfileKeyword()`
+  and `buildExpandedKeywordTerms()` now call `profileQueryTerms()` (keywords + weighted focus areas
+  + population tags) instead of `profile.keywords` alone — the Configuration page's own promised
+  behavior ("Weighted themes folded into the agents' search queries") is now actually true for AG-17,
+  not just the AG-05 family.
+- **Amount range / excluded funders** (`min_amount`/`max_amount`, `excluded_funders`): a new
+  `withinAmountRange()` helper plus the existing `profileExcludesFunder()` (reused from
+  `scheduler.ts`) are applied inside `insertDiscoveredOpportunities()` when a profile is available
+  (the per-profile federal sweep), dropping a discovered item before insert rather than after.
+  Foundation-match titles embed the real foundation name (`mapFoundationMatch`), so the same
+  substring-match excluded-funder check catches those precisely; federal-source titles get a
+  best-effort match since neither `grantsgov-client.ts` nor `samgov-client.ts` exposes a distinct
+  agency/funder field — stated as a known imprecision in the file's own header comment, not hidden.
+- New `preferenceFiltered` counter (distinct from `duplicatesSkipped`) threads through every
+  execution-strategy return value into the OBSERVATION PHASE decision log and `completeRun()`'s
+  output summary, so a human auditing `agent_decisions`/`agent_runs` can see how many results a
+  Discovery Preference actually dropped, not just duplicates.
+
+**Deliberately left unwired, stated honestly rather than force-fit:**
+- **`categories`/`excluded_categories`** (the fine-grained `funder_category` enum — "Housing Grant",
+  "Education Grant", etc.): AG-17's own insert always sets `category` to exactly one of two coarse
+  values (`"government_grant"` for every federal source, `"private_foundation"` for foundation
+  matches — see `mapGrantsGov`/`mapSamGov`/`mapFoundationMatch`). Filtering on the fine-grained
+  enum would silently drop nearly every result for any profile that set a specific funding-type
+  toggle (which is most of them), since AG-17 never produces those specific category values.
+  Wiring this the way `categories`/`focus_areas` symmetry might suggest would have produced exactly
+  the "preference that lies to the user" outcome this task warned against — left open instead, with
+  the reasoning in the file's own header comment.
+- **`agent_settings`**: confirmed (via `src/lib/research/families.ts`) to be scoped to the AG-05
+  family's own `agent_type` namespace (`government_research`/`corporate_research`/
+  `foundation_research`/etc.), a different agent system from AG-17 entirely. Out of scope for this
+  task, not a gap in it.
+- **`eligibility_filters`/`geographic_scopes`**: real, parsed by `scheduler.ts`, but not consulted
+  by AG-17 either — left open. `geographic_scopes` in particular has no clean hook: neither
+  `grantsgov-client.ts` nor `samgov-client.ts` accepts a geographic filter param (confirmed, per
+  this file's own pre-existing header comment on the same limitation for NAICS/deadline/award
+  filters), so wiring it would require a new post-fetch geo-matching step, not a one-line change —
+  flagged for a future session rather than attempted here.
+- **`min_amount`/`max_amount`/`source_type_filters`**: also confirmed **unconsulted by the AG-05
+  family itself** (grepped every research-family agent file — none reference `minAmount`/
+  `maxAmount`/`sourceTypeFilters`), a real, adjacent gap discovered but out of this task's explicit
+  AG-17-only scope. Not fixed here; noted for a future session auditing the AG-05 family separately.
+
+**UI work:** none beyond two copy edits. Per this task's explicit instruction ("if it does, your job
+is narrower than it looks... extend/surface it... rather than building a second, parallel settings
+UI"), the existing `/search-profiles/configure` page already had every control needed (source
+toggle with priority, focus areas with weights, excluded categories/funders, amount range). Updated
+its header copy and the "Source categories & priority" section description to state plainly that
+these settings now drive the autonomous nightly discovery sweep (previously true only for the AG-05
+family) — an honest reflection of the new wiring, not new functionality.
+
+**Gates:** `pnpm tsc --noEmit` — zero errors in `opportunity-discovery-agent.ts`,
+`research/scheduler.ts`, or `SearchConfiguration.tsx`. Pre-existing, unrelated errors remain
+confined to `src/__tests__/unit/{deadline-predictor,outcome-analyzer,samgov-client,regressions}.test.ts`
+and two integration test files (the same baseline documented in every prior session's gate check —
+tsc gate excludes the test tree per project memory).
 
 ---
 

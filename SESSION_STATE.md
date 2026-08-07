@@ -1,7 +1,60 @@
 # BENAVORA — Session State
-## Last Updated: August 7, 2026 (Personalized Match Feed built — registry #85, real Digital Twin affinity + AG-15 probability blend)
+## Last Updated: August 7, 2026 (Discovery Preferences wired — registry #86, AG-17 now reads search_profiles config)
 
-## Current Session — August 7, 2026 (Personalized Match Feed built — registry #85)
+## Current Session — August 7, 2026 (Discovery Preferences wired — registry #86)
+
+**Focus:** `FEATURE_REGISTRY_v2.md` #86 ("Discovery Preferences," PLANNED, Phase 2) — user-
+configurable source and category filters for discovery, wired so they genuinely change what AG-17
+(`OpportunityDiscoveryAgent`) returns, per the task's explicit requirement.
+
+**Status:**
+- Live-verified before building: migration 011's 8 `search_profiles` config columns are applied in
+  production (`psql "$DATABASE_URL"`, via a throwaway Node script per
+  `benavora-live-network-secret-calls-need-approval` — direct shell `$VAR` expansion is blocked).
+  Migration 010's `opportunity_source_type` enum **type itself does not exist live** (a new finding
+  — `opportunities.source_type` is plain `text`, added instead by migration 027); doesn't block
+  anything since `source_type_filters` is jsonb and both sides already match as plain strings.
+- Grepped for an existing "Search Profile Configuration" UI per the task's instruction before
+  building a new one — found a full, mature page at `/search-profiles/configure`
+  (`SearchConfiguration.tsx`), also embedded as a tab on `/research`, already exposing every
+  migration-011 column (source-priority toggle, weighted focus areas, geographic scopes,
+  eligibility pre-filters, populations served, excluded categories/funders, per-AG-05-family
+  schedule). **Did not build a second UI** — reused this one, per the task's explicit instruction.
+- Read AG-17's `perceiveState()`/strategy logic directly (not assumed): it selected only
+  `id, name, keywords, last_run_at` from `search_profiles` — none of migration 011's columns, not
+  even the base `categories` column, were ever consulted. A separate, already-live pipeline
+  (`src/lib/agents/research/scheduler.ts`, feeding the AG-05 research-family agents) already parses
+  and consults all 8 columns via exported helpers — AG-17 simply never reused it.
+- Wired AG-17 to reuse `research/scheduler.ts` directly: `getActiveProfiles()` replaces the blind
+  select; a new `sourceTypeAllowed()`/`anyProfileAllows()` pair gates the federal sweep
+  (Grants.gov+SAM.gov+Federal Register) and foundation-match batch on `source_type_filters`;
+  `buildProfileKeyword()`/`buildExpandedKeywordTerms()` now fold in `focus_areas`/
+  `populations_served` via `profileQueryTerms()`; a new `withinAmountRange()` plus the reused
+  `profileExcludesFunder()` filter discovered items against `min_amount`/`max_amount`/
+  `excluded_funders` before insert. A new `preferenceFiltered` counter (distinct from
+  `duplicatesSkipped`) is logged per run so the effect is auditable in `agent_decisions`.
+- Deliberately left unwired, with reasoning in the file's own header comment: `categories`/
+  `excluded_categories` (AG-17's insert category is always one of exactly 2 coarse values —
+  filtering on the fine-grained funder_category enum would silently drop nearly every result for
+  most profiles); `agent_settings` (confirmed scoped to the AG-05 family's own agent_type
+  namespace, not AG-17, via `src/lib/research/families.ts`); `eligibility_filters`/
+  `geographic_scopes` (real but unconsulted, no clean AG-17 hook — geo filtering isn't supported by
+  either federal source client). Also found, out of this task's scope: `min_amount`/`max_amount`/
+  `source_type_filters` are unconsulted by the AG-05 family too — a real, adjacent gap, not fixed
+  here.
+- UI: two copy edits only (Configuration page header + "Source categories & priority" section
+  description), stating plainly that these settings now drive the nightly autonomous sweep, not
+  new controls — every control the task asked for already existed.
+- Full detail in `STATE_OF_THE_BUILD.md`'s "SESSION — August 7, 2026 (Discovery Preferences wired)"
+  entry.
+
+**Commit:** `feat(discovery): Discovery Preferences UI on search_profiles config columns, wired into AG-17 (registry #86)` (this session).
+**Gates:** `pnpm tsc --noEmit` — zero errors in any file this session touched; pre-existing test-tree
+errors unchanged.
+
+---
+
+## Prior Session — August 7, 2026 (Personalized Match Feed built — registry #85)
 
 **Focus:** `FEATURE_REGISTRY_v2.md` #85 ("Personalized Match Feed," PLANNED, Phase 2) — per-org
 scoring of open opportunities against the org's Digital Twin, blended with AG-15's real probability
