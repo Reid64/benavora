@@ -193,6 +193,10 @@ describe("computeGrantProbability", () => {
     );
 
     expect(deadlineFactor?.value).toBe(0);
+    expect(result.key_risks).toContain("Deadline has already passed.");
+    expect(result.key_risks).not.toContain(
+      "Deadline is under 15 days away — limited prep time.",
+    );
   });
 
   it("defaults the twin_completeness factor to a neutral value when no Digital Twin exists", async () => {

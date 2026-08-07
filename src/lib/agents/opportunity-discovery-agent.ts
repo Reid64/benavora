@@ -553,7 +553,7 @@ export class OpportunityDiscoveryAgent extends AutonomousAgent {
       this.supabase
         .from("opportunity_probability_scores")
         .select("overall_score")
-        .eq("org_id", this.orgId),
+        .eq("organization_id", this.orgId),
       this.supabase
         .from("search_profiles")
         .select("id, name, keywords, last_run_at")

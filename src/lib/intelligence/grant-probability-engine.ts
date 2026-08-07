@@ -237,10 +237,10 @@ function buildKeyRisks(
       new Date(opportunity.deadline),
       new Date(),
     );
-    if (days < 15) {
-      risks.push("Deadline is under 15 days away — limited prep time.");
-    } else if (days < 0) {
+    if (days < 0) {
       risks.push("Deadline has already passed.");
+    } else if (days < 15) {
+      risks.push("Deadline is under 15 days away — limited prep time.");
     }
   } else {
     risks.push("No deadline on record for this opportunity.");
