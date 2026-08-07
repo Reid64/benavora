@@ -5,7 +5,13 @@
     "watchPatterns": [
       "worker/**",
       "package.json",
-      "pnpm-lock.yaml"
+      "pnpm-lock.yaml",
+      "src/lib/autoapply/**",
+      "src/lib/supabase/**",
+      "src/lib/donor-discovery/**",
+      "src/lib/enrichment/web-extractor.ts",
+      "src/lib/env.ts",
+      "src/types/**"
     ]
   },
   "deploy": {
