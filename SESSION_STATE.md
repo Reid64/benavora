@@ -1,7 +1,40 @@
 # BENAVORA — Session State
-## Last Updated: August 7, 2026 (Personalized Match Feed live-verified — registry #85)
+## Last Updated: August 7, 2026 (Discovery Preferences live-verified — registry #86)
 
-## Current Session — August 7, 2026 (Personalized Match Feed live-verified against real data — registry #85)
+## Current Session — August 7, 2026 (Discovery Preferences live-verified against real data — registry #86)
+
+**Focus:** Live-verify `FEATURE_REGISTRY_v2.md` #86 ("Discovery Preferences") against the real Faith
+Foundation org — confirm a real preference change through the real write path actually changes AG-17's
+discovery behavior, per the task's explicit real-before/after-evidence requirement, not a compile pass.
+
+**Status:**
+- Read the org's live `search_profiles` row (`f0b59ea6-5b52-4e1c-9ab8-7c5e1b6f2eba`) — all 8
+  migration-011 Discovery Preferences columns confirmed live, `source_type_filters: []` (unrestricted).
+- Wrote a real preference change using the exact payload shape `SearchConfiguration.tsx`'s save
+  handler builds (`source_type_filters: [{"source_type":"private_foundation","priority":1}]`,
+  disabling the federal source), confirmed persisted via an independent fresh read, not the write
+  call's own response.
+- Ran `runOpportunityDiscovery()` (AG-17's real invocation path — same function the manual API route
+  and `agent_queue` cases call) twice, before and after, with `globalThis.fetch` instrumented to
+  record real external hosts contacted. Both runs picked the same strategy (`deadline_focus`); before,
+  AG-17 genuinely contacted `api.grants.gov`/`api.sam.gov`; after, it contacted neither — real,
+  decisive runtime proof the preference change works end to end.
+- Found and flagged (not fixed) a real decision-log observability gap: the `discovery_observation`
+  reasoning text is identical whether a source was skipped by preference or ran and found nothing —
+  `agent_decisions` alone can't currently confirm a preference took effect.
+- Restored `search_profiles.source_type_filters` to its original `[]` state; deleted all 5 throwaway
+  verification scripts, none committed.
+- `focus_areas`/`populations_served`/`min_amount`/`max_amount`/`excluded_funders` confirmed wired by
+  code read only, not independently live-tested with the same rigor this pass.
+
+Appended full results to `AGENT_VERIFICATION_LOG.md` under "Discovery Preferences (registry #86)".
+Updated `STATE_OF_THE_BUILD.md` with a new session entry.
+**Commit:** `test(discovery): live-verify Discovery Preferences actually change AG-17 pipeline output for Faith Foundation org` (this session).
+**Gates:** no code changed (verification-only task); no gate run.
+
+---
+
+## Prior Session — August 7, 2026 (Personalized Match Feed live-verified against real data — registry #85)
 
 **Focus:** Live-verify `FEATURE_REGISTRY_v2.md` #85 ("Personalized Match Feed") against the real
 Faith Foundation org — confirm the ranking is real/data-driven, not a fixed or uniform order dressed

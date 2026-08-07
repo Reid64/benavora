@@ -1,8 +1,46 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 7, 2026 (registry #85 Personalized Match Feed live-verified against real Faith Foundation org data — real, data-driven ranking confirmed; one blend-design limitation flagged, not fixed). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 7, 2026 (registry #86 Discovery Preferences live-verified against real Faith Foundation org data — AG-17 branching confirmed with real network instrumentation; a real decision-log observability gap flagged, not fixed). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 7, 2026 (Discovery Preferences live-verified against real data — registry #86)
+
+Live-verified `FEATURE_REGISTRY_v2.md` row #86's claim (commit `d285b4d`) that AG-17
+(`opportunity-discovery-agent.ts`) now reads Discovery Preferences columns from `search_profiles`
+instead of ignoring them, using the real Faith Foundation org (`b1ab7402-dfc2-4712-869f-70ea3566cc1d`),
+not a compile pass. Full detail and evidence in `AGENT_VERIFICATION_LOG.md`'s "Discovery Preferences
+(registry #86)" entry.
+
+**Confirmed working, with real runtime proof — not just a code read:** read the org's live
+`search_profiles` row (`source_type_filters: []`, i.e. no restriction), then wrote a real change
+through the exact payload shape the Configuration UI's save handler builds
+(`source_type_filters: [{"source_type":"private_foundation","priority":1}]`, disabling the federal
+source), confirmed persisted via an independent fresh read (not the write call's own response). Ran
+AG-17's real discovery pass (`runOpportunityDiscovery`, the same function the manual API route and
+`agent_queue` use) twice — before and after the change — with `globalThis.fetch` instrumented to
+record which real hosts were actually contacted. Both runs picked the identical strategy
+(`deadline_focus`, driven by unrelated org state that didn't change between the two ~1-minute-apart
+runs): **before**, AG-17 contacted `api.grants.gov` and `api.sam.gov` once each; **after**, it
+contacted neither — `sweepProfile()`'s `sourceTypeAllowed()` gate correctly short-circuited the
+federal sweep before any external call was attempted. This is decisive, real evidence the preference
+change actually changes AG-17's behavior end to end, not just that the column gets read.
+
+**Real gap found, not fixed:** the `discovery_observation` decision's reasoning text is byte-identical
+before and after ("dropped 0 result(s) that didn't match... Discovery Preferences") even though the
+"after" run skipped the entire federal sweep — `sweepProfile()`'s early-return path doesn't increment
+`preferenceFiltered` or log anything distinguishing "source skipped by preference" from "source ran,
+found nothing." A human can't currently tell from `agent_decisions` alone whether a Discovery
+Preference actually took effect on a given run; only direct instrumentation (as done here) or
+watching real discovered-opportunity volume over time can confirm it. Config was restored to its
+original `[]` state after the test; all 5 throwaway verification scripts deleted, never committed.
+
+**Not independently tested this pass:** `focus_areas`/`populations_served` (query-term augmentation),
+`min_amount`/`max_amount`/`excluded_funders` (dedup-time filtering) — confirmed wired by direct code
+read, but not verified with the same before/after-with-network-instrumentation rigor as
+`source_type_filters`.
 
 ---
 

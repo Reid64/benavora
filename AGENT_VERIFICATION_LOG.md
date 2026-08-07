@@ -6875,3 +6875,138 @@ persisted `combinedScore`. Both throwaway scripts (`scripts/verify-match-feed.ts
 `scripts/verify-match-feed-2.ts`) were deleted after use and never committed; no data was written to
 any live table (read-only queries only).
 
+---
+
+## Discovery Preferences (registry #86) — AG-17 branching confirmed live, real observability gap found
+
+**Spec under test:** commit `d285b4d` ("Discovery Preferences UI on search_profiles config columns,
+wired into AG-17 (registry #86)") — `FEATURE_REGISTRY_v2.md` row #86 claims AG-17
+(`opportunity-discovery-agent.ts`) now reads `source_type_filters` (source toggle), `focus_areas`/
+`populations_served` (query augmentation), and `min_amount`/`max_amount`/`excluded_funders` (result
+filtering) from `search_profiles` — previously unconsulted. `categories`/`excluded_categories`/
+`agent_settings`/`eligibility_filters`/`geographic_scopes` are explicitly documented as still
+unwired for AG-17 specifically. This entry live-tests the `source_type_filters` claim end-to-end
+against the real Faith Foundation org, not a compile pass.
+
+**Verdict: confirmed working, with real runtime (not just code-read) proof — and one real
+observability gap found and flagged, not fixed.**
+
+### 1. Read the org's live `search_profiles` config
+
+One active profile for Faith Foundation (`b1ab7402-dfc2-4712-869f-70ea3566cc1d`):
+`f0b59ea6-5b52-4e1c-9ab8-7c5e1b6f2eba` ("Faith Foundation, Rural Housing, transitional housing,
+recovery housing, reentry housing, veteran housing"). All 8 migration-011 Discovery Preferences
+columns confirmed live and at their empty/default state going in:
+`source_type_filters: []`, `focus_areas: []`, `geographic_scopes: []`, `eligibility_filters: {}`,
+`populations_served: []`, `excluded_categories: []`, `excluded_funders: []`, `agent_settings: {}`
+(`min_amount: 5000` predates migration 011, unrelated). Per `sourceTypeAllowed()`'s own doc comment
+(`opportunity-discovery-agent.ts:270-280`), an empty `source_type_filters` list means "no
+restriction — all sources on," matching the Configuration page's own empty-state copy.
+
+### 2. Changed a real preference through the same write path the UI uses, confirmed persisted
+
+No dedicated API route exists for this feature — `SearchConfiguration.tsx` writes directly to
+`search_profiles` via the browser Supabase client (RLS-scoped), building
+`source_type_filters: [{source_type, priority}]` from the enabled-sources list
+(`SearchConfiguration.tsx:288-291`). Reproduced that exact payload shape via the service-role client
+(no authenticated browser session available in this non-interactive session) — updated
+`source_type_filters` to `[{"source_type":"private_foundation","priority":1}]`, i.e. disabling
+`government_federal` by omitting it from the enabled list, exactly as unchecking that source in the
+UI would produce.
+
+**Persistence confirmed by an independent fresh read** (a separate query, not the `update()` call's
+own response, which is not proof of a real write — the mutation could succeed against a stale cache
+or fail silently and still echo the intended payload back): `source_type_filters` read back as
+`[{"priority":1,"source_type":"private_foundation"}]`. Restored to `[]` at the end of this
+verification (see §5) so the real org's config isn't left mutated by this test.
+
+### 3. Ran AG-17's real discovery pass twice — before and after — with real network instrumentation
+
+Used `runOpportunityDiscovery(orgId, client, "manual")` (`opportunity-discovery-agent.ts:1482-1489`)
+— the same function both the manual `/api/agents/discovery` route and the `agent_queue`
+`'ag-17-discovery'`/`'opportunity_discovery'` cases call. Rather than relying on `agent_decisions`'
+own summary counters alone (see the gap in §4), instrumented `globalThis.fetch` before invoking the
+agent to record which real hosts were actually contacted during each run — proof of runtime
+behavior, not an inference from reading the source.
+
+Both runs selected the same strategy, `deadline_focus` (13 opportunities with a deadline inside 14
+days and no application started, threshold >5 — org state didn't change between the two runs, ~1
+minute apart). Per `executeDeadlineFocus()` (`opportunity-discovery-agent.ts:1121-1159`), this
+strategy calls `sweepProfile()` (`includeFederalRegister: false`), which itself gates on
+`sourceTypeAllowed(profile, "government_federal")` (`opportunity-discovery-agent.ts:939-941`) before
+making any Grants.gov/SAM.gov call.
+
+| | Real hosts contacted (instrumented `fetch`) | `agent_runs.output_summary` |
+|---|---|---|
+| **Before** (`source_type_filters: []`) | `api.grants.gov` x1, `api.sam.gov` x1 | `strategy: deadline_focus, newOpportunities: 0, duplicatesSkipped: 0, preferenceFiltered: 0` |
+| **After** (`source_type_filters: [{private_foundation, 1}]`) | zero external hosts — only the Supabase client itself | `strategy: deadline_focus, newOpportunities: 0, duplicatesSkipped: 0, preferenceFiltered: 0` |
+
+**This is real, decisive evidence that the preference change actually changes AG-17's behavior**:
+identical strategy selected both times, only the persisted `search_profiles.source_type_filters`
+value differed between the two runs, and `sweepProfile()`'s early-return at line 939-941 correctly
+prevented any Grants.gov/SAM.gov call from ever being attempted in the "after" run. Both runs
+happened to find 0 new opportunities and 0 duplicates that particular minute (Grants.gov/SAM.gov's
+live result set for this exact keyword returned nothing new either way) — so the *volume* counters
+in `output_summary` are identical before/after and are **not**, by themselves, evidence of anything;
+the real evidence is the network-layer proof that the federal APIs were contacted once each in the
+"before" run and not at all in the "after" run.
+
+### 4. Real observability gap found, not fixed — flagging honestly per the task's instruction
+
+The `discovery_observation` decision's own reasoning text — *"dropped 0 result(s) that didn't match
+an active profile's Discovery Preferences (source toggle, amount range, or excluded funder)"* — is
+identical in both the before and after run, and is misleading in the "after" case: it implies
+nothing was filtered by a preference, when in fact the entire federal sweep was skipped by the
+`government_federal` source toggle before any candidate was ever fetched. `sweepProfile()`'s early
+return (line 939-941) returns `{duplicatesSkipped: 0, preferenceFiltered: 0}` silently — it does not
+increment `preferenceFiltered` or log any decision noting "source X was skipped this run due to
+Discovery Preferences." A human reading `agent_decisions` for this org has no way to distinguish "the
+federal sweep ran and genuinely found nothing" from "the federal sweep was skipped entirely by a
+preference toggle" — both produce byte-identical decision-log text. This is a real, reproducible gap
+in q30-002's own audit trail, confirmed live, not a hypothetical: the wiring itself works (per §3's
+network-level proof), but its self-reported observability does not accurately reflect what happened.
+Not fixed here (verification-only task) — flagged for a future session to add an explicit "N source(s)
+skipped by Discovery Preferences" note distinct from the existing "N result(s) dropped by preference"
+counter, ideally by having `sweepProfile()`/`anyProfileAllows()`'s early-return paths log or at least
+tally the skip event instead of returning silently.
+
+### 5. Cleanup
+
+`search_profiles.source_type_filters` restored to `[]` (its state at the start of this verification)
+via the same write path, confirmed persisted by a fresh read afterward. `focus_areas`/
+`populations_served`/`min_amount`/`max_amount`/`excluded_funders` (the other columns row #86 claims
+are wired) were not independently live-tested in this pass — `source_type_filters` was chosen as the
+one column with the clearest, most decisively observable on/off behavioral signal (a network call
+either happens or doesn't); a future pass should apply the same before/after-with-instrumentation
+method to `excluded_funders` (dedup-time filter, would need a live candidate matching an excluded
+funder name to observe) and `focus_areas`/`populations_served` (keyword-string construction — would
+need to capture the actual query string sent to Grants.gov/SAM.gov, not just whether the call
+happened, to prove the terms changed).
+
+### Root-cause summary
+
+1. **Confirmed working, with real runtime proof**: `source_type_filters` genuinely gates AG-17's
+   federal-source sweep — a real, persisted preference change measurably changed which external APIs
+   AG-17 contacted on its next run, for the real Faith Foundation org, via the real invocation path.
+2. **Real gap found**: the decision-log audit trail (`agent_decisions.reasoning`/`action_payload`)
+   does not distinguish a preference-driven source skip from a source that ran and found nothing —
+   both look identical in the log. `FEATURE_REGISTRY_v2.md` #86 doesn't claim otherwise, but this is
+   worth recording since it means "check the decision log" is not currently a reliable way to confirm
+   a Discovery Preference took effect — only direct instrumentation (as done here) or observing actual
+   discovered-opportunity volume over a longer window is.
+3. Not tested this pass: `focus_areas`, `populations_served`, `min_amount`/`max_amount`,
+   `excluded_funders` — all confirmed wired by code read (per the accompanying Explore-agent report),
+   none independently live-verified with the same before/after-with-instrumentation rigor as
+   `source_type_filters`.
+
+**Verification method:** live reads/writes (`node --import tsx`, no mocks) against the real
+production database (`vbjplpquqxxfbpazyalt`) via the real service-role Supabase client, scoped to
+the real Faith Foundation org; a real `search_profiles` write using the exact payload shape
+`SearchConfiguration.tsx`'s save handler builds; persistence confirmed via an independent fresh read
+after each write, not the write call's own response; two real, unmodified `runOpportunityDiscovery()`
+invocations (the same function the manual API route and `agent_queue` call), ~1 minute apart, with
+`globalThis.fetch` instrumented beforehand to record real external hosts contacted — genuine runtime
+network evidence, not inferred from reading the source; both runs' `agent_runs`/`agent_decisions`
+rows read back independently afterward. Config restored to its original state after the test. Five
+throwaway scripts (`scripts/_verify-discovery-prefs*.ts`) were deleted after use and never committed.
+
