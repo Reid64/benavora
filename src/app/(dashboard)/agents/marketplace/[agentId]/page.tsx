@@ -153,7 +153,7 @@ export default function AgentLogViewerPage() {
             <span style={{ fontSize: "13px", color: "#6B7280" }}>Loading run history…</span>
           </div>
         ) : loadError ? (
-          <div style={{ ...cardStyle, borderLeft: "4px solid #EF4444" }}>
+          <div style={errorBoxStyle}>
             <span style={{ fontSize: "13px", color: "#B91C1C" }}>{loadError}</span>
             <div style={{ marginTop: "12px" }}>
               <button

@@ -1,7 +1,26 @@
 name: Deploy Check
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
+
+# Re-enabled 2026-08-07 after a 25-consecutive-failed-Vercel-deploy incident
+# (DEPLOY_FAILURE_STRUCTURAL_AUDIT.md) — this exact job would have caught it,
+# the trigger was just off. Originally detached from `push` on 2026-07-17
+# (commit 8b8c991) alongside a real pnpm version-pin conflict fix (f256861,
+# same day); that conflict is confirmed still fixed (package.json's
+# `packageManager: "pnpm@9.0.0"` matches pnpm-lock.yaml's `lockfileVersion:
+# '9.0'`, and the hardcoded `pnpm/action-setup@v4` version pin f256861
+# removed was never re-added) — re-enabling `push` does not reintroduce it.
+# The real reason for the original detachment was volume: many commits in
+# quick succession each queued their own full run. Guarded against here via
+# `concurrency` instead of disabling the gate entirely — a new push
+# cancels any still-running check for the same branch rather than queuing
+# behind it.
+concurrency:
+  group: deploy-check-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
