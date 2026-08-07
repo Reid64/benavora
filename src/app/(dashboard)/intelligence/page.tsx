@@ -32,6 +32,7 @@ import {
   Network,
   Compass,
   MapPin,
+  FlaskConical,
 } from "lucide-react";
 
 const CANVAS = "#D6E4F0";
@@ -147,6 +148,15 @@ const MODULES: ModuleDef[] = [
     icon: MapPin,
     color: "#0EA5E9",
     statKind: "badge",
+  },
+  {
+    key: "simulate",
+    title: "Impact Simulator",
+    description: "Model what-if scenarios — losing a funder, a budget cut, a new program — before deciding.",
+    href: "/intelligence/simulate",
+    icon: FlaskConical,
+    color: "#7C3AED",
+    statKind: "none",
   },
 ];
 

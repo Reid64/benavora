@@ -1,7 +1,47 @@
 # BENAVORA — Session State
-## Last Updated: August 7, 2026 (AG-41 narrative synthesis re-verified post platform-key rotation — no longer blocked)
+## Last Updated: August 7, 2026 (Simulator UI built — `/intelligence/simulate`, Pillar 13's last real gap)
 
-## Current Session — August 7, 2026 (AG-41 re-verification, narrative synthesis + lose_funder coverage)
+## Current Session — August 7, 2026 (Simulator UI built — `/intelligence/simulate`)
+
+**Focus:** build row #142 (Simulator UI), the one real gap left in Pillar 13 — schema (row #140)
+and agent (row #141, AG-41) were already BUILT — VERIFIED against real production data;
+`/intelligence/simulate` itself did not exist.
+**Status:**
+- Read `src/app/api/agents/simulate/route.ts` in full first — the request/response shape (4
+  `SCENARIO_TYPES`, each with its own required `scenario_params` fields per
+  `validateScenarioParams()`; response `{ simulation: <impact_simulations row> }` or
+  `{ error, code }`) came directly from that file, not invented.
+- Read `src/lib/agents/impact-simulation-agent.ts` in full to confirm the real `simulation_result`
+  jsonb shape (`baselineUsed`, `deterministicImpact`, `keyRisks`, `keyOpportunities`, `narrative`,
+  `exposedPrograms` on `budget_cut` only, `narrativeUnavailable` when Claude synthesis degrades) and
+  the `gain_funder`-always-low-confidence/forced-human-review design, before writing any result-
+  display code.
+- Read `src/app/(dashboard)/reports/simulate/page.tsx` and `.../reports/roi/page.tsx` in full for
+  layout/styling conventions (card shell, header, confidence-badge hex values) — reused
+  `CONFIDENCE_COLOR`'s exact values rather than inventing new colors.
+- Built `src/app/(dashboard)/intelligence/simulate/page.tsx`: 4-way scenario selector with one form
+  per type (funder picker for `lose_funder` sourced live from the real `funders` table via the
+  RLS-scoped client, matching `funders/page.tsx`'s existing direct-query pattern since no
+  dedicated funder-list API exists); results panel showing deterministic impact, confidence badge,
+  `baselineUsed`, risks/opportunities, `exposedPrograms`, honest `narrativeUnavailable` state, and
+  an explicit low-confidence/human-review callout; a Past Simulations list reading
+  `impact_simulations` directly (no GET route exists on the POST-only API route).
+- Added a real card for `/intelligence/simulate` to `src/app/(dashboard)/intelligence/page.tsx`'s
+  module grid (`FlaskConical` icon, `#7C3AED`), matching the existing card shape exactly.
+- Did NOT call `/api/reports/simulate` anywhere in the new page (that's the different, already-BUILT
+  AG-37 page). Did NOT add scheduling/queue wiring for AG-41. Did NOT fabricate any simulation
+  result — every result shown comes from a real API call or a real `impact_simulations` row.
+- `pnpm tsc --noEmit` — 0 errors in either changed/new file; all remaining errors are pre-existing,
+  confined to `src/__tests__/**`.
+- Flipped `FEATURE_REGISTRY_v2.md` row #142 PLANNED → **BUILT — UNVERIFIED** (not VERIFIED — this
+  session did not also live-load the page against a real API call in a browser). Updated the
+  Summary table's Platform Vision Pillars row and grand TOTAL to match.
+**Commit:** `feat(intelligence): build /intelligence/simulate AG-41 scenario-builder UI` (this session).
+**Gates:** `pnpm tsc --noEmit` — 0 errors in changed files.
+
+---
+
+## Prior Session — August 7, 2026 (AG-41 re-verification, narrative synthesis + lose_funder coverage)
 
 **Focus:** re-verify AG-41 (Impact Simulation Agent) narrative synthesis, previously left unverified
 2026-08-03 due to a dead local `ANTHROPIC_API_KEY` (`AGENT_VERIFICATION_LOG.md` "AG-41" item 7,

@@ -330,7 +330,7 @@ row that log covers, the plain BUILT/PLANNED status below is replaced with one o
 |---|---|---|---|
 | 140 | Simulation Schema | BUILT — VERIFIED | Reconciled 2026-08-07: `impact_simulations` confirmed live via direct schema query; actively written by AG-41's real 2026-08-03 scenario runs. |
 | 141 | Simulation Agent | BUILT — VERIFIED (manual-trigger only, no schedule) | **Built and live-verified 2026-08-03** (`AGENT_VERIFICATION_LOG.md` "AG-41"), superseding PLANNED. Agent **AG-41** (renumbered from AG-28 on 2026-08-02; AG-28 is now permanently AG-28 Autonomous Follow-Up Generator, row #202; see `AGENTS_v2.md` §1.4). `src/lib/agents/impact-simulation-agent.ts`, class `ImpactSimulationAgent extends AutonomousAgent`, `agentId: "ag-41-impact-simulation"` (confirmed live in the `agent_type` enum this session, migration 112). Reachable only via `POST /api/agents/simulate` (`requireRole("writer")`) — confirmed by repo-wide grep this session, zero references anywhere in `worker/` — same manual-trigger-only pattern as AG-25's Disaster Response half (row #128), not a scheduled agent. The 4 real scenario invocations (`budget_cut` ×2, `program_expansion`, `gain_funder`) against the real Faith Foundation org hand-checked deterministic math to full decimal precision against real `funding_forecasts`/`organizations` data (exact match both times), confirmed genuine idempotency (2 identical-input runs produced 2 distinct rows, not deduped — no UNIQUE constraint on `impact_simulations`, see row #140), and confirmed `gain_funder`'s confidence is correctly hardcoded `"low"`/40, correctly force-triggering `required_human_review: true` via the shared base-class hard limit. Narrative synthesis (`keyRisks`/`keyOpportunities`/`exposedPrograms`) degraded gracefully rather than fabricating at test time on 2026-08-03, blocked by the same dead local `ANTHROPIC_API_KEY` documented elsewhere in this doc. **Re-tested live 2026-08-07 against the rotated platform key** (`AGENT_VERIFICATION_LOG.md`, second "AG-41" entry): a new real `lose_funder` invocation (the one scenario type never exercised 2026-08-03, against a real funder with zero outcomes/pipeline, correctly `$0` deterministic impact) produced a genuinely populated `keyRisks`/`keyOpportunities`/`narrative` — no `narrativeUnavailable` fallback — independently confirmed by two isolated `POST /v1/messages` calls to the real Anthropic API (a 404 on a retired model, distinguishing "key valid" from "key invalid," then a clean 200 completion on the real `DEFAULT_MODEL`). **Narrative synthesis is no longer blocked; all 4 `SCENARIO_TYPES` now have live-confirmed coverage.** Not to be confused with the real, different, already-BUILT AG-37 Simulation Agent in `AGENTS_v2.md`'s Phase 2-5 section (row #224). |
-| 142 | Simulator UI | PLANNED | /intelligence/simulate. Scenario builder. Phase 4. |
+| 142 | Simulator UI | BUILT — UNVERIFIED | `/intelligence/simulate` built 2026-08-07: 4-way scenario builder (`lose_funder`/`gain_funder`/`program_expansion`/`budget_cut`, matching `src/app/api/agents/simulate/route.ts`'s real `validateScenarioParams()` field set exactly — `lose_funder`'s funder picker sourced live from the real `funders` table, not free text), results panel (deterministic impact, confidence badge, `baselineUsed`, key risks/opportunities, `exposedPrograms` for `budget_cut`, honest `narrativeUnavailable` degraded state, an explicit low-confidence/human-review callout for `gain_funder`), and a Past Simulations list read directly from `impact_simulations` (RLS-scoped client read, no GET route exists on the POST-only `/api/agents/simulate`). Talks to `POST /api/agents/simulate` (AG-41) exclusively — never `/api/reports/simulate` (the different, already-BUILT AG-37 page at `/reports/simulate`, row #224). Added as a real card to the `/intelligence` hub grid. `pnpm tsc --noEmit` — 0 errors in this file or the intelligence hub edit. Not yet exercised against a live `POST /api/agents/simulate` call in a browser this session — see `AGENT_VERIFICATION_LOG.md` for the next live-verification pass. |
 
 ### Pillar 14: Funding Gap Analyzer
 | # | Feature | Status | Notes |
@@ -525,12 +525,12 @@ Ground-up replacement architecture per `UNIVERSAL_SCRAPER_PRD.md`: keyword + sch
 | Tier 4 Browser Automation | 7 | 7 | 0 | 0 | 0 |
 | Tier 5 SaaS Layer | 6 | 6 | 0 | 0 | 0 |
 | Tier 6 Full Autonomous | 26 | 20 | 2 | 0 | 4 |
-| Platform Vision Pillars | 93 | 26 | 2 | 19 | 46 |
+| Platform Vision Pillars | 93 | 27 | 2 | 19 | 45 |
 | Data Pipeline | 7 | 3 | 2 | 0 | 2 |
 | Scraper (Directive 1) | 5 | 5 | 0 | 0 | 0 |
 | Universal Scraper (uscraper-001-007) | 7 | 3 | 4 | 0 | 0 |
 | Testing | 8 | 3 | 0 | 0 | 5 |
-| **TOTAL** | **198** | **112** | **10** | **19** | **57** |
+| **TOTAL** | **198** | **113** | **10** | **19** | **56** |
 
 **Note on the July 30 → August 7, 2026 agent-verification updates:** the AG-15–AG-42 rows above (and
 their Post-Launch Vision cross-references, #217/#218/#220/#225) use the finer-grained BUILT — VERIFIED
@@ -543,8 +543,11 @@ session**, unlike the rest of this table: all 15 stale "IN BUILD/Tonight" rows (
 #140, #152, #156–159, #161–165) and both PLANNED→BUILT corrections (#137 AG-27, #141 AG-41) were
 individually re-tallied — 12 IN BUILD→Built, 3 IN BUILD→Planned (#98, #157, #159 — a real, not
 directionally-uniform, mixed result), 2 Planned→Built, net Built 11→25, In Build 34→19, Planned
-46→47, Partial unchanged at 2 (25+2+19+47=93, reconciles exactly). The grand TOTAL row was updated by
-the same deltas (Built 97→111, In Build 34→19, Planned 57→58). The Autonomous Agent Infrastructure /
+46→47, Partial unchanged at 2 (25+2+19+47=93, reconciles exactly). A later pass moved row #133
+(Forecast Dashboard) Planned→Built independently of this note (25→26, 47→46 — not individually
+narrated above), and this same 2026-08-07 session moved row #142 (Simulator UI) Planned→Built too
+(26→27, 46→45; 27+2+19+45=93, reconciles exactly). The grand TOTAL row reflects the matching deltas
+(Built 97→113, In Build 34→19, Planned 57→56). The Autonomous Agent Infrastructure /
 Autonomous Agents / Autonomous UI / Post-Launch Vision sections (rows #187–228) remain outside this
 Summary table's count entirely (a pre-existing gap, not introduced this pass — 42 rows across those
 four sections are not reflected in any Summary row, including the TOTAL) and are still not

@@ -1,8 +1,65 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 7, 2026 (AG-41 narrative synthesis re-verified post platform-key rotation — no longer blocked; real `lose_funder` coverage added). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 7, 2026 (row #142 Simulator UI built — `/intelligence/simulate`, the last real gap in Pillar 13, closed against AG-41's real `POST /api/agents/simulate` contract). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 7, 2026 (Simulator UI built — `/intelligence/simulate`, Pillar 13's last real gap)
+
+Per `FEATURE_REGISTRY_v2.md` row #140/#141, Pillar 13's schema (`impact_simulations`) and agent
+(AG-41 `ImpactSimulationAgent`) were both already **BUILT — VERIFIED** against real production data
+(`AGENT_VERIFICATION_LOG.md` "AG-41", most recently re-verified 2026-08-07 post key rotation). The
+one real gap was row #142, Simulator UI — `/intelligence/simulate` did not exist. Built it this
+session.
+
+**What shipped:** `src/app/(dashboard)/intelligence/simulate/page.tsx` — a 4-way scenario builder
+(`lose_funder`/`gain_funder`/`program_expansion`/`budget_cut`) whose form fields and validation
+were read directly from `src/app/api/agents/simulate/route.ts`'s own `validateScenarioParams()`,
+not invented: `lose_funder`'s funder picker is sourced live from the real `funders` table (RLS-scoped
+client read, `id, name`, ordered by name — the same direct-client-query pattern
+`src/app/(dashboard)/funders/page.tsx` already uses where no dedicated list API exists), the other
+three scenarios collect only their real required numeric fields. Talks to `POST /api/agents/simulate`
+exclusively — never `/api/reports/simulate` (the different, already-BUILT AG-37 Predictive
+Fundraising Simulator at `/reports/simulate`, `FEATURE_REGISTRY_v2.md` row #224, read only for its
+layout/styling conventions per this task's own instruction).
+
+Results panel shows the real `deterministicImpact` (most-likely + min/max range), the real
+`confidence` badge (reusing `/reports/simulate`'s exact `CONFIDENCE_COLOR` hex values), the real
+`baselineUsed` (AG-26 forecast vs. trailing-12-month fallback, surfaced as a distinct pill — a real,
+meaningful distinction per the agent's own design), real `keyRisks`/`keyOpportunities`,
+`exposedPrograms` (budget_cut only), and an honest `narrativeUnavailable` degraded state rather than
+a fabricated placeholder when Claude synthesis failed that run. Because `gain_funder` always resolves
+to `"low"` confidence and `AutonomousAgent.logDecision()`'s `MIN_CONFIDENCE_TO_ACT=60` floor forces
+`required_human_review: true` on any confidenceScore under 60 (`AGENTS_v2.md` §0) — a fact not
+visible in the `impact_simulations` row itself, since that flag lives on `agent_decisions`, not on
+the row the API returns — the UI infers and surfaces this plainly from the returned `confidence`
+field alone rather than requiring a second API call: any `"low"`-confidence result shows an explicit
+"automatically flagged for human review" callout, with a `gain_funder`-specific note explaining why.
+
+A "Past Simulations" list reads `impact_simulations` directly via the RLS-scoped client (no GET
+route exists on `/api/agents/simulate` — it's POST-only), the same direct-read pattern used
+elsewhere in this codebase when no dedicated list API exists. Added a real card for
+`/intelligence/simulate` to the `/intelligence` hub's module grid (`FlaskConical` icon, `#7C3AED`),
+matching the existing card shape/props exactly — this hub is the live navigation surface for this
+section, so the new page needed a real entry point.
+
+**Explicitly not done, per the task's own scope:** no scheduling/queue wiring was added for AG-41
+(it is manual-trigger-only by design, per its own file header); no simulation results were
+fabricated for a demo/preview state — every result the page can show comes from a real
+`POST /api/agents/simulate` call or a real `impact_simulations` row already in the database.
+
+`FEATURE_REGISTRY_v2.md` row #142 flipped PLANNED → **BUILT — UNVERIFIED** (not VERIFIED — this
+session did not also live-load the page against a real `POST /api/agents/simulate` call in a
+browser; that's the next session's job). Summary table's Platform Vision Pillars row updated
+26→27 Built / 46→45 Planned; grand TOTAL 112→113 Built / 57→56 Planned.
+
+Gates: `pnpm tsc --noEmit` — 0 errors in `src/app/(dashboard)/intelligence/simulate/page.tsx` or
+the `src/app/(dashboard)/intelligence/page.tsx` edit; all remaining compiler errors are pre-existing,
+confined to `src/__tests__/**` (deadline-predictor, outcome-analyzer, regressions, samgov-client,
+organizations, storage-rls — the same known set documented throughout this file's prior sessions),
+untouched by this change.
 
 ---
 
