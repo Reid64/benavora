@@ -1,7 +1,58 @@
 # BENAVORA — Session State
-## Last Updated: August 7, 2026 (Signal Monitoring #99 built — news + 990 watching, LinkedIn deferred)
+## Last Updated: August 7, 2026 (Relationship Builder UI #101 — AG-19 wired to a real manual UI trigger for the first time)
 
-## Current Session — August 7, 2026 (registry #99 Signal Monitoring — news + 990 watching, LinkedIn explicitly deferred)
+## Current Session — August 7, 2026 (registry #101 Relationship Builder UI — AG-19 RelationshipBuilderAgent wired to a real, manual trigger path)
+
+**Focus:** build `FEATURE_REGISTRY_v2.md` #101 ("Relationship Builder UI," `/funders/[id]/relationship`,
+PLANNED). Read the q31-001 preflight (STATE_OF_THE_BUILD.md's "queue-31 preflight" session entry,
+2026-08-07) first per the task's own instruction, rather than re-deriving table/agent status from
+scratch.
+
+**Status:**
+- q31-001's findings, taken as ground truth: `relationship_memory`/`relationship_recommendations`/
+  `pig_nodes`/`pig_edges` are all confirmed live in production with real RLS; `ag-19-relationship` is a
+  valid `agent_type` enum value; `RelationshipBuilderAgent.run("manual")` was already confirmed to
+  complete cleanly end-to-end against the real Faith Foundation org after that session's own column-bug
+  fixes to `board_members`/`funder_relationship_scores`. No further preflight work needed this session.
+- Built `src/app/api/funders/[id]/relationship-builder/route.ts` — a new, non-colliding route (the
+  existing `/api/funders/[id]/relationship` route, which computes a materially different, event-sourced
+  score via `relationship-scorer.ts`, is untouched). `GET` reads this one funder's slice of AG-19's
+  output (its `relationship_recommendations` row, its `agent_decisions` rows, its direct `pig_edges`
+  connections). `POST` instantiates `new RelationshipBuilderAgent(organizationId, supabase)` and calls
+  `.run("manual")` for real — no mock, no silent fallback to the Gen-1 agent on error, AG-19's real
+  error surfaces to the caller if the run fails. Role-gated the same way as the existing route
+  (`viewer` for GET, `writer` for POST).
+- Confirmed AG-19's `run()` is org-scoped, not per-funder (per q31-001) — the POST route triggers a full
+  org pass, then reads back only the triggering funder's resulting slice, exactly as q31-001's own
+  recommendation described.
+- Built the page itself: `src/app/(dashboard)/funders/[id]/relationship/page.tsx` +
+  `src/components/funders/FunderRelationshipBuilder.tsx` — this repo's first nested `[id]/<subpage>`
+  detail route (checked: no other `[id]` detail route in the app has a sub-page today). Shows the
+  existing Gen-1 event-sourced score in one card and AG-19's output (recommendation, warm-intro/decision
+  log, direct graph connections, a "Run Relationship Analysis" trigger) in a second. Linked from the
+  existing `FunderDetail.tsx` header for real discoverability, not just a bare URL.
+- **Real bug caught before it could leak into the new UI**: `FunderDetail.tsx`'s existing
+  `RelationshipScoreBadge` reads the wrong columns off `funder_relationship_scores` (already flagged
+  broken, unfixed, out of scope by q31-001). Checked `computeRelationshipScore()`'s actual return type
+  directly before writing the new page's Gen-1 panel — real shape is `{funderId, score, momentum}` (no
+  `trend`/`is_stale` fields) — and built against that, not against `FunderDetail.tsx`'s buggy shape.
+- Did not touch `worker/autonomous-orchestrator.ts`'s existing `FunderRelationshipAgent` substitution.
+  Did not claim AG-19 is wired into the nightly pipeline anywhere — it's a new manual UI path only.
+
+**Commit:** `feat(relationship): /funders/[id]/relationship UI wires AG-19 RelationshipBuilderAgent to a
+real, manual trigger path (registry #101)` (this session).
+**Gates:** `pnpm tsc --noEmit` — 0 new errors (38 pre-existing, all in `src/__tests__/**`, none touching
+this session's files).
+
+**Not done this session, flagged for follow-up:** no live browser/DB click-through against a real org —
+the POST route's real behavior is verified against the schema and against q31-001's own already-live
+agent verification, not independently re-run end-to-end here. A future session should live-verify a real
+POST against the Faith Foundation org and confirm the resulting `relationship_recommendations`/
+`agent_decisions` rows render correctly, before this is called "verified" rather than "built."
+
+---
+
+## Prior Session — August 7, 2026 (registry #99 Signal Monitoring — news + 990 watching, LinkedIn explicitly deferred)
 
 **Focus:** build FEATURE_REGISTRY_v2.md #99 ("Signal Monitoring," PLANNED, Phase 2), scoped this
 pass to news + 990 watching only. LinkedIn out of scope by explicit instruction — real ToS/anti-bot

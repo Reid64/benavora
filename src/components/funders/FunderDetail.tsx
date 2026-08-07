@@ -314,6 +314,12 @@ export function FunderDetail({ funderId }: FunderDetailProps) {
             {data.relationshipScore && (
               <RelationshipScoreBadge score={data.relationshipScore} />
             )}
+            <Link
+              href={`/funders/${funderId}/relationship`}
+              className="text-sm font-medium text-primary transition hover:underline"
+            >
+              Relationship Builder
+            </Link>
           </div>
           {funder.geographic_focus && (
             <p className="mt-1 text-sm text-navy-500">

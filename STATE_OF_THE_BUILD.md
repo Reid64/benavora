@@ -1,8 +1,86 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 7, 2026 (Signal Monitoring #99 — news + 990 watching built, LinkedIn explicitly deferred). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 7, 2026 (Relationship Builder UI #101 — AG-19 wired to a real manual UI trigger for the first time). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 7, 2026 (Relationship Builder UI — registry #101 — AG-19 RelationshipBuilderAgent wired to a real, manual trigger path for the first time)
+
+**What shipped:** `FEATURE_REGISTRY_v2.md` #101 ("Relationship Builder UI," `/funders/[id]/relationship`,
+PLANNED). Built per the q31-001 preflight's recommendation (see the "queue-31 preflight" session entry
+immediately below this one) — its findings were the real, current-as-of-2026-08-07 source of truth
+used here, not re-derived: `relationship_memory`, `relationship_recommendations`, `pig_nodes`, and
+`pig_edges` are all confirmed live in production (0/0/21/20 rows respectively at preflight time), RLS
+enabled with a real policy on each, `ag-19-relationship` is a valid `agent_type` enum value, and
+`RelationshipBuilderAgent.run("manual")` was already confirmed to complete cleanly against the real
+Faith Foundation org after the preflight's own column-bug fixes.
+
+**New API route, `src/app/api/funders/[id]/relationship-builder/route.ts`** (deliberately not colliding
+with the existing `/api/funders/[id]/relationship` route, which stays untouched):
+- `GET` — reads this one funder's real slice of AG-19's output: its `relationship_recommendations` row
+  (Phase A), its `agent_decisions` rows (`agent_id='ag-19-relationship'`, both Phase A recommendation
+  reasoning and, if `auto_relationship_enabled` is on, Phase B officer-research/introduction-path
+  decisions), and its direct `pig_edges` connections (via this funder's own `pig_nodes` row,
+  `entity_table='funders'`). Role-gated `requireRole("viewer")`, matching the existing route.
+- `POST` — instantiates `new RelationshipBuilderAgent(organizationId, supabase)` and calls
+  `.run("manual")` for real (real Claude spend, real writes) — no mock, no "coming soon" stub, and no
+  silent fallback to the Gen-1 `FunderRelationshipAgent` if the run errors; a failed run surfaces AG-19's
+  own real error message to the caller. Role-gated `requireRole("writer")`, matching the existing
+  route's POST. **AG-19's `run()` is org-scoped, not per-funder** (per q31-001's own finding) — a POST
+  here triggers a full pass over every funder in the org, then reads back only this funder's resulting
+  slice, exactly as q31-001 recommended.
+- The read logic is a thin, direct query mirroring AG-19's own join shape (this funder's `pig_nodes`
+  row → `pig_edges` touching it → the other side's label/type) rather than a re-implementation of the
+  agent's private BFS traversal (`findIntroductionPaths` is not exported). For a *queued* warm-intro
+  path specifically (which may be multi-hop), the full connection chain is read verbatim from that
+  path's own `agent_decisions` row (`decision_type='introduction_path_queued'`) — AG-19 already writes
+  the real chain into that row's `action_taken` text and `action_payload`, so it never needs to be
+  re-derived.
+
+**New page, `/funders/[id]/relationship`** (`src/app/(dashboard)/funders/[id]/relationship/page.tsx` +
+`src/components/funders/FunderRelationshipBuilder.tsx`) — did not exist before this session, this repo's
+first nested `[id]/<subpage>` detail route. Shows the funder's existing Gen-1 event-sourced score
+(unchanged `/api/funders/[id]/relationship` → `relationship-scorer.ts`, real response shape
+`{funderId, score, momentum}` — confirmed by reading `computeRelationshipScore()`'s real return type
+rather than assumed) in its own card, and AG-19's output in a second card: a "Run Relationship Analysis"
+button (writer/admin/owner only, via the same `canEdit()` gate used elsewhere in this file), the
+resulting recommendation (urgency badge + text), the warm-introduction/decision log (one card per
+`agent_decisions` row), and a direct-graph-connections list. Linked from the existing `FunderDetail.tsx`
+header (next to the pre-existing `RelationshipScoreBadge`) so the page is actually reachable through
+normal navigation, not just a URL.
+
+**Real bug found and worked around, not silently papered over:** `FunderDetail.tsx`'s own
+`RelationshipScoreBadge` reads `funder_relationship_scores` with the wrong column names
+(`relationship_score`/`trend`/`is_stale`) — already flagged as broken-but-unfixed in q31-001's preflight
+and in `AGENT_VERIFICATION_LOG.md`. This build does not fix that bug (out of scope — a separate,
+wider-blast-radius finding per the preflight) and does not read from `funder_relationship_scores` at
+all for the new page; the new page's Gen-1 panel reads the actually-correct `/api/funders/[id]/
+relationship` route (`funder_relationship_events` via `relationship-scorer.ts`), which was independently
+verified to have a materially different, correct response shape (`{funderId, score, momentum}`, no
+`trend`/`is_stale` fields) before writing the client component against it.
+
+**Explicitly not done, matching the task's own scope boundaries:** `worker/autonomous-orchestrator.ts`'s
+existing substitution of `FunderRelationshipAgent` for "the relationship builder" is untouched — this is
+an additive manual-only path, not a nightly-pipeline change. No doc claims AG-19 is now wired into the
+nightly pipeline; it is wired into a new manual UI path only, real Claude spend and real writes,
+triggered by a human clicking a button — a materially smaller and different claim than "autonomous."
+
+**Gates:** `pnpm tsc --noEmit` — 0 new errors. Full run shows 38 pre-existing errors, all confined to
+`src/__tests__/**` (deadline-predictor, outcome-analyzer, samgov-client, regressions, organizations,
+storage-rls — the same baseline set documented in every prior session in this file); none touch any file
+this session added or edited (`relationship-builder/route.ts`, `funders/[id]/relationship/page.tsx`,
+`FunderRelationshipBuilder.tsx`, `FunderDetail.tsx`), confirmed by grep against the full error list
+before and after the change.
+
+**Not live-exercised this session** (a real functional gap to flag for a follow-up, not fixed here): no
+browser/live-DB click-through was performed against a real org — the POST route's real behavior (does a
+live run against Faith Foundation actually populate a `relationship_recommendations` row and render
+correctly?) is code-verified against the schema and against q31-001's already-live-verified agent
+behavior, not independently re-verified end-to-end in this session the way several other sessions in
+this file did for their own features. Recommend a follow-up live-verification pass before treating this
+row as "BUILT — VERIFIED" rather than "BUILT."
 
 ---
 
