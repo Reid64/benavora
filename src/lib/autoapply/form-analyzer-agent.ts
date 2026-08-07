@@ -48,6 +48,8 @@ interface AutomationAssessment {
   relevant_text: string | null;
   confidence: number;
   scanned_at: string;
+  /** Non-null when the Claude scan itself was skipped (e.g. no page text to scan), as opposed to run and finding nothing. */
+  scan_skipped_reason: string | null;
 }
 
 type KbMapping =
@@ -158,6 +160,7 @@ function parseAutomationResponse(text: string): AutomationAssessment {
     relevant_text: null,
     confidence: 0,
     scanned_at: new Date().toISOString(),
+    scan_skipped_reason: null,
   };
 
   if (start === -1 || end <= start) return fallback;
@@ -175,6 +178,7 @@ function parseAutomationResponse(text: string): AutomationAssessment {
     relevant_text: typeof obj.relevant_text === 'string' ? obj.relevant_text : null,
     confidence: typeof obj.confidence === 'number' ? obj.confidence : 0,
     scanned_at: new Date().toISOString(),
+    scan_skipped_reason: null,
   };
 }
 
@@ -225,14 +229,37 @@ export class FormAnalyzerAgent {
 
     const { formsHtml, pageText } = await this.extractPageContent(page);
 
+    // Anthropic rejects a user message with empty content (400
+    // invalid_request_error: "messages.0: user messages must have
+    // non-empty content"). pageText can legitimately come back empty
+    // (extractPageContent's own `.catch(() => '')` on a failed evaluate, or
+    // a portal whose visible body text really is empty at analysis time),
+    // so the automation-prohibition scan is skipped rather than sent as an
+    // empty-content request — the caller still gets a real form_templates
+    // row with a clearly-reasoned default assessment instead of the whole
+    // analysis crashing. The form-structure scan below always has non-empty
+    // content (buildFormPrompt always includes the portal URL), so it needs
+    // no equivalent guard.
     const [analysisText, automationText] = await Promise.all([
       this.callClaude(SYSTEM_PROMPT, this.buildFormPrompt(portalUrl, formsHtml), 4096),
-      this.callClaude(AUTOMATION_SCAN_SYSTEM, pageText, 300),
+      pageText.trim() === ''
+        ? Promise.resolve<string | null>(null)
+        : this.callClaude(AUTOMATION_SCAN_SYSTEM, pageText, 300),
     ]);
 
     const analysis = parseAnalysisResponse(analysisText);
     const fieldMapping = buildFieldMapping(analysis.fields);
-    const automationAssessment = parseAutomationResponse(automationText);
+    const automationAssessment: AutomationAssessment =
+      automationText === null
+        ? {
+            prohibits_automation: false,
+            relevant_text: null,
+            confidence: 0,
+            scanned_at: new Date().toISOString(),
+            scan_skipped_reason:
+              'No visible page text extracted from the portal — automation-prohibition scan skipped to avoid sending Claude an empty message.',
+          }
+        : parseAutomationResponse(automationText);
 
     const now = new Date().toISOString();
     const { data: row, error } = await this.supabase
