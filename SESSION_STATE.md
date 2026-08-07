@@ -1,7 +1,50 @@
 # BENAVORA — Session State
-## Last Updated: August 7, 2026 (row #153 Real-Time Panel Updates — Supabase Realtime wired on Command Center)
+## Last Updated: August 7, 2026 (rows #154/#155 — Command Center Configurable Panel Layout + TV/Projector Mode)
 
-## Current Session — August 7, 2026 (row #153 Real-Time Panel Updates)
+## Current Session — August 7, 2026 (rows #154/#155 — Configurable Panel Layout + TV/Projector Mode)
+
+**Focus:** `FEATURE_REGISTRY_v2.md` rows #154 ("Configurable Panel Layout", PLANNED, Phase 3) and
+#155 ("TV/Projector Mode", PLANNED, Phase 3) on the same Command Center page the prior session
+(row #153, immediately below) wired Realtime onto. Explicitly lower priority than the q34-001
+through q34-004 chain per the prompt — both landed; no need to fall back to building only one.
+
+**Status — both built, both real (not fabricated persistence, not a CSS-only fullscreen):**
+- **Configurable Panel Layout:** the 5 real sections already in `CommandCenterLive.tsx` (stat row,
+  AI Pipeline Status, Data Intelligence Status, Most Active Orgs, Recent Agent Runs table) are now
+  natively drag-and-droppable (checked `package.json` first — no dnd-kit/react-dnd/react-beautiful-dnd
+  already installed, so used plain HTML5 DnD rather than add a dependency for a Phase-3 feature).
+  Persisted to a new `profiles.command_center_layout` jsonb column
+  (`supabase/migrations/131_profiles_command_center_layout.sql`) — chose `profiles` over a new table
+  since this page is owner-gated, so "per-owner" is genuinely "per profiles row," no independent
+  layout lifecycle to justify a join. **Applied live** via the working `DATABASE_URL` psql path
+  (`STANDING_DIRECTIVES.md` DIRECTIVE-017) — confirmed with a real `ALTER TABLE` success, not left
+  as an unapplied file. New route `GET/PUT /api/command-center/layout`
+  (`src/app/api/command-center/layout/route.ts`), owner-gated via `requireRole("owner")`, with
+  server-side validation that a submitted order is a real permutation of the known panel-id set
+  (`src/lib/command-center/panels.ts`) before it's written. A real "Layout saved"/"Layout save
+  failed" indicator reflects the actual PUT response.
+- **TV/Projector Mode:** a real `element.requestFullscreen()` toggle on the panel-content wrapper
+  (not a `position: fixed` CSS trick), with a `fullscreenchange` listener so the toggle button stays
+  in sync if the viewer exits via Escape. The wrapper excludes the page header and Admin Quick
+  Actions "for free" since they live outside `CommandCenterLive`'s own subtree in the parent server
+  component — the Fullscreen API only renders the target element's subtree. In TV mode: stat row
+  drops from 5 to 3 cards (Total Applications / AI Drafts Pending hidden, not just shrunk — a
+  board-meeting judgment call, not every number needs to be there), panel/table fonts scale up
+  ~1.5-2.5x using the existing real hex palette (no invented colors), drag-to-reorder disabled.
+- Also added `command_center_layout: Json | null` to `src/types/database.ts`'s hand-maintained
+  `profiles` Row/Insert/Update types, matching the new live column.
+
+**Gates:** `pnpm tsc --noEmit` — zero new errors (re-ran twice, once after the initial build and
+once after a Firefox-drag-compat fix to `onDragStart`); the only errors present are the same
+pre-existing `src/__tests__/**` failures from prior sessions, none touching any file this session
+edited. `pnpm lint`/eslint was not run — required shell approval this session didn't have; not
+claimed as passing.
+
+**Commit:** `feat(command-center): TV/projector full-screen mode + configurable panel layout (Phase 3, lower priority)`.
+
+---
+
+## Prior Session — August 7, 2026 (row #153 Real-Time Panel Updates)
 
 **Focus:** ship `FEATURE_REGISTRY_v2.md` row #153 ("Real-Time Panel Updates", PLANNED: "Supabase
 Realtime subscriptions. Phase 2.") against `src/app/(dashboard)/command-center/page.tsx` (row

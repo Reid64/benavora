@@ -1,8 +1,61 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 7, 2026 (row #153 Real-Time Panel Updates — Supabase Realtime wired on Command Center). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 7, 2026 (rows #154/#155 — Command Center Configurable Panel Layout + TV/Projector Mode, both BUILT). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 7, 2026 (rows #154/#155 — Command Center Configurable Panel Layout + TV/Projector Mode)
+
+Both Phase 3 nice-to-haves shipped, lower priority than the same-day row #153 Realtime work above
+(that session's Realtime wiring in `CommandCenterLive.tsx` is unchanged by this one — the postgres_changes
+subscription and safety-net interval are untouched).
+
+**Configurable Panel Layout (row #154):** the Command Center's 5 real existing sections — the stat
+row, the 3 named panels (AI Pipeline Status / Data Intelligence Status / Most Active Orgs), and the
+Recent Agent Runs table — are now draggable via native HTML5 drag-and-drop (no new dependency; checked
+`package.json` first, confirmed no dnd library already installed). All 5 live in one CSS grid; the 3
+named panels default to `gridColumn: auto` (one column each, so they render side-by-side in default
+order exactly as before) while the stat row and table span the full grid width
+(`gridColumn: "1 / -1"`) — dragging any panel to a new position re-flows the grid around it.
+
+Persistence: `profiles.command_center_layout` (new `jsonb` column, migration
+`131_profiles_command_center_layout.sql`, applied live via the working `DATABASE_URL` psql path per
+`STANDING_DIRECTIVES.md` DIRECTIVE-017 — confirmed with `ALTER TABLE` success, not just a file commit).
+Chose a column on `profiles` over a new `dashboard_layout_preferences` table: the Command Center is
+gated to `profiles.role = 'owner'` (`src/app/(dashboard)/command-center/page.tsx`), so "per-owner"
+here is genuinely "per profiles row" — a whole new table keyed 1:1 on `profile_id` with a single
+jsonb column would add a join for no independent lifecycle benefit (no listing/sharing/deleting
+layouts across viewers is needed). New route `GET/PUT /api/command-center/layout`
+(`src/app/api/command-center/layout/route.ts`), owner-gated via the same `requireRole("owner")`
+pattern every other admin route in this codebase uses; `PUT` validates the submitted order is a real
+permutation of the 5 known panel ids (`src/lib/command-center/panels.ts`) server-side before writing —
+an authenticated request can't smuggle an arbitrary jsonb blob into the column. A real "Layout saved" /
+"Layout save failed" indicator renders next to the toggle buttons, reflecting the actual PUT response,
+not a fabricated always-succeeds confirmation. "Reset Layout" restores and persists the default order.
+
+**TV/Projector Mode (row #155):** a real `element.requestFullscreen()` toggle (not a CSS `position:
+fixed` class pretending to be fullscreen) on the panel-content wrapper inside `CommandCenterLive.tsx`,
+with a `document.addEventListener("fullscreenchange", ...)` listener so the in-page "Exit TV Mode"
+button stays in sync if the viewer exits via Escape or browser chrome instead. The wrapper deliberately
+excludes the page header (title/clock) and the "Admin Quick Actions" grid — both live in the parent
+server component (`page.tsx`), outside `CommandCenterLive`'s own DOM subtree — so TV mode gets
+"reduced admin chrome" for free from how the Fullscreen API works (only the target element's subtree
+renders), no second prop needed to hide them. In TV mode: stat row drops to 3 cards (the 2 lowest-
+priority for a board audience — Total Applications, AI Drafts Pending — are hidden, not just shrunk),
+panel/table fonts scale up roughly 1.5-2.5x using the same real inline-hex palette (no new colors
+invented), the org-name link in Most Active Orgs becomes plain bold text (no clickable admin
+drill-down while presenting), and drag-to-reorder is disabled (`draggable={!tv}`) since reordering
+mid-presentation isn't a real use case.
+
+Gates: `pnpm tsc --noEmit` — zero new errors. The only errors present are the same pre-existing
+`src/__tests__/**` failures already documented in prior sessions (deadline-predictor, outcome-analyzer,
+regressions, samgov-client, organizations/storage-rls `.catch()`-on-builder) — none touch any file this
+session edited (`CommandCenterLive.tsx`, `src/lib/command-center/panels.ts`,
+`src/app/api/command-center/layout/route.ts`, `src/types/database.ts`, the new migration). `pnpm lint`
+was not run — the sandboxed shell in this session required approval for the eslint invocation that
+wasn't available; not claiming it passes.
 
 ---
 

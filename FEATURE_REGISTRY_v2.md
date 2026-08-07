@@ -354,8 +354,8 @@ row that log covers, the plain BUILT/PLANNED status below is replaced with one o
 |---|---|---|---|
 | 152 | Command Center Page | BUILT — UNVERIFIED | Reconciled 2026-08-07: `src/app/(dashboard)/command-center/page.tsx` (599 lines) confirmed real by direct read — a genuine `checkPermission(user.id, "owner", supabase)` gate with redirect (`/dashboard?notice=owner_required`), **owner-only, not "owner/admin"** (correcting this row's own prior wording) — using `createAdminClient()` for real cross-org queries (same precedent as `/admin`), with a real nav rail linking to `/admin/orgs`, `/admin/system`, `/admin/monitor`, `/admin/audit-log`, `/admin/sales-outreach`, `/admin/autoapply-ops`, `/admin/improvements`. Not a stub. Not browser/screenshot-verified this session. |
 | 153 | Real-Time Panel Updates | PLANNED | Supabase Realtime subscriptions. Phase 2. |
-| 154 | Configurable Panel Layout | PLANNED | Drag-and-drop panel configuration. Phase 3. |
-| 155 | TV/Projector Mode | PLANNED | Full-screen mode for board meetings. Phase 3. |
+| 154 | Configurable Panel Layout | BUILT | Native HTML5 drag-and-drop reorder of the Command Center's 5 real sections (stat row, AI Pipeline Status, Data Intelligence Status, Most Active Orgs, Recent Agent Runs table), persisted per-owner on `profiles.command_center_layout` (migration 131, jsonb) via `/api/command-center/layout` GET/PUT. All 5 live in one CSS grid so default order still renders the original 3-panel side-by-side row. |
+| 155 | TV/Projector Mode | BUILT | Real `element.requestFullscreen()` toggle (not CSS-only) on the Command Center's panel-content wrapper, with a `fullscreenchange` listener so exiting via Escape stays in sync. Larger type + fewer columns/columns-hidden in the stat row and table; header/Admin Quick Actions excluded for free since Fullscreen API only renders the target subtree. |
 
 ### Pillar 17: Agent Marketplace
 | # | Feature | Status | Notes |

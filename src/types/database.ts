@@ -153,6 +153,10 @@ export interface Database {
           last_login_at: string | null;
           created_at: string;
           updated_at: string;
+          // Migration 131 — Command Center Configurable Panel Layout
+          // (FEATURE_REGISTRY_v2.md #154): drag-and-drop panel order, one
+          // per profiles row (owner-gated page, so "per-owner" == "per profile").
+          command_center_layout: Json | null;
         };
         Insert: {
           id: string;
@@ -164,6 +168,7 @@ export interface Database {
           last_login_at?: string | null;
           created_at?: string;
           updated_at?: string;
+          command_center_layout?: Json | null;
         };
         Update: {
           id?: string;
@@ -175,6 +180,7 @@ export interface Database {
           last_login_at?: string | null;
           created_at?: string;
           updated_at?: string;
+          command_center_layout?: Json | null;
         };
         Relationships: [];
       };
