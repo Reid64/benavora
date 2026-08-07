@@ -1,8 +1,53 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 7, 2026 (real `agent_registry` seed script built and run against production — 43 rows, Pillar 17 row #157 closed). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 7, 2026 (Agent Marketplace UI built at /agents/marketplace — Pillar 17 row #159 closed). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 7, 2026 (Agent Marketplace UI — Pillar 17 row #159 closed)
+
+Per `FEATURE_REGISTRY_v2.md` Pillar 17, row #159 (Agent Marketplace UI) was `NOT-BUILT` — no page
+under `src/app/(dashboard)/agents/` existed at all (confirmed by directory listing before starting;
+`/settings/agents` is a real but different feature, the autonomous-pipeline toggle panel, not this
+registry browser). The prior session in this same queue (q27-001) closed row #157 (Registry Seed
+Data), giving `GET /api/agents/registry` (row #158, already real) 43 real rows to return instead of
+zero — this session builds the UI that actually reads them.
+
+**Built:**
+- `src/app/(dashboard)/agents/marketplace/page.tsx` (URL `/agents/marketplace`) — a client component
+  that calls `GET /api/agents/registry` on mount and renders one card per returned agent: name,
+  `agent_id`, description, plan-requirement badge, trigger-type badge (with `schedule_cron` appended
+  when scheduled), an inactive badge when `active: false`, last-run time (`formatRelative`), and run
+  count. Each card has a real enable/disable toggle wired to `POST
+  /api/agents/registry/configure` (`{ agent_id, enabled, config }`) — optimistic flip with rollback
+  and an inline error banner on failure, matching the pattern already used by
+  `/settings/agents`'s own `ToggleSwitch`/`handleToggle`.
+- Real state handling, not happy-path-only: a loading card, a distinct 401 message ("You must be
+  signed in…"), a distinct 403 message ("You don't have permission…") for the writer/viewer role
+  gate on the two real routes, a generic message + Retry button for a 500 (`registry_load_failed`/
+  `config_load_failed`), and an explicit empty state ("No agents are registered yet.") separate from
+  the error state — the route's own `jsonError({error, code}, status)` shape is read for a
+  toggle-specific error message when the configure call fails.
+- Nav entry added to `src/components/layout/nav-items.ts`'s `NAV_ITEMS` array — "Agent Marketplace"
+  → `/agents/marketplace`, `Bot` icon (already imported in that file for the Platform admin
+  section's "AutoApply Ops" entry, reused here rather than adding a new icon import). Visible to
+  every role (no `roles` restriction), consistent with the route's own `viewer`-role read gate.
+- Palette verified live against two independently-touched dashboard pages before writing any hex
+  value (`settings/agents/page.tsx` and `intelligence/donor-intent/page.tsx`), per this session's
+  explicit instruction not to trust historical values in memory/docs: `#D6E4F0` page canvas,
+  `#FFFFFF` cards (`12px` radius, `0 2px 8px rgba(0,0,0,0.08)` shadow), `#1A2B3C` headings,
+  `#0077B6`/`#0EA5E9` blue accents, `#10B981` success, `#F59E0B` warning, `#EF4444`/`#B91C1C` error,
+  `#FEF2F2`/`#FECACA` error background/border — all inline `style={{}}`, no Tailwind color classes,
+  matching this repo's "One UI Rule."
+
+**Not done here, by design:** live browser render/click-through verification of the page against
+production — the task explicitly scopes that to q27-004, not this build step.
+
+**Gates:** `pnpm tsc --noEmit` — 38 pre-existing errors, all confined to `src/__tests__/**` (the
+same known-excluded set this repo's gate has carried for months); zero errors in
+`src/app/(dashboard)/agents/marketplace/page.tsx` or `src/components/layout/nav-items.ts`.
 
 ---
 

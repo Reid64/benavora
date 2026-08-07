@@ -70,6 +70,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Documents", href: "/documents", icon: FolderOpen },
   { label: "Knowledge Base", href: "/knowledge-base", icon: Brain },
   { label: "Intelligence Library", href: "/intelligence-library", icon: BookOpen },
+  { label: "Agent Marketplace", href: "/agents/marketplace", icon: Bot },
   { label: "Deadlines", href: "/deadlines", icon: Calendar },
   { label: "Compliance", href: "/compliance", icon: ShieldCheck },
   { label: "Outcomes & Analytics", href: "/outcomes", icon: BarChart3 },

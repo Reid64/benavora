@@ -1,7 +1,38 @@
 # BENAVORA — Session State
-## Last Updated: August 7, 2026 (real agent_registry seed script built and run — 43 rows, Pillar 17 row #157 closed)
+## Last Updated: August 7, 2026 (Agent Marketplace UI built at /agents/marketplace — Pillar 17 row #159 closed)
 
-## Current Session — August 7, 2026 (agent_registry real seed)
+## Current Session — August 7, 2026 (Agent Marketplace UI)
+
+**Focus:** FEATURE_REGISTRY_v2.md Pillar 17 row #159 (Agent Marketplace UI), `NOT-BUILT`. The prior
+session (q27-001, immediately below) closed row #157 by seeding `agent_registry` with 43 real rows;
+`GET /api/agents/registry` (row #158) and `POST /api/agents/registry/configure` were already real
+and wired to that table/`agent_configurations`. No page existed to browse or toggle any of it.
+**Status:**
+- Confirmed `src/app/(dashboard)/agents/` didn't exist yet (`/settings/agents` is a different, real
+  feature — the autonomous-pipeline config panel, not a registry browser) before creating it.
+- Built `src/app/(dashboard)/agents/marketplace/page.tsx` — real client component, `GET
+  /api/agents/registry` on mount, one card per agent (name, `agent_id`, description, plan badge,
+  trigger-type + cron badge, inactive badge, last-run relative time, run count), enable/disable
+  toggle wired to `POST /api/agents/registry/configure` with optimistic update + rollback on
+  failure. Distinct loading/401/403/500/empty states, not happy-path only — 401/403 messages are
+  specific to the real `requireRole` gate both routes already enforce.
+- Added a real nav entry ("Agent Marketplace" → `/agents/marketplace`) in
+  `src/components/layout/nav-items.ts`'s `NAV_ITEMS`, reusing the already-imported `Bot` icon —
+  page is reachable through the UI, not just by URL.
+- Verified the current live color palette against two independently-built dashboard pages
+  (`settings/agents`, `intelligence/donor-intent`) before writing any hex — both agree on
+  `#D6E4F0`/`#FFFFFF`/`#1A2B3C`/`#0077B6`/`#10B981`/`#F59E0B`/`#EF4444`, confirming this part of the
+  app is on the current light theme, not the older dark-navy palette some other page still carries.
+  All colors are inline `style={{}}` hex, per the repo's One UI Rule.
+- Did not do live browser click-through verification against production — out of scope for this
+  step, explicitly deferred to q27-004.
+**Commit:** `feat(agents): build real Agent Marketplace UI at /agents/marketplace` (this session).
+**Gates:** `pnpm tsc --noEmit` — 38 pre-existing errors, all in `src/__tests__/**` (matches this
+repo's known pattern); zero in the new page or `nav-items.ts`.
+
+---
+
+## Prior Session — August 7, 2026 (agent_registry real seed)
 
 **Focus:** FEATURE_REGISTRY_v2.md Pillar 17 row #157 (Registry Seed Data) — the only prior seed
 content, `src/lib/agents/agent-registry-seed.ts` (a 17-entry array), is dead code: never imported by
