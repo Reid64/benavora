@@ -1,8 +1,86 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 7, 2026 (queue-31 preflight — relationship_memory/relationship_recommendations confirmed live; two real AG-19 column bugs found and fixed live, Phase A now completes end-to-end for the first time). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 7, 2026 (Signal Monitoring #99 — news + 990 watching built, LinkedIn explicitly deferred). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 7, 2026 (Signal Monitoring, FEATURE_REGISTRY_v2.md #99 — news + 990 watching built, LinkedIn deferred by policy)
+
+Scoped #99 ("LinkedIn + news + 990 watching," Phase 2, PLANNED) to **news + 990 only** per explicit
+task instruction. New module `src/lib/intelligence/signal-monitor.ts` + `POST
+/api/intelligence/signal-monitor` (writer-role gated, `organizationId` derived server-side).
+
+**LinkedIn — deliberately deferred, not built, not stubbed.** LinkedIn scraping carries real ToS
+and anti-bot enforcement risk materially greater than this repo's existing `StealthEngine`
+(`src/lib/scraper/stealth-engine.ts`), which targets foundation/nonprofit websites — a much
+lower-risk surface. This is a **policy decision requiring Reid's explicit sign-off**, not a
+technical gap. `signal-monitor.ts` exports `watchLinkedInSignals()` as an explicit `throw`, not a
+silent no-op and not a plausible-looking fake — calling it fails loudly with the reason, so a
+future session can't mistake "not implemented" for "implemented and returning nothing." Do not
+build LinkedIn monitoring without that sign-off.
+
+**News watching — reused, not rebuilt.** `checkEntityReputation()` (`src/lib/intelligence/
+reputation-agent.ts`, AGENTS_v2.md AG-18) already does the real work — DuckDuckGo search + Claude
+classification + `reputation_signals` insert for a named entity — and is called here unmodified,
+once per org funder. The only new logic is sweeping every funder in an org through it in one call
+(capped at 15/run, overflow reported not silently dropped) and fanning newly-created signals into
+org-scoped `reputation_alerts` (`{org_id, signal_id, status: 'unread'}` — the identical insert
+shape `ReputationIntelligenceAgent.run()`'s nightly wrapper already uses for this table pair, so
+results surface through the existing `GET /api/intelligence/reputation` endpoint with zero changes
+to that route).
+
+**990 watching — genuinely new, built on real existing data, not a parallel ingestion pipeline.**
+Read `scripts/enrich-foundations-990.ts` and `scripts/enrich-990-xml.ts` first, per instruction:
+both only *populate* `foundation_directory` once (via `src/lib/enrichment/sources/irs990.ts`'s XML
+parser) — neither compares a new fetch against a prior one, so no "watch" capability existed
+anywhere before this session. Also read `src/lib/agents/change-monitor-agent.ts` (AG-42) — real,
+committed 2026-08-03, wired into the daily 5AM worker schedule
+(`worker/autonomous-orchestrator.ts`'s `runChangeMonitorDailyPipeline`) — and reused its
+**pattern** (read-snapshot → diff → classify severity → write-snapshot) rather than its code, since
+AG-42 is scoped differently: it sweeps ALL enriched `foundation_directory` rows platform-wide,
+daily, unconditionally, diffing only officers/foundation_type/subsection_code/status into its own
+`enrichment.change_monitor_snapshot` key, and chains into out-of-cycle 990 re-enrichment. This new
+module instead sweeps only the funders one specific org already tracks (best-effort matched to
+`foundation_directory` by exact case-insensitive name — conservative on purpose, no fuzzy scoring,
+same "documented, may miss, better than guessing" posture as the cross-org `matchedByName` pattern
+in `src/lib/agents/grant-dna-agent.ts`), on-demand rather than daily, and additionally diffs
+revenue/assets/expenses/fiscal-period via a fresh `enrichFoundationFromProPublica()` call (`src/
+lib/sources/propublica-990-client.ts`, real, already used by `scripts/enrich-propublica-batch.ts`)
+— a signal AG-42 never produces — into a **separate** snapshot key
+(`enrichment.signal_watch_990_snapshot`, deliberately distinct from AG-42's own key so the two
+never clobber each other), and writes a queryable `reputation_signals` row (`entity_type:
+"foundation"`, `signal_type: "990_change"`) plus an org-scoped alert — neither of which AG-42's
+foundation branch does today (it only writes to its own jsonb blob + `agent_decisions`, neither of
+which is a per-org queryable signal).
+
+Severity is fully **deterministic, no Claude call** — officer/status/foundation-type changes are
+fixed severity by rule; financial deltas are thresholded by magnitude (≥15% = notable, ≥40% =
+material). This mirrors AGENTS_v2.md's AG-10/AG-26 design principle ("deterministic aggregation
+over already-structured data doesn't need a language model") and, as a side effect, sidesteps the
+separately-documented, currently-broken local `ANTHROPIC_API_KEY`
+(see `benavora-anthropic-key-invalid-local` memory) for this feature entirely.
+
+**Honest data-availability handling:** `enrichFoundationFromProPublica()` returns `null` both for a
+genuine "no ProPublica record for this EIN" case and for a transient fetch/parse failure — it
+cannot distinguish the two (documented in that file). This module never fabricates a financial
+delta on `null`; it skips the financial comparison for that run and still performs the officers/
+status/foundation-type diff from already-real `foundation_directory` columns, which needs no
+network fetch at all.
+
+Gates: `pnpm tsc --noEmit` — zero new errors (grepped output specifically for
+`signal-monitor`/`signal_monitor`, zero matches; the ~40 pre-existing errors in the full run are
+all confined to `src/__tests__/**`, unrelated to this change, matching this repo's long-documented
+pattern).
+
+**Not done, flagged rather than silently skipped:** funder→foundation matching is name-only and
+conservative — an org's funder whose name doesn't exactly match its `foundation_directory` record
+(abbreviation, "The X Foundation" vs "X Foundation", etc.) will simply not get 990 watching this
+pass, reported in the summary as a funder that was checked for news but not matched for 990, not a
+silent gap. No scheduled/nightly trigger was added — this is manual-trigger-only per the task's
+"at minimum" instruction; a future session could fold 990 watching into the existing nightly
+reputation step if daily cadence is wanted later.
 
 ---
 

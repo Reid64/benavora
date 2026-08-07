@@ -1,7 +1,55 @@
 # BENAVORA — Session State
-## Last Updated: August 7, 2026 (queue-31 preflight — relationship tables live, 2 AG-19 bugs fixed)
+## Last Updated: August 7, 2026 (Signal Monitoring #99 built — news + 990 watching, LinkedIn deferred)
 
-## Current Session — August 7, 2026 (queue-31 preflight: relationship_memory/relationship_recommendations live status + AG-19 Phase A fixed)
+## Current Session — August 7, 2026 (registry #99 Signal Monitoring — news + 990 watching, LinkedIn explicitly deferred)
+
+**Focus:** build FEATURE_REGISTRY_v2.md #99 ("Signal Monitoring," PLANNED, Phase 2), scoped this
+pass to news + 990 watching only. LinkedIn out of scope by explicit instruction — real ToS/anti-bot
+risk requires Reid's sign-off, not something to build or fake this session.
+
+**Status:**
+- Verified the task's own premises against real code before building (this repo's standing
+  practice — task-given specs routinely collide with real state): confirmed
+  `src/lib/agents/change-monitor-agent.ts` (AG-42) is real, committed 2026-08-03, and genuinely
+  wired into the daily 5AM worker schedule (`worker/autonomous-orchestrator.ts`'s
+  `runChangeMonitorDailyPipeline`) — this contradicts the stale, bundled governance-doc snapshot
+  claiming AG-42 is NOT-BUILT, confirming those bundled docs are older than the real repo state
+  (expected; STATE_OF_THE_BUILD.md itself is dated through 2026-08-07 on disk).
+- Confirmed `src/lib/intelligence/reputation-agent.ts`'s `checkEntityReputation()` (AG-18) is the
+  real, reusable news-search-and-classify source and reused it unmodified rather than duplicating
+  DuckDuckGo/Claude logic.
+- Read `scripts/enrich-foundations-990.ts` and `src/lib/enrichment/sources/irs990.ts` — confirmed
+  neither does change detection, only one-time population; confirmed `foundation_directory.officers`
+  is a real column (migration 058) populated by the interactive `EnrichmentEngine`
+  (`src/lib/enrichment/engine.ts`), not by the standalone batch CLI script (a real, pre-existing gap
+  in that script, noted but out of scope to fix here).
+- Built `src/lib/intelligence/signal-monitor.ts`: `runSignalMonitor(orgId, supabase)` sweeps up to
+  15 of an org's `funders`/run — news via reused `checkEntityReputation()`, 990 via a new
+  deterministic diff (officers/foundation_type/subsection_code/status from real DB columns +
+  revenue/assets/expenses/fiscal_period from `enrichFoundationFromProPublica()`) against a new,
+  AG-42-distinct snapshot key (`enrichment.signal_watch_990_snapshot`). Both news and 990 signals
+  land in the existing `reputation_signals`/`reputation_alerts` tables (migration 076) — no new
+  table created, per instruction to reuse an existing signal-storage table if one fits.
+- Built `POST /api/intelligence/signal-monitor` (writer-role gated, `maxDuration=300`,
+  `organizationId` server-derived). No new GET route — results surface through the existing
+  `GET /api/intelligence/reputation` unchanged.
+- `watchLinkedInSignals()` exported as an explicit throw with the deferral reason, not a silent
+  no-op or a fake — see `signal-monitor.ts`'s file header and `STATE_OF_THE_BUILD.md`'s new
+  session entry for the full LinkedIn-deferral note.
+- `pnpm tsc --noEmit`: zero errors touching the new files (grepped specifically); the ~40
+  pre-existing errors in the full run are all in `src/__tests__/**`, unrelated, matching this
+  repo's long-documented pattern (tsc gate doesn't cover the test tree cleanly).
+
+**Not done:** no scheduled/nightly trigger (manual API route only, per the task's "at minimum"
+instruction); funder→foundation matching is exact-name-only (conservative, may miss real matches —
+reported in the run summary, not silently dropped); LinkedIn watching (deliberately deferred).
+
+**Commit:** `feat(relationship): Signal Monitoring — news + 990 watching only, LinkedIn explicitly
+deferred pending sign-off (registry #99)` (this session).
+
+---
+
+## Prior Session — August 7, 2026 (queue-31 preflight: relationship_memory/relationship_recommendations live status + AG-19 Phase A fixed)
 
 **Focus:** queue-31 (registry #99 Signal Monitoring, #101 Relationship Builder UI) preflight —
 check live whether `queue-26-relationship-memory-fix.yaml` already applied
