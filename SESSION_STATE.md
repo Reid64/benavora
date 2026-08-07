@@ -1,7 +1,52 @@
 # BENAVORA — Session State
-## Last Updated: August 7, 2026 (row #139 Plain Language Financials — real narrative added to the q34-002 board packet card)
+## Last Updated: August 7, 2026 (row #153 Real-Time Panel Updates — Supabase Realtime wired on Command Center)
 
-## Current Session — August 7, 2026 (row #139 Plain Language Financials)
+## Current Session — August 7, 2026 (row #153 Real-Time Panel Updates)
+
+**Focus:** ship `FEATURE_REGISTRY_v2.md` row #153 ("Real-Time Panel Updates", PLANNED: "Supabase
+Realtime subscriptions. Phase 2.") against `src/app/(dashboard)/command-center/page.tsx` (row
+#152, BUILT — UNVERIFIED). Re-read the page first; the owner-only gate
+(`checkPermission(user.id, "owner", supabase)` → redirect to `/dashboard?notice=owner_required`)
+and the table list (organizations, subscriptions, opportunities, applications, agent_runs,
+agent_decisions, foundation_directory) were both confirmed unchanged from the prior session's read.
+
+**Status:**
+- Grepped the existing Realtime precedent in `src/components/autoapply/` (`ManualQueue.tsx`,
+  `WorkerStatus.tsx`, `QueueMetrics.tsx`, `ReviewQueue.tsx`, `QueuePanel.tsx`) and matched its
+  exact subscribe/cleanup/safety-net-interval pattern rather than inventing a new one.
+- Extracted the page's cross-org query block into `src/lib/command-center/snapshot.ts`
+  (`getCommandCenterSnapshot()`), shared by the page's SSR render and a new owner-gated
+  `GET /api/admin/command-center` route (same `requireRole("owner")` precedent as
+  `/api/admin/platform-metrics`).
+- Built `src/components/command-center/CommandCenterLive.tsx` (`"use client"`) — subscribes via
+  the browser client (`createClient()`, not `createAdminClient()`) to `postgres_changes` on
+  `agent_runs`, `agent_decisions`, `applications` (the task's named highest-value/most-volatile
+  candidates); any event triggers a refetch of the new API route rather than trusting the raw
+  payload for a cross-org aggregate. 60s safety-net interval layered on top, same precedent as
+  `QueueMetrics.tsx`. A connection-state indicator reflects the channel's real subscribe status
+  (`SUBSCRIBED`/`CHANNEL_ERROR`/etc.), not a fabricated always-on "Live" badge.
+- **Found and documented the real RLS-vs-Realtime constraint the task asked about, rather than
+  silently working around it with a service-role client-side connection:** all three subscribed
+  tables have RLS policies scoping rows to `current_org_id()`/the caller's own org (confirmed by
+  reading `agent_runs_org_isolation`, `applications_org_isolation`, and `agent_decisions`'s
+  `decisions_org` policy directly). Supabase Realtime enforces this the same way a REST read
+  would. Since this page's owner gate is a per-org rank (not a distinct cross-org platform-admin
+  flag — this schema has none), the live subscription only ever fires for the viewing owner's
+  own org's row changes, even though the data it refreshes spans every org. So the "live" wiring
+  is real and event-driven, not polling dressed up as realtime, but it's a same-org activity
+  trigger for a cross-org refetch — other orgs' changes only show up via the 60s fallback or a
+  page reload. Documented in the component's header comment and its Live-indicator tooltip, not
+  hidden.
+- `pnpm tsc --noEmit` — 0 new errors (confirmed via grep of the full output for the new/changed
+  file names; remaining errors are all pre-existing, confined to `src/__tests__/**`).
+
+Updated `STATE_OF_THE_BUILD.md` with the full session entry above this one.
+**Commit:** `feat(command-center): wire Supabase Realtime postgres_changes subscriptions on real dashboard data sources` (this session).
+**Gates:** `pnpm tsc --noEmit` — 0 new errors.
+
+---
+
+## Prior Session — August 7, 2026 (row #139 Plain Language Financials)
 
 **Focus:** ship `FEATURE_REGISTRY_v2.md` row #139 ("Plain Language Financials", PLANNED:
 "Jargon-free financial summary for board. Phase 3.") — the deeper financial narrative

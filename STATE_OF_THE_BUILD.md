@@ -1,8 +1,84 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 7, 2026 (row #139 Plain Language Financials — real narrative added to the q34-002 board packet card). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 7, 2026 (row #153 Real-Time Panel Updates — Supabase Realtime wired on Command Center). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 7, 2026 (row #153 Real-Time Panel Updates — Supabase Realtime postgres_changes wired on /command-center)
+
+Shipped `FEATURE_REGISTRY_v2.md` row #153 ("Real-Time Panel Updates", was PLANNED: "Supabase
+Realtime subscriptions. Phase 2.") against the real Command Center page (row #152,
+`src/app/(dashboard)/command-center/page.tsx`, owner-only via `checkPermission(user.id, "owner",
+supabase)` — confirmed still exactly that gate before building against it, unchanged since row
+#152 shipped).
+
+**Read the target file first, as instructed, rather than trusting the prior session's read.**
+Confirmed the table list is still accurate: `organizations`, `subscriptions`, `opportunities`
+(count), `applications` (count + a `pending_review`/`auto_generated` filtered count),
+`agent_runs` (24h rows for the items-processed sum + a 10-row recent-runs query),
+`agent_decisions` (a 24h count + a 7d `org_id` list for the "Most Active Orgs" ranking),
+`foundation_directory` (total + `enriched_990_at`/`enriched_web_at` filtered counts). No drift
+found — the file this session read matched the prior session's list exactly.
+
+**What shipped:**
+- `src/lib/command-center/snapshot.ts` (new) — extracted the page's entire cross-org
+  `Promise.all` query block into `getCommandCenterSnapshot()`, so the page's initial SSR render
+  and a new live-refresh API route run the exact same queries instead of two copies drifting
+  apart over time.
+- `src/app/api/admin/command-center/route.ts` (new) — `GET`, owner-gated via `requireRole("owner")`
+  (same precedent as `/api/admin/platform-metrics`), calls `getCommandCenterSnapshot()` via the
+  service-role admin client, returns the full cross-org snapshot as JSON.
+- `src/components/command-center/CommandCenterLive.tsx` (new, `"use client"`) — the stat-card
+  row, the 3-panel row (AI Pipeline Status / Data Intelligence Status / Most Active Orgs), and
+  the Recent Agent Runs table, seeded from the server's initial snapshot and kept fresh via a
+  Supabase Realtime `postgres_changes` subscription — matched the established pattern from
+  `src/components/autoapply/{WorkerStatus,QueueMetrics,ManualQueue,ReviewQueue,QueuePanel}.tsx`
+  exactly (`supabase.channel(name).on("postgres_changes", {event:"*",schema:"public",table},
+  cb).subscribe()`, cleanup via `supabase.removeChannel()` on unmount) rather than inventing a
+  new one. Subscribed to `agent_runs`, `agent_decisions`, and `applications` — the three
+  highest-value, most-volatile tables named in the task, per that same task's own priority call
+  (organizations/subscriptions change rarely, deliberately left un-subscribed). Any event on any
+  of the three triggers a refetch of `/api/admin/command-center` (not a naive apply-the-payload
+  update — see the RLS constraint below for why) and swaps in the fresh cross-org snapshot. A
+  60-second safety-net interval is layered on top, same precedent as `QueueMetrics.tsx`'s own
+  documented fallback ("in case Realtime isn't enabled on a table") — this is a fallback next to
+  a real subscription, not polling standing in for one. A small connection-state indicator
+  ("Live"/"Connecting…"/"Offline") reflects the channel's real `SUBSCRIBED`/`CHANNEL_ERROR`/
+  `TIMED_OUT`/`CLOSED` status from the `.subscribe((status) => ...)` callback — not a fabricated
+  always-on dot.
+- `src/app/(dashboard)/command-center/page.tsx` — trimmed to the auth/role gate, the header, a
+  single `getCommandCenterSnapshot()` call, `<CommandCenterLive initialSnapshot={snapshot} />`,
+  and the static Admin Quick Actions row. All the now-client-side style constants/helpers
+  (`StatCard`, `ProgressBar`, `agentStatusColor`, panel/table styles) moved into
+  `CommandCenterLive.tsx` with no styling changes — same inline-hex values throughout, this
+  page's existing convention, not Tailwind.
+
+**Real RLS-vs-Realtime constraint found and documented, not papered over (per the task's explicit
+instruction):** `agent_runs`, `agent_decisions`, and `applications` all have RLS policies scoping
+every row to the caller's own `organization_id` — `agent_runs_org_isolation` /
+`applications_org_isolation` (`organization_id = public.current_org_id()`,
+`supabase/migrations/001_initial_schema.sql`) and `agent_decisions`'s `decisions_org`
+(`org_id = (SELECT organization_id FROM profiles WHERE id = auth.uid())`,
+`src/supabase/migrations/080_autonomous_agent_infrastructure.sql`). Supabase Realtime enforces
+RLS on `postgres_changes` the same way a normal REST read is enforced — confirmed by reading both
+policies directly, not assumed. Command Center's owner gate (`checkPermission(user.id, "owner",
+...)`) is a per-org rank, not a distinct cross-org platform-admin flag (this schema has no such
+flag — see project memory on `platform_admins` being unwired). So the browser-client subscription
+only ever receives events for the viewing owner's own organization's rows, even though the
+snapshot it refreshes (via the service-role-backed API route) spans every org. Net effect: real,
+working Realtime wiring, but it's a "my own org just changed, go re-pull the full cross-org
+snapshot" trigger, not a true "any org, anywhere, changed" signal — other orgs' activity only
+surfaces via the 60s safety net or the next full page load. Explicitly did **not** work around
+this by giving the client a service-role-authenticated Realtime connection (would leak the
+service role key to the browser). Documented in `CommandCenterLive.tsx`'s header comment, in the
+`LiveIndicator`'s tooltip text, and here.
+
+Gates: `pnpm tsc --noEmit` — 0 new errors (grepped the full run's output for
+`command-center`/`CommandCenterLive`/`snapshot.ts` — zero matches; the ~35 pre-existing errors
+that remain are all confined to `src/__tests__/**`, unrelated to this change, same standing
+pattern documented throughout this file's prior sessions).
 
 ---
 
