@@ -7206,3 +7206,183 @@ taken and its content read back against the DB rows. All throwaway verification 
 no `corporate_prospects`-style missing-table blocker applies to this agent's real tables, all of
 which are confirmed live.
 
+---
+
+## q32-002/003/004 — Corporate Outreach batch mode, Giving DNA profile, Corporate Marketplace
+
+**Spec under test:** commits `ce0d2fd` (row #120, batch-personalized outreach composer),
+`f03ec99` (row #92, Corporate Giving DNA per-company profile page), `e5cdc9c` (row #97, Corporate
+Marketplace search/filter UI). Live-verified against the real 49-row `corporate_prospects` pool and
+the real Faith Foundation org (`b1ab7402-dfc2-4712-869f-70ea3566cc1d` — the org this project's
+verification history consistently uses; a second, duplicate `bed3e621-...` "FAITH Foundation" row
+also exists live and was not used, per the standing dedup note in project memory).
+
+**Method, all three:** a real, GoTrue-validated Supabase session was obtained for the real org owner
+(`info@faithfoundationsf.org`) via `admin.auth.admin.generateLink({type:"magiclink"})` +
+`anon.auth.verifyOtp()` — no password read or changed, same convention as the AG-19/q31-003 entry
+above. The resulting session was encoded into the exact `@supabase/ssr` cookie format
+(`sb-<project-ref>-auth-token`, `base64-` + base64url JSON, chunked per that package's own
+`MAX_CHUNK_SIZE=3180` — read directly from `node_modules/@supabase/ssr/dist/main/utils/chunker.js`,
+not guessed) and sent as a real `Cookie` header on real HTTP requests / injected into a real
+Playwright browser context, exactly as q31-003 established.
+
+### Real data pool, confirmed live before testing
+
+Queried `corporate_prospects` directly (49 rows total, matching the q32 preflight's count exactly):
+- Only **1 of 49** rows has populated `scores` — `GOOD HOUSING CONSTRUCTION LLC`
+  (`3d15c0f2-e524-4d94-a7fa-e03c82d965b6`), `PS-01` overall score 40, `ranking.is_priority_prospect:
+  true`. Matches the preflight session's finding exactly.
+- **0 of 49** rows have populated `giving_dna`.
+- **0 of 49** rows have `is_veteran_owned`, `is_family_owned`, `is_minority_owned`, or
+  `is_woman_owned` set `true` — every ownership flag is `false`/`null` across the entire real pool.
+  This is new information beyond the preflight (which didn't check this) and directly affects what a
+  "real filter combination" can mean for q32-004 — see below.
+- 3 real, distinct industry categories: Construction Companies (18), Building Material Dealers (19),
+  Roofing Contractors (11).
+
+### q32-002 — Corporate Outreach batch mode: VERIFIED, genuinely deployed and genuinely differentiated
+
+**Exercised against real production**, not a local dev server — `POST
+https://www.benavora.com/api/intelligence/outreach/generate`, real HTTP requests with the injected
+session cookie, no mocks. Confirmed `www.benavora.com` is live (`curl -I` → `200`) before starting.
+
+Selected 3 real prospects with different `industry_category`/city (per the pool above): Greater Than
+Builders LLC (Construction, Burnet), Texas Building Supply (Building Material Dealers, Marble Falls),
+WM Roofing LLC (Roofing Contractors, Lampasas). All 3 calls returned `200` with genuinely distinct,
+industry-specific content — not the same draft with a name swapped:
+- Greater Than Builders: *"As a construction company rooted in the Texas Hill Country, {company_name}
+  understands firsthand what it means to build something that lasts."*
+- Texas Building Supply: *"As a building materials leader rooted in the Texas Hill Country,
+  {company_name} understands firsthand that strong communities are built from the ground up"* —
+  also the only one of the 3 to reference "Bright Box Homes" (a real KB detail about the org's modular
+  housing partner), not present in the other two.
+- WM Roofing: *"As a roofing contractor rooted in the Lampasas community, {company_name} understands
+  firsthand that a stable roof overhead changes everything."* — the only one to name the specific
+  city (Lampasas) in the opening line, and the only one to use a roofing-specific metaphor.
+
+All 3 subjects were also distinct (not templated): *"Partnering to House South Texas — A Community
+Investment Opportunity for {company_name}"*, *"Partnering to House South Texas Communities |
+{org_name} + {company_name}"*, *"Building Community Together — A Housing Partnership Opportunity for
+{company_name}"*. Each response correctly used the literal `{company_name}`/`{org_name}` placeholder
+tokens per the route's own documented convention, never baking in a literal name. This is real,
+industry-grounded personalization genuinely produced per-prospect, matching the route's design intent
+(`src/app/api/intelligence/outreach/generate/route.ts`'s own prompt construction, read before testing)
+— confirmed by running against the actual deployed Vercel production environment where the platform
+Anthropic key lives, not a local script substituting for it.
+
+**Correction to this task's own premise:** the task stated "remember q32-001's finding: the local
+`ANTHROPIC_API_KEY` is dead." The *later*, same-day q32 preflight session (`e7154f7`,
+`STATE_OF_THE_BUILD.md`) already corrected this — a direct raw-fetch test against
+`api.anthropic.com` found the local key returns real `200` completions now, not `401`. This session
+did not need to rely on that correction either way, since the check was run against real production
+regardless — noted here only so a future session doesn't re-inherit the stale "local key is dead"
+premise without checking.
+
+### q32-003 — Giving DNA profile page: NOT VERIFIED — blocked in both environments, honestly reported
+
+**Production: 404, not deployed.** `GET https://www.benavora.com/donor-discovery/outreach/prospects/
+<id>` → `404` (real Playwright navigation, real authenticated session, confirmed via `page.goto()`
+returning a genuine Next.js "This page could not be found" body, not a redirect-to-login). The
+backing API, `GET https://www.benavora.com/api/intelligence/corporate-prospects/<id>`, also `404`s.
+Cross-checked against a *known-working* route from the same day's work: `POST
+.../api/intelligence/outreach/generate` (q32-002, above) returned real `200`s, and the composer page
+`/donor-discovery/outreach` itself renders `200` in production — so production is not simply down;
+specifically the two brand-new routes from commits `f03ec99` (this one) and `e5cdc9c` (marketplace,
+below) have never been deployed. This matches the exact "BUILT but never `vercel --prod`'d" pattern
+already documented in project memory (`benavora-forecast-dashboard-404-not-deployed`) — a real,
+recurring gap in this project's deploy discipline, not a defect in the code itself.
+
+**Local dev server: reproducible 500, real crash, cause not fully diagnosed.** Found a real dev
+server already running on port 3100 (confirmed via `<title>Benavora — AI Grant Automation for
+Nonprofits</title>`, not the unrelated "Tarritrix" app squatting on the default port 3000, same
+collision q31-003 already documented). Using the same injected-session-cookie technique against
+`http://localhost:3100`: the dashboard (`/dashboard`) and the *marketplace* page/API (new in the same
+day's work) both return real `200`s — but `/donor-discovery/outreach/prospects/<id>` (page) and
+`/api/intelligence/corporate-prospects/<id>` (its backing API) both consistently return `500`, with a
+genuine Next.js dev-server crash: `"Jest worker encountered 2 child process exceptions, exceeding
+retry limit"`. **Reproduced 4 times across ~40 seconds of retries** (not a one-off transient blip) —
+every other route tested in the same session, including ones added by the exact same day's commits,
+compiled and served correctly. Ruled out two likely causes directly rather than guessing: `pnpm tsc
+--noEmit` shows zero errors for either file (not a type error), and both files round-trip through
+UTF-8 encoding byte-for-byte (not the PowerShell/UTF-8 corruption pattern this project has hit
+before, per `STANDING_DIRECTIVES.md` Directive 4). Root cause not further isolated this session
+(starting an isolated third dev server on port 3200 to capture live stdout was blocked by this
+session's own tool-permission gate) — flagged as a real, reproducible bug for a future session to
+diagnose (candidate: file-lock contention from another concurrent agent process in this same repo,
+per `git status`'s several modified `.claude/worktrees/agent-*` entries visible at session start —
+not confirmed, just the most plausible unverified explanation).
+
+**Net: this row's UI has never been confirmed to render correctly against real data in any
+environment.** The one thing that *is* independently confirmed: the underlying `scores` data it would
+render is real and correct (see q32-004's `hasScore=true` filter test below, which returned this
+exact row with `overallScore: 40` read directly from the same `corporate_prospects.scores` column the
+profile page would read) — so if the page were deployed and the dev-server crash were fixed, it has
+real, non-fabricated data to render. But the actual PS-01..PS-10 rationale rendering and the "not yet
+scored" empty state were **not** visually confirmed this session. Do not mark row #92 verified.
+
+### q32-004 — Corporate Marketplace: VERIFIED against the local dev server (production not deployed, see above)
+
+Same 404-in-production finding as q32-003 applies here too — `GET
+https://www.benavora.com/donor-discovery/marketplace` and its backing
+`GET .../api/intelligence/corporate-prospects` both `404` live. Verified instead against the same
+real local dev server (port 3100, real DB, real auth session, no mocks) — genuinely reachable and
+working there (`200`, unlike the prospect-detail route above), so this row's actual filter/search
+logic could be exercised for real.
+
+**Filter 1 — `industry=Roofing Contractors`:** API returned `total: 11`, all 11 rows'
+`industry` field genuinely equal to `"Roofing Contractors"`. Independently re-queried
+`corporate_prospects` directly (`.eq("industry_category", "Roofing Contractors")`) → `count: 11`,
+exact match. Real row names returned (APEX Roofing, WM Roofing LLC, etc.) — not a hardcoded/mock
+list.
+
+**Filter 2 — `hasScore=true`:** API returned `total: 1`, the one real scored row
+(`GOOD HOUSING CONSTRUCTION LLC`, `overallScore: 40`, `isPriorityProspect: true`,
+`scoresComputedAt: "2026-08-06T22:23:30.314+00:00"`). Independently re-queried
+`corporate_prospects` directly (`.not("scores->PS-01", "is", null)`) → `count: 1`, same row `id`.
+Exact match, including the real computed-at timestamp.
+
+**Filter 3 (bonus, honest-empty-result case) — `veteranOwned=true`:** API correctly returned
+`total: 0` — matching the real DB fact (confirmed above) that zero of the 49 real rows have this flag
+set. Chose this over a guessed-true filter specifically because the real data confirms no row would
+ever match it right now; a filter that correctly returns nothing when nothing should match is itself
+a real, positive verification result, not a null test.
+
+**Spot-check:** took the first Roofing-filter result (APEX Roofing) and independently fetched its
+full row directly from `corporate_prospects` by `id` — `displayName`, `city`, `state`, and `industry`
+all matched the API response exactly. The marketplace list is reading real, live DB rows, not a
+mocked or stale list.
+
+### Root-cause summary
+
+1. **q32-002 (row #120) is genuinely verified** — real, deployed, production Vercel environment,
+   real per-prospect Claude-generated personalization confirmed distinct across 3 real prospects with
+   different industries/cities, not name-swapped templating.
+2. **q32-003 (row #92) is NOT verified** — blocked in both environments (404 in production because
+   `f03ec99` was never deployed; reproducible 500 crash in the one available local dev server, cause
+   not fully diagnosed but ruled out as a type error or encoding corruption). Do not report this row
+   as UI-confirmed.
+3. **q32-004 (row #97) is verified, but only against a local dev server, not production** — same
+   deployment gap as q32-003 (`e5cdc9c` never deployed) applies to this row too. The underlying
+   filter/search logic is confirmed correct and genuinely DB-backed once reachable.
+4. **A real, previously-undocumented deployment gap**: today's Pillar 3 UI work (`f03ec99`,
+   `e5cdc9c`) is on `main` and compiles, but has never been pushed to Vercel production — the exact
+   same failure pattern already known from the Forecast Dashboard (`benavora-forecast-dashboard-404-
+   not-deployed` memory). `ce0d2fd` (the earlier batch-outreach commit) *is* live in production,
+   confirming this isn't a global deploy freeze — just these two specific commits never got a
+   `vercel --prod` run after them.
+5. **A real, newly-found local dev-server bug**, independent of the deployment gap: the
+   `prospects/[id]` page and its API route reproducibly crash the Next.js dev compiler worker pool
+   while every sibling route (including ones from the exact same commits) compiles fine. Not
+   diagnosed to root cause this session; flagged for follow-up.
+
+**Verification method:** real GoTrue-validated Supabase sessions (magic link + `verifyOtp`, no
+password read or changed) encoded into the real `@supabase/ssr` cookie format and used for genuine
+HTTP requests against both `https://www.benavora.com` (production) and `http://localhost:3100` (a
+pre-existing real dev server serving real Benavora, confirmed by page title, not the unrelated
+"Tarritrix" app squatting on port 3000 per the q31-003 precedent); every filter/list claim
+independently re-verified against a direct service-role query of the real `corporate_prospects`
+table, not trusted from the API response alone; `pnpm tsc --noEmit` and a byte-level UTF-8
+round-trip check used to rule out two candidate causes for the q32-003 crash before reporting it as
+undiagnosed. All throwaway scripts (`scripts/_verify-q32*.mjs`, `scripts/_q32-*.png`,
+`scripts/_q32-002-results.json`) were deleted after use and were never committed.
+

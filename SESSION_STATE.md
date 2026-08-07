@@ -1,7 +1,53 @@
 # BENAVORA — Session State
-## Last Updated: August 7, 2026 (q31-003 live-verified: /funders/[id]/relationship UI confirmed genuinely wired end-to-end)
+## Last Updated: August 7, 2026 (q32-002/003/004 live-verified: batch Outreach confirmed working in production; Giving DNA + Marketplace found undeployed, Giving DNA also crashes locally)
 
-## Current Session — August 7, 2026 (q31-003 live-verification: /funders/[id]/relationship UI)
+## Current Session — August 7, 2026 (q32-002/003/004 live-verification: Corporate Outreach batch mode, Giving DNA profile, Marketplace)
+
+**Focus:** live-verify q32-002 (Corporate Outreach batch personalization, row #120), q32-003
+(Giving DNA profile page, row #92), and q32-004 (Marketplace, row #97) against the real 49-row
+`corporate_prospects` pool and the real Faith Foundation org — required real evidence, not a
+compile pass. q32-002 specifically had to be exercised against a deployed environment (not a local
+`.env.local` key) per the task's own instruction.
+
+**Status:** mixed — one row confirmed genuinely working in production, two rows found to have never
+been deployed at all. Full detail in `AGENT_VERIFICATION_LOG.md`'s new "q32-002/003/004" entry and
+the `STATE_OF_THE_BUILD.md` session entry above it; short version:
+
+- **Real data pool confirmed first:** 49 real `corporate_prospects` rows, only 1 with populated
+  `scores`, 0 with `giving_dna`, and — new finding — **0 rows with any ownership flag
+  (veteran/family/minority/woman-owned) set true**, which shaped how q32-004's filter test was
+  designed (a correctly-empty-result filter, not a guessed-true one).
+- **q32-002 (batch Outreach): CONFIRMED.** Real `POST` requests directly against
+  `https://www.benavora.com` (production), using a real GoTrue-validated session (Supabase
+  admin-issued magic link, no password touched — same technique as the q31-003 session before this
+  one) for 3 real prospects with different industries/cities. All 3 returned genuinely distinct,
+  industry-grounded content (not the same draft with a name swapped) — real evidence the platform
+  Anthropic key works in prod and per-prospect personalization is real.
+- **q32-003 (Giving DNA profile): NOT CONFIRMED — two real problems found.** (1) Never deployed:
+  the page and its API both `404` in production even though the composer page and the q32-002 API
+  both work fine there — `f03ec99` is on `main` but was never `vercel --prod`'d, same pattern as the
+  known Forecast Dashboard gap. (2) Separately, this exact route reproducibly crashes the Next.js
+  dev compiler (4/4 attempts) on the one available local dev server, while every sibling route from
+  the same commits compiles fine — ruled out a type error (`tsc` clean) and UTF-8 corruption (clean
+  round-trip) as causes but didn't fully diagnose it. This row's real UI has never been seen
+  rendering.
+- **q32-004 (Marketplace): CONFIRMED functionally correct, but only against local dev — also not
+  deployed to production.** Same 404-in-prod gap as row #92 (`e5cdc9c` never deployed). Against the
+  real local dev server: `industry=Roofing Contractors` → exactly the 11 real matching rows;
+  `hasScore=true` → exactly the 1 real scored row with its real score; `veteranOwned=true` →
+  correctly 0 results. A spot-checked result matched its direct DB row field-for-field.
+- Updated `FEATURE_REGISTRY_v2.md`/`STATE_OF_THE_BUILD.md` narrative is not yet corrected in the
+  registry's status column for rows #92/#97 — they should not be read as production-verified BUILT
+  until `vercel --prod` actually ships these two commits and row #92's local crash is diagnosed.
+
+**Next session priority:** run `vercel --prod` (or confirm why it isn't happening automatically for
+this project) to close the deploy gap on `f03ec99`/`e5cdc9c`, then re-verify row #92's page render
+for real; separately diagnose the local dev-server crash on `/donor-discovery/outreach/
+prospects/[id]` independent of the deploy step.
+
+---
+
+## Prior Session — August 7, 2026 (q31-003 live-verification: /funders/[id]/relationship UI)
 
 **Focus:** live-verify q31-003 (commit `64f9c81`, the new AG-19 `/funders/[id]/relationship-builder`
 API route + `/funders/[id]/relationship` page) against the real Faith Foundation org and a real

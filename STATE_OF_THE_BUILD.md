@@ -1,8 +1,60 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 7, 2026 (Corporate Marketplace search/filter UI shipped, row #97). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 7, 2026 (q32-002/003/004 live-verified: batch Outreach confirmed genuinely deployed and working in production; Giving DNA and Marketplace both found NOT deployed to production, and the Giving DNA route additionally crashes in local dev — real status corrected below). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 7, 2026 (q32-002/003/004 live-verification — real status of all three Pillar 3 UI rows)
+
+Live-verified rows #92, #97, #120 (this file's two entries directly below, and the earlier batch-
+outreach entry) against the real, deployed system rather than trusting their own "shipped" write-ups.
+Full evidence in `AGENT_VERIFICATION_LOG.md`'s new "q32-002/003/004" entry. Corrects the real status
+of two of the three rows.
+
+**Row #120 (Corporate Outreach batch mode) — CONFIRMED, genuinely deployed and working.** Ran real
+`POST` requests directly against `https://www.benavora.com` (production, not a local dev server)
+using a real GoTrue-validated session for the real Faith Foundation org owner, for 3 real prospects
+with different industries/cities. All 3 returned `200` with genuinely distinct, industry-grounded
+Claude-generated content (a roofing-specific opening line for the roofer, a construction-specific one
+for the builder, a "Bright Box Homes" reference unique to the building-materials prospect) — not the
+same draft with a company name swapped. This is real evidence the platform Anthropic key works in
+production and that per-prospect personalization is real, not templated.
+
+**Row #92 (Corporate Giving DNA profile) — NOT CONFIRMED. Two independent problems found, neither
+previously known:**
+1. **Never deployed to production.** `/donor-discovery/outreach/prospects/[id]` and its backing API
+   both `404` on `www.benavora.com` — the commit (`f03ec99`) is on `main` and compiles, but nobody has
+   run `vercel --prod` since it landed. Confirmed this isn't a general outage: the row #120 API above
+   returned real `200`s in the same session, and the Outreach composer page itself renders `200` in
+   production.
+2. **Crashes in the one available local dev server.** The same route reproducibly (4/4 attempts)
+   returns a Next.js dev-compiler crash (`"Jest worker encountered 2 child process exceptions"`) on
+   port 3100, while every sibling route from the same day's commits — including the Marketplace list
+   API — compiles and serves fine on the same server. `pnpm tsc --noEmit` is clean and the files are
+   valid UTF-8, ruling out the two most likely causes; root cause not further isolated this session.
+
+**Net: row #92's actual UI has never been visually confirmed rendering real data, in any
+environment.** The data it would render is confirmed real and correct (see row #97 below), but the
+page itself is unverified. Treat this row's "BUILT" status as unproven until both the deploy gap and
+the local crash are resolved and someone actually sees it render.
+
+**Row #97 (Corporate Marketplace) — CONFIRMED functionally correct, but only against a local dev
+server; also not deployed to production.** Same 404-in-production finding as row #92 (`e5cdc9c` never
+deployed). Verified instead against the real local dev server (port 3100, real DB, real session, no
+mocks): `industry=Roofing Contractors` returned exactly the 11 real matching rows (cross-checked
+against a direct `corporate_prospects` query, exact match); `hasScore=true` returned exactly the 1
+real scored row with its real `overallScore: 40`, exact match against a direct query;
+`veteranOwned=true` correctly returned 0 results, matching the newly-confirmed real fact that zero of
+the 49 real prospects have any ownership flag set true. A spot-checked result (APEX Roofing) matched
+its direct DB row field-for-field. The filter/search logic itself is real and DB-backed — it just
+isn't reachable in production yet.
+
+**Action needed before these two rows can be called done:** run `vercel --prod` to actually ship
+`f03ec99` and `e5cdc9c` (same standing gap as the Forecast Dashboard,
+`benavora-forecast-dashboard-404-not-deployed` memory), then re-verify row #92's page render — the
+local dev crash also still needs diagnosis independent of the deploy step.
 
 ---
 
