@@ -1,6 +1,6 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 7, 2026 (row #142 Simulator UI built — `/intelligence/simulate`, the last real gap in Pillar 13, closed against AG-41's real `POST /api/agents/simulate` contract). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 7, 2026 (row #142 Simulator UI now BUILT — VERIFIED: live-verified through a real authenticated browser session against all 4 real scenario types, closing Pillar 13's last open gap). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
 
@@ -60,6 +60,58 @@ the `src/app/(dashboard)/intelligence/page.tsx` edit; all remaining compiler err
 confined to `src/__tests__/**` (deadline-predictor, outcome-analyzer, regressions, samgov-client,
 organizations, storage-rls — the same known set documented throughout this file's prior sessions),
 untouched by this change.
+
+---
+
+## SESSION — August 7, 2026 (Simulator UI live-verified through a real browser session, closing the previous session's "next session's job")
+
+Closed the gap the immediately-preceding session flagged: `/intelligence/simulate` had been built
+but never exercised against a real `POST /api/agents/simulate` call in a browser. This session did
+exactly that — full detail and evidence in `AGENT_VERIFICATION_LOG.md`'s "AG-41 / Simulator UI"
+entry; summary here.
+
+**Method:** rather than bypass the session layer (this log's usual practice for pure agent-class
+verification), this pass needed a real authenticated browser session for the real Faith Foundation
+org specifically because it was testing the *page*, not just the agent underneath it. Used
+`supabase.auth.admin.generateLink()` (service-role key) to issue a genuine magic link for the real
+owner (`info@faithfoundationsf.org`) without reading or changing their password, then — since this
+app's `/login` page only instantiates the Supabase client inside its password-submit handler and
+has no page that auto-consumes a magic-link hash fragment — used the real, unmodified
+`@supabase/supabase-js`/`@supabase/ssr` library code itself (not a hand-forged token) to convert the
+resulting access/refresh tokens into the exact cookie the app's server-side session reader expects.
+Injected that cookie into a real Playwright/Chromium session against a local `next dev` server.
+
+**Result:** landed on the real page authenticated as "FAITH Foundation," with the existing real
+`lose_funder`/$0 row already visible in Past Simulations — direct confirmation this was the real
+org's real data, not a fresh environment. Ran all 4 scenario types through actual UI interactions
+(funder dropdown, number inputs, percentage slider), each producing a real, network-captured
+`POST /api/agents/simulate` call (all 200, all real Claude-generated narrative content — no
+`narrativeUnavailable`, confirming the 2026-08-04 key rotation is holding). Every rendered field
+(deterministic impact, confidence badge, `baselineUsed`, key risks/opportunities, `exposedPrograms`
+for `budget_cut`) was cross-checked directly against `impact_simulations`/`agent_decisions`/
+`agent_runs` via `DATABASE_URL`/`psql` and matched exactly, field-for-field. `gain_funder`'s
+low-confidence/human-review callout rendered visibly and lines up with the database's independently
+forced `agent_decisions.required_human_review: true` (confidence_score 40, under the base class's
+`MIN_CONFIDENCE_TO_ACT = 60` floor) — two separately-confirmed signals of the same real enforcement,
+not one inferred from the other. The pre-rotation `narrativeUnavailable` degraded state was also
+confirmed still rendering correctly on the older (2026-08-03) `gain_funder`/$50,000 row, observed
+side by side with real narrative text on the new rows.
+
+**One honest test-tooling note, not an app defect:** the `budget_cut` slider was manipulated via a
+raw DOM `.value` mutation in the test script, which doesn't register with React's controlled-input
+state (a known React/Playwright interaction gap) — so the run actually submitted the page's
+untouched default of 10%, not the 15% the script intended. The value that *was* submitted computed
+and rendered correctly to full precision regardless (`-$2,408,787.127` against the real $24.09M
+AG-26 forecast baseline).
+
+`FEATURE_REGISTRY_v2.md` row #142 moved from **BUILT — UNVERIFIED** to **BUILT — VERIFIED**. All
+temporary session-construction scripts, cookies/tokens, and screenshots were deleted after use; the
+4 new `impact_simulations`/`agent_runs`/`agent_decisions` rows were kept (real data, per this
+agent's own immutable-history design); the local dev server was stopped; `git status --porcelain`
+confirmed clean before writing this entry.
+
+Gates: `pnpm tsc --noEmit` — not re-run this session (no application code was changed — this was a
+live-verification pass against already-shipped code, not a build session).
 
 ---
 

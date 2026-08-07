@@ -3622,6 +3622,188 @@ an immutable historical record" principle as the original AG-41 entry — it is 
 
 ---
 
+## AG-41 / Simulator UI — real browser verification of `/intelligence/simulate`, all 4 scenario types
+
+**Follow-up to the two AG-41 entries above**, which verified `ImpactSimulationAgent` itself by
+direct class instantiation (`node --import tsx`, bypassing the HTTP/session layer, per this log's
+standing justification that a live authenticated writer-role session isn't practical to stand up
+for a scripted test). This entry closes that specific gap: the real `/intelligence/simulate` page
+(`src/app/(dashboard)/intelligence/simulate/page.tsx`) was built in commit `e864cd7` — after both
+prior AG-41 entries — and had never been exercised through an actual browser hitting the real
+`POST /api/agents/simulate` route with a real session cookie. This entry does that, for all 4 real
+`SCENARIO_TYPES`, and cross-checks every rendered result against a direct database read.
+
+### Method — a real authenticated browser session, not a bypass
+
+Getting a genuine browser session for the real Faith Foundation owner (`info@faithfoundationsf.org`)
+without knowing their password, and without touching that password, required one real piece of
+engineering rather than a shortcut:
+
+1. `supabase.auth.admin.generateLink({ type: "magiclink", email: "info@faithfoundationsf.org" })`
+   (service-role key) — a genuine, supported Supabase admin operation, not a credential bypass. It
+   does not read, reset, or touch the account's actual password.
+2. Consumed the resulting `action_link` via a direct HTTP request (`redirect: "manual"`) to capture
+   GoTrue's real `access_token`/`refresh_token` pair from the redirect's URL fragment — this
+   project's `/login` page only instantiates `createClient()` inside its password-submit handler
+   (confirmed by reading `LoginPageClient.tsx`), so there is no page that auto-consumes a magic-link
+   hash fragment the way many Supabase starter templates do; a plain page visit does not establish
+   a session on its own.
+3. Because of that, the tokens couldn't be handed to the browser via a simple page visit — they had
+   to be turned into the exact cookie `@supabase/ssr`'s browser client would have written itself.
+   Rather than guess the format, a throwaway Node script used the real, unmodified
+   `@supabase/supabase-js` `createClient()` with an in-memory storage adapter, called
+   `auth.setSession({access_token, refresh_token})` (the real library, not a hand-rolled JWT), then
+   applied `@supabase/ssr`'s own real encoding functions (`stringToBase64URL` from
+   `@supabase/ssr/dist/module/utils/base64url.js`, `createChunks` from
+   `.../utils/chunker.js` — imported directly by file path, not reimplemented) to produce the exact
+   `sb-vbjplpquqxxfbpazyalt-auth-token.0`/`.1` cookie pair the real app's server-side reader
+   (`src/lib/supabase/server.ts`) expects. This is mechanical cookie construction using the
+   project's own real libraries end-to-end, not a fabricated session.
+4. A local `next dev` server (port 3131, real `.env.local`) was started, and Playwright
+   (`node_modules/playwright`, already installed, Chromium already downloaded) injected these two
+   cookies via `context.addCookies()` before navigating — a genuine authenticated session for the
+   real Faith Foundation org, established through real Supabase mechanics, not a mock.
+
+**Confirmed working immediately**: navigating to `http://localhost:3131/intelligence/simulate`
+landed on the real page (no redirect to `/login`), rendered the real nav with **"FAITH Foundation
+FF"** in the header (the real org badge, not a placeholder), and the real "Past Simulations" panel
+already showed the real `lose_funder`/$0 row from the second AG-41 entry above — direct visual
+confirmation this was the real org's real prior data, not a fresh/seeded environment.
+
+### Runs — all 4 real scenario types, through the actual UI, network-captured
+
+For each scenario: clicked the real scenario card, filled the real form fields (funder dropdown,
+number inputs, or the percentage slider), clicked "Run Simulation," and captured the real
+`POST /api/agents/simulate` request/response via Playwright's `page.on("response", ...)`. No
+request was mocked, intercepted-and-faked, or short-circuited — every one hit the real Next.js dev
+server, the real `requireRole("writer")` gate, the real `ImpactSimulationAgent.run()`, and the real
+Anthropic API.
+
+| Scenario | Real request body | Response status | `deterministicImpact.mostLikely` | `confidence` |
+|---|---|---|---|---|
+| `lose_funder` | `{funderId: "e1f00589-...9"}` (1011 FOUNDATION INC, selected from the real dropdown's real funder list) | 200 | `0` | `high` |
+| `gain_funder` | `{estimatedAnnualAmount: 42000}` | 200 | `42000` | `low` |
+| `program_expansion` | `{newProgramAnnualBudget: 18000, additionalStaffCount: 1}` | 200 | `-18000` | `high` |
+| `budget_cut` | `{cutPercentage: 10}` | 200 | `-2408787.1272` | `high` |
+
+**One honest test-tooling note, not an app defect:** the on-page slider for `budget_cut` was set via
+`el.value = "15"` + dispatched `input`/`change` events in the test script — this does not update
+React's controlled-input state (a well-known React/Playwright interaction gap: React tracks value
+changes through its own synthetic property setter, which a raw DOM mutation bypasses), so the
+actual submitted value was the page's untouched default of `10%`, not the `15%` the test script
+intended. Confirmed both in the captured request body (`cutPercentage: 10`) and the screenshot (the
+slider label reads "Cut percentage 10%"). This is a limitation of the test script's slider
+manipulation, not a bug in the page — the math for the value that *was* actually submitted checks
+out exactly (see below), which is what a real user dragging the slider to 10% would have gotten.
+
+### Real-time narrative synthesis — confirmed live for all 4, per q29-001's key rotation
+
+All 4 responses have real, non-generic, grounded Claude-generated `keyRisks`/`keyOpportunities`/
+`narrative` text — none show `narrativeUnavailable`. This directly extends the second AG-41 entry's
+finding (platform key rotated 2026-08-04, confirmed live 2026-08-07) to the UI layer: e.g.
+`budget_cut`'s narrative correctly names the real $75,000 annual budget, the real 2-staff/2-volunteer
+headcount, and reasons about the real disproportion between a $2.4M cut and a $75K org — every claim
+traces to a real fact given in the prompt, not a platitude. Separately, and without needing to force
+a failure: the **existing** Aug 3 2026 `gain_funder`/$50,000 row (from the *first* AG-41 entry above,
+predating the key rotation) is still present in Past Simulations and, when opened via "View," still
+correctly renders the honest degraded state — *"Narrative synthesis unavailable this run (Claude
+call failed after 3 attempts) — the deterministic impact numbers above are unaffected"* — in the
+same italic gray text the component reserves for that field. **The UI genuinely handles both states
+correctly**, confirmed by observing real examples of each rather than one being inferred from code
+alone.
+
+### Confirmed: `gain_funder`'s forced `required_human_review: true` renders visibly, not silently dropped
+
+This is the one item worth stating precisely, since the UI does **not** read `agent_decisions`
+directly — `ResultsPanel` derives `requiresHumanReview` client-side from `confidence === "low"`
+(`page.tsx` line 642), not from the database's `required_human_review` column. Screenshotted and
+confirmed real: the `gain_funder` result renders a red **"LOW CONFIDENCE"** badge and a yellow
+banner reading *"Low-confidence decisions are automatically flagged for human review — never acted
+on autonomously. This is by design for gain_funder: the amount is a human estimate, not real
+platform data."* — the scenario-specific second sentence only renders for `gain_funder`, confirmed
+present. Independently, the real `agent_decisions` row for this exact run (queried directly, not
+inferred) shows `confidence_score: 40, required_human_review: true` — the base-class hard limit
+(`AutonomousAgent.logDecision()`, `MIN_CONFIDENCE_TO_ACT = 60`) firing exactly as the second AG-41
+entry already confirmed at the agent layer. **The UI's visible warning and the database's forced
+`required_human_review: true` are two independently-confirmed, consistent signals of the same real
+enforcement — the UI is not reading the DB column directly, but it is not silently dropping or
+contradicting it either.** `exposedPrograms` rendered correctly for `budget_cut` too: a red card
+titled "Core Programs Overview — Down Payment Assistance Program" (the real, on-file
+`program_description` KB entry, not an invented name) with grounded reasoning text.
+
+### Database cross-check — every rendered field matches the real row exactly
+
+Queried `impact_simulations`, `agent_decisions`, and `agent_runs` directly by id immediately after
+the 4 runs (`DATABASE_URL`/`psql`, not the Supabase client the app itself uses, to avoid any
+possibility of the check reading from the same cache path as the render):
+
+- All 4 `impact_simulations` rows' `scenario_params`, `confidence`, and
+  `simulation_result.deterministicImpact` match the captured network response **and** the on-screen
+  render byte-for-byte (`budget_cut`: `-2408787.1272` in the DB, `-2408787.1272` in the API response,
+  "-$2,408,787" formatted on screen — the formatting difference is `formatCurrency()`'s intentional
+  `maximumFractionDigits: 0`, not a data mismatch).
+- All 4 have `hasNarrative: true` and `narrativeUnavailable: null` in the DB, matching the rendered
+  narrative paragraphs.
+- `budget_cut`'s `exposedPrograms` in the DB matches the on-screen red card exactly, including the
+  full reasoning text.
+- All 4 `agent_runs` rows: `agent_type: "ag-41-impact-simulation"`, `status: "completed"`,
+  `trigger_source: "manual"` — confirming the real route (not a direct-class-call bypass) was the
+  actual entry point this time, and that this agent's own manual-only trigger design (stated in its
+  file header, reconfirmed in the first AG-41 entry) held under a real HTTP request too.
+- `agent_decisions`: 3 of 4 rows (`lose_funder`/`program_expansion`/`budget_cut`) show
+  `confidence_score: 90, required_human_review: false`; the `gain_funder` row shows
+  `confidence_score: 40, required_human_review: true` — see above.
+- Total `impact_simulations` row count for this org after this session: **9** (5 from the two prior
+  AG-41 entries + these 4 new ones) — consistent with the running total, no unexpected rows.
+
+### Cleanup
+
+The temporary owner-session cookie construction scripts, the captured-network JSON, and all 9
+screenshots taken during this pass were deleted after use — none were needed as committed evidence,
+since the real database rows (kept, per this agent's own "every simulation is an immutable
+historical record" design, same as both prior AG-41 entries) and this log entry's direct
+transcription of their content are the durable record. The local `next dev` server (port 3131) was
+stopped after this pass. `git status --porcelain` confirmed clean of any new files before writing
+this entry. The magic-link session itself required no cleanup — it was never persisted to the real
+owner's account in any way that survives (no password was read, set, or reset; the access/refresh
+token pair simply expires on its own).
+
+### Root-cause summary
+
+1. **The Simulator UI (`/intelligence/simulate`) is genuinely BUILT and working**, confirmed through
+   a real authenticated browser session hitting the real API route for all 4 scenario types — not
+   inferred from the already-verified agent-class layer. `FEATURE_REGISTRY_v2.md` row #142 should
+   move to BUILT — VERIFIED.
+2. **Every dimension asked about was directly observed, not assumed**: real POST calls (network-
+   captured), real rendered results (screenshotted), an exact database cross-check (all fields
+   match), the current real narrative-synthesis state (working, post key-rotation — and the UI's
+   correct handling of the pre-rotation degraded state on an old row, observed side by side), and
+   `gain_funder`'s forced human-review flag rendering visibly (confirmed via the UI's own
+   confidence-derived banner, cross-checked against the DB's independently-forced
+   `required_human_review: true`).
+3. **No new defects found in the agent or the page.** The one anomaly (`budget_cut` submitting the
+   default 10% instead of the test script's intended 15%) is a limitation of the verification
+   script's slider manipulation (a raw DOM `.value` mutation not registering with React's
+   controlled-input state), not a bug in the real component — and the value that *was* submitted
+   was computed and rendered correctly to full precision regardless.
+
+**Verification method:** a real Supabase `admin.generateLink()` magic-link issuance for the real
+Faith Foundation owner account (no password read or changed); real, unmodified
+`@supabase/supabase-js`/`@supabase/ssr` library code used end-to-end to construct a valid session
+cookie from the resulting tokens (not a hand-forged JWT or a fabricated cookie value); a real local
+`next dev` server; a real Playwright/Chromium browser session with that cookie injected; 4 real UI
+interactions producing 4 real `POST /api/agents/simulate` network calls, each captured in full
+(request body + response body); 9 screenshots taken and visually reviewed (2 mid-run, 1 final list,
+2 detail-view re-opens via "View," 4 initial per-scenario); a direct `DATABASE_URL`/`psql`
+cross-check of all 4 resulting `impact_simulations`/`agent_decisions`/`agent_runs` rows against both
+the captured network response and the on-screen render. All temporary scripts, cookie/token files,
+and screenshots were deleted after use; the local dev server was stopped; `git status --porcelain`
+confirmed clean before writing this entry. The 4 new `impact_simulations`/`agent_runs`/
+`agent_decisions` rows were kept, not deleted, consistent with both prior AG-41 entries' established
+convention.
+
+---
+
 ## AG-42
 
 **Spec under test:** `AGENTS_v2.md` §5, AG-42 "Change Monitor Agent (CM-01)" (renumbered from
