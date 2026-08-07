@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Building2, CheckCircle2, Loader2, Mail, Sparkles, Zap } from "lucide-react";
+import { ArrowLeft, Building2, CheckCircle2, Loader2, Mail, RotateCcw, Sparkles, Users, Zap } from "lucide-react";
 
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button, Card, EmptyState, Input, Select, Textarea } from "@/components/ui";
@@ -95,6 +95,38 @@ function renderPreview(text: string, companyName: string, orgName: string): stri
     .replace(/\{org_name\}/g, orgName || "[Your Organization]");
 }
 
+type BatchStatus = "pending" | "generating" | "success" | "failed" | "queued";
+
+interface BatchDraft {
+  prospectId: string;
+  displayName: string;
+  email: string | null;
+  status: BatchStatus;
+  error?: string;
+  subject: string;
+  body: string;
+}
+
+// Small concurrency cap on batch generation — each call is a real Claude
+// completion (POST /api/intelligence/outreach/generate), so this is
+// sequential-with-a-cap rather than firing all selected prospects at once.
+const BATCH_CONCURRENCY = 3;
+
+function batchStatusStyle(status: BatchStatus): { pill: { backgroundColor: string; color: string }; label: string } {
+  switch (status) {
+    case "pending":
+      return { pill: { backgroundColor: "#F1F5F9", color: "#64748B" }, label: "Pending" };
+    case "generating":
+      return { pill: { backgroundColor: "#0077B61A", color: "#0077B6" }, label: "Generating…" };
+    case "success":
+      return { pill: { backgroundColor: "#DCFCE7", color: "#15803D" }, label: "Ready to review" };
+    case "queued":
+      return { pill: { backgroundColor: "#DCFCE7", color: "#15803D" }, label: "Queued" };
+    case "failed":
+      return { pill: { backgroundColor: "#FEE2E2", color: "#B91C1C" }, label: "Failed" };
+  }
+}
+
 export default function CorporateOutreachPage() {
   const { profile } = useProfile();
   const editable = canEdit(profile?.role);
@@ -115,6 +147,13 @@ export default function CorporateOutreachPage() {
   const [queuing, setQueuing] = useState(false);
   const [queueError, setQueueError] = useState<string | null>(null);
   const [queueSuccess, setQueueSuccess] = useState<string | null>(null);
+
+  const [batchMode, setBatchMode] = useState(false);
+  const [batchDrafts, setBatchDrafts] = useState<BatchDraft[]>([]);
+  const [batchRunning, setBatchRunning] = useState(false);
+  const [batchQueuing, setBatchQueuing] = useState(false);
+  const [batchQueueError, setBatchQueueError] = useState<string | null>(null);
+  const [batchQueueSuccess, setBatchQueueSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setSearchQuery(searchInput.trim()), SEARCH_DEBOUNCE_MS);
@@ -206,6 +245,154 @@ export default function CorporateOutreachPage() {
       setGenerateError("Could not reach the server.");
     }
     setGenerating(false);
+  }
+
+  const generateOneDraft = useCallback(
+    async (prospectId: string): Promise<{ subject: string; body: string } | { error: string }> => {
+      try {
+        const res = await fetch("/api/intelligence/outreach/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prospectId, templateType }),
+        });
+        const payload = (await res.json().catch(() => ({}))) as {
+          subject?: string;
+          body?: string;
+          error?: string;
+        };
+        if (!res.ok || !payload.subject || !payload.body) {
+          return { error: payload.error ?? "AI generation failed." };
+        }
+        return { subject: payload.subject, body: payload.body };
+      } catch {
+        return { error: "Could not reach the server." };
+      }
+    },
+    [templateType],
+  );
+
+  async function runBatchGeneration(ids: string[]) {
+    let cursor = 0;
+    async function worker() {
+      while (cursor < ids.length) {
+        const id = ids[cursor++];
+        if (!id) continue;
+        setBatchDrafts((prev) => prev.map((d) => (d.prospectId === id ? { ...d, status: "generating" } : d)));
+        const result = await generateOneDraft(id);
+        setBatchDrafts((prev) =>
+          prev.map((d) => {
+            if (d.prospectId !== id) return d;
+            if ("error" in result) return { ...d, status: "failed", error: result.error };
+            return { ...d, status: "success", subject: result.subject, body: result.body, error: undefined };
+          }),
+        );
+      }
+    }
+    const workerCount = Math.min(BATCH_CONCURRENCY, ids.length);
+    await Promise.all(Array.from({ length: workerCount }, () => worker()));
+  }
+
+  function handleStartBatch() {
+    if (selectedProspects.length === 0) {
+      setBatchQueueError("Select at least one prospect first.");
+      return;
+    }
+    setBatchQueueError(null);
+    setBatchQueueSuccess(null);
+    setBatchMode(true);
+    const initial: BatchDraft[] = selectedProspects.map((p) => ({
+      prospectId: p.id,
+      displayName: p.displayName,
+      email: p.email,
+      status: "pending",
+      subject: "",
+      body: "",
+    }));
+    setBatchDrafts(initial);
+    setBatchRunning(true);
+    void runBatchGeneration(initial.map((d) => d.prospectId)).finally(() => setBatchRunning(false));
+  }
+
+  function exitBatchMode() {
+    setBatchMode(false);
+    setBatchDrafts([]);
+    setBatchQueueError(null);
+    setBatchQueueSuccess(null);
+  }
+
+  async function handleRetryDraft(prospectId: string) {
+    setBatchDrafts((prev) =>
+      prev.map((d) => (d.prospectId === prospectId ? { ...d, status: "generating", error: undefined } : d)),
+    );
+    const result = await generateOneDraft(prospectId);
+    setBatchDrafts((prev) =>
+      prev.map((d) => {
+        if (d.prospectId !== prospectId) return d;
+        if ("error" in result) return { ...d, status: "failed", error: result.error };
+        return { ...d, status: "success", subject: result.subject, body: result.body, error: undefined };
+      }),
+    );
+  }
+
+  function updateDraftField(prospectId: string, field: "subject" | "body", value: string) {
+    setBatchDrafts((prev) => prev.map((d) => (d.prospectId === prospectId ? { ...d, [field]: value } : d)));
+  }
+
+  async function handleBatchQueue() {
+    setBatchQueueError(null);
+    setBatchQueueSuccess(null);
+    const ready = batchDrafts.filter((d) => d.subject.trim() && d.body.trim() && d.status !== "queued");
+    if (ready.length === 0) {
+      setBatchQueueError("No drafts are ready to queue — generate or write content for at least one prospect.");
+      return;
+    }
+    setBatchQueuing(true);
+    try {
+      const res = await fetch("/api/intelligence/outreach/queue", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          templateType,
+          drafts: ready.map((d) => ({
+            id: d.prospectId,
+            displayName: d.displayName,
+            email: d.email,
+            subject: d.subject,
+            body: d.body,
+          })),
+        }),
+      });
+      const payload = (await res.json().catch(() => ({}))) as {
+        queued?: number;
+        queuedDrafts?: { prospectId: string }[];
+        failedDrafts?: { prospectId: string; error: string }[];
+        skipped?: string[];
+        error?: string;
+      };
+      if (!res.ok) {
+        setBatchQueueError(payload.error ?? "Failed to queue this batch.");
+      } else {
+        const queuedIds = new Set((payload.queuedDrafts ?? []).map((q) => q.prospectId));
+        const failedMap = new Map((payload.failedDrafts ?? []).map((f) => [f.prospectId, f.error]));
+        setBatchDrafts((prev) =>
+          prev.map((d) => {
+            if (queuedIds.has(d.prospectId)) return { ...d, status: "queued", error: undefined };
+            if (failedMap.has(d.prospectId)) return { ...d, status: "failed", error: failedMap.get(d.prospectId) };
+            return d;
+          }),
+        );
+        const skippedNote =
+          payload.skipped && payload.skipped.length > 0
+            ? ` ${payload.skipped.length} skipped (missing email, subject, or body).`
+            : "";
+        setBatchQueueSuccess(
+          `Queued ${payload.queued ?? 0} personalized email${payload.queued === 1 ? "" : "s"} for sending.${skippedNote}`,
+        );
+      }
+    } catch {
+      setBatchQueueError("Could not reach the server.");
+    }
+    setBatchQueuing(false);
   }
 
   async function handleQueue() {
@@ -401,7 +588,7 @@ export default function CorporateOutreachPage() {
               </p>
 
               <div className="flex flex-wrap items-center gap-3">
-                <Button type="button" onClick={handleGenerate} disabled={generating || !editable}>
+                <Button type="button" onClick={handleGenerate} disabled={generating || !editable || batchMode}>
                   {generating ? (
                     <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
                   ) : (
@@ -410,84 +597,222 @@ export default function CorporateOutreachPage() {
                   {generating ? "Generating…" : "Generate with AI"}
                 </Button>
                 <span className="text-xs text-slate-500">
-                  {primaryProspect
-                    ? `Personalized using: ${primaryProspect.displayName}`
-                    : "Select a prospect to personalize with AI"}
+                  {batchMode
+                    ? "Batch mode active — one shared draft is disabled while personalizing per prospect."
+                    : primaryProspect
+                      ? `Personalized using: ${primaryProspect.displayName}`
+                      : "Select a prospect to personalize with AI"}
                 </span>
               </div>
 
-              {generateError && (
+              {!batchMode && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={handleStartBatch}
+                  disabled={!editable || selectedProspects.length === 0}
+                >
+                  <Users className="h-4 w-4" aria-hidden />
+                  Generate personalized email for each selected prospect ({selectedProspects.length})
+                </Button>
+              )}
+
+              {generateError && !batchMode && (
                 <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
                   {generateError}
                 </div>
               )}
 
-              <Input
-                label="Subject"
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-                placeholder="Email subject"
-              />
+              {!batchMode && (
+                <>
+                  <Input
+                    label="Subject"
+                    value={subject}
+                    onChange={(e) => setSubject(e.target.value)}
+                    placeholder="Email subject"
+                  />
 
-              <Textarea
-                label="Body"
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                placeholder="Email body"
-                style={{ minHeight: "300px" }}
-                rows={12}
-              />
+                  <Textarea
+                    label="Body"
+                    value={body}
+                    onChange={(e) => setBody(e.target.value)}
+                    placeholder="Email body"
+                    style={{ minHeight: "300px" }}
+                    rows={12}
+                  />
 
-              <div>
-                <p className="mb-1.5 text-sm font-medium text-slate-700">Preview</p>
-                <div
-                  className="rounded-lg border p-4"
-                  style={{ borderColor: "#E2E8F0", backgroundColor: "#F8FAFC" }}
-                >
-                  <p className="text-sm font-semibold text-navy-900">
-                    {renderPreview(subject, previewCompanyName, orgNamePlaceholder) || (
-                      <span className="text-slate-400">No subject yet</span>
+                  <div>
+                    <p className="mb-1.5 text-sm font-medium text-slate-700">Preview</p>
+                    <div
+                      className="rounded-lg border p-4"
+                      style={{ borderColor: "#E2E8F0", backgroundColor: "#F8FAFC" }}
+                    >
+                      <p className="text-sm font-semibold text-navy-900">
+                        {renderPreview(subject, previewCompanyName, orgNamePlaceholder) || (
+                          <span className="text-slate-400">No subject yet</span>
+                        )}
+                      </p>
+                      <p className="mt-2 whitespace-pre-wrap text-sm text-slate-600">
+                        {renderPreview(body, previewCompanyName, orgNamePlaceholder) || (
+                          <span className="text-slate-400">No body yet</span>
+                        )}
+                      </p>
+                    </div>
+                    {!primaryProspect && (
+                      <p className="mt-1.5 text-xs text-slate-500">
+                        Select a prospect above to preview with its real company name.
+                      </p>
                     )}
-                  </p>
-                  <p className="mt-2 whitespace-pre-wrap text-sm text-slate-600">
-                    {renderPreview(body, previewCompanyName, orgNamePlaceholder) || (
-                      <span className="text-slate-400">No body yet</span>
-                    )}
-                  </p>
-                </div>
-                {!primaryProspect && (
-                  <p className="mt-1.5 text-xs text-slate-500">
-                    Select a prospect above to preview with its real company name.
-                  </p>
-                )}
-              </div>
+                  </div>
 
-              {queueError && (
-                <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                  {queueError}
+                  {queueError && (
+                    <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                      {queueError}
+                    </div>
+                  )}
+                  {queueSuccess && (
+                    <div
+                      role="status"
+                      className="flex items-start gap-2 rounded-lg border px-3 py-2 text-sm"
+                      style={{ backgroundColor: "#DCFCE7", borderColor: "#BBF7D0", color: "#15803D" }}
+                    >
+                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+                      {queueSuccess}
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between border-t pt-4" style={{ borderColor: "#E2E8F0" }}>
+                    <p className="text-xs text-slate-500">
+                      {selectedProspects.length} prospect{selectedProspects.length === 1 ? "" : "s"} will receive this
+                      email.
+                    </p>
+                    <Button type="button" onClick={handleQueue} disabled={queuing || !editable}>
+                      {queuing ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Mail className="h-4 w-4" aria-hidden />}
+                      {queuing ? "Queuing…" : "Queue for Sending"}
+                    </Button>
+                  </div>
+                </>
+              )}
+
+              {batchMode && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-medium text-slate-700">
+                      Personalizing {batchDrafts.length} prospect{batchDrafts.length === 1 ? "" : "s"}
+                      {batchRunning ? " — generating…" : ""}
+                    </p>
+                    <Button type="button" variant="secondary" size="sm" onClick={exitBatchMode}>
+                      Exit batch mode
+                    </Button>
+                  </div>
+
+                  {batchQueueError && (
+                    <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                      {batchQueueError}
+                    </div>
+                  )}
+                  {batchQueueSuccess && (
+                    <div
+                      role="status"
+                      className="flex items-start gap-2 rounded-lg border px-3 py-2 text-sm"
+                      style={{ backgroundColor: "#DCFCE7", borderColor: "#BBF7D0", color: "#15803D" }}
+                    >
+                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+                      {batchQueueSuccess}
+                    </div>
+                  )}
+
+                  <div className="max-h-[560px] space-y-3 overflow-y-auto pr-1">
+                    {batchDrafts.map((d) => {
+                      const badge = batchStatusStyle(d.status);
+                      const showEditor = d.status === "success" || d.status === "queued" || (d.status === "failed" && (d.subject || d.body));
+                      return (
+                        <div
+                          key={d.prospectId}
+                          className="rounded-lg border p-3"
+                          style={{ borderColor: "#E2E8F0", backgroundColor: "#FFFFFF" }}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="truncate text-sm font-semibold text-navy-900">{d.displayName}</p>
+                            <span style={badge.pill} className="shrink-0 rounded-full px-2 py-0.5 text-xs font-bold">
+                              {badge.label}
+                            </span>
+                          </div>
+
+                          {d.status === "pending" && (
+                            <p className="mt-2 text-xs text-slate-500">Waiting to generate…</p>
+                          )}
+
+                          {d.status === "generating" && (
+                            <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                              Generating personalized email…
+                            </div>
+                          )}
+
+                          {d.status === "failed" && (
+                            <div className="mt-2 space-y-1.5">
+                              <p className="text-xs font-medium" style={{ color: "#B91C1C" }}>
+                                {d.error ?? "Generation failed."}
+                              </p>
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => handleRetryDraft(d.prospectId)}
+                                disabled={!editable}
+                              >
+                                <RotateCcw className="h-3.5 w-3.5" aria-hidden />
+                                Retry
+                              </Button>
+                            </div>
+                          )}
+
+                          {showEditor && (
+                            <div className="mt-2 space-y-2">
+                              <Input
+                                aria-label={`Subject for ${d.displayName}`}
+                                value={d.subject}
+                                onChange={(e) => updateDraftField(d.prospectId, "subject", e.target.value)}
+                                disabled={d.status === "queued" || !editable}
+                                placeholder="Email subject"
+                              />
+                              <Textarea
+                                aria-label={`Body for ${d.displayName}`}
+                                value={d.body}
+                                onChange={(e) => updateDraftField(d.prospectId, "body", e.target.value)}
+                                disabled={d.status === "queued" || !editable}
+                                rows={6}
+                                style={{ minHeight: "140px" }}
+                                placeholder="Email body"
+                              />
+                              {!d.email && (
+                                <p className="text-xs font-medium" style={{ color: "#B91C1C" }}>
+                                  No email on file — this prospect will be skipped when queuing.
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="flex items-center justify-between border-t pt-4" style={{ borderColor: "#E2E8F0" }}>
+                    <p className="text-xs text-slate-500">
+                      {batchDrafts.filter((d) => d.status === "queued").length} of {batchDrafts.length} queued.
+                    </p>
+                    <Button type="button" onClick={handleBatchQueue} disabled={batchQueuing || batchRunning || !editable}>
+                      {batchQueuing ? (
+                        <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                      ) : (
+                        <Mail className="h-4 w-4" aria-hidden />
+                      )}
+                      {batchQueuing ? "Queuing…" : "Queue All Personalized Emails"}
+                    </Button>
+                  </div>
                 </div>
               )}
-              {queueSuccess && (
-                <div
-                  role="status"
-                  className="flex items-start gap-2 rounded-lg border px-3 py-2 text-sm"
-                  style={{ backgroundColor: "#DCFCE7", borderColor: "#BBF7D0", color: "#15803D" }}
-                >
-                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-                  {queueSuccess}
-                </div>
-              )}
-
-              <div className="flex items-center justify-between border-t pt-4" style={{ borderColor: "#E2E8F0" }}>
-                <p className="text-xs text-slate-500">
-                  {selectedProspects.length} prospect{selectedProspects.length === 1 ? "" : "s"} will receive this
-                  email.
-                </p>
-                <Button type="button" onClick={handleQueue} disabled={queuing || !editable}>
-                  {queuing ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Mail className="h-4 w-4" aria-hidden />}
-                  {queuing ? "Queuing…" : "Queue for Sending"}
-                </Button>
-              </div>
             </div>
           </Card>
         </div>

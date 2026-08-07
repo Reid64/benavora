@@ -1,8 +1,84 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 7, 2026 (q32 preflight: corporate_prospects + platform Anthropic key reconfirmed live for Pillar 3 UI build; local .env.local key found unexpectedly working, correcting a stale premise). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 7, 2026 (Corporate Outreach composer: true per-prospect batch personalization added, row #120). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 7, 2026 (Corporate Outreach composer: true per-prospect batch personalization, row #120)
+
+**Task:** `FEATURE_REGISTRY_v2.md` row #120 ("Corporate Outreach UI — one-click campaign generation
+per prospect") was marked PLANNED, but the real gap was narrower than a from-scratch build: the
+composer at `src/app/(dashboard)/donor-discovery/outreach/page.tsx` (row #118's real, wired
+`POST /api/intelligence/outreach/generate` route) already does genuine per-prospect Claude
+personalization — but only for `selectedProspects[0]`. Every other selected prospect got the exact
+same generated subject/body, personalized only via `{company_name}`/`{org_name}` token substitution
+at render/queue time, not a distinct AI generation. That's the real "one-click per prospect" gap.
+
+**What shipped:**
+
+1. **Composer UI** (`donor-discovery/outreach/page.tsx`) — added a second action, "Generate
+   personalized email for each selected prospect (N)", alongside the existing single-prospect
+   "Generate with AI" button (unchanged, still real and working). Clicking it enters batch mode:
+   - Fires one real `POST /api/intelligence/outreach/generate` call per selected prospect, with a
+     concurrency cap of 3 (sequential-with-a-cap, not all-at-once — each call is a real Claude
+     completion and the route has no built-in rate limiter beyond `requireRole("writer")`, confirmed
+     by reading `role-gate.ts`, so the cap is this session's own restraint, not enforcement of an
+     existing one).
+   - Shows a live per-prospect status pill (Pending / Generating… / Ready to review / Failed /
+     Queued) as the batch runs. A failure on one prospect (e.g. AI 502, missing KB content) shows
+     that prospect's own error message and a Retry button — it does not drop the prospect or abort
+     the rest of the batch.
+   - Each successfully-generated prospect gets its own editable Subject/Body pair (not one shared
+     pair) for review before queuing.
+   - "Queue All Personalized Emails" submits every prospect with non-empty subject+body to the
+     queue route in one call; the response's per-draft success/failure list is reflected back into
+     each prospect's status pill.
+   - Zero new Tailwind color classes — every new color (status pills, borders) reuses this page's
+     existing inline-hex palette (`#0077B6` primary/generating, `#DCFCE7`/`#15803D` success/queued,
+     `#FEE2E2`/`#B91C1C` failed, `#F1F5F9`/`#64748B` pending — the same tokens already used for
+     intent-score badges and queue success/error banners on this page).
+
+2. **`POST /api/intelligence/outreach/queue` — extended, not replaced.** Read
+   `email_sequence_steps`/`SequenceEngine.processScheduledSends` first: `subject_override`/
+   `body_override` lives on the **step**, shared across every enrollment in that sequence — there is
+   no column that lets one sequence carry N distinct bodies, and adding one would mean changing the
+   send engine's per-enrollment read path. Rather than a schema migration, the route now accepts a
+   new `drafts: [{id, displayName, email, subject, body}]` body shape (detected via `Array.isArray
+   (drafts) && drafts.length > 0`, checked before the original `subject`/`body`/`prospects` shape so
+   the two modes can't collide): each draft gets its **own** one-step, one-enrollment sequence
+   (named `<prefix> — <company> — <date>`), so N prospects get N genuinely distinct AI-written
+   emails using the exact same underlying tables (`email_campaign_sequences` /
+   `email_sequence_steps` / `email_sequence_enrollments`, migration 054) and the exact same send
+   path (`SequenceEngine.processScheduledSends`) — nothing in `sequence-engine.ts` or
+   `template-engine.ts` was touched. The original shared-template request shape (one sequence, one
+   step, N enrollments) is fully preserved and untouched — existing single-prospect/shared-template
+   callers see zero behavior change. Response shape for batch mode: `{queued, queuedDrafts:
+   [{prospectId, displayName, campaignId}], failedDrafts: [{prospectId, displayName, error}],
+   skipped: [...], estimatedBatchSize}` — a draft missing a valid email/subject/body is skipped by
+   name (not silently dropped), and a draft whose own sequence/step/enrollment insert fails is
+   reported in `failedDrafts` with its own error rather than failing the whole batch.
+
+**What did NOT change:** `sequence-engine.ts`, `template-engine.ts`, `generate/route.ts`, and no new
+migration — this was achieved entirely by (a) calling the existing generate route once per prospect
+instead of once, and (b) fanning the queue route's existing 3-table write pattern out to N
+independent sequences instead of 1 shared one. No schema change was needed because
+`email_campaign_sequences`/`email_sequence_steps`/`email_sequence_enrollments` already support
+arbitrarily many independent sequences per org.
+
+Gates: `pnpm tsc --noEmit` — zero new errors (confirmed via `grep` for the two edited files' paths in
+the compiler output — none found). Pre-existing, unrelated errors remain confined to
+`src/__tests__/**` (deadline-predictor, outcome-analyzer, regressions, samgov-client,
+organizations/storage-rls `.catch()`-on-builder issues), matching this project's long-standing,
+already-documented tsc gate exclusion for the test tree.
+
+Not done this session (out of scope, flagging rather than silently skipping): no browser
+click-through was performed (no dev server session available here) — this is a code-level and
+type-level verification only, not a visual/behavioral confirmation. `corporate_prospects` is
+confirmed live with 49 real rows as of the immediately-prior session's preflight, so the composer's
+prospect list should have real data to select from, but the batch-generate flow itself was not
+exercised against a live Claude completion this session.
 
 ---
 
