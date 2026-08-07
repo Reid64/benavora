@@ -1,8 +1,58 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 7, 2026 (q33-002/003/004 live-verified against real Faith Foundation org — row #116 partially broken, 2 real production defects found; rows #144-146 mostly confirmed, 1 real false-positive defect found in #145). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 7, 2026 (Factor Breakdown UI, row #106 — expandable score explanation shipped on the Opportunities page, reads real opportunity_probability_scores rows, no new scoring logic or API route). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 7, 2026 (row #106 Factor Breakdown UI — pure UI-exposure, no new scoring logic)
+
+Per `FEATURE_REGISTRY_v2.md` row #106 ("Factor Breakdown UI — Expandable score explanation per
+opportunity. PLANNED"), row #102 (`computeGrantProbability()`, BUILT — VERIFIED) already computes
+and persists everything a UI needs: `overall_score`, `confidence`, `factors` (array of
+`{name, weight, value, contribution}`), `recommendation`, `key_risks`, `key_strengths`,
+`estimated_roi`, `time_to_complete`, all upserted into `opportunity_probability_scores` (migration
+093). This session builds the UI exposure only — read the real engine
+(`src/lib/intelligence/grant-probability-engine.ts`) and the real migration (093) directly before
+writing anything, confirmed both against the live file rather than trusting the task's restated
+list. The 4 factor names/weights (`eligibility_score` 0.3, `category_win_rate` 0.25,
+`deadline_proximity` 0.2, `twin_completeness` 0.25) matched the task's list exactly — no drift.
+
+**What shipped:** `src/app/(dashboard)/opportunities/page.tsx` (row #105, BUILT — UNVERIFIED)
+already rendered a probability badge per row but its query only selected
+`opportunity_id, overall_score` from `opportunity_probability_scores` — confirmed via
+`grep .from("opportunity_probability_scores")` before touching it. Widened the select to the full
+row (`confidence, factors, recommendation, key_risks, key_strengths, estimated_roi,
+time_to_complete`), added a `probabilityData: ProbabilityScoreRow | null` field to the row type
+alongside the existing `probabilityScore` number, and added a "Score Breakdown" toggle button per
+card (click-to-expand, `expandedId` state) that renders a `ProbabilityBreakdown` panel: recommendation
+badge + confidence label + estimated ROI/time-to-complete, the 4 real factors as labeled weighted
+progress bars (`FACTOR_LABELS` maps the literal `factor.name` strings to human-readable text —
+`humanizeEnum()` fallback if an unrecognized 5th name ever appears, nothing is silently dropped),
+and the real `key_risks`/`key_strengths` string arrays rendered verbatim. When an opportunity has no
+`opportunity_probability_scores` row (never scored), the panel shows an explicit "Not yet scored"
+message — no fabricated placeholder score or fake progress bars.
+
+**What did not change:** no new API route, no client-side call to `computeGrantProbability()`
+(it's a server-side function with a real upsert side effect — this UI is read-only against the
+already-persisted row), no new factor names or scoring logic.
+
+**Style:** inline hex only, reusing this project's already-established palette — confirmed live
+via `grep` against `src/app/(dashboard)/intelligence/relationship-graph/page.tsx` (`#0077B6`,
+`#1A2B3C`, `#10B981`, `#0EA5E9`, `#F59E0B`, `#64748B`, `#94A3B8`, `#0F172A`, `#E2E8F0` all present
+there) and cross-checked against `opportunities/page.tsx`'s own existing palette, which already
+matched — no new colors introduced, the dark breakdown panel reuses `#1A2B3C` (already used
+elsewhere on this page's Land Bank/dark surfaces convention project-wide).
+
+**Verification: read-verified only, not visually confirmed.** No dev server was started and no
+browser/screenshot check was performed this session — `pnpm tsc --noEmit` shows zero new errors
+attributable to the edited file (confirmed via `grep "opportunities/page.tsx"` against the full
+gate output; all remaining errors are pre-existing, unrelated `src/__tests__/**` failures, matching
+this project's standing note that the tsc gate doesn't cover the test tree cleanly). Whether the
+expand/collapse interaction and the dark panel actually render correctly in a browser has not been
+confirmed — flag this explicitly per this project's standing rule that tsc/build success is not
+the same as a pixel-verified UI claim.
 
 ---
 

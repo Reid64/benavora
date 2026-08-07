@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "r
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { differenceInCalendarDays } from "date-fns";
-import { Home, Plus, Search } from "lucide-react";
+import { ChevronDown, ChevronUp, Home, Plus, Search } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
 import { canEdit, useProfile } from "@/lib/hooks/useProfile";
@@ -18,9 +18,58 @@ import type { Enums, Tables } from "@/types/database";
 type OpportunitySourceType = Enums<"opportunity_source_type">;
 type OpportunityStatus = Enums<"opportunity_status">;
 
+// opportunity_probability_scores (migration 093) — the real, persisted output
+// of computeGrantProbability() (src/lib/intelligence/grant-probability-engine.ts,
+// FEATURE_REGISTRY_v2.md #102, BUILT — VERIFIED). This UI only reads this row;
+// it never recomputes anything.
+interface GrantProbabilityFactor {
+  name: string;
+  weight: number;
+  value: number;
+  contribution: number;
+}
+
+interface ProbabilityScoreRow {
+  opportunity_id: string;
+  overall_score: number | null;
+  confidence: "high" | "medium" | "low" | null;
+  factors: GrantProbabilityFactor[] | null;
+  recommendation: "apply" | "consider" | "skip" | null;
+  key_risks: string[] | null;
+  key_strengths: string[] | null;
+  estimated_roi: string | null;
+  time_to_complete: string | null;
+}
+
 type OpportunityRow = Tables<"opportunities"> & {
   funderName: string | null;
   probabilityScore: number | null;
+  probabilityData: ProbabilityScoreRow | null;
+};
+
+// Maps the 4 real factor.name values from grant-probability-engine.ts to a
+// human-readable label. Do not add/rename factor names here — these are the
+// exact literal strings the engine writes; if a 5th ever appears, it falls
+// back to humanizeEnum() below rather than being silently dropped.
+const FACTOR_LABELS: Record<string, string> = {
+  eligibility_score: "Eligibility Fit",
+  category_win_rate: "Category Win Rate",
+  deadline_proximity: "Deadline Proximity",
+  twin_completeness: "Digital Twin Completeness",
+};
+
+const CONFIDENCE_TONE: Record<string, string> = {
+  high: "#16A34A",
+  medium: "#D97706",
+  low: "#94A3B8",
+};
+
+const DEFAULT_RECOMMENDATION_TONE = { bg: "#FEF3C7", color: "#B45309", label: "Consider" };
+
+const RECOMMENDATION_TONE: Record<string, { bg: string; color: string; label: string }> = {
+  apply: { bg: "#F0FDF4", color: "#16A34A", label: "Apply" },
+  consider: DEFAULT_RECOMMENDATION_TONE,
+  skip: { bg: "#FEF2F2", color: "#B91C1C", label: "Skip" },
 };
 
 type OrgHousingProfile = Pick<
@@ -166,6 +215,7 @@ export default function OpportunitiesPage() {
   const [filterChip, setFilterChip] = useState<FilterChip>("all");
   const [statusFilter, setStatusFilter] = useState<"all" | OpportunityStatus>("all");
   const [sort, setSort] = useState<SortOption>("probability-desc");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const loadOpportunities = useCallback(async () => {
     setLoading(true);
@@ -176,8 +226,16 @@ export default function OpportunitiesPage() {
     const [oppsRes, fundersRes, probabilityRes] = await Promise.all([
       supabase.from("opportunities").select("*").order("created_at", { ascending: false }).limit(1000),
       supabase.from("funders").select("id, name"),
-      // opportunity_probability_scores (migration 093) - Grant Probability Engine.
-      supabase.from("opportunity_probability_scores").select("opportunity_id, overall_score"),
+      // opportunity_probability_scores (migration 093) - Grant Probability Engine
+      // (computeGrantProbability(), src/lib/intelligence/grant-probability-engine.ts).
+      // Full row, not just overall_score, so the expandable factor breakdown below
+      // can render confidence/factors/recommendation/risks/strengths from the same
+      // already-persisted data — no recompute, no second API route.
+      supabase
+        .from("opportunity_probability_scores")
+        .select(
+          "opportunity_id, overall_score, confidence, factors, recommendation, key_risks, key_strengths, estimated_roi, time_to_complete",
+        ),
     ]);
 
     if (oppsRes.error) {
@@ -191,15 +249,16 @@ export default function OpportunitiesPage() {
       funderNames.set(f.id, f.name);
     }
 
-    const probabilityByOpp = new Map<string, number | null>();
-    for (const p of (probabilityRes.data ?? []) as { opportunity_id: string; overall_score: number | null }[]) {
-      probabilityByOpp.set(p.opportunity_id, p.overall_score);
+    const probabilityByOpp = new Map<string, ProbabilityScoreRow>();
+    for (const p of (probabilityRes.data ?? []) as ProbabilityScoreRow[]) {
+      probabilityByOpp.set(p.opportunity_id, p);
     }
 
     const rows: OpportunityRow[] = (oppsRes.data ?? []).map((opp) => ({
       ...opp,
       funderName: opp.funder_id ? (funderNames.get(opp.funder_id) ?? null) : null,
-      probabilityScore: probabilityByOpp.get(opp.id) ?? null,
+      probabilityScore: probabilityByOpp.get(opp.id)?.overall_score ?? null,
+      probabilityData: probabilityByOpp.get(opp.id) ?? null,
     }));
 
     setOpportunities(rows);
@@ -800,7 +859,37 @@ export default function OpportunitiesPage() {
                           >
                             Skip
                           </button>
+                          <button
+                            type="button"
+                            onClick={() => setExpandedId((prev) => (prev === opp.id ? null : opp.id))}
+                            aria-expanded={expandedId === opp.id}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "4px",
+                              backgroundColor: "#FFFFFF",
+                              color: "#0077B6",
+                              border: "1px solid #E2E8F0",
+                              borderRadius: "8px",
+                              padding: "6px 14px",
+                              fontSize: "12px",
+                              fontWeight: 600,
+                              cursor: "pointer",
+                              marginLeft: "auto",
+                            }}
+                          >
+                            {expandedId === opp.id ? "Hide Breakdown" : "Score Breakdown"}
+                            {expandedId === opp.id ? (
+                              <ChevronUp size={13} aria-hidden />
+                            ) : (
+                              <ChevronDown size={13} aria-hidden />
+                            )}
+                          </button>
                         </div>
+
+                        {expandedId === opp.id && (
+                          <ProbabilityBreakdown data={opp.probabilityData} />
+                        )}
                       </div>
                     </div>
                   );
@@ -821,6 +910,140 @@ export default function OpportunitiesPage() {
         )}
       </div>
     </ErrorBoundary>
+  );
+}
+
+/**
+ * Expandable factor breakdown for a single opportunity's grant probability
+ * score. Reads only the already-persisted opportunity_probability_scores row
+ * (computeGrantProbability(), src/lib/intelligence/grant-probability-engine.ts)
+ * — never recomputes. `data` is null whenever the opportunity has never been
+ * batch/individually scored; that state is shown honestly rather than as a
+ * fabricated placeholder score.
+ */
+function ProbabilityBreakdown({ data }: { data: ProbabilityScoreRow | null }) {
+  if (!data) {
+    return (
+      <div
+        style={{
+          marginTop: "14px",
+          padding: "14px 16px",
+          borderRadius: "8px",
+          backgroundColor: "#F1F5F9",
+          border: "1px solid #E2E8F0",
+          fontSize: "12px",
+          color: "#64748B",
+        }}
+      >
+        Not yet scored. This opportunity has no grant probability score on record —
+        the Grant Probability Engine hasn&rsquo;t run for it yet.
+      </div>
+    );
+  }
+
+  const confidence = data.confidence ?? "low";
+  const recommendation = data.recommendation ?? "consider";
+  const recTone = RECOMMENDATION_TONE[recommendation] ?? DEFAULT_RECOMMENDATION_TONE;
+  const factors = data.factors ?? [];
+
+  return (
+    <div
+      style={{
+        marginTop: "14px",
+        padding: "18px 20px",
+        borderRadius: "10px",
+        backgroundColor: "#1A2B3C",
+      }}
+    >
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "10px", marginBottom: "14px" }}>
+        <span
+          style={{
+            backgroundColor: recTone.bg,
+            color: recTone.color,
+            borderRadius: "6px",
+            padding: "3px 10px",
+            fontSize: "12px",
+            fontWeight: 700,
+          }}
+        >
+          {recTone.label}
+        </span>
+        <span style={{ fontSize: "12px", color: CONFIDENCE_TONE[confidence] ?? "#94A3B8", fontWeight: 600 }}>
+          {humanizeEnum(confidence)} confidence
+        </span>
+        {data.estimated_roi && (
+          <span style={{ fontSize: "12px", color: "#CBD5E1" }}>&middot; {data.estimated_roi}</span>
+        )}
+        {data.time_to_complete && (
+          <span style={{ fontSize: "12px", color: "#CBD5E1" }}>&middot; {data.time_to_complete}</span>
+        )}
+      </div>
+
+      {factors.length > 0 && (
+        <div style={{ display: "grid", gap: "10px", marginBottom: "16px" }}>
+          {factors.map((f) => (
+            <div key={f.name}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  fontSize: "12px",
+                  color: "#E2E8F0",
+                  marginBottom: "4px",
+                }}
+              >
+                <span>
+                  {FACTOR_LABELS[f.name] ?? humanizeEnum(f.name)}{" "}
+                  <span style={{ color: "#64748B" }}>({Math.round(f.weight * 100)}% weight)</span>
+                </span>
+                <span style={{ fontWeight: 700 }}>{Math.round(f.value * 100)}%</span>
+              </div>
+              <div style={{ height: "6px", borderRadius: "3px", backgroundColor: "#334155", overflow: "hidden" }}>
+                <div
+                  style={{
+                    height: "100%",
+                    width: `${Math.round(f.value * 100)}%`,
+                    borderRadius: "3px",
+                    backgroundColor: "#00B4D8",
+                  }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+        <div>
+          <div style={{ fontSize: "11px", fontWeight: 700, color: "#F87171", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "6px" }}>
+            Key Risks
+          </div>
+          {data.key_risks && data.key_risks.length > 0 ? (
+            <ul style={{ margin: 0, paddingLeft: "16px", fontSize: "12px", color: "#CBD5E1", lineHeight: 1.6 }}>
+              {data.key_risks.map((r, i) => (
+                <li key={i}>{r}</li>
+              ))}
+            </ul>
+          ) : (
+            <div style={{ fontSize: "12px", color: "#64748B" }}>None recorded.</div>
+          )}
+        </div>
+        <div>
+          <div style={{ fontSize: "11px", fontWeight: 700, color: "#4ADE80", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "6px" }}>
+            Key Strengths
+          </div>
+          {data.key_strengths && data.key_strengths.length > 0 ? (
+            <ul style={{ margin: 0, paddingLeft: "16px", fontSize: "12px", color: "#CBD5E1", lineHeight: 1.6 }}>
+              {data.key_strengths.map((s, i) => (
+                <li key={i}>{s}</li>
+              ))}
+            </ul>
+          ) : (
+            <div style={{ fontSize: "12px", color: "#64748B" }}>None recorded.</div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 

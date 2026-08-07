@@ -1,7 +1,40 @@
 # BENAVORA — Session State
-## Last Updated: August 7, 2026 (q33-002/003/004 live-verified: One-Click Proposal Package partially broken with 2 real production defects found; Gap Analyzer trio mostly confirmed, 1 real false-positive defect found)
+## Last Updated: August 7, 2026 (row #106 Factor Breakdown UI — expandable score explanation shipped, read-only against real computeGrantProbability() output)
 
-## Current Session — August 7, 2026 (q33-002/003/004 live-verification: One-Click Proposal Package, Gap Analyzer trio)
+## Current Session — August 7, 2026 (row #106 Factor Breakdown UI)
+
+**Focus:** ship the UI half of `FEATURE_REGISTRY_v2.md` row #106 ("Factor Breakdown UI",
+PLANNED) — an expandable score explanation per opportunity on the Opportunities page. Pure
+UI-exposure task: row #102's `computeGrantProbability()` (BUILT — VERIFIED) already computes and
+persists everything needed into `opportunity_probability_scores` (migration 093); no new scoring
+logic, factor names, or API route.
+
+**Status:** shipped. Read `src/lib/intelligence/grant-probability-engine.ts` directly and
+confirmed the real `GrantProbabilityResult` shape and the real 4 factor names/weights
+(`eligibility_score` 0.3, `category_win_rate` 0.25, `deadline_proximity` 0.2, `twin_completeness`
+0.25 — no drift from the task's stated list). Read `src/app/(dashboard)/opportunities/page.tsx`
+and confirmed its query only selected `opportunity_id, overall_score` from
+`opportunity_probability_scores` — widened to the full row. Added a per-card "Score Breakdown"
+click-to-expand toggle rendering: recommendation badge, confidence, estimated ROI/time-to-complete,
+the 4 real factors as labeled weighted progress bars, and the real `key_risks`/`key_strengths`
+arrays verbatim. Opportunities with no probability-score row show an honest "Not yet scored"
+message, not a fabricated bar. No new API route; no client-side call to
+`computeGrantProbability()` (server-side only, has a real upsert side effect — this UI only reads
+the already-persisted row). Colors are inline hex reusing this project's existing palette,
+confirmed via grep against `intelligence/relationship-graph/page.tsx` and the page's own existing
+styles — no new colors introduced.
+
+`pnpm tsc --noEmit` — zero new errors attributable to the edited file (grepped the full gate
+output for the file path; all remaining errors are pre-existing, unrelated `src/__tests__/**`
+failures). **Not visually/browser-verified this session** — no dev server was started, no
+screenshot taken. Flagging explicitly per this project's standing rule that a clean tsc/build does
+not itself confirm a UI claim.
+
+**Commit:** `feat(opportunities): expandable factor breakdown UI reading real computeGrantProbability() output` (this session).
+
+---
+
+## Prior Session — August 7, 2026 (q33-002/003/004 live-verification: One-Click Proposal Package, Gap Analyzer trio)
 
 **Focus:** live-verify q33-002 (One-Click Proposal Package, row #116) and q33-003/004 (Gap Analyzer
 trio, rows #144-146) against the real Faith Foundation org and a real, currently-open opportunity
