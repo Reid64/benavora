@@ -21,7 +21,19 @@ import { RelationshipGraphBuilderAgent } from "@/lib/agents/relationship-graph-b
 // of which live in `pig_edges.metadata` (jsonb) rather than as dedicated
 // columns, exactly as the agent file documents. `pig_edges` carries no
 // organization_id of its own, so "for org" is proven by walking
-// pig_edges -> pig_nodes(source) -> board_members.org_id.
+// pig_edges -> pig_nodes(source) -> board_members.organization_id.
+//
+// Fixed 2026-08-07: this file previously queried board_members with
+// `.eq("org_id", organizationId)`. board_members is the original table from
+// supabase/migrations/001_initial_schema.sql and its real live column is
+// organization_id, not org_id — org_id only exists on the newer
+// board_meetings/board_meeting_packets tables (migration 078), a different
+// table in the same "board" feature area with a genuinely different
+// column-naming convention. This bug silently zeroed every org-scoped read
+// in loadConnections()/the DELETE-ownership check below (board_members
+// query always returned 0 rows, so every connection list came back empty
+// and every edge ownership check 404'd) — same class of bug already found
+// and fixed in the AG-32 agent file itself (AGENT_VERIFICATION_LOG.md).
 //
 // GET  — the caller's org's discovered connections, direct introductions
 //        first (introduction_strength ASC), then most recently discovered
@@ -98,7 +110,7 @@ async function loadConnections(
   const { data: boardMembers, error: boardError } = await supabase
     .from("board_members")
     .select("id")
-    .eq("org_id", organizationId);
+    .eq("organization_id", organizationId);
   if (boardError) {
     throw new Error(`Failed to load board members: ${boardError.message}`);
   }
@@ -223,7 +235,7 @@ export async function POST(request: Request) {
 
     // Prove the edge belongs to this org before touching it — pig_edges has
     // no organization_id, so ownership runs through pig_nodes ->
-    // board_members.org_id (see loadConnections above).
+    // board_members.organization_id (see loadConnections above).
     const { data: sourceNode } = await supabase
       .from("pig_nodes")
       .select("entity_table, entity_id, label")
@@ -236,7 +248,7 @@ export async function POST(request: Request) {
       .from("board_members")
       .select("id")
       .eq("id", sourceNode.entity_id as string)
-      .eq("org_id", organizationId)
+      .eq("organization_id", organizationId)
       .maybeSingle();
     if (!boardMember) {
       return jsonError("Connection not found.", "not_found", 404);

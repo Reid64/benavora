@@ -1,8 +1,82 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 7, 2026 (Factor Breakdown UI, row #106 — expandable score explanation shipped on the Opportunities page, reads real opportunity_probability_scores rows, no new scoring logic or API route). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 7, 2026 (row #138 Board Member Portal — honest Phase 1 scope, plus a real org_id/organization_id bug fix in the relationship-graph route). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 7, 2026 (row #138 Board Member Portal — honest Phase 1 scope, not fabricated invite auth)
+
+Per `FEATURE_REGISTRY_v2.md` row #138, "Board Member Portal" was PLANNED: "Per-member dashboard at
+/board/[id]. Phase 3." Built the real, honest Phase 1 scope this session — **not** a genuine
+per-member self-service login portal, because the live schema does not support one, and this
+session deliberately did not fabricate an invite/auth flow to paper over that gap.
+
+**Confirmed live (re-verified this session, not just trusted from prior prose):**
+- `board_members` is the original table from `supabase/migrations/001_initial_schema.sql` (root
+  tree) — real columns: `id, organization_id, name, title, bio, email, phone, start_date,
+  is_active, created_at, updated_at`. A later `src/supabase/migrations/078_forecast_board.sql`
+  has a second `CREATE TABLE IF NOT EXISTS board_members` with a different column set
+  (`org_id, role, committee, expertise, active`) — a no-op against live prod since the table
+  already existed from migration 001. Confirmed no auth-identity column exists at all
+  (no `user_id`/`profile_id`/login-token) and the live `user_role` enum (migration 001) has only
+  `owner/admin/writer/viewer` — no `board_member` role exists anywhere.
+- `board_meetings`/`board_meeting_packets` ARE the real tables from migration 078 (RLS added
+  migration 105) and DO use `org_id` (not `organization_id`). `board_meeting_packets.packet_content`
+  is real jsonb written by the live AG-27 Board Packet Agent
+  (`src/lib/agents/board-packet-agent.ts`) — `{agenda, pipelineSummary, outcomesSinceLastMeeting,
+  financialSnapshot, recommendedDiscussionItems, generatedFor, narrativeUnavailable?}`.
+- **Repo-wide grep confirmed: no attendee/invite table anywhere links a specific
+  `board_members.id` to a specific `board_meetings.id`.** `board_meetings` carries only `org_id`,
+  no per-member relationship. This is the load-bearing gap that shapes the real scope below.
+
+**Real bug found and fixed while confirming the schema (same family as the already-documented
+AG-32 `org_id`/`organization_id` confusion, just in a different file):**
+`src/app/api/intelligence/relationship-graph/route.ts`'s `loadConnections()` (and its DELETE
+edge-ownership check) queried `board_members` with `.eq("org_id", organizationId)`. Per the
+confirmed-real column list above, `board_members`' actual column is `organization_id`, not
+`org_id`. This silently zeroed every org-scoped connection read in that route (the board-members
+query always matched 0 rows, so the connections list always came back empty and every edge
+ownership check 404'd). Fixed both call sites to `.eq("organization_id", ...)`.
+
+**What shipped:**
+- `GET /api/board/[id]` (`src/app/api/board/[id]/route.ts`) — `requireRole("viewer")`,
+  `organization_id` derived server-side (never trusted from the client). Loads the requested
+  `board_members` row scoped to the caller's `organization_id` (404 if it belongs to a different
+  org or doesn't exist), then loads **all** of that org's `board_meeting_packets` (ordered
+  `generated_at` DESC, joined to `board_meetings` for `meeting_date`/`meeting_type`/`status`).
+  `board_meetings`/`board_meeting_packets` predate the generated Supabase types (same staleness
+  pattern as migration 080's `applications` columns, per project memory), so both are read with a
+  manual `Row` interface + cast, matching `board-packet-agent.ts`'s own established pattern.
+- `/board/[id]` (`src/app/(dashboard)/board/[id]/page.tsx`) — client page, inline `style={{}}`
+  hex only (canvas `#E4E9F0`, white cards, `#0077B6`/`#00B4D8` gradient avatar, matching the
+  palette already established in `opportunities/page.tsx` and `reports/board-report/page.tsx`).
+  Renders the member's real profile (name/title/bio/email/phone/start_date/is_active) plus every
+  packet's real `packet_content` fields (pipeline opportunities, outcomes-since-last-meeting,
+  financial snapshot, recommended discussion items with their `groundedIn` citation) — no
+  invented packet fields.
+- Linked from the real board-members list at `/knowledge-base/profile`
+  (`BoardMembersSection` in `src/components/knowledge-base/ProfileEditor.tsx`) — each member's
+  name is now a link to `/board/[id]`, the natural existing link-in point (this is the one place
+  in the app board members are already listed/managed).
+
+**Deliberately NOT built, stated plainly rather than silently glossed over:**
+- **No board-member self-service login.** Would require a new auth mechanism entirely (no
+  `user_id`/token column on `board_members`, no `board_member` role in the live enum) — a
+  separate, larger project, not in scope here.
+- **No per-meeting invite/attendee scoping.** The page shows every packet for the member's
+  organization, not packets for meetings this specific member was invited to or attended, because
+  no such relationship exists in the schema today. Building a fake invite check against a
+  nonexistent join table would have been worse than stating the real, org-scoped behavior
+  honestly.
+- **No new role value, no fabricated auth flow.** Both would be real, larger follow-on work
+  (a new join table for #2; new auth/role work for #1) — explicitly out of scope for this pass
+  per the task's own instruction.
+
+Gates: `pnpm tsc --noEmit` — zero errors touching any file this session changed (confirmed via a
+targeted grep of the full output); the ~40 pre-existing errors in `src/__tests__/**` are
+unchanged, unrelated, and match the pattern already documented across multiple prior sessions.
 
 ---
 

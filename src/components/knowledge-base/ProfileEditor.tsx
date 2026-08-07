@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import Link from "next/link";
 
 import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 import {
@@ -557,7 +558,12 @@ function BoardMembersSection({
             >
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <p className="font-medium text-navy-900">{member.name}</p>
+                  <Link
+                    href={`/board/${member.id}`}
+                    className="font-medium text-navy-900 hover:text-primary-600 hover:underline"
+                  >
+                    {member.name}
+                  </Link>
                   {member.title && (
                     <span className="text-sm text-navy-500">
                       {member.title}

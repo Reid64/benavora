@@ -1,7 +1,45 @@
 # BENAVORA — Session State
-## Last Updated: August 7, 2026 (row #106 Factor Breakdown UI — expandable score explanation shipped, read-only against real computeGrantProbability() output)
+## Last Updated: August 7, 2026 (row #138 Board Member Portal — honest Phase 1 scope shipped, org_id/organization_id bug fixed in relationship-graph route)
 
-## Current Session — August 7, 2026 (row #106 Factor Breakdown UI)
+## Current Session — August 7, 2026 (row #138 Board Member Portal)
+
+**Focus:** ship `FEATURE_REGISTRY_v2.md` row #138 ("Board Member Portal", PLANNED: "Per-member
+dashboard at /board/[id]. Phase 3.") as the real, honest Phase 1 scope the live schema actually
+supports — not a fabricated per-member self-service login portal.
+
+**Status:** shipped. Confirmed live schema before writing any code: `board_members` (migration
+001, root tree) has real columns `id, organization_id, name, title, bio, email, phone,
+start_date, is_active, created_at, updated_at` — no auth-identity column at all, and the live
+`user_role` enum has no `board_member` value. `board_meetings`/`board_meeting_packets`
+(migration 078, RLS migration 105) are real and use `org_id` (not `organization_id`). Repo-wide
+grep confirmed no attendee/invite table anywhere links a `board_members.id` to a specific
+`board_meetings.id`. Given both gaps, built a staff-facing (viewer role+) "board member profile +
+this org's packets" view — org-scoped via `board_meeting_packets.org_id`, not
+invite-scoped, since no invite relationship exists to scope by. Stated this limitation plainly in
+the page's own header comment and in `FEATURE_REGISTRY_v2.md`/`STATE_OF_THE_BUILD.md`, rather than
+silently implying full self-serve board-member login.
+
+**Also fixed:** confirmed and fixed a real bug in `/api/intelligence/relationship-graph/route.ts` —
+it queried `board_members` with `.eq("org_id", organizationId)`, but `board_members`' real column
+is `organization_id`. This silently zeroed every org-scoped connection read in that route. Same
+bug family as the already-documented AG-32 fix, just a different file that had never been checked
+against it.
+
+**Shipped:** `GET /api/board/[id]` (viewer-role gated, org-scoped 404) +
+`/board/[id]` page (inline-hex per this project's UI rule) + a link from the real board-members
+list at `/knowledge-base/profile`. Deliberately did not build: board-member self-service login,
+per-meeting invite/attendee scoping, or a new role value — all real, larger, separate follow-on
+projects, explicitly flagged rather than papered over.
+
+**Gates:** `pnpm tsc --noEmit` — zero errors on any file this session touched (confirmed via
+targeted grep); pre-existing `src/__tests__/**` errors unchanged.
+
+**Commit:** `feat(board): /board/[id] portal reading real board_members + org-scoped
+board_meeting_packets (honest Phase 1 scope, no fabricated invite auth)` (this session).
+
+---
+
+## Prior Session — August 7, 2026 (row #106 Factor Breakdown UI)
 
 **Focus:** ship the UI half of `FEATURE_REGISTRY_v2.md` row #106 ("Factor Breakdown UI",
 PLANNED) — an expandable score explanation per opportunity on the Opportunities page. Pure
