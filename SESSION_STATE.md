@@ -1,33 +1,63 @@
 # BENAVORA — Session State
-## Last Updated: August 7, 2026 (relationship_memory table gap fixed live)
-## Mode: real infra fix. FEATURE_REGISTRY_v2.md row #98 (Relationship Memory) was NOT-BUILT —
-## confirmed live via `to_regclass()` that `relationship_memory` was absent from production despite
-## a migration file existing on disk (src/supabase/migrations/076_reputation_intelligence.sql).
-## Reconfirmation found the gap was wider than assumed: all 4 tables that migration defines
-## (relationship_memory, relationship_recommendations, reputation_signals, reputation_alerts) were
-## absent live — contradicting FEATURE_REGISTRY_v2.md row #147's prior claim that
-## reputation_signals/reputation_alerts were "confirmed real and actively written." Enum was
-## re-checked and confirmed already correct (ag-19-relationship/ag-18-reputation both present, no
-## enum work needed). Authored and applied supabase/migrations/127_relationship_memory.sql (root
-## tree, next-free number, real column shapes cross-checked against both consumer files, RLS +
-## org-scoped policies added — closes a real live anon-exposure gap, not just a schema gap) via
-## DATABASE_URL/psql (DIRECTIVE-017, no hand-off file). Ran both real consumer agents
-## (RelationshipBuilderAgent/AG-19, ReputationIntelligenceAgent/AG-18) live against the real Faith
-## Foundation org: confirmed the table-gap failure mode (schema-cache 42P01 errors) is gone. Found
-## and fixed one real bug directly blocking the write path (relationship-builder-agent.ts queried a
-## nonexistent applications.funder_id column instead of deriving funder linkage via
-## opportunities.funder_id). Found and precisely diagnosed — but explicitly did NOT fix, correctly
-## out of scope — a third, deeper, previously-undocumented bug: funder_relationship_scores' real
-## live columns (score/events/last_updated_at) don't match what either relationship-builder-agent.ts
-## OR the separately "live" funder-relationship.ts (Gen-1, FEATURE_REGISTRY_v2.md row #100) assume
-## (relationship_score/trend/recent_events/etc) — meaning that "live" agent would also fail on any
-## real invocation. Net honest result: the 4 target tables exist, have RLS, and are confirmed
-## reachable with zero schema-cache errors by real code — but no row was actually written to any of
-## them this session (AG-18 hit an honest real-world zero-signal outcome, explicitly acceptable per
-## task instructions; AG-19 is still blocked one layer behind by the new funder_relationship_scores
-## bug, out of scope for this queue). Did not touch AG-19/AG-18's separate, already-documented
-## orchestrator wiring gap, per explicit instruction. Full detail in STATE_OF_THE_BUILD.md's
-## 2026-08-07 "relationship_memory table gap fixed live" entry.
+## Last Updated: August 7, 2026 (follow-up live-verification: zero real rows confirmed in relationship_memory/relationship_recommendations)
+## Mode: genuine live-verification, not compile-only. Task: confirm via direct `DATABASE_URL`/psql
+## query — not an agent's in-process return value — whether relationship_memory/
+## relationship_recommendations (created earlier today by the session immediately below, migration
+## 127) now hold any real row written by real agent code. Result: **zero rows in either table, for
+## any org**, confirmed by direct query (not inferred). RLS independently re-confirmed real and
+## correct on both (a genuine session-derived `org_id = (SELECT organization_id FROM profiles WHERE
+## id = auth.uid())` policy each — not the anon-exposure default-ACL gap that's bitten fresh tables
+## on this schema before). Per the task's explicit instruction, re-ran both real consumer agents
+## live a second time (ReputationIntelligenceAgent/AG-18, RelationshipBuilderAgent/AG-19) against
+## the real Faith Foundation org rather than treating an empty table as ambiguous. AG-18 completed
+## cleanly with a second real day's honest zero-signal outcome (itemsFound: 4, signalsFound: 0) —
+## reproduces the July 30 AGENT_VERIFICATION_LOG.md finding for these same funders; legitimate, not
+## a bug. AG-19 hit the exact same funder_relationship_scores column-mismatch bug the session below
+## already diagnosed and left unfixed today (relationship_score/trend/updated_at in code vs. the
+## real live score/no-trend-column/last_updated_at) — confirmed independently via a fresh
+## information_schema.columns query, not assumed from the earlier entry; nothing has changed on this
+## front since. Determined FEATURE_REGISTRY_v2.md row #98's honest status is a two-part one: schema
+## +RLS is BUILT — VERIFIED (real, live, zero schema-cache errors, correct RLS); real-data/
+## end-to-end proof is NOT YET DEMONSTRATED, for two separable reasons (relationship_memory
+## genuinely has nothing to record yet, not broken; relationship_recommendations is blocked by the
+## one diagnosed funder_relationship_scores bug). Suggested exact row #98 replacement text recorded
+## in STATE_OF_THE_BUILD.md so a future doc-sync queue can apply it without re-deriving this work.
+## `pnpm tsc --noEmit` — 0 errors in either agent file. Full detail in
+## AGENT_VERIFICATION_LOG.md's new "relationship_memory / relationship_recommendations —
+## live-verified" entry and STATE_OF_THE_BUILD.md's matching 2026-08-07 follow-up entry.
+
+---
+
+## Prior Session — August 7, 2026 (relationship_memory table gap fixed live)
+
+**Mode note carried forward:** real infra fix. FEATURE_REGISTRY_v2.md row #98 (Relationship Memory) was NOT-BUILT —
+confirmed live via `to_regclass()` that `relationship_memory` was absent from production despite
+a migration file existing on disk (src/supabase/migrations/076_reputation_intelligence.sql).
+Reconfirmation found the gap was wider than assumed: all 4 tables that migration defines
+(relationship_memory, relationship_recommendations, reputation_signals, reputation_alerts) were
+absent live — contradicting FEATURE_REGISTRY_v2.md row #147's prior claim that
+reputation_signals/reputation_alerts were "confirmed real and actively written." Enum was
+re-checked and confirmed already correct (ag-19-relationship/ag-18-reputation both present, no
+enum work needed). Authored and applied supabase/migrations/127_relationship_memory.sql (root
+tree, next-free number, real column shapes cross-checked against both consumer files, RLS +
+org-scoped policies added — closes a real live anon-exposure gap, not just a schema gap) via
+DATABASE_URL/psql (DIRECTIVE-017, no hand-off file). Ran both real consumer agents
+(RelationshipBuilderAgent/AG-19, ReputationIntelligenceAgent/AG-18) live against the real Faith
+Foundation org: confirmed the table-gap failure mode (schema-cache 42P01 errors) is gone. Found
+and fixed one real bug directly blocking the write path (relationship-builder-agent.ts queried a
+nonexistent applications.funder_id column instead of deriving funder linkage via
+opportunities.funder_id). Found and precisely diagnosed — but explicitly did NOT fix, correctly
+out of scope — a third, deeper, previously-undocumented bug: funder_relationship_scores' real
+live columns (score/events/last_updated_at) don't match what either relationship-builder-agent.ts
+OR the separately "live" funder-relationship.ts (Gen-1, FEATURE_REGISTRY_v2.md row #100) assume
+(relationship_score/trend/recent_events/etc) — meaning that "live" agent would also fail on any
+real invocation. Net honest result: the 4 target tables exist, have RLS, and are confirmed
+reachable with zero schema-cache errors by real code — but no row was actually written to any of
+them this session (AG-18 hit an honest real-world zero-signal outcome, explicitly acceptable per
+task instructions; AG-19 is still blocked one layer behind by the new funder_relationship_scores
+bug, out of scope for this queue). Did not touch AG-19/AG-18's separate, already-documented
+orchestrator wiring gap, per explicit instruction. Full detail in STATE_OF_THE_BUILD.md's
+2026-08-07 "relationship_memory table gap fixed live" entry.
 
 ---
 

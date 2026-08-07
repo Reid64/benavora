@@ -5899,3 +5899,176 @@ script, deleted after use, `git status -s` confirmed clean) for `corporate_prosp
 row count, RLS flag, grants, and policies. No application code was read for correctness in this
 pass beyond what the cited prior verification entries already covered — this was a cross-document
 consistency check, not a fresh code audit.
+
+---
+
+## `relationship_memory` / `relationship_recommendations` — live-verified: real RLS, zero real agent-written rows, one new blocking bug found
+
+**Spec under test:** `FEATURE_REGISTRY_v2.md` row #98 ("Relationship Memory — IN BUILD —
+`relationship_memory` table. Migration 093 tonight.") and the follow-on question this task
+actually asks: after a prior queue (`q26-001`) reportedly created the missing
+`relationship_memory`/`relationship_recommendations` tables to unblock AG-18/AG-19's real write
+paths, do real rows written by real agent code actually exist in production — not "the migration
+applied," not "the script exited 0," but real rows, confirmed by direct query.
+
+**Verdict: the tables are real, live, and correctly RLS-scoped — genuine progress, not a
+fabrication. But zero rows exist in either table, for any org, and a live re-run of both agents
+this session found two different, unrelated reasons why: `ReputationIntelligenceAgent` genuinely
+found no reputation signal today (a legitimate, honestly-reported null result, reproducing AG-18's
+July 30 finding), while `RelationshipBuilderAgent` is blocked by a new, previously undocumented
+schema-drift bug — its own header comment's claimed real column names for
+`funder_relationship_scores` are wrong, and the bug is not unique to this agent: the separate,
+supposedly-live-wired `FunderRelationshipAgent` (Generation-1, `agent_type: "funder_relationship"`)
+uses the identical wrong column names and would fail identically. `relationship_recommendations`
+cannot be written by either code path today, for any funder, until this is fixed.**
+
+### What actually happened (in order)
+
+1. **Queried `relationship_memory` and `relationship_recommendations` directly against production**
+   (`DATABASE_URL`/`psql`, real Faith Foundation org `b1ab7402-dfc2-4712-869f-70ea3566cc1d`) — not a
+   PostgREST call, not an in-process return value:
+   ```
+   SELECT org_id, entity_id, entity_type, memory_type, content, signal_date, created_at
+   FROM relationship_memory WHERE org_id = 'b1ab7402-dfc2-4712-869f-70ea3566cc1d'
+   ORDER BY created_at DESC LIMIT 20;
+   -> (0 rows)
+   SELECT count(*) FROM relationship_memory;  -> 0   (every org, not just this one)
+   SELECT count(*) FROM relationship_recommendations;  -> 0   (every org)
+   ```
+   (The `relationship_recommendations` query as originally drafted in the task prompt referenced a
+   `funder_id` column that doesn't exist on this table — real live columns, confirmed via
+   `information_schema.columns`, are `id, org_id, entity_id, entity_type, recommendation_text,
+   urgency, status, created_at`. Re-ran with the real column set; still 0 rows.) **Both tables are
+   real and reachable — no `PGRST205`/`42P01` — but genuinely empty, for every org, not just Faith
+   Foundation.**
+2. **Confirmed RLS is real, not a default-ACL anon-exposure gap** (the specific failure mode flagged
+   in project memory for prior fresh tables on this schema): `pg_class.relrowsecurity = true` for
+   both tables, and `pg_policies` shows one real, non-trivial policy each —
+   `relationship_memory_org`/`relationship_recommendations_org`, both `PERMISSIVE`, `FOR ALL`, `qual:
+   (org_id = (SELECT profiles.organization_id FROM profiles WHERE profiles.id = auth.uid()))`. This
+   is the correct, session-derived org-scoping pattern (matches the pattern already verified working
+   for other tables elsewhere in this project), not an open/anon-readable policy and not a missing
+   policy relying on RLS-enabled-but-no-rule (which would deny all access, not allow it).
+3. **Per the task's explicit instruction, re-ran both real agent classes live** (`node --import tsx`,
+   no mocks, `new <Class>(orgId, supabase).run("manual")`, same method as every other live-execution
+   entry in this log) against the same real Faith Foundation org, rather than accepting an empty
+   table as ambiguous between "genuinely no signal" and "silently broken":
+   - **`ReputationIntelligenceAgent`** (`src/lib/intelligence/reputation-agent.ts`): completed
+     successfully, `itemsFound: 4` (4 real funders checked), `itemsProcessed: 0` (i.e.
+     `signalsFound: 0` — confirmed by reading the code: `itemsProcessed` is a direct alias for the
+     `signalsFound` counter, which increments on *any* severity, not just HIGH/CRITICAL, so a 0 here
+     means zero DuckDuckGo-sourced risk signals of any kind were found for any of the 4 funders this
+     run — not a HIGH/CRITICAL signal that got filtered out before the `relationship_memory` insert).
+     Zero errors. This reproduces the July 30 `AGENT_VERIFICATION_LOG.md` AG-18 entry's own finding
+     (0 signals for these same funders that day too) — two independent real days, same honest null
+     result. **This half of the null result is legitimate, not a bug**, and matches the code's own
+     documented behavior exactly (`relationship_memory` is written only for `severity IN ('HIGH',
+     'CRITICAL')`, per lines 432-452 of that file).
+   - **`RelationshipBuilderAgent`** (`src/lib/agents/relationship-builder-agent.ts`): completed
+     "successfully" at the `AutonomousAgentResult` level (`success: true`, itself a schema-drift
+     concern — see below), `itemsFound: 4`, `itemsProcessed: 0`, but with 4 real errors, one per
+     funder, all identical:
+     ```
+     funder <id>: Failed to upsert relationship score: Could not find the 'relationship_score'
+     column of 'funder_relationship_scores' in the schema cache
+     ```
+4. **Traced the error to its root cause rather than accepting the surface message.** Queried
+   `funder_relationship_scores`'s real live columns directly:
+   ```
+   SELECT column_name, data_type FROM information_schema.columns
+   WHERE table_name = 'funder_relationship_scores' ORDER BY ordinal_position;
+   -> id, organization_id, funder_id, score, events, last_updated_at, created_at
+   ```
+   `relationship-builder-agent.ts` (lines 815-826) upserts `{ organization_id, funder_id,
+   relationship_score: newScore, trend: momentumToTrend(momentum), updated_at: ... }` — **three of
+   four written fields are wrong**: `relationship_score` should be `score`, `trend` has no live
+   equivalent column at all, `updated_at` should be `last_updated_at`. The upsert throws before ever
+   reaching the funder's threshold check, the Claude recommendation call, or the
+   `relationship_recommendations` insert (lines 835-899) — this bug blocks every funder, every run,
+   unconditionally, independent of AG-19's already-documented (`AGENTS_v2.md` §1.4,
+   `AGENT_VERIFICATION_LOG.md`'s own AG-19 entry) "never auto-instantiated in production" wiring gap.
+   Even if `RelationshipBuilderAgent` were wired into the orchestrator tomorrow, it would still write
+   zero rows to `relationship_recommendations` until this is fixed.
+5. **The file's own header comment (lines 12-18) is the direct cause of the bug, and is itself
+   wrong, not just stale:**
+   > *"funder_relationship_scores predates this agent... Its real columns are
+   > organization_id/funder_id/relationship_score/trend/updated_at (confirmed via
+   > funder-relationship.ts and FunderDetail.tsx), NOT the org_id/score/momentum/last_calculated_at
+   > names SCHEMA_REGISTRY_v2.md describes."*
+   This comment asserts a *third*, different-again column set than either the real live schema
+   (`score`/`events`/`last_updated_at`) or the one `SCHEMA_REGISTRY_v2.md` describes
+   (`org_id`/`score`/`momentum`/`last_calculated_at`) — none of the three proposed column sets
+   matches the live table exactly, though the live table's `score` does match
+   `SCHEMA_REGISTRY_v2.md`'s guess on that one field. This is a case of a code comment's own cited
+   "confirmation" being incorrect, not merely out of date.
+6. **Checked whether the comment's cited "confirmation" source, `funder-relationship.ts`
+   (`FunderRelationshipAgent`, the separate Generation-1 class `AGENTS_v2.md` documents as the one
+   actually wired into the live `agent_queue` case `'funder_relationship'`), is itself correct
+   against the real schema — it is not, and uses the identical wrong names:**
+   ```
+   .select("relationship_score, last_interaction_at, recent_events, total_interactions, successful_applications")
+   ...
+   .upsert({ ..., relationship_score: newScore, trend, ..., updated_at: nowIso })
+   ```
+   None of `relationship_score`, `last_interaction_at`, `recent_events`, `total_interactions`,
+   `successful_applications`, `trend`, or `updated_at` exist on the live table. **This means the
+   agent `AGENTS_v2.md` documents as the live, wired, working relationship-scoring path is also
+   broken at the database layer** — every one of its upserts would fail identically to
+   `RelationshipBuilderAgent`'s, for the same reason. Confirmed independently:
+   `SELECT count(*) FROM funder_relationship_scores;` → **0 rows, for any org** — consistent with
+   neither agent ever having successfully written to this table, not just today but ever (a
+   real, historical write success by either agent, even once, would have left a row this schema
+   drift can't explain away, since neither agent's column set works against the live table as it
+   exists now).
+7. **This third table (`funder_relationship_scores`) is out of this task's named scope**
+   (`relationship_memory`/`relationship_recommendations` specifically) but is the direct, proximate
+   cause of `relationship_recommendations` staying empty, so it is reported here for accuracy rather
+   than silently omitted. Not fixed this session — flagging only, per this log's established
+   convention of separating diagnosis from remediation unless a fix is explicitly requested.
+
+### Root-cause summary
+
+1. **`relationship_memory` and `relationship_recommendations` are real, live, RLS-correct tables** —
+   genuine progress from whatever `q26-001` did, not a fabrication. The org-scoping policy on both
+   is the right pattern (session-derived `profiles.organization_id`), not the anon-exposure gap that
+   has bitten other fresh tables on this schema before.
+2. **Zero rows exist in either table, for any org, today.** This is not ambiguous or unverified — it
+   was directly queried, twice (once via the task's own draft query, once with the real column
+   names after finding `relationship_recommendations` doesn't have `funder_id`).
+3. **`relationship_memory` staying empty is legitimately explained**: `ReputationIntelligenceAgent`
+   ran live this session, checked all 4 real funders, and found zero reputation signals of any
+   severity — reproducing the same honest null result the AG-18 entry found on 2026-07-30. No bug
+   found in this half.
+4. **`relationship_recommendations` staying empty is explained by a real, previously undocumented
+   bug**, not agent inactivity: `RelationshipBuilderAgent`'s upsert to `funder_relationship_scores`
+   references three columns that don't exist on the live table (`relationship_score`, `trend`,
+   `updated_at` vs. the real `score`, no-`trend`-equivalent, `last_updated_at`), throwing before the
+   recommendation-writing code is ever reached, for every funder, every run.
+5. **This bug is not unique to the unwired agent** — `FunderRelationshipAgent`, the separate class
+   `AGENTS_v2.md` documents as actually live and wired into `agent_queue`, uses the identical wrong
+   column names and would fail identically on every real event it's asked to process. Zero rows in
+   `funder_relationship_scores` for any org confirms neither agent has ever successfully written to
+   it.
+6. **Recommendation** (not actioned this session, flagged only): fix
+   `relationship-builder-agent.ts`'s upsert (and its own header comment) and `funder-relationship.ts`'s
+   select/upsert to use the real live columns (`score` not `relationship_score`; drop or repurpose
+   `trend` since no live column backs it; `last_updated_at` not `updated_at`) before either agent can
+   be trusted to write anything to `funder_relationship_scores` — and by extension, before
+   `RelationshipBuilderAgent` can ever populate `relationship_recommendations`, wiring gap aside.
+
+**Verification method:** live `psql`/`DATABASE_URL` queries (via a throwaway `.mjs` script, deleted
+after use, `git status -s` confirmed clean) against production for `relationship_memory`/
+`relationship_recommendations` row counts and contents (real Faith Foundation org and
+platform-wide), `information_schema.columns` for both tables' real live column sets,
+`pg_class.relrowsecurity`/`pg_policies` for both tables' real RLS state; live execution (`node
+--import tsx`, no mocks) of the real, unmodified `ReputationIntelligenceAgent` and
+`RelationshipBuilderAgent` classes via their real `run("manual")` entry point against the real
+Faith Foundation org, service-role client, production database; direct reading of both agents'
+`funder_relationship_scores` read/write code and their header comments; a live
+`information_schema.columns` check of `funder_relationship_scores`'s real schema to root-cause the
+error; a live row-count check of `funder_relationship_scores` itself (0, platform-wide) to confirm
+neither agent has ever written to it successfully. `pnpm tsc --noEmit` — 0 errors in either agent
+file (grepped the full gate output specifically for both filenames; the only errors present are the
+same pre-existing, unrelated `src/__tests__/**` failures already documented throughout this log).
+All temporary verification scripts were deleted after use; `git status -s` confirmed clean before
+committing.

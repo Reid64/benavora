@@ -1,8 +1,84 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 7, 2026 (relationship_memory table gap fixed — AG-18/AG-19 real write paths partially unblocked, new deeper bug found and left for a future session). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 7, 2026 (follow-up live-verification pass: confirmed zero real agent-written rows still exist in relationship_memory/relationship_recommendations; the funder_relationship_scores column bug from earlier today persists, reproduced independently). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 7, 2026 (follow-up: live-verified relationship_memory/relationship_recommendations still hold zero real rows; FEATURE_REGISTRY_v2.md row #98 status determination)
+
+**Scope:** a genuine live-verification follow-up to the same-day session immediately below (which
+created `relationship_memory`/`relationship_recommendations`/`reputation_signals`/
+`reputation_alerts` via migration 127 and found-but-didn't-fix the `funder_relationship_scores`
+column bug). This session's job was narrower and stricter: confirm with a direct production query
+— not an in-process agent return value, not "the script ran without throwing" — whether any real
+row, written by real agent code, now exists in either of the two org-scoped tables this task named.
+Full evidence in `AGENT_VERIFICATION_LOG.md`'s new "`relationship_memory` /
+`relationship_recommendations` — live-verified" entry.
+
+**Result: zero rows in either table, for any org, confirmed by direct `psql`/`DATABASE_URL` query
+against production** (`SELECT count(*) FROM relationship_memory` → 0; same for
+`relationship_recommendations`). RLS was independently re-confirmed real and correct on both — a
+genuine, non-trivial, session-derived `org_id = (SELECT organization_id FROM profiles WHERE id =
+auth.uid())` policy on each, not the anon-exposure default-ACL gap that has bitten other fresh
+tables on this schema, and not a hollow "RLS enabled, no policy" no-op.
+
+**Per the task's explicit instruction, re-ran both consumer agents live a second time** (real Faith
+Foundation org, no mocks) rather than treating the empty tables as ambiguous:
+
+- **`ReputationIntelligenceAgent` (AG-18):** completed cleanly, `itemsFound: 4`, `itemsProcessed: 0`
+  (i.e. `signalsFound: 0` — no DuckDuckGo-sourced risk signal of *any* severity, not just a
+  HIGH/CRITICAL one filtered before the `relationship_memory` write). This is a second real day
+  (today) independently reproducing the same honest null result the July 30
+  `AGENT_VERIFICATION_LOG.md` AG-18 entry already found for these same 4 funders. **Legitimate,
+  not a bug** — the code path, RLS, and table all work; there is simply nothing to write yet for
+  these funders.
+- **`RelationshipBuilderAgent` (AG-19):** hit the *exact same* `funder_relationship_scores` column
+  bug the earlier session today already diagnosed and left unfixed (`relationship_score`/`trend`/
+  `updated_at` referenced in code vs. the real live `score`/no-`trend`-column/`last_updated_at`) —
+  confirmed independently this session via a fresh `information_schema.columns` query, not assumed
+  from the earlier entry. Same root cause, same effect: the upsert throws for all 4 real funders
+  before the code ever reaches the `relationship_recommendations` insert. Nothing has changed on
+  this front since the earlier session today — flagging that the bug is still real and still open,
+  not that it's new.
+
+**Determination for `FEATURE_REGISTRY_v2.md` row #98 ("Relationship Memory"), for a future doc-sync
+queue to apply without re-deriving this work:**
+
+Row #98 should read **something short of BUILT** — specifically, a two-part status, since the
+schema/RLS half and the real-data half are in genuinely different states:
+- **Schema/RLS: BUILT — VERIFIED.** `relationship_memory` and `relationship_recommendations` (along
+  with `reputation_signals`/`reputation_alerts`) are real, live, reachable with zero schema-cache
+  errors, and correctly RLS-scoped per-org. This is not "IN BUILD" or aspirational — it is
+  live-confirmed today via direct query, twice, independently.
+- **Real data / end-to-end proof: NOT YET DEMONSTRATED**, for two different reasons that should not
+  be conflated into one blanket "broken" label:
+  - `relationship_memory` is empty because `ReputationIntelligenceAgent` has now, on two separate
+    real days, genuinely found nothing worth recording for the funders on file — an expected,
+    low-frequency outcome of the agent's own design (it writes only on HIGH/CRITICAL signals), not
+    a defect. A future re-verification with a funder that actually has a real reputation signal in
+    the news would be the way to close this out, not another blind re-run against the same 4
+    funders.
+  - `relationship_recommendations` is empty because of a real, specific, already-diagnosed bug in
+    `funder_relationship_scores`'s column names (`relationship-builder-agent.ts` and
+    `funder-relationship.ts` both reference `relationship_score`/`trend`/`updated_at`; the live
+    table has `score`/no `trend`/`last_updated_at`) — fixing that one bug is very likely sufficient
+    to let this table populate for real, since the schema/RLS/wiring-when-manually-invoked are all
+    otherwise confirmed working.
+- **Suggested row #98 text for the next doc-sync pass:** *"Relationship Memory — BUILT (schema+RLS
+  verified live 2026-08-07), zero real rows yet — `relationship_memory` genuinely empty pending a
+  real reputation signal (agent confirmed working, correctly finding nothing twice); 
+  `relationship_recommendations` blocked by a real, diagnosed `funder_relationship_scores`
+  column-mismatch bug (see `AGENT_VERIFICATION_LOG.md`), not a missing-table or RLS issue."* Do not
+  round this up to a plain "BUILT" until either a real row appears in `relationship_memory` from a
+  genuine signal, or the `funder_relationship_scores` bug is fixed and a real
+  `relationship_recommendations` row is confirmed.
+
+Gates: `pnpm tsc --noEmit` — 0 errors in either agent file (grepped the full gate output
+specifically for `relationship-builder-agent`/`reputation-agent`, zero matches); the only errors
+present are the same pre-existing, unrelated `src/__tests__/**` failures already documented
+throughout this file and `AGENT_VERIFICATION_LOG.md`.
 
 ---
 
