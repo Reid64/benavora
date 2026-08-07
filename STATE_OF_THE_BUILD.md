@@ -1,8 +1,49 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 7, 2026 (Forecast Dashboard built — FEATURE_REGISTRY_v2.md row #133 closed, BUILT — UNVERIFIED). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 7, 2026 (Forecast Dashboard live-verified — genuine production 404, not a code defect; row #133 corrected from BUILT — UNVERIFIED to BUILT (code) — NOT DEPLOYED). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 7, 2026 (Forecast Dashboard live-verification — genuine production 404, not a code bug)
+
+Per `FEATURE_REGISTRY_v2.md` row #133, `/reports/forecast` was built in the prior session (q28-002)
+but marked `BUILT — UNVERIFIED` since it hadn't been loaded against real data in a browser. This
+session did that live-verification pass, against the real Faith Foundation org
+(`b1ab7402-dfc2-4712-869f-70ea3566cc1d`), reusing the real-session-cookie-injection method the
+Agent Marketplace session (q27) established (`verifyOtp` + real `@supabase/ssr` cookies → real
+Playwright Chromium against real production).
+
+**Data confirmed real and current first:** direct `psql`/`DATABASE_URL` query against production
+found 4 real `funding_forecasts` rows for the org (2026-08-03 and 2026-08-07 pairs), all with the
+still-empty narrative arrays and `"(narrative synthesis unavailable this run.)"` methodology suffix
+documented in row #132's `max_tokens`-truncation finding — that bug is still live, not something
+this session needed to re-diagnose.
+
+**Then attempted to load the actual page.** Both `/reports/forecast` and `/api/reports/forecast`
+returned a genuine `404` under a real, confirmed-working authenticated session (three real control
+pages — `/dashboard`, `/reports/roi`, `/reports/simulate` — all returned real `200`s in the same
+session, ruling out an auth problem). The response headers made the cause unambiguous:
+`x-matched-path: /404` — the deployed build's own route manifest has no route for either path at
+all. Not a code defect (both files are correctly named/placed, `pnpm tsc --noEmit` clean, both
+commits already on `main`/`origin/main`) — a pending deploy, the exact same failure shape as row
+#160 (Agent Log Viewer) two sessions ago. This session could not trigger or inspect a Vercel
+deployment: every Vercel MCP tool call required a permission grant this session's tooling didn't
+have, and the Vercel CLI required approval that wasn't available either — identical to the blocker
+q27 hit for the same reason.
+
+**Net honest status:** the forecast data and the forecast page's code are both real and correct.
+The page itself cannot currently be reached in production, so the three things this session set out
+to confirm — rendered numbers matching the DB, narrative-fallback text rendering correctly, and a
+real "Run Forecast" button click — all remain genuinely open. `FEATURE_REGISTRY_v2.md` row #133
+corrected from `BUILT — UNVERIFIED` to `BUILT (code) — NOT DEPLOYED`.
+
+Full evidence in `AGENT_VERIFICATION_LOG.md`'s "AG-26 / Forecast Dashboard (q28-003)" entry.
+
+Gates: `pnpm tsc --noEmit` — 0 errors in both files. All temporary verification scripts (`.mjs`,
+`.png`) deleted after use; `git status --short` confirmed clean (excluding pre-existing, unrelated
+`.claude/worktrees/*` submodule diffs already present at session start) before committing.
 
 ---
 

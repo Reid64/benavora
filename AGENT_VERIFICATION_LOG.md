@@ -6302,3 +6302,155 @@ scripts (`.mjs`, `.png`, one throwaway `e2e/*.spec.ts`) were deleted after use �
 confirmed clean before committing; only the two real migration files remain as permanent changes.
 `pnpm tsc --noEmit` — 0 errors in every file touched or read this session.
 
+---
+
+## AG-26 / Forecast Dashboard (q28-003) — genuine 404 in production, code and data both real
+
+**Spec under test:** `FEATURE_REGISTRY_v2.md` row #133 ("Forecast Dashboard"), real implementation
+`src/app/(dashboard)/reports/forecast/page.tsx` + `src/app/api/reports/forecast/route.ts` (commits
+`138dbd3` GET/POST route, `ca15dca` page — both this session, both already on `main`/pushed to
+`origin/main` per `git status`). Prior queue steps (q28-001/002) claimed: the on-demand trigger
+route works and was live-tested via direct `FundingForecastAgent.run()` invocation (not via the
+route itself, not via a browser); the dashboard page was built to read real
+`funding_forecasts` fields with no invented names, but was explicitly marked `BUILT — UNVERIFIED`
+because "this session did not live-load the page against real data in a browser." This entry is
+that live-in-a-browser verification, against the real Faith Foundation org
+(`b1ab7402-dfc2-4712-869f-70ea3566cc1d`, real owner `info@faithfoundationsf.org`), reusing the
+exact real-session-cookie-injection method the immediately-prior Agent Marketplace entry (q27)
+established (`verifyOtp` + real `@supabase/ssr` `createBrowserClient` → real Playwright Chromium
+against real production).
+
+**Verdict: the underlying data and the underlying code are both real and correct — but the page and
+its API route return a genuine, build-manifest-level 404 in production today.** This is the exact
+same failure shape as the Agent Log Viewer finding two entries up in this log (row #160): real,
+correctly-written, compiling code that simply was never deployed, not a code defect. Because of
+this, the page could not be loaded, no rendered numbers could be compared against the database, no
+narrative-text rendering could be confirmed, and the trigger button could not be exercised via the
+real UI. All three of those checks remain genuinely open, blocked on deployment, not resolved by
+this entry.
+
+### Step 1 — real `funding_forecasts` rows, queried directly, before touching the UI
+
+Direct `psql`/`DATABASE_URL` query (`STANDING_DIRECTIVES.md` DIRECTIVE-017) against production
+scoped to the real Faith Foundation org returned **4 real rows**, not the 2 from q28-001/AG-26's
+prior 2026-08-03 entry — confirming the 2026-08-07 on-demand-trigger runs q28-001 reported really
+did persist and are still there:
+
+| forecast_date | forecast_period | projected_most_likely | confidence | narrative arrays |
+|---|---|---|---|---|
+| 2026-08-07 | 12_month | $24,087,871.27 | 75 | `key_risks`/`key_opportunities`/`recommended_actions` all `[]` |
+| 2026-08-07 | 90_day | $24,087,871.27 | 74 | all `[]` |
+| 2026-08-03 | 12_month | $18,521,355.04 | 77 | all `[]` |
+| 2026-08-03 | 90_day | $18,521,355.04 | 76 | all `[]` |
+
+Every `methodology` string ends in the identical `"(narrative synthesis unavailable this run.)"`
+suffix documented in q28-001's `NARRATIVE_MAX_TOKENS = 900` truncation-bug finding — **the
+narrative-text degradation was never fixed, and is still the org's real current state**, not
+something this entry needed to re-diagnose. This directly answers the task's first branch: q28-001
+found the narrative issue was a *different, still-unfixed* bug (token-budget truncation), not the
+already-resolved dead-key issue — so the honest expectation going in was "unavailable" text, not
+real risk/opportunity bullets, and that's exactly what the database holds.
+
+### Step 2 — real authenticated session against real production, confirmed working
+
+Obtained a real session for `info@faithfoundationsf.org` via `admin.generateLink({type:
+"magiclink"})` → `verifyOtp({token_hash, type: "magiclink"})` → real, unmodified
+`@supabase/ssr` `createBrowserClient` with a cookie-sink → `context.addCookies()` into a real
+headless Chromium pointed at `https://www.benavora.com` — the identical, already-proven method
+from the Agent Marketplace entry above, not a new or weaker technique. Confirmed the session was
+genuinely authenticated, not just cookie-shaped, via three real, working control pages before ever
+touching `/reports/forecast`:
+- `GET https://www.benavora.com/dashboard` → `200`, real rendered nav/content (`"Fund More. Do
+  More. Change More."`, real sidebar with `Alerts`/`Funders`/`Agent Marketplace`/etc.).
+- `GET https://www.benavora.com/reports/roi` → `200`.
+- `GET https://www.benavora.com/reports/simulate` → `200`.
+
+An unauthenticated (no-cookie) `fetch()` to `/reports/forecast` and `/api/reports/forecast` both
+correctly `307`-redirect to `/login` — confirming the middleware auth gate itself is working
+normally for this route path (ruling out "the middleware doesn't recognize this route" as the
+404's cause).
+
+### Step 3 — `/reports/forecast` and `/api/reports/forecast`: genuine 404, not an auth or cache artifact
+
+With the real authenticated session:
+- `page.goto("https://www.benavora.com/reports/forecast")` → **`404`**, real Next.js "This page
+  could not be found" body (screenshot captured and visually inspected — a genuine Next.js error
+  page, not this app's own error boundary, not a blank/frozen loading state).
+- `page.request.get("https://www.benavora.com/api/reports/forecast")` (real authenticated request,
+  `Cache-Control: no-cache`) → **`404`**, response header **`x-matched-path: /404`** and
+  **`x-next-error-status: 404`** — this is the decisive signal: `x-matched-path` reflects what the
+  deployed build's own route manifest resolved the request to, and it resolved to Next.js's
+  built-in 404 handler, not to this route at all. This rules out a stale-cache explanation (a cached
+  *200* going stale would still say `x-matched-path: /api/reports/forecast`, not `/404`) and rules
+  out an application-level bug in the route's own logic (the route's code never even executes to
+  produce this response — it isn't in the build the request landed on).
+- Control check on the same authenticated session, same request pattern: `GET
+  https://www.benavora.com/reports/roi` → `200`, confirming the session/method wasn't somehow
+  broken for this specific request shape.
+
+**Conclusion: this is the same "real code, never deployed" pattern as the Agent Log Viewer finding
+above, not a code or auth defect.** Both new files (`route.ts`, `page.tsx`) were re-confirmed
+correctly named and placed (`ls` of both directories — no typos, exact convention match with the
+live, working `reports/roi`/`reports/simulate` siblings) and `pnpm tsc --noEmit` is clean on both.
+`git status` confirms both commits are already on `main` and `origin/main` is up to date — the gap
+is specifically the separate `vercel --prod` deploy step this project's `CLAUDE.md` documents as
+required and non-automatic, not a git-push omission.
+
+### What could not be checked, and why
+
+Per this entry's task, three checks were planned and none could be completed, all for the same
+reason (the page never renders):
+1. **Whether the page's rendered numbers match the real persisted `funding_forecasts` row(s)
+   exactly** — no rendered numbers exist to compare; Step 1's direct DB query is the only real data
+   available this session.
+2. **Whether the page renders real `key_risks`/`key_opportunities`/`recommended_actions` text, or
+   correctly shows the honest "Narrative synthesis unavailable this run." fallback** — moot for
+   *content* (the DB confirms empty arrays either way, so the correct answer is the fallback text),
+   but genuinely unverified for *rendering* (whether the page's `hasNarrative` branch and its
+   fallback `<p>` actually paint correctly) — this remains an open, not a closed, question.
+3. **Whether the "Run Forecast" trigger button works end-to-end from the real UI** — could not be
+   clicked; no button was ever on-screen. (The underlying `POST /api/reports/forecast` → 
+   `FundingForecastAgent.run()` logic was already live-tested directly in q28-001, so the *agent*
+   side of this is not in question — only the *route*, which 404s identically to the GET, and the
+   *button-click-to-re-render* UI wiring, which is untested.)
+
+### Root-cause summary
+
+1. **Data (row #131/#132's scope): confirmed real, current, and consistent with q28-001's own
+   findings** — 4 real rows, correct values, correct still-broken narrative-truncation state. No
+   new database-layer defect found.
+2. **Code (row #133's scope): real, correctly written, correctly placed, compiles clean** — no
+   defect found by source/path/tsc inspection.
+3. **Deployment: the actual blocker.** `/reports/forecast` and `/api/reports/forecast` are
+   genuinely absent from whatever build is currently serving `https://www.benavora.com` — confirmed
+   via `x-matched-path: /404`, not inferred from a plain 404 status alone. This session could not
+   trigger or inspect a Vercel deployment: every Vercel MCP tool call (`list_teams`, etc.) was
+   denied ("you haven't granted it yet") and the Vercel CLI (`npx vercel --version`) required
+   approval this session's tooling didn't grant — the identical blocker the Agent Marketplace entry
+   above hit for the same reason, not a new or different restriction.
+
+**Recommendation:** do **not** mark row #133 `BUILT — VERIFIED`. Correct status:
+`BUILT (code) — NOT DEPLOYED (live 404, x-matched-path: /404, cause is a pending deploy, not a code
+defect)`, matching the precedent already set for row #160. Once a session with working
+`vercel`/Vercel-MCP access deploys `main`, re-run this exact entry's Steps 2-3 (same two URLs, same
+auth method) plus the three still-open checks above (number match, narrative-fallback rendering,
+real button click) before upgrading to `BUILT — VERIFIED`.
+
+**Verification method:** live, functional (not compile-only) verification against real production
+(`https://www.benavora.com`) and the real production database (`vbjplpquqxxfbpazyalt`), using a
+real authenticated session for the real Faith Foundation org owner (`info@faithfoundationsf.org`,
+obtained via a real `verifyOtp()` call and real, unmodified `@supabase/ssr` cookie-generation code),
+injected into a real headless Chromium (Playwright) via `context.addCookies()` — the same method
+established in the Agent Marketplace entry above, reused rather than reinvented. Direct `psql`/
+`DATABASE_URL` query against the real `funding_forecasts` table for the real org. Three real control
+pages (`/dashboard`, `/reports/roi`, `/reports/simulate`) confirmed the session was genuinely
+authenticated before concluding the forecast page's 404 was real rather than an auth artifact. An
+unauthenticated fetch confirmed the middleware correctly 307s to `/login` for this same path,
+ruling out a routing/middleware misconfiguration as the 404's cause. Full response headers
+(`x-matched-path`, `x-next-error-status`, `x-vercel-cache`) were inspected, not just the status
+code, to distinguish a genuine build-manifest 404 from a stale cache or an application-level error.
+A screenshot of the rendered 404 page was captured and visually inspected. `pnpm tsc --noEmit`
+confirmed 0 errors in both files. All temporary verification scripts (`.mjs`, `.png`) were deleted
+after use; `git status --short` (excluding the pre-existing, unrelated `.claude/worktrees/*`
+submodule diffs already present at session start) confirmed clean before committing.
+

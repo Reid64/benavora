@@ -1,7 +1,42 @@
 # BENAVORA — Session State
-## Last Updated: August 7, 2026 (Forecast Dashboard built — FEATURE_REGISTRY_v2.md row #133 closed)
+## Last Updated: August 7, 2026 (Forecast Dashboard live-verification — genuine production 404 found, not a code bug; row #133 corrected)
 
-## Current Session — August 7, 2026 (Forecast Dashboard — /reports/forecast, q28-002)
+## Current Session — August 7, 2026 (Forecast Dashboard live-verification, q28-003)
+
+**Focus:** live-verify `/reports/forecast` against the real Faith Foundation org — confirm it
+renders real `funding_forecasts` data (not an empty/stub state), confirm rendered numbers match the
+real persisted rows, confirm real-vs-fallback narrative rendering, and exercise the "Run Forecast"
+trigger end-to-end from the real UI.
+**Status:**
+- Confirmed via direct `psql`/`DATABASE_URL` query: 4 real `funding_forecasts` rows exist for the
+  org (2026-08-03 and 2026-08-07 pairs), all with empty narrative arrays and the
+  `"(narrative synthesis unavailable this run.)"` suffix — the still-unfixed `max_tokens`
+  truncation bug from the prior session (row #132), confirmed still current, not re-diagnosed.
+- Obtained a real authenticated session for `info@faithfoundationsf.org` (same
+  `verifyOtp`/`@supabase/ssr`-cookie-injection method as the Agent Marketplace session) and
+  confirmed it genuinely worked via 3 real control pages (`/dashboard`, `/reports/roi`,
+  `/reports/simulate` — all real `200`s).
+- **`/reports/forecast` and `/api/reports/forecast` both returned a genuine `404`** under that real
+  session — `x-matched-path: /404` in the response headers confirms the deployed build's route
+  manifest has no route for either path, i.e. a pending deploy, not a code defect. Both files
+  re-confirmed correctly named/placed/compiling, both commits already on `main`/`origin/main`. This
+  is the identical failure shape already documented for row #160 (Agent Log Viewer) — could not be
+  fixed this session because every Vercel MCP tool call and the Vercel CLI both required a
+  permission grant this session's tooling didn't have.
+- **None of the three planned checks could be completed** as a direct result: rendered-numbers-vs-DB
+  comparison, narrative-fallback rendering, and the "Run Forecast" button click all remain open,
+  blocked on deployment — not resolved, not fabricated as passing.
+- `FEATURE_REGISTRY_v2.md` row #133 corrected from `BUILT — UNVERIFIED` to
+  `BUILT (code) — NOT DEPLOYED`. Full evidence appended to `AGENT_VERIFICATION_LOG.md` under
+  "AG-26 / Forecast Dashboard (q28-003)".
+
+**Commit:** `test(reports): live-verify /reports/forecast renders real funding_forecasts data` (this session).
+**Gates:** `pnpm tsc --noEmit` — 0 errors in both files (pre-existing, unrelated `src/__tests__/**`
+errors unchanged). All temporary verification scripts (`.mjs`, `.png`) deleted after use.
+
+---
+
+## Prior Session — August 7, 2026 (Forecast Dashboard — /reports/forecast, q28-002)
 
 **Focus:** close `FEATURE_REGISTRY_v2.md` row #133, the one remaining real gap in Pillar 11 —
 build `/reports/forecast`, reading real `funding_forecasts` rows via the real
