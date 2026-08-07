@@ -5764,3 +5764,50 @@ target; a real REST insert to distinguish "column recognized, FK violated" from 
 hash (via `git rev-parse HEAD`, not guessed) both before and after discovering the `--from-source` gap;
 a second standalone fixture script for a concrete final-state artifact beyond "the test passed." One
 throwaway script (`_tmp-diagnose-ready-org-v2.mjs`) was deleted after use and never committed.
+
+---
+
+## Step 1 fixes (AG-17 org_id bug, AG-15 bounds-check order, AG-39 wiring confirmation) — independently re-verified, not just taken on commit message trust
+
+**Task:** an unpushed local commit (`a310651`, "fix(agents): AG-17 org_id column bug, AG-15 deadline
+bounds-check order") already existed at the start of this task, claiming all three Step 1 fixes were
+done and live-verified. Per this project's own standing discipline (never trust a claim without
+independent re-verification), every claim in that commit was re-checked directly before treating Step
+1 as complete, rather than assumed correct because the message said so.
+
+**AG-17 (`opportunity-discovery-agent.ts` `perceiveState()`):** diff confirmed —
+`.eq("org_id", this.orgId)` → `.eq("organization_id", this.orgId)` on the
+`opportunity_probability_scores` query. Independently re-verified live via a direct `pg` client against
+`DATABASE_URL`: the old `org_id` query fails with a real Postgres error (`column "org_id" does not
+exist`); the fixed `organization_id` query returns **169 real rows** for the Faith Foundation org
+(`b1ab7402-dfc2-4712-869f-70ea3566cc1d`) — matching the commit message's own claimed count exactly, not
+just trusted from it.
+
+**Migration 101 remainder (claimed applied same session):** independently re-queried live —
+`'ag-36-learning-network'` present in the `agent_type` enum (65 total values); all 4
+`org_autonomous_config` toggle columns present (`auto_fundability_enabled`, `auto_community_need_enabled`,
+`auto_donor_intent_enabled`, `auto_strategic_advisor_enabled`, plus the pre-existing others) — confirmed
+via `information_schema.columns`, not assumed from the migration's own success output.
+
+**AG-15 (`grant-probability-engine.ts` `buildKeyRisks()`):** diff confirmed — the `days < 15` /
+`days < 0` branches were reordered so the deadline-passed check runs first. Ran the real,
+already-updated regression test suite: `pnpm vitest run src/__tests__/unit/grant-probability-engine.test.ts`
+→ **10/10 pass**, not just read the diff and assumed correct.
+
+**AG-39 (ROI Optimizer wiring):** commit claimed "already has a live call site... no wiring needed."
+Independently re-grepped `worker/autonomous-orchestrator.ts` rather than trusting the claim:
+`runRoiOptimizerStep()` is real, imports and instantiates `RoiOptimizerAgent`, and **is genuinely
+called** from `runOrgPipeline()` (line 887) inside the `isFirstOfMonthChicago()` gate — the same
+monthly cadence pattern AG-26 (Funding Forecast) uses, exactly as this task asked to confirm/match. No
+wiring work was needed; the claim held up under independent re-check.
+
+**Net result:** all three Step 1 items were confirmed genuinely done and correctly done, by direct
+re-verification rather than by trusting the pre-existing commit's own message. Pushed to `origin/main`
+as-is (commit `a310651`), no additional code changes required.
+
+**Verification method:** `git show` full diffs read directly (not summarized); live `pg` client queries
+against `DATABASE_URL` for the enum, columns, row count, and the old-query error reproduction; live
+`pnpm vitest run` of the real, already-updated test file; direct `grep`/`Read` of
+`worker/autonomous-orchestrator.ts` to confirm real call-site wiring rather than trusting the commit
+message. One throwaway script (`_tmp-verify-step1.mjs`) created at the repo root and deleted
+immediately after use; `git status -s` confirmed clean before pushing.
