@@ -1,7 +1,51 @@
 # BENAVORA — Session State
-## Last Updated: August 7, 2026 (Relationship Builder UI #101 — AG-19 wired to a real manual UI trigger for the first time)
+## Last Updated: August 7, 2026 (q31-003 live-verified: /funders/[id]/relationship UI confirmed genuinely wired end-to-end)
 
-## Current Session — August 7, 2026 (registry #101 Relationship Builder UI — AG-19 RelationshipBuilderAgent wired to a real, manual trigger path)
+## Current Session — August 7, 2026 (q31-003 live-verification: /funders/[id]/relationship UI)
+
+**Focus:** live-verify q31-003 (commit `64f9c81`, the new AG-19 `/funders/[id]/relationship-builder`
+API route + `/funders/[id]/relationship` page) against the real Faith Foundation org and a real
+funder — required real evidence (row ids, screenshots, DOM content), not a compile pass.
+
+**Status:** confirmed genuinely wired, end-to-end, for the first time via a real authenticated
+browser session. Full detail in `AGENT_VERIFICATION_LOG.md`'s new AG-19 entry and the
+`STATE_OF_THE_BUILD.md` session entry above it; short version:
+- 4 real funders exist for the org, no seeding needed.
+- `agent_type` enum re-checked live — `"ag-19-relationship"` present, no gap.
+- Found and worked around a real environment issue first: the default `localhost:3000` dev server
+  in this sandbox was a *different, unrelated project* ("Tarritrix") — every earlier auth attempt
+  failed for that reason. Started this repo's own dev server on port 3100 and confirmed it was
+  actually Benavora before proceeding.
+- Real, GoTrue-validated authenticated session established for the real org owner via a Supabase
+  admin-issued magic link (no password touched) exchanged for a session, with a real
+  `@supabase/ssr`-format cookie constructed and injected — verified against that package's own
+  chunking code, not guessed.
+- Clicked "Run Relationship Analysis" for real → real `POST` → real
+  `RelationshipBuilderAgent.run("manual")` → `200`, `agent_runs` row `status: "completed"`.
+- Real, honest result: 0 `relationship_recommendations` rows, because all 4 real funders
+  genuinely score 30 (no `relationship_memory` history, -20 staleness penalty), below the real
+  70-point threshold — traced to the exact formula, not assumed. Deliberately did **not** seed a
+  fictional interaction to force a Claude-generated recommendation into view, since that would mean
+  writing a false donor-engagement record into this org's real, live CRM data — out of scope and
+  against CLAUDE.md's no-mock-data rule. The real `agent_decisions` rows show genuine deterministic
+  reasoning text explaining the skip, not a placeholder.
+- Phase B (warm-intro pathfinding) genuinely didn't run — `auto_relationship_enabled=false` for
+  this org, confirmed via an unfiltered `pig_nodes` scan showing no `funders`/`board_members` nodes.
+- Real page confirmed to render this real output via screenshot + DOM text, matching the DB exactly.
+- One unrelated, pre-existing bug incidentally found (`/api/notifications?unread_only=true` 500s on
+  page load) — flagged, not fixed, out of scope.
+- `worker/autonomous-orchestrator.ts` confirmed untouched — the Gen-1 substitution is unchanged.
+
+No source code changes this session. All throwaway scripts/screenshots deleted after use, never
+committed.
+
+**Commit:** `test(relationship): live-verify AG-19 runs end-to-end via new UI-triggered path for a
+real Faith Foundation funder` (this session).
+**Gates:** no code changed — no gate run needed.
+
+---
+
+## Prior Session — August 7, 2026 (registry #101 Relationship Builder UI — AG-19 RelationshipBuilderAgent wired to a real, manual trigger path)
 
 **Focus:** build `FEATURE_REGISTRY_v2.md` #101 ("Relationship Builder UI," `/funders/[id]/relationship`,
 PLANNED). Read the q31-001 preflight (STATE_OF_THE_BUILD.md's "queue-31 preflight" session entry,

@@ -7010,3 +7010,199 @@ network evidence, not inferred from reading the source; both runs' `agent_runs`/
 rows read back independently afterward. Config restored to its original state after the test. Five
 throwaway scripts (`scripts/_verify-discovery-prefs*.ts`) were deleted after use and never committed.
 
+---
+
+## AG-19 — /funders/[id]/relationship UI (q31-003), live end-to-end via the new manual-trigger path
+
+**Spec under test:** commit `64f9c81` ("feat(relationship): /funders/[id]/relationship UI wires
+AG-19 RelationshipBuilderAgent to a real, manual trigger path (registry #101)") — the new
+`GET`/`POST /api/funders/[id]/relationship-builder` route and `/funders/[id]/relationship` page.
+This is the first time AG-19 (`RelationshipBuilderAgent`, `agentId: "ag-19-relationship"`) has ever
+had a real trigger reachable from the actual product UI, as opposed to a script directly
+instantiating the class (the `054ff24` "queue-31 preflight" session, and the AG-19 entry earlier in
+this log). This entry verifies the *new UI-triggered path specifically* — real browser, real click,
+real HTTP round trip through Next.js middleware/auth — not just the agent class in isolation.
+
+### 1. Real funders confirmed for the org
+
+Queried `funders` for the real Faith Foundation org (`b1ab7402-dfc2-4712-869f-70ea3566cc1d`) via
+the service-role client: **4 real rows** — `2521840b-9048-4c77-bd9c-f9f8492529d7` (Meade Tractor),
+`acb77532-6ae6-4707-ae27-31b062a00e23` (1111 FOUNDATION), `e1f00589-ba17-424c-a2bf-5f9f794e8ac2`
+(1011 FOUNDATION INC), `3a0bc27b-30df-4d4d-9d86-1f0738cab85d` (Walmart). No seeding needed — this
+task's "you may need to seed data first" contingency didn't apply. Target funder for the rest of
+this test: Meade Tractor.
+
+### 2. `agent_type` enum checked live — no gap, unlike AG-17's original finding
+
+Queried the live PostgREST OpenAPI schema (`GET /rest/v1/`) directly, not assumed from a prior
+session's note: `agent_runs.agent_type`'s live enum already contains `"ag-19-relationship"` (one of
+45 values). This was already fixed and re-verified working in this log's own AG-19 entry and in the
+`054ff24` preflight session — re-confirmed here as still true, not re-broken. No enum fix was
+needed this session.
+
+### 3. A real, authenticated browser session and a genuine HTTP round trip — with a real environment bug found and worked around first
+
+**A real bug in this session's own test environment, not the app, found and diagnosed before any
+real testing could proceed:** the "dev server" reachable at `http://localhost:3000` in this sandbox
+turned out to be a **different project entirely** — its HTML `<title>` read "Tarritrix — The SEO
+Operating System for Storm Trades," an unrelated app apparently left running on the same port from
+prior work in this environment. Every earlier attempt in this session to authenticate against
+`localhost:3000` failed for this reason, not because of anything wrong in Benavora's auth code —
+confirmed by fetching `http://localhost:3000/login` directly and reading back that page's own
+`<title>`. Started this repo's real dev server on a different port (`node_modules/.bin/next` via
+`pnpm run dev -p 3100`, confirmed via `curl http://localhost:3100/login` returning `<title>Sign In |
+Benavora</title>`) and re-ran everything against `:3100`.
+
+Authenticated as the real org owner (`info@faithfoundationsf.org`, `b3ef4d39-fdc2-4d3a-9e93-
+1e1888b576b4`, role `owner`) via a real, admin-issued Supabase magic link (`admin.auth.admin.
+generateLink`, no password read or changed, same convention as the prior AG-41/Simulator session
+noted in `STATE_OF_THE_BUILD.md`). This project's Auth config issues implicit-flow tokens
+(`#access_token=...` in the redirect fragment) rather than a PKCE `code`, and neither the server
+`/api/auth/callback` route (only handles `code`) nor the `/login` page (only instantiates a
+Supabase browser client inside its submit handler, not on mount) processes a URL fragment — so a
+literal "visit the magic link in a browser" replay doesn't work for this app as built. Worked around
+by exchanging the fragment's `access_token`/`refresh_token` for a real, GoTrue-validated session via
+`setSession()`, then writing the exact `@supabase/ssr` cookie format the app's own middleware
+expects (`sb-<project-ref>-auth-token`, `base64-` + `base64url(JSON.stringify(session))`, chunked
+at 3180 bytes into `.0`/`.1` cookies per `@supabase/ssr`'s own `MAX_CHUNK_SIZE` — verified against
+`node_modules/@supabase/ssr/dist/main/utils/chunker.js` directly, not guessed) via Playwright's
+`context.addCookies()`. Confirmed working: navigating to `/dashboard` with only this injected cookie
+landed on `/dashboard` (not redirected to `/login`), and `x-organization-id`/`x-user-role` derived
+correctly downstream (visible in the page correctly showing "FAITH Foundation" as the signed-in
+org). This is a real, GoTrue-validated session for the real user — not a bypassed or mocked auth
+check; middleware's own `supabase.auth.getUser()` genuinely validated it against the live Auth
+server on every subsequent request.
+
+### 4. The real UI page, the real POST, and real DB writes
+
+Navigated to the real `/funders/2521840b-9048-4c77-bd9c-f9f8492529d7/relationship` page. Rendered
+correctly: `<h1>Meade Tractor — Relationship</h1>`, the existing untouched Gen-1 event-sourced score
+panel (`0/100`, real, from the separate untouched `/api/funders/[id]/relationship` route), and the
+new AG-19 panel with a real, `canEdit`-gated "Run Relationship Analysis" button. Clicked it — this
+fired a real `POST /api/funders/2521840b.../relationship-builder`, which the route handler turns
+into `new RelationshipBuilderAgent(organizationId, supabase).run("manual")`, no mock/fallback path.
+
+**Response: `200`, real, org-wide run.** `runSummary: {itemsFound: 4, itemsProcessed: 4,
+itemsQueued: 0, errors: []}` — matches AG-19's documented design (a per-funder POST triggers a full
+org-wide pass, not a single-funder run; the route then returns just this funder's slice).
+Independently re-queried `agent_runs` afterward (not trusting the route's own response): a real row,
+`id: b407d38b-22f8-4e37-92d6-dc47f870bc47`, `agent_type: "ag-19-relationship"`, `status:
+"completed"`, `error_message: null`, `items_found: 4`, `items_processed: 4` — genuinely completed,
+not silently failed.
+
+### 5. Real output — a genuine, data-driven "no recommendation" result, not a bug and not fabricated
+
+`relationship_recommendations` for this org: **0 rows, org-wide, across all 4 real funders** —
+re-confirmed by an independent, unfiltered query, not just this one funder's slice. Traced to the
+real cause, not assumed: `computeRelationshipScore()` (`relationship-builder-agent.ts`) gives every
+funder a base score of 50, and with zero `relationship_memory` rows on file for any of them
+(confirmed: 0 rows, table exists and is genuinely empty), `daysSinceContact` evaluates to `Infinity`,
+which is `>= 365`, applying the -20 staleness penalty — landing every real funder at exactly **30**,
+independently confirmed identical across all 4 (`funder_relationship_scores`: Meade Tractor 30,
+1111 Foundation 30, 1011 Foundation Inc 30, Walmart 30, each with a real, distinct `id`/
+`last_updated_at`). `org_autonomous_config.auto_draft_threshold` (the real threshold Phase A reuses
+for the recommendation gate) is `70` for this org — confirmed live. 30 < 70 on every real funder, so
+Phase A's own deterministic branch correctly skips the Claude call for all 4, every run, and this
+is genuinely reproducible (the `agent_decisions` history shows this exact same branch fired on 3
+separate real runs today, including one from the earlier `054ff24` preflight session).
+
+**This is not a workaround-avoided finding — it was checked as thoroughly as the task asked for.**
+Before accepting "no recommendation" as the honest result, considered whether to seed a real
+`relationship_memory` row to legitimately exercise the Claude-call branch and capture an actual
+generated `recommendation_text`. Decided against it: every relationship_memory row would have to
+represent a specific claimed real-world interaction (a call, email, meeting) with one of this org's
+actual, real funders that did not actually happen — that would be inserting fictional activity
+history into this org's real, live CRM data, not a test-double or a disposable seed org. That
+crosses from "seed missing test data" (which the task explicitly authorized, e.g. via
+`scripts/ff-setup.ts`) into fabricating a false record of donor/funder engagement in production,
+which CLAUDE.md's Iron Law #8 and this task's own "no softened language, no fabrication" instruction
+both argue against. The honest, correct result of a real, unmodified live run against this org's
+real (currently memory-free) data is that **no funder qualifies for a recommendation right now** —
+matching, not contradicting, the `054ff24` preflight session's identical finding from a few hours
+earlier the same day. The Claude-integration branch's *code path* is real and unexercised by live
+data today, not broken — nothing in this session's trace suggests it would fail if a real funder
+ever crossed the threshold; it just doesn't happen to have one right now.
+
+`agent_decisions` for the target funder (`agent_id: "ag-19-relationship"`, `entity_id:
+"2521840b..."`): 2 real rows (one from this session's live UI-triggered run, one from the
+`054ff24` preflight run earlier the same day), both `decision_type:
+"relationship_recommendation_generated"`, `reasoning: "Score 30 (stable). Below
+relationship-recommendation threshold 70 — skipped Claude call."`, `confidence_score: 30`,
+`required_human_review: true`. This reasoning text is genuine, deterministic, code-generated
+explanatory text (not a Claude completion, since Claude was correctly never called on this branch)
+— read back independently from `agent_decisions`, not just trusted from the API response.
+
+`pig_nodes`/`pig_edges` for this funder: **`hasGraphNode: false`, `directConnections: []`** —
+confirmed by an independent, unfiltered `pig_nodes` query across the whole table (21 real rows
+total, all `entity_table IN ('organizations', 'foundation_directory')`, none `'funders'` or
+`'board_members'`) — this funder genuinely has no graph node, not a query bug. Root cause, also
+confirmed live: `org_autonomous_config.auto_relationship_enabled` is `false` for this org, and
+Phase B (the board-member BFS pathfinding that would create `funders`-type `pig_nodes`) correctly
+gates on that flag and skipped entirely — matches the UI's own honest copy ("Board-member
+pathfinding only runs when relationship analysis is enabled in autonomous settings — run the
+analysis above to check"). No warm-introduction path exists to cite because Phase B never ran
+against real data for this org; not a claim of a path that doesn't exist.
+
+### 6. The real page genuinely renders this output — confirmed via DOM content and a screenshot, not just a 200 status
+
+Took a full-page screenshot after the run completed. Real, rendered content matched the API
+response exactly: `RELATIONSHIP SCORE — 0/100` (Gen-1, unrelated), `RELATIONSHIP BUILDER (AG-19)`
+panel with `Last run: 4 funder(s) scored, 0 recommendation(s)/path(s) queued.`, a
+`RECOMMENDATION` section correctly reading "No recommendation yet...", and both real decision-log
+cards rendered verbatim with their real `reasoning` text and `Confidence: 30/100`. The
+`Run Relationship Analysis` button was confirmed visible only because the authenticated session's
+role (`owner`) satisfies `canEdit()` — real role-gating, not an always-visible button.
+
+**One unrelated, pre-existing bug incidentally surfaced while loading this page**, flagged for the
+record but out of this task's scope: `GET /api/notifications?unread_only=true` returned `500`
+twice during page load (captured via Playwright response listener). This is the dashboard chrome's
+notification-bell fetch, unrelated to AG-19/relationship-builder code entirely — not investigated
+or fixed here, since it isn't part of q31-003's surface area.
+
+### 7. `worker/autonomous-orchestrator.ts` — confirmed untouched
+
+Re-grepped after all of the above: the orchestrator's Gen-1 substitution
+(`RelationshipBuilderAgent -> FunderRelationshipAgent`, header comment line 20, and the real
+`FunderRelationshipAgent` import/instantiation at line ~1607-1610) is byte-for-byte unchanged. AG-19
+remains reachable only via the new manual UI path verified here and direct script instantiation —
+still not part of any nightly/automatic sweep, exactly as documented in the `054ff24` preflight
+session and the earlier AG-19 entry in this log. This session made no change to that file.
+
+### Root-cause summary
+
+1. **The new `/funders/[id]/relationship` UI path is confirmed genuinely wired, end-to-end, for
+   the first time** — real authenticated browser session, real click, real POST, real
+   `RelationshipBuilderAgent.run("manual")` execution, real `agent_runs`/`agent_decisions`/
+   `funder_relationship_scores` writes, real page re-render of the real result. No enum gap, no
+   500, no silent failure anywhere in this path.
+2. **Zero `relationship_recommendations` rows is a genuine, reproducible, data-driven result** —
+   every real funder in this org scores 30 (base 50, no `relationship_memory` history, -20
+   staleness penalty for `daysSinceContact = Infinity`), below the real `auto_draft_threshold` of
+   70 — not a bug, not silently swallowed, and not something this session manufactured a fake pass
+   for by seeding fictional interaction history into real production data.
+3. **Phase B (warm-introduction pathfinding) is genuinely inactive for this org** —
+   `auto_relationship_enabled = false`, correctly gating it off; zero `funders`/`board_members`
+   `pig_nodes` exist, confirmed by an unfiltered table scan, not a narrow query that could hide a
+   real node elsewhere.
+4. **A real, incidental environment bug was found and fixed for this session's own testing**
+   (an unrelated project squatting on port 3000) — not an application bug, but worth noting since
+   it silently invalidated every earlier authentication attempt in this session before being
+   diagnosed.
+5. **`worker/autonomous-orchestrator.ts` is confirmed untouched** — the Gen-1 substitution this
+   task required to be left alone was independently re-verified, not just assumed.
+
+**Verification method:** live, unmodified end-to-end run via a genuine authenticated Playwright
+browser session (Supabase admin-issued magic link exchanged for a real GoTrue session via
+`setSession()`, no password read or changed, real `@supabase/ssr`-format session cookie injected —
+verified against that package's own real chunking/encoding code, not guessed) against this repo's
+own real dev server (started on an alternate port after discovering the default port was serving an
+unrelated project) for the real Faith Foundation org and a real funder (Meade Tractor). Every claim
+above was cross-checked against a live, independent service-role query of `agent_runs`,
+`agent_decisions`, `relationship_recommendations`, `funder_relationship_scores`, `pig_nodes`, and
+`org_autonomous_config` after the UI-triggered run completed — not inferred from the API response
+or the rendered page alone, though both were also captured and matched. A full-page screenshot was
+taken and its content read back against the DB rows. All throwaway verification scripts
+(`scripts/_tmp_*.mjs`, `scripts/_tmp_ag19_*.png`) were deleted after use and were never committed;
+no `corporate_prospects`-style missing-table blocker applies to this agent's real tables, all of
+which are confirmed live.
+
