@@ -1,7 +1,48 @@
 # BENAVORA — Session State
-## Last Updated: August 7, 2026 (Agent Marketplace UI built at /agents/marketplace — Pillar 17 row #159 closed)
+## Last Updated: August 7, 2026 (Agent Log Viewer built, extends /agents/marketplace — row #160 closed)
 
-## Current Session — August 7, 2026 (Agent Marketplace UI)
+## Current Session — August 7, 2026 (Agent Log Viewer, q27-003)
+
+**Focus:** FEATURE_REGISTRY_v2.md row #160 (Agent Log Viewer), `PLANNED` — "per-agent run history and
+output." Build as a genuine extension of q27-002's `/agents/marketplace` page, not a disconnected
+feature.
+**Status:**
+- **Structure chosen:** a click-through detail route, `src/app/(dashboard)/agents/marketplace/[agentId]/page.tsx`
+  — picked over an expand-in-place panel since q27-002's marketplace is a grid of independently loaded
+  cards with no existing expand/collapse mechanism; a dedicated route reuses its existing Link-based
+  nav pattern instead. Each marketplace `AgentCard` now links to its own run-history page via a new
+  "View run history →" line.
+- **API route:** checked `src/app/api/agents/research/status/route.ts` first (it already lists
+  `agent_runs` filtered by `agent_type`) — declined to reuse it, since it hard-codes a 15-value
+  allowlist scoped to the old Research page's Generation-1 agent set and would 400 for almost every
+  real agent_id in the q27-001 registry seed (`ag-17-discovery`, `ag-30-donor-intent`, etc.). Added
+  `GET /api/agents/registry/[agentId]/runs` instead, matching `/api/agents/registry/route.ts`'s shape:
+  `requireRole("viewer")`, org id server-derived, confirms the agentId is a real registry row (404 if
+  not), queries `agent_runs` on `organization_id` + `agent_type = agentId` (real columns only: status,
+  output_summary, items_found, items_processed, error_message, tokens_used, duration_ms, started_at,
+  completed_at, created_at), `created_at desc`, capped at 50 with optional `limit`/`cursor`.
+- **Honest empty state:** agents with zero `agent_runs` rows (plain-function agents that never log a
+  run, or real `AutonomousAgent` subclasses never auto-invoked in production, per
+  `AGENT_VERIFICATION_LOG.md`'s orphaned-wiring findings) render "No runs recorded for this agent yet"
+  with one line of honest context — not a fabricated "0 runs, healthy" implication. Did not touch the
+  underlying wiring gaps (AG-19, etc.) — out of scope, same boundary as q27-002.
+- **Spot-checked against real live data before calling it done:** ran a throwaway script (deleted,
+  never committed) against production for 8 agent_ids `AGENT_VERIFICATION_LOG.md` documents as having
+  real direct-invocation history — `ag-15-probability` (1), `ag-17-discovery` (2), `ag-19-relationship`
+  (4), `ag-25-deadline-prediction` (1), `ag-28-followup` (1), `ag-18-reputation` (4),
+  `ag-32-relationship-graph` (9), `ag-30-donor-intent` (3) — all returned real rows with real
+  statuses/timestamps, confirming the `agent_registry.agent_id` ↔ `agent_runs.agent_type` join works
+  as q27-001 intended. This is the sanity check the task asked for ahead of full live verification in
+  q27-004.
+- Reused q27-002's palette tokens as-is, plus one addition for run-status badges (green/red/blue/gray
+  per completed/failed/running/pending).
+**Commit:** `feat(agents): build Agent Log Viewer, real per-agent agent_runs history` (this session).
+**Gates:** `pnpm tsc --noEmit` — 0 new errors (only pre-existing test-file errors remain, none in the
+new files).
+
+---
+
+## Prior Session — August 7, 2026 (Agent Marketplace UI)
 
 **Focus:** FEATURE_REGISTRY_v2.md Pillar 17 row #159 (Agent Marketplace UI), `NOT-BUILT`. The prior
 session (q27-001, immediately below) closed row #157 by seeding `agent_registry` with 43 real rows;

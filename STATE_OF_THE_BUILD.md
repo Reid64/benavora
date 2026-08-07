@@ -1,8 +1,69 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 7, 2026 (Agent Marketplace UI built at /agents/marketplace — Pillar 17 row #159 closed). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 7, 2026 (Agent Log Viewer built, extends /agents/marketplace — row #160 closed). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 7, 2026 (Agent Log Viewer — FEATURE_REGISTRY_v2.md row #160 closed, q27-003)
+
+Per `FEATURE_REGISTRY_v2.md` row #160 (Agent Log Viewer) was `PLANNED` — "per-agent run history and
+output." Built as a genuine extension of the q27-002 Agent Marketplace, not a separate disconnected
+feature.
+
+**Structure chosen:** a click-through detail route, `src/app/(dashboard)/agents/marketplace/[agentId]/page.tsx`
+— picked over an expand-in-place panel because q27-002's marketplace page is a grid of independently
+loaded cards with no existing per-card expand/collapse state machine; a dedicated route reuses the
+grid's existing `Link`-based navigation idiom and keeps the marketplace page's own load/error/empty
+states untouched. Each `AgentCard` on `/agents/marketplace` now has a real "View run history →" link
+to `/agents/marketplace/[agent_id]`.
+
+**API route — new, not a reuse of an existing one.** Checked first: `src/app/api/agents/research/status/route.ts`
+already does "list `agent_runs` for this org, optionally filtered by `agent_type`" — but it hard-codes
+a 15-value `AGENT_TYPES` allowlist scoped to the old Research page's Generation-1 agent set and
+rejects (400 `invalid_input`) any `agentType` outside it, including nearly every real agent_id the
+q27-001 registry seed uses (`ag-17-discovery`, `ag-30-donor-intent`, `ag-32-relationship-graph`,
+etc.). Reusing it would have silently 400'd for most agents in the registry, so it doesn't fit and
+wasn't touched. Added `GET /api/agents/registry/[agentId]/runs` instead — same shape as
+`/api/agents/registry/route.ts`: `requireRole("viewer")`, `organization_id` derived server-side,
+confirms the `agentId` param is a real `agent_registry` row (404 if not) before querying, real
+`jsonError(message, code, status)` on failure. Queries `agent_runs` on `organization_id = <org>` AND
+`agent_type = <agentId>` (the exact join `scripts/seed-agent-registry.ts`'s header comment documents
+q27-001 having deliberately set up — `agent_registry.agent_id` IS the agent's real on-disk
+`agent_type` literal wherever one exists), real columns only (`status`, `output_summary`,
+`items_found`, `items_processed`, `error_message`, `tokens_used`, `duration_ms`, `started_at`,
+`completed_at`, `created_at`), ordered `created_at desc`, capped at 50 (optional `?limit=` up to 100,
+optional `?cursor=` for pagination — same convention as `/api/autonomous/decisions`).
+
+**Data-gap handling, per the task's explicit instruction:** agents with zero matching `agent_runs`
+rows (many — either plain functions that never write `agent_runs` at all, e.g. several AG-0x agents
+per `AGENTS_v2.md`, or real `AutonomousAgent` subclasses simply never auto-invoked in production, e.g.
+AG-19/AG-18 per `AGENT_VERIFICATION_LOG.md`'s orphaned-wiring findings) render a plain "No runs
+recorded for this agent yet" empty state with one line of honest context — not a fabricated "0 runs,
+healthy" implication, and the AG-19/AG-18 wiring gap itself was explicitly out of scope here, same as
+q27-002's boundary.
+
+**Spot-checked the query against real live data before considering it done** (not just unit-tested
+against a mock): ran a throwaway script (deleted after use, never committed) against the real
+production database for 8 agent_ids named in `AGENT_VERIFICATION_LOG.md` as having genuine
+direct-invocation `agent_runs` history — `ag-15-probability` (1 row), `ag-17-discovery` (2 rows,
+1 completed/1 failed), `ag-19-relationship` (4 rows, all completed), `ag-25-deadline-prediction`
+(1 row), `ag-28-followup` (1 row), `ag-18-reputation` (4 rows), `ag-32-relationship-graph` (9 rows),
+`ag-30-donor-intent` (3 rows, 2 completed/1 failed). All 8 returned real rows with real
+statuses/timestamps, confirming the `agent_registry.agent_id` ↔ `agent_runs.agent_type` join works
+exactly as q27-001's seed script intended — this is the sanity check the task asked for ahead of full
+live verification in q27-004.
+
+**Palette:** reused q27-002's established tokens as-is (`#D6E4F0` canvas, `#FFFFFF` cards, `#1A2B3C`
+headings, `#0077B6` links/accents, `#6B7280`/`#94A3B8`/`#64748B`/`#334155` text tiers, `#FEF2F2`/
+`#FECACA`/`#B91C1C` error state, `#F1F5F9` dividers) plus one small addition for run-status badges
+(`#F0FDF4`/`#16A34A` completed, `#FEF2F2`/`#B91C1C` failed, `#EAF6FC`/`#0077B6` running, `#F1F5F9`/
+`#64748B` pending) — no new palette derived from scratch.
+
+Gates: `pnpm tsc --noEmit` — 0 new errors (grepped the full output for `agents/marketplace`/
+`agents/registry`, zero matches; all remaining errors are the same pre-existing test-file issues
+already tracked elsewhere in this file, unrelated to this change).
 
 ---
 

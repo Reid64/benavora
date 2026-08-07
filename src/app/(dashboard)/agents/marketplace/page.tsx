@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import { formatRelative } from "@/lib/utils/formatters";
@@ -344,6 +345,19 @@ function AgentCard({
           Runs: <span style={{ color: "#334155" }}>{agent.run_count}</span>
         </span>
       </div>
+
+      <Link
+        href={`/agents/marketplace/${encodeURIComponent(agent.agent_id)}`}
+        style={{
+          fontSize: "12px",
+          fontWeight: 600,
+          color: "#0077B6",
+          textDecoration: "none",
+          alignSelf: "flex-start",
+        }}
+      >
+        View run history →
+      </Link>
     </div>
   );
 }
