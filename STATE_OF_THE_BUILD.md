@@ -1,8 +1,32 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 7, 2026 (live-verified Agent Marketplace against real production — 2 schema-drift bugs found+fixed; Agent Log Viewer confirmed NOT live, row #160 is NOT closed, correcting the entry below). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 7, 2026 (AG-26 on-demand trigger route added; narrative-synthesis open item re-tested live — dead-key cause confirmed resolved, but a new, distinct max_tokens truncation bug still blocks it). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 7, 2026 (AG-26 on-demand forecast trigger route; narrative-synthesis re-test finds a new bug, not the old one)
+
+Per `FEATURE_REGISTRY_v2.md` row #132, AG-26 (Funding Forecast Agent) was already `BUILT — VERIFIED` as of 2026-08-03, with one open item: narrative synthesis (`key_risks`/`key_opportunities`/`recommended_actions`) had degraded to empty during that test because the platform's `ANTHROPIC_API_KEY` was dead at the time — plausibly resolved by the 2026-08-06 key rotation, not re-tested since. This session closes that open item with a real, current answer, and adds the on-demand trigger AG-26 was missing (its only prior trigger was the monthly 1st-of-month 4AM cron in `worker/autonomous-orchestrator.ts`, unusable for testing or for backing a dashboard today).
+
+**Added:** `src/app/api/reports/forecast/route.ts` — `GET` (viewer-gated, reads real `funding_forecasts` rows for the caller's org) and `POST` (writer-gated, instantiates `FundingForecastAgent` and calls its real `run("manual")`), mirroring the combined read+trigger convention already live at `src/app/api/reports/simulate/route.ts`. Does not touch `worker/autonomous-orchestrator.ts`'s monthly cron gate — this is a second, independent manual-trigger path, same relationship AG-25's `/api/agents/disaster` POST and AG-41's `/api/agents/simulate` have to their own absent/deliberately-absent schedules. `runtime = "nodejs"`, `maxDuration = 300` per `BLUEPRINT_v2.md` §8.1.
+
+**Confirmed live before writing anything:** queried `funding_forecasts` directly for the real Faith Foundation org (`b1ab7402-dfc2-4712-869f-70ea3566cc1d`) — the 2 rows from 2026-08-03 are still present, unmodified (`12_month.projected_most_likely` = 18521355.042, matching `AGENT_VERIFICATION_LOG.md` exactly), both with empty narrative arrays and `methodology` ending in "(narrative synthesis unavailable this run.)" — the exact state being re-tested, not something already fixed.
+
+**Live-tested the new route's underlying logic twice** (direct `FundingForecastAgent.run("manual")` invocation against the real org, no mocks — same verification method `AGENT_VERIFICATION_LOG.md` uses throughout): both runs succeeded (`success: true`), wrote real new rows for `forecast_date: 2026-08-07` (distinct from the 2026-08-03 rows — the `UNIQUE(org_id, forecast_date, forecast_period)` constraint correctly upserted a fresh pair rather than silently no-opping), with real numbers grounded in the org's now-larger real pipeline (77-79 open opportunities, up from 42-44 on 2026-08-03 — consistent with AG-17 discovery activity since then; `projected_most_likely` = 24087871.272 for both periods, `confidence` 74-75).
+
+**Narrative-synthesis open item — re-tested, resolved differently than expected:**
+1. **The dead-platform-key cause is confirmed gone.** A raw HTTPS call to the real Anthropic API with the current `.env.local` key returned `200 OK`. An isolated call to `callClaude()` (the same wrapper `generateNarratives()` uses) also succeeded, returning real text. The 2026-08-06 key rotation worked.
+2. **But both live `agent.run()` calls still wrote empty narrative arrays**, `tokens_used: 0`, same "(narrative synthesis unavailable this run.)" suffix as the 2026-08-03 run. Not assumed to be the same cause — traced directly: calling `agent.buildNarrativePrompt()` + `agent.callClaudeWithRetry()` with the real, current prompt (TS `private` has no runtime enforcement, so the agent's own internal methods were called directly to isolate the failure) shows the Claude call itself **succeeds** and returns real, well-grounded narrative text (e.g. correctly identifying that 11 of 15 listed opportunities carry the score floor of 28, correctly flagging a 5-opportunity deadline cluster) — but `stopReason: "max_tokens"`, `outputTokens: 900` (the exact `NARRATIVE_MAX_TOKENS` cap in `funding-forecast-agent.ts`), and the returned text is a **truncated, unterminated JSON string** (`JSON.parse` fails with "Unterminated string in JSON"). `generateNarratives()`'s try/catch treats a JSON-parse failure identically to a Claude-call failure — both degrade silently to empty arrays with the same methodology suffix, so the stored row alone cannot distinguish "key was dead" from "output got truncated."
+3. **Root cause, precisely:** this org's real open-opportunity pipeline has grown (77-79 vs. 42-44 on 2026-08-03) — `buildNarrativePrompt()` slices up to 15 opportunities per period into the prompt for both periods, and asking Claude to write grounded risks/opportunities/actions citing that many real, specific opportunities across two windows now routinely exceeds the fixed 900-output-token budget before the JSON closes.
+4. **Not fixed in this pass** — out of this task's explicit scope (add the trigger route, report the real current status honestly). Flagged precisely in `FEATURE_REGISTRY_v2.md` row #132 for a future session: raise `NARRATIVE_MAX_TOKENS` or trim the per-period opportunity slice.
+
+**Net honest status:** AG-26's deterministic core (both forecast rows, real numbers, real idempotency) is fully working end-to-end via both the cron and the new on-demand route. The narrative layer is still non-functional in production today — but for a different, now precisely-diagnosed reason than before, not the one this task set out expecting to close.
+
+Existing 2026-08-03 rows were not deleted or modified — both old and new rows coexist as real historical `agent_runs` audit trail, per this project's standing convention (`AGENT_VERIFICATION_LOG.md`) of treating a real agent-run's output as legitimate history, not test pollution to scrub.
+
+Gates: `pnpm tsc --noEmit` — 0 errors in the new route (38 pre-existing, unrelated errors remain, all confined to `src/__tests__/**`, unchanged baseline).
 
 ---
 

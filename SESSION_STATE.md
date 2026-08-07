@@ -1,7 +1,51 @@
 # BENAVORA — Session State
-## Last Updated: August 7, 2026 (live-verification pass: Agent Marketplace confirmed working in real production after 2 real fixes; Agent Log Viewer confirmed NOT deployed, correcting the "row #160 closed" claim below)
+## Last Updated: August 7, 2026 (AG-26 on-demand forecast trigger route added; narrative-synthesis open item re-tested — dead key confirmed fixed, new max_tokens truncation bug found)
 
-## Current Session — August 7, 2026 (live-verify Agent Marketplace + Log Viewer against real production, q27-001/002/003)
+## Current Session — August 7, 2026 (AG-26 on-demand forecast trigger route + narrative-synthesis re-test)
+
+**Focus:** close `FEATURE_REGISTRY_v2.md` row #132's one open item (whether the 2026-08-06 key
+rotation fixed AG-26's degraded narrative synthesis) and add AG-26's missing on-demand trigger,
+so `/reports/forecast` (row #133, built next in q28-002) has something real and current to read.
+**Status:**
+- Confirmed live, before changing anything: `funding_forecasts` still holds exactly the 2 real
+  rows from 2026-08-03 documented in `AGENT_VERIFICATION_LOG.md` — unmodified, `12_month`
+  projected value matches to full precision, both with empty narrative arrays.
+- Added `src/app/api/reports/forecast/route.ts` (`GET`/`POST`), mirroring
+  `src/app/api/reports/simulate/route.ts`'s combined read+trigger convention. Does not touch
+  `worker/autonomous-orchestrator.ts`'s monthly cron gate — a second, independent manual trigger,
+  same pattern as AG-25/AG-41's own manual-only routes.
+- Live-tested the route's underlying logic twice by directly invoking
+  `FundingForecastAgent.run("manual")` against the real Faith Foundation org (no mocks). Both
+  runs succeeded, wrote real new rows for `forecast_date: 2026-08-07` (distinct from the
+  2026-08-03 rows via the real `UNIQUE(org_id, forecast_date, forecast_period)` constraint),
+  grounded in the org's now-larger real pipeline (77-79 open opportunities vs. 42-44 previously).
+- **Narrative-synthesis open item — resolved differently than expected, not guessed at:**
+  the dead-platform-key cause is confirmed gone (a raw Anthropic API call and an isolated
+  `callClaude()` call both succeed on the current key). But both live runs still wrote empty
+  narrative arrays. Traced directly (TS `private` has no runtime enforcement, so the agent's own
+  internal methods were called to isolate the exact failure point): the real Claude call
+  succeeds and returns genuinely grounded text, but hits `stopReason: "max_tokens"` at the
+  `NARRATIVE_MAX_TOKENS = 900` cap in `funding-forecast-agent.ts`, truncating mid-JSON;
+  `JSON.parse` then throws, and `generateNarratives()`'s catch block degrades to empty arrays
+  with the identical "(narrative synthesis unavailable this run.)" methodology text a dead key
+  would also produce — the stored row alone can't distinguish the two causes. Root cause: this
+  org's real pipeline has grown since 2026-08-03, and `buildNarrativePrompt()`'s per-period
+  15-opportunity slice across both windows now routinely exceeds the fixed 900-output-token
+  budget before the JSON closes. **Not fixed this session** — out of this task's explicit scope
+  (add the trigger, report honestly); flagged precisely in `FEATURE_REGISTRY_v2.md` row #132 for
+  a future session (raise `NARRATIVE_MAX_TOKENS` or trim the opportunity slice).
+- Existing 2026-08-03 rows untouched — new rows coexist as real history, per this project's
+  standing convention of not scrubbing a real agent run's audit trail.
+- All throwaway verification scripts (`scripts/_tmp-*.mjs`) deleted after use; none were staged
+  or committed.
+
+**Commit:** `feat(reports): add on-demand AG-26 forecast trigger route, confirm live data + narrative status` (this session).
+**Gates:** `pnpm tsc --noEmit` — 0 errors in the new route file (38 pre-existing, unrelated
+`src/__tests__/**` errors unchanged from baseline).
+
+---
+
+## Prior Session — August 7, 2026 (live-verify Agent Marketplace + Log Viewer against real production, q27-001/002/003)
 
 **Focus:** genuine live-verification pass (not a compile check) of `FEATURE_REGISTRY_v2.md` rows
 #157/#159/#160, against the real Faith Foundation org and real production, per the standing
