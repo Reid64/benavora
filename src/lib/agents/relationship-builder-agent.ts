@@ -12,17 +12,21 @@
 // funder_relationship_scores predates this agent (BEHAVIORAL_CONTRACTS.md
 // §26, src/lib/agents/funder-relationship.ts — Agent 23's event-delta
 // scorer) and has no local migration file; it was created directly against
-// prod. Its real columns are organization_id/funder_id/relationship_score/
-// trend/updated_at (confirmed via funder-relationship.ts and
-// FunderDetail.tsx), NOT the org_id/score/momentum/last_calculated_at names
-// SCHEMA_REGISTRY_v2.md describes. This agent writes relationship_score and
-// trend on that same table (upsert on organization_id,funder_id — never
-// touching Agent 23's recent_events/total_interactions/successful_
-// applications/is_stale columns, which are omitted from the payload). The
-// "momentum" concept this agent computes (rising/declining/stable) is
-// mapped onto the existing trend vocabulary (rising/falling/neutral) so the
-// funders list and FunderDetail panel — which type trend as exactly those
-// three values — keep rendering correctly.
+// prod. CORRECTED 2026-08-07 (live-verified via psql/DATABASE_URL, not
+// assumed from other code): the previous version of this comment claimed
+// relationship_score/trend/updated_at, copied from funder-relationship.ts's
+// and FunderDetail.tsx's own (also wrong, unfixed here — separate,
+// wider-blast-radius finding, see AGENT_VERIFICATION_LOG.md) assumptions.
+// The table's real live columns are organization_id/funder_id/score/events
+// (jsonb)/last_updated_at/created_at — matching neither this file's old
+// comment nor SCHEMA_REGISTRY_v2.md's org_id/score/momentum/
+// last_calculated_at guess. This agent upserts score + last_updated_at, and
+// stashes {trend, momentum} inside the jsonb events column rather than a
+// dedicated trend column, since none exists. Note this table is NOT the
+// same one the live /funders/[id]/relationship UI route reads — that route
+// (src/lib/intelligence/relationship-scorer.ts) computes its score
+// on-the-fly from funder_relationship_events, a different table entirely.
+// funder_relationship_scores has no other confirmed-working reader today.
 //
 // relationship_memory and relationship_recommendations (migration 076) do
 // use org_id, matching both SCHEMA_REGISTRY_v2.md and the reputation agent
@@ -47,10 +51,14 @@
 //   - "KB leadership_board array" does not exist — there is no
 //     `leadership_board` value in the `knowledge_base_category` enum
 //     (migration 001) and no such jsonb array on any table. Real board data
-//     lives in the `board_members` table (org_id, name, role, expertise,
-//     active — src/supabase/migrations/078_forecast_board.sql), the exact
-//     table relationship-graph-builder-agent.ts (AG-32) already reads for
-//     the same purpose.
+//     lives in the `board_members` table — its real, live columns are
+//     organization_id/name/title/bio/email/phone/start_date/is_active
+//     (root supabase/migrations/001_initial_schema.sql, the table that's
+//     actually live), NOT the org_id/role/expertise/active set
+//     078_forecast_board.sql describes (that migration was never applied —
+//     the identical stale-citation bug already found and fixed in
+//     relationship-graph-builder-agent.ts/AG-32 2026-08-07; this file made
+//     the same mistake independently and is fixed here the same way).
 //   - AG-32 (relationship-graph-builder-agent.ts) already runs a bounded
 //     Claude + web_search pass per board member to discover direct/one_hop
 //     connections to named funders/prospects, and writes them as pig_edges
@@ -155,7 +163,7 @@ interface MemoryRow {
 }
 
 interface ExistingScoreRow {
-  relationship_score: number | null;
+  score: number | null;
 }
 
 interface RecommendationResult {
@@ -167,7 +175,7 @@ interface RecommendationResult {
 interface BoardMemberRow {
   id: string;
   name: string;
-  role: string | null;
+  title: string | null;
 }
 
 interface PigEdgeRow {
@@ -731,7 +739,7 @@ export class RelationshipBuilderAgent extends AutonomousAgent {
                 .limit(RECENT_MEMORY_LIMIT),
               this.supabase
                 .from("funder_relationship_scores")
-                .select("relationship_score")
+                .select("score")
                 .eq("organization_id", this.orgId)
                 .eq("funder_id", funder.id)
                 .maybeSingle(),
@@ -804,7 +812,7 @@ export class RelationshipBuilderAgent extends AutonomousAgent {
           const existingScore = existingScoreRes.data as
             | ExistingScoreRow
             | null;
-          const previousScore = existingScore?.relationship_score ?? null;
+          const previousScore = existingScore?.score ?? null;
 
           const newScore = computeRelationshipScore(
             memories,
@@ -818,9 +826,9 @@ export class RelationshipBuilderAgent extends AutonomousAgent {
               {
                 organization_id: this.orgId,
                 funder_id: funder.id,
-                relationship_score: newScore,
-                trend: momentumToTrend(momentum),
-                updated_at: new Date().toISOString(),
+                score: newScore,
+                events: { trend: momentumToTrend(momentum), momentum },
+                last_updated_at: new Date().toISOString(),
               },
               { onConflict: "organization_id,funder_id" },
             );
@@ -927,9 +935,9 @@ export class RelationshipBuilderAgent extends AutonomousAgent {
         try {
           const { data: boardRows, error: boardError } = await this.supabase
             .from("board_members")
-            .select("id, name, role")
-            .eq("org_id", this.orgId)
-            .eq("active", true)
+            .select("id, name, title")
+            .eq("organization_id", this.orgId)
+            .eq("is_active", true)
             .limit(MAX_BOARD_MEMBERS_FOR_PATHFINDING);
 
           if (boardError) {

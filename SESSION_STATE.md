@@ -1,7 +1,53 @@
 # BENAVORA — Session State
-## Last Updated: August 7, 2026 (Discovery Preferences live-verified — registry #86)
+## Last Updated: August 7, 2026 (queue-31 preflight — relationship tables live, 2 AG-19 bugs fixed)
 
-## Current Session — August 7, 2026 (Discovery Preferences live-verified against real data — registry #86)
+## Current Session — August 7, 2026 (queue-31 preflight: relationship_memory/relationship_recommendations live status + AG-19 Phase A fixed)
+
+**Focus:** queue-31 (registry #99 Signal Monitoring, #101 Relationship Builder UI) preflight —
+check live whether `queue-26-relationship-memory-fix.yaml` already applied
+`relationship_memory`/`relationship_recommendations` before the next prompt (q31-002) builds UI
+on top of them. Report ground truth into this file and `STATE_OF_THE_BUILD.md`.
+
+**Status:**
+- **Confirmed live via `DATABASE_URL`/psql: `relationship_memory`, `relationship_recommendations`,
+  `pig_nodes` (21 rows), `pig_edges` (20 rows) all exist in production**, RLS enabled with real
+  policies on each, `ag-19-relationship` enum value present. Column shapes for the two new tables
+  match what `relationship-builder-agent.ts` already expects exactly — no drift.
+- Went further than the table-existence check and actually ran `RelationshipBuilderAgent` live
+  against the real Faith Foundation org, no mocks — found and fixed **two real, independent bugs**
+  that would have blocked this queue's UI regardless of table existence:
+  1. Phase B's `board_members` query used `org_id`/`active`/`role` (the same
+     stale-migration-078 mistake already fixed in AG-32 the same day) instead of the real
+     `organization_id`/`is_active`/`title`. Fixed.
+  2. Phase A's `funder_relationship_scores` read/write used `relationship_score`/`trend`/
+     `updated_at` (copied from `funder-relationship.ts`/`FunderDetail.tsx`'s own, separately
+     still-wrong assumptions) instead of the real `score`/`events`(jsonb)/`last_updated_at`.
+     Fixed, plus added a missing `UNIQUE(organization_id, funder_id)` constraint the upsert needs
+     (table was empty, no duplicates, safe to add) — new migration
+     `supabase/migrations/130_funder_relationship_scores_unique_constraint.sql`, applied live.
+- Re-ran the agent after both fixes: **completes cleanly for the first time ever** —
+  `itemsFound: 4, itemsProcessed: 4, errors: []`, real rows independently confirmed in
+  `funder_relationship_scores` and `agent_decisions` by direct query (not the return value alone).
+  All 4 funders correctly skip Claude-recommendation generation (score 30 < org's threshold 70) —
+  correct behavior given this org's empty relationship-memory data, not a bug.
+- **Flagged, not fixed (separate, wider-blast-radius bug for a future session):**
+  `funder-relationship.ts` (the live Gen-1 nightly agent) and `FunderDetail.tsx` (a live UI
+  component) both independently use the same wrong `funder_relationship_scores` column names this
+  session fixed for AG-19 — meaning both are likely broken live too. Also noted: the *existing*
+  live `/funders/[id]/relationship` route uses none of these tables — it reads
+  `funder_relationship_events` via `relationship-scorer.ts`, a third, separate path. q31-002/003
+  must not conflate the three.
+- Phase B (pathfinding) not live-exercised — `auto_relationship_enabled=false` for this org,
+  correctly gated off, not a bug.
+
+Full detail in `STATE_OF_THE_BUILD.md`'s matching session entry.
+**Commit:** `fix(agents): resolve relationship-builder-agent column bugs (board_members,
+funder_relationship_scores), add missing unique constraint — queue-31 preflight` (this session).
+**Gates:** `pnpm tsc --noEmit` — 0 errors on the edited file.
+
+---
+
+## Prior Session — August 7, 2026 (Discovery Preferences live-verified against real data — registry #86)
 
 **Focus:** Live-verify `FEATURE_REGISTRY_v2.md` #86 ("Discovery Preferences") against the real Faith
 Foundation org — confirm a real preference change through the real write path actually changes AG-17's

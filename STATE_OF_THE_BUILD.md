@@ -1,8 +1,89 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 7, 2026 (registry #86 Discovery Preferences live-verified against real Faith Foundation org data — AG-17 branching confirmed with real network instrumentation; a real decision-log observability gap flagged, not fixed). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 7, 2026 (queue-31 preflight — relationship_memory/relationship_recommendations confirmed live; two real AG-19 column bugs found and fixed live, Phase A now completes end-to-end for the first time). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 7, 2026 (queue-31 preflight: relationship_memory/relationship_recommendations live; AG-19 Phase A fixed and verified end-to-end)
+
+**Context:** queue-31 (registry #99 Signal Monitoring, #101 Relationship Builder UI at
+`/funders/[id]/relationship`) explicitly required checking, live, whether
+`queue-26-relationship-memory-fix.yaml` had already applied migration 127
+(`relationship_memory`/`relationship_recommendations`, both created by
+`076_reputation_intelligence.sql` but confirmed absent as of the morning of
+2026-08-07 per registry #98/#100) before q31-002/q31-003 build anything on top of them.
+
+**Answer: yes, already fixed.** Live `to_regclass()` check via `DATABASE_URL`/psql confirmed
+all 4 relevant tables exist in production right now: `relationship_memory` (0 rows),
+`relationship_recommendations` (0 rows), `pig_nodes` (21 rows), `pig_edges` (20 rows). RLS is
+enabled on all 4 with a real policy each. The `ag-19-relationship` `agent_type` enum value is
+present. Column shapes match exactly what `relationship-builder-agent.ts` already reads/writes
+for these two tables (`org_id`/`entity_id`/`entity_type`/... — no drift found there).
+
+**What wasn't expected: two separate, real, live-reproduced bugs in AG-19's own code, unrelated
+to the relationship_memory/relationship_recommendations question, found by actually running the
+agent (`new RelationshipBuilderAgent(orgId, supabase).run("manual")`, no mocks) against the real
+Faith Foundation org rather than stopping at the table-existence check:**
+
+1. **Phase B's `board_members` query** used `org_id`/`active`/`role` — the exact same
+   stale-migration-078 mistake already found and fixed in `relationship-graph-builder-agent.ts`
+   (AG-32) earlier the same day, made independently in this file too. Real live columns are
+   `organization_id`/`is_active`/`title`. Fixed (query, `BoardMemberRow` interface, header
+   comment) in `src/lib/agents/relationship-builder-agent.ts`.
+2. **Phase A's `funder_relationship_scores` read/write** used `relationship_score`/`trend`/
+   `updated_at` — copied from `funder-relationship.ts`'s and `FunderDetail.tsx`'s own (also
+   wrong, **not fixed here, separate finding**) assumptions about this table's shape. Real live
+   columns are `organization_id`/`funder_id`/`score`/`events` (jsonb)/`last_updated_at`/
+   `created_at`. Fixed to use the real columns, stashing `{trend, momentum}` inside the jsonb
+   `events` column since no dedicated trend column exists. **Also found and fixed**: the live
+   table had no unique constraint on `(organization_id, funder_id)` at all — every upsert failed
+   with "no unique or exclusion constraint matching ON CONFLICT". Table was confirmed empty with
+   zero duplicates before adding one; new migration
+   `supabase/migrations/130_funder_relationship_scores_unique_constraint.sql` applied live via
+   `DATABASE_URL`/psql (`STANDING_DIRECTIVES.md` DIRECTIVE-017).
+
+**Re-verified live after both fixes:** `RelationshipBuilderAgent.run("manual")` against the real
+Faith Foundation org now completes cleanly — `itemsFound: 4, itemsProcessed: 4, errors: []` — 4
+real `funder_relationship_scores` rows written (score 30, real `events` jsonb), 4 real
+`agent_decisions` rows logged (`relationship_recommendation_generated`, confidence 30). All 4
+funders correctly hit the "below `auto_draft_threshold` (70), skip the Claude call" branch given
+this org's real (empty) `relationship_memory`/`outcomes` data — an honest, correct result, not a
+bug; `relationship_recommendations` staying at 0 rows this run is expected, not evidence of a
+broken write path. **This is the first time Phase A has ever completed a real run against the
+live schema — every prior attempt died at one of the two bugs above.**
+
+**Not touched, correctly out of scope for a preflight task:**
+- `funder-relationship.ts` (the Gen-1 nightly-wired agent) and `FunderDetail.tsx` (a live UI
+  component) both independently reference the same wrong `funder_relationship_scores` column
+  names (`relationship_score`/`trend`/`is_stale`/`recent_events`/`total_interactions`/
+  `successful_applications`/`last_interaction_at`) this session found and fixed for AG-19 —
+  **this means both would fail live too, a real, separate, wider-blast-radius bug not fixed in
+  this session.** Flagging for a dedicated future session; do not assume the nightly Gen-1 path
+  or the FunderDetail relationship panel work correctly until that's checked.
+- The **live, currently-working** `/funders/[id]/relationship` API route
+  (`src/app/api/funders/[id]/relationship/route.ts` → `relationship-scorer.ts`) uses neither
+  `funder_relationship_scores` nor either of the above buggy column sets — it computes its score
+  on-the-fly from a *third* table, `funder_relationship_events`. Do not conflate the three when
+  building the new UI: `funder_relationship_scores` (AG-19's own write target, now fixed),
+  `funder_relationship_events`/`relationship-scorer.ts` (the existing live route, untouched), and
+  `relationship_memory`/`relationship_recommendations`/`pig_nodes`/`pig_edges` (AG-19's own real
+  memory/graph tables, confirmed live).
+- Phase B (multi-hop pathfinding) was not live-exercised this session — `auto_relationship_enabled`
+  is `false` for the Faith Foundation org, so Phase B's own gate correctly skipped it in the test
+  run (expected behavior, not a bug). Its `board_members` load bug is fixed (item 1 above); its
+  downstream logic (pig_nodes/pig_edges traversal, funder-officer research, path scripts) was not
+  independently re-verified live this session.
+
+**Gates:** `pnpm tsc --noEmit` — 0 errors on the edited file, both before and after each fix.
+
+**Recommendation for q31-002/q31-003:** proceed — both target tables and the `ag-19-relationship`
+enum value are confirmed live, and AG-19's Phase A now genuinely completes. Design the UI trigger
+as per-org (AG-19's `run()` has no per-funder mode), reading back only this funder's slice of the
+resulting `relationship_recommendations`/`agent_decisions`/`pig_edges` rows. Surface AG-19's real
+output as clearly distinct from the existing `/funders/[id]/relationship` route's Gen-1
+event-sourced score, not merged into one number.
 
 ---
 
