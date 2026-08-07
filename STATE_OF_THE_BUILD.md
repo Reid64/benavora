@@ -1,8 +1,101 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 7, 2026 (Both AutoApply bugs from the prior session fixed — ready-org E2E test passes for the first time). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 7, 2026 (governance preflight sync before queue-26..38 chain). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 7, 2026 (governance preflight sync before queue-26..38 chain — no application code touched)
+
+**Scope:** this was a documentation-only preflight/closing check for the queue-26 through queue-38
+chain — verifying the governance docs those queues read and update reflect real, consistent
+current state, not stale drift. No application code was written or changed.
+
+**Part 1 — cross-checked FEATURE_REGISTRY_v2.md's 2026-08-07 reconciliation (commit `49a8768`)
+against `AGENTS_v2.md`, `NOT_BUILT_MASTER_INVENTORY.md`, and `AGENT_VERIFICATION_LOG.md`:**
+
+- **`AGENT_VERIFICATION_LOG.md` is already current** — commit `3eccd4c` (same day, prior to this
+  session) already independently re-verified the AG-17 `org_id` fix, the migration-101 remainder,
+  the AG-15 bounds-check reorder, and the AG-39 wiring claim via live DB queries and a real test
+  run, and appended a full evidence entry. No changes needed there.
+- **`AGENTS_v2.md` §3 (master table), §4 (cross-reference), and §5 (per-agent specs) are
+  genuinely stale for all three agents named in this task** — confirmed by direct read, not
+  assumed:
+  - AG-17 (§5, lines 1095–1129): still reads "**Status:** ENABLED — **BLOCKED at runtime, see
+    1.2**... this agent has never successfully completed a run against the live schema" and
+    "Chain Output... Unreachable even if this agent's own enum block were fixed — see 1.3." Both
+    claims are false as of 2026-08-02 (enum fix, 30 opportunities discovered live) and
+    2026-08-07 (`org_id` bug fixed, commit `a310651`) — neither fix is reflected in this section,
+    even though §1.2 elsewhere in the same document *does* carry a "RESOLVED, 2026-08-02"
+    annotation. The doc is internally inconsistent, not just outdated.
+  - AG-15 (§5, lines 1026–1064): still reads "**Status:** PLANNED" and describes
+    `ProbabilityScoringAgent` as "Never instantiated by anything... unreachable by every available
+    path." Per `AGENT_VERIFICATION_LOG.md`'s 2026-08-02 entry this agent completes a real run
+    (zero enum errors) when directly instantiated — the enum/routing blockers this text cites are
+    resolved; only a live Anthropic API key and (separately) production auto-wiring remain open.
+  - AG-39 (§5, lines 2953–2982): still reads "**Status:** BUILT — partially wired (telemetry path
+    live, correlation path never called)" and "`run()`... **has no production call site**; it is
+    not invoked by that route, by any other route, or by the orchestrator... it currently never
+    executes." This is now confirmed false — `runRoiOptimizerStep()` has called
+    `RoiOptimizerAgent.run('schedule')` from `worker/autonomous-orchestrator.ts`'s monthly sweep
+    since commit `6ffd4fd` (2026-07-20), independently re-grepped and confirmed in both
+    `FEATURE_REGISTRY_v2.md` row #227 and `AGENT_VERIFICATION_LOG.md`'s commit-`3eccd4c` entry.
+  - §3's master table (line 298/300) still lists AG-15 as `PLANNED` with chain output "unreachable
+    — 1.3" and AG-17 as `ENABLED (blocked — 1.2)` with the same "unreachable — 1.3" note — same
+    staleness, different location in the same doc.
+  - The AG-28/AG-30 → AG-41/AG-42 renumbering (2026-08-02) **is** correctly and consistently
+    reflected throughout `AGENTS_v2.md` — no stale references to the old phantom-spec numbering
+    were found.
+- **`NOT_BUILT_MASTER_INVENTORY.md` Section 1 (top-of-file "Known stale block" note, lines 26/37/
+  47/57) is stale and, for two specific rows, now actively wrong, not just imprecise.** That block
+  (dated 2026-07-30) groups rows #79, #98, #135–136, #140, #152, #156–159, #161–165 together and
+  recommends treating all of them as "likely-BUILT pending a fresh verification pass." That fresh
+  pass happened 2026-08-07 (`FEATURE_REGISTRY_v2.md` commit `49a8768`) and confirmed most of the
+  group BUILT — VERIFIED as predicted — **but found row #98 (`relationship_memory`) confirmed
+  absent from production** (the opposite of "likely-BUILT"), and found rows #157 (Registry Seed
+  Data — zero rows, the seed array is real but never executed) and #159 (Agent Marketplace UI —
+  the page at that URL is a different, already-documented feature) both confirmed NOT-BUILT, not
+  BUILT. `NOT_BUILT_MASTER_INVENTORY.md`'s own Section 2 (the AG-01–42 tally, separately dated
+  2026-08-07 and already current — no drift found there) is unaffected; this is specifically
+  Section 1's top-of-file feature block. `NOT_BUILT_MASTER_INVENTORY.md` §2b's older AG-27 "Code
+  absence solid" entry (line ~317) is inside the section explicitly marked "superseded above, kept
+  for history" and is correctly not asserted as current — not a finding.
+- Per this task's explicit Part 3 constraint (`AUTONOMOUS_HARD_LIMITS.NEVER_MODIFY_GOVERNANCE_FILES`),
+  **`AGENTS_v2.md`, `FEATURE_REGISTRY_v2.md`, and `NOT_BUILT_MASTER_INVENTORY.md` were not edited**
+  — this finding is recorded here and as a new dated entry in `AGENT_VERIFICATION_LOG.md` instead,
+  for a future session scoped to actually touch those three docs.
+
+**Part 2 — queue-26..38 premise spot-check: blocked by a session sandbox restriction, documented
+rather than silently skipped.** This session's working directory is restricted to
+`C:\Users\manag\Documents\benavora` — every tool (Bash `ls`, PowerShell `Get-ChildItem`, Glob,
+Read) refused access to `C:\Users\manag\Documents\FORGE\projects\benavora\` with "Claude Code may
+only access files in the allowed working directories for this session." No queue-26..38 yaml file
+could be listed or read this session, so the literal "read the actual queue-26..38 files, pick 2-3,
+verify their stated premise" step could not be performed. **Flagging this for the next session that
+runs with FORGE-directory access — that check still needs to happen before queue-26 launches.**
+
+What *was* done, since the task called for it independent of which queues get picked: **live-checked
+`corporate_prospects`'s real current state directly** (via `DATABASE_URL`/`pg`, per
+`STANDING_DIRECTIVES.md` DIRECTIVE-017, a throwaway `.mjs` script deleted after use) —
+`to_regclass('public.corporate_prospects')` resolves (table exists), **49 real rows** (matching
+`FEATURE_REGISTRY_v2.md` row #87's claimed count exactly), `relrowsecurity: true` (RLS enabled),
+zero `anon`/`authenticated` grants in `information_schema.role_table_grants`, and zero rows in
+`pg_policies` for this table. This **confirms** row #87's current claim ("RLS enabled, anon/
+authenticated grants revoked") rather than contradicting it — given this table's history of
+flipping between missing/RLS-open/hardened across sessions, this is worth having checked fresh
+rather than trusted from the doc alone, and it held up. Any queue-26..38 file whose premise assumes
+`corporate_prospects` is still missing, still RLS-open, or still empty is working from a stale
+premise as of this check.
+
+**Part 3 — no edits made to `AGENTS_v2.md`, `FEATURE_REGISTRY_v2.md`, or
+`NOT_BUILT_MASTER_INVENTORY.md`.** All corrections from Part 1 above are recorded in this entry and
+in a new `AGENT_VERIFICATION_LOG.md` entry ("Governance preflight sync, 2026-08-07 — AGENTS_v2.md
+and NOT_BUILT_MASTER_INVENTORY.md staleness found relative to FEATURE_REGISTRY_v2.md's same-day
+reconciliation") only. No queue-26..38 yaml files were edited (out of scope per the task, and
+inaccessible this session regardless).
+
+Gates: not run — no application code changed, docs-only session.
 
 ---
 

@@ -5811,3 +5811,91 @@ against `DATABASE_URL` for the enum, columns, row count, and the old-query error
 `worker/autonomous-orchestrator.ts` to confirm real call-site wiring rather than trusting the commit
 message. One throwaway script (`_tmp-verify-step1.mjs`) created at the repo root and deleted
 immediately after use; `git status -s` confirmed clean before pushing.
+
+---
+
+## Governance preflight sync, 2026-08-07 — `AGENTS_v2.md` / `NOT_BUILT_MASTER_INVENTORY.md` staleness found relative to `FEATURE_REGISTRY_v2.md`'s same-day reconciliation
+
+**Task:** a preflight/closing-pass check ahead of the queue-26..38 build chain — confirm
+`FEATURE_REGISTRY_v2.md`'s 2026-08-07 reconciliation (commit `49a8768`) is reflected consistently in
+`AGENTS_v2.md`, `NOT_BUILT_MASTER_INVENTORY.md`, and this log, specifically for AG-17, AG-15, AG-39,
+the AG-28/AG-30→AG-41/AG-42 renumbering, and the "IN BUILD/Tonight" rows that pass corrected.
+
+**This log (`AGENT_VERIFICATION_LOG.md`) is already current — no action needed.** The immediately
+preceding entry ("Step 1 fixes...", commit `3eccd4c`) already independently re-verified the AG-17
+`org_id` fix, the migration-101 remainder, the AG-15 bounds-check reorder, and the AG-39 wiring claim
+via live DB queries and a real test run, the same day and ahead of this check.
+
+**`AGENTS_v2.md` is genuinely stale for all three agents, confirmed by direct read of the file on
+disk (not inferred from a cached/pasted copy):**
+
+- **AG-17** (§5, "### AG-17: Opportunity Discovery Agent", lines 1095–1129): still reads
+  `**Status:** ENABLED — **BLOCKED at runtime, see 1.2.**` and "this agent has never successfully
+  completed a run against the live schema" and "Chain Output... Unreachable even if this agent's
+  own enum block were fixed — see 1.3." All three claims are stale: the enum gap was fixed and
+  re-verified live 2026-08-02 (30 opportunities discovered, 20 chained), and the `perceiveState()`
+  `org_id`→`organization_id` bug was fixed 2026-08-07 (commit `a310651`, independently re-verified
+  same day per the entry immediately above this one). §1.2 elsewhere in the same document *does*
+  carry a "RESOLVED, 2026-08-02" annotation — this AG-17 spec section was simply never updated to
+  match, making the document internally inconsistent, not merely outdated.
+- **AG-15** (§5, "### AG-15: Grant Probability Agent", lines 1026–1064): still reads
+  `**Status:** PLANNED` and describes `ProbabilityScoringAgent` as "Never instantiated by
+  anything... `agent_type`... not a valid enum value (1.2)... unreachable by every available path
+  (1.3)." Per this log's 2026-08-02 entry, `ProbabilityScoringAgent` completes a real run
+  (`status: completed`, zero enum errors) when directly instantiated — per-opportunity scoring is
+  still blocked (currently by a Claude API key issue, not the enum), but the "unreachable by every
+  available path" framing is false as written.
+- **AG-39** (§5, "### AG-39: ROI Optimizer", lines 2953–2982): still reads `**Status:** BUILT ???
+  partially wired (telemetry path live, correlation path never called)` and "`run()`... **has no
+  production call site**... it currently never executes." Confirmed false: `runRoiOptimizerStep()`
+  has called `RoiOptimizerAgent.run('schedule')` from `worker/autonomous-orchestrator.ts`'s monthly
+  sweep since commit `6ffd4fd` (2026-07-20) — independently re-grepped and confirmed both in
+  `FEATURE_REGISTRY_v2.md` row #227 and this log's own commit-`3eccd4c` entry above.
+- §3's master agent table (lines 298/300) independently carries the same staleness: AG-15 listed
+  `PLANNED` with chain output "unreachable — 1.3"; AG-17 listed `ENABLED (blocked — 1.2)` with the
+  same "unreachable — 1.3" note.
+- **Not stale**: the AG-28/AG-30 → AG-41/AG-42 renumbering (2026-08-02) is correctly and
+  consistently reflected everywhere in `AGENTS_v2.md` this session checked (§3, §4, §5, the
+  numbering-collision notes) — no lingering references to the old phantom-spec numbering found.
+
+**`NOT_BUILT_MASTER_INVENTORY.md` Section 1's top-of-file "Known stale block" note (lines 26, 37,
+47, 57) is stale, and for two rows now actively contradicted, not just imprecise.** That note (dated
+2026-07-30) groups rows #79, #98, #135–136, #140, #152, #156–159, #161–165 and recommends treating
+all of them as "likely-BUILT pending a fresh verification pass." `FEATURE_REGISTRY_v2.md`'s
+2026-08-07 pass (commit `49a8768`) was exactly that fresh pass, and it confirmed most of the group
+BUILT — VERIFIED as the note predicted — **but found row #98 (`relationship_memory`) confirmed
+absent from production** (the opposite of "likely-BUILT"), and rows #157 (Registry Seed Data — real
+seed array, zero live rows, never executed) and #159 (Agent Marketplace UI — the page at that URL is
+a different, already-documented feature, `/api/agents/registry` has no UI caller anywhere) both
+confirmed NOT-BUILT, not BUILT. `NOT_BUILT_MASTER_INVENTORY.md`'s own Section 2 (the AG-01–42 tally)
+is separately dated 2026-08-07 and already consistent with `FEATURE_REGISTRY_v2.md` — no drift found
+there. `NOT_BUILT_MASTER_INVENTORY.md` §2b's older per-agent entries (including its AG-27 "Code
+absence solid" line) sit inside a section explicitly headed "superseded above, kept for history" and
+are correctly not asserted as current status — not a finding.
+
+**No edits were made to `AGENTS_v2.md`, `FEATURE_REGISTRY_v2.md`, or `NOT_BUILT_MASTER_INVENTORY.md`
+this session**, per this task's explicit constraint
+(`AUTONOMOUS_HARD_LIMITS.NEVER_MODIFY_GOVERNANCE_FILES`) — findings recorded here and in
+`STATE_OF_THE_BUILD.md` only, for a future session scoped to touch those three docs directly.
+
+**Queue-26..38 premise spot-check (Part 2 of this task) could not be completed this session**: this
+session's working directory is sandboxed to `C:\Users\manag\Documents\benavora` — Bash `ls`,
+PowerShell `Get-ChildItem`, Glob, and Read all independently refused
+`C:\Users\manag\Documents\FORGE\projects\benavora\` with "Claude Code may only access files in the
+allowed working directories for this session." No queue-26..38 yaml file could be read. What *was*
+done regardless: a live check of `corporate_prospects`'s current state (`DATABASE_URL`/`pg`, per
+`STANDING_DIRECTIVES.md` DIRECTIVE-017) — table exists (`to_regclass` resolves), **49 real rows**
+(matches `FEATURE_REGISTRY_v2.md` row #87 exactly), `relrowsecurity: true`, zero `anon`/
+`authenticated` grants, zero `pg_policies` rows. This confirms row #87's current claim rather than
+contradicting it. A future session with FORGE-directory access still needs to actually read
+queue-26..38 and verify 2-3 of their stated premises before that chain launches.
+
+**Verification method:** direct `Read`/line-offset reads of the real, on-disk `AGENTS_v2.md` (§3
+master table, §5 AG-15/AG-17/AG-39 spec sections, §1.2/§1.4 annotations) and
+`NOT_BUILT_MASTER_INVENTORY.md` (Section 1's top note, Section 2's tally, Section 2b's historical
+block) rather than any cached/pasted copy; `git log`/`git show --stat` to confirm which prior commits
+already touched which files; a live `pg` client query against `DATABASE_URL` (throwaway `.mjs`
+script, deleted after use, `git status -s` confirmed clean) for `corporate_prospects`'s existence,
+row count, RLS flag, grants, and policies. No application code was read for correctness in this
+pass beyond what the cited prior verification entries already covered — this was a cross-document
+consistency check, not a fresh code audit.
