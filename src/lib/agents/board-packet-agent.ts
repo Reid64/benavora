@@ -5,11 +5,39 @@
 // defense-in-depth). Enterprise spec: AGENTS_v2.md §5, AG-27 "Board Meeting
 // Packet Agent". Purpose: generates a complete board meeting packet 48
 // hours before every scheduled meeting — pipeline summary, outcomes since
-// the last meeting, a lightweight financial snapshot, and Claude-written,
-// evidence-grounded discussion items. Deliberately does NOT attempt
-// FEATURE_REGISTRY_v2.md row #139 ("Plain Language Financials") — the
-// financial section here is a lightweight, real-data summary only, per the
-// spec's own explicit scoping note.
+// the last meeting, a lightweight financial snapshot, a plain-language
+// financial narrative, and Claude-written, evidence-grounded discussion
+// items.
+//
+// FEATURE_REGISTRY_v2.md row #139 ("Plain Language Financials"): this file
+// used to explicitly decline that row, on the grounds that its own
+// financialSnapshot (organizations.annual_budget/total_staff/
+// total_volunteers) is deliberately lightweight, not the deeper narrative
+// row #139 actually asks for. That is still true of financialSnapshot
+// specifically — it is unchanged below. Row #139 itself is now attempted,
+// as a second, additional packet_content key, plainLanguageFinancials
+// (buildFinancialAggregates()/generatePlainLanguageFinancials() below):
+// real aggregates from grant_budgets/grant_expenses/
+// grant_reconciliation_reports (migrations 084/089 — that table family
+// uses organization_id, NOT board_meetings'/board_meeting_packets' org_id;
+// see each query below), narrated by Claude into 2-4 board-appropriate
+// sentences with every claim grounded in a real computed number (a
+// groundedFacts array — the same trace-every-claim-to-a-real-fact
+// discipline groundedIn already enforces for discussion items, adapted for
+// short prose instead of a list). Chosen to live inside the packet (rather
+// than a new /board/[id] section computed live on every page view, or a
+// standalone page) because: (1) it is genuinely the deeper counterpart to
+// the packet's own existing financialSnapshot, presented the way a board
+// member reads it, alongside that same meeting's pipeline/outcomes — not
+// an unrelated feature; (2) it reuses this agent's already-live trigger
+// (daily schedule + event safety net), Claude-retry, and packet-storage
+// plumbing instead of adding a second Claude-calling code path with its
+// own rate limiting; (3) /board/[id] (q34-002) already renders one card
+// per packet — this is a new field on that same card, not a new fetch, API
+// route, or page. Degrades honestly, matching this file's own established
+// pattern: an org with zero real grant_budgets/grant_expenses/
+// grant_reconciliation_reports rows gets an explicit "no financial data on
+// file yet" note and no Claude call, never a fabricated narrative.
 //
 // Confirmed live before writing this file (not assumed, via DATABASE_URL/
 // psql): board_meetings (id, org_id, meeting_date [date, NOT timestamptz],
@@ -92,6 +120,8 @@ type TriggerSource = "autonomous" | "manual" | "chain" | "schedule" | "event";
 const DISCUSSION_ITEMS_MAX_TOKENS = 900;
 const PIPELINE_WINDOW_DAYS = 90;
 const FIRST_MEETING_LOOKBACK_DAYS = 90;
+const FINANCIAL_NARRATIVE_MAX_TOKENS = 500;
+const FINANCIAL_CATEGORY_TOP_N = 5;
 
 const DISCUSSION_SYSTEM_PROMPT =
   "You are the Board Meeting Packet Agent inside Benavora, an AI-powered " +
@@ -107,6 +137,31 @@ const DISCUSSION_SYSTEM_PROMPT =
   "producing structured data for another system, not prose for a human to " +
   "read directly - respond with ONLY the requested JSON, no markdown " +
   "fences, no commentary before or after it.";
+
+// FEATURE_REGISTRY_v2.md row #139, "Plain Language Financials" — see file
+// header. Distinct from DISCUSSION_SYSTEM_PROMPT: this call's only job is to
+// translate real, already-aggregated grant financial figures into
+// jargon-free prose a board member (not an accountant) can read, never to
+// introduce a new fact.
+const FINANCIAL_NARRATIVE_SYSTEM_PROMPT =
+  "You are the Board Meeting Packet Agent inside Benavora, an AI-powered " +
+  "nonprofit funding intelligence platform. You are given real, " +
+  "deterministically-aggregated grant budget and expense figures for one " +
+  "organization - never raw accounting data, never estimates. Write a " +
+  "short, jargon-free financial summary (2-4 sentences) a nonprofit board " +
+  "member with no accounting background could read and understand in " +
+  "under a minute. Use plain English, not accounting terms (say 'money " +
+  "budgeted' not 'appropriation', 'money spent so far' not 'expenditure', " +
+  "'money left' not 'variance'). Every dollar figure and category name in " +
+  "your summary must be one of the exact figures/names you were given - " +
+  "never round loosely, never invent a spending category, program, or " +
+  "number that was not given to you, and never speculate about causes you " +
+  "were not told. For each sentence, cite which given fact(s) it is based " +
+  "on in a groundedFacts array (e.g. \"totalBudgeted\", \"categoryBreakdown\", " +
+  "\"reconciliation\"). You are producing structured data for another " +
+  "system, not prose for a human to read directly in this response - " +
+  "respond with ONLY the requested JSON, no markdown fences, no commentary " +
+  "before or after it.";
 
 interface BoardMeetingRow {
   id: string;
@@ -170,6 +225,61 @@ interface FinancialSnapshot {
   note?: string;
 }
 
+// Migration 084/089 — real columns confirmed against src/types/database.ts
+// and the live /api/applications/[id]/reconcile route. This table family is
+// organization_id-scoped, unlike board_meetings/board_meeting_packets'
+// org_id (see file header).
+interface GrantBudgetRow {
+  application_id: string | null;
+  total_budget: number;
+}
+
+interface GrantExpenseRow {
+  application_id: string | null;
+  category: string | null;
+  amount: number;
+}
+
+// compliance_status is real, free text written only by
+// /api/applications/[id]/reconcile: "under_budget" | "on_budget" |
+// "over_budget" | "no_budget_set" — not a DB enum, so read as plain string.
+interface GrantReconciliationRow {
+  application_id: string;
+  compliance_status: string | null;
+}
+
+interface CategoryAmount {
+  category: string;
+  amount: number;
+}
+
+interface ComplianceStatusCount {
+  status: string;
+  count: number;
+}
+
+interface FinancialAggregates {
+  totalBudgeted: number;
+  totalSpent: number;
+  variance: number;
+  budgetsCount: number;
+  expensesCount: number;
+  categoryBreakdown: CategoryAmount[];
+  reconciliation: ComplianceStatusCount[];
+  hasAnyData: boolean;
+}
+
+interface PlainLanguageFinancials extends FinancialAggregates {
+  narrative: string | null;
+  groundedFacts: string[];
+  note?: string;
+}
+
+interface ClaudeFinancialNarrativeRaw {
+  narrative?: unknown;
+  groundedFacts?: unknown;
+}
+
 interface DiscussionItem {
   item: string;
   groundedIn: string;
@@ -192,6 +302,26 @@ function addDays(date: Date, days: number): Date {
   const result = new Date(date);
   result.setDate(result.getDate() + days);
   return result;
+}
+
+// Real values only: "under_budget" | "on_budget" | "over_budget" |
+// "no_budget_set" (written by /api/applications/[id]/reconcile), plus this
+// file's own "not_reconciled" fallback for a grant with no report at all.
+function humanizeComplianceStatus(status: string): string {
+  switch (status) {
+    case "under_budget":
+      return "Under budget";
+    case "on_budget":
+      return "On budget";
+    case "over_budget":
+      return "Over budget";
+    case "no_budget_set":
+      return "No budget set";
+    case "not_reconciled":
+      return "Not yet reconciled";
+    default:
+      return status;
+  }
 }
 
 export class BoardPacketAgent extends AutonomousAgent {
@@ -394,6 +524,171 @@ export class BoardPacketAgent extends AutonomousAgent {
     };
   }
 
+  /** FEATURE_REGISTRY_v2.md row #139 support, step 1: real, deterministic
+   * aggregates from grant_budgets/grant_expenses/grant_reconciliation_reports
+   * (migrations 084/089), organization_id-scoped (NOT this file's usual
+   * org_id — see header). No Claude call here; this is the grounding-fact
+   * layer generatePlainLanguageFinancials() below narrates from, never lets
+   * Claude compute itself. */
+  private async buildFinancialAggregates(): Promise<FinancialAggregates> {
+    const [budgetsRes, expensesRes, reconciliationRes] = await Promise.all([
+      this.supabase
+        .from("grant_budgets")
+        .select("application_id, total_budget")
+        .eq("organization_id", this.orgId),
+      this.supabase
+        .from("grant_expenses")
+        .select("application_id, category, amount")
+        .eq("organization_id", this.orgId),
+      this.supabase
+        .from("grant_reconciliation_reports")
+        .select("application_id, compliance_status")
+        .eq("organization_id", this.orgId),
+    ]);
+
+    const budgets = (budgetsRes.data ?? []) as GrantBudgetRow[];
+    const expenses = (expensesRes.data ?? []) as GrantExpenseRow[];
+    const reconciliation = (reconciliationRes.data ?? []) as GrantReconciliationRow[];
+
+    const totalBudgeted = budgets.reduce((sum, b) => sum + (b.total_budget ?? 0), 0);
+    const totalSpent = expenses.reduce((sum, e) => sum + (e.amount ?? 0), 0);
+
+    const categoryTotals = new Map<string, number>();
+    for (const e of expenses) {
+      const key = e.category?.trim() || "Uncategorized";
+      categoryTotals.set(key, (categoryTotals.get(key) ?? 0) + (e.amount ?? 0));
+    }
+    const categoryBreakdown: CategoryAmount[] = Array.from(
+      categoryTotals.entries(),
+      ([category, amount]) => ({ category, amount }),
+    )
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, FINANCIAL_CATEGORY_TOP_N);
+
+    const statusCounts = new Map<string, number>();
+    for (const r of reconciliation) {
+      const key = r.compliance_status?.trim() || "not_reconciled";
+      statusCounts.set(key, (statusCounts.get(key) ?? 0) + 1);
+    }
+    const reconciliationSummary: ComplianceStatusCount[] = Array.from(
+      statusCounts.entries(),
+      ([status, count]) => ({ status, count }),
+    );
+
+    return {
+      totalBudgeted,
+      totalSpent,
+      variance: totalBudgeted - totalSpent,
+      budgetsCount: budgets.length,
+      expensesCount: expenses.length,
+      categoryBreakdown,
+      reconciliation: reconciliationSummary,
+      hasAnyData: budgets.length > 0 || expenses.length > 0 || reconciliation.length > 0,
+    };
+  }
+
+  /** FEATURE_REGISTRY_v2.md row #139 support, step 2: the grounding prompt
+   * for the plain-language financial narrative. Every number/category name
+   * here is a real value from buildFinancialAggregates() — Claude is asked
+   * to translate, never to compute or invent. */
+  private buildFinancialNarrativePrompt(aggregates: FinancialAggregates): string {
+    const categoryLines = aggregates.categoryBreakdown
+      .map((c) => `  - ${c.category}: $${c.amount.toLocaleString("en-US")}`)
+      .join("\n");
+    const reconciliationLines = aggregates.reconciliation
+      .map((r) => `  - ${humanizeComplianceStatus(r.status)}: ${r.count} grant(s)`)
+      .join("\n");
+
+    return (
+      `[totalBudgeted] Total money budgeted across ${aggregates.budgetsCount} grant(s): ` +
+      `$${aggregates.totalBudgeted.toLocaleString("en-US")}.\n` +
+      `[totalSpent] Total money spent so far across ${aggregates.expensesCount} recorded ` +
+      `expense(s): $${aggregates.totalSpent.toLocaleString("en-US")}.\n` +
+      `[variance] Money remaining (budgeted minus spent): $${aggregates.variance.toLocaleString("en-US")}.\n` +
+      `[categoryBreakdown] Top spending categories (real category names from recorded expenses):\n` +
+      `${categoryLines || "  (no categorized expenses on file)"}\n` +
+      `[reconciliation] Reconciliation status across grants with a reconciliation report on file:\n` +
+      `${reconciliationLines || "  (no reconciliation reports have been run yet)"}\n\n` +
+      "For EACH sentence, cite exactly which fact(s) above it is grounded in via a groundedFacts " +
+      'array (e.g. "totalBudgeted", "categoryBreakdown") — every sentence must trace back to a ' +
+      "real fact stated above, never an unfalsifiable generic statement about the organization's " +
+      "finances.\n\n" +
+      'Respond with ONLY JSON, shaped exactly as: {"narrative": string, "groundedFacts": string[]}'
+    );
+  }
+
+  /** FEATURE_REGISTRY_v2.md row #139 support, step 3: one bounded Claude
+   * call, only when there is real financial data to narrate. An org with
+   * zero grant_budgets/grant_expenses/grant_reconciliation_reports rows
+   * gets an explicit "no financial data on file yet" note and no Claude
+   * call — never a fabricated narrative (matches this file's own
+   * buildFinancialSnapshot()/buildOutcomesSummary() precedent). On total
+   * Claude failure, degrades to the real aggregates with no narrative,
+   * same as generateDiscussionItems() below. */
+  private async generatePlainLanguageFinancials(): Promise<{
+    result: PlainLanguageFinancials;
+    tokensUsed: number;
+  }> {
+    const aggregates = await this.buildFinancialAggregates();
+
+    if (!aggregates.hasAnyData) {
+      return {
+        result: {
+          ...aggregates,
+          narrative: null,
+          groundedFacts: [],
+          note: "No financial data on file yet.",
+        },
+        tokensUsed: 0,
+      };
+    }
+
+    const prompt = this.buildFinancialNarrativePrompt(aggregates);
+    try {
+      const { text, tokensUsed } = await this.callClaudeWithRetry(
+        prompt,
+        FINANCIAL_NARRATIVE_SYSTEM_PROMPT,
+        FINANCIAL_NARRATIVE_MAX_TOKENS,
+      );
+      const jsonText = text
+        .trim()
+        .replace(/^```(?:json)?\s*/i, "")
+        .replace(/```\s*$/i, "");
+      const parsed = JSON.parse(jsonText) as ClaudeFinancialNarrativeRaw;
+      const narrative = typeof parsed.narrative === "string" ? parsed.narrative.trim() : "";
+      const groundedFacts = Array.isArray(parsed.groundedFacts)
+        ? parsed.groundedFacts.filter((f): f is string => typeof f === "string")
+        : [];
+
+      if (narrative === "") {
+        return {
+          result: {
+            ...aggregates,
+            narrative: null,
+            groundedFacts: [],
+            note: "Financial narrative synthesis returned no usable text this run.",
+          },
+          tokensUsed,
+        };
+      }
+
+      return {
+        result: { ...aggregates, narrative, groundedFacts },
+        tokensUsed,
+      };
+    } catch {
+      return {
+        result: {
+          ...aggregates,
+          narrative: null,
+          groundedFacts: [],
+          note: "Financial narrative synthesis unavailable this run (Claude call failed after 3 attempts).",
+        },
+        tokensUsed: 0,
+      };
+    }
+  }
+
   private buildDiscussionPrompt(
     meeting: BoardMeetingRow,
     pipeline: PipelineSummary,
@@ -432,17 +727,22 @@ export class BoardPacketAgent extends AutonomousAgent {
 
   /** Claude call with 3-attempt exponential backoff (1s/2s/4s), the pattern
    * already proven in src/lib/intelligence/embeddings.ts and reused by
-   * AG-10/AG-26. */
+   * AG-10/AG-26. Shared by generateDiscussionItems() and
+   * generatePlainLanguageFinancials() — system/maxTokens are parameters
+   * rather than the discussion-items constants, so both callers get real
+   * retry/backoff without a second copy of this loop. */
   private async callClaudeWithRetry(
     prompt: string,
+    system: string,
+    maxTokens: number,
   ): Promise<{ text: string; tokensUsed: number }> {
     let lastError: unknown;
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
         const response = await callClaude({
           model: DEFAULT_MODEL,
-          maxTokens: DISCUSSION_ITEMS_MAX_TOKENS,
-          system: DISCUSSION_SYSTEM_PROMPT,
+          maxTokens,
+          system,
           prompt,
         });
         return { text: response.text, tokensUsed: response.usage.totalTokens };
@@ -474,7 +774,11 @@ export class BoardPacketAgent extends AutonomousAgent {
     const prompt = this.buildDiscussionPrompt(meeting, pipeline, outcomes, financial);
 
     try {
-      const { text, tokensUsed } = await this.callClaudeWithRetry(prompt);
+      const { text, tokensUsed } = await this.callClaudeWithRetry(
+        prompt,
+        DISCUSSION_SYSTEM_PROMPT,
+        DISCUSSION_ITEMS_MAX_TOKENS,
+      );
       const jsonText = text
         .trim()
         .replace(/^```(?:json)?\s*/i, "")
@@ -536,20 +840,24 @@ export class BoardPacketAgent extends AutonomousAgent {
     const pipeline = await this.buildPipelineSummary();
     const outcomes = await this.buildOutcomesSummary(meeting);
     const financial = this.buildFinancialSnapshot(org);
+    const { result: plainLanguageFinancials, tokensUsed: financialTokensUsed } =
+      await this.generatePlainLanguageFinancials();
 
-    const { items, tokensUsed, degraded } = await this.generateDiscussionItems(
+    const { items, tokensUsed: discussionTokensUsed, degraded } = await this.generateDiscussionItems(
       meeting,
       pipeline,
       outcomes,
       financial,
     );
+    const tokensUsed = financialTokensUsed + discussionTokensUsed;
 
     const sectionsWithRealData = [
       pipeline.count > 0,
       outcomes.count > 0,
       financial.annualBudget != null,
+      plainLanguageFinancials.hasAnyData,
     ].filter(Boolean).length;
-    const sectionsFallback = 3 - sectionsWithRealData;
+    const sectionsFallback = 4 - sectionsWithRealData;
 
     const packetContent: Record<string, unknown> = {
       agenda: meeting.agenda,
@@ -569,6 +877,9 @@ export class BoardPacketAgent extends AutonomousAgent {
         note: outcomes.note,
       },
       financialSnapshot: financial,
+      // FEATURE_REGISTRY_v2.md row #139 — the deeper narrative
+      // financialSnapshot deliberately doesn't attempt (see file header).
+      plainLanguageFinancials,
       recommendedDiscussionItems: items,
       generatedFor: meeting.meeting_date,
     };
@@ -609,7 +920,7 @@ export class BoardPacketAgent extends AutonomousAgent {
       entityId: meeting.id,
       reasoning:
         `Generated a board packet for the ${meeting.meeting_type} meeting on ${meeting.meeting_date}. ` +
-        `${sectionsWithRealData}/3 sections had real data (${sectionsFallback}/3 used an explicit ` +
+        `${sectionsWithRealData}/4 sections had real data (${sectionsFallback}/4 used an explicit ` +
         `"nothing to report" fallback).` +
         (degraded
           ? " Discussion-item synthesis was unavailable this run (Claude call failed after 3 attempts) " +

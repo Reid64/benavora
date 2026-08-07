@@ -68,6 +68,23 @@ interface PacketContent {
     totalVolunteers: number | null;
     note?: string;
   };
+  // FEATURE_REGISTRY_v2.md row #139, "Plain Language Financials" — the
+  // deeper narrative financialSnapshot above deliberately doesn't attempt,
+  // sourced from real grant_budgets/grant_expenses/
+  // grant_reconciliation_reports (board-packet-agent.ts).
+  plainLanguageFinancials?: {
+    totalBudgeted: number;
+    totalSpent: number;
+    variance: number;
+    budgetsCount: number;
+    expensesCount: number;
+    categoryBreakdown: { category: string; amount: number }[];
+    reconciliation: { status: string; count: number }[];
+    hasAnyData: boolean;
+    narrative: string | null;
+    groundedFacts: string[];
+    note?: string;
+  };
   recommendedDiscussionItems?: { item: string; groundedIn: string }[];
   generatedFor?: string;
   narrativeUnavailable?: string;
@@ -389,6 +406,10 @@ function PacketCard({ packet }: { packet: PacketOut }) {
         </div>
       )}
 
+      {content.plainLanguageFinancials && (
+        <PlainLanguageFinancialsSection data={content.plainLanguageFinancials} />
+      )}
+
       {items.length > 0 && (
         <div>
           <p style={sectionLabelStyle}>Recommended discussion items</p>
@@ -402,6 +423,98 @@ function PacketCard({ packet }: { packet: PacketOut }) {
           </ul>
         </div>
       )}
+    </div>
+  );
+}
+
+// FEATURE_REGISTRY_v2.md row #139, "Plain Language Financials" — real
+// aggregates from grant_budgets/grant_expenses/grant_reconciliation_reports,
+// narrated by Claude with every sentence traced to a groundedFacts entry
+// (board-packet-agent.ts). Renders as its own labeled sub-section of the
+// packet card, distinct from the lightweight "Financial snapshot" above it.
+function PlainLanguageFinancialsSection({
+  data,
+}: {
+  data: NonNullable<PacketContent["plainLanguageFinancials"]>;
+}) {
+  return (
+    <div style={{ marginBottom: "16px" }}>
+      <p style={sectionLabelStyle}>Financial summary (plain language)</p>
+
+      {!data.hasAnyData && (
+        <p style={{ fontSize: "13px", color: "#64748B", margin: 0 }}>
+          {data.note ?? "No financial data on file yet."}
+        </p>
+      )}
+
+      {data.hasAnyData && data.narrative && (
+        <p style={{ fontSize: "13px", color: "#334155", margin: "0 0 10px", lineHeight: 1.6 }}>
+          {data.narrative}
+        </p>
+      )}
+
+      {data.hasAnyData && !data.narrative && data.note && (
+        <p
+          style={{
+            fontSize: "12px",
+            color: "#B45309",
+            backgroundColor: "#FFFBEB",
+            border: "1px solid #FDE68A",
+            borderRadius: "8px",
+            padding: "8px 12px",
+            marginBottom: "10px",
+          }}
+        >
+          {data.note}
+        </p>
+      )}
+
+      {data.hasAnyData && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "16px" }}>
+          <FinancialFigure label="Budgeted" value={formatCurrency(data.totalBudgeted)} />
+          <FinancialFigure label="Spent" value={formatCurrency(data.totalSpent)} />
+          <FinancialFigure
+            label="Remaining"
+            value={formatCurrency(data.variance)}
+            valueColor={data.variance < 0 ? "#B91C1C" : "#0F172A"}
+          />
+        </div>
+      )}
+
+      {data.categoryBreakdown.length > 0 && (
+        <ul style={{ margin: "10px 0 0", paddingLeft: "18px", display: "flex", flexDirection: "column", gap: "3px" }}>
+          {data.categoryBreakdown.map((c, i) => (
+            <li key={i} style={{ fontSize: "12px", color: "#64748B" }}>
+              {c.category}: {formatCurrency(c.amount)}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {data.reconciliation.length > 0 && (
+        <p style={{ fontSize: "12px", color: "#94A3B8", margin: "8px 0 0" }}>
+          {data.reconciliation
+            .map((r) => `${r.count} grant${r.count === 1 ? "" : "s"} ${humanizeMeetingType(r.status).toLowerCase()}`)
+            .join(" · ")}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function FinancialFigure({
+  label,
+  value,
+  valueColor = "#0F172A",
+}: {
+  label: string;
+  value: string;
+  valueColor?: string;
+}) {
+  return (
+    <div>
+      <div style={{ fontSize: "11px", color: "#94A3B8" }}>{label}</div>
+      <div style={{ fontSize: "14px", fontWeight: 700, color: valueColor }}>{value}</div>
     </div>
   );
 }

@@ -1,7 +1,62 @@
 # BENAVORA — Session State
-## Last Updated: August 7, 2026 (row #138 Board Member Portal — honest Phase 1 scope shipped, org_id/organization_id bug fixed in relationship-graph route)
+## Last Updated: August 7, 2026 (row #139 Plain Language Financials — real narrative added to the q34-002 board packet card)
 
-## Current Session — August 7, 2026 (row #138 Board Member Portal)
+## Current Session — August 7, 2026 (row #139 Plain Language Financials)
+
+**Focus:** ship `FEATURE_REGISTRY_v2.md` row #139 ("Plain Language Financials", PLANNED:
+"Jargon-free financial summary for board. Phase 3.") — the deeper financial narrative
+`board-packet-agent.ts`'s own header comment (AG-27, row #137, shipped the prior session)
+explicitly declined, since its `financialSnapshot` field is deliberately just
+`organizations.annual_budget`/`total_staff`/`total_volunteers`.
+
+**Decision (a/b/c), stated explicitly per this session's own instruction:** built as **(b) — a
+new section inside the existing board packet's `packet_content`** (a new
+`plainLanguageFinancials` jsonb key, no migration needed), rendered as a new section on the
+existing packet card at `/board/[id]` (q34-002, the immediately prior session's own output) —
+not (a) a new section computed live on every portal page view, and not (c) a standalone page.
+Read q34-002's real output before deciding: it already renders one card per
+`board_meeting_packets` row from a client-side interface over `packet_content`'s jsonb, so a new
+key + a new render block is the smallest real, non-redundant change — it reuses
+`board-packet-agent.ts`'s already-live trigger, Claude-retry, and packet-storage plumbing instead
+of a second Claude-calling code path with its own rate limiting, and it keeps the narrative
+attached to the actual document a board reads (the packet) rather than a second, disconnected
+surface.
+
+**Status:** shipped. Confirmed real schema before writing any code: `grant_budgets`/
+`grant_expenses`/`grant_reconciliation_reports` (migrations 084/089) are real, already in
+`src/types/database.ts`'s generated types, and — confirmed via the live
+`/api/applications/[id]/reconcile` route and `/api/financials/budgets` — scoped by
+`organization_id`, NOT this file's usual `board_meetings`/`board_meeting_packets` `org_id` (an
+easy conflation, called out explicitly in the file's own updated header comment, same pattern as
+the org_id/organization_id bug fixed in the prior session's relationship-graph route).
+
+`board-packet-agent.ts`: new `buildFinancialAggregates()` (real sums: total budgeted, total
+spent, remaining, top-5 category breakdown from real `grant_expenses.category` free text, and a
+reconciliation-status count from real `compliance_status` values) feeds
+`generatePlainLanguageFinancials()` — one bounded Claude call producing 2-4 jargon-free sentences,
+every dollar figure/category name required to be one of the real values it was given, with a
+`groundedFacts` array per response (same trace-every-claim-to-a-real-fact discipline the packet's
+existing discussion items already enforce via `groundedIn`, adapted for prose). Zero real
+financial rows for an org → `hasAnyData: false`, an honest "No financial data on file yet." note,
+**no Claude call at all** (matches this file's own `buildFinancialSnapshot()` precedent). A failed
+Claude call still keeps the real computed numbers, just with `narrative: null` and an
+"unavailable this run" note — never a fabricated narrative either way.
+`sectionsWithRealData`/`sectionsFallback` widened from `/3` to `/4` to include the new section.
+
+`/board/[id]/page.tsx`: new `PlainLanguageFinancialsSection` component, inline `style={{}}` hex
+per this project's UI rule, reusing the page's own existing card/label styling — renders the
+narrative, three compact figures (Budgeted/Spent/Remaining, red when negative), the real category
+breakdown, and the real reconciliation counts.
+
+**Gates:** `pnpm tsc --noEmit` — zero new errors (ran twice; all remaining output is pre-existing
+`src/__tests__/**` noise, unrelated to either edited file).
+
+**Commit:** `feat(board): plain-language financial summary from real
+grant_budgets/grant_expenses data, Claude-narrated with grounded facts` (this session).
+
+---
+
+## Prior Session — August 7, 2026 (row #138 Board Member Portal)
 
 **Focus:** ship `FEATURE_REGISTRY_v2.md` row #138 ("Board Member Portal", PLANNED: "Per-member
 dashboard at /board/[id]. Phase 3.") as the real, honest Phase 1 scope the live schema actually

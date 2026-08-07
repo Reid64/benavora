@@ -1,8 +1,90 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 7, 2026 (row #138 Board Member Portal — honest Phase 1 scope, plus a real org_id/organization_id bug fix in the relationship-graph route). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 7, 2026 (row #139 Plain Language Financials — real narrative added to the q34-002 board packet card). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 7, 2026 (row #139 Plain Language Financials — grant_budgets/grant_expenses/grant_reconciliation_reports narrative added to the board packet)
+
+Per `FEATURE_REGISTRY_v2.md` row #139, "Plain Language Financials" was PLANNED: "Jargon-free
+financial summary for board. Phase 3." `board-packet-agent.ts`'s own header comment (AG-27, row
+#137, built the prior session) explicitly declined this row — its `financialSnapshot` packet
+field is a deliberately lightweight `organizations.annual_budget`/`total_staff`/
+`total_volunteers` summary, not the deeper narrative row #139 asks for.
+
+**Decision (a/b/c, per this session's own instruction to state it explicitly):** built as **(b)
+— a new section inside the existing board packet**, not a new `/board/[id]` section computed
+live on every page view (a) and not a standalone page (c). Reasoning, read directly off what
+q34-002 (row #138, the `/board/[id]` portal, built the immediately prior session) actually is:
+that page already renders one card per `board_meeting_packets` row via a client-side
+`PacketContent` interface that reads whatever keys exist on `packet_content` jsonb — adding a new
+key to that jsonb and a new render block for it on the existing card is a strictly additive,
+zero-migration change (`packet_content` has no fixed schema beyond "jsonb"). Building this as a
+new API route/section outside the packet (option a) would have meant a second Claude-calling code
+path with its own retry/rate-limit logic, duplicating what `board-packet-agent.ts` already has,
+and re-computing (and re-billing) the same narrative on every page view instead of once per
+packet generation. It also would have decoupled this row's "for the board" framing from the
+actual document a board reads — the packet — for no real benefit. Standalone page (c) was
+rejected outright: q34-002 already built the one real board-facing surface this row's data
+belongs on; a second page would just be a second, redundant place to look.
+
+**What shipped, real:**
+- `src/lib/agents/board-packet-agent.ts`: new `buildFinancialAggregates()` — real, deterministic
+  sums from `grant_budgets`/`grant_expenses`/`grant_reconciliation_reports` (migrations 084/089),
+  scoped by `organization_id` (confirmed via `src/types/database.ts` and the real
+  `/api/applications/[id]/reconcile` route — this table family uses `organization_id`, not this
+  file's usual `board_meetings`/`board_meeting_packets` `org_id`, an easy conflation this file's
+  own header now calls out explicitly). Computes total budgeted, total spent, remaining, a
+  category breakdown (real `grant_expenses.category` free-text values, top 5 by spend,
+  "Uncategorized" for null), and a reconciliation-status count (real
+  `compliance_status` values: `under_budget`/`on_budget`/`over_budget`/`no_budget_set`, written
+  only by the reconcile route, plus this file's own `not_reconciled` label for a grant with no
+  report at all).
+- `generatePlainLanguageFinancials()`: one bounded Claude call (`callClaude`/`DEFAULT_MODEL`,
+  reusing the same 3-attempt exponential-backoff retry helper `generateDiscussionItems()` already
+  uses, generalized to take a system prompt + max-tokens parameter instead of hardcoding the
+  discussion-items ones) that turns the real aggregates into 2-4 jargon-free sentences. The
+  system prompt requires every dollar figure/category name to be one of the exact values it was
+  given and a `groundedFacts` array per response citing which aggregate(s) each sentence is based
+  on — the same trace-every-claim-to-a-real-fact discipline the packet's existing discussion
+  items enforce via `groundedIn`, adapted for short prose instead of a list.
+- **Honest degrade, not fabrication, in both directions:** an org with zero real
+  `grant_budgets`/`grant_expenses`/`grant_reconciliation_reports` rows gets `hasAnyData: false`
+  and an explicit "No financial data on file yet." note — **no Claude call is made at all** in
+  that case, matching this file's own `buildFinancialSnapshot()`/`buildOutcomesSummary()`
+  precedent. An org with real data whose Claude call fails after 3 attempts still gets the real
+  computed numbers (`totalBudgeted`/`totalSpent`/`variance`/category/reconciliation), just with
+  `narrative: null` and an "unavailable this run" note — the deterministic numbers are the
+  load-bearing content, same principle as `narrativeUnavailable` already applies to discussion
+  items.
+- Written to `packet_content.plainLanguageFinancials`, a new key alongside the existing
+  `financialSnapshot` (both now nested inside every future generated packet; **existing packets
+  generated before this session simply lack the new key** — the UI checks for its presence and
+  renders nothing extra for older packets, not a blank/broken section).
+  `sectionsWithRealData`/`sectionsFallback` (used in the packet's own `agent_decisions` reasoning
+  text) widened from a `/3` to a `/4` denominator to include this new section.
+- `src/app/(dashboard)/board/[id]/page.tsx` (q34-002): added a `plainLanguageFinancials` field to
+  the client-side `PacketContent` interface and a new `PlainLanguageFinancialsSection` component,
+  rendered on the packet card right after the existing "Financial snapshot" block. Inline
+  `style={{}}` hex values throughout, matching this project's UI rule and this page's own
+  established card styling (same `sectionLabelStyle`, same muted/amber empty-state treatment
+  already used elsewhere on this exact page). Shows the narrative prose when present, three
+  compact figures (Budgeted/Spent/Remaining, remaining in red when negative), the real category
+  breakdown, and the real reconciliation-status counts.
+
+**Explicit non-fabrication check:** every dollar figure and category name the Claude prompt can
+reference comes from `buildFinancialAggregates()`'s real query results — there is no code path
+that lets the narrative mention a spending category, dollar amount, or grant that wasn't actually
+in `grant_budgets`/`grant_expenses`/`grant_reconciliation_reports`. Not live-tested against a real
+org's financial data this session (no live DB/Claude credential path was exercised) — this is a
+static-correctness build, same disclosure standard as the immediately prior q34-002 session for
+its own routes.
+
+Gates: `pnpm tsc --noEmit` — zero new errors (confirmed twice, before and after the full change);
+all output is pre-existing `src/__tests__/**` noise unrelated to either edited file (per this
+project's own standing note that the tsc gate excludes tests/e2e).
 
 ---
 
