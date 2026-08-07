@@ -1,8 +1,58 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 7, 2026 (Corporate Outreach composer: true per-prospect batch personalization added, row #120). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 7, 2026 (Corporate Giving DNA per-company profile page shipped, row #92). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 7, 2026 (Corporate Giving DNA per-company profile page, row #92)
+
+**Task:** `FEATURE_REGISTRY_v2.md` row #92 ("Corporate Giving DNA — profile per company") was
+PLANNED. Confirmed genuinely net-new by grep before starting: no `/[id]` detail route existed for
+`corporate_prospects` anywhere in `src/app` — the one existing prospect-detail page/route pair
+(`/donor-discovery/prospects/[id]` → `/api/donor-discovery/prospects/[id]`) is for a completely
+different table system (`donor_discovery_prospects`/`donor_discovery_directory`), not
+`corporate_prospects`. Left that page untouched to avoid colliding two different data sources under
+one URL.
+
+**Live schema/data check before writing UI** (`information_schema.columns` + sample rows via
+`DATABASE_URL`/psql, per `STANDING_DIRECTIVES.md` DIRECTIVE-017): `corporate_prospects` has 40 real
+columns, 49 total rows. `enrichment` is populated on **49/49** rows (Google Places-sourced:
+`rating`, `google_types`, `google_place_id`, plus AG-42-style `change_monitor_snapshot`/
+`change_monitor_last_checked_at`). `scores` is populated on **1/49** rows — a real AG-22 PS-01
+through PS-10 run (`{score, rationale, top_factors}` per metric, plus a `ranking` key with
+`rank`/`ranked_at`/`is_priority_prospect`), confirming q32-001's cached sample is still accurate.
+`giving_dna` is populated on **0/49** rows — genuinely empty, not yet built by anything.
+
+**Built:**
+- `GET /api/intelligence/corporate-prospects/[id]` — reads one `corporate_prospects` row via
+  `createAdminClient()` (this table has no `organization_id`/RLS, same precedent as
+  `GET /api/intelligence/outreach/prospects`), gated `requireRole("viewer")`. Returns all 40
+  columns including `enrichment`/`scores`/`giving_dna` jsonb.
+- `/donor-discovery/outreach/prospects/[id]` — profile page. Nested under `outreach/` since that's
+  the real, wired home of `corporate_prospects` browsing today (the Corporate Outreach composer's
+  Prospect Selector). Renders: core identity (name/website/address/phone/email/NAICS/employee-
+  revenue estimates/ownership flags/EIN/DUNS), Propensity Scores (PS-01–PS-10) with each metric's
+  real `rationale`/`top_factors` when `scores` is populated, an honest "not yet scored" empty state
+  otherwise (48/49 real prospects today), Enrichment Findings rendered by iterating whatever keys
+  are actually present in the jsonb (not a hardcoded field set — a nested object like
+  `change_monitor_snapshot` renders as its own compact key/value list rather than raw JSON), and a
+  Corporate Giving DNA card with an honest empty state (0/49 populated today, but the display path
+  is built and will render real data the moment AG-22 or a future agent starts writing to it).
+- Wired a "Profile" link into each prospect row in the outreach composer's Prospect Selector list
+  (`/donor-discovery/outreach/page.tsx`) so the new page is actually reachable, not orphaned —
+  converted the row's outer element from a single `<label>` to a `<label>` (checkbox) + `<Link>`
+  (profile) pair so both interactions coexist.
+
+**Styling:** matched the outreach page's real convention (Tailwind layout classes + inline
+`style={{}}` hex overrides for specific colors, `@/components/ui` component library) rather than
+the pure-inline-hex-only rule some other pages follow — this is the actual precedent at
+`donor-discovery/outreach/page.tsx`, verified by reading it before writing new styles.
+
+Gates: `pnpm tsc --noEmit` — 0 new errors (grepped output for `corporate-prospects`/
+`outreach/prospects`/`outreach/page.tsx` — zero matches). Pre-existing failures remain confined to
+`src/__tests__/**`, unrelated to and untouched by this change.
 
 ---
 

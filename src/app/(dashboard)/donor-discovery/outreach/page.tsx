@@ -524,47 +524,57 @@ export default function CorporateOutreachPage() {
                     const checked = selectedIds.has(p.id);
                     const badge = intentBadgeStyle(p.intentScore);
                     return (
-                      <label
+                      <div
                         key={p.id}
-                        className="flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-2.5 transition hover:bg-slate-50"
+                        className="flex items-start gap-3 rounded-lg border px-3 py-2.5 transition hover:bg-slate-50"
                         style={{ borderColor: checked ? "#0077B6" : "#E2E8F0", backgroundColor: checked ? "#EFF8FF" : "#FFFFFF" }}
                       >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => toggleProspect(p.id)}
-                          className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300"
-                          style={{ accentColor: "#0077B6" }}
-                        />
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center justify-between gap-2">
-                            <p className="truncate text-sm font-semibold text-navy-900">{p.displayName}</p>
-                            <span
-                              style={badge}
-                              className="shrink-0 rounded-full px-2 py-0.5 text-xs font-bold"
-                              title={p.intentScore != null ? "Predicted intent score" : "No intent signal on file"}
-                            >
-                              {p.intentScore != null ? p.intentScore : "—"}
-                            </span>
-                          </div>
-                          <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
-                            {p.industry && (
+                        <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-3">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleProspect(p.id)}
+                            className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300"
+                            style={{ accentColor: "#0077B6" }}
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="truncate text-sm font-semibold text-navy-900">{p.displayName}</p>
                               <span
-                                style={{ backgroundColor: "#0077B61A", color: "#0077B6" }}
-                                className="rounded-full px-2 py-0.5 font-medium"
+                                style={badge}
+                                className="shrink-0 rounded-full px-2 py-0.5 text-xs font-bold"
+                                title={p.intentScore != null ? "Predicted intent score" : "No intent signal on file"}
                               >
-                                {p.industry}
+                                {p.intentScore != null ? p.intentScore : "—"}
                               </span>
-                            )}
-                            {(p.city || p.state) && <span>{[p.city, p.state].filter(Boolean).join(", ")}</span>}
-                            {!p.email && (
-                              <span style={{ color: "#B91C1C" }} className="font-medium">
-                                No email on file
-                              </span>
-                            )}
+                            </div>
+                            <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
+                              {p.industry && (
+                                <span
+                                  style={{ backgroundColor: "#0077B61A", color: "#0077B6" }}
+                                  className="rounded-full px-2 py-0.5 font-medium"
+                                >
+                                  {p.industry}
+                                </span>
+                              )}
+                              {(p.city || p.state) && <span>{[p.city, p.state].filter(Boolean).join(", ")}</span>}
+                              {!p.email && (
+                                <span style={{ color: "#B91C1C" }} className="font-medium">
+                                  No email on file
+                                </span>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      </label>
+                        </label>
+                        <Link
+                          href={`/donor-discovery/outreach/prospects/${p.id}`}
+                          className="mt-0.5 shrink-0 text-xs font-medium hover:underline"
+                          style={{ color: "#0077B6" }}
+                          title="View Corporate Giving DNA profile"
+                        >
+                          Profile
+                        </Link>
+                      </div>
                     );
                   })
                 )}
