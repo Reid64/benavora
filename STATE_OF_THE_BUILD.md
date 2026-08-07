@@ -1,8 +1,22 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 8, 2026 (row #144 — per-opportunity Narrative Gap Analysis built, extends AG-11). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 8, 2026 (rows #145/#146 — Geographic Gap Detection + Gap Recommendations built). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 8, 2026 (rows #145/#146 — Geographic Gap Detection + Gap Recommendations)
+
+Built the two remaining Funding Gap Analyzer rows (Pillar 14): `src/lib/intelligence/geographic-gap-analysis.ts` (row #145) and `src/lib/intelligence/gap-recommendations.ts` (row #146), backed by `GET /api/intelligence/gap-analysis` and a new `/intelligence/gap-analysis` page (nav entry added under Intelligence).
+
+**Schema check done before writing any query (per this task's own instruction):** confirmed live via `src/types/database.ts` that `funders.geographic_focus` and `opportunities.geographic_restrictions` are both plain nullable `text` columns — no lat/lng, no structured region enum anywhere on either table. Confirmed the org-side column split too: `organizations.service_area` is a singular free-text column; `organizational_digital_twins.service_areas` (migration 093) is a separate, plural `text[]` column on a different table. Read `digital-twin-builder.ts`'s `buildServiceAreas()` directly and confirmed the twin's array is *derived* from `organizations.service_area` split on commas — it is not an independent, richer source, so there was no reason to add a second table dependency (and no reason to risk reading null for an org whose twin hasn't been built yet, since twin-building is event-driven per row #107, not guaranteed). Used `organizations.service_area` directly, matching the identical choice `donor-intent-monitor-agent.ts` (AG-30) already made and documented for the same reason.
+
+**Geographic Gap Detection (#145):** portfolio-wide scan of the org's open (`status = 'open'`) opportunities, capped at 30, soonest-deadline first. For each opportunity, prefers `opportunities.geographic_restrictions` (more specific to that cycle) and falls back to the joined funder's `geographic_focus` only when the opportunity states none; an opportunity/funder with neither field populated is correctly never flagged (no data ≠ a mismatch). Overlap check is bidirectional keyword/substring matching (org's service-area text split into tokens ≥4 chars, checked both directions against the funder/opportunity text), with an explicit national-keyword allowlist ("nationwide," "no restriction," "united states," etc.) so a funder that states no real restriction is never flagged regardless of token overlap. This is **inherently a best-effort text signal, not a verified geographic determination** — the schema has nothing more precise to check against, and the returned `methodology` string plus the UI both say so explicitly rather than implying more precision than the data supports.
+
+**Gap Recommendations (#146):** a synthesis/display layer, not a new autonomous agent — no `agent_runs`/`agent_decisions` row, no schedule, no queue trigger. Runs the geographic scan once, then calls row #144's already-built `computeNarrativeGapAnalysis()` per opportunity for the soonest-deadline subset (capped at 15, tighter than #145's cap since each call is its own opportunity+KB query pair), and combines both into one concrete recommendation per flagged gap. Narrative-gap tips are static per-category text (10 real `knowledge_base_category` enum values, mirroring AG-11's "specific outcome numbers, not vague claims" style) rather than a Claude call, since this is a request-scoped UI read, not an autonomous decision needing its own reasoning trail. Both scan caps (30 and 15) are shown in the UI whenever a scan is actually truncated — never a silent cap.
+
+Gates: `pnpm tsc --noEmit` — 38 pre-existing errors, all confined to `src/__tests__/**` (deadline-predictor, outcome-analyzer, regressions, samgov-client, organizations, storage-rls — the same standing test-file failures documented in prior sessions' entries in this file), zero in any file this session touched.
 
 ---
 
