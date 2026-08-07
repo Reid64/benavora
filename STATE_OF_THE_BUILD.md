@@ -1,8 +1,40 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 6, 2026 (Anthropic key consolidated + synced to all 3 environments; AG-22 fully unblocked; AutoApply CAPTCHA pause live-verified; 2 new AutoApply bugs found). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 7, 2026 (Both AutoApply bugs from the prior session fixed — ready-org E2E test passes for the first time). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 7, 2026 (Both AutoApply bugs from the prior session fixed — ready-org E2E test passes for the first time)
+
+**Task:** fix the two real bugs the immediately-prior session found while re-verifying the AutoApply
+ready-org pipeline: `form-analyzer-agent.ts` crashing Claude with an empty-content message, and
+`form_templates.automation_assessment` missing from the live schema. Re-run the E2E test and report
+real progress or a further, precisely-diagnosed blocker.
+
+**Fix 1:** `form-analyzer-agent.ts`'s automation-prohibition scan now skips (with a clear
+`scan_skipped_reason`) instead of sending Claude an empty user message when the scraped page has no
+visible text. `pnpm exec tsc -p worker/tsconfig.json --noEmit` (this file's actual build scope) clean.
+
+**Fix 2:** migration `126_form_templates_automation_assessment.sql` adds the missing `jsonb` column,
+applied live via `psql`/`DATABASE_URL` and independently confirmed against PostgREST's own schema cache
+(a real insert now fails on FK violation, not `PGRST204`).
+
+**Deploy gap found and closed:** pushing the fix did not trigger a Railway rebuild — the *committed*
+`railway.json` watchPatterns don't cover `src/lib/autoapply/**` (a broader local edit exists but was
+never pushed). Forced it with `railway redeploy --from-source`, polled to a real `SUCCESS` on the exact
+new commit before treating it as live.
+
+**Result: `src/__tests__/integration/autoapply-queue.test.ts` — 6/6 pass**, including the ready-org test
+for the first time in this project's history (138.5s, consistent with real browser/Claude work). Every
+previously-found blocker in this pipeline (ffmpeg/recordVideo, dead Anthropic key, empty-content 400,
+missing column) is now fixed; the pipeline reaches real business logic (a per-domain rate limiter
+correctly protecting the shared `httpbin.org` test target) rather than crashing on infrastructure defects.
+Full evidence in `AGENT_VERIFICATION_LOG.md`.
+
+Gates: `pnpm exec tsc -p worker/tsconfig.json --noEmit` clean; live `pnpm vitest run` against the real,
+unmodified integration test.
 
 ---
 

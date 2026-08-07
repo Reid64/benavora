@@ -1,10 +1,68 @@
 # BENAVORA — Session State
-## Last Updated: August 6, 2026 (Anthropic key consolidated across all 3 environments; AG-22 unblocked; CAPTCHA pause verified; 2 new AutoApply bugs found)
-## Mode: synced Reid's newly-consolidated Anthropic API key (three keys merged to one in the console) to .env.local, Railway (benavora-worker), and Vercel production, then redeployed both Railway and Vercel and polled each to a real terminal SUCCESS/Ready state (not assumed from the deploy commands' own exit) before treating the rotation as live. Re-ran AG-22 live: fully unblocked, first clean `completed` agent_runs row in this project's history, real 9-rubric scores computed and persisted. Re-ran the AutoApply ready-org pipeline test: still fails, but on a new root cause (FormAnalyzerAgent sends Claude an empty-content message, 400) — the ffmpeg fix and new key both demonstrably worked, since the pipeline gets meaningfully further than any prior session. Found a second new bug along the way: form_templates' automation_assessment column doesn't exist in any migration or live schema. Manually verified CAPTCHA detect-and-pause for the first time: a real queue item pointed at Google's own reCAPTCHA v2 demo page correctly paused (zero automation_sessions rows created) with a real screenshot confirmed in storage. Added DIRECTIVE-018 to STANDING_DIRECTIVES.md documenting the new canonical key (by suffix only, never plaintext, since that file is committed) and the env-var-shadowing bug found investigating the prior dead key. Full evidence in AGENT_VERIFICATION_LOG.md.
+## Last Updated: August 7, 2026 (Both AutoApply bugs from the prior session fixed — ready-org E2E test passes for the first time)
+## Mode: fixed the two real bugs the immediately-prior session found. (1) form-analyzer-agent.ts's automation-prohibition scan now skips with a clear scan_skipped_reason instead of sending Claude an empty-content message when the scraped page has no visible text; worker's own tsconfig typechecks clean. (2) migration 126 adds the missing form_templates.automation_assessment jsonb column, applied live via psql/DATABASE_URL and independently confirmed against PostgREST's schema cache (real insert now fails on FK violation, not PGRST204). Discovered pushing the fix alone doesn't trigger a Railway rebuild — the committed railway.json watchPatterns don't cover src/lib/autoapply/** (a broader local edit exists but was never pushed) — forced it with `railway redeploy --from-source`, polled to a real SUCCESS on the exact new commit. Re-ran src/__tests__/integration/autoapply-queue.test.ts: all 6 tests pass, including the ready-org test for the first time in this project's history (138.5s, consistent with real browser/Claude work). Every previously-found blocker in this pipeline is now fixed; a follow-up standalone run hit a different, legitimate stop (a real per-domain rate limiter protecting the shared httpbin.org test target from repeated hits) — not a bug, and not evidence against the fix, since the official test ran first and passed cleanly. Full evidence in AGENT_VERIFICATION_LOG.md.
 
 ---
 
-## Current Session — August 6, 2026 (Anthropic key consolidated across all 3 environments; AG-22 unblocked; CAPTCHA pause verified; 2 new AutoApply bugs found)
+## Current Session — August 7, 2026 (Both AutoApply bugs from the prior session fixed — ready-org E2E test passes for the first time)
+
+**Task:** fix `form-analyzer-agent.ts`'s empty-content Claude crash and the missing
+`form_templates.automation_assessment` column (both found in the immediately-prior session's
+re-verification), then re-run the ready-org E2E test and report real progress or a further,
+precisely-diagnosed blocker.
+
+**Fix 1 — empty-content guard.** The automation-prohibition scan (`AUTOMATION_SCAN_SYSTEM` +
+`pageText`) now checks `pageText.trim() === ''` before calling Claude; when true it skips the call
+entirely and uses a default `AutomationAssessment` carrying a new `scan_skipped_reason` field
+explaining why, instead of sending a request Anthropic is guaranteed to reject with `400
+invalid_request_error`. The form-structure scan is untouched — it always has real content since
+`buildFormPrompt()` always includes the portal URL. `pnpm exec tsc -p worker/tsconfig.json --noEmit`
+(the file's real compile scope, per its own header comment) passed clean.
+
+**Fix 2 — missing column.** `supabase/migrations/126_form_templates_automation_assessment.sql` adds
+`automation_assessment jsonb` (nullable, matching sibling `form_structure`/`field_mapping` columns).
+Applied live via `psql "$DATABASE_URL" -f ...` per DIRECTIVE-017. Verified against PostgREST's own
+schema cache, not just raw Postgres: a real service-role insert now fails with `23503` (foreign-key
+violation on a deliberately-bad test id) instead of the original `PGRST204` — proof the column is
+actually recognized by the live REST API, not just present in the table definition.
+
+**Deploy gap found mid-session:** ~10 minutes after pushing the fix, `railway status --json` still
+showed only the old pre-fix deployment — no rebuild had fired. Root cause: the *committed*
+`railway.json`'s `watchPatterns` only lists `worker/**`/`package.json`/`pnpm-lock.yaml`; a broader
+edit adding `src/lib/autoapply/**` etc. exists locally (made by Reid, seen throughout this session) but
+was never itself committed/pushed, so Railway's push-triggered rebuild never matched the changed file.
+Forced a rebuild with `railway redeploy --service benavora-worker --environment production
+--from-source --yes` (pulls the latest commit rather than rebuilding the stale one), then polled
+`railway status --json` against the exact commit hash from `git rev-parse HEAD` (not guessed — an
+earlier attempt in this session used a hand-typed hash that didn't match anything and had to be
+restarted) until it reached a real `SUCCESS`.
+
+**Result: `pnpm vitest run src/__tests__/integration/autoapply-queue.test.ts` — 6/6 pass**, including:
+```
+✓ real queue item for a ready org: proceeds past org_not_ready into real submission logic   138545ms
+```
+This is the first time this specific test has passed in this project's history. 138.5s is consistent
+with the test's own documented expectation of "meaningfully longer than the unready org's near-instant
+skip" for real browser/Claude work having actually run.
+
+**Independent re-run for a concrete artifact** (the vitest suite deletes its own evidence in
+`afterAll`): a standalone script replicating the identical fixture, run immediately after, hit a
+different, legitimate stop — `error_message: "cross_client_blocked: Another organization submitted to
+httpbin.org in the last 7 days..."` — a real anti-abuse guard protecting the shared dummy target,
+triggered by the official test's own submission attempt moments earlier. Not a bug; the official test
+result (which ran first, before any throttle applied) is the authoritative one.
+
+**Every previously-found blocker in this pipeline is now fixed:** ffmpeg/`recordVideo` (prior session),
+dead Anthropic key (prior session), empty-content 400 and missing column (this session). The ready-org
+path is now genuinely functional end to end — it reaches real business logic (the rate limiter) instead
+of crashing on infrastructure/schema defects.
+
+Gates: `pnpm exec tsc -p worker/tsconfig.json --noEmit` clean (the fixed file's real build scope); live
+`pnpm vitest run` against the real, unmodified integration test file.
+
+---
+
+## SESSION — August 6, 2026 (Anthropic key consolidated across all 3 environments; AG-22 unblocked; CAPTCHA pause verified; 2 new AutoApply bugs found)
 
 **Task:** sync the new consolidated Anthropic API key to all three live locations, redeploy so it takes
 effect, then re-verify AG-22 and the two outstanding AutoApply items from the immediately-prior ffmpeg-fix

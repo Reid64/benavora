@@ -5696,3 +5696,71 @@ worker's own logs nor a vitest suite's `afterAll` leave that field inspectable a
 Supabase Storage `list()` call to confirm the pause screenshot is a real uploaded file, not just a
 recorded path. All four throwaway scripts used this session were deleted after use, and the storage
 screenshots they produced were explicitly removed during cleanup — none were committed.
+
+---
+
+## Both AutoApply bugs from the entry above fixed; ready-org E2E test passes for the first time — 2026-08-06/07
+
+**Task:** fix the two real bugs found in the immediately-prior entry (`form-analyzer-agent.ts`'s
+empty-content Claude call, `form_templates.automation_assessment`'s missing column), then re-run the
+ready-org E2E test and report real progress or a further, precisely-diagnosed blocker.
+
+**Fix 1 — empty-content guard.** `src/lib/autoapply/form-analyzer-agent.ts`: the automation-prohibition
+scan (`AUTOMATION_SCAN_SYSTEM` + `pageText`) now skips entirely when `pageText.trim() === ''`, using a
+default `AutomationAssessment` with a new `scan_skipped_reason` field explaining why, instead of sending
+Claude a request guaranteed to 400. The form-structure scan (`SYSTEM_PROMPT` + HTML) is unaffected — it
+always has real content since `buildFormPrompt()` always includes the portal URL. `pnpm exec tsc -p
+worker/tsconfig.json --noEmit` (the actual build scope this file compiles under, per its own header
+comment) passed clean.
+
+**Fix 2 — missing column.** Migration `126_form_templates_automation_assessment.sql` adds
+`automation_assessment jsonb` to `form_templates`, matching its nullable sibling jsonb columns
+(`form_structure`, `field_mapping`). Applied live via the `DATABASE_URL`/`psql` path (DIRECTIVE-017),
+then independently confirmed PostgREST's own schema cache (not just raw Postgres) sees it: a real
+service-role insert against the live REST API failed with `23503` (foreign-key violation on a
+deliberately-invalid test id) rather than the previous `PGRST204` — proof the column itself is now
+recognized, not inferred from the `ALTER TABLE` command's own success message.
+
+**Deploy gap found and closed:** pushing the fix alone did **not** trigger a Railway rebuild.
+`railway.json`'s *committed* `watchPatterns` (a separate, still-uncommitted local edit by Reid had
+already broadened it to include `src/lib/autoapply/**`, but that change was never pushed) only covered
+`worker/**`/`package.json`/`pnpm-lock.yaml` — none of which match `src/lib/autoapply/form-analyzer-agent.ts`.
+Confirmed via `railway status --json`: still only the old `0dd9b70` deployment, nothing new, ~10 minutes
+after the push. Forced it with `railway redeploy --from-source` (pulls the latest commit rather than
+rebuilding the stale one), then polled to a real `SUCCESS` on commit `dd153e0` before treating the fix
+as live — the same "don't trust the command's own exit, poll to a terminal state" discipline used for
+the Vercel/Railway steps in the entry above.
+
+**Result: `src/__tests__/integration/autoapply-queue.test.ts` — 6/6 pass, including the previously-failing
+test for the first time in this project's history:**
+```
+✓ real queue item for a ready org: proceeds past org_not_ready into real submission logic   138545ms
+```
+138.5s — consistent with the test's own "took meaningfully longer than the unready org's near-instant
+skip" check for real browser/Claude work having actually run, not a second early-gate rejection.
+
+**Independent re-run for a precise final-state artifact** (the vitest suite's own `afterAll` deletes its
+evidence): a standalone script replicating the same "ready org" fixture, run immediately after the real
+test, hit a **different, legitimate** stop — `error_message: "cross_client_blocked: Another
+organization submitted to httpbin.org in the last 7 days. Suggest waiting until Fri Aug 14 2026 to
+avoid cross-client collisions."` This is a real anti-abuse guard protecting the shared
+`httpbin.org/forms/post` dummy target from repeated automated hits across different test orgs, correctly
+triggered by the official vitest test's own real submission attempt moments earlier — not a bug, and
+not evidence against the fix (the official test result, which ran first and hit no such throttle, is
+the authoritative one).
+
+**Root-cause summary — nothing left artificially blocking this pipeline as of this session:**
+1. Ffmpeg/`recordVideo` (fixed `0dd9b70`, prior session) — no longer crashes on `context.newPage()`.
+2. Dead platform Anthropic key (fixed via key rotation, prior session) — no longer 401s.
+3. Empty-content Claude call in `FormAnalyzerAgent` (fixed this session) — no longer 400s.
+4. Missing `form_templates.automation_assessment` column (fixed this session) — no longer `PGRST204`s.
+5. The pipeline now reaches real, working business logic (the per-domain rate limiter) rather than
+   crashing on infrastructure/schema defects — the ready-org path is genuinely functional end to end.
+
+**Verification method:** live `pnpm vitest run` against the real, unmodified test file (no changes to
+the test itself); `pnpm exec tsc -p worker/tsconfig.json --noEmit` scoped to the file's actual compile
+target; a real REST insert to distinguish "column recognized, FK violated" from the original
+`PGRST204`; `railway status --json` polled to a real terminal deployment state on the exact new commit
+hash (via `git rev-parse HEAD`, not guessed) both before and after discovering the `--from-source` gap;
+a second standalone fixture script for a concrete final-state artifact beyond "the test passed." One
+throwaway script (`_tmp-diagnose-ready-org-v2.mjs`) was deleted after use and never committed.
