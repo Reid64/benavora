@@ -86,22 +86,58 @@ An additional tier system was added 2026-07-30 for agent rows (AG-15–AG-30 ran
 
 ---
 
-## 2. AGENTS — AG-01 through AG-30, verification-log authoritative
+## 2. AGENTS — AG-01 through AG-42 (AG-01–30 canonical range plus the two renumbered former-phantom
+specs, AG-41/AG-42), verification-log authoritative
 
-**Updated 2026-08-02, superseding the 2026-07-30 version below in full.** Since the original
-compilation, the `agent_type` enum gap (the single biggest cross-cutting blocker in the prior
-version of this section) was fixed live in production, live-re-verified for 6 agents, and two new
-schema-drift bugs the fix exposed were found and fixed in the same pass — see
-`AGENT_VERIFICATION_LOG.md`'s `agent_type` enum-gap entries (the three most recent entries in that
-file) for full evidence. This section's original "no live database" scope-honesty caveat no longer
-applies: a working direct Postgres connection (`DATABASE_URL`) now exists
-(`STANDING_DIRECTIVES.md` DIRECTIVE-017) and was used for live schema checks and DDL throughout
-today's work, alongside the same PostgREST/live-execution methods used previously. The dead local
-`ANTHROPIC_API_KEY` and the missing `corporate_prospects` table are both still unresolved and still
-apply exactly as before.
+**Updated 2026-08-07, superseding the 2026-08-02 version below in full (which is itself kept,
+further down, superseding the original 2026-07-30 version).** Since the 2026-08-02 pass, a large
+overnight build+verify chain (commits `77d2289`…`9071c37`, 2026-08-02 through 2026-08-06) did four
+things that materially change this section's picture:
 
-**Categorization (per this task's explicit scheme, superseding the old
-BUILT-AND-VERIFIED/BUILT-BUT-UNVERIFIED/PARTIALLY-BUILT/NOT-BUILT key used through 2026-07-30):**
+1. **Built and live-verified 7 previously NOT-BUILT agents from scratch**: AG-10 (Grant DNA
+   Analysis), AG-26 (Funding Forecast), AG-27 (Board Meeting Packet), AG-29 canonical (Knowledge
+   Engine Indexer — now a genuine, continuously-running autonomous agent, not just the underlying
+   embeddings capability), AG-41 (Impact Simulation), AG-42 (Change Monitor), and wired AG-23's real
+   on-disk implementation (`ag-32-relationship-graph`) into a daily incremental schedule. All 7 were
+   live-execution-tested against real production data (not just compile-checked) — see the `## AG-10`
+   through `## AG-42` entries in `AGENT_VERIFICATION_LOG.md`.
+2. **Created and RLS-hardened `corporate_prospects`** (commit `11030b5`, migration 107/108/109/111),
+   the single longest-standing shared blocker in this document (tracked back to 2026-07-20). Live
+   re-verification immediately after: **AG-20, AG-21, AG-30, and AG-32 (AG-23's real implementation)
+   all now complete successfully end-to-end** against real data — this is the biggest single change
+   in this update.
+3. **Rotated the platform `ANTHROPIC_API_KEY`** (commit `8f3aa06`, 2026-08-06) after the old key
+   (dead since before this document's history begins) was finally identified and replaced, synced to
+   `.env.local`/Railway/Vercel and redeployed. **AG-22 (Propensity Scoring) — the one agent left
+   blocked purely by this key after the `corporate_prospects` fix — is now confirmed fully unblocked**,
+   first clean run in this project's history. This same key rotation almost certainly also unblocks
+   AG-15's autonomous wrapper and improves output quality for AG-26/AG-30/AG-32/AG-42's
+   Claude-dependent sub-features (all of which hit the identical dead-key 401 in their pre-rotation
+   test runs) — **stated as a strong probability, not a verified fact**, since only AG-22 was actually
+   re-run against the new key. Flagged as near-term, low-effort re-verification work.
+4. **AutoApply (AG-12)'s ready-org pipeline reached a genuine, passing end-to-end state for the first
+   time** (2026-08-06/07): ffmpeg crash, dead key, an empty-content Claude call, and a missing
+   `form_templates` column were fixed in sequence, and `autoapply-queue.test.ts` now passes 6/6,
+   including the previously-never-passing "ready org" case.
+
+**One correction to the 2026-08-03 `corporate_prospects` re-verification entry itself**: that entry
+claimed AG-24 (Personalized Outreach Generator) "has no implementing file anywhere in the repo." This
+session re-checked directly (`src/app/api/intelligence/outreach/generate/route.ts`, wired to
+`/donor-discovery/outreach`) and that claim is **wrong** — the same file the 2026-07-20 audit already
+found, still real, still there. The 2026-08-03 session appears to have repeated the exact scanning
+mistake an earlier audit already flagged and corrected once (checking only `src/lib/agents/` for an
+`AutonomousAgent`-extending class, missing that AG-24 is a plain API route, the same shape as AG-04's
+manual path). AG-24 is real and BUILT — see category 3 below for its current (likely resolved,
+unconfirmed) blocker status, not category 4.
+
+This section's scope is unchanged from 2026-08-02: the canonical `AGENTS_v2.md` AG-01–AG-30 range,
+plus AG-41/AG-42 (the two former AG-28/AG-30 phantom specs, permanently renumbered 2026-08-02 to
+resolve their collisions with the real, live Follow-Up Generator and Donor Intent Monitor agents).
+Numbers beyond this range that appear elsewhere in this codebase's live pipelines (AG-36 Learning
+Network Aggregator, AG-38 Self-Improvement Agent, AG-40 Strategic Advisor, etc.) were never in this
+document's scope and are not covered here.
+
+**Categorization (unchanged from 2026-08-02):**
 1. **BUILT AND VERIFIED WORKING** — real, confirmed via an actual live test run.
 2. **BUILT BUT NOT WIRED** — the code works when run directly, but nothing in production actually
    calls it (the AG-19 pattern).
@@ -115,6 +151,32 @@ categorized under its own actual identity and cross-referenced from the canonica
 never conflated. Several canonical numbers split across a live Generation-1 implementation and a
 dead Generation-2 rewrite of the same concept; both halves are stated explicitly rather than
 collapsed into one label.
+
+### FINAL TALLY (32 canonical numbers in scope: AG-01–AG-30 + AG-41 + AG-42)
+
+| Category | Count (primary, one per canonical number) | Count (full row/entry list, incl. Gen-2 dead-code duplicates & on-disk collisions) |
+|---|---|---|
+| 1. BUILT AND VERIFIED WORKING | **26** | 31 |
+| 2. BUILT BUT NOT WIRED | **2** (AG-03, AG-19) | 7 |
+| 3. BUILT BUT BLOCKED | **3** (AG-14, AG-15, AG-24) | 3 |
+| 4. NOT BUILT AT ALL | **1** (AG-23, under its own identity only) | 1 |
+
+**The two categories that represent real remaining work, called out explicitly per this task's
+request:**
+- **NOT BUILT AT ALL, with zero code anywhere: effectively zero.** Only AG-23 remains, and even that
+  is a naming artifact, not missing work — its real implementation is fully built, wired, and
+  live-verified working under the on-disk literal `ag-32-relationship-graph` (category 1). Every
+  other agent that was NOT-BUILT as of the 2026-07-30/08-02 versions of this document (AG-10, AG-26,
+  AG-27, AG-29, AG-41, AG-42 — 6 of the 7 former phantom specs) was built and live-verified this week.
+  This is the single biggest change in this update: the "not built at all" category has gone from 7
+  real entries to 1 naming artifact.
+- **BUILT BUT NOT WIRED: 2 primary (AG-03, AG-19), 7 if counting every Gen-2/dead-code duplicate.**
+  AG-19 remains the flagship example — a real, capable 1,174-line class, re-confirmed working
+  standalone 2026-08-02, that `worker/autonomous-orchestrator.ts` still never calls. AG-03's
+  auto-trigger-on-new-opportunity behavior is still unwired (manual path works). The other 5 entries
+  (AG-02/04/06/18's Generation-2 rewrites) are dead code superseded by a live Generation-1 sibling,
+  not gaps in coverage — the platform doesn't lack the capability, it just has an orphaned second
+  implementation of one it already has.
 
 ### 1. BUILT AND VERIFIED WORKING
 
@@ -140,7 +202,17 @@ collapsed into one label.
 | **AG-25's on-disk collision: Deadline Prediction Agent (`ag-25-deadline-prediction`)** | **Fixed and re-verified live 2026-08-02.** Enum gap closed; re-run completed cleanly, `itemsFound: 15`, zero errors. Now confirmed real and live, same as the unrelated Disaster Response agent above sharing its number — both halves of this permanent dual-use number are working agents, not one real and one dead. |
 | **AG-28 Follow-Up Generator Agent** (`ag-28-followup` — AG-28 now its permanent, sole number as of 2026-08-02, no longer just an "on-disk collision") | Enum gap closed, re-verified 2026-08-02: completes via its documented no-op path when no `agent_queue` trigger is present. A full trigger-driven run (with a real applicationId payload) has not been exercised in this log yet. |
 | AG-29's on-disk collision: Fundability Scorer (`ag-29-fundability`) | Real, wired into `worker/autonomous-orchestrator.ts`. Not independently live-execution-tested in this log. |
-| AG-29 canonical — underlying capability, not an agent | `src/lib/intelligence/embeddings.ts` is real and live-verified (105/105 `intelligence_proposal_sections` rows have genuine, non-placeholder 1536-dim embeddings) — but this is manually-triggered library code, not an autonomous agent. See category 4 for the agent itself. |
+| **AG-29 canonical — Knowledge Engine Indexer Agent** (`ag-29-knowledge-indexer`) | **Built and live-verified 2026-08-03 — no longer just "underlying capability," now a genuine autonomous agent.** `KnowledgeIndexerAgent` (`knowledge-indexer-agent.ts`) generated real, non-placeholder 1536-dim embeddings for all 3 real pending `outcomes` rows; confirmed idempotent (re-run reprocesses nothing, structurally gated so it can't double-call OpenAI); confirmed its no-real-content skip path correctly excludes all 133,812 `foundation_directory` rows lacking real text, at full table scale, not a hypothetical. **Found continuously running in production already** — the real deployed Railway worker was independently confirmed polling this exact agent every ~60-70s throughout the test, unprompted. One open, only-partially-explained anomaly: the worker's first 5 real autonomous runs failed before a 6th succeeded with identical code/data/key — root-caused as unrecoverable-by-design (a logging gap discards the real error text) in a follow-up investigation, not resolved. |
+| **AG-10 Grant DNA Analysis** | **Built and live-verified 2026-08-03.** `GrantDnaAgent` (`grant-dna-agent.ts`) runs cleanly end-to-end (after fixing a second, newly-discovered `agent_runs.output_payload` schema gap affecting 5 agents, not just this one); its "zero opportunities → skip, no row written" branch confirmed working via the real `agent_queue` event path. The other 3 branches (real opportunity/outcome evidence) could not be exercised — this org, and every cross-org name-matched copy of its 4 real funders, genuinely has zero opportunities on file anywhere on the platform today, confirmed exhaustively rather than assumed. Wired into `worker/scheduler.ts`'s weekly Sunday pipeline (`runGrantDnaWeeklyPipeline`). |
+| **AG-20 Corporate Giving Detector (EA-01)** | **Unblocked 2026-08-03** once `corporate_prospects` was created — `EA01GivingDetectorAgent.run({prospectId})` completed cleanly against a real SAM.gov-sourced prospect (correctly took its documented no-website graceful path). The `corporate_prospects` 404 that blocked every prior run is resolved. A pre-existing, separate accuracy defect (hardcoded 3-path website guess, 1/9 real hits in an earlier accuracy test) is unchanged and still real — flagged as a quality gap, not a build/wiring blocker. |
+| **AG-21 Executive Biography Analyzer (EA-08)** | **Unblocked 2026-08-03**, same fix and same clean completion as AG-20 (same real prospect, same no-website graceful path). Pre-existing accuracy defect (0/6 real hits in an earlier test) likewise unchanged, not a build/wiring blocker. |
+| **AG-22 Propensity Scoring** | **Fully unblocked 2026-08-06 — first clean run in this project's history.** After `corporate_prospects` was fixed (08-03) and the platform `ANTHROPIC_API_KEY` was rotated (08-06, commit `8f3aa06`), `PropensityScoringAgent.run()` completed against the real Faith Foundation org and a real prospect: `status: "completed"`, `tokens_used: 4634`, all 9 rubric scores (`PS-01`…`PS-10`) computed and persisted to `corporate_prospects.scores`. Both of this agent's named blockers (missing table, dead key) are now resolved. |
+| **AG-30 Donor Intent Monitor** (`ag-30-donor-intent` — AG-30's permanent, sole number as of 2026-08-02) | **Unblocked 2026-08-03.** `DonorIntentMonitorAgent.run('manual')` now completes a full real run (`status: completed`, `items_found: 1, items_processed: 1`) against the real Faith Foundation org — the `corporate_prospects` fetch that previously threw outright now succeeds. Downstream per-signal Claude calls still hit the (at-the-time) dead key and are caught into `errors[]` without failing the run — likely also resolved by the 08-06 key rotation, not independently re-tested since. |
+| **AG-23's real implementation: AG-32 Relationship Graph Builder** (`ag-32-relationship-graph`) | **Unblocked and enum-fixed 2026-08-02/03, wired into a daily incremental schedule 2026-08-03, full real run confirmed 2026-08-03.** Enum gap closed; a `board_members` column-naming bug (query assumed `role`/`expertise`/`org_id`/`active`, real columns are `title`/`organization_id`/`is_active`) found and fixed; wired into `worker/scheduler.ts` via `runRelationshipGraphIncrementalPipeline()`/`resolveIncrementalBoardMemberScope()` (both scope-query branches confirmed correct). After `corporate_prospects` was created, a full `run('manual')` completed successfully: `items_found: 23, items_processed: 23`, all 3 real board members processed, `assetCompatibleMatches: 20`. This is the agent AG-23's own canonical identity has zero code for — see category 4 for that naming split. |
+| **AG-26 Funding Forecast Agent** | **Built and live-verified end-to-end 2026-08-03** — every dimension tested against real production data: both `90_day`/`12_month` rows write in one run; the neutral-fallback math for partially-scored windows matches a hand-computed reproduction to full decimal precision; the zero-opportunity-org branch writes an honest `$0` row with an explicit `null` confidence, not a skip; idempotency confirmed via byte-identical `id`/`created_at` across two runs (real `ON CONFLICT DO UPDATE`, not delete-and-reinsert). Wired into `worker/scheduler.ts`'s monthly pipeline (`runFundingForecastMonthlyPipeline`). Narrative synthesis (Claude-generated risks/opportunities) degraded gracefully to empty during this test due to the then-dead key — likely also resolved by the 08-06 rotation, unconfirmed. |
+| **AG-27 Board Meeting Packet Agent** | **Built and live-verified 2026-08-03** against the real Faith Foundation org with a real, temporary test `board_meetings` row. Migration 111's enum value and `UNIQUE(meeting_id)` constraint confirmed live before testing. Wired into `worker/scheduler.ts`'s daily pipeline (`runBoardPacketDailyPipeline`) plus an `agent_queue` event-chained safety net for short-notice meetings. |
+| **AG-41 Impact Simulation Agent** (renumbered from AG-28, 2026-08-02) | **Built and live-verified 2026-08-03**, 4 real scenario invocations against the real Faith Foundation org (direct class instantiation, same logic the real `POST /api/agents/simulate` route — `requireRole("writer")`-gated, real manual production call site — wraps). |
+| **AG-42 Change Monitor Agent (CM-01)** (renumbered from AG-30, 2026-08-02) | **Built and live-verified 2026-08-03.** Migration 113's enum value confirmed live. Real first-ever run against real data: `foundation_directory`'s 14 real eligible rows checked, `corporate_prospects` gracefully degraded (missing at the time, not a crash), a synthetic detected-change row correctly produced a real diff/severity/chain-queue entry. Wired into `worker/scheduler.ts`'s daily pipeline (`runChangeMonitorDailyPipeline`). One separate, unrelated bug found downstream: the `'foundation-990-enrichment'` chain target this agent queues into fails 100% of the time on a real Railway env-var-naming mismatch — this agent's own detect+queue responsibility is fully discharged correctly; the break is entirely in the chain target's own wiring, not this agent. |
 
 ### 2. BUILT BUT NOT WIRED
 
@@ -150,9 +222,8 @@ collapsed into one label.
 | AG-03 Deadline Extraction | Real, callable on-demand (a manual path exists) — but the specific documented behavior (automatically creating `deadlines` rows on new-opportunity creation) has no code path triggering it. The intended default behavior is unwired even though the capability itself works when invoked. |
 | AG-04 Fit Analysis — autonomous version | Coded, but never instantiated; the worker's own header comment calls wiring it "out of scope." Enum value now valid, doesn't change this. |
 | AG-06 Draft Generator — "Twin-Powered" Generation-2 class | `FEATURE_REGISTRY_v2.md` row #110 credits this enhancement to a dead class; the class that's actually live is the plain-function path (category 1). |
-| AG-18 Reputation Intelligence — `ReputationIntelligenceAgent` class | Real, full `agent_decisions` audit trail, richer than the live plain-function path — but appears nowhere outside its own file declaration. `agentId: "ag-18-reputation"` is **not** in the fixed-enum batch (confirmed absent from both migration trees) — still enum-blocked on top of being unwired. |
-| **AG-19 Relationship Builder (actual production status)** | The real, 1,174-line class (includes an undocumented multi-hop BFS warm-intro feature over `pig_nodes`/`pig_edges`) works standalone — re-confirmed 2026-08-02 — but `worker/autonomous-orchestrator.ts` still substitutes a narrower, unrelated live agent (`funder-relationship.ts`, event-delta only) wherever "the relationship builder" is requested. Re-grepped 2026-08-02: `new RelationshipBuilderAgent` still appears nowhere outside its own file. |
-| AG-23's real implementation, under a colliding number: AG-32 Relationship Graph Builder (`relationship-graph-builder-agent.ts`) | Real, writes real graph rows — but `agentId: "ag-32-relationship-graph"` was **not** part of the 2026-08-02 enum fix batch, so it remains enum-blocked in addition to having zero scheduler/queue wiring (reachable only manually). Two separate open issues, not one. |
+| AG-18 Reputation Intelligence — `ReputationIntelligenceAgent` class | Real, full `agent_decisions` audit trail, richer than the live plain-function path — but appears nowhere outside its own file declaration. `agentId: "ag-18-reputation"` was enum-blocked at the 2026-08-02 version of this document; **the enum gap itself was closed 2026-08-02/03** (`ALTER TYPE agent_type ADD VALUE 'ag-18-reputation'`, live-tested: `itemsFound: 4`, clean completion) — but the class is **still never instantiated anywhere outside its own file**, so it stays in this category for the wiring gap alone, not the enum. |
+| **AG-19 Relationship Builder (actual production status)** | The real, 1,174-line class (includes an undocumented multi-hop BFS warm-intro feature over `pig_nodes`/`pig_edges`) works standalone — re-confirmed 2026-08-02 — but `worker/autonomous-orchestrator.ts` still substitutes a narrower, unrelated live agent (`funder-relationship.ts`, event-delta only) wherever "the relationship builder" is requested. Re-grepped 2026-08-02: `new RelationshipBuilderAgent` still appears nowhere outside its own file. **Confirmed still true this week** — no change. |
 | AG-25 canonical (Disaster Response) — automatic trigger | Reachable only via `/api/agents/disaster`; zero cron/worker wiring despite other docs claiming a 6-hour poll. |
 
 ### 3. BUILT BUT BLOCKED
@@ -160,26 +231,16 @@ collapsed into one label.
 | Agent | Blocked by |
 |---|---|
 | AG-14 Donor Discovery | `worker/dd-request-processor.ts` is real and starts unconditionally, but source tables are empty in production except taxonomy — the pipeline runs correctly and has nothing to act on. |
-| AG-15 Grant Probability — autonomous wrapper (`ProbabilityScoringAgent`) | Enum gap fixed 2026-08-02, re-verified live: the run itself now completes (`status: completed`, real `agent_runs` row) with zero enum errors — but every per-opportunity scoring call fails on the pre-existing, still-dead local `ANTHROPIC_API_KEY` (401), so it scores 0 of 20 real candidates. Blocked by the API key, not the enum, as of today. |
-| AG-20 Corporate Giving Detector (EA-01) | Missing `corporate_prospects` table (404) + invalid local Claude API key. Also has an independent accuracy defect (hardcoded 3-path guess scored 1/9 real hits; a 404 page counts as a "successful fetch"). |
-| AG-21 Executive Biography Analyzer (EA-08) | Same two blockers as AG-20. Worse accuracy (0/6 real hits); a Claude-throws error path silently drops the enrichment patch. |
-| AG-22 Propensity Scoring | Same two blockers as AG-20/21 (downstream in the same enrichment chain). Rubric math itself verified to discriminate real inputs — the blocker is upstream data, not this agent's own logic. |
-| AG-24 Personalized Outreach Generator | Real, live-wired (`/api/intelligence/outreach/generate` → `/donor-discovery/outreach` UI) — blocked at runtime by the same `corporate_prospects`/API-key issues as AG-20/21/22. |
-| **AG-30 Donor Intent Monitor** (`ag-30-donor-intent` — AG-30 now its permanent, sole number as of 2026-08-02) | **Enum gap fixed 2026-08-02, and a second real bug fixed in the same pass** — `loadOrgProfile()` was querying a nonexistent `organizations.service_areas` column (fixed to the real `service_area`). Re-verified live: the run now completes cleanly instead of crashing — but produces zero real signals because `corporate_prospects` doesn't exist in production, the same table-missing blocker as AG-20/21/22/24. Reported as a clean, caught error rather than a crash — a real improvement, but still blocked. |
+| AG-15 Grant Probability — autonomous wrapper (`ProbabilityScoringAgent`) | Enum gap fixed 2026-08-02, re-verified live: the run itself completes (`status: completed`, real `agent_runs` row) with zero enum errors — but every per-opportunity scoring call failed on the (at-the-time) dead local `ANTHROPIC_API_KEY` (401), so it scored 0 of 20 real candidates as of that test. **Not independently re-tested since the 2026-08-06 platform key rotation** (commit `8f3aa06`) that unblocked AG-22's identical failure mode — very likely also fixed now, flagged as a quick, high-confidence re-verification rather than assumed. |
+| **AG-24 Personalized Outreach Generator** | Real, live-wired (`/api/intelligence/outreach/generate` → `/donor-discovery/outreach` UI) — **corrects a wrong "no implementing file exists" claim in the 2026-08-03 `corporate_prospects` session**, which repeated a scanning mistake (checking only `src/lib/agents/` for a class file, missing this is a plain API route) an earlier 2026-07-20 audit had already caught and corrected once. Both of its named blockers — missing `corporate_prospects` (fixed 2026-08-03) and the dead platform key (fixed 2026-08-06) — now appear resolved elsewhere in the codebase, but **this specific route has not been independently re-run since either fix**. Kept in this category rather than promoted to category 1 until that re-verification happens. |
 
 ### 4. NOT BUILT AT ALL
 
 | Agent | Spec depth in `AGENTS_v2.md` |
 |---|---|
-| AG-10 Grant DNA Analysis | Thin: purpose (1-2 sentences), type, tier gate, "real implementation: none found," Autonomous Mode entirely "not designed in code." Not build-ready as written. |
-| AG-23 Relationship Mapper (RA-01), under this specific identity | Same thin template. (The real capability exists under AG-32 — category 2 above — not under this name.) |
-| AG-26 Funding Forecast | Same thin template. Zero code confirmed by direct grep of `src/lib/agents/`; `funding_forecasts` table exists (migration 078) but has no writer anywhere in the repo. |
-| AG-27 Board Meeting Packet | Same thin template. |
-| **AG-41 Impact Simulation** (renumbered from AG-28, 2026-08-02) | Same thin template. AG-28 is now permanently the real, live Follow-Up Generator Agent (category 1 above) — this phantom spec was moved to AG-41 to resolve the collision permanently; content unchanged, still zero code. See `AGENTS_v2.md` §1.4. |
-| AG-29 Knowledge Engine Indexer, as an autonomous agent | Same thin template — no indexer class, no worker wiring, no registry entry. (The underlying embedding-generation capability is real — see category 1's note. The colliding `"ag-29-fundability"` is also a different, real agent — category 1.) |
-| **AG-42 Change Monitor (CM-01)** (renumbered from AG-30, 2026-08-02) | Same thin template. Zero code, zero wiring. AG-30 is now permanently the real, live Donor Intent Monitor (category 3 above) — this phantom spec was moved to AG-42 to resolve the collision permanently; content unchanged, still zero code. See `AGENTS_v2.md` §1.4. |
+| AG-23 Relationship Mapper (RA-01), under this specific identity | Same thin template (purpose, type, tier gate, Autonomous Mode entirely placeholder text). No file/class/route exists under this specific name. **The real capability exists under AG-32's on-disk literal (`ag-32-relationship-graph`) — category 1 above, built, wired, and live-verified working** — this is a naming-collision artifact, not missing functionality. Of the 7 agents that were NOT-BUILT under this scheme as of 2026-08-02 (AG-10, AG-23, AG-26, AG-27, AG-29, AG-41, AG-42), 6 were built and live-verified this week; this is the only one remaining, and even it has a live, working real-world counterpart under a different literal. |
 
-**Cross-reference finding for category 4, as requested:** all 7 NOT-BUILT canonical agents share the
+**Cross-reference finding for category 4, historical note (as of the 2026-08-02 version, now superseded for 6 of 7 rows — see above):** those 7 NOT-BUILT canonical agents shared the
 exact same short template in `AGENTS_v2.md` — a one-to-two-sentence purpose statement, a type (AI/
 Claude or embedding model), a tier gate, and an "Autonomous Mode" section that is entirely
 placeholder text ("PLANNED," "not designed in code," "undetermined"). **None of the 7 have a
@@ -189,23 +250,35 @@ either — each has a named purpose and tier gate — but real design work (trig
 contracts, chain wiring) would need to happen before any of these are buildable, not just
 implementation.
 
-**Cross-cutting system bug — now fixed for most of the agents it affected:** `agent_runs.agent_type`
-is a strict Postgres enum. As of 2026-07-30, at least 15 real agent-ID literals used in code had
-never been added to it, so every one of those agents failed at the very first `agent_runs` insert
-(`22P02: invalid input value for enum agent_type`). **Fixed live in production 2026-08-01/02** — all
-15 target literals confirmed present via the live PostgREST OpenAPI schema, and 6 of the affected
-agents (AG-15's wrapper, AG-17, AG-19, the Deadline Prediction Agent sharing AG-25's on-disk
-literal, and the real AG-28/AG-30 — both now permanently renumbered off their old phantom-spec
-collisions as of 2026-08-02, see `AGENTS_v2.md` §1.4) individually re-run live to confirm. **Two
-literals used by other real agents were NOT part of that
-fix batch and remain enum-blocked today**: `ag-18-reputation` (the orphaned `ReputationIntelligenceAgent`
-class) and `ag-32-relationship-graph` (the real AG-23/RA-01 capability). Don't assume "the enum gap
-is fixed" applies platform-wide — it was fixed for the 15 specific literals in
-`fix-agent-type-enum-gap.sql`, not universally.
+**Cross-cutting system bug — now fully fixed for every real agent identity found to date:**
+`agent_runs.agent_type` is a strict Postgres enum. As of 2026-07-30, at least 15 real agent-ID
+literals used in code had never been added to it, so every one of those agents failed at the very
+first `agent_runs` insert (`22P02: invalid input value for enum agent_type`). **Fixed live in
+production 2026-08-01/02** for the first 15 literals — all confirmed present via the live PostgREST
+OpenAPI schema, 6 individually re-run live to confirm (AG-15's wrapper, AG-17, AG-19, the Deadline
+Prediction Agent sharing AG-25's on-disk literal, and the real AG-28/AG-30, both permanently
+renumbered off their old phantom-spec collisions 2026-08-02, see `AGENTS_v2.md` §1.4). **The two
+literals explicitly flagged as still enum-blocked in the prior version of this document —
+`ag-18-reputation` and `ag-32-relationship-graph` — were themselves closed 2026-08-02/03** (both
+added via `ALTER TYPE agent_type ADD VALUE`, both live-tested: AG-18's class completed cleanly,
+AG-32's hit a separate, unrelated `board_members` column bug rather than the enum, later also fixed).
+Every subsequent new agent built this week (AG-10/26/27/29/41/42) shipped with its own enum value
+pre-applied by its own build session. **As of this update, no known agent identity in this document's
+scope remains enum-blocked** — the several still-open items in categories 2/3 above are all wiring
+gaps or non-enum blockers (missing table, dead key, unwired call site), not `22P02` errors.
 
 Second cross-cutting issue, unchanged: `FEATURE_REGISTRY_v2.md` rows #197–212 label agents by their
 on-disk Generation-2 literal, not by the canonical AG-XX taxonomy in `AGENTS_v2.md` — a documented
 ≥9-way numbering collision (`AGENTS_v2.md` §1.4).
+
+Third cross-cutting note, new this update: this section's own live-verification entries are not
+infallible — the 2026-08-03 `corporate_prospects` re-verification session incorrectly claimed AG-24
+had "no implementing file anywhere in the repo," when a real, wired API route has existed since at
+least 2026-07-20. Corrected in category 3 above after an independent direct re-check
+(`src/app/api/intelligence/outreach/generate/route.ts`, confirmed to exist and read correctly
+2026-08-07). Treat any single session's "zero code found" claim as provisional until a second,
+independently-scoped search confirms it — the failure mode here was a narrow search (`src/lib/agents/`
+only), not a fabrication.
 
 ---
 
