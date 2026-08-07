@@ -1,8 +1,51 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 7, 2026 (registry #86 Discovery Preferences wired — AG-17 now reads migration 011's search_profiles config columns for the first time; existing Search Profile Configuration UI reused, not rebuilt). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 7, 2026 (registry #85 Personalized Match Feed live-verified against real Faith Foundation org data — real, data-driven ranking confirmed; one blend-design limitation flagged, not fixed). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 7, 2026 (Personalized Match Feed live-verified against real data — registry #85)
+
+**What was verified:** `FEATURE_REGISTRY_v2.md` #85's "real Digital Twin affinity scoring + AG-15
+probability blend" claim, previously verified only by code read / compile pass. This session ran the
+real, unmodified `computeMatchFeed()` (`src/lib/intelligence/match-feed.ts`) live against the real
+Faith Foundation org (`b1ab7402-dfc2-4712-869f-70ea3566cc1d`, 219 real open opportunities, 169 real
+AG-15 probability scores) via a throwaway `node --import tsx` script (deleted after use, no mocks).
+Full evidence in `AGENT_VERIFICATION_LOG.md`'s new "Match Feed (registry #85)" entry.
+
+**Result: confirmed real and data-driven, not fixed/random — verified 3 ways.** (1) FF's real
+`combinedScore` distribution across its top 25 real opportunities was 34–42 (8 distinct values), with
+a hand-verified sensible top result (Texas CDBG Housing — genuine domain overlap with FF's real twin
+mission/programs/service area) and a hand-verified sensible bottom result (a veterans' program
+restricted to institutions of higher education — correctly scored low despite superficial "veterans"
+keyword overlap, since FF is a housing nonprofit, not an IHE). (2) A real second org
+(`bed3e621-d93c-4e89-bfc4-a0fcea61b8fd`, its own real Digital Twin, its own real 53 open
+opportunities) produced a completely different top-5 ranking from a disjoint real opportunity pool —
+confirms per-org, not fixed-global, ranking. (3) A controlled synthetic-twin substitution (only the
+`organizational_digital_twins` read swapped for a non-live "youth arts" twin, every other table —
+`opportunities`, `opportunity_probability_scores`, `funders` — hit the real DB against the identical
+real FF opportunity pool) changed the #1-ranked result and 3 of the top 5, with real per-opportunity
+score deltas from -4 to +2 — proof the affinity component genuinely reads and reacts to real twin
+text, not a fixed or randomized order. (4) The AG-15 blend was independently hand-verified:
+`affinityScore: 28`, `probabilityScore: 60` → `combinedScore: 42`, matching
+`round(28*0.55 + 60*0.45) = 42` exactly against the real persisted value.
+
+**One genuine limitation found and flagged, not fixed this pass:** FF's real #1-ranked result was a
+DOE Office of Science physics/energy-research NOFO — subject-irrelevant to a housing nonprofit — which
+outranked the clearly on-mission Texas CDBG Housing grant. Root cause: the opportunity's
+`geographic_restrictions` is null, which `scoreGeography()`'s documented convention treats as "fully
+open" (a full 25/25 geo-fit contribution regardless of subject fit), combined with a real AG-15
+`overall_score` of 60 blended in at 45% weight — and AG-15's own scoring factors don't measure
+subject-matter fit at all. Each component computes exactly what it's documented to compute; the
+combination can still produce a counterintuitive #1 result for a null-geography, high-AG-15,
+low-affinity opportunity. Flagged for a future session (e.g. lower the geo-fit neutral default, or
+cap the probability blend's influence when affinity is very low) — not fixed here, this was a
+verification-only task.
+
+Gates: not run this session — no production code changed, verification-only (two throwaway scripts,
+deleted, never committed).
 
 ---
 

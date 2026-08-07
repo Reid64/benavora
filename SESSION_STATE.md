@@ -1,7 +1,40 @@
 # BENAVORA — Session State
-## Last Updated: August 7, 2026 (Discovery Preferences wired — registry #86, AG-17 now reads search_profiles config)
+## Last Updated: August 7, 2026 (Personalized Match Feed live-verified — registry #85)
 
-## Current Session — August 7, 2026 (Discovery Preferences wired — registry #86)
+## Current Session — August 7, 2026 (Personalized Match Feed live-verified against real data — registry #85)
+
+**Focus:** Live-verify `FEATURE_REGISTRY_v2.md` #85 ("Personalized Match Feed") against the real
+Faith Foundation org — confirm the ranking is real/data-driven, not a fixed or uniform order dressed
+up to look personalized, per the task's explicit evidence requirements.
+
+**Status:**
+- Ran the real, unmodified `computeMatchFeed()` (`src/lib/intelligence/match-feed.ts`) live against
+  the real Faith Foundation org (`b1ab7402-dfc2-4712-869f-70ea3566cc1d`) via a throwaway
+  `node --import tsx` script (no mocks, deleted after use), following the established
+  `scripts/ff-agent-test.ts`/`scripts/ff-setup.ts` pattern for this org.
+- Confirmed real, non-uniform score distribution (34–42 across 25 real ranked opportunities);
+  hand-verified one high-scoring result (Texas CDBG Housing — genuine domain/geography overlap with
+  FF's real twin) and one low-scoring result (a veterans' program restricted to institutions of
+  higher education — correctly scored low) against the real, quoted twin and opportunity text.
+- Confirmed controlled variation two ways: a real second org with its own real Digital Twin and its
+  own real 53 opportunities produced a completely different top-5; a synthetic-twin substitution
+  (only the twin table intercepted, everything else real) against the identical FF opportunity pool
+  changed the #1 result and 3 of the top 5.
+- Confirmed the AG-15 blend formula (`affinity*0.55 + probability*0.45`) matches a real persisted
+  `combinedScore` exactly by hand-computation.
+- Found and flagged (not fixed — verification-only task) a real blend-design limitation: a
+  subject-irrelevant DOE physics-research opportunity ranked #1 for FF because it has no stated
+  geographic restriction (defaults to full geo score) and a fit-blind AG-15 score of 60 blended in
+  at 45% weight, outweighing its own honestly-low affinity score.
+- Full evidence appended to `AGENT_VERIFICATION_LOG.md` under "Match Feed (registry #85)".
+  `STATE_OF_THE_BUILD.md` updated with a matching session entry.
+
+**Commit:** `test(discovery): live-verify Match Feed produces real, differentiated rankings for Faith Foundation org` (this session).
+**Gates:** not run — no production code changed, verification-only.
+
+---
+
+## Prior Session — August 7, 2026 (Discovery Preferences wired — registry #86)
 
 **Focus:** `FEATURE_REGISTRY_v2.md` #86 ("Discovery Preferences," PLANNED, Phase 2) — user-
 configurable source and category filters for discovery, wired so they genuinely change what AG-17

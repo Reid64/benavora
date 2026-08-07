@@ -6720,3 +6720,158 @@ confirmed 0 errors in both files. All temporary verification scripts (`.mjs`, `.
 after use; `git status --short` (excluding the pre-existing, unrelated `.claude/worktrees/*`
 submodule diffs already present at session start) confirmed clean before committing.
 
+---
+
+## Match Feed (registry #85, Personalized Match Feed)
+
+**Spec under test:** `FEATURE_REGISTRY_v2.md` #85 "Personalized Match Feed — real Digital Twin
+affinity scoring + AG-15 probability blend (registry #85)", real implementation
+`src/lib/intelligence/match-feed.ts` `computeMatchFeed()` + `src/app/api/intelligence/match-feed/route.ts`.
+Deterministic (no Claude call): ranks an org's open `opportunities` by a 3-factor keyword-overlap
+affinity score against the org's `organizational_digital_twins` row (mission 40% / best-matching
+program 35% / geographic fit 25%), then blends that with AG-15's `opportunity_probability_scores.overall_score`
+when one exists (55% affinity / 45% probability).
+
+**Verdict: confirmed real and data-driven, not fixed/random — verified three independent ways
+against real production data. One genuine, honestly-reportable limitation found in the process:
+the blend can let a subject-irrelevant opportunity outrank a clearly on-mission one when AG-15's
+score (which doesn't measure subject fit) is high and the opportunity has no stated geographic
+restriction (which defaults to a full 25/25 "nationally open" score).**
+
+### Method
+
+Ran the real, unmodified `computeMatchFeed()` (imported directly, `node --import tsx`, no mocks)
+against the real Faith Foundation org (`b1ab7402-dfc2-4712-869f-70ea3566cc1d`), reading real
+`organizational_digital_twins` / `opportunities` / `opportunity_probability_scores` / `funders` rows
+from production. Two throwaway scripts were used and deleted after: one running the real function
+against FF and a controlled synthetic-twin substitution (a thin Supabase-client wrapper that
+intercepts only the `organizational_digital_twins` read with a non-live object — every other table
+hit, including `opportunities`, went to the real DB unmodified), one pulling full opportunity text
+for hand-verification and re-running the same real function against a second real org that turned
+out to have its own real Digital Twin and its own real opportunities.
+
+### 1. Real FF org — scores are not uniform or random
+
+`personalizationLevel: "strong"`, `twinCompletenessScore: 70`, 219 real open opportunities scanned,
+25 returned. `combinedScore` distribution across the 25 returned entries: min 34, max 42, 8 distinct
+values — a real, non-flat spread, and every entry's `factors[]` breakdown (mission/program/geo
+contributions) differs per opportunity, computed from that opportunity's actual `name`/`description`/
+`eligibility_requirements`/`geographic_restrictions` text, not a fixed value.
+
+**High-scoring result, hand-verified sensible:** "Texas Community Development Block Grant - Housing"
+(#3, `combinedScore: 40`, `affinityScore: 39`). Real opportunity text: *"Funding for affordable
+housing development, transitional housing programs, down payment assistance for low-income
+families, and acquisition of modular housing units in rural Texas communities. Priority given to
+organizations serving reentry populations, individuals in recovery, and veterans experiencing
+housing insecurity."* `geographic_restrictions: "Rural Texas counties"`. Real FF twin mission:
+*"...break the cycle of housing insecurity by providing financial education, homeownership
+instruction, and direct housing assistance to veterans, individuals experiencing homelessness,
+single parents, those in recovery, those reentering society..."*, real FF program text: *"...Down
+Payment Assistance Program... Transitional Housing Program places individuals exiting homelessness,
+incarceration, or addiction treatment... rural South Texas..."*, `service_areas: ["Texas"]`. The
+overlap is substantive, not superficial — "transitional housing," "down payment assistance,"
+"reentry," "veterans," "housing insecurity," "modular housing" are literal shared domain concepts
+between the twin and the opportunity, and `geographic_fit` correctly hit a full 1.0 because "Texas"
+matches inside "Rural Texas counties." This is a genuinely good match, correctly scored near the top.
+
+**Low-scoring result, hand-verified sensible:** "Centers of Excellence for Veteran Student Success
+(CEVSS) Program" (#25 of 25, `combinedScore: 34`, `affinityScore: 29`, lowest in the returned set).
+Real opportunity text: *"...encourage institutions of higher education (IHEs) to develop model
+programs to support veteran student success in postsecondary education..."*,
+`eligibility_requirements: "IHEs (as defined in section 101 of the Higher Education Act of 1965...)"`.
+Despite superficially sharing "veterans," this opportunity is structurally restricted to institutions
+of higher education — FF is a housing nonprofit, not an IHE — and the real content is about
+postsecondary academic support services, not housing/financial-assistance delivery. `affinityScore: 29`
+(only "financial"/"education" overlap) correctly reflects a poor, low-priority match.
+
+### 2. Controlled variation — ranking changes when the input changes
+
+**2a. Real second org, real different twin, real own opportunities (stronger evidence than a
+synthetic twin alone).** Queried for other orgs with a non-null Digital Twin mission and
+`twin_completeness_score > 0` — found 2 real candidates. One (`bed3e621-d93c-4e89-bfc4-a0fcea61b8fd`)
+has 53 real open opportunities scoped to its own `organization_id` and a real, different (though
+related-domain) Digital Twin: mission *"...sustainable homeownership through down payment
+assistance vouchers, financial literacy education, and access to affordable modular housing"*,
+`service_areas: ["Central Texas", "Burnet County"]`, distinct real programs
+("Down Payment Assistance Voucher Program," "Land Acquisition and Site Development"). Ran the real,
+unmodified `computeMatchFeed()` against this org directly (its own real opportunity pool, its own
+real twin, both live rows) — its top 5 was: "Bank Enterprise Award Program (BEA)... FY 2026," "Privacy
+Act of 1974; System of Records," "Notice Announcing Innovative Approaches to Literacy Program
+Competition," two Educational Technology/Accessible-Media notices — a completely different result
+set from FF's top 5 (DOE Office of Science, Cooperative Agriculture, Texas CDBG Housing, SHOP,
+ABLE Accounts financial literacy), computed from a disjoint pool of 53 opportunities this org itself
+owns. Confirms the ranking is genuinely per-org, not a fixed global order.
+
+**2b. Synthetic-twin substitution against the identical FF opportunity pool (isolates the twin as
+the only variable).** Wrapped the real Supabase client so only `organizational_digital_twins` reads
+returned a non-live, synthetic "youth arts education" twin (mission/programs/service_areas about
+music instruction, gallery exhibitions, California) — every other table call (`opportunities`,
+`opportunity_probability_scores`, `funders`) still hit the real DB, scoped to the same real FF
+`organization_id` and its same real 219 opportunities. Result: **top 5 changed** — FF's real-twin
+top 5 IDs `["548e09de...","d68f9459...","8851652c...","af4620eb...","4c5f0d19..."]` vs. the
+synthetic-twin top 5 `["4c5f0d19...","548e09de...","8cfc4cda...","aa069045...","3b443ec0..."]` —
+only 2 of 5 in common, and the #1-ranked opportunity differs (`4c5f0d19...` vs `548e09de...`).
+Per-opportunity score deltas for the same 8 opportunities, computed under the two different twins,
+ranged from -4 to +2 — real, opportunity-specific divergence, not a constant offset. This is the
+concrete proof the affinity component is genuinely data-driven from the twin's actual text content,
+not a fixed or randomized order dressed up as personalized.
+
+### 3. AG-15 blend confirmed working correctly
+
+All 25 of FF's returned entries had `probabilityBlended: true` (169 real
+`opportunity_probability_scores` rows exist for this org — AG-15 has scored most of its pipeline).
+Blend detail for the top entry: `affinityScore: 28`, `probabilityScore: 60` (AG-15's real
+`overall_score` for this opportunity/org pair), `combinedScore: 42`. Hand-computed against the
+documented formula: `round(28 * 0.55 + 60 * 0.45) = round(15.4 + 27.0) = round(42.4) = 42` — matches
+exactly. The blend is real arithmetic over two real, independently-sourced signals, not a fabricated
+combined number.
+
+### Genuine limitation found, not fabricated, worth flagging honestly
+
+FF's own #1-ranked result — "FY 2026 Continuation of Solicitation for the Office of Science
+Financial Assistance Program" (a DOE physics/energy-research funding NOFO — Advanced Scientific
+Computing, Basic Energy Sciences, Fusion Energy Sciences, High Energy Physics, Nuclear Physics) — is
+subject-matter-irrelevant to a housing nonprofit, yet outranked the genuinely on-mission Texas CDBG
+Housing grant. Root cause, traced in the real factor breakdown: its `affinityScore` is honestly low
+(28, from only "financial"/"assistance" word overlap — the algorithm is not fooled), but two other
+mechanisms inflate its `combinedScore` past better-fitting opportunities: (a) `geographic_restrictions`
+is null on this opportunity, and `scoreGeography()`'s documented, deliberate convention treats a null
+restriction as "nationally open," awarding a full 25/25 geographic-fit contribution regardless of
+actual subject fit; (b) AG-15's `overall_score` of 60 for this opportunity is blended in at 45%
+weight, and AG-15's own scoring factors (eligibility, category win-rate, deadline proximity, twin
+completeness) don't measure subject-matter relevance at all (per this log's own AG-15 entry) — so a
+high AG-15 score can offset a correctly-low affinity score in the blend. This is a real, reproducible
+design limitation of the current blend weights/defaults, not a bug in either individual component —
+each computes exactly what it's documented to compute — but the combined ranking can be
+counterintuitive for opportunities with no stated geography and a favorable-but-fit-blind AG-15
+score. Flagging for a future session rather than silently treating "verified real and data-driven"
+as "verified always sensible at #1."
+
+### Root-cause summary
+
+1. **Confirmed:** the affinity scoring is real, deterministic, and genuinely driven by each
+   opportunity's and org's actual live text content — proven by real per-opportunity score variance,
+   a real second org producing a completely different top-5 from a disjoint real opportunity pool,
+   and a controlled synthetic-twin swap changing the #1 result and 3 of the top 5 while holding the
+   opportunity pool identical.
+2. **Confirmed:** the AG-15 blend is real arithmetic (`affinity * 0.55 + probability * 0.45`),
+   verified by hand-computation matching the persisted `combinedScore` exactly.
+3. **New finding, not previously documented anywhere:** the "no stated geographic restriction = full
+   geo score" default plus AG-15's fit-blind scoring can jointly let a subject-irrelevant opportunity
+   rank #1 over better-fitting alternatives. Not fixed this pass (verification-only task) — flagged
+   for a future session to consider tightening (e.g. a lower geo-fit neutral default, or capping the
+   probability blend's influence when affinity is very low).
+
+**Verification method:** live execution (`node --import tsx`, no mocks) of the real, unmodified
+`computeMatchFeed()` against the real Faith Foundation org and a second real org
+(`bed3e621-d93c-4e89-bfc4-a0fcea61b8fd`), both via the real service-role Supabase client against
+production (`vbjplpquqxxfbpazyalt`); a controlled single-variable substitution (synthetic
+`organizational_digital_twins` object via a thin client wrapper, all other tables real) to isolate
+the twin's effect on ranking while holding the real FF opportunity pool identical; direct reads of
+full real opportunity text (`name`/`description`/`eligibility_requirements`/`geographic_restrictions`)
+for hand-verification of one high- and one low-scoring result against the real FF twin's real
+mission/program/service_area fields; hand-computation of the documented blend formula against a real
+persisted `combinedScore`. Both throwaway scripts (`scripts/verify-match-feed.ts`,
+`scripts/verify-match-feed-2.ts`) were deleted after use and never committed; no data was written to
+any live table (read-only queries only).
+
