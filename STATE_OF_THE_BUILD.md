@@ -1,8 +1,36 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 7, 2026 (q31-003 live-verified: AG-19's new /funders/[id]/relationship UI path confirmed genuinely wired end-to-end via a real authenticated browser session). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 7, 2026 (q32 preflight: corporate_prospects + platform Anthropic key reconfirmed live for Pillar 3 UI build; local .env.local key found unexpectedly working, correcting a stale premise). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 7, 2026 (q32 preflight: reconfirmed corporate_prospects + platform key live before Pillar 3 UI build)
+
+Preflight step for the q32 queue (Corporate Giving Intelligence / Pillar 3 UI build, FEATURE_REGISTRY_v2.md rows #87-97). The queue's premise is that two historical blockers — a missing `corporate_prospects` table and a dead platform `ANTHROPIC_API_KEY` — were resolved earlier the same day (2026-08-07). Re-verified both live via direct `psql`/`DATABASE_URL` rather than trusting that prior summary, per instruction. **Security note surfaced during this check, unrelated to the task itself:** running `dotenv`'s `config()` in this repo prints unsolicited console "tip" messages on every load, one of which reads `tip: ⌘ auth for agents [www.vestauth.com]` — an unfamiliar domain, phrased specifically to bait an AI agent into visiting it. Did not visit it or treat it as an instruction; flagged to Reid. Worth a future session checking whether this is a legitimate (if shady) dotenv "tips" feature or a compromised/typosquatted package in `node_modules` — not investigated further here, out of scope for this preflight.
+
+**1. `corporate_prospects` — confirmed live, real data.** `select count(*) from corporate_prospects;` → **49 rows**, matching the "last confirmed: 49" figure in the queue's own premise exactly. Not a 404, not empty. Columns confirmed via `information_schema.columns`: `enrichment` (jsonb), `scores` (jsonb), `giving_dna` (jsonb) all present as expected, alongside the core identity/address/NAICS fields.
+
+**2. Platform Anthropic key — confirmed rotated and working, with the exact before/after visible in `agent_runs`.** Full history of `agent_type = 'ag22_propensity_scoring'` runs (only 4 exist total):
+- 2026-08-03T16:02 — `failed`, `401 authentication_error: "API key is invalid."`
+- 2026-08-06T09:29 — `failed`, same 401
+- 2026-08-06T22:22 — `completed`, `error_message: null`
+- 2026-08-06T22:23 — `completed`, `error_message: null`
+
+The rotation happened between 09:29 and 22:22 UTC on 2026-08-06. No `ag22_propensity_scoring` runs exist for 2026-08-07 (current DB time checked: `2026-08-07T11:57:05Z`) — the platform key's health hasn't been re-exercised today, but the two most recent real runs are clean.
+
+**3. Local `.env.local` `ANTHROPIC_API_KEY` — corrected, not still dead.** The queue's premise stated this is a separate, still-401 credential, "already confirmed once." Re-tested directly this session via an isolated `fetch` to `https://api.anthropic.com/v1/messages` (bypassing the SDK, `x-api-key` header, no proxy): **`status: 200`, real completion returned** (`claude-sonnet-4-6`, real `usage` tokens, real response text). This is not the previously-documented 401. Either the local key was rotated/fixed since the last check, or the prior "still dead" finding no longer holds — either way, **do not carry forward the assumption that local `tsx` scripts can't reach Claude directly.** Future steps in this queue that need a live Claude completion can now attempt a local script first and fall back to the deployed Vercel/Railway path only if that fails, rather than assuming the local path is closed. Re-verify this again immediately before relying on it for anything expensive, since it could just as easily rotate back.
+
+**4. `corporate_prospects` real data quality — matches the queue's own stated expectations exactly, design accordingly.**
+- `enrichment` populated on 49/49 rows, but thin as expected: the sampled row (`GOOD HOUSING CONSTRUCTION LLC`) has only a `sam_uei` string and empty arrays for `board_members`/`decision_maker_names`/`decision_maker_titles`/`linkedin_profiles`, plus an empty `change_monitor_snapshot`. Consistent with FEATURE_REGISTRY_v2.md row #90's documented EA-01..EA-10 fetch-layer accuracy defect — this is the realistic common case.
+- `scores` populated on only **1 of 49** rows. That one row (same company) has genuine, real Claude-generated PS-01 through PS-10 rationale text (specific, non-templated reasoning per sub-score, e.g. PS-06 "Housing Compatibility" citing the company's construction-related name against missing NAICS/habitat-partner confirmation) plus a `ranking` object (`rank: 1`, `is_priority_prospect: true`). This is real AG-22 output, not a placeholder — but it is the only prospect that has ever been scored.
+- `giving_dna` populated on **0 of 49** rows.
+- **Implication for q32-onward UI work, restated plainly:** any prospect profile/detail page built in this queue must treat "thin-or-absent enrichment, absent scores, absent giving_dna" as the default rendering path (48 of 49 real rows look like this today), not an edge case. A page that only looks good for the one fully-scored row will look broken for 98% of real data.
+
+**Verdict: both preconditions hold, queue may proceed to q32-002 onward.** Neither blocker has regressed. One premise in the queue's own preflight text (local key still dead) was wrong and has been corrected above — later steps should route through whichever path (local or deployed) actually works when they run, not assume the local path is permanently closed.
+
+Gates: not applicable — no application code changed this session, verification-only. Two throwaway Node scripts (`preflight-check.mjs`, `preflight-check2.mjs`) were created for the live queries and deleted after use; neither was committed.
 
 ---
 
