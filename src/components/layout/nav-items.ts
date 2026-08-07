@@ -82,6 +82,7 @@ export const NAV_ITEMS: NavItem[] = [
     children: [
       { label: "Simulator", href: "/reports/simulate" },
       { label: "ROI Insights", href: "/reports/roi" },
+      { label: "Funding Forecast", href: "/reports/forecast" },
     ],
   },
   {

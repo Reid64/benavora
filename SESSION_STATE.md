@@ -1,7 +1,44 @@
 # BENAVORA — Session State
-## Last Updated: August 7, 2026 (AG-26 on-demand forecast trigger route added; narrative-synthesis open item re-tested — dead key confirmed fixed, new max_tokens truncation bug found)
+## Last Updated: August 7, 2026 (Forecast Dashboard built — FEATURE_REGISTRY_v2.md row #133 closed)
 
-## Current Session — August 7, 2026 (AG-26 on-demand forecast trigger route + narrative-synthesis re-test)
+## Current Session — August 7, 2026 (Forecast Dashboard — /reports/forecast, q28-002)
+
+**Focus:** close `FEATURE_REGISTRY_v2.md` row #133, the one remaining real gap in Pillar 11 —
+build `/reports/forecast`, reading real `funding_forecasts` rows via the real
+`/api/reports/forecast` GET route added in the prior session (q28-001).
+**Status:**
+- Grepped the real route (`src/app/api/reports/forecast/route.ts`) and the real insert payload in
+  `funding-forecast-agent.ts` (~lines 505-521) before writing anything — confirmed exact field
+  names (`org_id, forecast_date, forecast_period, projected_min/_max/_most_likely, confidence,
+  methodology, factors, key_risks/key_opportunities/recommended_actions`), no invented names.
+- Read `reports/roi/page.tsx` and `reports/simulate/page.tsx` in full and matched their real
+  convention: client component, shared `cardStyle` inline-hex tokens, `cache: "no-store"`
+  fetch-on-mount, `Loader2` loading state — no `PageHeader` import, since neither reference file
+  actually uses one (task prompt mentioned it; the real files don't).
+- Built `src/app/(dashboard)/reports/forecast/page.tsx`: a `ForecastCard` per period (90-Day /
+  12-Month) with the headline `projected_most_likely`, `projected_min`–`_max` range, a
+  confidence badge (thresholded at 80/60 for this table's real 0-100 numeric scale),
+  `methodology` text, and real `key_risks`/`key_opportunities`/`recommended_actions` bullets when
+  populated — an honest "Narrative synthesis unavailable this run." message (not fabricated) when
+  empty, since that's this org's real current state per row #132's `max_tokens`-truncation note.
+  A plain newest-vs-prior trend delta covers the realistic 1-2-`forecast_date` case; no charting
+  library, per this task's explicit guidance not to over-build for 2 data points.
+- Trigger button POSTs to the real `/api/reports/forecast` route only, no other route invented.
+- Nav: the task's premise that roi/simulate are direct-URL-only was stale — `nav-items.ts` already
+  has a real `Reports` parent with a real `children` array including both. Added `Funding
+  Forecast` to that same array, matching the real current convention instead of the task's assumed
+  one, per its own fallback instruction.
+- `pnpm tsc --noEmit` — 0 errors in the new page or `nav-items.ts` (38 pre-existing, unrelated
+  errors remain, all in `src/__tests__/**`, unchanged baseline).
+- `FEATURE_REGISTRY_v2.md` row #133 flipped NOT-BUILT → `BUILT — UNVERIFIED` (not live-loaded
+  against real data in a browser this session — that's the next queue step, q28-003). Summary
+  totals updated accordingly.
+**Commit:** `feat(reports): build /reports/forecast dashboard reading real funding_forecasts data` (this session).
+**Gates:** `pnpm tsc --noEmit` — 0 errors (new files clean; pre-existing test-tree errors unchanged).
+
+---
+
+## Prior Session — August 7, 2026 (AG-26 on-demand forecast trigger route + narrative-synthesis re-test)
 
 **Focus:** close `FEATURE_REGISTRY_v2.md` row #132's one open item (whether the 2026-08-06 key
 rotation fixed AG-26's degraded narrative synthesis) and add AG-26's missing on-demand trigger,

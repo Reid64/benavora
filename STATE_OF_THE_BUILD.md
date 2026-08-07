@@ -1,8 +1,70 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 7, 2026 (AG-26 on-demand trigger route added; narrative-synthesis open item re-tested live — dead-key cause confirmed resolved, but a new, distinct max_tokens truncation bug still blocks it). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 7, 2026 (Forecast Dashboard built — FEATURE_REGISTRY_v2.md row #133 closed, BUILT — UNVERIFIED). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 7, 2026 (Forecast Dashboard built — Pillar 11 row #133 closed, q28-002)
+
+Per `FEATURE_REGISTRY_v2.md` row #133, `/reports/forecast` was the one remaining real gap in Pillar
+11 — schema (#131) and agent (#132) were both `BUILT — VERIFIED`, and the on-demand trigger route
+(`/api/reports/forecast`, GET+POST) was added in the immediately-prior session (q28-001, entry
+below). This session built the actual dashboard page.
+
+**Grepped the real route and agent before writing anything, per this task's instruction not to
+invent field names:** `src/app/api/reports/forecast/route.ts`'s GET/POST both `select("*")` from
+`funding_forecasts` ordered by `forecast_date desc, forecast_period asc`. Cross-checked the real
+insert payload in `funding-forecast-agent.ts` (~lines 505-521) and the table's real DDL
+(`src/supabase/migrations/078_forecast_board.sql`): `org_id, forecast_date, forecast_period
+("90_day"|"12_month"), projected_min, projected_max, projected_most_likely, confidence (numeric,
+0-100, nullable), methodology (text, nullable), factors (jsonb), key_risks/key_opportunities/
+recommended_actions (text[], nullable)` — used exactly these names, no invented fields.
+
+**Followed the real established convention, not a new layout.** Read `src/app/(dashboard)/
+reports/roi/page.tsx` and `.../simulate/page.tsx` in full: both are client components with no
+`PageHeader` import (despite this task's prompt mentioning one — the real reference files don't use
+it, so the page matches what's actually there: a plain `h1`/`p` header block), a shared `cardStyle`
+object (`#FFFFFF` bg, `14px` radius, `28px` padding, `0 4px 20px rgba(0,0,0,0.12)` shadow),
+fetch-on-mount with `cache: "no-store"`, and `Loader2` for loading state. New
+`src/app/(dashboard)/reports/forecast/page.tsx` matches this exactly: a `ForecastCard` per period
+(90-Day / 12-Month) showing `projected_most_likely` as the headline number, `projected_min`–`_max`
+range, a confidence badge (color-thresholded at 80/60, adapted from ROI's 0-1-scale thresholds to
+this table's real 0-100 numeric scale), `methodology` text, and `key_risks`/`key_opportunities`/
+`recommended_actions` rendered as real bulleted lists when populated — or an honest "Narrative
+synthesis unavailable this run." message (not a fabricated placeholder) when all three arrays are
+empty, mirroring the agent's own documented degraded-path design (row #132's `max_tokens`-truncation
+note: this org's real current rows do in fact have empty narrative arrays today, so this state is
+the realistic one, not a hypothetical edge case). Since this org has at most 2 `forecast_date`s per
+period today (2026-08-03 and 2026-08-07, per row #132/q28-001's own findings), added a plain
+newest-vs-prior numeric trend indicator (▲/▼ delta in `projected_most_likely`) rather than
+over-building a charting-library integration for 2 data points, per this task's explicit guidance.
+
+**Trigger:** a "Run Forecast" / "Run New Forecast" button POSTs to the real `/api/reports/forecast`
+route only — no other route invented. Empty state ("no forecast yet") only shows the honest
+run-one-now affordance, no fabricated sample data.
+
+**Styling:** every color is an inline hex value in a `CSSProperties`/style prop, matching the exact
+palette already live in `roi/page.tsx`/`simulate/page.tsx` (`#0F172A`, `#64748B`, `#94A3B8`,
+`#10B981`/`#EF4444`/`#F59E0B` for trend/confidence, `#0077B6` primary, `#D6E4F0` canvas) — no new
+colors invented, no Tailwind color classes.
+
+**Navigation — the task's note about roi/simulate being direct-URL-only turned out to be stale;**
+grepped `src/components/layout/nav-items.ts` fresh and found a real `Reports` parent nav item with a
+real `children` array already containing `Simulator` (`/reports/simulate`) and `ROI Insights`
+(`/reports/roi`) — not absent from nav as the task prompt assumed. Per the task's own fallback
+instruction ("match whatever the real, current convention is instead"), added `{ label: "Funding
+Forecast", href: "/reports/forecast" }` to that same children array rather than leaving the new page
+direct-URL-only or inventing a new hub page.
+
+Gates: `pnpm tsc --noEmit` — 0 errors in the new page or `nav-items.ts` (38 pre-existing, unrelated
+errors remain, all confined to `src/__tests__/**`, unchanged baseline).
+
+`FEATURE_REGISTRY_v2.md` row #133 flipped NOT-BUILT → `BUILT — UNVERIFIED` (not `BUILT — VERIFIED`:
+this session did not live-load the page against real data in a browser; per this task's own
+sequencing note, that's the next queue step, q28-003). Summary totals table updated (Platform Vision
+Pillars Built 25→26/Planned 47→46; grand TOTAL Built 111→112/Planned 58→57).
 
 ---
 
