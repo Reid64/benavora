@@ -1,8 +1,130 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 7, 2026 (q32-002/003/004 live-verified: batch Outreach confirmed genuinely deployed and working in production; Giving DNA and Marketplace both found NOT deployed to production, and the Giving DNA route additionally crashes in local dev — real status corrected below). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 7, 2026 (q33 preflight: confirmed real call signatures for the 4 proposal-factory generators — row #116 orchestration prerequisite). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 7, 2026 (q33 preflight — real call signatures for rows #112-115, before building row #116's One-Click Proposal Package orchestrator)
+
+Row #116 ("One-Click Proposal Package") is PLANNED, sitting on top of 4 BUILT sibling generators
+(#112 Narrative, #113 Budget, #114 Logic Model, #115 Document Assembly). This entry reads all 4
+real route files directly (not from memory or prior docs) to record their actual request/response
+shapes, since they are **not uniform** and an orchestrator assuming otherwise will fail or
+silently mis-wire. Superseded values from any prior write-up should defer to this entry.
+
+### #112 — Narrative: `POST /api/ai/draft` (`src/app/api/ai/draft/route.ts`)
+
+- **Body:** `{ opportunityId: string, templateType: string }`. `templateType` must be one of
+  `VALID_TEMPLATE_TYPES` (exported from `src/lib/drafts/generator.ts`): `"grant_narrative"`,
+  `"donation_request_letter"`, `"budget_narrative"`, `"impact_statement"`,
+  `"letter_of_inquiry"`, `"full_proposal"`.
+- `organization_id` is derived server-side from the session profile — never read from the body.
+- `requireRole("writer")`. `maxDuration = 300`.
+- **Does NOT require or create an `applications` row.** `generateDraft()` (the real shared
+  generator function, called by both this route and the autonomous draft path) operates purely
+  off `opportunityId`: it saves the generated text to `draft_versions` unconditionally, then —
+  as a best-effort side effect only — looks up the most recent `applications` row for that
+  `opportunity_id` and, **if one already exists**, `UPDATE`s it with `draft_content`/
+  `draft_template_type`/etc. It never `INSERT`s a new `applications` row. So narrative generation
+  works with zero `applications` rows in existence; the mirror-onto-application step just silently
+  no-ops if none exists yet.
+- Returns `{ content, confidenceScore, sources, savedVersion, belowThreshold, rubricDimensions?,
+  logicModel?, complianceChecklist? }`.
+
+### #113 — Budget: `POST /api/ai/budget` (`src/app/api/ai/budget/route.ts`)
+
+- **Body:** `{ opportunityId: string, programId: string }` — both required, 400 if either is
+  missing/blank.
+- `organization_id` derived server-side, same pattern. `requireRole("writer")`. `maxDuration = 300`.
+- `programId` is validated by `BudgetAgent.execute()` (`src/lib/agents/budget-agent.ts`) against a
+  real, org-scoped `programs` table (migration `001_initial_schema.sql`, table #13):
+  `id, organization_id, name, description, budget, beneficiaries_served, start_date, status,
+  impact_metrics, created_at, updated_at`. 404s (`"Program not found."`) if the id doesn't belong
+  to this org.
+- **`programs` has no linkage from `opportunities`/`applications`** — grepped both migration trees,
+  no `program_id` column on either table, and no `is_primary`/`primary_program` flag on `programs`
+  itself. There is currently no code-derivable way to auto-pick "the right" program for a given
+  opportunity; an orchestrator needs either (a) the user to pick one explicitly, or (b) a
+  documented fallback (e.g. the org's only program if exactly one exists, else force a picker) —
+  do not silently guess or pass a fabricated id. `programs` rows are created during onboarding via
+  `src/components/onboarding/ProgramsStep.tsx`.
+- Does not touch `applications` at all (grepped `budget-agent.ts`, zero matches).
+- Returns `{ budget_table, total_requested, budget_narrative, confidence_score, sources,
+  savedVersion, belowThreshold }`.
+
+### #114 — Logic Model: `POST /api/intelligence/logic-model` (`src/app/api/intelligence/logic-model/route.ts`)
+
+- **Body:** `{ category: string, program_description: string, organization_id: string,
+  target_population?: string, geography?: string, save_to_library?: boolean }`. `category` and
+  `program_description` are required non-empty strings; `organization_id` is required and is
+  checked for equality against the session-derived org id (`gate.organizationId`), rejected 403 on
+  mismatch — so the real org id must be passed, but it must also match the session; it cannot be
+  used to write to a different org.
+- `requireRole("writer")`. `maxDuration = 300`. Does not touch `applications` or `opportunities` at
+  all (only reads `organizations.name`).
+- **This is the one generator needing real descriptive prose, not just IDs** — `program_description`
+  is free text sent directly into `generateLogicModel()`. Two real, live sources an orchestrator
+  could pull from instead of asking the user to retype it:
+  - `knowledge_base` rows where `category = 'program_description'` (the real
+    `knowledge_base_category` enum value — confirmed via `digital-twin-builder.ts`'s
+    `buildPrograms()`, which filters on exactly this category and maps `{title, content}`).
+  - `organizational_digital_twins.programs` (jsonb array, migration `093_digital_twins.sql`,
+    default `'[]'`) — this is that same KB-derived data already assembled into
+    `{title, description}` objects per `buildPrograms()`, one array entry per program-tagged KB
+    row. Either source works; the twin is the pre-aggregated one.
+  - Neither source is the same table as `programs` (#113's budget-scoped table) — `programs` is a
+    structured onboarding record (name/budget/beneficiaries), while
+    `knowledge_base`/`organizational_digital_twins.programs` is narrative KB content. They are not
+    guaranteed to describe the same set of programs 1:1; do not conflate them.
+- If `save_to_library === true`, writes to the **shared, cross-org** `intelligence_logic_models`
+  table via the admin client (`source: 'user_generated'`) — this is a platform-wide library insert,
+  not an org- or application-scoped save.
+- Returns `{ success: true, logic_model: {...} }` — the logic model itself is returned inline
+  regardless of `save_to_library`; it is not otherwise persisted per-application anywhere by this
+  route.
+
+### #115 — Document Assembly: `POST /api/documents/assemble` (`src/app/api/documents/assemble/route.ts`)
+
+- **Body:** `{ application_id: string }` — required.
+- `requireRole("viewer")` (read-only role sufficient — this route never writes application content,
+  only reads/zips existing storage objects).
+- **Confirmed by reading the full route: this does NOT generate any new content.** It requires an
+  **existing** `applications` row (`.eq("id", application_id).eq("organization_id", organizationId)`,
+  404s if absent), reads that application's linked `opportunities.required_documents` (text array),
+  cross-references already-uploaded `application_documents`/`documents` rows, and returns a
+  checklist (`{document_name, status: "attached"|"missing", file_path}`) plus — only if every
+  required document is already attached — a signed download URL to a ZIP of the existing files.
+  If anything is missing, it returns the checklist with `downloadUrl: null` and no ZIP is built.
+- **This is structurally the odd one out in a "one-click package."** It packages already-uploaded
+  files; it produces zero new prose, unlike #112-114. An orchestrator's UI/copy should label this
+  step honestly (e.g. "Document Checklist" / "Required Documents Status"), not imply it "generated"
+  a document the way the other three generate real content.
+- **This is also the only one of the 4 that hard-requires a pre-existing `applications` row** —
+  confirmed above that #112 (narrative) works with none, and #113/#114 never touch `applications`
+  at all.
+
+### Net implication for a one-click orchestrator (#116)
+
+1. **An `applications` row is optional for 3 of 4 steps, but load-bearing for the 4th.** The
+   orchestrator's real first decision is whether to create/ensure an `applications` row up front —
+   not because narrative/budget/logic-model need it, but because Document Assembly cannot run at
+   all without one, and narrative's own best-effort mirror-onto-application step silently does
+   nothing without one either. Ensuring an application exists first (create if absent) is the
+   correct sequencing, not an afterthought.
+2. **Budget needs a real `programId` the orchestrator cannot derive automatically** — no FK from
+   opportunities/applications to `programs`, no primary-program flag. Needs either a user-facing
+   picker step or an explicit, documented single-program fallback; must not be silently guessed.
+3. **Logic Model needs real prose the orchestrator CAN source automatically** — pull from
+   `organizational_digital_twins.programs` (or `knowledge_base` category `program_description`
+   directly) rather than requiring the user to retype `program_description`/`target_population`/
+   `geography` by hand. Note this KB-derived source is a different table than `programs` (#113) and
+   may not describe the same program set — treat as two independent data sources, not one.
+4. **Document Assembly is a checklist/packaging step, not a 4th content generator** — the one-click
+   summary UI should present it as such, and it should logically run last (after an application
+   exists and, ideally, after any required documents have had a chance to be uploaded), not
+   in parallel with the 3 real generators.
 
 ---
 
