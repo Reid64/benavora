@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { ArrowLeft, Building2, CheckCircle2, Loader2, Mail, RotateCcw, Sparkles, Users, Zap } from "lucide-react";
 
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -131,6 +132,13 @@ export default function CorporateOutreachPage() {
   const { profile } = useProfile();
   const editable = canEdit(profile?.role);
 
+  // Pre-selection from the Corporate Marketplace (/donor-discovery/marketplace):
+  // resolve the id to its legal name and drop it into the search box so the
+  // real, existing search flow below surfaces and auto-selects it — avoids
+  // duplicating the prospect-loading logic for a single pre-filled row.
+  const searchParams = useSearchParams();
+  const prefillProspectId = searchParams.get("prospectId");
+
   const [prospects, setProspects] = useState<OutreachProspect[]>([]);
   const [loadingProspects, setLoadingProspects] = useState(true);
   const [prospectsError, setProspectsError] = useState<string | null>(null);
@@ -183,6 +191,31 @@ export default function CorporateOutreachPage() {
   useEffect(() => {
     void loadProspects(searchQuery);
   }, [searchQuery, loadProspects]);
+
+  useEffect(() => {
+    if (!prefillProspectId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/intelligence/corporate-prospects/${prefillProspectId}`, { cache: "no-store" });
+        if (!res.ok || cancelled) return;
+        const payload = (await res.json()) as { prospect: { legal_name: string } };
+        if (!cancelled) setSearchInput(payload.prospect.legal_name);
+      } catch {
+        // Pre-fill is a convenience, not required — silently skip on failure.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [prefillProspectId]);
+
+  useEffect(() => {
+    if (!prefillProspectId) return;
+    if (prospects.some((p) => p.id === prefillProspectId)) {
+      setSelectedIds((prev) => new Set(prev).add(prefillProspectId));
+    }
+  }, [prefillProspectId, prospects]);
 
   function toggleProspect(id: string) {
     setSelectedIds((prev) => {

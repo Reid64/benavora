@@ -1,8 +1,51 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 7, 2026 (Corporate Giving DNA per-company profile page shipped, row #92). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 7, 2026 (Corporate Marketplace search/filter UI shipped, row #97). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 7, 2026 (Corporate Marketplace search/filter UI, row #97)
+
+Built `FEATURE_REGISTRY_v2.md` row #97 ("Corporate Marketplace — prospect search UI + filter
+engine"), previously PLANNED. Real route/page paths and live-verified filter status below.
+
+**Real implementation:**
+- `GET /api/intelligence/corporate-prospects` (`src/app/api/intelligence/corporate-prospects/route.ts`,
+  new — the list/marketplace sibling of the existing detail route at
+  `corporate-prospects/[id]/route.ts`, q32-003). Same access pattern as every other
+  `corporate_prospects` reader in this codebase: service-role admin client, `requireRole("viewer")`
+  gate, no `organization_id` filter (the table is genuinely shared/cross-org, RLS-hardened to
+  service-role-only per migration 111).
+- `/donor-discovery/marketplace` (`src/app/(dashboard)/donor-discovery/marketplace/page.tsx`, new)
+  — filter panel + result-card grid, URL-persisted filter state via the existing `useUrlState` hook
+  (same convention as `/donor-discovery/prospects`). Linked from a new "Corporate Marketplace" quick
+  action on `/donor-discovery` (grid widened 3→4 columns to fit it).
+- Each result card links to the real Corporate Giving DNA profile page
+  (`/donor-discovery/outreach/prospects/[id]`, q32-003) and to a new "Add to Outreach" link
+  (`/donor-discovery/outreach?prospectId=<id>`). The Outreach composer
+  (`src/app/(dashboard)/donor-discovery/outreach/page.tsx`) was given a small additive change: on
+  mount, if `?prospectId=` is present it resolves that id to its `legal_name` via the detail route
+  and drops it into the existing search box, so the outreach composer's own real, already-tested
+  search/select flow surfaces and auto-selects it — no duplicate prospect-loading logic was added.
+
+**Filters — live-verified against the real production `corporate_prospects` table
+(49 rows as of 2026-08-07) before shipping, not assumed from the migration DDL alone:**
+
+| Filter | Real column | Status |
+|---|---|---|
+| Search (company name) | `legal_name`, `dba_name` (ilike) | Functional |
+| Industry | `industry_category` (exact match) | Functional. Options are fetched live from the table (`SELECT DISTINCT`-equivalent in JS, cheap at this table size) rather than a hardcoded taxonomy — confirmed only 3 real values exist today ("Construction Companies", "Building Material Dealers", "Roofing Contractors"), a small, real, non-generic set as flagged in the task. |
+| Ownership (family/veteran/minority/woman-owned) | `is_family_owned` / `is_veteran_owned` / `is_minority_owned` / `is_woman_owned` (boolean `eq`) | Functional, but currently matches 0 of 49 rows — confirmed live, no prospect on file has any ownership flag set true yet. The filter mechanism itself works; there's simply no data yet. |
+| Has a propensity score | `scores->PS-01` `is`/`not is null` | Functional. Only 1 of 49 rows has a non-empty `scores` jsonb today (matches the AG-22 propensity-scoring pipeline's known sparse-data state, `AGENT_VERIFICATION_LOG.md`) — confirmed both the `true` (1 row) and `false` (48 rows) branches live. |
+| Sort by propensity score | `scores->PS-01->>score`, nulls last | **Functional but imprecise**: PostgREST's `order` parameter rejects a `::numeric` cast on a json path (confirmed live — `PGRST100` parse error), so this sorts as a **text** comparison, not numeric. With only 1 scored row today this is unobservable; once more rows are scored, two-digit vs. one-digit scores could sort out of true numeric order (e.g. "9" > "10" as text). Documented in the route file's own header comment; not fixed this session since it isn't currently reachable with real data. |
+| Employee count contains | `employee_count_estimate` (text, `ilike` contains) | **Ships as a real, working filter, but currently matches 0 of 49 rows unconditionally** — confirmed live that this column is null on every single prospect in production today (not a format problem, genuinely empty). The UI shows an explicit note under the field saying so, rather than silently shipping a filter that looks broken. |
+| Revenue estimate contains | `revenue_estimate` (text, `ilike` contains) | Same as employee count — confirmed 0 of 49 rows populated, same explicit UI note. |
+| Pagination | offset/limit via `.range()`, `count: "exact"` | Real offset pagination (page/pageSize in the URL), not a single capped `limit` like the Outreach composer's existing prospect-selector route — will scale correctly as the pool grows past 200 rows. |
+
+Gates: `pnpm tsc --noEmit` — 0 new errors (38 pre-existing `src/__tests__/**` errors unchanged,
+confirmed by grepping the full gate output for the changed file paths specifically — zero hits).
 
 ---
 

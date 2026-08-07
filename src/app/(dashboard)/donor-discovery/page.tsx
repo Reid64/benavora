@@ -37,6 +37,7 @@ import {
   Rocket,
   Sparkles,
   Star,
+  Store,
   Telescope,
 } from "lucide-react";
 
@@ -395,6 +396,15 @@ export default function DonorDiscoveryPage() {
         : "No discovery runs yet",
     },
     {
+      key: "marketplace",
+      label: "Corporate Marketplace",
+      description: "Browse and filter the shared corporate prospect pool by industry, ownership, and score.",
+      href: "/donor-discovery/marketplace",
+      accent: "#EC4899",
+      icon: Store,
+      stat: "Search by industry, ownership & propensity score",
+    },
+    {
       key: "outreach",
       label: "Corporate Outreach",
       description: "Compose and queue AI-personalized outreach to your prospects.",
@@ -485,7 +495,7 @@ export default function DonorDiscoveryPage() {
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {quickActions.map((action) => {
           const Icon = action.icon;
           return (

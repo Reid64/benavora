@@ -245,7 +245,7 @@ row that log covers, the plain BUILT/PLANNED status below is replaced with one o
 | 94 | Email Campaign Routing | BUILT | /api/donor-discovery/prospects/[id]/route-to-email |
 | 95 | Relationship Mapper RA-01 (AG-23) | NOT-BUILT | Same finding as row #80 — RA-01 and AG-23 are one concept, confirmed by grep to have zero dedicated implementation under either label. **As of 2026-08-03, row #220's real implementation (AG-32) is BUILT — VERIFIED**, enum-fixed, `board_members` column bug fixed, and wired into a daily incremental schedule. Cross-reference #220 for actual build status; this row/#80 should not be read as "nothing exists for this capability," only "nothing exists under the AG-23/RA-01 label specifically." |
 | 96 | Change Monitor CM-01 (**AG-42**, renumbered from AG-30 on 2026-08-02) | BUILT — VERIFIED | **Built and live-verified 2026-08-03** (`AGENT_VERIFICATION_LOG.md` "AG-42"), superseding the prior NOT-BUILT finding — `change-monitor-agent.ts`, migration 113's enum value confirmed live. First-ever real run: `foundation_directory`'s 14 real eligible rows checked, `corporate_prospects` gracefully degraded at the time (now resolved separately, row #87), a synthetic detected-change row correctly produced a real diff/severity/chain-queue entry. Wired into `worker/scheduler.ts`'s daily pipeline. One separate, unrelated bug found downstream: the `'foundation-990-enrichment'` chain target this agent queues into fails 100% of the time on a real Railway env-var-naming mismatch — this agent's own detect+queue responsibility is fully discharged correctly, the break is in the chain target's own wiring. |
-| 97 | Corporate Marketplace | PLANNED | Prospect search UI + filter engine. Phase 2. |
+| 97 | Corporate Marketplace | BUILT | Prospect search UI + filter engine. `/donor-discovery/marketplace` + `GET /api/intelligence/corporate-prospects`, shipped 2026-08-07. Ownership/employee-count/revenue filters are real but currently match little-to-no live data (0-1 of 49 `corporate_prospects` rows have those fields populated) — see STATE_OF_THE_BUILD.md for the per-filter breakdown. |
 
 ### Pillar 4: Autonomous Relationship Builder
 | # | Feature | Status | Notes |
@@ -525,12 +525,12 @@ Ground-up replacement architecture per `UNIVERSAL_SCRAPER_PRD.md`: keyword + sch
 | Tier 4 Browser Automation | 7 | 7 | 0 | 0 | 0 |
 | Tier 5 SaaS Layer | 6 | 6 | 0 | 0 | 0 |
 | Tier 6 Full Autonomous | 26 | 20 | 2 | 0 | 4 |
-| Platform Vision Pillars | 93 | 27 | 2 | 19 | 45 |
+| Platform Vision Pillars | 93 | 28 | 2 | 19 | 44 |
 | Data Pipeline | 7 | 3 | 2 | 0 | 2 |
 | Scraper (Directive 1) | 5 | 5 | 0 | 0 | 0 |
 | Universal Scraper (uscraper-001-007) | 7 | 3 | 4 | 0 | 0 |
 | Testing | 8 | 3 | 0 | 0 | 5 |
-| **TOTAL** | **198** | **113** | **10** | **19** | **56** |
+| **TOTAL** | **198** | **114** | **10** | **19** | **55** |
 
 **Note on the July 30 → August 7, 2026 agent-verification updates:** the AG-15–AG-42 rows above (and
 their Post-Launch Vision cross-references, #217/#218/#220/#225) use the finer-grained BUILT — VERIFIED
