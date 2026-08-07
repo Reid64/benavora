@@ -1,7 +1,51 @@
 # BENAVORA — Session State
-## Last Updated: August 7, 2026 (Simulator UI live-verified through a real browser session, all 4 scenario types)
+## Last Updated: August 7, 2026 (Personalized Match Feed built — registry #85, real Digital Twin affinity + AG-15 probability blend)
 
-## Current Session — August 7, 2026 (Simulator UI live-verified — real browser session, all 4 scenario types)
+## Current Session — August 7, 2026 (Personalized Match Feed built — registry #85)
+
+**Focus:** `FEATURE_REGISTRY_v2.md` #85 ("Personalized Match Feed," PLANNED, Phase 2) — per-org
+scoring of open opportunities against the org's Digital Twin, blended with AG-15's real probability
+score. Both AG-17 (Discovery Agent, unblocked today per commit `a310651`) and the Digital Twin
+(`organizational_digital_twins`, migration 093, real live data) were confirmed solid to build on
+before starting.
+
+**Status:**
+- Verified real schema directly from migration files before writing any query (per the task's own
+  instruction not to trust a prompt's column list without checking): `organizational_digital_twins`
+  columns (`mission`, `vision`, `service_areas` text[], `programs` jsonb array, `financial_profile`,
+  `board_composition`, `proven_narrative_patterns`, `key_strengths` text[],
+  `twin_completeness_score`) confirmed against `supabase/migrations/093_digital_twins.sql`; real
+  `opportunities` columns (`name` — not `title`; `category`, `description`,
+  `eligibility_requirements`, `geographic_restrictions`, `amount_min/max`, `deadline`, `status`)
+  confirmed against `001_initial_schema.sql` plus later `ALTER TABLE` migrations (010/012/027).
+  Confirmed `opportunity_probability_scores` (AG-15's real output table, same migration 093) as a
+  separate, complementary signal — no `focus_areas` or singular `service_area` column exists on the
+  twin table; did not invent one.
+- Checked for duplication before building: `/intelligence/recommendations` (`FunderRecommender`)
+  scores the **foundation directory** against manually-entered params; `/intelligence/matches`
+  (semantic funder matching) ranks **funders**. Neither ranks the org's own real open opportunities
+  against its own real Digital Twin — confirmed this is a genuinely new feed, not a rebuild.
+- Built `src/lib/intelligence/match-feed.ts` — a real, named, deterministic formula (mission
+  affinity 40% + program affinity 35% + geographic fit 25%, keyword-overlap based, no Claude call
+  in the ranking path), blended with AG-15's `overall_score` (55/45 weighting) only when a real
+  probability row exists — degrades to affinity-only, not a fabricated blend, when it doesn't.
+  Exported and independently testable. Full formula documented in the file's header comment at the
+  same design-rigor level as AGENTS_v2.md's AG-15/AG-17 specs, per this task's explicit instruction.
+- Built `GET /api/intelligence/match-feed` (`requireRole("viewer")`-gated, `organizationId` derived
+  server-side, matching the `/api/funders/[id]/relationship` pattern) and a new dashboard page at
+  `/intelligence/match-feed` (ranked cards, per-factor breakdown, honest "Digital Twin is only N%
+  complete" banner when personalization is limited — never silently presenting a meaningless
+  ranking as real). Added to the Intelligence nav section.
+- Full detail, including the exact weighting rationale and what was deliberately not built (no
+  Claude summary layer, no persisted/cached table, no invented columns), is in
+  `STATE_OF_THE_BUILD.md`'s matching session entry.
+
+**Commit:** `feat(discovery): Personalized Match Feed — real Digital Twin affinity scoring + AG-15 probability blend (registry #85)` (this session).
+**Gates:** `pnpm tsc --noEmit` — zero errors in any new/edited file (zero non-test errors project-wide; only pre-existing `src/__tests__/**` failures remain, unrelated to this work).
+
+---
+
+## Prior Session — August 7, 2026 (Simulator UI live-verified — real browser session, all 4 scenario types)
 
 **Focus:** the immediately-preceding session built `/intelligence/simulate` but explicitly flagged
 it as "not yet exercised against a live `POST /api/agents/simulate` call in a browser" and left that

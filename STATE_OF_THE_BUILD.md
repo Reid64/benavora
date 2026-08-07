@@ -1,8 +1,32 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 7, 2026 (row #142 Simulator UI now BUILT — VERIFIED: live-verified through a real authenticated browser session against all 4 real scenario types, closing Pillar 13's last open gap). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 7, 2026 (registry #85 Personalized Match Feed built — deterministic Digital Twin affinity scoring blended with AG-15 probability, real feed page at `/intelligence/match-feed`). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 7, 2026 (Personalized Match Feed built — registry #85, real Digital Twin affinity + AG-15 probability blend)
+
+**What shipped:** `FEATURE_REGISTRY_v2.md` #85 ("Personalized Match Feed," PLANNED) — a real, deterministic ranking of an org's open `opportunities` against its `organizational_digital_twins` row (migration 093), blended with AG-15's `opportunity_probability_scores.overall_score` where one exists.
+
+- **`src/lib/intelligence/match-feed.ts`** (new): `computeMatchFeed(orgId, supabase, limit)`. Real formula, no Claude call (deterministic, following AG-15's `grant-probability-engine.ts` design principle that the core ranking must be inspectable and must not depend on Claude latency/cost):
+  - **Affinity score (0-100)**, three weighted keyword-overlap signals against real fields only (`organizational_digital_twins.mission`/`programs`/`service_areas`/`key_strengths`, `opportunities.name`/`description`/`eligibility_requirements`/`geographic_restrictions` — all confirmed live against migration 093/001 DDL before writing any query, per this task's own instruction):
+    - `mission_affinity` (40%) — fraction of the twin's mission+key_strengths keyword set found in the opportunity's text.
+    - `program_affinity` (35%) — best-matching twin program's (title+description) keyword overlap against the opportunity's text; records which program matched.
+    - `geographic_fit` (25%) — twin's `service_areas` vs. the opportunity's `geographic_restrictions` text; a null/empty restriction is treated as nationally open (full fit); an empty twin `service_areas` is neutral (unknown, not fabricated); a real restriction with no matching service area scores low, not zero.
+  - Stopword list includes generic grant-domain filler words (`grant`, `funding`, `apply`, `opportunity`, `organization`, etc.) that would otherwise inflate overlap without carrying real subject-matter signal — documented in-file as a deliberate choice.
+  - **Combined score**: when an `opportunity_probability_scores` row exists for that opportunity/org pair, `combinedScore = affinityScore × 0.55 + overall_score × 0.45`; when none exists yet (AG-15 hasn't reached it), no probability weight is fabricated — `combinedScore = affinityScore` unblended, and the entry is flagged `probabilityBlended: false`, surfaced in the UI as "Affinity-only — not yet scored by the probability engine." This is the same neutral-fallback pattern (not a fabricated substitute value) `grant-probability-engine.ts` already established for its own missing-data branches.
+  - **Personalization confidence reported separately from the score** — `personalizationLevel` (`none`/`limited`/`partial`/`strong`) derived from `twin_completeness_score`, never silently baked into the ranking. The UI shows an explicit warning banner (with a link to `/knowledge-base/edit`) whenever the level is below `strong`, rather than presenting a ranking as meaningful when the underlying Twin barely has content — per this task's explicit "do not silently swallow an incomplete twin" instruction.
+  - Real-time computed on every request (no new persisted table) — queries the twin, up to 500 open opportunities, existing probability scores, and funder names (for display) in a small number of batched queries, scores in-memory, returns the top N sorted by `combinedScore`. No caching added speculatively, per this task's own instruction to build the live-computed version first.
+- **`src/app/api/intelligence/match-feed/route.ts`** (new): `GET`, `requireRole("viewer")`-gated, `organizationId` derived server-side (never from the request), matching the existing `/api/funders/[id]/relationship` pattern. No Claude call, so no extended `maxDuration` needed.
+- **`src/app/(dashboard)/intelligence/match-feed/page.tsx`** (new): ranked card list — combined score, funder/category/amount/deadline chips, plain-language "why" reasons (e.g. `Matches your program "Cornerstone Communities" (shared terms: housing, voucher, down-payment).`), an expandable per-factor breakdown bar chart, and the personalization-confidence banner described above. Styled to match this repo's existing light-canvas/white-card intelligence pages (`#D6E4F0` canvas, `#FFFFFF` cards, `#0077B6` accent — same palette as `/intelligence/recommendations`), not a new design system.
+- Added "Match Feed" to the Intelligence nav section (`src/components/layout/nav-items.ts`), between Digital Twin and Knowledge Engine.
+- Confirmed no duplication with existing intelligence pages before building: `/intelligence/recommendations` (`FunderRecommender`) matches the **foundation directory** against manually-entered program/amount/geography params, not the org's real open-opportunity pipeline; `/intelligence/matches` (semantic funder matching) ranks **funders**, not opportunities. Neither computes affinity between the org's own Digital Twin and its own real open opportunities — this is a genuinely new, non-duplicative feed.
+
+**Not done, out of scope per this task's own instructions:** no Claude-written one-line summary layer (deterministic reasons already explain "why"; adding one would introduce a latency/cost dependency the task explicitly said the ranking must not have); no persisted/cached feed table (build-live-first, add caching only if a real measured cost problem shows up); no new Digital Twin columns invented (`focus_areas`/`service_area` singular do not exist — only the real `service_areas` plural array is used).
+
+Gates: `pnpm tsc --noEmit` — zero errors in any new/edited file; the only errors in the full run are pre-existing, unrelated `src/__tests__/**` failures (confirmed via `grep -v __tests__`, zero non-test errors), consistent with this project's standing note that the tsc gate has known pre-existing test-tree issues.
 
 ---
 
