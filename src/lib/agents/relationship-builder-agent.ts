@@ -719,7 +719,7 @@ export class RelationshipBuilderAgent extends AutonomousAgent {
         fundersAnalyzed++;
 
         try {
-          const [memoriesRes, existingScoreRes, applicationsRes] =
+          const [memoriesRes, existingScoreRes, opportunityIdsRes] =
             await Promise.all([
               this.supabase
                 .from("relationship_memory")
@@ -736,7 +736,7 @@ export class RelationshipBuilderAgent extends AutonomousAgent {
                 .eq("funder_id", funder.id)
                 .maybeSingle(),
               this.supabase
-                .from("applications")
+                .from("opportunities")
                 .select("id")
                 .eq("organization_id", this.orgId)
                 .eq("funder_id", funder.id),
@@ -747,16 +747,40 @@ export class RelationshipBuilderAgent extends AutonomousAgent {
               `Failed to load relationship memory: ${memoriesRes.error.message}`,
             );
           }
-          if (applicationsRes.error) {
+          if (opportunityIdsRes.error) {
             throw new Error(
-              `Failed to load applications: ${applicationsRes.error.message}`,
+              `Failed to load opportunities: ${opportunityIdsRes.error.message}`,
             );
           }
 
+          // applications has no funder_id column of its own (confirmed live,
+          // 2026-08-07 — the prior .eq("funder_id", ...) directly against
+          // applications was a real bug, not the migration-127 table gap
+          // this file's own header documents) — funder linkage is derived
+          // via applications.opportunity_id -> opportunities.funder_id.
           const memories = (memoriesRes.data ?? []) as MemoryRow[];
-          const applicationIds = (applicationsRes.data ?? []).map(
-            (a) => (a as { id: string }).id,
+          const opportunityIds = (opportunityIdsRes.data ?? []).map(
+            (o) => (o as { id: string }).id,
           );
+
+          let applicationIds: string[] = [];
+          if (opportunityIds.length > 0) {
+            const { data: applicationRows, error: applicationsError } =
+              await this.supabase
+                .from("applications")
+                .select("id")
+                .eq("organization_id", this.orgId)
+                .in("opportunity_id", opportunityIds);
+
+            if (applicationsError) {
+              throw new Error(
+                `Failed to load applications: ${applicationsError.message}`,
+              );
+            }
+            applicationIds = (applicationRows ?? []).map(
+              (a) => (a as { id: string }).id,
+            );
+          }
 
           let hasAwardedOutcome = false;
           if (applicationIds.length > 0) {

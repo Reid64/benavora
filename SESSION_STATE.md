@@ -1,6 +1,39 @@
 # BENAVORA — Session State
-## Last Updated: August 7, 2026 (governance preflight sync before queue-26..38 chain)
-## Mode: docs-only preflight check. Confirmed FEATURE_REGISTRY_v2.md's 2026-08-07 reconciliation (AG-17/AG-15/AG-39, IN-BUILD row corrections) is already reflected in AGENT_VERIFICATION_LOG.md (a prior same-day commit, 3eccd4c, already covered it) but found AGENTS_v2.md's own AG-15/AG-17/AG-39 sections (§3 and §5) still stale — pre-fix status text never updated even though §1.2's enum-gap note elsewhere in the same doc was. Also found NOT_BUILT_MASTER_INVENTORY.md Section 1's top-of-file "likely-BUILT pending a fresh verification pass" note is now stale and, for rows #98/#157/#159, actively wrong — the fresh pass happened and found #98 absent, #157/#159 NOT-BUILT. Per this task's constraint, did not edit AGENTS_v2.md/FEATURE_REGISTRY_v2.md/NOT_BUILT_MASTER_INVENTORY.md — findings recorded in a new AGENT_VERIFICATION_LOG.md entry and in STATE_OF_THE_BUILD.md instead. Part 2 (spot-check queue-26..38 premises) could not run — this session's sandbox has no access to C:\Users\manag\Documents\FORGE\projects\benavora\ at all (every tool refused); did independently live-check corporate_prospects regardless (49 rows, RLS enabled, grants revoked — matches FEATURE_REGISTRY_v2.md row #87, no contradiction found). Full detail in AGENT_VERIFICATION_LOG.md's "Governance preflight sync, 2026-08-07" entry.
+## Last Updated: August 7, 2026 (relationship_memory table gap fixed live)
+## Mode: real infra fix. FEATURE_REGISTRY_v2.md row #98 (Relationship Memory) was NOT-BUILT —
+## confirmed live via `to_regclass()` that `relationship_memory` was absent from production despite
+## a migration file existing on disk (src/supabase/migrations/076_reputation_intelligence.sql).
+## Reconfirmation found the gap was wider than assumed: all 4 tables that migration defines
+## (relationship_memory, relationship_recommendations, reputation_signals, reputation_alerts) were
+## absent live — contradicting FEATURE_REGISTRY_v2.md row #147's prior claim that
+## reputation_signals/reputation_alerts were "confirmed real and actively written." Enum was
+## re-checked and confirmed already correct (ag-19-relationship/ag-18-reputation both present, no
+## enum work needed). Authored and applied supabase/migrations/127_relationship_memory.sql (root
+## tree, next-free number, real column shapes cross-checked against both consumer files, RLS +
+## org-scoped policies added — closes a real live anon-exposure gap, not just a schema gap) via
+## DATABASE_URL/psql (DIRECTIVE-017, no hand-off file). Ran both real consumer agents
+## (RelationshipBuilderAgent/AG-19, ReputationIntelligenceAgent/AG-18) live against the real Faith
+## Foundation org: confirmed the table-gap failure mode (schema-cache 42P01 errors) is gone. Found
+## and fixed one real bug directly blocking the write path (relationship-builder-agent.ts queried a
+## nonexistent applications.funder_id column instead of deriving funder linkage via
+## opportunities.funder_id). Found and precisely diagnosed — but explicitly did NOT fix, correctly
+## out of scope — a third, deeper, previously-undocumented bug: funder_relationship_scores' real
+## live columns (score/events/last_updated_at) don't match what either relationship-builder-agent.ts
+## OR the separately "live" funder-relationship.ts (Gen-1, FEATURE_REGISTRY_v2.md row #100) assume
+## (relationship_score/trend/recent_events/etc) — meaning that "live" agent would also fail on any
+## real invocation. Net honest result: the 4 target tables exist, have RLS, and are confirmed
+## reachable with zero schema-cache errors by real code — but no row was actually written to any of
+## them this session (AG-18 hit an honest real-world zero-signal outcome, explicitly acceptable per
+## task instructions; AG-19 is still blocked one layer behind by the new funder_relationship_scores
+## bug, out of scope for this queue). Did not touch AG-19/AG-18's separate, already-documented
+## orchestrator wiring gap, per explicit instruction. Full detail in STATE_OF_THE_BUILD.md's
+## 2026-08-07 "relationship_memory table gap fixed live" entry.
+
+---
+
+## Prior Session — August 7, 2026 (governance preflight sync before queue-26..38 chain)
+
+**Mode note carried forward:** docs-only preflight check. Confirmed FEATURE_REGISTRY_v2.md's 2026-08-07 reconciliation (AG-17/AG-15/AG-39, IN-BUILD row corrections) is already reflected in AGENT_VERIFICATION_LOG.md (a prior same-day commit, 3eccd4c, already covered it) but found AGENTS_v2.md's own AG-15/AG-17/AG-39 sections (§3 and §5) still stale — pre-fix status text never updated even though §1.2's enum-gap note elsewhere in the same doc was. Also found NOT_BUILT_MASTER_INVENTORY.md Section 1's top-of-file "likely-BUILT pending a fresh verification pass" note is now stale and, for rows #98/#157/#159, actively wrong — the fresh pass happened and found #98 absent, #157/#159 NOT-BUILT. Per this task's constraint, did not edit AGENTS_v2.md/FEATURE_REGISTRY_v2.md/NOT_BUILT_MASTER_INVENTORY.md — findings recorded in a new AGENT_VERIFICATION_LOG.md entry and in STATE_OF_THE_BUILD.md instead. Part 2 (spot-check queue-26..38 premises) could not run — this session's sandbox has no access to C:\Users\manag\Documents\FORGE\projects\benavora\ at all (every tool refused); did independently live-check corporate_prospects regardless (49 rows, RLS enabled, grants revoked — matches FEATURE_REGISTRY_v2.md row #87, no contradiction found). Full detail in AGENT_VERIFICATION_LOG.md's "Governance preflight sync, 2026-08-07" entry.
 
 ---
 

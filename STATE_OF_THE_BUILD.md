@@ -1,8 +1,99 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 7, 2026 (governance preflight sync before queue-26..38 chain). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 7, 2026 (relationship_memory table gap fixed — AG-18/AG-19 real write paths partially unblocked, new deeper bug found and left for a future session). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 7, 2026 (relationship_memory / relationship_recommendations / reputation_signals / reputation_alerts table gap fixed live)
+
+**Scope:** FEATURE_REGISTRY_v2.md row #98 (Relationship Memory) was NOT-BUILT — a direct `to_regclass()`
+query against production confirmed `relationship_memory` was absent, even though
+`src/supabase/migrations/076_reputation_intelligence.sql` defines it on disk. This blocks two
+already-built consumer agents: `RelationshipBuilderAgent` (AG-19, `agentId:
+"ag-19-relationship"`) and `ReputationIntelligenceAgent` (AG-18, `agentId: "ag-18-reputation"`).
+
+**Step 1 — reconfirmed live, not trusted from docs.** Connected via `DATABASE_URL`/`psql`
+(`STANDING_DIRECTIVES.md` DIRECTIVE-017 — confirmed working, no hand-off file needed). Found the
+gap was **wider than the task description assumed**: all 4 tables named in `076_reputation_
+intelligence.sql` (`relationship_memory`, `relationship_recommendations`, `reputation_signals`,
+`reputation_alerts`) were absent from production, not just `relationship_memory`. This directly
+**contradicts FEATURE_REGISTRY_v2.md row #147's prior claim** that `reputation_signals`/
+`reputation_alerts` were "confirmed real and actively written by the live nightly path" — that
+claim was wrong or badly stale; row #147 needs its own correction in a future pass (not made
+here, out of this session's stated scope, but flagged). The `agent_type` enum was re-checked and
+confirmed to still correctly contain both `ag-19-relationship` and `ag-18-reputation` (65 real
+values total) — no enum work was needed, consistent with `AGENT_VERIFICATION_LOG.md`'s prior
+enum-gap-fix entries.
+
+**Step 2 — migration authored and applied.** `supabase/migrations/127_relationship_memory.sql`
+(root tree, the tree that's actually DDL-applied — confirmed 126 was the prior highest number,
+127 was free) creates all 4 tables with the exact column shapes already used by the real,
+already-tested consumer code (cross-checked against every `.from(...)`/`.select(...)`/`.insert(...)`
+call site in both `relationship-builder-agent.ts` and `reputation-agent.ts` before writing — no
+column was invented or renamed). Added explicit `ENABLE ROW LEVEL SECURITY` + an org-scoped
+policy (`org_id = (SELECT organization_id FROM profiles WHERE id = auth.uid())`, migration 094's
+precedent) on the 3 org-scoped tables; `reputation_signals` (no org column, by design) gets RLS
+enabled with no permissive policy, service-role-only. This closes a **real, live anon/authenticated
+cross-org exposure** — `src/app/api/intelligence/reputation/route.ts`'s own header comment already
+flagged "`reputation_alerts` carries no RLS policy... trusting a query param would let one org
+read another's alerts" as a known gap it manually worked around in application code; that route
+uses the session-scoped SSR client (subject to RLS), so this was a real exposure, not
+hypothetical. Applied via `psql -f` through the `DATABASE_URL` path (real DDL, not a hand-off
+file) — all 4 `CREATE TABLE`, 3 `CREATE INDEX`, 4 `ALTER TABLE ... ENABLE RLS`, and 3
+`CREATE POLICY` statements succeeded. Re-verified live: all 4 tables now resolve to a real oid.
+
+**Step 3 — ran the real consumer agents live against the real Faith Foundation org, found and
+fixed one bug in the direct call path, found and precisely diagnosed (did not fix) a second,
+deeper, unrelated bug.**
+
+- First run: both agents completed (`status: completed`, no schema-cache/42P01 errors on any of
+  the 4 target tables) — confirming the table gap itself is genuinely closed. But
+  `RelationshipBuilderAgent` errored on every one of the 4 real funders: `"Failed to load
+  applications: column applications.funder_id does not exist"`. Confirmed live: `applications`
+  has no `funder_id` column at all — only `opportunity_id`. This is a real, pre-existing bug in
+  `relationship-builder-agent.ts`'s Phase A (unrelated to the table-gap fix, but directly blocking
+  the write path this queue exists to unblock) — **fixed**: derives funder linkage correctly via
+  `applications.opportunity_id → opportunities.funder_id` (opportunities.funder_id confirmed real
+  and live) instead of a nonexistent direct column.
+- Second run (after that fix): progressed further, but hit a **third, separate, previously
+  undocumented bug**: `funder_relationship_scores`'s real live columns are `id, organization_id,
+  funder_id, score, events, last_updated_at, created_at` — not `relationship_score, trend,
+  recent_events, is_stale, total_interactions, successful_applications, last_interaction_at,
+  updated_at`, the column set BOTH `relationship-builder-agent.ts` (this queue's target) AND
+  `funder-relationship.ts` (the separate Generation-1 agent FEATURE_REGISTRY_v2.md row #100
+  describes as "live" and wired into `agent_queue` case `'funder_relationship'`) assume when
+  upserting into it. **Neither this file's own header comment's claimed real-column list nor
+  SCHEMA_REGISTRY_v2.md's claimed list matches what's actually live** — three different claimed
+  shapes, none correct. **Not fixed this session** — explicitly out of scope: this is not one of
+  the 4 tables this migration targets, has no migration file of its own (per
+  `relationship-builder-agent.ts`'s own header, "created directly against prod"), and a real fix
+  would mean deciding whether to migrate the live table to match the code or rewrite both
+  consumer files to match the live table — a real, separate, previously-unknown defect, flagged
+  here for a future session, not chased further per this queue's explicit scope fence.
+
+**Net honest result:** the 4 target tables (row #98's actual subject) exist live, have RLS, and
+are confirmed reachable by real code with zero schema-cache errors — `AG-18`'s
+`checkEntityReputation()` genuinely queried `reputation_signals` for real; `AG-19`'s Phase A
+genuinely queried `relationship_memory` for real. **No row was actually written to any of the 4
+tables this session** — `AG-18` completed with an honest real-world zero (`itemsFound: 4`,
+`signalsFound: 0` — no risk-related DuckDuckGo/Claude classification for these 4 real funders
+today, an acceptable outcome per this queue's own instructions, not fabricated), and `AG-19`'s
+path to `relationship_recommendations` is still blocked by the newly-found, separate
+`funder_relationship_scores` column-mismatch bug (not the table gap this queue fixed). Do not
+read row #98 as fully "BUILT" in the end-to-end-proven-with-a-real-row sense — read it as "the
+specific gap this row named is fixed; a new, different, deeper gap was found one layer behind it."
+
+**AG-19's already-documented wiring gap is unchanged and was correctly left alone**: still never
+auto-instantiated by `worker/autonomous-orchestrator.ts` (which substitutes `FunderRelationshipAgent`).
+AG-18 has the same kind of gap, also left alone, per this queue's explicit instruction not to
+touch either.
+
+Gates: `pnpm tsc --noEmit` — 0 new errors from the edited file (`relationship-builder-agent.ts` does
+not appear in the compiler's output); pre-existing failures remain confined to
+`src/__tests__/unit/{deadline-predictor,outcome-analyzer,regressions,samgov-client}.test.ts`,
+unrelated and untouched.
 
 ---
 
