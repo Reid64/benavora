@@ -3538,6 +3538,90 @@ immutable historical record" design principle.
 
 ---
 
+## AG-41 — narrative synthesis re-verified post platform-key rotation, real `lose_funder` coverage added
+
+**Follow-up to the AG-41 entry above.** That entry's item 7 flagged narrative synthesis
+(`keyRisks`/`keyOpportunities`/`narrative`/`exposedPrograms`) as blocked by a dead local
+`ANTHROPIC_API_KEY`, root-caused via a direct isolated API call, and recommended re-testing once
+the platform key (rotated commit `8f3aa06`, 2026-08-04) was available. This entry does that, and
+adds real coverage for `lose_funder` — the one `SCENARIO_TYPES` value never exercised in the
+2026-08-03 pass.
+
+**Step 1 — confirmed the 4 existing rows are still live, unmodified.** Queried
+`impact_simulations` for the real Faith Foundation org (`b1ab7402-dfc2-4712-869f-70ea3566cc1d`)
+directly: all 4 rows from 2026-08-03 (2× `budget_cut`, 1× `program_expansion`, 1× `gain_funder`,
+ids `3ba8d251…`/`c408acd2…`/`80bc7405…`/`b54185f6…`) are present, untouched, per this project's
+standing convention of keeping real agent-run output as history rather than scrubbing it.
+
+**Step 2 — ran the real, unmodified `ImpactSimulationAgent.run("manual", "lose_funder", …)`**
+directly (`node --import tsx`, no mocks — the same convention every live-execution entry in this
+log uses, since `POST /api/agents/simulate`'s `requireRole("writer")` needs a real browser session
+that can't be faked from a script; the route itself is a thin wrapper around exactly this call,
+confirmed by re-reading `src/app/api/agents/simulate/route.ts` before running) against the real
+org, a real funder (`Meade Tractor`, id `2521840b-9048-4c77-bd9c-f9f8492529d7`, drawn from the
+org's actual `funders` table, not invented), and a real owner profile as `createdBy`
+(`b3ef4d39-fdc2-4d3a-9e93-1e1888b576b4`, `info@faithfoundationsf.org`).
+
+**Result: `success: true`, one new `impact_simulations` row (`13a7d14c-a695-4f16-899e-ce8aca3abcab`),
+independently re-queried and read back after the run, not trusted from the in-process return
+value.** Deterministic math checks out exactly: Meade Tractor has zero trailing-12-month realized
+outcomes and zero open pipeline for this org (confirmed by the same pre-flight-style read used in
+the original AG-41 pass), so `deterministicImpact: {min: 0, max: 0, mostLikely: 0}` is the correct,
+non-fabricated real answer for this funder — not a placeholder. `baselineUsed: "forecast"`
+(a real AG-26 `funding_forecasts` 12-month row exists for this org) correctly drove
+`confidence: "high"`, matching `computeLoseFunder()`'s documented rule.
+
+**Step 3 — narrative fields are now genuinely populated, not degraded.** The new row's
+`simulation_result` has real, grounded, non-generic text in all three fields — e.g.
+`narrative`: *"Losing Meade Tractor carries a precisely $0 financial impact on FAITH Foundation —
+this funder had no realized contributions in the trailing 12 months and no open opportunities on
+file, so the organization's $75,000 annual budget is completely unaffected... a 2-staff
+organization cannot afford to carry dormant relationships..."* — every claim traces back to a real
+fact given in the prompt (the $0 deterministic impact, the org's real 2-staff/$75K profile), per
+the system prompt's own grounding requirement. `simulation_result.narrativeUnavailable` is absent
+(not present as an empty/degraded marker) — this is the real success path, not the degraded
+fallback the 2026-08-03 entry observed.
+
+**Independently confirmed the platform key itself, not just inferred from one successful agent
+run.** Direct, isolated `POST /v1/messages` calls to the real Anthropic API (bypassing the agent
+and its `callClaude()` wrapper entirely — the same root-cause method the original entry used):
+`model: "claude-3-5-haiku-20241022"` returned `404 not_found_error` (a valid, authenticated key
+hitting a retired/unavailable model — not a `401`), and `model: "claude-sonnet-4-6"` (the real
+`DEFAULT_MODEL` this agent actually calls, per `src/lib/ai/claude.ts:22`) returned a clean `200`
+with a genuine completion (`"OK."`, real `usage` token counts). **Confirmed: the platform
+`ANTHROPIC_API_KEY` is live and working as of this session (2026-08-07) — the key rotation in
+commit `8f3aa06` resolved the narrative-synthesis blocker documented in the original AG-41 entry's
+item 7.**
+
+**Root-cause summary:**
+1. AG-41's narrative synthesis is no longer blocked. All 4 scenario types (`lose_funder` newly
+   exercised this session; `gain_funder`/`program_expansion`/`budget_cut` already proven
+   2026-08-03) now have a real, live-confirmed path to genuine Claude-generated narrative content,
+   not just deterministic numbers with an empty-array fallback.
+2. This is the same platform-key fact `AG-26`'s own narrative-degradation open item shares (see the
+   AG-26 entries in this log) — noted here since it was discovered while working this prompt, but
+   AG-26's own status is not being marked resolved by this entry; that belongs to a live AG-26 test
+   of its own.
+3. No new bugs found. Deterministic math, idempotency (a 5th row, distinct id, no upsert), and the
+   manual-only trigger design are all unchanged and re-confirmed consistent with the 2026-08-03
+   pass.
+
+**Verification method:** live query of `impact_simulations` for the real org confirming the 4
+2026-08-03 rows are unmodified; live execution (`node --import tsx`, no mocks) of the real,
+unmodified `ImpactSimulationAgent.run("manual", "lose_funder", {funderId}, createdBy)` against the
+real Faith Foundation org, a real funder id, and a real owner profile id; the resulting
+`impact_simulations` row independently re-queried and read back, not inferred from the return
+value; two direct, isolated `POST /v1/messages` calls to the real Anthropic API (one deliberately
+against a retired model to distinguish "key invalid" from "model unavailable," one against the
+real `DEFAULT_MODEL`) to root-cause the current key status precisely rather than inferring it from
+one successful agent run alone. 4 temporary `.mjs` verification scripts were created and deleted
+after use; `git status --porcelain` confirmed clean of any leftover scripts before committing. The
+new `impact_simulations` row was deliberately kept, not deleted, per the same "every simulation is
+an immutable historical record" principle as the original AG-41 entry — it is real data the
+`/reports/simulate`-adjacent UI now has to render.
+
+---
+
 ## AG-42
 
 **Spec under test:** `AGENTS_v2.md` §5, AG-42 "Change Monitor Agent (CM-01)" (renumbered from

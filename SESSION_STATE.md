@@ -1,7 +1,47 @@
 # BENAVORA — Session State
-## Last Updated: August 7, 2026 (Forecast Dashboard live-verification — genuine production 404 found, not a code bug; row #133 corrected)
+## Last Updated: August 7, 2026 (AG-41 narrative synthesis re-verified post platform-key rotation — no longer blocked)
 
-## Current Session — August 7, 2026 (Forecast Dashboard live-verification, q28-003)
+## Current Session — August 7, 2026 (AG-41 re-verification, narrative synthesis + lose_funder coverage)
+
+**Focus:** re-verify AG-41 (Impact Simulation Agent) narrative synthesis, previously left unverified
+2026-08-03 due to a dead local `ANTHROPIC_API_KEY` (`AGENT_VERIFICATION_LOG.md` "AG-41" item 7,
+root-caused via a direct isolated API call). The platform key was rotated in commit `8f3aa06`
+(2026-08-04); this session re-tests against it, and adds real `lose_funder` coverage — the one
+`SCENARIO_TYPES` value never exercised in the original pass.
+**Status:**
+- Confirmed live: all 4 `impact_simulations` rows from 2026-08-03 for the real Faith Foundation org
+  are still present and unmodified — kept as history per this agent's own design, not scrubbed.
+- Ran the real, unmodified `ImpactSimulationAgent.run("manual", "lose_funder", …)` directly (same
+  convention as every prior live-execution entry — the API route needs a real browser session a
+  script can't fake, and is confirmed to be a thin wrapper around this exact call) against the real
+  org, a real funder (Meade Tractor), and a real owner profile as `createdBy`. Produced a real new
+  `impact_simulations` row, independently re-queried after the run. Deterministic `$0` impact is
+  correct (this funder has zero trailing-12-month outcomes and zero open pipeline for this org) —
+  not a placeholder. `baselineUsed: "forecast"` correctly drove `confidence: "high"`.
+- **Narrative fields are now genuinely populated** — real, grounded `keyRisks`/`keyOpportunities`/
+  `narrative` text, no `narrativeUnavailable` degradation marker. Independently confirmed the
+  platform key's live status with two isolated `POST /v1/messages` calls (bypassing the agent
+  entirely): a retired model returned `404` (proves the key itself is valid — a dead key 401s
+  before model resolution), and the real `DEFAULT_MODEL` (`claude-sonnet-4-6`) returned a clean
+  `200` with a genuine completion.
+- **Result: AG-41's narrative synthesis is no longer blocked.** All 4 scenario types now have
+  live-confirmed coverage (3 from 2026-08-03, `lose_funder` from this session). Updated
+  `FEATURE_REGISTRY_v2.md` row #141 accordingly.
+- **Important distinction, not to be conflated:** AG-26's own narrative-degradation gap (see the
+  2026-08-07 Forecast Dashboard session below) turned out on inspection to be a **different root
+  cause** — a `max_tokens` truncation bug, not the dead API key — confirmed still current in that
+  same session's investigation. This session's platform-key confirmation does **not** resolve
+  AG-26's row; that gap needs its own fix and its own live re-test.
+- No scheduling/queue/cron wiring was added for AG-41 (manual-trigger-only is the deliberate
+  design). No `impact_simulations` rows were deleted, including the new one.
+
+**Commit:** `test(agents): re-verify AG-41 narrative synthesis post key rotation, add real lose_funder coverage` (this session).
+**Gates:** not applicable — no application code changed; only a throwaway verification script
+(deleted after use) and governance-doc updates.
+
+---
+
+## Prior Session — August 7, 2026 (Forecast Dashboard live-verification, q28-003)
 
 **Focus:** live-verify `/reports/forecast` against the real Faith Foundation org — confirm it
 renders real `funding_forecasts` data (not an empty/stub state), confirm rendered numbers match the

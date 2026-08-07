@@ -1,8 +1,60 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 7, 2026 (Forecast Dashboard live-verified — genuine production 404, not a code defect; row #133 corrected from BUILT — UNVERIFIED to BUILT (code) — NOT DEPLOYED). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 7, 2026 (AG-41 narrative synthesis re-verified post platform-key rotation — no longer blocked; real `lose_funder` coverage added). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 7, 2026 (AG-41 narrative synthesis re-verified post platform-key rotation)
+
+Follow-up to the AG-41 (Impact Simulation Agent) live-verification pass from 2026-08-03
+(`AGENT_VERIFICATION_LOG.md` "AG-41"), which proved deterministic math, idempotency, and the
+manual-only trigger design real and correct across 3 of 4 scenario types, but left narrative
+synthesis (`keyRisks`/`keyOpportunities`/`narrative`/`exposedPrograms`) unverified — blocked at the
+time by a dead local `ANTHROPIC_API_KEY`, root-caused via a direct isolated API call, with a
+recommendation to re-test once the platform key (rotated commit `8f3aa06`, 2026-08-04) was
+available. This session did that re-test, and added real coverage for `lose_funder` — the one
+scenario type never exercised 2026-08-03.
+
+**Step 1 — confirmed live, not assumed:** queried `impact_simulations` for the real Faith
+Foundation org (`b1ab7402-dfc2-4712-869f-70ea3566cc1d`) directly. All 4 rows from 2026-08-03 are
+still present and unmodified, per this project's standing convention of keeping real agent-run
+output as history rather than scrubbing it.
+
+**Step 2 — ran the real, unmodified `ImpactSimulationAgent.run("manual", "lose_funder", …)`**
+directly against the real org, a real funder (Meade Tractor, drawn from the org's actual `funders`
+table), and a real owner profile as `createdBy` — the same convention every prior live-execution
+entry in `AGENT_VERIFICATION_LOG.md` uses, since the API route's `requireRole("writer")` needs a
+real browser session a script can't fake; the route itself is confirmed (by re-reading it) to be a
+thin wrapper around exactly this call. Result: a real new `impact_simulations` row, independently
+re-queried and read back. Deterministic math checks out: this funder has zero trailing-12-month
+outcomes and zero open pipeline for this org, so `$0` impact is the correct real answer, not a
+placeholder. `baselineUsed: "forecast"` (a real AG-26 12-month forecast exists for this org)
+correctly drove `confidence: "high"`.
+
+**Step 3 — narrative fields are now genuinely populated.** The new row's `keyRisks`/
+`keyOpportunities`/`narrative` all contain real, grounded, non-generic text — no
+`narrativeUnavailable` degradation marker. Independently confirmed the platform key itself, not
+just inferred from one successful run: a direct, isolated call to a retired model
+(`claude-3-5-haiku-20241022`) returned `404 not_found_error` (proving the key is valid — a dead key
+would 401 before ever reaching model resolution), and a call to the real `DEFAULT_MODEL`
+(`claude-sonnet-4-6`) returned a clean `200` with a genuine completion.
+
+**Conclusion: narrative synthesis is no longer blocked. All 4 `SCENARIO_TYPES` now have
+live-confirmed coverage.** `FEATURE_REGISTRY_v2.md` row #141 updated accordingly. Note for a
+future session: this platform-key status is the same fact AG-26's own narrative-degradation open
+item shares (see the AG-26 entries in `AGENT_VERIFICATION_LOG.md`) — discovered incidentally while
+working this prompt, but AG-26's own row is deliberately **not** marked resolved here; that needs
+its own live test against AG-26 specifically.
+
+No scheduling/queue/cron wiring was added for AG-41 — manual-trigger-only remains the deliberate
+design (per the agent's own header comment on why an autonomous trigger would be wrong for this
+agent), not a gap to close. No `impact_simulations` rows were deleted, including the new one — it
+is real data.
+
+Gates: not applicable — no application code was changed this session, only a live agent-class
+invocation via a throwaway script (deleted after use) and governance-doc updates.
 
 ---
 
