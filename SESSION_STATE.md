@@ -1,5 +1,145 @@
 # BENAVORA — Session State
-## Last Updated: August 7, 2026 (live-verified Market Trend Intelligence + Auto-Deploy Response — rows #134/#130)
+## Last Updated: August 7, 2026 (queue-37 preflight — real preconditions for 6 speculative Phase 3-5 items)
+
+## queue-37 preflight — real preconditions for 6 speculative Phase 3-5 items (2026-08-07)
+
+**Scope note:** this was a precondition-check-only pass per the queue-37 task instructions — no
+build work was done. Everything below is live-grepped/read against the current repo, not carried
+from FEATURE_REGISTRY_v2.md's text. Use this section instead of re-deriving these facts in
+q37-002 through q37-00N.
+
+### 1. Row #221 Donor Personalization Engine — no visitor-type signal source exists
+
+Grepped the full `src/` tree for `visitor`, `utm_`, `referrer`, `session_track` (case-insensitive)
+and separately for `visitor_persona`/`content_variant`/`visitor_type`/`visitor_segment`. **Zero
+code hits for any of it** — no `visitors` table, no UTM/referrer capture, no session-tracking
+table or column anywhere in `src/` or the migrations. The only places "visitor" appears at all are
+4 governance docs (`BLUEPRINT_v2.md`, `AGENTS_v2.md`, `PRD_v2.md`,
+`AUTONOMOUS_PLATFORM_VISION.md`), all describing AG-34 Personalization Engine as PLANNED design
+text, not a built table (`visitor_personas` per `AGENTS_v2.md` AG-34's own spec — does not exist).
+**Conclusion for q37-002: there is no real visitor-detection signal to build on. Scope it down to
+an org-configurable content-variant toggle (an admin picks which pre-written variant renders for a
+given campaign/page), not real visitor-type detection** — building fake visitor detection would be
+exactly the kind of fabricated-signal UI this project's governance repeatedly flags and reverts.
+
+### 2. Row #226 Community Resource Graph — real AG-35 output shape (row #222, BUILT)
+
+Real table: `community_need_signals` (`src/supabase/migrations/090_community_need_prediction.sql`),
+org-scoped via `org_id` (not `organization_id` — note the naming for anyone building against it).
+Real columns:
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `org_id` | uuid FK → `organizations(id)` | RLS-scoped on this |
+| `signal_source` | text, CHECK enum | `census`, `housing_prices`, `employment`, `eviction_data`, `weather`, `disaster`, `school_enrollment`, `migration`, `economic` |
+| `signal_category` | text | free text, no enum |
+| `signal_description` | text | free text |
+| `geographic_area` | text, nullable | free text, no lat/lng or FIPS code — plain text only |
+| `trend_direction` | text, CHECK enum | `increasing`, `decreasing`, `stable`, `spike` |
+| `severity` | text, CHECK enum | `critical`, `high`, `medium`, `low` |
+| `predicted_demand_increase` | integer, nullable | |
+| `recommended_program_expansion` | text, nullable | |
+| `data_date` | date, nullable | |
+| `created_at` | timestamptz | |
+
+Real API: `GET`/`POST /api/intelligence/community-need` (`requireRole("viewer")`/`"writer"`),
+returns `{ signals: SignalRow[] }` sorted severity-first then `created_at` descending. POST runs
+`CommunityNeedPredictorAgent.run("manual")` synchronously then re-reads.
+**Conclusion for q37-003:** there is no lat/lng, no structured location join, and no existing
+"resource" table to pathfind toward — `geographic_area` is unstructured text. A resource-graph
+pathfinding view has to either (a) join against `geographic_area` as a fuzzy text match to some
+other real location-bearing table (e.g. `foundation_directory`'s city/state, or `funders`), or (b)
+scope down to a simpler "signals grouped by geographic_area string" list rather than true graph
+pathfinding, since there's no real edge/node structure here to traverse (`pig_nodes`/`pig_edges`
+are a different, unrelated graph — AG-32/AG-23's relationship graph, not need/resource data).
+
+### 3. Rows #59/#60 Custom API Connector / Custom Scraping Targets — FEATURE_REGISTRY_v2.md is
+**wrong**, real implementations already exist for both
+
+This is not a clean NOT-BUILT — contradicts the registry's "Not built" text for both rows. Real,
+live-wired code exists for both:
+
+- **UI:** `/settings/custom-apis` and `/settings/scraping` are real tabs in the Settings nav
+  (`src/app/(dashboard)/settings/layout.tsx` lines 16-17, both linked, not orphaned pages). Both
+  pages (`settings/custom-apis/page.tsx`, `settings/scraping/page.tsx`) are full CRUD UIs — add/
+  test/toggle/delete, field-mapping editor for the API connector, description field for scrape
+  targets, auto-pause-after-N-failures badges.
+- **API routes:** `/api/integrations/custom-api` (+ `/[id]`, `/test`), `/api/integrations/
+  scraping-targets` (+ `/[id]`), `/api/agents/custom-api`, `/api/agents/custom-scrape` — all real.
+- **DB tables:** `custom_api_connections` and `scraping_targets`, both created in migration 034
+  (`034_custom_connections.sql`), `scraping_targets` also idempotently redefined in migration 041
+  — RLS-scoped, real enums (`scrape_schedule`, `api_auth_type`). A real schema-drift bug
+  (`custom_api_connections.error_count` missing live) was found and fixed via migration 124
+  (`124_custom_api_connections_error_count.sql`, dated 2026-08-05).
+- **Agent classes:** `src/lib/agents/custom-api.ts` (`CustomApiResearchAgent`) and
+  `src/lib/agents/custom-scrape.ts` (`CustomScrapeResearchAgent`) — both real, non-stub logic
+  (fetch + field-mapping / fetch + Claude-extraction, dedup, auto-pause, `automation_notifications`
+  on pause).
+
+**The one real gap, per `custom-api.ts`'s own header comment:** `CustomApiResearchAgent` is dead
+code — nothing in `src/` instantiates it, and its own route (`/api/agents/custom-api`) just inserts
+a `pending` `agent_runs` row and returns `{status:"queued"}` with nothing to ever process it. By
+contrast `CustomScrapeResearchAgent` **is** wired and real via `/api/agents/custom-scrape`.
+**Conclusion:** rows #59/#60 should read BUILT (Scraping Targets fully wired end-to-end; Custom API
+Connector's UI/schema/agent are all real but the actual poll-execution path is unwired dead code —
+a real, scoped fix, not a from-scratch build). Any q37 prompt targeting these rows should wire the
+existing `CustomApiResearchAgent` into a real trigger (cron or the same `agent_queue`
+pattern other agents use), not build a second implementation.
+
+### 4. Row #66 990-PF Giving History — `foundation-profiler.ts`'s real signature and real gap
+
+`src/lib/intelligence/foundation-profiler.ts` exports exactly one function:
+`computeFoundationProfile(foundationId: string, supabase: SupabaseClient):
+Promise<FoundationProfile>`, where `FoundationProfile = { foundation_id, avg_grant_size,
+geographic_focus, funding_categories, total_grants_made, top_recipients }`. **It is a pure reader,
+not an extractor** — it only reads `foundation_directory.geographic_focus`, `.giving_total`, and
+`.enrichment` (jsonb: `grant_count`, `typical_grant_range`, `program_priorities`,
+`funding_categories`, `geographic_focus`, `top_recipients`) and derives the profile shape from
+whatever's already there (falls back to `typical_grant_range` midpoint when `grant_count`/
+`giving_total` aren't both present).
+
+**The real extraction already happens elsewhere**, in `scripts/enrich-foundations-990.ts`
+(`pnpm enrich:990`, reuses `src/lib/enrichment/sources/irs990.ts`'s `IRS990Source` — the same class
+`EnrichmentEngine` uses) — it parses real IRS 990 XML and writes `total_assets`, `total_giving`,
+`phone`, `website`, `city/state/zip` as direct columns, plus `grant_count`, `typical_grant_range`
+(from Schedule I when present), `fiscal_year`, and `top_recipients` into `foundation_directory.
+enrichment` jsonb.
+
+**What does NOT exist anywhere: any per-grant/line-item giving history** (individual grants with
+recipient name, amount, year, purpose) — everything lives as one aggregate `enrichment` jsonb blob
+per foundation (grant *count* and a *typical range*, not a real grant-by-grant list). There is no
+dedicated giving-history table.
+**Conclusion for q37-004:** extend `IRS990Source`/`enrich-foundations-990.ts`'s Schedule I parsing
+to also populate a structured per-grant array (either a new jsonb array field on `enrichment`, e.g.
+`enrichment.grant_history: [{recipient, amount, year, purpose}]`, or a dedicated child table if the
+per-grant volume warrants real rows) — do **not** build a second, parallel extractor;
+`foundation-profiler.ts` should stay a pure reader and just surface whatever new field the
+extractor adds.
+
+### 5. Row D4 298K Prospect CSV Import — script confirmed absent; D:\dataocean unverifiable this session
+
+`scripts/import-prospects.ts` — **confirmed absent** via `Glob` (`scripts/import-prospects.ts`
+returns no match), matching a prior grep this same session that also found nothing. The registry's
+claim that this script exists is wrong; the whole feature is genuinely NOT-BUILT, not
+"script exists, never run."
+
+`D:\dataocean` — **could not be checked this session.** This session's sandbox restricts filesystem
+access to `C:\Users\manag\Documents\benavora` only; a direct `Test-Path "D:\dataocean"` was blocked
+("For security, Claude Code may only access files in the allowed working directories for this
+session"). Whether the drive/directory exists, and what if anything is in it, is genuinely unknown
+from this session — a future session with broader filesystem access (or Reid directly) needs to
+confirm it, rather than assuming either way.
+
+### 6. Rows #121-125 Donation Recommendation Marketplace — confirmed clean NOT-BUILT
+
+Grepped the full repo for `marketplace_listings`/`marketplace_matches` — **zero matches in any
+code or migration file.** The only 3 hits are governance docs (`FEATURE_REGISTRY_v2.md`,
+`remaining-features-raw.txt`, `PLATFORM_VISION_ARCHITECTURE.md`) describing the PLANNED design.
+No `marketplace`-named route, page, or table exists anywhere in `src/` or `supabase/migrations/`.
+Confirmed, not assumed: this is a genuine from-scratch build with nothing partial to extend.
+
+---
 
 ## Current Session — August 7, 2026 (live-verify Market Trend Intelligence + Auto-Deploy Response, rows #134/#130)
 

@@ -4,6 +4,13 @@
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
 
+> **queue-37 preflight (2026-08-07):** before building any of Phase 3-5 rows #221 (Donor
+> Personalization), #226 (Community Resource Graph), #59/#60 (Custom API Connector / Scraping
+> Targets), #66 (990-PF Giving History), D4 (298K Prospect CSV Import), or #121-125 (Donation
+> Marketplace), read the "queue-37 preflight" section at the top of `SESSION_STATE.md` — it has
+> live-checked real preconditions for all 6, including one correction to this registry (rows
+> #59/#60 are not actually unbuilt — see that section).
+
 ---
 
 ## SESSION — August 7, 2026 (live-verification: Market Trend Intelligence + Auto-Deploy Response, rows #134/#130 — 3 real blockers found and fixed)
