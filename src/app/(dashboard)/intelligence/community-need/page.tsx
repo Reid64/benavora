@@ -11,6 +11,8 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import {
   AlertTriangle,
+  ChevronDown,
+  ChevronUp,
   Loader2,
   Minus,
   Sparkles,
@@ -69,6 +71,196 @@ const SOURCE_LABELS: Record<SignalSource, string> = {
 
 function severityColor(severity: Severity | null): string {
   return severity ? SEVERITY_COLOR[severity] : "#6B7280";
+}
+
+// Row #226 Community Resource Graph MVP — real matches from
+// /api/intelligence/community-resources (src/lib/intelligence/resource-matcher.ts),
+// ranking this org's own funders/open opportunities/active programs against
+// one real community_need_signals row (AG-35's real output). Not a graph
+// visualization — see resource-matcher.ts's header for why.
+type ResourceType = "funder" | "opportunity" | "program";
+
+interface ResourceMatch {
+  type: ResourceType;
+  id: string;
+  name: string;
+  score: number;
+  matchReasons: string[];
+  meta: Record<string, unknown>;
+}
+
+const RESOURCE_TYPE_LABEL: Record<ResourceType, string> = {
+  funder: "Funder",
+  opportunity: "Open Opportunity",
+  program: "Your Program",
+};
+
+const RESOURCE_TYPE_COLOR: Record<ResourceType, string> = {
+  funder: "#7C3AED",
+  opportunity: "#0077B6",
+  program: "#16A34A",
+};
+
+const RESOURCE_TYPE_HREF: Record<ResourceType, (id: string) => string> = {
+  funder: (id) => `/funders/${id}`,
+  opportunity: (id) => `/opportunities/${id}`,
+  program: () => `/knowledge-base/edit`,
+};
+
+function ResourcesPanel({ signalId }: { signalId: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const [matches, setMatches] = useState<ResourceMatch[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleToggle() {
+    const next = !expanded;
+    setExpanded(next);
+    if (next && matches === null && !loading) {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(
+          `/api/intelligence/community-resources?signalId=${encodeURIComponent(signalId)}`,
+          { cache: "no-store" },
+        );
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setError((payload as { error?: string }).error ?? "Could not load potential resources.");
+          return;
+        }
+        setMatches((payload as { matches?: ResourceMatch[] }).matches ?? []);
+      } catch {
+        setError("Could not reach the resource matching service.");
+      } finally {
+        setLoading(false);
+      }
+    }
+  }
+
+  return (
+    <div style={{ marginTop: "16px" }}>
+      <button
+        type="button"
+        onClick={() => void handleToggle()}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "6px",
+          background: "none",
+          border: "1px solid #E2E8F0",
+          borderRadius: "8px",
+          padding: "8px 14px",
+          fontSize: "12px",
+          fontWeight: 700,
+          color: "#1A2B3C",
+          cursor: "pointer",
+        }}
+      >
+        {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        Potential Resources
+      </button>
+
+      {expanded && (
+        <div
+          style={{
+            marginTop: "12px",
+            backgroundColor: "#F8FAFC",
+            border: "1px solid #E2E8F0",
+            borderRadius: "10px",
+            padding: "16px",
+          }}
+        >
+          {loading ? (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                fontSize: "13px",
+                color: "#64748B",
+              }}
+            >
+              <Loader2 size={14} className="animate-spin" />
+              Matching against your funders, opportunities, and programs...
+            </div>
+          ) : error ? (
+            <p style={{ fontSize: "13px", color: "#B91C1C", margin: 0 }}>{error}</p>
+          ) : matches && matches.length > 0 ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              {matches.map((match) => (
+                <a
+                  key={`${match.type}-${match.id}`}
+                  href={RESOURCE_TYPE_HREF[match.type](match.id)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: "12px",
+                    backgroundColor: "#FFFFFF",
+                    border: "1px solid #E2E8F0",
+                    borderRadius: "8px",
+                    padding: "10px 14px",
+                    textDecoration: "none",
+                  }}
+                >
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
+                      <span
+                        style={{
+                          fontSize: "10px",
+                          fontWeight: 700,
+                          color: "#FFFFFF",
+                          backgroundColor: RESOURCE_TYPE_COLOR[match.type],
+                          borderRadius: "999px",
+                          padding: "2px 9px",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.05em",
+                          flexShrink: 0,
+                        }}
+                      >
+                        {RESOURCE_TYPE_LABEL[match.type]}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: "13px",
+                          fontWeight: 700,
+                          color: "#1A2B3C",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {match.name}
+                      </span>
+                    </div>
+                    <p style={{ fontSize: "12px", color: "#64748B", margin: 0 }}>
+                      {match.matchReasons.join(" · ")}
+                    </p>
+                  </div>
+                  <span
+                    style={{
+                      fontSize: "12px",
+                      fontWeight: 800,
+                      color: "#0077B6",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {Math.round(match.score * 100)}% match
+                  </span>
+                </a>
+              ))}
+            </div>
+          ) : (
+            <p style={{ fontSize: "13px", color: "#64748B", margin: 0 }}>
+              No existing funders, opportunities, or programs in your data currently match this
+              need.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function formatDate(value: string | null): string {
@@ -533,6 +725,8 @@ function SignalCard({ signal }: { signal: CommunityNeedSignal }) {
             </a>
           </div>
         )}
+
+        <ResourcesPanel signalId={signal.id} />
       </div>
     </div>
   );

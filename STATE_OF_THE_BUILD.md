@@ -1,8 +1,63 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 7, 2026 (Donor Personalization Engine MVP built — org-configurable content-variant toggle, row #221, scoped down per the queue-37 preflight since no real visitor-type signal exists). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 7, 2026 (Community Resource Graph MVP built — ranked need-to-resource view over AG-35 output, row #226). Not FORGE-auto-generated — hand-verified.**
 
-## SESSION — August 7, 2026 (Donor Personalization Engine MVP — row #221, scoped-down toggle)
+## SESSION — August 7, 2026 (Community Resource Graph MVP — row #226, ranked list over AG-35 output)
+
+**Focus:** build row #226 per the queue-37 preflight's explicit finding on row #222/AG-35's real
+output shape (`SESSION_STATE.md`, "queue-37 preflight" §2): `community_need_signals` has no
+lat/lng and no structured location join (`geographic_area` is free text), and `pig_nodes`/
+`pig_edges` is a different, unrelated graph (AG-32/AG-23's people/org relationship graph, not
+need/resource data) — so this is a keyword + geographic-text-overlap ranked list against this
+org's own real data, not a graph-traversal pathfinder or a new visualization library.
+
+**Matcher (`src/lib/intelligence/resource-matcher.ts`):** reuses the exact Jaccard-similarity-of-
+tokenized-text pattern already proven in `semantic-matcher.ts`'s `matchFunders()`, plus a
+geographic text-overlap bonus (0.25) in place of that function's exact-state-match bonus, since
+none of `funders.geographic_focus` / `opportunities.geographic_restrictions` /
+`community_need_signals.geographic_area` are structured — all three are free text. Ranks three
+real resource types against one real signal:
+- `funders` (`id, name, category, description, geographic_focus`) — this org's own real funder CRM
+  rows, all statuses.
+- `opportunities` (`id, name, category, description, geographic_restrictions, amount_min,
+  amount_max, deadline`) — filtered to `status = 'open'`.
+- `programs` (`id, name, description, status`) — this org's own real programs (the same table
+  populated during onboarding, migration 001), filtered to `status = 'active'`
+  (`PROGRAM_STATUSES` in `src/lib/utils/constants.ts` confirms `'active'` is a real lifecycle
+  value, not guessed). No geographic column exists on `programs` — scored keyword-only.
+
+Query text per signal = `signal_source` (enum value, underscores→spaces) + `signal_category` +
+`signal_description`, tokenized and stopword-filtered. Only resources with a real, nonzero score
+are returned (never padded to a target count) — capped to the top 10 by score.
+
+**API:** `GET /api/intelligence/community-resources?signalId=<uuid>` (`requireRole("viewer")`),
+loads the real signal row scoped to the caller's org (`org_id`, not `organization_id` — same
+naming quirk the preflight flagged), 404s if not found/not this org's, then returns
+`{ signal, matches }`.
+
+**UI:** extended the existing AG-35 page (`/intelligence/community-need`) rather than building a
+new page — each real `SignalCard` gets a "Potential Resources" toggle (inline-hex, Directive 4)
+that fetches matches on first expand and renders a ranked list: type badge (Funder/Open
+Opportunity/Your Program, color-coded), name (linked to the real `/funders/[id]` or
+`/opportunities/[id]` detail page; programs link to `/knowledge-base/edit` since programs have no
+detail route), match-reason chips, and a `%` match score. Honest empty state when a signal has
+zero real matches ("No existing funders, opportunities, or programs in your data currently match
+this need") — never fabricates a placeholder resource. The page's pre-existing "No signals yet —
+Run Analysis" empty state already covers the case where an org has no predicted needs at all; not
+duplicated.
+
+**Not built, by design:** a force-directed graph visualization (that's row #81's own separate,
+larger, still-PLANNED scope, explicitly out of this row's remit per the task); any join against
+`pig_nodes`/`pig_edges` (checked field compatibility first — that graph has no need/resource
+concept, only person/org relationship edges).
+
+Gates: `pnpm tsc --noEmit` — 0 errors in every file touched this session (pre-existing, unrelated
+`src/__tests__/**` errors unchanged, confirmed by grepping the full gate output for the new/edited
+file paths).
+
+---
+
+## Prior Session — August 7, 2026 (Donor Personalization Engine MVP — row #221, scoped-down toggle)
 
 **Preflight outcome used:** the queue-37 preflight (SESSION_STATE.md, item 1) confirmed **no real
 visitor-type signal source exists anywhere in this repo** — grepped for `visitor`, `utm_`,

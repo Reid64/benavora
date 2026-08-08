@@ -1,7 +1,39 @@
 # BENAVORA — Session State
-## Last Updated: August 7, 2026 (Donor Personalization Engine MVP built — row #221, scoped-down toggle)
+## Last Updated: August 7, 2026 (Community Resource Graph MVP built — row #226, ranked list over AG-35 output)
 
-## Current Session — August 7, 2026 (Donor Personalization Engine MVP, row #221)
+## Current Session — August 7, 2026 (Community Resource Graph MVP, row #226)
+
+**Focus:** build row #226 (Phase 4, was PLANNED) per this session's own instruction to read the
+queue-37 preflight's finding on row #222/AG-35's real output shape first — done, see "queue-37
+preflight" §2 below. Built a modest, real ranked need-to-resource view, not graph-traversal or a
+new visualization library.
+
+**What was built:**
+- `src/lib/intelligence/resource-matcher.ts` — `matchResourcesForSignal()`, ranks this org's real
+  `funders` / open `opportunities` / active `programs` against one real `community_need_signals`
+  row via keyword (Jaccard, reused from `semantic-matcher.ts`'s proven pattern) +
+  geographic-text-overlap scoring. Only nonzero-score matches returned, capped to top 10.
+- `GET /api/intelligence/community-resources?signalId=<uuid>` — org-scoped, loads the real signal,
+  runs the matcher, returns `{ signal, matches }`.
+- `src/app/(dashboard)/intelligence/community-need/page.tsx` — added a `ResourcesPanel` component,
+  one per `SignalCard`, toggled "Potential Resources" button fetching real matches on first
+  expand. Inline-hex only (Directive 4). Honest empty state, no fabricated matches.
+
+**Real fields joined:** `community_need_signals.signal_source`/`signal_category`/
+`signal_description`/`geographic_area` (query side) against `funders.name`/`category`/
+`description`/`geographic_focus`, `opportunities.name`/`category`/`description`/
+`geographic_restrictions` (status='open' only), and `programs.name`/`description` (status='active'
+only, no geographic column). Did **not** join `pig_nodes`/`pig_edges` — checked field
+compatibility first per the task instruction and confirmed (via the preflight) that graph has no
+need/resource concept, only person/org relationship edges; forcing a join there would have been
+exactly the kind of fabricated relevance this project's governance repeatedly flags.
+
+Gates: `pnpm tsc --noEmit` — 0 errors in every file touched this session (pre-existing, unrelated
+`src/__tests__/**` errors unchanged).
+
+---
+
+## Prior Session — August 7, 2026 (Donor Personalization Engine MVP, row #221)
 
 **Focus:** build row #221 per the queue-37 preflight's explicit finding (below): no real
 visitor-type signal exists in this repo, so build the scoped-down version — an org-configurable
