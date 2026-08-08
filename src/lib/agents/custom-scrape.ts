@@ -4,13 +4,19 @@
 // structured grant opportunity data (BEHAVIORAL_CONTRACTS §21).
 //
 // Per-target behaviour:
-//   1. Fetch the URL with a polite User-Agent (public pages only; §21)
-//   2. Truncate content to ~80 KB to stay within Claude's context window
-//   3. Prompt Claude to extract opportunities relevant to the target description
-//   4. Validate each extracted item: name is required + url or description (§21)
-//   5. Deduplicate against existing opportunities by name + source
-//   6. Insert new records with source = 'scrape:' + target URL
-//   7. Update last_scraped_at; on failure increment failure_count, pause at 5+ (§21)
+//   1. Re-check the org's domain allowlist (custom_connector_allowlist) —
+//      a target whose domain was since removed is skipped, not fetched.
+//   2. Enforce a per-target cooldown so repeated manual "Run Now" clicks
+//      can't become an unbounded fetch loop.
+//   3. Fetch the URL via `safeFetch()` — SSRF-safe (validated/pinned IP,
+//      capped response size, hard timeout), not a raw `fetch()` (public
+//      pages only; §21)
+//   4. Truncate content to ~80 KB to stay within Claude's context window
+//   5. Prompt Claude to extract opportunities relevant to the target description
+//   6. Validate each extracted item: name is required + url or description (§21)
+//   7. Deduplicate against existing opportunities by name + source
+//   8. Insert new records with source = 'scrape:' + target URL
+//   9. Update last_scraped_at; on failure increment failure_count, pause at 5+ (§21)
 //
 // Tier enforcement is delegated to the route layer (§21).
 
@@ -20,7 +26,15 @@ import {
   BaseAgent,
   type AgentExecution,
 } from "@/lib/agents/base-agent";
+import {
+  AllowlistBlockedError,
+  assertDomainAllowed,
+} from "@/lib/security/custom-connector-allowlist";
+import { safeFetch, SsrfBlockedError } from "@/lib/security/safe-fetch";
 import type { AgentType } from "@/types/agents";
+
+/** Minimum time between fetches for the same target (manual-trigger cooldown). */
+const TARGET_COOLDOWN_MS = 30_000;
 
 export interface CustomScrapeInput {
   /** Run only this target; omit to run all active targets for the org. */
@@ -39,6 +53,7 @@ interface TargetRow {
   url: string;
   description: string | null;
   failure_count: number;
+  last_scraped_at: string | null;
 }
 
 interface RawExtracted {
@@ -65,7 +80,7 @@ export class CustomScrapeResearchAgent extends BaseAgent<
   ): Promise<AgentExecution<CustomScrapeResult>> {
     let query = this.client
       .from("scraping_targets")
-      .select("id, url, description, failure_count")
+      .select("id, url, description, failure_count, last_scraped_at")
       .eq("organization_id", this.organizationId)
       .eq("is_active", true);
 
@@ -165,21 +180,48 @@ export class CustomScrapeResearchAgent extends BaseAgent<
   private async scrapeTarget(
     target: TargetRow,
   ): Promise<{ created: number; tokensUsed: number }> {
-    const response = await fetch(target.url, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (compatible; Benavora/1.0; grant-research-bot)",
-        Accept: "text/html,application/xhtml+xml,text/plain,application/json",
-      },
-      signal: AbortSignal.timeout(20_000),
-    });
+    // Cooldown: a burst of manual "Run Now" clicks must not turn into an
+    // unbounded fetch loop against the same target.
+    if (target.last_scraped_at) {
+      const elapsed = Date.now() - new Date(target.last_scraped_at).getTime();
+      if (elapsed < TARGET_COOLDOWN_MS) {
+        throw new Error(
+          `This target was scraped ${Math.round(elapsed / 1000)}s ago — please wait ${Math.ceil((TARGET_COOLDOWN_MS - elapsed) / 1000)}s before running it again.`,
+        );
+      }
+    }
+
+    // Re-check the domain allowlist at fetch time, not just at save time.
+    try {
+      await assertDomainAllowed(this.client, this.organizationId, target.url);
+    } catch (err) {
+      if (err instanceof AllowlistBlockedError) throw err;
+      throw new Error("Could not verify the domain allowlist.");
+    }
+
+    let response;
+    try {
+      response = await safeFetch(target.url, {
+        method: "GET",
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (compatible; Benavora/1.0; grant-research-bot)",
+          Accept: "text/html,application/xhtml+xml,text/plain,application/json",
+        },
+        timeoutMs: 20_000,
+        maxBytes: 2_000_000,
+      });
+    } catch (err) {
+      if (err instanceof SsrfBlockedError) throw err;
+      throw err;
+    }
 
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
 
-    const contentType = response.headers.get("content-type") ?? "";
-    const rawText = await response.text();
+    const contentType = response.headers["content-type"] ?? "";
+    const rawText = response.body;
 
     // Truncate to ~80 KB to stay within Claude's context window.
     const pageContent =

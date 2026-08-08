@@ -191,8 +191,8 @@ row that log covers, the plain BUILT/PLANNED status below is replaced with one o
 | 56 | State Portal Framework | PARTIAL | Scraper exists, stub only. No real HTML parsing implemented. |
 | 57 | Integration Settings UI | BUILT | /settings/integrations connector cards (Grants.gov, ProPublica, State Portals, SAM.gov "Run Now") now default their required params (keywords/state/ein/query) from real org data instead of posting an empty body that always 400'd. SAM.gov also now reads the org's own encrypted key (integration_keys) before falling back to process.env, per Behavioral Contracts §18. Commit 0232358, July 28 2026. |
 | 58 | CSV Import Wizard | BUILT | 3-step wizard at /import. Column mapping. Preview. POST to /api/import/csv. |
-| 59 | Custom API Connector | PLANNED | Not built. |
-| 60 | Custom Scraping Targets | PLANNED | Not built. |
+| 59 | Custom API Connector | BUILT | Correction, 2026-08-07: this row was stale — real schema (034/041/124), routes, agent (`CustomApiResearchAgent`), and an 827-line admin settings UI (`/settings/custom-apis`) already existed, just with three real gaps closed this session: (1) manual-trigger route (`/api/agents/custom-api`) was previously dead — inserted a `pending` agent_runs row nothing ever processed; now actually runs the agent synchronously, mirroring the already-working custom-scrape route. (2) `base_url` was a raw, unvalidated `fetch()` target — real SSRF surface. (3) `auth_config`'s API key/token was stored in plaintext jsonb. See row #60's note for the shared fix (`src/lib/security/safe-fetch.ts` + `custom_connector_allowlist`, migration 132) and the encryption fix (`src/lib/crypto/key-encrypt.ts`, the same BYOK pattern `integration_keys` uses — `encryptAuthConfig`/`maskAuthSecret` in `custom-api.ts`). Manual-trigger-only, not wired into any autonomous/scheduled pipeline. |
+| 60 | Custom Scraping Targets | BUILT | Correction, 2026-08-07: this row was stale too — real schema, a working manual-trigger route (`/api/agents/custom-scrape`), a real Claude-extraction agent (`CustomScrapeResearchAgent`), and a 570-line admin settings UI (`/settings/scraping`) already existed. The real gap: `target.url` was fetched with a raw, unvalidated `fetch()` — a genuine SSRF surface (any admin, or anyone who compromises an admin session, could point it at `169.254.169.254`, `localhost`, or an internal `10.x`/`192.168.x` host). Closed this session with `src/lib/security/safe-fetch.ts`: DNS-resolves the hostname once, validates every resolved IP against private/loopback/link-local/CGNAT/metadata ranges, then pins the actual TCP connection to that validated IP (via Node's `lookup` request option) so a later DNS answer can't steer the connection elsewhere — the standard rebinding defense a hostname-string check alone doesn't provide. Redirects are followed manually with the same validation re-run per hop. Response size capped, hard timeout, and a per-target 30s cooldown against burst "Run Now" clicks. Layered with a *separate*, admin-only domain allowlist (`custom_connector_allowlist`, migration 132) — a writer can create a target, but only against a domain an admin already approved under Settings → Allowed Domains, and every execution re-checks the allowlist live, not just at save time. Both `custom_api_connections.base_url` and `scraping_targets.url` now enforce the same allowlist at creation and at every run. Manual-trigger-only, not wired into any autonomous/scheduled pipeline (matches this repo's AG-25/AG-41 precedent). |
 | 61 | Automation Queue | BUILT | Worker exists (worker/queue-processor.ts). Priority scoring in worker/batch-scorer.ts, re-run on idle→active transitions: timing, funder match, historical win rate, amount alignment, portal health, deadline proximity (nearest open opportunity per funder), probability score (opportunity_probability_scores, Feature #102, if scored), and organization tier. Lower submission_queue.priority = processed first. |
 | 62 | Semi/Autonomous Modes | BUILT | Both modes implemented in AutoApply. |
 | 63 | 2Captcha Integration | BUILT | captcha-solver.ts wired into src/lib/autoapply/form-filler-agent.ts — detect/solve/inject for recaptcha v2/v3, hcaptcha, turnstile. Audit logging, screenshot capture, graceful degradation when 2Captcha key is missing. Commit 3e7400b, July 22 2026. |
@@ -524,13 +524,13 @@ Ground-up replacement architecture per `UNIVERSAL_SCRAPER_PRD.md`: keyword + sch
 | Tier 1-3 Enhancements | 21 | 21 | 0 | 0 | 0 |
 | Tier 4 Browser Automation | 7 | 7 | 0 | 0 | 0 |
 | Tier 5 SaaS Layer | 6 | 6 | 0 | 0 | 0 |
-| Tier 6 Full Autonomous | 26 | 20 | 2 | 0 | 4 |
+| Tier 6 Full Autonomous | 26 | 22 | 2 | 0 | 2 |
 | Platform Vision Pillars | 93 | 29 | 2 | 19 | 43 |
 | Data Pipeline | 7 | 3 | 2 | 0 | 2 |
 | Scraper (Directive 1) | 5 | 5 | 0 | 0 | 0 |
 | Universal Scraper (uscraper-001-007) | 7 | 3 | 4 | 0 | 0 |
 | Testing | 8 | 3 | 0 | 0 | 5 |
-| **TOTAL** | **198** | **115** | **10** | **19** | **54** |
+| **TOTAL** | **198** | **117** | **10** | **19** | **52** |
 
 **2026-08-08 addendum:** row #144 (Narrative Gap Analysis) moved Planned→Built this session (see its
 row for detail) — Platform Vision Pillars 28→29 Built / 44→43 Planned, TOTAL 114→115 Built / 55→54

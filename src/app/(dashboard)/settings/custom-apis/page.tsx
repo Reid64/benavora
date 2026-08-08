@@ -32,6 +32,7 @@ import {
   Modal,
   Select,
 } from "@/components/ui";
+import { CustomConnectorAllowlist } from "@/components/settings/CustomConnectorAllowlist";
 import { useProfile } from "@/lib/hooks/useProfile";
 import { formatRelative } from "@/lib/utils/formatters";
 
@@ -207,6 +208,8 @@ export default function CustomApisPage() {
           </Button>
         )}
       </div>
+
+      <CustomConnectorAllowlist canManage={canManage} />
 
       {actionError && (
         <div

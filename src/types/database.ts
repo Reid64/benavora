@@ -2315,6 +2315,34 @@ export interface Database {
         };
         Relationships: [];
       };
+      // Migration 132 — custom_connector_allowlist (row #59/#60 SSRF hardening).
+      custom_connector_allowlist: {
+        Row: {
+          id: string;
+          organization_id: string;
+          domain: string;
+          label: string | null;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          domain: string;
+          label?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          domain?: string;
+          label?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       // Migration 046 — automation_queue (SCHEMA_REGISTRY v2.0 §2.44).
       automation_queue: {
         Row: {

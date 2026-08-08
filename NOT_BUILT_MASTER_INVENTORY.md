@@ -30,8 +30,6 @@ An additional tier system was added 2026-07-30 for agent rows (AG-15–AG-30 ran
 | # | Name | Status | What's missing |
 |---|---|---|---|
 | 56 | State Portal Framework | PARTIAL | Scraper exists as a stub only; no real HTML parsing implemented |
-| 59 | Custom API Connector | PLANNED | Not built |
-| 60 | Custom Scraping Targets | PLANNED | Not built |
 | 66 | 990-PF Giving History | PLANNED | Foundation profiler exists but not a dedicated giving-history extractor |
 | 77 | Multi-Channel Outreach | PARTIAL | Templates/send route exist; LinkedIn/phone/physical mail not implemented |
 | 79 | Graph Database Schema | IN BUILD (likely stale) | `pig_nodes`/`pig_edges` — real creating migration is `src/supabase/migrations/077_intelligence_graph.sql`, not the "093/094 tonight" the row claims; other rows already depend on it existing |

@@ -1,6 +1,107 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 7, 2026 (Community Resource Graph MVP built — ranked need-to-resource view over AG-35 output, row #226). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 8, 2026 (Custom API Connector / Scraping Target SSRF hardening — rows #59/#60). Not FORGE-auto-generated — hand-verified.**
+
+## SESSION — August 8, 2026 (Custom API Connector / Scraping Target SSRF hardening — rows #59/#60)
+
+**Focus:** rows #59/#60 asked for a sandboxed MVP of user-configurable outbound connectors (custom
+REST API polling + custom URL scraping) with real SSRF safeguards treated as load-bearing, not
+polish. **Correction before anything else:** the task's framing implied these were unbuilt. They
+were not — real schema (migrations 034/041/124), real agents (`CustomApiResearchAgent`,
+`CustomScrapeResearchAgent`), and two full admin settings pages (`/settings/custom-apis` 827
+lines, `/settings/scraping` 570 lines) already existed. `FEATURE_REGISTRY_v2.md` rows #59/#60 said
+"PLANNED — not built," which was stale and has been corrected. What genuinely was missing/broken,
+found by reading the existing code directly rather than trusting the registry: both agents made a
+raw, unvalidated `fetch()`/`fetch()` call against a user-supplied URL (`custom_api_connections.base_url`,
+`scraping_targets.url`) — a real, live SSRF surface, not a hypothetical one — `custom-api.ts`'s own
+`applyAuth()` stored the API key/bearer token in plaintext jsonb, and `/api/agents/custom-api`
+(the manual "Run Now" trigger) was dead code: it inserted a `pending` agent_runs row and returned
+`{status:"queued"}` with nothing that ever processed it, while its sibling
+`/api/agents/custom-scrape` was already real and working.
+
+**SSRF safeguards actually implemented, in `src/lib/security/safe-fetch.ts` — the real, load-
+bearing part of this session, described precisely because "we added a check" isn't enough to
+trust without knowing what the check actually validates:**
+
+- **IP-resolution check, not a hostname string check.** `resolveValidatedAddress()` calls
+  `dns.promises.lookup(hostname, { all: true })` and validates *every* resolved address (both
+  IPv4 and IPv6) against a blocklist covering RFC1918 private ranges (10.0.0.0/8, 172.16.0.0/12,
+  192.168.0.0/16), loopback (127.0.0.0/8, ::1), link-local (169.254.0.0/16 — this is the range
+  that contains the cloud metadata endpoint 169.254.169.254, so it's blocked as a side effect of
+  the link-local rule, not a special case), CGNAT (100.64.0.0/10), IETF reserved/TEST-NET ranges,
+  multicast/broadcast, IPv6 unique-local (fc00::/7) and link-local (fe80::/10), and IPv4-mapped
+  IPv6 addresses (`::ffff:a.b.c.d`) — those are unwrapped and re-checked as IPv4 specifically
+  because that's a known way to smuggle a blocked v4 address through a v6-shaped string past a
+  naive check. Fails closed: if *any* resolved address for a hostname is blocked, the whole
+  hostname is rejected, not just the blocked address skipped.
+- **DNS-rebinding-resistant by construction, not just by having a check.** Validating a hostname
+  string and then letting `fetch()` (or any HTTP client) do its own DNS resolution at connect time
+  is exactly the TOCTOU gap DNS rebinding exploits — the validation-time answer and the
+  connect-time answer aren't guaranteed to be the same address. `safeFetch()` doesn't use the
+  global `fetch()` at all for this reason: it uses Node's `http.request`/`https.request` directly
+  with a `lookup` option that returns the *already-validated* IP instead of doing a fresh DNS
+  lookup, so the socket physically connects to the address that was checked, not to whatever a
+  second, later resolution might return. `hostname`/`servername` are still passed through
+  correctly for the Host header and TLS SNI/certificate validation.
+- **Redirects are followed manually, not automatically**, specifically so a first-hop validated
+  URL can't 302 to an internal address after the check already passed once — every redirect hop
+  re-runs the full resolve-and-validate step against the new `Location` target, capped at 3 hops.
+- **Response size capped during the stream** (default 2MB, truncates and destroys the socket
+  rather than buffering unbounded), and a hard wall-clock timeout (default 15-20s depending on
+  caller) covering the whole request including redirects.
+- **Rate limiting**, scoped honestly to what a stateless, manual-trigger-only serverless function
+  can actually enforce: a per-connection/per-target 30-second cooldown checked against the
+  existing `last_polled_at`/`last_scraped_at` columns, rejecting a re-run that's too soon rather
+  than adding a new column or an in-process limiter that wouldn't survive across invocations
+  anyway.
+
+**Domain allowlist — a separate, admin-configured control, deliberately not the same thing as the
+IP check above.** New table `custom_connector_allowlist` (migration 132, root `supabase/migrations/`
+— the tree with real recent history through 131, per this project's own standing note that the two
+migration trees aren't equally live), org-scoped RLS following the same `FOR ALL`/`WITH CHECK`
+pattern already established in `121_opportunity_probability_scores_rls_hardening.sql`. An admin/owner
+manages it under Settings → Allowed Domains (`src/components/settings/CustomConnectorAllowlist.tsx`,
+mounted on both `/settings/custom-apis` and `/settings/scraping`); a writer can create a connector
+or scraping target, but only against a domain already on the list — enforced server-side at
+connector-creation time (`assertDomainAllowed()` in both POST routes) **and again immediately
+before every fetch** inside both agents, so removing a domain from the allowlist stops an
+already-configured connector on its very next run, not just future ones.
+
+**Credential storage.** `custom_api_connections.auth_config`'s secret (API key or bearer token) is
+now AES-256-GCM encrypted before it's ever written to the database, reusing the exact BYOK pattern
+`integration_keys`/`src/lib/crypto/key-encrypt.ts` already establishes elsewhere in this codebase
+(`encryptAuthConfig()`/`decryptAuthSecret()`/`maskAuthSecret()` added to `custom-api.ts`) rather
+than inventing new plaintext secret storage. The GET list route now returns a `****{last4}` hint
+only, never the encrypted blob or a decrypted value. Note: `INTEGRATION_KEY_SECRET` is not present
+in this session's local `.env.local` — encryption will throw locally until it's set (a `.env.local`
+Danger Zone file per CLAUDE.md, not modified here); it's presumed already set in Vercel prod since
+`integration_keys` already depends on it there.
+
+**Execution path.** `/api/agents/custom-api` now actually instantiates and runs
+`CustomApiResearchAgent` synchronously and returns the result, matching the already-working
+`/api/agents/custom-scrape` pattern, instead of writing an unprocessed `pending` row. **Confirmed:
+neither this route, `/api/agents/custom-scrape`, nor either agent was added to `worker/scheduler.ts`
+or `worker/autonomous-orchestrator.ts` — both remain manual-trigger-only ("Run Now" from the
+settings UI), matching this repo's own existing precedent for a first pass (AG-25 Disaster
+Response, AG-41 Simulation) and the task's explicit instruction not to wire this into any
+autonomous/scheduled pipeline in this pass.**
+
+**Not done, correctly out of scope:** JS-rendering/Playwright automation of scraping targets (the
+task explicitly ruled this out — single safe fetch-and-store only); re-auditing the pre-existing
+827/570-line settings pages beyond mounting the new allowlist widget (restyled nothing, per this
+repo's own "restyle in place, don't rewrite working pages" precedent); applying migration 132 to
+production (same DDL-apply-status caveat as every other migration in this project's history — the
+file is committed, live-application status is unconfirmed from this session; `DATABASE_URL` exists
+locally per `STANDING_DIRECTIVES.md` DIRECTIVE-017 but was not used to push DDL this session).
+
+Gates: `pnpm tsc --noEmit` — zero errors in every new/edited file (`safe-fetch.ts`,
+`custom-connector-allowlist.ts`, `custom-api.ts`, `custom-scrape.ts`, both settings-page edits, all
+4 route files, `CustomConnectorAllowlist.tsx`). The full run does report pre-existing errors, but
+every one is confined to `src/__tests__/**` (deadline-predictor/outcome-analyzer/samgov-client/
+regressions/organizations/storage-rls test files) — unrelated to this session's change, matching
+this project's own standing note that the tsc gate's `exclude` list doesn't cover the test tree.
+`pnpm lint`/`eslint` was not run — blocked by this session's tool-permission gate; do not assume it
+passes.
 
 ## SESSION — August 7, 2026 (Community Resource Graph MVP — row #226, ranked list over AG-35 output)
 

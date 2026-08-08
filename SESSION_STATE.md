@@ -1,7 +1,66 @@
 # BENAVORA — Session State
-## Last Updated: August 7, 2026 (Community Resource Graph MVP built — row #226, ranked list over AG-35 output)
+## Last Updated: August 8, 2026 (Custom API Connector / Scraping Target SSRF hardening — rows #59/#60)
 
-## Current Session — August 7, 2026 (Community Resource Graph MVP, row #226)
+## Current Session — August 8, 2026 (Custom API Connector / Scraping Target SSRF hardening, rows #59/#60)
+
+**Focus:** rows #59/#60, user-configurable outbound connectors, with real SSRF safeguards treated
+as load-bearing. `FEATURE_REGISTRY_v2.md` said "PLANNED — not built" for both; that was stale —
+real schema, agents, and two full settings pages already existed. Read the existing code first
+(`src/lib/agents/custom-api.ts`, `custom-scrape.ts`, both `/settings/*` pages, both `/api/agents/*`
+trigger routes, both `/api/integrations/*` CRUD routes) rather than rebuilding from scratch.
+
+**What was actually wrong, found by reading the code:** both agents made a raw, unvalidated
+`fetch()` against a user-supplied URL — a real SSRF surface, not hypothetical. `custom-api.ts`
+stored the API key/bearer token in plaintext jsonb. `/api/agents/custom-api` (the "Run Now"
+trigger) was dead code — inserted a `pending` row nothing ever processed, while its sibling
+`/api/agents/custom-scrape` was already real and working.
+
+**Built/fixed:**
+- `src/lib/security/safe-fetch.ts` — SSRF-safe fetch. Resolves the hostname via `dns.lookup`,
+  validates **every resolved IP** (not the hostname string) against private/loopback/link-local
+  (covers cloud metadata 169.254.169.254)/CGNAT/reserved/multicast ranges for both IPv4 and IPv6
+  (including unwrapping IPv4-mapped IPv6 addresses), then **pins the actual TCP connection to that
+  validated IP** via Node's `http(s).request`'s `lookup` option — this is the real defense against
+  DNS rebinding; validating a hostname string and letting a later resolution decide the connection
+  target doesn't close that gap, using our own DNS lookup result to make the connection does.
+  Redirects followed manually with full re-validation per hop (max 3). Response capped at 2MB
+  streamed (not buffered unbounded), hard timeout.
+- `src/lib/security/custom-connector-allowlist.ts` + migration 132
+  (`custom_connector_allowlist`, root `supabase/migrations/`) — a *separate* admin-only domain
+  allowlist. A writer can create a connector, but only against a domain an admin already added.
+  Enforced at connector-creation time and again at every fetch (so removing a domain stops an
+  existing connector on its next run).
+- `src/components/settings/CustomConnectorAllowlist.tsx` — minimal admin UI (inline hex per One UI
+  Rule), mounted on both `/settings/custom-apis` and `/settings/scraping`.
+- `custom-api.ts`: `auth_config`'s secret now AES-256-GCM encrypted via the existing
+  `src/lib/crypto/key-encrypt.ts` (same pattern `integration_keys` already uses) — never plaintext
+  at rest or in any API response (`****last4` hint only).
+- `/api/agents/custom-api` now actually runs `CustomApiResearchAgent` and returns the result
+  (mirroring the already-working `/api/agents/custom-scrape`), instead of the dead
+  insert-and-abandon pending row.
+- Both agents: per-connection/per-target 30s cooldown (existing `last_polled_at`/`last_scraped_at`
+  columns) before firing another fetch.
+
+**Explicitly confirmed NOT wired into any autonomous/scheduled pipeline** — grepped
+`worker/scheduler.ts` and `worker/autonomous-orchestrator.ts`: neither trigger route nor either
+agent is registered anywhere in either file. Manual "Run Now" from the settings UI only, matching
+this repo's own AG-25/AG-41 precedent and the task's explicit instruction.
+
+**Not done, correctly out of scope:** no Playwright/JS-rendering automation of scraping targets
+(task explicitly ruled this out); did not rewrite the existing 827/570-line settings pages beyond
+mounting the new allowlist widget; migration 132's live-application status to production is
+unconfirmed from this session (file committed, not applied via `DATABASE_URL`).
+
+**Gates:** `pnpm tsc --noEmit` — zero errors in every new/edited file. Pre-existing errors remain,
+all confined to `src/__tests__/**`, unrelated to this change. `pnpm lint` not run (blocked by this
+session's tool-permission gate) — do not assume it passes.
+
+**Commit:** `feat(integrations): sandboxed Custom API Connector / Scraping Target MVP with
+allowlist + SSRF guards (rows #59, #60)`.
+
+---
+
+## Prior Session — August 7, 2026 (Community Resource Graph MVP, row #226)
 
 **Focus:** build row #226 (Phase 4, was PLANNED) per this session's own instruction to read the
 queue-37 preflight's finding on row #222/AG-35's real output shape first — done, see "queue-37

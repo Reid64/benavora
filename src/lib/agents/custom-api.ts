@@ -3,42 +3,48 @@
 // Polls client-configured REST API connections for grant opportunities.
 // For each active connection:
 //   1. Validates field_mapping includes at least a "name" mapping (Contracts §20)
-//   2. Constructs the HTTP request with auth from auth_config
-//   3. Fetches the endpoint, normalising the response to an item array
-//   4. Applies field_mapping to transform items to opportunity fields
-//   5. Deduplicates by (organization_id, name, source) before inserting
-//   6. On failure: increments error_count; at 3 consecutive failures auto-pauses
+//   2. Re-checks the org's domain allowlist (custom_connector_allowlist) —
+//      a connection whose domain was since removed from the allowlist is
+//      skipped, not fetched, even though it's still `is_active`.
+//   3. Enforces a per-connection cooldown so a burst of manual "Run Now"
+//      clicks can't turn into an unbounded outbound-fetch loop.
+//   4. Constructs the HTTP request with auth decrypted from auth_config, and
+//      fetches via `safeFetch()` (SSRF-safe: validated/pinned IP, capped
+//      response size, hard timeout) rather than a raw `fetch()`.
+//   5. Applies field_mapping to transform items to opportunity fields
+//   6. Deduplicates by (organization_id, name, source) before inserting
+//   7. On failure: increments error_count; at 3 consecutive failures auto-pauses
 //      the connection and writes an automation_notification for the user
 //
-// auth_config is read server-side only. Keys are never returned to the client
-// in plaintext (BEHAVIORAL_CONTRACTS §20).
+// auth_config's secret field is stored AES-256-GCM encrypted (src/lib/crypto/
+// key-encrypt.ts, the same BYOK pattern integration_keys already uses) — never
+// plaintext at rest, and never returned to the client in plaintext
+// (BEHAVIORAL_CONTRACTS §20).
 //
-// WIRING NOTE (2026-08-04): this class (CustomApiResearchAgent) is currently
-// DEAD CODE — confirmed via repo-wide search, nothing in src/ imports or
-// instantiates it. Its same-named route (`/api/agents/custom-api`) does not
-// call it either; that route just inserts a `pending` agent_runs row and
-// returns `{status:"queued"}` with nothing to ever process it. This is NOT
-// the same situation as a simple duplicate: `src/lib/agents/custom-scrape.ts`
-// (`CustomScrapeResearchAgent`, AGENTS.md Agent 20) deliberately reuses this
-// same `custom_api_research` agent_type by design (see that file's own
-// comment) but is a genuinely different feature — it scrapes client-assigned
-// URLs, not client-configured REST API connections (`custom_api_connections`
-// table) the way this class does. custom-scrape.ts is real and wired
-// (`/api/agents/custom-scrape`); this class's specific capability (polling a
-// configured REST API connection) has no working implementation anywhere.
-// Also found live-testing this session: this class currently throws on any
-// invocation regardless of wiring — its own query selects a column,
-// `error_count`, that does not exist on the live `custom_api_connections`
-// table (`42703 column custom_api_connections.error_count does not exist`).
-// Wiring this up would require fixing that schema mismatch first; not done
-// here (out of scope for this pass — live-test + wiring-decision only).
+// WIRING NOTE (resolved 2026-08-07, rows #59/#60 hardening pass): this class
+// was previously dead code — nothing called it, and its own query selected a
+// then-nonexistent `error_count` column. Both are now fixed: `error_count` was
+// added live by migration 124, and `/api/agents/custom-api` now actually
+// instantiates and runs this agent (mirroring the already-working
+// `/api/agents/custom-scrape` pattern) instead of inserting an unprocessed
+// `pending` row. Manual-trigger-only in this pass, matching AG-25/AG-41's
+// precedent — not wired into any autonomous/scheduled pipeline.
 
 import {
   AgentError,
   BaseAgent,
   type AgentExecution,
 } from "@/lib/agents/base-agent";
+import { decryptKey, encryptKey } from "@/lib/crypto/key-encrypt";
+import {
+  AllowlistBlockedError,
+  assertDomainAllowed,
+} from "@/lib/security/custom-connector-allowlist";
+import { safeFetch, SsrfBlockedError } from "@/lib/security/safe-fetch";
 import type { AgentType } from "@/types/agents";
+
+/** Minimum time between fetches for the same connection (manual-trigger cooldown). */
+const CONNECTION_COOLDOWN_MS = 30_000;
 
 export interface CustomApiInput {
   /** Run only this connection; omit to run all active connections. */
@@ -62,6 +68,7 @@ interface ConnectionRow {
   auth_config: Record<string, string>;
   field_mapping: Record<string, string>;
   error_count: number;
+  last_polled_at: string | null;
 }
 
 // Opportunity columns the field_mapping is allowed to write to. Prevents an
@@ -90,7 +97,7 @@ export class CustomApiResearchAgent extends BaseAgent<
     let query = this.client
       .from("custom_api_connections")
       .select(
-        "id, name, base_url, auth_type, auth_config, field_mapping, error_count",
+        "id, name, base_url, auth_type, auth_config, field_mapping, error_count, last_polled_at",
       )
       .eq("organization_id", this.organizationId)
       .eq("is_active", true);
@@ -204,20 +211,53 @@ export class CustomApiResearchAgent extends BaseAgent<
       );
     }
 
+    // Cooldown: a burst of manual "Run Now" clicks (or a bug in the caller)
+    // must not turn into an unbounded fetch loop against the same target.
+    if (conn.last_polled_at) {
+      const elapsed = Date.now() - new Date(conn.last_polled_at).getTime();
+      if (elapsed < CONNECTION_COOLDOWN_MS) {
+        throw new Error(
+          `This connection was run ${Math.round(elapsed / 1000)}s ago — please wait ${Math.ceil((CONNECTION_COOLDOWN_MS - elapsed) / 1000)}s before running it again.`,
+        );
+      }
+    }
+
+    // Re-check the domain allowlist at fetch time, not just at save time — an
+    // admin may have removed this domain from the allowlist since the
+    // connection was created.
+    try {
+      await assertDomainAllowed(this.client, this.organizationId, conn.base_url);
+    } catch (err) {
+      if (err instanceof AllowlistBlockedError) throw err;
+      throw new Error("Could not verify the domain allowlist.");
+    }
+
     const headers: Record<string, string> = { Accept: "application/json" };
     this.applyAuth(conn, headers);
 
-    const response = await fetch(conn.base_url, {
-      method: "GET",
-      headers,
-      signal: AbortSignal.timeout(30_000),
-    });
+    let response;
+    try {
+      response = await safeFetch(conn.base_url, {
+        method: "GET",
+        headers,
+        timeoutMs: 20_000,
+        maxBytes: 2_000_000,
+      });
+    } catch (err) {
+      if (err instanceof SsrfBlockedError) throw err;
+      throw err;
+    }
 
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
 
-    const rawData: unknown = await response.json();
+    let rawData: unknown;
+    try {
+      rawData = JSON.parse(response.body);
+    } catch {
+      throw new Error("Response was not valid JSON.");
+    }
     const items = normalizeItems(rawData);
 
     let created = 0;
@@ -269,16 +309,58 @@ export class CustomApiResearchAgent extends BaseAgent<
     conn: ConnectionRow,
     headers: Record<string, string>,
   ): void {
+    if (conn.auth_type === "none") return;
     const cfg = (conn.auth_config ?? {}) as Record<string, string>;
+    const secret = decryptAuthSecret(cfg);
+    if (!secret) return;
 
     if (conn.auth_type === "api_key") {
       const headerName = cfg.header_name ?? "X-Api-Key";
-      const key = cfg.key ?? "";
-      if (key) headers[headerName] = key;
+      headers[headerName] = secret;
     } else if (conn.auth_type === "bearer" || conn.auth_type === "oauth") {
-      const token = cfg.token ?? cfg.key ?? "";
-      if (token) headers["Authorization"] = `Bearer ${token}`;
+      headers["Authorization"] = `Bearer ${secret}`;
     }
+  }
+}
+
+/**
+ * Encrypts a raw `{ header_name?, key | token }` auth config into the shape
+ * actually persisted: the secret is AES-256-GCM encrypted
+ * (src/lib/crypto/key-encrypt.ts, the same pattern integration_keys already
+ * uses) under `secret_encrypted`; `header_name` (not a secret) stays plain.
+ * Called by the connector-creation route — never stores a raw key/token.
+ */
+export function encryptAuthConfig(
+  authType: AuthType,
+  raw: Record<string, string>,
+): Record<string, string> {
+  if (authType === "none") return {};
+  const plaintext = (raw.key ?? raw.token ?? "").trim();
+  if (!plaintext) return {};
+  const encrypted: Record<string, string> = {
+    secret_encrypted: encryptKey(plaintext),
+  };
+  if (authType === "api_key" && raw.header_name?.trim()) {
+    encrypted.header_name = raw.header_name.trim();
+  }
+  return encrypted;
+}
+
+/** `****{last4}` for display — mirrors integration_keys' masking convention. */
+export function maskAuthSecret(authType: AuthType, cfg: Record<string, string>): string | null {
+  if (authType === "none") return null;
+  const secret = decryptAuthSecret(cfg);
+  return secret ? `****${secret.slice(-4) || "xxxx"}` : null;
+}
+
+function decryptAuthSecret(cfg: Record<string, string>): string {
+  if (!cfg.secret_encrypted) return "";
+  try {
+    return decryptKey(cfg.secret_encrypted);
+  } catch {
+    // Auth-tag failure (wrong/rotated INTEGRATION_KEY_SECRET) — treat as no
+    // credential rather than crashing the whole poll.
+    return "";
   }
 }
 

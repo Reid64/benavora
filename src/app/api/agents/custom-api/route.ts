@@ -1,13 +1,22 @@
 import { NextResponse } from "next/server";
 
+import { CustomApiResearchAgent } from "@/lib/agents/custom-api";
 import { requireRole } from "@/lib/auth/role-gate";
 
 // Custom API Research Agent trigger endpoint (AGENTS.md Agent 19).
-// POST { connectionId? } — queues a polling cycle for the caller's org.
+//
+// POST { connectionId? } — runs a polling cycle for the caller's org.
 // connectionId is optional: omit to poll all active connections, or pass a
 // specific id to target one connection (e.g. "Run Now" in the settings UI).
+//
+// Manual-trigger-only in this pass (rows #59/#60 hardening, 2026-08-07) —
+// runs synchronously and returns the result, same as /api/agents/custom-scrape.
+// Not wired into any autonomous/scheduled pipeline, matching this repo's own
+// precedent (AG-25 Disaster Response, AG-41 Simulation) of shipping
+// manual-trigger-only first.
 
 export const runtime = "nodejs";
+export const maxDuration = 300;
 
 function jsonError(message: string, code: string, status: number) {
   return NextResponse.json({ error: message, code }, { status });
@@ -23,29 +32,33 @@ export async function POST(request: Request) {
     const body = (await request.json().catch(() => ({}))) as {
       connectionId?: string;
     };
-    if (typeof body.connectionId === "string") {
-      connectionId = body.connectionId;
+    if (typeof body.connectionId === "string" && body.connectionId.trim()) {
+      connectionId = body.connectionId.trim();
     }
   } catch {
     // Body is optional; run all active connections if omitted.
   }
 
-  const { data: run, error } = await supabase
-    .from("agent_runs")
-    .insert({
-      organization_id: organizationId,
-      agent_type: "custom_api_research",
-      status: "pending",
-      triggered_by: userId,
-      input_params: { connectionId: connectionId ?? null },
-      started_at: new Date().toISOString(),
-    })
-    .select("id")
-    .single();
+  const agent = new CustomApiResearchAgent({
+    client: supabase,
+    organizationId,
+    triggeredBy: userId,
+  });
 
-  if (error) {
-    return jsonError("Could not queue the agent run.", "db_error", 500);
+  try {
+    const outcome = await agent.run({ connectionId });
+    return NextResponse.json({
+      connectionsRun: outcome.data.connectionsRun,
+      opportunitiesCreated: outcome.data.opportunitiesCreated,
+      connectionsPaused: outcome.data.connectionsPaused,
+      errors: outcome.data.errors,
+      agent_run_id: outcome.runId,
+    });
+  } catch {
+    return jsonError(
+      "Custom API agent failed. Please try again.",
+      "agent_failed",
+      500,
+    );
   }
-
-  return NextResponse.json({ status: "queued", runId: run.id });
 }

@@ -10,6 +10,10 @@
 import { NextResponse } from "next/server";
 
 import { requireRole } from "@/lib/auth/role-gate";
+import {
+  AllowlistBlockedError,
+  assertDomainAllowed,
+} from "@/lib/security/custom-connector-allowlist";
 
 export const runtime = "nodejs";
 
@@ -63,6 +67,15 @@ export async function POST(request: Request) {
 
   if (typeof url !== "string" || !url.trim()) {
     return jsonError("url is required.", "missing_field", 400);
+  }
+
+  try {
+    await assertDomainAllowed(supabase, organizationId, url.trim());
+  } catch (err) {
+    if (err instanceof AllowlistBlockedError) {
+      return jsonError(err.message, "domain_not_allowlisted", 403);
+    }
+    return jsonError("Could not verify the domain allowlist.", "allowlist_check_failed", 500);
   }
 
   const validSchedules = ["hourly", "daily", "weekly", "monthly"];
