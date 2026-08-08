@@ -1,8 +1,31 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 7, 2026 (rows #154/#155 — Command Center Configurable Panel Layout + TV/Projector Mode, both BUILT). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 7, 2026 (queue-34 live-verified: 3/5 confirmed working end-to-end, 1 blocked by an empty Realtime publication, 1 blocked by 3 missing tables — see AGENT_VERIFICATION_LOG.md "AI Board Advisor / Command Center (queue-34)"). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 7, 2026 (queue-34 live verification — Factor Breakdown, Board Portal, Plain Language Financials, Command Center Realtime, TV/Layout)
+
+Live-verified all five q34-001 through q34-005 build prompts against real production data (real
+Faith Foundation org, `b1ab7402-dfc2-4712-869f-70ea3566cc1d`) via `DATABASE_URL`/psql and, where
+needed, by directly running the real agent/component code against production. Full evidence in
+`AGENT_VERIFICATION_LOG.md`'s "AI Board Advisor / Command Center (queue-34)" entry — summary here.
+
+**Real status, correcting the "both BUILT"/"shipped" framing of the individual commits below where
+live verification found the real production behavior differs from what the code intends:**
+
+| Item | Status |
+|---|---|
+| #106 Factor Breakdown UI | **CONFIRMED WORKING.** 169 real scored opportunities exist for the real org; the 4 real factor names/weights/values render correctly. No gap found. |
+| #138 Board Member Portal | **CONFIRMED WORKING.** 3 real board member ids still live; cross-org access correctly denied at the query level; RLS is a second, independent layer. The org_id/organization_id bug flagged in that session was real, but in `relationship-graph/route.ts`, not this portal's own route — confirmed fixed. |
+| #139 Plain Language Financials | **CODE CORRECT, FEATURE NEVER DEMONSTRABLE.** `grant_budgets`/`grant_expenses`/`grant_reconciliation_reports` (migrations 084/089) do not exist in production — confirmed via `to_regclass()` and a live `PGRST205` reproduction. The feature always takes its "no financial data on file" fallback, indistinguishably from a real no-data org, and has never once produced a real Claude-narrated summary. Live-ran the real `BoardPacketAgent` against a synthetic test meeting to confirm this directly (cleaned up after). The rest of the packet (pipeline, financial snapshot, discussion items) genuinely works — real Claude call, real grounded output. |
+| #153 Command Center Realtime | **CODE CORRECT, ZERO EVENTS FIRE IN PRODUCTION.** The `supabase_realtime` publication has **zero member tables database-wide** — confirmed via `pg_publication_tables`. Proved live: a subscribed channel received zero events after a real `agent_runs` insert during a 20-second listen window. Only the 60s safety-net poll actually refreshes this page today. One-line fix: `ALTER PUBLICATION supabase_realtime ADD TABLE agent_runs, agent_decisions, applications;` (not yet applied). |
+| #154/#155 Configurable Layout + TV Mode | **Layout persistence CONFIRMED WORKING** — live write/read-back/reset round-trip against the real owner profile succeeded. **TV Mode built correctly (standard Fullscreen API usage, clean tsc) but not browser click-tested** this session — no browser tooling was available; stated plainly rather than claimed. |
+
+**Gates:** `pnpm tsc --noEmit` — zero errors across all five commits' files (pre-existing,
+unrelated `src/__tests__/**` errors unchanged).
 
 ---
 

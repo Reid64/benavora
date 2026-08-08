@@ -1,7 +1,58 @@
 # BENAVORA — Session State
-## Last Updated: August 7, 2026 (rows #154/#155 — Command Center Configurable Panel Layout + TV/Projector Mode)
+## Last Updated: August 7, 2026 (queue-34 live verification — 3/5 confirmed working, 2 blocked by infrastructure gaps)
 
-## Current Session — August 7, 2026 (rows #154/#155 — Configurable Panel Layout + TV/Projector Mode)
+## Current Session — August 7, 2026 (queue-34 live verification)
+
+**Focus:** live-verify all five q34-001 through q34-005 build prompts (Factor Breakdown UI, Board
+Member Portal, Plain Language Financials, Command Center Realtime, TV/Projector Mode +
+Configurable Panel Layout) against real production data, per this project's established
+live-verification convention — not just re-reading the commits' own "shipped" claims.
+
+**Status — 3 of 5 confirmed working end-to-end against real data; 2 blocked by real, precisely
+diagnosed gaps outside the application code itself. Full evidence in `AGENT_VERIFICATION_LOG.md`'s
+"AI Board Advisor / Command Center (queue-34)" entry:**
+
+- **#106 Factor Breakdown UI — CONFIRMED WORKING.** 169 real scored opportunities already existed
+  for the real Faith Foundation org; read one back directly, confirmed its 4 real factor
+  names/weights/values sum correctly to the overall score and match the UI's rendering logic.
+- **#138 Board Member Portal — CONFIRMED WORKING.** All 3 real board member ids still live;
+  cross-org access denied at the exact query level the route uses (0 rows for a real cross-org id);
+  RLS policies independently confirm the same scoping. The org_id/organization_id bug that session
+  flagged was real, but lived in `relationship-graph/route.ts`, not the portal route itself —
+  confirmed fixed and currently applied.
+- **#139 Plain Language Financials — CODE CORRECT, NEVER DEMONSTRABLE.** `grant_budgets`,
+  `grant_expenses`, and `grant_reconciliation_reports` (migrations 084/089) do not exist in
+  production (`to_regclass()` returns null for all three; live `PGRST205` reproduced). The feature
+  always takes its "no financial data on file" fallback — indistinguishable from a real no-data
+  org — and has never once produced a real Claude-narrated summary. Proved this by running the
+  real `BoardPacketAgent` against a synthetic test meeting for the real org: real pipeline (77
+  opportunities), real financial snapshot ($75,000 budget, 2 staff), real Claude-generated,
+  grounded discussion items (1,841 real tokens) — but `plainLanguageFinancials.hasAnyData: false`,
+  `narrative: null`, exactly the fallback shape, 0 tokens spent on that sub-feature. Test meeting/
+  packet/decision/run rows all deleted afterward.
+- **#153 Command Center Realtime — CODE CORRECT, ZERO EVENTS FIRE.** `pg_publication_tables` shows
+  the `supabase_realtime` publication has **zero member tables in the entire database** — not just
+  these 3. Proved live: opened a real Realtime channel, confirmed it reached `SUBSCRIBED`, inserted
+  a real `agent_runs` row for the real org, received **zero events** in a 20-second window. The
+  RLS-scoping caveat this session's own header comment already documents is real but moot — no
+  event fires at all today, for any org. Only the 60s safety-net poll actually refreshes this page
+  in production. Fix is one SQL statement outside application code:
+  `ALTER PUBLICATION supabase_realtime ADD TABLE agent_runs, agent_decisions, applications;` — not
+  yet applied. Synthetic test row deleted afterward.
+- **#154/#155 Configurable Layout + TV Mode — layout persistence CONFIRMED WORKING** (live write/
+  read-back/reset round-trip against the real owner profile, `info@faithfoundationsf.org`).
+  **TV Mode built correctly (standard Fullscreen API, clean tsc) but not browser click-tested** —
+  no browser tooling was available this session; stated plainly rather than claimed verified.
+
+**Gates:** `pnpm tsc --noEmit` — zero errors on any of the five commits' files.
+
+**Recommendation for a future session:** (a) apply migrations 084/089 or equivalent before
+claiming #139 delivers real output; (b) run the one-line `ALTER PUBLICATION` fix above before
+treating #153 as delivering real-time behavior; (c) browser/Playwright-verify the TV Mode toggle.
+
+---
+
+## Prior Session — August 7, 2026 (rows #154/#155 — Configurable Panel Layout + TV/Projector Mode)
 
 **Focus:** `FEATURE_REGISTRY_v2.md` rows #154 ("Configurable Panel Layout", PLANNED, Phase 3) and
 #155 ("TV/Projector Mode", PLANNED, Phase 3) on the same Command Center page the prior session
