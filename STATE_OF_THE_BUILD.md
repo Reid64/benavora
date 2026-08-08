@@ -1,6 +1,47 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 8, 2026 (soak test run against the real nonprofit scraper — found a real, previously-undocumented bug: ~95% of real candidate website values fail every fetch due to a missing http(s):// scheme prefix). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 8, 2026 (queue-38 reconciliation: T6/T7 confirmed real, T4/T8 confirmed never touched). Not FORGE-auto-generated — hand-verified.**
+
+## SESSION — August 8, 2026 (queue-38 reconciliation: Testing Features T4/T6/T7/T8 checked against what actually ran)
+
+Documentation-consistency check only, per this task's explicit instruction not to re-run any tests.
+Queue-38 was scoped to hit four Testing Features rows — T4 (E2E Tests), T6 (DB Migration Tests), T7
+(Soak Tests), T8 (Cross-Browser Tests) — via prompts q38-001 through q38-004. Checked `git log`,
+`FEATURE_REGISTRY_v2.md`'s current row text, and both this file and `SESSION_STATE.md` for any
+trace of each prompt's work.
+
+**Net result: 2 of 4 rows were genuinely completed with real evidence; 2 were never touched by any
+prompt in this queue.**
+
+- **T6 (DB Migration Tests)** — real commit `1edd00c`, real script (`scripts/check-migration-idempotency.ts`),
+  real audit doc (`MIGRATION_IDEMPOTENCY_AUDIT.md`), real counts (958 DDL statements / 377
+  non-idempotent across 51 files in root `supabase/migrations/`; 309 / 76 across 9 files in
+  `src/supabase/migrations/`), plus a live rolled-back-transaction spot-check against production.
+  Row correctly reads BUILT with this evidence inline. No changes needed.
+- **T7 (Soak Tests)** — real commit `a24f6c7`, real live run against `scripts/run-nonprofit-scraper.ts`,
+  real audit doc (`SOAK_TEST_RESULTS.md`), a real specific finding (90/90 attempted records failed,
+  0 enriched, root-caused to a missing `http(s)://` scheme prefix on ~95% of real candidate website
+  values). Row correctly reads BUILT with this evidence inline. No changes needed.
+- **T4 (E2E Tests)** and **T8 (Cross-Browser Tests)** — **zero evidence either prompt ever ran.** No
+  commit, no `git status` artifact, no session entry in this file or `SESSION_STATE.md`, and no
+  `halt-reason`/failure report anywhere in the repo mentions either row. Both rows still read exactly
+  their pre-queue-38 PLANNED text verbatim (`PLANNED | Playwright — login, create opportunity,
+  generate draft.` and `PLANNED | Chrome, Firefox, Safari (webkit).`). Independently spot-checked
+  `playwright.config.ts`: all 4 real projects still use `devices["Desktop Chrome"]` only — no
+  Firefox/webkit project exists, consistent with T8 genuinely being untouched, not silently
+  downgraded from partial progress. Since neither row was ever upgraded past PLANNED, there is
+  nothing dishonest to correct in the registry text itself — the failure mode here is two silently
+  no-op prompts, not two prompts that overclaimed. Flagging for whoever re-runs this queue: q38's
+  T4/T8 prompts need to be re-launched (or debugged for why they produced no trace at all), not
+  assumed complete.
+
+Registry summary math re-verified consistent with this finding: Testing row (8 total, 5 Built: T1/T2/
+T3/T6/T7, 3 Planned: T4/T5/T8) and the grand TOTAL row (198/124/12/19/43) both sum correctly against
+the per-row statuses as they actually stand today.
+
+No code changed this session; `pnpm tsc --noEmit` not re-run (no source files touched).
+
+---
 
 ## SESSION — August 8, 2026 (soak test — FEATURE_REGISTRY_v2.md T7, real run against `scripts/run-nonprofit-scraper.ts`)
 

@@ -1,7 +1,30 @@
 # BENAVORA — Session State
-## Last Updated: August 8, 2026 (soak test run against real nonprofit scraper, FEATURE_REGISTRY_v2.md T7 PLANNED→BUILT, real bug found)
+## Last Updated: August 8, 2026 (queue-38 reconciliation: T6/T7 confirmed real, T4/T8 confirmed never touched)
 
-## Current Session — August 8, 2026 (soak test — real run against `scripts/run-nonprofit-scraper.ts`)
+## Current Session — August 8, 2026 (queue-38 reconciliation: Testing Features T4/T6/T7/T8)
+
+**Focus:** documentation-consistency check only (no tests re-run), per this task's explicit scope.
+Queue-38 targeted Testing Features rows T4/T6/T7/T8 via prompts q38-001 through q38-004. Cross-
+referenced `FEATURE_REGISTRY_v2.md`'s current row text against `git log`, this file, and
+`STATE_OF_THE_BUILD.md` for evidence each prompt actually ran.
+
+**Status:** T6 (DB Migration Tests) and T7 (Soak Tests) are genuinely BUILT — real commits
+(`1edd00c`, `a24f6c7`), real scripts/audit docs (`scripts/check-migration-idempotency.ts` +
+`MIGRATION_IDEMPOTENCY_AUDIT.md`; `scripts/run-nonprofit-scraper.ts` run + `SOAK_TEST_RESULTS.md`),
+real specific pass/fail counts cited inline, not vague claims. T4 (E2E Tests) and T8 (Cross-Browser
+Tests) have **zero trace of ever running** — no commit, no session entry, no failure report anywhere
+in the repo — and still read their original, pre-queue-38 PLANNED text verbatim. Confirmed via
+`playwright.config.ts` that no Firefox/webkit project was ever added, consistent with T8 being
+truly untouched rather than partially done and then reverted. Since both rows were never upgraded
+past PLANNED, there was nothing false to correct in the registry — the gap is two prompts that left
+no trace at all, not two prompts that overclaimed. Testing row math (5 Built / 3 Planned = 8) and
+the grand TOTAL row remain internally consistent with this state.
+**Commit:** `docs: reconcile Testing Features table T4-T8 after queue-38 hardening pass` (this session).
+**Gates:** not run — no code changed, docs-only reconciliation.
+
+---
+
+## Prior Session — August 8, 2026 (soak test — real run against `scripts/run-nonprofit-scraper.ts`)
 
 **Focus:** `FEATURE_REGISTRY_v2.md` row T7 ("Soak Tests — enrichment engine under sustained load")
 was PLANNED. Ran a real, live soak test against the real, existing standalone scraper
