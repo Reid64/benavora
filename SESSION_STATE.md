@@ -1,7 +1,76 @@
 # BENAVORA — Session State
-## Last Updated: August 7, 2026 (queue-34 live verification — 3/5 confirmed working, 2 blocked by infrastructure gaps)
+## Last Updated: August 7, 2026 (Auto-Monitor on Add — FEATURE_REGISTRY_v2.md #151)
 
-## Current Session — August 7, 2026 (queue-34 live verification)
+## Current Session — August 7, 2026 (Auto-Monitor on Add)
+
+**Focus:** FEATURE_REGISTRY_v2.md row #151 ("Auto-Monitor on Add," PLANNED) — enroll newly-created
+funders into AG-18 reputation monitoring immediately via `agent_queue`, instead of relying on the
+nightly sweep's 5-funder/night sample to eventually reach them.
+
+**Insert paths wired — 4 of 5 real production paths found by a fresh grep, not just the 2 the task
+named:**
+- `src/components/funders/FunderForm.tsx` (manual create) — task-named.
+- `src/app/api/funders/import/route.ts` (bulk CSV import) — task-named.
+- `src/app/(dashboard)/foundations/page.tsx` — `importFoundation` (single) and `importSelected`
+  (bulk), converting a `foundation_directory` row into a funder — found this session, not in the
+  task description.
+- `src/app/(dashboard)/intelligence/recommendations/page.tsx` — `handleAdd`, converting a
+  `FunderRecommender` match into a funder — found this session, not in the task description.
+- (`scripts/seed-beta-users.ts` also inserts into `funders` but is a dev-only seed script, not a
+  production path — left alone.)
+
+**What shipped:**
+1. `src/lib/funders/enroll-monitoring.ts` — a shared client helper, `enrollInReputationMonitoring
+   (funderIds)`, fire-and-forget `fetch` to a new API route. Never awaited, never throws into the
+   caller — a failed enrollment call must not undo or block a funder creation that already
+   succeeded.
+2. `POST /api/funders/enroll-monitoring` (new route) — `organizationId` from the session
+   (never the body); re-validates every `funderId` against `funders.organization_id` server-side
+   before enqueueing (a caller can't use this route to trigger a check against another org's
+   funder); caps at `MAX_FUNDERS_PER_REQUEST = 25`.
+3. `FunderForm.tsx` and both `foundations/page.tsx` call sites and `recommendations/page.tsx`'s
+   `handleAdd` now call the helper right after their `.insert()` succeeds. Three of the four
+   didn't previously `.select()` the created row back — added `.select("id")`/`.select("id, name")`
+   so the real new funder id is available.
+4. `api/funders/import/route.ts` enqueues inline (server-side already, has `organizationId` and the
+   inserted rows — no need to call the new route over HTTP), capped at its own
+   `MAX_MONITORING_ENROLLMENTS = 25` — documented in-file: a CSV import can bring in hundreds of
+   rows, only the first 25 get an immediate check, the rest are still covered by the nightly sweep.
+   A failed enqueue surfaces in the response's `errors[]` but never fails the import itself.
+5. **Never called `checkEntityReputation()` synchronously inline anywhere** — it makes a real
+   DuckDuckGo + Claude call per funder; every path only ever writes a `queued` `agent_queue` row.
+
+**The weak `'reputation'` queue case — fixed, not shipped as-is.** Per row #148's own note,
+`worker/autonomous-orchestrator.ts`'s `routeQueueItem()` case `'reputation'` called
+`checkEntityReputation()` directly with no alert row, no notification, no `relationship_memory`
+write, no org-scoping — materially weaker than the real nightly sweep. Confirmed before starting
+that nothing else in the repo currently enqueues `agent_id: 'reputation'` (this task's own new
+callers are the first), so fixing it was judged contained and was done:
+- Refactored `src/lib/intelligence/reputation-agent.ts`'s `ReputationIntelligenceAgent`: extracted
+  its `run()` loop body into `private processFunders()`, added a public `runForFunder(funderId,
+  funderName, triggerSource)` that runs the identical alert/decision/notification/memory logic for
+  one funder (own real `agent_runs` row).
+- `routeQueueItem()`'s `'reputation'` case now branches on `payload.entityType`: `'funder'` routes
+  through `ReputationIntelligenceAgent.runForFunder(...)` (full nightly-sweep parity); anything
+  else falls back to the original bare `checkEntityReputation()` call, unchanged.
+- **Real `agent_id` literal enqueued: `'reputation'`** (the existing `routeQueueItem()` case name —
+  distinct from `'ag-18-reputation'`, `ReputationIntelligenceAgent`'s own internal `agent_type`).
+  `trigger_source: 'event'` throughout, matching AG-28's precedent and confirmed valid against the
+  live CHECK constraint (migration 081).
+
+**Gates:** `pnpm tsc --noEmit` — zero errors in every file touched this session. Full output is the
+same pre-existing, unrelated `src/__tests__/**` failures already documented in every prior session
+entry in `STATE_OF_THE_BUILD.md`.
+
+**Not done:** `FEATURE_REGISTRY_v2.md` row #151 itself was not flipped to BUILT — out of this
+task's stated scope (STATE_OF_THE_BUILD.md/SESSION_STATE.md only). Flag for a future session.
+
+Full detail in `STATE_OF_THE_BUILD.md`'s matching "SESSION — August 7, 2026 (Auto-Monitor on Add —
+FEATURE_REGISTRY_v2.md #151)" entry.
+
+---
+
+## Prior Session — August 7, 2026 (queue-34 live verification)
 
 **Focus:** live-verify all five q34-001 through q34-005 build prompts (Factor Breakdown UI, Board
 Member Portal, Plain Language Financials, Command Center Realtime, TV/Projector Mode +

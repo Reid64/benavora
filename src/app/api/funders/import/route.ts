@@ -8,6 +8,14 @@ export const runtime = "nodejs";
 type FunderCategory = Enums<"funder_category">;
 type FunderInsert = Database["public"]["Tables"]["funders"]["Insert"];
 
+// Cap on how many of a CSV import's newly-created funders get an immediate
+// reputation-monitoring enqueue (FEATURE_REGISTRY_v2.md #151). A single
+// import can bring in hundreds of rows — enqueueing a real DuckDuckGo+Claude
+// check for every one of them in a single request would be an unbounded
+// batch, not a bounded background job. The rest are still covered by the
+// nightly sweep, just not enrolled immediately.
+const MAX_MONITORING_ENROLLMENTS = 25;
+
 const VALID_CATEGORIES: readonly FunderCategory[] = [
   "corporate_donation",
   "corporate_sponsorship",
@@ -236,7 +244,10 @@ export async function POST(request: Request) {
     );
   }
 
-  const { error: insertError } = await supabase.from("funders").insert(toInsert);
+  const { data: insertedRows, error: insertError } = await supabase
+    .from("funders")
+    .insert(toInsert)
+    .select("id, name");
   if (insertError) {
     return NextResponse.json(
       {
@@ -245,6 +256,37 @@ export async function POST(request: Request) {
       },
       { status: 500 },
     );
+  }
+
+  // Enroll the imported funders in reputation monitoring (FEATURE_REGISTRY_v2.md
+  // #151) instead of waiting for the nightly sweep's 5-funder/night sample. A
+  // CSV import can bring in hundreds of rows in one request — capped to the
+  // first MAX_MONITORING_ENROLLMENTS to avoid enqueueing an unbounded batch of
+  // real DuckDuckGo+Claude checks off a single import; the rest are still
+  // reachable by the nightly sweep like any other funder. Best-effort: a
+  // failed enqueue never fails the import itself, since the funders are
+  // already committed.
+  const toEnroll = (insertedRows ?? []).slice(0, MAX_MONITORING_ENROLLMENTS);
+  if (toEnroll.length > 0) {
+    const { error: queueError } = await supabase.from("agent_queue").insert(
+      toEnroll.map((funder) => ({
+        org_id: organizationId,
+        agent_id: "reputation",
+        priority: 5,
+        status: "queued" as const,
+        trigger_source: "event" as const,
+        input_payload: {
+          entityId: funder.id,
+          entityType: "funder",
+          entityName: funder.name,
+        },
+      })),
+    );
+    if (queueError) {
+      errors.push(
+        `Reputation monitoring enrollment failed (funders were still imported): ${queueError.message}`,
+      );
+    }
   }
 
   return NextResponse.json({ imported: toInsert.length, errors });

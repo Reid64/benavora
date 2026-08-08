@@ -1657,13 +1657,33 @@ async function routeQueueItem(
       return `draft_generation completed (confidence=${result.confidenceScore})`;
     }
     case 'reputation': {
+      const entityType = requireString(payload, 'entityType');
+      const entityId = requireString(payload, 'entityId');
+      const entityName = requireString(payload, 'entityName');
+
+      // Funders route through ReputationIntelligenceAgent's single-entity
+      // entry point so this path gets the same reputation_alerts row +
+      // agent_decisions entry + CRITICAL notification + HIGH/CRITICAL
+      // relationship_memory write the nightly org-wide sweep produces —
+      // not just the bare signal detection the plain checkEntityReputation()
+      // call below provides. Other entity types (none currently enqueue this
+      // case) fall back to the plain, unscoped check.
+      if (entityType === 'funder') {
+        const { ReputationIntelligenceAgent } = await import(
+          '../src/lib/intelligence/reputation-agent.js'
+        );
+        const agent = new ReputationIntelligenceAgent(orgId, supabase);
+        const result = await agent.runForFunder(entityId, entityName, 'event');
+        return `reputation completed (${result.itemsProcessed} signal(s), ${result.itemsQueued} alert(s))`;
+      }
+
       const { checkEntityReputation } = await import(
         '../src/lib/intelligence/reputation-agent.js'
       );
       const signals = await checkEntityReputation(
-        requireString(payload, 'entityId'),
-        requireString(payload, 'entityType'),
-        requireString(payload, 'entityName'),
+        entityId,
+        entityType,
+        entityName,
         supabase,
       );
       return `reputation completed (${signals.length} signal(s))`;

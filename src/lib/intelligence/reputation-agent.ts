@@ -299,11 +299,21 @@ export async function checkEntityReputation(
 // and record HIGH/CRITICAL signals into relationship_memory so the
 // Relationship Builder agent (AG-19) sees them.
 
-type TriggerSource = "autonomous" | "manual" | "chain" | "schedule";
+type TriggerSource = "autonomous" | "manual" | "chain" | "schedule" | "event";
 
 interface FunderScopeRow {
   id: string;
   name: string;
+}
+
+interface FunderProcessStats {
+  signalsFound: number;
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
+  alertsCreated: number;
+  memoryEntriesCreated: number;
 }
 
 type SeverityLevel = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
@@ -332,20 +342,134 @@ export class ReputationIntelligenceAgent extends AutonomousAgent {
     super(orgId, "ag-18-reputation", supabase);
   }
 
+  /**
+   * Runs checkEntityReputation() for every funder in `funders`, fanning each
+   * detected signal out into a reputation_alerts row + agent_decisions entry
+   * + (on HIGH/CRITICAL) a notification and a relationship_memory row.
+   * Shared by run() (whole-org nightly sweep) and runForFunder() (single
+   * funder, e.g. enrollment right after creation) so both paths produce
+   * identical alert/notification/memory behavior — the queue-driven
+   * single-funder path is not a weaker variant of the nightly sweep.
+   */
+  private async processFunders(
+    funders: FunderScopeRow[],
+    runId: string,
+    decisions: string[],
+    errors: string[],
+  ): Promise<FunderProcessStats> {
+    const stats: FunderProcessStats = {
+      signalsFound: 0,
+      critical: 0,
+      high: 0,
+      medium: 0,
+      low: 0,
+      alertsCreated: 0,
+      memoryEntriesCreated: 0,
+    };
+    const today = new Date().toISOString().slice(0, 10);
+
+    for (const funder of funders) {
+      let signals: ReputationSignalRow[];
+      try {
+        signals = (await checkEntityReputation(
+          funder.id,
+          "funder",
+          funder.name,
+          this.supabase,
+        )) as ReputationSignalRow[];
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Reputation check failed.";
+        errors.push(`funder ${funder.id}: ${message}`);
+        continue;
+      }
+
+      for (const signal of signals) {
+        stats.signalsFound++;
+        const severity = toSeverityLevel(signal.severity);
+        if (severity === "CRITICAL") stats.critical++;
+        else if (severity === "HIGH") stats.high++;
+        else if (severity === "MEDIUM") stats.medium++;
+        else stats.low++;
+
+        const signalSummary = signal.summary || signal.headline;
+
+        const { data: alertRow, error: alertError } = await this.supabase
+          .from("reputation_alerts")
+          .insert({
+            org_id: this.orgId,
+            signal_id: signal.id,
+            status: "unread",
+          })
+          .select("id")
+          .single();
+
+        if (alertError || !alertRow) {
+          errors.push(
+            `Failed to create reputation alert for signal ${signal.id}: ` +
+              `${alertError?.message ?? "no row returned"}`,
+          );
+          continue;
+        }
+        const alertId = (alertRow as { id: string }).id;
+        stats.alertsCreated++;
+
+        const decisionId = await this.logDecision({
+          decisionType: "reputation_signal_detected",
+          agentRunId: runId,
+          entityType: "funder",
+          entityId: funder.id,
+          reasoning:
+            `Signal for ${funder.name}: ${signalSummary}. ` +
+            `Severity: ${severity}.`,
+          confidenceScore: 75,
+          actionTaken: "created_reputation_alert",
+          requiredHumanReview: severity === "CRITICAL" || severity === "HIGH",
+        });
+        decisions.push(decisionId);
+
+        if (severity === "CRITICAL") {
+          await this.createNotification(
+            "reputation_critical",
+            "URGENT: Critical funder signal detected",
+            `${funder.name}: ${signalSummary}`,
+            { funderId: funder.id, severity, alertId },
+          );
+        }
+
+        if (severity === "HIGH" || severity === "CRITICAL") {
+          const { error: memoryError } = await this.supabase
+            .from("relationship_memory")
+            .insert({
+              org_id: this.orgId,
+              entity_id: funder.id,
+              entity_type: "funder",
+              memory_type: "press",
+              content: signalSummary,
+              signal_date: today,
+            });
+
+          if (memoryError) {
+            errors.push(
+              `Failed to record relationship memory for funder ` +
+                `${funder.id}: ${memoryError.message}`,
+            );
+          } else {
+            stats.memoryEntriesCreated++;
+          }
+        }
+      }
+    }
+
+    return stats;
+  }
+
   override async run(
     triggerSource: TriggerSource,
   ): Promise<AutonomousAgentResult> {
     const runId = await this.startRun(triggerSource);
     const errors: string[] = [];
     const decisions: string[] = [];
-
-    let signalsFound = 0;
-    let critical = 0;
-    let high = 0;
-    let medium = 0;
-    let low = 0;
-    let alertsCreated = 0;
-    let memoryEntriesCreated = 0;
 
     try {
       const { data: funderRows, error: fundersError } = await this.supabase
@@ -358,121 +482,25 @@ export class ReputationIntelligenceAgent extends AutonomousAgent {
       }
 
       const funders = (funderRows ?? []) as FunderScopeRow[];
-      const today = new Date().toISOString().slice(0, 10);
-
-      for (const funder of funders) {
-        let signals: ReputationSignalRow[];
-        try {
-          signals = (await checkEntityReputation(
-            funder.id,
-            "funder",
-            funder.name,
-            this.supabase,
-          )) as ReputationSignalRow[];
-        } catch (err) {
-          const message =
-            err instanceof Error ? err.message : "Reputation check failed.";
-          errors.push(`funder ${funder.id}: ${message}`);
-          continue;
-        }
-
-        for (const signal of signals) {
-          signalsFound++;
-          const severity = toSeverityLevel(signal.severity);
-          if (severity === "CRITICAL") critical++;
-          else if (severity === "HIGH") high++;
-          else if (severity === "MEDIUM") medium++;
-          else low++;
-
-          const signalSummary = signal.summary || signal.headline;
-
-          const { data: alertRow, error: alertError } = await this.supabase
-            .from("reputation_alerts")
-            .insert({
-              org_id: this.orgId,
-              signal_id: signal.id,
-              status: "unread",
-            })
-            .select("id")
-            .single();
-
-          if (alertError || !alertRow) {
-            errors.push(
-              `Failed to create reputation alert for signal ${signal.id}: ` +
-                `${alertError?.message ?? "no row returned"}`,
-            );
-            continue;
-          }
-          const alertId = (alertRow as { id: string }).id;
-          alertsCreated++;
-
-          const decisionId = await this.logDecision({
-            decisionType: "reputation_signal_detected",
-            agentRunId: runId,
-            entityType: "funder",
-            entityId: funder.id,
-            reasoning:
-              `Signal for ${funder.name}: ${signalSummary}. ` +
-              `Severity: ${severity}.`,
-            confidenceScore: 75,
-            actionTaken: "created_reputation_alert",
-            requiredHumanReview: severity === "CRITICAL" || severity === "HIGH",
-          });
-          decisions.push(decisionId);
-
-          if (severity === "CRITICAL") {
-            await this.createNotification(
-              "reputation_critical",
-              "URGENT: Critical funder signal detected",
-              `${funder.name}: ${signalSummary}`,
-              { funderId: funder.id, severity, alertId },
-            );
-          }
-
-          if (severity === "HIGH" || severity === "CRITICAL") {
-            const { error: memoryError } = await this.supabase
-              .from("relationship_memory")
-              .insert({
-                org_id: this.orgId,
-                entity_id: funder.id,
-                entity_type: "funder",
-                memory_type: "press",
-                content: signalSummary,
-                signal_date: today,
-              });
-
-            if (memoryError) {
-              errors.push(
-                `Failed to record relationship memory for funder ` +
-                  `${funder.id}: ${memoryError.message}`,
-              );
-            } else {
-              memoryEntriesCreated++;
-            }
-          }
-        }
-      }
+      const stats = await this.processFunders(
+        funders,
+        runId,
+        decisions,
+        errors,
+      );
 
       await this.completeRun(runId, {
-        outputSummary: JSON.stringify({
-          signalsFound,
-          critical,
-          high,
-          medium,
-          low,
-          alertsCreated,
-          memoryEntriesCreated,
-        }),
+        outputSummary: JSON.stringify(stats),
         itemsFound: funders.length,
-        itemsProcessed: signalsFound,
-        itemsQueued: alertsCreated,
+        itemsProcessed: stats.signalsFound,
+        itemsQueued: stats.alertsCreated,
       });
 
       return {
         success: true,
         itemsFound: funders.length,
-        itemsProcessed: signalsFound,
-        itemsQueued: alertsCreated,
+        itemsProcessed: stats.signalsFound,
+        itemsQueued: stats.alertsCreated,
         decisions,
         nextActions: [],
         errors,
@@ -486,8 +514,66 @@ export class ReputationIntelligenceAgent extends AutonomousAgent {
       return {
         success: false,
         itemsFound: 0,
-        itemsProcessed: signalsFound,
-        itemsQueued: alertsCreated,
+        itemsProcessed: 0,
+        itemsQueued: 0,
+        decisions,
+        nextActions: [],
+        errors: [...errors, message],
+      };
+    }
+  }
+
+  /**
+   * Single-funder entry point — same alert/notification/memory behavior as
+   * run(), scoped to one funder instead of the whole org. Used to enroll a
+   * newly-created funder in monitoring immediately (FEATURE_REGISTRY_v2.md
+   * #151) rather than waiting for the nightly sweep's 5-funder/night sample
+   * to eventually reach it.
+   */
+  async runForFunder(
+    funderId: string,
+    funderName: string,
+    triggerSource: TriggerSource,
+  ): Promise<AutonomousAgentResult> {
+    const runId = await this.startRun(triggerSource, { funderId, funderName });
+    const errors: string[] = [];
+    const decisions: string[] = [];
+
+    try {
+      const stats = await this.processFunders(
+        [{ id: funderId, name: funderName }],
+        runId,
+        decisions,
+        errors,
+      );
+
+      await this.completeRun(runId, {
+        outputSummary: JSON.stringify(stats),
+        itemsFound: 1,
+        itemsProcessed: stats.signalsFound,
+        itemsQueued: stats.alertsCreated,
+      });
+
+      return {
+        success: true,
+        itemsFound: 1,
+        itemsProcessed: stats.signalsFound,
+        itemsQueued: stats.alertsCreated,
+        decisions,
+        nextActions: [],
+        errors,
+      };
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Reputation intelligence run failed.";
+      await this.failRun(runId, message);
+      return {
+        success: false,
+        itemsFound: 0,
+        itemsProcessed: 0,
+        itemsQueued: 0,
         decisions,
         nextActions: [],
         errors: [...errors, message],

@@ -17,6 +17,7 @@ import { useState, useEffect, useCallback } from "react";
 import { ChevronDown, ChevronUp, Plus, Search, AlertCircle, X } from "lucide-react";
 
 import { useProfile } from "@/lib/hooks/useProfile";
+import { enrollInReputationMonitoring } from "@/lib/funders/enroll-monitoring";
 import { createClient } from "@/lib/supabase/client";
 
 const CANVAS = "#D6E4F0";
@@ -375,16 +376,21 @@ export default function RecommendationsPage() {
         rec.match_reasons.length > 0 ? `Match reasons: ${rec.match_reasons.join("; ")}` : null,
       ].filter(Boolean);
 
-      const { error } = await supabase.from("funders").insert({
-        organization_id: orgId,
-        name: rec.name,
-        category: "private_foundation",
-        annual_giving_budget: rec.total_annual_giving,
-        geographic_focus: rec.geographic_focus.length > 0 ? rec.geographic_focus.join(", ") : null,
-        notes: noteParts.length > 0 ? noteParts.join(" — ") : null,
-      });
+      const { data, error } = await supabase
+        .from("funders")
+        .insert({
+          organization_id: orgId,
+          name: rec.name,
+          category: "private_foundation",
+          annual_giving_budget: rec.total_annual_giving,
+          geographic_focus: rec.geographic_focus.length > 0 ? rec.geographic_focus.join(", ") : null,
+          notes: noteParts.length > 0 ? noteParts.join(" — ") : null,
+        })
+        .select("id")
+        .single();
 
       if (!error) {
+        if (data) enrollInReputationMonitoring([data.id]);
         setAddedIds((prev) => new Set([...prev, rec.foundation_id]));
       }
     } finally {

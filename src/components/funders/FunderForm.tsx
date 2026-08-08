@@ -8,6 +8,7 @@ import { AlertTriangle } from "lucide-react";
 
 import { Button, Input, Select, Textarea } from "@/components/ui";
 import { recordAudit } from "@/lib/audit/client";
+import { enrollInReputationMonitoring } from "@/lib/funders/enroll-monitoring";
 import { createClient } from "@/lib/supabase/client";
 import { useProfile } from "@/lib/hooks/useProfile";
 import { FUNDER_CATEGORIES } from "@/lib/utils/constants";
@@ -195,6 +196,7 @@ export function FunderForm({ funder, onSaved, onCancel }: FunderFormProps) {
       return;
     }
     void recordAudit({ action: "create", entityType: "funder", entityId: data.id as string, details: { name: data.name } });
+    enrollInReputationMonitoring([data.id as string]);
     markClean();
     if (onSaved) onSaved(data);
     else router.push(`/funders/${data.id}`);

@@ -7,6 +7,7 @@ import { Button, EmptyState, Input, LoadingSpinner, Select } from "@/components/
 import { PageHeader } from "@/components/layout/PageHeader";
 import { FoundationCard } from "@/components/foundations/FoundationCard";
 import { createClient } from "@/lib/supabase/client";
+import { enrollInReputationMonitoring } from "@/lib/funders/enroll-monitoring";
 import { useProfile } from "@/lib/hooks/useProfile";
 import type { Tables } from "@/types/database";
 
@@ -281,14 +282,18 @@ export default function FoundationsPage() {
       const supabase = createClient();
       const geoFocus = [row.city, row.state].filter(Boolean).join(", ") || null;
 
-      const { error: insertError } = await supabase.from("funders").insert({
-        organization_id: orgId,
-        name: row.name,
-        category: "private_foundation",
-        geographic_focus: geoFocus,
-        website: row.website ?? null,
-        notes: row.ein ? `EIN: ${row.ein}` : null,
-      });
+      const { data: inserted, error: insertError } = await supabase
+        .from("funders")
+        .insert({
+          organization_id: orgId,
+          name: row.name,
+          category: "private_foundation",
+          geographic_focus: geoFocus,
+          website: row.website ?? null,
+          notes: row.ein ? `EIN: ${row.ein}` : null,
+        })
+        .select("id")
+        .single();
 
       setImportingIds((prev) => {
         const next = new Set(prev);
@@ -299,6 +304,7 @@ export default function FoundationsPage() {
       if (insertError) {
         showNotification(`Failed to import ${row.name}.`, "error");
       } else {
+        if (inserted) enrollInReputationMonitoring([inserted.id]);
         setImportedIds((prev) => new Set([...prev, row.id]));
         showNotification(`${row.name} imported as a funder.`, "success");
       }
@@ -332,13 +338,22 @@ export default function FoundationsPage() {
     }));
 
     const supabase = createClient();
-    const { error: bulkError } = await supabase.from("funders").insert(inserts);
+    const { data: insertedRows, error: bulkError } = await supabase
+      .from("funders")
+      .insert(inserts)
+      .select("id");
 
     setBulkImporting(false);
 
     if (bulkError) {
       showNotification("Some imports failed. Please try again.", "error");
     } else {
+      if (insertedRows && insertedRows.length > 0) {
+        // enroll-monitoring's own MAX_FUNDERS_PER_REQUEST cap (25) applies
+        // server-side — a large bulk import still only enqueues the first
+        // 25 checks per request rather than fanning out unbounded work.
+        enrollInReputationMonitoring(insertedRows.map((r) => r.id));
+      }
       setImportedIds((prev) => {
         const next = new Set(prev);
         toImport.forEach((f) => next.add(f.id));
