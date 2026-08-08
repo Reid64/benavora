@@ -1,6 +1,75 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 7, 2026 (Market Trend Intelligence and Auto-Deploy Response live-verified against real data — rows #134, #130; found and fixed 3 real blockers, see below). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 7, 2026 (Donation Recommendation Marketplace MVP built — schema + browse UI + rule-based match, rows #121-123; request/approve flow, row #124. Rows #125 and the AI half of #123 remain explicitly PLANNED). Not FORGE-auto-generated — hand-verified.**
+
+## SESSION — August 7, 2026 (Donation Recommendation Marketplace MVP — rows #121-125)
+
+Per queue-37 preflight's finding (SESSION_STATE.md, confirmed clean NOT-BUILT, no partial code to
+extend), built a deliberately small MVP: real schema, a real browse UI, and a real rule-based
+(non-AI) match engine — not the full 5-row spec.
+
+**Migration:** `src/supabase/migrations/125_donation_marketplace.sql` — next-free number in the
+currently-live migrations tree (checked both trees fresh, did not reuse a number from memory: root
+`supabase/migrations/` was at 131, but `src/supabase/migrations/` is the tree actually being
+applied to production this cycle — confirmed via `git log`, its own most recent file
+(`124_auto_deploy_disaster_response.sql`) is from this same session's earlier work today, ~4 hours
+newer than the root tree's newest file). Applied directly to production via the working
+`DATABASE_URL`/psql path (`STANDING_DIRECTIVES.md` DIRECTIVE-017) — `CREATE TYPE`/`CREATE
+TABLE`/`CREATE INDEX`/`ALTER TABLE`/`REVOKE`/`CREATE POLICY` all confirmed exit 0, verified live
+afterward by seeding and reading real rows back (below), not just trusting the apply log.
+
+**What's genuinely BUILT this pass:**
+- **Row #121 (Marketplace Schema):** `marketplace_listings` + `marketplace_matches`, both with
+  explicit RLS (org-scoped SELECT/INSERT/UPDATE, `REVOKE ALL FROM anon`) in the same migration —
+  per this project's known public-schema default-ACL gap, not a follow-up. `category` on both
+  reuses the existing `funder_category` enum (migration 001) rather than inventing a parallel
+  taxonomy, specifically so the rule-matcher can compare a listing's category directly against
+  `search_profiles.categories` (`funder_category[]`, already real, already populated) with no
+  translation layer.
+- **Row #122 (Donor Listing UI):** `/marketplace` (`src/app/(dashboard)/marketplace/page.tsx`) —
+  inline `style={{}}` hardcoded hex throughout per Directive 4 ("The One UI Rule"), no Tailwind
+  color classes. Shows the org's own listings, listings matched to the org, and incoming requests
+  on the org's own listings. Session-bound client via API routes (RLS-enforced), organization_id
+  always server-derived (Behavioral Contracts §2).
+- **Row #123, rule-based half only (AI match engine explicitly NOT built):**
+  `src/lib/marketplace/matcher.ts` — on listing insert, compares the listing against every OTHER
+  org's active `search_profiles` on two plain criteria already in this schema: category overlap
+  (`listing.category ∈ profile.categories`) and geographic overlap (case-insensitive substring
+  match between `listing.geographic_scope` and `profile.geographic_scope`, or either side being a
+  national scope). No Claude call, no numeric confidence score — `match_reason` records which
+  literal rule(s) fired, e.g. `category_overlap:corporate_donation`. Runs on the service-role
+  client (`src/app/api/marketplace/listings/route.ts` POST handler) since it must read/write rows
+  belonging to orgs other than the caller — RLS on `marketplace_matches` would otherwise block it.
+- **Row #124 (Request + Approval Flow), minimal:** `PATCH /api/marketplace/matches/[id]` —
+  `{action: "request"|"withdraw"|"approve"|"decline"}`. Requesting org can move
+  `suggested → requested` or withdraw; the listing's owning org can `approve`/`decline` a
+  `requested` match (approving also marks the listing `matched`). State-machine validity (can't
+  approve a still-`suggested` row, etc.) enforced at the route layer; org-boundary enforcement is
+  RLS. No receipt, no payment/value-transfer logic — out of scope by design.
+
+**Explicitly NOT built this pass, still PLANNED (do not read anything above as covering these):**
+- **Row #125 — IRS-compliant Donation Receipt Generator.** No receipt table, no PDF/document
+  generation, no tax-compliance logic of any kind.
+- **Row #123's AI half — an actual AI match engine.** The rule-based matcher above is the entire
+  matching capability shipped this pass; there is no Claude call anywhere in this feature, no
+  confidence score beyond the literal rule(s) that fired, and no column reserved for one yet.
+
+**Real test data seeded, live in production** (`pnpm seed:marketplace-test`,
+`scripts/seed-marketplace-test-listings.ts` — reusable, not a one-off): 3 listings for the real
+Faith Foundation org (`b1ab7402-dfc2-4712-869f-70ea3566cc1d`), all `is_seed_data = true` for easy
+cleanup (`DELETE ... WHERE is_seed_data = true`, cascades to `marketplace_matches` via the listing
+FK). The script calls the real, unmodified `runMarketplaceMatching()` production function directly
+(not simulated SQL) — confirmed live: 1 of the 3 listings (`corporate_donation` category, matching
+the only other org with an active `search_profiles` row in this environment,
+`bf75d362-473c-4039-9e28-e09ef44ee862` "Corporate Giving Sweep (E2E Seed)") produced a real
+`marketplace_matches` row with `match_reason: category_overlap:corporate_donation`, read back and
+confirmed via direct query. The other 2 listings correctly produced zero matches — this
+environment currently has only 2 real `search_profiles` rows total (system-wide), and neither of
+the other 2 seeded listings' categories/geography overlapped the second org's profile.
+
+Gates: `pnpm tsc --noEmit` — 0 errors in every file this session touched (verified via `grep -v
+__tests__`; the only remaining output is the same pre-existing, unrelated test-file error set
+documented in every prior session's gate run, untouched by this work).
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
 

@@ -11,6 +11,7 @@ import {
   DollarSign,
   FileBarChart2,
   FolderOpen,
+  Gift,
   HeartPulse,
   KanbanSquare,
   Landmark,
@@ -75,6 +76,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Compliance", href: "/compliance", icon: ShieldCheck },
   { label: "Outcomes & Analytics", href: "/outcomes", icon: BarChart3 },
   { label: "Financials", href: "/financials", icon: DollarSign },
+  { label: "Marketplace", href: "/marketplace", icon: Gift },
   {
     label: "Reports",
     href: "/reports",

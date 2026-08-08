@@ -1,5 +1,40 @@
 # BENAVORA — Session State
-## Last Updated: August 7, 2026 (queue-37 preflight — real preconditions for 6 speculative Phase 3-5 items)
+## Last Updated: August 7, 2026 (Donation Recommendation Marketplace MVP built — rows #121-125)
+
+## Current Session — August 7, 2026 (Donation Recommendation Marketplace MVP, rows #121-125)
+
+**Focus:** build the MVP the queue-37 preflight (below) explicitly scoped down to: real schema +
+browse UI + rule-based (non-AI) match, not the full 5-row spec. Full detail with code paths is in
+`STATE_OF_THE_BUILD.md`'s matching session entry — this is the short version.
+
+**Migration:** `src/supabase/migrations/125_donation_marketplace.sql` (next-free number in the
+currently-live `src/supabase/migrations/` tree — checked fresh via `git log`, not reused from
+memory; the root `supabase/migrations/` tree was at 131 but is not the one being applied this
+cycle). Applied directly to production via `DATABASE_URL`/psql (DIRECTIVE-017) — confirmed exit 0
+and independently re-verified by reading real seeded rows back afterward.
+
+**Genuinely BUILT:** row #121 (schema — `marketplace_listings`/`marketplace_matches`, explicit RLS
++ anon revoke in the same migration), row #122 (`/marketplace` browse UI, inline-hex per Directive
+4), row #123's **rule-based half only** (`src/lib/marketplace/matcher.ts` — category + geographic
+overlap against `search_profiles`, no Claude call), row #124 (minimal request/withdraw/approve/
+decline flow, no receipt or payment logic).
+
+**Explicitly still PLANNED, not built:** row #125 (IRS-compliant receipt generator — no table, no
+generation logic at all) and row #123's AI half (no AI match engine — the rule-based matcher above
+is the entire matching capability shipped this pass).
+
+**Real test data, live in production:** `pnpm seed:marketplace-test`
+(`scripts/seed-marketplace-test-listings.ts`) seeded 3 `is_seed_data = true` listings for the real
+Faith Foundation org and ran the real, unmodified matcher against each — 1 produced a real,
+verified `marketplace_matches` row (category overlap against the only other org in this
+environment with an active `search_profiles` row); the other 2 correctly produced zero matches
+given this environment's real (very small) `search_profiles` population. Cleanup query documented
+in both the script's own output and `STATE_OF_THE_BUILD.md`.
+
+Gates: `pnpm tsc --noEmit` — 0 errors in every file touched this session (pre-existing, unrelated
+`src/__tests__/**` errors unchanged).
+
+---
 
 ## queue-37 preflight — real preconditions for 6 speculative Phase 3-5 items (2026-08-07)
 

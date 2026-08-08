@@ -23,6 +23,7 @@
         "seed:dd-taxonomy": "tsx scripts/seed-dd-taxonomy.ts",
         "seed:dd-aliases": "tsx scripts/seed-dd-aliases.ts",
         "seed:agent-registry": "tsx scripts/seed-agent-registry.ts",
+        "seed:marketplace-test": "tsx scripts/seed-marketplace-test-listings.ts",
         "enrich:990": "tsx scripts/enrich-foundations-990.ts",
         "enrich:web": "tsx scripts/enrich-foundations-web.ts",
         "enrich:websites": "tsx scripts/enrich-foundations-websites.ts",
