@@ -1,7 +1,47 @@
 # BENAVORA — Session State
-## Last Updated: August 7, 2026 (live verification: AG-05 x Knowledge Engine integration, not a clean pass)
+## Last Updated: August 7, 2026 (Market Trend Intelligence MVP shipped — row #134)
 
-## Current Session — August 7, 2026 (live verification of the AG-05 x Knowledge Engine integration)
+## Current Session — August 7, 2026 (Market Trend Intelligence MVP — row #134)
+
+**Focus:** row #134 ("Market Trend Intelligence", Pillar 11) is PLANNED for the full "federal
+budget + foundation trend analysis" concept — explicitly did NOT build that. Built a small, real
+trend view over data already in this repo instead, per instructions to verify the table/column
+split live before writing any query.
+
+**Verified live before designing:** grepped `.from(...)` in `grantsgov-sync.ts`,
+`federal-grants-poller.ts`, `land-bank-client.ts` (all write to `opportunities`) and in all four
+registry-row-#166-169 ingestion scripts (all four write only to `intelligence_funded_proposals`,
+confirmed — never `opportunities`). Read `opportunities`/`opportunity_source_type` DDL directly
+(migrations 001/010) rather than assume column names. Read the existing
+`/api/reports/funding-summary/route.ts` first — it already buckets `opportunities` by month via
+`discovered_at`, so that's the real timestamp column used here too, not `created_at`.
+`intelligence_funded_proposals` (migration 048) is confirmed NOT org-scoped and has no
+month-granularity date column — only `award_year` — so its secondary panel groups by year, honestly
+matching what the data supports.
+
+**Shipped:**
+- `GET /api/intelligence/trends` — new route, org-scoped `opportunities` aggregated by month (last
+  12, via `discovered_at`), splittable by physical `source_type` (migration 010 enum, distinct from
+  the grants-API `category` alias) or `category`. `hasEnoughData` gate (≥5 rows, ≥2 months) so a
+  sparse org never gets a fabricated chart. Separate `fundedProposals` series (by `award_year`,
+  own threshold), never merged with the opportunities series.
+- UI: mounted as a new "Opportunity Volume Trend" panel on **`/reports/funding-summary`** (an
+  existing, live page that already computes a monthly opportunities-found trend from the same
+  table/column — the most coherent real fit found; no new top-level route created). Inline-hex
+  stacked bar chart + source/category toggle, plus a small "Funded Proposal Library — By Award
+  Year" sub-panel. Explicit "not enough data yet" text states for both panels when the threshold
+  isn't met — no interpolated/fabricated chart.
+- No new data source, no external API, no invented columns.
+
+**Gates:** `pnpm tsc --noEmit` — zero errors outside `src/__tests__/**` (pre-existing, unrelated
+failures there, untouched by this change).
+
+**Commit:** `feat(intelligence): Market Trend Intelligence MVP — opportunity volume trends from
+existing ingested data (row #134)` (this session).
+
+---
+
+## Prior Session — August 7, 2026 (live verification of the AG-05 x Knowledge Engine integration)
 
 **Focus:** live-verify the prior session's `08fa5c2` commit (wiring `DraftGenerationAgent` to
 `queryKnowledgeEngine()`, row #171) against a real org and a real opportunity, per explicit

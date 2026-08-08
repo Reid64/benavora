@@ -1,8 +1,69 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 7, 2026 (AG-05 Knowledge Engine integration live-verified — retrieval genuinely works, but persistence has never succeeded in production because migration 123 was never applied, and the modified class has zero real production trigger path). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 7, 2026 (Market Trend Intelligence MVP shipped — row #134 scoped down to a real opportunity-volume trend view). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 7, 2026 (Market Trend Intelligence MVP — row #134, opportunity volume trends from existing data)
+
+Scoped deliberately small per instruction: row #134's full canonical concept ("federal budget +
+foundation trend analysis" against external macro sources) was **not** built. Instead built a real
+volume-trend view over data this repo already ingests, with the table/column split verified live
+before writing any query, per instruction.
+
+**Verified before designing (not assumed):**
+- Grepped every `.from(...)` call in `src/lib/sources/grantsgov-sync.ts` and
+  `src/lib/sources/federal-grants-poller.ts` (grants.gov/SAM.gov pollers) and
+  `src/lib/sources/land-bank-client.ts` — all three write to `opportunities`.
+- Grepped `.from(...)` in all four registry-row-#166-169 scripts
+  (`scripts/ingest-{nih-reporter,nsf-awards,federal-register,samhsa-hrsa}.ts`) — **all four write
+  exclusively to `intelligence_funded_proposals`**, never `opportunities`. The documented table
+  split is still accurate; confirmed live, not from memory.
+- Read `opportunities`' real DDL (migration 001) and `opportunity_source_type`'s DDL (migration
+  010) — the physical `source_type` column (8-value enum: government_federal/government_state/
+  government_local/private_foundation/corporate_giving/community_foundation/faith_based/
+  international) is distinct from `category` (the `funder_category` enum, 12 values) and from the
+  Behavioral Contracts' grants-API `source_type` alias (which maps to `category`, per migration
+  010's own header comment) — used the physical column, not the alias.
+- Read the existing, live `/api/reports/funding-summary/route.ts` before writing anything new — it
+  already buckets `opportunities` by month using `discovered_at` (not `created_at`) for its own
+  "Opportunities Found" trend line. Used the same real, already-precedented column rather than
+  guessing between the two.
+- Read `intelligence_funded_proposals`' DDL (migration 048): **not org-scoped** (no
+  `organization_id` column), no month-granularity date field — only `award_year` (integer) and
+  `created_at` (ingestion time, not award time). Bucketed the secondary panel by `award_year`
+  rather than fabricating month granularity that doesn't exist.
+
+**Shipped:**
+- `GET /api/intelligence/trends` (new route) — org-scoped `opportunities` aggregated by month
+  (last 12, via `discovered_at`), split by either `source_type` or `category`; returns
+  `hasEnoughData` (≥5 total rows AND ≥2 months with data) so the UI never fabricates a trend line
+  from sparse data. Secondary, explicitly separate `fundedProposals` series over
+  `intelligence_funded_proposals` grouped by `award_year` (own `hasEnoughData` threshold: ≥5 rows
+  AND ≥2 distinct years) — never merged with the opportunities series in the response shape or the
+  UI.
+- UI mount point: **`/reports/funding-summary`** (existing, live, real page) — added a new
+  "Opportunity Volume Trend" panel (hand-rolled inline-SVG stacked bar chart, source-type/category
+  toggle, `humanizeEnum` labels) directly below the page's existing "Monthly Pipeline Trend"
+  section, plus a small "Funded Proposal Library — By Award Year" sub-panel below it. Considered
+  `/intelligence/strategic-advisor` (a recommendation feed — not a natural home for a chart) and a
+  new top-level route (rejected per instruction not to create one when an existing page fits) before
+  choosing this page — `/reports/funding-summary` already computes a monthly opportunities-found
+  series from the same table/column, making it the most coherent real fit.
+  All colors are inline `style={{}}` hex values, no Tailwind color classes, no CSS variables.
+- Empty/sparse-data state: both the primary and secondary panels render an explicit
+  "Not enough data yet..." message (with real counts) instead of a chart when `hasEnoughData` is
+  false — no interpolation, no fabricated data points.
+- No new data source, no external API call, no invented columns — purely a view over
+  `opportunities`/`intelligence_funded_proposals` rows the platform already writes.
+
+Gates: `pnpm tsc --noEmit` — zero errors in every non-test file (confirmed via
+`grep -E "^src/" | grep -v "__tests__"`, empty output); the pre-existing, unrelated failures
+confined to `src/__tests__/**` (deadline-predictor, outcome-analyzer, regressions, samgov-client,
+organizations, storage-rls) are untouched by this change, consistent with this project's
+established tsc-gate exclusion for the test tree.
 
 ---
 

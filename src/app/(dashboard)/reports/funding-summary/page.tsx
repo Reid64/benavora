@@ -48,6 +48,172 @@ interface TopFunder {
   lastAwardDate: string | null;
 }
 
+// Market Trend Intelligence MVP (FEATURE_REGISTRY_v2.md row #134) — see
+// /api/intelligence/trends's header comment for the full scope note on why
+// this is a volume-over-existing-data view, not the full Pillar 11 "federal
+// budget + foundation trend analysis" concept.
+interface TrendMonth {
+  key: string;
+  label: string;
+  total: number;
+  byCategory: Record<string, number>;
+  bySourceType: Record<string, number>;
+}
+
+interface TrendsResponse {
+  primary: {
+    totalOpportunities: number;
+    monthsWithData: number;
+    hasEnoughData: boolean;
+    months: TrendMonth[];
+    categories: string[];
+    sourceTypes: string[];
+  };
+  fundedProposals: {
+    total: number;
+    hasEnoughData: boolean;
+    years: { year: number; count: number }[];
+  };
+}
+
+type TrendGrouping = "sourceType" | "category";
+
+const GROUP_PALETTE = [
+  "#0077B6",
+  "#6B48CC",
+  "#F59E0B",
+  "#00B4D8",
+  "#10B981",
+  "#EF4444",
+  "#EC4899",
+  "#4F46E5",
+  "#14B8A6",
+  "#84CC16",
+  "#F97316",
+  "#8B5CF6",
+];
+const UNCLASSIFIED_COLOR = "#94A3B8";
+
+function colorForGroupKey(key: string, orderedKeys: string[]): string {
+  if (key === "unclassified") return UNCLASSIFIED_COLOR;
+  const idx = orderedKeys.indexOf(key);
+  return GROUP_PALETTE[idx % GROUP_PALETTE.length] ?? "#64748B";
+}
+
+function StackedTrendChart({
+  months,
+  groupKeys,
+  grouping,
+}: {
+  months: TrendMonth[];
+  groupKeys: string[];
+  grouping: TrendGrouping;
+}) {
+  const width = 900;
+  const height = 220;
+  const padding = 32;
+  const innerWidth = width - padding * 2;
+  const innerHeight = height - padding * 2;
+  const barGap = 6;
+  const barWidth = months.length > 0 ? innerWidth / months.length - barGap : 0;
+  const maxTotal = Math.max(1, ...months.map((m) => m.total));
+
+  return (
+    <div>
+      <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} role="img">
+        {[0, 0.25, 0.5, 0.75, 1].map((f) => (
+          <line
+            key={f}
+            x1={padding}
+            x2={width - padding}
+            y1={padding + innerHeight * f}
+            y2={padding + innerHeight * f}
+            stroke="#E2E8F0"
+            strokeWidth={1}
+          />
+        ))}
+        {months.map((m, i) => {
+          const x = padding + i * (barWidth + barGap);
+          const byGroup = grouping === "sourceType" ? m.bySourceType : m.byCategory;
+          let stackedY = padding + innerHeight;
+          return (
+            <g key={m.key}>
+              {groupKeys.map((key) => {
+                const count = byGroup[key] ?? 0;
+                if (count === 0) return null;
+                const segHeight = (count / maxTotal) * innerHeight;
+                stackedY -= segHeight;
+                return (
+                  <rect
+                    key={key}
+                    x={x}
+                    y={stackedY}
+                    width={Math.max(2, barWidth)}
+                    height={segHeight}
+                    fill={colorForGroupKey(key, groupKeys)}
+                    rx={2}
+                  />
+                );
+              })}
+              <text
+                x={x + barWidth / 2}
+                y={height - 6}
+                textAnchor="middle"
+                fontSize="10"
+                fill="#64748B"
+              >
+                {m.label}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+      <div style={{ display: "flex", gap: "14px", marginTop: "8px", flexWrap: "wrap" }}>
+        {groupKeys.map((key) => (
+          <div key={key} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <span
+              style={{
+                width: "10px",
+                height: "10px",
+                borderRadius: "3px",
+                backgroundColor: colorForGroupKey(key, groupKeys),
+                display: "inline-block",
+              }}
+            />
+            <span style={{ fontSize: "12px", color: "#64748B" }}>{humanizeEnum(key)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function FundedProposalsMiniChart({
+  years,
+}: {
+  years: { year: number; count: number }[];
+}) {
+  const maxCount = Math.max(1, ...years.map((y) => y.count));
+  return (
+    <div style={{ display: "flex", alignItems: "flex-end", gap: "10px", height: "80px" }}>
+      {years.map((y) => (
+        <div key={y.year} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px" }}>
+          <span style={{ fontSize: "11px", fontWeight: 700, color: "#0F172A" }}>{y.count}</span>
+          <div
+            style={{
+              width: "28px",
+              height: `${Math.max(4, (y.count / maxCount) * 48)}px`,
+              backgroundColor: "#6B48CC",
+              borderRadius: "4px 4px 0 0",
+            }}
+          />
+          <span style={{ fontSize: "11px", color: "#64748B" }}>{y.year}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 interface FundingSummaryResponse {
   period: Period;
   dateRange: { from: string | null; to: string };
@@ -287,6 +453,11 @@ export default function FundingSummaryReportPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [trends, setTrends] = useState<TrendsResponse | null>(null);
+  const [trendsLoading, setTrendsLoading] = useState(true);
+  const [trendsError, setTrendsError] = useState<string | null>(null);
+  const [trendGrouping, setTrendGrouping] = useState<TrendGrouping>("sourceType");
+
   const load = useCallback(async (p: Period) => {
     setLoading(true);
     setError(null);
@@ -308,6 +479,31 @@ export default function FundingSummaryReportPage() {
   useEffect(() => {
     void load(period);
   }, [load, period]);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      setTrendsLoading(true);
+      setTrendsError(null);
+      try {
+        const res = await fetch("/api/intelligence/trends", { cache: "no-store" });
+        const body = (await res.json()) as TrendsResponse & { error?: string };
+        if (!active) return;
+        if (!res.ok) {
+          setTrendsError((body as { error?: string }).error ?? "Failed to load trend data.");
+          return;
+        }
+        setTrends(body);
+      } catch {
+        if (active) setTrendsError("Network error loading trend data.");
+      } finally {
+        if (active) setTrendsLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const csvHref = useMemo(() => {
     if (!data) return null;
@@ -529,6 +725,110 @@ export default function FundingSummaryReportPage() {
               Monthly Pipeline Trend
             </h2>
             <TrendLineChart trend={data.trend} />
+          </div>
+
+          {/* Market Trend Intelligence MVP (row #134) — opportunity discovery
+              volume trend, split by source type or category. */}
+          <div style={{ ...cardStyle, marginBottom: "28px" }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                justifyContent: "space-between",
+                flexWrap: "wrap",
+                gap: "12px",
+                marginBottom: "16px",
+              }}
+            >
+              <div>
+                <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#0F172A", margin: 0 }}>
+                  Opportunity Volume Trend
+                </h2>
+                <p style={{ fontSize: "12px", color: "#64748B", marginTop: "4px" }}>
+                  New opportunities discovered per month, last 12 months.
+                </p>
+              </div>
+              {trends?.primary.hasEnoughData && (
+                <div
+                  style={{
+                    display: "flex",
+                    backgroundColor: "#F1F5F9",
+                    borderRadius: "10px",
+                    padding: "4px",
+                  }}
+                >
+                  {(["sourceType", "category"] as TrendGrouping[]).map((g) => (
+                    <button
+                      key={g}
+                      type="button"
+                      onClick={() => setTrendGrouping(g)}
+                      style={{
+                        padding: "6px 12px",
+                        borderRadius: "8px",
+                        border: "none",
+                        fontSize: "12px",
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        backgroundColor: trendGrouping === g ? "#0077B6" : "transparent",
+                        color: trendGrouping === g ? "#FFFFFF" : "#64748B",
+                      }}
+                    >
+                      {g === "sourceType" ? "By Source Type" : "By Category"}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {trendsLoading && (
+              <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "20px 0" }}>
+                <Loader2 size={16} className="animate-spin" color="#0077B6" />
+                <span style={{ fontSize: "13px", color: "#64748B" }}>Loading opportunity trend...</span>
+              </div>
+            )}
+
+            {!trendsLoading && trendsError && (
+              <p style={{ fontSize: "13px", color: "#B91C1C", margin: 0 }}>{trendsError}</p>
+            )}
+
+            {!trendsLoading && !trendsError && trends && !trends.primary.hasEnoughData && (
+              <p style={{ fontSize: "13px", color: "#64748B", margin: 0, fontStyle: "italic" }}>
+                Not enough data yet to show a meaningful trend
+                {trends.primary.totalOpportunities > 0
+                  ? ` — only ${trends.primary.totalOpportunities} opportunit${trends.primary.totalOpportunities === 1 ? "y" : "ies"} on file across ${trends.primary.monthsWithData} month${trends.primary.monthsWithData === 1 ? "" : "s"} so far.`
+                  : " — no opportunities discovered yet."}
+              </p>
+            )}
+
+            {!trendsLoading && !trendsError && trends && trends.primary.hasEnoughData && (
+              <StackedTrendChart
+                months={trends.primary.months}
+                groupKeys={trendGrouping === "sourceType" ? trends.primary.sourceTypes : trends.primary.categories}
+                grouping={trendGrouping}
+              />
+            )}
+
+            {/* Secondary, clearly-separate panel: intelligence_funded_proposals
+                (a different, platform-wide table populated by the NIH/NSF/
+                Federal Register/SAMHSA ingestion scripts — not merged with the
+                opportunities series above). */}
+            {!trendsLoading && !trendsError && trends && (
+              <div style={{ marginTop: "20px", paddingTop: "20px", borderTop: "1px solid #E2E8F0" }}>
+                <p style={sectionLabelStyle}>Funded Proposal Library — By Award Year</p>
+                {trends.fundedProposals.hasEnoughData ? (
+                  <div style={{ marginTop: "10px" }}>
+                    <FundedProposalsMiniChart years={trends.fundedProposals.years} />
+                  </div>
+                ) : (
+                  <p style={{ fontSize: "12px", color: "#94A3B8", fontStyle: "italic", margin: "8px 0 0" }}>
+                    Not enough data yet
+                    {trends.fundedProposals.total > 0
+                      ? ` — ${trends.fundedProposals.total} proposal${trends.fundedProposals.total === 1 ? "" : "s"} on file, spanning too few award years for a trend.`
+                      : " — the funded proposal library is empty."}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Top funders */}
