@@ -496,7 +496,7 @@ Ground-up replacement architecture per `UNIVERSAL_SCRAPER_PRD.md`: keyword + sch
 | T3 | GitHub Actions Daily Workflow | BUILT | .github/workflows/daily-tests.yml — 11PM CST (5AM UTC). |
 | T4 | E2E Tests | PLANNED | Playwright — login, create opportunity, generate draft. |
 | T5 | Visual Regression Tests | PLANNED | Playwright screenshot vs baseline. |
-| T6 | DB Migration Tests | PLANNED | Idempotency verification per migration. |
+| T6 | DB Migration Tests | BUILT | `scripts/check-migration-idempotency.ts` (`pnpm check:migrations`) — real static analysis of every top-level SQL statement in both migration directories, plus a live re-run spot-check (`BEGIN`/`ROLLBACK`) against production. Ran 2026-08-08: root `supabase/migrations/` — 135 files, 958 DDL statements classified, **377 non-idempotent** (51 files with ≥1 issue); `src/supabase/migrations/` — 57 files, 309 DDL statements classified, **76 non-idempotent** (9 files with ≥1 issue). Not "every migration is idempotent" — real, substantial gaps found (mostly bare `CREATE POLICY`/`CREATE INDEX`/`CREATE TYPE ... AS ENUM` with no guard). Live spot-check (5 files/directory, confirmed-applied via real schema query, transaction-rolled-back) found zero unexpected errors — every non-idempotent statement failed cleanly with an "already exists"-class error, never corrupting data. Full detail in `MIGRATION_IDEMPOTENCY_AUDIT.md`. |
 | T7 | Soak Tests | PLANNED | Enrichment engine under sustained load. |
 | T8 | Cross-Browser Tests | PLANNED | Chrome, Firefox, Safari (webkit). |
 
@@ -529,12 +529,13 @@ Ground-up replacement architecture per `UNIVERSAL_SCRAPER_PRD.md`: keyword + sch
 | Data Pipeline | 7 | 3 | 2 | 0 | 2 |
 | Scraper (Directive 1) | 5 | 5 | 0 | 0 | 0 |
 | Universal Scraper (uscraper-001-007) | 7 | 3 | 4 | 0 | 0 |
-| Testing | 8 | 3 | 0 | 0 | 5 |
-| **TOTAL** | **198** | **122** | **12** | **19** | **45** |
+| Testing | 8 | 4 | 0 | 0 | 4 |
+| **TOTAL** | **198** | **123** | **12** | **19** | **44** |
 
 **2026-08-08 addendum:** row #144 (Narrative Gap Analysis) moved Planned→Built this session (see its
 row for detail) — Platform Vision Pillars 28→29 Built / 44→43 Planned, TOTAL 114→115 Built / 55→54
-Planned. Not otherwise re-tallied against the note below.
+Planned. Row T6 (DB Migration Tests) also moved Planned→Built this session — Testing 3→4 Built /
+5→4 Planned, TOTAL 122→123 Built / 45→44 Planned. Not otherwise re-tallied against the note below.
 
 **2026-08-08 queue-37 addendum:** rows #121/#122/#124/#221/#226 moved Planned→Built (5), #123/#66
 moved Planned→Partial (2), row D4 stayed conceptually Planned/NOT-BUILT (no column change) — see

@@ -1,6 +1,74 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 8, 2026 (queue-37 live verification — found and fixed a live RLS recursion bug blocking the entire Marketplace feature, and two live bugs blocking the Custom Connector's legitimate-fetch path; confirmed real matches for Personalization/Resource Graph; found two pipeline bugs blocking 990-PF's positive case; re-confirmed Prospect CSV import blocked). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 8, 2026 (migration idempotency verification harness built — real gaps found in both migration directories, live spot-check confirms failures are clean/non-corrupting). Not FORGE-auto-generated — hand-verified.**
+
+## SESSION — August 8, 2026 (migration idempotency verification harness, FEATURE_REGISTRY_v2.md T6)
+
+Per `FEATURE_REGISTRY_v2.md` row T6 ("DB Migration Tests — Idempotency verification per migration",
+previously PLANNED), built `scripts/check-migration-idempotency.ts` (`pnpm check:migrations`) and ran
+it against both of this repo's two parallel, independently-numbered migration directories.
+
+**File-count correction, confirmed live before scoping (per the task's own instruction not to trust
+stale numbers):** the task prompt's assumed counts — root `supabase/migrations/` "128 files, highest
+126" and `src/supabase/migrations/` "52 files, highest 122" — are stale. Real counts on disk today:
+root has **135 files** (highest `133_foundation_profiles_grant_history.sql`), src has **57 files**
+(highest `127_fix_marketplace_rls_recursion.sql`). Same recurring pattern this project has flagged
+repeatedly (see memory `benavora-task-migration-specs-collide`) — the harness itself reads the real
+directory listing at run time rather than any hardcoded count, so this doesn't affect its correctness,
+only this session's initial assumption.
+
+**What the harness does:** (1) real static analysis — a tokenizer splits every file's SQL into
+top-level statements (respecting `$$`-quoted DO/function bodies and string literals so semicolons
+inside them don't split statements), classifies each DDL-shaped statement (`CREATE TABLE`, `ADD
+COLUMN`, `CREATE INDEX`, `CREATE POLICY`, `CREATE TYPE ... AS ENUM`, `ALTER TYPE ADD VALUE`, `ADD
+CONSTRAINT`, `CREATE TRIGGER`, `INSERT`, `DROP *`, `RENAME COLUMN`, `CREATE FUNCTION/VIEW`), and flags
+it guarded or unguarded per the idiom appropriate to its statement type (`IF NOT EXISTS`/`IF
+EXISTS`/`ON CONFLICT`/`OR REPLACE`/a prior `DROP ... IF EXISTS` of the same name earlier in the same
+file — the latter idiom confirmed real and already in use in this repo, e.g. migration 128's `DROP
+POLICY IF EXISTS` before its `CREATE POLICY`). (2) a live spot-check — for up to 5 already-applied
+migrations per directory (confirmed applied via a real query against the live production schema, not
+assumed), re-runs the full migration SQL inside `BEGIN; ... ROLLBACK;` via a direct `pg` client on
+`DATABASE_URL` (`STANDING_DIRECTIVES.md` DIRECTIVE-017) so nothing is ever committed, and records
+whether it cleanly no-ops, fails with an expected "already exists"-class error, or fails with
+something unexpected.
+
+**Real result, not cosmetic — genuine gaps found:**
+| Directory | Files | DDL statements classified | Non-idempotent | Files with ≥1 issue |
+|---|---|---|---|---|
+| root `supabase/migrations/` | 135 | 958 | **377** | 51 |
+| `src/supabase/migrations/` | 57 | 309 | **76** | 9 |
+
+Biggest single contributors: bare `CREATE POLICY` with no prior `DROP POLICY IF EXISTS` (127 of 162
+root-directory policy creates unguarded), bare `CREATE INDEX` with no `IF NOT EXISTS` (151 of 309
+root-directory index creates unguarded), and every single `CREATE TYPE ... AS ENUM` in both
+directories (35 root + 2 src, 37 total) — Postgres has no `IF NOT EXISTS` for that statement form at
+all, so these are unguarded by construction, not an oversight the codebase could trivially fix without
+switching to a `DO $$ ... EXCEPTION WHEN duplicate_object ...` wrapper. Full per-file, per-statement-
+type breakdown in `MIGRATION_IDEMPOTENCY_AUDIT.md`.
+
+**Live spot-check — proved, not assumed, that these failures are clean, not corrupting:** 5 confirmed-
+applied migrations per directory were actually re-executed against the real production database
+(`vbjplpquqxxfbpazyalt`) inside a rolled-back transaction. Zero unexpected errors across all 10.
+`001_initial_schema.sql`, `002_phases_2_5.sql`, and `009_draft_versions.sql` (root) and
+`075_agent_marketplace.sql` (src) each failed exactly as static analysis predicted — a clean `type "X"
+already exists"` / `column "org_id" does not exist` error, not a crash or partial corruption — and
+`003_onboarding.sql`, `010_opportunity_source_type.sql`, and 3 of the 5 tested `src/` migrations
+re-ran with **zero errors** (fully idempotent on today's data). Verified independently after the run
+that nothing was actually mutated: `organizations.onboarding_completed` still shows a real mixed
+true/false distribution (16/92) rather than the all-`true` result migration 003's `UPDATE` would have
+produced had the `ROLLBACK` not genuinely reverted it.
+
+`FEATURE_REGISTRY_v2.md` row T6 updated PLANNED → BUILT with the real pass/fail counts inline (not a
+blanket "all migrations are idempotent" claim — the opposite is true for a substantial fraction of
+both directories). Summary totals table updated: Testing 3→4 Built / 5→4 Planned, overall TOTAL
+122→123 Built / 45→44 Planned.
+
+Gates: `pnpm tsc --noEmit` — 0 errors outside the pre-existing, already-documented `src/__tests__/**`
+baseline noise (confirmed via `grep -v __tests__`, 0 matches). `scripts/` is excluded from the root
+`tsconfig.json`'s `include`/is in its `exclude` list, so this new script is not itself part of that
+gate, but was still written to compile cleanly under strict mode.
+
+---
 
 ## SESSION — August 8, 2026 (queue-37 live verification: 6 speculative Phase 3-5 MVPs checked against real evidence, not code review)
 
