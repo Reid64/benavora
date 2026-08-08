@@ -1,6 +1,72 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 8, 2026 (Custom API Connector / Scraping Target SSRF hardening — rows #59/#60). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 8, 2026 (990-PF giving history extension row #66; prospect CSV import row D4 confirmed blocked). Not FORGE-auto-generated — hand-verified.**
+
+## SESSION — August 8, 2026 (990-PF giving history extension row #66; prospect CSV import row D4 confirmed blocked)
+
+**Part A — row #66, 990-PF Giving History.** Per `queue-37` preflight (`SESSION_STATE.md`),
+`src/lib/intelligence/foundation-profiler.ts` (row #67, BUILT) is a pure reader — it never parses
+XML itself, it only reads `foundation_directory.enrichment` jsonb, which is populated by the real
+extractor, `scripts/enrich-foundations-990.ts` (reusing `src/lib/enrichment/sources/irs990.ts`'s
+`IRS990Source`). Per that preflight's own recommendation, extended the real extractor rather than
+building a second parallel one:
+- `irs990.ts`: `extractGrantSchedule()` now also collects per-recipient Schedule I line items
+  (`recipient`, `amount`, `purpose`) alongside the existing count/min/max, capped at 500 items per
+  filing (`MAX_GRANT_LINE_ITEMS`) so a large foundation's schedule can't blow up the jsonb column
+  it lands in. Recipient/purpose tag names are probed across modernized + legacy schema variants,
+  matching this file's existing defensive pattern for `extractBusinessName`/`extractOfficers` —
+  not exhaustively verified against every historical IRS schema revision (no network access to the
+  real XSD this session), flagged honestly rather than presented as guaranteed-complete coverage.
+  Schedule I carries no per-line date, so `year` isn't extracted per-item — it's the filing's own
+  `fiscalYear`, stamped onto every line item by the caller.
+- `scripts/enrich-foundations-990.ts`: writes the new `enrichment.grant_history:
+  [{recipient, amount, year, purpose}]` array (null when the filer has no Schedule I or no
+  recognizable recipient names on it — not every filer makes scheduled grants, and that's a normal
+  outcome, not an extraction failure).
+- `foundation-profiler.ts`: `FoundationProfile` gained a `grant_history: GrantHistoryLineItem[] |
+  null` field, sourced by reading `enrichment.grant_history` back — still a pure reader, no
+  fetch/parse logic duplicated.
+- `src/app/api/foundations/[id]/profile/route.ts`: now persists `grant_history` into the
+  `foundation_profiles` cache table alongside the existing fields.
+- `supabase/migrations/133_foundation_profiles_grant_history.sql` (new, next-free number):
+  `ALTER TABLE foundation_profiles ADD COLUMN IF NOT EXISTS grant_history jsonb`, following
+  migration 088's own established convention of ALTER-only extension rather than editing an
+  already-committed migration file. **Not applied to production this session** — file committed
+  only. Until applied, the profile route's upsert of `grant_history` will error on the unknown
+  column and fall through to its existing error-handling path (`return NextResponse.json(profile)`
+  on upsert error, already present in the route before this change) — the computed profile
+  (including the new field) still returns correctly to the caller, it just won't persist to the
+  cache table until the migration lands.
+- **Honest scope limit, not fabricated:** no per-grant data has actually been extracted or
+  observed this session — this is new parsing logic added to the batch enrichment pipeline
+  (`pnpm enrich:990`), which was not re-run (it streams the full IRS 990 index and would take
+  hours; out of scope for this pass). The real question of whether the modernized-schema tag names
+  probed here actually match live IRS XML for a meaningful share of filers is unverified until a
+  real batch run is captured — flag this before trusting `grant_history` populates broadly in
+  production.
+
+**Part B — row D4, 298K Prospect CSV Import.** Re-confirmed the `queue-37` preflight's findings,
+not superseded: `scripts/import-prospects.ts` — confirmed absent via `Glob`, zero matches anywhere
+in the repo. `D:\dataocean` — attempted directly this session via both `Bash` (`test -d`) and
+`PowerShell` (`Test-Path`); both were blocked by the session sandbox ("Claude Code may only access
+files in the allowed working directories for this session: `C:\Users\manag\Documents\benavora`"),
+identical restriction the preflight hit. **Since the script itself is confirmed absent (not just
+the data path unconfirmed), this item is genuinely blocked-on-missing-source, not "exists, needs a
+dry run."** No script was written and no import was attempted — building a CSV-import script
+against a data source (`D:\dataocean`) that cannot be confirmed to exist, or even to have the
+298K-row shape the registry describes, would be fabricating a solution against an unconfirmed
+premise. `FEATURE_REGISTRY_v2.md` row D4 already reads PLANNED with a "script exists, never run"
+note carried from an earlier, stale claim — that note is wrong (no such script exists) and should
+be corrected the next time that file is touched to: "script does not exist; data source
+(`D:\dataocean`) unverifiable from within this session's sandbox — needs either broadened
+filesystem access or direct confirmation from Reid before this can be scoped as a real build task."
+
+Gates: `pnpm tsc --noEmit` — zero errors in every file touched this session
+(`irs990.ts`, `enrich-foundations-990.ts`, `foundation-profiler.ts`, `foundations/[id]/profile/
+route.ts`). Pre-existing errors remain, all confined to `src/__tests__/**`, unrelated to this
+change (same set documented in every prior session's gate check).
+
+---
 
 ## SESSION — August 8, 2026 (Custom API Connector / Scraping Target SSRF hardening — rows #59/#60)
 

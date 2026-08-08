@@ -13,6 +13,10 @@
 //   city/state/zip        -> foundation_directory.city/state/zip
 //   grant_count, typical grant range (where Schedule I exists), fiscal_year,
 //     street address, source filing -> foundation_directory.enrichment (jsonb)
+//   grant_history (row #66) -> foundation_directory.enrichment.grant_history —
+//     per-recipient Schedule I line items ([{recipient, amount, year, purpose}]),
+//     capped at 500/filing (see MAX_GRANT_LINE_ITEMS in irs990.ts), null when
+//     the filer has no Schedule I or no recognizable recipient names on it
 //
 // Requires migration 072 (enrichment jsonb, enriched_990_at, enriched_web_at,
 // website_discovered_via on foundation_directory).
@@ -339,6 +343,17 @@ async function main() {
         meta.grantRangeMin !== undefined && meta.grantRangeMax !== undefined
           ? { min: meta.grantRangeMin, max: meta.grantRangeMax }
           : null,
+      // Per-recipient Schedule I line items (row #66) — recipient/amount/
+      // purpose come straight off the filing; year is stamped from this
+      // same filing's fiscal_year since Schedule I carries no per-line date.
+      grant_history: meta.grantLineItems
+        ? meta.grantLineItems.map((item) => ({
+            recipient: item.recipient,
+            amount: item.amount,
+            year: meta.fiscalYear ?? null,
+            purpose: item.purpose,
+          }))
+        : null,
       street_address: result.address?.street || null,
       source_object_id: row.objectId || null,
       source_xml_url: row.xmlUrl,

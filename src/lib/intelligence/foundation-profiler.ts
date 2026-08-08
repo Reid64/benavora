@@ -1,5 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
+export interface GrantHistoryLineItem {
+  recipient: string
+  amount: number | null
+  year: number | null
+  purpose: string | null
+}
+
 export interface FoundationProfile {
   foundation_id: string
   avg_grant_size: number | null
@@ -7,6 +14,12 @@ export interface FoundationProfile {
   funding_categories: string[]
   total_grants_made: number | null
   top_recipients: unknown | null
+  /** Per-recipient 990 Schedule I line items (row #66), when the
+   * foundation's enrichment includes them (scripts/enrich-foundations-990.ts,
+   * IRS990Source Schedule I parsing). Null when no such filing was found or
+   * this foundation has never made a scheduled grant — not every filer has
+   * one, and absence isn't an extraction failure. */
+  grant_history: GrantHistoryLineItem[] | null
 }
 
 function toStringArray(raw: unknown): string[] {
@@ -23,14 +36,31 @@ function parseGrantRangeMidpoint(raw: unknown): number | null {
   return null
 }
 
+function parseGrantHistory(raw: unknown): GrantHistoryLineItem[] | null {
+  if (!Array.isArray(raw)) return null
+  const items = raw
+    .filter((v): v is Record<string, unknown> => v !== null && typeof v === 'object' && !Array.isArray(v))
+    .map((v) => ({
+      recipient: typeof v['recipient'] === 'string' ? v['recipient'] : '',
+      amount: typeof v['amount'] === 'number' ? v['amount'] : null,
+      year: typeof v['year'] === 'number' ? v['year'] : null,
+      purpose: typeof v['purpose'] === 'string' ? v['purpose'] : null,
+    }))
+    .filter((item) => item.recipient.length > 0)
+  return items.length > 0 ? items : null
+}
+
 /**
  * Computes a foundation's profile from foundation_directory's giving_total
  * and its 990-derived `enrichment` jsonb (grant_count, typical_grant_range,
- * program_priorities, geographic_focus, top_recipients — see
+ * program_priorities, geographic_focus, top_recipients, grant_history — see
  * scripts/enrich-foundations-990.ts). Falls back to the enrichment's
  * typical_grant_range midpoint when grant_count/giving_total aren't both
  * available, and to the directory's own geographic_focus column when the
- * enrichment doesn't carry one.
+ * enrichment doesn't carry one. grant_history (row #66) is a pure passthrough
+ * of whatever per-recipient Schedule I line items the 990 extractor found —
+ * this function does not parse XML itself, it only reads what's already
+ * been written to enrichment.
  */
 export async function computeFoundationProfile(
   foundationId: string,
@@ -73,6 +103,8 @@ export async function computeFoundationProfile(
     ? enrichment['top_recipients']
     : null
 
+  const grantHistory = parseGrantHistory(enrichment['grant_history'])
+
   return {
     foundation_id: foundationId,
     avg_grant_size: avgGrantSize,
@@ -80,5 +112,6 @@ export async function computeFoundationProfile(
     funding_categories: fundingCategories,
     total_grants_made: totalGrantsMade,
     top_recipients: topRecipients,
+    grant_history: grantHistory,
   }
 }

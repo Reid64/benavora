@@ -20,6 +20,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
           funding_categories: profile.funding_categories,
           total_grants_made: profile.total_grants_made,
           top_recipients: profile.top_recipients,
+          grant_history: profile.grant_history,
           computed_at: new Date().toISOString(),
         },
         { onConflict: 'foundation_id' },

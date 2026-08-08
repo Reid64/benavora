@@ -152,10 +152,32 @@ interface GrantScheduleSummary {
   grantMax?: number;
 }
 
+/** One recipient line item from Schedule I Part II. Year isn't a per-line
+ * field on the schedule — every line belongs to the filing's own fiscal
+ * year, so callers should stamp it from Irs990FilingMeta.fiscalYear rather
+ * than expecting it here. */
+export interface GrantLineItem {
+  recipient: string;
+  amount: number | null;
+  purpose: string | null;
+}
+
+// Cap so a large foundation's Schedule I (occasionally thousands of lines)
+// doesn't blow up the jsonb column it eventually lands in
+// (foundation_directory.enrichment). Line items beyond this are still
+// counted in grantCount/grantMin/grantMax, just not individually recorded.
+const MAX_GRANT_LINE_ITEMS = 500;
+
 // Schedule I ("Grants and Other Assistance") lists one block per recipient.
 // Only present on filers that actually make grants — absence is normal, not
-// an extraction failure.
-function extractGrantSchedule(xml: string): GrantScheduleSummary | undefined {
+// an extraction failure. Recipient/amount/purpose tag names are probed
+// across both the modernized and legacy e-file schemas, same defensive
+// pattern as extractBusinessName/extractOfficers above — the exact tag set
+// varies by filing year and hasn't been exhaustively enumerated against
+// every historical schema revision.
+function extractGrantSchedule(
+  xml: string,
+): (GrantScheduleSummary & { lineItems: GrantLineItem[] }) | undefined {
   const blocks = [
     ...xmlAllInner(xml, "RecipientTable"),
     ...xmlAllInner(xml, "Form990ScheduleIPartIIGrp"),
@@ -163,17 +185,35 @@ function extractGrantSchedule(xml: string): GrantScheduleSummary | undefined {
   if (blocks.length === 0) return undefined;
 
   const amounts: number[] = [];
+  const lineItems: GrantLineItem[] = [];
   for (const block of blocks) {
     const amt =
       xmlNum(block, "CashGrantAmt") ?? xmlNum(block, "AmountOfCashGrantAmt");
     if (amt !== undefined) amounts.push(amt);
+
+    if (lineItems.length < MAX_GRANT_LINE_ITEMS) {
+      const recipient =
+        xmlText(block, "BusinessNameLine1Txt") ??
+        xmlText(block, "RecipientPersonNm") ??
+        xmlText(block, "RecipientBusinessName") ??
+        xmlText(block, "Name");
+      const purpose =
+        xmlText(block, "PurposeOfGrantTxt") ??
+        xmlText(block, "PurposeOfGrantOrAssistanceTxt") ??
+        xmlText(block, "DescriptionOfGrant") ??
+        null;
+      if (recipient) {
+        lineItems.push({ recipient, amount: amt ?? null, purpose });
+      }
+    }
   }
 
-  if (amounts.length === 0) return { grantCount: blocks.length };
+  if (amounts.length === 0) return { grantCount: blocks.length, lineItems };
   return {
     grantCount: blocks.length,
     grantMin: Math.min(...amounts),
     grantMax: Math.max(...amounts),
+    lineItems,
   };
 }
 
@@ -184,6 +224,11 @@ export interface Irs990FilingMeta {
   grantCount?: number;
   grantRangeMin?: number;
   grantRangeMax?: number;
+  /** Per-recipient Schedule I line items (capped at MAX_GRANT_LINE_ITEMS),
+   * present only when the filing has a Schedule I with at least one
+   * recognizable recipient name. Year isn't carried per-item — it's the
+   * same as fiscalYear for every item in a given filing. */
+  grantLineItems?: GrantLineItem[];
 }
 
 export interface Irs990RemoteResult {
@@ -243,7 +288,7 @@ export class IRS990Source {
     };
   }
 
-  /** Filing-level fields not carried by EnrichmentResult: fiscal year and, where a grant schedule (Schedule I) exists, grant count/range. */
+  /** Filing-level fields not carried by EnrichmentResult: fiscal year and, where a grant schedule (Schedule I) exists, grant count/range/line items. */
   extractFilingMeta(xml: string): Irs990FilingMeta {
     const grants = extractGrantSchedule(xml);
     return {
@@ -251,6 +296,7 @@ export class IRS990Source {
       grantCount: grants?.grantCount,
       grantRangeMin: grants?.grantMin,
       grantRangeMax: grants?.grantMax,
+      grantLineItems: grants?.lineItems && grants.lineItems.length > 0 ? grants.lineItems : undefined,
     };
   }
 
