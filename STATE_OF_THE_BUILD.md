@@ -1,8 +1,38 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 7, 2026 (Relationship Explorer UI — force-directed graph view added to the existing /intelligence/relationship-graph page). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 8, 2026 (queue-35 live verification — Auto-Monitor on Add confirmed fully working end-to-end; Relationship Explorer + Path Finder code confirmed correct but unreachable for the real org today; a real, pre-existing bug found in the graph analytics endpoint). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 8, 2026 (queue-35 live verification — Auto-Monitor on Add, Relationship Explorer force-directed view, Path Finder)
+
+Live-verified all three q35-001 through q35-003 build prompts against real production data (real
+Faith Foundation org, `b1ab7402-dfc2-4712-869f-70ea3566cc1d`) via `DATABASE_URL`/psql and, where
+needed, by running the real code directly against production. Full evidence in
+`AGENT_VERIFICATION_LOG.md`'s "Reputation Graph UI (queue-35)" entry — summary here.
+
+**Real status, correcting the individual commits' own "shipped" framing below where live
+verification found the real production behavior differs from what the code intends:**
+
+| Item | Status |
+|---|---|
+| #151 Auto-Monitor on Add | **CONFIRMED FULLY WORKING, END-TO-END, BOTH INSERT PATHS.** Real `funders` rows inserted mimicking both the manual (`FunderForm.tsx`) and bulk-import (`api/funders/import`) payload shapes; real `agent_queue` rows enqueued exactly as each route would produce; the live worker picked up and completed both in ~30 seconds, routing through the intended richer `ReputationIntelligenceAgent.runForFunder()` path (confirmed via real `agent_runs` rows with `agent_type: 'ag-18-reputation'` and the exact test funder id/name in `input_params`), correctly reporting zero signals for the fake test names. Disposable rows cleaned up after. |
+| #81 Relationship Explorer (force-directed graph view) | **CODE CORRECT, BUT UNREACHABLE FOR THIS ORG TODAY.** The 21 real `pig_nodes`/20 real `pig_edges` (unchanged since the 2026-08-07 reconciliation) are all `organizations → foundation_directory` (`asset_compatible`) edges — a pure star. The GET route both the card-list and the new graph view read from has *always* (pre-dating this queue, confirmed by diff) scoped `connections`/`nodes`/`edges` to board-member-sourced edges only, and AG-32's board-member discovery rules have genuinely, repeatedly (5 consecutive daily runs) found zero such connections for this org's 3 real board members — an honest zero, not a bug. Practical effect: switching to "Graph View" for this org shows the correct, non-crashing empty state, not the real 20 edges that do exist (those are out of scope by design, not a regression). |
+| #82 Path Finder | **ALGORITHM FULLY CONFIRMED CORRECT.** `findShortestPath()` hand-verified against the real full 21-node/20-edge graph: a real 1-hop path and a real 2-hop path both matched exactly against raw `pig_edges` rows (correct edge ids, correct cost math); 4 honest-failure/edge-case scenarios (empty graph — the real current production output; a real disconnected subgraph; an unknown node id; same start/end) all returned correct, non-crashing results. The real full graph turned out to be a single connected component (a star), so no genuinely disconnected *real* pair exists today — reported plainly rather than forcing a misleading test. UI-reachability inherits the same gap as #81: the node-picker/Find Path controls never render for this org since the component's own empty-graph early-return fires first. |
+| Graph Analytics panel (pre-existing, not part of this queue) | **NEW FINDING: CONFIRMED BROKEN, LIVE.** `/api/intelligence/relationship-graph/analytics/route.ts` (commit `048740e`, untouched by q35-002/003) queries `board_members.org_id` — a column that has never existed (real column: `organization_id`). Reproduced live via raw REST: `400 {"code":"42703","message":"column board_members.org_id does not exist"}`. This is the *exact* bug the sibling main route was fixed for the same day (`764df7b`) — that fix was applied to `route.ts` only, never to this sibling file. Result: the Graph Analytics panel 500s for every org, every time, right now. Not introduced by today's queue, but real, current, and directly relevant since the task explicitly asked to re-confirm it still works — it does not. Not fixed this session (verification-only scope); flagged for a future fix pass. |
+
+**Gates:** `pnpm tsc --noEmit` — zero errors in any of the three commits' files or the pathfinder
+module; the run's full output is the same pre-existing, unrelated `src/__tests__/**` failures
+already documented in every prior session entry in this file.
+
+**Recommendation for a future session:** fix `analytics/route.ts`'s `org_id` → `organization_id`;
+separately, decide and document whether the connections list / graph view should also surface
+org-level `asset_compatible` edges (matching what the analytics endpoint already intends) so this
+org's 20 real edges become visible somewhere in the UI, or whether board-member-only scope is the
+deliberately narrower intended definition for that view — right now neither view nor the analytics
+panel consistently reflects "the real graph," and a future session should pick one intended scope.
 
 ---
 

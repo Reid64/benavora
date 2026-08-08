@@ -1,7 +1,60 @@
 # BENAVORA — Session State
-## Last Updated: August 7, 2026 (Path Finder — FEATURE_REGISTRY_v2.md #82)
+## Last Updated: August 8, 2026 (queue-35 live verification)
 
-## Current Session — August 7, 2026 (Path Finder)
+## Current Session — August 8, 2026 (queue-35 live verification — Auto-Monitor on Add, Relationship Explorer, Path Finder)
+
+**Focus:** live-verify all three q35-001 through q35-003 build prompts (Auto-Monitor on Add,
+Relationship Explorer force-directed graph view, Path Finder) against real production data, per
+this project's established live-verification convention — not just re-reading the commits' own
+"shipped" claims.
+
+**Status — 1 of 3 confirmed fully working end-to-end against real data; 1 of 3 confirmed correct
+at the algorithm level but currently unreachable in the UI for the real org; 1 of 3 code-correct
+but similarly unreachable, and a real, currently-live bug was found in a sibling endpoint the task
+asked to re-check. Full evidence in `AGENT_VERIFICATION_LOG.md`'s "Reputation Graph UI (queue-35)"
+entry:**
+
+- **#151 Auto-Monitor on Add — CONFIRMED FULLY WORKING, END-TO-END, BOTH INSERT PATHS.** No
+  browser/session was available to drive the authenticated HTTP routes directly, so — per this
+  project's established convention for that constraint — the exact `funders`/`agent_queue` inserts
+  both real code paths (manual `FunderForm.tsx` create, bulk `api/funders/import`) perform were
+  reproduced directly against production. Both real `agent_queue` rows were picked up and completed
+  by the live worker in ~30 seconds each, routing through the intended richer
+  `ReputationIntelligenceAgent.runForFunder()` path (confirmed via real `agent_runs` rows with the
+  exact test funder id/name in `input_params`), correctly reporting zero signals for the fake test
+  names — an honest, expected zero, not a failure. All disposable test rows cleaned up after.
+- **#81 Relationship Explorer — CODE CORRECT, UNREACHABLE FOR THIS ORG TODAY.** The real 21
+  `pig_nodes`/20 `pig_edges` (unchanged since 2026-08-07) are all `organizations →
+  foundation_directory` (`asset_compatible`) edges — a pure star. The GET route both views read
+  from has *always* (confirmed by diff against the pre-q35-002 version) scoped to board-member-
+  sourced edges only, and AG-32 has genuinely, repeatedly (5 consecutive daily runs) found zero such
+  connections for this org's 3 real board members — an honest zero, not a regression. Graph View
+  correctly shows its clean empty state; it does not show the 20 real edges that do exist, because
+  those are out of scope by design.
+- **#82 Path Finder — ALGORITHM FULLY CONFIRMED CORRECT.** Hand-verified `findShortestPath()`
+  directly against the real full graph: a real 1-hop and a real 2-hop path both matched exactly
+  against raw `pig_edges` rows (edge ids, cost math). 4 honest-failure scenarios (the real empty
+  production output, a real disconnected subgraph, an unknown id, same start/end) all returned
+  correct, non-crashing results. The real full graph turned out to be a single connected component
+  (a star) — no genuinely disconnected real pair exists today, reported plainly rather than forcing
+  a misleading test. UI-reachability inherits #81's gap: the Find Path controls never render for
+  this org since the graph component's empty-state early-return fires first.
+- **New finding, not part of this queue: Graph Analytics panel is confirmed broken, live.**
+  `/api/intelligence/relationship-graph/analytics/route.ts` (pre-existing, commit `048740e`,
+  untouched by q35-002/003) queries `board_members.org_id` — a column that has never existed (real
+  column: `organization_id`). Reproduced live via raw REST: `400`/`42703`. This is the exact bug the
+  sibling main route was fixed for the same day (`764df7b`) — that fix never reached this file. The
+  panel 500s for every org, every time, right now. Flagged, not fixed (verification-only scope).
+
+**Gates:** `pnpm tsc --noEmit` — zero errors in any of the three commits' files; remaining output is
+the same pre-existing, unrelated `src/__tests__/**` failures documented throughout this file.
+
+**Commit:** `test(reputation-graph): live-verify auto-monitor-on-add, force-directed relationship
+explorer, and path finder against real org graph data` (this session).
+
+---
+
+## Prior Session — August 7, 2026 (Path Finder)
 
 **Focus:** FEATURE_REGISTRY_v2.md row #82 ("Path Finder," PLANNED — "Shortest path between any
 two entities. Phase 3 build."). Read the row #81 session (immediately below) before starting per

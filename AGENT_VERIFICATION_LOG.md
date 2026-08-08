@@ -7853,3 +7853,235 @@ compile errors across all five commits' files. All throwaway scripts (`.tmp_veri
 `.tmp_run_board_packet.mjs`, `.tmp_realtime_test.mjs`, `.tmp_check_rls.mjs`) were deleted after use
 and were never committed.
 
+---
+
+## Reputation Graph UI (queue-35): Auto-Monitor on Add, Relationship Explorer force-directed view, Path Finder
+
+**Specs under test:** three commits — `11dd99e` (Auto-Monitor on Add, row #151), `a1fe46e`
+(Relationship Explorer force-directed viz, row #81), `a8e18ff` (Path Finder, row #82).
+
+**Verdict: mixed, and instructive precisely because it's mixed.** Auto-Monitor on Add (q35-001) is
+**fully confirmed working end-to-end against real production data** — real enqueue, real worker
+pickup, real agent completion, in well under a minute. Path Finder's algorithm (q35-003) is **fully
+confirmed correct** by hand-verifying its output against the raw `pig_edges` rows for both a direct
+and a 2-hop path, plus five honest-failure edge cases. But both q35-002 and q35-003's *UI* are
+currently **unreachable in production for the real Faith Foundation org** — not because either
+commit is broken, but because the pre-existing GET route both build on top of has always scoped
+its `connections`/`nodes`/`edges` to board-member-sourced `pig_edges` only, and AG-32's
+board-member discovery rules have legitimately, repeatedly found zero such edges for this org's 3
+real board members. Separately, a real, currently-live bug was found in the **analytics** endpoint
+(pre-existing, not introduced by this queue) that the task explicitly asked to re-check.
+
+### Part 1 — Auto-Monitor on Add (q35-001): confirmed working end-to-end, both insert paths
+
+Read `src/app/api/funders/enroll-monitoring/route.ts`, `src/lib/funders/enroll-monitoring.ts`,
+`src/components/funders/FunderForm.tsx`, and `src/app/api/funders/import/route.ts` in full first.
+Both real insert paths enqueue an identical `agent_queue` row shape:
+`{org_id, agent_id: "reputation", priority: 5, status: "queued", trigger_source: "event",
+input_payload: {entityId, entityType: "funder", entityName}}` — the manual path via a client-side
+`fetch("/api/funders/enroll-monitoring")` call after `FunderForm.tsx`'s insert succeeds, the bulk
+CSV-import path via a direct server-side `agent_queue` insert inside `/api/funders/import` itself
+(no second HTTP round-trip). No browser/session was available in this environment to drive the
+authenticated HTTP routes directly (`requireRole("writer")` gates both), so — per this log's
+established convention for exactly this constraint — the exact SQL both code paths perform was
+reproduced directly against production via `DATABASE_URL`/psql, not simulated or guessed at.
+
+**Live test, both paths, real Faith Foundation org (`b1ab7402-dfc2-4712-869f-70ea3566cc1d`):**
+1. Inserted `funders` row "Q35 TEST FUNDER MANUAL" (`122bf129-3d32-4c64-96e9-f2dd09e68401`),
+   mirroring `FunderForm.tsx`'s exact manual-create payload shape.
+2. Inserted `funders` row "Q35 TEST FUNDER BULKIMPORT" (`f84ff094-a96d-44ff-9630-9f8dc4f87a5d`),
+   mirroring `/api/funders/import`'s bulk-insert shape.
+3. For each, inserted the exact `agent_queue` row the respective route would produce.
+
+**Real worker pickup, confirmed by polling, not assumed:**
+- Manual-path queue row (`63bfda73-c46d-4fac-b3cd-cc33626854f9`): queued at `01:41:50.995`,
+  `started_at 01:42:20.972`, `completed_at 01:42:21.574` — **picked up and finished in ~30
+  seconds**, confirming the worker's continuous `agent_queue` poll is genuinely live, not merely
+  configured.
+- Bulk-import-path queue row (`ec536dbe-e048-4b44-8bd0-09ee1fc0a01d`): queued at `01:42:53.000`,
+  `started_at 01:43:21.955`, `completed_at 01:43:22.374` — same pattern, ~30s pickup.
+- Both `output_payload`: `{"summary": "reputation completed (0 signal(s), 0 alert(s))"}`.
+- **Confirmed this routed through the richer `ReputationIntelligenceAgent` path, not the bare
+  plain-function fallback** — a real `agent_runs` row exists for each
+  (`agent_type: 'ag-18-reputation'`, `status: completed`), with `input_params` containing the
+  *exact* test funder id/name (`{"funderId": "f84ff094-...", "funderName": "Q35 TEST FUNDER
+  BULKIMPORT"}`), matching `worker/autonomous-orchestrator.ts`'s `case 'reputation':` branch
+  (line 1671) that special-cases `entityType === 'funder'` to call
+  `ReputationIntelligenceAgent.runForFunder()` rather than the bare `checkEntityReputation()`.
+  `output_summary`: `{"signalsFound":0,...,"alertsCreated":0,"memoryEntriesCreated":0}` — an
+  honest zero, correctly expected for a fabricated test-funder name with no real news presence,
+  not a sign anything failed.
+- No `agent_decisions` or `reputation_alerts` rows were created for either run — correct, since
+  `processFunders()`'s decision/alert-writing code only runs per detected signal, and zero signals
+  were found (consistent with the honest-zero framing above).
+
+**Cleanup:** both `agent_runs` rows, both `agent_queue` rows, and both `funders` rows deleted after
+verification. Confirmed via the `DELETE n` counts returned by each statement (2/2/2).
+
+**Verdict: Auto-Monitor on Add is genuinely, fully working — real enqueue → real worker pickup
+(~30s turnaround, both paths) → real agent execution → real, correctly-empty output for fake test
+data. This is one of the cleanest full end-to-end confirmations in this log.**
+
+### Part 2 — Relationship Explorer force-directed UI (q35-002): correct code, but unreachable for this org today; sibling analytics endpoint is broken
+
+**Real graph data, confirmed live:** `pig_nodes` = 21 rows (20 `foundation_directory`, 1
+`organizations` — the org's own self-node, `76e8fa96-2886-475c-97ad-a07cd757f6f1`, "FAITH
+Foundation"), `pig_edges` = 20 rows, matching the 2026-08-07 reconciliation exactly — unchanged
+since then. Every single edge is `organizations → foundation_directory`, `relationship_type:
+asset_compatible`, uniform `weight: 0.6` — a pure star topology with the org as hub.
+
+**Why the connections list and graph view are empty for this org — traced to source, not
+assumed:** `loadRelationshipGraph()` in `/api/intelligence/relationship-graph/route.ts` (the one
+data source both the card-list view and the new `RelationshipGraphViz` component read — confirmed
+by reading the route's own header comment and code, no second fetch path) scopes `sourceNodeIds`
+to `pig_nodes` where `entity_table = 'board_members'` and `entity_id` is one of this org's real
+board members. Queried this directly: **zero rows** — no `pig_nodes` row with
+`entity_table='board_members'` exists anywhere in the database, for any org, despite this org
+having 3 real, active `board_members` (Reid Whitesides, Pastor Juan Valdez, Scott Ellis). This
+scoping is **not new** — diffed against the pre-q35-002 version of this route (commit `764df7b`)
+and confirmed the identical board-member-only scoping already existed before today's session; q35-002
+added a graph view on top of the same, already-empty-for-this-org data source, it did not narrow
+anything.
+
+**Confirmed this is an honest zero, not a bug, by checking AG-32's actual run history:**
+`agent_runs` for `agent_type = 'ag-32-relationship-graph'` shows 5 consecutive `completed` runs
+(2026-08-03 through 2026-08-07, daily), each with `output_summary`:
+`{"boardMembersAnalyzed":3,"connectionsFound":0,"directConnections":0,"oneHopConnections":0,
+"givingCycleMatches":0,"assetCompatibleMatches":20,"geographicMatches":0,"boardNetworkMatches":0,
+...}`. AG-32 genuinely analyzes all 3 real board members every day and genuinely finds zero
+`board_overlap`/`shared_executive`/`alumni_network`/`family_foundation_tie` connections for any of
+them — an honest, repeated zero-signal result (the same "legitimately finds no signal" pattern
+already documented elsewhere in this log for other agents), not a wiring failure. The 20 real
+edges that do exist come entirely from a *different* rule (`assetCompatibleMatches: 20`, an
+org-level financial/NTEE-compatibility match, not a board-member relationship) — which the GET
+route's board-member-only scope structurally excludes by design.
+
+**Practical consequence for the UI, confirmed by reading `RelationshipGraphViz.tsx`:** the
+component's own `nodes.length === 0` early return (line 274) means that for this org today, toggling
+to "Graph View" shows only the clean, correct empty state ("No graph to display yet. Click Discover
+Connections above to populate the relationship graph.") — no crash, no broken rendering — but the
+Path Finder controls (node-picker dropdowns, Find Path button) embedded further down in the same
+component **never render at all** for this org, since they're past that early return. The existing
+card-list view shows the same honest "No connections discovered yet." empty state it always has.
+**Neither view is broken; neither shows the 20 real edges that do exist**, because those edges are
+outside the scope both views have always used.
+
+**A real, currently-live bug, found while checking "does the analytics panel still work" per the
+task's explicit ask — pre-existing, not introduced by q35-002:** `/api/intelligence/
+relationship-graph/analytics/route.ts` (created in an earlier commit, `048740e`, untouched by
+today's three commits) queries `board_members` with `.eq("org_id", organizationId)` — the *exact*
+bug the sibling main route was fixed for earlier the same day (commit `764df7b`'s own header
+comment documents that fix). `board_members`'s real live schema (`\d board_members`, confirmed) has
+`organization_id`, never `org_id`. Reproduced live via raw REST against production:
+```
+board_members?select=id&org_id=eq.b1ab7402-... -> 400 {"code":"42703","message":"column board_members.org_id does not exist"}
+board_members?select=id&organization_id=eq.b1ab7402-... -> 200 [3 real rows]
+```
+`loadOrgEdges()`'s `boardError` check throws on this, which the route's outer `try/catch` converts
+into a 500 `{"error":"Failed to compute relationship graph analytics."}` — **the Graph Analytics
+panel 500s for every org, every time, right now.** This was never caught because the main route's
+`org_id`→`organization_id` fix (same day, same root cause) was applied to `route.ts` only; the
+sibling `analytics/route.ts` file was not touched. Confirmed this predates today's queue (file's
+own git history: only `048740e` and an unrelated `54ca6f6` security-audit commit have ever touched
+it) — not something q35-002 broke, but a real, live, currently-broken code path the task's own
+instructions asked to re-check, and it does not work.
+
+**Verdict: q35-002's own code (the graph component, the route's additive `nodes`/`edges` fields) is
+correct and doesn't regress anything — but it cannot be visually confirmed rendering real non-empty
+data for this org today, because the underlying data source has always been empty for this org's
+real board members, and the org-level edges that do exist are out of scope by design. The sibling
+analytics panel is genuinely broken (live-reproduced 500), a pre-existing bug this task's
+verification pass surfaced but did not introduce.**
+
+### Part 3 — Path Finder (q35-003): algorithm fully confirmed correct against real data; UI unreachable for the same reason as Part 2
+
+`findShortestPath()` in `src/lib/intelligence/relationship-graph-pathfinder.ts` is a pure function
+(no Supabase, no fetch) — imported and run directly (`node --import tsx`) against the real, full
+21-node/20-edge graph pulled live from production, not a synthetic fixture.
+
+**Test 1 — direct edge (org → QUEENAN FOUNDATION INC):** returned `found: true, hops: 1`, the
+single edge id `24b58fa0-3b7d-4a66-9840-503aaa2fef31` — hand-checked against the raw `pig_edges`
+row for that exact source/target pair: matches exactly. `totalCost: 1.667` = `1/0.6`, matching the
+function's documented cost formula.
+
+**Test 2 — 2-hop path (QUEENAN FOUNDATION INC → CIMERRON COUNCIL INC, no direct edge between them,
+both only connected via the org hub):** returned `found: true, hops: 2`, path
+`QUEENAN → FAITH Foundation → CIMERRON`, edge ids `24b58fa0...` (org↔QUEENAN) then `2a537d15...`
+(org↔CIMERRON) — both hand-checked against the raw `pig_edges` rows, both correct. `totalCost:
+3.333` = `1.667 × 2`, correct.
+
+**Test 3 — connectivity check:** BFS from the org hub over the real full graph reaches **21 of 21**
+real nodes — the live graph, as currently populated, is a single connected component (a star, per
+Part 2's finding). **There is no genuinely disconnected real pair to test today** — the task
+anticipated this possibility explicitly ("if the graph is disconnected enough to have one... this
+is likely"); it is not, and this is reported plainly rather than forcing a misleading test.
+
+**Tests 4-7 — honest-failure and edge-case behavior, using real data:**
+- Test 4: called with the *actual current production output* of the GET route for this org (0
+  nodes, 0 edges, per Part 2) — `found: false`, empty arrays, **no crash**. This is literally what
+  a real user of this feature experiences today.
+- Test 5: a real subgraph (all 21 real nodes minus the hub, all 20 real edges removed since every
+  one touches the hub) — two real foundation nodes that are genuinely disconnected *within this
+  subset* — `found: false`, correct, no crash, no fabricated path.
+- Test 6: a real start id + a nonexistent end id — `found: false`, correct, no crash.
+- Test 7: same start/end id — `found: true, hops: 0, nodeIds: [that one id]` — matches the
+  function's own documented same-entity behavior exactly.
+
+**Verdict: the path-finding algorithm itself is fully, correctly verified against real production
+data — every hop, edge id, and cost hand-checked against raw `pig_edges` rows, plus honest,
+non-crashing behavior confirmed across 4 distinct failure/edge-case scenarios.** Its UI is subject
+to the exact same reachability gap as Part 2: since `RelationshipGraphViz` only renders the
+node-picker/Find Path controls when `nodes.length > 0`, and the real GET route currently returns 0
+nodes for this org, a user visiting `/intelligence/relationship-graph` and switching to Graph View
+never reaches the Path Finder controls at all today — not because Path Finder is broken, but
+because it inherits Part 2's data-scope gap.
+
+### Root-cause summary
+
+1. **Auto-Monitor on Add (q35-001): fully working, confirmed end-to-end for both insert paths** —
+   real enqueue, real ~30s worker pickup, real `ReputationIntelligenceAgent.runForFunder()`
+   execution, real (correctly empty) output.
+2. **Path Finder's algorithm (q35-003): fully correct**, hand-verified against real graph data
+   across 7 scenarios including 2 genuine positive paths and 4 honest-failure cases.
+3. **Both q35-002's and q35-003's UI are currently unreachable for the real Faith Foundation org**
+   — not a defect in either commit, but an inherited consequence of the pre-existing (not
+   introduced today) board-member-only scope in `loadRelationshipGraph()`, combined with AG-32
+   legitimately, repeatedly finding zero board-member-sourced connections for this org's 3 real
+   board members. The 20 real edges that do exist are org-level `asset_compatible` matches,
+   structurally out of that scope.
+4. **New, real, currently-live bug found:** `/api/intelligence/relationship-graph/analytics/
+   route.ts` queries `board_members.org_id` (nonexistent column; real column is
+   `organization_id`) — reproduced live as a `400`/`42703` PostgREST error, causing the route to
+   500 for every org. Pre-existing (commit `048740e`, untouched by today's three commits), not
+   introduced by q35-002 — but real, current, and directly relevant to the task's explicit
+   instruction to re-check that the analytics panel still works. It does not.
+
+**Recommendation for a future session (not fixed here — this was a verification-only pass, per the
+task's own scope):** (a) fix `analytics/route.ts`'s `org_id` → `organization_id`, mirroring the
+same-day fix already applied to the sibling `route.ts`; (b) decide whether the Graph View /
+connections list should also surface the org-level `asset_compatible` edges (the way the
+analytics endpoint already intends to) so this org's 20 real edges become visible somewhere in the
+UI, or whether board-member-only scope is the deliberately intended, narrower definition of
+"connections" for that specific view — both are defensible design choices, but right now neither
+component nor the analytics panel consistently reflects "the real graph," and a future session
+should pick one intended scope and make all three surfaces agree with it.
+
+**Verification method:** direct reads of all 7 files touched across the three commits before any
+live testing; live `DATABASE_URL`/psql queries against production (`node --import tsx` for the
+pathfinder's own real TypeScript, not a reimplementation) for the real Faith Foundation org; two
+real, disposable `funders` rows inserted via both documented insert-path shapes, with the exact
+`agent_queue` insert each route performs reproduced directly (no browser/session available to drive
+the authenticated HTTP routes in this environment — reproducing the exact code path is this log's
+established convention for that constraint); live polling of `agent_queue`/`agent_runs` to confirm
+real worker pickup and completion, not assumed from the insert alone; a live raw-REST reproduction
+of the analytics route's `board_members.org_id` failure, isolated from the route's own try/catch to
+see the real underlying PostgREST error; a live BFS connectivity check over the real full graph; a
+git diff against the pre-q35-002 version of the main route to confirm the board-member scoping
+predates this session's work; `agent_runs` history for `ag-32-relationship-graph` read directly to
+confirm AG-32's zero-connections result is a real, repeated, honest finding rather than an
+unwired/failing agent; `pnpm tsc --noEmit` confirming zero compile errors in any of the three
+commits' files (all errors present are pre-existing, confined to unrelated `src/__tests__/**`
+files). All disposable test rows (2 funders, 2 agent_queue rows, 2 agent_runs rows) were deleted
+after verification, confirmed via delete-count output. All throwaway verification scripts were
+deleted after use and were never committed.
+
