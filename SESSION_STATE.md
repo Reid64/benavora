@@ -1,7 +1,59 @@
 # BENAVORA — Session State
-## Last Updated: August 8, 2026 (990-PF giving history extension row #66; prospect CSV import row D4 confirmed blocked)
+## Last Updated: August 8, 2026 (queue-37 live verification of all 6 items — 3 real bugs found and fixed)
 
-## Current Session — August 8, 2026 (990-PF giving history extension row #66; prospect CSV import row D4 confirmed blocked)
+## Current Session — August 8, 2026 (queue-37 live verification: marketplace, personalization, resource graph, custom connector, 990-PF, prospect import)
+
+**Focus:** live-verify all 6 items from the 5 `queue-37` build sessions immediately below, with real
+evidence (real temp orgs/users, real RLS-scoped sessions, real network fetches, real downloaded
+government data) rather than re-reading the code and trusting each session's own write-up.
+
+**Result — 3 previously-undocumented, load-bearing bugs found, all fixed live except where flagged
+out of scope:**
+1. **Marketplace RLS recursion (real, 100% reproducible, fixed):** `marketplace_listings`/
+   `marketplace_matches`'s SELECT policies (migration 125) mutually `EXISTS`-checked each other,
+   causing "infinite recursion detected in policy" on every real session-client query against
+   either table — broke browse, listing creation, and the request/approve flow completely (only
+   the service-role-only seed script/matcher had ever actually been tested). Fixed via new
+   migration 127 (`SECURITY DEFINER` helper functions replacing the circular subqueries), applied
+   live, re-verified: full request→approve/decline cycles now genuinely work via real per-org RLS
+   clients (14/15 checks). Also found and deleted 3 leftover un-cleaned seed listings from the
+   prior session.
+2. **safe-fetch.ts Happy-Eyeballs + truncation-hang bugs (real, fixed):** every real (non-blocked)
+   fetch failed with `"Invalid IP address: undefined"` due to Node ≥18.13's `autoSelectFamily`
+   expecting a different `lookup` callback shape — fixed via `autoSelectFamily: false`. Separately,
+   any response exceeding `maxBytes` hung the request forever (`res.destroy()` prevents `"end"`
+   from ever firing) — fixed by resolving at the truncation point. SSRF blocking itself was sound
+   throughout (8/8 adversarial tests passed pre-fix); re-verified full agent-level flow after both
+   fixes: a real allowlisted connector fetched a real public API and stored 3 real opportunity
+   rows.
+3. **990-PF pipeline (real, found, NOT fixed — out of scope):** `scripts/enrich-foundations-990.ts`
+   constructs a dead S3 URL for every filing (same dead endpoint `foundation-scraper.ts` already
+   flagged 2026-07-28, never propagated to this script); separately, the pinned `unzipper` package
+   fails to decompress ~66% of entries in a real, large ZIP64 IRS batch archive — a likely risk to
+   the already-live weekly S2 scraper too. New `grant_history` extraction code itself ran cleanly
+   against 36 real filings, correctly returning zero grants each (plausible, not a bug) — the
+   populated-Schedule-I positive case remains unconfirmed.
+
+**Confirmed working as claimed, no defects:** Personalization (#221, one precision added — the
+toggle doesn't change `/outreach/templates`' own visible card content, only which pill highlights)
+and Community Resource Graph (#226, real matches against real Faith Foundation data, honest empty
+state confirmed).
+
+**Confirmed unchanged from prior sessions:** Prospect CSV Import (D4) — script absent,
+`D:\dataocean` sandbox-unverifiable, third session in a row to hit this exact wall.
+
+Migrations applied live: 127 (new), 132 (`custom_connector_allowlist` — committed by the prior
+connector session but never actually applied until now). All temp test data cleaned up (8 orgs +
+the prior session's 3 leftover seed listings) — confirmed zero `Q37_*` orgs and zero
+`is_seed_data=true` marketplace rows remain live.
+
+Full detail: `AGENT_VERIFICATION_LOG.md`'s "queue-37 live verification" entry.
+Gates: `pnpm tsc --noEmit` — 0 errors in every file touched (`safe-fetch.ts`); pre-existing
+`src/__tests__/**` errors unchanged.
+
+---
+
+## Prior Session — August 8, 2026 (990-PF giving history extension row #66; prospect CSV import row D4 confirmed blocked)
 
 **Focus:** two small items from the `queue-37` preflight above. Part A (row #66): extend the real
 990 extractor with per-grant Schedule I line items rather than building a parallel one. Part B

@@ -274,6 +274,23 @@ function performPinnedRequest(args: {
         headers,
         servername: isHttps ? parsed.hostname : undefined,
         timeout: timeoutMs,
+        // Node >=18.13's `net.connect` defaults `autoSelectFamily` (Happy
+        // Eyeballs) to true, which calls `lookup` with `{ all: true }` and
+        // expects the callback to return an ARRAY of {address, family}
+        // records, not a single (address, family) pair — the shape this
+        // module used to assume unconditionally, which made every real
+        // (non-blocked) fetch fail with "Invalid IP address: undefined"
+        // regardless of target, confirmed live 2026-08-08. Disabling
+        // autoSelectFamily reverts Node to the legacy single-address
+        // 3-arg lookup callback this code was written for; the pinned IP
+        // is already fully validated by resolveValidatedAddress before
+        // this point, so there is no dual-stack address to race between.
+        // `autoSelectFamily` isn't in this project's pinned @types/node
+        // (20.16.x) RequestOptions typing even though Node itself accepts
+        // it (it's threaded through to net.connect) — types-only cast,
+        // same pattern already used in src/lib/supabase/admin.ts for a
+        // comparable Node/library version mismatch.
+        autoSelectFamily: false,
         lookup: (
           _hostname: string,
           _opts: unknown,
@@ -281,11 +298,45 @@ function performPinnedRequest(args: {
         ) => {
           callback(null, pinnedIp, family);
         },
-      },
+      } as import("node:http").RequestOptions,
       (res: IncomingMessage) => {
         let received = 0;
         let truncated = false;
+        let settled = false;
         const chunks: Buffer[] = [];
+
+        // Calling res.destroy() to enforce maxBytes means "end" never fires
+        // for a truncated response (destroying a stream mid-read aborts it
+        // rather than completing it) — the promise must resolve at the
+        // truncation point itself, not wait on an "end" that will never
+        // come. Resolving only from "end" left every truncated fetch hung
+        // forever (confirmed live 2026-08-08: a >maxBytes response caused
+        // the whole request to never settle). `settled` guards against a
+        // late "end"/"close"/"error" firing after we've already resolved.
+        const finish = (result: PinnedRequestResult) => {
+          if (settled) return;
+          settled = true;
+          resolve(result);
+        };
+
+        const buildResult = (isTruncated: boolean): PinnedRequestResult => {
+          const headerRecord: Record<string, string> = {};
+          for (const [key, value] of Object.entries(res.headers)) {
+            if (typeof value === "string") headerRecord[key] = value;
+            else if (Array.isArray(value)) headerRecord[key] = value.join(", ");
+          }
+          return {
+            status: res.statusCode ?? 0,
+            statusText: res.statusMessage ?? "",
+            headers: headerRecord,
+            body: Buffer.concat(chunks).toString("utf8"),
+            truncated: isTruncated,
+            locationHeader:
+              typeof res.headers.location === "string"
+                ? res.headers.location
+                : null,
+          };
+        };
 
         res.on("data", (chunk: Buffer) => {
           if (truncated) return;
@@ -293,32 +344,25 @@ function performPinnedRequest(args: {
           if (received > maxBytes) {
             truncated = true;
             chunks.push(chunk.subarray(0, maxBytes - (received - chunk.length)));
+            finish(buildResult(true));
             res.destroy();
             return;
           }
           chunks.push(chunk);
         });
 
-        res.on("end", () => {
-          const headerRecord: Record<string, string> = {};
-          for (const [key, value] of Object.entries(res.headers)) {
-            if (typeof value === "string") headerRecord[key] = value;
-            else if (Array.isArray(value)) headerRecord[key] = value.join(", ");
-          }
-          resolve({
-            status: res.statusCode ?? 0,
-            statusText: res.statusMessage ?? "",
-            headers: headerRecord,
-            body: Buffer.concat(chunks).toString("utf8"),
-            truncated,
-            locationHeader:
-              typeof res.headers.location === "string"
-                ? res.headers.location
-                : null,
-          });
+        res.on("end", () => finish(buildResult(truncated)));
+        // A destroyed/aborted response emits "close" (and sometimes
+        // "aborted") instead of "end" — without this, a truncated response
+        // would already be handled by finish() above, but any other
+        // early-close case (e.g. the server itself hangs up mid-body)
+        // would otherwise hang the whole request indefinitely too.
+        res.on("close", () => finish(buildResult(truncated)));
+        res.on("error", (err) => {
+          if (settled) return;
+          settled = true;
+          reject(err);
         });
-
-        res.on("error", (err) => reject(err));
       },
     );
 

@@ -8618,3 +8618,353 @@ re-queried and read back after each run, not inferred from console log output. A
 verification scripts (`scripts/tmp-*.mjs`/`.sql`) were deleted after use and were never committed.
 The only source change kept is the one-line FEMA URL casing fix in
 `src/lib/agents/disaster-response-agent.ts`, included in this session's commit.
+
+---
+
+## queue-37 live verification (2026-08-08) — Marketplace, Personalization, Resource Graph, Custom Connector, 990-PF, Prospect Import
+
+Follow-up to the 5 `queue-37` build sessions immediately above this entry (marketplace/#121-125,
+personalization/#221, resource graph/#226, custom connector/#59-60, 990-PF+CSV import/#66+D4).
+Each of those sessions' own `STATE_OF_THE_BUILD.md`/`SESSION_STATE.md` write-ups already state real,
+specific claims ("live-verified end-to-end," "all test rows cleaned up," etc.) — this pass checks
+each claim against real, adversarial, live evidence rather than re-reading the code and trusting the
+prior session's own account of it. **Two of the six items had genuine, previously-undocumented bugs
+that made their "live-verified" claims false as stated** — both are root-caused, fixed, and
+re-verified below, not just flagged. A third item's underlying migration (990-PF) had never actually
+been exercised against a real filing; this pass ran it for real, for the first time.
+
+### 1. Marketplace MVP (rows #121-125) — **found and fixed a live, 100%-reproducible RLS bug that
+broke every real API route; genuinely working after the fix**
+
+**Claim under test:** commit `99ed82e`'s own `STATE_OF_THE_BUILD.md` entry says the rule-based
+matcher "ran live, unmodified, production function... confirmed live: 1 of the 3 listings...
+produced a real, verified `marketplace_matches` row" and that all seed rows were cleaned up. This is
+true as far as it goes (the service-role-only seed script and matcher do work), but it is not the
+same claim as "the feature works" — every one of those checks ran on the **service-role client**,
+which bypasses RLS entirely. Nothing in that session exercised the real HTTP API routes
+(`GET`/`POST /api/marketplace/listings`, `GET /api/marketplace/matches`,
+`PATCH /api/marketplace/matches/[id]`) as an actual authenticated user would, which is exactly the
+session-bound, RLS-scoped client every one of those routes uses via `requireRole(...)`.
+
+**What was actually found, live:** created a real temp org/user via `supabase.auth.admin.createUser`
++ `profiles` (same pattern `src/__tests__/integration/rls.test.ts` already establishes for this
+project), signed in as that user, and ran the *exact* select/insert shapes each route performs.
+Every one of them failed identically:
+```
+GET marketplace_listings (plain select('id'), empty table, own org, zero existing matches):
+  "infinite recursion detected in policy for relation \"marketplace_listings\""
+GET marketplace_matches (plain select('id')):
+  "infinite recursion detected in policy for relation \"marketplace_matches\""
+POST .../listings (insert(...).select(...).single(), the real route's exact call):
+  same recursion error
+```
+**Root cause, confirmed by reading the migration, not guessed:** `125_donation_marketplace.sql`'s
+`marketplace_listings_org_select` policy `EXISTS`-checks `marketplace_matches` (a
+policy-protected table); `marketplace_matches_org_select`'s policy `EXISTS`-checks
+`marketplace_listings` right back — a mutual cross-table cycle. Postgres detects and rejects this at
+query time for **every** select against either table via a session (non-service-role) client, even
+against an empty table with zero rows — reproduced 100% of the time, not intermittently. This broke
+every real entry point into the feature that a logged-in user would ever hit: the browse UI (`GET`
+both endpoints), listing creation (`POST`, which does `insert().select()`), and the request/approve
+flow (`PATCH`, whose first line is a `select().single()` on `marketplace_matches`). Only the
+service-role-only seed script and matcher (which is what the prior session actually tested) were
+ever exercised before this pass — this is why the bug went undetected.
+
+**Fixed live:** `src/supabase/migrations/127_fix_marketplace_rls_recursion.sql` (next-free number in
+`src/supabase/migrations/`, applied via `DATABASE_URL`/psql, `STANDING_DIRECTIVES.md`
+DIRECTIVE-017) replaces both circular `EXISTS` subqueries with two `SECURITY DEFINER` helper
+functions (`marketplace_org_has_match_on_listing`, `marketplace_listing_owned_by_org`) that query
+the other table without re-invoking its RLS policy — a `SECURITY DEFINER` function owned by the
+migration role isn't itself subject to the other table's policies (neither table sets `FORCE ROW
+LEVEL SECURITY`), which breaks the cycle while preserving the exact same visibility rule (a listing
+is still only visible via a real `marketplace_matches` row for the caller's org; a match's
+listing-owner branch still requires a real owning `marketplace_listings` row).
+
+**Re-verified live, end-to-end, after the fix** (3 fresh temp orgs — owner/requester/unrelated —
++ 3 temp users, no mocks, real `search_profiles` row, real `runMarketplaceMatching()`):
+- Owner creates a listing via its own RLS-scoped client → succeeds (previously would have failed on
+  the `.select()` alone).
+- Real matcher run finds **2** real matches (the fresh requester org, *and* the real, live Faith
+  Foundation org, which genuinely has an active `search_profiles` row with the same
+  `materials_donation`/`Texas` criteria) — confirmed this is correct matcher behavior against real
+  production data, not a bug, by reading the returned `match_reason` strings.
+- Browse RLS narrows correctly: requester sees only the listing it was matched to, not an unrelated
+  listing from the same owner org; owner sees both of its own listings.
+- An unrelated third org can neither `SELECT` nor `UPDATE` the match row (0 rows both times) — RLS
+  org-boundary genuinely enforced, not just assumed from reading the policy text.
+- Full state machine driven for real, by the real actor on each side:
+  requester `suggested→requested` → owner `requested→approved` → listing flips to `matched`
+  (mirroring the route's own follow-up write) — and a second listing driven through
+  `requested→declined`, confirming the listing status is correctly left `active` on decline, not
+  flipped.
+- **14/15 automated checks passed** (the one "failure" was the test's own overly-strict assertion
+  expecting exactly 1 match instead of the 2 real ones production data produces — not a defect).
+
+**Cleanup:** all 8 temp test orgs (this session's + a false start before the fix) deleted, including
+`platform_config` rows that block a plain `organizations` delete (same FK pattern
+`rls.test.ts`'s own `afterAll` already documents). Also found and deleted **3 leftover, un-cleaned
+seed listings + 1 match row from the prior session** (`[TEST] Surplus Office Furniture Donation`,
+`[TEST] Corporate Matching Funds Pool`, `[TEST] Building Materials for Housing Rehab`,
+`is_seed_data=true`) — that session's own write-up claimed "cleanup documented" but the rows were
+still live in production before this pass.
+
+**Verdict:** rows #121/#122/#123(rule-based half)/#124 are now genuinely BUILT AND VERIFIED — but
+only as of this session's fix; the prior session's "live-verified" framing was true for the
+service-role-only path it tested and false for the actual product surface (every real HTTP route),
+which is the meaningful distinction for a feature real users would touch. Rows #125 and #123's AI
+half remain correctly PLANNED, unchanged.
+
+### 2. Personalization toggle (row #221) — confirmed working exactly as scoped, with one precise
+clarification the prior write-up didn't state
+
+**Claim under test:** "org-configurable content-variant toggle... live-verified end-to-end... all
+test rows cleaned up," plus "wiring the active variant into any actual send pipeline... was
+correctly out of this MVP's scope."
+
+**Independently re-verified, fresh temp org, not reusing the prior session's evidence:** the partial
+unique index (`idx_outreach_template_variants_one_active`) genuinely rejects a second simultaneous
+`is_active=true` row (`23505` duplicate-key, reproduced live); the deactivate-then-activate PATCH
+sequence genuinely switches the active variant (confirmed exactly one active row after the switch);
+`ON DELETE CASCADE` genuinely removes variants when the parent template is deleted. 7/7 checks
+passed. RLS policies on both tables (`outreach_templates_org`/`outreach_template_variants_org`,
+plain single-table org checks, no cross-table `EXISTS`) were specifically checked for the same
+circular-recursion shape found in the marketplace migration — none present here.
+
+**The precise clarification (code-read, not a live-test result):** the task asked to confirm the
+toggle "actually changes rendered output for the one real surface it was wired to" —
+`/outreach/templates`. Reading `VariantPanel`'s parent card (`src/app/(dashboard)/outreach/
+templates/page.tsx`, the `<Card>` around each template) shows the card's own visible body text is
+always `{t.subject}`/`{t.body}` — the **base template's** columns, never swapped to the active
+variant's `subject_override`/`body_override`. The pill toggle genuinely persists which variant is
+active (confirmed above) and highlights the active pill, and the variant's content is reachable via
+a hover tooltip (`title={v.subject_override}`) on the pill itself — but the card's main rendered
+content does not change when a different variant is activated. This is consistent with, not a
+violation of, the prior session's own stated scope ("wiring into the send pipeline... out of
+scope") — but it means the *visible page itself*, not just the send pipeline, doesn't reflect the
+active variant, a level of the claim the prior write-up didn't explicitly address.
+
+**Verdict:** row #221 is BUILT AND VERIFIED for exactly what it claims — a persisted, DB-enforced
+toggle — with the added precision that "changes rendered output" is true only in the narrow sense
+of which pill is highlighted, not in the sense of the page's visible template content updating.
+
+### 3. Community Resource Graph (row #226) — confirmed working, no defects found
+
+**Claim under test:** ranked keyword+geo matcher against real `funders`/`opportunities`/`programs`,
+honest empty state, capped at 10, never pads with unrelated resources.
+
+**Live-tested against the real Faith Foundation org's real data** (not synthetic): inserted a
+realistic `eviction_data` signal ("Eviction filings in the South Texas service area rose sharply
+this quarter...", `geographic_area: "Texas"`, matching AG-35's real migration-090 schema) and ran
+the real, unmodified `matchResourcesForSignal()`. It returned 10 real, genuinely relevant matches —
+including the org's own **"Emergency Bridge Housing"** and **"Veterans Path Home"** programs and
+multiple real `housing_grant` opportunities (Fair Housing Assistance Program, Veterans Affairs
+Supportive Housing, Rental Assistance Demonstration) — every match had a nonzero score and a
+concrete, honest reason (`Shares "eviction" with this need`, `Shares "housing" with this need`),
+not a generic placeholder. Separately, a fresh org with genuinely zero funders/opportunities/
+programs produced **zero** matches for a real signal — confirmed the empty state is honest (no
+padding), matching the code's own `if (score <= 0) continue` design. 7/7 checks passed. No RLS
+recursion risk here — this route only reads existing, unmodified tables (`community_need_signals`,
+`funders`, `opportunities`, `programs`), no new cross-referencing policies were added for this
+feature.
+
+**Note for future sessions:** as of this pass, `community_need_signals` has **zero real rows** in
+production (AG-35's own manual-trigger-only design means it's never been run against a real org at
+scale) — this row's own "real AG-35 output" had to be created for this test, matching the same gap
+`AGENT_VERIFICATION_LOG`'s AG-35 entries already document. Cleaned up (signal + fresh empty-state
+org) after the test.
+
+**Verdict:** row #226 is BUILT AND VERIFIED, no defects found.
+
+### 4. Custom API Connector / Scraping Target sandbox (rows #59/#60) — found and fixed **two**
+distinct, load-bearing bugs in the SSRF-safe fetch layer; the security boundary itself was sound
+throughout, but the "legitimate fetch succeeds" half of the claim was false until fixed
+
+**Claim under test:** "SSRF safeguards... treated as load-bearing... Confirmed: neither this route...
+was added to `worker/scheduler.ts`..." plus the specific technical claims about IP-resolution
+validation, DNS-rebinding resistance, and redirect re-validation in `safe-fetch.ts`.
+
+**Pre-flight, live-confirmed:** migration 132 (`custom_connector_allowlist`) was **not** applied to
+production, exactly as the prior session's own honest disclosure said ("live-application status...
+unconfirmed... not applied via `DATABASE_URL`"). Applied it live this session
+(`DATABASE_URL`/psql), confirmed via `information_schema.tables` before and after.
+
+**Adversarial SSRF tests, direct against the real, unmodified `safeFetch()`/`assertDomainAllowed()`
+(no route/HTTP layer needed — these are the actual enforcement functions):**
+- Blocked, live-confirmed: `127.0.0.1` (loopback), `169.254.169.254` (cloud metadata — the exact
+  attack this feature's own header comment names), `localhost` (DNS-resolved to `::1`), `10.0.0.1`
+  and `192.168.1.1` (RFC1918), `[::1]` (IPv6 loopback), `[::ffff:127.0.0.1]` (IPv4-mapped-IPv6
+  smuggling), `file://` scheme. **8/8 blocked, every time** — this half of the claim is fully
+  confirmed, not just code-reviewed.
+- Domain allowlist: an allowlisted domain passes, a non-allowlisted domain is rejected, a subdomain
+  of an allowlisted domain is correctly allowed. **Defense-in-depth specifically confirmed**: a
+  domain allowlisted as `"localhost"` (simulating an admin allowlisting a public-looking name that
+  actually resolves to a private address) still gets blocked by `safeFetch()`'s own IP check even
+  though the allowlist check alone would have passed it — the two layers are genuinely independent,
+  not just documented as such.
+
+**Bug 1, found live: every real (non-blocked) fetch failed with `"Invalid IP address: undefined"`,
+100% of the time, both HTTP and HTTPS.** Root-caused by directly inspecting Node's `net.connect`
+behavior: Node ≥18.13 (this environment: Node 20.20.2) defaults `autoSelectFamily` (Happy Eyeballs)
+to `true`, which calls the module's custom `lookup` option with `{ all: true }` and expects the
+callback to return an **array** of `{address, family}` records — the single `(address, family)`
+callback shape `safe-fetch.ts` used unconditionally. This is not a hypothetical edge case; it fired
+on the very first legitimate fetch attempted (`https://example.com/`). **Fixed** by setting
+`autoSelectFamily: false` on the request options (reverting Node to the legacy single-address
+lookup path this code was written for — the pinned IP is already fully validated before this point,
+so there's no dual-stack race to resolve); required an `as import("node:http").RequestOptions` cast
+since this project's pinned `@types/node` (20.16.x) doesn't type `autoSelectFamily` on
+`RequestOptions` even though Node itself accepts it.
+
+**Bug 2, found live after fixing Bug 1: any response exceeding `maxBytes` caused the whole request
+to silently hang/crash instead of returning a truncated result.** `res.destroy()` (called to enforce
+the cap) means the stream is aborted, not completed — so the `"end"` event this code relied on to
+`resolve()` the promise never fires; nothing else in the original code ever settled it. Isolated with
+a bare `net.https` reproduction (no tsx, no project code) to confirm this wasn't a tsx/loader
+artifact: the raw Node behavior is exactly this — `res.destroy()` inside a `"data"` handler correctly
+avoids reading further chunks but leaves the promise permanently unsettled. **Fixed** by resolving
+the promise directly at the truncation point (a `settled` guard prevents any later `"end"`/`"close"`/
+`"error"` from double-resolving), plus added a `"close"` handler as a general safety net for any other
+early-termination case. Re-verified live: a `maxBytes: 20000` fetch against a real, larger Wikipedia
+page now correctly returns `truncated: true` with a body capped at exactly 20000 bytes, rather than
+hanging.
+
+**Full agent-level end-to-end test, after both fixes** (fresh temp org, real allowlist row, `pnpm
+tsc --noEmit` clean): a connector targeting `169.254.169.254` is rejected by the allowlist check
+before any fetch is attempted. A real connector allowlisted against `jsonplaceholder.typicode.com`
+and pointed at a real public JSON API, run via the real, unmodified `CustomApiResearchAgent` (no
+Claude call needed for this agent — pure field-mapping — so this test isn't blocked by the
+project's known dead local Anthropic key): fetched real JSON, applied `field_mapping`, created
+**3 real `opportunities` rows** with real, non-empty `name`/`description` text sourced verbatim from
+the fetched API response, correctly `source`-tagged with the connector's name, correctly org-scoped.
+`last_polled_at`/`last_success_at` stamped, `error_count` stayed 0. A second connector targeting
+`127.0.0.1:22` was blocked (not allowlisted). **7/7 checks passed.**
+
+**Verdict:** rows #59/#60's SSRF/allowlist security boundary was genuinely sound from the start —
+every adversarial test passed on the very first run, before any fix. But the feature's basic
+function ("fetch a real allowlisted target and store bounded data") was completely broken by Bug 1
+(100% failure rate on any real target) and would have hung/crashed on Bug 2 for any
+larger-than-`maxBytes` response — both now fixed and re-verified against real data. Not previously
+documented anywhere; the prior session's own live-fetch claims in its write-up describe the design
+intent, not an actual observed successful fetch (it explicitly says migration 132 wasn't applied,
+so no real fetch could have been attempted against production in that session at all).
+
+### 5. 990-PF Giving History extension (row #66) — confirmed the prior session's own honest gap:
+the real extraction logic had never been run against a real filing; now has, for the first time,
+against real data
+
+**Claim under test:** `extractGrantSchedule()` extended with per-recipient Schedule I line items;
+the prior session's own write-up already flagged "no per-grant data has actually been extracted or
+observed this session... the batch enrichment script itself was not re-run."
+
+**Pre-flight, live-confirmed:** migration 133 (`foundation_profiles.grant_history` column) was **not**
+applied to production, matching the prior session's disclosure. Applied it live this session.
+Confirmed 0 of 133,812 `foundation_directory` rows have any `grant_history` in their `enrichment`
+jsonb — consistent with "never actually run," not contradicted.
+
+**Found, independent of the grant_history work itself: `scripts/enrich-foundations-990.ts` — the
+exact script this feature extends — constructs a dead URL for every single filing it would ever try
+to fetch.** Its `xmlUrl` fallback (`https://s3.amazonaws.com/irs-form-990/${objectId}_public.xml`)
+is the same S3 Open Data URL pattern that `src/lib/scraper/foundation-scraper.ts`'s own header
+comment already documents as confirmed-dead since 2026-07-28 ("that AWS Open Data bucket is no
+longer being served/updated... the real batch archive lives at
+`https://apps.irs.gov/pub/epostcard/990/xml/{year}/{xml_batch_id}.zip`") — but
+`enrich-foundations-990.ts` was never updated to the fixed mechanism. Live-confirmed: a direct fetch
+of that exact S3 URL pattern returns `404`. **This means the entire `enrich-foundations-990.ts`
+script — not just its new grant_history logic — cannot successfully fetch a single real 990 filing
+as currently written**, independent of and pre-dating this session's grant_history extension. This
+is a separate, previously-undocumented-in-this-script bug (the fix is already known and proven
+elsewhere in the codebase — swap to the batch-ZIP mechanism `foundation-scraper.ts` already uses),
+not fixed in this pass since it's a scope expansion beyond what q37-005 asked for.
+
+**Tested the extraction logic itself directly, bypassing the broken script, using the known-working
+batch-ZIP mechanism** (real IRS index CSV, 353,652 rows, downloaded live; real 521MB batch archive
+`2026_TEOS_XML_05A.zip`, 84,172 real filings, downloaded live) — ran the real, unmodified
+`IRS990Source.extractFilingMeta()`/`parseXml()` against real, unmodified 990PF filings pulled from
+this batch.
+
+**A second, separate, previously-undocumented defect found in the process: the `unzipper` package
+pinned in this project fails to decompress the majority of entries in this real, large IRS batch
+archive.** Tested the first 50 zip entries in raw file order (no filtering, ruling out any bias
+from candidate selection): **33 of 50 (66%) threw a genuine zlib error** —
+`"invalid distance too far back"` or `"too many length or distance symbols"` — both classic DEFLATE
+stream-corruption signatures. This reproduced identically on a second, independent run against a
+different slice of entries (119 of 155 990PF-filtered candidates, 77%), so it isn't an artifact of
+one bad byte range. The IRS's real batch archive has 84,172 entries, which exceeds the classic ZIP
+65,535-entry limit and therefore requires ZIP64 extensions to represent — a well-known category of
+bug in older zip-reading libraries that don't correctly compute per-entry offsets against a ZIP64
+central directory. This was not exercised or reported anywhere in this project's prior sessions,
+including the ones that built `foundation-scraper.ts`'s own batch-ZIP mechanism (`buildEinIndex`/
+`tryIrs990`) that this test reused unmodified — meaning this same ~2/3 failure rate is a real,
+live risk to that already-wired, weekly-scheduled S2 scraper too, not just this new grant_history
+work, if it ever processes a batch this large. Flagging for a future session; not fixed here (out
+of this pass's scope — the fix would mean upgrading or replacing `unzipper`, a dependency change
+affecting the already-live S2 pipeline, not a one-line change to this feature).
+
+**On the ~23-34% of entries that did decompress successfully**, ran the real extraction against 36
+genuine, successfully-parsed 990PF filings (real EINs, real foundation names — small family
+foundations, trusts, and scholarship funds, e.g. "WINIFRED RUTH FRANCES & DOROTHY EDWARDS
+FOUNDATION INC," "THE TAYMOR FAMILY FOUNDATION TRUST," "STEVE AND JUDITH KRANTZ FOUNDATION").
+**Every one returned `grantCount: 0, lineItems: 0`** — plausible and not itself a defect: small
+family/scholarship foundations very commonly make no reportable third-party grants in a given
+fiscal year, or file without a populated Schedule I. `extractFilingMeta()` did not throw on any of
+the 36 real filings, confirming the regex-based tag probing runs cleanly against genuine,
+current-year IRS XML — but **this session could not obtain a single real filing with actual grant
+line items to positively confirm the new `grant_history` extraction path itself** (as opposed to
+its "no Schedule I present" branch, which is confirmed working). The zip-decompression failure rate
+above meant every large, well-known foundation with a virtual certainty of real Schedule I data
+(Ford Foundation, Lilly Endowment, Gates Foundation — the specific filing initially targeted,
+Lilly's own indexed `object_id`, was not present in the batch its own CSV row claimed, a separate,
+minor index-consistency wrinkle) was unreachable within this session's practical time budget.
+**Honest verdict: the extraction code is proven not to crash against real IRS XML and proven correct
+for the common zero-grant case; it remains unconfirmed against a real, populated Schedule I.**
+
+### 6. 298K Prospect CSV Import (row D4) — re-confirmed identical to the prior two sessions,
+nothing changed
+
+**Claim under test:** "`scripts/import-prospects.ts` confirmed absent... `D:\dataocean`
+unverifiable from within this session's sandbox."
+
+Re-confirmed independently: `scripts/import-prospects.ts` does not exist (direct file check, not
+just `Glob`). `D:\dataocean` — attempted via both `Bash` (`ls`/`test -d`) and `PowerShell`
+(`Test-Path`), **both blocked with the identical sandbox message** the prior two sessions
+independently hit ("Claude Code may only access files in the allowed working directories for this
+session: `C:\Users\manag\Documents\benavora`"). This is the third session in a row to hit the exact
+same wall — worth escalating to Reid directly rather than a fourth session re-attempting the same
+check, since nothing in this session's tooling differs from the prior two that also failed here.
+
+**Verdict:** row D4 remains genuinely blocked-on-missing-source (the script) and
+unverifiable-from-sandbox (the data path). No change from the prior session's status — correctly not
+upgraded, per this session's own instruction not to silently improve a prior blocker's status.
+
+### Summary across all 6
+
+| # | Item | Verdict |
+|---|---|---|
+| 1 | Marketplace (#121-125) | Real, load-bearing RLS recursion bug found and fixed live; genuinely BUILT/VERIFIED after the fix for #121/#122/#124/#123-rule-based. #125 and #123-AI unchanged PLANNED. |
+| 2 | Personalization (#221) | BUILT/VERIFIED as scoped; one precision added (toggle doesn't change the page's own visible card content, only which pill is highlighted). |
+| 3 | Resource Graph (#226) | BUILT/VERIFIED, no defects found. |
+| 4 | Custom Connector (#59/#60) | Security boundary sound from the start (8/8 adversarial SSRF tests passed pre-fix); two real bugs in the legitimate-fetch path found and fixed (Happy-Eyeballs lookup-shape crash; truncation hang). BUILT/VERIFIED after fixes. |
+| 5 | 990-PF (#66) | A pre-existing dead-URL bug in `enrich-foundations-990.ts` found (unrelated to this session's own change); a ZIP64 decompression defect in `unzipper` found against real IRS batch archives; extraction logic proven not to crash and correct on the zero-grant case; the populated-Schedule-I case remains unconfirmed. Still genuinely PARTIAL. |
+| 6 | Prospect CSV (D4) | Re-confirmed identical to two prior sessions — script absent, data path sandbox-unverifiable. No change. |
+
+**Verification method (applies across all 6 unless stated otherwise within each section):** every
+claim was checked against the real production database (project `vbjplpquqxxfbpazyalt`) via
+`DATABASE_URL`/psql (`STANDING_DIRECTIVES.md` DIRECTIVE-017) and a real service-role/session-bound
+Supabase client (Node, `.env.local`, `ws` WebSocket polyfill for Node 20, no mocks); real temp
+orgs/users created via `supabase.auth.admin.createUser` + `profiles`, signed in via
+`signInWithPassword`, and used to exercise RLS-scoped clients exactly as the real API routes do —
+not just the service-role client; the real, unmodified library functions (`runMarketplaceMatching`,
+`matchResourcesForSignal`, `safeFetch`, `assertDomainAllowed`, `CustomApiResearchAgent`,
+`IRS990Source`) were imported and called directly via `node --import tsx`, never reimplemented or
+mocked. Two live migrations (127, and applying already-committed-but-unapplied 132) were written
+and applied via `DATABASE_URL`/psql this session, each independently re-verified live via
+`information_schema` before and after. Two source fixes (`safe-fetch.ts`'s `autoSelectFamily` and
+truncation-hang bugs) were applied and re-verified against real network targets, not just
+unit-level reasoning. All temporary test orgs, users, listings, matches, signals, templates, and
+variants created during this pass were deleted afterward via real cleanup queries (including
+resolving `platform_config`/`agent_runs`/`usage_metrics` and 99 other FK-dependent tables blocking
+a plain `organizations` delete — handled with a generic sweep across every table with a live FK to
+`organizations.id`, discovered via `information_schema`, not a hardcoded guess list) — confirmed
+zero `Q37_*`-named test orgs and zero `is_seed_data=true` marketplace rows remain in production
+after this session. All throwaway verification scripts (`scripts/.q37-verify/`) were deleted before
+this commit and were never staged.

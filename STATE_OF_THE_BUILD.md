@@ -1,6 +1,70 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 8, 2026 (990-PF giving history extension row #66; prospect CSV import row D4 confirmed blocked). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 8, 2026 (queue-37 live verification — found and fixed a live RLS recursion bug blocking the entire Marketplace feature, and two live bugs blocking the Custom Connector's legitimate-fetch path; confirmed real matches for Personalization/Resource Graph; found two pipeline bugs blocking 990-PF's positive case; re-confirmed Prospect CSV import blocked). Not FORGE-auto-generated — hand-verified.**
+
+## SESSION — August 8, 2026 (queue-37 live verification: 6 speculative Phase 3-5 MVPs checked against real evidence, not code review)
+
+Full detail with exact reproduction steps, live query output, and root causes lives in
+`AGENT_VERIFICATION_LOG.md`'s "queue-37 live verification" entry — this is the summary.
+
+Verified all 6 items the immediately-preceding 5 build sessions shipped, using real temp
+orgs/users, real RLS-scoped Supabase sessions (not just the service-role client those sessions
+tested with), real network fetches, and real downloaded government data — not a re-read of the
+code. **Found and fixed 3 previously-undocumented, load-bearing bugs**, all live in production
+before this session:
+
+1. **Marketplace (#121-125) — a 100%-reproducible RLS infinite-recursion bug broke every real HTTP
+   route.** `marketplace_listings`'s and `marketplace_matches`' SELECT policies mutually
+   `EXISTS`-checked each other (migration 125) — Postgres rejects this as circular for any
+   session-client query against either table, even on an empty table with zero rows. This broke
+   browse (`GET` both endpoints), listing creation (`POST`, which does `insert().select()`), and
+   the request/approve flow (`PATCH`) — the prior session's "live-verified" claim was true only for
+   the service-role-only seed script/matcher it actually tested, never the real user-facing routes.
+   **Fixed live**: migration 127 replaces the circular `EXISTS` subqueries with `SECURITY DEFINER`
+   helper functions. Re-verified end-to-end with 3 real temp orgs: full request→approve and
+   request→decline cycles now genuinely complete via real per-org RLS-scoped clients (14/15 checks
+   passed — the one "failure" was an overly-strict test assertion, not a defect). Also found and
+   cleaned up 3 leftover, un-cleaned seed listings from the prior session that its own write-up had
+   claimed were cleaned up.
+2. **Custom Connector (#59/#60) — the SSRF security boundary was sound (8/8 adversarial tests
+   passed, including cloud metadata, loopback, RFC1918, IPv6, and a defense-in-depth test proving
+   even an allowlisted-but-private-resolving domain is still blocked), but the "legitimate fetch
+   succeeds" half was completely broken by two bugs, both found and fixed live**: (1) Node ≥18.13's
+   `autoSelectFamily` (Happy Eyeballs) made every real fetch fail with `"Invalid IP address:
+   undefined"`, 100% of the time — fixed by disabling it on the pinned request. (2) truncating an
+   over-`maxBytes` response via `res.destroy()` left the fetch promise permanently unsettled (hung
+   forever, since `"end"` never fires after `destroy()`) — fixed by resolving at the truncation
+   point instead. Re-verified: a real allowlisted connector against a real public JSON API now
+   genuinely fetches, maps, and stores 3 real opportunity rows end-to-end; a connector targeting
+   `169.254.169.254` is rejected before any fetch.
+3. **990-PF (#66) — found two separate pipeline defects, neither fixed (out of scope), that block
+   ever reaching a positive real-world case**: `scripts/enrich-foundations-990.ts` constructs a
+   dead S3 URL for every filing (the same dead endpoint `foundation-scraper.ts`'s own header
+   already flagged 2026-07-28 — this script was never updated); and the pinned `unzipper` package
+   fails to decompress ~66% of entries in a real, large (84,172-entry, ZIP64) IRS batch archive —
+   likely a real risk to the already-live weekly S2 scraper too. The new `grant_history` extraction
+   code itself ran cleanly against 36 real, successfully-decompressed 990PF filings and correctly
+   returned zero grants for each (plausible for the small foundations sampled) — the
+   populated-Schedule-I case remains unconfirmed.
+
+Personalization (#221) and Community Resource Graph (#226) were both confirmed working exactly as
+their prior sessions claimed, with one added precision for Personalization (the toggle persists
+correctly but doesn't change the `/outreach/templates` page's own visible card content, only which
+pill is highlighted). Prospect CSV Import (D4) was re-confirmed identical to the prior two
+sessions — script absent, `D:\dataocean` sandbox-unverifiable for the third session running,
+worth escalating to Reid directly rather than a fourth session re-attempting the same check.
+
+Applied 3 migrations live this session: 127 (new, the RLS recursion fix), and confirmed-then-applied
+132/`custom_connector_allowlist` (committed in the prior connector session but never actually
+applied to production until now). All temp test data (8 orgs, plus the 3 leftover marketplace seed
+rows from the prior session) was cleaned up afterward — confirmed zero `Q37_*`-named orgs and zero
+`is_seed_data=true` marketplace rows remain in production.
+
+Gates: `pnpm tsc --noEmit` — 0 errors in every file this session touched (`safe-fetch.ts`); the
+full run's remaining errors are the same pre-existing, unrelated `src/__tests__/**` set documented
+throughout this file.
+
+---
 
 ## SESSION — August 8, 2026 (990-PF giving history extension row #66; prospect CSV import row D4 confirmed blocked)
 
