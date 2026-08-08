@@ -1,7 +1,52 @@
 # BENAVORA — Session State
-## Last Updated: August 7, 2026 (Donation Recommendation Marketplace MVP built — rows #121-125)
+## Last Updated: August 7, 2026 (Donor Personalization Engine MVP built — row #221, scoped-down toggle)
 
-## Current Session — August 7, 2026 (Donation Recommendation Marketplace MVP, rows #121-125)
+## Current Session — August 7, 2026 (Donor Personalization Engine MVP, row #221)
+
+**Focus:** build row #221 per the queue-37 preflight's explicit finding (below): no real
+visitor-type signal exists in this repo, so build the scoped-down version — an org-configurable
+content-variant toggle, not visitor-detection ML. Full detail in `STATE_OF_THE_BUILD.md`'s matching
+session entry.
+
+**Preflight outcome:** confirmed clean — the queue-37 preflight found zero visitor-detection code
+anywhere (no `visitors` table, no UTM/referrer capture, no session-tracking column/table). The
+scoped-down toggle path was used, not a genuine adaptive-personalization MVP.
+
+**Real surface:** `outreach_templates` — a real, already-wired donor/prospect-facing template
+library UI+API that was missing its live backing table (root `supabase/migrations/082` never
+applied to production — same two-tree gap documented elsewhere). Supplied the missing table and
+added `outreach_template_variants` (up to 3 named content variants per template, one active at a
+time, enforced by a partial unique index) on top of it.
+
+**Migration:** `src/supabase/migrations/126_outreach_template_content_variants.sql` — next-free
+number in `src/supabase/migrations/` (was at 125). Applied via `DATABASE_URL`/psql, exit 0,
+independently re-verified live (`\d` on both tables, `pg_class.relrowsecurity = t`).
+
+**API:** `GET /api/outreach/templates` now attaches variants per template. New
+`GET`/`POST /api/outreach/templates/[id]/variants` and
+`PATCH`/`DELETE /api/outreach/templates/[id]/variants/[variantId]` (`PATCH {activate:true}`
+deactivates other variants first, then activates the target).
+
+**UI:** `VariantPanel` on each template card at `/outreach/templates` — inline-hex pill toggle
+(Directive 4 One UI Rule) to switch the active variant, plus an add-variant form reusing the
+existing `Modal`/`Input`/`Textarea` components.
+
+**Live-verified end-to-end**, not just schema-applied: created a real template + 2 variants for the
+real Faith Foundation org, confirmed the unique-active index genuinely blocks double-activation
+(`23505`, reproduced live), confirmed the deactivate-then-activate sequence works, confirmed
+`ON DELETE CASCADE` cleanly removes variants on template delete. All test rows cleaned up.
+
+**Not built, by design:** visitor detection, session fingerprinting, UTM/referrer capture, ML
+variant selection, or wiring the active variant into the actual send pipeline (`outreach/send`,
+`sequence-engine.ts` — both separate, already-fragile systems; found but did not fix an unrelated
+pre-existing schema-drift bug in `/api/email/templates/route.ts` while scoping this, flagging only).
+
+Gates: `pnpm tsc --noEmit` — 0 errors in every file touched this session (pre-existing, unrelated
+`src/__tests__/**` errors unchanged).
+
+---
+
+## Prior Session — August 7, 2026 (Donation Recommendation Marketplace MVP, rows #121-125)
 
 **Focus:** build the MVP the queue-37 preflight (below) explicitly scoped down to: real schema +
 browse UI + rule-based (non-AI) match, not the full 5-row spec. Full detail with code paths is in

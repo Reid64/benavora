@@ -12,8 +12,12 @@ import { cn } from "@/lib/utils/cn";
 import type { Tables } from "@/types/database";
 
 type Template = Tables<"outreach_templates">;
+type TemplateVariant = Tables<"outreach_template_variants">;
+type TemplateWithVariants = Template & { variants: TemplateVariant[] };
 type Channel = "email" | "linkedin" | "phone_script" | "physical_mail";
 type ChannelFilter = Channel | "all";
+
+const MAX_VARIANTS = 3;
 
 const CHANNELS: Channel[] = ["email", "linkedin", "phone_script", "physical_mail"];
 
@@ -34,7 +38,7 @@ export default function OutreachTemplatesPage() {
   const { profile } = useProfile();
   const editable = canEdit(profile?.role);
 
-  const [templates, setTemplates] = useState<Template[]>([]);
+  const [templates, setTemplates] = useState<TemplateWithVariants[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeChannel, setActiveChannel] = useState<ChannelFilter>("all");
@@ -46,7 +50,7 @@ export default function OutreachTemplatesPage() {
     try {
       const res = await fetch("/api/outreach/templates");
       if (!res.ok) throw new Error("load failed");
-      const data = (await res.json()) as { templates: Template[] };
+      const data = (await res.json()) as { templates: TemplateWithVariants[] };
       setTemplates(data.templates ?? []);
     } catch {
       setError("Could not load outreach templates.");
@@ -175,6 +179,11 @@ export default function OutreachTemplatesPage() {
                     <p className="mt-2 text-xs text-navy-400">
                       Created {formatRelative(t.created_at)}
                     </p>
+                    <VariantPanel
+                      template={t}
+                      editable={editable}
+                      onChanged={load}
+                    />
                   </div>
                 </div>
               </Card>
@@ -339,6 +348,284 @@ function TemplateForm({
         </Button>
         <Button type="submit" isLoading={saving}>
           Create template
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+/**
+ * Donor Personalization Engine MVP (row #221), scoped down per the queue-37 preflight: no real
+ * visitor-type detection signal exists anywhere in this repo, so this is an org-configurable
+ * content-variant toggle — an admin defines up to 3 named variants for a template and picks
+ * which one is active — not ML-driven visitor personalization. This IS the "settings UI control
+ * to switch between variants," styled with inline hex per the One UI Rule (Directive 4).
+ */
+function VariantPanel({
+  template,
+  editable,
+  onChanged,
+}: {
+  template: TemplateWithVariants;
+  editable: boolean;
+  onChanged: () => void | Promise<void>;
+}) {
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [panelError, setPanelError] = useState<string | null>(null);
+
+  const variants = template.variants ?? [];
+  const activeVariant = variants.find((v) => v.is_active) ?? null;
+
+  async function activate(variantId: string | null) {
+    setPanelError(null);
+    // Switching to "Base" deactivates whichever variant is currently active.
+    // Switching to a named variant activates it (the route deactivates any others).
+    const targetId = variantId ?? activeVariant?.id ?? null;
+    if (!targetId) return;
+
+    setBusyId(targetId);
+    try {
+      const res = await fetch(
+        `/api/outreach/templates/${template.id}/variants/${targetId}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ activate: variantId !== null }),
+        },
+      );
+      if (!res.ok) throw new Error("activate failed");
+      await onChanged();
+    } catch {
+      setPanelError("Could not switch content variant.");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function remove(variantId: string) {
+    setPanelError(null);
+    setBusyId(variantId);
+    try {
+      const res = await fetch(
+        `/api/outreach/templates/${template.id}/variants/${variantId}`,
+        { method: "DELETE" },
+      );
+      if (!res.ok) throw new Error("delete failed");
+      await onChanged();
+    } catch {
+      setPanelError("Could not remove content variant.");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  const pillBase: React.CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    borderRadius: 9999,
+    padding: "4px 10px",
+    fontSize: 12,
+    fontWeight: 600,
+    border: "1px solid #CBD5E1",
+    background: "#FFFFFF",
+    color: "#475569",
+    cursor: "pointer",
+    transition: "background 0.15s, color 0.15s, border-color 0.15s",
+  };
+
+  const pillActive: React.CSSProperties = {
+    ...pillBase,
+    background: "#0077B6",
+    borderColor: "#0077B6",
+    color: "#FFFFFF",
+  };
+
+  return (
+    <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid #E2E8F0" }}>
+      <p
+        style={{
+          fontSize: 11,
+          fontWeight: 700,
+          letterSpacing: "0.04em",
+          textTransform: "uppercase",
+          color: "#94A3B8",
+          marginBottom: 6,
+        }}
+      >
+        Content Variant
+      </p>
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
+        <button
+          type="button"
+          disabled={!editable || busyId !== null}
+          onClick={() => activate(null)}
+          style={activeVariant === null ? pillActive : pillBase}
+        >
+          Base
+        </button>
+        {variants.map((v) => (
+          <span key={v.id} style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
+            <button
+              type="button"
+              disabled={!editable || busyId !== null}
+              onClick={() => activate(v.id)}
+              style={v.is_active ? pillActive : pillBase}
+              title={v.subject_override ?? undefined}
+            >
+              {v.variant_name}
+            </button>
+            {editable && (
+              <button
+                type="button"
+                disabled={busyId !== null}
+                onClick={() => remove(v.id)}
+                aria-label={`Remove variant ${v.variant_name}`}
+                style={{
+                  border: "none",
+                  background: "transparent",
+                  color: "#94A3B8",
+                  fontSize: 14,
+                  lineHeight: 1,
+                  cursor: "pointer",
+                  padding: "0 2px",
+                }}
+              >
+                ×
+              </button>
+            )}
+          </span>
+        ))}
+        {editable && variants.length < MAX_VARIANTS && (
+          <button
+            type="button"
+            onClick={() => setAdding(true)}
+            style={{
+              ...pillBase,
+              borderStyle: "dashed",
+              color: "#0077B6",
+              borderColor: "#0077B6",
+            }}
+          >
+            + Add variant
+          </button>
+        )}
+      </div>
+      {panelError && (
+        <p style={{ marginTop: 6, fontSize: 12, color: "#DC2626" }}>{panelError}</p>
+      )}
+
+      <Modal
+        isOpen={adding}
+        onClose={() => setAdding(false)}
+        title={`New variant — ${template.name}`}
+        size="lg"
+      >
+        <VariantForm
+          templateId={template.id}
+          onCancel={() => setAdding(false)}
+          onSaved={async () => {
+            setAdding(false);
+            await onChanged();
+          }}
+        />
+      </Modal>
+    </div>
+  );
+}
+
+function VariantForm({
+  templateId,
+  onCancel,
+  onSaved,
+}: {
+  templateId: string;
+  onCancel: () => void;
+  onSaved: () => void | Promise<void>;
+}) {
+  const [variantName, setVariantName] = useState("");
+  const [subjectOverride, setSubjectOverride] = useState("");
+  const [bodyOverride, setBodyOverride] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (variantName.trim() === "") {
+      setError("Variant name is required.");
+      return;
+    }
+    if (bodyOverride.trim() === "") {
+      setError("Body is required.");
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+
+    const res = await fetch(`/api/outreach/templates/${templateId}/variants`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        variant_name: variantName.trim(),
+        subject_override: subjectOverride.trim() || null,
+        body_override: bodyOverride.trim(),
+      }),
+    });
+
+    if (!res.ok) {
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
+      setError(data?.error ?? "Could not save the variant.");
+      setSaving(false);
+      return;
+    }
+
+    setSaving(false);
+    await onSaved();
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+      {error && (
+        <div
+          role="alert"
+          className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+        >
+          {error}
+        </div>
+      )}
+
+      <Input
+        label="Variant name"
+        value={variantName}
+        onChange={(e) => setVariantName(e.target.value)}
+        placeholder="Warm"
+        required
+      />
+
+      <Input
+        label="Subject override (optional)"
+        value={subjectOverride}
+        onChange={(e) => setSubjectOverride(e.target.value)}
+        placeholder="Leave blank to keep the base template's subject"
+      />
+
+      <Textarea
+        label="Body"
+        value={bodyOverride}
+        onChange={(e) => setBodyOverride(e.target.value)}
+        rows={8}
+        placeholder="Hi {contact_name}, I lead..."
+        required
+      />
+
+      <div className="flex justify-end gap-2 border-t border-navy-200 pt-4">
+        <Button type="button" variant="secondary" onClick={onCancel} disabled={saving}>
+          Cancel
+        </Button>
+        <Button type="submit" isLoading={saving}>
+          Add variant
         </Button>
       </div>
     </form>

@@ -1,6 +1,84 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 7, 2026 (Donation Recommendation Marketplace MVP built — schema + browse UI + rule-based match, rows #121-123; request/approve flow, row #124. Rows #125 and the AI half of #123 remain explicitly PLANNED). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 7, 2026 (Donor Personalization Engine MVP built — org-configurable content-variant toggle, row #221, scoped down per the queue-37 preflight since no real visitor-type signal exists). Not FORGE-auto-generated — hand-verified.**
+
+## SESSION — August 7, 2026 (Donor Personalization Engine MVP — row #221, scoped-down toggle)
+
+**Preflight outcome used:** the queue-37 preflight (SESSION_STATE.md, item 1) confirmed **no real
+visitor-type signal source exists anywhere in this repo** — grepped for `visitor`, `utm_`,
+`referrer`, `session_track`, `visitor_persona`, `content_variant`, `visitor_type`,
+`visitor_segment` (case-insensitive) across `src/` and every migration: zero code hits. The only
+"visitor" references anywhere are 4 governance docs describing AG-34 Personalization Engine as
+PLANNED design text (`visitor_personas` table, per `AGENTS_v2.md` AG-34 — never built). Per the
+preflight's own conclusion and this session's task instructions, built the scoped-down version: an
+org-configurable content-variant toggle, not visitor-detection ML. No visitor detection, session
+fingerprinting, or ML was built — explicitly out of scope for this pass.
+
+**Real surface the toggle was applied to:** `outreach_templates` — the org's real, already-wired
+multi-channel (email/LinkedIn/phone/mail) donor-and-prospect-facing template library
+(`src/app/(dashboard)/outreach/templates/page.tsx` + `src/app/api/outreach/templates/route.ts`).
+This UI and API were already real and fully consistent with the schema in
+`supabase/migrations/082_outreach_templates.sql` — but a live `psql` check this session confirmed
+that table itself was **never applied to production** (same two-parallel-migrations-directories gap
+documented elsewhere in this project — migration 082 exists only in the root `supabase/migrations/`
+tree, not the `src/supabase/migrations/` tree recent sessions have actually been applying, e.g.
+migration 125 earlier the same day). Rather than invent a new page to attach the toggle to (which
+the task explicitly prohibits), this session supplied the missing live table for the real surface
+that already existed, then added the variant capability on top of it.
+
+**Migration:** `src/supabase/migrations/126_outreach_template_content_variants.sql` (next-free
+number in the `src/supabase/migrations/` tree, confirmed via `ls` — that tree was at 125). Creates
+`outreach_templates` (mirroring the real, already-consistent root-tree 082 schema exactly) and a new
+`outreach_template_variants` table (`template_id`, `organization_id`, `variant_name`,
+`subject_override`, `body_override`, `is_active`, timestamps), with a partial unique index
+(`idx_outreach_template_variants_one_active`) enforcing at most one active variant per template —
+the actual toggle invariant, enforced at the database layer, not just the API layer. RLS + explicit
+`REVOKE ALL ... FROM anon` on both tables in the same migration, matching this project's own
+standing anon-exposure-gap convention (`ANON_GRANT_AUDIT.md`). Applied directly to production via
+`DATABASE_URL`/psql (`STANDING_DIRECTIVES.md` DIRECTIVE-017) — confirmed exit 0, then independently
+re-verified live via `\d` on both tables and a `pg_class.relrowsecurity` check (both `t`).
+
+**API:** `GET /api/outreach/templates` now attaches each template's variants in one extra query (no
+N+1). New `GET`/`POST /api/outreach/templates/[id]/variants` (list / create, max 3 variants per
+template, writer-role gated) and `PATCH`/`DELETE /api/outreach/templates/[id]/variants/[variantId]`
+— `PATCH { activate: true }` deactivates every other variant on the template first, then activates
+the target one (the actual "switch between variants" toggle). `organization_id` derived from the
+authenticated session throughout, never from the request body.
+
+**UI:** `VariantPanel` added to each template card on `/outreach/templates` — a "Content Variant"
+pill row (Base + up to 3 named variants + "+ Add variant"), styled with inline `style={{}}` hex
+values per the One UI Rule (Directive 4: active pill `#0077B6`/white text, inactive white/`#475569`
+with a `#CBD5E1` border, add-variant pill dashed `#0077B6`). Clicking a variant pill activates it;
+clicking "Base" deactivates whichever variant is currently active. A small inline delete affordance
+removes a variant. The add-variant form itself reuses the existing `Modal`/`Input`/`Textarea`
+components (matching the rest of the page's pre-existing style), consistent with this project's
+established pattern of applying the inline-hex rule to new controls without silently rewriting an
+entire pre-existing page's unrelated styling.
+
+**Real, live-verified end-to-end** (not just schema-applied): created a real template + 2 real
+variants for the real Faith Foundation org via the service-role client, confirmed the unique-active
+index genuinely blocks a second simultaneous activation (`23505` duplicate-key violation,
+reproduced live), then confirmed the exact deactivate-then-activate sequence the PATCH route
+performs correctly switches the active variant, and confirmed `ON DELETE CASCADE` cleanly removes
+all variants when their parent template is deleted (variant count `0` after cleanup). All test rows
+deleted afterward — nothing left behind in production.
+
+**Explicitly not built, by design:** any visitor detection, session fingerprinting, UTM/referrer
+capture, or ML-driven variant selection. The toggle is 100% admin-driven (a human picks the active
+variant); nothing in this pass infers which variant to show from a visitor's identity or behavior.
+Also not built: wiring the active variant into any actual send pipeline (`outreach/send`,
+`sequence-engine.ts`) — those are separate, already-fragile systems (the `email_templates`-backed
+send path has its own pre-existing, unrelated schema-drift bug — `/api/email/templates/route.ts`
+reads/writes `subject`/`body` columns that don't exist on the live `email_templates` table, which
+only has `subject_template`/`body_template` — found while scoping this task, not fixed, out of
+scope) — wiring into them was correctly out of this MVP's scope per the task's own toggle-not-ML
+framing.
+
+Gates: `pnpm tsc --noEmit` — 0 errors in every file touched this session (grepped the full gate
+output for `outreach`/`database.ts` — no matches; all remaining errors are the same pre-existing,
+unrelated `src/__tests__/**` failures already documented throughout this file).
+
+---
 
 ## SESSION — August 7, 2026 (Donation Recommendation Marketplace MVP — rows #121-125)
 

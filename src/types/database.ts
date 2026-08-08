@@ -4828,6 +4828,59 @@ export interface Database {
           },
         ];
       };
+      // Migration 126: outreach_template_variants - named content variants per outreach
+      // template, org-configurable toggle (Donor Personalization Engine MVP, row #221).
+      outreach_template_variants: {
+        Row: {
+          id: string;
+          template_id: string;
+          organization_id: string;
+          variant_name: string;
+          subject_override: string | null;
+          body_override: string;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          template_id: string;
+          organization_id: string;
+          variant_name: string;
+          subject_override?: string | null;
+          body_override: string;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          template_id?: string;
+          organization_id?: string;
+          variant_name?: string;
+          subject_override?: string | null;
+          body_override?: string;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "outreach_template_variants_template_id_fkey";
+            columns: ["template_id"];
+            isOneToOne: false;
+            referencedRelation: "outreach_templates";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "outreach_template_variants_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       // Migration 083: followup_sequences - multi-step post-submission follow-up sequences.
       followup_sequences: {
         Row: {

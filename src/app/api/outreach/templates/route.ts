@@ -38,7 +38,35 @@ export async function GET(request: Request) {
     return jsonError("Failed to load outreach templates.", "db_error", 500);
   }
 
-  return NextResponse.json({ templates: data ?? [] });
+  const templates = data ?? [];
+
+  // Attach each template's content variants (Donor Personalization Engine MVP, row #221 —
+  // an org-configurable content-variant toggle) in one query rather than N+1 per template.
+  let variantsByTemplate: Record<string, unknown[]> = {};
+  if (templates.length > 0) {
+    const { data: variants } = await supabase
+      .from("outreach_template_variants")
+      .select("*")
+      .eq("organization_id", organizationId)
+      .in(
+        "template_id",
+        templates.map((t) => t.id),
+      )
+      .order("created_at", { ascending: true });
+
+    variantsByTemplate = (variants ?? []).reduce<Record<string, unknown[]>>((acc, v) => {
+      const key = v.template_id as string;
+      (acc[key] ??= []).push(v);
+      return acc;
+    }, {});
+  }
+
+  const templatesWithVariants = templates.map((t) => ({
+    ...t,
+    variants: variantsByTemplate[t.id] ?? [],
+  }));
+
+  return NextResponse.json({ templates: templatesWithVariants });
 }
 
 export async function POST(request: Request) {
