@@ -1,8 +1,49 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 7, 2026 (AG-05 Draft Generator wired to the real Knowledge Engine, FEATURE_REGISTRY_v2.md row #171's documented gap closed; knowledge-engine.ts success_rate display bug fixed). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 7, 2026 (AG-05 Knowledge Engine integration live-verified — retrieval genuinely works, but persistence has never succeeded in production because migration 123 was never applied, and the modified class has zero real production trigger path). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 7, 2026 (live verification: AG-05 × Knowledge Engine integration — not a clean pass)
+
+Live-verified commit `08fa5c2`'s claim that `DraftGenerationAgent` (`src/lib/agents/draft-generation-agent.ts`,
+`ag-05-draft`) was "wired to the real Knowledge Engine." Full evidence in `AGENT_VERIFICATION_LOG.md`'s
+"RAG Integration (row #171)" entry. Ran the real, unmodified class twice against the real Faith
+Foundation org and a real, verified-matching HUD/CDBG opportunity (no mocks).
+
+**What actually works:** `queryKnowledgeEngine()` genuinely retrieves real, relevant cross-org
+patterns — a directly on-topic HUD/timing pattern identified independently before the run was
+confirmed present in the live probe's returned set of 10. The `success_rate` display fix is
+correct and confirmed live (0.73 stored → "73%" rendered, not "0.73%"). The org's own
+`knowledge_base`/Digital Twin content is still present in the same draft alongside the new
+Knowledge Engine section — additive, not a regression.
+
+**What doesn't work, confirmed by reproducing it twice:** every real run fails at the final
+`applications` insert with `"Could not find the 'knowledge_patterns_applied' column of
+'applications' in the schema cache"` — migration `123_knowledge_engine_draft_integration.sql`
+(the migration this same commit added) was never applied to production. **Zero real drafts have
+ever been produced by this integration; the pattern-attribution column has never once held a real
+value.** Separately: `DraftGenerationAgent` — the class this commit modified — has **no real
+production trigger path at all**, confirmed by a fresh grep of `worker/autonomous-orchestrator.ts`
+(no queue case for `'ag-05-draft'`, the nightly step calls a different, older function entirely)
+and `src/app/` (no dedicated API route). This is a stronger gap than the enum-blocked agents
+elsewhere in this log — even fixing the migration wouldn't make anything in production call this
+code. The actual live draft-generation path (`generateDraft()` in `src/lib/drafts/generator.ts`)
+still has zero Knowledge Engine integration.
+
+**New, separate, pre-existing bug found** (not introduced by this commit): `queryKnowledgeEngine()`'s
+own audit-log insert into `knowledge_queries` uses `organization_id`, but the live column is
+`org_id` — silently caught by its own try/catch, so this table has never logged a single query in
+its history, confirmed directly after two real calls this session produced zero rows.
+
+**Not fixed this session** (verification-only task): migration 123 remains unapplied; recommend
+applying it via `DATABASE_URL`/psql (`STANDING_DIRECTIVES.md` DIRECTIVE-017) before this feature
+can be considered functional even narrowly.
+
+Gates: not applicable — no source changes shipped (one temporary debug instrumentation was added
+and reverted before commit; `git diff` confirmed clean).
 
 ---
 

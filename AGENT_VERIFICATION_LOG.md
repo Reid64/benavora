@@ -8085,3 +8085,203 @@ files). All disposable test rows (2 funders, 2 agent_queue rows, 2 agent_runs ro
 after verification, confirmed via delete-count output. All throwaway verification scripts were
 deleted after use and were never committed.
 
+---
+
+## RAG Integration (row #171) — AG-05 Draft Generator × Knowledge Engine
+
+**Spec under test:** `FEATURE_REGISTRY_v2.md` row #171 ("RAG Integration in Draft Generator") and
+the prior session's own commit `08fa5c2` ("feat(agents): wire AG-05 Draft Generator to query the
+real Knowledge Engine (row #171), fix success_rate display bug"), which modified
+`src/lib/agents/draft-generation-agent.ts` (class `DraftGenerationAgent`, `agentId: "ag-05-draft"`)
+to call `queryKnowledgeEngine()` (`src/lib/intelligence/knowledge-engine.ts`), persist matched
+pattern IDs to a new `applications.knowledge_patterns_applied` column (migration
+`src/supabase/migrations/123_knowledge_engine_draft_integration.sql`), and fix a `success_rate`
+display bug in the same file. This entry verifies that commit live, against a real org and a real
+opportunity, per this session's explicit instructions.
+
+**Verdict: split result, none of it a clean pass.** The RAG retrieval itself genuinely works and
+was proven live — real patterns, real query text, real success-rate-percent fix confirmed. But
+every real run of this agent fails at its final step because the migration this same commit added
+was never applied to production, so **zero real drafts have ever been produced by this integration
+in the live database.** Separately, this session confirmed `DraftGenerationAgent` — the class this
+commit modified — is still never instantiated by anything in production; it has no real trigger
+path at all, not even the blocked ones documented for its siblings elsewhere in this log. And a
+second, previously-undocumented, pre-existing bug (not introduced by this commit) was found:
+`queryKnowledgeEngine()`'s own query-logging insert writes to a column that doesn't exist either,
+so it has silently never logged a single query, ever.
+
+### 0. Confirmed the real production trigger path first, before running anything
+
+Per `worker/autonomous-orchestrator.ts` (grepped fresh this session, not assumed from prior
+sessions): `DraftGenerationAgent` is **not** the class wired into the nightly `runDraftGenerationStep()`
+or the `agent_queue` case `'draft_generation'` — both call the older, separate, plain-function
+`generateDraft()` (`src/lib/drafts/generator.ts`). `routeQueueItem()`'s full case list (27 cases,
+read directly) has no case for the literal `'ag-05-draft'` — the exact `agentId` this class passes
+to `super()`. Repo-wide grep for `new DraftGenerationAgent` and `DraftGenerationAgent(` returns
+zero matches outside the class's own declaration (`draft-generation-agent.ts:777`), and zero
+matches in `src/app/api/agents/` or anywhere else in `src/app/`. **This class has no real trigger
+path in production at all** — not nightly, not queue, not a dedicated API route, not even the
+"blocked but reachable if the enum were fixed" status this log documents for AG-15/17/19/25/28/30.
+The `agent_type` enum value `'ag-05-draft'` was added to production in the 2026-08-02 fix batch
+(confirmed live this session via the `GET /rest/v1/` OpenAPI schema — it's present), so the enum
+was never the blocker here; the blocker is that nothing ever calls `new DraftGenerationAgent(...)`.
+
+Per this task's own instruction not to invent a call path if a real one exists, and given no real
+one does, this entry follows the same direct-instantiation methodology already established
+throughout this log for equivalently-unwired classes (e.g. the AG-19/AG-32/AG-38 entries above):
+`new DraftGenerationAgent(orgId, supabase).run('manual')`, seeding the real `agent_queue` input
+contract (`org_id`, `agent_id: 'ag-05-draft'`, `status: 'processing'`, `trigger_source: 'chain'`,
+`input_payload: {opportunityId}`) its own `loadTriggerPayload()` reads — this is the agent's real,
+designed input contract (the same shape `ProbabilityScoringAgent`/`EligibilityScoringAgent` would
+enqueue for it if the chain worked), not a bypass of it.
+
+### 1. Real org + opportunity selection
+
+Faith Foundation org (`b1ab7402-dfc2-4712-869f-70ea3566cc1d`, from `.env.local`'s
+`FAITH_FOUNDATION_ORG_ID`) has 19+ real, open, `housing_grant`-category opportunities on file
+(live query, `name.ilike.%housing%,name.ilike.%HUD%,description.ilike.%housing%,description.ilike.%HUD%`).
+Selected **Community Development Block Grant (CDBG)**, `id: f95468f5-be2c-4478-bed6-86841b8ac8f8`
+— real HUD program, `status: 'open'`, no existing `applications` row for it (confirmed before
+running, so this wasn't re-drafting an existing application). Confirmed live that `knowledge_patterns`
+(33 rows total) contains a directly relevant real match before running anything: `id:
+80352ad4-a044-41a7-95da-5d1af7104b42`, `pattern_type: 'timing'`, `funder_name: 'HUD'`,
+`success_rate: 0.62`, description: "Federal housing grant postings peak in October; organizations
+that begin drafting in August have the most runway to meet the typical 60-90 day application
+window and are funded at a materially higher rate than late starters." — the exact kind of
+plausible match this task asked for.
+
+### 2. `queryKnowledgeEngine()` was actually called during the run — direct, non-inferred proof
+
+Temporarily instrumented the real, unmodified execution path (a single `console.error("AG05_VERIFY_PROBE",
+...)` inserted immediately after the `Promise.all` that resolves `knowledgeEngineResult`, matching
+this log's established bisection/probe method — e.g. the camoufox-js `sampleWebGL` trace earlier in
+this file) rather than trusting that the code path exists from a source read alone. Ran the real,
+unmodified `run('manual')` end-to-end (no mocks) against the real DB. Real captured probe output
+(pattern IDs and top insight, quoted verbatim from stdout):
+
+```
+AG05_VERIFY_PROBE query="housing_grant Community Development Block Grant (CDBG) HUD's Community
+Development Block Grant program provides annual formula-based grants to states, cities, and
+counties to support community development activities. The program aims to develop viable urban
+communities by providing decent housing an..." patternCount=10
+patternIds=[19137e6b-3c11-4ffd-98c3-8e33eba59495, 57f42c4d-dbc9-4d8f-9d07-2522faf3b4ad,
+931dd14a-c44e-48a4-b94d-4fd1a43c1160, 6d686228-a6d1-479d-af17-182297cd8cc6,
+80352ad4-a044-41a7-95da-5d1af7104b42, c888da40-f804-4a38-bf80-80590e842706,
+d32f1581-8e97-47e3-b2cf-f442924deeba, d6a06518-42b3-40ef-97ce-6e4cef2aba01,
+4de6a5ef-06f3-4fe6-97e8-768610b1549d, 4ca08e07-91ed-4172-a1c0-7b57f4f96a1a]
+insight="Top matching pattern: \"Successful need statements cite national CDC or Census statistics
+alongside hyper-local community data...\" (73% success rate)."
+```
+
+**Pattern id `80352ad4-a044-41a7-95da-5d1af7104b42` — the real HUD/timing pattern identified before
+the run in step 1 — is present** in the returned set, confirming a genuine, relevant cross-org
+match was retrieved, not a coincidental or generic one. All 10 returned pattern IDs and their
+descriptions were captured verbatim (spanning HUD CoC scoring, USDA Rural Development timing, DOJ
+JAG partnership patterns, etc. — genuinely varied real content, not a static fixture). The
+instrumentation was removed immediately after capture (`git diff` confirmed clean/no residual
+changes to `draft-generation-agent.ts` afterward).
+
+### 3. Success-rate display fix confirmed correct, live
+
+The probe's `insights` field shows `"(73% success rate)"` for a pattern whose stored `success_rate`
+is `0.73` (verified directly against `knowledge_patterns` — the top-ranked pattern by the query's
+own `.order("success_rate", {ascending:false})`). `Math.round(0.73 * 100)` → `73` — an integer
+percent, not the raw fraction (`"(0.73% success rate)"`, the pre-fix bug) and not a fabricated
+number. Confirmed against a real, live row, not a unit-test fixture.
+
+### 4. Persistence — the field this task asked to check has never had a real value in production,
+because the run never reaches that line successfully
+
+Checked `applications.knowledge_patterns_applied` (the column migration 123 was supposed to add)
+directly against the live schema: **column does not exist** —
+`{"code":"42703","message":"column applications.knowledge_patterns_applied does not exist"}`
+(confirmed twice, once via a direct `.select()` probe, once as the real error surfaced by the
+agent's own run). `src/supabase/migrations/123_knowledge_engine_draft_integration.sql` exists on
+disk but was never applied to production — same two-parallel-migrations-directories/DDL-not-applied
+pattern documented repeatedly elsewhere in this log (AG-15/17/19/25/28/30's `agent_decisions`
+columns, `corporate_prospects`, etc.).
+
+**Consequence, reproduced twice, not inferred:** both real runs of `DraftGenerationAgent` this
+session got all the way through Phase 1 (intelligence gathering, including the real Knowledge
+Engine call above), Phase 2 (a real, org-specific `narrative_strategy` decision — see §5), Phase 3
+(drafting), and Phase 4 (a real `style_guide_violations` decision) — roughly 2 minutes and multiple
+real Claude calls each run — and then **failed at the final `applications` insert**:
+```
+"Failed to create draft application: Could not find the 'knowledge_patterns_applied' column of
+'applications' in the schema cache"
+```
+Both runs' `agent_runs` rows show `status: 'failed'` with this exact `error_message`, confirmed by
+reading the rows back from the database, not from the in-process return value. **No `applications`
+row was created by either run** (confirmed: `applications` query for this opportunity returned `[]`
+after both attempts). So the specific thing this task asked to confirm — "the persisted pattern-ID
+field... has a real, non-empty value for this run" — **cannot be confirmed, because no run has ever
+reached the point of persisting it.** The write this whole feature exists to produce has never
+happened in production, not once, since the column it targets isn't there.
+
+**Recommendation:** apply `src/supabase/migrations/123_knowledge_engine_draft_integration.sql` to
+production via the working `DATABASE_URL`/psql path (`STANDING_DIRECTIVES.md` DIRECTIVE-017) before
+this integration can be considered functional at all, even in the narrow sense of "produces one
+real draft." This session did not apply it — out of scope for a verification-only task; flagged for
+a following session.
+
+### 5. Org's own `knowledge_base`/Digital Twin content still present — no regression found
+
+Both runs' real `narrative_strategy` decisions (Phase 2, genuine Claude output, not templated) are
+saturated with real, org-specific content that can only have come from this org's own
+`knowledge_base`/`organizational_digital_twins` rows, not the Knowledge Engine's cross-org patterns:
+"FAITH Foundation", "Cornerstone Communities Initiative", "Down Payment Assistance and Transitional
+Housing programs", "rural South Texas", "44% of homeless Texans are unsheltered" (a real Texas-
+specific statistic, not a HUD/national figure). This confirms the org-voice sections
+(`buildTwinContext()`, Knowledge Base, Proven Narratives) are still being loaded and rendered into
+the prompt alongside the new, separately-labeled Knowledge Engine section — additive, not a
+replacement, matching the prior session's own stated design intent and this task's regression
+check. No evidence of the org's own content being crowded out or omitted.
+
+### 6. New bug found, not introduced by this commit but newly confirmed live: `queryKnowledgeEngine()`'s
+own query-logging insert is silently broken
+
+`queryKnowledgeEngine()` (`src/lib/intelligence/knowledge-engine.ts`, unmodified by the commit under
+test) ends with `await supabase.from('knowledge_queries').insert({ organization_id: orgId, ... })`
+wrapped in a `try { } catch { /* best-effort */ }`. Live schema check (`GET /rest/v1/` OpenAPI):
+`knowledge_queries`'s real column is **`org_id`**, not `organization_id` — the insert has been
+throwing and being silently swallowed on every call, for as long as this function has existed.
+Confirmed directly: after both real runs this session (which definitely called this function twice,
+per §2's proof), a direct query of `knowledge_queries` for this org (`org_id` eq, the correct
+column) returned **zero rows**. This table has, as far as this session could determine, never
+successfully logged a single query. Not fixed this session (out of scope, pre-existing, and
+unrelated to the specific commit under test) — flagged here since it directly bears on any future
+attempt to audit Knowledge Engine usage via this table.
+
+### Root-cause summary
+
+1. **Retrieval genuinely works.** `queryKnowledgeEngine()` returns real, relevant, varied
+   cross-org patterns for a real query built from real opportunity data — proven via a live probe,
+   not inferred from code review.
+2. **The success_rate display fix is correct and confirmed live** (0.73 → "73%").
+3. **The org-voice/RAG-injection split is real and non-regressive** — both sections coexist in the
+   same real prompt content, confirmed via live decision output.
+4. **The persistence half of this feature has never worked in production, ever** — migration 123 is
+   unapplied, so every real run fails at the final insert. Reproduced twice, not inferred.
+5. **The class this commit modified has zero real production trigger path** — confirmed by a fresh
+   grep of `worker/autonomous-orchestrator.ts` and `src/app/`, independent of the enum/migration
+   findings above. Even with migration 123 applied, nothing in production would ever call this code.
+   The live production draft-generation path (`generateDraft()` in `src/lib/drafts/generator.ts`)
+   still has zero Knowledge Engine integration, exactly as the prior session's own write-up already
+   flagged and left open.
+6. **New, separate, pre-existing bug found**: `queryKnowledgeEngine()`'s own audit-log insert
+   targets a nonexistent column and has silently no-op'd since the function was written.
+
+**Verification method:** live execution (`node --import tsx`, no mocks) of the real, unmodified
+`DraftGenerationAgent.run('manual')` against the real Faith Foundation org and a real, verified-
+matching CDBG opportunity, twice (once plain, once with a temporary, immediately-reverted
+`console.error` probe for direct proof of the Knowledge Engine call); every `agent_runs` and
+`agent_decisions` row independently re-queried and read back from the database, not inferred from
+the in-process return value; live schema checks via `GET /rest/v1/` OpenAPI for both
+`applications.knowledge_patterns_applied` and `knowledge_queries`'s real column names; a direct,
+pre-run query confirming a real, relevant `knowledge_patterns` row existed for this opportunity
+before the agent was ever invoked, so the retrieved match could be judged against a known-good
+expectation rather than accepted on faith. All seeded `agent_queue` test rows were deleted after
+each run (confirmed empty via a follow-up query). All throwaway verification scripts
+(`scripts/tmp-verify-ag05*.mjs`/`.mts`) were deleted after use and were never committed. The one
+source-file instrumentation was reverted before this entry was written; `git diff` confirmed the
+file matches its committed state.

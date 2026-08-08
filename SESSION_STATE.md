@@ -1,7 +1,45 @@
 # BENAVORA — Session State
-## Last Updated: August 7, 2026 (Knowledge Engine <-> AG-05 integration, row #171)
+## Last Updated: August 7, 2026 (live verification: AG-05 x Knowledge Engine integration, not a clean pass)
 
-## Current Session — August 7, 2026 (Knowledge Engine <-> AG-05 Draft Generator integration)
+## Current Session — August 7, 2026 (live verification of the AG-05 x Knowledge Engine integration)
+
+**Focus:** live-verify the prior session's `08fa5c2` commit (wiring `DraftGenerationAgent` to
+`queryKnowledgeEngine()`, row #171) against a real org and a real opportunity, per explicit
+instructions not to accept the prior session's own write-up on faith. Full evidence in
+`AGENT_VERIFICATION_LOG.md`'s "RAG Integration (row #171)" entry.
+
+**Result — split, not a clean pass.** Ran the real, unmodified `DraftGenerationAgent` twice
+against the real Faith Foundation org and a real, verified-matching HUD/CDBG opportunity
+(`Community Development Block Grant (CDBG)`, `id: f95468f5-be2c-4478-bed6-86841b8ac8f8`), no
+mocks. Confirmed real via direct probe: `queryKnowledgeEngine()` retrieved 10 real
+`knowledge_patterns` rows including a HUD/timing pattern independently identified beforehand as a
+plausible match; the `success_rate` display fix renders 0.73 as "73%" correctly; the org's own
+`knowledge_base`/Digital Twin content is still present in the same draft (no regression). But
+**every real run fails at the final `applications` insert** — `applications.knowledge_patterns_applied`
+(the column migration `123_knowledge_engine_draft_integration.sql` was supposed to add) does not
+exist live; that migration was never applied to production. Zero real drafts have ever been
+produced by this integration. Separately, confirmed `DraftGenerationAgent` has **no real production
+trigger path at all** — no `agent_queue` case for `'ag-05-draft'`, no nightly wiring, no dedicated
+API route (fresh grep of `worker/autonomous-orchestrator.ts` and `src/app/`). Even with the
+migration applied, nothing in production would call this code; the live path
+(`generateDraft()` in `src/lib/drafts/generator.ts`) still has zero Knowledge Engine integration.
+Also found (pre-existing, not introduced by the commit under test): `queryKnowledgeEngine()`'s own
+`knowledge_queries` audit-log insert uses the wrong column (`organization_id` vs. real `org_id`),
+silently swallowed by its own try/catch — that table has never logged a single query.
+
+**Not fixed this session** (verification-only task) — migration 123 remains unapplied.
+
+Updated `FEATURE_REGISTRY_v2.md` row #171 to `BUILT — BLOCKED (VERIFIED)` and `STATE_OF_THE_BUILD.md`
+with a new session entry. All throwaway verification scripts and one temporary debug
+instrumentation (added and reverted before commit) were cleaned up; `git diff` confirmed the source
+file matches its committed state.
+
+**Commit:** `test(agents): live-verify AG-05 Knowledge Engine RAG integration` (this session).
+**Gates:** not applicable — no source changes shipped.
+
+---
+
+## Prior Session — August 7, 2026 (Knowledge Engine <-> AG-05 Draft Generator integration)
 
 **Focus:** wire the real, already-live Knowledge Engine (`queryKnowledgeEngine()`,
 `src/lib/intelligence/knowledge-engine.ts`) into the real AG-05 Draft Generator
