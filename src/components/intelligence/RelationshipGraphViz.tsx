@@ -21,13 +21,14 @@
 // a real library instead of scaling this simulation further.
 
 import { useMemo, useState } from "react";
-import { Loader2, Network } from "lucide-react";
+import { Loader2, Network, Route as RouteIcon } from "lucide-react";
 
 import { humanizeEnum } from "@/lib/utils/formatters";
 import {
   ConnectionCard,
   type Connection,
 } from "@/components/intelligence/relationship-graph-shared";
+import { findShortestPath } from "@/lib/intelligence/relationship-graph-pathfinder";
 
 export interface GraphNode {
   id: string;
@@ -43,6 +44,15 @@ export interface GraphEdge {
   weight: number | null;
   verified: boolean;
 }
+
+// Row #82 "Path Finder" (FEATURE_REGISTRY_v2.md) — distinct from
+// STRENGTH_COLOR (direct/one_hop/two_hop, relationship-graph-shared.tsx)
+// and from the verified/unverified edge colors below (#10B981/#94A3B8) and
+// the #0077B6 selection highlight, so a computed path never visually
+// collides with the introduction-strength color coding already on this
+// page. Magenta isn't used anywhere else in this component or
+// relationship-graph-shared.tsx.
+const PATH_COLOR = "#EC4899";
 
 const WIDTH = 860;
 const HEIGHT = 520;
@@ -163,6 +173,11 @@ export default function RelationshipGraphViz({
 }) {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
+  const [pathStartId, setPathStartId] = useState<string>("");
+  const [pathEndId, setPathEndId] = useState<string>("");
+  const [activePath, setActivePath] = useState<{ startId: string; endId: string } | null>(
+    null,
+  );
 
   const positions = useMemo(() => computeLayout(nodes, edges), [nodes, edges]);
 
@@ -206,14 +221,54 @@ export default function RelationshipGraphViz({
     ? edges.filter((e) => e.sourceId === selectedNodeId || e.targetId === selectedNodeId)
     : [];
 
+  const sortedNodesForPicker = useMemo(
+    () => [...nodes].sort((a, b) => a.label.localeCompare(b.label)),
+    [nodes],
+  );
+
+  // Row #82 "Path Finder" — computed from the exact nodes/edges this
+  // component already has (same org-scoped data the card list is built
+  // from), no second fetch. Re-derives whenever the graph itself changes
+  // (e.g. after a Discover Connections run) so a stale path never lingers
+  // against a graph that's since changed shape.
+  const pathResult = useMemo(() => {
+    if (!activePath) return null;
+    return findShortestPath(nodes, edges, activePath.startId, activePath.endId);
+  }, [activePath, nodes, edges]);
+
+  const pathNodeIdSet = useMemo(
+    () => new Set(pathResult?.found ? pathResult.nodeIds : []),
+    [pathResult],
+  );
+  const pathEdgeIdSet = useMemo(
+    () => new Set(pathResult?.found ? pathResult.edgeIds : []),
+    [pathResult],
+  );
+  const hasActivePath = pathResult?.found === true;
+
   function handleSelectEdge(edgeId: string) {
     setSelectedEdgeId(edgeId);
     setSelectedNodeId(null);
+    setActivePath(null);
   }
 
   function handleSelectNode(nodeId: string) {
     setSelectedNodeId(nodeId);
     setSelectedEdgeId(null);
+    setActivePath(null);
+  }
+
+  function handleFindPath() {
+    if (!pathStartId || !pathEndId) return;
+    setSelectedNodeId(null);
+    setSelectedEdgeId(null);
+    setActivePath({ startId: pathStartId, endId: pathEndId });
+  }
+
+  function handleClearPath() {
+    setActivePath(null);
+    setPathStartId("");
+    setPathEndId("");
   }
 
   if (nodes.length === 0) {
@@ -249,6 +304,116 @@ export default function RelationshipGraphViz({
           boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
         }}
       >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            flexWrap: "wrap",
+            marginBottom: "12px",
+            paddingBottom: "12px",
+            borderBottom: "1px solid #E2E8F0",
+          }}
+        >
+          <RouteIcon size={15} color="#64748B" style={{ flexShrink: 0 }} />
+          <select
+            value={pathStartId}
+            onChange={(event) => setPathStartId(event.target.value)}
+            style={{
+              fontSize: "12px",
+              fontWeight: 600,
+              color: "#1A2B3C",
+              border: "1px solid #E2E8F0",
+              borderRadius: "7px",
+              padding: "6px 8px",
+              maxWidth: "180px",
+            }}
+          >
+            <option value="">Start entity…</option>
+            {sortedNodesForPicker.map((n) => (
+              <option key={n.id} value={n.id}>
+                {n.label}
+              </option>
+            ))}
+          </select>
+          <span style={{ fontSize: "12px", color: "#94A3B8" }}>&rarr;</span>
+          <select
+            value={pathEndId}
+            onChange={(event) => setPathEndId(event.target.value)}
+            style={{
+              fontSize: "12px",
+              fontWeight: 600,
+              color: "#1A2B3C",
+              border: "1px solid #E2E8F0",
+              borderRadius: "7px",
+              padding: "6px 8px",
+              maxWidth: "180px",
+            }}
+          >
+            <option value="">End entity…</option>
+            {sortedNodesForPicker.map((n) => (
+              <option key={n.id} value={n.id}>
+                {n.label}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={handleFindPath}
+            disabled={!pathStartId || !pathEndId}
+            style={{
+              fontSize: "12px",
+              fontWeight: 700,
+              color: "#FFFFFF",
+              backgroundColor: !pathStartId || !pathEndId ? "#CBD5E1" : PATH_COLOR,
+              border: "none",
+              borderRadius: "7px",
+              padding: "7px 14px",
+              cursor: !pathStartId || !pathEndId ? "default" : "pointer",
+            }}
+          >
+            Find Path
+          </button>
+          {activePath && (
+            <button
+              type="button"
+              onClick={handleClearPath}
+              style={{
+                fontSize: "12px",
+                fontWeight: 600,
+                color: "#64748B",
+                backgroundColor: "transparent",
+                border: "1px solid #E2E8F0",
+                borderRadius: "7px",
+                padding: "7px 12px",
+                cursor: "pointer",
+              }}
+            >
+              Clear
+            </button>
+          )}
+        </div>
+
+        {activePath && pathResult && (
+          <p
+            style={{
+              fontSize: "13px",
+              fontWeight: 600,
+              color: pathResult.found ? "#9D174D" : "#64748B",
+              margin: "0 0 12px",
+            }}
+          >
+            {pathResult.found
+              ? pathResult.hops === 0
+                ? "Start and end are the same entity."
+                : `Path found (${pathResult.hops} hop${pathResult.hops === 1 ? "" : "s"}): ` +
+                  pathResult.nodeIds
+                    .map((id) => nodeById.get(id)?.label ?? "Unknown")
+                    .join(" → ")
+              : "No path exists between these two entities in this organization's relationship graph today."}
+          </p>
+        )}
+
         <svg
           viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
           style={{ width: "100%", height: "auto", display: "block" }}
@@ -259,6 +424,7 @@ export default function RelationshipGraphViz({
             const pa = positions.get(e.sourceId);
             const pb = positions.get(e.targetId);
             if (!pa || !pb) return null;
+            const onPath = hasActivePath && pathEdgeIdSet.has(e.id);
             const isSelected = selectedEdgeId === e.id;
             const isTouchingSelectedNode =
               selectedNodeId != null &&
@@ -267,9 +433,10 @@ export default function RelationshipGraphViz({
               typeof e.weight === "number" ? Math.min(e.weight / maxWeight, 1) : 0.4;
             const strokeWidth = 1.5 + weightRatio * 3.5;
             const baseColor = e.verified ? "#10B981" : "#94A3B8";
-            const dimmed =
-              (selectedNodeId != null && !isTouchingSelectedNode) ||
-              (selectedEdgeId != null && !isSelected);
+            const dimmed = hasActivePath
+              ? !onPath
+              : (selectedNodeId != null && !isTouchingSelectedNode) ||
+                (selectedEdgeId != null && !isSelected);
 
             return (
               <line
@@ -278,16 +445,22 @@ export default function RelationshipGraphViz({
                 y1={pa.y}
                 x2={pb.x}
                 y2={pb.y}
-                stroke={isSelected || isTouchingSelectedNode ? "#0077B6" : baseColor}
-                strokeWidth={isSelected ? strokeWidth + 1.5 : strokeWidth}
-                strokeOpacity={dimmed ? 0.15 : 0.75}
+                stroke={
+                  onPath
+                    ? PATH_COLOR
+                    : isSelected || isTouchingSelectedNode
+                      ? "#0077B6"
+                      : baseColor
+                }
+                strokeWidth={onPath ? strokeWidth + 2.5 : isSelected ? strokeWidth + 1.5 : strokeWidth}
+                strokeOpacity={dimmed ? 0.15 : onPath ? 1 : 0.75}
                 style={{ cursor: "pointer" }}
                 onClick={() => handleSelectEdge(e.id)}
               >
                 <title>
                   {`${humanizeEnum(e.relationshipType)} — ${
                     e.verified ? "verified" : "unverified"
-                  }${typeof e.weight === "number" ? ` — weight ${e.weight}` : ""}`}
+                  }${typeof e.weight === "number" ? ` — weight ${e.weight}` : ""}${onPath ? " — on found path" : ""}`}
                 </title>
               </line>
             );
@@ -296,10 +469,11 @@ export default function RelationshipGraphViz({
           {nodes.map((node) => {
             const p = positions.get(node.id);
             if (!p) return null;
+            const onPath = hasActivePath && pathNodeIdSet.has(node.id);
             const degree = degreeById.get(node.id) ?? 0;
             const radius = 9 + Math.min(degree * 2, 14);
             const isSelected = selectedNodeId === node.id;
-            const dimmed = selectedNodeId != null && !isSelected;
+            const dimmed = hasActivePath ? !onPath : selectedNodeId != null && !isSelected;
 
             return (
               <g
@@ -313,10 +487,10 @@ export default function RelationshipGraphViz({
                   cy={p.y}
                   r={radius}
                   fill={nodeColor(node.nodeType)}
-                  stroke={isSelected ? "#0F172A" : "#FFFFFF"}
-                  strokeWidth={isSelected ? 3 : 2}
+                  stroke={onPath ? PATH_COLOR : isSelected ? "#0F172A" : "#FFFFFF"}
+                  strokeWidth={onPath ? 4 : isSelected ? 3 : 2}
                 >
-                  <title>{`${node.label} (${humanizeEnum(node.nodeType)}) — ${degree} connection${degree === 1 ? "" : "s"}`}</title>
+                  <title>{`${node.label} (${humanizeEnum(node.nodeType)}) — ${degree} connection${degree === 1 ? "" : "s"}${onPath ? " — on found path" : ""}`}</title>
                 </circle>
                 <text
                   x={p.x}
@@ -394,6 +568,22 @@ export default function RelationshipGraphViz({
               Unverified edge
             </span>
           </div>
+          {hasActivePath && (
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <span
+                style={{
+                  width: "18px",
+                  height: "2px",
+                  backgroundColor: PATH_COLOR,
+                  display: "inline-block",
+                }}
+                aria-hidden
+              />
+              <span style={{ fontSize: "12px", color: "#64748B", fontWeight: 600 }}>
+                Found path
+              </span>
+            </div>
+          )}
         </div>
       </div>
 

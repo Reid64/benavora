@@ -1,7 +1,54 @@
 # BENAVORA — Session State
-## Last Updated: August 7, 2026 (Relationship Explorer UI — FEATURE_REGISTRY_v2.md #81)
+## Last Updated: August 7, 2026 (Path Finder — FEATURE_REGISTRY_v2.md #82)
 
-## Current Session — August 7, 2026 (Relationship Explorer UI)
+## Current Session — August 7, 2026 (Path Finder)
+
+**Focus:** FEATURE_REGISTRY_v2.md row #82 ("Path Finder," PLANNED — "Shortest path between any
+two entities. Phase 3 build."). Read the row #81 session (immediately below) before starting per
+the task instruction, since both features share one visualization surface
+(`/intelligence/relationship-graph`, `RelationshipGraphViz.tsx`) and one data-fetch
+(`loadRelationshipGraph()`).
+
+**Live weight check (done before picking an algorithm):** queried real `pig_edges` via
+`DATABASE_URL` (throwaway script, deleted after). Result: **20 real edges, all
+`asset_compatible`, weight uniformly `0.6`, `verified: false`** — weight does not vary
+meaningfully in production today.
+
+**Decision:** `pig_edges.weight` is a strength score (higher = better — confirmed against the
+agent's own 0.5–1.0 weight assignments and the existing UI's thicker-line-for-higher-weight
+convention), not a graph-theoretic cost, so raw-weight Dijkstra would be backwards. Implemented
+real weighted Dijkstra with `cost = 1 / clamp(weight, 0.01)` (favors strong relationships), which
+mathematically degenerates to plain BFS-by-hop-count under today's uniform weight — honest given
+real data, and will start diverging automatically once the agent's other discovery rules (which
+already write 0.5/0.7/0.8/0.95/1.0) populate more of the graph. Treated the graph as undirected —
+every real `relationship_type` this agent writes is a mutual association, not a directional flow,
+and the existing viz already renders edges with no arrowhead.
+
+**What shipped:**
+1. `src/lib/intelligence/relationship-graph-pathfinder.ts` (new) — pure `findShortestPath()`
+   function, no fetch/Supabase calls. Sanity-tested against a synthetic graph (correctly prefers
+   two strong hops over one weak direct edge; correctly returns `found: false` for a disconnected
+   pair, an isolated node, and an unknown id; correctly collapses to shortest-hop-count under
+   uniform weight) before wiring in — test script deleted, never committed.
+2. `src/components/intelligence/RelationshipGraphViz.tsx` — added a Find Path control row (two
+   node `<select>`s, Find Path/Clear buttons) and result line above the existing SVG; path is
+   computed from the component's already-loaded `nodes`/`edges` props, no second fetch. Highlight
+   color `#EC4899` (magenta) — checked against every existing color in this feature
+   (`STRENGTH_COLOR`, verified/unverified edge colors, the `#0077B6` selection highlight) to avoid
+   colliding with the introduction-strength coding. Selecting a node/edge clears the active path
+   and vice versa.
+
+**No fabrication:** disconnected pairs correctly report "No path exists…", never an invented path;
+the node pickers list whatever real nodes exist in the org's graph, not a hardcoded demo pair.
+
+**Gates:** `pnpm tsc --noEmit` — 42 pre-existing errors, all in `src/__tests__/**`, none touching
+either new/changed file. Zero new errors.
+
+**Commit:** `feat(relationship-graph): real path-finding between two entities over pig_nodes/pig_edges` (this session).
+
+---
+
+## Prior Session — August 7, 2026 (Relationship Explorer UI)
 
 **Focus:** FEATURE_REGISTRY_v2.md row #81 ("Relationship Explorer UI," PLANNED — "/research/graph.
 Force-directed visualization. Phase 3 build."). Checked the real nav

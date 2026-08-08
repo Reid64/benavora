@@ -6,6 +6,88 @@
 
 ---
 
+## SESSION — August 7, 2026 (Path Finder — FEATURE_REGISTRY_v2.md row #82)
+
+Row #82 said `PLANNED — Shortest path between any two entities. Phase 3 build.` Read the row #81
+session's own commit/entry (immediately below) before starting, per the task instruction — this
+feature shares the exact same page/route/data surface (`/intelligence/relationship-graph`,
+`RelationshipGraphViz.tsx`, `loadRelationshipGraph()`), so it was built as an extension of that
+component, not a new page or a second fetch path.
+
+**Live data check performed before choosing an algorithm** (via a throwaway Node script against
+the real `DATABASE_URL`, deleted after use — `STANDING_DIRECTIVES.md` DIRECTIVE-017): queried
+`pig_edges` directly. Real result today: **20 edges total, all `relationship_type =
+'asset_compatible'`, weight uniformly `0.6`, `verified = false` for all 20** (`pig_nodes`: 21
+rows). `distinct_weights = 1` — weight does **not** vary meaningfully in production yet, exactly
+the "still uniformly default for most/all real edges" case the task described as the honest
+BFS-only scenario.
+
+**Algorithm and weight-interpretation decision, made explicit rather than left implicit:**
+`pig_edges.weight` is a relationship-**strength** score (higher = better), not a graph-theoretic
+edge cost — confirmed against `relationship-graph-builder-agent.ts`'s own weight assignments
+(0.5/0.6/0.7/0.8/0.95/1.0 across its 8 discovery rules, direct connections score higher than
+one-hop) and against the existing UI's own framing (`RelationshipGraphViz.tsx` already draws
+higher-weight edges *thicker*, treating higher weight as "better," not "further"). A naive
+Dijkstra treating raw `weight` as literal cost would therefore route toward the *weakest*
+relationships, the opposite of a useful warm-introduction path. Chose
+**`cost(edge) = 1 / clamp(weight, 0.01)`** so the algorithm minimizes cumulative *inverse*-strength
+— i.e., favors traversing strong relationships over weak ones. Built as real weighted Dijkstra
+(not a hardcoded unweighted BFS) specifically so it starts respecting real variation the moment
+it exists — with today's uniform `weight = 0.6` on every edge, this mathematically degenerates to
+plain BFS-by-hop-count (verified: with a uniform per-edge cost, Dijkstra's shortest-cost path is
+identical to the shortest-hop-count path), so today's behavior is honest, not fabricated
+weighting, while remaining ready for the six distinct weight values the agent already writes once
+more than one discovery rule fires for a real org.
+
+**What shipped:**
+- `src/lib/intelligence/relationship-graph-pathfinder.ts` (new) — pure function
+  `findShortestPath(nodes, edges, startNodeId, endNodeId)`, no Supabase/fetch calls. Treats the
+  graph as **undirected**: `pig_edges` is stored directed (`source_node_id`/`target_node_id` FKs),
+  but every real `relationship_type` value this agent writes (`board_overlap`, `shared_executive`,
+  `alumni_network`, `family_foundation_tie`, `giving_cycle_aligned`, `asset_compatible`,
+  `geographic_giving_history`, `board_network_overlap`) describes a mutual association between two
+  entities, not a one-way flow, and the existing force-directed viz already renders every edge as
+  a plain undirected line with no arrowhead — undirected traversal matches how the graph is
+  already presented, not a new convention. Selection-based Dijkstra (small graph — real data is
+  ~20-25 edges — so no priority-queue dependency, matching the existing viz component's own
+  "small graph, don't over-engineer" call on its force layout). Handles: same-node request (trivial
+  0-hop path), unknown node id (not found), and a genuinely disconnected pair (not found) — with
+  only 20-25 real edges today, most pairs of entities are in fact disconnected; this is a normal,
+  correctly-handled result, not a bug. Sanity-tested against a small synthetic graph (weak direct
+  edge vs. two strong hops — confirmed it correctly prefers the two strong hops over the one weak
+  direct edge; disconnected/isolated/unknown-id cases all correctly return `found: false`; uniform
+  weight correctly collapses to the shortest-hop path) before wiring into the UI — script deleted
+  after use, never committed.
+- `src/components/intelligence/RelationshipGraphViz.tsx` — added a "Find Path" control row above
+  the existing SVG (two `<select>` node pickers sorted by label, a Find Path button, a Clear
+  button) and a result line (`"Path found (N hops): A → B → C"` or the explicit no-path message).
+  Path is computed client-side from the exact `nodes`/`edges` props the component already has —
+  no second fetch, same org-scoped data the card list and graph view already render. Highlight
+  color: `#EC4899` (magenta) — checked against every existing color in this component and
+  `relationship-graph-shared.tsx`'s `STRENGTH_COLOR` (`#10B981`/`#0EA5E9`/`#F59E0B`) and the
+  verified/unverified edge colors (`#10B981`/`#94A3B8`) and the `#0077B6` selection highlight —
+  magenta is unused anywhere else in this feature, so a found path never visually collides with the
+  existing introduction-strength coding. While a path is active, non-path nodes/edges dim (reusing
+  the existing selection-dimming mechanism) and path nodes get a thicker magenta ring; selecting a
+  node/edge clears the active path and vice versa, matching the existing single-selection-mode UX.
+  A "Found path" legend entry appears only while a path is displayed.
+
+**Explicit non-fabrication notes:** no path is ever invented for a disconnected pair — the function
+returns `found: false` and the UI states plainly "No path exists between these two entities in this
+organization's relationship graph today." No demo/hardcoded pair — the two `<select>` pickers are
+populated from whatever real nodes exist in the org's actual graph, so this works generically for
+any two real node ids, not a fixed test pair.
+
+**Gates:** `pnpm tsc --noEmit` (via `node node_modules/typescript/bin/tsc --noEmit -p
+tsconfig.json`, ran clean twice) — 42 pre-existing errors, all confined to `src/__tests__/**`
+(`organizations.test.ts`, `storage-rls.test.ts`, `deadline-predictor.test.ts`,
+`outcome-analyzer.test.ts`, `regressions.test.ts`, `samgov-client.test.ts` — the same
+already-documented test-file failures noted in prior sessions of this file). Zero errors reference
+either new/changed file (`relationship-graph-pathfinder.ts`, `RelationshipGraphViz.tsx`) — zero new
+errors from this change.
+
+---
+
 ## SESSION — August 7, 2026 (Relationship Explorer UI — FEATURE_REGISTRY_v2.md row #81)
 
 Row #81 said `PLANNED — /research/graph, force-directed visualization, Phase 3 build`. Checked
