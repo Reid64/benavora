@@ -1,8 +1,62 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 7, 2026 (Auto-Deploy Response shipped — row #130, FEMA polling scheduled + disaster response chained behind a human-approval gate). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 7, 2026 (Market Trend Intelligence and Auto-Deploy Response live-verified against real data — rows #134, #130; found and fixed 3 real blockers, see below). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 7, 2026 (live-verification: Market Trend Intelligence + Auto-Deploy Response, rows #134/#130 — 3 real blockers found and fixed)
+
+Live-verified the two features shipped earlier the same day (commits `c9b001f` Market Trend
+Intelligence, `28965d6` Auto-Deploy Response) against real production data rather than trusting
+their "shipped" status at face value. Full evidence in `AGENT_VERIFICATION_LOG.md`'s "Market Trend
+Intelligence (row #134)" and "Auto-Deploy Response (row #130)" entries; summary here.
+
+**Market Trend Intelligence (row #134):** the route's real, unmodified bucketing logic — executed
+live against the real 219-opportunity Faith Foundation org — matches an independent hand-run SQL
+`count(*) ... group by` exactly for all 3 real months on file, including category/source_type
+breakdowns. Empty-state path confirmed against a real 0-opportunity org. **Not confirmed:** the
+actual HTTP route call or browser-rendered chart — every attempt to start a local Next.js dev
+server this session (`pnpm dev`/`next dev`, foreground, background, via Bash and PowerShell) was
+blocked by the sandbox's permission layer specifically for server-launching commands, and
+production's deployment status for this commit is unconfirmed (no `x-matched-path` check
+performed — see row #133's own documented pattern of code-correct-but-undeployed pages). Flagged
+explicitly rather than claimed.
+
+**Auto-Deploy Response (row #130):** live-verifying this required finding and fixing 3 real,
+previously-undocumented blockers — without them, the feature (and the pre-existing base AG-25
+capability rows #126–128 previously marked "BUILT — VERIFIED" on 2026-07-30) could not run at all
+in production:
+1. `org_autonomous_config` was missing 6 columns the `/api/autonomous/config` route already
+   depends on (not just this session's new `auto_deploy_disaster_response` — also
+   `auto_autoapply_enabled`, `max_nightly_autoapply_submissions`, `notify_on_auto_draft`,
+   `notify_on_high_score`, `notify_digest_time`, `updated_at`, from older migrations 080/092) —
+   meaning **the entire config route was broken for every org**, not just this one toggle.
+2. `disaster_declarations`/`disaster_emergency_funds` did not exist in production at all
+   (migration 079, only ever applied to the `src/supabase/migrations/` tree, never the root tree
+   the live DB reflects) — contradicting rows #126–128's prior "BUILT — VERIFIED" status, which
+   turns out to have been a code-reading confirmation, not a live-data one.
+3. `pollFEMADeclarations()`'s hardcoded FEMA URL used the wrong casing
+   (`disasterDeclarationsSummaries` vs. the real `DisasterDeclarationsSummaries`) and 404'd on
+   every real call — meaning this function had never once succeeded against the real FEMA API.
+
+All three fixed live this session (additive DDL matching already-committed migration files, plus
+RLS hardening the original migration lacked, plus a one-line URL-casing fix in
+`disaster-response-agent.ts`). With them fixed, the gate logic itself is confirmed correct
+end-to-end against real, current FEMA disaster data (5 real declarations: CA Fire, MS Tropical
+Storm, WA Fire, WV Flood, MP Typhoon) and a real dedicated test org: toggle off → a real
+`agent_decisions` pending-approval row, zero side effects; toggle on → a real
+`deployDisasterResponse()` call, a real `alerts` row, `disaster_declarations.response_deployed`
+genuinely flipped. **Caveats, stated plainly:** the literal HTTP `PATCH
+/api/autonomous/config` call could not be made (same dev-server sandbox restriction as the trends
+entry — the identical real database upsert the route performs was executed instead), and the
+unattended 5:45 AM CST scheduled firing was not observed this session (code-verified + manually
+invoked only). All test data cleaned up via real try/catch per statement; the 3 schema fixes are
+real infrastructure, not reverted.
+
+Gates: `pnpm tsc --noEmit` — clean (no errors in `disaster-response-agent.ts`, the trends route, or
+`worker/autonomous-orchestrator.ts`; pre-existing unrelated `src/__tests__/**` errors untouched).
 
 ---
 

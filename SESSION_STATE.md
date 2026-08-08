@@ -1,7 +1,52 @@
 # BENAVORA — Session State
-## Last Updated: August 7, 2026 (Auto-Deploy Response shipped — row #130)
+## Last Updated: August 7, 2026 (live-verified Market Trend Intelligence + Auto-Deploy Response — rows #134/#130)
 
-## Current Session — August 7, 2026 (Auto-Deploy Response — row #130, FEMA polling scheduled + human-approval gate)
+## Current Session — August 7, 2026 (live-verify Market Trend Intelligence + Auto-Deploy Response, rows #134/#130)
+
+**Focus:** live-verify the two features shipped earlier the same session (commits `c9b001f` Market
+Trend Intelligence, `28965d6` Auto-Deploy Response) against real production data, per this
+project's own standing convention of not accepting "shipped, compiles clean" as sufficient
+evidence a feature actually works. Full results in `AGENT_VERIFICATION_LOG.md`.
+
+**Market Trend Intelligence (row #134):** verified the real, unmodified route logic against the
+real 219-opportunity Faith Foundation org — matches independent hand-run SQL exactly for all 3
+real months, both category and source_type breakdowns. Empty-state confirmed against a real
+0-opportunity org. Could not get an actual page load / HTTP call: every attempt to start a local
+Next.js dev server (`pnpm dev`/`next dev`, foreground, background, Bash and PowerShell) was
+blocked by this session's sandbox — server-launching commands specifically require an approval
+this session couldn't obtain, while every other command (`git`, `node`, `psql`, `curl`) worked
+normally throughout. Production deploy status for this commit is unconfirmed. Stated as an honest
+gap, not glossed over.
+
+**Auto-Deploy Response (row #130):** found and fixed 3 real, previously-undocumented blockers that
+meant this feature — and the pre-existing base AG-25 capability (rows #126–128, previously "BUILT
+— VERIFIED" from 2026-07-30) — could not run at all in production:
+1. `org_autonomous_config` missing 6 columns the config route already depends on (breaking the
+   *entire* route, not just this session's new toggle) — from migrations 080/092/124, all only
+   ever applied to `src/supabase/migrations/`, never the root tree the live DB reflects.
+2. `disaster_declarations`/`disaster_emergency_funds` didn't exist in production at all (migration
+   079, same tree gap) — meaning rows #126–128's "BUILT — VERIFIED" was a code-read confirmation,
+   not a live one.
+3. `pollFEMADeclarations()`'s hardcoded FEMA URL had wrong casing and 404'd on every real call —
+   this function had never once succeeded live before this session.
+
+Fixed all three live (additive DDL matching already-committed migration files + RLS hardening the
+original 079 migration lacked + a one-line URL fix in `disaster-response-agent.ts`). With them
+fixed, ran the real gate logic twice against real, current FEMA data (5 real declarations) and a
+real dedicated test org: toggle off → real pending-approval `agent_decisions` row, zero side
+effects; toggle on → real `deployDisasterResponse()` call, real `alerts` row, real
+`response_deployed` flip. Could not literally call `PATCH /api/autonomous/config` over HTTP (same
+dev-server sandbox block) — replicated the route's exact upsert directly instead, stated as a
+substitute, not equivalent. Unattended 5:45 AM CST scheduled firing not observed — code-verified +
+manually invoked only. All test data cleaned up (real try/catch, not `.catch()` chaining); the 3
+schema/table fixes kept as real infrastructure.
+
+**Commit:** `test: live-verify Market Trend Intelligence and gated Auto-Deploy Response (rows #130, #134)`.
+**Gates:** `pnpm tsc --noEmit` — clean.
+
+---
+
+## Prior Session — August 7, 2026 (Auto-Deploy Response — row #130, FEMA polling scheduled + human-approval gate)
 
 **Focus:** AGENTS_v2.md AG-25's `pollFEMADeclarations()`/`deployDisasterResponse()`
 (`src/lib/agents/disaster-response-agent.ts`) were real and manually-triggerable

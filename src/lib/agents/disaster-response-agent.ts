@@ -12,8 +12,15 @@
 //   - deployDisasterResponse: marks a declaration deployed for one org and
 //     raises an alert summarizing matched emergency fund programs.
 
+// Endpoint name is case-sensitive on FEMA's side — confirmed live 2026-08-07
+// while verifying row #130 (AGENT_VERIFICATION_LOG.md): the lowercase-'d'
+// path this constant previously used ("disasterDeclarationsSummaries") 404s;
+// FEMA's real OpenFEMA v2 endpoint is "DisasterDeclarationsSummaries"
+// (capital D). This function has never successfully polled FEMA in
+// production until this fix — every prior invocation threw at the `!response.ok`
+// check below before inserting or returning anything.
 const FEMA_URL =
-  "https://www.fema.gov/api/open/v2/disasterDeclarationsSummaries?$orderby=declarationDate desc&$top=20&$format=json";
+  "https://www.fema.gov/api/open/v2/DisasterDeclarationsSummaries?$orderby=declarationDate desc&$top=20&$format=json";
 
 interface FemaDeclaration {
   disasterNumber?: number | string;
