@@ -132,6 +132,26 @@ const jobs: ScheduledJob[] = [
       ),
   },
   {
+    // AG-25 Disaster Response Agent — Auto-Deploy Response pipeline
+    // (AGENTS_v2.md AG-25 spec; FEATURE_REGISTRY_v2.md row #130). Previously
+    // this agent's pollFEMADeclarations()/deployDisasterResponse() had zero
+    // scheduling wiring anywhere in this worker — reachable only via the
+    // manual GET/POST /api/agents/disaster route (confirmed absent by grep
+    // before this job was added). Daily, unconditional, same pattern as the
+    // AG-42 change monitor job above: FEMA declarations are infrequent and
+    // this is a cheap poll (one HTTP call + a dedup check per declaration),
+    // so there's no reason to gate it to a specific weekday the way the
+    // heavier weekly scraper jobs below are gated.
+    name: 'AG-25 disaster response pipeline',
+    hour: 5,
+    minute: 45,
+    lastFiredOnDateKey: null,
+    run: (supabase) =>
+      import('./autonomous-orchestrator.js').then(
+        ({ runDisasterResponsePipeline }) => runDisasterResponsePipeline(supabase),
+      ),
+  },
+  {
     // Foundation directory enrichment (STANDING_DIRECTIVES.md Directive 1,
     // src/lib/scraper/foundation-scraper.ts). Weekly, Sunday 3AM CST — same
     // precedent as the AG-36 entry above: this file has no day-of-week

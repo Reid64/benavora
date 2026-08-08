@@ -18,6 +18,7 @@ type AutonomousConfig = {
   auto_relationship_enabled: boolean;
   auto_deadline_prediction_enabled: boolean;
   auto_followup_enabled: boolean;
+  auto_deploy_disaster_response: boolean;
   notify_on_auto_draft: boolean;
   notify_on_high_score: boolean;
   notify_digest_time: string;
@@ -31,7 +32,8 @@ type BooleanConfigKey =
   | "auto_reputation_enabled"
   | "auto_relationship_enabled"
   | "auto_deadline_prediction_enabled"
-  | "auto_followup_enabled";
+  | "auto_followup_enabled"
+  | "auto_deploy_disaster_response";
 
 type AgentDecision = {
   id: string;
@@ -61,6 +63,7 @@ const DEFAULT_CONFIG: AutonomousConfig = {
   auto_relationship_enabled: false,
   auto_deadline_prediction_enabled: false,
   auto_followup_enabled: false,
+  auto_deploy_disaster_response: false,
   notify_on_auto_draft: true,
   notify_on_high_score: true,
   notify_digest_time: "07:00",
@@ -75,6 +78,10 @@ const TOGGLE_ROWS: { key: BooleanConfigKey; label: string }[] = [
   { key: "auto_relationship_enabled", label: "Relationship Builder" },
   { key: "auto_deadline_prediction_enabled", label: "Deadline Prediction" },
   { key: "auto_followup_enabled", label: "Follow-Up Scheduling" },
+  {
+    key: "auto_deploy_disaster_response",
+    label: "Disaster Response Auto-Deploy",
+  },
 ];
 
 const cardStyle = {

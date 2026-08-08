@@ -34,7 +34,7 @@ export async function GET() {
   const { supabase } = gate;
 
   try {
-    const newDeclarations = await pollFEMADeclarations(supabase);
+    const pollResult = await pollFEMADeclarations(supabase);
     const { data: declarations, error } = await supabase
       .from("disaster_declarations")
       .select(
@@ -45,7 +45,10 @@ export async function GET() {
     if (error) {
       return jsonError(error.message, "fetch_failed", 500);
     }
-    return NextResponse.json({ newDeclarations, declarations: declarations ?? [] });
+    return NextResponse.json({
+      newDeclarations: pollResult.newCount,
+      declarations: declarations ?? [],
+    });
   } catch {
     return jsonError("FEMA poll failed. Please try again.", "poll_failed", 502);
   }

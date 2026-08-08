@@ -1,8 +1,83 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 7, 2026 (Market Trend Intelligence MVP shipped — row #134 scoped down to a real opportunity-volume trend view). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 7, 2026 (Auto-Deploy Response shipped — row #130, FEMA polling scheduled + disaster response chained behind a human-approval gate). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 7, 2026 (Auto-Deploy Response — row #130, FEMA polling scheduled, disaster response chained behind human-approval gate)
+
+**Precondition re-confirmed live before writing any code**: grepped `worker/scheduler.ts`,
+`worker/autonomous-orchestrator.ts`, and `vercel.json`'s cron array for `fema`/`disaster`/
+`pollFEMADeclarations` — zero matches in all three. `AGENTS_v2.md`'s AG-25 spec and
+`AGENT_VERIFICATION_LOG.md` row #128 were correct: `pollFEMADeclarations()`/
+`deployDisasterResponse()` (`src/lib/agents/disaster-response-agent.ts`) had genuinely zero
+unattended trigger anywhere — reachable only via the manual `GET`/`POST
+/api/agents/disaster` route. This task had two real parts, not one.
+
+**Part (a) — real scheduling wiring, not a fake one:**
+- Extended `pollFEMADeclarations()`'s return shape from a bare count to
+  `{ newCount, newDeclarationIds }` — the chain needs to know *which* declarations are new, not
+  just how many. `deployDisasterResponse()`'s own matching/deployment logic was not touched, per
+  the task's explicit instruction (row #127 already verified correct). Updated the one existing
+  call site (`GET /api/agents/disaster`) to match — the route's own response contract
+  (`{ newDeclarations: number }`) is unchanged, just sourced from `.newCount` now.
+- Added `runDisasterResponsePipeline()` to `worker/autonomous-orchestrator.ts`, platform-level for
+  the poll step (FEMA declarations aren't org-scoped), matching the AG-36/AG-38/AG-42 shape already
+  established in that file. For each newly-inserted declaration, matches it against active orgs by
+  `organizations.state` (confirmed real, live column, migration 001 — same column
+  `donor-intent-monitor-agent.ts` already uses for geographic matching) overlapping the
+  declaration's `affected_states`.
+- Wired a new daily, unconditional `worker/scheduler.ts` job, `AG-25 disaster response pipeline`,
+  at 5:45 AM CST (a genuinely free slot — checked every existing job's hour:minute first).
+
+**Part (b) — the approval gate, default-off, no parallel consent mechanism invented:**
+- New migration `src/supabase/migrations/124_auto_deploy_disaster_response.sql`:
+  `org_autonomous_config.auto_deploy_disaster_response boolean NOT NULL DEFAULT false` — added to
+  `src/supabase/migrations/`, not root `supabase/migrations/`, matching where every other
+  `org_autonomous_config` column addition already lives (080/092/094/101 — confirmed by grep before
+  choosing; root's tree has no `org_autonomous_config` column-adding migrations at all, only an
+  unrelated anon-grant-revocation touch). Next-free-number confirmed live (123 was the highest in
+  that tree before this).
+- **Not applied to production this session** — no DDL credential/psql access was exercised as part
+  of this task (out of scope; `STANDING_DIRECTIVES.md` DIRECTIVE-017's `DATABASE_URL`/Management API
+  path exists for a future session to apply it). Until applied, every org reads the column's
+  `SAFE_DEFAULT`-equivalent (`false`) via `GET /api/autonomous/config`'s existing
+  missing-row-fallback, so the pending-approval path is what actually runs even before the migration
+  lands — never silently auto-deploying.
+- `/api/autonomous/config/route.ts`: added `auto_deploy_disaster_response` to `DEFAULT_CONFIG`,
+  `BOOLEAN_FIELDS` (the file's existing column-recognition allowlist — no bypass), and both
+  `select()` strings. Default `false` everywhere, per the task's non-negotiable requirement.
+- `src/app/(dashboard)/settings/agents/page.tsx`: added the same key to the config type and a new
+  `TOGGLE_ROWS` entry ("Disaster Response Auto-Deploy"), so the opt-in is actually reachable from the
+  UI, not just the API.
+- **Approval mechanism reused, not invented**: checked whether an "approved" `agent_decisions`
+  verdict already triggers any downstream action anywhere in this codebase — it does not; every
+  existing agent's decisions are pure audit trail, `PATCH /api/autonomous/decisions` only ever
+  recorded a verdict. Since this task's deploy is a real, meaningful action gated on approval (not
+  just a record of a decision already taken), extended that same PATCH handler: approving a
+  `decision_type: 'disaster_response_deploy'` row now calls the real `deployDisasterResponse()`
+  using the `declarationId` stashed in `action_payload` by the pipeline, and folds the result (or a
+  `deployment_error`) back into `action_payload`. Idempotent — a decision that already has
+  `action_payload.deployment_result` is never re-deployed on a second approve click. This is the
+  same "Approve" button already wired on `/settings/agents` (registry row #214) — no new UI, no new
+  table, no second approval mechanism.
+- Default (toggle off) path: pipeline logs a `required_human_review: true` pending decision, no
+  deploy happens until a human clicks Approve. Opted-in path (toggle on): pipeline calls
+  `deployDisasterResponse()` directly and logs a `required_human_review: false` decision recording
+  what happened, for audit only.
+
+**Gates:** `pnpm tsc --noEmit` — 0 new errors (the standing pre-existing `src/__tests__/**` failures,
+unrelated to this change and already documented in this file's own header note, are unchanged;
+grepped the full output for every edited file — zero hits). `pnpm tsc -p worker/tsconfig.json
+--noEmit` — 0 errors, run separately since `worker/autonomous-orchestrator.ts`/`worker/scheduler.ts`
+were both edited directly.
+
+**Not done, flagged rather than silently skipped:** migration 124 applied to production (needs a
+future session with DDL access); a live FEMA-declaration end-to-end test (no real new declaration
+was available to trigger during this session, and the code path was not manually forced against
+production data — this is a real gap, not a claimed-but-unverified pass).
 
 ---
 

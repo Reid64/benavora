@@ -1,7 +1,63 @@
 # BENAVORA — Session State
-## Last Updated: August 7, 2026 (Market Trend Intelligence MVP shipped — row #134)
+## Last Updated: August 7, 2026 (Auto-Deploy Response shipped — row #130)
 
-## Current Session — August 7, 2026 (Market Trend Intelligence MVP — row #134)
+## Current Session — August 7, 2026 (Auto-Deploy Response — row #130, FEMA polling scheduled + human-approval gate)
+
+**Focus:** AGENTS_v2.md AG-25's `pollFEMADeclarations()`/`deployDisasterResponse()`
+(`src/lib/agents/disaster-response-agent.ts`) were real and manually-triggerable
+(AGENT_VERIFICATION_LOG.md rows #126/#128, both BUILT — VERIFIED) but had zero unattended
+scheduling wiring anywhere. Task: (a) give the FEMA poll a real scheduled trigger, (b) chain it to
+the response deploy, but only unsupervised for orgs that explicitly opt in — default behavior is a
+one-click human-approval gate reusing the existing Decision Log UI, not a new mechanism.
+
+**Precondition confirmed live, not assumed:** grepped `worker/scheduler.ts`,
+`worker/autonomous-orchestrator.ts`, `vercel.json`'s cron array for `fema`/`disaster` — zero
+matches in all three before writing any code. This was genuinely two real parts of work, not one.
+
+**Shipped:**
+- `pollFEMADeclarations()` return shape extended to `{ newCount, newDeclarationIds }` so the chain
+  knows which declarations are new (`deployDisasterResponse()`'s own logic untouched, per
+  instruction — row #127 already verified correct). One call site (`GET /api/agents/disaster`)
+  updated to match; its response contract is unchanged.
+- New `runDisasterResponsePipeline()` in `worker/autonomous-orchestrator.ts` (platform-level poll,
+  matching declarations to active orgs by `organizations.state` — confirmed real live column,
+  migration 001 — overlapping `affected_states`), wired into a new daily 5:45 AM CST
+  `worker/scheduler.ts` job (checked every existing job's slot first; this one was free).
+- New migration `src/supabase/migrations/124_auto_deploy_disaster_response.sql`:
+  `org_autonomous_config.auto_deploy_disaster_response boolean NOT NULL DEFAULT false` — placed in
+  `src/supabase/migrations/`, matching where every other `org_autonomous_config` column addition
+  already lives (grepped 080/092/094/101 to confirm before choosing the tree; root's
+  `supabase/migrations/` has no comparable column-adding migrations for this table). **Not applied
+  to production this session** — no DDL credential path was exercised; a future session needs
+  `STANDING_DIRECTIVES.md` DIRECTIVE-017's `DATABASE_URL` path to apply it. Until then every org
+  reads the column as `false` via the config route's existing missing-row fallback, so the
+  approval-gated path is what actually runs regardless.
+- `/api/autonomous/config/route.ts` (`DEFAULT_CONFIG`, `BOOLEAN_FIELDS`, both `select()` strings)
+  and `/settings/agents/page.tsx` (config type + a new `TOGGLE_ROWS` entry) updated so the toggle is
+  reachable through the existing column-recognition pattern and the existing settings UI — no
+  bypass, no second config mechanism.
+- Approval mechanism: checked first whether any existing "approved" `agent_decisions` verdict
+  already triggers a downstream action anywhere in this codebase — it doesn't; every prior agent's
+  decisions are pure audit trail. Since this task's approval needs to actually *do* something,
+  extended `PATCH /api/autonomous/decisions` (the same endpoint the existing Approve/Reject buttons
+  on `/settings/agents`, registry row #214, already call): approving a
+  `decision_type: 'disaster_response_deploy'` row now calls the real `deployDisasterResponse()`
+  using the `declarationId` in `action_payload`, folding the result (or an error) back into
+  `action_payload`. Idempotent against double-approval (skips if `deployment_result` already set).
+  No new table, no new UI, no parallel approval mechanism.
+
+**Gates:** `pnpm tsc --noEmit` — 0 new errors (grepped the full output for every edited file, zero
+hits; the standing pre-existing `src/__tests__/**` failures are unrelated and unchanged).
+`pnpm tsc -p worker/tsconfig.json --noEmit` — 0 errors.
+
+**Not done:** migration 124 not applied to production (needs DDL access in a future session); no
+live FEMA-declaration end-to-end test was run (no real new declaration was available this session,
+and the path wasn't manually forced against prod data) — flagging this rather than claiming a
+verified live pass that didn't happen.
+
+---
+
+## Prior Session — August 7, 2026 (Market Trend Intelligence MVP — row #134)
 
 **Focus:** row #134 ("Market Trend Intelligence", Pillar 11) is PLANNED for the full "federal
 budget + foundation trend analysis" concept — explicitly did NOT build that. Built a small, real

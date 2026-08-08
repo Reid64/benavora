@@ -29,6 +29,7 @@ const DEFAULT_CONFIG = {
   auto_deadline_prediction_enabled: false,
   auto_followup_enabled: false,
   auto_autoapply_enabled: false,
+  auto_deploy_disaster_response: false,
   max_nightly_autoapply_submissions: 50,
   notify_on_auto_draft: true,
   notify_on_high_score: true,
@@ -45,6 +46,11 @@ const BOOLEAN_FIELDS = [
   "auto_deadline_prediction_enabled",
   "auto_followup_enabled",
   "auto_autoapply_enabled",
+  // Row #130 "Auto-Deploy Response" (AGENTS_v2.md AG-25). Default false —
+  // deploying a live disaster-response outreach campaign unsupervised is a
+  // meaningful behavior change with real money/outreach implications, so
+  // this is an explicit per-org opt-in, never auto-enabled (migration 124).
+  "auto_deploy_disaster_response",
   "notify_on_auto_draft",
   "notify_on_high_score",
 ] as const;
@@ -60,7 +66,8 @@ export async function GET() {
       "auto_research_enabled, auto_score_enabled, auto_draft_enabled, " +
         "auto_draft_threshold, auto_reputation_enabled, auto_relationship_enabled, " +
         "auto_deadline_prediction_enabled, auto_followup_enabled, " +
-        "auto_autoapply_enabled, max_nightly_autoapply_submissions, " +
+        "auto_autoapply_enabled, auto_deploy_disaster_response, " +
+        "max_nightly_autoapply_submissions, " +
         "notify_on_auto_draft, notify_on_high_score, notify_digest_time, " +
         "max_auto_drafts_per_night",
     )
@@ -173,7 +180,8 @@ export async function PATCH(request: Request) {
       "auto_research_enabled, auto_score_enabled, auto_draft_enabled, " +
         "auto_draft_threshold, auto_reputation_enabled, auto_relationship_enabled, " +
         "auto_deadline_prediction_enabled, auto_followup_enabled, " +
-        "auto_autoapply_enabled, max_nightly_autoapply_submissions, " +
+        "auto_autoapply_enabled, auto_deploy_disaster_response, " +
+        "max_nightly_autoapply_submissions, " +
         "notify_on_auto_draft, notify_on_high_score, notify_digest_time, " +
         "max_auto_drafts_per_night",
     )

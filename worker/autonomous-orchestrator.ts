@@ -280,12 +280,17 @@ function isAnyAutonomyEnabled(config: OrgAutonomousConfig): boolean {
 interface ActiveOrg {
   id: string;
   name: string | null;
+  // Only populated because getActiveOrgs() selects it below — added for
+  // runDisasterResponsePipeline's state-based declaration matching (row
+  // #130 "Auto-Deploy Response"); every other caller of getActiveOrgs()
+  // already ignores fields it doesn't use, so this is a safe addition.
+  state?: string | null;
 }
 
 async function getActiveOrgs(supabase: SupabaseClient): Promise<ActiveOrg[]> {
   const { data: orgs } = await supabase
     .from('organizations')
-    .select('id, name')
+    .select('id, name, state')
     .eq('onboarding_completed', true);
   if (!orgs || orgs.length === 0) return [];
 
@@ -1083,6 +1088,153 @@ export async function runChangeMonitorDailyPipeline(
   } catch (err) {
     console.error('[AutonomousOrchestrator] AG-42 change monitor daily pipeline failed:', errMsg(err));
   }
+}
+
+/**
+ * AG-25 Disaster Response Agent — Auto-Deploy Response pipeline
+ * (AGENTS_v2.md AG-25 spec; FEATURE_REGISTRY_v2.md row #130). Gives
+ * pollFEMADeclarations()/deployDisasterResponse() (src/lib/agents/
+ * disaster-response-agent.ts — both real, previously reachable only via the
+ * manual POST/GET /api/agents/disaster route, per AGENT_VERIFICATION_LOG.md
+ * rows #126/#128) their first unattended trigger.
+ *
+ * Platform-level for the poll step (FEMA declarations aren't org-scoped),
+ * same shape as AG-36/AG-38/AG-42 above. For each newly-inserted
+ * declaration this run, matches it against active orgs by
+ * organizations.state overlapping the declaration's affected_states, then
+ * per matched org:
+ *   - org_autonomous_config.auto_deploy_disaster_response = true (explicit
+ *     per-org opt-in, migration 124, default false everywhere) -> calls the
+ *     real deployDisasterResponse() directly and logs an agent_decisions
+ *     row with required_human_review=false.
+ *   - otherwise (the default) -> logs a pending agent_decisions row
+ *     (required_human_review=true, decision_type='disaster_response_deploy',
+ *     action_payload.declarationId) instead of deploying. Approving that row
+ *     via the existing Decision Log UI (/settings/agents) performs the real
+ *     deploy — see PATCH /api/autonomous/decisions's deploy-on-approve
+ *     branch. This agent never deploys unsupervised for an org that hasn't
+ *     explicitly opted in.
+ */
+export async function runDisasterResponsePipeline(
+  supabase: SupabaseClient,
+): Promise<void> {
+  console.log(
+    '[AutonomousOrchestrator] Disaster response pipeline starting (FEMA poll).',
+  );
+
+  const { pollFEMADeclarations, deployDisasterResponse } = await import(
+    '../src/lib/agents/disaster-response-agent.js'
+  );
+
+  let pollResult: { newCount: number; newDeclarationIds: string[] };
+  try {
+    pollResult = await pollFEMADeclarations(supabase);
+  } catch (err) {
+    console.error('[AutonomousOrchestrator] FEMA poll failed:', errMsg(err));
+    return;
+  }
+
+  if (pollResult.newDeclarationIds.length === 0) {
+    console.log(
+      '[AutonomousOrchestrator] Disaster response pipeline complete — no new FEMA declarations.',
+    );
+    return;
+  }
+
+  console.log(
+    `[AutonomousOrchestrator] ${pollResult.newDeclarationIds.length} new FEMA declaration(s) found.`,
+  );
+
+  const orgs = (await getActiveOrgs(supabase)).filter(
+    (o) => typeof o.state === 'string' && o.state.trim() !== '',
+  );
+
+  for (const declarationId of pollResult.newDeclarationIds) {
+    const { data: declaration } = await supabase
+      .from('disaster_declarations')
+      .select('id, fema_disaster_number, disaster_type, incident_type, affected_states')
+      .eq('id', declarationId)
+      .single();
+
+    const affectedStatesRaw = (declaration?.affected_states ?? null) as
+      | string[]
+      | null;
+    if (!declaration || !affectedStatesRaw || affectedStatesRaw.length === 0) {
+      continue;
+    }
+    const affectedStates = affectedStatesRaw.map((s) => s.trim().toUpperCase());
+
+    const matchedOrgs = orgs.filter((o) =>
+      affectedStates.includes(String(o.state).trim().toUpperCase()),
+    );
+
+    for (const org of matchedOrgs) {
+      try {
+        const { data: cfg } = await supabase
+          .from('org_autonomous_config')
+          .select('auto_deploy_disaster_response')
+          .eq('org_id', org.id)
+          .maybeSingle();
+        const autoDeployEnabled = cfg?.auto_deploy_disaster_response === true;
+
+        const reasoning =
+          `FEMA declaration ${declaration.fema_disaster_number} ` +
+          `(${declaration.disaster_type ?? declaration.incident_type ?? 'disaster'}) ` +
+          `affects ${affectedStates.join(', ')}, matching org ${org.name ?? org.id}'s service state.`;
+
+        if (autoDeployEnabled) {
+          const result = await deployDisasterResponse(declarationId, org.id, supabase);
+          await supabase.from('agent_decisions').insert({
+            org_id: org.id,
+            agent_id: 'ag-25-disaster-response',
+            decision_type: 'disaster_response_deploy',
+            entity_type: 'disaster_declaration',
+            entity_id: declarationId,
+            reasoning,
+            confidence_score: 85,
+            action_taken: 'deployed_automatically',
+            action_payload: {
+              declarationId,
+              femaDisasterNumber: declaration.fema_disaster_number,
+              affectedStates,
+              deployment_result: result,
+            },
+            required_human_review: false,
+          });
+          console.log(
+            `[AutonomousOrchestrator] Auto-deployed disaster response for org ${org.id}, declaration ${declarationId}.`,
+          );
+        } else {
+          await supabase.from('agent_decisions').insert({
+            org_id: org.id,
+            agent_id: 'ag-25-disaster-response',
+            decision_type: 'disaster_response_deploy',
+            entity_type: 'disaster_declaration',
+            entity_id: declarationId,
+            reasoning,
+            confidence_score: 85,
+            action_taken: 'pending_approval',
+            action_payload: {
+              declarationId,
+              femaDisasterNumber: declaration.fema_disaster_number,
+              affectedStates,
+            },
+            required_human_review: true,
+          });
+          console.log(
+            `[AutonomousOrchestrator] Queued disaster response approval for org ${org.id}, declaration ${declarationId}.`,
+          );
+        }
+      } catch (err) {
+        console.error(
+          `[AutonomousOrchestrator] Disaster response step failed for org ${org.id}, declaration ${declarationId}:`,
+          errMsg(err),
+        );
+      }
+    }
+  }
+
+  console.log('[AutonomousOrchestrator] Disaster response pipeline complete.');
 }
 
 /**

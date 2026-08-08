@@ -4,7 +4,11 @@
 // Two plain functions, matching the sendMorningDigest pattern (no agent_type
 // enum value, no Claude call, nothing logged to agent_runs):
 //   - pollFEMADeclarations: fetches recent FEMA disaster declarations,
-//     inserts any not already in disaster_declarations, returns the new count.
+//     inserts any not already in disaster_declarations, returns the new
+//     count plus the ids of the newly inserted rows (needed by
+//     worker/autonomous-orchestrator.ts's runDisasterResponsePipeline to
+//     know which declarations to chain a response for — see row #130
+//     "Auto-Deploy Response").
 //   - deployDisasterResponse: marks a declaration deployed for one org and
 //     raises an alert summarizing matched emergency fund programs.
 
@@ -30,12 +34,21 @@ function normaliseDate(val: string | undefined): string | null {
   return match ? (match[1] ?? null) : null;
 }
 
+export interface FemaPollResult {
+  /** Count of newly inserted declarations — kept for the existing GET
+   * /api/agents/disaster response contract (`{ newDeclarations: number }`). */
+  newCount: number;
+  /** ids of the newly inserted disaster_declarations rows, in insertion
+   * order — empty when nothing new was found. */
+  newDeclarationIds: string[];
+}
+
 /**
  * Fetches the most recent FEMA disaster declarations and inserts any not
  * already present in disaster_declarations (deduped by fema_disaster_number).
- * Returns the number of newly inserted declarations.
+ * Returns the newly inserted count and ids.
  */
-export async function pollFEMADeclarations(supabase: any): Promise<number> {
+export async function pollFEMADeclarations(supabase: any): Promise<FemaPollResult> {
   const response = await fetch(FEMA_URL, {
     headers: { Accept: "application/json" },
     signal: AbortSignal.timeout(25_000),
@@ -48,6 +61,7 @@ export async function pollFEMADeclarations(supabase: any): Promise<number> {
   const declarations = body.DisasterDeclarationsSummaries ?? [];
 
   let newCount = 0;
+  const newDeclarationIds: string[] = [];
   for (const item of declarations) {
     if (item.disasterNumber === undefined || item.disasterNumber === null) {
       continue;
@@ -61,18 +75,25 @@ export async function pollFEMADeclarations(supabase: any): Promise<number> {
       .maybeSingle();
     if (existing) continue;
 
-    const { error } = await supabase.from("disaster_declarations").insert({
-      fema_disaster_number: femaNumber,
-      disaster_type: item.declarationType ?? null,
-      incident_type: item.incidentType ?? null,
-      affected_states: item.state ? [item.state] : null,
-      declaration_date: normaliseDate(item.declarationDate),
-      incident_begin_date: normaliseDate(item.incidentBeginDate),
-    });
-    if (!error) newCount++;
+    const { data: inserted, error } = await supabase
+      .from("disaster_declarations")
+      .insert({
+        fema_disaster_number: femaNumber,
+        disaster_type: item.declarationType ?? null,
+        incident_type: item.incidentType ?? null,
+        affected_states: item.state ? [item.state] : null,
+        declaration_date: normaliseDate(item.declarationDate),
+        incident_begin_date: normaliseDate(item.incidentBeginDate),
+      })
+      .select("id")
+      .single();
+    if (!error && inserted) {
+      newCount++;
+      newDeclarationIds.push((inserted as { id: string }).id);
+    }
   }
 
-  return newCount;
+  return { newCount, newDeclarationIds };
 }
 
 export interface DisasterResponseDeployment {

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { deployDisasterResponse } from "@/lib/agents/disaster-response-agent";
 import { requireRole } from "@/lib/auth/role-gate";
 
 // GET/PATCH /api/autonomous/decisions - the audit trail of autonomous agent
@@ -15,10 +16,22 @@ import { requireRole } from "@/lib/auth/role-gate";
 //         agent_decisions has no dedicated notes column, so notes are folded
 //         into action_payload.review_notes (same convention as
 //         AutonomousAgent.createNotification's metadata handling).
+//
+//         AGENTS_v2.md AG-25 / row #130 "Auto-Deploy Response": approving a
+//         `disaster_response_deploy` decision here is a one-click action, not
+//         just record-keeping — it calls the real deployDisasterResponse()
+//         using the declarationId stashed in action_payload by
+//         worker/autonomous-orchestrator.ts's runDisasterResponsePipeline,
+//         and folds the deployment outcome back into action_payload. This
+//         reuses the existing approve/reject mechanism already wired into
+//         the Decision Log UI (/settings/agents) rather than inventing a
+//         second approval flow. Idempotent: a decision that already has
+//         action_payload.deployment_result is never re-deployed.
 
 export const runtime = "nodejs";
 
 const VALID_VERDICTS = ["approved", "rejected", "modified"];
+const DISASTER_RESPONSE_DEPLOY_DECISION_TYPE = "disaster_response_deploy";
 
 function jsonError(message: string, code: string, status: number) {
   return NextResponse.json({ error: message, code }, { status });
@@ -92,29 +105,62 @@ export async function PATCH(request: Request) {
     return jsonError("notes must be a string.", "invalid_input", 400);
   }
 
+  const { data: existing, error: fetchError } = await supabase
+    .from("agent_decisions")
+    .select("decision_type, action_payload")
+    .eq("id", id)
+    .eq("org_id", organizationId)
+    .single();
+
+  if (fetchError || !existing) {
+    return jsonError("Decision not found.", "not_found", 404);
+  }
+
+  const currentPayload =
+    typeof existing.action_payload === "object" && existing.action_payload !== null
+      ? (existing.action_payload as Record<string, unknown>)
+      : {};
+
   const patch: Record<string, unknown> = {
     human_reviewed_at: new Date().toISOString(),
     human_reviewer_id: userId,
     human_verdict: verdict,
   };
 
+  let nextPayload = currentPayload;
+
   if (typeof notes === "string" && notes.trim() !== "") {
-    const { data: existing, error: fetchError } = await supabase
-      .from("agent_decisions")
-      .select("action_payload")
-      .eq("id", id)
-      .eq("org_id", organizationId)
-      .single();
+    nextPayload = { ...nextPayload, review_notes: notes.trim() };
+  }
 
-    if (fetchError || !existing) {
-      return jsonError("Decision not found.", "not_found", 404);
+  if (
+    verdict === "approved" &&
+    existing.decision_type === DISASTER_RESPONSE_DEPLOY_DECISION_TYPE &&
+    !nextPayload.deployment_result
+  ) {
+    const declarationId = (nextPayload as { declarationId?: unknown }).declarationId;
+    if (typeof declarationId === "string" && declarationId.trim() !== "") {
+      try {
+        const result = await deployDisasterResponse(
+          declarationId,
+          organizationId,
+          supabase,
+        );
+        nextPayload = { ...nextPayload, deployment_result: result };
+      } catch (err) {
+        nextPayload = {
+          ...nextPayload,
+          deployment_error:
+            err instanceof Error
+              ? err.message
+              : "Disaster response deployment failed.",
+        };
+      }
     }
+  }
 
-    const currentPayload =
-      typeof existing.action_payload === "object" && existing.action_payload !== null
-        ? (existing.action_payload as Record<string, unknown>)
-        : {};
-    patch.action_payload = { ...currentPayload, review_notes: notes.trim() };
+  if (nextPayload !== currentPayload) {
+    patch.action_payload = nextPayload;
   }
 
   const { data, error } = await supabase
