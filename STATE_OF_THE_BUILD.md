@@ -1,6 +1,58 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 8, 2026 (migration idempotency verification harness built — real gaps found in both migration directories, live spot-check confirms failures are clean/non-corrupting). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 8, 2026 (soak test run against the real nonprofit scraper — found a real, previously-undocumented bug: ~95% of real candidate website values fail every fetch due to a missing http(s):// scheme prefix). Not FORGE-auto-generated — hand-verified.**
+
+## SESSION — August 8, 2026 (soak test — FEATURE_REGISTRY_v2.md T7, real run against `scripts/run-nonprofit-scraper.ts`)
+
+Per `FEATURE_REGISTRY_v2.md` row T7 ("Soak Tests — Enrichment engine under sustained load",
+previously PLANNED), ran a real, live soak test against the real, existing standalone scraper —
+`pnpm scrape:nonprofits` (`scripts/run-nonprofit-scraper.ts` → `runNonprofitScraper()` in
+`src/lib/scraper/nonprofit-scraper.ts`) — not the newer, separate, partially-unverified
+`scraper-v2`/Universal Scraper pipeline documented elsewhere in this file.
+
+**Setup:** queried the real candidate population live before running (`nonprofits WHERE website IS
+NOT NULL AND contact_emails IS NULL AND revenue_amount >= 750000`, the exact WHERE clause read
+directly from the script's own source) — **124,755 real candidate rows**, far larger than the 363
+recorded in this scraper's own header comment as of 2026-07-27 (the table has clearly grown a lot
+since; not investigated further, out of scope). With no `startOffset`/batch-limit parameters (this
+script runs to exhaustion via a keyset cursor by design), a full run was never going to finish in
+one session, so the run was capped at ~14 minutes of live wall-clock time and evaluated as a
+bounded, partial run per this task's own instructions.
+
+**Run:** genuine live execution — real Chromium/Playwright via `StealthEngine`, real network calls
+to real nonprofit websites, real Supabase writes against production. Launched as a tracked
+background process, memory sampled via live `Get-Process` checks, cleanly stopped at the cap (no
+crash, no hang, no orphaned processes afterward).
+
+**Result — a real, previously-undocumented bug, not a rate-limit/memory/crash problem:** 90 distinct
+records were attempted; **all 90 failed (0 enriched)**; the real candidate count was **exactly
+unchanged** (124,755 before and after) when re-queried live post-run. Every one of the 268
+fetch-failure log lines (100%) was the identical error: `page.goto: Protocol error (Page.navigate):
+Cannot navigate to invalid URL`. Root cause, confirmed by reading the source directly: neither
+`nonprofit-scraper.ts` nor `stealth-engine.ts`'s `fetchPage()` ever checks or normalizes the
+`website` column's scheme before calling Playwright's `page.goto()`, which requires an absolute
+`http(s)://` URL. A live sample of 500 real candidate rows found **476 (95.2%) missing that
+prefix** (e.g. `WWW.HOWARDYOUNGFOUNDATION.ORG`, `WWW.SEBWEF.ORG`) — plus outright garbage in the
+same column (`N/A`, `NA`, and even an email address stored as a "website"). Because the thrown
+exception is treated identically to a real transient failure, every doomed record burns **two full
+`rotateAndWait()` cycles** (5-15s random sleep + a full new Chromium context relaunch, each) before
+being given up on — a real, compounding efficiency cost on top of the correctness bug. Zero
+403/429/CAPTCHA blocks were observed in this run at all (the bug prevents most records from ever
+reaching a real HTTP request in the first place, so that dimension of "sustained load" genuinely
+couldn't be exercised this run).
+
+**Not fixed** — per this task's explicit scope (a soak test, not a fix pass), this is flagged as a
+real, separate, high-priority bug for its own fix pass, not patched inline. Since this scraper is
+confirmed live-scheduled weekly (`worker/scheduler.ts`'s `nonprofit-enrichment-weekly` job), this
+bug has very likely been silently suppressing the real weekly nonprofit-contact enrichment rate for
+as long as that job has been running. Full evidence, memory samples, and a suggested (unimplemented)
+fix shape in `SOAK_TEST_RESULTS.md`.
+
+`FEATURE_REGISTRY_v2.md` T7 updated PLANNED → BUILT (a real soak test now exists and was run for
+real, with a genuine finding — that is what "built" means for a soak test, independent of whether
+the system under test passed).
+
+---
 
 ## SESSION — August 8, 2026 (migration idempotency verification harness, FEATURE_REGISTRY_v2.md T6)
 

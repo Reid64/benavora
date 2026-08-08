@@ -497,7 +497,7 @@ Ground-up replacement architecture per `UNIVERSAL_SCRAPER_PRD.md`: keyword + sch
 | T4 | E2E Tests | PLANNED | Playwright — login, create opportunity, generate draft. |
 | T5 | Visual Regression Tests | PLANNED | Playwright screenshot vs baseline. |
 | T6 | DB Migration Tests | BUILT | `scripts/check-migration-idempotency.ts` (`pnpm check:migrations`) — real static analysis of every top-level SQL statement in both migration directories, plus a live re-run spot-check (`BEGIN`/`ROLLBACK`) against production. Ran 2026-08-08: root `supabase/migrations/` — 135 files, 958 DDL statements classified, **377 non-idempotent** (51 files with ≥1 issue); `src/supabase/migrations/` — 57 files, 309 DDL statements classified, **76 non-idempotent** (9 files with ≥1 issue). Not "every migration is idempotent" — real, substantial gaps found (mostly bare `CREATE POLICY`/`CREATE INDEX`/`CREATE TYPE ... AS ENUM` with no guard). Live spot-check (5 files/directory, confirmed-applied via real schema query, transaction-rolled-back) found zero unexpected errors — every non-idempotent statement failed cleanly with an "already exists"-class error, never corrupting data. Full detail in `MIGRATION_IDEMPOTENCY_AUDIT.md`. |
-| T7 | Soak Tests | PLANNED | Enrichment engine under sustained load. |
+| T7 | Soak Tests | BUILT | Real soak test run 2026-08-08 against `pnpm scrape:nonprofits` (`src/lib/scraper/nonprofit-scraper.ts`) — ~14 min live run, real Supabase writes, real Chromium/network calls. Found a real, previously-undocumented bug: 100% of the 90 records attempted failed (0 enriched) because ~95% of real `nonprofits.website` values lack an `http(s)://` scheme prefix, so every `page.goto()` throws before any real fetch; no rate-limiting/CAPTCHA/crash/memory issue observed. See `SOAK_TEST_RESULTS.md`. |
 | T8 | Cross-Browser Tests | PLANNED | Chrome, Firefox, Safari (webkit). |
 
 ---
@@ -529,8 +529,8 @@ Ground-up replacement architecture per `UNIVERSAL_SCRAPER_PRD.md`: keyword + sch
 | Data Pipeline | 7 | 3 | 2 | 0 | 2 |
 | Scraper (Directive 1) | 5 | 5 | 0 | 0 | 0 |
 | Universal Scraper (uscraper-001-007) | 7 | 3 | 4 | 0 | 0 |
-| Testing | 8 | 4 | 0 | 0 | 4 |
-| **TOTAL** | **198** | **123** | **12** | **19** | **44** |
+| Testing | 8 | 5 | 0 | 0 | 3 |
+| **TOTAL** | **198** | **124** | **12** | **19** | **43** |
 
 **2026-08-08 addendum:** row #144 (Narrative Gap Analysis) moved Planned→Built this session (see its
 row for detail) — Platform Vision Pillars 28→29 Built / 44→43 Planned, TOTAL 114→115 Built / 55→54

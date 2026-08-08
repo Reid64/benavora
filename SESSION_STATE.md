@@ -1,7 +1,48 @@
 # BENAVORA — Session State
-## Last Updated: August 8, 2026 (migration idempotency verification harness built, FEATURE_REGISTRY_v2.md T6 PLANNED→BUILT)
+## Last Updated: August 8, 2026 (soak test run against real nonprofit scraper, FEATURE_REGISTRY_v2.md T7 PLANNED→BUILT, real bug found)
 
-## Current Session — August 8, 2026 (migration idempotency verification harness)
+## Current Session — August 8, 2026 (soak test — real run against `scripts/run-nonprofit-scraper.ts`)
+
+**Focus:** `FEATURE_REGISTRY_v2.md` row T7 ("Soak Tests — enrichment engine under sustained load")
+was PLANNED. Ran a real, live soak test against the real, existing standalone scraper
+(`pnpm scrape:nonprofits`, `src/lib/scraper/nonprofit-scraper.ts`) — not the newer, separate
+`scraper-v2` pipeline — per this task's instruction to scope against real code rather than invent a
+synthetic load target.
+
+**Status:**
+- Queried the real candidate population live before running (script's own real WHERE clause):
+  124,755 rows (`nonprofits WHERE website IS NOT NULL AND contact_emails IS NULL AND
+  revenue_amount >= 750000`) — far larger than the 363 documented in this file's own header comment
+  as of 2026-07-27.
+- Ran the real script live for ~14 minutes (real Chromium/Playwright network calls, real Supabase
+  writes), memory-sampled via live process checks, cleanly stopped at the cap — no crash, no hang,
+  no orphaned processes.
+- **Found a real, previously-undocumented bug, not a rate-limit/memory/crash issue:** all 90
+  distinct records attempted failed (0 enriched); the real candidate count was exactly unchanged
+  after the run. 100% of the 268 fetch-failure log lines were the identical
+  `Cannot navigate to invalid URL` error. Root cause: neither `nonprofit-scraper.ts` nor
+  `stealth-engine.ts`'s `fetchPage()` normalizes the `website` column's scheme before calling
+  Playwright's `page.goto()`, which requires an absolute `http(s)://` URL. A live sample of 500 real
+  candidate rows found 476 (95.2%) missing that prefix, plus outright garbage values (`N/A`, `NA`,
+  an email address) in the same column. Each doomed record also burns two full 5-15s
+  sleep-plus-browser-relaunch retry cycles before being abandoned — a real efficiency cost stacked
+  on top of the correctness bug. Zero 403/429/CAPTCHA blocks observed — the bug prevents most
+  records from ever reaching a real HTTP request.
+- **Not fixed** — flagged as a real, separate, high-priority bug for its own fix pass, per this
+  task's explicit "test, not a fix pass" scope. This scraper is confirmed live-scheduled weekly
+  (`worker/scheduler.ts`'s `nonprofit-enrichment-weekly` job), so this bug has likely been silently
+  suppressing real weekly enrichment for as long as that job has run.
+- Full evidence, memory samples, and a suggested (unimplemented) fix shape written to
+  `SOAK_TEST_RESULTS.md`. `FEATURE_REGISTRY_v2.md` T7 updated PLANNED → BUILT (a real soak test now
+  exists and ran for real — that's what "built" means here, independent of whether the enrichment
+  path itself passed).
+
+**Commit:** `test(enrichment): soak-test real foundation/nonprofit scrapers under sustained load, SOAK_TEST_RESULTS.md` (this session).
+**Gates:** no code changed this session (test/report only) — `pnpm tsc --noEmit` not affected.
+
+---
+
+## Prior Session — August 8, 2026 (migration idempotency verification harness)
 
 **Focus:** `FEATURE_REGISTRY_v2.md` row T6 ("DB Migration Tests — idempotency verification per
 migration") was PLANNED. Built a real static-analysis + live-spot-check harness covering both of this
