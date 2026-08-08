@@ -1,7 +1,50 @@
 # BENAVORA — Session State
-## Last Updated: August 7, 2026 (Auto-Monitor on Add — FEATURE_REGISTRY_v2.md #151)
+## Last Updated: August 7, 2026 (Relationship Explorer UI — FEATURE_REGISTRY_v2.md #81)
 
-## Current Session — August 7, 2026 (Auto-Monitor on Add)
+## Current Session — August 7, 2026 (Relationship Explorer UI)
+
+**Focus:** FEATURE_REGISTRY_v2.md row #81 ("Relationship Explorer UI," PLANNED — "/research/graph.
+Force-directed visualization. Phase 3 build."). Checked the real nav
+(`src/components/layout/nav-items.ts`) before writing any code: no `/research/graph` route exists
+or is linked anywhere; the real "Relationship Graph" nav item points at
+`/intelligence/relationship-graph` — the already-BUILT page from row #220 (AG-32,
+`relationship-graph-builder-agent.ts`). That page already had a card-list view of
+`pig_nodes`/`pig_edges` connections (introduction strength, "Request Introduction" action, an
+analytics/cluster panel) but no actual node/edge visualization. Built the missing force-directed
+graph as a second view on that real, existing, linked page instead of a new page at the
+registry's stale literal path — per the task's own instruction to check the real nav before
+trusting the registry path.
+
+**What shipped:**
+1. `src/app/api/intelligence/relationship-graph/route.ts` — `loadConnections()` renamed to
+   `loadRelationshipGraph()`, now returns `{ connections, nodes, edges }` from one query (the
+   existing `board_members.organization_id` → `pig_nodes` → `pig_edges` join). No second
+   data-fetch path for the graph — `nodes`/`edges` are the exact same rows `connections` is built
+   from. GET and both POST branches updated.
+2. `src/components/intelligence/relationship-graph-shared.tsx` (new) — `StatTile`/`ConnectionCard`/
+   `Connection` type moved out of the page so the graph view's detail panel reuses the real
+   `ConnectionCard` component rather than a second copy of the markup.
+3. `src/components/intelligence/RelationshipGraphViz.tsx` (new) — hand-rolled SVG
+   Fruchterman-Reingold force layout (no new dependency — grepped `package.json` first, confirmed
+   no `react-force-graph`/`d3-force`/`vis-network`/`cytoscape`/`reactflow` installed; at ~20-25
+   real rows per org, confirmed live 2026-08-07, an O(n²)-per-iteration physics loop is trivial
+   and not worth an ~80KB+ dependency for). Node color by real `node_type` literal
+   (`person`/`funder`/`foundation`/`business`/`nonprofit`); edge thickness by `weight`, color by
+   `verified`. Click-through: node → label/type/connected-edges; edge → the real `ConnectionCard`
+   (every edge in scope has a matching connection, same query).
+4. `page.tsx` — added a List View / Graph View toggle; List View unchanged (all existing
+   functionality preserved — introduction requests, analytics panel, cluster detection).
+
+No synthetic nodes/positions were added to pad the visualization — with real data this sparse
+(~20-25 rows), an honestly sparse graph is correct.
+
+**Commit:** `feat(relationship-graph): add force-directed visualization of real pig_nodes/pig_edges to the existing relationship graph page` (this session).
+**Gates:** `pnpm tsc --noEmit` — zero new errors in any changed/new file (verified via targeted
+grep); remaining output is pre-existing `src/__tests__/**` failures, unrelated to this change.
+
+---
+
+## Prior Session — August 7, 2026 (Auto-Monitor on Add)
 
 **Focus:** FEATURE_REGISTRY_v2.md row #151 ("Auto-Monitor on Add," PLANNED) — enroll newly-created
 funders into AG-18 reputation monitoring immediately via `agent_queue`, instead of relying on the

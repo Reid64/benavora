@@ -1,8 +1,53 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 7, 2026 (Auto-Monitor on Add — new funders enrolled in reputation monitoring via agent_queue; the 'reputation' queue case's known-weak single-entity path fixed for funders in the same session). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 7, 2026 (Relationship Explorer UI — force-directed graph view added to the existing /intelligence/relationship-graph page). Not FORGE-auto-generated — hand-verified.**
 
 > Note: prior to the July 22 update, this file's header/body was stale boilerplate carried over from an unrelated earlier project template (RFQ/drawing-tool "AFS" content) and had not tracked Benavora's real state for some time. It has been fully replaced below. Current session narrative and priorities live in `SESSION_STATE.md`; the July 21 handoff is `BENAVORA_HANDOFF_JULY21.md`.
+
+---
+
+## SESSION — August 7, 2026 (Relationship Explorer UI — FEATURE_REGISTRY_v2.md row #81)
+
+Row #81 said `PLANNED — /research/graph, force-directed visualization, Phase 3 build`. Checked
+the real nav (`src/components/layout/nav-items.ts`) before building anything: there is no
+`/research/graph` link anywhere, and the real "Relationship Graph" nav item points at
+`/intelligence/relationship-graph` — the already-BUILT page from row #220 (AG-32). Built the
+missing visualization *there*, as a second view on the existing page, not a new page at the
+registry's stale literal path.
+
+**What shipped:**
+- `src/app/api/intelligence/relationship-graph/route.ts` — `loadConnections()` renamed
+  `loadRelationshipGraph()`, now returns `{ connections, nodes, edges }` from the exact same
+  query (no second data-fetch path). `nodes`/`edges` are the real `pig_nodes`/`pig_edges` rows,
+  scoped through the same `board_members.organization_id` join the connections list already used.
+  GET and both POST branches (discover / request-introduction) updated to return all three.
+- `src/components/intelligence/relationship-graph-shared.tsx` (new) — `StatTile`/`ConnectionCard`/
+  `Connection` type extracted from the page so the new graph view's node-click/edge-click detail
+  panel renders the *same* connection card component as the list view, not a second copy of the
+  markup.
+- `src/components/intelligence/RelationshipGraphViz.tsx` (new) — hand-rolled SVG force-directed
+  layout (Fruchterman-Reingold, ~220 iterations, run synchronously in a `useMemo`). **Dependency
+  decision**: grepped `package.json` first — no `react-force-graph`/`d3-force`/`vis-network`/
+  `cytoscape`/`reactflow` installed. Given this feature's real, confirmed-live data volume
+  (~20-25 `pig_nodes`/`pig_edges` rows per org as of 2026-08-07), a dependency-free physics loop
+  is O(n²) per iteration on ~25 nodes — trivial — so no new dependency was added. Revisit with a
+  real library only if this feature's data volume grows an order of magnitude. Node color by
+  `node_type` (`person`/`funder`/`foundation`/`business`/`nonprofit`, the real literal values
+  written by `relationship-graph-builder-agent.ts`); edge thickness by `weight`, edge color by
+  `verified`. Clicking a node shows its label/type/connected-edge list; clicking an edge shows the
+  real `ConnectionCard` for that edge (every edge in this scoped graph has a matching `Connection`,
+  since both come from the same query).
+- `src/app/(dashboard)/intelligence/relationship-graph/page.tsx` — added a List View / Graph View
+  toggle above the existing content; List View is unchanged (still the real card-list +
+  introduction-request actions + analytics/cluster panel); Graph View renders the new component.
+  No functionality removed.
+
+**Explicit non-fabrication note:** with genuinely ~20-25 real rows, the graph renders honestly
+sparse — no synthetic nodes/positions were added to make it look more populated.
+
+Gates: `pnpm tsc --noEmit` — zero new errors (confirmed via targeted grep for the changed files;
+all remaining output is pre-existing, unrelated `src/__tests__/**` failures already documented
+elsewhere in this file).
 
 ---
 

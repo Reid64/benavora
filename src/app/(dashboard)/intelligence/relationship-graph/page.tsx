@@ -10,11 +10,18 @@
 // color classes.
 
 import { useCallback, useEffect, useState } from "react";
-import { Loader2, Network, Sparkles, Users } from "lucide-react";
+import { Loader2, Network, Sparkles } from "lucide-react";
 
 import { humanizeEnum } from "@/lib/utils/formatters";
-
-type IntroductionStrength = "direct" | "one_hop" | "two_hop";
+import {
+  ConnectionCard,
+  StatTile,
+  type Connection,
+} from "@/components/intelligence/relationship-graph-shared";
+import RelationshipGraphViz, {
+  type GraphEdge,
+  type GraphNode,
+} from "@/components/intelligence/RelationshipGraphViz";
 
 interface NodeCount {
   nodeType: string;
@@ -61,240 +68,11 @@ interface GraphAnalytics {
   clusters: Cluster[];
 }
 
-interface Connection {
-  id: string;
-  sourceLabel: string;
-  sourceType: string;
-  targetLabel: string;
-  targetNodeType: string;
-  relationshipType: string;
-  introductionStrength: IntroductionStrength;
-  warmIntroductionPath: string | null;
-  confidence: number | null;
-  weight: number | null;
-  verified: boolean;
-  introductionRequested: boolean;
-  discoveredAt: string;
-}
-
-const STRENGTH_COLOR: Record<IntroductionStrength, string> = {
-  direct: "#10B981",
-  one_hop: "#0EA5E9",
-  two_hop: "#F59E0B",
-};
-
-const STRENGTH_LABEL: Record<IntroductionStrength, string> = {
-  direct: "Direct Introduction",
-  one_hop: "One-Hop",
-  two_hop: "Two-Hop",
-};
-
-function StatTile({
-  label,
-  value,
-  color,
-}: {
-  label: string;
-  value: string;
-  color: string;
-}) {
-  return (
-    <div
-      style={{
-        backgroundColor: "#FFFFFF",
-        borderRadius: "14px",
-        padding: "20px 24px",
-        boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
-        flex: "1 1 200px",
-      }}
-    >
-      <p
-        style={{
-          fontSize: "11px",
-          fontWeight: 700,
-          color: "#64748B",
-          textTransform: "uppercase",
-          letterSpacing: "0.08em",
-          margin: "0 0 8px",
-        }}
-      >
-        {label}
-      </p>
-      <p style={{ fontSize: "28px", fontWeight: 900, color, margin: 0 }}>
-        {value}
-      </p>
-    </div>
-  );
-}
-
-function ConnectionCard({
-  connection,
-  onRequestIntroduction,
-  requesting,
-}: {
-  connection: Connection;
-  onRequestIntroduction: (edgeId: string) => void;
-  requesting: boolean;
-}) {
-  const accentColor =
-    STRENGTH_COLOR[connection.introductionStrength] ?? "#6B7280";
-
-  return (
-    <div
-      style={{
-        display: "flex",
-        backgroundColor: "#FFFFFF",
-        borderRadius: "12px",
-        overflow: "hidden",
-        marginBottom: "12px",
-        boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
-      }}
-    >
-      <div
-        style={{ width: "6px", flexShrink: 0, backgroundColor: accentColor }}
-        aria-hidden
-      />
-      <div style={{ flex: 1, padding: "20px" }}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: "12px",
-            flexWrap: "wrap",
-            marginBottom: "10px",
-          }}
-        >
-          <span
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "6px",
-              fontSize: "11px",
-              fontWeight: 700,
-              color: "#FFFFFF",
-              backgroundColor: "#1A2B3C",
-              borderRadius: "999px",
-              padding: "3px 10px",
-              textTransform: "uppercase",
-              letterSpacing: "0.04em",
-            }}
-          >
-            <Users size={11} aria-hidden />
-            {humanizeEnum(connection.sourceType)}
-          </span>
-
-          <span
-            style={{
-              fontSize: "11px",
-              fontWeight: 700,
-              color: "#FFFFFF",
-              backgroundColor: accentColor,
-              borderRadius: "999px",
-              padding: "3px 10px",
-              textTransform: "uppercase",
-              letterSpacing: "0.04em",
-            }}
-          >
-            {STRENGTH_LABEL[connection.introductionStrength]}
-          </span>
-        </div>
-
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            flexWrap: "wrap",
-            fontSize: "14px",
-            fontWeight: 700,
-            color: "#0F172A",
-            marginBottom: "8px",
-          }}
-        >
-          <span>{connection.sourceLabel}</span>
-          <span style={{ color: "#94A3B8", fontWeight: 400 }}>&rarr;</span>
-          <span style={{ color: "#0077B6" }}>
-            {humanizeEnum(connection.relationshipType)}
-          </span>
-          <span style={{ color: "#94A3B8", fontWeight: 400 }}>&rarr;</span>
-          <span>{connection.targetLabel}</span>
-        </div>
-
-        {connection.warmIntroductionPath && (
-          <p
-            style={{
-              fontSize: "13px",
-              fontStyle: "italic",
-              color: "#64748B",
-              margin: "0 0 14px",
-            }}
-          >
-            {connection.warmIntroductionPath}
-          </p>
-        )}
-
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: "12px",
-            flexWrap: "wrap",
-          }}
-        >
-          <span
-            style={{
-              fontSize: "11px",
-              fontWeight: 700,
-              color: "#FFFFFF",
-              backgroundColor: "#334155",
-              borderRadius: "999px",
-              padding: "3px 10px",
-            }}
-          >
-            {connection.confidence != null
-              ? `${connection.confidence}% confidence`
-              : "Confidence unknown"}
-          </span>
-
-          <button
-            type="button"
-            onClick={() => onRequestIntroduction(connection.id)}
-            disabled={requesting || connection.introductionRequested}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "6px",
-              backgroundColor: connection.introductionRequested
-                ? "#94A3B8"
-                : "#10B981",
-              color: "#FFFFFF",
-              fontSize: "12px",
-              fontWeight: 700,
-              padding: "8px 16px",
-              borderRadius: "8px",
-              border: "none",
-              cursor:
-                requesting || connection.introductionRequested
-                  ? "default"
-                  : "pointer",
-              opacity: requesting ? 0.7 : 1,
-            }}
-          >
-            {requesting ? <Loader2 size={13} className="animate-spin" /> : null}
-            {connection.introductionRequested
-              ? "Introduction Requested"
-              : "Request Introduction"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function RelationshipGraphPage() {
   const [connections, setConnections] = useState<Connection[]>([]);
+  const [graphNodes, setGraphNodes] = useState<GraphNode[]>([]);
+  const [graphEdges, setGraphEdges] = useState<GraphEdge[]>([]);
+  const [viewMode, setViewMode] = useState<"list" | "graph">("list");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
@@ -338,7 +116,14 @@ export default function RelationshipGraphPage() {
         );
         return;
       }
-      setConnections((payload as { connections?: Connection[] }).connections ?? []);
+      const data = payload as {
+        connections?: Connection[];
+        nodes?: GraphNode[];
+        edges?: GraphEdge[];
+      };
+      setConnections(data.connections ?? []);
+      setGraphNodes(data.nodes ?? []);
+      setGraphEdges(data.edges ?? []);
     } catch {
       setError("Could not reach the relationship graph service.");
     }
@@ -386,10 +171,14 @@ export default function RelationshipGraphPage() {
       }
       const data = payload as {
         connections?: Connection[];
+        nodes?: GraphNode[];
+        edges?: GraphEdge[];
         itemsProcessed?: number;
         errors?: string[];
       };
       setConnections(data.connections ?? []);
+      setGraphNodes(data.nodes ?? []);
+      setGraphEdges(data.edges ?? []);
       if (data.errors && data.errors.length > 0) {
         setRunNotice(data.errors[0] ?? "Discovery reported an issue.");
       } else {
@@ -426,7 +215,14 @@ export default function RelationshipGraphPage() {
         );
         return;
       }
-      setConnections((payload as { connections?: Connection[] }).connections ?? []);
+      const data = payload as {
+        connections?: Connection[];
+        nodes?: GraphNode[];
+        edges?: GraphEdge[];
+      };
+      setConnections(data.connections ?? []);
+      setGraphNodes(data.nodes ?? []);
+      setGraphEdges(data.edges ?? []);
     } catch {
       setError("Could not reach the relationship graph service.");
     } finally {
@@ -561,6 +357,42 @@ export default function RelationshipGraphPage() {
         <StatTile label="Two-Hop" value={String(twoHopCount)} color="#F59E0B" />
       </div>
 
+      {/* List / Graph view toggle */}
+      <div
+        style={{
+          display: "inline-flex",
+          backgroundColor: "#FFFFFF",
+          borderRadius: "10px",
+          padding: "4px",
+          marginBottom: "20px",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+        }}
+      >
+        {(["list", "graph"] as const).map((mode) => (
+          <button
+            key={mode}
+            type="button"
+            onClick={() => setViewMode(mode)}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              fontSize: "13px",
+              fontWeight: 700,
+              padding: "8px 18px",
+              borderRadius: "7px",
+              border: "none",
+              cursor: "pointer",
+              backgroundColor: viewMode === mode ? "#1A2B3C" : "transparent",
+              color: viewMode === mode ? "#FFFFFF" : "#64748B",
+            }}
+          >
+            {mode === "graph" ? <Network size={14} /> : null}
+            {mode === "list" ? "List View" : "Graph View"}
+          </button>
+        ))}
+      </div>
+
       {loading ? (
         <div
           style={{
@@ -576,6 +408,14 @@ export default function RelationshipGraphPage() {
           <Loader2 size={18} className="animate-spin" />
           Loading relationship graph...
         </div>
+      ) : viewMode === "graph" ? (
+        <RelationshipGraphViz
+          nodes={graphNodes}
+          edges={graphEdges}
+          connections={connections}
+          onRequestIntroduction={(edgeId) => void handleRequestIntroduction(edgeId)}
+          requestingId={requestingId}
+        />
       ) : showEmpty ? (
         <div
           style={{

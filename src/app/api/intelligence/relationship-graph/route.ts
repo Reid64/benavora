@@ -30,14 +30,16 @@ import { RelationshipGraphBuilderAgent } from "@/lib/agents/relationship-graph-b
 // board_meetings/board_meeting_packets tables (migration 078), a different
 // table in the same "board" feature area with a genuinely different
 // column-naming convention. This bug silently zeroed every org-scoped read
-// in loadConnections()/the DELETE-ownership check below (board_members
+// in loadRelationshipGraph()/the DELETE-ownership check below (board_members
 // query always returned 0 rows, so every connection list came back empty
 // and every edge ownership check 404'd) — same class of bug already found
 // and fixed in the AG-32 agent file itself (AGENT_VERIFICATION_LOG.md).
 //
 // GET  — the caller's org's discovered connections, direct introductions
 //        first (introduction_strength ASC), then most recently discovered
-//        (discovered_at DESC).
+//        (discovered_at DESC), plus `nodes`/`edges` — the same pig_nodes/
+//        pig_edges rows reshaped for the force-directed graph view
+//        (FEATURE_REGISTRY_v2.md row #81, "Relationship Explorer UI").
 // POST — with no body: runs RelationshipGraphBuilderAgent synchronously
 //        ("manual" trigger) and returns the refreshed connection list.
 //        agent_type 'ag-32-relationship-graph' is not yet a valid
@@ -77,6 +79,33 @@ interface ConnectionOut {
   discoveredAt: string;
 }
 
+// Row #81 "Relationship Explorer UI" (FEATURE_REGISTRY_v2.md) — a real
+// force-directed visualization of the same pig_nodes/pig_edges this route
+// already reads, added to the existing card-list view rather than a new
+// page. GraphNodeOut/GraphEdgeOut are a second, structural view of the
+// exact same rows loadRelationshipGraph() below already fetches for
+// `connections` — no second data-fetching path, no synthetic nodes/edges.
+interface GraphNodeOut {
+  id: string;
+  label: string;
+  nodeType: string;
+}
+
+interface GraphEdgeOut {
+  id: string;
+  sourceId: string;
+  targetId: string;
+  relationshipType: string;
+  weight: number | null;
+  verified: boolean;
+}
+
+interface RelationshipGraphOut {
+  connections: ConnectionOut[];
+  nodes: GraphNodeOut[];
+  edges: GraphEdgeOut[];
+}
+
 const STRENGTH_RANK: Record<string, number> = {
   direct: 0,
   one_hop: 1,
@@ -101,12 +130,18 @@ function resolveStrength(value: unknown): IntroductionStrength {
   return "direct";
 }
 
+const EMPTY_GRAPH: RelationshipGraphOut = { connections: [], nodes: [], edges: [] };
+
 /** Loads the org's connections by joining pig_edges back to pig_nodes and
- * board_members, since pig_edges carries no organization_id of its own. */
-async function loadConnections(
+ * board_members, since pig_edges carries no organization_id of its own —
+ * and, from that same single set of queries, the node/edge structure the
+ * force-directed graph view renders. There is no second query path for the
+ * graph: `nodes`/`edges` below are the exact same pig_nodes/pig_edges rows
+ * `connections` is built from, just reshaped. */
+async function loadRelationshipGraph(
   supabase: SupabaseClient,
   organizationId: string,
-): Promise<ConnectionOut[]> {
+): Promise<RelationshipGraphOut> {
   const { data: boardMembers, error: boardError } = await supabase
     .from("board_members")
     .select("id")
@@ -115,7 +150,7 @@ async function loadConnections(
     throw new Error(`Failed to load board members: ${boardError.message}`);
   }
   const boardMemberIds = (boardMembers ?? []).map((b) => b.id as string);
-  if (boardMemberIds.length === 0) return [];
+  if (boardMemberIds.length === 0) return EMPTY_GRAPH;
 
   const { data: sourceNodes, error: sourceError } = await supabase
     .from("pig_nodes")
@@ -128,7 +163,7 @@ async function loadConnections(
     );
   }
   const sourceNodeIds = (sourceNodes ?? []).map((n) => n.id as string);
-  if (sourceNodeIds.length === 0) return [];
+  if (sourceNodeIds.length === 0) return EMPTY_GRAPH;
 
   const { data: edges, error: edgeError } = await supabase
     .from("pig_edges")
@@ -141,7 +176,7 @@ async function loadConnections(
     throw new Error(`Failed to load relationship edges: ${edgeError.message}`);
   }
   const edgeRows = edges ?? [];
-  if (edgeRows.length === 0) return [];
+  if (edgeRows.length === 0) return EMPTY_GRAPH;
 
   const nodeIds = new Set<string>();
   for (const e of edgeRows) {
@@ -190,7 +225,25 @@ async function loadConnections(
     };
   });
 
-  return sortConnections(connections);
+  const graphNodes: GraphNodeOut[] = [...nodeById.values()].map((n) => ({
+    id: n.id,
+    label: n.label,
+    nodeType: n.node_type,
+  }));
+  const graphEdges: GraphEdgeOut[] = edgeRows.map((e) => ({
+    id: e.id as string,
+    sourceId: e.source_node_id as string,
+    targetId: e.target_node_id as string,
+    relationshipType: e.relationship_type as string,
+    weight: typeof e.weight === "number" ? e.weight : null,
+    verified: Boolean(e.verified),
+  }));
+
+  return {
+    connections: sortConnections(connections),
+    nodes: graphNodes,
+    edges: graphEdges,
+  };
 }
 
 export async function GET() {
@@ -199,8 +252,8 @@ export async function GET() {
   const { supabase, organizationId } = gate;
 
   try {
-    const connections = await loadConnections(supabase, organizationId);
-    return NextResponse.json({ connections });
+    const graph = await loadRelationshipGraph(supabase, organizationId);
+    return NextResponse.json(graph);
   } catch {
     return jsonError(
       "Failed to load relationship graph.",
@@ -235,7 +288,7 @@ export async function POST(request: Request) {
 
     // Prove the edge belongs to this org before touching it — pig_edges has
     // no organization_id, so ownership runs through pig_nodes ->
-    // board_members.organization_id (see loadConnections above).
+    // board_members.organization_id (see loadRelationshipGraph above).
     const { data: sourceNode } = await supabase
       .from("pig_nodes")
       .select("entity_table, entity_id, label")
@@ -295,8 +348,8 @@ export async function POST(request: Request) {
     );
 
     try {
-      const connections = await loadConnections(supabase, organizationId);
-      return NextResponse.json({ connections });
+      const graph = await loadRelationshipGraph(supabase, organizationId);
+      return NextResponse.json(graph);
     } catch {
       return jsonError(
         "Failed to reload relationship graph.",
@@ -318,9 +371,9 @@ export async function POST(request: Request) {
       );
     }
 
-    const connections = await loadConnections(supabase, organizationId);
+    const graph = await loadRelationshipGraph(supabase, organizationId);
     return NextResponse.json({
-      connections,
+      ...graph,
       itemsFound: result.itemsFound,
       itemsProcessed: result.itemsProcessed,
       errors: result.errors,
