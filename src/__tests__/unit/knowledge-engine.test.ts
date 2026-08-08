@@ -134,7 +134,7 @@ describe("queryKnowledgeEngine", () => {
     expect(result.proposals).toEqual([]);
   });
 
-  it("builds an insight from the top pattern including its success rate", async () => {
+  it("builds an insight from the top pattern including its success rate, stored 0-1 and displayed as a percent", async () => {
     const patterns: KnowledgePattern[] = [
       {
         id: "p1",
@@ -142,7 +142,7 @@ describe("queryKnowledgeEngine", () => {
         category: "housing_grant",
         funder_name: "ACME Foundation",
         pattern_description: "Emphasize measurable outcomes",
-        success_rate: 62,
+        success_rate: 0.62,
         sample_count: 40,
         confidence: "high",
       },

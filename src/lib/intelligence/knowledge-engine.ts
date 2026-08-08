@@ -89,7 +89,9 @@ export async function queryKnowledgeEngine(
     const top = patterns[0]!
     insights.push(
       `Top matching pattern: "${top.pattern_description}"${
-        top.success_rate !== null ? ` (${top.success_rate}% success rate)` : ''
+        top.success_rate !== null
+          ? ` (${Math.round(top.success_rate * 100)}% success rate)`
+          : ''
       }.`,
     )
   }

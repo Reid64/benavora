@@ -100,6 +100,10 @@ import {
   extractGrantPatterns,
   type GrantPatternIntelligence,
 } from "@/lib/intelligence/pattern-extractor";
+import {
+  queryKnowledgeEngine,
+  type KnowledgeEngineResult,
+} from "@/lib/intelligence/knowledge-engine";
 
 type TriggerSource = "autonomous" | "manual" | "chain" | "schedule";
 type FunderCategory = Enums<"funder_category">;
@@ -330,6 +334,12 @@ interface DraftApplicationPayload {
   pending_review: boolean;
   draft_source: string;
   platform_patterns_applied: number;
+  // knowledge_patterns.id values (src/lib/intelligence/knowledge-engine.ts,
+  // migration 096) actually injected into this draft's prompt, so a
+  // cross-org pattern match stays attributable after the fact — distinct
+  // from platform_patterns_applied above, which counts a different table
+  // (platform_learning_patterns). See migration 123.
+  knowledge_patterns_applied: string[];
   twin_powered: boolean;
   twin_completeness: number;
   compliance_check_result: Record<string, unknown>;
@@ -694,6 +704,36 @@ function buildIntelligenceLibrarySection(intelligence: GrantPatternIntelligence)
   return [header, "", ...entries, "", buildIntelligencePatternBlock(intelligence)].join("\n\n");
 }
 
+/** Knowledge Engine (src/lib/intelligence/knowledge-engine.ts, migration
+ * 096) — cross-org knowledge_patterns matches, previously never surfaced in
+ * this agent's prompt (FEATURE_REGISTRY_v2.md row #171's documented gap).
+ * Only the patterns half of the query result is rendered here:
+ * intelligence_funded_proposals matches are already covered, more richly
+ * (Claude-synthesized winning phrases/success factors/budget structure), by
+ * extractGrantPatterns's own INTELLIGENCE LIBRARY section above — reusing
+ * queryKnowledgeEngine's proposals here too would duplicate that section
+ * against the same table. Labeled and kept in its own block, separate from
+ * every org-voice section (Knowledge Base, Proven Narratives, Digital Twin),
+ * so a human fact-checking the draft can tell whether a claim came from this
+ * org's own records or from a cross-org pattern match. Returns null (section
+ * omitted from the prompt) when nothing matched. */
+function buildKnowledgeEnginePatternBlock(
+  result: KnowledgeEngineResult,
+): string | null {
+  if (result.patterns.length === 0) return null;
+
+  const lines = result.patterns.map((p) => {
+    const funder = p.funder_name ? ` [${p.funder_name}]` : "";
+    const rate =
+      p.success_rate != null
+        ? `${Math.round(p.success_rate * 100)}% success rate, ${p.sample_count ?? "unknown"} sample(s), `
+        : "";
+    return `- (id: ${p.id}) [${p.pattern_type}]${funder} ${p.pattern_description} (${rate}${p.confidence} confidence)`;
+  });
+
+  return lines.join("\n");
+}
+
 // Phase 5 — pure scoring functions, kept as free functions (this file's
 // established convention — see countNeedsInput above) rather than methods.
 function computeBaseConfidence(
@@ -960,6 +1000,23 @@ export class DraftGenerationAgent extends AutonomousAgent {
     return { ...base, pastAwardCount, pastAwardTotal, pastDenialCount };
   }
 
+  /** Knowledge Engine (src/lib/intelligence/knowledge-engine.ts) — keyword/
+   * ILIKE retrieval over knowledge_patterns + intelligence_funded_proposals,
+   * previously never called from this agent (registry row #171). Defensive
+   * for the same reason as loadRoiRecommendations: queryKnowledgeEngine
+   * already tolerates its own query-level errors internally (returns empty
+   * arrays), but a network/connection-level throw here degrades to "no
+   * patterns retrieved" rather than blocking draft generation. */
+  private async loadKnowledgeEnginePatterns(
+    query: string,
+  ): Promise<KnowledgeEngineResult> {
+    try {
+      return await queryKnowledgeEngine(query, this.orgId, this.supabase);
+    } catch {
+      return { patterns: [], proposals: [], insights: [] };
+    }
+  }
+
   private buildFunderIntelBlock(funderIntel: FunderIntelligence): string {
     const lines = [`Funder: ${funderIntel.name ?? "Unknown"}`];
     if (funderIntel.geographicFocus) {
@@ -998,6 +1055,7 @@ export class DraftGenerationAgent extends AutonomousAgent {
     fundabilitySection: string | null;
     funderSection: string;
     intelligenceLibrarySection: string;
+    knowledgeEnginePatternsSection: string | null;
   }): string {
     const {
       opportunity,
@@ -1011,6 +1069,7 @@ export class DraftGenerationAgent extends AutonomousAgent {
       fundabilitySection,
       funderSection,
       intelligenceLibrarySection,
+      knowledgeEnginePatternsSection,
     } = params;
 
     return [
@@ -1064,6 +1123,13 @@ export class DraftGenerationAgent extends AutonomousAgent {
         ? [
             "FUNDABILITY DIAGNOSTIC FOR THIS OPPORTUNITY:",
             fundabilitySection,
+            "",
+          ]
+        : []),
+      ...(knowledgeEnginePatternsSection
+        ? [
+            "RELEVANT KNOWLEDGE PATTERNS (retrieved, not authored by this organization -- verify before treating as fact):",
+            knowledgeEnginePatternsSection,
             "",
           ]
         : []),
@@ -1441,14 +1507,30 @@ export class DraftGenerationAgent extends AutonomousAgent {
       const twin = (twinRow ?? null) as DigitalTwinRow | null;
       const twinContext = buildTwinContext(twin);
 
-      const [platformPatterns, roiRecommendations, communityNeedSignals, fundability, funderIntel] =
-        await Promise.all([
-          this.loadPlatformPatterns(opportunity.category),
-          this.loadRoiRecommendations(),
-          this.loadCommunityNeedSignals(),
-          this.loadFundabilityContext(opportunity.id),
-          this.loadFunderIntelligence(funderId),
-        ]);
+      const knowledgeEngineQueryText = [
+        opportunity.category,
+        opportunity.name,
+        opportunity.description,
+      ]
+        .filter((v): v is string => Boolean(v))
+        .join(" ")
+        .slice(0, 300);
+
+      const [
+        platformPatterns,
+        roiRecommendations,
+        communityNeedSignals,
+        fundability,
+        funderIntel,
+        knowledgeEngineResult,
+      ] = await Promise.all([
+        this.loadPlatformPatterns(opportunity.category),
+        this.loadRoiRecommendations(),
+        this.loadCommunityNeedSignals(),
+        this.loadFundabilityContext(opportunity.id),
+        this.loadFunderIntelligence(funderId),
+        this.loadKnowledgeEnginePatterns(knowledgeEngineQueryText),
+      ]);
 
       // Intelligence Library matching + Claude synthesis (extractGrantPatterns,
       // src/lib/intelligence/pattern-extractor.ts). Runs after funderIntel
@@ -1613,6 +1695,9 @@ export class DraftGenerationAgent extends AutonomousAgent {
 
       const funderSection = this.buildFunderIntelBlock(funderIntel);
       const intelligenceLibrarySection = buildIntelligenceLibrarySection(intelligence);
+      const knowledgeEnginePatternsSection = buildKnowledgeEnginePatternBlock(
+        knowledgeEngineResult,
+      );
 
       const sharedContextBlock = this.buildSharedContextBlock({
         opportunity,
@@ -1626,6 +1711,7 @@ export class DraftGenerationAgent extends AutonomousAgent {
         fundabilitySection,
         funderSection,
         intelligenceLibrarySection,
+        knowledgeEnginePatternsSection,
       });
 
       // ---- PHASE 2: NARRATIVE STRATEGY ------------------------------------
@@ -1777,6 +1863,9 @@ export class DraftGenerationAgent extends AutonomousAgent {
         pending_review: true,
         draft_source: "autonomous",
         platform_patterns_applied: patternsApplied,
+        knowledge_patterns_applied: knowledgeEngineResult.patterns.map(
+          (p) => p.id,
+        ),
         twin_powered: true,
         twin_completeness: twinContext.completeness,
         compliance_check_result: complianceResult as unknown as Record<
@@ -1801,6 +1890,20 @@ export class DraftGenerationAgent extends AutonomousAgent {
             ),
             winning_phrases_applied_count: intelligence.winningPhrases.length,
           },
+          // Cross-org knowledge_patterns matches injected into the prompt
+          // (see knowledge_patterns_applied column for the bare id list) --
+          // kept here too, with the descriptive fields, so the same
+          // "Intelligence Used" UI can render what each pattern actually
+          // was without a separate join.
+          knowledge_engine_patterns_applied: knowledgeEngineResult.patterns.map(
+            (p) => ({
+              id: p.id,
+              pattern_type: p.pattern_type,
+              category: p.category,
+              funder_name: p.funder_name,
+              pattern_description: p.pattern_description,
+            }),
+          ),
         },
         ...(() => {
           const noteLines: string[] = [];

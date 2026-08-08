@@ -1,7 +1,62 @@
 # BENAVORA — Session State
-## Last Updated: August 8, 2026 (queue-35 live verification)
+## Last Updated: August 7, 2026 (Knowledge Engine <-> AG-05 integration, row #171)
 
-## Current Session — August 8, 2026 (queue-35 live verification — Auto-Monitor on Add, Relationship Explorer, Path Finder)
+## Current Session — August 7, 2026 (Knowledge Engine <-> AG-05 Draft Generator integration)
+
+**Focus:** wire the real, already-live Knowledge Engine (`queryKnowledgeEngine()`,
+`src/lib/intelligence/knowledge-engine.ts`) into the real AG-05 Draft Generator
+(`src/lib/agents/draft-generation-agent.ts`) — two already-real systems that didn't talk to each
+other, per `FEATURE_REGISTRY_v2.md` row #171. Also fix row #163's `success_rate` display bug.
+
+**Codepath wired: AG-05 only** (`src/lib/agents/draft-generation-agent.ts`), the registry row #171
+target. Re-confirmed live this session that the older, separate manual codepath
+(`src/lib/drafts/generator.ts`'s `generateDraft()`, called by `/api/ai/draft`) also never calls
+`queryKnowledgeEngine()` — a real, separate second instance of the same gap. **Left unmodified**
+per this task's own instruction not to let that scope jeopardize AG-05's fix; flagging it here as
+still open rather than silently leaving no record.
+
+**What shipped:**
+1. `src/lib/agents/draft-generation-agent.ts` — added a defensive `loadKnowledgeEnginePatterns()`
+   loader (matches the file's existing try/catch-degrade convention), added to Phase 1's
+   `Promise.all` alongside the other four defensive intelligence loads. Only the `patterns` half of
+   `queryKnowledgeEngine()`'s result is used — its `proposals` half duplicates what
+   `extractGrantPatterns`'s existing, richer "INTELLIGENCE LIBRARY" section already covers off the
+   same `intelligence_funded_proposals` table.
+2. New prompt block, clearly labeled **"RELEVANT KNOWLEDGE PATTERNS (retrieved, not authored by
+   this organization -- verify before treating as fact)"**, structurally separate from every
+   org-voice section (Knowledge Base / Proven Narratives / Digital Twin) and from the two other,
+   different pattern sources already in this prompt (`platform_learning_patterns` /
+   `intelligence_funded_proposals`), so injected cross-org content stays distinguishable from the
+   org's own voice during hallucination-checking.
+3. **Real attribution mechanism, persisted**: new `applications.knowledge_patterns_applied` column
+   (jsonb array of the `knowledge_patterns.id` values actually injected into that specific draft),
+   migration `src/supabase/migrations/123_knowledge_engine_draft_integration.sql` — checked both
+   migration trees live before numbering (`src/supabase/migrations/` topped out at 122; root
+   `supabase/migrations/` is unrelated content at the same numbers, topped out at 131 — used 123 in
+   the `src/` tree, matching where every other recent `applications` column for this agent already
+   lives). Modeled on the existing `platform_patterns_applied` int-counter precedent (migration
+   `084_learning_network_draft_integration.sql`) but jsonb, since attribution needs the specific
+   IDs, not just a count. Also mirrored (with pattern_type/category/funder_name/description) into
+   `applications.metadata.knowledge_engine_patterns_applied` for the existing "Intelligence Used"
+   UI to render without a join.
+4. Fixed `src/lib/intelligence/knowledge-engine.ts`'s row #163 display bug: the top-pattern insight
+   string used `${top.success_rate}%` directly on a column stored 0-1 (confirmed against this
+   codebase's own established convention for the same scale, `platform_learning_patterns.success_rate`),
+   producing "(0.73% success rate)" instead of "(73%)". Fixed to `${Math.round(top.success_rate * 100)}%`.
+   Grepped the whole file first — this was the only site with the mistake. Updated the one affected
+   unit-test fixture (`success_rate: 62` -> `0.62`, same expected 62%-rendering output).
+5. Did **not** add a vector-search upgrade — `queryKnowledgeEngine()` stays keyword/`ILIKE`-based
+   (no `embedding` column on `knowledge_patterns`), per this task's explicit instruction. AG-05's
+   existing `knowledge_base` org-voice loading is untouched; purely additive.
+
+**Commit:** `feat(agents): wire AG-05 Draft Generator to query the real Knowledge Engine (row #171), fix success_rate display bug` (this session).
+**Gates:** `pnpm tsc --noEmit` — 0 new errors from either edited file; 38 pre-existing errors remain,
+all confined to unrelated `src/__tests__/{unit,integration}/*.test.ts` files (deadline-predictor,
+outcome-analyzer, samgov-client, regressions, organizations, storage-rls).
+
+---
+
+## Prior Session — August 8, 2026 (queue-35 live verification — Auto-Monitor on Add, Relationship Explorer, Path Finder)
 
 **Focus:** live-verify all three q35-001 through q35-003 build prompts (Auto-Monitor on Add,
 Relationship Explorer force-directed graph view, Path Finder) against real production data, per
