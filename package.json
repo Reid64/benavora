@@ -4,6 +4,7 @@
     "private": true,
     "description": "Benavora — nonprofit funding automation platform",
     "scripts": {
+        "prepare": "node scripts/install-git-hooks.mjs",
         "dev": "next dev",
         "build": "next build",
         "build:worker": "tsc -p worker/tsconfig.json && tsc-alias -p worker/tsconfig.json",

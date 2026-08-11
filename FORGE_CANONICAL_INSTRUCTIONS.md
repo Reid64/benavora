@@ -22,10 +22,16 @@
 Claude Code has full filesystem access. It writes every file directly to its correct absolute path. It reads governance docs cold from the filesystem at the start of every prompt. The user never places files, pastes output, or feeds state manually. Every future queue file is written to disk by Claude Code inside the final prompt of every run — not downloaded, not placed manually.
 
 ### Rule 2 — Governance Updates + Incremental Testing
-Every prompt must end with three mandatory instructions:
+Every prompt must end with four mandatory instructions:
 1. Update STATE_OF_THE_BUILD.md and SESSION_STATE.md from a live codebase audit (actual command output, never from memory)
 2. Run incremental tests at checkpoints mid-prompt to catch failures early
 3. Verify what was built actually works before the prompt closes
+4. Run `pnpm run build` locally before the final commit of the prompt, and do not commit if it fails.
+   This is not optional and not covered by the `compile` gate (`tsc --noEmit` catches type errors but
+   not the build-time ESLint pass Next.js runs during `next build`, which has broken production
+   directly — see DIRECTIVE-019 in STANDING_DIRECTIVES.md). The target repos are private repos on a
+   GitHub plan without required status checks or branch protection, so nothing downstream of the
+   push can block a bad commit — this local build is the only real gate.
 
 ### Rule 3 — Gates on Every Prompt
 Every prompt MUST include a `gates:` block. FORGE only enforces pass/fail when gates are present. A prompt without gates passes unconditionally regardless of what was built. Minimum required gates on every prompt:
@@ -237,6 +243,7 @@ Checklist before producing any queue file:
 - [ ] No colons followed by spaces in name fields
 - [ ] Every prompt ends with governance update mandate from actual audit
 - [ ] Every prompt has incremental test checkpoint mid-execution
+- [ ] Every prompt ends with a mandatory `pnpm run build` before the final commit (DIRECTIVE-019)
 - [ ] Final prompt writes next queue to disk as FIRST action
 - [ ] File names are uniquely timestamped
 - [ ] All TypeScript is inline — no stubs, no "implement as described"

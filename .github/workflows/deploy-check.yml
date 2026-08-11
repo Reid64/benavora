@@ -37,8 +37,16 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # 2026-08-11: ubuntu-latest's default V8 heap limit (~2GB) OOM'd
+      # partway through next build's lint/type-check phase on every single
+      # run since re-enabling `push` above — including commits whose actual
+      # Vercel build succeeded. That made this check fail unconditionally,
+      # regardless of code correctness. Raised to 4GB, within ubuntu-latest's
+      # available RAM.
       - name: Build
         run: pnpm build
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
 
       - name: Report build result
         if: always()

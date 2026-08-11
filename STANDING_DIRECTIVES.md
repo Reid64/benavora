@@ -374,6 +374,50 @@ before treating the rotation as live.
 
 ---
 
+## DIRECTIVE-019: Local Pre-Push Build Gate — The Only Real Gate This Repo Tier Has
+
+### Rule
+Every push to `main` must pass `pnpm run build` locally, via the `.git/hooks/pre-push` hook
+installed from `.githooks/pre-push`. Do not bypass it with `git push --no-verify` except in a
+genuine emergency, and if you do, fix and re-verify the build immediately afterward — bypassing it
+routinely reintroduces exactly the failure class this directive exists to stop.
+
+If a fresh clone or worktree doesn't have the hook installed yet, run `pnpm install` — the
+`prepare` script (`scripts/install-git-hooks.mjs`) installs it automatically. If a `pnpm install`
+was skipped, run `node scripts/install-git-hooks.mjs` directly.
+
+### Why this directive exists
+On 2026-08-11, an audit of the last 40 Vercel production deployments found 37 of 40 in `Error`
+state, including the current `main` HEAD at the time (`859c525`) — production had been serving a
+build 21 commits stale for over 8 hours. The proximate cause was a recurring class of bug (an
+unused import tripping `@typescript-eslint/no-unused-vars` under Next.js's build-time lint step) —
+not the same bug twice, but the same *class* twice: `marketplace/[agentId]/page.tsx` (fixed by
+`fa8e738`) and, 40 minutes later, `CommandCenterLive.tsx` (`ec7ef90`, unfixed for 21 subsequent
+commits until this directive's companion fix).
+
+The deeper cause is structural: this repo is a private repo on a GitHub plan that does not support
+required status checks or branch protection — `gh api repos/Reid64/benavora/branches/main/protection`
+and `.../rulesets` both return `403 Upgrade to GitHub Pro or make this repository public`.
+`deploy-check.yml` triggers on `push` to `main`, not `pull_request`, so even a perfectly reliable
+version of it can only report on a commit that has already landed on `main` — it cannot block one.
+Vercel's own build likewise only runs after the push reaches `main`. Neither is a gate; both are
+smoke detectors that go off after the building is already on fire.
+
+Separately, `deploy-check.yml` was itself found to be non-functional as a signal: `gh run list`
+showed 50 failures / 1 cancelled / 0 successes out of its last 51 runs — including on commits whose
+actual Vercel build succeeded (`fa8e738`, `f388c8d`, `1fc87fa`). The cause was unrelated to code
+correctness: `ubuntu-latest`'s default V8 heap limit OOM'd mid-build
+(`FATAL ERROR: Ineffective mark-compacts near heap limit Allocation failed - JavaScript heap out of
+memory`), while Vercel's dedicated build machine completed the identical build fine. That's fixed
+alongside this directive (`NODE_OPTIONS=--max-old-space-size=4096` on the build step), but even a
+green `deploy-check.yml` remains informational only, for the reason above.
+
+Given both the Vercel deploy and `deploy-check.yml` can only ever report after the fact on this repo
+tier, the pre-push hook is the only point in the entire pipeline where a broken build can actually
+be stopped before it reaches `main`. Treat it accordingly — it is not a convenience, it is the gate.
+
+---
+
 ## Governance Update Requirements
 
 Every session that touches any Directive above must update:

@@ -1,0 +1,36 @@
+#!/bin/sh
+# Local pre-push build gate.
+#
+# Why this exists: this repo's GitHub plan does not support required status
+# checks / branch protection on private repos (confirmed 403 "Upgrade to
+# GitHub Pro" from both the classic branch-protection API and the rulesets
+# API). deploy-check.yml runs on `push` to main, not `pull_request`, so even
+# once it's a reliable signal it can only report on a commit that already
+# landed — it cannot block one. Vercel's own build likewise only runs after
+# the push. The only point in this repo's pipeline where a broken build can
+# actually be stopped before it reaches `main` is right here, before `git
+# push` leaves the machine. See STANDING_DIRECTIVES.md DIRECTIVE-019.
+#
+# Installed via `pnpm install`'s `prepare` script (scripts/install-git-hooks.mjs),
+# which copies this file to .git/hooks/pre-push. Edit THIS file, not the
+# installed copy — the installed copy is untracked and gets overwritten.
+
+remote="$1"
+url="$2"
+
+echo "pre-push: running 'pnpm run build' before allowing push to $remote ($url)..."
+
+pnpm run build
+status=$?
+
+if [ $status -ne 0 ]; then
+  echo ""
+  echo "pre-push: BLOCKED — 'pnpm run build' failed (exit $status)."
+  echo "pre-push: fix the build before pushing to main. To bypass in a genuine"
+  echo "pre-push: emergency, use 'git push --no-verify' — but that reintroduces"
+  echo "pre-push: exactly the failure class this hook exists to catch."
+  exit 1
+fi
+
+echo "pre-push: build passed, push allowed."
+exit 0
