@@ -43,10 +43,20 @@ jobs:
       # Vercel build succeeded. That made this check fail unconditionally,
       # regardless of code correctness. Raised to 4GB, within ubuntu-latest's
       # available RAM.
+      #
+      # Fixing the OOM then surfaced a second, previously-masked failure:
+      # this workflow never had NEXT_PUBLIC_SUPABASE_URL /
+      # NEXT_PUBLIC_SUPABASE_ANON_KEY, which next build requires to
+      # prerender any page that touches the Supabase client. These are the
+      # public/anon values Next.js inlines into the client bundle by
+      # design (RLS is the real access boundary, not secrecy of this key),
+      # so storing them as repo secrets here is safe.
       - name: Build
         run: pnpm build
         env:
           NODE_OPTIONS: --max-old-space-size=4096
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
 
       - name: Report build result
         if: always()

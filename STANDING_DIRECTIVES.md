@@ -405,11 +405,16 @@ smoke detectors that go off after the building is already on fire.
 
 Separately, `deploy-check.yml` was itself found to be non-functional as a signal: `gh run list`
 showed 50 failures / 1 cancelled / 0 successes out of its last 51 runs — including on commits whose
-actual Vercel build succeeded (`fa8e738`, `f388c8d`, `1fc87fa`). The cause was unrelated to code
-correctness: `ubuntu-latest`'s default V8 heap limit OOM'd mid-build
-(`FATAL ERROR: Ineffective mark-compacts near heap limit Allocation failed - JavaScript heap out of
-memory`), while Vercel's dedicated build machine completed the identical build fine. That's fixed
-alongside this directive (`NODE_OPTIONS=--max-old-space-size=4096` on the build step), but even a
+actual Vercel build succeeded (`fa8e738`, `f388c8d`, `1fc87fa`). Two unrelated causes stacked on top
+of each other, both nothing to do with code correctness: (1) `ubuntu-latest`'s default V8 heap limit
+OOM'd mid-build (`FATAL ERROR: Ineffective mark-compacts near heap limit Allocation failed -
+JavaScript heap out of memory`), while Vercel's dedicated build machine completed the identical
+build fine — fixed via `NODE_OPTIONS=--max-old-space-size=4096` on the build step; and (2), only
+visible once (1) was fixed, the workflow had never had `NEXT_PUBLIC_SUPABASE_URL` /
+`NEXT_PUBLIC_SUPABASE_ANON_KEY` set, which `next build` requires to prerender any page touching the
+Supabase client — fixed by adding both as repo secrets (safe to store this way: they're the
+public/anon values Next.js inlines into the client bundle by design; RLS is the real access
+boundary, not secrecy of this key) and referencing them in the Build step's `env:` block. Even a
 green `deploy-check.yml` remains informational only, for the reason above.
 
 Given both the Vercel deploy and `deploy-check.yml` can only ever report after the fact on this repo
