@@ -63,7 +63,6 @@ import { createClient } from "@/lib/supabase/client";
 import { formatDate, formatRelative, humanizeEnum } from "@/lib/utils/formatters";
 import type { CommandCenterSnapshot } from "@/lib/command-center/snapshot";
 import {
-  COMMAND_CENTER_PANEL_IDS,
   DEFAULT_COMMAND_CENTER_LAYOUT,
   type CommandCenterPanelId,
 } from "@/lib/command-center/panels";
