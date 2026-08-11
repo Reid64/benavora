@@ -25,6 +25,28 @@ An additional tier system was added 2026-07-30 for agent rows (AG-15–AG-30 ran
 
 > ⚠️ **Known stale block, ~13 rows:** everything labeled `IN BUILD ... migration NNN tonight` (rows 79, 98, 135-136, 140, 152, 156-159, 161-165 — Agent Registry, Knowledge Engine/pgvector, Command Center, pig_nodes/pig_edges graph schema, board packet/simulation schemas) reads as a leftover snapshot from an earlier FORGE session. Direct grep this session confirms the Agent Registry (`094_agent_registry.sql`, `settings/agents/page.tsx`, 775 lines), Knowledge Engine (`096_knowledge_engine.sql`, `knowledge-engine.ts`, `/intelligence/knowledge`), and Command Center (`command-center/page.tsx`, 599 lines) all already exist as real, non-stub code — and other rows in the *same document* (#170, #213, #100/#196/#220) already treat this code as an established fact. Recommend treating these rows as **likely-BUILT pending a fresh verification pass**, not as still-queued.
 
+> ⚠️ **Second known stale block, added 2026-08-11, larger than the one above and not yet corrected
+> row-by-row:** this entire Core table is dated 2026-07-30 and was never updated for the queue-26
+> through queue-39 FORGE chain (2026-08-06 through 08), which built and live-verified a substantial
+> share of what this table still lists as PLANNED. Confirmed stale by direct cross-reference against
+> `FEATURE_REGISTRY_v2.md`'s current (2026-08-11) row text for at least: **#82** Path Finder (table:
+> PLANNED — registry: BUILT — VERIFIED), **#97** Corporate Marketplace (table: PLANNED — registry:
+> BUILT since 2026-08-07), **#116** One-Click Proposal Package (table: PLANNED — registry:
+> BUILT — VERIFIED), **#121–124** Donation Marketplace schema/listing/match/approval (table: PLANNED,
+> "entire Pillar 9 unbuilt" — registry: BUILT — VERIFIED for 4 of the 5 rows; #125 Receipt Generator
+> correctly remains PLANNED, that part of the table is still accurate), **#130** Auto-Deploy Response
+> (table: PLANNED — registry: BUILT — VERIFIED live 2026-08-07), **#142** Simulator UI (table: PLANNED
+> — registry: BUILT — VERIFIED), **#144–146** Narrative/Geographic Gap Analysis + Recommendations
+> (table: PLANNED — registry: BUILT), **#151** Auto-Monitor on Add (table: PLANNED — registry:
+> BUILT — VERIFIED, reconciled into the registry this same session), **#153** Real-Time Panel Updates
+> (table: PLANNED — registry: BUILT — BLOCKED (VERIFIED), also reconciled this session — note this one
+> is built but non-functional in production, not a clean BUILT). This list is not exhaustive — it's
+> what was directly spot-checked, not a full re-audit of all ~30 Core rows. **Not corrected row-by-row
+> in this pass**, consistent with this table's own convention of flagging staleness explicitly rather
+> than silently patching (see the block above) — a full reconciliation against `FEATURE_REGISTRY_v2.md`
+> is real, scoped work for a future session, not a drive-by edit. Section 2 (the AG-01–42 tally,
+> separately dated 2026-08-07) is unaffected by this — confirmed independently current, no drift.
+
 ### Core PARTIAL / PLANNED / IN BUILD / NOT-BUILT / DEFERRED / CRITICAL
 
 | # | Name | Status | What's missing |
