@@ -1,7 +1,62 @@
 # BENAVORA — Session State
-## Last Updated: August 8, 2026 (queue-38 reconciliation: T6/T7 confirmed real, T4/T8 confirmed never touched)
+## Last Updated: August 11, 2026 (deploy-failure investigation/resolution + full governance sync)
 
-## Current Session — August 8, 2026 (queue-38 reconciliation: Testing Features T4/T6/T7/T8)
+## Current Session — August 11, 2026 (deploy-failure investigation/resolution + comprehensive governance sync)
+
+**Focus:** two parts, same day. Part A: production had been serving a build 21 commits stale for 8+
+hours (37/40 recent Vercel deploys `Error`) — diagnosed, fixed, and closed the loop on why
+`deploy-check.yml` couldn't have caught it either (wrong trigger event, no branch-protection support
+on this repo's GitHub plan, and — separately — the workflow itself had never once gone green due to
+an OOM unrelated to code correctness). Part B (this entry): full requested sweep of all 5 governance
+docs, plus independently re-confirming the FORGE queue-26..39 chain actually completed (the prior
+2026-08-07 preflight session was blocked from checking this by a sandbox restriction; this session
+had FORGE-directory access and closed that open item).
+
+**Status — what's genuinely done:**
+- Production restored: `df5a981` removed the `COMMAND_CENTER_PANEL_IDS` unused import
+  (`ec7ef90`-introduced, broke all 21 subsequent commits' builds). Verified live: `vercel inspect`
+  shows the current HEAD commit, `Ready`.
+- `deploy-check.yml` fixed in two steps (`35d9974` OOM via `NODE_OPTIONS`, `452979a` missing
+  `NEXT_PUBLIC_SUPABASE_*` secrets) and **confirmed green for the first time in its history** (run
+  `31524626970`, `success`, watched to completion).
+- Real local gate added since neither Vercel nor `deploy-check.yml` can block a bad commit on this
+  repo tier: `.githooks/pre-push` (auto-installed via `pnpm install`), **verified to actually refuse a
+  push** on a deliberately broken test commit, documented as `STANDING_DIRECTIVES.md` DIRECTIVE-019
+  and made mandatory step 4 in `FORGE_CANONICAL_INSTRUCTIONS.md` Rule 2 + the §12 checklist.
+- FEATURE_REGISTRY_v2.md rows #82/#151/#153 reconciled to their real, already-live-verified
+  2026-08-07/08 build state (full detail in `STATE_OF_THE_BUILD.md`'s matching entry) — #153 corrected
+  to `BUILT — BLOCKED (VERIFIED)`, not a clean `BUILT`, since Realtime doesn't actually fire in
+  production yet (publication has zero member tables).
+- FORGE chain queue-26 through queue-39: **all 14 files confirmed to exist, all with real matching
+  git-commit evidence** — no gaps. `library-manifest.yaml` itself is stale (doesn't list any of this
+  work) but git log is authoritative and corroborates all of it.
+- AGENT_VERIFICATION_LOG.md confirmed current — no changes needed; its cited entries
+  (queue-37/-35/-34) are real, and AG-17/AG-15/AG-39's most recent status text is accurate.
+- STANDING_DIRECTIVES.md DIRECTIVE-017/018 confirmed present, accurate, no drift.
+- TEOS final numbers (705,147 filings, 12/12 zips) and AutoApply's first 6/6 E2E pass both confirmed
+  already correctly documented in `STATE_OF_THE_BUILD.md` — no gap found, no edit needed.
+
+**What's flagged, not fixed (real open items, stated plainly):**
+- `NOT_BUILT_MASTER_INVENTORY.md` Section 1 (the "Core" feature table) is dated 2026-07-30 and was
+  never updated for the entire queue-26..39 chain — at least 9 rows confirmed stale by cross-reference
+  against FEATURE_REGISTRY_v2.md (see `STATE_OF_THE_BUILD.md` entry for the full list). Not rewritten
+  this session — that table needs its own scoped pass, not a drive-by patch.
+- `AGENTS_v2.md` §3/§5 still describe AG-17/AG-15/AG-39 using stale, contradicted-elsewhere language
+  (a known gap from the 2026-08-07 preflight session, which was barred from editing it). Not in this
+  session's requested scope; still open.
+- 6 pre-existing unrelated modified files (`.claude/worktrees/agent-*`, dirty submodule pointers, not
+  real content) remain unstaged in the working tree — not swept into any commit this session, not
+  investigated further; still sitting there for whoever wants to look at them.
+
+**Commits (Part A, deploy-failure fix):** `df5a981`, `35d9974`, `452979a` (all pushed and live).
+**Commits (Part B, governance sync):** pending as of this entry — see the commit(s) immediately
+following this one in `git log` for the actual governance-doc-only commit(s).
+**Gates:** `pnpm tsc --noEmit` / `pnpm run build` both clean during Part A. No application code
+changed in Part B.
+
+---
+
+## Prior Session — August 8, 2026 (queue-38 reconciliation: Testing Features T4/T6/T7/T8)
 
 **Focus:** documentation-consistency check only (no tests re-run), per this task's explicit scope.
 Queue-38 targeted Testing Features rows T4/T6/T7/T8 via prompts q38-001 through q38-004. Cross-

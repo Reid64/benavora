@@ -1,6 +1,181 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 8, 2026 (queue-38 reconciliation: T6/T7 confirmed real, T4/T8 confirmed never touched). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 11, 2026 (deploy-failure investigation + resolution; full FORGE queue-26..39 chain confirmed complete with real evidence; FEATURE_REGISTRY_v2.md rows #82/#151/#153 reconciled; NOT_BUILT_MASTER_INVENTORY.md Section 1 flagged stale). Not FORGE-auto-generated — hand-verified.**
+
+## SESSION — August 11, 2026 (comprehensive governance sync: deploy-failure investigation/resolution, FORGE chain closeout, registry reconciliation)
+
+**Scope:** two parts. Part A (separate session, same day) diagnosed and fixed a live production
+outage plus a structurally non-functional CI check. Part B (this entry) is the requested full
+governance-document sweep verifying and reconciling everything Part A touched, plus independently
+re-checking the state of the queue-26..39 FORGE chain, AG-17/AG-15/AG-39, and TEOS/AutoApply/key
+consolidation coverage across all five governance docs. No further application code was touched in
+Part B beyond the three FEATURE_REGISTRY_v2.md row corrections below.
+
+### Part A — Deploy-failure investigation and resolution (full detail; this is genuinely new material)
+
+**Finding: 37 of the last 40 Vercel production deployments were `Error`, including the `main` HEAD at
+the time (`859c525`) — production had been serving a build 21 commits stale for 8+ hours.** Pulled via
+`vercel ls benavora --prod` / `vercel inspect --logs` (CLI, not MCP — MCP was on the wrong account per
+prior sessions). Two distinct bugs, not one recurring bug:
+- **Older group (16 deploys, commits `10bf2f6`→`fe0c54b`):** `marketplace/[agentId]/page.tsx:47` —
+  `'errorBoxStyle' is assigned a value but never used`. Already fixed by `fa8e738` before this
+  session started; produced exactly 3 good deploys (`fa8e738`, `f388c8d`, `1fc87fa`).
+- **Newer group (21 deploys, commits `ec7ef90`→`859c525`, the then-current HEAD):** a *different*
+  unused-import bug of the same class, `COMMAND_CENTER_PANEL_IDS` in
+  `src/components/command-center/CommandCenterLive.tsx:66`, introduced by `ec7ef90` ("TV/projector
+  full-screen mode + configurable panel layout") and inherited by every commit since — including the
+  queue-32 through queue-38 chain work. **Fixed this session** (`df5a981`): removed the unused import,
+  verified clean via the exact `pnpm run build` Vercel runs, pushed. Production is now live on the
+  current HEAD, confirmed via `vercel inspect --logs` showing the matching commit and `Ready` status.
+
+**`deploy-check.yml` (GitHub Actions) was found structurally incapable of blocking anything, for two
+independent reasons — fixed where fixable, documented where not:**
+1. It triggers on `push` to `main`, not `pull_request` — it can only report on a commit already on
+   `main`, never block one before it lands. This repo has no PR-gated workflow (direct pushes to
+   `main`, confirmed via linear history).
+2. Branch protection / rulesets are unavailable on this repo's GitHub plan — `gh api
+   repos/Reid64/benavora/branches/main/protection` and `.../rulesets` both return `403 Upgrade to
+   GitHub Pro or make this repository public`. Even if (1) were fixed, there is no way to make a
+   check required on this tier.
+3. Separately, and worse: **`gh run list` showed 50 failures / 1 cancelled / 0 successes out of its
+   last 51 runs — it had never once gone green**, including on commits whose Vercel build actually
+   succeeded (`fa8e738`, `f388c8d`, `1fc87fa`). Root cause, confirmed via `gh run view --log-failed`:
+   `ubuntu-latest`'s default V8 heap limit OOM'd mid-build (`FATAL ERROR: ... JavaScript heap out of
+   memory`) — unrelated to code correctness. **Fixed** (`35d9974`): `NODE_OPTIONS
+   --max-old-space-size=4096` on the build step. That fix then *exposed* a second, previously-masked
+   failure — the workflow never had `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY` set, so
+   `next build` failed prerendering every Supabase-touching page. **Fixed** (`452979a`): added both as
+   GitHub repo secrets (safe — they're the public/anon values Next.js inlines into the client bundle
+   by design, RLS is the real access boundary) and wired into the Build step's `env:` block.
+   **Confirmed GREEN for the first time in this workflow's history**: run `31524626970` on `452979a`,
+   `"conclusion":"success"`, 5m17s, watched to completion via `gh run watch`.
+
+**Real gate added, since neither Vercel nor `deploy-check.yml` can block a bad commit on this repo
+tier — see `STANDING_DIRECTIVES.md` DIRECTIVE-019 for the full rule/rationale.** A tracked
+`.git/hooks/pre-push` (`.githooks/pre-push`, auto-installed by `pnpm install`'s new `prepare` script,
+`scripts/install-git-hooks.mjs`) runs `pnpm run build` and refuses the push on failure. **Verified for
+real, not just written:** created a throwaway commit with a genuinely-unused var (first attempt
+accidentally used a name matching this project's own `/^_/u` ESLint ignore pattern and wouldn't have
+failed — caught and corrected), ran `git push`, got `pre-push: BLOCKED` / `error: failed to push some
+refs` / exit 1. Safely dropped the throwaway commit (the real fix was already committed one commit
+underneath it) and pushed clean.
+
+**Deviation from strict instructions, flagged rather than silently done:** commits were staged file-by-
+file rather than via `git add -A` throughout — this working tree has 6 pre-existing unrelated modified
+files (`.claude/worktrees/agent-*`, dirty submodule pointers from other agent sessions, not real
+content) that `-A` would have swept into unrelated commits. Still unstaged as of this entry; see "Open
+items" below.
+
+### Part B — Governance-document sweep
+
+**STANDING_DIRECTIVES.md — DIRECTIVE-017, 018, 019 all present, accurate, no drift found.**
+DIRECTIVE-017 (direct DDL access via `DATABASE_URL`/Management API) and DIRECTIVE-018 (one canonical
+Anthropic key) both read exactly as before, consistent with this session's own use of DIRECTIVE-017's
+`psql` path and no new key issues encountered. DIRECTIVE-019 (this session's pre-push build gate) is
+new, added and cross-referenced above.
+
+**FORGE_CANONICAL_INSTRUCTIONS.md — pre-push gate documented consistently in both places it needs to
+be:** Rule 2 (now 4 mandatory closing instructions, not 3) and the §12 pre-queue checklist. No other
+location in the document references the old "three mandatory instructions" count that would now be
+inconsistent.
+
+**FEATURE_REGISTRY_v2.md — 3 genuinely stale rows found and fixed, all real build+verify work from
+2026-08-07/08 that was simply never reconciled into the registry itself:**
+- **#82 Path Finder** — still read `PLANNED`. Built (`a8e18ff`) and live-verified (`AGENT_VERIFICATION_LOG.md`
+  "Reputation Graph UI (queue-35)") back on 2026-08-07/08. Corrected to `BUILT — VERIFIED`, with the
+  known caveat carried over accurately: the algorithm is confirmed correct, but the UI controls don't
+  render for this org today (its 20 real edges are org-level, not board-member-sourced — the same
+  known scope gap already documented on row #81, not a new defect).
+- **#151 Auto-Monitor on Add** — still read `PLANNED`. Built (`11dd99e`) and live-verified same
+  pass (both insert paths, ~30s worker turnaround, confirmed via real `agent_runs` rows). Its own
+  2026-08-07 `STATE_OF_THE_BUILD.md` session entry explicitly flagged "a future session should flip
+  #151 from PLANNED" — that flip had never happened until now. Corrected to `BUILT — VERIFIED`.
+- **#153 Real-Time Panel Updates** — still read `PLANNED`. This one needed more care than a flat
+  status flip: it's built (`1fc87fa`) but **live verification (`AGENT_VERIFICATION_LOG.md` "AI Board
+  Advisor / Command Center (queue-34)") found it does not work in production** — the
+  `supabase_realtime` publication has zero member tables database-wide, confirmed via
+  `pg_publication_tables`; a subscribed channel received zero events after a real insert during a live
+  20-second listen window. Corrected to `BUILT — BLOCKED (VERIFIED)`, the registry's own tier for
+  exactly this case, with the one-line unapplied fix (`ALTER PUBLICATION supabase_realtime ADD TABLE
+  agent_runs, agent_decisions, applications;`) stated inline rather than silently upgraded to a clean
+  `BUILT`.
+
+Summary table updated to match (2026-08-11 addendum, Platform Vision Pillars 30→33 Built / 42→39
+Planned, TOTAL 116→119 Built / 53→50 Planned) — see the addendum text itself for why #153 is still
+counted as Built despite being blocked in production (consistency with how this table already treats
+other BUILT-tier rows, not a claim it fully works).
+
+**AGENT_VERIFICATION_LOG.md — confirmed current, no changes needed.** Its newest entry (line 8624,
+EOF at 8970) is the queue-37 live-verification pass (2026-08-08) — the same one FEATURE_REGISTRY_v2.md
+cites as "queue-37 entry #4/#5," confirmed real, not a fabricated citation. The "Reputation Graph UI
+(queue-35)" and "AI Board Advisor / Command Center (queue-34)" entries FEATURE_REGISTRY_v2.md also
+cites are likewise real and match. AG-17/AG-15/AG-39's most recent status text (the "Governance
+preflight sync, 2026-08-07" entry, line ~6083) correctly states the `org_id` fix (AG-17), the
+engine/wrapper BUILT-VERIFIED/BUILT-BLOCKED split (AG-15), and the real `runRoiOptimizerStep()` call
+site (AG-39) — no later entry in the file reverts or contradicts this.
+
+**NOT_BUILT_MASTER_INVENTORY.md — Section 2 (the AG-01–42 tally) is current and correct: 26 BUILT AND
+VERIFIED WORKING / 2 BUILT BUT NOT WIRED / 3 BUILT BUT BLOCKED / 1 NOT BUILT AT ALL, dated 2026-08-07,
+matches `AGENT_VERIFICATION_LOG.md`'s current state exactly. Section 1 (the "Core" PLANNED/PARTIAL
+feature table) is a different matter — it is dated 2026-07-30 and was never updated for the entire
+queue-26..39 chain (Aug 6-8).** Confirmed stale against FEATURE_REGISTRY_v2.md's now-current rows for
+at least: #82 (Path Finder, table says PLANNED), #97 (Corporate Marketplace, table says PLANNED — 
+registry has said BUILT since 2026-08-07), #116 (One-Click Proposal Package, PLANNED — registry BUILT),
+#121-125 (Donation Marketplace, PLANNED/"entire Pillar 9 unbuilt" — registry has 4 of 5 rows BUILT),
+#130 (Auto-Deploy Response, PLANNED — registry BUILT), #142 (Simulator UI, PLANNED — registry BUILT),
+#144-146 (Gap Analyzer trio, PLANNED — registry BUILT), #151 (Auto-Monitor on Add, PLANNED — just
+fixed above), #153 (Realtime, PLANNED — just fixed above, actually BUILT-BLOCKED). Not corrected row-
+by-row in this pass — that's a substantial rewrite of a ~30-row table best scoped as its own session,
+consistent with this file's existing convention of flagging staleness explicitly rather than silently
+patching (see its own "Known stale block" note at line 26). Flagging here rather than leaving it
+silently wrong.
+
+**FORGE chain, queue-26 through queue-39 — confirmed fully executed, closing the one open item from
+the 2026-08-07 preflight session (which was blocked from checking this by a sandbox restriction that
+session didn't have access past).** All 14 queue files (26 through 39) exist on disk in
+`C:\Users\manag\Documents\FORGE\projects\benavora\` — including queue-26 and queue-27, which an
+earlier directory listing this session initially missed (truncated, not actually absent). Each has
+real, matching git-commit evidence:
+- queue-26 (relationship-memory-fix): `81a9388`, `732328b`
+- queue-27 (agent-marketplace-completion): `b1a91dd`, `2b181ff`, `499f87a`, `6381a3b`
+- queue-28 (forecast-dashboard): `138dbd3`, `ca15dca`, `62aa548`
+- queue-29 (simulator-ui): `e864cd7`, `5268a74` (plus underlying AG-41 agent work `0b57861`/`189e16a`)
+- queue-30 through queue-39: already held commit evidence from this session's own earlier audit
+  (relationship-graph, reputation, board-advisor, command-center, gap-analyzer, knowledge-engine,
+  market-trend, marketplace, personalization, resource-graph, custom-connector, 990-PF,
+  testing-hardening, and the queue-39 governance preflight itself, `a250290`).
+**One caveat:** `C:\Users\manag\Documents\FORGE\library\benavora\library-manifest.yaml` has zero
+entries for any of queue-26 through queue-39 — its newest entry predates all of this work (Jul 23).
+Not evidence the work didn't happen (git log is authoritative and confirms it did) — just an
+unmaintained manifest a future session should either update or stop treating as a completeness signal.
+
+**TEOS enrichment, AutoApply E2E, Anthropic key consolidation — all independently confirmed already
+correctly documented, no gaps found:**
+- TEOS: "SESSION — August 6, 2026 (TEOS local enrichment complete — all 12 zips processed)" —
+  705,147 filings parsed (7 unparseable), final numbers cross-checked against both the checkpoint file
+  and the run log's own cumulative summary line.
+- AutoApply: "SESSION — August 7, 2026 (Both AutoApply bugs from the prior session fixed — ready-org
+  E2E test passes for the first time)" — `autoapply-queue.test.ts` 6/6, including the ready-org case
+  for the first time in this project's history.
+- Anthropic key consolidation: no single dedicated session entry in this file, but the 2026-08-06
+  rotation (commit `8f3aa06`) is referenced and its effects independently re-confirmed across at least
+  6 separate session entries in this file (AG-41 narrative synthesis, AG-20/21/22 unblocking, the
+  raw-HTTPS-call spot-check at line ~2801). `STANDING_DIRECTIVES.md` DIRECTIVE-018 is the correct
+  single canonical statement of the current key state — this file's distributed references are
+  consistent with it, not contradicting it.
+
+**One related, still-open item surfaced but out of this session's scope:** the 2026-08-07 preflight
+session (entry above, line 3247) found `AGENTS_v2.md` §3/§5 genuinely stale for AG-17/AG-15/AG-39
+(still describes AG-17 as "never successfully completed a run," AG-15 as "PLANNED... unreachable by
+every available path," AG-39 as "has no production call site") — and was explicitly barred from
+editing it (`AUTONOMOUS_HARD_LIMITS.NEVER_MODIFY_GOVERNANCE_FILES`). That staleness is unrelated to
+this session's scope (the user's task list names `AGENTS_v2.md` nowhere) and was not touched here
+either — still open for a future session scoped to it specifically.
+
+**Gates:** `pnpm tsc --noEmit` and `pnpm run build` both run clean during Part A (see its commits).
+No application code changed in Part B; only the three FEATURE_REGISTRY_v2.md rows above.
+
+---
 
 ## SESSION — August 8, 2026 (queue-38 reconciliation: Testing Features T4/T6/T7/T8 checked against what actually ran)
 
