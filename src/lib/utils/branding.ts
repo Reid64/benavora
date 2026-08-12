@@ -36,10 +36,12 @@ const KEY_MAP: Record<string, keyof BrandingSettings> = {
 
 export async function loadBrandingSettings(
   supabase: SupabaseClient<Database>,
+  organizationId: string,
 ): Promise<BrandingSettings> {
   const { data, error } = await supabase
     .from("platform_config")
     .select("key, value")
+    .eq("organization_id", organizationId)
     .like("key", "branding.%");
 
   if (error || !data) return { ...DEFAULTS };

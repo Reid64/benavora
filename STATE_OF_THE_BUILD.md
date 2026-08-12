@@ -1,6 +1,55 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 11, 2026 (deploy-failure investigation + resolution; full FORGE queue-26..39 chain confirmed complete with real evidence; FEATURE_REGISTRY_v2.md rows #82/#151/#153 reconciled; NOT_BUILT_MASTER_INVENTORY.md Section 1 flagged stale). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 11, 2026 (platform_config cross-org query-scoping fix + BudgetAgent timeout fix, row #116; relationship_memory table-existence correction, rows #98/#100; deploy-failure investigation + resolution; full FORGE queue-26..39 chain confirmed complete with real evidence; FEATURE_REGISTRY_v2.md rows #82/#151/#153 reconciled; NOT_BUILT_MASTER_INVENTORY.md Section 1 flagged stale). Not FORGE-auto-generated — hand-verified.**
+
+## SESSION — August 11, 2026 (platform_config org-scoping fix, BudgetAgent timeout fix, relationship_memory registry correction)
+
+**Scope:** fixed the two real production defects row #116 had documented-but-not-fixed from the
+2026-08-07 One-Click Proposal Package verification pass, then reconciled rows #98/#100 after
+independently re-confirming `relationship_memory`'s real state via direct `psql`.
+
+**Fixed:**
+- **`platform_config` cross-org read/write scoping.** Every genuine call site in `src/` (excluding
+  type references, comments, and test-cleanup code) that queried `platform_config` without an
+  `organization_id` filter now has one, sourced the same way the surrounding file already derives
+  `organizationId`/`profile.organization_id` for its other org-scoped queries. ~28 call sites fixed
+  across API routes (`/api/ai/*`, `/api/agents/*`, `/api/reports/board`, `/api/grants/[id]/rescore`,
+  `/api/compliance/check`), shared lib helpers (`lib/drafts/generator.ts`, `lib/utils/branding.ts` —
+  signature changed to take `organizationId`, its one caller updated), and client pages
+  (`settings/page.tsx` feature-flags section, `settings/integrations/page.tsx`, `deadlines/page.tsx`,
+  `intelligence/competitors/page.tsx`). Intentionally left unscoped: `cron/research/route.ts` and
+  `cron/campaigns/route.ts`'s cross-org flag sweeps (they legitimately enumerate every org with a
+  feature enabled — that's the point of a cron sweep) and `deadlines/check/route.ts`'s
+  `loadEmailFlags()` (same pattern, optional org filter for its own cron use).
+- **`BudgetAgent` timeout.** `/api/ai/budget/route.ts` now passes `timeoutMs: 300000` when
+  instantiating `BudgetAgent`, matching the route's own documented (and already-set) `maxDuration =
+  300` — previously it silently inherited `BaseAgent`'s 60s default and was the reproduced cause of
+  real Budget-generation failures in row #116's 2026-08-07 verification pass.
+- **Regression test added**: `src/__tests__/integration/platform-config-org-scope.test.ts` seeds two
+  real orgs with colliding `platform_config` keys and asserts (a) a raw `.eq(organization_id)` lookup
+  for one org never returns the other's row, both via `.maybeSingle()` and `.in(key)`, and (b) the
+  real, now-fixed `loadBrandingSettings()` helper never mixes the two orgs' branding. All 3 pass
+  against the real project in `.env.local`.
+- `pnpm run build` verified clean after all of the above.
+- **FEATURE_REGISTRY_v2.md row #116** corrected from "BUILT — VERIFIED (partial, real defects found)"
+  to "BUILT — VERIFIED" with both defects' fixes documented in place.
+- **FEATURE_REGISTRY_v2.md row #98** (`relationship_memory`) corrected from NOT-BUILT to
+  BUILT — VERIFIED: this session's direct `psql \d relationship_memory` confirms the table, its
+  primary key, an org-scoped RLS policy, and a foreign key to `organizations` are all live in
+  production — the 2026-08-07 NOT-BUILT finding (based on a `to_regclass()` query) was stale or
+  mistaken. Table is real+RLS-scoped but still empty (no rows written by either consumer yet).
+- **FEATURE_REGISTRY_v2.md row #100** (`RelationshipBuilderAgent`/AG-19) updated to drop its stale
+  reference to row #98's absence — the table-existence blocker on AG-19's Phase B warm-intro writes is
+  resolved. Status intentionally **left unchanged** (`BUILT (unwired)`): the actual blocker was never
+  the table, it's that `RelationshipBuilderAgent` is still never imported or instantiated anywhere
+  outside its own file — confirmed still true this session, no change there.
+
+**Not touched:** row #148 (`ReputationIntelligenceAgent`, AG-18) also references `relationship_memory`
+by name but was outside this session's requested scope — its text may carry the same now-stale
+"absent" framing and wasn't checked or corrected here.
+
+**Commits:** pending as of this entry — see the commit immediately following this one in `git log`.
+**Gates:** `pnpm run build` clean; new integration test passes 3/3 against the real project.
 
 ## SESSION — August 11, 2026 (comprehensive governance sync: deploy-failure investigation/resolution, FORGE chain closeout, registry reconciliation)
 

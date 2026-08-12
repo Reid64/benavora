@@ -121,6 +121,7 @@ function IntegrationsContent() {
   // ── Data loading ───────────────────────────────────────────────────────────
 
   const load = useCallback(async () => {
+    if (!profile?.organization_id) return;
     setLoading(true);
     const supabase = createClient();
     try {
@@ -151,6 +152,7 @@ function IntegrationsContent() {
           supabase
             .from("platform_config")
             .select("key, value")
+            .eq("organization_id", profile.organization_id)
             .in("key", [
               "email.auto_sync_enabled",
               "email.sync_frequency",
@@ -206,7 +208,7 @@ function IntegrationsContent() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [profile?.organization_id]);
 
   // Handle OAuth callback query params on mount
   useEffect(() => {

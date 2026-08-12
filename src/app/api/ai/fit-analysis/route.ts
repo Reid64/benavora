@@ -137,6 +137,7 @@ export async function POST(request: Request) {
     const { data: configRows } = await supabase
       .from("platform_config")
       .select("key, value")
+      .eq("organization_id", organizationId)
       .in("key", ["ai.model", "ai.max_tokens", "learning.min_outcomes_for_scoring"]);
     const config = new Map<string, string>(
       (configRows ?? []).map((r) => [r.key as string, r.value as string]),

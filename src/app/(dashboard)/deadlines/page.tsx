@@ -359,18 +359,21 @@ export default function DeadlinesPage() {
       } catch {
         // Leave disconnected on failure
       }
-      const supabase = createClient();
-      const { data: config } = await supabase
-        .from("platform_config")
-        .select("value")
-        .eq("key", "calendar.auto_sync")
-        .maybeSingle();
-      if (active && config) setAutoSync(config.value === "true");
+      if (profile?.organization_id) {
+        const supabase = createClient();
+        const { data: config } = await supabase
+          .from("platform_config")
+          .select("value")
+          .eq("organization_id", profile.organization_id)
+          .eq("key", "calendar.auto_sync")
+          .maybeSingle();
+        if (active && config) setAutoSync(config.value === "true");
+      }
     })();
     return () => {
       active = false;
     };
-  }, []);
+  }, [profile?.organization_id]);
 
   useEffect(() => {
     let active = true;

@@ -109,6 +109,7 @@ export async function POST(request: Request) {
   const { data: configRows } = await supabase
     .from("platform_config")
     .select("key, value")
+    .eq("organization_id", organizationId)
     .in("key", ["ai.model", "ai.max_tokens", "ai.confidence_threshold"]);
   const config = new Map<string, string>(
     (configRows ?? []).map((r) => [r.key as string, r.value as string]),
@@ -125,6 +126,9 @@ export async function POST(request: Request) {
       triggeredBy: profile.id as string,
       model,
       maxTokens,
+      // The budget narrative is a non-streaming Claude generation that can run
+      // long; BaseAgent's default 60s timeout is too short (see maxDuration above).
+      timeoutMs: 300000,
     });
 
     const { data } = await agent.run({ opportunityId, programId });

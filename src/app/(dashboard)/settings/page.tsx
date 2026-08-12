@@ -1186,17 +1186,20 @@ const FEATURE_FLAG_LABELS: Record<string, { label: string }> = {
 };
 
 function FeatureFlagsSection() {
+  const { profile } = useProfile();
   const [flags, setFlags] = useState<{ key: string; value: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!profile?.organization_id) return;
     let active = true;
     const supabase = createClient();
     (async () => {
       const { data, error } = await supabase
         .from("platform_config")
         .select("key, value")
+        .eq("organization_id", profile.organization_id)
         .like("key", "feature.%")
         .order("key", { ascending: true });
       if (!active) return;
@@ -1215,7 +1218,7 @@ function FeatureFlagsSection() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [profile?.organization_id]);
 
   return (
     <SettingsSection

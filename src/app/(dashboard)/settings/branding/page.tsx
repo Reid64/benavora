@@ -40,7 +40,7 @@ export default function BrandingPage() {
     }
 
     setOrgId(org.id);
-    const s = await loadBrandingSettings(supabase);
+    const s = await loadBrandingSettings(supabase, org.id);
     setSettings(s);
     setLoading(false);
   }, []);

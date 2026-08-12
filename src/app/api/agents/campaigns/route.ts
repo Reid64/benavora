@@ -65,10 +65,12 @@ async function resolveOrg(
 /** True if the cold-outreach email feature flag is enabled for the org. */
 async function emailEnabled(
   supabase: ReturnType<typeof createClient>,
+  organizationId: string,
 ): Promise<boolean> {
   const { data } = await supabase
     .from("platform_config")
     .select("value")
+    .eq("organization_id", organizationId)
     .eq("key", "feature.cold_outreach_email")
     .maybeSingle();
   return (data?.value as string | null) === "true";
@@ -84,7 +86,7 @@ export async function POST(request: Request) {
   if ("error" in resolved) return resolved.error;
   const { organizationId, profileId } = resolved;
 
-  if (!(await emailEnabled(supabase))) {
+  if (!(await emailEnabled(supabase, organizationId))) {
     return jsonError(
       "Cold-outreach email is not enabled for your organization.",
       "feature_disabled",

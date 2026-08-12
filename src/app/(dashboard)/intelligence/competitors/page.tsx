@@ -147,6 +147,7 @@ export default function CompetitorsPage() {
   const [runError, setRunError] = useState<string | null>(null);
 
   const load = useCallback(async (initial: boolean) => {
+    if (!profile?.organization_id) return;
     if (initial) setLoading(true);
     setError(null);
     const supabase = createClient();
@@ -155,6 +156,7 @@ export default function CompetitorsPage() {
       supabase
         .from("platform_config")
         .select("value")
+        .eq("organization_id", profile.organization_id)
         .eq("key", "feature.competitor_intel")
         .maybeSingle(),
       supabase
@@ -190,7 +192,7 @@ export default function CompetitorsPage() {
     setFunders((fundersRes.data ?? []) as FunderRow[]);
 
     if (initial) setLoading(false);
-  }, []);
+  }, [profile?.organization_id]);
 
   useEffect(() => {
     void load(true);

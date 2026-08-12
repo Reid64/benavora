@@ -1,7 +1,44 @@
 # BENAVORA — Session State
-## Last Updated: August 11, 2026 (deploy-failure investigation/resolution + full governance sync)
+## Last Updated: August 11, 2026 (platform_config org-scoping fix + BudgetAgent timeout fix + relationship_memory registry correction)
 
-## Current Session — August 11, 2026 (deploy-failure investigation/resolution + comprehensive governance sync)
+## Current Session — August 11, 2026 (platform_config org-scoping fix, BudgetAgent timeout fix, FEATURE_REGISTRY #98/#100/#116 reconciliation)
+
+**Focus:** close out the two real, previously-documented-but-unfixed defects from row #116's
+2026-08-07 One-Click Proposal Package verification (a systemic `platform_config` cross-org query gap,
+and `BudgetAgent`'s missing timeout override), then correct rows #98/#100 after re-confirming
+`relationship_memory`'s real state via direct `psql`.
+
+**Status — what's genuinely done:**
+- `platform_config` queries scoped by `organization_id` at every genuine missing call site in `src/`
+  (~28 sites: `/api/ai/*`, `/api/agents/*`, `/api/reports/board`, `/api/grants/[id]/rescore`,
+  `/api/compliance/check`, `lib/drafts/generator.ts`, `lib/utils/branding.ts` + its caller,
+  `settings/page.tsx`, `settings/integrations/page.tsx`, `deadlines/page.tsx`,
+  `intelligence/competitors/page.tsx`). Intentional cross-org sweeps in `cron/research/route.ts`,
+  `cron/campaigns/route.ts`, and `deadlines/check/route.ts`'s `loadEmailFlags()` left as-is — that's
+  their actual job.
+- `BudgetAgent` now gets `timeoutMs: 300000` in `/api/ai/budget/route.ts`, matching the route's
+  existing `maxDuration = 300`.
+- Regression test `src/__tests__/integration/platform-config-org-scope.test.ts` added — seeds two real
+  orgs, confirms a query for one org never returns the other's row, both directly and through the real
+  `loadBrandingSettings()` call site. 3/3 pass against the real project.
+- `pnpm run build` clean.
+- FEATURE_REGISTRY_v2.md row #116 corrected to plain `BUILT — VERIFIED` (both defects now fixed, not
+  just documented). Row #98 (`relationship_memory`) corrected NOT-BUILT → `BUILT — VERIFIED` per this
+  session's direct `psql \d relationship_memory` (table + PK + org-scoped RLS + FK to `organizations`
+  all live; still empty, no rows written). Row #100 (AG-19 `RelationshipBuilderAgent`) had its stale
+  "table is absent" caveat corrected; its own `BUILT (unwired)` status is unchanged — the class is
+  still never imported anywhere outside its own file, confirmed again this session.
+
+**What's flagged, not fixed:**
+- Row #148 (`ReputationIntelligenceAgent`, AG-18) also references `relationship_memory` and may carry
+  the same stale "absent" framing — outside this session's requested scope, not checked or corrected.
+
+**Commits:** pending as of this entry — see the commit immediately following this one in `git log`.
+**Gates:** `pnpm run build` clean; new integration test passes 3/3 against the real Supabase project.
+
+---
+
+## Prior Session — August 11, 2026 (deploy-failure investigation/resolution + comprehensive governance sync)
 
 **Focus:** two parts, same day. Part A: production had been serving a build 21 commits stale for 8+
 hours (37/40 recent Vercel deploys `Error`) — diagnosed, fixed, and closed the loop on why

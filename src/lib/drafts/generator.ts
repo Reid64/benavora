@@ -317,6 +317,7 @@ export async function generateDraft(
   const { data: configRows } = await supabase
     .from("platform_config")
     .select("key, value")
+    .eq("organization_id", organizationId)
     .in("key", ["ai.model", "ai.max_tokens"]);
   const configMap = new Map<string, string>(
     (configRows ?? []).map((r) => [r.key as string, r.value as string]),
