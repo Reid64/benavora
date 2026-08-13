@@ -438,6 +438,23 @@ manually after a push when production state needs confirming, or wire it into FO
 deploy-verification step once its exact pass/fail contract is confirmed against this script's exit
 codes.
 
+### FORGE gate fix (2026-08-13) — PENDING/INDETERMINATE no longer hard-fail
+
+`C:\Users\manag\Documents\FORGE\gates\deploy_verify.ps1` (FORGE tooling, not this repo — no code
+diff to show here) previously collapsed all four of `verify-deployment.ts`'s exit codes into a
+binary pass/fail, treating `2` (PENDING) and `3` (INDETERMINATE) the same as `1` (real drift) — a
+hard FAIL that blocked the queue. Fixed 2026-08-13 to respect the script's real 4-state contract:
+`0`=PASS, `1`=FAIL (still hard-fails, unchanged), `2`=PENDING and `3`=INDETERMINATE now print a loud
+warning banner and exit `0` (warn-and-continue, does not block the queue). Manually verified this
+session: running the gate against this repo with no `VERCEL_TOKEN` configured now correctly shows
+the INDETERMINATE warning and exits `0`, where it previously exited `1`. This does not make the gate
+operational — see the note below — it only stops the missing-credential case from masquerading as a
+real deploy-drift failure.
+
+**Still a manual action item for Reid:** `VERCEL_TOKEN`, `VERCEL_PROJECT_ID`, and `VERCEL_TEAM_ID`
+still need to be added to `.env.local` before this gate does anything beyond warn. Until then every
+run will report PENDING/INDETERMINATE, not a real PASS/FAIL verdict.
+
 ---
 
 ## Governance Update Requirements

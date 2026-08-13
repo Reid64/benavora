@@ -1,6 +1,26 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 13, 2026 (outreach consolidation audit gate-closeout — verify-deployment.ts run for real, both outreach bugs' real resolution status documented). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 13, 2026 (FORGE deploy_verify gate contract fix documented). Not FORGE-auto-generated — hand-verified.**
+
+## SESSION — August 13, 2026 (FORGE deploy_verify gate contract fix)
+
+**Scope:** `C:\Users\manag\Documents\FORGE\gates\deploy_verify.ps1` (FORGE tooling, outside this
+repo — no code diff to show here) was fixed to correctly distinguish `scripts/verify-deployment.ts`'s
+real 4-state exit code contract (`0`=PASS, `1`=FAIL, `2`=PENDING, `3`=INDETERMINATE) instead of
+collapsing everything non-zero to a hard FAIL. Documented in `STANDING_DIRECTIVES.md`'s
+DIRECTIVE-019 section under "FORGE gate fix (2026-08-13)".
+
+**Manually verified this session:** running the gate against this repo with no `VERCEL_TOKEN`
+configured now correctly shows a loud INDETERMINATE warning banner and exits `0` (does not block the
+queue), where previously it exited `1` (hard FAIL) for the identical missing-config case. Real drift
+(exit code `1`) still hard-fails, unchanged — only PENDING and INDETERMINATE were softened to
+warn-and-continue.
+
+**Still open, manual action item for Reid:** `VERCEL_TOKEN`, `VERCEL_PROJECT_ID`, and
+`VERCEL_TEAM_ID` still need to be added to `.env.local` before this gate does anything beyond warn —
+it will keep reporting INDETERMINATE, not a real PASS/FAIL verdict, until those are supplied.
+
+**`pnpm run build`:** run as a no-op sanity check since this session's changes are docs-only — clean.
 
 ## SESSION — August 13, 2026 (outreach consolidation audit gate-closeout)
 
