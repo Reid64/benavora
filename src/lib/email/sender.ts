@@ -17,8 +17,6 @@ export interface SendOptions {
   in_reply_to?: string;
   references?: string;
   gmail_thread_id?: string;
-  /** When present, the corresponding campaign_sends row is marked sent on success. */
-  campaign_send_id?: string;
 }
 
 export interface SendResult {
@@ -211,18 +209,6 @@ export class EmailSender {
         });
       } catch {
         // Non-fatal: logging failure must not fail the send
-      }
-
-      // Update campaign_sends when this email is part of a campaign step
-      if (options.campaign_send_id) {
-        try {
-          await admin
-            .from("campaign_sends")
-            .update({ status: "sent", sent_at: now })
-            .eq("id", options.campaign_send_id);
-        } catch {
-          // Non-fatal: campaign tracking failure must not fail the send
-        }
       }
     }
 

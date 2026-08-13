@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { useProfile } from "@/lib/hooks/useProfile";
 import { formatRelative } from "@/lib/utils/formatters";
 
 // Autonomous Agent Settings (BLUEPRINT §6, AGENTS_v2.md). Reads/writes
@@ -126,6 +127,13 @@ async function patchConfig(
 }
 
 export default function AutonomousAgentSettingsPage() {
+  const { profile } = useProfile();
+  // Owners and admins manage agent settings; writers/viewers cannot (BLUEPRINT
+  // §3.2) — same role-gating convention as /settings, /settings/branding, and
+  // /settings/white-label's canManage checks.
+  const canManageAgentFlags =
+    profile?.role === "owner" || profile?.role === "admin";
+
   const [config, setConfig] = useState<AutonomousConfig>(DEFAULT_CONFIG);
   const [configLoading, setConfigLoading] = useState(true);
   const [configLoadError, setConfigLoadError] = useState<string | null>(null);
@@ -205,6 +213,7 @@ export default function AutonomousAgentSettingsPage() {
           savingKey={savingKey}
           toggleError={toggleError}
           onToggle={handleToggle}
+          canManageAgentFlags={canManageAgentFlags}
         />
         <ThresholdCard config={config} onThresholdChange={handleThresholdChange} onMaxDraftsChange={handleMaxDraftsChange} />
         <DecisionLogCard />
@@ -224,6 +233,7 @@ function AutonomyCard({
   savingKey,
   toggleError,
   onToggle,
+  canManageAgentFlags,
 }: {
   config: AutonomousConfig;
   loading: boolean;
@@ -231,6 +241,7 @@ function AutonomyCard({
   savingKey: string | null;
   toggleError: string | null;
   onToggle: (key: BooleanConfigKey) => void;
+  canManageAgentFlags: boolean;
 }) {
   return (
     <div style={cardStyle}>
@@ -306,6 +317,140 @@ function AutonomyCard({
             </div>
           ))
         )}
+        {!loading && canManageAgentFlags && <RelationshipBuilderV2Row />}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Section 1b — Relationship Builder v2 (Beta)
+//
+// Owner/admin-only feature flag (org-scoped platform_config row, key
+// 'feature.relationship_builder_v2', added in ag19-flag-001). Backed by a
+// dedicated route — no existing route handles arbitrary platform_config flag
+// toggles, so /api/settings/agents/relationship-builder-v2 was added for this
+// one. worker/autonomous-orchestrator.ts's 'funder_relationship' queue case
+// reads this exact key: when its value is the literal string 'true' it routes
+// the event to RelationshipBuilderAgent (AGENTS_v2.md AG-19) instead of the
+// default FunderRelationshipAgent path; any other value, or no row at all
+// (the case for every org until this is explicitly turned on), falls back to
+// the existing scorer above — matching that safe-default with an OFF initial
+// render here rather than waiting on the fetch to resolve.
+// ---------------------------------------------------------------------------
+
+const RELATIONSHIP_BUILDER_V2_DESCRIPTION =
+  "Routes funder-relationship events to the newer RelationshipBuilderAgent (AG-19): " +
+  "deterministic relationship scoring plus a Claude-written engagement " +
+  "recommendation per funder (Phase A), and multi-hop warm-introduction " +
+  "pathfinding across your board's network — bounded funder-officer research, " +
+  "a priority-ranked action queue, 14-day follow-up deadlines (Phase B). Every " +
+  "recommendation still requires human review before any outreach happens. " +
+  "Off by default — leaving this off keeps the existing Relationship Builder " +
+  "scorer above as-is.";
+
+function RelationshipBuilderV2Row() {
+  const [enabled, setEnabled] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/settings/agents/relationship-builder-v2");
+        if (!res.ok) {
+          if (!cancelled) setError("Could not load this setting.");
+          return;
+        }
+        const body = (await res.json()) as { enabled: boolean };
+        if (!cancelled) setEnabled(body.enabled);
+      } catch {
+        if (!cancelled) setError("Could not load this setting.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleToggle = useCallback(async () => {
+    setError(null);
+    const nextValue = !enabled;
+    setEnabled(nextValue);
+    setSaving(true);
+    try {
+      const res = await fetch("/api/settings/agents/relationship-builder-v2", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: nextValue }),
+      });
+      if (!res.ok) {
+        setEnabled(!nextValue);
+        setError("Could not save your change. Please try again.");
+        return;
+      }
+      const body = (await res.json()) as { enabled: boolean };
+      setEnabled(body.enabled);
+    } catch {
+      setEnabled(!nextValue);
+      setError("Could not save your change. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  }, [enabled]);
+
+  return (
+    <div style={{ paddingTop: "14px", borderTop: "1px solid #E5E7EB" }}>
+      {error && (
+        <div
+          role="alert"
+          style={{
+            marginBottom: "10px",
+            backgroundColor: "#FEF2F2",
+            border: "1px solid #FECACA",
+            borderRadius: "8px",
+            padding: "10px 14px",
+            fontSize: "13px",
+            color: "#B91C1C",
+          }}
+        >
+          {error}
+        </div>
+      )}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          gap: "16px",
+        }}
+      >
+        <div>
+          <span style={{ fontSize: "14px", color: "#0F172A", fontWeight: 500 }}>
+            Relationship Builder v2 (Beta)
+          </span>
+          <p
+            style={{
+              fontSize: "12px",
+              color: "#94A3B8",
+              margin: "4px 0 0 0",
+              maxWidth: "560px",
+              lineHeight: 1.5,
+            }}
+          >
+            {RELATIONSHIP_BUILDER_V2_DESCRIPTION}
+          </p>
+        </div>
+        <ToggleSwitch
+          checked={enabled}
+          disabled={loading || saving}
+          onChange={() => void handleToggle()}
+          label="Toggle Relationship Builder v2 (Beta)"
+        />
       </div>
     </div>
   );

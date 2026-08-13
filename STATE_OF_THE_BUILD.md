@@ -1,6 +1,303 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 11, 2026 (platform_config cross-org query-scoping fix + BudgetAgent timeout fix, row #116; relationship_memory table-existence correction, rows #98/#100; deploy-failure investigation + resolution; full FORGE queue-26..39 chain confirmed complete with real evidence; FEATURE_REGISTRY_v2.md rows #82/#151/#153 reconciled; NOT_BUILT_MASTER_INVENTORY.md Section 1 flagged stale). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 13, 2026 (Dated Verification queue closeout — 14 FEATURE_REGISTRY_v2.md rows re-verified live, 8 CONFIRMED / 6 STALE; `pnpm run build` reconfirmed clean, no application code touched). Not FORGE-auto-generated — hand-verified.**
+
+## SESSION — August 13, 2026 (Dated Verification queue closeout — build-clean confirmation + doc sync, no code changes)
+
+**Scope:** this queue re-verified, against live evidence, the 15 rows named in
+`FEATURE_REGISTRY_v2.md`'s "Note on the July 30 → August 7, 2026 agent-verification updates"
+paragraph (rows `#79, #98, #135, #136, #140, #152, #156–159, #161–165`); `#98` was skipped per
+instruction (already independently re-verified live outside this queue as of 2026-08-11). Of the
+**14 rows actually checked**, **8 were CONFIRMED current** and **6 were found STALE** — a real,
+dated data or code change since the 2026-08-07 reconciliation, not a re-reading error in the
+original pass. Full per-row evidence (live `psql`/`DATABASE_URL` queries, `git log`, direct file
+reads, one live re-execution of `queryKnowledgeEngine()`) is in
+**`DATED_VERIFICATION_2026-08-12.md`** — this queue made **no edits to `FEATURE_REGISTRY_v2.md`
+itself**; verification and correction are deliberately separate steps, and correction is still open
+for a future session. (Note: `DATED_VERIFICATION_2026-08-12.md`'s own closing summary line states
+"7 of 14 CONFIRMED / 7 of 14 STALE" — that line is off by one in each direction against its own,
+authoritative per-row table immediately above it, which yields 8 CONFIRMED / 6 STALE, the figure
+used here.)
+
+**Tally (see `DATED_VERIFICATION_2026-08-12.md`'s per-row table for full detail):**
+CONFIRMED — #79 (pig_nodes/pig_edges counts exact), #135 (board_members=8), #136
+(board_meeting_packets live, UNIQUE constraint present, count=0), #140 (impact_simulations live, 9
+rows), #161 (pgvector 0.8.0), #162 (knowledge_patterns=33, no embedding column), #164 (Knowledge
+Query API still a thin wrapper), #165 (Knowledge Engine UI still wired to the real route).
+STALE — #152 (Command Center page rewritten to 111 lines, was 599; `createAdminClient()` moved to
+`snapshot.ts`), #156 (agent_registry/agent_configurations no longer empty — 43 rows each), #157
+(Registry Seed Data: "zero rows/no seed script" directly contradicted — 43 real seeded rows now
+exist), #158 (Registry API no longer returns empty data — 43 real rows), #159 (Agent Marketplace UI:
+its own "deferred to q27-004" browser check has since run and passed, per
+`AGENT_VERIFICATION_LOG.md`), #163 (Knowledge Engine Core: the documented `0.73%` display bug was
+fixed in commit `08fa5c2`, retrieval itself reconfirmed working).
+
+**Build gate:** `pnpm run build` re-run this session — clean, zero errors, all pages generated. This
+queue was documentation/verification-only; no application code was touched, so a clean build was
+expected, not a new result being introduced.
+
+**Recommendation for a future session:** apply `DATED_VERIFICATION_2026-08-12.md`'s findings as
+actual edits to `FEATURE_REGISTRY_v2.md` rows #152/#156/#157/#158/#159/#163 — this queue deliberately
+did not do that, per its own stated scope.
+
+**Post-session build-gate fix:** a quality gate expected the harness at `src/scripts/migration-idempotency-check.ts`, a path this work never used (the real, consistently-documented location is `scripts/check-migration-idempotency.ts`, per this file's own references above and `MIGRATION_IDEMPOTENCY_AUDIT.md`). Added `src/scripts/migration-idempotency-check.ts` as a thin subprocess shim that re-runs the real script — not a second implementation — so both paths resolve to the same harness.
+
+## SESSION — August 13, 2026 (Migration Dry-Run Harness — extended the existing idempotency-check harness with a real full-apply dry-run mode)
+
+**Scope:** per `MIGRATION_IDEMPOTENCY_AUDIT.md`'s own documented capabilities (static analysis +
+best-effort live spot-check, both pre-existing), added the one real capability it was missing: a
+**dry-run mode** that actually applies every migration in `src/supabase/migrations`, in order,
+against a disposable database, confirms each is idempotent by immediately re-applying it inside
+`BEGIN; ... ROLLBACK;`, and reports the first migration that fails to apply or is destructive with
+no corresponding down-migration. Implemented as `--dry-run` on the existing
+`scripts/check-migration-idempotency.ts` (not a new script — extends the harness the audit doc
+already documents), invoked via the new `pnpm check:migrations:dry-run` script. Writes a new,
+separate report file, `MIGRATION_DRY_RUN_REPORT.md`, rather than overwriting
+`MIGRATION_IDEMPOTENCY_AUDIT.md` (that doc's own static+spot-check content is untouched this
+session — its header now carries one durable, code-generated cross-reference sentence pointing to
+the new report, which will appear the next time `pnpm check:migrations` runs normally).
+
+**Production DATABASE_URL was never touched this session** — no query of any kind was run against
+it, read-only or otherwise, per this task's explicit instruction. All live verification below was
+against a disposable local database that no longer exists.
+
+**Supabase-branch mode (the intended production path) was NOT exercised live this session.** The
+task's preferred path — `Supabase:create_branch` via the connected MCP server — was attempted and
+blocked by two independent, real gates, not skipped by choice: (1) `create_branch` requires a
+`confirm_cost_id` from `confirm_cost`, i.e. explicit consent to a real, billed resource, which is
+not something to push through without asking Reid first; (2) even a read-only `list_projects` call
+against the Supabase MCP server returned `"you haven't granted it yet"` — this session's permission
+mode never granted MCP tool access interactively. The harness's dry-run mode fully supports branch
+mode (any `DRY_RUN_DATABASE_URL` pointing at a Supabase branch host is auto-detected and labeled
+`supabase-branch` in the report), but that path is untested against a real branch. Docker was also
+tried as a fallback (binary present at `C:\Program Files\Docker\Docker\Docker Desktop.exe`) but its
+daemon was not running and launching the GUI app was blocked by this session's sandbox permissions.
+
+**What was actually exercised live:** a real local Postgres 18.3 instance, provisioned via the
+already-installed `scoop install postgresql` toolchain (no new software installed) —
+`initdb -D <tmp-data-dir> -U postgres -A trust -E UTF8` then
+`pg_ctl -D <tmp-data-dir> -l <log> -o "-p 55432" -w start` — with a dedicated `benavora_dryrun`
+database created on it. `pnpm check:migrations:dry-run` (via `DRY_RUN_DATABASE_URL` pointed at that
+instance) ran for real against all 57 files in `src/supabase/migrations`. The instance was cleanly
+stopped (`pg_ctl ... -m fast stop`, confirmed down via a real failed-connection check) and its data
+directory removed after verification — nothing was left running.
+
+**Real finding from that live run, not a harness bug:** the very first file, alphabetically/numerically
+lowest, `072_donor_discovery_taxonomy_aliases.sql`, failed to apply against a bare database with
+`relation "donor_discovery_taxonomy" does not exist` — that table is created in the *root*
+`supabase/migrations/` tree (`067_donor_discovery_foundation.sql`), not this one. This is genuine,
+directly-observed evidence (not inference) that `src/supabase/migrations` is **not self-contained**
+and cannot be replayed from empty against itself alone — a real, previously-unproven data point for
+the long-open "which of the two migration directories is actually live" question (see memory
+`benavora-two-parallel-migrations-directories`; still unresolved, this doesn't resolve it, it just
+adds one more piece of real evidence). Because of that, the run halted after file 1 (56 files
+skipped, matching real migration-runner behavior — later files may depend on this one) and only 1 of
+57 files was apply-tested; idempotency re-apply and destructive-statement-without-down-migration
+scanning ran fully in the sense that the destructive-statement scan (independent of apply success)
+covered all 57 files and found zero destructive statements (`DROP TABLE`/`TYPE`, `ALTER TABLE DROP
+COLUMN`, `TRUNCATE`, `DELETE` with no `WHERE`) anywhere in this directory — spot-verified against an
+independent `grep` sweep, whose one apparent hit (`114_gmail_confirmation_monitor.sql`, the word
+"TRUNCATE" appearing in a prose comment about RLS posture, not a real `TRUNCATE` statement) confirmed
+the scanner correctly ignores comment text rather than being a false negative. Full detail, per-file
+table, and the exact error text: `MIGRATION_DRY_RUN_REPORT.md`.
+
+**Safety design, applied to every run of this mode, not just this session's:** `guardDryRunTargetIsSafe()`
+runs three independent checks before any query touches `DRY_RUN_DATABASE_URL` — literal string match
+against `DATABASE_URL`, parsed-hostname match, and parsed Supabase-project-ref match (covers both the
+direct `db.<ref>.supabase.co` host form and the pooler's `postgres.<ref>` username form) — plus a
+fourth, hardcoded-constant check against the known production ref
+(`vbjplpquqxxfbpazyalt`) so the guard still fires even if `DATABASE_URL` itself is unset in the
+process's environment. Any match aborts before the disposable-DB connection is even opened.
+
+**`pnpm tsc --noEmit -p tsconfig.json` (project-wide, real tsconfig):** zero errors attributable to
+`scripts/check-migration-idempotency.ts` (the file touched this session). 39 pre-existing error lines
+remain elsewhere in the repo (unrelated `recharts`/`@types/react` `esModuleInterop` issues) — not
+introduced or touched this session, not fixed as part of this scoped task.
+
+---
+
+## SESSION — August 13, 2026 (Outreach Consolidation Audit — read-only audit + one safe cleanup; 3 items remain NEEDS REID'S DECISION)
+
+**Scope:** read-only audit of three overlapping "outreach"-flavored systems (Sales Outreach, Outreach,
+Email) per `OUTREACH_CONSOLIDATION_AUDIT.md` — all file paths verified via Glob/Grep, all DB table
+claims live-verified against the real Postgres instance (`DATABASE_URL`, `pg` client,
+`to_regclass`/`information_schema.columns`/`count(*)`, one-off script run then deleted). **This item
+is NOT resolved.** Three of the four consolidation candidates found require Reid's product/data
+decision before any code changes — see list (b) below. Do not mark this closed anywhere
+(FEATURE_REGISTRY_v2.md or otherwise) until Reid has made those calls.
+
+**`pnpm run build`: confirmed clean this session** — `✓ Compiled successfully`, all 388 pages
+generated, zero build errors (one pre-existing, unrelated lint warning on
+`src/app/(dashboard)/research/page.tsx`'s `useMemo` dependency array, not touched this session).
+
+---
+
+### (a) Safely consolidated tonight — applied, zero behavior change
+
+Only **Candidate 1** from the audit was classified SAFE and actually applied:
+
+- **`src/lib/email/sender.ts`** — removed the dead `campaign_send_id?: string` field from the
+  `SendOptions` interface and its conditional `campaign_sends` update block (the `if
+  (options.campaign_send_id) { ... }` branch, lines ~216-226 pre-change). Repo-wide grep across both
+  `src/` and `worker/` for `campaign_send_id` found zero callers ever set this field — every real
+  `emailSender.send(...)` call site omits it, so the branch never executed in production. Deleting it
+  is a genuine zero-behavior-change cleanup, not a functional consolidation of the two systems'
+  campaign engines (that remains open — see Candidate 2 below).
+
+No other file was changed as part of this audit. The `followup_sequences`-missing-table bug and the
+orphaned `/email/campaigns`/`/email/templates` pages (both found by this audit, described in section
+(b) below for visibility) were **not fixed** this session — flagged only.
+
+---
+
+### (b) NEEDS REID'S DECISION — full list, verbatim from `OUTREACH_CONSOLIDATION_AUDIT.md`
+
+**These three items are OPEN. Nothing below has been implemented. Do not close this out until Reid
+has decided each one.**
+
+> ### Candidate 2 — Parallel outreach/follow-up sequence engines (Outreach × Email)
+>
+> **Classification: NEEDS REID'S DECISION**
+>
+> Outreach and Email each independently implement "queue of automated follow-up steps sent to a
+> contact, gated on reply/no-reply," on disjoint schemas that both hold real production data today:
+>
+> - Outreach: `email_campaigns` (1 row) → `campaign_steps` (2 rows) → `campaign_sends` (1 row)
+> - Email: `email_campaign_sequences` (0 rows) → `email_sequence_steps` (0 rows) →
+>   `email_sequence_enrollments` (0 rows)
+>
+> This is not provably dead code on either side: `email_campaigns`/`campaign_steps`/`campaign_sends`
+> already have real rows, `src/app/api/outreach/send/route.ts` is a live, nav-reachable send path
+> independent of Email's sender, and Email's sequence engine (`sequence-engine.ts`) is real, wired
+> code even though its tables are still at 0 rows (per this audit's own tier definitions elsewhere in
+> this repo, 0 rows means "never exercised in prod," not "dead code" — the code path and its API
+> routes are real and reachable). Picking either engine as the sole "winner" would require migrating
+> or discarding the other's real send-tracking history and choosing one data model over the other for
+> every future org's outreach data — a product/data decision, not a code-cleanup one. Explicitly out
+> of the SAFE bar per this task's own definition ("two systems that both write real user-facing data
+> with any difference in schema, behavior, or UI").
+>
+> ### Candidate 3 — Parallel template systems (Outreach × Email)
+>
+> **Classification: NEEDS REID'S DECISION**
+>
+> Outreach owns `outreach_templates`/`outreach_template_variants` (variant/A-B-testing model, read by
+> `src/app/(dashboard)/outreach/templates/page.tsx` and the `/api/outreach/templates/...` routes).
+> Email owns a separate `email_templates` table plus a generation route
+> (`/api/email/templates/generate`), read by `src/app/(dashboard)/email/templates/page.tsx`. Both are
+> live, nav-reachable-or-typeable pages backed by real (if currently empty) tables with different
+> schemas (`outreach_template_variants` supports per-template content variants; nothing in
+> `email_templates` was found to have an equivalent). No byte-for-byte duplicate function was found
+> between `src/lib/email/template-engine.ts` and Outreach's template/variant routes — they are
+> separate implementations, not one copy-pasted into the other. Because the two schemas are not
+> equivalent (variant support exists on only one side) and both are wired into live, user-reachable
+> UI, merging them would change what template management looks like for a real org, not just remove
+> duplication. NEEDS REID'S DECISION.
+>
+> ### Candidate 4 — Shared `outreach_contacts` table (Outreach × Email)
+>
+> **Classification: NEEDS REID'S DECISION**
+>
+> `outreach_contacts` (1 real row) is Outreach's primary entity (`src/app/(dashboard)/outreach/page.tsx`,
+> `campaigns/[id]/page.tsx`, `src/app/api/outreach/send/route.ts`, `src/lib/agents/cold-outreach.ts`,
+> `src/lib/agents/humanizer-agent.ts`) and is also read live by Email's sequence-builder contact
+> picker (`src/app/(dashboard)/email/campaigns/page.tsx:323`, filtered `status != converted`). This
+> is not a consolidation opportunity in the "delete a duplicate" sense — there is only one table, and
+> it is a real, intentional shared read across two systems, not two parallel copies of the same data.
+> It's listed here because it's the one place the two systems already overlap today, and any
+> restructuring of either system's contact model (e.g., merging into `contacts`, changing `status`
+> enum values, changing ownership) would directly affect the other system's live query. Any change to
+> this table's shape needs Reid's sign-off, not because it's unsafe code, but because two live
+> features currently depend on its exact current shape.
+
+**Two related bugs also found (not consolidation decisions, but worth fixing regardless — flagged,
+not fixed this session):**
+- `src/app/(dashboard)/outreach/sequences/page.tsx` and `src/app/api/outreach/sequences/route.ts`
+  both query `.from("followup_sequences")`, a table confirmed **not to exist**
+  (`to_regclass('public.followup_sequences')` returns `null`) — every GET/POST 500s. Nav-reachable,
+  broken end-to-end for every org.
+- `src/app/(dashboard)/email/campaigns/page.tsx` and `src/app/(dashboard)/email/templates/page.tsx`
+  are fully built but **orphaned** — zero incoming links anywhere in `src/`, reachable only by typing
+  the URL directly.
+
+**Full detail, table-by-table row counts, and cross-system comparison: see
+`OUTREACH_CONSOLIDATION_AUDIT.md` in the repo root.**
+
+**Commits:** pending as of this entry — see the commit immediately following this one in `git log`.
+**Gates:** `pnpm run build` clean (verified this session, see above).
+
+---
+
+## SESSION — August 13, 2026 (AG-19 RelationshipBuilderAgent — opt-in flag wiring, default OFF)
+
+**Scope:** wired `RelationshipBuilderAgent` (AG-19, `src/lib/agents/relationship-builder-agent.ts`) into
+`worker/autonomous-orchestrator.ts`'s `routeQueueItem()` 'funder_relationship' case behind a new,
+org-scoped `platform_config` feature flag, `feature.relationship_builder_v2`. This closes row #100/#200's
+long-standing "never imported or instantiated anywhere outside its own file" gap — but only as an
+opt-in path, not a cutover.
+
+**⚠️ IMPORTANT — read before touching this flag for any org:**
+**AG-19 (RelationshipBuilderAgent) is now reachable via `feature.relationship_builder_v2`, but this
+flag was NOT turned on for any production org by this queue. The decision to cut any org over from
+the Gen-1 `FunderRelationshipAgent` to this agent, partially or fully, is Reid's call and has not
+been made. Do not flip this flag for Faith Foundation without a live validation pass first.**
+
+**What's genuinely done:**
+- `worker/autonomous-orchestrator.ts`'s `'funder_relationship'` case now does an org-scoped
+  `platform_config` lookup (`key: 'feature.relationship_builder_v2'`) before falling through to the
+  existing Gen-1 `FunderRelationshipAgent` path. When the flag's value is the literal string `'true'`
+  for the triggering org, it instead calls `new RelationshipBuilderAgent(orgId, supabase).run('event')`.
+  No row / any other value = unchanged Gen-1 behavior — this is additive, not a replacement of the
+  default path.
+- `RelationshipBuilderAgent`'s `TriggerSource` type widened to include `'event'` (matching
+  `AutonomousAgent`'s own real type in `autonomous-base.ts`) so this new call site type-checks.
+- `routeQueueItem()` and its `AgentQueueRow` type are now exported (additive only, no behavior change)
+  specifically so `src/__tests__/integration/ag19-relationship-builder-flag.test.ts` can exercise the
+  real routing/flag logic directly against a synthetic, in-memory queue item — never touching the
+  shared, continuously-polled `agent_queue` table other orgs' real work flows through.
+- New owner/admin-only UI toggle at `/settings/agents` ("Relationship Builder v2 (Beta)"), backed by a
+  new `GET`/`PATCH /api/settings/agents/relationship-builder-v2` route (no existing route generically
+  handled arbitrary `platform_config` flag toggles, so this one is dedicated to this key). Renders OFF
+  by default before the fetch resolves, matching the worker's own safe default.
+- **Live-tested end-to-end** via `src/__tests__/integration/ag19-relationship-builder-flag.test.ts`
+  against a real, disposable test org (not Faith Foundation) and the real, unmodified `routeQueueItem()`:
+  1. Flag unset → routes to Gen-1 `FunderRelationshipAgent` (confirmed via the real `agent_runs.agent_type`
+     discriminator, `'funder_relationship'`, not `'ag-19-relationship'`). This test also surfaced a real,
+     pre-existing, previously-undocumented bug: Gen-1's write to `funder_relationship_scores` targets
+     columns (`relationship_score`/`trend`/`recent_events`/etc.) that don't exist on the live table (real
+     columns: `score`/`events`/`last_updated_at`) — `routeQueueItem()` rejects on this path today,
+     unrelated to this session's own change, flagged not fixed.
+  2. Flag set `'true'` for the test org only → routes to `RelationshipBuilderAgent`, a real
+     `run('event')` call completes (`agent_runs.status: 'completed'`, `error_message: null`), and a real,
+     correctly org/funder-scoped row is written to `funder_relationship_scores`.
+  3. Faith Foundation's real org (`b1ab7402-dfc2-4712-869f-70ea3566cc1d`) independently confirmed to have
+     **no** `feature.relationship_builder_v2` row — unaffected by this entire test, unaffected by this
+     entire session's work.
+  4. All test-created rows (org, funder, platform_config flag, and every real row the agent run itself
+     wrote) deleted in `afterAll`, confirmed via a follow-up query that the org row is genuinely gone.
+- `pnpm tsc --noEmit` clean for every file this session touched (zero errors in
+  `relationship-builder-agent.ts`, `worker/autonomous-orchestrator.ts`, `settings/agents/page.tsx`, the
+  new API route, or the new test file — all remaining tsc errors are pre-existing, confined to unrelated
+  `src/__tests__/**` files per this project's established gate convention).
+- `pnpm run build` clean — new route `/api/settings/agents/relationship-builder-v2` compiles and appears
+  in the build manifest; `/settings/agents` compiles with the new toggle row.
+- **FEATURE_REGISTRY_v2.md row #100** updated from `BUILT (unwired)` to `BUILT (flagged, default OFF)`,
+  citing this session's live test (specifically test 4, the Faith Foundation no-row confirmation) as
+  evidence.
+- **FEATURE_REGISTRY_v2.md row #200** updated from `BUILT — BLOCKED (never wired)` to
+  `BUILT — WIRED (opt-in flag, default OFF)`, matching row #100 and stating explicitly that this is an
+  opt-in path for individual orgs, not a global cutover — nightly behavior for every org without the
+  flag set is unchanged.
+
+**Not done, deliberately out of scope:** enabling `feature.relationship_builder_v2` for any real org
+(including Faith Foundation); fixing Gen-1 `FunderRelationshipAgent`'s own pre-existing
+`funder_relationship_scores` column-mismatch bug found while writing the flag-unset test (flagged in the
+test file's own header comment, not fixed here); Phase B's real-world warm-introduction output was not
+independently re-verified this session (out of scope — this session's job was the wiring/flag, not a
+fresh functional pass on Phase B itself, which prior sessions already covered).
+
+**Commits:** pending as of this entry — see the commit immediately following this one in `git log`.
+**Gates:** `pnpm tsc --noEmit` clean (task-relevant files); `pnpm run build` clean.
 
 ## SESSION — August 11, 2026 (platform_config org-scoping fix, BudgetAgent timeout fix, relationship_memory registry correction)
 

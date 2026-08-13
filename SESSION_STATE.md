@@ -1,7 +1,170 @@
 # BENAVORA — Session State
-## Last Updated: August 11, 2026 (platform_config org-scoping fix + BudgetAgent timeout fix + relationship_memory registry correction)
+## Last Updated: August 13, 2026 (Dated Verification queue closeout — 14 rows re-verified, 8 CONFIRMED / 6 STALE, no code changes)
 
-## Current Session — August 11, 2026 (platform_config org-scoping fix, BudgetAgent timeout fix, FEATURE_REGISTRY #98/#100/#116 reconciliation)
+## Current Session — August 13, 2026 (Dated Verification queue closeout — build-clean confirmation + doc sync)
+
+**Focus:** close out the Dated Verification queue. `pnpm run build` re-run and confirmed clean (this
+queue only touched documentation, so no application-code regression risk existed). Of the 14
+`FEATURE_REGISTRY_v2.md` rows this queue re-verified against live evidence (the 15-row list from that
+doc's own "Note on the July 30 → August 7, 2026 agent-verification updates" paragraph, minus `#98`,
+skipped per instruction as already independently re-verified 2026-08-11), **8 were CONFIRMED still
+current** (#79, #135, #136, #140, #161, #162, #164, #165) and **6 were found STALE** — real, dated
+changes since the 2026-08-07 reconciliation, not re-reading errors: #152 (Command Center page
+rewritten from 599 to 111 lines), #156/#157/#158 (Agent Registry tables went from 0 rows to 43 real
+seeded rows, invalidating three rows' "empty"/"zero rows"/"no seed script" claims), #159 (Agent
+Marketplace UI's own "deferred to q27-004" browser check has since run and passed), #163 (Knowledge
+Engine Core's documented `success_rate` display bug was fixed in commit `08fa5c2`). Full per-row
+evidence trail — the exact SQL/grep/`git log` run and its actual output for every one of the 14 rows
+— is in **`DATED_VERIFICATION_2026-08-12.md`**. This queue made **no edits to
+`FEATURE_REGISTRY_v2.md`**; verification and correction are deliberately separate steps, and applying
+these 6 corrections to the registry itself remains open for a future session.
+
+**Gate:** `pnpm run build` — clean this session, zero errors, all pages generated.
+
+---
+
+## Previous Session — August 13, 2026 (Outreach Consolidation Audit — one safe cleanup applied, 3 items OPEN pending Reid's decision)
+
+**⚠️ NOT RESOLVED — DO NOT CLOSE.** This session produced `OUTREACH_CONSOLIDATION_AUDIT.md`, a
+read-only audit of three overlapping "outreach" systems (Sales Outreach, Outreach, Email). Of the 4
+consolidation candidates it found, only 1 was safe to apply automatically. The other 3 require Reid
+to make a product/data decision before any code changes happen. **This item stays open in
+FEATURE_REGISTRY_v2.md and everywhere else until Reid has made those calls — do not mark it resolved
+or closed.**
+
+**Focus:** audit the overlap between Sales Outreach (`/admin/sales-outreach`), Outreach
+(`/outreach/*`), and Email (`/email/*`) — verify every file path and every DB table claim live
+against production (not inferred from migrations), and separate what's safe to auto-consolidate from
+what needs Reid's sign-off.
+
+**Gates:** `pnpm run build` — confirmed clean this session (`✓ Compiled successfully`, all 388 pages
+generated, zero errors; one pre-existing unrelated lint warning on `research/page.tsx`).
+
+---
+
+### (a) Safely consolidated tonight — applied, with file paths
+
+Exactly one candidate was classified SAFE (zero behavior change, zero real callers) and applied:
+
+- **`src/lib/email/sender.ts`** — deleted the dead `campaign_send_id?: string` field from
+  `SendOptions` and its unreachable conditional `campaign_sends` update block. Repo-wide grep of
+  `src/` and `worker/` confirmed zero callers ever pass `campaign_send_id` to `emailSender.send(...)`
+  — this was vestigial wiring from an apparent prior/abandoned integration attempt between Outreach
+  and Email, not live code.
+
+Nothing else was changed. In particular, the two bugs this audit also found
+(`followup_sequences`-missing-table 500 on `/outreach/sequences`, and the orphaned
+`/email/campaigns`+`/email/templates` pages with zero incoming links) were **flagged, not fixed**.
+
+### (b) NEEDS REID'S DECISION — full list, verbatim
+
+**Candidate 2 — Parallel outreach/follow-up sequence engines (Outreach × Email)**
+> Outreach and Email each independently implement "queue of automated follow-up steps sent to a
+> contact, gated on reply/no-reply," on disjoint schemas that both hold real production data today:
+> - Outreach: `email_campaigns` (1 row) → `campaign_steps` (2 rows) → `campaign_sends` (1 row)
+> - Email: `email_campaign_sequences` (0 rows) → `email_sequence_steps` (0 rows) →
+>   `email_sequence_enrollments` (0 rows)
+>
+> This is not provably dead code on either side: `email_campaigns`/`campaign_steps`/`campaign_sends`
+> already have real rows, `src/app/api/outreach/send/route.ts` is a live, nav-reachable send path
+> independent of Email's sender, and Email's sequence engine (`sequence-engine.ts`) is real, wired
+> code even though its tables are still at 0 rows (0 rows means "never exercised in prod," not "dead
+> code" — the code path and its API routes are real and reachable). Picking either engine as the sole
+> "winner" would require migrating or discarding the other's real send-tracking history and choosing
+> one data model over the other for every future org's outreach data — a product/data decision, not a
+> code-cleanup one.
+
+**Candidate 3 — Parallel template systems (Outreach × Email)**
+> Outreach owns `outreach_templates`/`outreach_template_variants` (variant/A-B-testing model, read by
+> `src/app/(dashboard)/outreach/templates/page.tsx` and the `/api/outreach/templates/...` routes).
+> Email owns a separate `email_templates` table plus a generation route
+> (`/api/email/templates/generate`), read by `src/app/(dashboard)/email/templates/page.tsx`. Both are
+> live, nav-reachable-or-typeable pages backed by real (if currently empty) tables with different
+> schemas (`outreach_template_variants` supports per-template content variants; nothing in
+> `email_templates` was found to have an equivalent). No byte-for-byte duplicate function was found
+> between `src/lib/email/template-engine.ts` and Outreach's template/variant routes — they are
+> separate implementations, not one copy-pasted into the other. Because the two schemas are not
+> equivalent and both are wired into live, user-reachable UI, merging them would change what template
+> management looks like for a real org, not just remove duplication.
+
+**Candidate 4 — Shared `outreach_contacts` table (Outreach × Email)**
+> `outreach_contacts` (1 real row) is Outreach's primary entity (`src/app/(dashboard)/outreach/page.tsx`,
+> `campaigns/[id]/page.tsx`, `src/app/api/outreach/send/route.ts`, `src/lib/agents/cold-outreach.ts`,
+> `src/lib/agents/humanizer-agent.ts`) and is also read live by Email's sequence-builder contact
+> picker (`src/app/(dashboard)/email/campaigns/page.tsx:323`, filtered `status != converted`). This is
+> not a consolidation opportunity in the "delete a duplicate" sense — there is only one table, and it
+> is a real, intentional shared read across two systems, not two parallel copies of the same data.
+> It's listed here because it's the one place the two systems already overlap today, and any
+> restructuring of either system's contact model (e.g., merging into `contacts`, changing `status`
+> enum values, changing ownership) would directly affect the other system's live query. Any change to
+> this table's shape needs Reid's sign-off, not because it's unsafe code, but because two live
+> features currently depend on its exact current shape.
+
+**Also found, not a consolidation decision but worth fixing regardless (flagged, not fixed):**
+- `/outreach/sequences` (page + `src/app/api/outreach/sequences/route.ts`) queries a table,
+  `followup_sequences`, that does not exist in production — every request 500s, for every org.
+- `/email/campaigns` and `/email/templates` are fully built but linked from nowhere in the app —
+  reachable only by typing the URL.
+
+**Full detail, live row counts, and cross-system comparison: `OUTREACH_CONSOLIDATION_AUDIT.md` in the
+repo root.**
+
+**Commits:** pending as of this entry — see the commit immediately following this one in `git log`.
+
+---
+
+## Prior Session — August 13, 2026 (AG-19 opt-in flag wiring, FEATURE_REGISTRY #100/#200 update)
+
+**⚠️ IMPORTANT:** AG-19 (RelationshipBuilderAgent) is now reachable via
+`feature.relationship_builder_v2`, but this flag was NOT turned on for any production org by this
+queue. The decision to cut any org over from the Gen-1 `FunderRelationshipAgent` to this agent,
+partially or fully, is Reid's call and has not been made. **Do not flip this flag for Faith
+Foundation without a live validation pass first.**
+
+**Focus:** wire `RelationshipBuilderAgent` (AG-19) into `worker/autonomous-orchestrator.ts`'s
+`'funder_relationship'` queue case behind a new, org-scoped, default-OFF `platform_config` flag
+(`feature.relationship_builder_v2`), add an owner/admin-only toggle for it, live-test the routing
+end-to-end against a disposable org, then run gates and update the registry.
+
+**Status — what's genuinely done:**
+- `routeQueueItem()`'s `'funder_relationship'` case checks `platform_config` (org-scoped,
+  `key: 'feature.relationship_builder_v2'`) before falling back to the existing Gen-1
+  `FunderRelationshipAgent` path; `value === 'true'` routes instead to a real
+  `RelationshipBuilderAgent.run('event')` call. No flag row (the default for every org today) or any
+  non-`'true'` value keeps the existing nightly behavior completely unchanged.
+- `RelationshipBuilderAgent`'s `TriggerSource` type widened to include `'event'`.
+- `routeQueueItem`/`AgentQueueRow` exported (additive-only) so the new integration test can drive the
+  real routing logic against a synthetic queue item without touching the live `agent_queue` table.
+- New `/settings/agents` toggle row, "Relationship Builder v2 (Beta)" (owner/admin only), backed by a
+  new `GET`/`PATCH /api/settings/agents/relationship-builder-v2` route.
+- `src/__tests__/integration/ag19-relationship-builder-flag.test.ts` — real, live test against a
+  disposable test org and the real, unmodified `routeQueueItem()`: flag unset routes to Gen-1
+  (confirmed via `agent_runs.agent_type`); flag `'true'` routes to Gen-2 and completes a real run with
+  a real `funder_relationship_scores` write; Faith Foundation's real org
+  (`b1ab7402-dfc2-4712-869f-70ea3566cc1d`) independently confirmed to have no flag row and be
+  unaffected. All test rows cleaned up and cleanup verified in `afterAll`.
+- A real, pre-existing bug was surfaced (not introduced, not fixed) by the flag-unset test: Gen-1
+  `FunderRelationshipAgent`'s write to `funder_relationship_scores` targets nonexistent columns
+  (`relationship_score`/`trend`/etc. vs. the real `score`/`events`/`last_updated_at`) — documented in
+  the test file's own header, flagged for a future session.
+- `pnpm tsc --noEmit`: zero errors in every file this session touched (all remaining errors are
+  pre-existing, confined to unrelated `src/__tests__/**` files).
+- `pnpm run build`: clean, new route confirmed in the build manifest.
+- FEATURE_REGISTRY_v2.md row #100 updated `BUILT (unwired)` → `BUILT (flagged, default OFF)`, citing
+  the live test (test 4, Faith Foundation no-row confirmation) as evidence. Row #200 updated
+  `BUILT — BLOCKED (never wired)` → `BUILT — WIRED (opt-in flag, default OFF)`, stated explicitly as an
+  opt-in path per org, not a global cutover.
+
+**What's flagged, not fixed:** Gen-1 `FunderRelationshipAgent`'s own `funder_relationship_scores`
+column-mismatch bug (see above) — unrelated to this session's own change, real and reproducible, not
+addressed here.
+
+**Commits:** pending as of this entry — see the commit immediately following this one in `git log`.
+**Gates:** `pnpm tsc --noEmit` clean (task-relevant files); `pnpm run build` clean.
+
+---
+
+## Prior Session — August 11, 2026 (platform_config org-scoping fix, BudgetAgent timeout fix, FEATURE_REGISTRY #98/#100/#116 reconciliation)
 
 **Focus:** close out the two real, previously-documented-but-unfixed defects from row #116's
 2026-08-07 One-Click Proposal Package verification (a systemic `platform_config` cross-org query gap,

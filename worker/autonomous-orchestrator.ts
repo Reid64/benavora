@@ -1625,7 +1625,7 @@ export async function runBoardPacketDailyPipeline(
 
 // --- agent_queue processor --------------------------------------------------------
 
-interface AgentQueueRow {
+export interface AgentQueueRow {
   id: string;
   org_id: string;
   agent_id: string;
@@ -1647,8 +1647,15 @@ function requireString(
   return value;
 }
 
-/** Routes one claimed agent_queue row to the matching real agent/function. */
-async function routeQueueItem(
+/**
+ * Routes one claimed agent_queue row to the matching real agent/function.
+ * Exported (additive-only change, no behavior difference) so integration
+ * tests can exercise the real routing/feature-flag logic directly against a
+ * synthetic, in-memory AgentQueueRow-shaped object, without touching the
+ * shared, continuously-polled `agent_queue` table itself — see
+ * src/__tests__/integration/ag19-relationship-builder-flag.test.ts.
+ */
+export async function routeQueueItem(
   supabase: SupabaseClient,
   item: AgentQueueRow,
 ): Promise<string> {
@@ -1756,6 +1763,35 @@ async function routeQueueItem(
       return `follow_up_generator completed (tokens=${outcome.tokensUsed})`;
     }
     case 'funder_relationship': {
+      // Org-scoped feature flag, off by default for every org (safe
+      // fallback = the existing FunderRelationshipAgent path below).
+      // Reid must explicitly set platform_config
+      // {organization_id, key: 'feature.relationship_builder_v2', value: 'true'}
+      // for a given org before RelationshipBuilderAgent (AG-19,
+      // src/lib/agents/relationship-builder-agent.ts) is ever called for it —
+      // same org-scoped-select convention as
+      // src/app/api/automation/queue/route.ts's 'feature.autonomous_mode'
+      // check, and the same .eq("organization_id", ...) scoping fixed
+      // platform-wide in commit 2f61a92.
+      const { data: v2Flag, error: v2FlagError } = await supabase
+        .from('platform_config')
+        .select('value')
+        .eq('organization_id', orgId)
+        .eq('key', 'feature.relationship_builder_v2')
+        .maybeSingle();
+
+      if (!v2FlagError && (v2Flag?.value as string | undefined) === 'true') {
+        const { RelationshipBuilderAgent } = await import(
+          '../src/lib/agents/relationship-builder-agent.js'
+        );
+        const agent = new RelationshipBuilderAgent(orgId, supabase);
+        const outcome = await agent.run('event');
+        return (
+          `funder_relationship (relationship_builder_v2) completed ` +
+          `(funders=${outcome.itemsFound}, recommendations=${outcome.itemsProcessed})`
+        );
+      }
+
       const { FunderRelationshipAgent } = await import(
         '../src/lib/agents/funder-relationship.js'
       );

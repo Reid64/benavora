@@ -120,7 +120,10 @@ import {
   DEFAULT_MODEL,
 } from "@/lib/ai/claude";
 
-type TriggerSource = "autonomous" | "manual" | "chain" | "schedule";
+// Matches AutonomousAgent's own TriggerSource exactly (autonomous-base.ts) —
+// must include "event" since worker/autonomous-orchestrator.ts's
+// feature.relationship_builder_v2 queue path calls run("event").
+type TriggerSource = "autonomous" | "manual" | "chain" | "schedule" | "event";
 
 type Momentum = "rising" | "declining" | "stable";
 type StoredTrend = "rising" | "falling" | "neutral";
