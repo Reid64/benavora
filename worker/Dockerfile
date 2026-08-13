@@ -27,6 +27,7 @@ ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 WORKDIR /app
 
 COPY package.json pnpm-lock.yaml ./
+COPY scripts/ ./scripts/
 RUN npm install -g pnpm && pnpm install --frozen-lockfile
 
 COPY . .

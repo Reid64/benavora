@@ -1,7 +1,26 @@
 # BENAVORA — Session State
-## Last Updated: August 13, 2026 (T7 AutoApply soak test + T8 cross-browser suite — both genuinely partial, both root-caused and documented honestly)
+## Last Updated: August 13, 2026 (Railway worker Docker build fix — scripts/ missing from build context before pnpm install's prepare hook)
 
-## Current Session — August 13, 2026 (T7 AutoApply soak test + T8 cross-browser suite completion)
+## Current Session — August 13, 2026 (Railway worker Docker build fix)
+
+**Focus:** Railway worker builds have been failing since DIRECTIVE-019 (2026-08-07) added a `prepare`
+lifecycle script (`node scripts/install-git-hooks.mjs`) that now runs on every `pnpm install` —
+including the one inside `worker/Dockerfile`. That Dockerfile only `COPY`'d `package.json` and
+`pnpm-lock.yaml` before running `pnpm install --frozen-lockfile`, so `scripts/install-git-hooks.mjs`
+didn't exist yet in the build context and the `prepare` script failed, breaking the Docker build (and
+every Railway worker deploy) from 2026-08-07 onward.
+
+**Fix:** added `COPY scripts/ ./scripts/` to `worker/Dockerfile` right after
+`COPY package.json pnpm-lock.yaml ./` and before `pnpm install`. Checked
+`scripts/install-git-hooks.mjs` for any other early file dependency — it only uses Node built-ins and
+`existsSync()`-guards its reads of `.githooks/` and `.git/hooks/`, exiting 0 silently if either is
+missing (as they are in a Docker build context), so no other `COPY` was needed. No other line in
+`worker/Dockerfile` touched. `pnpm run build` run locally — clean.
+
+**Also documented in** `STATE_OF_THE_BUILD.md` and `WORKER_ARCHITECTURE_v2.md` §16 (Known Issues and
+Fixes Applied).
+
+## Previous Session — August 13, 2026 (T7 AutoApply soak test + T8 cross-browser suite completion)
 
 **Focus:** close out t7-soak-002 (AutoApply queue-processor soak test) and t8-crossbrowser-002
 (Firefox/WebKit cross-browser suite), per this session's own gate sequence: `pnpm run build` and

@@ -637,6 +637,7 @@ Supabase Realtime subscriptions on:
 | Chromium not found in Docker | Added PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH env var | Applied |
 | Enrichment overwrites existing data on re-run | Changed to jsonb merge pattern (never overwrite) | Applied |
 | Railway build fails with pnpm lockfile mismatch | Pin pnpm version in Dockerfile | Applied |
+| Railway build fails: `scripts/install-git-hooks.mjs` not found (DIRECTIVE-019's `prepare` script runs during `pnpm install`, but `scripts/` wasn't copied into the Docker build context yet) | Added `COPY scripts/ ./scripts/` in `worker/Dockerfile` before the `pnpm install` step | Applied |
 
 ---
 

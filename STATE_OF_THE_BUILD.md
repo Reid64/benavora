@@ -1,6 +1,28 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 13, 2026 (T7 AutoApply soak test + T8 cross-browser suite completion — both genuinely partial, both honestly documented with real root causes). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 13, 2026 (Railway worker Docker build fix — `scripts/` wasn't in the build context before `pnpm install`'s prepare hook needed it). Not FORGE-auto-generated — hand-verified.**
+
+## SESSION — August 13, 2026 (Railway worker Docker build fix)
+
+**Scope:** Railway worker builds have been failing since DIRECTIVE-019 (2026-08-07) added the
+`prepare` lifecycle script (`node scripts/install-git-hooks.mjs`, see `package.json`) that now runs on
+every `pnpm install`, including the one inside `worker/Dockerfile`. Root cause: `worker/Dockerfile`
+only `COPY`'d `package.json` and `pnpm-lock.yaml` before running `pnpm install --frozen-lockfile` —
+`scripts/install-git-hooks.mjs` didn't exist yet in the build context at that point, so the `prepare`
+script failed and broke the Docker build (and therefore every Railway deploy of the worker) from that
+point on.
+
+**Fix:** added `COPY scripts/ ./scripts/` in `worker/Dockerfile` immediately after
+`COPY package.json pnpm-lock.yaml ./` and before the `pnpm install` line, so
+`scripts/install-git-hooks.mjs` is present in the build context when `pnpm install`'s `prepare` hook
+runs. Confirmed `scripts/install-git-hooks.mjs` needs nothing else copied early: it only touches
+Node built-ins (`node:fs`, `node:path`) plus `.githooks/` and `.git/hooks/`, and it checks
+`existsSync()` on both and exits 0 silently if either is missing (which they are inside a Docker build
+context) — so no `.git`/`.githooks` COPY is needed for the script to succeed. No other lines in
+`worker/Dockerfile` were changed. Verified with a local `pnpm run build` — clean.
+
+**Also documented in** `SESSION_STATE.md` and `WORKER_ARCHITECTURE_v2.md` §16 (Known Issues and Fixes
+Applied).
 
 ## SESSION — August 13, 2026 (T7 AutoApply soak test + T8 cross-browser suite completion)
 
