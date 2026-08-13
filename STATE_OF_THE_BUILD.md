@@ -1,6 +1,66 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 13, 2026 (Railway worker Docker build fix — `scripts/` wasn't in the build context before `pnpm install`'s prepare hook needed it). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 13, 2026 (outreach consolidation audit gate-closeout — verify-deployment.ts run for real, both outreach bugs' real resolution status documented). Not FORGE-auto-generated — hand-verified.**
+
+## SESSION — August 13, 2026 (outreach consolidation audit gate-closeout)
+
+**Scope:** closing prompt of the queue that produced `OUTREACH_CONSOLIDATION_AUDIT.md` and
+`scripts/verify-deployment.ts`. Ran the full gate sequence (`pnpm run build`, `pnpm tsc --noEmit`),
+ran `verify-deployment.ts` for the first time against real production, and reconciled what the prior
+two prompts in this queue actually resolved versus deferred.
+
+**Gates:** `pnpm tsc --noEmit` — clean, zero errors. `pnpm run build` — clean, zero errors. Neither
+gate found anything to fix this pass.
+
+**`scripts/verify-deployment.ts` — exists, runs correctly, does NOT report PASS.** Invoked via
+`node --import tsx scripts/verify-deployment.ts`. It correctly read local HEAD
+(`63ef2f9ea427648233cd0c3f848c94a04b06e5b4`) and then exited `3` (INDETERMINATE) with the message
+`VERCEL_TOKEN and/or VERCEL_PROJECT_ID are not set, cannot query production deployment state.` —
+confirmed by direct check that `.env.local` has zero `VERCEL_*` entries. `.vercel/project.json` does
+have a real `projectId`/`orgId` for benavora, but the script deliberately requires `VERCEL_TOKEN`
+specifically (its own header explains why: the `vercel` CLI and the Vercel MCP connector are both
+documented as unreliable/misauthenticated for this project, see `AGENT_VERIFICATION_LOG.md`). This
+session independently reproduced that same blocker two more ways: a bare `npx vercel whoami` and a
+`mcp__claude_ai_Vercel__list_deployments` call were both denied by this session's tool-permission
+layer before they could reach the network. **This is a genuine, unresolved credential gap, not a bug
+in the script** — the script itself behaved exactly per its own documented contract (real HEAD read,
+honest INDETERMINATE exit code, no crash, no fabricated verdict). DIRECTIVE-019's deploy-drift gate
+is code-complete but not yet operable in this environment until a `VERCEL_TOKEN` is supplied (in
+`.env.local` for manual runs, and/or wherever FORGE's `gates/deploy_verify.ps1` expects it). Flagging
+for Reid rather than treating "the script ran" as "the gate passed."
+
+**The two outreach bugs from this queue's prior prompts — status, explicit and not buried:**
+
+1. **`followup_sequences` missing table (Outreach → Sequences page, `/outreach/sequences`) — UI
+   symptom fixed, underlying bug NOT resolved.** The page previously fired a `GET
+   /api/outreach/sequences` that always 500'd (table confirmed absent in production via live `psql`).
+   A prior prompt this queue replaced the page with a static "Not available yet" `EmptyState` so it no
+   longer presents as a transient error — but the actual feature (a working Follow-Up Sequences
+   library) remains unavailable, and no schema/route change was made.
+   `src/app/api/outreach/sequences/route.ts` is untouched and still real, correct code waiting on a
+   table that doesn't exist yet. **Real fix requires a decision from Reid** between the two concrete
+   options `OUTREACH_CONSOLIDATION_AUDIT.md` lays out (apply the dormant, already-written
+   `supabase/migrations/083_followup_sequences.sql`, or retire this page in favor of AG-28's
+   `application_followups` model — which the same audit found is *also* unmigrated in production, an
+   independent pre-existing gap). Status: **deferred, NEEDS REID'S DECISION.**
+2. **`/email/campaigns` and `/email/templates` orphaned pages — investigated only, zero code
+   change.** Both pages are fully built, functional, and reference only real, live tables — the gap is
+   purely that no nav link points to them (`src/components/layout/nav-items.ts`'s `Email` entry has no
+   `children`). Git history was read in full to determine whether this was an accidental regression or
+   an intentional omission; the evidence is genuinely mixed (removed inside a large intentional
+   nav-rewrite commit, but a later dedicated "fix the email nav" commit had the exact opportunity to
+   restore the children and didn't) — not clean enough to justify a speculative one-line nav restore
+   per this task's own SAFE-bar criteria. No nav change was made. Status: **deferred, NEEDS REID'S
+   DECISION** (including whether to restore both, or choose between this pair and Outreach's
+   near-duplicate Campaigns/Templates pages per the audit's Candidates 2/3).
+
+**`FEATURE_REGISTRY_v2.md` — deliberately NOT updated this session.** Neither bug above was
+*genuinely* resolved (both remain open, NEEDS REID'S DECISION) — the Sequences page change is a UI
+honesty fix, not a feature completion, and the email-nav investigation made zero code change. No row
+in the registry describes either specific gap (`followup_sequences`/`application_followups` and the
+orphaned Email sub-pages are new findings from this queue's audit, not yet registry rows at all), so
+there was nothing to flip and nothing was flipped. This is stated explicitly per this task's own
+instruction not to bury it.
 
 ## SESSION — August 13, 2026 (Railway worker Docker build fix)
 

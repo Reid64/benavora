@@ -1,7 +1,44 @@
 # BENAVORA — Session State
-## Last Updated: August 13, 2026 (Railway worker Docker build fix — scripts/ missing from build context before pnpm install's prepare hook)
+## Last Updated: August 13, 2026 (outreach consolidation audit gate-closeout — verify-deployment.ts run for real, both outreach bugs' real resolution status documented)
 
-## Current Session — August 13, 2026 (Railway worker Docker build fix)
+## Current Session — August 13, 2026 (outreach consolidation audit gate-closeout)
+
+**Focus:** closing prompt of the `OUTREACH_CONSOLIDATION_AUDIT.md` / `scripts/verify-deployment.ts`
+queue. Ran the full gate sequence, ran `verify-deployment.ts` for real for the first time, and
+reconciled what the prior two prompts actually resolved versus deferred.
+
+**Gates:** `pnpm tsc --noEmit` — clean, zero errors. `pnpm run build` — clean, zero errors.
+
+**`verify-deployment.ts`:** ran via `node --import tsx scripts/verify-deployment.ts`. Real local HEAD
+read correctly (`63ef2f9e...`), then exited `3` (INDETERMINATE): `VERCEL_TOKEN and/or
+VERCEL_PROJECT_ID are not set`. Confirmed `.env.local` has zero `VERCEL_*` entries. `.vercel/project.json`
+has real `projectId`/`orgId` but the script deliberately needs `VERCEL_TOKEN` specifically, not the
+CLI or MCP (both previously documented as unreliable for this project). Independently re-confirmed
+that gap two more ways this session: `npx vercel whoami` and the Vercel MCP's `list_deployments` were
+both denied by this session's tool-permission layer. **The script itself is correct and working — it
+gave an honest INDETERMINATE, not a crash or a fabricated PASS — but DIRECTIVE-019's deploy-drift gate
+is not yet operable without a real `VERCEL_TOKEN` supplied somewhere.** Do not report this as "the
+gate passed" in any future session until a token is available and a real PASS/FAIL is observed.
+
+**The two outreach bugs — explicit, not buried:**
+
+1. **`followup_sequences` (Outreach → Sequences page) — UI symptom fixed, root cause NOT resolved.**
+   The page no longer fires a request that always 500s (replaced with a static "Not available yet"
+   empty state); the actual missing-table bug is untouched, and the route
+   (`src/app/api/outreach/sequences/route.ts`) is unchanged, correct code waiting on a table. **NEEDS
+   REID'S DECISION** between applying the dormant `supabase/migrations/083_followup_sequences.sql` or
+   retiring the page for AG-28's `application_followups` model (which this same audit found is *also*
+   unmigrated in production — a separate, pre-existing gap, not fixed here either).
+2. **`/email/campaigns` / `/email/templates` orphaned pages — investigated only, zero code change.**
+   Both pages are fully real and functional; only the nav link is missing
+   (`src/components/layout/nav-items.ts`). Git history is genuinely ambiguous on whether this was
+   intentional, so no speculative nav restore was made. **NEEDS REID'S DECISION.**
+
+**`FEATURE_REGISTRY_v2.md`: deliberately not touched this session** — neither bug was genuinely
+resolved (both above remain open), and neither gap has an existing registry row to flip in the first
+place (both are new findings from this queue's audit).
+
+## Previous Session — August 13, 2026 (Railway worker Docker build fix)
 
 **Focus:** Railway worker builds have been failing since DIRECTIVE-019 (2026-08-07) added a `prepare`
 lifecycle script (`node scripts/install-git-hooks.mjs`) that now runs on every `pnpm install` —

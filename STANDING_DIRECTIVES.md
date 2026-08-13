@@ -421,6 +421,23 @@ Given both the Vercel deploy and `deploy-check.yml` can only ever report after t
 tier, the pre-push hook is the only point in the entire pipeline where a broken build can actually
 be stopped before it reaches `main`. Treat it accordingly — it is not a convenience, it is the gate.
 
+### `scripts/verify-deployment.ts` — closing the post-push half of the gap
+
+The pre-push hook only proves the *build* is good before it leaves the machine; it says nothing
+about whether Vercel's production deployment actually picks up that commit. That's exactly the
+failure mode the 2026-08-11 audit found (production 21 commits stale for 8+ hours, silently).
+`scripts/verify-deployment.ts` (run via `tsx scripts/verify-deployment.ts`) closes that second half:
+it reads the local `git rev-parse HEAD` and compares it against the commit Vercel reports as live in
+production (via the Vercel REST API — `VERCEL_TOKEN` + `VERCEL_PROJECT_ID` required, not the `vercel`
+CLI or the Vercel MCP connector, both of which have known non-interactive-use problems on this
+project per `AGENT_VERIFICATION_LOG.md`). It exits `0` on a genuine match, `1` on a genuine mismatch
+or an errored/canceled production deployment, `2` if the latest production deployment is still
+building/queued (explicitly not treated as a mismatch), and `3` if it can't reach a verdict at all
+(e.g. `VERCEL_TOKEN` unset). It is not yet wired into an automated schedule or CI step — run it
+manually after a push when production state needs confirming, or wire it into FORGE's own
+deploy-verification step once its exact pass/fail contract is confirmed against this script's exit
+codes.
+
 ---
 
 ## Governance Update Requirements

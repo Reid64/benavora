@@ -89,6 +89,20 @@ prompts:
 **The compile gate is mandatory on every prompt that writes TypeScript.**
 **The file_exists gate is mandatory on every prompt that creates new files.**
 
+### `scripts/verify-deployment.ts` — production drift check (not yet a gate type)
+
+`scripts/verify-deployment.ts` (`tsx scripts/verify-deployment.ts`) exists to catch the failure
+DIRECTIVE-019 was written for — a build that passes every gate above and reaches `main` cleanly, but
+whose Vercel production deployment never actually lands on that commit (per the 2026-08-11 audit,
+production sat 21 commits stale for 8+ hours with nothing in this pipeline noticing). It compares
+local `git rev-parse HEAD` against the commit Vercel reports live in production via the Vercel REST
+API (`VERCEL_TOKEN` + `VERCEL_PROJECT_ID`), and exits `0` (match), `1` (mismatch or a production
+deployment that itself errored/canceled), `2` (latest production deployment still building/queued —
+not yet comparable, deliberately not conflated with a mismatch), or `3` (couldn't reach a verdict,
+e.g. missing token). This table's five gate types do not currently include a dedicated type that
+invokes this script — it is a manually-run check today. If a `deploy_verify` gate type is added
+later, wire it to these exact exit codes rather than reinterpreting them.
+
 ---
 
 ## 4. Prompt Density Standards — Non-Negotiable
