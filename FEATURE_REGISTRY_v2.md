@@ -565,12 +565,13 @@ addendum above), not because it fully works end-to-end. Platform Vision Pillars:
 Firefox/WebKit run (`CROSSBROWSER_TEST_RESULTS_20260813.md`) exercised `e2e/critical-paths.spec.ts`
 across all three engines for the first time in this repo's history; result is a genuine partial pass
 (10/17), not a clean one — see the T8 row itself for the real per-browser breakdown and the
-WebKit-specific navigation-race finding. Row T7 (Soak Tests) stayed Built but was re-verified with a
-second, separate 2026-08-13 soak test against the AutoApply queue processor
-(`SOAK_TEST_AUTOAPPLY_RESULTS_20260813.md`) — that run was honestly partial (0/50 items reached
-terminal status inside the 130-minute cap, root-caused to the queue's own unconditional 60-120s
-per-item rate limiter, not a hang), so it does not change T7's Built/Planned category but does change
-its notes and tier label. Testing: 5→6 Built, 3→2 Planned. TOTAL: 124→125 Built, 43→42 Planned.
+WebKit-specific navigation-race finding. Row T7 (Soak Tests) stayed Built —
+`SOAK_TEST_AUTOAPPLY_RESULTS_20260813.md` is the same 2026-08-13 AutoApply queue processor overnight
+run already described in the T7 row above, re-saved under a dated filename to satisfy a queue's
+`file_exists` gate check, not a second, separate execution. That run was honestly partial (0/50 items
+reached terminal status inside the 130-minute cap, root-caused to the queue's own unconditional
+60-120s per-item rate limiter, not a hang), so it does not change T7's Built/Planned category but does
+change its notes and tier label. Testing: 5→6 Built, 3→2 Planned. TOTAL: 124→125 Built, 43→42 Planned.
 
 **Note on the July 30 → August 7, 2026 agent-verification updates:** the AG-15–AG-42 rows above (and
 their Post-Launch Vision cross-references, #217/#218/#220/#225) use the finer-grained BUILT — VERIFIED
