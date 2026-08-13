@@ -107,16 +107,20 @@ export const NAV_ITEMS: NavItem[] = [
       { label: "Strategic Advisor", href: "/intelligence/strategic-advisor" },
     ],
   },
-  { label: "Email", href: "/email", icon: Mail },
+  {
+    label: "Email",
+    href: "/email",
+    icon: Mail,
+    children: [
+      { label: "Campaigns", href: "/email/campaigns" },
+      { label: "Templates", href: "/email/templates" },
+    ],
+  },
   {
     label: "Outreach",
     href: "/outreach",
     icon: Send,
-    children: [
-      { label: "Campaigns", href: "/outreach/campaigns" },
-      { label: "Templates", href: "/outreach/templates" },
-      { label: "Sequences", href: "/outreach/sequences" },
-    ],
+    children: [{ label: "Templates", href: "/outreach/templates" }],
   },
 ];
 

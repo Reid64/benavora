@@ -1,6 +1,96 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 13, 2026 (FORGE deploy_verify gate contract fix documented). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 13, 2026 (Outreach/Email consolidation execution complete; Email Parser row #38 corrected). Not FORGE-auto-generated — hand-verified.**
+
+## SESSION — August 13, 2026 (Outreach/Email consolidation execution complete + Email Parser row #38 corrected)
+
+**Scope:** closing prompt of the queue that produced `OUTREACH_CONSOLIDATION_AUDIT.md`'s full
+consolidation execution (system mapping → data migration → UI/nav retirement → deprecation
+comments) and `EMAIL_PARSER_VERIFICATION_2026-08-13.md`. This session ran gates, updated governance
+docs with dated evidence, and did the scoped commit/push closing the queue. No new code behavior
+was introduced this pass beyond what prior prompts in the queue already wrote — this was
+verification + documentation + gate-closeout.
+
+**Gates:** `pnpm run build` — clean, zero errors. `pnpm tsc --noEmit` — clean, zero errors. Both run
+fresh this session against the full working tree (not just the touched files).
+
+**Outreach/Email consolidation — what actually happened, in one place:**
+
+- **Decision:** Reid chose to consolidate the org-facing "cold-outreach drip campaign" concept onto
+  Email's sequence engine (`email_campaign_sequences`/`email_sequence_steps`/
+  `email_sequence_enrollments`), deprecating Outreach's parallel schema
+  (`email_campaigns`/`campaign_steps`/`campaign_sends`, migration 001). Table drops are explicitly
+  deferred — nothing was dropped or truncated.
+- **Migrated:** the one real `email_campaigns` row + its 2 `campaign_steps` rows, copied 1:1 into
+  the Email schema inside a single guarded transaction, verified by an independent post-commit
+  re-read. **Correction surfaced during migration, worth remembering:** this data turned out to be
+  E2E test fixtures (`Benavora E2E Test Org`, `owner.e2e@benavora-test.dev`,
+  `bluebonnet.example` — an RFC 2606 reserved test TLD) written directly into production, not real
+  customer data — handled with the same care real data would get, but not evidence any real funder
+  has used this feature.
+- **Not migrated:** the 1 `campaign_sends` row — a genuine event-log-vs-aggregate-state schema
+  mismatch (the target table has no per-step child table and a `UNIQUE(sequence_id, email_address)`
+  constraint), not a corner case worth forcing. Exported verbatim to
+  `OUTREACH_ROWS_PRE_CONSOLIDATION_2026-08-13.json` instead.
+- **UI redirected, not deleted:** `/outreach/campaigns`, `/outreach/campaigns/[id]`, and
+  `/outreach/sequences` now `redirect("/email/campaigns")` (server components, confirmed clean
+  under both gates). `/api/outreach/send` (a second, zero-caller Resend send path, confirmed by
+  repo-wide grep to have had zero real callers even before this pass) was removed outright — met
+  this doc's own SAFE bar independent of the redirect work. Nav updated: `Email` gained
+  `Campaigns`/`Templates` children (previously orphaned, reachable only by URL); `Outreach`'s
+  children shrank to `Templates` only.
+- **Tables marked deprecated, not dropped:** `COMMENT ON TABLE` applied live via
+  `scripts/deprecate-outreach-campaign-tables.sql` (DIRECTIVE-017's `psql`/`DATABASE_URL` path) and
+  read back to confirm. This is metadata only — it does not block writes.
+- **Genuine, unresolved gap — flagging loudly, not burying it:** five real write paths to the
+  now-"deprecated" tables remain live and were deliberately left untouched this pass (documenting a
+  live gap is in scope; silently disabling a possibly-relied-upon autonomous job is not):
+  `POST`/`PUT /api/agents/campaigns[...]`, a Vercel Cron job (`/api/cron/campaigns`, every 2 hours,
+  confirmed still registered in `vercel.json`) that runs `EmailCampaignAgent` for any org with
+  `platform_config.key = 'feature.cold_outreach_email'` enabled, and the `/api/webhooks/resend`
+  receiver. **This means the consolidation is UI-complete but not backend-complete** — do not treat
+  "consolidated" as "the old system stopped running." See `OUTREACH_CONSOLIDATION_AUDIT.md`'s "NEEDS
+  REID'S DECISION Item 5" for the three real options (leave running / retire / repoint), still
+  unresolved. Whether any real org has `feature.cold_outreach_email` enabled was never checked this
+  queue and materially changes the urgency of that decision.
+- **`followup_sequences` (`/outreach/sequences`'s original underlying table) remains its own,
+  separate, still-unresolved gap** — confirmed structurally unrelated to the migrated schema (no
+  shared columns, disjoint git history, five weeks apart), redirected today for UI consistency only.
+  Applying dormant migration 083 or retiring in favor of AG-28's `application_followups` (also
+  confirmed unmigrated) is still an open product decision, untouched by this consolidation.
+
+**Email Parser (`FEATURE_REGISTRY_v2.md` row #38) — corrected from a blanket "BUILT" to a
+per-capability breakdown, per `EMAIL_PARSER_VERIFICATION_2026-08-13.md`:**
+
+- **EXTRACT/CLASSIFY — CONFIRMED WORKING.** `EmailParserAgent.run()` live-tested against the real
+  FAITH Foundation org + real Anthropic API: correct classification, correct 5-field extraction,
+  correct fuzzy funder-matching, correct `email_activity`/`agent_runs` writes (re-queried after the
+  run, not assumed).
+- **SUMMARIZE (`/api/email/summarize`) — CONFIRMED WORKING**, and confirmed to be a fully separate
+  system from the parser (different tables, different model, no shared code) — live-tested against
+  a real seeded thread, accurate output.
+- **RESPOND/REPLY (auto-reply drafting/sending) — CONFIRMED ABSENT.** Repo-wide grep across every
+  plausible location found zero Gmail-drafts-API calls and no reply-composition code path. Not in
+  BLUEPRINT.md's spec either — new, undesigned feature scope, a real open decision for Reid, not a
+  bug to fix.
+- **Also found, inside the EXTRACT/CLASSIFY spec itself:** the Gmail-webhook auto-trigger
+  ("triggers on new email") described in the same BLUEPRINT.md §9.1 sentence as the classifier is
+  **CONFIRMED ABSENT** — no webhook/pubsub listener exists, `/api/email/sync` never calls the
+  parser, and the code's own comments confirm this is a known Phase-4 gap, not an accident. Today
+  the classifier only runs via manual entry into the dashboard's `EmailParserWidget`.
+- **Net:** the underlying classification/extraction engine is genuinely good, real, and correct —
+  this was not a "found it broken" verification. What's absent is automation (the trigger) and a
+  capability that was never in scope (reply drafting). `FEATURE_REGISTRY_v2.md` row #38 now states
+  this explicitly instead of implying full coverage via a single "BUILT."
+
+**Scoped commit:** only files actually touched across this queue's six prompts were staged (no
+`git add -A`) — the audit doc, `SCHEMA_REGISTRY_v2.md`'s deprecation annotations (an earlier prompt
+in this same queue), the redirected/deleted Outreach pages, `nav-items.ts`, the two new files
+(`EMAIL_PARSER_VERIFICATION_2026-08-13.md`, `OUTREACH_ROWS_PRE_CONSOLIDATION_2026-08-13.json`), the
+deprecation SQL script, and the governance-doc updates from this closing prompt
+(`FEATURE_REGISTRY_v2.md`, `STATE_OF_THE_BUILD.md`, `SESSION_STATE.md`). Pre-existing, genuinely
+unrelated working-tree changes (`.claude/worktrees/agent-*` submodule pointers — dirty from other,
+unrelated worktree sessions, not this queue) were left exactly as found, not swept in.
 
 ## SESSION — August 13, 2026 (FORGE deploy_verify gate contract fix)
 

@@ -1,7 +1,60 @@
 # BENAVORA — Session State
-## Last Updated: August 13, 2026 (FORGE deploy_verify gate contract fix documented)
+## Last Updated: August 13, 2026 (Outreach/Email consolidation execution complete; Email Parser row #38 corrected)
 
-## Current Session — August 13, 2026 (FORGE deploy_verify gate contract fix)
+## Current Session — August 13, 2026 (Outreach/Email consolidation execution complete + Email Parser row #38 corrected)
+
+**Focus:** closing prompt of the queue that executed the Outreach→Email sequence-system
+consolidation (mapping → data migration → UI/nav retirement → deprecation comments, all in
+`OUTREACH_CONSOLIDATION_AUDIT.md`) and the Email Parser (row #38) live-verification
+(`EMAIL_PARSER_VERIFICATION_2026-08-13.md`). Ran gates, updated governance docs with dated evidence,
+did the scoped commit/push.
+
+**Gates:** `pnpm run build` — clean. `pnpm tsc --noEmit` — clean, zero errors.
+
+**Consolidation — migrated, not dropped:**
+- 1 `email_campaigns` row + 2 `campaign_steps` rows copied 1:1 into
+  `email_campaign_sequences`/`email_sequence_steps` (verified by independent post-commit re-read).
+  **Turned out to be E2E test fixture data** (`Benavora E2E Test Org`,
+  `owner.e2e@benavora-test.dev`, `bluebonnet.example` reserved test TLD) written into production,
+  not real customer data — migrated with full care regardless, but not evidence of real usage.
+- 1 `campaign_sends` row could NOT migrate — genuine event-log-vs-aggregate-state schema mismatch,
+  not forced — exported to `OUTREACH_ROWS_PRE_CONSOLIDATION_2026-08-13.json` instead.
+- Source tables (`email_campaigns`/`campaign_steps`/`campaign_sends`) marked deprecated via live
+  `COMMENT ON TABLE` (`scripts/deprecate-outreach-campaign-tables.sql`) — **NOT dropped or
+  truncated**, per explicit instruction.
+
+**Consolidation — redirected, not deleted:**
+- `/outreach/campaigns`, `/outreach/campaigns/[id]`, `/outreach/sequences` now `redirect()` to
+  `/email/campaigns`. `/api/outreach/send` (zero real callers, confirmed by grep) removed outright.
+- Nav: `Email` gained `Campaigns`/`Templates` children (previously orphaned, URL-only); `Outreach`
+  shrank to `Templates` only.
+
+**Consolidation — genuine open gap, flagged not buried:** five real write paths to the now-
+"deprecated" tables remain live and were deliberately NOT disabled: `POST`/`PUT
+/api/agents/campaigns[...]`, a Vercel Cron job (`/api/cron/campaigns`, every 2 hours, still
+registered) running `EmailCampaignAgent` for any org with `feature.cold_outreach_email` enabled, and
+the `/api/webhooks/resend` receiver. **Consolidation is UI-complete, not backend-complete.** See
+`OUTREACH_CONSOLIDATION_AUDIT.md`'s "NEEDS REID'S DECISION Item 5" — unresolved. Whether any real
+org has that feature flag enabled was never checked.
+
+**Email Parser (row #38) — corrected from blanket "BUILT" to per-capability status:**
+- EXTRACT/CLASSIFY — **CONFIRMED WORKING** (live Claude call + real DB writes, re-queried after).
+- SUMMARIZE (`/api/email/summarize`) — **CONFIRMED WORKING**, confirmed separate system.
+- RESPOND/REPLY (auto-reply drafting/sending) — **CONFIRMED ABSENT.** Zero code anywhere composes
+  or sends a reply from an inbound classification. Not in spec either — **this is a real open
+  product decision for Reid, not a completed item and not a bug to silently fix.**
+- Also found: the Gmail-webhook auto-trigger for capability 1 itself is **CONFIRMED ABSENT** — the
+  classifier only fires on manual dashboard entry today, never automatically on new mail.
+
+**Scoped commit:** staged only files actually touched across this queue's six prompts — no
+`git add -A`. Includes `SCHEMA_REGISTRY_v2.md`'s deprecation annotations from an earlier prompt in
+this same queue. Left untouched: `.claude/worktrees/agent-*` (unrelated dirty worktree pointers from
+other sessions).
+
+**Also documented in** `OUTREACH_CONSOLIDATION_AUDIT.md` (Final Summary section),
+`FEATURE_REGISTRY_v2.md` (rows #36, #38), and `STATE_OF_THE_BUILD.md`.
+
+## Previous Session — August 13, 2026 (FORGE deploy_verify gate contract fix)
 
 **Focus:** document a fix made today to `C:\Users\manag\Documents\FORGE\gates\deploy_verify.ps1`
 (FORGE tooling, outside this repo — no code diff here) that now correctly distinguishes

@@ -1140,8 +1140,23 @@ Extracted contacts for cold outreach.
 | created_at | timestamptz DEFAULT now() | |
 | updated_at | timestamptz DEFAULT now() | |
 
-### 19. email_campaigns
+### 19. email_campaigns — DEPRECATED 2026-08-13
 Drip campaign definitions.
+
+**DEPRECATED 2026-08-13**, superseded by `email_campaign_sequences` (row 8 above/see
+`email_campaign_sequences` entry). Should not be written to going forward. Live `COMMENT ON TABLE`
+applied in production stating the same. Reasoning + migration detail:
+`OUTREACH_CONSOLIDATION_AUDIT.md`'s "consolidation execution" sections — the one real row set was
+migrated into the new schema and the source row left in place for history; the two UI pages that
+wrote here (`/outreach/campaigns`, `/outreach/campaigns/[id]`) now redirect to `/email/campaigns`.
+**Not dropped/truncated** — deferred to a later, separately-approved cleanup once nothing references
+it. **Known open gap, not yet resolved**: `POST`/`GET /api/agents/campaigns` and
+`GET`/`PUT /api/agents/campaigns/[campaignId]` still read/write this table directly (no UI caller as
+of 2026-08-13, but still API-reachable), and a live Vercel Cron job (`/api/cron/campaigns`, every 2
+hours per `vercel.json`) still calls `EmailCampaignAgent.run()` unconditionally for any org with
+`feature.cold_outreach_email` enabled, which can insert real `campaign_sends` rows and update this
+table — see `OUTREACH_CONSOLIDATION_AUDIT.md`'s "NEEDS REID'S DECISION Item 5" for the undecided
+options (leave running / retire / repoint at the new engine).
 
 | Column | Type | Notes |
 |---|---|---|
@@ -1155,8 +1170,13 @@ Drip campaign definitions.
 | created_at | timestamptz DEFAULT now() | |
 | updated_at | timestamptz DEFAULT now() | |
 
-### 20. campaign_steps
+### 20. campaign_steps — DEPRECATED 2026-08-13
 Individual emails in drip sequence.
+
+**DEPRECATED 2026-08-13**, superseded by `email_sequence_steps`. Same reasoning, same still-open
+write-path gap (`/api/agents/campaigns/[campaignId]` GET reads it; `EmailCampaignAgent` reads it on
+every run), as `email_campaigns` above — see that entry and
+`OUTREACH_CONSOLIDATION_AUDIT.md`.
 
 | Column | Type | Notes |
 |---|---|---|
@@ -1168,8 +1188,18 @@ Individual emails in drip sequence.
 | delay_days | integer NOT NULL DEFAULT 0 | |
 | created_at | timestamptz DEFAULT now() | |
 
-### 21. campaign_sends
+### 21. campaign_sends — DEPRECATED 2026-08-13
 Individual email send tracking.
+
+**DEPRECATED 2026-08-13**, superseded by `email_sequence_enrollments`. Same reasoning as
+`email_campaigns` above — see that entry and `OUTREACH_CONSOLIDATION_AUDIT.md`. **Still has live
+writers as of 2026-08-13**: `EmailCampaignAgent` (`src/lib/agents/email-campaign.ts`) inserts rows
+here on every real run (triggered by the still-active `/api/cron/campaigns` job or a manual
+`POST /api/agents/campaigns` call), and `src/app/api/webhooks/resend/route.ts` — a live, externally
+configured Resend webhook, not a UI path — updates `opened_at`/`status` here on real
+`email.opened`/`email.bounced` events. Neither was disabled as part of the 2026-08-13 consolidation;
+both are documented, undecided gaps (`OUTREACH_CONSOLIDATION_AUDIT.md`'s Item 4 and Item 5), not new
+findings.
 
 | Column | Type | Notes |
 |---|---|---|

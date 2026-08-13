@@ -63,7 +63,7 @@ export default function OutreachPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Link href="/outreach/campaigns">
+          <Link href="/email/campaigns">
             <Button variant="secondary">
               <Send className="h-4 w-4" aria-hidden />
               Campaigns

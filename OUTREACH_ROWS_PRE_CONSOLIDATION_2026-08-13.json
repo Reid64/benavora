@@ -1,0 +1,57 @@
+{
+  "export_date": "2026-08-13",
+  "reason": "Outreach-to-Email consolidation (see OUTREACH_CONSOLIDATION_AUDIT.md \"system mapping\" section). campaign_sends does not cleanly map to email_sequence_enrollments: campaign_sends is a per-step send-event log (one row per step send, tracking sent_at/opened_at/replied_at PER STEP), while email_sequence_enrollments is a single per-contact aggregate state row per sequence (current_step pointer, last_sent_at, next_send_at, reply_detected boolean) with no per-step send-history child table. Migrating this row would require fabricating enrollment-model concepts that have no literal source in the Outreach schema: enrolled_at (Outreach has no distinct enrollment event -- a contact is just linked to a campaign_id), current_step (interpretable as the highest step_number with a sent row, but that is an inference, not a copied value), and next_send_at (would require computing sent_at + the next steps delay_days, i.e. re-deriving scheduling logic rather than copying data). Rather than invent those values and risk the new Email sequence engine acting on fabricated state, this row (plus its outreach_contact and campaign_step context) is preserved verbatim here instead. NOTE: separately discovered during this migration -- despite this audit docs earlier passes describing these as \"real production rows\", the organization (Benavora E2E Test Org), profile (owner.e2e@benavora-test.dev), and contact email domain (bluebonnet.example, an RFC 2606 reserved test domain) all indicate this is E2E test fixture data left in production, not genuine customer data. Preserved with full migration care regardless, per task instruction.",
+  "migrated_sequence_id": "a29c2de5-5141-4902-97d9-9b8747551a34",
+  "migrated_from_email_campaigns_id": "442f31f9-ca89-4f3a-8f53-cae149d4ccf8",
+  "organization": {
+    "id": "bf75d362-473c-4039-9e28-e09ef44ee862",
+    "name": "Benavora E2E Test Org"
+  },
+  "unmigrated_campaign_sends_row": {
+    "id": "ce16f882-e1f9-400e-bffa-1113bc1c8721",
+    "campaign_step_id": "4a699a25-aadb-4c4c-b704-c445692d85dd",
+    "outreach_contact_id": "eca23b1f-f257-4161-b2eb-da29bff1b818",
+    "status": "sent",
+    "sent_at": "2026-06-11T02:52:36.108Z",
+    "opened_at": null,
+    "replied_at": null,
+    "created_at": "2026-06-11T02:52:36.714Z"
+  },
+  "context_campaign_step": {
+    "id": "4a699a25-aadb-4c4c-b704-c445692d85dd",
+    "campaign_id": "442f31f9-ca89-4f3a-8f53-cae149d4ccf8",
+    "step_number": 1,
+    "subject_template": "Partnering with {company_name} on housing",
+    "body_template": "Hi {contact_name}, I lead {foundation_name}…",
+    "delay_days": 0,
+    "created_at": "2026-06-11T02:52:36.564Z"
+  },
+  "context_outreach_contact": {
+    "id": "eca23b1f-f257-4161-b2eb-da29bff1b818",
+    "organization_id": "bf75d362-473c-4039-9e28-e09ef44ee862",
+    "company_name": "Bluebonnet Builders (E2E Seed)",
+    "contact_name": "Pat Rivera",
+    "email": "pat@bluebonnet.example",
+    "phone": null,
+    "contact_form_url": null,
+    "source_url": null,
+    "company_type": null,
+    "giving_likelihood": "high",
+    "campaign_id": "442f31f9-ca89-4f3a-8f53-cae149d4ccf8",
+    "status": "contacted",
+    "converted_to_funder_id": null,
+    "created_at": "2026-06-11T02:52:36.649Z",
+    "updated_at": "2026-06-11T02:52:36.649Z"
+  },
+  "context_email_campaign": {
+    "id": "442f31f9-ca89-4f3a-8f53-cae149d4ccf8",
+    "organization_id": "bf75d362-473c-4039-9e28-e09ef44ee862",
+    "name": "Spring Construction Outreach (E2E Seed)",
+    "status": "active",
+    "total_steps": 2,
+    "total_contacts": 1,
+    "created_by": "b5d27db6-a245-4aab-842a-06a84fa486ac",
+    "created_at": "2026-06-11T02:52:36.500Z",
+    "updated_at": "2026-06-11T02:52:36.500Z"
+  }
+}

@@ -147,10 +147,71 @@ row that log covers, the plain BUILT/PLANNED status below is replaced with one o
 | 33 | Renewal Tracker | Tier 3 | BUILT |
 | 34 | Success Pattern Learning | Tier 3 | BUILT |
 | 35 | Compliance Pre-Check | Tier 3 | BUILT |
-| 36 | Cold Outreach Sequences | Tier 3 | BUILT |
+| 36 | Cold Outreach Sequences | Tier 3 | BUILT — DEPRECATED 2026-08-13 (see addendum below; UI redirected to Email engine, source tables not dropped) |
 | 37 | Grant Calendar View | Tier 3 | BUILT |
-| 38 | Email Parsing Agent | Tier 3 | BUILT |
+| 38 | Email Parsing Agent | Tier 3 | BUILT — PARTIAL (see 2026-08-13 addendum below: extract/classify + summarize confirmed working live; Gmail-webhook auto-trigger and auto-reply/respond both confirmed absent) |
 | 39 | Board Report Generator | Tier 3 | BUILT |
+
+**2026-08-13 addendum (row #36, Cold Outreach Sequences):** This row's underlying schema
+(`email_campaigns`/`campaign_steps`/`campaign_sends`, `supabase/migrations/001_initial_schema.sql`)
+is the exact system consolidated in `OUTREACH_CONSOLIDATION_AUDIT.md`'s 2026-08-13 "Outreach ×
+Email" pass, per Reid's decision to make the Email system's sequence engine
+(`email_campaign_sequences`/`email_sequence_steps`/`email_sequence_enrollments`) the sole
+UI-reachable path going forward. `/outreach/campaigns`, `/outreach/campaigns/[id]`, and
+`/outreach/sequences` now all `redirect()` to `/email/campaigns` (server components, confirmed by
+direct read; `pnpm run build`/`pnpm tsc --noEmit` both clean 2026-08-13). Note
+`/outreach/sequences` was a *separate*, never-applied `followup_sequences`-backed page with no
+schema relationship to this row (see the audit doc's "system mapping" section) — it is redirected
+for UI consistency, not because it was ever the same feature. The one real row pair this row's
+schema held (1 `email_campaigns`, 2 `campaign_steps` — confirmed to be E2E test-fixture data, not a
+real customer's, per the audit's "correction to this doc's own prior framing" note) was migrated
+1:1 into the Email schema; the 1 `campaign_sends` row could not be migrated (event-log vs.
+aggregate-state shape mismatch, no equivalent field exists on the target side) and was exported
+verbatim to `OUTREACH_ROWS_PRE_CONSOLIDATION_2026-08-13.json` instead of being dropped or guessed
+at. **Source tables were NOT dropped or truncated** — marked deprecated via `COMMENT ON TABLE` only
+(`scripts/deprecate-outreach-campaign-tables.sql`, applied live and read back to confirm). **Five
+real write paths to the deprecated tables remain active and were deliberately NOT disabled this
+pass**: `POST`/`PUT /api/agents/campaigns[...]`, a Vercel Cron job (`/api/cron/campaigns`, every 2
+hours) that runs `EmailCampaignAgent` for any org with `platform_config.key =
+'feature.cold_outreach_email'` enabled, and the `/api/webhooks/resend` receiver that updates
+`campaign_sends` on real `email.opened`/`email.bounced` events. See the audit doc's "NEEDS REID'S
+DECISION Item 5" — whether to leave the cron/API/webhook writers running, retire them, or repoint
+them at the new schema — for the still-open decision. Status corrected from a bare "BUILT" to
+reflect that the UI is genuinely deprecated/redirected while the backend is not yet fully cut over,
+not a clean, complete migration.
+
+**2026-08-13 addendum (row #38, Email Parsing Agent):** `EMAIL_PARSER_VERIFICATION_2026-08-13.md`
+live-tested this row's three distinct capabilities separately rather than accepting the prior
+blanket "BUILT," which had no dated verification citation. **(1) EXTRACT/CLASSIFY — CONFIRMED
+WORKING.** `EmailParserAgent.run()` (`src/lib/agents/email-parser.ts`) was run live — not
+reimplemented — against the real FAITH Foundation org and a real Anthropic API call on two
+realistic funder emails: both correctly classified (`award_notification`, `information_request`),
+all 5 spec fields (funder name, opportunity reference, action required, urgency, sentiment)
+correctly extracted, correct fuzzy `ilike` funder-matching despite non-identical name strings, and
+real `email_activity`/`agent_runs` rows confirmed by re-querying the live DB after the run (not
+assumed from the return value; test rows deleted after). **(2) SUMMARIZE
+(`/api/email/summarize`) — CONFIRMED WORKING, but a genuinely separate system from this row's
+classifier**: different tables (`synced_email_threads`/`synced_email_messages`, not
+`email_activity`), a different model (`claude-haiku-4-5-20251001` vs. the parser's
+`claude-sonnet-4-6`), no classification/extraction/funder-matching, zero shared code path.
+Live-tested against a real seeded 3-message thread for the same org — accurate, correctly-scoped
+2-4 sentence summary. **(3) RESPOND/REPLY (auto-reply drafting or sending tied to inbound
+classification) — CONFIRMED ABSENT.** Repo-wide grep across `src/lib/agents/`,
+`src/lib/integrations/google/gmail.ts`, `src/app/api/email/`, and `src/app/api/agents/` found zero
+Gmail-drafts-API calls and no route that composes or sends a reply from an inbound classification;
+the one near-hit (`src/lib/admin/unsubscribe-agent.ts`) was read in full and confirmed unrelated —
+it classifies Sales Outreach cold-email replies for suppression-list management, a different domain
+entirely, and only classifies/suppresses, never drafts or sends. This capability is not in
+BLUEPRINT.md's §9 spec either — it is new, undesigned feature scope, not a bug. **A real
+spec-deviation was also found inside capability (1) itself**: BLUEPRINT.md §9.1's "Gmail API
+webhook triggers on new email" is CONFIRMED ABSENT — no webhook/pubsub listener exists anywhere in
+the repo, `/api/email/sync` never calls the parser, and the code's own header comments confirm this
+is a known, not accidental, gap ("Phase 4 will wire in actual Gmail API integration"). Today the
+classifier only runs when a user manually enters email content into the dashboard's
+`EmailParserWidget`. **Net: the classification/extraction engine and the separate summarizer are
+both real and confirmed working end-to-end; the automatic Gmail-triggered firing and the
+auto-reply/respond capability a blanket "BUILT" would imply are both confirmed absent.** See
+`EMAIL_PARSER_VERIFICATION_2026-08-13.md` for full evidence and grep commands.
 
 ---
 
