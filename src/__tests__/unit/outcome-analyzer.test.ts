@@ -5,6 +5,9 @@ import {
   type OutcomeInput,
   type NarrativeRankInput,
 } from "@/lib/ai/learning/outcome-analyzer";
+import type { Enums } from "@/types/database";
+
+type FunderCategory = Enums<"funder_category">;
 
 function makeOutcome(overrides: Partial<OutcomeInput> = {}): OutcomeInput {
   return {
@@ -12,7 +15,7 @@ function makeOutcome(overrides: Partial<OutcomeInput> = {}): OutcomeInput {
     awarded_amount: 1000,
     requested_amount: 1000,
     funder_category: "private_foundation",
-    opportunity_category: "housing",
+    opportunity_category: "housing_grant",
     denial_reason: null,
     recorded_at: "2026-03-15T12:00:00.000Z",
     ...overrides,
@@ -149,15 +152,15 @@ describe("analyzeOutcomes", () => {
 
   it("groups by opportunity_category independently of funder_category", () => {
     const outcomes = [
-      makeOutcome({ opportunity_category: "housing", result: "awarded" }),
-      makeOutcome({ opportunity_category: "housing", result: "denied" }),
-      makeOutcome({ opportunity_category: "education", result: "awarded" }),
+      makeOutcome({ opportunity_category: "housing_grant", result: "awarded" }),
+      makeOutcome({ opportunity_category: "housing_grant", result: "denied" }),
+      makeOutcome({ opportunity_category: "education_grant", result: "awarded" }),
     ];
 
     const result = analyzeOutcomes(outcomes);
 
-    const housing = result.byOpportunityCategory.find((c) => c.category === "housing");
-    const education = result.byOpportunityCategory.find((c) => c.category === "education");
+    const housing = result.byOpportunityCategory.find((c) => c.category === "housing_grant");
+    const education = result.byOpportunityCategory.find((c) => c.category === "education_grant");
     expect(housing?.total).toBe(2);
     expect(education?.total).toBe(1);
   });
@@ -179,7 +182,7 @@ describe("analyzeOutcomes", () => {
 
   it("excludes outcomes with missing or unparseable recorded_at from overTime but still counts them in the summary", () => {
     const outcomes = [
-      makeOutcome({ recorded_at: null }),
+      makeOutcome({ recorded_at: null as never }),
       makeOutcome({ recorded_at: "not-a-real-date" }),
       makeOutcome({ recorded_at: "2026-03-15T12:00:00.000Z" }),
     ];
@@ -235,7 +238,7 @@ describe("rankNarratives", () => {
   });
 
   it("pulls the failure count for a narrative's funder_category from the provided map", () => {
-    const failuresByCategory = new Map([["government_grant", 9]]);
+    const failuresByCategory = new Map<FunderCategory, number>([["government_grant", 9]]);
     const narrative = makeNarrative({
       funder_category: "government_grant",
       success_count: 1,
@@ -251,7 +254,7 @@ describe("rankNarratives", () => {
   });
 
   it("treats a null funder_category as zero failures even when the map has other categories", () => {
-    const failuresByCategory = new Map([["private_foundation", 50]]);
+    const failuresByCategory = new Map<FunderCategory, number>([["private_foundation", 50]]);
     const narrative = makeNarrative({
       funder_category: null,
       success_count: 4,
@@ -264,7 +267,7 @@ describe("rankNarratives", () => {
   });
 
   it("reports the 'moderate' tier between the retirement threshold (0.3) and the high threshold (0.66)", () => {
-    const failuresByCategory = new Map([["private_foundation", 2]]);
+    const failuresByCategory = new Map<FunderCategory, number>([["private_foundation", 2]]);
     const narrative = makeNarrative({
       funder_category: "private_foundation",
       success_count: 3,

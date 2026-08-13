@@ -383,7 +383,11 @@ async function testSyntheticOrgPerBucketPair(clients: TestClients, tag: string):
     }
     const deleteOrgWithRetry = async (orgId: string) => {
       for (let attempt = 1; attempt <= 4; attempt++) {
-        await serviceClient.from("platform_config").delete().match({ organization_id: orgId }).catch(() => {});
+        try {
+          await serviceClient.from("platform_config").delete().match({ organization_id: orgId });
+        } catch {
+          // best-effort cleanup only
+        }
         const { error } = await serviceClient.from("organizations").delete().match({ id: orgId });
         if (!error) return;
         if (attempt === 4) {

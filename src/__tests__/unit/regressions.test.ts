@@ -234,7 +234,7 @@ describe("regression: storage bucket created without storage.objects RLS policy"
     const bucketIds = new Set<string>();
     let match: RegExpExecArray | null;
     while ((match = bucketInsertRe.exec(allMigrations)) !== null) {
-      bucketIds.add(match[1]);
+      bucketIds.add(match[1]!);
     }
 
     // Guard the guard: this repo is known (per migration 044) to define at

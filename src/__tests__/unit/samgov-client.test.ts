@@ -74,7 +74,7 @@ describe("searchSamGovOpportunities", () => {
 
     await searchSamGovOpportunities();
 
-    const calledUrl = fetchMock.mock.calls[0][0] as string;
+    const calledUrl = fetchMock.mock.calls[0]![0] as string;
     expect(calledUrl).toContain("https://api.sam.gov/opportunities/v2/search?");
     expect(calledUrl).toContain("api_key=secret-key-123");
     expect(calledUrl).toContain("ptype=o");
@@ -133,7 +133,7 @@ describe("searchSamGovOpportunities", () => {
     const result = await searchSamGovOpportunities();
 
     expect(result).toHaveLength(1);
-    expect(result[0].externalId).toBe("NOTICE-3");
+    expect(result[0]!.externalId).toBe("NOTICE-3");
   });
 
   it("maps a zero or negative award amount to null", async () => {
@@ -152,8 +152,8 @@ describe("searchSamGovOpportunities", () => {
 
     const result = await searchSamGovOpportunities();
 
-    expect(result[0].amount).toBeNull();
-    expect(result[1].amount).toBeNull();
+    expect(result[0]!.amount).toBeNull();
+    expect(result[1]!.amount).toBeNull();
   });
 
   it("returns a null deadline when responseDeadLine is absent or unparseable", async () => {
@@ -172,8 +172,8 @@ describe("searchSamGovOpportunities", () => {
 
     const result = await searchSamGovOpportunities();
 
-    expect(result[0].deadline).toBeNull();
-    expect(result[1].deadline).toBeNull();
+    expect(result[0]!.deadline).toBeNull();
+    expect(result[1]!.deadline).toBeNull();
   });
 
   it("parses a full ISO datetime without a leading date match via the Date fallback", async () => {
@@ -195,6 +195,6 @@ describe("searchSamGovOpportunities", () => {
 
     const result = await searchSamGovOpportunities();
 
-    expect(result[0].deadline).toBe("2026-09-01");
+    expect(result[0]!.deadline).toBe("2026-09-01");
   });
 });

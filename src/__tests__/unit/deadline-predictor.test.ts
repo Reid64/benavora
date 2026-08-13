@@ -93,11 +93,11 @@ describe("predictDeadlines", () => {
     const result = await predictDeadlines("org-1", supabase);
 
     expect(result).toHaveLength(1);
-    expect(result[0].opportunityId).toBe("opp-1");
-    expect(result[0].opportunityTitle).toBe("Spring Grant");
-    expect(result[0].predictedDeadline).toBe("2026-03-15");
-    expect(result[0].confidence).toBeCloseTo(0.7);
-    expect(result[0].basis).toContain("2 past deadlines");
+    expect(result[0]!.opportunityId).toBe("opp-1");
+    expect(result[0]!.opportunityTitle).toBe("Spring Grant");
+    expect(result[0]!.predictedDeadline).toBe("2026-03-15");
+    expect(result[0]!.confidence).toBeCloseTo(0.7);
+    expect(result[0]!.basis).toContain("2 past deadlines");
   });
 
   it("caps funder-history confidence at 0.9 regardless of sample size", async () => {
@@ -116,7 +116,7 @@ describe("predictDeadlines", () => {
 
     const result = await predictDeadlines("org-1", supabase);
 
-    expect(result[0].confidence).toBe(0.9);
+    expect(result[0]!.confidence).toBe(0.9);
   });
 
   it("defaults government_grant opportunities with no funder history to fiscal year-end (Sept 30) at confidence 0.4", async () => {
@@ -129,9 +129,9 @@ describe("predictDeadlines", () => {
 
     const result = await predictDeadlines("org-1", supabase);
 
-    expect(result[0].predictedDeadline).toBe("2026-09-30");
-    expect(result[0].confidence).toBe(0.4);
-    expect(result[0].basis).toContain("fiscal year-end");
+    expect(result[0]!.predictedDeadline).toBe("2026-09-30");
+    expect(result[0]!.confidence).toBe(0.4);
+    expect(result[0]!.basis).toContain("fiscal year-end");
   });
 
   it("defaults private_foundation opportunities with no funder history to the nearest quarter end at confidence 0.3", async () => {
@@ -144,8 +144,8 @@ describe("predictDeadlines", () => {
 
     const result = await predictDeadlines("org-1", supabase);
 
-    expect(result[0].predictedDeadline).toBe("2026-03-31");
-    expect(result[0].confidence).toBe(0.3);
+    expect(result[0]!.predictedDeadline).toBe("2026-03-31");
+    expect(result[0]!.confidence).toBe(0.3);
   });
 
   it("defaults corporate_* categories with no funder history to a 90-day rolling estimate", async () => {
@@ -159,8 +159,8 @@ describe("predictDeadlines", () => {
 
     const result = await predictDeadlines("org-1", supabase);
 
-    expect(differenceInCalendarDays(new Date(`${result[0].predictedDeadline}T00:00:00.000Z`), today)).toBe(90);
-    expect(result[0].confidence).toBe(0.2);
+    expect(differenceInCalendarDays(new Date(`${result[0]!.predictedDeadline}T00:00:00.000Z`), today)).toBe(90);
+    expect(result[0]!.confidence).toBe(0.2);
   });
 
   it("falls back to a low-confidence 90-day rolling estimate for unrecognized or missing categories", async () => {
@@ -174,8 +174,8 @@ describe("predictDeadlines", () => {
 
     const result = await predictDeadlines("org-1", supabase);
 
-    expect(differenceInCalendarDays(new Date(`${result[0].predictedDeadline}T00:00:00.000Z`), today)).toBe(90);
-    expect(result[0].confidence).toBe(0.15);
+    expect(differenceInCalendarDays(new Date(`${result[0]!.predictedDeadline}T00:00:00.000Z`), today)).toBe(90);
+    expect(result[0]!.confidence).toBe(0.15);
   });
 
   it("returns results sorted by predicted deadline ascending", async () => {
@@ -192,7 +192,7 @@ describe("predictDeadlines", () => {
     const result = await predictDeadlines("org-1", supabase);
 
     expect(result.map((r) => r.opportunityId)).toEqual(["opp-priv", "opp-gov"]);
-    expect(result[0].predictedDeadline < result[1].predictedDeadline).toBe(true);
+    expect(result[0]!.predictedDeadline < result[1]!.predictedDeadline).toBe(true);
   });
 
   it("falls back to the category default when the opportunity has a funder_id but that funder has no dated history", async () => {
@@ -206,7 +206,7 @@ describe("predictDeadlines", () => {
 
     const result = await predictDeadlines("org-1", supabase);
 
-    expect(result[0].predictedDeadline).toBe("2026-09-30");
-    expect(result[0].confidence).toBe(0.4);
+    expect(result[0]!.predictedDeadline).toBe("2026-09-30");
+    expect(result[0]!.confidence).toBe(0.4);
   });
 });

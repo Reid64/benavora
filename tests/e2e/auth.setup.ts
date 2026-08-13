@@ -48,9 +48,12 @@ setup("authenticate and seed the test organization", async ({ page }) => {
   await page.getByRole("button", { name: "Sign in" }).click();
 
   await page.waitForURL("**/dashboard", { timeout: 30000 });
-  await expect(
-    page.getByRole("heading", { level: 1, name: "Dashboard" }),
-  ).toBeVisible();
+  // The dashboard's H1 renders the org name (Dashboard v2), not a literal
+  // "Dashboard" heading — assert the main content container instead, matching
+  // the pattern e2e/smoke.spec.ts already uses for this same page.
+  await expect(page.locator("main, [role='main']").first()).toBeVisible({
+    timeout: 15000,
+  });
 
   await page.context().storageState({ path: STORAGE_STATE });
 });

@@ -497,8 +497,8 @@ Ground-up replacement architecture per `UNIVERSAL_SCRAPER_PRD.md`: keyword + sch
 | T4 | E2E Tests | PLANNED | Playwright — login, create opportunity, generate draft. |
 | T5 | Visual Regression Tests | PLANNED | Playwright screenshot vs baseline. |
 | T6 | DB Migration Tests | BUILT | `scripts/check-migration-idempotency.ts` (`pnpm check:migrations`) — real static analysis of every top-level SQL statement in both migration directories, plus a live re-run spot-check (`BEGIN`/`ROLLBACK`) against production. Ran 2026-08-08: root `supabase/migrations/` — 135 files, 958 DDL statements classified, **377 non-idempotent** (51 files with ≥1 issue); `src/supabase/migrations/` — 57 files, 309 DDL statements classified, **76 non-idempotent** (9 files with ≥1 issue). Not "every migration is idempotent" — real, substantial gaps found (mostly bare `CREATE POLICY`/`CREATE INDEX`/`CREATE TYPE ... AS ENUM` with no guard). Live spot-check (5 files/directory, confirmed-applied via real schema query, transaction-rolled-back) found zero unexpected errors — every non-idempotent statement failed cleanly with an "already exists"-class error, never corrupting data. Full detail in `MIGRATION_IDEMPOTENCY_AUDIT.md`. |
-| T7 | Soak Tests | BUILT | Real soak test run 2026-08-08 against `pnpm scrape:nonprofits` (`src/lib/scraper/nonprofit-scraper.ts`) — ~14 min live run, real Supabase writes, real Chromium/network calls. Found a real, previously-undocumented bug: 100% of the 90 records attempted failed (0 enriched) because ~95% of real `nonprofits.website` values lack an `http(s)://` scheme prefix, so every `page.goto()` throws before any real fetch; no rate-limiting/CAPTCHA/crash/memory issue observed. See `SOAK_TEST_RESULTS.md`. |
-| T8 | Cross-Browser Tests | PLANNED | Chrome, Firefox, Safari (webkit). |
+| T7 | Soak Tests | BUILT — VERIFIED (genuinely partial run — see notes) | Real soak test run 2026-08-08 against `pnpm scrape:nonprofits` (`src/lib/scraper/nonprofit-scraper.ts`) — ~14 min live run, real Supabase writes, real Chromium/network calls. Found a real, previously-undocumented bug: 100% of the 90 records attempted failed (0 enriched) because ~95% of real `nonprofits.website` values lack an `http(s)://` scheme prefix, so every `page.goto()` throws before any real fetch; no rate-limiting/CAPTCHA/crash/memory issue observed. See `SOAK_TEST_RESULTS.md`. **2026-08-13**: a second, separate soak test exercised the AutoApply queue processor (`worker/queue-processor.ts`), the real deployed Railway worker — 50 real `submission_queue` rows enqueued across 3 disposable test orgs, monitored live for the full 130-minute safety-cap window. **Honest result: the run did not fully drain** — 0/50 items reached a terminal status before the cap was hit, real numbers, not a full pass. Root cause identified, not a hang: `worker/queue-processor.ts:410` calls `waitBetweenSubmissions()` unconditionally after every item regardless of outcome, sleeping a random 60-120s each time — real throughput is capped at ~0.6-1.0 items/min, so a full 50-item drain was always going to need 50-100+ minutes even with zero errors, making the 130-min cap being hit expected, not evidence of a defect. Zero errors, zero rate-limit/CAPTCHA/crash/memory issues observed across the full window; all 3 disposable test orgs cleaned up and confirmed deleted. Real browser-automation code path (StealthBrowser/CAPTCHA/proxy) was deliberately not exercised — all 50 items took the `no_portal_or_email` fast-skip path by design, to avoid firing real automated submissions at real funder portals. See `SOAK_TEST_AUTOAPPLY_RESULTS_20260813.md` for full detail. |
+| T8 | Cross-Browser Tests | BUILT — VERIFIED (partial pass — see notes) | **2026-08-13**: added `test:e2e:all-browsers` (`package.json`) running `e2e/critical-paths.spec.ts` across `--project=chromium --project=firefox --project=webkit` (new projects in `playwright.config.ts`) — the first real Firefox/WebKit run in this repo's history (previously Chromium-only per `TESTING_v2.md` §7). Fixed 4 real blockers to get a genuine (non-fabricated) run: Firefox/WebKit browser binaries were never installed on this machine; a stale, already-running dev server on port 3000 was serving pre-Dashboard-v2 compiled code (root-caused via a raw vs. mapped error-message mismatch, not guessed); two duplicate stale UI assertions (`tests/e2e/auth.setup.ts` and this spec's own test 1) expected a literal "Dashboard" `<h1>`, which the real Dashboard v2 redesign replaced with the org name — both fixed to assert the main content container instead, matching `e2e/smoke.spec.ts`'s existing pattern; and a one-time `beta1@benavora-test.com` account-creation race across parallel workers (self-resolved once the account existed). **Real result, not a clean pass**: 10/17 passed — chromium 4/5, firefox 4/5, webkit 0/5. WebKit failed all 5 tests on a reproducible, previously-undocumented navigation race (`page.goto()` immediately after login is interrupted by a still-in-flight `router.refresh()` redirect to `/dashboard`) — not a flaky one-off, it reproduced on every WebKit test this run. Separately, test 3 ("creating an application... adds a row to /applications/list") failed on both chromium and firefox with different symptoms, a real cross-browser application-flow flakiness, unresolved this session. See `CROSSBROWSER_TEST_RESULTS_20260813.md` for full detail. |
 
 ---
 
@@ -529,8 +529,8 @@ Ground-up replacement architecture per `UNIVERSAL_SCRAPER_PRD.md`: keyword + sch
 | Data Pipeline | 7 | 3 | 2 | 0 | 2 |
 | Scraper (Directive 1) | 5 | 5 | 0 | 0 | 0 |
 | Universal Scraper (uscraper-001-007) | 7 | 3 | 4 | 0 | 0 |
-| Testing | 8 | 5 | 0 | 0 | 3 |
-| **TOTAL** | **198** | **124** | **12** | **19** | **43** |
+| Testing | 8 | 6 | 0 | 0 | 2 |
+| **TOTAL** | **198** | **125** | **12** | **19** | **42** |
 
 **2026-08-08 addendum:** row #144 (Narrative Gap Analysis) moved Planned→Built this session (see its
 row for detail) — Platform Vision Pillars 28→29 Built / 44→43 Planned, TOTAL 114→115 Built / 55→54
@@ -560,6 +560,17 @@ realtime event has ever actually fired there; counted as Built here for consiste
 table already treats other BUILT-tier Platform Vision Pillar rows (e.g. the 2026-08-08 queue-37
 addendum above), not because it fully works end-to-end. Platform Vision Pillars: 30→33 Built,
 42→39 Planned. TOTAL: 116→119 Built, 53→50 Planned.
+
+**2026-08-13 addendum:** row T8 (Cross-Browser Tests) moved Planned→Built this session — a real
+Firefox/WebKit run (`CROSSBROWSER_TEST_RESULTS_20260813.md`) exercised `e2e/critical-paths.spec.ts`
+across all three engines for the first time in this repo's history; result is a genuine partial pass
+(10/17), not a clean one — see the T8 row itself for the real per-browser breakdown and the
+WebKit-specific navigation-race finding. Row T7 (Soak Tests) stayed Built but was re-verified with a
+second, separate 2026-08-13 soak test against the AutoApply queue processor
+(`SOAK_TEST_AUTOAPPLY_RESULTS_20260813.md`) — that run was honestly partial (0/50 items reached
+terminal status inside the 130-minute cap, root-caused to the queue's own unconditional 60-120s
+per-item rate limiter, not a hang), so it does not change T7's Built/Planned category but does change
+its notes and tier label. Testing: 5→6 Built, 3→2 Planned. TOTAL: 124→125 Built, 43→42 Planned.
 
 **Note on the July 30 → August 7, 2026 agent-verification updates:** the AG-15–AG-42 rows above (and
 their Post-Launch Vision cross-references, #217/#218/#220/#225) use the finer-grained BUILT — VERIFIED

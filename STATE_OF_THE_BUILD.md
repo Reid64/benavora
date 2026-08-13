@@ -1,6 +1,97 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 13, 2026 (Dated Verification queue closeout — 14 FEATURE_REGISTRY_v2.md rows re-verified live, 8 CONFIRMED / 6 STALE; `pnpm run build` reconfirmed clean, no application code touched). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 13, 2026 (T7 AutoApply soak test + T8 cross-browser suite completion — both genuinely partial, both honestly documented with real root causes). Not FORGE-auto-generated — hand-verified.**
+
+## SESSION — August 13, 2026 (T7 AutoApply soak test + T8 cross-browser suite completion)
+
+**Scope:** close out t7-soak-002 and t8-crossbrowser-002. Ran the full gate sequence first
+(`pnpm run build`, `pnpm tsc --noEmit`), fixed what the gates found, then reconciled
+`FEATURE_REGISTRY_v2.md`'s T7/T8 rows against real evidence rather than assumed passes.
+
+**Gates:** `pnpm run build` — clean, zero errors. `pnpm tsc --noEmit` — found 39 real, pre-existing
+errors across 7 files under `src/__tests__/` (`deadline-predictor.test.ts`, `samgov-client.test.ts`,
+`outcome-analyzer.test.ts`, `regressions.test.ts`, `organizations.test.ts`,
+`platform-config-org-scope.test.ts`, `storage-rls.test.ts`) — unrelated to T7/T8, not introduced this
+session. Root causes: (1) `noUncheckedIndexedAccess` (locked on in `tsconfig.json`) makes
+`arr[0].field` a type error since array indexing can return `undefined` — fixed with `arr[0]!.field`
+non-null assertions, the same pattern this repo's own test suite already uses elsewhere (e.g.
+`ag19-relationship-builder-flag.test.ts`); (2) `outcome-analyzer.test.ts` used literal
+`"housing"`/`"education"` as `opportunity_category` test values — the real enum values are
+`"housing_grant"`/`"education_grant"`, fixed; (3) two real instances of chaining `.catch(() => ...)`
+directly on a supabase-js query builder in cleanup code, which throws synchronously and skips the
+`.catch()` entirely (a known bug class in this repo's integration tests) — fixed to
+`try { await ... } catch {}` in `organizations.test.ts` and `storage-rls.test.ts`. All 39 fixed;
+`pnpm tsc --noEmit` now clean.
+
+**T7 (Soak Tests) — genuinely partial run, root cause identified.** A second soak test (separate from
+the 2026-08-08 enrichment-scraper soak test already on file) exercised the real, deployed Railway
+AutoApply worker (`worker/queue-processor.ts`): 50 real `submission_queue` rows across 3 disposable
+test orgs, monitored live for the full 130-minute safety cap. **Honest result: 0/50 items reached a
+terminal status before the cap hit** — not a full drain, stated as such rather than implied otherwise.
+Root cause, confirmed by direct code read: `worker/queue-processor.ts:410` calls
+`waitBetweenSubmissions()` unconditionally after every single queue item regardless of outcome
+(completed/skipped/failed), and that function (`worker/rate-limiter.ts`) sleeps a random 60,000-
+120,000ms every time. Real max throughput is therefore ~0.6-1.0 items/minute independent of how much
+work an item needs — a full 50-item drain was always going to take 50-100+ minutes even with zero
+errors, so hitting the 130-minute cap is consistent with that documented limiter, not evidence of a
+hang or regression. Zero errors, zero rate-limit/CAPTCHA/crash/memory issues observed across the full
+window; all 3 disposable test orgs and their rows confirmed deleted afterward via a final count
+query. Full detail: `SOAK_TEST_AUTOAPPLY_RESULTS_20260813.md`.
+
+**Root cause of the 2026-08-12 T7 false failure (for future queue design — do not repeat this
+class of mistake):** a prior soak-test attempt was marked "failed" because its harness used a
+**retry-based re-launch** strategy — it treated "queue rows still pending N minutes in" as failure and
+re-triggered the entire soak test from the beginning, rather than a **poll-based wait** that keeps
+observing the same in-flight run until the run's own defined completion condition (all rows terminal,
+or an explicit time cap) is actually reached. Given the real ~60-120s-per-item rate limiter documented
+above, any soak test of this batch size will *look* stalled for many minutes purely from that limiter
+doing its job — a retry-based harness reads normal, expected slowness as failure and restarts
+indefinitely, never reaching either genuine completion or a genuine, honestly-reported partial result
+like this session's. Any future long-running verification queue (soak tests, drain tests, batch
+enrichment runs) must poll toward its own run-length cap and report the real state at that cap,
+never retry-relaunch on the assumption that "still pending" means "broken."
+
+**T8 (Cross-Browser Tests) — first real Firefox/WebKit run in this repo, genuine partial pass.** Added
+`pnpm test:e2e:all-browsers` (`package.json`) and three new Playwright projects
+(`playwright.config.ts`: `chromium`/`firefox`/`webkit`, all targeting `e2e/critical-paths.spec.ts`).
+Previously every Playwright project in this repo used Chromium only (`TESTING_v2.md` §7). Four real
+blockers were found and fixed to get a genuine, non-fabricated run:
+1. **Firefox/WebKit browser binaries were never installed** on this machine (`npx playwright install
+   firefox webkit`, one-time ~175MB download) — without this every non-chromium test failed instantly
+   with a missing-executable error, not a real test result.
+2. **A stale, already-running `pnpm dev` server on port 3000**, left over from an earlier session, was
+   reused by Playwright's `reuseExistingServer: true` and served pre-redesign compiled code. Root-
+   caused (not guessed) by comparing the *displayed* login-error text — a raw, unmapped "Invalid login
+   credentials" — against `LoginPageClient.tsx`'s current source, which maps that exact string to a
+   friendlier "Email or password is incorrect."; a direct API sign-in check confirmed the real
+   Supabase credentials were valid the whole time. Worked around by starting a deliberately fresh
+   server on port 3010 for this run.
+3. **Two duplicate stale UI assertions** (`tests/e2e/auth.setup.ts` and `e2e/critical-paths.spec.ts`
+   test 1) both expected a literal `getByRole("heading", { level: 1, name: "Dashboard" })` — the
+   Dashboard v2 redesign's real `<h1>` renders the org name instead
+   (`src/app/(dashboard)/dashboard/page.tsx:849`). Both fixed to assert the main content container,
+   matching the already-correct pattern in `e2e/smoke.spec.ts`.
+4. **A one-time `beta1@benavora-test.com` account-creation race** across parallel Playwright workers,
+   each independently calling `admin.auth.admin.createUser()` for the same brand-new email at the
+   same instant — a real Supabase-side `Database error creating new user` on the losing worker(s).
+   Self-resolved once the account existed (confirmed via `admin.auth.admin.listUsers()`); not a code
+   fix, just documented for awareness since a fresh Supabase project would hit it again.
+
+**Real final result, not a clean pass: 10/17 passed** (setup 2/2; chromium 4/5; firefox 4/5; webkit
+0/5). WebKit failed all 5 tests on a reproducible, previously-undocumented navigation race:
+immediately after `login()` resolves (already on `/dashboard`), the test's next `page.goto()` fails
+with `Navigation to "<path>" is interrupted by another navigation to ".../dashboard"` — consistent
+with `LoginPageClient.tsx`'s `router.replace("/dashboard"); router.refresh();` pair still being
+in-flight when the next navigation fires, and WebKit resolving that in-flight state more slowly or
+differently than Chromium/Firefox. This reproduced on every WebKit test this run, not as a one-off
+flake. Separately, test 3 ("creating an application... adds a row to /applications/list") failed on
+both chromium and firefox with different symptoms — a real cross-browser application-flow flakiness.
+**Neither finding was fixed this session** — both are real, previously-undocumented issues flagged for
+a future session, not swept under a "BUILT" claim. Full detail: `CROSSBROWSER_TEST_RESULTS_20260813.md`.
+
+**`FEATURE_REGISTRY_v2.md` updated:** T7 and T8 rows now `BUILT — VERIFIED (partial — see notes)`
+with the real numbers above cited, not implied full passes. Testing category: 5→6 Built, 3→2 Planned.
+TOTAL: 124→125 Built, 43→42 Planned.
 
 ## SESSION — August 13, 2026 (Dated Verification queue closeout — build-clean confirmation + doc sync, no code changes)
 

@@ -66,7 +66,11 @@ function randomSuffix(): string {
       // for a freshly created org, sometimes after a short delay — clear it
       // first so the organizations delete itself doesn't get blocked by a
       // stray FK-less race, mirroring the retry pattern in rls.test.ts.
-      await service.from("platform_config").delete().match({ organization_id: id }).catch(() => undefined);
+      try {
+        await service.from("platform_config").delete().match({ organization_id: id });
+      } catch {
+        // best-effort cleanup only
+      }
       const { error } = await service.from("organizations").delete().match({ id });
       if (error) {
         // eslint-disable-next-line no-console

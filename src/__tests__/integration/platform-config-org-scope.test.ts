@@ -143,7 +143,7 @@ function randomSuffix(): string {
       .in("key", [COLLIDING_KEY]);
     expect(error, error?.message).toBeNull();
     expect(data).toHaveLength(1);
-    expect(data![0].value).toBe("org-b-model");
+    expect(data![0]!.value).toBe("org-b-model");
   });
 
   it("loadBrandingSettings (the real, fixed call site) never mixes Org A's and Org B's branding", async () => {

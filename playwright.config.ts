@@ -73,6 +73,27 @@ export default defineConfig({
       dependencies: ["setup"],
       use: { ...devices["Desktop Chrome"] },
     },
+    // Cross-browser coverage for the critical-paths smoke spec specifically
+    // (see pnpm script "test:e2e:all-browsers"). Same self-login/seed pattern
+    // as the "critical-paths" project above, just run across all three engines.
+    {
+      name: "chromium",
+      testMatch: "e2e/critical-paths.spec.ts",
+      dependencies: ["setup"],
+      use: { ...devices["Desktop Chrome"] },
+    },
+    {
+      name: "firefox",
+      testMatch: "e2e/critical-paths.spec.ts",
+      dependencies: ["setup"],
+      use: { ...devices["Desktop Firefox"] },
+    },
+    {
+      name: "webkit",
+      testMatch: "e2e/critical-paths.spec.ts",
+      dependencies: ["setup"],
+      use: { ...devices["Desktop Safari"] },
+    },
   ],
   webServer: {
     command: "pnpm dev",
