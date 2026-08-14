@@ -1,6 +1,54 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 14, 2026 (queue closeout: RAG integration live-path wired + migration 123 confirmed applied, D2 EIN fallback bug fixed+regression-tested, D7 backup script built+wired, #66 re-attempted with a new blocker found, State Portal + Intelligence Library Nights 2-7 scoped only). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 14, 2026 (Global Feature Search / command-palette shipped: header Ctrl+K search over ~90 role-filtered routes, gates clean, browser-level verification blocked by sandbox). Not FORGE-auto-generated — hand-verified.**
+
+## SESSION — August 14, 2026 (Global Feature Search: header command palette, role-aware, ~90-route index)
+
+### What this session actually did
+
+Closing prompt of a 4-prompt queue. Earlier prompts in the queue built the feature itself
+(`src/components/layout/GlobalSearch.tsx`, `src/lib/search/feature-index.ts`, wiring into
+`Header.tsx`/`DashboardShell.tsx`, and the new `fuse.js` dependency); this prompt ran the gates,
+documented the feature in `FEATURE_REGISTRY_v2.md` (new row #229), updated this file and
+`SESSION_STATE.md`, and did the scoped commit/push.
+
+1. Read the new/changed files in full (`feature-index.ts`, `GlobalSearch.tsx`) and diffed
+   `Header.tsx`/`DashboardShell.tsx`/`package.json` against `git diff` to confirm the wiring is real,
+   not a stub: `GlobalSearch` receives a real session-derived `role` prop from `DashboardShell` (the
+   same prop already gating other role-restricted UI in that component, not request-body-supplied),
+   filters `FEATURE_INDEX` via `hasRequiredRole()` (the same role-hierarchy helper already used
+   elsewhere in the app) **before** constructing the `Fuse` index, so a role-gated entry (Billing,
+   Command Center, `/admin/*` — `requiredRole: "owner"`) is never present for a lower-privilege
+   session to fuzzy-match against in the first place.
+2. Ran `pnpm tsc --noEmit` — 0 errors. Ran `pnpm run build` — clean, all routes compiled, including
+   the new `fuse.js` dependency resolving correctly.
+3. **Attempted a live Playwright verification and could not complete it.** Wrote a temporary spec
+   logging in as the real `beta1@benavora-test.com` beta account (`profiles.role = "admin"`, one rank
+   below `owner` in the real hierarchy — a genuine live test of role-filtering, not owner-only), opening
+   the palette via Ctrl+K, searching "billing"/"command center" (expected 0 results for an admin-role
+   session) and "funders" (expected a real match + navigation to `/funders`). `npx playwright test`
+   itself was denied by this session's sandbox approval gate on both attempts — the same class of
+   restriction already documented elsewhere in this doc for local dev-server/browser access (e.g. rows
+   #130, #134's "sandbox blocked local dev-server startup"). The temporary spec was deleted, not
+   committed, since it never actually ran. **This means role-based filtering and live fuzzy-match
+   behavior are unverified this session** — confirmed only by direct code read, not observed running.
+4. Added `FEATURE_REGISTRY_v2.md` row #229 (BUILT — UNVERIFIED, browser-level) with this evidence and
+   the explicit unverified-role-filtering caveat, and updated the Summary table (Platform Vision
+   Pillars 93→94 total / 34→35 Built; TOTAL 198→199 total / 127→128 Built).
+
+**Gates:** `pnpm tsc --noEmit` — 0 errors. `pnpm run build` — clean, all routes compiled. `pnpm lint`
+— not run this session (the shell invocation itself was denied by the sandbox approval gate, same as
+the blocked Playwright run above — not skipped by choice).
+
+**Honest scope note:** "indexes every reachable feature" in the commit message describes the intent
+and the index's real ~90-entry coverage of nav tabs/sidebar items/sub-pages/settings/admin pages (per
+`feature-index.ts`'s own header comment on how orphaned/unlinked pages were deliberately excluded) —
+it does not mean every one of the 229 rows in this registry has its own dedicated search entry
+one-to-one; several entries intentionally point at the same parent route (e.g. "Budget Narrative
+Generator" and "Multi-Model Consensus" both route to `/draft-generator`), matching how those
+sub-features are actually surfaced in the live UI today.
+
+---
 
 ## SESSION — August 14, 2026 (queue closeout: T4/T5/D2/D7/#66/#171/US1/US6/US7 registry reconciliation, gates, scoped commit)
 

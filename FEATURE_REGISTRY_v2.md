@@ -506,6 +506,7 @@ auto-reply/respond capability a blanket "BUILT" would imply are both confirmed a
 | 226 | Community Resource Graph | BUILT — VERIFIED (ranked keyword+geo list, not graph traversal) | Phase 4. Preflight 2026-08-07 confirmed AG-35's real output (`community_need_signals`) has no lat/lng and no structured location join, and `pig_nodes`/`pig_edges` is an unrelated graph — built `resource-matcher.ts` as a Jaccard keyword + geo-text-overlap ranked list against real `funders`/`opportunities`/`programs` instead. **Live-verified 2026-08-08** against the real Faith Foundation org's real data (a realistic eviction-data signal genuinely matched its real "Emergency Bridge Housing"/"Veterans Path Home" programs and multiple real housing_grant opportunities, each with an honest nonzero score and reason) and confirmed a genuinely empty state (zero matches, no padding) for an org with zero real resources. No defects found. |
 | 227 | ROI Optimization Engine | BUILT — UNVERIFIED | Phase 5. /reports/roi dashboard + /api/reports/roi + AG-39 `roi_insights`/`submission_variables` aggregation. **Correction, 2026-08-07: the "run() has no production call site" claim is false.** `RoiOptimizerAgent.trackSubmissionVariables()` is called from `/api/autonomous/track-submission/route.ts` (unchanged, telemetry half). Independently re-grepped `worker/autonomous-orchestrator.ts`: `runRoiOptimizerStep()` imports and calls `RoiOptimizerAgent.run('schedule')`, and **has done so since commit `6ffd4fd` (2026-07-20)** — ten days before this row's own "confirmed by repo-wide grep July 19" claim was written, meaning the claim was already stale the day it was written. Wired into the same monthly gate (`isFirstOfMonthChicago()`) as AG-26 (row #132), the exact cadence pattern this task asked to confirm/match. Downgraded from BUILT to BUILT — UNVERIFIED rather than VERIFIED, since no live execution of `run()` against real data has been recorded — only the call-site wiring was confirmed, not the runtime output: independently re-confirmed via direct `psql` this session, both `roi_insights` and `submission_variables` exist live but currently hold **zero rows each** (the monthly gate has not fired since this wiring landed, and no submission has yet been tracked through `/api/autonomous/track-submission` either). |
 | 228 | AI Strategic Advisor | BUILT | Phase 5. Command center at /intelligence/strategic-advisor, backed by /api/intelligence/strategic-advisor (AG-40 StrategicAdvisorAgent). Dashboard widget + nav badge wired. |
+| 229 | Global Feature Search (command palette) | BUILT — UNVERIFIED (browser-level) | **New, 2026-08-14.** `src/components/layout/GlobalSearch.tsx` (net-new component, net-new persistent header search input — the header previously had no search box at all) + `src/lib/search/feature-index.ts` (net-new, hand-curated ~90-entry route index), wired into `Header.tsx`/`DashboardShell.tsx`. Ctrl+K/Cmd+K opens a modal command palette; a persistent header input also opens it on focus/type. Fuzzy-matches label/keywords/description via `fuse.js` (new dependency, `package.json`). Every index entry carries the `requiredRole` actually enforced by that route's own code (per the file's own header comment — not guessed from nav visibility), and `hasRequiredRole()` (the same role-hierarchy helper already used elsewhere in the app, `src/lib/utils/constants.ts`) filters the index **before** Fuse ever sees a role-gated entry, so a search can't reveal the existence of an owner-only page (e.g. Billing, Command Center, `/admin/*`) to a sub-owner session. `role` is passed down from `DashboardShell`'s own session-derived prop (not request-body-supplied), the same prop already gating other role-restricted UI in that component. `pnpm tsc --noEmit` — 0 errors. `pnpm run build` — clean, all routes compiled. **Not independently verified this session**: an attempted live Playwright run (login as the `beta1@benavora-test.com` admin-tier account, open the palette, search "billing"/"command center" and confirm 0 results, search "funders" and confirm a real navigation) was blocked by this session's sandbox denying the `npx playwright test` invocation outright — the same class of sandbox permission gate documented elsewhere in this doc (e.g. rows #130, #134). This session's verification was code-level only (full read of both new files and the two diffed files, confirmed real wiring, no placeholders). **Genuinely unconfirmed**: that the fuzzy search actually renders and matches in a live browser, and that role-based filtering behaves as coded against a real second (non-owner) account — flag for a future session with working local dev-server/Playwright access to close with a real browser run. |
 
 ---
 
@@ -591,12 +592,12 @@ Ground-up replacement architecture per `UNIVERSAL_SCRAPER_PRD.md`: keyword + sch
 | Tier 4 Browser Automation | 7 | 7 | 0 | 0 | 0 |
 | Tier 5 SaaS Layer | 6 | 6 | 0 | 0 | 0 |
 | Tier 6 Full Autonomous | 26 | 22 | 3 | 0 | 1 |
-| Platform Vision Pillars | 93 | 34 | 3 | 19 | 37 |
+| Platform Vision Pillars | 94 | 35 | 3 | 19 | 37 |
 | Data Pipeline | 7 | 3 | 3 | 0 | 1 |
 | Scraper (Directive 1) | 5 | 5 | 0 | 0 | 0 |
 | Universal Scraper (uscraper-001-007) | 7 | 3 | 4 | 0 | 0 |
 | Testing | 8 | 8 | 0 | 0 | 0 |
-| **TOTAL** | **198** | **127** | **13** | **19** | **39** |
+| **TOTAL** | **199** | **128** | **13** | **19** | **39** |
 
 **2026-08-08 addendum:** row #144 (Narrative Gap Analysis) moved Planned→Built this session (see its
 row for detail) — Platform Vision Pillars 28→29 Built / 44→43 Planned, TOTAL 114→115 Built / 55→54
@@ -626,6 +627,15 @@ realtime event has ever actually fired there; counted as Built here for consiste
 table already treats other BUILT-tier Platform Vision Pillar rows (e.g. the 2026-08-08 queue-37
 addendum above), not because it fully works end-to-end. Platform Vision Pillars: 30→33 Built,
 42→39 Planned. TOTAL: 116→119 Built, 53→50 Planned.
+
+**2026-08-14 addendum:** row #229 (Global Feature Search / command palette) added — a genuinely new
+feature (Ctrl+K search over ~90 reachable routes, role-filtered client-side), not a status flip on an
+existing row. Counted BUILT — UNVERIFIED (browser-level): both quality gates (`tsc`, `build`) pass
+clean and the code/wiring was read and confirmed real, but no live Playwright run could be completed
+this session (sandbox denied the `npx playwright test` invocation) to confirm the palette actually
+renders/matches/navigates or that role-filtering holds against a real non-owner account — see the row
+itself for detail. Platform Vision Pillars: 93→94 total, 34→35 Built. TOTAL: 198→199 total, 127→128
+Built.
 
 **2026-08-14 addendum:** row D7 (DATAOCEAN Backup) moved from an un-tallied "CRITICAL" label (counted
 in the Planned bucket) to PARTIAL this session — `scripts/backup-enrichment-output.ts` built and wired

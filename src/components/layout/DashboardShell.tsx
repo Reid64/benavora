@@ -65,6 +65,7 @@ export function DashboardShell({
       <div style={{ display: "flex", minWidth: "0", flex: "1", flexDirection: "column" }}>
         <Header
           userEmail={userEmail}
+          role={role}
           orgName={orgName}
           orgLogoUrl={orgLogoUrl}
           onMenuClick={() => setSidebarOpen(true)}

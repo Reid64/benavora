@@ -9,10 +9,14 @@ import { LogOut, Menu } from "lucide-react";
 import { recordAuthEvent } from "@/lib/audit/client";
 import { createClient } from "@/lib/supabase/client";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { GlobalSearch } from "@/components/layout/GlobalSearch";
+import type { Enums } from "@/types/database";
 
 type HeaderProps = {
   /** Authenticated user's email, derived server-side from the session. */
   userEmail: string;
+  /** Session role — gates which entries GlobalSearch can surface. */
+  role: Enums<"user_role"> | undefined;
   /** Organization name — drives the avatar initials fallback + menu label. */
   orgName: string;
   /** Organization logo URL — shown in the avatar when present. */
@@ -142,7 +146,7 @@ function orgInitials(orgName: string, userEmail: string): string {
   return (userEmail.charAt(0) || "?").toUpperCase();
 }
 
-export function Header({ userEmail, orgName, orgLogoUrl, onMenuClick }: HeaderProps) {
+export function Header({ userEmail, role, orgName, orgLogoUrl, onMenuClick }: HeaderProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [signingOut, setSigningOut] = useState(false);
@@ -268,6 +272,9 @@ export function Header({ userEmail, orgName, orgLogoUrl, onMenuClick }: HeaderPr
         </div>
 
         <div className="ml-auto flex items-center gap-4">
+          {/* Global search */}
+          <GlobalSearch role={role} />
+
           {/* Notification bell */}
           <NotificationBell />
 

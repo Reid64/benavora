@@ -1,7 +1,48 @@
 # BENAVORA — Session State
-## Last Updated: August 14, 2026 (queue closeout: RAG integration unblocked, D2/D7 fixed+built, #66 re-attempted, State Portal + Intelligence Library Nights scoped)
+## Last Updated: August 14, 2026 (Global Feature Search / command-palette shipped, gates clean, registry row #229 added)
 
-## Current Session — August 14, 2026 (queue closeout: T4/T5/D2/D7/#66/#171/US1/US6/US7 registry reconciliation, gates, scoped commit)
+## Current Session — August 14, 2026 (Global Feature Search: header command palette, role-aware, ~90-route index)
+
+**Focus:** closing prompt of a 4-prompt queue that shipped a global Ctrl+K/Cmd+K command-palette
+search in the header (`src/components/layout/GlobalSearch.tsx`, `src/lib/search/feature-index.ts`),
+indexing every reachable feature/route with role-aware filtering. This prompt: ran the gate sequence,
+added `FEATURE_REGISTRY_v2.md` row #229 with dated evidence, updated this file and
+`STATE_OF_THE_BUILD.md`, and did the scoped commit/push.
+
+**What shipped (from earlier prompts in this queue, confirmed by direct read this session, not
+re-verified from scratch):** a persistent header search input plus a Ctrl+K/Cmd+K modal, fuzzy-matched
+via `fuse.js` (new dependency) over a hand-curated ~90-entry route index in `feature-index.ts`. Each
+entry carries the `requiredRole` actually enforced by that route (not guessed from nav visibility).
+`hasRequiredRole()` — the same role-hierarchy helper already used elsewhere in the app — filters the
+index client-side *before* Fuse ever sees a role-gated entry, so a search can't reveal an owner-only
+page (Billing, Command Center, `/admin/*`) to a lower-privilege session. `role` comes from
+`DashboardShell`'s existing session-derived prop, not the request body.
+
+**Gates this session:** `pnpm tsc --noEmit` — 0 errors. `pnpm run build` — clean, all routes compiled.
+`pnpm lint` was not run (blocked by this session's sandbox approval gate on shell commands with piped
+output — same class of restriction noted elsewhere in this doc, not attempted a second time).
+
+**Could not verify this session:** a live Playwright run (login as the `beta1@benavora-test.com`
+admin-tier beta account, open the palette, confirm "billing"/"command center" return 0 results while
+"funders" returns a real match and navigates) was attempted but the `npx playwright test` invocation
+itself was denied by this session's sandbox approval gate, twice. Verification this session was
+code-level only — full read of both new files and the two diffed files (`Header.tsx`,
+`DashboardShell.tsx`), confirming real wiring and no placeholders, not a live browser confirmation.
+Role-based filtering is therefore **unverified against a real second account** — flagged explicitly in
+`FEATURE_REGISTRY_v2.md` row #229 for a future session with working Playwright access to close.
+
+**Scoped commit:** staged only the files actually touched across this queue's four prompts (`package.json`,
+`pnpm-lock.yaml`, `src/components/layout/DashboardShell.tsx`, `src/components/layout/Header.tsx`,
+`src/components/layout/GlobalSearch.tsx`, `src/lib/search/feature-index.ts`,
+`FEATURE_REGISTRY_v2.md`, `STATE_OF_THE_BUILD.md`, `SESSION_STATE.md`) — not `git add -A`. Left
+untouched: `.claude/worktrees/agent-*` (unrelated dirty worktree pointers from other sessions),
+`storage/key_value_stores/default/SDK_SESSION_POOL_STATE.json` (unrelated local SDK cache churn),
+`enrichment-output/990-investigation-cache/` (untracked scratch output from a prior session's
+investigation, not part of this feature).
+
+---
+
+## Previous Session — August 14, 2026 (queue closeout: T4/T5/D2/D7/#66/#171/US1/US6/US7 registry reconciliation, gates, scoped commit)
 
 **Could not complete / newly found blocked this session (see STATE_OF_THE_BUILD.md for full detail):**
 - Row #66: positive Schedule I extraction still not reached — this time because all 10 targeted IRS
