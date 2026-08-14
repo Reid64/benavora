@@ -1,8 +1,27 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 13, 2026 (Outreach/Email consolidation execution complete; Email Parser row #38 corrected). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 13, 2026 (Outreach/Email consolidation now fully end-to-end — cron retired, Item 5 resolved). Not FORGE-auto-generated — hand-verified.**
 
-## SESSION — August 13, 2026 (Outreach/Email consolidation execution complete + Email Parser row #38 corrected)
+## SESSION — August 13, 2026 (Item 5 resolved: /api/cron/campaigns retired, closing Outreach/Email consolidation)
+
+**Closing summary:** The prior session in this queue left one open gap — "NEEDS REID'S DECISION
+Item 5" in `OUTREACH_CONSOLIDATION_AUDIT.md`, five real write paths still live against the
+deprecated Outreach schema, urgency undetermined because no one had checked whether any real org
+actually uses the feature. This session closed it: a live `psql` query
+(`SELECT count(*) FROM platform_config WHERE key = 'feature.cold_outreach_email' AND value =
+'true'`) returned **0** — zero orgs have the flag enabled, so `/api/cron/campaigns` (every 2 hours,
+sweeping via `EmailCampaignAgent`) had been a scheduled no-op in production. Reid's decision: retire
+the cron entirely. Removed the single `{ "path": "/api/cron/campaigns", ... }` entry from
+`vercel.json`'s `crons` array — no other cron entries touched, route/agent code left in place,
+change is safely reversible via git. `OUTREACH_CONSOLIDATION_AUDIT.md` and `FEATURE_REGISTRY_v2.md`
+row #36 updated with this evidence and decision. `pnpm run build` — clean. Scoped commit of the five
+touched files (`vercel.json`, `OUTREACH_CONSOLIDATION_AUDIT.md`, `FEATURE_REGISTRY_v2.md`,
+`STATE_OF_THE_BUILD.md`, `SESSION_STATE.md`), pushed. **The Outreach/Email consolidation is now
+complete end-to-end** — both UI (redirects) and backend (no more autonomous writer to the deprecated
+schema) are fully on the Email engine. `POST`/`PUT /api/agents/campaigns[...]` and the
+`/api/webhooks/resend` receiver remain live by design — never in scope for this decision.
+
+## PRIOR SESSION — August 13, 2026 (Outreach/Email consolidation execution complete + Email Parser row #38 corrected)
 
 **Scope:** closing prompt of the queue that produced `OUTREACH_CONSOLIDATION_AUDIT.md`'s full
 consolidation execution (system mapping → data migration → UI/nav retirement → deprecation

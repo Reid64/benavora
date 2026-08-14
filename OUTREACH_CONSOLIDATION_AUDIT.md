@@ -944,6 +944,46 @@ above) still materially changes the urgency here and remains undone.
 
 ---
 
+## 2026-08-13 findings: NEEDS REID'S DECISION Item 5 — RESOLVED
+
+**Scope:** Closed the one outstanding piece of Item 5 that was blocking a decision — whether any real
+org actually has `feature.cold_outreach_email` enabled. Queried live via `psql "$DATABASE_URL"`
+(DIRECTIVE-017 path):
+
+```sql
+SELECT count(*) FROM platform_config WHERE key = 'feature.cold_outreach_email' AND value = 'true';
+```
+
+**Result: `0`.** Zero organizations, out of every org in production, have this feature flag enabled.
+The `/api/cron/campaigns` job's own per-org query (`platform_config.key = 'feature.cold_outreach_email'`)
+would therefore select zero rows on every one of its 2-hourly fires — it has been running as a live,
+scheduled, no-op against production since before this consolidation began, not silently sending real
+email on anyone's behalf.
+
+**Decision (Reid):** Retire the cron entry entirely rather than leave it running as a no-op or build a
+repoint to `email_sequence_*` for a sweep no org is configured to use. Removed
+`{ "path": "/api/cron/campaigns", "schedule": "0 */2 * * *" }` from `vercel.json`'s `crons` array — no
+other cron entries touched. The route (`src/app/api/cron/campaigns/route.ts`) and
+`EmailCampaignAgent` (`src/lib/agents/email-campaign.ts`) are left in the codebase, unmodified — only
+the Vercel-scheduled trigger is removed, matching this doc's established "cut the trigger, leave the
+real backend code in place" precedent (same pattern used for the UI redirects above). **Safely
+reversible**: restoring the same line to `vercel.json` and redeploying brings the schedule back exactly
+as it was, with no data loss, since nothing was dropped or truncated.
+
+The two remaining write paths named in Item 5 — `POST`/`PUT /api/agents/campaigns[...]` (now
+zero-UI-caller but still a real authenticated route) and `/api/webhooks/resend` (a live, externally-
+configured Resend webhook) — are **not** part of this decision and remain live and unmodified. Item 5
+as originally scoped covered three writers (cron, API routes, webhook); only the cron entry was
+Reid's-decision-scoped for retirement here — the API routes and webhook were already correctly
+identified above as separate, deliberately-untouched surfaces.
+
+**Consolidation status: end-to-end complete.** With the cron entry removed, `email_campaign_sequences`/
+`email_sequence_steps`/`email_sequence_enrollments` (the Email engine) is now the sole live,
+autonomously-operating path for this feature, alongside the UI redirects already in place — closing
+the gap this doc's "Final Summary" flagged as "the one place consolidation is not yet end-to-end true."
+
+---
+
 ## Final Summary — Before/After (2026-08-13, ties together all prior sections in this doc)
 
 This section is a single reference picture of the whole consolidation, spanning every prompt run
@@ -1022,11 +1062,11 @@ table drops are explicitly deferred to a future decision.
 
 ### What is still open (not resolved by any prompt in this queue)
 
-1. **NEEDS REID'S DECISION Item 5** — retire, keep, or repoint the 3 still-live autonomous/backend
-   writers to the deprecated schema (`/api/cron/campaigns`, the two `/api/agents/campaigns` routes,
-   `EmailCampaignAgent`, the Resend webhook). Whether any real org has
-   `platform_config.key = 'feature.cold_outreach_email'` enabled was never checked this session and
-   materially changes the urgency.
+1. ~~**NEEDS REID'S DECISION Item 5**~~ — **RESOLVED 2026-08-13.** Live `psql` query confirmed zero
+   orgs have `platform_config.key = 'feature.cold_outreach_email'` enabled; Reid decided to retire
+   `/api/cron/campaigns` entirely (removed from `vercel.json`, safely reversible via git). The two
+   `/api/agents/campaigns` routes and the Resend webhook remain live and unmodified — not in scope for
+   this decision. See "Item 5 — RESOLVED" section above.
 2. **`campaign_sends` → `email_sequence_enrollments` modeling gap** — if the one exported E2E-fixture
    contact should ever be represented as "enrolled" in the new engine, someone has to decide
    `current_step`/`next_send_at` semantics; not attempted here by design.

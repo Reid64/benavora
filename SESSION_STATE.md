@@ -1,7 +1,21 @@
 # BENAVORA — Session State
-## Last Updated: August 13, 2026 (Outreach/Email consolidation execution complete; Email Parser row #38 corrected)
+## Last Updated: August 13, 2026 (Outreach/Email consolidation now fully end-to-end — cron retired, Item 5 resolved)
 
-## Current Session — August 13, 2026 (Outreach/Email consolidation execution complete + Email Parser row #38 corrected)
+## Current Session — August 13, 2026 (Item 5 resolved: /api/cron/campaigns retired, closing Outreach/Email consolidation)
+
+**Closing summary:** Queried live via `psql` and confirmed zero orgs have
+`platform_config.key = 'feature.cold_outreach_email'` enabled — `/api/cron/campaigns` had been firing
+every 2 hours as a scheduled no-op. Reid decided to retire the cron entirely rather than repoint it at
+the new Email schema. Removed the single `/api/cron/campaigns` entry from `vercel.json`'s `crons`
+array (no other entries touched); the route/`EmailCampaignAgent` code itself is untouched and the
+change is safely reversible via git. Updated `OUTREACH_CONSOLIDATION_AUDIT.md` (Item 5 marked
+RESOLVED with the evidence above) and `FEATURE_REGISTRY_v2.md` row #36 (now reflects full UI+backend
+consolidation onto the Email engine). `pnpm run build` clean. Scoped commit/push of exactly the five
+touched files. This closes the one gap the prior session flagged as "UI-complete, not
+backend-complete" — the two remaining write paths (`/api/agents/campaigns[...]`, the Resend webhook)
+were out of scope for this decision and remain live by design.
+
+## Previous Session — August 13, 2026 (Outreach/Email consolidation execution complete + Email Parser row #38 corrected)
 
 **Focus:** closing prompt of the queue that executed the Outreach→Email sequence-system
 consolidation (mapping → data migration → UI/nav retirement → deprecation comments, all in

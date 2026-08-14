@@ -147,7 +147,7 @@ row that log covers, the plain BUILT/PLANNED status below is replaced with one o
 | 33 | Renewal Tracker | Tier 3 | BUILT |
 | 34 | Success Pattern Learning | Tier 3 | BUILT |
 | 35 | Compliance Pre-Check | Tier 3 | BUILT |
-| 36 | Cold Outreach Sequences | Tier 3 | BUILT — DEPRECATED 2026-08-13 (see addendum below; UI redirected to Email engine, source tables not dropped) |
+| 36 | Cold Outreach Sequences | Tier 3 | BUILT — DEPRECATED 2026-08-13, CONSOLIDATION COMPLETE (see addendum below; UI redirected + cron retired, source tables not dropped) |
 | 37 | Grant Calendar View | Tier 3 | BUILT |
 | 38 | Email Parsing Agent | Tier 3 | BUILT — PARTIAL (see 2026-08-13 addendum below: extract/classify + summarize confirmed working live; Gmail-webhook auto-trigger and auto-reply/respond both confirmed absent) |
 | 39 | Board Report Generator | Tier 3 | BUILT |
@@ -170,15 +170,20 @@ aggregate-state shape mismatch, no equivalent field exists on the target side) a
 verbatim to `OUTREACH_ROWS_PRE_CONSOLIDATION_2026-08-13.json` instead of being dropped or guessed
 at. **Source tables were NOT dropped or truncated** — marked deprecated via `COMMENT ON TABLE` only
 (`scripts/deprecate-outreach-campaign-tables.sql`, applied live and read back to confirm). **Five
-real write paths to the deprecated tables remain active and were deliberately NOT disabled this
-pass**: `POST`/`PUT /api/agents/campaigns[...]`, a Vercel Cron job (`/api/cron/campaigns`, every 2
-hours) that runs `EmailCampaignAgent` for any org with `platform_config.key =
-'feature.cold_outreach_email'` enabled, and the `/api/webhooks/resend` receiver that updates
-`campaign_sends` on real `email.opened`/`email.bounced` events. See the audit doc's "NEEDS REID'S
-DECISION Item 5" — whether to leave the cron/API/webhook writers running, retire them, or repoint
-them at the new schema — for the still-open decision. Status corrected from a bare "BUILT" to
-reflect that the UI is genuinely deprecated/redirected while the backend is not yet fully cut over,
-not a clean, complete migration.
+real write paths to the deprecated tables remain active this pass**: `POST`/`PUT
+/api/agents/campaigns[...]` and the `/api/webhooks/resend` receiver that updates `campaign_sends` on
+real `email.opened`/`email.bounced` events — both deliberately left live and unmodified, out of scope
+for the cron decision below. **2026-08-13, later same day: Item 5 resolved.** A live `psql` query
+confirmed zero orgs have `platform_config.key = 'feature.cold_outreach_email'` set `true` — the
+`/api/cron/campaigns` job (every 2 hours, ran `EmailCampaignAgent` for any org with that flag enabled)
+had been a scheduled no-op in production. Reid decided to retire it rather than repoint it at the new
+schema for a sweep no org uses: the entry was removed from `vercel.json`'s `crons` array (no other
+cron entries touched), safely reversible via git; the route/agent code itself was left in place,
+unmodified. **This completes the Cold Outreach Sequences consolidation end-to-end** — both the UI
+(redirects to `/email/campaigns`) and the backend (no more autonomous writer to the deprecated schema)
+are now fully on the Email engine. The two remaining write paths (`/api/agents/campaigns[...]`, the
+Resend webhook) were never part of the cron decision and remain live by design — see the audit doc's
+"Item 5 — RESOLVED" section for full evidence.
 
 **2026-08-13 addendum (row #38, Email Parsing Agent):** `EMAIL_PARSER_VERIFICATION_2026-08-13.md`
 live-tested this row's three distinct capabilities separately rather than accepting the prior
