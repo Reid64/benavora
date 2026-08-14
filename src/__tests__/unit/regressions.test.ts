@@ -194,6 +194,53 @@ describe("regression: IRS 990 XML fetch using dead S3 URL / wrong fetch method (
   });
 });
 
+describe("regression: scripts/enrich-foundations-990.ts EIN column fallback off-by-one (FEATURE_REGISTRY_v2.md row D2)", () => {
+  // Captured live 2026-08-14 from both the real 2025 and 2026 IRS 990 e-file
+  // index CSVs (https://apps.irs.gov/pub/epostcard/990/xml/<year>/index_<year>.csv) —
+  // same 10-column header/order in both years. EIN is at index 2, OBJECT_ID at
+  // index 8, XML_BATCH_ID at index 9. The 2026-07-16 fix (commit b07b7ea) added
+  // positional fallbacks for when header-name lookup fails, but set them to
+  // 1/7/8 — one column short across the board — so if header lookup ever
+  // actually fails, the fallback silently reads FILING_TYPE/DLN/OBJECT_ID
+  // instead of EIN/OBJECT_ID/XML_BATCH_ID, producing zero valid EINs for the
+  // entire run (every row's cleaned "ein" comes back empty and gets skipped).
+  const REAL_HEADER_LINE =
+    "RETURN_ID,FILING_TYPE,EIN,TAX_PERIOD,SUB_DATE,TAXPAYER_NAME,RETURN_TYPE,DLN,OBJECT_ID,XML_BATCH_ID";
+  const REAL_DATA_LINE =
+    "24099240,EFILE,237257037,202506,2026,NATIONAL ASSOCIATION OF FEDERALLY IMPACTED SCHOOLS INC,990,93493013009086,202630139349300908,2026_TEOS_XML_01A";
+
+  it("parses EIN/object_id/xml_batch_id correctly via normal header-name lookup", async () => {
+    const { parseIndexHeaders, parseIndexRow } = await import(
+      "../../../scripts/enrich-foundations-990"
+    );
+    const headers = parseIndexHeaders(REAL_HEADER_LINE);
+    const row = parseIndexRow(headers, REAL_DATA_LINE);
+    expect(row).not.toBeNull();
+    expect(row?.ein).toBe("237257037");
+    expect(row?.objectId).toBe("202630139349300908");
+  });
+
+  it("parses EIN/object_id/xml_batch_id correctly via the positional fallback (header lookup fails)", async () => {
+    const { parseIndexRow } = await import("../../../scripts/enrich-foundations-990");
+    // Simulate header-name lookup failing entirely (e.g. an unrecognized
+    // header row) by passing headers that contain none of the real names —
+    // this forces every column to resolve through EIN_FALLBACK_IDX /
+    // OBJECT_ID_FALLBACK_IDX / XML_BATCH_ID_FALLBACK_IDX.
+    const noMatchHeaders = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"];
+    const row = parseIndexRow(noMatchHeaders, REAL_DATA_LINE);
+    expect(row).not.toBeNull();
+    expect(row?.ein).toBe("237257037");
+    expect(row?.objectId).toBe("202630139349300908");
+    // xml_batch_id has no header name of its own to look up in this script
+    // (only used to build the fallback S3 URL) — confirm it resolves via the
+    // real column (index 9, "2026_TEOS_XML_01A"), not xmlBatchId's own wrong
+    // fallback value that a still-broken index would have produced.
+    expect(row?.xmlUrl).toBe(
+      "https://s3.amazonaws.com/irs-form-990/202630139349300908_public.xml",
+    );
+  });
+});
+
 describe("regression: AutonomousAgentResult.matched/.found nonexistent field references", () => {
   it("AutonomousAgentResult's real shape uses itemsFound/itemsProcessed/itemsQueued, not matched/found", () => {
     // Constructing a value against the actual exported interface means this

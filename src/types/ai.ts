@@ -29,7 +29,11 @@ export type DraftTemplateType =
 /** A single Knowledge Base / proven-narrative / intelligence-library source cited in a draft. */
 export interface KnowledgeSource {
   id: string;
-  kind: "knowledge_base" | "proven_narrative" | "intelligence_library";
+  kind:
+    | "knowledge_base"
+    | "proven_narrative"
+    | "intelligence_library"
+    | "knowledge_engine";
   title: string;
 }
 

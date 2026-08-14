@@ -87,7 +87,8 @@
         "scrape:nonprofits-v2": "tsx scripts/run-nonprofit-contact-template.ts",
         "check:migrations": "tsx scripts/check-migration-idempotency.ts",
         "check:migrations:dry-run": "tsx scripts/check-migration-idempotency.ts --dry-run",
-        "soak:autoapply": "tsx scripts/soak-test-autoapply-worker.ts"
+        "soak:autoapply": "tsx scripts/soak-test-autoapply-worker.ts",
+        "backup:enrichment": "tsx scripts/backup-enrichment-output.ts"
     },
     "dependencies": {
         "@2captcha/captcha-solver": "^1.3.6",

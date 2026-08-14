@@ -41,25 +41,35 @@
 import { createClient } from "@supabase/supabase-js";
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import readline from "node:readline";
 import { Readable } from "node:stream";
 import dotenv from "dotenv";
 import ws from "ws";
 import { IRS990Source } from "../src/lib/enrichment/sources/irs990";
+import { backupEnrichmentOutput } from "./backup-enrichment-output";
 
+// Supabase client is created lazily (in initSupabase(), called from main())
+// rather than at module load, so this file's pure parsing exports
+// (parseIndexHeaders/parseIndexRow) can be imported by unit tests without
+// requiring live Supabase env vars or triggering process.exit(1).
 dotenv.config({ path: ".env.local" });
 
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-if (!url || !serviceRoleKey) {
-  console.error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
-  process.exit(1);
-}
+let admin: ReturnType<typeof createClient>;
 
-const admin = createClient(url, serviceRoleKey, {
-  auth: { autoRefreshToken: false, persistSession: false },
-  realtime: { transport: ws as unknown as typeof WebSocket },
-});
+function initSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !serviceRoleKey) {
+    console.error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+    process.exit(1);
+  }
+
+  admin = createClient(url, serviceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+    realtime: { transport: ws as unknown as typeof WebSocket },
+  });
+}
 
 const irs990 = new IRS990Source();
 
@@ -142,18 +152,69 @@ function appendCsvRows(rows: string[][]) {
 // ----------------------------------------------------------------------------
 // Index streaming — line-by-line over the remote CSV, never buffered whole.
 // ----------------------------------------------------------------------------
-interface IndexRow {
+export interface IndexRow {
   ein: string;
   objectId: string;
   xmlUrl: string;
   orgName: string;
 }
 
-// Fallback positional indices (zero-indexed) for the IRS 2025 990 index CSV,
+// Fallback positional indices (zero-indexed) for the IRS 990 index CSV,
 // used only when header-name lookup fails (e.g. trailing \r on header names).
-const EIN_FALLBACK_IDX = 1;
-const OBJECT_ID_FALLBACK_IDX = 7;
-const XML_BATCH_ID_FALLBACK_IDX = 8;
+// Real header row (confirmed live against both the 2025 and 2026 index files):
+// RETURN_ID,FILING_TYPE,EIN,TAX_PERIOD,SUB_DATE,TAXPAYER_NAME,RETURN_TYPE,DLN,OBJECT_ID,XML_BATCH_ID
+// The 2026-07-16 fix (b07b7ea) introduced these fallbacks but got them off by
+// one column each (1/7/8) — since header-lookup normally succeeds, this went
+// unnoticed, but if it ever fails the fallback would silently read
+// FILING_TYPE/DLN/OBJECT_ID instead of EIN/OBJECT_ID/XML_BATCH_ID, netting
+// zero valid EINs for the entire run (every row's "ein" would come back as
+// non-numeric "EFILE" and get skipped). See regression test in
+// src/__tests__/unit/regressions.test.ts.
+const EIN_FALLBACK_IDX = 2;
+const OBJECT_ID_FALLBACK_IDX = 8;
+const XML_BATCH_ID_FALLBACK_IDX = 9;
+
+/** Parse one already-lowercased header row into a column array. Exported for regression testing. */
+export function parseIndexHeaders(headerLine: string): string[] {
+  return headerLine.split(",").map((h) => h.trim().replace(/^"|"$/g, "").toLowerCase());
+}
+
+/**
+ * Parse a single data row of the IRS 990 index CSV given the already-parsed
+ * header row. Pulled out of streamIndexRows() as a pure function so the
+ * EIN/object_id/xml_batch_id column-resolution logic (including the
+ * positional fallbacks) can be unit-tested without a network fetch.
+ * Returns null when the row has no usable EIN or no derivable XML URL.
+ */
+export function parseIndexRow(headers: string[], dataLine: string): IndexRow | null {
+  const cols = dataLine.split(",").map((c) => c.trim().replace(/^"|"$/g, ""));
+
+  let einIdx = headers.indexOf("ein");
+  if (einIdx < 0) einIdx = EIN_FALLBACK_IDX;
+  const ein = (cols[einIdx] ?? "").replace(/\D/g, "");
+  if (!ein || !/^\d+$/.test(ein)) return null;
+
+  const urlIdx = headers.indexOf("url");
+  let objectIdIdx = headers.indexOf("object_id");
+  if (objectIdIdx < 0) objectIdIdx = OBJECT_ID_FALLBACK_IDX;
+  let xmlBatchIdIdx = headers.indexOf("xml_batch_id");
+  if (xmlBatchIdIdx < 0) xmlBatchIdIdx = XML_BATCH_ID_FALLBACK_IDX;
+  const nameIdx = headers.indexOf("taxpayer_name");
+
+  const objectId = (cols[objectIdIdx] ?? "").trim().replace(/^"|"$/g, "");
+  const xmlBatchId = (cols[xmlBatchIdIdx] ?? "").trim().replace(/^"|"$/g, "");
+  let xmlUrl = urlIdx >= 0 ? (cols[urlIdx] ?? "").trim().replace(/^"|"$/g, "") : "";
+  if (!xmlUrl && objectId) {
+    xmlUrl = `https://s3.amazonaws.com/irs-form-990/${objectId}_public.xml`;
+  }
+  if (!xmlUrl && xmlBatchId) {
+    xmlUrl = `https://s3.amazonaws.com/irs-form-990/${xmlBatchId}_public.xml`;
+  }
+  if (!xmlUrl) return null;
+
+  const orgName = nameIdx >= 0 ? (cols[nameIdx] ?? "").trim().replace(/^"|"$/g, "") : "";
+  return { ein, objectId, xmlUrl, orgName };
+}
 
 async function* streamIndexRows(indexUrl: string): AsyncGenerator<IndexRow> {
   const res = await fetch(indexUrl);
@@ -170,43 +231,21 @@ async function* streamIndexRows(indexUrl: string): AsyncGenerator<IndexRow> {
   let loggedEinCount = 0;
   for await (const line of rl) {
     if (!line.trim()) continue;
-    const cols = line.split(",").map((c) => c.trim().replace(/^"|"$/g, ""));
 
     if (!headers) {
-      headers = cols.map((h) => h.trim().replace(/^"|"$/g, "").toLowerCase());
+      headers = parseIndexHeaders(line);
       continue;
     }
 
-    let einIdx = headers.indexOf("ein");
-    if (einIdx < 0) einIdx = EIN_FALLBACK_IDX;
-    const ein = (cols[einIdx] ?? "").replace(/\D/g, "");
-    if (!ein || !/^\d+$/.test(ein)) continue;
-
-    const urlIdx = headers.indexOf("url");
-    let objectIdIdx = headers.indexOf("object_id");
-    if (objectIdIdx < 0) objectIdIdx = OBJECT_ID_FALLBACK_IDX;
-    let xmlBatchIdIdx = headers.indexOf("xml_batch_id");
-    if (xmlBatchIdIdx < 0) xmlBatchIdIdx = XML_BATCH_ID_FALLBACK_IDX;
-    const nameIdx = headers.indexOf("taxpayer_name");
-
-    const objectId = (cols[objectIdIdx] ?? "").trim().replace(/^"|"$/g, "");
-    const xmlBatchId = (cols[xmlBatchIdIdx] ?? "").trim().replace(/^"|"$/g, "");
-    let xmlUrl = urlIdx >= 0 ? (cols[urlIdx] ?? "").trim().replace(/^"|"$/g, "") : "";
-    if (!xmlUrl && objectId) {
-      xmlUrl = `https://s3.amazonaws.com/irs-form-990/${objectId}_public.xml`;
-    }
-    if (!xmlUrl && xmlBatchId) {
-      xmlUrl = `https://s3.amazonaws.com/irs-form-990/${xmlBatchId}_public.xml`;
-    }
-    if (!xmlUrl) continue;
+    const row = parseIndexRow(headers, line);
+    if (!row) continue;
 
     if (loggedEinCount < 3) {
-      console.log(`  [debug] parsed EIN #${loggedEinCount + 1}: ${ein}`);
+      console.log(`  [debug] parsed EIN #${loggedEinCount + 1}: ${row.ein}`);
       loggedEinCount++;
     }
 
-    const orgName = nameIdx >= 0 ? (cols[nameIdx] ?? "").trim().replace(/^"|"$/g, "") : "";
-    yield { ein, objectId, xmlUrl, orgName };
+    yield row;
   }
 }
 
@@ -280,6 +319,11 @@ async function flushBatch(batch: UpsertRow[]) {
 // Main
 // ----------------------------------------------------------------------------
 async function main() {
+  initSupabase();
+
+  const backup = await backupEnrichmentOutput();
+  if (!backup.ok) console.warn(`[backup] ${backup.reason}`);
+
   console.log(`Enriching foundation_directory from IRS 990 index (year ${YEAR})`);
   console.log(`Index source: ${INDEX_URL}\n`);
 
@@ -435,4 +479,7 @@ async function main() {
   console.log(`\n  Remember to back up ./enrichment-output/ to the DATAOCEAN drive.`);
 }
 
-main();
+const isMain = !!process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isMain) {
+  main();
+}

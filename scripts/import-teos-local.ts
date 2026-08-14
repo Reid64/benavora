@@ -75,6 +75,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { IRS990Source } from "@/lib/enrichment/sources/irs990";
 import type { EnrichmentResult } from "@/lib/enrichment/types";
+import { backupEnrichmentOutput } from "./backup-enrichment-output";
 
 // --- config ------------------------------------------------------------------
 
@@ -432,6 +433,9 @@ async function processZip(
 // --- main ----------------------------------------------------------------------
 
 async function main(): Promise<void> {
+  const backup = await backupEnrichmentOutput();
+  if (!backup.ok) console.warn(`[backup] ${backup.reason}`);
+
   const zipArg = process.argv.find((a) => a.startsWith("--zip="));
   const onlyZip = zipArg ? zipArg.slice("--zip=".length) : null;
 

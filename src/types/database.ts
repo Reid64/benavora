@@ -456,6 +456,10 @@ export interface Database {
           budget_data: Json | null;
           compliance_check_result: Json | null;
           fit_analysis: Json | null;
+          // Migration 123 (knowledge_engine_draft_integration) - knowledge_patterns.id
+          // values actually injected into this draft's prompt (previously missing
+          // from these generated types, same pattern as migration 080 above).
+          knowledge_patterns_applied: Json;
           created_at: string;
           updated_at: string;
         };
@@ -479,6 +483,7 @@ export interface Database {
           budget_data?: Json | null;
           compliance_check_result?: Json | null;
           fit_analysis?: Json | null;
+          knowledge_patterns_applied?: Json;
           created_at?: string;
           updated_at?: string;
         };
@@ -502,6 +507,7 @@ export interface Database {
           budget_data?: Json | null;
           compliance_check_result?: Json | null;
           fit_analysis?: Json | null;
+          knowledge_patterns_applied?: Json;
           created_at?: string;
           updated_at?: string;
         };

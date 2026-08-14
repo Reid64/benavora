@@ -1,6 +1,96 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 14, 2026 (US6/US7 uscraper templates re-verified live — real bug found+fixed, one real accuracy defect documented, registry premise corrected). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 14, 2026 (queue closeout: RAG integration live-path wired + migration 123 confirmed applied, D2 EIN fallback bug fixed+regression-tested, D7 backup script built+wired, #66 re-attempted with a new blocker found, State Portal + Intelligence Library Nights 2-7 scoped only). Not FORGE-auto-generated — hand-verified.**
+
+## SESSION — August 14, 2026 (queue closeout: T4/T5/D2/D7/#66/#171/US1/US6/US7 registry reconciliation, gates, scoped commit)
+
+### Could not complete / found newly blocked this session — read this first
+
+- **Row #66 (990-PF Giving History) — positive Schedule I extraction case still not reached, for a
+  new reason.** `scripts/investigate-990-schedule-i.ts` (built and run live this session) correctly
+  selected 150 real large-foundation candidates and matched 29 real EINs against the live IRS index —
+  but all 10 targeted batch-ZIP downloads then failed (`fetch failed` / `terminated`). Confirmed via a
+  direct `curl -I` that these are genuinely large files (one target, `2026_TEOS_XML_05A.zip`, reports
+  `Content-Length: 521158638` — 521MB) — the in-process buffered `fetch(...).arrayBuffer()` call is
+  the likely failure point in this sandbox, not a server-side rejection. This is a different obstacle
+  than the previously-documented `unzipper` decompression-failure bug (that bug was never even
+  reached — no ZIP data downloaded successfully this time). Needs either a streaming download instead
+  of full-buffer, or a run from a machine with a more stable/faster connection than this sandbox.
+- **Row D7 (DATAOCEAN Backup) — the real D:\ destination remains unverified.** `D:\` is still
+  unreachable from this sandbox (`fs.accessSync("D:\\")` → `ENOENT`, re-confirmed directly this
+  session, consistent with the standing memory finding). The backup script's copy logic itself was
+  verified correct against a local absolute-path stand-in (10 real files, 4.87MB, copied to a dated
+  subfolder) — but the actual D:\ write has never been observed succeeding in any session to date.
+  Needs verification directly on Reid's machine, outside this sandbox.
+- **Row #171 (RAG Integration) — wiring and the migration blocker are both resolved, but no live
+  end-to-end call was made.** The live `generateDraft()` path now calls the Knowledge Engine and the
+  `applications.knowledge_patterns_applied` column is confirmed to exist in production — but no real
+  draft was actually generated against a live opportunity/org this session (would require a real
+  Claude completion). Status moved to BUILT — UNVERIFIED, not VERIFIED — a future session should run
+  one real draft through this path and confirm a populated `knowledge_patterns_applied` row.
+- **State Portal Framework and Intelligence Library Nights 2-7 — scoping only, no code shipped.**
+  `STATE_PORTAL_SCOPING_2026-08-13.md` and `INTELLIGENCE_LIBRARY_NIGHTS_SCOPE_2026-08-13.md` are both
+  research/recommendation documents — real live evidence was gathered (17 state-portal URLs tested
+  live, real DB row counts pulled for the Intelligence Library sources) but **zero scraper code and
+  zero ingestion runs were produced**. Both explicitly recommend a build order for Reid to approve,
+  not a completed feature. Do not read either row as advanced past PARTIAL/PLANNED based on this
+  session.
+- **Lint gate (`pnpm lint`) was not run this session** — this session's task scope was build+tsc only
+  (both clean, see below). Do not assume lint passes.
+
+### What this session actually did
+
+Final prompt of a multi-prompt queue (prior prompts in this same queue already produced the commits
+`435b9ef` through `acb16ff` below, including the T4/T5/US1/US6/US7 registry work). This pass:
+
+1. Ran `pnpm tsc --noEmit` (0 errors) and `pnpm run build` (clean, all routes compiled) fresh against
+   the full working tree, confirming the queue's uncommitted changes don't break either gate.
+2. **Fixed row D2's off-by-one bug**: `scripts/enrich-foundations-990.ts`'s positional EIN/object-id/
+   xml-batch-id fallback constants (used only when header-name lookup fails) were `1/7/8`, one column
+   short against the real IRS index CSV (`RETURN_ID,FILING_TYPE,EIN,...,OBJECT_ID,XML_BATCH_ID` — EIN
+   is actually at index 2, OBJECT_ID at 8, XML_BATCH_ID at 9). Fixed to `2/8/9`; extracted the parsing
+   logic into two pure, exported functions (`parseIndexHeaders`/`parseIndexRow`) and added a real
+   regression test (`src/__tests__/unit/regressions.test.ts`) using captured lines from the live 2026
+   index. **Ran the suite this session: 12/12 tests pass** (verified via a direct `vitest run`, not
+   assumed). Bug was dormant in practice (header-name lookup already worked on live data) but would
+   have silently zeroed every EIN if it ever failed — still PARTIAL overall (this script's separate
+   dead-S3-URL bug, row #66, is untouched).
+3. **Built and wired row D7's backup script**: `scripts/backup-enrichment-output.ts` (new,
+   `pnpm backup:enrichment`) copies `enrichment-output/` to a dated `D:\dataocean\enrichment-backups\`
+   subfolder, non-fatal on a missing/unreachable drive. Wired as the first line of `main()` in all 6
+   real enrichment-output writers (`enrich-foundations-990.ts`, `enrich-foundations-web.ts`,
+   `enrich-nonprofits-propublica.ts`, `import-teos-local.ts`, `ingest-irs-bmf-full.ts`,
+   `run-foundation-scraper.ts` — confirmed by direct diff of each file, not assumed). Found and
+   documented (not fixed) a minor bug: `path.parse(BACKUP_ROOT).root` returns an empty string for a
+   relative override, misreporting "not reachable" — harmless with the real absolute default. See
+   blocker list above for the still-unverified real D:\ write.
+4. **Re-attempted row #66's positive-case investigation**: built `scripts/investigate-990-schedule-i.ts`
+   (a one-off, not wired into any pipeline), ranking real `foundation_directory` rows by asset size to
+   target foundations far more likely to have a populated Schedule I than the small foundations the
+   2026-08-08 session sampled, and replacing the `unzipper` package with a hand-rolled ZIP64-aware
+   central-directory/local-header parser to avoid its previously-documented corruption. Candidate
+   selection and index-matching both worked for real (150 candidates, 29 matched EINs against a live
+   353,650-row index scan) — see blocker list above for why extraction still wasn't reached.
+5. **Unblocked row #171's live draft-generator path**: `generateDraft()` (`src/lib/drafts/generator.ts`
+   — confirmed by grep to be the real call site behind `/api/ai/draft`, distinct from the separately
+   already-verified `DraftGenerationAgent`) now queries the Knowledge Engine in the same non-blocking
+   `Promise.all` group as its existing intelligence/rubric/logic-model calls, renders matches into a
+   clearly-labeled prompt block, and cites them via a new `"knowledge_engine"` `KnowledgeSource.kind`
+   (`src/types/ai.ts`). Confirmed via a direct `psql`/`DATABASE_URL` query against
+   `information_schema.columns` that migration `123_knowledge_engine_draft_integration.sql`'s
+   `applications.knowledge_patterns_applied` column is now live in production — the previously-
+   documented hard blocker on this integration's DB write no longer exists. See blocker list above for
+   what's still unverified (no live end-to-end call was made).
+6. Updated `FEATURE_REGISTRY_v2.md` rows #66, #171, and D7 with the real, dated evidence above (D2/T4/
+   T5/US1/US6/US7 already had real dated updates from earlier prompts in this queue — confirmed by
+   direct read before touching anything, not re-flipped blanket). Reconciled the Data Pipeline summary
+   counts for D7's status change (Partial 2→3, Planned 2→1; TOTAL Partial 12→13, Planned 40→39).
+
+**Gates:** `pnpm tsc --noEmit` — 0 errors. `pnpm run build` — clean, all routes compiled. `vitest run
+src/__tests__/unit/regressions.test.ts` — 12/12 pass. `pnpm lint` — not run this session (see blocker
+list above).
+
+---
 
 ## SESSION — August 14, 2026 (US6/US7 re-verification: premise was stale, real bug fixed, real accuracy defect found)
 

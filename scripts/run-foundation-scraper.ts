@@ -30,6 +30,7 @@ import dotenv from "dotenv";
 dotenv.config({ path: ".env.local" });
 
 import { runFoundationScraper } from "../src/lib/scraper/foundation-scraper";
+import { backupEnrichmentOutput } from "./backup-enrichment-output";
 
 const OUTPUT_DIR = path.resolve("./enrichment-output");
 const CHECKPOINT_FILE = path.join(OUTPUT_DIR, "scraper-checkpoint.json");
@@ -68,6 +69,9 @@ function fatal(message: string): never {
 }
 
 async function main(): Promise<void> {
+  const backup = await backupEnrichmentOutput();
+  if (!backup.ok) console.warn(`[backup] ${backup.reason}`);
+
   if (!Number.isFinite(START_OFFSET) || START_OFFSET < 0) {
     fatal(`SCRAPER_START_OFFSET must be a non-negative number, got: ${process.env["SCRAPER_START_OFFSET"]}`);
   }

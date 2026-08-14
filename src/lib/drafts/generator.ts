@@ -19,6 +19,10 @@ import {
   type ScoringRubric,
   type LogicModel,
 } from "@/lib/intelligence/rag-retrieval";
+import {
+  queryKnowledgeEngine,
+  type KnowledgeEngineResult,
+} from "@/lib/intelligence/knowledge-engine";
 import { NeedStatementEngine } from "@/lib/intelligence/need-statement-engine";
 import type { NeedDataPoint } from "@/lib/intelligence/sources/types";
 import {
@@ -453,6 +457,11 @@ export async function generateDraft(
   let intelligenceRubric: ScoringRubric | null = null;
   let intelligenceLogicModel: LogicModel | null = null;
   let needDataPoints: NeedDataPoint[] = [];
+  let knowledgeEngineResult: KnowledgeEngineResult = {
+    patterns: [],
+    proposals: [],
+    insights: [],
+  };
 
   const oppDescLower = (
     (opportunity.description as string | null) ?? ""
@@ -482,6 +491,20 @@ export async function generateDraft(
 
     const sectionTypes = TEMPLATE_SECTION_TYPES[templateType];
 
+    // Cross-org knowledge_patterns matches (Knowledge Engine, migration 096;
+    // src/lib/intelligence/knowledge-engine.ts). Same query shape as
+    // DraftGenerationAgent's loadKnowledgeEnginePatterns (category + name +
+    // description, capped at 300 chars) so the live and autonomous draft
+    // paths retrieve comparably. FEATURE_REGISTRY_v2.md row #171.
+    const knowledgeEngineQueryText = [
+      opportunity.category,
+      opportunity.name,
+      opportunity.description,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .slice(0, 300);
+
     // Templates that include a need statement benefit from live government data.
     const needsNeedData =
       templateType === "grant_narrative" ||
@@ -489,39 +512,58 @@ export async function generateDraft(
       templateType === "full_proposal";
 
     try {
-      [intelligenceSections, intelligenceRubric, intelligenceLogicModel] =
-        await Promise.all([
-          retrieveIntelligence({ queryText, sectionTypes, limit: 5 }).catch(
-            (e: unknown) => {
-              console.error(
-                "[INTELLIGENCE] retrieveIntelligence failed:",
-                (e as Error).message,
-              );
-              return [] as IntelligenceResult[];
-            },
-          ),
-          retrieveRubric({
-            funderName: context.opportunity.funderName ?? undefined,
-            category: context.opportunity.category,
-          }).catch((e: unknown) => {
+      [
+        intelligenceSections,
+        intelligenceRubric,
+        intelligenceLogicModel,
+        knowledgeEngineResult,
+      ] = await Promise.all([
+        retrieveIntelligence({ queryText, sectionTypes, limit: 5 }).catch(
+          (e: unknown) => {
             console.error(
-              "[INTELLIGENCE] retrieveRubric failed:",
+              "[INTELLIGENCE] retrieveIntelligence failed:",
               (e as Error).message,
             );
-            return null;
-          }),
-          needsLogicModel
-            ? retrieveLogicModel(context.opportunity.category).catch(
-                (e: unknown) => {
-                  console.error(
-                    "[INTELLIGENCE] retrieveLogicModel failed:",
-                    (e as Error).message,
-                  );
-                  return null;
-                },
-              )
-            : Promise.resolve(null),
-        ]);
+            return [] as IntelligenceResult[];
+          },
+        ),
+        retrieveRubric({
+          funderName: context.opportunity.funderName ?? undefined,
+          category: context.opportunity.category,
+        }).catch((e: unknown) => {
+          console.error(
+            "[INTELLIGENCE] retrieveRubric failed:",
+            (e as Error).message,
+          );
+          return null;
+        }),
+        needsLogicModel
+          ? retrieveLogicModel(context.opportunity.category).catch(
+              (e: unknown) => {
+                console.error(
+                  "[INTELLIGENCE] retrieveLogicModel failed:",
+                  (e as Error).message,
+                );
+                return null;
+              },
+            )
+          : Promise.resolve(null),
+        queryKnowledgeEngine(
+          knowledgeEngineQueryText,
+          organizationId,
+          supabase,
+        ).catch((e: unknown) => {
+          console.error(
+            "[INTELLIGENCE] queryKnowledgeEngine failed:",
+            (e as Error).message,
+          );
+          return {
+            patterns: [],
+            proposals: [],
+            insights: [],
+          } as KnowledgeEngineResult;
+        }),
+      ]);
 
       // Gather need data for the org's service area when the template includes
       // a need statement section. Non-blocking: a failure returns empty array.
@@ -758,6 +800,25 @@ export async function generateDraft(
     enhancedPrompt += "\n\n" + promptText;
   }
 
+  // Kept in its own labeled block, separate from every org-voice section
+  // (Knowledge Base, Proven Narratives, Intelligence Library), so a human
+  // fact-checking the draft can tell a cross-org pattern match from this
+  // org's own records — mirrors DraftGenerationAgent's
+  // buildKnowledgeEnginePatternBlock placement.
+  if (knowledgeEngineResult.patterns.length > 0) {
+    const knowledgeEngineLines = knowledgeEngineResult.patterns.map((p) => {
+      const funder = p.funder_name ? ` [${p.funder_name}]` : "";
+      const rate =
+        p.success_rate != null
+          ? `${Math.round(p.success_rate * 100)}% success rate, ${p.sample_count ?? "unknown"} sample(s), `
+          : "";
+      return `- (id: ${p.id}) [${p.pattern_type}]${funder} ${p.pattern_description} (${rate}${p.confidence} confidence)`;
+    });
+    enhancedPrompt +=
+      "\n\nKNOWLEDGE ENGINE PATTERNS — Cross-organization patterns matched by keyword to this opportunity. Use for structural, timing, and formatting guidance only, not as org-specific facts:\n\n" +
+      knowledgeEngineLines.join("\n");
+  }
+
   if (needDataPoints.length > 0) {
     const dataTable = needDataPoints
       .slice(0, 20) // cap to avoid bloating the context window
@@ -891,6 +952,13 @@ export async function generateDraft(
           },
         ]
       : []),
+    ...knowledgeEngineResult.patterns.map((p) => ({
+      id: p.id,
+      kind: "knowledge_engine" as const,
+      title: p.funder_name
+        ? `${p.pattern_type}: ${p.funder_name}`
+        : `${p.pattern_type} pattern`,
+    })),
   ];
 
   // Save the draft version. Best-effort: a save failure must not fail generation.
@@ -941,6 +1009,9 @@ export async function generateDraft(
           draft_template_type: templateType,
           draft_confidence_score: confidenceScore,
           draft_knowledge_sources: sources as unknown as Json,
+          knowledge_patterns_applied: knowledgeEngineResult.patterns.map(
+            (p) => p.id,
+          ),
           updated_at: new Date().toISOString(),
         })
         .eq("id", existingApp.id as string);

@@ -36,6 +36,7 @@ import dotenv from "dotenv";
 import ws from "ws";
 import { discoverWebsite } from "../src/lib/enrichment/website-discovery";
 import { extractFromWebsite } from "../src/lib/enrichment/web-extractor";
+import { backupEnrichmentOutput } from "./backup-enrichment-output";
 
 dotenv.config({ path: ".env.local" });
 
@@ -303,6 +304,9 @@ async function processRow(row: CandidateRow): Promise<RowOutcome> {
 // Main
 // ----------------------------------------------------------------------------
 async function main() {
+  const backup = await backupEnrichmentOutput();
+  if (!backup.ok) console.warn(`[backup] ${backup.reason}`);
+
   console.log("Enriching foundation_directory from foundation websites");
   if (NTEE_FILTER) console.log(`NTEE filter: ${NTEE_FILTER}`);
   console.log(`Limit: ${LIMIT}, concurrency: ${CONCURRENCY}\n`);

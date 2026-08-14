@@ -1,7 +1,38 @@
 # BENAVORA — Session State
-## Last Updated: August 13, 2026 (Outreach/Email consolidation now fully end-to-end — cron retired, Item 5 resolved)
+## Last Updated: August 14, 2026 (queue closeout: RAG integration unblocked, D2/D7 fixed+built, #66 re-attempted, State Portal + Intelligence Library Nights scoped)
 
-## Current Session — August 13, 2026 (Item 5 resolved: /api/cron/campaigns retired, closing Outreach/Email consolidation)
+## Current Session — August 14, 2026 (queue closeout: T4/T5/D2/D7/#66/#171/US1/US6/US7 registry reconciliation, gates, scoped commit)
+
+**Could not complete / newly found blocked this session (see STATE_OF_THE_BUILD.md for full detail):**
+- Row #66: positive Schedule I extraction still not reached — this time because all 10 targeted IRS
+  batch-ZIP downloads failed in this sandbox (files confirmed ~500MB+ via `curl -I`), not the
+  previously-documented `unzipper` corruption bug (never even reached this run).
+- Row D7: real `D:\` destination still unreachable from this sandbox (re-confirmed live) — only the
+  backup script's copy logic was verified, via a local stand-in, not a real DATAOCEAN write.
+- Row #171: live-path wiring and the migration-123 blocker are both resolved, but no live end-to-end
+  `generateDraft()` call was made this session — upgraded to BUILT — UNVERIFIED, not VERIFIED.
+- State Portal Framework and Intelligence Library Nights 2-7: **scoping/recommendation documents
+  only** (`STATE_PORTAL_SCOPING_2026-08-13.md`, `INTELLIGENCE_LIBRARY_NIGHTS_SCOPE_2026-08-13.md`) —
+  real live research was done (17 state-portal URLs tested, real DB counts pulled) but zero scraper
+  code or ingestion runs shipped. These are follow-up decisions for Reid, not completed features.
+- `pnpm lint` was not run this session (task scope was build+tsc only).
+
+**Focus:** final prompt of a multi-prompt queue (T4/T5/US1/US6/US7 registry work already landed via
+this queue's earlier commits, `435b9ef` through `acb16ff`). This pass: ran and confirmed the build/tsc
+gates clean, fixed the D2 EIN-fallback off-by-one bug (regression-tested, 12/12 passing), built and
+wired the D7 DATAOCEAN backup script into all 6 real enrichment-output writers, re-attempted row #66's
+positive-case investigation (found a new blocker, see above), wired the live `generateDraft()` path to
+the Knowledge Engine and confirmed migration 123's column is live in production for row #171, and
+reconciled `FEATURE_REGISTRY_v2.md` rows #66/#171/D7 with real dated evidence (T4/T5/D2/US1/US6/US7
+already had real dated updates from earlier prompts in this queue, confirmed by direct read, not
+re-flipped blanket).
+
+**Gates:** `pnpm tsc --noEmit` — 0 errors. `pnpm run build` — clean. `vitest run
+src/__tests__/unit/regressions.test.ts` — 12/12 pass.
+
+---
+
+## Previous Session — August 13, 2026 (Item 5 resolved: /api/cron/campaigns retired, closing Outreach/Email consolidation)
 
 **Closing summary:** Queried live via `psql` and confirmed zero orgs have
 `platform_config.key = 'feature.cold_outreach_email'` enabled — `/api/cron/campaigns` had been firing
