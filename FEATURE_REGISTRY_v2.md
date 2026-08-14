@@ -520,7 +520,7 @@ auto-reply/respond capability a blanket "BUILT" would imply are both confirmed a
 | D4 | 298K Prospect CSV Import | NOT-BUILT | Correction, 2026-08-07/08 (three consecutive sessions, most recently `AGENT_VERIFICATION_LOG.md` queue-37 entry #6): the "script exists, never run" note was wrong — `scripts/import-prospects.ts` does not exist anywhere in the repo, confirmed independently 3 times (`Glob`, direct file check, direct file check again). `D:\dataocean`'s existence is unverifiable from this session's sandbox (blocked identically via both Bash and PowerShell, 3 sessions running) — needs either broadened filesystem access or direct confirmation from Reid before this can be scoped as a real build task. |
 | D5 | Intelligence Library Corpus | PARTIAL | 11 NIH proposals loaded. Nights 2-7 never run. Dedup fix applied. |
 | D6 | Foundation Website Scraper | BUILT | Superseded by S1/S2 below (StealthEngine + foundation-scraper.ts), not the older 54K-URL-list concept this row originally described. As of July 28 2026: the IRS 990 XML fetch bug (dead S3 fallback + browser-rendered XML viewer instead of a raw fetch, commit 52dd3ce) is fixed, and a real run tonight is confirmed parsing at an 8/10 success rate. Still not run at the full 133,812-record foundation_directory scale — see Directive 1 in STANDING_DIRECTIVES.md. |
-| D7 | DATAOCEAN Backup | PARTIAL — script built + wired 2026-08-14, real D:\ write still unverified | `scripts/backup-enrichment-output.ts` (`pnpm backup:enrichment`) copies `enrichment-output/` recursively to a dated subfolder (`D:\dataocean\enrichment-backups\<YYYY-MM-DD>\`, override via `DATAOCEAN_BACKUP_ROOT`), never throws (returns `{ok:false, reason}` on a missing/unreachable drive so a dev-machine-only D:\ dependency can never block the Railway worker, which has none). Wired as the first line of `main()` in all 6 real enrichment-output writers: `enrich-foundations-990.ts`, `enrich-foundations-web.ts`, `enrich-nonprofits-propublica.ts`, `import-teos-local.ts`, `ingest-irs-bmf-full.ts`, `run-foundation-scraper.ts` — confirmed by direct diff of each file this session, not assumed. **Live-tested twice this session**: (1) against the real default `D:\` root — confirmed **still unreachable** from this sandbox (`fs.accessSync("D:\\")` → `ENOENT`, same finding as the rest of this session's D:-drive checks), correctly returned `{ok:false}` and logged a warning rather than throwing; (2) against a local absolute-path stand-in (`DATAOCEAN_BACKUP_ROOT` overridden to a real local folder) — genuinely copied 10 real files / 4.87MB from the live `enrichment-output/` into a dated subfolder, confirmed present on disk after the call. **One real, minor bug found this session, not fixed**: `path.parse(BACKUP_ROOT).root` returns an empty string (not the intended drive letter) when `BACKUP_ROOT` is a relative path, causing the reachability check to report "not reachable" even when the relative target is actually writable — harmless today since the real default (`D:\dataocean\...`) is always absolute and parses correctly, but would misfire if a future caller ever set `DATAOCEAN_BACKUP_ROOT` to a relative path. Still not BUILT: the actual D:\ destination has never been confirmed reachable/written to from any session to date (only the copy logic itself, via a local stand-in, is proven correct) — re-verify directly on Reid's machine (outside this sandbox) before treating the real backup path as confirmed working. |
+| D7 | DATAOCEAN Backup | MOOT — Reid confirmed 2026-08-14 the underlying data no longer needs a backup path | `scripts/backup-enrichment-output.ts` (`pnpm backup:enrichment`) copies `enrichment-output/` recursively to a dated subfolder (`D:\dataocean\enrichment-backups\<YYYY-MM-DD>\`, override via `DATAOCEAN_BACKUP_ROOT`), never throws (returns `{ok:false, reason}` on a missing/unreachable drive so a dev-machine-only D:\ dependency can never block the Railway worker, which has none). Wired as the first line of `main()` in all 6 real enrichment-output writers: `enrich-foundations-990.ts`, `enrich-foundations-web.ts`, `enrich-nonprofits-propublica.ts`, `import-teos-local.ts`, `ingest-irs-bmf-full.ts`, `run-foundation-scraper.ts` — confirmed by direct diff of each file this session, not assumed. **Live-tested twice 2026-08-14**: (1) against the real default `D:\` root — confirmed unreachable from that session's sandbox (`fs.accessSync("D:\\")` → `ENOENT`); correctly returned `{ok:false}` and logged a warning rather than throwing; (2) against a local absolute-path stand-in — genuinely copied 10 real files / 4.87MB from the live `enrichment-output/` into a dated subfolder, confirmed present on disk after the call. One real, minor, unfixed bug from that session: `path.parse(BACKUP_ROOT).root` returns an empty string (not the drive letter) when `BACKUP_ROOT` is relative, misreporting "not reachable" for an otherwise-writable relative target — harmless today since the real default is always absolute. **Reclassified same day, later session**: Reid confirmed directly that the `enrichment-output/` data this script exists to protect is old, was already scraped once, and is already ingested into the live app — so a fresh D:\ backup of it is not operationally needed. This is no longer an open CRITICAL/unresolved risk; the unverified real-`D:\`-write question above is now moot rather than outstanding. The script itself is left in place (harmless, already wired into all 6 writers) in case a future dataset warrants the same backup path again — it just isn't blocking or urgent. |
 
 ---
 
@@ -593,11 +593,11 @@ Ground-up replacement architecture per `UNIVERSAL_SCRAPER_PRD.md`: keyword + sch
 | Tier 5 SaaS Layer | 6 | 6 | 0 | 0 | 0 |
 | Tier 6 Full Autonomous | 26 | 22 | 3 | 0 | 1 |
 | Platform Vision Pillars | 94 | 35 | 3 | 19 | 37 |
-| Data Pipeline | 7 | 3 | 3 | 0 | 1 |
+| Data Pipeline | 7 | 4 | 2 | 0 | 1 |
 | Scraper (Directive 1) | 5 | 5 | 0 | 0 | 0 |
 | Universal Scraper (uscraper-001-007) | 7 | 3 | 4 | 0 | 0 |
 | Testing | 8 | 8 | 0 | 0 | 0 |
-| **TOTAL** | **199** | **128** | **13** | **19** | **39** |
+| **TOTAL** | **199** | **129** | **12** | **19** | **39** |
 
 **2026-08-08 addendum:** row #144 (Narrative Gap Analysis) moved Planned→Built this session (see its
 row for detail) — Platform Vision Pillars 28→29 Built / 44→43 Planned, TOTAL 114→115 Built / 55→54
@@ -647,6 +647,17 @@ columns (see the Status Key note above) — #171's tier changed (BUILT — BLOCK
 but its plain-column bucket (Built) does not change; #66 stayed PARTIAL, no bucket change. Data
 Pipeline: Partial 2→3, Planned 2→1. TOTAL: Partial 12→13, Planned 40→39. Built/In Build unchanged by
 this addendum (127/19).
+
+**2026-08-14 addendum (second, later session):** row D7 (DATAOCEAN Backup) reclassified from PARTIAL
+to MOOT — Reid confirmed directly that the `enrichment-output/` data this row's backup script exists
+to protect is old, was already scraped once, and is already ingested into the live app, so a fresh
+D:\ backup of it is no longer operationally relevant. This is not a new build or a reversal of the
+prior addendum's technical findings (the script's copy logic, its wiring into all 6 writers, and the
+still-unverified real-D:\-write status are all unchanged) — it only changes the risk framing from an
+open CRITICAL/unresolved item to a non-blocking one. Counted under Built (script is real, wired, and
+working against a verified stand-in) rather than Partial for tally purposes. `scripts/backup-enrichment-output.ts`
+is left in place, not deleted. Data Pipeline: Built 3→4, Partial 3→2. TOTAL: Built 128→129, Partial
+13→12. Planned/In Build unchanged by this addendum.
 
 **2026-08-13 addendum:** row T8 (Cross-Browser Tests) moved Planned→Built this session — a real
 Firefox/WebKit run (`CROSSBROWSER_TEST_RESULTS_20260813.md`) exercised `e2e/critical-paths.spec.ts`
