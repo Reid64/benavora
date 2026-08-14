@@ -42,6 +42,24 @@ const OUTPUT_SCHEMA: ExtractionSchema = { email: "string", phone: "string", cont
 const MAX_CANDIDATE_URLS_PER_NONPROFIT = 3;
 const MIN_REVENUE_FOR_CANDIDACY = 750_000;
 
+// Live-verified 2026-08-14: 19,379 of this template's candidate pool have a
+// placeholder-shaped `nonprofits.website` value ("N/A", "SEE SCHEDULE O",
+// etc. -- free text carried over from IRS filings, not a real domain) that
+// isn't caught by `.not("website", "is", null)`. Left unguarded, one such
+// row (a real "N/A" website) was observed wasting 4 real fetch attempts
+// (ERR_NAME_NOT_RESOLVED against the mis-parsed "https://n/A", then an
+// "Invalid URL" fetch on the literal string "N/A") before falling through
+// harmlessly. A bare domain needs at least one "." and no whitespace to be
+// worth trying at all.
+const PLAUSIBLE_DOMAIN_REGEX = /^[a-z0-9][a-z0-9.-]*\.[a-z]{2,}(\/.*)?$/i;
+
+function looksLikeRealDomain(website: string): boolean {
+  const trimmed = website.trim();
+  if (!trimmed || /\s/.test(trimmed)) return false;
+  const stripped = trimmed.replace(/^https?:\/\//i, "");
+  return PLAUSIBLE_DOMAIN_REGEX.test(stripped);
+}
+
 function log(message: string): void {
   console.log(`[${new Date().toISOString()}] [nonprofit-contact-template] ${message}`);
 }
@@ -113,6 +131,19 @@ export async function runNonprofitContactTemplate(limit = 25): Promise<Nonprofit
     for (const row of rows) {
       processed++;
       log(`[${row.id}] ${row.name} -- ${row.website}`);
+
+      if (!looksLikeRealDomain(row.website)) {
+        log(`[${row.id}] SKIP -- website value is not a plausible domain: ${JSON.stringify(row.website)}`);
+        await writeScrapeResult(
+          supabase,
+          job,
+          row.website,
+          { email: null, phone: null, contact_name: null },
+          "none",
+          `nonprofits.website is not a plausible domain (placeholder value, e.g. "N/A")`,
+        );
+        continue;
+      }
 
       let discovered = await discoverUrls(`${row.name} contact information phone email`, row.website, {
         fetcher,
