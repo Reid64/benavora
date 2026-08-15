@@ -53,3 +53,5 @@ scripts/.checkpoints/
 
 # universal scraper local mock output (fallback when scrape_jobs/scrape_results aren't live)
 /scrape-output/
+
+storage/key_value_stores/

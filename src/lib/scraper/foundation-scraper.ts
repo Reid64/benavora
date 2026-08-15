@@ -58,6 +58,11 @@ const BATCH_SIZE = 20;
 const CONCURRENCY = 3;
 const CHECKPOINT_EVERY = 100;
 const MIN_REQUEST_DELAY_MS = 200;
+// BEHAVIORAL_CONTRACTS.md §21: "Minimum 5-second delay between requests to
+// the same domain." Scoped to Strategy 3 (the foundation's own website) —
+// the actual "target being scraped" §21 means to protect — not to the IRS
+// index/XML or Google search infrastructure calls, which are shared,
+// one-time-per-run or high-volume lookups against non-target hosts.
 
 const IRS_990_YEAR = process.env["IRS_990_YEAR"] ? Number(process.env["IRS_990_YEAR"]) : new Date().getFullYear();
 const IRS_990_INDEX_URL =
@@ -176,6 +181,29 @@ async function throttle(pooled: PooledEngine): Promise<void> {
   const elapsed = Date.now() - pooled.lastRequestAt;
   if (elapsed < MIN_REQUEST_DELAY_MS) await sleep(MIN_REQUEST_DELAY_MS - elapsed);
   pooled.lastRequestAt = Date.now();
+}
+
+// Per-domain politeness gate for Strategy 3 (§21). Module-level and shared
+// across the whole EnginePool — not per-engine — since two different pooled
+// engines could otherwise hit the same target domain concurrently (e.g. two
+// related, non-family foundations on the same website) with no coordination.
+const SAME_DOMAIN_DELAY_MS = 5000;
+const domainLastRequestAt = new Map<string, number>();
+
+function hostnameOf(url: string): string | null {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return null;
+  }
+}
+
+async function throttleDomain(url: string): Promise<void> {
+  const host = hostnameOf(url);
+  if (!host) return;
+  const elapsed = Date.now() - (domainLastRequestAt.get(host) ?? 0);
+  if (elapsed < SAME_DOMAIN_DELAY_MS) await sleep(SAME_DOMAIN_DELAY_MS - elapsed);
+  domainLastRequestAt.set(host, Date.now());
 }
 
 async function throttledFetch(pooled: PooledEngine, url: string): Promise<string | null> {
@@ -385,6 +413,31 @@ export async function buildEinIndex(
   }
 }
 
+// IRS 990 e-file's WebsiteAddressTxt is free text a filer typed by hand, not
+// a validated field — real, common values include placeholders ("N/A",
+// "NONE", "-") and bare domains with no scheme ("example.org"). Passed
+// straight through to page.goto() (StealthEngine.fetchPage), both of those
+// throw "Cannot navigate to invalid URL" and burn a full 3-attempt retry
+// budget (plus a Strategy-2 Google CAPTCHA check on the same row) for
+// nothing — found live, 2026-08-15, during a full-scale run: dozens of
+// consecutive rows in the first minute alone hit this exact failure.
+const WEBSITE_PLACEHOLDER_RE = /^(n\/?a\.?|none|not\s*applicable|n\.?a\.?|-+|tbd|unknown)$/i;
+
+function normalizeWebsiteCandidate(raw: string | undefined | null): string | undefined {
+  if (!raw) return undefined;
+  const trimmed = raw.trim();
+  if (!trimmed || WEBSITE_PLACEHOLDER_RE.test(trimmed)) return undefined;
+  const withScheme = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  try {
+    const url = new URL(withScheme);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return undefined;
+    if (!url.hostname.includes(".")) return undefined;
+    return url.toString();
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * Resolves a single foundation row against the EIN index and returns any
  * website/phone found in its matched 990 filing. Exported per
@@ -435,7 +488,10 @@ export async function tryIrs990(
   if (!parsed) return null;
 
   const update: { website?: string; phone?: string } = {};
-  if (!row.website && parsed.website) update.website = parsed.website;
+  if (!row.website && parsed.website) {
+    const normalized = normalizeWebsiteCandidate(parsed.website);
+    if (normalized) update.website = normalized;
+  }
   if (!row.phone && parsed.phones.length > 0) update.phone = parsed.phones[0] as string;
   return Object.keys(update).length > 0 ? update : null;
 }
@@ -533,6 +589,7 @@ async function tryGoogleFallback(
 
   for (const link of extractSearchResultLinks(html)) {
     if (isExcludedSearchHost(link)) continue;
+    await throttleDomain(link);
     if (await validateUrl(link)) return link;
   }
   return null;
@@ -544,7 +601,9 @@ async function tryContactPage(
   website: string,
   pooled: PooledEngine,
 ): Promise<{ emails: string[]; phone: string | null }> {
+  await throttleDomain(website);
   const contactUrl = (await throttledFindContactPage(pooled, website)) ?? website;
+  await throttleDomain(contactUrl);
   const html = await throttledFetch(pooled, contactUrl);
   if (!html) return { emails: [], phone: null };
 
