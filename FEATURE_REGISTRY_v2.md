@@ -328,7 +328,7 @@ auto-reply/respond capability a blanket "BUILT" would imply are both confirmed a
 | 103 | Probability API Route | BUILT — VERIFIED | `src/app/api/intelligence/grant-probability/route.ts` confirmed to import and call the real `computeGrantProbability()` directly (not a stub), per `AGENT_VERIFICATION_LOG.md` "AG-15." |
 | 104 | Batch Score Runner | BUILT — VERIFIED | `scripts/batch-score-opportunities.ts` confirmed to import and call the real engine directly, per `AGENT_VERIFICATION_LOG.md` "AG-15." |
 | 105 | Probability Badges on Opportunities | BUILT — UNVERIFIED | `src/app/(dashboard)/opportunities/page.tsx` confirmed by direct read to reference `opportunity_probability_scores`/`overall_score` — wired to real data, not a placeholder. Read-verified only; no browser/screenshot check was performed this session (per `AGENT_VERIFICATION_LOG.md` "AG-15," explicitly flagged as not visually confirmed). |
-| 106 | Factor Breakdown UI | PLANNED | Expandable score explanation per opportunity. Not covered by this session's verification pass — status unchanged. |
+| 106 | Factor Breakdown UI | BUILT — VERIFIED | Correction, 2026-08-15: this row was stale — a real `ProbabilityBreakdown` component already existed in `src/app/(dashboard)/opportunities/page.tsx` (commit `cac32f3`, on `main`), a "Score Breakdown" toggle per card that renders confidence/recommendation/estimated ROI/time-to-complete plus a progress bar per real `factors[]` entry (labelled via a literal map of the engine's exact 4 factor-name strings) and the real `key_risks`/`key_strengths` arrays — reading only the already-persisted `opportunity_probability_scores` row (row #102/#105), never recomputing client-side. **Live-verified 2026-08-15**: `scripts/verify-factor-breakdown-ui.ts` independently re-ran the real, unmodified `computeGrantProbability()` against a real Faith Foundation opportunity (`5f0128af-113a-42d2-b7c4-67fe4067a8b7`) and diffed every UI-displayed field (score, confidence, recommendation, key_risks, key_strengths, estimated_roi, time_to_complete, and all 4 factors' weight/value/contribution individually) against the stored row the page actually reads — exact match on every field. `pnpm tsc --noEmit` — 0 errors. Not a browser/screenshot check (no visual regression run), but the data-correctness half this task asked for is confirmed, not inferred. |
 
 ### Pillar 6: Organizational Digital Twin
 | # | Feature | Status | Notes |
@@ -592,12 +592,12 @@ Ground-up replacement architecture per `UNIVERSAL_SCRAPER_PRD.md`: keyword + sch
 | Tier 4 Browser Automation | 7 | 7 | 0 | 0 | 0 |
 | Tier 5 SaaS Layer | 6 | 6 | 0 | 0 | 0 |
 | Tier 6 Full Autonomous | 26 | 22 | 3 | 0 | 1 |
-| Platform Vision Pillars | 94 | 35 | 3 | 19 | 37 |
+| Platform Vision Pillars | 94 | 36 | 3 | 19 | 36 |
 | Data Pipeline | 7 | 4 | 2 | 0 | 1 |
 | Scraper (Directive 1) | 5 | 5 | 0 | 0 | 0 |
 | Universal Scraper (uscraper-001-007) | 7 | 3 | 4 | 0 | 0 |
 | Testing | 8 | 8 | 0 | 0 | 0 |
-| **TOTAL** | **199** | **129** | **12** | **19** | **39** |
+| **TOTAL** | **199** | **130** | **12** | **19** | **38** |
 
 **2026-08-08 addendum:** row #144 (Narrative Gap Analysis) moved Planned→Built this session (see its
 row for detail) — Platform Vision Pillars 28→29 Built / 44→43 Planned, TOTAL 114→115 Built / 55→54
@@ -682,6 +682,15 @@ session has yet reported dated pass/fail numbers for running this spec on its ow
 cross-browser numbers, which are for the multi-browser run, not this row). T5 is likewise plain BUILT,
 not yet executed/verified by any session — flagged for a future session to run it against a baseline
 and report real results. Testing: 6→8 Built, 2→0 Planned. TOTAL: 125→127 Built, 42→40 Planned.
+
+**2026-08-15 addendum:** row #106 (Factor Breakdown UI) moved Planned→Built — VERIFIED this session.
+The registry row was stale, not the code: the real `ProbabilityBreakdown` component (commit `cac32f3`,
+already on `main`) had shipped in a prior session but the row itself was never flipped from PLANNED.
+Live-verified this session via `scripts/verify-factor-breakdown-ui.ts`: an independent, unmodified
+re-run of `computeGrantProbability()` against a real Faith Foundation opportunity matched the
+already-persisted `opportunity_probability_scores` row (the one the UI actually renders) on every
+displayed field, including all 4 factors' weight/value/contribution individually. Platform Vision
+Pillars: 35→36 Built, 37→36 Planned. TOTAL: 129→130 Built, 39→38 Planned.
 
 **Note on the July 30 → August 7, 2026 agent-verification updates:** the AG-15–AG-42 rows above (and
 their Post-Launch Vision cross-references, #217/#218/#220/#225) use the finer-grained BUILT — VERIFIED
