@@ -579,7 +579,43 @@ Ground-up replacement architecture per `UNIVERSAL_SCRAPER_PRD.md`: keyword + sch
 | Opportunities page | BUILT | Reconciled 2026-08-07: duplicate/stale entry — this is the same feature as row #105 ("Probability Badges on Opportunities," BUILT — UNVERIFIED), which this row's leftover "PLANNED/Tonight's queue" text contradicted. Confirmed by direct read of `src/app/(dashboard)/opportunities/page.tsx` this session: real probability badges (`probabilityTone()`, sourced from `opportunity_probability_scores.overall_score`) **and** a real sort control (`SortOption` including `probability-desc`/`probability-asc`, genuinely wired to the row sort via `useMemo`) both exist — not just the badges row #105 already covered. Cross-reference row #105 rather than treating this as a separate, still-open item. |
 | All other pages | PLANNED | One component per CC session. Post-dashboard queue. |
 
-**The One UI Rule:** All colors, backgrounds, shadows, borders must use inline `style={{}}` with hardcoded hex values. Never CSS variables or Tailwind color classes.
+**The One UI Rule — revised 2026-08-15, evidence-based (was previously stated as an unexplained hard rule):**
+Per `CSS_OVERRIDE_INVESTIGATION_2026-08-15.md`, the reason inline `style={{}}` was historically the
+"only method that works" is `src/app/globals.css`'s compatibility layer: `tailwind.config.ts`'s
+legacy color scales and Tailwind's own untouched built-in palette drifted out of sync with the
+newer CSS-variable-driven brand palette, so the layer force-wins with `!important` on every
+`bg-white`/`text-navy-*`/`bg-red-50`-class utility class in the app — including any *new* class or
+CSS-variable-based style someone tries to add on an element that still carries one of those class
+names. Deleting the layer outright was tried and reverted within the hour on 2026-07-16 (`6b52f8e`
+→ `7ac3844`) — it is real and load-bearing, not legacy cruft.
+
+**Resolved 2026-08-15 for most of the app:** the `teal`/`red`/`yellow`/`amber`/`green`/`emerald`/
+`blue` families were collapsed into `tailwind.config.ts`'s `theme.extend.colors` (one source of
+truth, values verified identical to the old forced ones) and their duplicate `!important` rules
+deleted from `globals.css` entirely — confirmed live via a real authenticated Playwright session
+against the real E2E test org: a fresh inline-style override on `text-blue-700`/`bg-green-50` now
+genuinely wins (previously would have been silently forced back to the brand color), while the
+base rendered values (e.g. `badge-green` → `rgb(220, 252, 231)` / `rgb(21, 128, 61)`, `page-bg` →
+`rgb(228, 233, 240)`) are byte-identical to what the old `!important` layer forced. **For these
+color families, ordinary Tailwind classes, arbitrary-value classes (`bg-[#...]`), CSS variables,
+and inline styles are all safe to use again — the inline-hex-only rule no longer applies to them.**
+
+**Still required for `navy` and `white`** (i.e. `bg-white`, `bg-white-sunken`, `text-navy-*`,
+`bg-navy-*`, `border-navy-*`), confirmed by the same investigation and re-verified live the two
+still keep their old, blocked behavior on purpose:
+- `navy`: the same shade number means a genuinely different color depending on which CSS property
+  it's applied to (e.g. `navy-100` is a blue-tinted background but a plain gray border and a tan
+  divider) — one Tailwind color-scale value can't represent three different meanings for one shade
+  number. Fixing this for real means auditing and renaming ~149 files that currently overload one
+  shade number for unrelated purposes, not a config change.
+- `white`: overriding the `white` key in `tailwind.config.ts` would retint every `text-white`/
+  `border-white`/etc. use app-wide (Tailwind applies one value per color key regardless of
+  property), including literal white text on dark/colored backgrounds elsewhere that must stay
+  pure `#FFFFFF` — too broad a blast radius to collapse without first auditing every such usage.
+
+Until those two are migrated the same way, keep using inline `style={{}}` with hardcoded hex values
+on any element that also carries a `bg-white`/`text-navy-*`/`bg-navy-*`/`border-navy-*` class —
+CSS variables and Tailwind classes will still silently lose to the compat layer there.
 
 ---
 
