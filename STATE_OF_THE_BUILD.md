@@ -1,6 +1,81 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 15, 2026 (Multi-Channel Outreach build + live verify, row #77, gates clean, scoped commit). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 15, 2026 (Factor Breakdown UI / Agent Log Viewer / Corporate Giving DNA / Funder Signal Monitoring — rows #106, #160, #92, #99, gates clean, scoped commit). Not FORGE-auto-generated — hand-verified.**
+
+## SESSION — August 15, 2026 (rows #92, #99, #106, #160 — registry closure + one real rebuild)
+
+**Focus:** close out four stale/incomplete Platform Vision Pillar rows with real evidence, not just
+registry text edits. Ran the gate sequence, updated `FEATURE_REGISTRY_v2.md` rows #92/#99/#106/#160,
+wrote this + `SESSION_STATE.md` entries, did the scoped commit/push.
+
+**Gates:** `pnpm run build` — clean, exit 0, full route manifest printed, no errors. `pnpm tsc --noEmit`
+— 0 errors. No fixes were needed for either gate — both already clean at session start and after every
+change made this session.
+
+**Row #160 (Agent Log Viewer): PLANNED → BUILT — VERIFIED.** The page and its API
+(`src/app/(dashboard)/agents/marketplace/[agentId]/page.tsx`, `GET /api/agents/registry/[agentId]/runs`)
+had already shipped 2026-08-07 (commit `2ed3983`) but the registry was never flipped — same recurring
+stale-registry pattern as US6/US7 and row #106 before it. Real gap found and fixed this session: the
+API already supported `cursor`/`limit` pagination but the page only ever fetched the first 50 rows,
+with no way to reach older runs. Added a "Load More" control (same cursor-on-`created_at` pattern as
+the Decision Log UI, row #214). Live-verified via a real authenticated Playwright session against a
+real local dev server: AG-17's 5 rendered rows matched a direct `psql` read of `agent_runs` exactly;
+AG-02's 124 real runs paginated correctly (50 → 100 rendered, zero id overlap between pages). Full
+detail: `AGENT_VERIFICATION_LOG.md` "Agent Log Viewer pagination + live verification (row #160,
+2026-08-15)".
+
+**Row #99 (Signal Monitoring): PLANNED → BUILT — VERIFIED (news + 990 only, LinkedIn excluded).** Built
+as AG-43 (`src/lib/agents/funder-signal-monitor-agent.ts`, migration `137_funder_signal_monitoring.sql`,
+applied live), reusing AG-30 Donor Intent Monitor's proven grounded-search + deterministic-scoring
+pattern retargeted at this org's own `funders` CRM. LinkedIn monitoring was deliberately scoped out,
+not silently dropped — no public API exists for it and scraping would violate LinkedIn's ToS, a real
+legal risk under `BEHAVIORAL_CONTRACTS.md` §21/§27. Live-verified against all 3 real
+private/corporate-foundation funders on file for the real Faith Foundation org
+(`scripts/verify-funder-signal-monitor.ts`): 2 real 990-filing signals matched `foundation_directory`'s
+ProPublica figures byte-for-byte and correctly triggered `alerts` + `relationship_memory` bridge writes;
+dedup confirmed (repeat run updates in place, no duplicate row); the news half genuinely fired real web
+searches every run and honestly returned no qualifying signal for these 3 funders this run. Full detail:
+`AGENT_VERIFICATION_LOG.md` "AG-43 Funder Signal Monitor built + live-verified (row #99, 2026-08-15)".
+
+**Row #106 (Factor Breakdown UI): PLANNED → BUILT — VERIFIED.** Closed earlier this session (commit
+`64216b6`) — the real `ProbabilityBreakdown` component already existed in `opportunities/page.tsx`
+(commit `cac32f3`, prior session) but the registry never flipped. Re-verified this session via
+`scripts/verify-factor-breakdown-ui.ts`: every UI-displayed field (score, confidence, recommendation,
+key risks/strengths, all 4 factors' weight/value/contribution) matches the persisted
+`opportunity_probability_scores` row exactly for a real Faith Foundation opportunity.
+
+**Row #92 (Corporate Giving DNA): PLANNED → BUILT — VERIFIED.** This is a genuine rebuild, not a
+re-verification — a first attempt (commit `f03ec99`, 2026-08-07) existed but was never confirmed
+working: `AGENT_VERIFICATION_LOG.md`'s q32-003 pass found it 404ing in production (never
+`vercel --prod`'d) and reproducibly 500-crashing in local dev, and the underlying `giving_dna` column
+was populated on 0 of 49 real `corporate_prospects` rows because no generator existed — only a passive
+renderer. Built `src/lib/intelligence/giving-dna.ts` (`generateGivingDna()`), `POST
+/api/intelligence/corporate-prospects/[id]/giving-dna`, and a real "Generate/Regenerate Giving DNA"
+button on the prospect profile page. Grounding is structural: a `buildGivingDnaFacts()` helper extracts
+only real, populated fields into a numbered fact list, the system prompt forbids stating anything not
+on that list, and the persisted `based_on_fields` records exactly which real fields contributed.
+Live-verified against 2 real, contrasting prospects (`scripts/verify-giving-dna.ts`): a thin-data row
+produced an honest "extremely thin" profile naming its own gaps rather than inventing specifics; the
+one real row in the 49-row pool with populated AG-22 scores produced a profile that correctly cited its
+real PS-01 score and Housing-Compatibility sub-score verbatim, with `based_on_fields` matching the
+extracted facts exactly. Full detail: `AGENT_VERIFICATION_LOG.md` "Corporate Giving DNA rebuilt +
+live-verified (row #92, 2026-08-15)".
+
+**Scoped commit:** staged only what belongs to these four features — `FEATURE_REGISTRY_v2.md`,
+`AGENT_VERIFICATION_LOG.md`, this file, `SESSION_STATE.md`,
+`src/app/(dashboard)/agents/marketplace/[agentId]/page.tsx` (row #160 pagination),
+`src/app/(dashboard)/donor-discovery/outreach/prospects/[id]/page.tsx` + `src/lib/intelligence/giving-dna.ts`
++ `src/app/api/intelligence/corporate-prospects/[id]/giving-dna/` (row #92),
+`src/lib/agents/funder-signal-monitor-agent.ts` + `supabase/migrations/137_funder_signal_monitoring.sql`
++ `scripts/verify-funder-signal-monitor.ts` (row #99), `scripts/verify-giving-dna.ts` (row #92). Left
+untouched (pre-existing, unrelated in-progress work from other sessions/worktrees, not part of this
+task): `.claude/worktrees/agent-*`, `storage/key_value_stores/default/SDK_SESSION_POOL_STATE.json`,
+`src/lib/scraper/foundation-scraper.ts`'s D6 politeness/placeholder-URL fix,
+`D4_PROSPECT_IMPORT_INVESTIGATION_2026-08-15.md`, `REMAINING_BUILD_PLAN_2026-08-15.md`,
+`enrichment-output/990-investigation-cache/`, `investigate-990-run.log`,
+`scripts/run-d6-scrape-wrapper.mjs`.
+
+---
 
 ## SESSION — August 15, 2026 (Multi-Channel Outreach build + live verify, row #77)
 

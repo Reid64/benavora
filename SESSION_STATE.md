@@ -1,7 +1,54 @@
 # BENAVORA — Session State
-## Last Updated: August 15, 2026 (Multi-Channel Outreach build + live verify, row #77, gates clean, scoped commit)
+## Last Updated: August 15, 2026 (rows #92/#99/#106/#160 closed — one real rebuild, gates clean, scoped commit)
 
-## Current Session — August 15, 2026 (Multi-Channel Outreach build + live verify, row #77)
+## Current Session — August 15, 2026 (rows #92, #99, #106, #160)
+
+**Focus:** ran the gate sequence, then closed four Platform Vision Pillar registry rows with real
+evidence — #160 Agent Log Viewer, #99 Signal Monitoring, #106 Factor Breakdown UI, #92 Corporate
+Giving DNA. Updated `FEATURE_REGISTRY_v2.md`, `AGENT_VERIFICATION_LOG.md`, this file, and
+`STATE_OF_THE_BUILD.md`, then did the scoped commit/push.
+
+**Gates:** `pnpm run build` — clean, exit 0, all routes compiled. `pnpm tsc --noEmit` — 0 errors.
+
+**Row #160 (Agent Log Viewer) — PLANNED → BUILT — VERIFIED.** Already shipped 2026-08-07, registry
+never flipped. Real gap found+fixed: page fetched only the first 50 runs despite the API already
+supporting cursor pagination — added a "Load More" control. Live-verified via Playwright: AG-17's 5
+rows matched a direct `psql` read of `agent_runs` exactly; AG-02's 124 runs paginated correctly.
+
+**Row #99 (Signal Monitoring) — PLANNED → BUILT — VERIFIED (news + 990 only).** Built as AG-43
+(`funder-signal-monitor-agent.ts`, migration 137), reusing AG-30's proven pattern retargeted at
+`funders`. LinkedIn explicitly excluded (no compliant API, real ToS risk per Behavioral Contracts
+§21/§27). Live-verified against all 3 real foundation-type funders on file: 2 real 990-sourced
+signals matched `foundation_directory` byte-for-byte, correctly wrote `alerts` +
+`relationship_memory`; dedup confirmed; news half genuinely searched, honestly found nothing this run.
+
+**Row #106 (Factor Breakdown UI) — PLANNED → BUILT — VERIFIED.** Closed earlier this session (commit
+`64216b6`) — component already existed (commit `cac32f3`), registry was stale. Re-verified: every
+UI field matches the persisted `opportunity_probability_scores` row exactly.
+
+**Row #92 (Corporate Giving DNA) — PLANNED → BUILT — VERIFIED. Genuine rebuild**, not a re-test — a
+first attempt (commit `f03ec99`) existed but had never been confirmed working (404 in prod, 500 in
+local dev) and had no generator (0 of 49 real prospects had `giving_dna` populated). Built
+`generateGivingDna()` + `POST .../giving-dna` + a real Generate/Regenerate button. Grounding is
+structural: facts are extracted from real row data first, Claude may only reference what's on that
+list, and `based_on_fields` records exactly which fields contributed. Live-verified against 2 real,
+contrasting prospects: a thin-data row got an honest "extremely thin" profile naming its own gaps;
+the one real scored prospect in the 49-row pool got a profile that correctly cited its real PS-01
+score and Housing-Compatibility sub-score verbatim.
+
+**Scoped commit:** staged only these four features' files — `FEATURE_REGISTRY_v2.md`,
+`AGENT_VERIFICATION_LOG.md`, this file, `STATE_OF_THE_BUILD.md`, the marketplace `[agentId]` page
+(row #160), the giving-dna lib/route/page + verify script (row #92), the funder-signal-monitor
+agent/migration/verify script (row #99). Left untouched (pre-existing, unrelated in-progress work
+from other sessions/worktrees): `.claude/worktrees/agent-*`,
+`storage/key_value_stores/default/SDK_SESSION_POOL_STATE.json`,
+`src/lib/scraper/foundation-scraper.ts`'s D6 fix, `D4_PROSPECT_IMPORT_INVESTIGATION_2026-08-15.md`,
+`REMAINING_BUILD_PLAN_2026-08-15.md`, `enrichment-output/990-investigation-cache/`,
+`investigate-990-run.log`, `scripts/run-d6-scrape-wrapper.mjs`.
+
+---
+
+## Prior Session — August 15, 2026 (Multi-Channel Outreach build + live verify, row #77)
 
 **Focus:** build row #77 (Multi-Channel Outreach, previously PARTIAL — templates page and send route
 existed but LinkedIn/phone/physical mail were not implemented) as a ToS-safe draft-and-log model: each

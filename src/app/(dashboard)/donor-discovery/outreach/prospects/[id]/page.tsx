@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 
 import { PageHeader } from "@/components/layout/PageHeader";
-import { Badge, Card, EmptyState, LoadingSpinner } from "@/components/ui";
+import { Badge, Button, Card, EmptyState, LoadingSpinner } from "@/components/ui";
 import { formatDate, formatRelative } from "@/lib/utils/formatters";
 
 // PS-01..PS-10 per AGENTS_v2.md AG-22 spec — score/rationale/top_factors per
@@ -67,9 +67,22 @@ interface CorporateProspectDetail {
   enrichment_completed_at: string | null;
   scores: ScoresPayload | null;
   scores_computed_at: string | null;
-  giving_dna: Record<string, unknown> | null;
+  giving_dna: GivingDnaProfile | Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
+}
+
+interface GivingDnaProfile {
+  summary: string;
+  outreach_angles: string[];
+  data_gaps: string[];
+  based_on_fields: string[];
+  generated_at: string;
+  [key: string]: unknown;
+}
+
+function isGivingDnaProfile(value: Record<string, unknown>): value is GivingDnaProfile {
+  return typeof value.summary === "string" && Array.isArray(value.outreach_angles);
 }
 
 const PS_LABELS: Record<string, string> = {
@@ -192,27 +205,24 @@ export default function CorporateProspectProfilePage({ params }: { params: { id:
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      setLoading(true);
-      setError(null);
-      const res = await fetch(`/api/intelligence/corporate-prospects/${params.id}`, { cache: "no-store" });
-      if (cancelled) return;
-      if (!res.ok) {
-        setError(res.status === 404 ? "This prospect could not be found." : "Could not load this prospect.");
-        setLoading(false);
-        return;
-      }
-      const payload = (await res.json()) as { prospect: CorporateProspectDetail };
-      setProspect(payload.prospect);
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    const res = await fetch(`/api/intelligence/corporate-prospects/${params.id}`, { cache: "no-store" });
+    if (!res.ok) {
+      setError(res.status === 404 ? "This prospect could not be found." : "Could not load this prospect.");
       setLoading(false);
+      return;
     }
-    void load();
-    return () => {
-      cancelled = true;
-    };
+    const payload = (await res.json()) as { prospect: CorporateProspectDetail };
+    setProspect(payload.prospect);
+    setLoading(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   return (
     <div className="space-y-6">
@@ -233,19 +243,136 @@ export default function CorporateProspectProfilePage({ params }: { params: { id:
           description={error ?? "This prospect could not be found."}
         />
       ) : (
-        <ProspectProfile prospect={prospect} />
+        <ProspectProfile prospect={prospect} onGivingDnaGenerated={load} />
       )}
     </div>
   );
 }
 
-function ProspectProfile({ prospect }: { prospect: CorporateProspectDetail }) {
+function GivingDnaCard({
+  prospectId,
+  hasGivingDna,
+  profile,
+  rawGivingDna,
+  onGenerated,
+}: {
+  prospectId: string;
+  hasGivingDna: boolean;
+  profile: GivingDnaProfile | null;
+  rawGivingDna: Record<string, unknown> | null;
+  onGenerated: () => void | Promise<void>;
+}) {
+  const [generating, setGenerating] = useState(false);
+  const [genError, setGenError] = useState<string | null>(null);
+
+  async function handleGenerate() {
+    setGenerating(true);
+    setGenError(null);
+    try {
+      const res = await fetch(`/api/intelligence/corporate-prospects/${prospectId}/giving-dna`, {
+        method: "POST",
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: string } | null;
+        setGenError(body?.error ?? "Could not generate a Giving DNA profile.");
+      } else {
+        await onGenerated();
+      }
+    } catch {
+      setGenError("Could not reach the server.");
+    }
+    setGenerating(false);
+  }
+
+  const generateButton = (
+    <Button type="button" size="sm" onClick={handleGenerate} disabled={generating}>
+      <Sparkles className="mr-1 inline h-3.5 w-3.5" aria-hidden />
+      {generating ? "Generating..." : hasGivingDna ? "Regenerate Giving DNA" : "Generate Giving DNA"}
+    </Button>
+  );
+
+  return (
+    <div className="space-y-3">
+      {genError && (
+        <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+          {genError}
+        </div>
+      )}
+
+      {profile ? (
+        <div className="space-y-3">
+          <p className="text-sm leading-relaxed text-slate-800">{profile.summary}</p>
+
+          {profile.outreach_angles.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Outreach angles</p>
+              <ul className="mt-1.5 space-y-1.5">
+                {profile.outreach_angles.map((angle, i) => (
+                  <li key={i} className="flex gap-2 text-sm text-slate-700">
+                    <span aria-hidden style={{ color: "#0077B6" }}>
+                      •
+                    </span>
+                    {angle}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {profile.data_gaps.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Data gaps</p>
+              <ul className="mt-1.5 space-y-1">
+                {profile.data_gaps.map((gap, i) => (
+                  <li key={i} className="text-xs text-slate-500">
+                    {gap}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <p className="border-t border-slate-100 pt-2 text-xs text-slate-400">
+            Generated {formatRelative(profile.generated_at)} from {profile.based_on_fields.length} known field
+            {profile.based_on_fields.length === 1 ? "" : "s"} on this prospect.
+          </p>
+
+          {generateButton}
+        </div>
+      ) : hasGivingDna && rawGivingDna ? (
+        // giving_dna is populated but not in the expected shape (e.g. hand-written test data) — render
+        // generically rather than hiding real data behind the typed renderer above.
+        <div className="space-y-3">
+          <EnrichmentFindings enrichment={rawGivingDna} />
+          {generateButton}
+        </div>
+      ) : (
+        <EmptyState
+          icon={Sparkles}
+          title="Giving DNA not yet built"
+          description="A structured giving-behavior profile for this company hasn't been generated yet."
+          action={generateButton}
+        />
+      )}
+    </div>
+  );
+}
+
+function ProspectProfile({
+  prospect,
+  onGivingDnaGenerated,
+}: {
+  prospect: CorporateProspectDetail;
+  onGivingDnaGenerated: () => void | Promise<void>;
+}) {
   const displayName = prospect.dba_name?.trim() || prospect.legal_name;
   const scores = prospect.scores ?? {};
   const scoredMetrics = PS_ORDER.filter((code) => scores[code] != null);
   const hasScores = scoredMetrics.length > 0;
   const ranking = scores.ranking;
-  const hasGivingDna = prospect.giving_dna != null && Object.keys(prospect.giving_dna).length > 0;
+  const givingDnaRaw = prospect.giving_dna as Record<string, unknown> | null;
+  const hasGivingDna = givingDnaRaw != null && Object.keys(givingDnaRaw).length > 0;
+  const givingDnaProfile = givingDnaRaw && isGivingDnaProfile(givingDnaRaw) ? givingDnaRaw : null;
   const hasEnrichment = prospect.enrichment != null && Object.keys(prospect.enrichment).length > 0;
 
   const addressParts = [
@@ -407,15 +534,13 @@ function ProspectProfile({ prospect }: { prospect: CorporateProspectDetail }) {
         </Card>
 
         <Card title="Corporate Giving DNA">
-          {hasGivingDna ? (
-            <EnrichmentFindings enrichment={prospect.giving_dna!} />
-          ) : (
-            <EmptyState
-              icon={Sparkles}
-              title="Giving DNA not yet built"
-              description="A structured giving-behavior profile for this company hasn't been generated yet."
-            />
-          )}
+          <GivingDnaCard
+            prospectId={prospect.id}
+            hasGivingDna={hasGivingDna}
+            profile={givingDnaProfile}
+            rawGivingDna={givingDnaRaw}
+            onGenerated={onGivingDnaGenerated}
+          />
         </Card>
       </div>
     </div>

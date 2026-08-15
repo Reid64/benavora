@@ -8968,3 +8968,156 @@ a plain `organizations` delete — handled with a generic sweep across every tab
 zero `Q37_*`-named test orgs and zero `is_seed_data=true` marketplace rows remain in production
 after this session. All throwaway verification scripts (`scripts/.q37-verify/`) were deleted before
 this commit and were never staged.
+
+## Agent Log Viewer pagination + live verification (row #160, 2026-08-15)
+
+`FEATURE_REGISTRY_v2.md` row #160 (Agent Log Viewer) was still marked PLANNED, but the underlying
+feature had already shipped 2026-08-07 (commit `2ed3983`) as part of the same q27 session that built
+the Agent Marketplace (row #159) — `src/app/(dashboard)/agents/marketplace/[agentId]/page.tsx` and
+`GET /api/agents/registry/[agentId]/runs`, reachable via every marketplace card's "View run history →"
+link. Same recurring stale-registry pattern as row #106 earlier this session and US6/US7 before that.
+
+**Real gap found and fixed**: the API route already supported cursor pagination (`cursor`/`limit`
+query params, `DEFAULT_LIMIT=50`, `MAX_LIMIT=100`), but the page never used it — it fetched one
+50-row batch on mount with no way to reach older runs. Added a "Load More" control to
+`[agentId]/page.tsx`, following the exact cursor-on-`created_at` pattern already used by the
+Autonomous Decision Log (`src/app/(dashboard)/settings/agents/page.tsx`, row #214): track `hasMore`
+(`result.length === PAGE_SIZE`), append fetched rows on click, pass the last row's `created_at` as
+the next `cursor`.
+
+`pnpm tsc --noEmit` — 0 errors. `pnpm run build` — clean production build, no errors (full route
+manifest printed including `/agents/marketplace/[agentId]`).
+
+**Live verification** (real dev server on port 3001 — the pre-existing process on port 3000 was
+confirmed to belong to an unrelated project, `Tarritrix-specs`, not this repo; do not assume a
+listening :3000 process is benavora's without checking `Get-CimInstance Win32_Process`'s
+`CommandLine`). Logged in as the real Faith Foundation owner (`info@faithfoundationsf.org`) via
+`admin.auth.admin.generateLink({type:"magiclink"})` exchanged into cookies through `@supabase/ssr`'s
+server client (no password read or changed), driving a real headless Chromium via Playwright.
+
+1. **AG-17 Discovery** (`/agents/marketplace/ag-17-discovery`): the page's own live network response
+   and the rendered table (5 rows) were captured and compared against a direct `psql` read of
+   `agent_runs WHERE agent_type='ag-17-discovery' AND organization_id='b1ab7402-dfc2-4712-869f-70ea3566cc1d'`
+   — all 5 row ids, in the same order, with matching `status`/`items_found`/`items_processed`/
+   `error_message`/`output_summary` (including the known `dcd831ba-...` failed run's
+   `action_payload`-column error text) matched exactly, byte-for-byte on the JSON summary field.
+2. **Pagination** (`/agents/marketplace/eligibility_scoring`, AG-02, 124 real runs same org):
+   first page returned exactly 50 rows via the API, "Load More" button rendered, clicking it issued
+   a real `?cursor=<last created_at>&limit=50` request, returned 50 more rows (100 rendered total),
+   and had zero id overlap with page 1 — confirming genuine cursor pagination, not a duplicate fetch.
+3. Unauthenticated access to both the page and its API route redirects (matches this app's existing
+   middleware behavior for every other dashboard route — not a defect introduced by this feature).
+
+All throwaway verification scripts (`scripts/verify-agent-log-viewer.mjs`,
+`scripts/verify-agent-log-viewer-pagination.mjs`) were deleted after this pass and were never staged.
+The local dev server process started for this test was stopped afterward.
+
+## AG-43 Funder Signal Monitor built + live-verified (row #99, 2026-08-15)
+
+`FEATURE_REGISTRY_v2.md` row #99 (Signal Monitoring, Pillar 4) was PLANNED — "LinkedIn + news + 990
+watching." Built as **AG-43** (`src/lib/agents/funder-signal-monitor-agent.ts`, migration
+`137_funder_signal_monitoring.sql`), reusing AG-30 Donor Intent Monitor's real, already-proven
+pattern (`donor-intent-monitor-agent.ts`, row #218) — grounded web search forced via
+`callClaudeWithWebSearch`'s `maxSearches:1`, Claude-extracted structured signals validated against a
+fixed type enum, deterministic (non-LLM) scoring for real structured data, 60-day dedup window,
+`agent_decisions` logging, and a HIGH-score bridge into `relationship_memory` — retargeted from
+corporate-donor-intent to the calling org's own `funders` CRM.
+
+**LinkedIn deliberately excluded, not silently dropped**: no public API exists for monitoring
+third-party LinkedIn posts without a paid partner integration this project doesn't have, and scraping
+it directly would violate LinkedIn's Terms of Service — a real legal/ToS risk, consistent with
+`BEHAVIORAL_CONTRACTS.md` §21/§27's existing scraping-restraint posture. Stated explicitly in the
+migration and agent file headers.
+
+**Scoped to two real sources**: (1) news — 3 targeted web searches per funder (leadership/board,
+funding-priority/RFP), 5 relationship-relevant signal types distinct from AG-18 Reputation
+Intelligence's risk-focused taxonomy; (2) 990 filing — a deterministic, non-LLM check against
+`foundation_directory`'s real ProPublica-sourced `enrichment.propublica` data (best-effort name+state
+match, since `funders` carries no EIN/FK), surfacing the funder's real most-recent total
+assets/revenue/expenses when a match exists. No real per-foundation time series exists in this
+schema (one snapshot per EIN, not per-fiscal-year history), so this cannot detect a year-over-year
+*change* the way AG-42 Change Monitor does — stated honestly rather than fabricating a trend.
+
+**Live-verified against real data in the real Faith Foundation org** (`b1ab7402-...`) via
+`scripts/verify-funder-signal-monitor.ts` (`node --import tsx`, real service-role admin client, no
+mocks): ran `FunderSignalMonitorAgent.runForFunder()` against all 3 real private/corporate-foundation
+funders on file.
+- **"1011 FOUNDATION INC"** (EIN 912168491): real `foundation_directory` match found (name+state
+  join), a real `funder_relationship_signals` row inserted with the funder's actual FY2023 990
+  figures (`total assets $71,073,222, total revenue $36,862,105, total functional expenses
+  $1,652,023`) — cross-checked byte-for-byte against a direct `psql` read of
+  `foundation_directory.enrichment->'propublica'` for EIN 912168491, matched exactly. Score 90
+  (>=80 HIGH threshold) correctly triggered a real `alerts` notification and a real
+  `relationship_memory` bridge row (`memory_type='990_signal'`).
+- **"1111 FOUNDATION"** (EIN 461463656): same pipeline, different real numbers (`total assets
+  $541,826,488, total revenue $21,977,319, total functional expenses $49,487,069`), independently
+  matched exactly against `psql`, same HIGH-score notification/bridge behavior.
+- **"Walmart"** (`corporate_foundation`, no matching `foundation_directory` row under that exact
+  name): correctly produced zero signals — an honest empty result for a funder with no real 990 data
+  on file under this name, not a bug.
+- **Dedup confirmed live**: re-running against "1011 FOUNDATION INC" a second time updated the
+  existing row in place (same `id`, unchanged `created_at`) rather than inserting a duplicate —
+  exactly 2 total rows remained across both real funders after 3 total runs.
+- **News half genuinely exercised** (not skipped): real `web_search` calls fired every run (28,754–
+  34,235 tokens per run, real Anthropic spend) via the real grounded-search pipeline; none of the 3
+  test funders had a real, substantiable news signal strong enough to clear the 60/100 threshold
+  this run — an honest negative result from a real search, not a stub returning empty.
+
+`pnpm tsc --noEmit` — 0 errors. Migration 137 applied live via `psql "$DATABASE_URL"` (Directive-017)
+and independently re-confirmed via `to_regclass()` and a direct `agent_type` enum query. The
+verification script (`scripts/verify-funder-signal-monitor.ts`) was kept in `scripts/` (not deleted)
+since it doubles as this agent's manual-trigger CLI, matching the precedent of other agents' `run-*`
+scripts — the `funder_relationship_signals` rows it created are real, not synthetic test data (no
+`is_seed_data`/`Q*`-prefixed cleanup was needed or performed).
+
+## Corporate Giving DNA rebuilt + live-verified (row #92, 2026-08-15)
+
+`FEATURE_REGISTRY_v2.md` row #92 (Corporate Giving DNA) was PLANNED, but a first attempt had already
+shipped 2026-08-07 (commit `f03ec99`) and was never successfully live-verified — the same day's
+q32-003 pass found it 404ing in production (never `vercel --prod`'d) and reproducibly 500-crashing in
+local dev, root cause undiagnosed. That old page only had a passive `EnrichmentFindings` renderer for
+a `giving_dna` jsonb column nothing ever populated (0 of 49 real `corporate_prospects` rows had it
+set, per q32-002's preflight) — there was no generator to actually produce a profile.
+
+**Rebuilt this session, not just re-tested**: `src/lib/intelligence/giving-dna.ts`
+(`generateGivingDna()`, `buildGivingDnaFacts()`) + `POST
+/api/intelligence/corporate-prospects/[id]/giving-dna` (`requireRole("writer")`, service-role admin
+client — `corporate_prospects` has no `organization_id`, same precedent as row #87/#97) + a real
+"Generate/Regenerate Giving DNA" button added to the existing prospect profile page
+(`donor-discovery/outreach/prospects/[id]/page.tsx`).
+
+**Grounding is structural, not just prompted**: `buildGivingDnaFacts()` extracts only real, populated
+fields from the row (identity/classification columns, EA-01–EA-10 `enrichment`, AG-22
+`scores.PS-01`/`ranking`) into a numbered fact list; the system prompt states these are the ONLY
+facts Claude may reference; the persisted `based_on_fields` array records exactly which real fields
+contributed, so a caller can check the claim against the row rather than trusting the model.
+
+**Live-verified against 2 real, contrasting `corporate_prospects` rows**
+(`scripts/verify-giving-dna.ts`, `node --import tsx`, real service-role admin client, real Claude
+call, real writes — no mocks):
+
+- **"Greater Than Builders, LLC"** (`4310e2f9-...`) — only 4 thin facts on file (industry category,
+  city, a Google Places rating of 5, Google Places category tags). The generated profile honestly
+  called itself "extremely thin" and explicitly listed the missing data (no leadership contact, no
+  revenue, no giving history) rather than inventing specifics to sound complete. `based_on_fields`
+  matched all 4 extracted fact keys exactly.
+- **"GOOD HOUSING CONSTRUCTION LLC"** (`3d15c0f2-...`) — the one row in the real 49-row pool with
+  populated AG-22 `scores` (per q32-002's preflight). The generated summary correctly cited the real
+  PS-01 overall score (40/100) and, more precisely, the real Housing-Compatibility sub-score (62)
+  pulled verbatim from `scores.PS-01.rationale` — not a generic restatement. `based_on_fields`
+  exactly matched the 3 real facts extracted (`address_city`, `scores.PS-01`, `scores.ranking`).
+  Independently re-confirmed by a direct re-read of `corporate_prospects.giving_dna` after the write
+  (not just trusting the route's own response). Re-running against the same row produced a new
+  `generated_at` timestamp — confirmed a real regeneration, not a cached no-op.
+
+**One real, unrelated data-quality artifact surfaced during testing** (not caused by this feature,
+noted for a future session): "GOOD HOUSING CONSTRUCTION LLC"'s `address_city` is literally
+`"YONGIN-SI"` — a South Korean city — for what reads as a Texas-market construction LLC. The
+generator correctly and honestly reported this real (if suspect) value rather than silently dropping
+or normalizing it; worth a future data-quality pass on whichever ingestion path wrote this row, but
+out of scope for this feature's own correctness.
+
+`pnpm tsc --noEmit` — 0 errors. `pnpm run build` — clean production build. `scripts/verify-giving-dna.ts`
+was kept in `scripts/` (not deleted) as this feature's manual-trigger CLI, same precedent as row
+#99's verify script — the two `giving_dna` writes it produced are real profiles for real prospects,
+not synthetic test data requiring cleanup.

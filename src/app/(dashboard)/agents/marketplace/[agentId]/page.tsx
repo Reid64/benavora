@@ -37,6 +37,8 @@ interface RunsResponse {
   runs: AgentRun[];
 }
 
+const PAGE_SIZE = 50;
+
 const cardStyle = {
   backgroundColor: "#FFFFFF",
   borderRadius: "12px",
@@ -81,9 +83,12 @@ function formatTokens(tokens: number | null): string {
 
 async function fetchRuns(
   agentId: string,
+  cursor: string | null,
 ): Promise<{ ok: true; data: RunsResponse } | { ok: false; status: number; message: string }> {
   try {
-    const res = await fetch(`/api/agents/registry/${encodeURIComponent(agentId)}/runs`);
+    const params = new URLSearchParams({ limit: String(PAGE_SIZE) });
+    if (cursor) params.set("cursor", cursor);
+    const res = await fetch(`/api/agents/registry/${encodeURIComponent(agentId)}/runs?${params.toString()}`);
     if (!res.ok) {
       if (res.status === 401) {
         return { ok: false, status: 401, message: "You must be signed in to view this agent's run history." };
@@ -110,17 +115,21 @@ export default function AgentLogViewerPage() {
   const [agentName, setAgentName] = useState<string | null>(null);
   const [runs, setRuns] = useState<AgentRun[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
-    const result = await fetchRuns(agentId);
+    const result = await fetchRuns(agentId, null);
     if (result.ok) {
       setAgentName(result.data.agent.name);
       setRuns(result.data.runs);
+      setHasMore(result.data.runs.length === PAGE_SIZE);
     } else {
       setRuns([]);
+      setHasMore(false);
       setLoadError(result.message);
     }
     setLoading(false);
@@ -129,6 +138,20 @@ export default function AgentLogViewerPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  async function handleLoadMore() {
+    const cursor = runs[runs.length - 1]?.created_at;
+    if (!cursor) return;
+    setLoadingMore(true);
+    const result = await fetchRuns(agentId, cursor);
+    setLoadingMore(false);
+    if (!result.ok) {
+      setLoadError(result.message);
+      return;
+    }
+    setRuns((prev) => [...prev, ...result.data.runs]);
+    setHasMore(result.data.runs.length === PAGE_SIZE);
+  }
 
   return (
     <div style={{ backgroundColor: "#D6E4F0", minHeight: "100vh", padding: "32px" }}>
@@ -259,6 +282,29 @@ export default function AgentLogViewerPage() {
                 })}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {hasMore && !loading && (
+          <div style={{ display: "flex", justifyContent: "center" }}>
+            <button
+              type="button"
+              disabled={loadingMore}
+              onClick={() => void handleLoadMore()}
+              style={{
+                fontSize: "13px",
+                fontWeight: 600,
+                color: "#0077B6",
+                backgroundColor: "#FFFFFF",
+                border: "1px solid #0077B6",
+                borderRadius: "8px",
+                padding: "8px 20px",
+                cursor: loadingMore ? "wait" : "pointer",
+                opacity: loadingMore ? 0.6 : 1,
+              }}
+            >
+              {loadingMore ? "Loading…" : "Load More"}
+            </button>
           </div>
         )}
       </div>
