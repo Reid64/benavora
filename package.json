@@ -46,6 +46,7 @@
         "ingest:landbanks": "tsx scripts/ingest-land-banks.ts",
         "ingest:federal-register": "tsx scripts/ingest-federal-register.ts",
         "ingest:samhsa-hrsa": "tsx scripts/ingest-samhsa-hrsa.ts",
+        "ingest:ca-grants-portal": "tsx scripts/ingest-ca-grants-portal.ts",
         "score:opportunities": "tsx scripts/batch-score-opportunities.ts",
         "score:eligibility": "tsx scripts/batch-score-eligibility.ts",
         "seed:intelligence": "tsx scripts/seed-intelligence-corpus.ts",

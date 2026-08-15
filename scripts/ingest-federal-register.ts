@@ -26,9 +26,9 @@ import { createAdminClient } from "../src/lib/supabase/admin";
 const FEDERAL_REGISTER_API = "https://www.federalregister.gov/api/v1/documents.json";
 
 const AGENCIES = [
-  "department-of-housing-and-urban-development",
-  "department-of-health-and-human-services",
-  "department-of-justice",
+  "housing-and-urban-development-department",
+  "health-and-human-services-department",
+  "justice-department",
 ];
 
 const PER_PAGE = 100;

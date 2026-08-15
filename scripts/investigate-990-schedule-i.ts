@@ -36,7 +36,10 @@
 // ============================================================================
 
 import fs from "node:fs";
+import { open, type FileHandle } from "node:fs/promises";
 import path from "node:path";
+import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import zlib from "node:zlib";
 import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
@@ -167,7 +170,7 @@ async function matchIndex(candidateEins: Set<string>): Promise<IndexMatch[]> {
 }
 
 // ----------------------------------------------------------------------------
-// 3. ZIP64-aware targeted entry reader.
+// 3. ZIP64-aware targeted entry reader — now file-backed, not buffer-backed.
 //
 // The pinned `unzipper` package mis-locates entries in this IRS index's real
 // batch archives (84,172+ entries, requiring ZIP64 central-directory
@@ -176,6 +179,20 @@ async function matchIndex(candidateEins: Set<string>): Promise<IndexMatch[]> {
 // Central Directory record and following each entry's *local* file header
 // (not trusting central-directory compressed-size fields blindly) before
 // inflating with Node's built-in zlib — no third-party zip library involved.
+//
+// 2026-08-15 fix: batch archives run 500MB+, and both `fetch(...).arrayBuffer()`
+// (single-buffer download) and holding the whole file as one in-memory Buffer
+// failed outright in this sandbox. The ZIP format itself only requires random
+// access, not sequential reads — the central directory lives at the *end* of
+// the file, and each entry's data is reachable directly via its local-header
+// offset. So: stream the download straight to a temp file on disk (never
+// buffering more than one response chunk at a time), then use positional
+// (pread-style) reads against the file handle to pull only the specific byte
+// ranges actually needed — the EOCD tail, the central directory (a few MB even
+// at 84,172 entries), and each targeted entry's local header + compressed data.
+// The parsing algorithm itself (signatures, field offsets, ZIP64 extra-field
+// handling) is unchanged from the prior buffer-based version, just re-pointed
+// at small on-demand reads instead of slicing one giant in-memory buffer.
 // ----------------------------------------------------------------------------
 
 const EOCD_SIG = 0x06054b50;
@@ -191,73 +208,90 @@ interface CentralEntry {
   method: number;
 }
 
-function findEOCD(buf: Buffer): number {
-  // EOCD is within the last 64KB + comment; scan backward for the signature.
-  const minScan = Math.max(0, buf.length - 66_000);
-  for (let i = buf.length - 22; i >= minScan; i--) {
-    if (buf.readUInt32LE(i) === EOCD_SIG) return i;
+/** Positional read — never touches any part of the file outside [position, position+length). */
+async function readAt(fh: FileHandle, position: number, length: number): Promise<Buffer> {
+  const buf = Buffer.alloc(length);
+  const { bytesRead } = await fh.read(buf, 0, length, position);
+  return buf.subarray(0, bytesRead);
+}
+
+/** Locate the classic EOCD record signature by scanning the last ~66KB of the file. */
+async function findEOCD(fh: FileHandle, fileSize: number): Promise<{ eocdOffset: number; tail: Buffer; tailStart: number }> {
+  const tailStart = Math.max(0, fileSize - 66_000);
+  const tail = await readAt(fh, tailStart, fileSize - tailStart);
+  for (let i = tail.length - 22; i >= 0; i--) {
+    if (tail.readUInt32LE(i) === EOCD_SIG) return { eocdOffset: tailStart + i, tail, tailStart };
   }
   throw new Error("EOCD signature not found — not a valid ZIP");
 }
 
-function parseCentralDirectory(buf: Buffer): CentralEntry[] {
-  const eocdOffset = findEOCD(buf);
+async function parseCentralDirectory(fh: FileHandle, fileSize: number): Promise<CentralEntry[]> {
+  const { eocdOffset, tail, tailStart } = await findEOCD(fh, fileSize);
+  const eocdLocal = eocdOffset - tailStart;
 
-  let cdOffset = buf.readUInt32LE(eocdOffset + 16);
-  let cdEntryCount = buf.readUInt16LE(eocdOffset + 10);
+  let cdOffset = tail.readUInt32LE(eocdLocal + 16);
+  let cdEntryCount = tail.readUInt16LE(eocdLocal + 10);
+  let cdEndOffset = eocdOffset;
 
   // ZIP64: standard fields pinned at 0xFFFFFFFF/0xFFFF when the real archive
   // exceeds the 32-bit/16-bit limits (true for these 84,172-entry batches).
   if (cdOffset === 0xffffffff || cdEntryCount === 0xffff) {
     const locatorOffset = eocdOffset - 20;
-    if (locatorOffset < 0 || buf.readUInt32LE(locatorOffset) !== EOCD64_LOCATOR_SIG) {
+    const locatorBuf = await readAt(fh, locatorOffset, 20);
+    if (locatorOffset < 0 || locatorBuf.readUInt32LE(0) !== EOCD64_LOCATOR_SIG) {
       throw new Error("ZIP64 EOCD locator not found where expected");
     }
-    const eocd64Offset = Number(buf.readBigUInt64LE(locatorOffset + 8));
-    if (buf.readUInt32LE(eocd64Offset) !== EOCD64_SIG) {
+    const eocd64Offset = Number(locatorBuf.readBigUInt64LE(8));
+    const eocd64Buf = await readAt(fh, eocd64Offset, 56);
+    if (eocd64Buf.readUInt32LE(0) !== EOCD64_SIG) {
       throw new Error("ZIP64 EOCD record signature mismatch");
     }
-    cdEntryCount = Number(buf.readBigUInt64LE(eocd64Offset + 32));
-    cdOffset = Number(buf.readBigUInt64LE(eocd64Offset + 48));
+    cdEntryCount = Number(eocd64Buf.readBigUInt64LE(32));
+    cdOffset = Number(eocd64Buf.readBigUInt64LE(48));
+    cdEndOffset = eocd64Offset; // central directory ends right before the ZIP64 EOCD record
   }
 
+  // Central directory itself is small even at 84,172 entries (~80 bytes/entry,
+  // a few MB total) — safe to read as one bounded chunk, unlike the full ZIP.
+  const cdBuf = await readAt(fh, cdOffset, cdEndOffset - cdOffset);
+
   const entries: CentralEntry[] = [];
-  let p = cdOffset;
+  let p = 0;
   for (let i = 0; i < cdEntryCount; i++) {
-    if (buf.readUInt32LE(p) !== CENTRAL_SIG) {
-      throw new Error(`central directory entry #${i} signature mismatch at offset ${p}`);
+    if (cdBuf.readUInt32LE(p) !== CENTRAL_SIG) {
+      throw new Error(`central directory entry #${i} signature mismatch at offset ${cdOffset + p}`);
     }
-    const method = buf.readUInt16LE(p + 10);
-    let compressedSize = BigInt(buf.readUInt32LE(p + 20));
-    const nameLen = buf.readUInt16LE(p + 28);
-    const extraLen = buf.readUInt16LE(p + 30);
-    const commentLen = buf.readUInt16LE(p + 32);
-    let localHeaderOffset = BigInt(buf.readUInt32LE(p + 42));
-    const name = buf.toString("utf-8", p + 46, p + 46 + nameLen);
+    const method = cdBuf.readUInt16LE(p + 10);
+    let compressedSize = BigInt(cdBuf.readUInt32LE(p + 20));
+    const nameLen = cdBuf.readUInt16LE(p + 28);
+    const extraLen = cdBuf.readUInt16LE(p + 30);
+    const commentLen = cdBuf.readUInt16LE(p + 32);
+    let localHeaderOffset = BigInt(cdBuf.readUInt32LE(p + 42));
+    const name = cdBuf.toString("utf-8", p + 46, p + 46 + nameLen);
 
     // Parse ZIP64 extra field (tag 0x0001) if present. Per APPNOTE.TXT, its
     // subfields appear in a fixed order — uncompressed size, compressed size,
     // local header offset, disk start — but each is present ONLY if the
     // corresponding standard 32-bit field above was pinned to 0xFFFFFFFF.
-    const uncompressedSize32 = buf.readUInt32LE(p + 24);
-    const compressedSize32 = buf.readUInt32LE(p + 20);
-    const localOffset32 = buf.readUInt32LE(p + 42);
+    const uncompressedSize32 = cdBuf.readUInt32LE(p + 24);
+    const compressedSize32 = cdBuf.readUInt32LE(p + 20);
+    const localOffset32 = cdBuf.readUInt32LE(p + 42);
     if (extraLen > 0 && (uncompressedSize32 === 0xffffffff || compressedSize32 === 0xffffffff || localOffset32 === 0xffffffff)) {
       const extraStart = p + 46 + nameLen;
       let ep = extraStart;
       const extraEnd = extraStart + extraLen;
       while (ep + 4 <= extraEnd) {
-        const tag = buf.readUInt16LE(ep);
-        const size = buf.readUInt16LE(ep + 2);
+        const tag = cdBuf.readUInt16LE(ep);
+        const size = cdBuf.readUInt16LE(ep + 2);
         if (tag === 0x0001) {
           let cursor = ep + 4;
           if (uncompressedSize32 === 0xffffffff) cursor += 8; // uncompressed size — not needed, skip
           if (compressedSize32 === 0xffffffff) {
-            compressedSize = buf.readBigUInt64LE(cursor);
+            compressedSize = cdBuf.readBigUInt64LE(cursor);
             cursor += 8;
           }
           if (localOffset32 === 0xffffffff) {
-            localHeaderOffset = buf.readBigUInt64LE(cursor);
+            localHeaderOffset = cdBuf.readBigUInt64LE(cursor);
             cursor += 8;
           }
         }
@@ -271,37 +305,64 @@ function parseCentralDirectory(buf: Buffer): CentralEntry[] {
   return entries;
 }
 
-/** Follow a central-directory entry's local file header and inflate its data. */
-function extractEntry(buf: Buffer, entry: CentralEntry): Buffer {
+/** Follow a central-directory entry's local file header and inflate its data — reads only this entry's bytes. */
+async function extractEntry(fh: FileHandle, entry: CentralEntry): Promise<Buffer> {
   const lp = Number(entry.localHeaderOffset);
-  if (buf.readUInt32LE(lp) !== LOCAL_SIG) {
+  const header = await readAt(fh, lp, 30);
+  if (header.readUInt32LE(0) !== LOCAL_SIG) {
     throw new Error(`local file header signature mismatch at offset ${lp} for ${entry.name}`);
   }
-  const nameLen = buf.readUInt16LE(lp + 26);
-  const extraLen = buf.readUInt16LE(lp + 28);
+  const nameLen = header.readUInt16LE(26);
+  const extraLen = header.readUInt16LE(28);
   const dataStart = lp + 30 + nameLen + extraLen;
   const compressedSize = Number(entry.compressedSize);
-  const raw = buf.subarray(dataStart, dataStart + compressedSize);
+  const raw = await readAt(fh, dataStart, compressedSize);
 
-  if (entry.method === 0) return Buffer.from(raw); // stored, no compression
+  if (entry.method === 0) return raw; // stored, no compression
   if (entry.method === 8) return zlib.inflateRawSync(raw); // deflate
   throw new Error(`unsupported compression method ${entry.method} for ${entry.name}`);
 }
 
-async function downloadBatchZip(xmlBatchId: string): Promise<Buffer> {
+/**
+ * Stream the batch ZIP straight to disk (never buffering the whole response
+ * in memory — the prior `fetch(...).arrayBuffer()` approach failed outright
+ * on 500MB+ transfers in this sandbox). Returns the local file path; callers
+ * read it back via positional `FileHandle.read()` calls, not a full load.
+ */
+async function downloadBatchZip(xmlBatchId: string): Promise<string> {
   const cacheFile = path.join(CACHE_DIR, `${xmlBatchId}.zip`);
   if (fs.existsSync(cacheFile)) {
-    console.log(`  using cached ${xmlBatchId}.zip`);
-    return fs.readFileSync(cacheFile);
+    const { size } = fs.statSync(cacheFile);
+    console.log(`  using cached ${xmlBatchId}.zip (${(size / 1e6).toFixed(1)}MB on disk)`);
+    return cacheFile;
   }
   const zipUrl = `https://apps.irs.gov/pub/epostcard/990/xml/${YEAR}/${xmlBatchId}.zip`;
-  console.log(`  downloading batch ZIP: ${zipUrl}`);
+  console.log(`  streaming batch ZIP to disk: ${zipUrl}`);
   const res = await fetch(zipUrl);
-  if (!res.ok) throw new Error(`batch ZIP download failed: HTTP ${res.status}`);
-  const buf = Buffer.from(await res.arrayBuffer());
-  console.log(`    ${(buf.length / 1e6).toFixed(1)}MB downloaded`);
-  fs.writeFileSync(cacheFile, buf);
-  return buf;
+  if (!res.ok || !res.body) throw new Error(`batch ZIP download failed: HTTP ${res.status}`);
+
+  const tmpFile = `${cacheFile}.part`;
+  let bytesStreamed = 0;
+  let lastLoggedMB = 0;
+  const source = Readable.fromWeb(res.body as unknown as import("node:stream/web").ReadableStream);
+  source.on("data", (chunk: Buffer) => {
+    bytesStreamed += chunk.length;
+    const mb = Math.floor(bytesStreamed / 1e6);
+    if (mb - lastLoggedMB >= 50) {
+      lastLoggedMB = mb;
+      console.log(`    ...${mb}MB streamed`);
+    }
+  });
+
+  try {
+    await pipeline(source, fs.createWriteStream(tmpFile));
+  } catch (err) {
+    fs.rmSync(tmpFile, { force: true });
+    throw new Error(`batch ZIP streaming failed after ${(bytesStreamed / 1e6).toFixed(1)}MB: ${(err as Error).message}`);
+  }
+  fs.renameSync(tmpFile, cacheFile);
+  console.log(`    ${(bytesStreamed / 1e6).toFixed(1)}MB streamed to ${cacheFile}`);
+  return cacheFile;
 }
 
 // ----------------------------------------------------------------------------
@@ -362,9 +423,9 @@ async function main() {
   }> = [];
 
   for (const [xmlBatchId, group] of batchGroups) {
-    let zipBuf: Buffer;
+    let zipPath: string;
     try {
-      zipBuf = await downloadBatchZip(xmlBatchId);
+      zipPath = await downloadBatchZip(xmlBatchId);
     } catch (err) {
       for (const t of group) {
         results.push({ ein: t.ein, name: candidateByEin.get(t.ein)!.name, lineItemCount: 0, sampleLineItems: [], error: `batch download failed: ${(err as Error).message}` });
@@ -372,57 +433,66 @@ async function main() {
       continue;
     }
 
-    let centralEntries: CentralEntry[];
+    let fh: FileHandle | null = null;
     try {
-      centralEntries = parseCentralDirectory(zipBuf);
-      console.log(`  parsed central directory: ${centralEntries.length} entries in ${xmlBatchId}.zip`);
-    } catch (err) {
-      console.error(`  FAILED to parse central directory for ${xmlBatchId}.zip: ${(err as Error).message}`);
-      for (const t of group) {
-        results.push({ ein: t.ein, name: candidateByEin.get(t.ein)!.name, lineItemCount: 0, sampleLineItems: [], error: `central directory parse failed: ${(err as Error).message}` });
-      }
-      continue;
-    }
-    const byName = new Map(centralEntries.map((e) => [e.name, e]));
+      fh = await open(zipPath, "r");
+      const { size: fileSize } = await fh.stat();
+      console.log(`  opened ${xmlBatchId}.zip for positional reads (${(fileSize / 1e6).toFixed(1)}MB on disk)`);
 
-    for (const t of group) {
-      const c = candidateByEin.get(t.ein)!;
-      const entryName = `${t.objectId}_public.xml`;
-      const entry = byName.get(entryName);
-      if (!entry) {
-        console.log(`  EIN ${t.ein} (${c.name}): entry ${entryName} not found in ${xmlBatchId}.zip central directory`);
-        results.push({ ein: t.ein, name: c.name, lineItemCount: 0, sampleLineItems: [], error: "entry not found in batch ZIP central directory" });
+      let centralEntries: CentralEntry[];
+      try {
+        centralEntries = await parseCentralDirectory(fh, fileSize);
+        console.log(`  parsed central directory: ${centralEntries.length} entries in ${xmlBatchId}.zip`);
+      } catch (err) {
+        console.error(`  FAILED to parse central directory for ${xmlBatchId}.zip: ${(err as Error).message}`);
+        for (const t of group) {
+          results.push({ ein: t.ein, name: candidateByEin.get(t.ein)!.name, lineItemCount: 0, sampleLineItems: [], error: `central directory parse failed: ${(err as Error).message}` });
+        }
         continue;
       }
-      try {
-        const xmlBuf = extractEntry(zipBuf, entry);
-        const xml = xmlBuf.toString("utf-8");
-        const parsed = irs990.parseXml(t.ein, xml, `${xmlBatchId}.zip#${entryName}`);
-        const meta = irs990.extractFilingMeta(xml);
-        console.log(
-          `  EIN ${t.ein} (${c.name}): parsed OK — name on filing: "${parsed?.name ?? "(none)"}", fiscalYear=${meta.fiscalYear}, grantCount=${meta.grantCount ?? 0}, lineItems=${meta.grantLineItems?.length ?? 0}`,
-        );
-        results.push({
-          ein: t.ein,
-          name: c.name,
-          fiscalYear: meta.fiscalYear,
-          grantCount: meta.grantCount,
-          grantRangeMin: meta.grantRangeMin,
-          grantRangeMax: meta.grantRangeMax,
-          lineItemCount: meta.grantLineItems?.length ?? 0,
-          sampleLineItems: (meta.grantLineItems ?? []).slice(0, 5),
-        });
+      const byName = new Map(centralEntries.map((e) => [e.name, e]));
 
-        // Save the raw XML for any positive hit so it can be cross-checked by hand.
-        if ((meta.grantLineItems?.length ?? 0) > 0) {
-          const outFile = path.join(CACHE_DIR, `${t.ein}_${t.objectId}.xml`);
-          fs.writeFileSync(outFile, xml);
-          console.log(`    >>> POSITIVE HIT — raw XML saved to ${outFile}`);
+      for (const t of group) {
+        const c = candidateByEin.get(t.ein)!;
+        const entryName = `${t.objectId}_public.xml`;
+        const entry = byName.get(entryName);
+        if (!entry) {
+          console.log(`  EIN ${t.ein} (${c.name}): entry ${entryName} not found in ${xmlBatchId}.zip central directory`);
+          results.push({ ein: t.ein, name: c.name, lineItemCount: 0, sampleLineItems: [], error: "entry not found in batch ZIP central directory" });
+          continue;
         }
-      } catch (err) {
-        console.error(`  EIN ${t.ein} (${c.name}): extraction FAILED — ${(err as Error).message}`);
-        results.push({ ein: t.ein, name: c.name, lineItemCount: 0, sampleLineItems: [], error: (err as Error).message });
+        try {
+          const xmlBuf = await extractEntry(fh, entry);
+          const xml = xmlBuf.toString("utf-8");
+          const parsed = irs990.parseXml(t.ein, xml, `${xmlBatchId}.zip#${entryName}`);
+          const meta = irs990.extractFilingMeta(xml);
+          console.log(
+            `  EIN ${t.ein} (${c.name}): parsed OK — name on filing: "${parsed?.name ?? "(none)"}", fiscalYear=${meta.fiscalYear}, grantCount=${meta.grantCount ?? 0}, lineItems=${meta.grantLineItems?.length ?? 0}`,
+          );
+          results.push({
+            ein: t.ein,
+            name: c.name,
+            fiscalYear: meta.fiscalYear,
+            grantCount: meta.grantCount,
+            grantRangeMin: meta.grantRangeMin,
+            grantRangeMax: meta.grantRangeMax,
+            lineItemCount: meta.grantLineItems?.length ?? 0,
+            sampleLineItems: (meta.grantLineItems ?? []).slice(0, 5),
+          });
+
+          // Save the raw XML for any positive hit so it can be cross-checked by hand.
+          if ((meta.grantLineItems?.length ?? 0) > 0) {
+            const outFile = path.join(CACHE_DIR, `${t.ein}_${t.objectId}.xml`);
+            fs.writeFileSync(outFile, xml);
+            console.log(`    >>> POSITIVE HIT — raw XML saved to ${outFile}`);
+          }
+        } catch (err) {
+          console.error(`  EIN ${t.ein} (${c.name}): extraction FAILED — ${(err as Error).message}`);
+          results.push({ ein: t.ein, name: c.name, lineItemCount: 0, sampleLineItems: [], error: (err as Error).message });
+        }
       }
+    } finally {
+      await fh?.close();
     }
   }
 

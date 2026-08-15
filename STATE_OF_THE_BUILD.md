@@ -1,6 +1,145 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 14, 2026 (Global Feature Search / command-palette shipped: header Ctrl+K search over ~90 role-filtered routes, gates clean, browser-level verification blocked by sandbox). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 15, 2026 (closing prompt: foundation-scraper pagination bug fixed [live S2 impact], state_portals table gap fixed, CA state portal RSS parser built, 990-PF Schedule I streaming retry attempted but still inconclusive, registry reconciled). Not FORGE-auto-generated — hand-verified.**
+
+## SESSION — August 15, 2026 (closing prompt: foundation-scraper pagination fix, state_portals table gap fix, CA state portal RSS parser, 990-PF streaming retry, registry closeout)
+
+**Focus:** closing prompt of this queue. Ran gates, confirmed the D7 correction commit already landed,
+reconciled `FEATURE_REGISTRY_v2.md` for every row this queue touched, attempted a real retry of the
+990-PF Schedule I positive case with the new streaming code, and did the scoped commit/push.
+
+**Gates:** `pnpm run build` — clean, all routes compiled. `pnpm tsc --noEmit` — 0 errors.
+
+**D7 (DATAOCEAN backup):** already corrected in a prior commit this queue (`feb0044`, "docs: correct
+D7 - DATAOCEAN backup concern is moot, underlying data already ingested per Reid") — confirmed via
+`git log`, no further action needed.
+
+**Foundation-scraper pagination bug fixed (live S2 scraper impact):** `loadEinsMissingWebsite()`
+(`src/lib/scraper/foundation-scraper.ts`) requested pages of 5000 via `.range()`, but PostgREST caps
+every response at 1000 rows regardless of the requested range (`db.max_rows`) — the old
+`if (data.length < PAGE) break` end-of-data check was true on the very first page, silently scoping
+the EIN index to an arbitrary 1000 of 114,037+ real candidates on **every** run of this shared
+function, including the live weekly `foundation-enrichment-weekly` scheduler job (S2), not just the
+Universal Scraper US6 template that first surfaced this bug on 2026-08-14. Fixed by adding
+`.order("id", { ascending: true })` for stable pagination and advancing `from` by the actual
+`data.length` returned each page (capped at 1000 by PostgREST) instead of the requested page size,
+looping until `data.length === 0`. **Not live-verified this session**: two separate attempts to
+re-run a confirmation pass (`pnpm scrape:foundations-v2`, the 990-Schedule-I streaming retry — see
+below) were blocked by a tool-permission gate on live network+secret calls before either could
+execute. The fix is code-verified only (`pnpm tsc --noEmit` clean, loop semantics reviewed) — flagged
+explicitly in `FEATURE_REGISTRY_v2.md` rows S2 and US6, not silently upgraded to VERIFIED.
+
+**State Portal table gap fixed:** `STATE_PORTAL_SCOPING_2026-08-13.md` had flagged (but not fixed)
+that `src/app/(dashboard)/settings/integrations/page.tsx` queried a `state_portals` table that does
+not exist in either migration tree, silently always rendering "0 Active" on the State Portals
+connector card. Fixed by removing that query entirely and reading `PORTAL_REGISTRY.length` instead —
+the same registry `StatePortalResearchAgent`'s Run Now button actually uses — with `PORTAL_REGISTRY`
+extracted out of `src/lib/agents/state-portal.ts` (server-only) into a new standalone
+`src/lib/sources/state-portals/portal-registry.ts` so the client-side settings page can import it
+without pulling in server-only Anthropic/admin-Supabase code. `pnpm tsc --noEmit` clean.
+
+**CA state portal RSS parser built:** new, standalone 5th implementation of "state portal" per the
+scoping doc's recommendation — `src/lib/sources/state-portals/ca-grants-portal-client.ts` (parses the
+real `grants.ca.gov/grants/feed/` WordPress RSS feed, not HTML-regex like the existing
+`portal-scraper.ts` stub) + `ca-grants-portal-sync.ts` (dedup-by-URL sync into `opportunities`,
+mirroring `grantsgov-sync.ts`'s convention) + `scripts/ingest-ca-grants-portal.ts`
+(`pnpm ingest:ca-grants-portal`). Nonprofit-eligibility is cross-referenced against a second signal
+(the HTML archive's `applicant_type-nonprofit` article class, since the feed itself doesn't carry that
+field) with a 5s same-domain delay per Contracts §21; unmatched grants get `nonprofitEligible: null`,
+never a fabricated `false`. **Not live-verified this session**: `pnpm ingest:ca-grants-portal` was
+attempted twice and blocked both times by the same tool-permission gate on live network+secret calls
+seen elsewhere in this session — code-verified only (`pnpm tsc --noEmit` clean, logic cross-checked
+against the scoping doc's own live-fetched feed structure from 2026-08-13).
+
+**990-PF Schedule I streaming retry — attempted, still inconclusive (say this plainly, not buried).**
+`scripts/investigate-990-schedule-i.ts` was rewritten to stream the batch-ZIP download straight to a
+temp file on disk (`node:stream/promises` `pipeline()`, never buffering the full 500MB+ transfer in
+memory — the exact failure mode that killed the 2026-08-14 attempt) and to read the ZIP64 central
+directory / entries via positional (`FileHandle.read()`-based) reads against that file instead of
+buffer-slicing. This session: found a stale, incomplete `.part` file (~100MB of a 521MB target) and an
+incomplete run log from an interrupted attempt, cleared it, and tried a fresh re-run. **The fresh
+re-run was blocked by a tool-permission gate on live network+secret calls before it could execute.**
+Net result: the streaming code is a real, type-checked fix for the buffering failure mode (and the
+prior attempt's partial `.part` file shows it did get further than the pre-streaming code, which never
+wrote any partial data at all) — but **the positive-Schedule-I extraction case remains unconfirmed for
+a fourth consecutive session/attempt**, this time because the retry itself could not be run to
+completion, not because of a new code defect. Do not read the streaming fix as having resolved this
+row — it has not been confirmed end-to-end.
+
+**Tool-permission gate encountered repeatedly this session:** three separate live network+secret Bash
+invocations (990 Schedule I retry ×2, CA Grants Portal ingestion) were all blocked with "This command
+requires approval" and did not execute, consistent with this project's known pattern of live
+network/secret calls needing explicit approval in some sessions. Per house rules, did not retry the
+same blocked call more than once each — documented the gap honestly instead of fabricating a result.
+
+**Registry updates:** `FEATURE_REGISTRY_v2.md` rows S2 (Foundation Enrichment Scraper), US6
+(Foundation-990 job template), #66 (990-PF Giving History), and #56 (State Portal Framework) all
+updated with dated, evidence-cited notes reflecting the above — see that file directly for full text.
+
+**Scoped commit:** staged only the files actually touched across this queue's prompts — the six
+tracked files already modified in the working tree (`FEATURE_REGISTRY_v2.md`, `STATE_OF_THE_BUILD.md`,
+`package.json`, `scripts/ingest-federal-register.ts`, `scripts/ingest-samhsa-hrsa.ts`,
+`scripts/investigate-990-schedule-i.ts`, `src/app/(dashboard)/settings/integrations/page.tsx`,
+`src/lib/agents/state-portal.ts`, `src/lib/scraper-v2/extractor.ts`,
+`src/lib/scraper/foundation-scraper.ts`) plus this queue's new untracked files
+(`scripts/ingest-ca-grants-portal.ts`, `src/lib/sources/state-portals/ca-grants-portal-client.ts`,
+`src/lib/sources/state-portals/ca-grants-portal-sync.ts`,
+`src/lib/sources/state-portals/portal-registry.ts`, `SESSION_STATE.md`) — not `git add -A`. Left
+untouched: `.claude/worktrees/agent-*` (unrelated dirty worktree pointers from other sessions),
+`storage/key_value_stores/default/SDK_SESSION_POOL_STATE.json` (unrelated local SDK cache churn),
+`enrichment-output/990-investigation-cache/` and `investigate-990-run.log` (untracked
+scratch/investigation output from the interrupted prior attempt, not a deliverable).
+
+---
+
+## SESSION — August 14, 2026 (US7 byline-misattribution defect fixed: extractStructured() prompt now deprioritizes reporter/byline contact info)
+
+Follow-up to this file's own earlier August 14 US6/US7 re-verification session (below), which found
+and documented but did not fix a real defect: `extractStructured()` (`src/lib/scraper-v2/extractor.ts`,
+US4, shared by every Universal Scraper template) had no way to distinguish an organization's own
+official contact from any other person's contact info that happens to appear on a page — concretely,
+Anderson Center Services Inc's `contact_emails`/`officer_email` got written to a newspaper reporter's
+byline email (`jferro@poughkeepsiejournal.com`) found on a syndicated news article the org republished
+on its own `/news/` page.
+
+**Fix:** added one paragraph to `buildPrompt()` in `extractor.ts` — schema-agnostic (fires whenever any
+requested field looks like a contact detail), and explicitly a heuristic, not a hard rule: prefer
+values that read as the organization's own official contact (info@/contact@/admin@/office@-style
+addresses, org-domain addresses, values near "Contact Us"/"Get in Touch" headings or in a
+footer/contact-page context); deprioritize — not automatically exclude — values that read as belonging
+to an individual named in a byline, article credit, or quoted-source attribution (text after "By
+[Name]," a reporter/author credit, an email/phone tied to a named journalist on a republished news
+story); when genuinely unsure whether a value belongs to the org or an unrelated individual, leave the
+field out rather than guess. Left the tool schema (`buildToolSchema()`) and the omit-if-absent
+mechanism untouched — this is prompt guidance only, not a new validation rule.
+
+**Real regression test, not just a code read.** Found the exact real page recorded in production
+`scrape_results` for the failing case via a direct `DATABASE_URL` query (`fetched_at 2026-08-14
+06:07:56`): `https://www.andersoncenterforautism.org/news/anderson-center-graduates-largest-class-ever/`
+— confirmed the reporter's byline text (`John Ferro: 845-437-4816; jferro@poughkeepsiejournal.com`) is
+genuinely present in the raw page HTML (plain fetch, no Playwright needed for this domain — the site is
+server-rendered WordPress, not the JS-rendered build the prior session's note implied). Also pulled the
+exact real source URLs behind the two named 2026-08-14 success cases from the same table:
+`https://www.wwvremc.com/uncategorized/rising-costs-and-reliability-information-for-members/`
+(`info@wwvremc.com`) and `https://www.ezramedical.org/contact` (`718.686.7600`).
+
+Ran the real, unmodified `extractStructured()` (via `node --import tsx`, real Anthropic API calls, the
+same `nonprofit-contact-template.ts` schema — `{email, phone, contact_name}`) against fresh live fetches
+of all three URLs, before and after the prompt change:
+- **Before:** Anderson Center page → `{email: "jferro@poughkeepsiejournal.com", phone: "845-437-4816",
+  contact_name: "John Ferro"}` — reproduces the exact documented defect.
+- **After:** Anderson Center page → `{email: null, phone: null, contact_name: null}` — correctly
+  declines to attribute the reporter's info to the org, rather than fabricating a different value.
+- **After, regression check:** wwvremc.com page → `{email: "info@wwvremc.com", phone: null,
+  contact_name: null}` (unchanged, matches production); ezramedical.org page → `{email: null, phone:
+  "718.686.7600", contact_name: null}` (unchanged, matches production). No regression on either real
+  success case.
+
+Temporary query/test scripts used for this were deleted after use, not committed.
+
+**Gates:** `pnpm tsc --noEmit` — 0 errors.
+
+---
 
 ## SESSION — August 14, 2026 (Global Feature Search: header command palette, role-aware, ~90-route index)
 

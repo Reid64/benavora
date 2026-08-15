@@ -1,7 +1,65 @@
 # BENAVORA — Session State
-## Last Updated: August 14, 2026 (Global Feature Search / command-palette shipped, gates clean, registry row #229 added)
+## Last Updated: August 15, 2026 (closing prompt: foundation-scraper pagination fix, state_portals table gap fix, CA state portal RSS parser, 990-PF streaming retry inconclusive, gates clean, scoped commit)
 
-## Current Session — August 14, 2026 (Global Feature Search: header command palette, role-aware, ~90-route index)
+## Current Session — August 15, 2026 (closing prompt: foundation-scraper pagination fix, state_portals table fix, CA state portal RSS parser, 990-PF streaming retry, registry closeout)
+
+**Focus:** closing prompt of this queue. Ran the gate sequence, confirmed the D7 correction commit
+(`feb0044`) already landed, reconciled `FEATURE_REGISTRY_v2.md` for every row this queue touched (S2,
+US6, #66, #56), attempted a real retry of the 990-PF Schedule I positive case using the new streaming
+code, and did the scoped commit/push.
+
+**Gates:** `pnpm run build` — clean. `pnpm tsc --noEmit` — 0 errors.
+
+**What shipped (from earlier prompts in this queue, confirmed by direct diff read this session):**
+- Foundation-scraper pagination fix (`src/lib/scraper/foundation-scraper.ts`'s
+  `loadEinsMissingWebsite()`) — fixes a bug affecting both the Universal Scraper US6 template AND the
+  live weekly S2 scraper (`foundation-enrichment-weekly`), since both call this same shared function.
+- `state_portals` table gap fix (`src/app/(dashboard)/settings/integrations/page.tsx` +new
+  `src/lib/sources/state-portals/portal-registry.ts`) — the State Portals card no longer queries a
+  nonexistent table.
+- New CA Grants Portal RSS parser (`ca-grants-portal-client.ts`, `ca-grants-portal-sync.ts`,
+  `scripts/ingest-ca-grants-portal.ts`) — a 5th, standalone state-portal implementation per
+  `STATE_PORTAL_SCOPING_2026-08-13.md`'s recommendation.
+- Streaming rewrite of `scripts/investigate-990-schedule-i.ts`'s batch-ZIP download/parse path.
+- (Already committed by an earlier prompt in this queue, confirmed via registry diff, not re-verified
+  from scratch this session): rows #168/#169 (Federal Register / SAMHSA-HRSA ingestion) both actually
+  run for real, real bugs found and fixed (agency-slug mismatch; numeric-overflow + non-Error
+  PostgrestError masking), real row counts confirmed via `psql`.
+
+**Could not verify this session — say this plainly, not buried under the wins above:**
+- **Row #66 (990-PF Schedule I positive case): still unconfirmed, a fourth consecutive attempt/session
+  without a positive result.** The new streaming code got further than the prior attempt (a real
+  ~100MB partial download was found on disk from an interrupted run, vs. zero partial data before
+  streaming existed), but a fresh re-run attempt this session was blocked by a tool-permission gate on
+  live network+secret calls before it could execute at all. The streaming fix is code-verified
+  (`pnpm tsc --noEmit` clean) but not yet run to completion.
+- **Foundation-scraper pagination fix (S2/US6): not live-verified this session.** Two separate
+  confirmation-run attempts (`pnpm scrape:foundations-v2`, and the 990 retry above) were blocked by
+  the same tool-permission gate. Code-verified only.
+- **CA Grants Portal parser: not live-verified this session.** `pnpm ingest:ca-grants-portal` was
+  attempted twice, blocked both times by the same gate. Code-verified only, cross-checked against the
+  scoping doc's own live-fetched feed structure from 2026-08-13, not against a fresh live fetch.
+- `pnpm lint` was not run this session (same class of restriction as prior sessions, not attempted a
+  second time after the network-call gate pattern repeated three times already).
+
+**Scoped commit:** staged only the files actually touched across this queue's prompts (six tracked
+modifications — `FEATURE_REGISTRY_v2.md`, `STATE_OF_THE_BUILD.md`, `package.json`,
+`scripts/ingest-federal-register.ts`, `scripts/ingest-samhsa-hrsa.ts`,
+`scripts/investigate-990-schedule-i.ts`, `src/app/(dashboard)/settings/integrations/page.tsx`,
+`src/lib/agents/state-portal.ts`, `src/lib/scraper-v2/extractor.ts`,
+`src/lib/scraper/foundation-scraper.ts` — plus four new untracked files
+(`scripts/ingest-ca-grants-portal.ts`,
+`src/lib/sources/state-portals/ca-grants-portal-client.ts`,
+`src/lib/sources/state-portals/ca-grants-portal-sync.ts`,
+`src/lib/sources/state-portals/portal-registry.ts`) and this file — not `git add -A`. Left untouched:
+`.claude/worktrees/agent-*` (unrelated dirty worktree pointers from other sessions),
+`storage/key_value_stores/default/SDK_SESSION_POOL_STATE.json` (unrelated local SDK cache churn),
+`enrichment-output/990-investigation-cache/` and `investigate-990-run.log` (untracked
+scratch/investigation output, not a deliverable).
+
+---
+
+## Previous Session — August 14, 2026 (Global Feature Search: header command palette, role-aware, ~90-route index)
 
 **Focus:** closing prompt of a 4-prompt queue that shipped a global Ctrl+K/Cmd+K command-palette
 search in the header (`src/components/layout/GlobalSearch.tsx`, `src/lib/search/feature-index.ts`),

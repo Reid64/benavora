@@ -329,6 +329,7 @@ async function loadEinsMissingWebsite(supabase: ReturnType<typeof createAdminCli
       .from("foundation_directory")
       .select("ein")
       .is("website", null)
+      .order("id", { ascending: true })
       .range(from, from + PAGE - 1);
 
     if (error) {
@@ -342,8 +343,7 @@ async function loadEinsMissingWebsite(supabase: ReturnType<typeof createAdminCli
       if (ein) set.add(ein);
     }
 
-    if (data.length < PAGE) break;
-    from += PAGE;
+    from += data.length;
   }
 
   return set;

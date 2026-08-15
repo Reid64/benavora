@@ -26,6 +26,7 @@ import { Badge, Button, Card, LoadingSpinner, Modal } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 import { useProfile } from "@/lib/hooks/useProfile";
 import { formatRelative } from "@/lib/utils/formatters";
+import { PORTAL_REGISTRY } from "@/lib/sources/state-portals/portal-registry";
 import type { Enums } from "@/types/database";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -88,7 +89,12 @@ function IntegrationsContent() {
   const [lastRuns, setLastRuns] = useState<
     Record<string, { completed_at: string | null; status: string } | null>
   >({});
-  const [statePortalCount, setStatePortalCount] = useState(0);
+  // Sourced from PORTAL_REGISTRY (src/lib/sources/state-portals/portal-registry.ts),
+  // the same registry StatePortalResearchAgent reads when this card's Run Now
+  // button calls POST /api/agents/state-portals. There is no per-org
+  // "active" toggle for state portals today — every registry entry is
+  // available to every org, subject to tier gating enforced server-side.
+  const statePortalCount = PORTAL_REGISTRY.length;
 
   const [loading, setLoading] = useState(true);
 
@@ -125,7 +131,7 @@ function IntegrationsContent() {
     setLoading(true);
     const supabase = createClient();
     try {
-      const [keysRes, emailRes, calRes, statusRes, runsRes, portalsRes, prefsRes] =
+      const [keysRes, emailRes, calRes, statusRes, runsRes, prefsRes] =
         await Promise.all([
           fetch("/api/integrations/keys"),
           supabase
@@ -145,10 +151,6 @@ function IntegrationsContent() {
             .in("agent_type", [...AGENT_TYPES])
             .order("created_at", { ascending: false })
             .limit(40),
-          supabase
-            .from("state_portals")
-            .select("id", { count: "exact", head: true })
-            .eq("is_active", true),
           supabase
             .from("platform_config")
             .select("key, value")
@@ -187,7 +189,6 @@ function IntegrationsContent() {
         }
       }
       setLastRuns(runMap);
-      setStatePortalCount(portalsRes.count ?? 0);
 
       const prefsMap: Record<string, string> = {};
       for (const row of prefsRes.data ?? []) {

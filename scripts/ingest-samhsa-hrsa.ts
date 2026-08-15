@@ -84,7 +84,20 @@ function ok(step: string, detail: string) {
 }
 
 function fail(step: string, error: unknown) {
-  const message = error instanceof Error ? error.message : String(error);
+  // Supabase's PostgrestError isn't an Error instance — String(error) renders "[object Object]"
+  // and hides the real cause. Prefer .message when present, fall back to a JSON dump.
+  const message =
+    error instanceof Error
+      ? error.message
+      : error && typeof error === "object" && "message" in error
+        ? String((error as { message: unknown }).message)
+        : (() => {
+            try {
+              return JSON.stringify(error);
+            } catch {
+              return String(error);
+            }
+          })();
   console.error(`  ✗ ${step}: ${message}`);
 }
 
@@ -137,7 +150,13 @@ function toRow(award: UsaSpendingAward): ProposalRow | null {
 
   const funderName = award["Awarding Sub Agency"]?.trim() || award["Awarding Agency"]?.trim() || "HHS";
   const rawAmount = award["Award Amount"];
-  const amount = typeof rawAmount === "number" && Number.isFinite(rawAmount) ? rawAmount : null;
+  // award_amount is numeric(12,2) (migration 048_grant_intelligence.sql) — max ~$9.99B. Large
+  // Medicaid/entitlement awards routinely exceed that; null the amount rather than fail the row/batch.
+  const AWARD_AMOUNT_COLUMN_MAX = 9_999_999_999.99;
+  const amount =
+    typeof rawAmount === "number" && Number.isFinite(rawAmount) && Math.abs(rawAmount) <= AWARD_AMOUNT_COLUMN_MAX
+      ? rawAmount
+      : null;
 
   return {
     source: "USASPENDING",

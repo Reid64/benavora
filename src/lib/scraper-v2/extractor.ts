@@ -129,7 +129,9 @@ Page content:
 ${text}
 """
 
-Call the ${TOOL_NAME} tool with only the fields whose values are genuinely stated in the page content above. Do not fabricate, guess, or infer a value that is not actually present in the text — if a requested field isn't on this page, leave it out of your tool call entirely rather than making one up.`;
+Call the ${TOOL_NAME} tool with only the fields whose values are genuinely stated in the page content above. Do not fabricate, guess, or infer a value that is not actually present in the text — if a requested field isn't on this page, leave it out of your tool call entirely rather than making one up.
+
+If any requested field is a contact detail (an email, phone number, or person's name), keep this in mind while choosing which value to report: pages often contain contact information belonging to someone other than the organization itself. Prefer values that read as the organization's own official contact — addresses like info@/contact@/admin@/office@ or one on the organization's own domain, and phone numbers or names that appear near headings like "Contact Us," "Get in Touch," or "Contact Information," or in a footer/contact-page context. Deprioritize (do not treat as an automatic exclusion) contact details that read as belonging to an individual named in a byline, article credit, or quoted-source attribution — e.g. text following "By [Name]," a reporter/author credit at the top or bottom of a news article, or an email/phone tied to a named journalist covering a story the organization has republished on its own site (a common pattern for a nonprofit's "News" or "Press" page). This is a judgment call, not a hard rule: some organizations' real official contact will genuinely sit near article-style text, so if that is clearly the organization's own contact, still report it. When you cannot tell whether a specific value belongs to the organization itself versus an unrelated individual mentioned on the page, leave that field out rather than guessing.`;
 }
 
 /**
