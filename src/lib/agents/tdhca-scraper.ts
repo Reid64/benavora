@@ -1,4 +1,4 @@
-﻿// TDHCA Scraper Agent â€” fetches Texas Department of Housing and Community
+﻿// TDHCA Scraper Agent — fetches Texas Department of Housing and Community
 // Affairs grant pages and extracts housing grant opportunities via Claude.
 //
 // Scrapes two TDHCA pages with User-Agent "Benavora Grant Research Bot",

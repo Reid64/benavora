@@ -1,4 +1,4 @@
-﻿// Corporate Scraper Agent â€” scrapes major corporate foundation and giving pages,
+﻿// Corporate Scraper Agent — scrapes major corporate foundation and giving pages,
 // extracts structured grant opportunity data via Claude, and inserts new records.
 //
 // Fetches 5 corporate URLs with a 1-second delay between each, sends each page's

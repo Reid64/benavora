@@ -1,7 +1,55 @@
 # BENAVORA — Session State
-## Last Updated: August 15, 2026 (closing prompt: foundation-scraper pagination fix, state_portals table gap fix, CA state portal RSS parser, 990-PF streaming retry inconclusive, gates clean, scoped commit)
+## Last Updated: August 15, 2026 (live security surface test + real E2E workflow smoke test, gates clean, scoped commit)
 
-## Current Session — August 15, 2026 (closing prompt: foundation-scraper pagination fix, state_portals table fix, CA state portal RSS parser, 990-PF streaming retry, registry closeout)
+## Current Session — August 15, 2026 (live security surface test + real E2E workflow smoke test)
+
+**Focus:** run and document two real, live test passes — a security surface test (SQLi, XSS, CSRF,
+SSRF, RLS, auth boundaries) and a core end-to-end workflow smoke test — then run the gate sequence
+and do a scoped commit/push. Both test passes were already executed and their fixes already applied
+live earlier this session (see `SECURITY_TEST_2026-08-15.md`, `WORKFLOW_SMOKE_TEST_2026-08-15.md` for
+full evidence); this closing prompt verified the gates, wrote the governance-doc summary, and shipped
+it.
+
+**Gates:** `pnpm run build` — clean, exit 0, all routes compiled. `pnpm tsc --noEmit` — 0 errors. No
+fixes were needed for either gate this prompt — both were already clean going in.
+
+**Security test result:** PASS on SQLi, XSS (React UI), CSRF, SSRF, RLS (5 newly-picked tables), and
+auth boundaries (7/7 owner/admin routes). **One real, unfixed gap**: all 4 transactional HTML email
+templates (`src/lib/email/templates/*.ts`) interpolate user-controlled fields with zero escaping —
+not exploitable as executing JS in mainstream mail clients, but genuine uncontrolled HTML injection
+into a real send. Deferred, flagged for a dedicated follow-up (needs a per-field judgment call on
+which interpolations are meant to carry literal HTML).
+
+**Workflow smoke test result:** full login → discover → score → draft → assemble → pipeline → outcome
+journey run for real against production (FAITH Foundation org for most steps, the dedicated E2E Test
+Org for the outcome-recording step, to avoid fabricating analytics on a real customer's data). **Two
+real production bugs found and fixed live**: (1) `GET /api/notifications` 500'd on every call for
+every org — `automation_notifications` was missing 3 columns its own migration file already declared
+but was never applied live, fixed via `supabase/migrations/134_automation_notifications_missing_columns.sql`;
+(2) the Eligibility Scoring Agent (AG-02) had only ever successfully scored 6 of 1,247 real
+opportunities before this fix — missing columns from `012_opportunity_match_percentage.sql` never
+applied live, fixed via `supabase/migrations/135_opportunities_eligibility_columns.sql`, re-verified
+with 4 real scoring runs. Also fixed a live mojibake display bug on the Outcomes page. Several
+workflow gaps documented but not fixed (no single-opportunity manual scoring trigger; Grants.gov
+"Run Now" doesn't chain into scoring; fire-and-forget outcome-trigger calls could drop on fast tab
+close; two duplicate "FAITH Foundation" orgs exist in prod) — none blocking, all in the full report.
+
+**Scoped commit:** staged only what belongs to these two test passes — `SECURITY_TEST_2026-08-15.md`,
+`WORKFLOW_SMOKE_TEST_2026-08-15.md`, `scripts/security-test-main.mjs`,
+`scripts/security-test-ssrf.mjs`, `scripts/smoke-test-workflow.mjs`,
+`scripts/smoke-test-faith-continue.mjs`, `scripts/smoke-test-e2e-outcome.mjs`,
+`smoke-test-output/`, the two new applied migrations (134/135), the three mojibake fixes
+(`src/app/(dashboard)/outcomes/page.tsx`, `src/lib/agents/corporate-scraper.ts`,
+`src/lib/agents/tdhca-scraper.ts`), and this file + `STATE_OF_THE_BUILD.md`. Left untouched (not part
+of this test pass, pre-existing uncommitted work from a different task):
+`FEATURE_REGISTRY_v2.md`'s D4 correction, `src/lib/scraper/foundation-scraper.ts`'s domain-throttle
+change, `D4_PROSPECT_IMPORT_INVESTIGATION_2026-08-15.md`, `enrichment-output/990-investigation-cache/`,
+`investigate-990-run.log`, `scripts/run-d6-scrape-wrapper.mjs`, `.claude/worktrees/agent-*`, and
+`storage/key_value_stores/default/SDK_SESSION_POOL_STATE.json`.
+
+---
+
+## Prior Session — August 15, 2026 (closing prompt: foundation-scraper pagination fix, state_portals table fix, CA state portal RSS parser, 990-PF streaming retry, registry closeout)
 
 **Focus:** closing prompt of this queue. Ran the gate sequence, confirmed the D7 correction commit
 (`feb0044`) already landed, reconciled `FEATURE_REGISTRY_v2.md` for every row this queue touched (S2,

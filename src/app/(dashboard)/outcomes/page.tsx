@@ -312,7 +312,7 @@ export default function OutcomesPage() {
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
             <OutcomeMetricCard
               label="Success Rate"
-              value={totals.successRate != null ? `${totals.successRate}%` : "â€”"}
+              value={totals.successRate != null ? `${totals.successRate}%` : "—"}
               hint={`${totals.awarded} awarded of ${totals.total}`}
               icon={Percent}
               accent="green"

@@ -1,6 +1,94 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 15, 2026 (closing prompt: foundation-scraper pagination bug fixed [live S2 impact], state_portals table gap fixed, CA state portal RSS parser built, 990-PF Schedule I streaming retry attempted but still inconclusive, registry reconciled). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 15, 2026 (live security surface test + real E2E workflow smoke test, gates clean, scoped commit). Not FORGE-auto-generated — hand-verified.**
+
+## SESSION — August 15, 2026 (live security surface test + real E2E workflow smoke test)
+
+**Focus:** ran two real, live test passes against production and pushed the resulting fixes — a
+live adversarial security surface test (SQLi/XSS/CSRF/SSRF/RLS/auth boundaries) and a real
+click-through end-to-end workflow smoke test (login → discover → score → draft → assemble →
+pipeline → outcome). This closing prompt: ran the gate sequence, wrote this + `SESSION_STATE.md`
+entry, did the scoped commit/push. Full detail in `SECURITY_TEST_2026-08-15.md` and
+`WORKFLOW_SMOKE_TEST_2026-08-15.md` — summarized below, not duplicated.
+
+**Gates:** `pnpm run build` — clean, all routes compiled, exit 0. `pnpm tsc --noEmit` — 0 errors.
+
+### Security surface test — result: 1 real gap found (deferred), everything else PASS
+
+Live tests against real production (`www.benavora.com`) and the real Supabase project, using two
+throwaway orgs/users (created + fully cleaned up afterward, verified — no `SECTEST-%` orgs remain).
+Reusable harness: `scripts/security-test-main.mjs`, `scripts/security-test-ssrf.mjs`.
+
+| Category | Result |
+|---|---|
+| SQL injection | PASS — zero raw-SQL sinks in `src/`, 18 live injection payloads against 3 real search endpoints, no syntax leakage or side effects |
+| XSS (React UI) | PASS — zero `dangerouslySetInnerHTML` in `src/`; a real `<script>`/`onerror` payload stored raw in `knowledge_base.content`/`contacts.name` has no render sink that would execute it |
+| XSS-adjacent (transactional email) | **REAL GAP, not fixed** — `src/lib/email/templates/*.ts` (all 4 templates) interpolate unescaped user-controlled fields (e.g. `orgName`) into raw HTML strings with zero `escapeHtml()`/sanitization anywhere in the directory. Not exploitable as executing JS in mainstream mail clients, but genuine uncontrolled HTML injection into a real transactional send. Deferred — fixing correctly requires a per-field judgment call (which interpolations are meant to carry literal HTML vs. must be escaped), not a mechanical find-replace. |
+| CSRF | PASS — session cookie is `SameSite=Lax` (package default, confirmed by reading `@supabase/ssr` source, not assumed); 7/7 real admin routes correctly 307-redirect to `/login` with no cookie, never reaching route logic |
+| SSRF | PASS — 11/11 malicious payloads blocked against the real, unmodified `safe-fetch.ts`, including the redirect-revalidation path genuinely exercised via a working alternate redirect service |
+| RLS / tenant isolation | PASS, 5/5 — picked 5 org-scoped tables not already covered by `rls.test.ts` or the known 24-table leak list (`marketplace_listings`, `board_meetings`, `impact_simulations`, `funding_forecasts`, `community_need_signals`); 0 cross-org SELECT/UPDATE/DELETE on any, same-org access still works |
+| Auth boundaries | PASS, 7/7 — real viewer-role session correctly 403'd on all 7 real owner/admin-gated routes tested, server-side role re-derivation confirmed, no client-trust bypass |
+
+### Workflow smoke test — result: 2 real production bugs found and fixed live, 1 cosmetic bug fixed, several honest gate-working confirmations
+
+Full core journey driven with Playwright against a local dev server hitting the real, live
+production Supabase project — no mocks. Login/dashboard/discovery ran against the real FAITH
+Foundation org (`b1ab7402-...`, the one `info@faithfoundationsf.org` actually owns); the final
+outcome-recording step used the dedicated Benavora E2E Test Org instead, since recording an
+outcome triggers Recursive Learning/relationship-scoring writes that would have fabricated
+analytics on FAITH Foundation's real, live data. Reusable drivers: `scripts/smoke-test-workflow.mjs`,
+`scripts/smoke-test-faith-continue.mjs`, `scripts/smoke-test-e2e-outcome.mjs`. Screenshots in
+`smoke-test-output/`.
+
+**Fixed live this session (applied via `psql`, `pnpm tsc --noEmit` clean afterward):**
+1. `GET /api/notifications` 500'd on every call, every org, always — `automation_notifications` was
+   missing `title`/`related_entity_type`/`related_entity_id`, columns migration
+   `036_automation_notifications.sql` already declares and 14 files already read/write, but the live
+   table was created independently of that migration (the recurring "two migration realities"
+   pattern). Broke the bell-icon notification center platform-wide. Fixed:
+   `supabase/migrations/134_automation_notifications_missing_columns.sql`, applied live, 0 rows at
+   fix time so no backfill needed.
+2. **Eligibility Scoring Agent (AG-02) had only ever successfully written 6 of 1,247 real
+   opportunities — every other call 500'd.** `eligibility-scorer.ts` writes `is_high_priority` and
+   `match_mismatch_reasons`, columns `012_opportunity_match_percentage.sql` declares but were never
+   applied live. `FEATURE_REGISTRY_v2.md`'s "BUILT — Auto-scores new discoveries" claim for this
+   feature was essentially false in production. Fixed:
+   `supabase/migrations/135_opportunities_eligibility_columns.sql`, applied live, re-verified with 4
+   real scoring runs (real Claude reasoning each time).
+3. Mojibake (`â€"` instead of `—`) in the live Outcomes page UI's Success Rate empty-state value —
+   visible on every org with zero recorded outcomes (most new orgs, first load). Same corruption
+   pattern found in comments only (not user-visible) in `corporate-scraper.ts`/`tdhca-scraper.ts`.
+   Fixed all three (`src/app/(dashboard)/outcomes/page.tsx`, `src/lib/agents/corporate-scraper.ts`,
+   `src/lib/agents/tdhca-scraper.ts`).
+
+**Documented, not fixed (workflow/design gaps, none blocking):**
+- No manual UI trigger exists to eligibility-score a single freshly-discovered opportunity.
+- The manual Grants.gov "Run Now" sync doesn't chain into eligibility scoring — new opportunities sit
+  unscored until the autonomous nightly sweep happens to reach them.
+- Two real, separate "FAITH Foundation" orgs exist in production (`bed3e621-...`, an abandoned
+  dev-era org with 56 opportunities, vs. `b1ab7402-...`, the real 320-opportunity customer org) —
+  pollutes cross-org admin views. Deleting an org is destructive, left as-is.
+- Outcome-triggered background agent calls (funder relationship scoring, Grant DNA, knowledge
+  indexer) are fire-and-forget client-side `fetch()`s, not server-side triggers — confirmed working
+  when the tab stays open, but a user closing the tab immediately after submitting an outcome could
+  silently drop them with no retry/queue/error surface.
+
+**Positive confirmations worth stating explicitly:** RLS enforced correctly everywhere touched
+(`documents`, `application_documents`, `automation_notifications` post-fix); tier/usage-limit
+enforcement is real and live (agent-run daily cap genuinely blocked a repeat call once quota was
+spent); the Compliance Pre-Check gate genuinely blocks incomplete submissions with a real itemized
+reason list, not a rubber stamp; the AI draft generator genuinely refuses to fabricate
+organizational facts and surfaces gaps instead, confirmed on two different orgs.
+
+**Scoped commit:** staged only the files belonging to these two test passes — the two report docs,
+the five new harness/driver scripts, `smoke-test-output/`, the two new applied migrations, and the
+three mojibake fixes. Left untouched: `FEATURE_REGISTRY_v2.md`'s D4 correction and
+`src/lib/scraper/foundation-scraper.ts`'s domain-throttle/placeholder-URL changes (separate,
+already-uncommitted work from a different task, not part of this test pass),
+`.claude/worktrees/agent-*` (unrelated dirty worktree pointers), and
+`storage/key_value_stores/default/SDK_SESSION_POOL_STATE.json` (local SDK cache churn).
+
+---
 
 ## SESSION — August 15, 2026 (closing prompt: foundation-scraper pagination fix, state_portals table gap fix, CA state portal RSS parser, 990-PF streaming retry, registry closeout)
 
