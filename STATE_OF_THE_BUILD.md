@@ -1,6 +1,120 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 15, 2026 (Factor Breakdown UI / Agent Log Viewer / Corporate Giving DNA / Funder Signal Monitoring — rows #106, #160, #92, #99, gates clean, scoped commit). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 15, 2026 (landing page audit + globals.css !important root-cause investigation/partial-fix + shadcn/ui + Storybook tooling setup, gates clean, scoped commit). Not FORGE-auto-generated — hand-verified.**
+
+## SESSION — August 15, 2026 (landing page audit; CSS override root-cause fix; design tooling setup)
+
+**Focus:** three separate deliverables landed this session, documented in
+`LANDING_PAGE_AUDIT_2026-08-15.md` and `CSS_OVERRIDE_INVESTIGATION_2026-08-15.md` (both new, kept in
+repo root as permanent audit records, not summarized-away): (1) a full read-from-source audit of every
+real marketing/landing page, (2) an investigation into *why* `globals.css`'s `!important`
+compatibility layer exists and whether Directive 4's inline-hex-only rule can be relaxed — which, in
+this same session, went beyond pure investigation into an actual partial fix, and (3) shadcn/ui +
+Storybook installed as new design tooling (`components.json`, `.storybook/`,
+`src/components/shadcn/`, `src/lib/utils.ts` all new/untracked at session start).
+
+**Gates:** `pnpm tsc --noEmit` — 0 errors. `pnpm run build` — clean, full route manifest printed, no
+errors, including the tailwind.config.ts/globals.css color-scale changes described below.
+
+**Landing page audit findings (no code changes made for this deliverable — audit only):**
+- **Finding 0, most important:** the entire secondary marketing surface is unreachable in production
+  today. `src/middleware.ts`'s `PUBLIC_PATHS` only lists `/`, `/login`, `/register`,
+  `/forgot-password`, `/reset-password` — `/pricing`, `/for-consultants`, `/security`, `/privacy`,
+  `/terms` are all real, built pages that 307-redirect any anonymous visitor to `/login` before
+  rendering (confirmed live against `www.benavora.com`). The homepage's own nav/footer don't link to
+  any of them either (`href="#"` dead anchors). The only marketing content a real prospect can see
+  today is the single-page homepage. Not fixed this session — flagged as the highest-leverage next
+  action, ahead of any copy/structure work.
+- **Real quoted-price bug:** `/pricing` (unreachable, but reviewed as code) pulls from a different,
+  drifted data source (`src/lib/utils/pricing-plans.ts`) than the homepage's `TIERS` array. Enterprise
+  is wrong in both directions there — `monthly: 1997` (equals the homepage's *annual* figure) and
+  `annual: 1597` (matches neither of the homepage's real numbers, $1,997/$2,497). If `/pricing`
+  becomes reachable without this being fixed, a prospect could see Enterprise $400/mo below the real
+  price. Not fixed this session.
+- **Comparative/premium-pricing case already exists, partially:** a real "The Math" ROI section
+  ($68,596/yr savings claim) and a real named-competitor comparison strip both already exist on the
+  homepage — this is not a from-zero gap. But the competitor strip cites "Instrumentl Full Lifecycle
+  $999/mo" against Reid's real current figures ($179–$549/mo), never mentions Foundant GrantHub at
+  all, only compares the Enterprise tier (priced above both real competitors' ranges), and uses the
+  tier's monthly price ($2,497) right below a card showing the same tier's annual price ($1,997) by
+  default — an internal inconsistency on the same page. `/pricing` itself has zero comparative/ROI
+  content at all.
+- **Secondary accuracy findings:** the SOC 2 hero badge says "SOC 2 compliant" while `/security` (once
+  reachable) says "pursuing... target 2027" — a direct contradiction one click apart. The "113 real
+  awarded grant narratives" stat understates the real, live `intelligence_funded_proposals` count
+  (3,489, confirmed via direct DB query this session). "30 autonomous AI agents" is the *designed*
+  count, not the confirmed-working count (26 of ~42 per the latest agent tally).
+- Full per-finding detail, evidence, and a 7-item prioritized fix list: `LANDING_PAGE_AUDIT_2026-08-15.md`.
+
+**CSS override investigation — outcome is fixed (partial), not pure investigation.** The doc's own
+header says "INVESTIGATION ONLY — no CSS changes made in this pass," which was true when that file was
+written, but this session's `git diff` on `src/app/globals.css` (196 lines changed) and
+`tailwind.config.ts` (118 lines changed) shows the investigation's own recommended fix (steps 1–4 of
+its "Recommendation" section) was actually carried out in the same session, on top of the investigation
+doc — the doc's status line is now stale relative to what actually shipped. Corrected here:
+- **Root cause confirmed:** the `!important` layer exists because two separate, drifted definitions of
+  the same brand colors existed side by side — `tailwind.config.ts`'s legacy `navy`/`teal`/`plum`
+  scales (plus Tailwind's untouched built-in `red`/`yellow`/`amber`/`green`/`emerald`/`blue`/`white`),
+  and `globals.css`'s newer CSS-variable-driven palette, with the `!important` layer as a runtime patch
+  forcing the second to always win. Proven load-bearing by direct history: a full removal on
+  2026-07-16 (`6b52f8e`) caused an immediate visible regression and was reverted 43 minutes later
+  (`7ac3844`) — this is not legacy cruft that could simply be deleted.
+- **What was actually fixed this session:** `teal`/`red`/`yellow`/`amber`/`green`/`emerald`/`blue`'s
+  specific shades that the compat layer used to force were moved into `tailwind.config.ts`'s
+  `theme.extend.colors` (values verified identical to the old forced values), and the corresponding
+  duplicate `!important` rules were deleted from `globals.css` — Tailwind's own generated utility now
+  produces the brand value directly, no override needed. The dead `plum` scale (zero live usage,
+  confirmed by repo-wide grep) was deleted outright from both files, along with several other
+  confirmed-zero-usage selectors (`.bg-surface`, `.bg-navy-50\/30`, `.disabled\:text-navy-500`,
+  `.focus-visible\:text-navy-700`) and the zero-usage `.card-blue/cyan/violet/navy/green/amber` solid
+  card classes. `body`'s `background-color` and `.badge-*`/`.page-bg` had `!important` dropped (no live
+  conflict found for `body`; `.badge-*`/`.page-bg` were confirmed only ever combined with plain,
+  non-`!important` classes, so plain source-order cascade already wins).
+- **What was confirmed genuinely necessary and left as `!important`, with reasoning now documented
+  in-file:** the `navy` family (the same shade number means a different color depending on which CSS
+  property it's applied to — e.g. `navy-100` is a blue-tinted background but a gray border — which a
+  flat Tailwind color-scale value structurally cannot represent without renaming ~149 files' worth of
+  overloaded class usage); the `white` family (overriding Tailwind's built-in `white` key would retint
+  every `text-white`/`border-white` use app-wide, including literal white text on dark/colored
+  backgrounds that must stay pure `#FFFFFF` — too broad a blast radius without a full usage audit
+  first); `.card-depth`/`.border-accent-*`/`.table-header-dark` (real live combos exist, e.g.
+  `bg-white ... card-depth border-accent-blue` on `FoundationCard.tsx`, where each rule must still beat
+  the one before it in the same cascade); and the `@media print` chrome-hiding block (scoped, narrow,
+  and never collides with color work, unchanged).
+- **Governance doc corrected:** `governance/DESIGN_SYSTEM.md` (previously a single stale line with
+  drifted color values, e.g. `Background #C4D0DC / Surface #FFFFFF`) was corrected to the real
+  canonical palette read directly from `globals.css`'s `:root` custom properties, with a note pointing
+  to the investigation doc and to `FEATURE_REGISTRY_v2.md`'s "The One UI Rule" section for the current,
+  per-color-family version of the inline-hex constraint — Directive 4's blanket inline-hex-only rule
+  should no longer be read as applying uniformly to every color family; it's now family-specific.
+- **Not done this session, intentionally deferred per the investigation doc's own ordering:** dropping
+  `!important` from `navy`/`white` (requires the file-rename/usage-audit work described above first).
+  Full per-class evidence trail: `CSS_OVERRIDE_INVESTIGATION_2026-08-15.md`.
+
+**Design tooling set up this session:** shadcn/ui + Storybook, both newly installed
+(`package.json` diff: `storybook@10.5.8`, `@storybook/nextjs-vite`, `@storybook/addon-a11y`,
+`@storybook/addon-docs`, `@storybook/addon-mcp`, `eslint-plugin-storybook`, plus shadcn's runtime deps
+`@radix-ui/react-slot`, `class-variance-authority`, `clsx`, `tailwind-merge`, `tailwindcss-animate`).
+Per project memory (`benavora-shadcn-storybook-installed-2026-08-15`), components are isolated to
+`src/components/shadcn/ui/` specifically to avoid a Windows case-insensitive-filesystem collision and
+to avoid the shadcn CLI's default output path colliding with ~136 existing usages of a differently-cased
+directory elsewhere in the repo. `tailwind.config.ts` gained shadcn's primitive color keys
+(`card`/`popover`/`secondary`/`muted`/`destructive`/`input`/`ring`) as pure additions reusing the
+existing canonical CSS-variable tokens, not a second competing palette. `.eslintrc.json` and
+`.gitignore` updated for Storybook's lint plugin and build artifacts respectively.
+`governance/DESIGN_SYSTEM.md`'s correction (above) was verified against a real Storybook
+computed-style check per that memory entry — the brand tokens render correctly through the new
+component layer, not just in isolation.
+
+**Scoped commit:** staged only `CSS_OVERRIDE_INVESTIGATION_2026-08-15.md`,
+`LANDING_PAGE_AUDIT_2026-08-15.md`, `.eslintrc.json`, `.gitignore`, `.storybook/`, `components.json`,
+`governance/DESIGN_SYSTEM.md`, `package.json`, `pnpm-lock.yaml`, `src/app/globals.css`,
+`src/components/shadcn/`, `src/lib/utils.ts`, `tailwind.config.ts`, `FEATURE_REGISTRY_v2.md`, this
+file, `SESSION_STATE.md`. Left untouched (pre-existing, unrelated in-progress work from other
+sessions/worktrees, not part of this task): `.claude/worktrees/agent-*`,
+`enrichment-output/990-investigation-cache/`, `investigate-990-run.log`.
+
+---
 
 ## SESSION — August 15, 2026 (rows #92, #99, #106, #160 — registry closure + one real rebuild)
 

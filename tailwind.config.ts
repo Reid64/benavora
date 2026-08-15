@@ -13,9 +13,19 @@ import type { Config } from "tailwindcss";
  *  - semantic pairs: success/warning/error/info, each a light bg tint + a
  *    700-level text of the same hue (see <Badge>)
  *
- * Legacy scales below (page/surface-elevated/navy/teal/plum) are kept for
+ * Legacy scales below (page/surface-elevated/navy/teal) are kept for
  * compatibility with existing class names — they alias the canonical tokens
  * above rather than restating values.
+ *
+ * red/yellow/amber/green/emerald/blue below override only the specific shades
+ * (50/200(/300)/500-900, whichever a given family actually uses) that used to
+ * be force-duplicated with !important in globals.css's compatibility layer —
+ * see CSS_OVERRIDE_INVESTIGATION_2026-08-15.md. Collapsing them here means
+ * Tailwind's own generated utility for e.g. `bg-red-50` now already produces
+ * the brand value, so the old duplicate rule could be deleted instead of
+ * fought with !important. Unlisted shades in each of these families remain
+ * Tailwind's stock defaults (never referenced by the old compat layer, so
+ * nothing depended on them being brand-specific).
  */
 const config: Config = {
   darkMode: "class",
@@ -41,8 +51,38 @@ const config: Config = {
         primary: {
           DEFAULT: "var(--color-primary)",
           hover: "var(--color-cta-hover)",
+          foreground: "#ffffff",
         },
         text: "var(--color-text)",
+
+        // ── shadcn/ui primitive keys (additive) ────────────────────────────────
+        // Reuse the canonical tokens above rather than a second palette — these
+        // are new keys only (card/popover/secondary/muted/destructive/input/ring),
+        // or a `foreground` sub-key added beside an existing DEFAULT (primary,
+        // accent) — nothing here changes what `bg-primary`/`bg-accent`/`border`
+        // already resolve to. See CSS_OVERRIDE_INVESTIGATION_2026-08-15.md.
+        card: {
+          DEFAULT: "var(--color-surface)",
+          foreground: "var(--color-text-primary)",
+        },
+        popover: {
+          DEFAULT: "var(--color-surface-raised)",
+          foreground: "var(--color-text-primary)",
+        },
+        secondary: {
+          DEFAULT: "var(--color-surface-sunken)",
+          foreground: "var(--color-text-primary)",
+        },
+        muted: {
+          DEFAULT: "var(--color-surface-sunken)",
+          foreground: "var(--color-text-muted)",
+        },
+        destructive: {
+          DEFAULT: "var(--color-danger)",
+          foreground: "#ffffff",
+        },
+        input: "var(--color-border)",
+        ring: "var(--color-primary)",
 
         // ── Semantic status pairs — bg is the 100-level tint, text is the
         // 700-level, border is the 200-level, all of the same hue. Consumed
@@ -79,6 +119,7 @@ const config: Config = {
           indigo: "#0077B6",
           teal: "#00B4D8",
           purple: "#0077B6",
+          foreground: "#ffffff",
         },
         cta: {
           DEFAULT: "var(--color-cta)",
@@ -107,33 +148,64 @@ const config: Config = {
         },
 
         // ── Legacy teal scale — now a cyan ramp anchored on secondary #00B4D8 ──
+        // 50/200/300/600/700 match globals.css's former compat-layer values exactly
+        // (see CSS_OVERRIDE_INVESTIGATION_2026-08-15.md); other shades unchanged.
         teal: {
-          50: "#eafbfe",
+          50: "rgba(0, 180, 216, 0.08)",
           100: "#d0f4fb",
-          200: "#a3e9f7",
-          300: "#6ddaef",
+          200: "rgba(0, 180, 216, 0.3)",
+          300: "rgba(0, 180, 216, 0.5)",
           400: "#33c2e0",
           500: "#00b4d8",
-          600: "#0093ac",
-          700: "#00748a",
+          600: "#0089a8",
+          700: "#006e87",
           800: "#045a6d",
           900: "#0a4a59",
           950: "#042e38",
         },
 
-        // ── Legacy plum scale — now a navy-blue ramp anchored on primary #0077B6 ──
-        plum: {
-          50: "#eaf4fb",
-          100: "#cfe6f5",
-          200: "#9fcceb",
-          300: "#63ade0",
-          400: "#3690d1",
-          500: "#1f7bbd",
-          600: "#0077b6",
-          700: "#005f92",
-          800: "#004a72",
-          900: "#073456",
-          950: "#04202f",
+        // ── Alert/status tint families — 50/200(/300)/500-900 subset matches the
+        // former globals.css compat-layer values exactly (rgba tints + solid text
+        // colors). Unlisted shades (100/300/400/950 etc.) remain Tailwind stock.
+        red: {
+          50: "rgba(220, 38, 38, 0.08)",
+          200: "rgba(220, 38, 38, 0.25)",
+          500: "#dc2626",
+          600: "#dc2626",
+          700: "#991b1b",
+          800: "#991b1b",
+          900: "#991b1b",
+        },
+        yellow: {
+          50: "rgba(217, 119, 6, 0.08)",
+          200: "rgba(217, 119, 6, 0.25)",
+          300: "rgba(217, 119, 6, 0.25)",
+          700: "#b45309",
+          800: "#b45309",
+          900: "#b45309",
+        },
+        amber: {
+          50: "rgba(217, 119, 6, 0.08)",
+          200: "rgba(217, 119, 6, 0.25)",
+          700: "#b45309",
+          800: "#b45309",
+        },
+        green: {
+          50: "rgba(5, 150, 105, 0.08)",
+          200: "rgba(5, 150, 105, 0.25)",
+          700: "#047857",
+          800: "#047857",
+        },
+        emerald: {
+          50: "rgba(5, 150, 105, 0.08)",
+          200: "rgba(5, 150, 105, 0.25)",
+          700: "#047857",
+        },
+        blue: {
+          50: "rgba(0, 119, 182, 0.08)",
+          200: "rgba(0, 119, 182, 0.25)",
+          700: "var(--color-primary)",
+          800: "var(--color-primary)",
         },
 
         // ── Legacy ink scale ──────────────────────────────────────────────────
@@ -145,6 +217,12 @@ const config: Config = {
           600: "#242835",
           500: "#2e3345",
         },
+      },
+
+      borderRadius: {
+        lg: "var(--radius)",
+        md: "calc(var(--radius) - 2px)",
+        sm: "calc(var(--radius) - 4px)",
       },
 
       fontFamily: {
@@ -191,7 +269,7 @@ const config: Config = {
       },
     },
   },
-  plugins: [],
+  plugins: [require("tailwindcss-animate")],
 };
 
 export default config;

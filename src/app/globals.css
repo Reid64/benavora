@@ -87,6 +87,12 @@
   --background: var(--color-page);
   --foreground: var(--color-text-primary);
 
+  /* shadcn/ui primitive base (src/components/shadcn/) — additive only, reuses
+     the canonical tokens above rather than a second competing palette. Not
+     part of the compatibility layer; no !important, nothing here fights an
+     existing class. See CSS_OVERRIDE_INVESTIGATION_2026-08-15.md. */
+  --radius: 0.75rem;
+
   /* Typography */
   --font-heading: "Plus Jakarta Sans", var(--font-sans), ui-sans-serif,
     system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -102,7 +108,7 @@ html {
 
 body {
   color: var(--color-text-primary);
-  background-color: var(--color-page) !important;
+  background-color: var(--color-page);
   font-family:
     var(--font-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI",
     Roboto, sans-serif;
@@ -428,6 +434,32 @@ textarea {
 /* =============================================================================
    COMPATIBILITY LAYER — remap legacy utility classes to the brand palette.
    Rules sit after @tailwind utilities; !important beats utility specificity.
+
+   As of 2026-08-15 (CSS_OVERRIDE_INVESTIGATION_2026-08-15.md), this layer is
+   scoped down to exactly two families that genuinely can't be collapsed into
+   tailwind.config.ts's color scales:
+
+   - `navy` (bg/text/border below): the SAME shade number means a DIFFERENT
+     color depending on which property it's applied to (e.g. navy-100 is a
+     blue-tinted background but a gray border and a tan divider) — a single
+     Tailwind color-scale value is applied uniformly regardless of property,
+     so it cannot represent this. Fixing it for real would mean auditing and
+     renaming the ~149 files using these classes to stop overloading one
+     shade number for unrelated meanings, not a config change.
+   - `white` (bg-white/bg-white-sunken below): overriding the `white` key in
+     tailwind.config.ts would retint every `text-white`/`border-white`/etc.
+     use across the app too (Tailwind applies one value to a color key
+     regardless of property), including literal white text on dark/colored
+     backgrounds elsewhere that must stay pure #FFFFFF — too broad a blast
+     radius to collapse safely without auditing every such usage first.
+
+   teal/red/yellow/amber/green/emerald/blue were successfully collapsed into
+   tailwind.config.ts's `theme.extend.colors` on 2026-08-15 (values verified
+   identical) and their duplicate rules removed from here entirely — Tailwind
+   itself now generates the correct value directly, no override needed. The
+   `plum` family was found to have zero live usage anywhere in src/ and was
+   deleted outright (including its dead scale in tailwind.config.ts). See the
+   investigation doc for the full per-class evidence trail.
    ============================================================================= */
 
 /* Surfaces ------------------------------------------------------------------ */
@@ -437,17 +469,13 @@ textarea {
 .bg-white-sunken {
   background-color: var(--color-surface-sunken) !important;
 }
-.bg-surface {
-  background-color: var(--color-surface) !important;
-}
 .bg-navy-50 {
   background-color: rgba(0, 119, 182, 0.04) !important;
 }
 .bg-navy-100 {
   background-color: rgba(0, 119, 182, 0.08) !important;
 }
-.bg-navy-50\/50,
-.bg-navy-50\/30 {
+.bg-navy-50\/50 {
   background-color: rgba(0, 119, 182, 0.03) !important;
 }
 .hover\:bg-navy-50:hover {
@@ -458,9 +486,6 @@ textarea {
 }
 .disabled\:bg-navy-50:disabled {
   background-color: rgba(0, 119, 182, 0.03) !important;
-}
-.disabled\:text-navy-500:disabled {
-  color: var(--color-text-muted) !important;
 }
 .placeholder\:text-navy-400::placeholder,
 .placeholder\:text-navy-300::placeholder {
@@ -497,9 +522,6 @@ textarea {
 .hover\:text-navy-600:hover {
   color: #334155 !important;
 }
-.focus-visible\:text-navy-700:focus-visible {
-  color: #334155 !important;
-}
 
 /* Borders + dividers -------------------------------------------------------- */
 .border-navy-100 {
@@ -522,114 +544,52 @@ textarea {
   border-color: var(--color-border) !important;
 }
 
-/* Cyan accents (secondary) --------------------------------------------------- */
-.text-teal-600 {
-  color: #0089a8 !important;
-}
-.text-teal-700 {
-  color: #006e87 !important;
-}
+/* Cyan accents (secondary) ---------------------------------------------------
+   Base teal-50/200/300/600/700 values now live in tailwind.config.ts's `teal`
+   scale (2026-08-15), so Tailwind generates them natively — no override
+   needed. Two rules remain because they encode behavior a flat scale value
+   can't express: `hover:text-teal-700` intentionally darkens further than
+   `text-teal-700` itself, and the `/60`/`/50` opacity-suffixed `bg-teal-50`
+   variants are intentionally pinned to the SAME flat tint as the unsuffixed
+   class rather than Tailwind's normal opacity-modifier math (which would
+   otherwise compute rgba(0,180,216,0.6)/rgba(0,180,216,0.5) — visibly more
+   opaque than intended). Neither needs !important: both sit after
+   @tailwind utilities, so plain source-order cascade already wins against
+   Tailwind's same-specificity generated utility. */
 .hover\:text-teal-700:hover {
-  color: #005a6e !important;
+  color: #005a6e;
 }
-.bg-teal-50,
-.bg-teal-50\/60,
-.bg-teal-50\/50 {
-  background-color: rgba(0, 180, 216, 0.08) !important;
-}
-.border-teal-200 {
-  border-color: rgba(0, 180, 216, 0.3) !important;
-}
-.border-teal-300,
-.hover\:border-teal-300:hover {
-  border-color: rgba(0, 180, 216, 0.5) !important;
+.bg-teal-50\/60 {
+  background-color: rgba(0, 180, 216, 0.08);
 }
 
-/* Navy-ink highlights (formerly plum/purple) --------------------------------- */
-.bg-plum-50 {
-  background-color: rgba(15, 23, 42, 0.05) !important;
-}
-.border-plum-200 {
-  border-color: rgba(15, 23, 42, 0.15) !important;
-}
-.text-plum-600 {
-  color: #1e293b !important;
-}
-.text-plum-700,
-.text-plum-800,
-.text-plum-900 {
-  color: var(--color-text-primary) !important;
-}
-
-/* Alert / status tints ------------------------------------------------------ */
-.bg-red-50 {
-  background-color: rgba(220, 38, 38, 0.08) !important;
-}
-.border-red-200 {
-  border-color: rgba(220, 38, 38, 0.25) !important;
-}
-.text-red-600,
-.text-red-500 {
-  color: #dc2626 !important;
-}
-.text-red-700,
-.text-red-800,
-.text-red-900 {
-  color: #991b1b !important;
-}
-
-.bg-yellow-50,
-.bg-amber-50 {
-  background-color: rgba(217, 119, 6, 0.08) !important;
-}
-.border-yellow-200,
-.border-yellow-300,
-.border-amber-200 {
-  border-color: rgba(217, 119, 6, 0.25) !important;
-}
-.text-yellow-700,
-.text-yellow-800,
-.text-yellow-900,
-.text-amber-700,
-.text-amber-800 {
-  color: #b45309 !important;
-}
-
-.bg-green-50,
-.bg-emerald-50 {
-  background-color: rgba(5, 150, 105, 0.08) !important;
-}
-.border-green-200,
-.border-emerald-200 {
-  border-color: rgba(5, 150, 105, 0.25) !important;
-}
-.text-green-700,
-.text-green-800,
-.text-emerald-700 {
-  color: #047857 !important;
-}
-
-.bg-blue-50 {
-  background-color: rgba(0, 119, 182, 0.08) !important;
-}
-.border-blue-200 {
-  border-color: rgba(0, 119, 182, 0.25) !important;
-}
-.text-blue-700,
-.text-blue-800 {
-  color: var(--color-primary) !important;
-}
+/* Alert / status tints --------------------------------------------------------
+   red/yellow/amber/green/emerald/blue's 50/200/500-900 shades now live in
+   tailwind.config.ts (2026-08-15) — Tailwind generates the exact former
+   values natively, so no compat rule is needed for this family anymore. */
 
 /* =============================================================================
-   PREMIUM UI OVERHAUL — solid card colors, depth cards, accent borders, badges.
+   PREMIUM UI OVERHAUL — depth cards, accent borders, badges.
+
+   .card-blue/cyan/violet/navy/green/amber (solid single-color cards) were
+   confirmed 2026-08-15 to have zero usage anywhere in src/ (grep, both plain
+   and dynamic-class-construction forms) and were deleted outright.
+
+   .card-depth and .border-accent-* keep !important: real live combos exist
+   (e.g. FoundationCard.tsx: `bg-white ... card-depth border-accent-blue`)
+   where .card-depth's background-color must still beat .bg-white (which
+   itself stays !important, see the compat-layer note above), and
+   .border-accent-*'s border-left must in turn still beat .card-depth's own
+   border shorthand on the same element. .table-header-dark keeps !important
+   for the same reason (combined with `bg-white` in ApplicationsTable.tsx).
+
+   .badge-* and .page-bg had their !important dropped 2026-08-15: grepped
+   every live usage and found them only ever combined with plain
+   Tailwind arbitrary-value classes (bg-[#hex], no !important) or an inline
+   style carrying the identical value — plain source-order cascade already
+   wins for both without !important.
    ============================================================================= */
 
-.card-blue { background-color: #0077B6 !important; color: #FFFFFF !important; }
-.card-cyan { background-color: #00B4D8 !important; color: #FFFFFF !important; }
-.card-violet { background-color: #6B48CC !important; color: #FFFFFF !important; }
-.card-navy { background-color: #1A2B3C !important; color: #FFFFFF !important; }
-.card-green { background-color: #10B981 !important; color: #FFFFFF !important; }
-.card-amber { background-color: #F59E0B !important; color: #FFFFFF !important; }
 .card-depth { background-color: #F7F5F1 !important; box-shadow: 0 4px 16px rgba(30,41,59,0.12) !important; border: 1px solid #D9D3C5 !important; border-radius: 12px !important; }
 .border-accent-blue { border-left: 4px solid #0077B6 !important; }
 .border-accent-cyan { border-left: 4px solid #00B4D8 !important; }
@@ -637,13 +597,13 @@ textarea {
 .border-accent-green { border-left: 4px solid #10B981 !important; }
 .border-accent-red { border-left: 4px solid #EF4444 !important; }
 .border-accent-amber { border-left: 4px solid #F59E0B !important; }
-.badge-blue { background-color: #DBEAFE !important; color: #1D4ED8 !important; border-radius: 9999px !important; padding: 2px 10px !important; font-size: 12px !important; font-weight: 600 !important; }
-.badge-green { background-color: #DCFCE7 !important; color: #15803D !important; border-radius: 9999px !important; padding: 2px 10px !important; font-size: 12px !important; font-weight: 600 !important; }
-.badge-red { background-color: #FEE2E2 !important; color: #B91C1C !important; border-radius: 9999px !important; padding: 2px 10px !important; font-size: 12px !important; font-weight: 600 !important; }
-.badge-amber { background-color: #FEF3C7 !important; color: #92400E !important; border-radius: 9999px !important; padding: 2px 10px !important; font-size: 12px !important; font-weight: 600 !important; }
-.badge-violet { background-color: #EDE9FE !important; color: #6D28D9 !important; border-radius: 9999px !important; padding: 2px 10px !important; font-size: 12px !important; font-weight: 600 !important; }
+.badge-blue { background-color: #DBEAFE; color: #1D4ED8; border-radius: 9999px; padding: 2px 10px; font-size: 12px; font-weight: 600; }
+.badge-green { background-color: #DCFCE7; color: #15803D; border-radius: 9999px; padding: 2px 10px; font-size: 12px; font-weight: 600; }
+.badge-red { background-color: #FEE2E2; color: #B91C1C; border-radius: 9999px; padding: 2px 10px; font-size: 12px; font-weight: 600; }
+.badge-amber { background-color: #FEF3C7; color: #92400E; border-radius: 9999px; padding: 2px 10px; font-size: 12px; font-weight: 600; }
+.badge-violet { background-color: #EDE9FE; color: #6D28D9; border-radius: 9999px; padding: 2px 10px; font-size: 12px; font-weight: 600; }
 .table-header-dark { background-color: #1A2B3C !important; color: #FFFFFF !important; }
-.page-bg { background-color: #E4E9F0 !important; }
+.page-bg { background-color: #E4E9F0; }
 
 /* =============================================================================
    PRINT MODE — toggled by report pages (board-report, impact) via a body

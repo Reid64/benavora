@@ -1,7 +1,63 @@
 # BENAVORA — Session State
-## Last Updated: August 15, 2026 (rows #92/#99/#106/#160 closed — one real rebuild, gates clean, scoped commit)
+## Last Updated: August 15, 2026 (landing page audit; globals.css !important root-cause investigated + partially fixed; shadcn/ui + Storybook installed)
 
-## Current Session — August 15, 2026 (rows #92, #99, #106, #160)
+## Current Session — August 15, 2026 (landing page audit; CSS override investigation/fix; design tooling)
+
+**Focus:** ran the gate sequence, then closed out three deliverables — a full landing-page audit
+(`LANDING_PAGE_AUDIT_2026-08-15.md`), an investigation into the `globals.css` `!important`
+compatibility layer's root cause that turned into an actual partial fix
+(`CSS_OVERRIDE_INVESTIGATION_2026-08-15.md`), and shadcn/ui + Storybook design tooling setup. Full
+detail in `STATE_OF_THE_BUILD.md`'s matching session entry.
+
+**Gates:** `pnpm tsc --noEmit` — 0 errors. `pnpm run build` — clean, full route manifest, no errors.
+
+**Landing page audit — key finding:** the entire secondary marketing surface (`/pricing`,
+`/for-consultants`, `/security`, `/privacy`, `/terms`) is unreachable in production — missing from
+`middleware.ts`'s `PUBLIC_PATHS`, 307-redirects anonymous visitors to `/login`, plus dead `href="#"`
+nav/footer links on the homepage. Only the single-page homepage is visible to real prospects today.
+Also found: a real quoted-price bug (`/pricing`'s Enterprise tier is wrong in both directions vs. the
+homepage's real $1,997/$2,497 figures); the existing "The Math" ROI section and competitor comparison
+strip are real and good but cite stale Instrumentl pricing ($999/mo vs. Reid's real $179–$549/mo),
+never mention Foundant GrantHub, and only compare the one tier priced above both real competitors'
+ranges; a SOC 2 "compliant" badge that contradicts `/security`'s own honest "roadmap, target 2027"
+copy one click away. Audit only — no code changed for this deliverable. 7-item prioritized fix list in
+the doc itself, led by the `PUBLIC_PATHS` fix (5 strings).
+
+**CSS override investigation — outcome: fixed (partial), not just investigated.** Despite the doc's
+own "INVESTIGATION ONLY" header, this session's `git diff` shows the fix it recommends was actually
+applied on top of it. Root cause confirmed: two drifted definitions of the same brand colors
+(`tailwind.config.ts`'s legacy scales + Tailwind's untouched built-ins, vs. `globals.css`'s newer
+CSS-variable palette), with `!important` forcing the second to always win — proven load-bearing by a
+2026-07-16 full-removal-then-43-minute-revert. **Fixed this session:** collapsed
+`teal`/`red`/`yellow`/`amber`/`green`/`emerald`/`blue`'s forced shades into
+`tailwind.config.ts`'s `theme.extend.colors` (verified identical values) and deleted the
+now-redundant `!important` rules from `globals.css`; deleted the dead `plum` scale and several other
+zero-usage selectors/classes outright; dropped `!important` from `body` and `.badge-*`/`.page-bg`
+(confirmed no live conflict). **Confirmed genuinely necessary, kept as `!important` with reasoning now
+documented in-file:** `navy` (same shade number means different colors depending on the CSS property —
+can't be flattened into one Tailwind scale value without a ~149-file usage audit/rename), `white`
+(overriding it would retint literal white text/backgrounds app-wide), `.card-depth`/
+`.border-accent-*`/`.table-header-dark` (real live same-element combos need the cascade order), and
+the print-mode block (unrelated, narrow, unchanged). `governance/DESIGN_SYSTEM.md` was corrected from
+stale drifted color values to the real canonical palette, with a pointer to `FEATURE_REGISTRY_v2.md`'s
+"The One UI Rule" section — Directive 4's inline-hex-only rule is now family-specific, not a blanket
+rule. Full evidence trail in the investigation doc.
+
+**Design tooling:** shadcn/ui + Storybook installed (`storybook@10.5.8` + addons, shadcn's Radix/CVA/
+clsx/tailwind-merge deps). Components isolated to `src/components/shadcn/ui/` to avoid a Windows
+case-collision and a clash with ~136 existing usages of a differently-cased directory elsewhere in the
+repo (per project memory). `tailwind.config.ts` gained shadcn's primitive color keys as additive-only,
+reusing existing canonical tokens. Verified via a real Storybook computed-style check that brand
+tokens render correctly through the new component layer.
+
+**Scoped commit:** staged the audit docs, the CSS/tailwind fix, the shadcn/Storybook install, and
+this file + `STATE_OF_THE_BUILD.md`. Left untouched (pre-existing, unrelated in-progress work from
+other sessions/worktrees): `.claude/worktrees/agent-*`, `enrichment-output/990-investigation-cache/`,
+`investigate-990-run.log`.
+
+---
+
+## Prior Session — August 15, 2026 (rows #92, #99, #106, #160)
 
 **Focus:** ran the gate sequence, then closed four Platform Vision Pillar registry rows with real
 evidence — #160 Agent Log Viewer, #99 Signal Monitoring, #106 Factor Breakdown UI, #92 Corporate

@@ -58,3 +58,6 @@ DEMO_ACCOUNT_CREDENTIALS_*.md
 /scrape-output/
 
 storage/key_value_stores/
+
+*storybook.log
+storybook-static
