@@ -157,6 +157,12 @@ export interface Database {
           // (FEATURE_REGISTRY_v2.md #154): drag-and-drop panel order, one
           // per profiles row (owner-gated page, so "per-owner" == "per profile").
           command_center_layout: Json | null;
+          // Migration 138 — Demo Account Scope (DEMO_ACCOUNT_SCOPE_2026-08-15.md):
+          // when true, DB triggers block writes to onboarding-authored
+          // organizational profile data (organizations' §2.1 columns,
+          // knowledge_base, board_members, programs,
+          // organizational_digital_twins, documents) regardless of role.
+          restricted_onboarding_edit: boolean;
         };
         Insert: {
           id: string;
@@ -169,6 +175,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
           command_center_layout?: Json | null;
+          restricted_onboarding_edit?: boolean;
         };
         Update: {
           id?: string;
@@ -181,6 +188,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
           command_center_layout?: Json | null;
+          restricted_onboarding_edit?: boolean;
         };
         Relationships: [];
       };

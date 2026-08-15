@@ -13,6 +13,18 @@ export async function POST() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Demo Account Scope (DEMO_ACCOUNT_SCOPE_2026-08-15.md): this route only
+  // generates draft narrative suggestions for the onboarding wizard's step 3
+  // (nothing is persisted here), but its output only has a home via
+  // POST /api/onboarding, which is itself blocked for a restricted profile -
+  // so there is no reachable, non-wasted use of this route for one.
+  if (headersList.get("x-onboarding-edit-restricted") === "true") {
+    return NextResponse.json(
+      { error: "This account cannot edit organizational profile data." },
+      { status: 403 },
+    );
+  }
+
   const supabase = createClient();
 
   const { data: org, error: orgError } = await supabase

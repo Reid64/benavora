@@ -14,9 +14,10 @@ type CookieToSet = { name: string; value: string; options: CookieOptions };
 //      organization_id - redirect to /login ONLY. Never render a default or
 //      wrong-role page (Iron Law 4).
 //   4. On success, inject x-user-id / x-organization-id / x-user-role /
-//      x-pathname headers so downstream layouts and handlers can read the
-//      authoritative identity and current path without re-trusting anything
-//      from the request body (Six Laws Law 2).
+//      x-onboarding-edit-restricted / x-pathname headers so downstream
+//      layouts and handlers can read the authoritative identity and current
+//      path without re-trusting anything from the request body (Six Laws
+//      Law 2).
 //
 // Identity is re-read from the database on every request; role data is never
 // cached in cookies or local state, so a revoked or downgraded role takes
@@ -29,6 +30,16 @@ type CookieToSet = { name: string; value: string; options: CookieOptions };
 // naming was never the implemented schema. x-user-role therefore carries the
 // real enum value. Server enforcement lives in @/lib/auth/role-gate
 // (requireRole), which re-derives the profile per request as a second barrier.
+//
+// NOTE ON x-onboarding-edit-restricted (migration 138, Demo Account Scope):
+// mirrors profiles.restricted_onboarding_edit. Route handlers that write
+// onboarding-authored organizational data (organizations' protected columns,
+// knowledge_base, board_members, programs, organizational_digital_twins,
+// documents) check this header to return a clean 403 instead of letting the
+// caller hit a raw Postgres trigger exception. The DB-layer triggers
+// (is_onboarding_edit_restricted()) remain the authoritative enforcement -
+// this header is a UX nicety only, same as x-user-role is only a first-layer
+// hint ahead of requireRole's own re-query.
 // ============================================================================
 
 const PUBLIC_PATHS = [
@@ -117,7 +128,7 @@ export async function middleware(request: NextRequest) {
   // render the app with a default or wrong role.
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("organization_id, role")
+    .select("organization_id, role, restricted_onboarding_edit")
     .eq("id", user.id)
     .single();
 
@@ -137,6 +148,10 @@ export async function middleware(request: NextRequest) {
   requestHeaders.set("x-user-id", user.id);
   requestHeaders.set("x-organization-id", profile.organization_id as string);
   requestHeaders.set("x-user-role", profile.role as string);
+  requestHeaders.set(
+    "x-onboarding-edit-restricted",
+    profile.restricted_onboarding_edit === true ? "true" : "false",
+  );
   requestHeaders.set("x-pathname", request.nextUrl.pathname);
 
   // Onboarding gate: redirect to /onboarding if not completed. Bypassed for

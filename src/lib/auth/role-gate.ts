@@ -60,6 +60,12 @@ export interface RoleContext {
   userId: string;
   userRole: UserRole;
   organizationId: string;
+  // Demo Account Scope (DEMO_ACCOUNT_SCOPE_2026-08-15.md, migration 138):
+  // true means DB triggers already block this profile's writes to
+  // onboarding-authored organizational data regardless of role. Route
+  // handlers that reach those tables should check this and return a clean
+  // 403 rather than let the caller hit a raw Postgres trigger exception.
+  restrictedOnboardingEdit: boolean;
 }
 
 function jsonError(message: string, code: string, status: number) {
@@ -92,7 +98,7 @@ export async function requireRole(
 
   const { data: profile, error } = await supabase
     .from("profiles")
-    .select("organization_id, role")
+    .select("organization_id, role, restricted_onboarding_edit")
     .eq("id", user.id)
     .single();
   if (error || !profile) {
@@ -115,5 +121,6 @@ export async function requireRole(
     userId: user.id,
     userRole,
     organizationId: profile.organization_id as string,
+    restrictedOnboardingEdit: profile.restricted_onboarding_edit === true,
   };
 }

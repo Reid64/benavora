@@ -36,10 +36,35 @@ async function rebuildAndRespond() {
     );
   }
 
-  const orgId = headers().get("x-organization-id");
+  const headersList = headers();
+  const orgId = headersList.get("x-organization-id");
 
   if (!orgId) {
     return NextResponse.json({ error: "orgId is required." }, { status: 400 });
+  }
+
+  // Demo Account Scope (DEMO_ACCOUNT_SCOPE_2026-08-15.md): buildDigitalTwin()
+  // unconditionally upserts organizational_digital_twins, which migration
+  // 138's DB trigger rejects for a restricted profile - and this route
+  // rebuilds on every plain GET/page view, not just on an explicit save. For
+  // a restricted profile, serve the already-computed twin instead of
+  // attempting (and failing) a fresh rebuild, so viewing this page stays a
+  // safe read.
+  if (headersList.get("x-onboarding-edit-restricted") === "true") {
+    const { data: cachedTwin, error: cachedError } = await supabase
+      .from("organizational_digital_twins")
+      .select("*")
+      .eq("organization_id", orgId)
+      .maybeSingle();
+    if (cachedError) {
+      return NextResponse.json(
+        { error: "Failed to load digital twin." },
+        { status: 404 },
+      );
+    }
+    return NextResponse.json(
+      cachedTwin ?? { organization_id: orgId, twin_completeness_score: 0 },
+    );
   }
 
   try {

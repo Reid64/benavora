@@ -172,6 +172,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Demo Account Scope (DEMO_ACCOUNT_SCOPE_2026-08-15.md): this route writes
+  // every §2.1-§2.6 protected table. This is a first-layer UX nicety - the
+  // migration 138 DB triggers are the authoritative block regardless of this
+  // check.
+  if (headersList.get("x-onboarding-edit-restricted") === "true") {
+    return NextResponse.json(
+      { error: "This account cannot edit organizational profile data." },
+      { status: 403 },
+    );
+  }
+
   const supabase = createClient();
 
   let body: { step: number; data: Record<string, unknown>; complete?: boolean };

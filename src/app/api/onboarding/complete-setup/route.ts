@@ -37,6 +37,19 @@ export async function POST() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Demo Account Scope (DEMO_ACCOUNT_SCOPE_2026-08-15.md): autoPopulateTwin()
+  // below writes organizational_digital_twins (and can touch knowledge_base/
+  // board_members/organizations along the way). Block the whole route for a
+  // restricted profile rather than trying to run only the safe half (the
+  // agent_queue discovery insert) - the migration 138 DB triggers would
+  // reject the twin writes anyway, and this keeps the behavior predictable.
+  if (headersList.get("x-onboarding-edit-restricted") === "true") {
+    return NextResponse.json(
+      { error: "This account cannot edit organizational profile data." },
+      { status: 403 },
+    );
+  }
+
   const supabase = createClient();
   const warnings: string[] = [];
 

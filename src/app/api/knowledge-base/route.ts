@@ -214,7 +214,20 @@ async function recomputeTwin(
 export async function PATCH(request: Request) {
   const gate = await requireRole("writer");
   if ("error" in gate) return gate.error;
-  const { supabase, organizationId } = gate;
+  const { supabase, organizationId, restrictedOnboardingEdit } = gate;
+
+  // Demo Account Scope (DEMO_ACCOUNT_SCOPE_2026-08-15.md): every field this
+  // editor writes (organizations' §2.1 columns + extended_profile,
+  // board_members, programs) is protected, and every PATCH also triggers a
+  // organizational_digital_twins rebuild. Block the whole route rather than
+  // trying to allow a subset - the migration 138 DB triggers would reject the
+  // underlying writes anyway.
+  if (restrictedOnboardingEdit) {
+    return NextResponse.json(
+      { error: "This account cannot edit organizational profile data." },
+      { status: 403 },
+    );
+  }
 
   const body: unknown = await request.json().catch(() => null);
   if (!isPatchBody(body)) {

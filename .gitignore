@@ -51,6 +51,9 @@ next-env.d.ts
 # script checkpoint state
 scripts/.checkpoints/
 
+# demo account credentials — real secrets, never commit
+DEMO_ACCOUNT_CREDENTIALS_*.md
+
 # universal scraper local mock output (fallback when scrape_jobs/scrape_results aren't live)
 /scrape-output/
 
