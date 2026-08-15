@@ -4862,6 +4862,71 @@ export interface Database {
           },
         ];
       };
+      // Migration 136: contact_tasks - ToS-safe Multi-Channel Outreach (row #77). Real
+      // drafted LinkedIn/call/mail content plus a real human task, never automated sends.
+      contact_tasks: {
+        Row: {
+          id: string;
+          organization_id: string;
+          contact_id: string;
+          task_type: string;
+          status: string;
+          subject: string | null;
+          content: string;
+          asset_path: string | null;
+          due_at: string | null;
+          completed_at: string | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          contact_id: string;
+          task_type: string;
+          status?: string;
+          subject?: string | null;
+          content: string;
+          asset_path?: string | null;
+          due_at?: string | null;
+          completed_at?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          contact_id?: string;
+          task_type?: string;
+          status?: string;
+          subject?: string | null;
+          content?: string;
+          asset_path?: string | null;
+          due_at?: string | null;
+          completed_at?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "contact_tasks_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "contact_tasks_contact_id_fkey";
+            columns: ["contact_id"];
+            isOneToOne: false;
+            referencedRelation: "contacts";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       // Migration 126: outreach_template_variants - named content variants per outreach
       // template, org-configurable toggle (Donor Personalization Engine MVP, row #221).
       outreach_template_variants: {

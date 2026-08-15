@@ -1,6 +1,73 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 15, 2026 (live security surface test + real E2E workflow smoke test, gates clean, scoped commit). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 15, 2026 (Multi-Channel Outreach build + live verify, row #77, gates clean, scoped commit). Not FORGE-auto-generated — hand-verified.**
+
+## SESSION — August 15, 2026 (Multi-Channel Outreach build + live verify, row #77)
+
+**Focus:** built row #77 (Multi-Channel Outreach), previously PARTIAL ("templates page and send route
+exist, LinkedIn/phone/physical mail not implemented"). Built the ToS-safe version Reid asked for —
+LinkedIn/call/mail each generate a real, personalized Claude draft and log a real task for a human to
+send/place/mail manually, with no automated third-party sending on any channel. Ran the gate
+sequence, updated `FEATURE_REGISTRY_v2.md` row #77, wrote this + `SESSION_STATE.md` entry, did the
+scoped commit/push.
+
+**Gates:** `pnpm tsc --noEmit` — 0 errors. `pnpm run build` — clean, all routes compiled, exit 0.
+
+**What was built:**
+- New table `contact_tasks` (migration `136_contact_outreach_tasks.sql`, applied live) — RLS-scoped
+  via `current_org_id()`, with an explicit `REVOKE ALL ... FROM anon`/`authenticated` before the
+  scoped `GRANT`, per the standing public-schema-default-ACL precedent
+  (`benavora-public-schema-default-acl-anon-exposure`).
+- `POST /api/contacts/[id]/outreach/{linkedin,call,mail}` — each calls Claude directly (row #118's
+  personalization pattern, not a `BaseAgent`) via shared context loader
+  `src/lib/outreach/contact-context.ts`, using real contact/funder/org/KB fields, never a name-templated
+  form letter. LinkedIn caps the draft at 300 characters (the platform's real connection-note limit);
+  Call produces a 4-6 bullet talking-points script; Mail generates letter-body paragraphs, renders a
+  letterhead PDF via a new `src/lib/reports/letter-pdf.tsx` (`@react-pdf/renderer` — row #115's
+  "Document Assembly Engine" turned out to be a required-doc ZIP bundler, not a PDF generator, so this
+  reuses the dependency, not that route), and uploads to the `documents` Storage bucket via a
+  service-role client.
+- `GET /api/contacts/[id]/tasks`, `PATCH /api/contacts/tasks/[taskId]` (status update),
+  `GET /api/contacts/tasks/[taskId]/download` (mints a fresh signed URL per download, since the PDF is
+  stored as `asset_path`, not a public URL).
+- New "Outreach" card, `ContactOutreachPanel.tsx`, wired into the existing CRM Contact Detail page
+  (`ContactDetail.tsx`) — confirmed by diff, a genuine 2-line integration (import + render), not a
+  parallel/orphaned component.
+
+**Design note, not a gap:** none of the 3 channels places an automated LinkedIn API call, automated
+phone dial, or automated physical-mail submission — every channel stops at a human-reviewable draft
+plus a logged task, by design. Reasons: LinkedIn's ToS prohibits automated connection/messaging
+without their partner API, which Benavora has no agreement for; there is no telephony vendor
+contracted for outbound dialing (Twilio is in the locked stack for future use, per `CLAUDE.md`, not
+wired to any dialer here); physical mail requires a paid print/mail API (e.g. Lob) with no account
+provisioned. This is the same ToS-compliance discipline Behavioral Contracts §21 already requires for
+scraping, applied here to outreach channels — not an apology, a factual scope boundary.
+
+**Live verification:** using the documented magic-link technique (admin-generated link → `verifyOtp`
+→ `@supabase/ssr` cookie capture → replay on `fetch()`), authenticated as the real Faith Foundation
+org owner (`b1ab7402-...`, `info@faithfoundationsf.org`) against a real contact (`Marcus Whitfield`,
+linked to real funder `1111 FOUNDATION`). All 3 endpoints returned real, genuinely personalized
+content (named the contact, funder, and specific FAITH Foundation program/KB content, not templated
+boilerplate); all 3 resulting `contact_tasks` rows confirmed via direct `psql` read; the mail PDF
+downloaded via its signed URL and confirmed a valid `%PDF` file; `PATCH .../tasks/[taskId]` (mark
+sent) confirmed working; the UI panel confirmed rendering via a real Playwright screenshot of
+`/contacts/[id]` under the same session.
+
+**Left untouched, not part of this task:** the pre-existing `/outreach/templates` reusable-template
+library (migration 082's `email`/`linkedin`/`phone_script`/`physical_mail` enum) is a separate
+concept (org-wide reusable templates, not per-contact generation) and was not modified.
+
+**Scoped commit:** staged only what belongs to this feature — `supabase/migrations/136_contact_outreach_tasks.sql`,
+`src/lib/outreach/`, `src/components/contacts/ContactOutreachPanel.tsx`, `src/lib/reports/letter-pdf.tsx`,
+`src/app/api/contacts/`, the `ContactDetail.tsx` two-line integration diff, `src/types/database.ts`'s
+new `contact_tasks` types, and this file + `SESSION_STATE.md` + `FEATURE_REGISTRY_v2.md`'s row #77
+update. Left untouched (pre-existing, unrelated uncommitted work from other sessions/tasks):
+`.claude/worktrees/agent-*`, `storage/key_value_stores/default/SDK_SESSION_POOL_STATE.json`,
+`src/lib/scraper/foundation-scraper.ts`'s pagination fix, `D4_PROSPECT_IMPORT_INVESTIGATION_2026-08-15.md`,
+`enrichment-output/990-investigation-cache/`, `investigate-990-run.log`,
+`scripts/run-d6-scrape-wrapper.mjs`.
+
+---
 
 ## SESSION — August 15, 2026 (live security surface test + real E2E workflow smoke test)
 

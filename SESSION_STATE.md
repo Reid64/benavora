@@ -1,7 +1,45 @@
 # BENAVORA — Session State
-## Last Updated: August 15, 2026 (live security surface test + real E2E workflow smoke test, gates clean, scoped commit)
+## Last Updated: August 15, 2026 (Multi-Channel Outreach build + live verify, row #77, gates clean, scoped commit)
 
-## Current Session — August 15, 2026 (live security surface test + real E2E workflow smoke test)
+## Current Session — August 15, 2026 (Multi-Channel Outreach build + live verify, row #77)
+
+**Focus:** build row #77 (Multi-Channel Outreach, previously PARTIAL — templates page and send route
+existed but LinkedIn/phone/physical mail were not implemented) as a ToS-safe draft-and-log model: each
+of LinkedIn/call/mail generates a real, personalized Claude draft and logs a real task for a human to
+send/place/mail manually — no automated LinkedIn API, dialing, or mail-carrier submission on any
+channel. Ran the gate sequence, updated `FEATURE_REGISTRY_v2.md` row #77 and this file +
+`STATE_OF_THE_BUILD.md`, did the scoped commit/push.
+
+**Gates:** `pnpm tsc --noEmit` — 0 errors. `pnpm run build` — clean, exit 0, all routes compiled.
+
+**What shipped:** new `contact_tasks` table (migration 136, RLS + explicit anon/authenticated revoke);
+`POST /api/contacts/[id]/outreach/{linkedin,call,mail}` (Claude-drafted, real contact/funder/org
+context via `src/lib/outreach/contact-context.ts`); `GET /api/contacts/[id]/tasks`,
+`PATCH /api/contacts/tasks/[taskId]`, `GET /api/contacts/tasks/[taskId]/download` (signed-URL mail PDF,
+rendered via new `src/lib/reports/letter-pdf.tsx`); new `ContactOutreachPanel.tsx` card wired into
+`ContactDetail.tsx`. Design note (stated as scope, not apology): all 3 channels stop at a
+human-reviewable draft because no ToS-compliant automation path exists for any of them — LinkedIn
+requires a partner API Benavora doesn't have, no telephony vendor is contracted for outbound dialing,
+and physical mail needs a paid print/mail API with no account provisioned.
+
+**Live verification:** real magic-link session as the real Faith Foundation org owner
+(`b1ab7402-...`/`info@faithfoundationsf.org`) against a real contact (`Marcus Whitfield`, real funder
+`1111 FOUNDATION`) — all 3 endpoints returned genuinely personalized (non-templated) content, all 3
+`contact_tasks` rows confirmed via `psql`, the mail PDF downloaded and confirmed a valid `%PDF` file,
+status-update confirmed working, and the UI panel confirmed via a real Playwright screenshot.
+
+**Scoped commit:** staged only this feature's files — the migration, `src/lib/outreach/`,
+`ContactOutreachPanel.tsx`, `letter-pdf.tsx`, `src/app/api/contacts/`, `ContactDetail.tsx`'s two-line
+diff, `database.ts`'s new types, and this file + `STATE_OF_THE_BUILD.md` +
+`FEATURE_REGISTRY_v2.md`'s row #77. Left untouched (pre-existing, unrelated uncommitted work from
+other sessions): `.claude/worktrees/agent-*`, `storage/key_value_stores/default/SDK_SESSION_POOL_STATE.json`,
+`src/lib/scraper/foundation-scraper.ts`'s pagination fix,
+`D4_PROSPECT_IMPORT_INVESTIGATION_2026-08-15.md`, `enrichment-output/990-investigation-cache/`,
+`investigate-990-run.log`, `scripts/run-d6-scrape-wrapper.mjs`.
+
+---
+
+## Prior Session — August 15, 2026 (live security surface test + real E2E workflow smoke test)
 
 **Focus:** run and document two real, live test passes — a security surface test (SQLi, XSS, CSRF,
 SSRF, RLS, auth boundaries) and a core end-to-end workflow smoke test — then run the gate sequence

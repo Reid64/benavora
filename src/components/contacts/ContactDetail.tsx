@@ -22,6 +22,7 @@ import {
   Select,
 } from "@/components/ui";
 import { ContactForm } from "@/components/contacts/ContactForm";
+import { ContactOutreachPanel } from "@/components/contacts/ContactOutreachPanel";
 import { RELATIONSHIP_COLOR } from "@/components/contacts/ContactTable";
 import { createClient } from "@/lib/supabase/client";
 import { canEdit, useProfile } from "@/lib/hooks/useProfile";
@@ -293,6 +294,8 @@ export function ContactDetail({ contactId }: ContactDetailProps) {
             </p>
           </Card>
         )}
+
+        <ContactOutreachPanel contactId={contact.id} />
       </div>
 
       <p className="text-xs text-navy-400">
