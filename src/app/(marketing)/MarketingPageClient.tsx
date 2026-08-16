@@ -529,6 +529,15 @@ export default function BenavoraMarketing() {
               </div>
             ))}
           </div>
+
+          <div style={{ textAlign: "center", marginTop: 40 }}>
+            <a href="/how-it-works" className="tc" style={{
+              display: "inline-flex", alignItems: "center", gap: 8,
+              color: B.blue, fontSize: 15, fontWeight: 600,
+            }}>
+              See the full pipeline, stage by stage <IconArrow color={B.blue} />
+            </a>
+          </div>
         </section>
 
         {/* ═══ How It Works ═══ */}

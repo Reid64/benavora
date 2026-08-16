@@ -274,6 +274,7 @@ export default function OutcomesPage() {
     <div className="min-h-screen space-y-6 bg-[#CBD5E1] p-6">
       <PageHeader
         title="Outcomes"
+        accent="#7C3AED"
         description="Record awards and denials. Awarded narratives train the learning system."
         actions={
           <Link href="/outcomes/analytics">

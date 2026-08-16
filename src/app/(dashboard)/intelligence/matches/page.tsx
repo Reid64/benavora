@@ -62,7 +62,7 @@ export default function MatchesPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="min-h-screen space-y-8 p-6" style={{ backgroundColor: "#E4E9F0" }}>
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>

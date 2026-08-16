@@ -110,11 +110,19 @@ interface CoverageStats {
   enrichedWeb: number;
 }
 
+// Research & Discovery section signature accent — see
+// governance/DESIGN_SYSTEM.md "Section Accent Colors" and
+// src/lib/design/section-accents.ts.
+const SECTION_ACCENT = "#0284C7";
+
 function StatCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
-    <div className="rounded-xl border border-border bg-white px-5 py-4 shadow-sm">
+    <div
+      className="rounded-xl border border-border bg-white px-5 py-4 shadow-sm"
+      style={{ borderTop: `3px solid ${SECTION_ACCENT}` }}
+    >
       <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</p>
-      <p className="mt-1 text-2xl font-semibold text-slate-900">{value}</p>
+      <p className="mt-1 text-2xl font-semibold" style={{ color: SECTION_ACCENT }}>{value}</p>
       {sub && <p className="mt-0.5 text-xs text-slate-400">{sub}</p>}
     </div>
   );
@@ -407,6 +415,7 @@ export default function FoundationsPage() {
     <div className="min-h-screen space-y-6 bg-[#EEF2F7] p-6 page-bg">
       <PageHeader
         title="Foundation Directory"
+        accent={SECTION_ACCENT}
         description="Browse IRS 990 foundation data. Import foundations as funders to start tracking."
         actions={
           selectedIds.size > 0 && (
@@ -447,7 +456,7 @@ export default function FoundationsPage() {
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
             aria-label="Search foundations"
-            className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-700 placeholder-slate-400 focus:border-[#0077B6] focus:ring-2 focus:ring-[#0077B6]/10 outline-none"
+            className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-700 placeholder-slate-400 focus:border-[#0284C7] focus:ring-2 focus:ring-[#0284C7]/10 outline-none"
           />
         </div>
         <Select

@@ -193,6 +193,11 @@ function StatCard({
   );
 }
 
+// Donor Discovery & Outreach section signature accent — see
+// governance/DESIGN_SYSTEM.md "Section Accent Colors" and
+// src/lib/design/section-accents.ts.
+const SECTION_ACCENT = "#4C51C6";
+
 const FETCH_LIMIT = 100;
 
 type ComboboxOption = { value: string; label: string };
@@ -751,18 +756,19 @@ export default function DonorDiscoveryProspectsPage() {
           <span className="inline-flex items-center gap-3">
             Prospects
             <span
-              style={{ backgroundColor: "#0077B6" }}
+              style={{ backgroundColor: SECTION_ACCENT }}
               className="inline-flex min-w-[1.75rem] items-center justify-center rounded-full px-2 py-0.5 text-xs font-bold text-white"
             >
               {total}
             </span>
           </span>
         }
+        accent={SECTION_ACCENT}
         description="All prospects surfaced by your discovery requests, across every industry and geography."
         actions={
           <Link
             href="/donor-discovery/new"
-            className="inline-flex items-center bg-[#0077B6] hover:bg-[#005F92] text-white px-6 py-3 rounded-xl font-bold text-sm shadow-md transition-colors"
+            className="inline-flex items-center bg-[#4C51C6] hover:bg-[#3D42A3] text-white px-6 py-3 rounded-xl font-bold text-sm shadow-md transition-colors"
           >
             Discover More
           </Link>
@@ -776,7 +782,7 @@ export default function DonorDiscoveryProspectsPage() {
       )}
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard icon={Building2} label="Total Prospects" value={total} accent="#0077B6" />
+        <StatCard icon={Building2} label="Total Prospects" value={total} accent={SECTION_ACCENT} />
         <StatCard
           icon={Sparkles}
           label="Top Industries"

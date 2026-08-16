@@ -48,6 +48,12 @@ const PUBLIC_PATHS = [
   "/register",
   "/forgot-password",
   "/reset-password",
+  "/how-it-works",
+  "/pricing",
+  "/for-consultants",
+  "/security",
+  "/privacy",
+  "/terms",
 ];
 
 // Session cookie (no Max-Age) set by the onboarding wizard's "Explore the

@@ -49,26 +49,25 @@ const MENU_LINKS = [
   { label: "AutoApply Ops", href: "/admin/autoapply-ops" },
 ];
 
-/** Header tab link style — active gets the teal underline, hover brightens to cyan (BLUEPRINT §7.5). */
+/**
+ * Header tab link style — active gets the teal underline, hover brightens the
+ * underline (BLUEPRINT §7.5). Hard rule (2026-08-15): text is ALWAYS solid
+ * #FFFFFF — never conditional on active/hover/background-accent state. Only
+ * the underline and font weight vary, so this can't be accidentally
+ * overridden by a future page-specific style reintroducing colored tab text.
+ */
 function headerTabStyle(active: boolean, hovered: boolean): CSSProperties {
-  if (hovered) {
-    return {
-      color: "#67E8F9",
-      fontSize: "14px",
-      fontWeight: 600,
-      textDecoration: "none",
-      padding: "4px 0",
-      borderBottom: "2px solid #67E8F9",
-      transition: "all 0.15s",
-    };
-  }
   return {
-    color: "#00B4D8",
+    color: "#FFFFFF",
     fontSize: "14px",
-    fontWeight: 600,
+    fontWeight: active ? 700 : 600,
     textDecoration: "none",
     padding: "4px 0",
-    borderBottom: active ? "2px solid #00B4D8" : "2px solid transparent",
+    borderBottom: active
+      ? "2px solid #22D3EE"
+      : hovered
+        ? "2px solid rgba(255,255,255,0.5)"
+        : "2px solid transparent",
     transition: "all 0.15s",
   };
 }
@@ -216,7 +215,7 @@ export function Header({ userEmail, role, orgName, orgLogoUrl, onMenuClick }: He
         position: "sticky",
         top: 0,
         zIndex: 30,
-        backgroundColor: "#1A2535",
+        backgroundColor: "#1D4ED8",
         height: "56px",
         display: "flex",
         alignItems: "center",
@@ -296,11 +295,11 @@ export function Header({ userEmail, role, orgName, orgLogoUrl, onMenuClick }: He
                 <img
                   src={orgLogoUrl}
                   alt={orgName || "Organization"}
-                  className="w-9 h-9 rounded-full object-cover ring-2 ring-[#00B4D8] ring-offset-2 ring-offset-[#1A2535]"
+                  className="w-9 h-9 rounded-full object-cover ring-2 ring-[#00B4D8] ring-offset-2 ring-offset-[#1D4ED8]"
                 />
               ) : (
                 <span
-                  className="w-9 h-9 rounded-full bg-[#0077B6] text-white flex items-center justify-center text-sm font-bold ring-2 ring-[#00B4D8] ring-offset-2 ring-offset-[#1A2535]"
+                  className="w-9 h-9 rounded-full bg-[#0077B6] text-white flex items-center justify-center text-sm font-bold ring-2 ring-[#00B4D8] ring-offset-2 ring-offset-[#1D4ED8]"
                   aria-hidden
                 >
                   {initials}

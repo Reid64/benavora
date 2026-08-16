@@ -33,25 +33,36 @@ export async function GET() {
   if ("error" in gate) return gate.error;
   const { supabase } = gate;
 
+  // The live FEMA poll is best-effort: it's a synchronous call to a
+  // third-party API on every page load, and a transient FEMA-side failure
+  // must never hide the declarations already on file in our own DB. Only
+  // the read of disaster_declarations itself is a hard failure.
+  let newCount = 0;
+  let pollError: string | null = null;
   try {
     const pollResult = await pollFEMADeclarations(supabase);
-    const { data: declarations, error } = await supabase
-      .from("disaster_declarations")
-      .select(
-        "id, fema_disaster_number, disaster_type, incident_type, affected_states, declaration_date, incident_begin_date, response_deployed, response_deployed_at",
-      )
-      .order("declaration_date", { ascending: false })
-      .limit(20);
-    if (error) {
-      return jsonError(error.message, "fetch_failed", 500);
-    }
-    return NextResponse.json({
-      newDeclarations: pollResult.newCount,
-      declarations: declarations ?? [],
-    });
-  } catch {
-    return jsonError("FEMA poll failed. Please try again.", "poll_failed", 502);
+    newCount = pollResult.newCount;
+  } catch (err) {
+    pollError = err instanceof Error ? err.message : "FEMA poll failed.";
   }
+
+  const { data: declarations, error } = await supabase
+    .from("disaster_declarations")
+    .select(
+      "id, fema_disaster_number, disaster_type, incident_type, affected_states, declaration_date, incident_begin_date, response_deployed, response_deployed_at",
+    )
+    .order("declaration_date", { ascending: false })
+    .limit(20);
+  if (error) {
+    return jsonError(error.message, "fetch_failed", 500);
+  }
+  return NextResponse.json({
+    newDeclarations: newCount,
+    declarations: declarations ?? [],
+    pollWarning: pollError
+      ? "Live FEMA update unavailable right now — showing declarations already on file."
+      : null,
+  });
 }
 
 export async function POST(req: NextRequest) {

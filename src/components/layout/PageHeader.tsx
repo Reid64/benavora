@@ -8,6 +8,16 @@ export type PageHeaderProps = {
   description?: ReactNode;
   /** Right-aligned actions (buttons, widgets). */
   actions?: ReactNode;
+  /**
+   * Section signature accent (hex) — colors the title's left border bar and
+   * the title text itself. Defaults to the app-wide primary (#0077B6) for
+   * any page that doesn't pass one, so this is purely additive. See
+   * governance/DESIGN_SYSTEM.md "Section Accent Colors" for the canonical
+   * per-nav-section mapping this is meant to be driven from. The shared
+   * sidebar/header shell is intentionally never colored by this prop — only
+   * a page's own content area accents should vary by section.
+   */
+  accent?: string;
 };
 
 type StyleableElement = ReactElement<{
@@ -47,12 +57,12 @@ function withEnforcedPrimaryStyle(node: ReactNode): ReactNode {
  * left-accented title block with the page title and optional subtitle, and
  * a right-hand actions slot. Fixed shape across the app.
  */
-export function PageHeader({ title, description, actions }: PageHeaderProps) {
+export function PageHeader({ title, description, actions, accent = "#0077B6" }: PageHeaderProps) {
   return (
     <div className="mb-8">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
-        <div className="border-l-4 border-[#0077B6] pl-4">
-          <h1 className="text-2xl font-bold text-primary tracking-tight">{title}</h1>
+        <div className="pl-4" style={{ borderLeft: `4px solid ${accent}` }}>
+          <h1 className="text-2xl font-bold tracking-tight" style={{ color: accent }}>{title}</h1>
           {description && <p className="text-sm text-slate-500 mt-1">{description}</p>}
         </div>
         {actions && (

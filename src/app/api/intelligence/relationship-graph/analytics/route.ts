@@ -105,7 +105,7 @@ async function loadOrgEdges(
   const { data: boardMembers, error: boardError } = await supabase
     .from("board_members")
     .select("id")
-    .eq("org_id", organizationId);
+    .eq("organization_id", organizationId);
   if (boardError) {
     throw new Error(`Failed to load board members: ${boardError.message}`);
   }

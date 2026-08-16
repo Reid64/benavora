@@ -39,7 +39,9 @@ const CARD = "#FFFFFF";
 const TEXT_PRIMARY = "#0F172A";
 const TEXT_SECONDARY = "#64748B";
 const TEXT_MUTED = "#94A3B8";
-const ACCENT = "#0077B6";
+// Dashboard/Home section signature accent — see governance/DESIGN_SYSTEM.md
+// "Section Accent Colors" and src/lib/design/section-accents.ts.
+const ACCENT = "#1D4ED8";
 const SHADOW = "0 4px 20px rgba(0,0,0,0.08)";
 
 const DISPLAY_CATEGORIES: DisplayCategory[] = [
@@ -217,6 +219,7 @@ export default function AlertsPage() {
       `}</style>
       <PageHeader
         title="Alerts"
+        accent={ACCENT}
         description="Your daily action list — deadlines, new opportunities, applications needing action, and drafts pending review."
         actions={
           <div className="flex items-center gap-3">

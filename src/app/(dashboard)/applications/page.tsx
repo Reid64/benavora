@@ -61,6 +61,14 @@ const FAMILY_LABEL: Record<Family, string> = {
 
 const FAMILY_ORDER: Family[] = ["discovery", "drafting", "submitted", "awarded", "denied"];
 
+// Applications & Pipeline section signature accent — see
+// governance/DESIGN_SYSTEM.md "Section Accent Colors" and
+// src/lib/design/section-accents.ts. Used for the page's own header accent
+// and the generic (non-family-specific) "active filter" look — never for
+// the per-family pipeline-stage colors above, which are semantic status
+// colors, not decorative branding.
+const SECTION_ACCENT = "#0E7490";
+
 function probabilityColor(score: number): string {
   if (score >= 70) return "#10B981";
   if (score >= 40) return "#F59E0B";
@@ -183,14 +191,14 @@ export default function ApplicationsPage() {
           marginBottom: "20px",
         }}
       >
-        <div>
+        <div style={{ borderLeft: `4px solid ${SECTION_ACCENT}`, paddingLeft: "16px" }}>
           <h1
             style={{
               margin: 0,
               fontSize: "28px",
               fontWeight: 800,
               letterSpacing: "-0.02em",
-              color: "#0F172A",
+              color: SECTION_ACCENT,
             }}
           >
             Applications
@@ -225,7 +233,7 @@ export default function ApplicationsPage() {
         {(["all", ...FAMILY_ORDER] as FilterKey[]).map((key) => {
           const active = filter === key;
           const label = key === "all" ? "All" : FAMILY_LABEL[key];
-          const dotColor = key === "all" ? "#1A2B3C" : FAMILY_COLOR[key];
+          const dotColor = key === "all" ? SECTION_ACCENT : FAMILY_COLOR[key];
           return (
             <button
               key={key}
@@ -236,8 +244,8 @@ export default function ApplicationsPage() {
                 alignItems: "center",
                 gap: "8px",
                 borderRadius: "10px",
-                border: active ? "1px solid #1A2B3C" : "1px solid #B8C9D9",
-                backgroundColor: active ? "#1A2B3C" : "#FFFFFF",
+                border: active ? `1px solid ${SECTION_ACCENT}` : "1px solid #B8C9D9",
+                backgroundColor: active ? SECTION_ACCENT : "#FFFFFF",
                 color: active ? "#FFFFFF" : "#1A2B3C",
                 padding: "10px 16px",
                 fontSize: "14px",

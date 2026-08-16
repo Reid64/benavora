@@ -4,13 +4,17 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-// Marketing route-group layout. Provides the shared dark nav + footer for the
+// Marketing route-group layout. Provides the shared light nav + footer for the
 // secondary marketing pages (/privacy, /terms, /for-consultants).
 //
 // The landing page ("/") is the converted v15 marketing page — it is fully
 // self-contained (its own nav, footer, and GLOBAL CSS, including a `nav {}`
 // rule). Wrapping it in this chrome would duplicate the nav and let the v15
 // global styles collide with it, so we render the landing without chrome.
+//
+// /how-it-works is a deep-dive continuation of the landing page (same dark B-token
+// visual system, its own nav/footer) rather than a standalone marketing sub-page —
+// same reasoning as "/", so it's exempted the same way.
 
 const NAV_LINKS: { label: string; href: string }[] = [
   { label: "How It Works", href: "/#how" },
@@ -28,8 +32,9 @@ export default function MarketingLayout({
 }) {
   const pathname = usePathname();
 
-  // Landing page renders standalone (it brings its own nav + footer).
-  if (pathname === "/") {
+  // Landing page and its deep-dive continuation render standalone (they bring
+  // their own nav + footer, matching the landing page's dark visual system).
+  if (pathname === "/" || pathname === "/how-it-works") {
     return <>{children}</>;
   }
 

@@ -58,7 +58,13 @@ const SECTION_LABEL_STYLE: CSSProperties = {
   margin: 0,
 };
 
-/** Nav item style per the dark premium reskin spec — inline hex only (BLUEPRINT §7.5). */
+/**
+ * Nav item style per the dark premium reskin spec — inline hex only (BLUEPRINT §7.5).
+ * Hard rule (2026-08-15): text is ALWAYS solid #FFFFFF — never conditional on
+ * active/hover/background-accent state. Only the background tint and font
+ * weight vary between states, so this can't be accidentally overridden by a
+ * future page-specific style reintroducing a colored/dimmed nav label.
+ */
 function navItemStyle(active: boolean, hovered: boolean): CSSProperties {
   return {
     display: "flex",
@@ -66,14 +72,14 @@ function navItemStyle(active: boolean, hovered: boolean): CSSProperties {
     gap: "10px",
     padding: "9px 12px",
     borderRadius: "8px",
-    color: active ? "#00B4D8" : hovered ? "#67E8F9" : "rgba(248,250,252,0.7)",
+    color: "#FFFFFF",
     fontSize: "13px",
     fontWeight: active ? 600 : 500,
     textDecoration: "none",
     backgroundColor: active
-      ? "rgba(0,180,216,0.12)"
+      ? "rgba(34,211,238,0.18)"
       : hovered
-        ? "rgba(103,232,249,0.08)"
+        ? "rgba(34,211,238,0.10)"
         : "transparent",
     marginBottom: "1px",
     transition: "all 0.15s",
@@ -173,7 +179,10 @@ function NavBadge({ count }: { count: number }) {
   );
 }
 
-/** An indented child (sub-nav) row — same owns-its-own-hover-state pattern as NavLink. */
+/**
+ * An indented child (sub-nav) row — same owns-its-own-hover-state pattern as
+ * NavLink. Same hard rule: text is always solid #FFFFFF, never conditional.
+ */
 function ChildNavLink({
   href,
   label,
@@ -199,13 +208,13 @@ function ChildNavLink({
         borderRadius: "6px",
         padding: "6px 12px",
         fontSize: "12px",
-        fontWeight: 500,
+        fontWeight: active ? 600 : 500,
         textDecoration: "none",
-        color: active ? "#00B4D8" : hovered ? "#67E8F9" : "rgba(248,250,252,0.7)",
+        color: "#FFFFFF",
         backgroundColor: active
-          ? "rgba(0,180,216,0.12)"
+          ? "rgba(34,211,238,0.18)"
           : hovered
-            ? "rgba(103,232,249,0.08)"
+            ? "rgba(34,211,238,0.10)"
             : "transparent",
       }}
       onMouseEnter={() => setHovered(true)}
@@ -219,7 +228,7 @@ function ChildNavLink({
             width: "4px",
             height: "4px",
             borderRadius: "50%",
-            backgroundColor: "#00B4D8",
+            backgroundColor: "#22D3EE",
             marginRight: "8px",
             flexShrink: 0,
           }}
@@ -353,7 +362,7 @@ export function Sidebar({ open, onClose, role, onboardingCompleted, orgName }: S
         style={{
           width: "240px",
           minHeight: "100vh",
-          backgroundColor: "#162032",
+          background: "linear-gradient(180deg, #1D4ED8 0%, #0284C7 100%)",
           display: "flex",
           flexDirection: "column",
           borderRight: "1px solid rgba(255,255,255,0.06)",

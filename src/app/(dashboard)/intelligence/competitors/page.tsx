@@ -224,8 +224,10 @@ export default function CompetitorsPage() {
   // Feature not yet loaded
   if (featureEnabled === null && loading) {
     return (
-      <div className="flex items-center justify-center py-24 text-sm text-navy-400">
-        Loading…
+      <div className="min-h-screen p-6" style={{ backgroundColor: "#E4E9F0" }}>
+        <div className="flex items-center justify-center py-24 text-sm text-navy-400">
+          Loading…
+        </div>
       </div>
     );
   }
@@ -233,7 +235,7 @@ export default function CompetitorsPage() {
   // Feature disabled — locked state (§27: hidden from non-Enterprise tiers)
   if (featureEnabled === false) {
     return (
-      <div className="space-y-6">
+      <div className="min-h-screen space-y-6 p-6" style={{ backgroundColor: "#E4E9F0" }}>
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-primary">
             Competitor Intelligence
@@ -257,7 +259,7 @@ export default function CompetitorsPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="min-h-screen space-y-8 p-6" style={{ backgroundColor: "#E4E9F0" }}>
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>

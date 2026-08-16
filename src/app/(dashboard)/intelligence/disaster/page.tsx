@@ -112,6 +112,7 @@ export default function DisasterResponsePage() {
   const [declarations, setDeclarations] = useState<DisasterDeclaration[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pollWarning, setPollWarning] = useState<string | null>(null);
 
   const [deploying, setDeploying] = useState<Set<string>>(new Set());
   const [deployResults, setDeployResults] = useState<Record<string, DeployResult>>({});
@@ -122,6 +123,7 @@ export default function DisasterResponsePage() {
     (async () => {
       setLoading(true);
       setError(null);
+      setPollWarning(null);
       try {
         const res = await fetch("/api/agents/disaster");
         const payload = await res.json().catch(() => ({}));
@@ -130,7 +132,9 @@ export default function DisasterResponsePage() {
           setError((payload as { error?: string }).error ?? "Could not load disaster declarations.");
           return;
         }
-        setDeclarations((payload as { declarations?: DisasterDeclaration[] }).declarations ?? []);
+        const body = payload as { declarations?: DisasterDeclaration[]; pollWarning?: string | null };
+        setDeclarations(body.declarations ?? []);
+        setPollWarning(body.pollWarning ?? null);
       } catch {
         if (active) setError("Could not reach the disaster response service.");
       } finally {
@@ -202,6 +206,15 @@ export default function DisasterResponsePage() {
           className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
         >
           {error}
+        </div>
+      )}
+
+      {!error && pollWarning && (
+        <div
+          role="status"
+          className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
+        >
+          {pollWarning}
         </div>
       )}
 

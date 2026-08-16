@@ -88,6 +88,11 @@ export default async function AdminOrgsPage() {
 
   return (
     <div style={{ backgroundColor: "#C8D4DC", minHeight: "100vh", padding: "32px" }}>
+      {/* Admin & Settings section signature accent (bottom border) — see
+          governance/DESIGN_SYSTEM.md "Section Accent Colors" and
+          src/lib/design/section-accents.ts. Kept as a border rather than the
+          fill so the white header text keeps its contrast against the dark
+          panel. */}
       <div
         style={{
           backgroundColor: "#1A2B3C",
@@ -95,6 +100,7 @@ export default async function AdminOrgsPage() {
           padding: "28px 40px",
           marginBottom: "24px",
           boxShadow: "0 8px 32px rgba(0,0,0,0.20)",
+          borderBottom: "4px solid #22D3EE",
         }}
       >
         <h1

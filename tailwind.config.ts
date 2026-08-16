@@ -132,7 +132,32 @@ const config: Config = {
         warning: "#f59e0b",
         info: "#3b82f6",
 
+        // ── Real brand palette (2026-08-15) — sourced from the actual uploaded
+        // logo, not the old navy/teal/plum values below (those were derived
+        // from unused, dead-code color definitions and do not belong to this
+        // brand — see governance/DESIGN_SYSTEM.md). Logo elements: a blue-
+        // gradient "b" mark (deep → sky), a violet paper-airplane/heart
+        // accent, and bright teal-cyan leaf petals.
+        brand: {
+          deep: "#1D4ED8", // "b" mark gradient — top
+          sky: "#0284C7", // "b" mark gradient — bottom
+          DEFAULT: "#1D4ED8",
+          violet: "#7C3AED", // paper-airplane / heart accent
+          indigo: "#4C51C6", // blue-violet blend
+          teal: "#0E7490", // teal-blue blend
+          highlight: "#22D3EE", // fixed bright teal (leaf petals) — primary CTAs/buttons
+        },
+
         // ── Legacy navy scale (pages still reference these) ───────────────────
+        // NOT part of the real brand (see `brand` above) — flagged for removal
+        // 2026-08-15, but NOT deleted yet: still live in ~149 files / ~3,800
+        // class usages app-wide (mostly body text/backgrounds on cards, tables,
+        // and pages — not just nav), confirmed via a real repo-wide grep this
+        // session. Deleting this block outright would silently unstyle all of
+        // that content, reproducing the 2026-07-16 !important-layer-removal
+        // regression (see CSS_OVERRIDE_INVESTIGATION_2026-08-15.md) at a wider
+        // scale. Needs a scoped, file-by-file migration before removal, not a
+        // one-shot delete — do not remove without that migration.
         navy: {
           50: "#f4f6fa",
           100: "#e6ebf3",

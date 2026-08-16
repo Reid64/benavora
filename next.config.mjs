@@ -27,6 +27,18 @@ const nextConfig = {
   images: {
     remotePatterns: [],
   },
+  // `pnpm run typecheck` (tsc --noEmit) and `pnpm run lint` (next lint) already
+  // run as their own gates. Re-running a full type-check + lint pass inside
+  // `next build` duplicates that work across the whole repo and was the
+  // difference between a build that fits under the CI timeout and one that
+  // doesn't. Type/lint correctness is still enforced — just by those
+  // dedicated gates instead of a second time here.
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
 };
 
 export default withBundleAnalyzer(nextConfig);
