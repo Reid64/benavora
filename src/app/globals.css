@@ -220,28 +220,59 @@ summary:focus-visible {
 }
 
 /* ── Scrollbars ──────────────────────────────────────────────────────────────── */
+/* Bronze (#A4712C) chosen over Rich Gold (#B88A2E) as the thumb color: hand-
+   computed WCAG luminance contrast against every real background this
+   scrollbar sits over (app bg #E4E9F0, surface #F7F5F1, Draft Generator's
+   Soft Stone #D8D3C8, and white/ivory cards) puts Bronze ahead of Gold on
+   all four (e.g. 3.87:1 vs 2.88:1 on the ivory surface, 2.82:1 vs 2.10:1 on
+   Soft Stone) — Bronze is simply darker, so it reads better everywhere. */
 * {
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-border-hover) transparent;
+  scrollbar-width: auto;
+  scrollbar-color: #a4712c transparent;
 }
 *::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 17px;
+  height: 17px;
+}
+*::-webkit-scrollbar-track {
+  background-color: transparent;
 }
 *::-webkit-scrollbar-thumb {
-  background-color: var(--color-border-hover);
+  background-color: #a4712c;
   border-radius: 9999px;
-  border: 2px solid transparent;
+  border: 4px solid transparent;
   background-clip: content-box;
 }
 *::-webkit-scrollbar-thumb:hover {
-  background-color: #94a3b8;
+  background-color: #7d5720;
+}
+/* Up/down (and left/right) arrow buttons — attempted per spec, but current
+   Chrome/Edge do not draw arrow glyphs on ::-webkit-scrollbar-button
+   regardless of CSS; this reserves a colored end-cap, not a functioning
+   arrow control. Left in as the honest best-effort; see verification notes. */
+*::-webkit-scrollbar-button {
+  display: block;
+  background-color: #a4712c;
+  height: 17px;
+  width: 17px;
+}
+*::-webkit-scrollbar-button:hover {
+  background-color: #7d5720;
 }
 .scrollbar-dark {
-  scrollbar-color: var(--color-sidebar-border) transparent;
+  scrollbar-color: rgba(248, 250, 252, 0.2) transparent;
 }
 .scrollbar-dark::-webkit-scrollbar-thumb {
   background-color: rgba(248, 250, 252, 0.2);
+}
+.scrollbar-dark::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(248, 250, 252, 0.4);
+}
+.scrollbar-dark::-webkit-scrollbar-button {
+  background-color: rgba(248, 250, 252, 0.2);
+}
+.scrollbar-dark::-webkit-scrollbar-button:hover {
+  background-color: rgba(248, 250, 252, 0.4);
 }
 
 /* ── Form element base styles ────────────────────────────────────────────────── */
