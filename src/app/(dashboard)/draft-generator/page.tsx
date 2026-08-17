@@ -872,11 +872,11 @@ export default function DraftGeneratorPage() {
       </div>
 
       <div className="flex flex-col gap-4 sm:flex-row">
-        <div style={{ flex: "1", background: "linear-gradient(135deg,#0077B6,#0EA5E9)", borderRadius: "14px", padding: "20px 24px", boxShadow: "0 4px 16px rgba(0,119,182,0.4)" }}>
+        <div style={{ flex: "1", background: "linear-gradient(135deg,#0077B6,#0EA5E9)", borderRadius: "14px", padding: "20px 24px", boxShadow: "0 4px 16px rgba(0,119,182,0.4)", borderTop: "8px solid #2563EB" }}>
           <p style={statNumberStyle}>{stats ? stats.totalDrafts : "—"}</p>
           <p style={statLabelStyle}>Total Drafts</p>
         </div>
-        <div style={{ flex: "1", background: "linear-gradient(135deg,#7C3AED,#9333EA)", borderRadius: "14px", padding: "20px 24px", boxShadow: "0 4px 16px rgba(124,58,237,0.4)" }}>
+        <div style={{ flex: "1", background: "linear-gradient(135deg,#7C3AED,#9333EA)", borderRadius: "14px", padding: "20px 24px", boxShadow: "0 4px 16px rgba(124,58,237,0.4)", borderTop: "8px solid #2563EB" }}>
           <p style={statNumberStyle}>{stats ? stats.aiPending : "—"}</p>
           <div className="flex items-center justify-between">
             <p style={statLabelStyle}>AI Drafts Pending</p>
@@ -895,11 +895,11 @@ export default function DraftGeneratorPage() {
             </span>
           </div>
         </div>
-        <div style={{ flex: "1", background: "linear-gradient(135deg,#0891B2,#06B6D4)", borderRadius: "14px", padding: "20px 24px", boxShadow: "0 4px 16px rgba(5,150,105,0.4)" }}>
+        <div style={{ flex: "1", background: "linear-gradient(135deg,#0891B2,#06B6D4)", borderRadius: "14px", padding: "20px 24px", boxShadow: "0 4px 16px rgba(5,150,105,0.4)", borderTop: "8px solid #2563EB" }}>
           <p style={statNumberStyle}>{stats ? stats.draftsThisMonth : "—"}</p>
           <p style={statLabelStyle}>Drafts This Month</p>
         </div>
-        <div style={{ flex: "1", background: "linear-gradient(135deg,#D97706,#F59E0B)", borderRadius: "14px", padding: "20px 24px", boxShadow: "0 4px 16px rgba(217,119,6,0.4)" }}>
+        <div style={{ flex: "1", background: "linear-gradient(135deg,#D97706,#F59E0B)", borderRadius: "14px", padding: "20px 24px", boxShadow: "0 4px 16px rgba(217,119,6,0.4)", borderTop: "8px solid #2563EB" }}>
           <p style={statNumberStyle}>
             {stats && stats.avgConfidence != null ? `${stats.avgConfidence}/100` : "—"}
           </p>
@@ -949,11 +949,11 @@ export default function DraftGeneratorPage() {
                 alignSelf: "flex-start",
                 position: "sticky",
                 top: "24px",
-                backgroundColor: "#1A2B3C",
+                backgroundColor: "#2563EB",
                 borderRadius: "14px",
                 padding: "20px",
-                border: "1px solid rgba(255,255,255,0.1)",
-                boxShadow: "0 4px 16px rgba(0,0,0,0.3)",
+                border: "1px solid rgba(255,255,255,0.15)",
+                boxShadow: "0 4px 16px rgba(37,99,235,0.4)",
               }}
             >
               <p
@@ -961,7 +961,7 @@ export default function DraftGeneratorPage() {
                   fontSize: "11px",
                   fontWeight: 700,
                   letterSpacing: "0.15em",
-                  color: "#2563EB",
+                  color: "#FFFFFF",
                   textTransform: "uppercase",
                   marginBottom: "20px",
                   display: "block",
@@ -984,7 +984,7 @@ export default function DraftGeneratorPage() {
                         gap: "12px",
                         padding: "12px",
                         borderRadius: "8px",
-                        backgroundColor: "rgba(16,185,129,0.15)",
+                        backgroundColor: "rgba(16,185,129,0.35)",
                         marginBottom: "8px",
                       }
                     : status === "active"
@@ -994,8 +994,8 @@ export default function DraftGeneratorPage() {
                           gap: "12px",
                           padding: "12px",
                           borderRadius: "8px",
-                          backgroundColor: "rgba(37,99,235,0.15)",
-                          border: "1px solid rgba(37,99,235,0.3)",
+                          backgroundColor: "#FFFFFF",
+                          boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
                           marginBottom: "8px",
                         }
                       : {
@@ -1004,20 +1004,21 @@ export default function DraftGeneratorPage() {
                           gap: "12px",
                           padding: "12px",
                           borderRadius: "8px",
+                          backgroundColor: "rgba(255,255,255,0.1)",
                           marginBottom: "8px",
                         };
                 const dotStyle =
                   status === "done"
                     ? { width: "10px", height: "10px", borderRadius: "50%", backgroundColor: "#10B981", flexShrink: 0, boxShadow: "0 0 6px rgba(16,185,129,0.6)" }
                     : status === "active"
-                      ? { width: "10px", height: "10px", borderRadius: "50%", backgroundColor: "#2563EB", flexShrink: 0, boxShadow: "0 0 6px rgba(37,99,235,0.8)" }
-                      : { width: "10px", height: "10px", borderRadius: "50%", backgroundColor: "rgba(255,255,255,0.2)", flexShrink: 0 };
+                      ? { width: "10px", height: "10px", borderRadius: "50%", backgroundColor: "#2563EB", flexShrink: 0 }
+                      : { width: "10px", height: "10px", borderRadius: "50%", backgroundColor: "rgba(255,255,255,0.4)", flexShrink: 0 };
                 const textStyle =
                   status === "done"
-                    ? { fontSize: "13px", fontWeight: 600, color: "rgba(255,255,255,0.6)" }
+                    ? { fontSize: "13px", fontWeight: 600, color: "#FFFFFF" }
                     : status === "active"
-                      ? { fontSize: "13px", fontWeight: 700, color: "#BFDBFE" }
-                      : { fontSize: "13px", fontWeight: 500, color: "rgba(255,255,255,0.3)" };
+                      ? { fontSize: "13px", fontWeight: 700, color: "#1E3A8A" }
+                      : { fontSize: "13px", fontWeight: 500, color: "rgba(255,255,255,0.6)" };
                 return (
                   <div key={n} style={rowStyle}>
                     <span style={dotStyle} />
@@ -1025,18 +1026,18 @@ export default function DraftGeneratorPage() {
                   </div>
                 );
               })}
-              <div style={{borderTop:'1px solid rgba(255,255,255,0.1)',marginTop:'16px',paddingTop:'16px'}}>
-                <p style={{fontSize:'10px',fontWeight:700,letterSpacing:'0.12em',color:'rgba(248,250,252,0.3)',textTransform:'uppercase',marginBottom:'12px'}}>INTELLIGENCE TIPS</p>
-                <div style={{fontSize:'12px',color:'rgba(248,250,252,0.5)',lineHeight:'1.6',marginBottom:'10px',paddingLeft:'8px',borderLeft:'2px solid rgba(37,99,235,0.4)'}}>
+              <div style={{borderTop:'1px solid rgba(255,255,255,0.25)',marginTop:'16px',paddingTop:'16px'}}>
+                <p style={{fontSize:'10px',fontWeight:700,letterSpacing:'0.12em',color:'rgba(255,255,255,0.65)',textTransform:'uppercase',marginBottom:'12px'}}>INTELLIGENCE TIPS</p>
+                <div style={{fontSize:'12px',color:'rgba(255,255,255,0.85)',lineHeight:'1.6',marginBottom:'10px',paddingLeft:'8px',borderLeft:'2px solid rgba(255,255,255,0.5)'}}>
                   Visit Intelligence Library to import winning grant narratives that boost your confidence score
                 </div>
-                <div style={{fontSize:'12px',color:'rgba(248,250,252,0.5)',lineHeight:'1.6',marginBottom:'10px',paddingLeft:'8px',borderLeft:'2px solid rgba(124,58,237,0.4)'}}>
+                <div style={{fontSize:'12px',color:'rgba(255,255,255,0.85)',lineHeight:'1.6',marginBottom:'10px',paddingLeft:'8px',borderLeft:'2px solid rgba(255,255,255,0.5)'}}>
                   Narratives matched to your NTEE category increase AI accuracy by up to 40%
                 </div>
-                <div style={{fontSize:'12px',color:'rgba(248,250,252,0.5)',lineHeight:'1.6',marginBottom:'10px',paddingLeft:'8px',borderLeft:'2px solid rgba(16,185,129,0.4)'}}>
+                <div style={{fontSize:'12px',color:'rgba(255,255,255,0.85)',lineHeight:'1.6',marginBottom:'10px',paddingLeft:'8px',borderLeft:'2px solid rgba(255,255,255,0.5)'}}>
                   Humanize your draft before submitting — scores above 80 pass most AI detection filters
                 </div>
-                <div style={{fontSize:'12px',color:'rgba(248,250,252,0.5)',lineHeight:'1.6',paddingLeft:'8px',borderLeft:'2px solid rgba(245,158,11,0.4)'}}>
+                <div style={{fontSize:'12px',color:'rgba(255,255,255,0.85)',lineHeight:'1.6',paddingLeft:'8px',borderLeft:'2px solid rgba(255,255,255,0.5)'}}>
                   Complete your Knowledge Base org profile to eliminate [NEEDS INPUT] gaps in generated drafts
                 </div>
               </div>
@@ -1116,8 +1117,8 @@ export default function DraftGeneratorPage() {
                       disabled={!canGenerate || generating}
                       style={{
                         width: "100%",
-                        background: "linear-gradient(135deg,#2563EB,#3B82F6)",
-                        color: "white",
+                        backgroundColor: "#22D3EE",
+                        color: "#0F172A",
                         border: "none",
                         borderRadius: "12px",
                         padding: "14px",
@@ -1129,7 +1130,7 @@ export default function DraftGeneratorPage() {
                         justifyContent: "center",
                         gap: "8px",
                         marginTop: "4px",
-                        boxShadow: "0 6px 20px rgba(37,99,235,0.4)",
+                        boxShadow: "0 6px 20px rgba(34,211,238,0.5)",
                         letterSpacing: "0.02em",
                       }}
                       className="disabled:cursor-not-allowed disabled:opacity-50"
