@@ -52,7 +52,7 @@ export function DashboardShell({
     !onboardingCompleted && !pathname.startsWith("/onboarding") ? onboardingProgress : null;
 
   return (
-    <div style={{ display: "flex", height: "100vh", overflow: "hidden", backgroundColor: "#71717A", color: "#FFFFFF" }}>
+    <div style={{ display: "flex", height: "100vh", overflow: "hidden", backgroundColor: "#1C1C1C", color: "#F8F5EE" }}>
       <PlatformTour />
       <Sidebar
         open={sidebarOpen}
@@ -77,7 +77,7 @@ export function DashboardShell({
             lastStep={onboardingBanner.lastStep}
           />
         )}
-        <main style={{ flex: "1", overflowY: "auto", backgroundColor: "#71717A", color: "#FFFFFF", padding: "0" }}>
+        <main style={{ flex: "1", overflowY: "auto", backgroundColor: "#1C1C1C", color: "#F8F5EE", padding: "0" }}>
           {children}
         </main>
       </div>

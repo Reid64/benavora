@@ -64,7 +64,7 @@ function headerTabStyle(active: boolean, hovered: boolean): CSSProperties {
     textDecoration: "none",
     padding: "4px 0",
     borderBottom: active
-      ? "2px solid #22D3EE"
+      ? "2px solid #C9A34E"
       : hovered
         ? "2px solid rgba(255,255,255,0.5)"
         : "2px solid transparent",
@@ -215,7 +215,7 @@ export function Header({ userEmail, role, orgName, orgLogoUrl, onMenuClick }: He
         position: "sticky",
         top: 0,
         zIndex: 30,
-        backgroundColor: "#1D4ED8",
+        backgroundColor: "#101B2D",
         height: "56px",
         display: "flex",
         alignItems: "center",
@@ -295,11 +295,11 @@ export function Header({ userEmail, role, orgName, orgLogoUrl, onMenuClick }: He
                 <img
                   src={orgLogoUrl}
                   alt={orgName || "Organization"}
-                  className="w-9 h-9 rounded-full object-cover ring-2 ring-[#00B4D8] ring-offset-2 ring-offset-[#1D4ED8]"
+                  className="w-9 h-9 rounded-full object-cover ring-2 ring-[#C9A34E] ring-offset-2 ring-offset-[#101B2D]"
                 />
               ) : (
                 <span
-                  className="w-9 h-9 rounded-full bg-[#0077B6] text-white flex items-center justify-center text-sm font-bold ring-2 ring-[#00B4D8] ring-offset-2 ring-offset-[#1D4ED8]"
+                  className="w-9 h-9 rounded-full bg-[#C9A34E] text-[#0B0B0B] flex items-center justify-center text-sm font-bold ring-2 ring-[#C9A34E] ring-offset-2 ring-offset-[#101B2D]"
                   aria-hidden
                 >
                   {initials}

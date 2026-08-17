@@ -77,9 +77,9 @@ function navItemStyle(active: boolean, hovered: boolean): CSSProperties {
     fontWeight: active ? 600 : 500,
     textDecoration: "none",
     backgroundColor: active
-      ? "rgba(34,211,238,0.18)"
+      ? "rgba(201,163,78,0.22)"
       : hovered
-        ? "rgba(34,211,238,0.10)"
+        ? "rgba(201,163,78,0.10)"
         : "transparent",
     marginBottom: "1px",
     transition: "all 0.15s",
@@ -212,9 +212,9 @@ function ChildNavLink({
         textDecoration: "none",
         color: "#FFFFFF",
         backgroundColor: active
-          ? "rgba(34,211,238,0.18)"
+          ? "rgba(201,163,78,0.22)"
           : hovered
-            ? "rgba(34,211,238,0.10)"
+            ? "rgba(201,163,78,0.10)"
             : "transparent",
       }}
       onMouseEnter={() => setHovered(true)}
@@ -228,7 +228,7 @@ function ChildNavLink({
             width: "4px",
             height: "4px",
             borderRadius: "50%",
-            backgroundColor: "#22D3EE",
+            backgroundColor: "#C9A34E",
             marginRight: "8px",
             flexShrink: 0,
           }}
@@ -362,7 +362,7 @@ export function Sidebar({ open, onClose, role, onboardingCompleted, orgName }: S
         style={{
           width: "240px",
           minHeight: "100vh",
-          background: "linear-gradient(180deg, #1D4ED8 0%, #0284C7 100%)",
+          backgroundColor: "#101B2D",
           display: "flex",
           flexDirection: "column",
           borderRight: "1px solid rgba(255,255,255,0.06)",
