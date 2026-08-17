@@ -832,10 +832,10 @@ export default function DraftGeneratorPage() {
     confidence != null && confidence < AI_CONFIDENCE_THRESHOLD;
 
   const indigoCardStyle = {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#DBEAFE",
     borderRadius: "14px",
     padding: "20px",
-    border: "1px solid #E2E8F0",
+    border: "1px solid #BFDBFE",
     boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
   };
   // Wizard rail step (1 Select Opportunity, 2 Customize, 3 Generate, 4 Review
@@ -1183,10 +1183,10 @@ export default function DraftGeneratorPage() {
               <div className="flex flex-1 flex-col gap-4" style={{ minWidth: 0 }}>
                 <div
                   style={{
-                    backgroundColor: "#FFFFFF",
+                    backgroundColor: "#DBEAFE",
                     borderRadius: "14px",
                     padding: "24px",
-                    border: "1px solid #E2E8F0",
+                    border: "1px solid #BFDBFE",
                     flex: "1",
                     display: "flex",
                     flexDirection: "column",

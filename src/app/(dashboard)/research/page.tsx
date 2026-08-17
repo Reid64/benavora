@@ -1003,7 +1003,7 @@ export default function ResearchPage() {
   }
 
   return (
-    <div style={{ backgroundColor: "#E4E9F0", display: "flex", flexDirection: "column", gap: "32px" }}>
+    <div style={{ backgroundColor: "#E0F2FE", display: "flex", flexDirection: "column", gap: "32px" }}>
       {/* Header */}
       <PageHeader
         title="Research Command Center"
