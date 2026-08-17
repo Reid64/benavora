@@ -29,42 +29,40 @@ export function RubricPanel({ rubric, rubricInferred = false, dark = false }: Ru
   }, [hasRubric]);
 
   return (
+    // Teal frame — this box's own distinct identity in the side rail (the
+    // "how to score higher" companion to Grant DNA Score's Slate Blue).
     <div
       className={dark ? undefined : undefined}
       style={
         dark
           ? { backgroundColor: "#1E293B", borderRadius: "12px", padding: "20px", border: "1px solid rgba(255,255,255,0.08)", marginTop: "12px", overflow: "hidden" }
-          : { backgroundColor: "#F8F5EE", borderRadius: "14px", border: "1px solid rgba(164,113,44,0.3)", boxShadow: "0 1px 3px rgba(16,27,45,0.08)", overflow: "hidden" }
+          : { backgroundColor: "#2E6B66", borderRadius: "14px", padding: "14px", boxShadow: "0 2px 8px rgba(16,27,45,0.2)" }
       }
     >
       <button
         type="button"
         onClick={() => setExpanded((prev) => !prev)}
         aria-expanded={expanded}
-        className={dark ? "flex w-full items-center justify-between gap-4" : "flex w-full items-center justify-between gap-4 px-5 py-4"}
-        style={
-          dark
-            ? expanded
-              ? { borderBottom: "1px solid rgba(255,255,255,0.08)", paddingBottom: "12px" }
-              : undefined
-            : { backgroundColor: "rgba(164,113,44,0.06)", borderBottom: expanded ? "1px solid rgba(164,113,44,0.3)" : "none" }
-        }
+        className="flex w-full items-center justify-between gap-4"
       >
         <div className="flex items-center gap-2">
-          <Target className="h-4 w-4 text-amber-500" aria-hidden />
-          <h3 className={dark ? undefined : undefined} style={dark ? { fontSize: "16px", fontWeight: 600, color: "#F8FAFC" } : { fontSize: "16px", fontWeight: 600, color: "#101B2D" }}>
+          <Target className="h-4 w-4" style={{ color: dark ? "#fbbf24" : "#F8F5EE" }} aria-hidden />
+          <h3 style={dark ? { fontSize: "16px", fontWeight: 600, color: "#F8FAFC" } : { fontSize: "16px", fontWeight: 600, color: "#F8F5EE" }}>
             Scoring Optimization
           </h3>
         </div>
         {expanded ? (
-          <ChevronUp className="h-4 w-4 shrink-0" style={dark ? { color: "rgba(248,250,252,0.5)" } : undefined} aria-hidden />
+          <ChevronUp className="h-4 w-4 shrink-0" style={{ color: dark ? "rgba(248,250,252,0.5)" : "#F8F5EE" }} aria-hidden />
         ) : (
-          <ChevronDown className="h-4 w-4 shrink-0" style={dark ? { color: "rgba(248,250,252,0.5)" } : undefined} aria-hidden />
+          <ChevronDown className="h-4 w-4 shrink-0" style={{ color: dark ? "rgba(248,250,252,0.5)" : "#F8F5EE" }} aria-hidden />
         )}
       </button>
 
       {expanded && (
-        <div className={dark ? "pt-3" : "p-5"}>
+        <div
+          className={dark ? "pt-3" : "rounded-lg p-5"}
+          style={dark ? undefined : { backgroundColor: "#F8F5EE", marginTop: "12px", boxShadow: "0 1px 3px rgba(16,27,45,0.25)" }}
+        >
           {!hasRubric ? (
             <p className={dark ? undefined : "text-sm text-navy-500"} style={dark ? { fontSize: "14px", color: "rgba(248,250,252,0.5)" } : undefined}>
               No scoring rubric available for this funder.

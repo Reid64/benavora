@@ -110,15 +110,15 @@ export function GrantDNACard({ result, scoring = false, onReScore }: Props) {
   }));
 
   return (
-    <div className="rounded-xl" style={{ backgroundColor: "#F8F5EE", border: "1px solid rgba(164,113,44,0.3)", boxShadow: "0 1px 3px rgba(16,27,45,0.08)" }}>
-      {/* Header */}
-      <div
-        className="flex items-center justify-between gap-3 rounded-t-xl px-5 py-4"
-        style={{ backgroundColor: "rgba(164,113,44,0.06)", borderBottom: "1px solid rgba(164,113,44,0.3)" }}
-      >
+    // Slate Blue frame — this box's own distinct identity in the Review &
+    // Export side rail (the analytical/scoring counterpart to Sources
+    // Used's Gold and Section scores' Bronze). All body content sits in the
+    // Ivory panel below, which visibly lifts off this frame via its shadow.
+    <div className="rounded-xl" style={{ backgroundColor: "#4F6D8F", padding: "14px", boxShadow: "0 2px 8px rgba(16,27,45,0.2)" }}>
+      <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <Activity className="h-4 w-4" style={{ color: "#A4712C" }} aria-hidden />
-          <h3 className="text-base font-semibold" style={{ color: "#101B2D" }}>Grant DNA Score</h3>
+          <Activity className="h-4 w-4" style={{ color: "#F8F5EE" }} aria-hidden />
+          <h3 className="text-base font-semibold" style={{ color: "#F8F5EE" }}>Grant DNA Score</h3>
         </div>
         {onReScore && (
           <button
@@ -126,7 +126,7 @@ export function GrantDNACard({ result, scoring = false, onReScore }: Props) {
             onClick={onReScore}
             disabled={scoring}
             className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
-            style={{ backgroundColor: "transparent", border: "1.5px solid #A4712C", color: "#A4712C" }}
+            style={{ backgroundColor: "transparent", border: "1.5px solid rgba(248,245,238,0.6)", color: "#F8F5EE" }}
           >
             <RefreshCw className={`h-3.5 w-3.5 ${scoring ? "animate-spin" : ""}`} aria-hidden />
             {scoring ? "Scoring..." : "Re-score"}
@@ -134,7 +134,7 @@ export function GrantDNACard({ result, scoring = false, onReScore }: Props) {
         )}
       </div>
 
-      <div className="space-y-4 p-5">
+      <div className="space-y-4 rounded-lg p-5" style={{ backgroundColor: "#F8F5EE", marginTop: "12px", boxShadow: "0 1px 3px rgba(16,27,45,0.25)" }}>
         {/* Composite score + percentile */}
         <div className="flex items-center gap-4">
           <div

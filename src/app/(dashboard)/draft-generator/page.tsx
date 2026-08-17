@@ -326,18 +326,34 @@ function wizardNavButtonStyle() {
   };
 }
 
-/** Secondary button on an ivory card (Copy, Download, Score, Humanize…) — bronze outline, bronze text, transparent fill. */
-function secondaryOnLightStyle(disabled: boolean) {
+// --- Review & Export action-button accent family (2026-08-17) — a small,
+// deliberately separate palette from Gold/Bronze/Navy, one hue per action so
+// each button reads as distinct at a glance. Every fill/text pairing below
+// is WCAG-AA verified (≥4.5:1) against its own ivory/near-black text. ---
+const TEAL_ACCENT = "#2E6B66"; // Score Draft
+const PLUM_ACCENT = "#7A5980"; // Humanize
+const SLATE_BLUE_ACCENT = "#4F6D8F"; // Rescore
+const AMBER_ACCENT = "#C17817"; // Copy to clipboard
+const RUST_ACCENT = "#A3492F"; // Download .txt
+const OLIVE_ACCENT = "#5C6935"; // Download PDF
+const ON_ACCENT_LIGHT_TEXT = "#F8F5EE";
+const ON_ACCENT_DARK_TEXT = "#0B0B0B";
+
+/** A solid-fill accent action button — real depth via shadow (not a flat
+ * fill), one distinct hue per action. `textColor` must be chosen for
+ * contrast against `fill` (verified per-color at each call site below). */
+function accentButtonStyle(fill: string, textColor: string, disabled: boolean) {
   return {
-    backgroundColor: "transparent",
-    border: `1.5px solid ${BRONZE}`,
-    color: BRONZE,
+    backgroundColor: fill,
+    color: textColor,
+    border: "none",
     borderRadius: "8px",
     padding: "7px 14px",
     fontSize: "12px",
     fontWeight: 600 as const,
     cursor: disabled ? "not-allowed" : "pointer",
-    opacity: disabled ? 0.5 : 1,
+    boxShadow: disabled ? "none" : "0 2px 6px rgba(16,27,45,0.3)",
+    opacity: disabled ? 0.45 : 1,
   };
 }
 
@@ -403,31 +419,27 @@ function IvoryCard({
   title,
   description,
   children,
-  headerVariant = "bronze",
+  frameColor = BRONZE,
+  frameTextColor = NAVY,
 }: {
   title: string;
   description?: string;
   children: ReactNode;
-  /** "navy" is a deliberate, sparing third-accent variant — use on at most
-   * one card per page so it stays a distinct touch, not a repeated motif. */
-  headerVariant?: "bronze" | "navy";
+  /** Outer frame fill — each side-rail box gets its own color so they read
+   * as distinct at a glance instead of one repeated flat ivory surface. */
+  frameColor?: string;
+  /** Must be chosen for real contrast against frameColor by the caller. */
+  frameTextColor?: string;
 }) {
-  const navyHeader = headerVariant === "navy";
   return (
-    <div style={{ backgroundColor: CARD_BG, borderRadius: "14px", border: `1px solid ${CARD_BORDER}`, boxShadow: "0 1px 3px rgba(16,27,45,0.08)", overflow: "hidden" }}>
-      <div
-        style={{
-          padding: "16px 20px",
-          backgroundColor: navyHeader ? NAVY : "rgba(164,113,44,0.06)",
-          borderBottom: navyHeader ? "none" : `1px solid ${CARD_BORDER}`,
-        }}
-      >
-        <h3 style={{ fontSize: "15px", fontWeight: 700, color: navyHeader ? "#F8F5EE" : NAVY, margin: 0 }}>{title}</h3>
-        {description && (
-          <p style={{ fontSize: "12px", color: navyHeader ? "rgba(248,245,238,0.75)" : TEXT_SECONDARY, marginTop: "4px", marginBottom: 0 }}>{description}</p>
-        )}
+    <div style={{ backgroundColor: frameColor, borderRadius: "14px", padding: "16px", boxShadow: "0 2px 8px rgba(16,27,45,0.2)" }}>
+      <h3 style={{ fontSize: "15px", fontWeight: 700, color: frameTextColor, margin: 0 }}>{title}</h3>
+      {description && (
+        <p style={{ fontSize: "12px", color: frameTextColor, opacity: 0.82, marginTop: "4px", marginBottom: 0 }}>{description}</p>
+      )}
+      <div style={{ backgroundColor: CARD_BG, borderRadius: "10px", padding: "16px", marginTop: "12px", boxShadow: "0 1px 3px rgba(16,27,45,0.25)" }}>
+        {children}
       </div>
-      <div style={{ padding: "20px" }}>{children}</div>
     </div>
   );
 }
@@ -1671,9 +1683,9 @@ export default function DraftGeneratorPage() {
                               disabled={!draftText.trim() || dnaScoring}
                               title="Score this draft with Grant DNA"
                               className="inline-flex items-center gap-1.5 disabled:cursor-not-allowed"
-                              style={secondaryOnLightStyle(!draftText.trim() || dnaScoring)}
+                              style={accentButtonStyle(TEAL_ACCENT, ON_ACCENT_LIGHT_TEXT, !draftText.trim() || dnaScoring)}
                             >
-                              <Dna className={`h-3.5 w-3.5 ${dnaScoring ? "animate-spin" : ""}`} style={{ color: BRONZE }} aria-hidden />
+                              <Dna className={`h-3.5 w-3.5 ${dnaScoring ? "animate-spin" : ""}`} style={{ color: ON_ACCENT_LIGHT_TEXT }} aria-hidden />
                               {dnaScoring ? "Scoring..." : "Score Draft"}
                             </button>
                             <button
@@ -1682,9 +1694,9 @@ export default function DraftGeneratorPage() {
                               disabled={!draftText.trim() || generating || humanizing}
                               title="Rewrite this draft to read like a human wrote it"
                               className="inline-flex items-center gap-1.5 disabled:cursor-not-allowed"
-                              style={secondaryOnLightStyle(!draftText.trim() || generating || humanizing)}
+                              style={accentButtonStyle(PLUM_ACCENT, ON_ACCENT_LIGHT_TEXT, !draftText.trim() || generating || humanizing)}
                             >
-                              <Wand2 className="h-4 w-4" style={{ color: BRONZE }} aria-hidden />
+                              <Wand2 className="h-4 w-4" style={{ color: ON_ACCENT_LIGHT_TEXT }} aria-hidden />
                               {humanizing ? "Humanizing..." : "Humanize"}
                             </button>
                             {draftText.trim() && (
@@ -1693,9 +1705,9 @@ export default function DraftGeneratorPage() {
                                 onClick={handleRescore}
                                 title="Recalculate score from current draft text"
                                 className="inline-flex items-center gap-1.5 disabled:cursor-not-allowed"
-                                style={secondaryOnLightStyle(false)}
+                                style={accentButtonStyle(SLATE_BLUE_ACCENT, ON_ACCENT_LIGHT_TEXT, false)}
                               >
-                                <RefreshCw className="h-3.5 w-3.5" style={{ color: BRONZE }} aria-hidden />
+                                <RefreshCw className="h-3.5 w-3.5" style={{ color: ON_ACCENT_LIGHT_TEXT }} aria-hidden />
                                 Rescore
                               </button>
                             )}
@@ -1769,12 +1781,12 @@ export default function DraftGeneratorPage() {
                           onClick={handleCopyToClipboard}
                           disabled={!draftText.trim()}
                           className="inline-flex items-center gap-1.5 transition"
-                          style={secondaryOnLightStyle(!draftText.trim())}
+                          style={accentButtonStyle(AMBER_ACCENT, ON_ACCENT_DARK_TEXT, !draftText.trim())}
                         >
                           {copiedToClipboard ? (
-                            <Check className="h-3.5 w-3.5 text-green-500" aria-hidden />
+                            <Check className="h-3.5 w-3.5" style={{ color: ON_ACCENT_DARK_TEXT }} aria-hidden />
                           ) : (
-                            <Clipboard className="h-3.5 w-3.5" style={{ color: BRONZE }} aria-hidden />
+                            <Clipboard className="h-3.5 w-3.5" style={{ color: ON_ACCENT_DARK_TEXT }} aria-hidden />
                           )}
                           {copiedToClipboard ? "Copied!" : "Copy to clipboard"}
                         </button>
@@ -1783,9 +1795,9 @@ export default function DraftGeneratorPage() {
                           onClick={handleDownloadTxt}
                           disabled={!draftText.trim()}
                           className="inline-flex items-center gap-1.5 transition"
-                          style={secondaryOnLightStyle(!draftText.trim())}
+                          style={accentButtonStyle(RUST_ACCENT, ON_ACCENT_LIGHT_TEXT, !draftText.trim())}
                         >
-                          <Download className="h-3.5 w-3.5" style={{ color: BRONZE }} aria-hidden />
+                          <Download className="h-3.5 w-3.5" style={{ color: ON_ACCENT_LIGHT_TEXT }} aria-hidden />
                           Download .txt
                         </button>
                         <button
@@ -1793,9 +1805,9 @@ export default function DraftGeneratorPage() {
                           onClick={handleDownloadPdf}
                           disabled={!draftText.trim()}
                           className="inline-flex items-center gap-1.5 transition"
-                          style={secondaryOnLightStyle(!draftText.trim())}
+                          style={accentButtonStyle(OLIVE_ACCENT, ON_ACCENT_LIGHT_TEXT, !draftText.trim())}
                         >
-                          <Download className="h-3.5 w-3.5" style={{ color: BRONZE }} aria-hidden />
+                          <Download className="h-3.5 w-3.5" style={{ color: ON_ACCENT_LIGHT_TEXT }} aria-hidden />
                           Download PDF
                         </button>
                         <button
@@ -1815,26 +1827,27 @@ export default function DraftGeneratorPage() {
 
                   <div className="flex flex-col gap-6" style={{ width: "240px", flexShrink: 0 }}>
                     {/* Sources used — the trust signal for this draft. Made
-                        deliberately prominent: larger header, real icon, gold
-                        accent bar, positioned first in the review column. */}
+                        deliberately prominent: solid Gold frame (this box's
+                        own distinct identity in the side rail) wrapping an
+                        Ivory content panel that visibly lifts off it. */}
                     <div
                       style={{
-                        backgroundColor: CARD_BG,
+                        backgroundColor: GOLD,
                         borderRadius: "14px",
-                        border: `1px solid ${CARD_BORDER}`,
-                        borderLeft: `4px solid ${GOLD}`,
-                        boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-                        padding: "18px",
+                        boxShadow: "0 2px 8px rgba(16,27,45,0.2)",
+                        padding: "16px",
                       }}
                     >
-                      <div className="mb-3 flex items-center gap-2">
-                        <ShieldCheck className="h-5 w-5" style={{ color: BRONZE }} aria-hidden />
-                        <h3 style={{ fontSize: "16px", fontWeight: 800, color: NAVY }}>Sources used</h3>
+                      <div className="flex items-center gap-2">
+                        <ShieldCheck className="h-5 w-5" style={{ color: NEAR_BLACK }} aria-hidden />
+                        <h3 style={{ fontSize: "16px", fontWeight: 800, color: NEAR_BLACK, margin: 0 }}>Sources used</h3>
                       </div>
-                      <p style={{ fontSize: "11px", color: TEXT_SECONDARY, marginBottom: "12px" }}>
-                        Every fact in this draft traces back to one of these — nothing was invented.
-                      </p>
-                      <KnowledgePreview sources={sources} />
+                      <div style={{ backgroundColor: CARD_BG, borderRadius: "10px", padding: "16px", marginTop: "12px", boxShadow: "0 1px 3px rgba(16,27,45,0.25)" }}>
+                        <p style={{ fontSize: "11px", color: TEXT_SECONDARY, marginBottom: "12px" }}>
+                          Every fact in this draft traces back to one of these — nothing was invented.
+                        </p>
+                        <KnowledgePreview sources={sources} />
+                      </div>
                     </div>
 
                     {(dnaScore !== null || dnaScoring) && (
@@ -1848,25 +1861,18 @@ export default function DraftGeneratorPage() {
                           }}
                         />
                       ) : (
-                        <div
-                          className="rounded-xl p-5"
-                          style={{
-                            backgroundColor: CARD_BG,
-                            boxShadow: "0 2px 8px rgba(16,27,45,0.08)",
-                            border: `1px solid ${CARD_BORDER}`,
-                          }}
-                        >
+                        <div className="rounded-xl" style={{ backgroundColor: SLATE_BLUE_ACCENT, padding: "14px", boxShadow: "0 2px 8px rgba(16,27,45,0.2)" }}>
                           <div className="mb-3 flex items-center gap-2">
-                            <Dna className="h-4 w-4 animate-spin" style={{ color: BRONZE }} aria-hidden />
-                            <h3 style={{ fontSize: "16px", fontWeight: 700, color: TEXT_PRIMARY }}>Grant DNA Score</h3>
+                            <Dna className="h-4 w-4 animate-spin" style={{ color: ON_ACCENT_LIGHT_TEXT }} aria-hidden />
+                            <h3 style={{ fontSize: "16px", fontWeight: 700, color: ON_ACCENT_LIGHT_TEXT }}>Grant DNA Score</h3>
                           </div>
-                          <div className="h-[220px] animate-pulse rounded-lg" style={{ backgroundColor: BRONZE_TINT_BG }} />
+                          <div className="h-[220px] animate-pulse rounded-lg" style={{ backgroundColor: CARD_BG, boxShadow: "0 1px 3px rgba(16,27,45,0.25)" }} />
                         </div>
                       )
                     )}
 
                     {sections.length > 0 && (
-                      <IvoryCard title="Section scores">
+                      <IvoryCard title="Section scores" frameColor={BRONZE} frameTextColor={NAVY}>
                         <div className="space-y-1.5">
                           {sections.map((section, i) => {
                             const { score, gaps, words } = scoreSectionText(section.text);
@@ -1916,12 +1922,14 @@ export default function DraftGeneratorPage() {
                       <IvoryCard
                         title="Program logic model"
                         description="The inputs → impact backbone the AI used to ground this draft's program design. Sourced from the Intelligence Library when a template matches, otherwise generated for this opportunity."
+                        frameColor={PLUM_ACCENT}
+                        frameTextColor={ON_ACCENT_LIGHT_TEXT}
                       >
                         <LogicModelView model={logicModel} />
                       </IvoryCard>
                     )}
                     {budgetTable.length > 0 && (
-                      <IvoryCard title="Budget line items" headerVariant="navy">
+                      <IvoryCard title="Budget line items" frameColor={NAVY} frameTextColor={ON_ACCENT_LIGHT_TEXT}>
                         <div className="space-y-2">
                           {budgetTable.map((item, i) => (
                             <div
