@@ -369,6 +369,33 @@ const eyebrowStyle = {
   letterSpacing: "0.1em",
 };
 
+/** A solid Rich Gold or Bronze "tray" frame — real depth, not just color:
+ * the frame itself sits on Stone, and every interactive item inside it
+ * (buttons, rows, inputs) gets an explicit Ivory fill + shadow so it visibly
+ * lifts off this colored background rather than blending into one flat
+ * surface. Use with CARD_BG + a shadow on each inner item. */
+function frameStyle(fill: string) {
+  return {
+    backgroundColor: fill,
+    borderRadius: "14px",
+    padding: "20px",
+    boxShadow: "0 2px 10px rgba(16,27,45,0.18)",
+  };
+}
+
+/** Eyebrow label for use directly on a Rich Gold/Bronze frame — near-black
+ * reads clearly there; BRONZE (the on-Ivory eyebrow color) would not. */
+const eyebrowStyleOnFrame = {
+  fontSize: "11px",
+  fontWeight: 700 as const,
+  color: NEAR_BLACK,
+  textTransform: "uppercase" as const,
+  letterSpacing: "0.1em",
+};
+
+/** Muted body text on a Rich Gold/Bronze frame. */
+const TEXT_ON_FRAME_MUTED = "rgba(11,11,11,0.72)";
+
 /** Local ivory-card wrapper matching this page's Stone/Ivory/Bronze system.
  * Used instead of the shared <Card> component, whose header-strip background
  * is hardcoded white with no prop to override it. */
@@ -376,17 +403,28 @@ function IvoryCard({
   title,
   description,
   children,
+  headerVariant = "bronze",
 }: {
   title: string;
   description?: string;
   children: ReactNode;
+  /** "navy" is a deliberate, sparing third-accent variant — use on at most
+   * one card per page so it stays a distinct touch, not a repeated motif. */
+  headerVariant?: "bronze" | "navy";
 }) {
+  const navyHeader = headerVariant === "navy";
   return (
     <div style={{ backgroundColor: CARD_BG, borderRadius: "14px", border: `1px solid ${CARD_BORDER}`, boxShadow: "0 1px 3px rgba(16,27,45,0.08)", overflow: "hidden" }}>
-      <div style={{ padding: "16px 20px", backgroundColor: "rgba(164,113,44,0.06)", borderBottom: `1px solid ${CARD_BORDER}` }}>
-        <h3 style={{ fontSize: "15px", fontWeight: 700, color: NAVY, margin: 0 }}>{title}</h3>
+      <div
+        style={{
+          padding: "16px 20px",
+          backgroundColor: navyHeader ? NAVY : "rgba(164,113,44,0.06)",
+          borderBottom: navyHeader ? "none" : `1px solid ${CARD_BORDER}`,
+        }}
+      >
+        <h3 style={{ fontSize: "15px", fontWeight: 700, color: navyHeader ? "#F8F5EE" : NAVY, margin: 0 }}>{title}</h3>
         {description && (
-          <p style={{ fontSize: "12px", color: TEXT_SECONDARY, marginTop: "4px", marginBottom: 0 }}>{description}</p>
+          <p style={{ fontSize: "12px", color: navyHeader ? "rgba(248,245,238,0.75)" : TEXT_SECONDARY, marginTop: "4px", marginBottom: 0 }}>{description}</p>
         )}
       </div>
       <div style={{ padding: "20px" }}>{children}</div>
@@ -1306,8 +1344,8 @@ export default function DraftGeneratorPage() {
               {/* Step 1 — Select Opportunity */}
               {step === 1 && (
                 <div className="flex flex-col gap-4 lg:flex-row" style={{ minHeight: "420px" }}>
-                  <div style={{ ...cardStyle, flex: "2" }}>
-                    <p style={{ ...eyebrowStyle, marginBottom: "10px" }}>Choose an opportunity</p>
+                  <div style={{ ...frameStyle(BRONZE), flex: "2" }}>
+                    <p style={{ ...eyebrowStyleOnFrame, marginBottom: "10px" }}>Choose an opportunity</p>
                     <div className="relative max-w-xl">
                       <Search
                         className="h-4 w-4"
@@ -1321,7 +1359,7 @@ export default function DraftGeneratorPage() {
                         placeholder="Search opportunities by name…"
                         disabled={!editable}
                         aria-label="Search opportunities"
-                        style={{ ...selectFieldStyle, paddingLeft: "38px", cursor: "text" }}
+                        style={{ ...selectFieldStyle, backgroundColor: CARD_BG, boxShadow: "0 1px 2px rgba(16,27,45,0.15)", paddingLeft: "38px", cursor: "text" }}
                       />
                     </div>
                     <div
@@ -1330,17 +1368,19 @@ export default function DraftGeneratorPage() {
                         marginTop: "12px",
                         maxHeight: "260px",
                         overflowY: "auto",
-                        border: `1.5px solid ${CARD_BORDER}`,
                         borderRadius: "10px",
+                        boxShadow: "0 2px 6px rgba(16,27,45,0.18)",
                       }}
                     >
                       {filteredOpportunities.length === 0 ? (
-                        <p style={{ padding: "14px", fontSize: "13px", color: TEXT_SECONDARY }}>
+                        <p style={{ padding: "14px", fontSize: "13px", color: TEXT_ON_FRAME_MUTED, backgroundColor: CARD_BG, borderRadius: "10px" }}>
                           No opportunities match &ldquo;{opportunitySearch}&rdquo;.
                         </p>
                       ) : (
-                        filteredOpportunities.map((o) => {
+                        filteredOpportunities.map((o, i) => {
                           const selected = o.id === opportunityId;
+                          const first = i === 0;
+                          const last = i === filteredOpportunities.length - 1;
                           return (
                             <button
                               key={o.id}
@@ -1353,8 +1393,12 @@ export default function DraftGeneratorPage() {
                                 textAlign: "left",
                                 padding: "10px 14px",
                                 border: "none",
-                                borderBottom: `1px solid ${CARD_BORDER}`,
-                                backgroundColor: selected ? GOLD_TINT_BG : "transparent",
+                                borderBottom: last ? "none" : "1px solid rgba(164,113,44,0.18)",
+                                borderTopLeftRadius: first ? "10px" : 0,
+                                borderTopRightRadius: first ? "10px" : 0,
+                                borderBottomLeftRadius: last ? "10px" : 0,
+                                borderBottomRightRadius: last ? "10px" : 0,
+                                backgroundColor: selected ? GOLD_TINT_BG : CARD_BG,
                                 cursor: editable ? "pointer" : "default",
                                 display: "flex",
                                 alignItems: "baseline",
@@ -1379,8 +1423,9 @@ export default function DraftGeneratorPage() {
                           maxWidth: "36rem",
                           padding: "12px 14px",
                           borderRadius: "10px",
-                          backgroundColor: selectedMatchScore ? GOLD_TINT_BG : "rgba(11,11,11,0.04)",
-                          border: `1px solid ${selectedMatchScore ? "rgba(201,163,78,0.35)" : CARD_BORDER}`,
+                          backgroundColor: CARD_BG,
+                          boxShadow: "0 1px 3px rgba(16,27,45,0.15)",
+                          border: selectedMatchScore ? "1px solid rgba(201,163,78,0.5)" : "none",
                         }}
                       >
                         {matchScoresLoading ? (
@@ -1414,8 +1459,8 @@ export default function DraftGeneratorPage() {
               {/* Step 2 — Customize */}
               {step === 2 && (
                 <div className="flex flex-col gap-4 lg:flex-row" style={{ minHeight: "420px" }}>
-                  <div style={{ ...cardStyle, flex: "2" }}>
-                    <p style={{ ...eyebrowStyle, marginBottom: "14px" }}>Choose a template</p>
+                  <div style={{ ...frameStyle(RICH_GOLD), flex: "2" }}>
+                    <p style={{ ...eyebrowStyleOnFrame, marginBottom: "14px" }}>Choose a template</p>
                     <TemplateSelector
                       value={templateType}
                       onChange={setTemplateType}
@@ -1424,8 +1469,8 @@ export default function DraftGeneratorPage() {
 
                     {templateType === "budget_narrative" && (
                       <div className="mt-6">
-                        <p style={{ ...eyebrowStyle, marginBottom: "10px" }}>Choose a program</p>
-                        <p className="mb-3 text-sm" style={{ color: TEXT_SECONDARY }}>
+                        <p style={{ ...eyebrowStyleOnFrame, marginBottom: "10px" }}>Choose a program</p>
+                        <p className="mb-3 text-sm" style={{ color: TEXT_ON_FRAME_MUTED }}>
                           The budget will be scoped to this program&rsquo;s financial
                           data and your Knowledge Base budget justification entries.
                         </p>
@@ -1437,10 +1482,10 @@ export default function DraftGeneratorPage() {
                             placeholder="Select a program..."
                             disabled={!editable}
                             aria-label="Program"
-                            style={selectFieldStyle}
+                            style={{ ...selectFieldStyle, backgroundColor: CARD_BG, boxShadow: "0 1px 2px rgba(16,27,45,0.15)" }}
                           />
                           {programs.length === 0 && !loading && (
-                            <p className="text-sm" style={{ color: TEXT_SECONDARY }}>
+                            <p className="text-sm" style={{ color: TEXT_ON_FRAME_MUTED }}>
                               No programs found. Add programs in organization settings
                               first.
                             </p>
@@ -1876,7 +1921,7 @@ export default function DraftGeneratorPage() {
                       </IvoryCard>
                     )}
                     {budgetTable.length > 0 && (
-                      <IvoryCard title="Budget line items">
+                      <IvoryCard title="Budget line items" headerVariant="navy">
                         <div className="space-y-2">
                           {budgetTable.map((item, i) => (
                             <div
@@ -1944,13 +1989,14 @@ export default function DraftGeneratorPage() {
             </div>
           </div>
 
-          {/* Stats strip — moved below the wizard, shrunk to a slim single row. */}
-          <div style={{ display: "flex", flexWrap: "wrap", backgroundColor: CARD_BG, border: `1px solid ${CARD_BORDER}`, borderRadius: "10px", overflow: "hidden" }}>
-            <div style={{ flex: "1 1 auto", minWidth: "140px", display: "flex", alignItems: "baseline", gap: "8px", padding: "12px 18px", borderRight: `1px solid ${CARD_BORDER}` }}>
+          {/* Stats strip — moved below the wizard, shrunk to a slim single row.
+              Bronze tray with each metric as its own Ivory chip lifted off it. */}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", backgroundColor: BRONZE, borderRadius: "12px", padding: "10px" }}>
+            <div style={{ flex: "1 1 auto", minWidth: "140px", display: "flex", alignItems: "baseline", gap: "8px", padding: "10px 16px", backgroundColor: CARD_BG, borderRadius: "8px", boxShadow: "0 1px 3px rgba(16,27,45,0.2)" }}>
               <span style={statNumberStyle}>{stats ? stats.totalDrafts : "—"}</span>
               <span style={statLabelStyle}>Total Drafts</span>
             </div>
-            <div style={{ flex: "1 1 auto", minWidth: "140px", display: "flex", alignItems: "baseline", gap: "8px", padding: "12px 18px", borderRight: `1px solid ${CARD_BORDER}` }}>
+            <div style={{ flex: "1 1 auto", minWidth: "140px", display: "flex", alignItems: "baseline", gap: "8px", padding: "10px 16px", backgroundColor: CARD_BG, borderRadius: "8px", boxShadow: "0 1px 3px rgba(16,27,45,0.2)" }}>
               <span style={statNumberStyle}>{stats ? stats.aiPending : "—"}</span>
               <span style={statLabelStyle}>AI Drafts Pending</span>
               <span
@@ -1967,11 +2013,11 @@ export default function DraftGeneratorPage() {
                 AI
               </span>
             </div>
-            <div style={{ flex: "1 1 auto", minWidth: "140px", display: "flex", alignItems: "baseline", gap: "8px", padding: "12px 18px", borderRight: `1px solid ${CARD_BORDER}` }}>
+            <div style={{ flex: "1 1 auto", minWidth: "140px", display: "flex", alignItems: "baseline", gap: "8px", padding: "10px 16px", backgroundColor: CARD_BG, borderRadius: "8px", boxShadow: "0 1px 3px rgba(16,27,45,0.2)" }}>
               <span style={statNumberStyle}>{stats ? stats.draftsThisMonth : "—"}</span>
               <span style={statLabelStyle}>Drafts This Month</span>
             </div>
-            <div style={{ flex: "1 1 auto", minWidth: "140px", display: "flex", alignItems: "baseline", gap: "8px", padding: "12px 18px" }}>
+            <div style={{ flex: "1 1 auto", minWidth: "140px", display: "flex", alignItems: "baseline", gap: "8px", padding: "10px 16px", backgroundColor: CARD_BG, borderRadius: "8px", boxShadow: "0 1px 3px rgba(16,27,45,0.2)" }}>
               <span style={statNumberStyle}>
                 {stats && stats.avgConfidence != null ? `${stats.avgConfidence}/100` : "—"}
               </span>
@@ -1981,53 +2027,53 @@ export default function DraftGeneratorPage() {
 
           <div
             style={{
-              backgroundColor: CARD_BG,
+              backgroundColor: RICH_GOLD,
               borderRadius: "14px",
-              overflow: "hidden",
-              border: `1px solid ${CARD_BORDER}`,
-              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+              padding: "12px",
+              boxShadow: "0 2px 10px rgba(16,27,45,0.2)",
             }}
           >
-            <div
-              role="row"
-              style={{
-                backgroundColor: BRONZE_TINT_BG,
-                padding: "14px 20px",
-                display: "flex",
-                gap: "24px",
-                borderBottom: `1px solid ${CARD_BORDER}`,
-              }}
-            >
-              <span style={{ flex: 2, fontSize: "11px", fontWeight: 700, color: TEXT_SECONDARY, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                Opportunity
-              </span>
-              <span style={{ flex: 1, fontSize: "11px", fontWeight: 700, color: TEXT_SECONDARY, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                Template
-              </span>
-              <span style={{ flex: "0 0 90px", fontSize: "11px", fontWeight: 700, color: TEXT_SECONDARY, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                Confidence
-              </span>
-              <span style={{ flex: "0 0 110px", fontSize: "11px", fontWeight: 700, color: TEXT_SECONDARY, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                Source
-              </span>
-              <span style={{ flex: "0 0 90px", fontSize: "11px", fontWeight: 700, color: TEXT_SECONDARY, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                Created
-              </span>
-              <span style={{ flex: "0 0 50px" }} />
-            </div>
-            {recentDraftsLoading ? (
-              <div className="p-5 text-sm" style={{ color: TEXT_SECONDARY }}>Loading recent drafts…</div>
-            ) : recentDrafts.length === 0 ? (
-              <div className="p-5 text-sm" style={{ color: TEXT_SECONDARY }}>
-                No drafts generated yet. Generate one above to see it here.
+            <div style={{ backgroundColor: CARD_BG, borderRadius: "10px", overflow: "hidden", boxShadow: "0 1px 3px rgba(16,27,45,0.15)" }}>
+              {/* Navy header strip — a deliberate accent, not a dominant fill. */}
+              <div
+                role="row"
+                style={{
+                  backgroundColor: NAVY,
+                  padding: "14px 20px",
+                  display: "flex",
+                  gap: "24px",
+                }}
+              >
+                <span style={{ flex: 2, fontSize: "11px", fontWeight: 700, color: "rgba(248,245,238,0.75)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                  Opportunity
+                </span>
+                <span style={{ flex: 1, fontSize: "11px", fontWeight: 700, color: "rgba(248,245,238,0.75)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                  Template
+                </span>
+                <span style={{ flex: "0 0 90px", fontSize: "11px", fontWeight: 700, color: "rgba(248,245,238,0.75)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                  Confidence
+                </span>
+                <span style={{ flex: "0 0 110px", fontSize: "11px", fontWeight: 700, color: "rgba(248,245,238,0.75)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                  Source
+                </span>
+                <span style={{ flex: "0 0 90px", fontSize: "11px", fontWeight: 700, color: "rgba(248,245,238,0.75)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                  Created
+                </span>
+                <span style={{ flex: "0 0 50px" }} />
               </div>
-            ) : (
-              recentDrafts.map((draft) => (
-                <div
-                  key={draft.id}
-                  role="row"
-                  style={{ padding: "12px 20px", display: "flex", alignItems: "center", gap: "16px", borderBottom: `1px solid ${CARD_BORDER}` }}
-                >
+              {recentDraftsLoading ? (
+                <div className="p-5 text-sm" style={{ color: TEXT_SECONDARY }}>Loading recent drafts…</div>
+              ) : recentDrafts.length === 0 ? (
+                <div className="p-5 text-sm" style={{ color: TEXT_SECONDARY }}>
+                  No drafts generated yet. Generate one above to see it here.
+                </div>
+              ) : (
+                recentDrafts.map((draft) => (
+                  <div
+                    key={draft.id}
+                    role="row"
+                    style={{ padding: "12px 20px", display: "flex", alignItems: "center", gap: "16px", borderBottom: `1px solid ${CARD_BORDER}` }}
+                  >
                   <span className="truncate" style={{ flex: 2, fontSize: "13px", fontWeight: 600, color: TEXT_PRIMARY }}>
                     {draft.opportunityName}
                   </span>
@@ -2101,12 +2147,13 @@ export default function DraftGeneratorPage() {
                   </span>
                 </div>
               ))
-            )}
+              )}
+            </div>
           </div>
 
           {opportunityId && (
-            <div style={{ backgroundColor: CARD_BG, borderRadius: "14px", padding: "20px", border: `1px solid ${CARD_BORDER}` }}>
-              <p style={{ fontSize: "13px", fontWeight: 700, color: TEXT_PRIMARY, marginBottom: "14px" }}>
+            <div style={{ ...frameStyle(BRONZE), borderLeft: `4px solid ${NAVY}`, borderTopLeftRadius: "4px", borderBottomLeftRadius: "4px" }}>
+              <p style={{ fontSize: "13px", fontWeight: 800, color: NEAR_BLACK, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "14px" }}>
                 Version history
               </p>
               <DraftsHistoryPanel

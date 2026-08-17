@@ -150,26 +150,40 @@ export function DraftsHistoryPanel({
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
         <span
-          className={dark ? undefined : "text-xs text-navy-500"}
-          style={dark ? { fontSize: "12px", color: "rgba(248,250,252,0.5)" } : undefined}
+          className={dark ? undefined : undefined}
+          style={dark ? { fontSize: "12px", color: "rgba(248,250,252,0.5)" } : { fontSize: "12px", color: "rgba(11,11,11,0.72)" }}
         >
           {versions.length} {versions.length === 1 ? "version" : "versions"} ·
           newest first
         </span>
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => setShowCompare(true)}
-          disabled={!canCompare}
-          title={
-            canCompare
-              ? "Compare the two selected versions"
-              : "Select two versions to compare"
-          }
-        >
-          <GitCompare className="h-3.5 w-3.5" aria-hidden />
-          Compare
-        </Button>
+        {dark ? (
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setShowCompare(true)}
+            disabled={!canCompare}
+            title={canCompare ? "Compare the two selected versions" : "Select two versions to compare"}
+          >
+            <GitCompare className="h-3.5 w-3.5" aria-hidden />
+            Compare
+          </Button>
+        ) : (
+          // Bypasses the shared Button's `bg-white` variant — globals.css
+          // hard-overrides `.bg-white` with `!important`, which a Tailwind
+          // utility (even `!bg-[...]`) loses to on cascade order. A plain
+          // button with inline style sidesteps that entirely.
+          <button
+            type="button"
+            onClick={() => setShowCompare(true)}
+            disabled={!canCompare}
+            title={canCompare ? "Compare the two selected versions" : "Select two versions to compare"}
+            className="inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-60"
+            style={{ backgroundColor: "#F8F5EE", border: "1px solid rgba(11,11,11,0.25)", color: "#0B0B0B" }}
+          >
+            <GitCompare className="h-3.5 w-3.5" aria-hidden />
+            Compare
+          </button>
+        )}
       </div>
 
       <ul className="space-y-2">
@@ -180,16 +194,7 @@ export function DraftsHistoryPanel({
           return (
             <li
               key={version.id}
-              className={
-                dark
-                  ? "transition"
-                  : cn(
-                      "rounded-lg border px-3 py-2.5 transition",
-                      isActive
-                        ? "border-teal-400/40 bg-teal-400/5"
-                        : "border-navy-200 hover:border-navy-300",
-                    )
-              }
+              className={dark ? "transition" : "transition"}
               style={
                 dark
                   ? {
@@ -199,7 +204,13 @@ export function DraftsHistoryPanel({
                       marginBottom: "8px",
                       border: isActive ? "1px solid rgba(168,85,247,0.4)" : "1px solid rgba(255,255,255,0.06)",
                     }
-                  : undefined
+                  : {
+                      backgroundColor: "#F8F5EE",
+                      borderRadius: "10px",
+                      padding: "12px 14px",
+                      boxShadow: isActive ? "0 2px 8px rgba(13,148,136,0.3)" : "0 1px 3px rgba(16,27,45,0.2)",
+                      border: isActive ? "1.5px solid #0D9488" : "1px solid rgba(164,113,44,0.25)",
+                    }
               }
             >
               <div className="flex items-start justify-between gap-3">

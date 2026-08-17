@@ -116,7 +116,7 @@ export function TemplateSelector({
                     padding: "15px",
                     cursor: "pointer",
                     transition: "all 0.15s",
-                    boxShadow: "0 2px 6px rgba(16,27,45,0.1)",
+                    boxShadow: "0 4px 12px rgba(16,27,45,0.28)",
                   }
                 : isHovered
                   ? {
@@ -126,6 +126,8 @@ export function TemplateSelector({
                       padding: "15.5px",
                       cursor: "pointer",
                       transition: "all 0.15s",
+                      boxShadow: "0 4px 10px rgba(16,27,45,0.25)",
+                      transform: "translateY(-1px)",
                     }
                   : {
                       backgroundColor: "#F8F5EE",
@@ -134,6 +136,7 @@ export function TemplateSelector({
                       padding: "15.5px",
                       cursor: "pointer",
                       transition: "all 0.15s",
+                      boxShadow: "0 2px 6px rgba(16,27,45,0.18)",
                     }
             }
           >
