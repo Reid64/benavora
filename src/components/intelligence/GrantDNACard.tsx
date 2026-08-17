@@ -72,7 +72,7 @@ const DNARadarChart = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="h-[220px] animate-pulse rounded-lg bg-white-raised" />
+      <div className="h-[220px] animate-pulse rounded-lg" style={{ backgroundColor: "rgba(164,113,44,0.1)" }} />
     ),
   },
 );
@@ -110,19 +110,23 @@ export function GrantDNACard({ result, scoring = false, onReScore }: Props) {
   }));
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div className="rounded-xl" style={{ backgroundColor: "#F8F5EE", border: "1px solid rgba(164,113,44,0.3)", boxShadow: "0 1px 3px rgba(16,27,45,0.08)" }}>
       {/* Header */}
-      <div className="flex items-center justify-between gap-3 rounded-t-xl border-b border-slate-200 bg-white-sunken px-5 py-4">
+      <div
+        className="flex items-center justify-between gap-3 rounded-t-xl px-5 py-4"
+        style={{ backgroundColor: "rgba(164,113,44,0.06)", borderBottom: "1px solid rgba(164,113,44,0.3)" }}
+      >
         <div className="flex items-center gap-2">
-          <Activity className="h-4 w-4 text-primary" aria-hidden />
-          <h3 className="text-base font-semibold text-text">Grant DNA Score</h3>
+          <Activity className="h-4 w-4" style={{ color: "#A4712C" }} aria-hidden />
+          <h3 className="text-base font-semibold" style={{ color: "#101B2D" }}>Grant DNA Score</h3>
         </div>
         {onReScore && (
           <button
             type="button"
             onClick={onReScore}
             disabled={scoring}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
+            style={{ backgroundColor: "transparent", border: "1.5px solid #A4712C", color: "#A4712C" }}
           >
             <RefreshCw className={`h-3.5 w-3.5 ${scoring ? "animate-spin" : ""}`} aria-hidden />
             {scoring ? "Scoring..." : "Re-score"}
@@ -164,7 +168,7 @@ export function GrantDNACard({ result, scoring = false, onReScore }: Props) {
             return (
               <div key={key} className="flex items-center gap-2">
                 <span className="w-20 shrink-0 text-xs text-text-muted">{label}</span>
-                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white-raised">
+                <div className="h-1.5 flex-1 overflow-hidden rounded-full" style={{ backgroundColor: "rgba(164,113,44,0.15)" }}>
                   <div
                     className={`h-full rounded-full transition-all ${barColor}`}
                     style={{ width: `${pct}%` }}

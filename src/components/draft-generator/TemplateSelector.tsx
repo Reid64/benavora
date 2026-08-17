@@ -110,7 +110,7 @@ export function TemplateSelector({
             style={
               selected
                 ? {
-                    backgroundColor: "#FAFAF8",
+                    backgroundColor: "#F8F5EE",
                     border: "2px solid #C9A34E",
                     borderRadius: "12px",
                     padding: "15px",
@@ -120,16 +120,16 @@ export function TemplateSelector({
                   }
                 : isHovered
                   ? {
-                      backgroundColor: "#E2CE97",
-                      border: "1.5px solid rgba(16,27,45,0.4)",
+                      backgroundColor: "#F8F5EE",
+                      border: "1.5px solid #A4712C",
                       borderRadius: "12px",
                       padding: "15.5px",
                       cursor: "pointer",
                       transition: "all 0.15s",
                     }
                   : {
-                      backgroundColor: "#E8D7A8",
-                      border: "1.5px solid rgba(16,27,45,0.25)",
+                      backgroundColor: "#F8F5EE",
+                      border: "1.5px solid rgba(164,113,44,0.35)",
                       borderRadius: "12px",
                       padding: "15.5px",
                       cursor: "pointer",
@@ -137,11 +137,11 @@ export function TemplateSelector({
                     }
             }
           >
-            <Icon className="h-5 w-5" style={{ color: selected ? "#8B6B2E" : "#101B2D" }} aria-hidden />
+            <Icon className="h-5 w-5" style={{ color: selected ? "#A4712C" : "#101B2D" }} aria-hidden />
             <span
               style={
                 selected
-                  ? { fontSize: "14px", fontWeight: 700, color: "#8B6B2E", marginTop: "10px" }
+                  ? { fontSize: "14px", fontWeight: 700, color: "#A4712C", marginTop: "10px" }
                   : { fontSize: "14px", fontWeight: 700, color: "#101B2D", marginTop: "10px" }
               }
             >

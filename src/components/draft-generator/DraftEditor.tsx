@@ -295,7 +295,7 @@ export function DraftEditor({
       {readOnly ? (
         // Read-only: plain div with inline clickable amber spans.
         <div
-          className={dark ? "block w-full flex-1 overflow-y-auto" : "block min-h-[55vh] w-full flex-1 overflow-y-auto rounded-xl border border-slate-200 bg-[#F8FAFC] p-6 font-mono text-sm text-slate-700 leading-relaxed shadow-sm"}
+          className={dark ? "block w-full flex-1 overflow-y-auto" : "block min-h-[55vh] w-full flex-1 overflow-y-auto rounded-xl border border-slate-300 bg-transparent p-6 font-mono text-sm text-slate-700 leading-relaxed"}
           style={
             dark
               ? {
@@ -321,7 +321,7 @@ export function DraftEditor({
         // old fixed `rows={20}` (which the global `textarea{max-height:120px}`
         // base style clamped down to a few visible lines regardless).
         <div
-          className={dark ? "relative flex flex-1 flex-col transition" : "relative flex min-h-[55vh] flex-1 flex-col rounded-xl border border-slate-200 bg-[#F8FAFC] shadow-sm transition focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-500"}
+          className={dark ? "relative flex flex-1 flex-col transition" : "relative flex min-h-[55vh] flex-1 flex-col rounded-xl border border-slate-300 bg-transparent transition focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-500"}
           style={
             dark
               ? {

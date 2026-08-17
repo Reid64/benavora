@@ -30,27 +30,29 @@ export function RubricPanel({ rubric, rubricInferred = false, dark = false }: Ru
 
   return (
     <div
-      className={dark ? undefined : "overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md"}
+      className={dark ? undefined : undefined}
       style={
         dark
           ? { backgroundColor: "#1E293B", borderRadius: "12px", padding: "20px", border: "1px solid rgba(255,255,255,0.08)", marginTop: "12px", overflow: "hidden" }
-          : undefined
+          : { backgroundColor: "#F8F5EE", borderRadius: "14px", border: "1px solid rgba(164,113,44,0.3)", boxShadow: "0 1px 3px rgba(16,27,45,0.08)", overflow: "hidden" }
       }
     >
       <button
         type="button"
         onClick={() => setExpanded((prev) => !prev)}
         aria-expanded={expanded}
-        className={
+        className={dark ? "flex w-full items-center justify-between gap-4" : "flex w-full items-center justify-between gap-4 px-5 py-4"}
+        style={
           dark
-            ? "flex w-full items-center justify-between gap-4"
-            : `flex w-full items-center justify-between gap-4 bg-white-sunken px-5 py-4${expanded ? " border-b border-slate-200" : ""}`
+            ? expanded
+              ? { borderBottom: "1px solid rgba(255,255,255,0.08)", paddingBottom: "12px" }
+              : undefined
+            : { backgroundColor: "rgba(164,113,44,0.06)", borderBottom: expanded ? "1px solid rgba(164,113,44,0.3)" : "none" }
         }
-        style={dark && expanded ? { borderBottom: "1px solid rgba(255,255,255,0.08)", paddingBottom: "12px" } : undefined}
       >
         <div className="flex items-center gap-2">
           <Target className="h-4 w-4 text-amber-500" aria-hidden />
-          <h3 className={dark ? undefined : "text-base font-semibold text-slate-900"} style={dark ? { fontSize: "16px", fontWeight: 600, color: "#F8FAFC" } : undefined}>
+          <h3 className={dark ? undefined : undefined} style={dark ? { fontSize: "16px", fontWeight: 600, color: "#F8FAFC" } : { fontSize: "16px", fontWeight: 600, color: "#101B2D" }}>
             Scoring Optimization
           </h3>
         </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   AlertTriangle,
@@ -21,7 +22,6 @@ import {
 
 import {
   Button,
-  Card,
   EmptyState,
   LoadingSpinner,
   Select,
@@ -96,31 +96,46 @@ const INTELLIGENCE_TIPS = [
   "Complete your Knowledge Base org profile to eliminate [NEEDS INPUT] gaps in generated drafts.",
 ];
 
-// --- Brand palette (gold/navy/champagne system, rebalanced 2026-08-17).
-// The page's main background is champagne (light) with a navy wizard rail
-// (the one deliberately dark surface). Real status colors (confidence
-// bands, errors) are the only colors kept outside this system. ---
-const CHAMPAGNE = "#E8D7A8";
+// --- Brand palette (soft-stone/navy/gold/bronze system, corrected
+// 2026-08-17 — replaces the prior champagne pass). Site-wide background is
+// Soft Stone; the wizard rail is the one deliberately dark (navy) surface,
+// which is why it alone keeps light text — every other surface on this page
+// is light, so every other text/button color is real navy, gold, bronze, or
+// near-black. Real status colors (confidence bands, errors) are the only
+// colors kept outside this system. ---
+const STONE = "#D8D3C8";
 const NAVY = "#101B2D";
+/** Primary button fill (Next, Generate, Export, etc.) — paired with
+ * NEAR_BLACK text. Distinct from GOLD, which is reserved for icons/badges/
+ * accents and the dark rail, never for a large button fill. */
+const RICH_GOLD = "#B88A2E";
+/** Icon/badge/small-accent gold, and the navy rail's own accents — not used
+ * as a button fill or as text on a light surface (fails contrast there). */
 const GOLD = "#C9A34E";
+/** Secondary-button border/text, card borders, and accent text/icons on
+ * light surfaces (readable — unlike raw GOLD, which fails contrast on
+ * Stone/Ivory). */
+const BRONZE = "#A4712C";
 const NEAR_BLACK = "#0B0B0B";
-const CARD_BG = "#FAFAF8";
-const CARD_BORDER = "#E5E0D5";
+/** Warm Ivory — the one place a light neutral is correct: elevated cards
+ * need to visually lift off the Stone background. Not used anywhere else. */
+const CARD_BG = "#F8F5EE";
+const CARD_BORDER = "rgba(164,113,44,0.3)";
 const TEXT_PRIMARY = "#0B0B0B";
 const TEXT_SECONDARY = "#6B6558";
-/** Darkened gold for text/icons on light (ivory/white/champagne) surfaces -
- * the raw #C9A34E gold fails contrast on light backgrounds and is reserved
- * for dark surfaces (the navy rail) and solid button fills. */
-const GOLD_TEXT_ON_LIGHT = "#8B6B2E";
 const GOLD_TINT_BG = "rgba(201,163,78,0.14)";
-/** Text sitting directly on the champagne page background (header, byline)
- * — real navy, never white/light, since the page background is now light. */
-const TEXT_ON_CHAMPAGNE = NAVY;
-const TEXT_ON_CHAMPAGNE_MUTED = "rgba(16,27,45,0.68)";
+const BRONZE_TINT_BG = "rgba(164,113,44,0.1)";
+/** A warm stone tint for form-field fills (search/select inputs) — clearly
+ * darker than the ivory card exception, so nested fields stay distinct from
+ * their card without introducing another near-white shade. */
+const STONE_FIELD_BG = "#E4D9C2";
+/** Text sitting directly on the Stone page background (header, byline) —
+ * real navy, never white/light, since the page background is light. */
+const TEXT_ON_STONE = NAVY;
+const TEXT_ON_STONE_MUTED = "rgba(16,27,45,0.68)";
 /** Text on the wizard rail's own navy surface — that one panel stays dark by
- * design, so it keeps light text. Not used anywhere on the champagne page
+ * design, so it keeps light text. Not used anywhere on the Stone page
  * background itself. */
-const TEXT_ON_DARK = "#F8F5EE";
 const TEXT_ON_DARK_MUTED = "rgba(248,245,238,0.62)";
 
 /** Recent-drafts confidence pill colors, by score band - real status colors, unaffected by the brand palette. */
@@ -275,10 +290,10 @@ function mapVersion(row: Tables<"draft_versions">): DraftVersionItem {
   };
 }
 
-/** Primary CTA (gold fill, near-black text) — Generate / Next. */
+/** Primary CTA (Rich Gold fill, near-black text) — Next, Generate, Export. */
 function primaryButtonStyle(disabled: boolean) {
   return {
-    backgroundColor: disabled ? "rgba(201,163,78,0.45)" : GOLD,
+    backgroundColor: disabled ? "rgba(184,138,46,0.5)" : RICH_GOLD,
     color: NEAR_BLACK,
     border: "none",
     borderRadius: "10px",
@@ -293,11 +308,11 @@ function primaryButtonStyle(disabled: boolean) {
   };
 }
 
-/** Wizard Back/Next controls — always solid gold, never a disabled/grayed
- * state, since free step navigation removes the need to gate them. */
+/** Wizard Back/Next controls — always solid Rich Gold, never a disabled/
+ * grayed state, since free step navigation removes the need to gate them. */
 function wizardNavButtonStyle() {
   return {
-    backgroundColor: GOLD,
+    backgroundColor: RICH_GOLD,
     color: NEAR_BLACK,
     border: "none",
     borderRadius: "10px",
@@ -311,12 +326,12 @@ function wizardNavButtonStyle() {
   };
 }
 
-/** Secondary button on an ivory/white card (Copy, Download, Score, Humanize…) — dark navy outline, dark-gold text. */
+/** Secondary button on an ivory card (Copy, Download, Score, Humanize…) — bronze outline, bronze text, transparent fill. */
 function secondaryOnLightStyle(disabled: boolean) {
   return {
     backgroundColor: "transparent",
-    border: `1.5px solid ${NAVY}`,
-    color: GOLD_TEXT_ON_LIGHT,
+    border: `1.5px solid ${BRONZE}`,
+    color: BRONZE,
     borderRadius: "8px",
     padding: "7px 14px",
     fontSize: "12px",
@@ -331,7 +346,7 @@ const cardStyle = {
   borderRadius: "14px",
   padding: "20px",
   border: `1px solid ${CARD_BORDER}`,
-  boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+  boxShadow: "0 1px 3px rgba(16,27,45,0.08)",
 };
 
 const selectFieldStyle = {
@@ -341,7 +356,7 @@ const selectFieldStyle = {
   border: `1.5px solid ${CARD_BORDER}`,
   fontSize: "14px",
   color: TEXT_PRIMARY,
-  backgroundColor: "#F3F1E9",
+  backgroundColor: STONE_FIELD_BG,
   outline: "none",
   cursor: "pointer",
 };
@@ -349,10 +364,35 @@ const selectFieldStyle = {
 const eyebrowStyle = {
   fontSize: "11px",
   fontWeight: 700 as const,
-  color: GOLD_TEXT_ON_LIGHT,
+  color: BRONZE,
   textTransform: "uppercase" as const,
   letterSpacing: "0.1em",
 };
+
+/** Local ivory-card wrapper matching this page's Stone/Ivory/Bronze system.
+ * Used instead of the shared <Card> component, whose header-strip background
+ * is hardcoded white with no prop to override it. */
+function IvoryCard({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div style={{ backgroundColor: CARD_BG, borderRadius: "14px", border: `1px solid ${CARD_BORDER}`, boxShadow: "0 1px 3px rgba(16,27,45,0.08)", overflow: "hidden" }}>
+      <div style={{ padding: "16px 20px", backgroundColor: "rgba(164,113,44,0.06)", borderBottom: `1px solid ${CARD_BORDER}` }}>
+        <h3 style={{ fontSize: "15px", fontWeight: 700, color: NAVY, margin: 0 }}>{title}</h3>
+        {description && (
+          <p style={{ fontSize: "12px", color: TEXT_SECONDARY, marginTop: "4px", marginBottom: 0 }}>{description}</p>
+        )}
+      </div>
+      <div style={{ padding: "20px" }}>{children}</div>
+    </div>
+  );
+}
 
 /** Companion panel shown beside the step card on the three sparser steps
  * (Select Opportunity, Customize, Generate) — real content, not filler,
@@ -1121,12 +1161,12 @@ export default function DraftGeneratorPage() {
   };
 
   return (
-    <div className="space-y-6" style={{ backgroundColor: CHAMPAGNE, color: TEXT_ON_CHAMPAGNE, minHeight: "100vh", padding: "24px", fontFamily: "'Plus Jakarta Sans',sans-serif" }}>
+    <div className="space-y-6" style={{ backgroundColor: STONE, color: TEXT_ON_STONE, minHeight: "100vh", padding: "24px", fontFamily: "'Plus Jakarta Sans',sans-serif" }}>
       <div style={{ borderLeft: `4px solid ${NAVY}`, paddingLeft: "16px" }}>
-        <h1 style={{ fontSize: "28px", fontWeight: 800, color: TEXT_ON_CHAMPAGNE, marginBottom: "4px" }}>
+        <h1 style={{ fontSize: "28px", fontWeight: 800, color: TEXT_ON_STONE, marginBottom: "4px" }}>
           Draft Generator
         </h1>
-        <p style={{ fontSize: "14px", color: TEXT_ON_CHAMPAGNE_MUTED, marginBottom: "0" }}>
+        <p style={{ fontSize: "14px", color: TEXT_ON_STONE_MUTED, marginBottom: "0" }}>
           Generate an application draft from your Knowledge Base. The AI never
           invents organizational facts - gaps are flagged for your input.
         </p>
@@ -1220,8 +1260,8 @@ export default function DraftGeneratorPage() {
                         status === "active"
                           ? GOLD
                           : status === "done"
-                            ? "rgba(255,255,255,0.08)"
-                            : "rgba(255,255,255,0.04)",
+                            ? "rgba(201,163,78,0.16)"
+                            : "rgba(201,163,78,0.06)",
                     }}
                   >
                     <span
@@ -1237,7 +1277,7 @@ export default function DraftGeneratorPage() {
                         fontWeight: 700,
                         backgroundColor:
                           status === "active" ? NEAR_BLACK : status === "done" ? GOLD : "transparent",
-                        border: status === "pending" ? "1.5px solid rgba(248,245,238,0.3)" : "none",
+                        border: status === "pending" ? `1.5px solid rgba(201,163,78,0.35)` : "none",
                         color: status === "active" ? GOLD : status === "done" ? NEAR_BLACK : TEXT_ON_DARK_MUTED,
                       }}
                     >
@@ -1321,7 +1361,7 @@ export default function DraftGeneratorPage() {
                                 gap: "8px",
                               }}
                             >
-                              <span style={{ fontSize: "13px", fontWeight: 600, color: selected ? GOLD_TEXT_ON_LIGHT : TEXT_PRIMARY }}>
+                              <span style={{ fontSize: "13px", fontWeight: 600, color: selected ? BRONZE : TEXT_PRIMARY }}>
                                 {o.name}
                               </span>
                               <span style={{ fontSize: "11px", color: TEXT_SECONDARY }}>
@@ -1348,8 +1388,8 @@ export default function DraftGeneratorPage() {
                         ) : selectedMatchScore ? (
                           <>
                             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                              <Target className="h-4 w-4" style={{ color: GOLD_TEXT_ON_LIGHT }} aria-hidden />
-                              <span style={{ fontSize: "13px", fontWeight: 700, color: GOLD_TEXT_ON_LIGHT }}>
+                              <Target className="h-4 w-4" style={{ color: BRONZE }} aria-hidden />
+                              <span style={{ fontSize: "13px", fontWeight: 700, color: BRONZE }}>
                                 Match score: {selectedMatchScore.combinedScore}/100
                               </span>
                             </div>
@@ -1442,7 +1482,7 @@ export default function DraftGeneratorPage() {
                             justifyContent: "center",
                           }}
                         >
-                          <Sparkles className="h-6 w-6 animate-pulse" style={{ color: GOLD_TEXT_ON_LIGHT }} aria-hidden />
+                          <Sparkles className="h-6 w-6 animate-pulse" style={{ color: BRONZE }} aria-hidden />
                         </div>
                       </div>
                       <p style={{ fontSize: "15px", fontWeight: 700, color: TEXT_PRIMARY }}>Generating your draft…</p>
@@ -1464,7 +1504,7 @@ export default function DraftGeneratorPage() {
                             textAlign: "left",
                           }}
                         >
-                          <p style={{ fontSize: "13px", fontWeight: 700, color: GOLD_TEXT_ON_LIGHT }}>
+                          <p style={{ fontSize: "13px", fontWeight: 700, color: BRONZE }}>
                             A draft already exists for this opportunity
                             {confidence != null ? ` (confidence ${Math.round(confidence)}/100)` : ""}.
                           </p>
@@ -1497,7 +1537,7 @@ export default function DraftGeneratorPage() {
               {/* Step 4 — Review & Export */}
               {step === 4 && !hasDraft && (
                 <div style={{ ...cardStyle, textAlign: "center", padding: "48px 24px" }}>
-                  <ShieldCheck className="mx-auto h-8 w-8" style={{ color: GOLD_TEXT_ON_LIGHT }} aria-hidden />
+                  <ShieldCheck className="mx-auto h-8 w-8" style={{ color: BRONZE }} aria-hidden />
                   <p style={{ fontSize: "15px", fontWeight: 700, color: TEXT_PRIMARY, marginTop: "14px" }}>
                     No draft yet for this opportunity
                   </p>
@@ -1550,7 +1590,7 @@ export default function DraftGeneratorPage() {
                                 fontSize: "13px",
                                 fontWeight: 800,
                                 color: confidenceBarColor(confidence),
-                                backgroundColor: "#F3F1E9",
+                                backgroundColor: BRONZE_TINT_BG,
                                 border: `1px solid ${confidenceBarColor(confidence)}`,
                                 borderRadius: "6px",
                                 padding: "2px 10px",
@@ -1588,7 +1628,7 @@ export default function DraftGeneratorPage() {
                               className="inline-flex items-center gap-1.5 disabled:cursor-not-allowed"
                               style={secondaryOnLightStyle(!draftText.trim() || dnaScoring)}
                             >
-                              <Dna className={`h-3.5 w-3.5 ${dnaScoring ? "animate-spin" : ""}`} style={{ color: GOLD_TEXT_ON_LIGHT }} aria-hidden />
+                              <Dna className={`h-3.5 w-3.5 ${dnaScoring ? "animate-spin" : ""}`} style={{ color: BRONZE }} aria-hidden />
                               {dnaScoring ? "Scoring..." : "Score Draft"}
                             </button>
                             <button
@@ -1599,7 +1639,7 @@ export default function DraftGeneratorPage() {
                               className="inline-flex items-center gap-1.5 disabled:cursor-not-allowed"
                               style={secondaryOnLightStyle(!draftText.trim() || generating || humanizing)}
                             >
-                              <Wand2 className="h-4 w-4" style={{ color: GOLD_TEXT_ON_LIGHT }} aria-hidden />
+                              <Wand2 className="h-4 w-4" style={{ color: BRONZE }} aria-hidden />
                               {humanizing ? "Humanizing..." : "Humanize"}
                             </button>
                             {draftText.trim() && (
@@ -1610,7 +1650,7 @@ export default function DraftGeneratorPage() {
                                 className="inline-flex items-center gap-1.5 disabled:cursor-not-allowed"
                                 style={secondaryOnLightStyle(false)}
                               >
-                                <RefreshCw className="h-3.5 w-3.5" style={{ color: GOLD_TEXT_ON_LIGHT }} aria-hidden />
+                                <RefreshCw className="h-3.5 w-3.5" style={{ color: BRONZE }} aria-hidden />
                                 Rescore
                               </button>
                             )}
@@ -1635,7 +1675,7 @@ export default function DraftGeneratorPage() {
                             {belowThreshold && " This draft falls below your review threshold."}
                           </p>
                           {rescoreMessage && (
-                            <p style={{ fontSize: "12px", color: GOLD_TEXT_ON_LIGHT, marginTop: "4px", fontWeight: 600 }}>
+                            <p style={{ fontSize: "12px", color: BRONZE, marginTop: "4px", fontWeight: 600 }}>
                               {rescoreMessage}
                             </p>
                           )}
@@ -1689,7 +1729,7 @@ export default function DraftGeneratorPage() {
                           {copiedToClipboard ? (
                             <Check className="h-3.5 w-3.5 text-green-500" aria-hidden />
                           ) : (
-                            <Clipboard className="h-3.5 w-3.5" style={{ color: GOLD_TEXT_ON_LIGHT }} aria-hidden />
+                            <Clipboard className="h-3.5 w-3.5" style={{ color: BRONZE }} aria-hidden />
                           )}
                           {copiedToClipboard ? "Copied!" : "Copy to clipboard"}
                         </button>
@@ -1700,7 +1740,7 @@ export default function DraftGeneratorPage() {
                           className="inline-flex items-center gap-1.5 transition"
                           style={secondaryOnLightStyle(!draftText.trim())}
                         >
-                          <Download className="h-3.5 w-3.5" style={{ color: GOLD_TEXT_ON_LIGHT }} aria-hidden />
+                          <Download className="h-3.5 w-3.5" style={{ color: BRONZE }} aria-hidden />
                           Download .txt
                         </button>
                         <button
@@ -1710,7 +1750,7 @@ export default function DraftGeneratorPage() {
                           className="inline-flex items-center gap-1.5 transition"
                           style={secondaryOnLightStyle(!draftText.trim())}
                         >
-                          <Download className="h-3.5 w-3.5" style={{ color: GOLD_TEXT_ON_LIGHT }} aria-hidden />
+                          <Download className="h-3.5 w-3.5" style={{ color: BRONZE }} aria-hidden />
                           Download PDF
                         </button>
                         <button
@@ -1718,7 +1758,7 @@ export default function DraftGeneratorPage() {
                           disabled
                           title="Connect Gmail to enable"
                           className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium opacity-50"
-                          style={{ backgroundColor: "#F3F1E9", border: `1px solid ${CARD_BORDER}`, color: "#9C9587" }}
+                          style={{ backgroundColor: BRONZE_TINT_BG, border: `1px solid ${CARD_BORDER}`, color: "#9C9587" }}
                         >
                           <MailIcon className="h-3.5 w-3.5" aria-hidden />
                           Email draft
@@ -1743,7 +1783,7 @@ export default function DraftGeneratorPage() {
                       }}
                     >
                       <div className="mb-3 flex items-center gap-2">
-                        <ShieldCheck className="h-5 w-5" style={{ color: GOLD_TEXT_ON_LIGHT }} aria-hidden />
+                        <ShieldCheck className="h-5 w-5" style={{ color: BRONZE }} aria-hidden />
                         <h3 style={{ fontSize: "16px", fontWeight: 800, color: NAVY }}>Sources used</h3>
                       </div>
                       <p style={{ fontSize: "11px", color: TEXT_SECONDARY, marginBottom: "12px" }}>
@@ -1772,16 +1812,16 @@ export default function DraftGeneratorPage() {
                           }}
                         >
                           <div className="mb-3 flex items-center gap-2">
-                            <Dna className="h-4 w-4 animate-spin" style={{ color: GOLD_TEXT_ON_LIGHT }} aria-hidden />
+                            <Dna className="h-4 w-4 animate-spin" style={{ color: BRONZE }} aria-hidden />
                             <h3 style={{ fontSize: "16px", fontWeight: 700, color: TEXT_PRIMARY }}>Grant DNA Score</h3>
                           </div>
-                          <div className="h-[220px] animate-pulse rounded-lg" style={{ backgroundColor: "#F3F1E9" }} />
+                          <div className="h-[220px] animate-pulse rounded-lg" style={{ backgroundColor: BRONZE_TINT_BG }} />
                         </div>
                       )
                     )}
 
                     {sections.length > 0 && (
-                      <Card title="Section scores">
+                      <IvoryCard title="Section scores">
                         <div className="space-y-1.5">
                           {sections.map((section, i) => {
                             const { score, gaps, words } = scoreSectionText(section.text);
@@ -1823,20 +1863,20 @@ export default function DraftGeneratorPage() {
                             );
                           })}
                         </div>
-                      </Card>
+                      </IvoryCard>
                     )}
 
                     <RubricPanel rubric={rubric} rubricInferred={rubricInferred} />
                     {logicModel && (
-                      <Card
+                      <IvoryCard
                         title="Program logic model"
                         description="The inputs → impact backbone the AI used to ground this draft's program design. Sourced from the Intelligence Library when a template matches, otherwise generated for this opportunity."
                       >
                         <LogicModelView model={logicModel} />
-                      </Card>
+                      </IvoryCard>
                     )}
                     {budgetTable.length > 0 && (
-                      <Card title="Budget line items">
+                      <IvoryCard title="Budget line items">
                         <div className="space-y-2">
                           {budgetTable.map((item, i) => (
                             <div
@@ -1877,7 +1917,7 @@ export default function DraftGeneratorPage() {
                             </div>
                           )}
                         </div>
-                      </Card>
+                      </IvoryCard>
                     )}
                   </div>
                 </div>
@@ -1916,7 +1956,7 @@ export default function DraftGeneratorPage() {
               <span
                 style={{
                   backgroundColor: GOLD_TINT_BG,
-                  color: GOLD_TEXT_ON_LIGHT,
+                  color: BRONZE,
                   fontSize: "10px",
                   fontWeight: 700,
                   borderRadius: "999px",
@@ -1951,7 +1991,7 @@ export default function DraftGeneratorPage() {
             <div
               role="row"
               style={{
-                backgroundColor: "#F3F1E9",
+                backgroundColor: BRONZE_TINT_BG,
                 padding: "14px 20px",
                 display: "flex",
                 gap: "24px",
@@ -1986,7 +2026,7 @@ export default function DraftGeneratorPage() {
                 <div
                   key={draft.id}
                   role="row"
-                  style={{ padding: "12px 20px", display: "flex", alignItems: "center", gap: "16px", borderBottom: "1px solid #F1EEE3" }}
+                  style={{ padding: "12px 20px", display: "flex", alignItems: "center", gap: "16px", borderBottom: `1px solid ${CARD_BORDER}` }}
                 >
                   <span className="truncate" style={{ flex: 2, fontSize: "13px", fontWeight: 600, color: TEXT_PRIMARY }}>
                     {draft.opportunityName}
@@ -2017,7 +2057,7 @@ export default function DraftGeneratorPage() {
                       <span
                         style={{
                           backgroundColor: GOLD_TINT_BG,
-                          color: GOLD_TEXT_ON_LIGHT,
+                          color: BRONZE,
                           borderRadius: "6px",
                           padding: "2px 8px",
                           fontSize: "11px",
@@ -2054,7 +2094,7 @@ export default function DraftGeneratorPage() {
                         setStep(4);
                         setStepInitialized(true);
                       }}
-                      style={{ color: GOLD_TEXT_ON_LIGHT, fontSize: "13px", fontWeight: 600, background: "none", border: "none", cursor: "pointer" }}
+                      style={{ color: BRONZE, fontSize: "13px", fontWeight: 600, background: "none", border: "none", cursor: "pointer" }}
                     >
                       Open
                     </button>
