@@ -865,17 +865,22 @@ export default function DraftGeneratorPage() {
     borderRadius: "12px",
     padding: "18px 20px",
     border: "1px solid #E2E8F0",
-    borderLeft: "3px solid #2563EB",
+    borderLeft: "3px solid #1D4ED8",
     boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
   };
 
   return (
-    <div className="space-y-6" style={{ backgroundColor: "#F8FAFC", minHeight: "100vh", padding: "24px", fontFamily: "'Plus Jakarta Sans',sans-serif" }}>
-      <div style={{ borderLeft: "4px solid #2563EB", paddingLeft: "16px" }}>
-        <h1 style={{ fontSize: "28px", fontWeight: 800, color: "#2563EB", marginBottom: "4px" }}>
+    <div className="space-y-6" style={{ backgroundColor: "#71717A", color: "#FFFFFF", minHeight: "100vh", padding: "24px", fontFamily: "'Plus Jakarta Sans',sans-serif" }}>
+      {/* Cobalt/teal/violet all measure under 2:1 contrast against #71717A (verified via
+          WCAG relative-luminance) - none of the 3 accent colors are usable as text/borders
+          directly on this page background. White is the only accent that clears AA (4.83:1)
+          here, so page-level chrome (title, border accent) uses white; the brand accents are
+          reserved for surfaces with a white/light backing (cards, the wizard rail fill). */}
+      <div style={{ borderLeft: "4px solid #FFFFFF", paddingLeft: "16px" }}>
+        <h1 style={{ fontSize: "28px", fontWeight: 800, color: "#FFFFFF", marginBottom: "4px" }}>
           Draft Generator
         </h1>
-        <p style={{ fontSize: "14px", color: "#64748B", marginBottom: "24px" }}>
+        <p style={{ fontSize: "14px", color: "#FFFFFF", marginBottom: "24px" }}>
           Generate an application draft from your Knowledge Base. The AI never
           invents organizational facts - gaps are flagged for your input.
         </p>
@@ -890,9 +895,10 @@ export default function DraftGeneratorPage() {
           <div className="flex items-center justify-between">
             <p style={statNumberStyle}>{stats ? stats.aiPending : "—"}</p>
             <span
+              title="Royal-violet highlight - deliberately used once here to mark AI-touched stats, not as a status color"
               style={{
-                backgroundColor: "#EFF6FF",
-                color: "#2563EB",
+                backgroundColor: "rgba(91,33,182,0.12)",
+                color: "#5B21B6",
                 fontSize: "10px",
                 fontWeight: 700,
                 borderRadius: "999px",
@@ -958,11 +964,11 @@ export default function DraftGeneratorPage() {
                 alignSelf: "flex-start",
                 position: "sticky",
                 top: "24px",
-                backgroundColor: "#2563EB",
+                backgroundColor: "#1D4ED8",
                 borderRadius: "14px",
                 padding: "20px",
                 border: "1px solid rgba(255,255,255,0.15)",
-                boxShadow: "0 4px 16px rgba(37,99,235,0.4)",
+                boxShadow: "0 4px 16px rgba(29,78,216,0.4)",
               }}
             >
               <p
@@ -1016,12 +1022,14 @@ export default function DraftGeneratorPage() {
                           backgroundColor: "rgba(255,255,255,0.1)",
                           marginBottom: "8px",
                         };
+                // Non-active step dots (done + pending) use the teal secondary accent;
+                // only the active step keeps the primary cobalt dot.
                 const dotStyle =
                   status === "done"
-                    ? { width: "10px", height: "10px", borderRadius: "50%", backgroundColor: "#BFDBFE", flexShrink: 0 }
+                    ? { width: "10px", height: "10px", borderRadius: "50%", backgroundColor: "#0D9488", flexShrink: 0 }
                     : status === "active"
-                      ? { width: "10px", height: "10px", borderRadius: "50%", backgroundColor: "#2563EB", flexShrink: 0 }
-                      : { width: "10px", height: "10px", borderRadius: "50%", backgroundColor: "rgba(255,255,255,0.4)", flexShrink: 0 };
+                      ? { width: "10px", height: "10px", borderRadius: "50%", backgroundColor: "#1D4ED8", flexShrink: 0 }
+                      : { width: "10px", height: "10px", borderRadius: "50%", backgroundColor: "rgba(13,148,136,0.5)", flexShrink: 0 };
                 const textStyle =
                   status === "done"
                     ? { fontSize: "13px", fontWeight: 600, color: "rgba(255,255,255,0.8)" }
@@ -1056,7 +1064,7 @@ export default function DraftGeneratorPage() {
               {!generating && (
                 <>
                   <div style={{ ...indigoCardStyle, marginBottom: "12px" }}>
-                    <p style={{ fontSize: "11px", fontWeight: 700, color: "#2563EB", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "10px" }}>
+                    <p style={{ fontSize: "11px", fontWeight: 700, color: "#1D4ED8", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "10px" }}>
                       Choose an opportunity
                     </p>
                     <div className="max-w-xl">
@@ -1073,7 +1081,7 @@ export default function DraftGeneratorPage() {
                   </div>
 
                   <div style={{ ...indigoCardStyle, marginBottom: "12px" }}>
-                    <p style={{ fontSize: "11px", fontWeight: 700, color: "#2563EB", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "14px" }}>
+                    <p style={{ fontSize: "11px", fontWeight: 700, color: "#1D4ED8", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "14px" }}>
                       Choose a template
                     </p>
                     <TemplateSelector
@@ -1084,7 +1092,7 @@ export default function DraftGeneratorPage() {
 
                     {templateType === "budget_narrative" && (
                       <div className="mt-6">
-                        <p style={{ fontSize: "11px", fontWeight: 700, color: "#2563EB", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "10px" }}>
+                        <p style={{ fontSize: "11px", fontWeight: 700, color: "#1D4ED8", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "10px" }}>
                           Choose a program
                         </p>
                         <p className="mb-3 text-sm" style={{ color: "#64748B" }}>
@@ -1158,7 +1166,7 @@ export default function DraftGeneratorPage() {
                       width: "80px",
                       height: "80px",
                       borderRadius: "50%",
-                      background: "conic-gradient(#2563EB,#3B82F6,#2563EB)",
+                      background: "conic-gradient(#1D4ED8,#3B82F6,#1D4ED8)",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
@@ -1176,7 +1184,7 @@ export default function DraftGeneratorPage() {
                         justifyContent: "center",
                       }}
                     >
-                      <Sparkles className="h-6 w-6 animate-pulse" style={{ color: "#2563EB" }} aria-hidden />
+                      <Sparkles className="h-6 w-6 animate-pulse" style={{ color: "#1D4ED8" }} aria-hidden />
                     </div>
                   </div>
                   <p style={{ fontSize: "15px", fontWeight: 700, color: "#0F172A" }}>Generating your draft…</p>
@@ -1213,7 +1221,7 @@ export default function DraftGeneratorPage() {
                     }}
                   >
                     <div className="flex items-center gap-2.5">
-                      <span style={{ fontSize: "11px", fontWeight: 700, color: "#2563EB", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                      <span style={{ fontSize: "11px", fontWeight: 700, color: "#1D4ED8", textTransform: "uppercase", letterSpacing: "0.1em" }}>
                         Review &amp; edit
                       </span>
                       {confidence != null && (
@@ -1258,9 +1266,9 @@ export default function DraftGeneratorPage() {
                           disabled={!draftText.trim() || dnaScoring}
                           title="Score this draft with Grant DNA"
                           className="inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-50"
-                          style={{ backgroundColor: "#F8FAFC", border: "1px solid #E2E8F0", color: "#475569", borderRadius: "8px", padding: "7px 14px", fontSize: "12px", fontWeight: 600, cursor: "pointer" }}
+                          style={{ backgroundColor: "#F8FAFC", border: "1px solid #0D9488", color: "#475569", borderRadius: "8px", padding: "7px 14px", fontSize: "12px", fontWeight: 600, cursor: "pointer" }}
                         >
-                          <Dna className={`h-3.5 w-3.5 ${dnaScoring ? "animate-spin" : ""}`} aria-hidden />
+                          <Dna className={`h-3.5 w-3.5 ${dnaScoring ? "animate-spin" : ""}`} style={{ color: "#0D9488" }} aria-hidden />
                           {dnaScoring ? "Scoring..." : "Score Draft"}
                         </button>
                         <button
@@ -1269,9 +1277,9 @@ export default function DraftGeneratorPage() {
                           disabled={!draftText.trim() || generating || humanizing}
                           title="Rewrite this draft to read like a human wrote it"
                           className="inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-50"
-                          style={{ backgroundColor: "#F8FAFC", border: "1px solid #E2E8F0", color: "#475569", borderRadius: "8px", padding: "7px 14px", fontSize: "12px", fontWeight: 600, cursor: "pointer" }}
+                          style={{ backgroundColor: "#F8FAFC", border: "1px solid #0D9488", color: "#475569", borderRadius: "8px", padding: "7px 14px", fontSize: "12px", fontWeight: 600, cursor: "pointer" }}
                         >
-                          <Wand2 className="h-4 w-4" aria-hidden />
+                          <Wand2 className="h-4 w-4" style={{ color: "#0D9488" }} aria-hidden />
                           {humanizing ? "Humanizing..." : "Humanize"}
                         </button>
                         {draftText.trim() && (
@@ -1280,9 +1288,9 @@ export default function DraftGeneratorPage() {
                             onClick={handleRescore}
                             title="Recalculate score from current draft text"
                             className="inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-50"
-                            style={{ backgroundColor: "#F8FAFC", border: "1px solid #E2E8F0", color: "#475569", borderRadius: "8px", padding: "7px 14px", fontSize: "12px", fontWeight: 600, cursor: "pointer" }}
+                            style={{ backgroundColor: "#F8FAFC", border: "1px solid #0D9488", color: "#475569", borderRadius: "8px", padding: "7px 14px", fontSize: "12px", fontWeight: 600, cursor: "pointer" }}
                           >
-                            <RefreshCw className="h-3.5 w-3.5" aria-hidden />
+                            <RefreshCw className="h-3.5 w-3.5" style={{ color: "#0D9488" }} aria-hidden />
                             Rescore
                           </button>
                         )}
@@ -1307,7 +1315,7 @@ export default function DraftGeneratorPage() {
                         {belowThreshold && " This draft falls below your review threshold."}
                       </p>
                       {rescoreMessage && (
-                        <p style={{ fontSize: "12px", color: "#2563EB", marginTop: "4px", fontWeight: 600 }}>
+                        <p style={{ fontSize: "12px", color: "#1D4ED8", marginTop: "4px", fontWeight: 600 }}>
                           {rescoreMessage}
                         </p>
                       )}
@@ -1356,12 +1364,12 @@ export default function DraftGeneratorPage() {
                       onClick={handleCopyToClipboard}
                       disabled={!draftText.trim()}
                       className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
-                      style={{ backgroundColor: "#F8FAFC", border: "1px solid #E2E8F0", color: "#475569" }}
+                      style={{ backgroundColor: "#F8FAFC", border: "1px solid #0D9488", color: "#475569" }}
                     >
                       {copiedToClipboard ? (
                         <Check className="h-3.5 w-3.5 text-green-500" aria-hidden />
                       ) : (
-                        <Clipboard className="h-3.5 w-3.5" aria-hidden />
+                        <Clipboard className="h-3.5 w-3.5" style={{ color: "#0D9488" }} aria-hidden />
                       )}
                       {copiedToClipboard ? "Copied!" : "Copy to clipboard"}
                     </button>
@@ -1370,9 +1378,9 @@ export default function DraftGeneratorPage() {
                       onClick={handleDownloadTxt}
                       disabled={!draftText.trim()}
                       className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
-                      style={{ backgroundColor: "#F8FAFC", border: "1px solid #E2E8F0", color: "#475569" }}
+                      style={{ backgroundColor: "#F8FAFC", border: "1px solid #0D9488", color: "#475569" }}
                     >
-                      <Download className="h-3.5 w-3.5" aria-hidden />
+                      <Download className="h-3.5 w-3.5" style={{ color: "#0D9488" }} aria-hidden />
                       Download .txt
                     </button>
                     <button
@@ -1380,9 +1388,9 @@ export default function DraftGeneratorPage() {
                       onClick={handleDownloadPdf}
                       disabled={!draftText.trim()}
                       className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
-                      style={{ backgroundColor: "#F8FAFC", border: "1px solid #E2E8F0", color: "#475569" }}
+                      style={{ backgroundColor: "#F8FAFC", border: "1px solid #0D9488", color: "#475569" }}
                     >
-                      <Download className="h-3.5 w-3.5" aria-hidden />
+                      <Download className="h-3.5 w-3.5" style={{ color: "#0D9488" }} aria-hidden />
                       Download PDF
                     </button>
                     <button
@@ -1613,9 +1621,10 @@ export default function DraftGeneratorPage() {
                   <span style={{ flex: "0 0 110px" }}>
                     {draft.source === "generated" ? (
                       <span
+                        title="Royal-violet highlight - the 2nd deliberate use, marking AI-generated provenance"
                         style={{
-                          backgroundColor: "rgba(37,99,235,0.12)",
-                          color: "#2563EB",
+                          backgroundColor: "rgba(91,33,182,0.12)",
+                          color: "#5B21B6",
                           borderRadius: "6px",
                           padding: "2px 8px",
                           fontSize: "11px",
@@ -1648,7 +1657,7 @@ export default function DraftGeneratorPage() {
                     <button
                       type="button"
                       onClick={() => setOpportunityId(draft.opportunityId)}
-                      style={{ color: "#2563EB", fontSize: "13px", fontWeight: 600, background: "none", border: "none", cursor: "pointer" }}
+                      style={{ color: "#1D4ED8", fontSize: "13px", fontWeight: 600, background: "none", border: "none", cursor: "pointer" }}
                     >
                       Open
                     </button>

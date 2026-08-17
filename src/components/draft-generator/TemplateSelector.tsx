@@ -111,7 +111,7 @@ export function TemplateSelector({
               selected
                 ? {
                     backgroundColor: "#EFF6FF",
-                    border: "2px solid #2563EB",
+                    border: "2px solid #1D4ED8",
                     borderRadius: "12px",
                     padding: "15px",
                     cursor: "pointer",
@@ -136,11 +136,11 @@ export function TemplateSelector({
                     }
             }
           >
-            <Icon className="h-5 w-5" style={{ color: selected ? "#2563EB" : "#94A3B8" }} aria-hidden />
+            <Icon className="h-5 w-5" style={{ color: selected ? "#1D4ED8" : "#94A3B8" }} aria-hidden />
             <span
               style={
                 selected
-                  ? { fontSize: "14px", fontWeight: 700, color: "#2563EB", marginTop: "10px" }
+                  ? { fontSize: "14px", fontWeight: 700, color: "#1D4ED8", marginTop: "10px" }
                   : { fontSize: "14px", fontWeight: 700, color: "#1E293B", marginTop: "10px" }
               }
             >
