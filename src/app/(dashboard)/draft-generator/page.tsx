@@ -90,11 +90,12 @@ function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
-/** Score-band color for the confidence bar fill. */
+/** Score-band color for the confidence number/bar — the page's one legitimate
+ * use of semantic red/amber/green, reserved for this real status only. */
 function confidenceBarColor(score: number): string {
-  if (score >= 80) return "#34D399";
-  if (score >= 60) return "#FCD34D";
-  return "#F87171";
+  if (score >= 80) return "#059669";
+  if (score >= 50) return "#D97706";
+  return "#DC2626";
 }
 
 /** Score-band interpretation text under the confidence bar. */
@@ -832,11 +833,11 @@ export default function DraftGeneratorPage() {
     confidence != null && confidence < AI_CONFIDENCE_THRESHOLD;
 
   const indigoCardStyle = {
-    backgroundColor: "#DBEAFE",
+    backgroundColor: "#FFFFFF",
     borderRadius: "14px",
     padding: "20px",
-    border: "1px solid #BFDBFE",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+    border: "1px solid #E2E8F0",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
   };
   // Wizard rail step (1 Select Opportunity, 2 Customize, 3 Generate, 4 Review
   // & Export) derived from real state - there is no separate wizard-step
@@ -845,22 +846,31 @@ export default function DraftGeneratorPage() {
   const stepStatus = (n: number): "done" | "active" | "pending" =>
     n < activeStep ? "done" : n === activeStep ? "active" : "pending";
   const statNumberStyle = {
-    fontSize: "40px",
+    fontSize: "32px",
     fontWeight: 800 as const,
-    color: "#FFFFFF",
+    color: "#0F172A",
     lineHeight: 1,
   };
   const statLabelStyle = {
     fontSize: "11px",
     fontWeight: 700 as const,
-    color: "rgba(255,255,255,0.7)",
+    color: "#64748B",
     textTransform: "uppercase" as const,
     letterSpacing: "0.08em",
-    marginTop: "6px",
+    marginTop: "8px",
+  };
+  const statCardStyle = {
+    flex: "1",
+    backgroundColor: "#FFFFFF",
+    borderRadius: "12px",
+    padding: "18px 20px",
+    border: "1px solid #E2E8F0",
+    borderLeft: "3px solid #2563EB",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
   };
 
   return (
-    <div className="space-y-6" style={{ backgroundColor: "#E4E9F0", minHeight: "100vh", padding: "24px", fontFamily: "'Plus Jakarta Sans',sans-serif" }}>
+    <div className="space-y-6" style={{ backgroundColor: "#F8FAFC", minHeight: "100vh", padding: "24px", fontFamily: "'Plus Jakarta Sans',sans-serif" }}>
       <div style={{ borderLeft: "4px solid #2563EB", paddingLeft: "16px" }}>
         <h1 style={{ fontSize: "28px", fontWeight: 800, color: "#2563EB", marginBottom: "4px" }}>
           Draft Generator
@@ -872,34 +882,33 @@ export default function DraftGeneratorPage() {
       </div>
 
       <div className="flex flex-col gap-4 sm:flex-row">
-        <div style={{ flex: "1", background: "linear-gradient(135deg,#0077B6,#0EA5E9)", borderRadius: "14px", padding: "20px 24px", boxShadow: "0 4px 16px rgba(0,119,182,0.4)", borderTop: "8px solid #2563EB" }}>
+        <div style={statCardStyle}>
           <p style={statNumberStyle}>{stats ? stats.totalDrafts : "—"}</p>
           <p style={statLabelStyle}>Total Drafts</p>
         </div>
-        <div style={{ flex: "1", background: "linear-gradient(135deg,#7C3AED,#9333EA)", borderRadius: "14px", padding: "20px 24px", boxShadow: "0 4px 16px rgba(124,58,237,0.4)", borderTop: "8px solid #2563EB" }}>
-          <p style={statNumberStyle}>{stats ? stats.aiPending : "—"}</p>
+        <div style={statCardStyle}>
           <div className="flex items-center justify-between">
-            <p style={statLabelStyle}>AI Drafts Pending</p>
+            <p style={statNumberStyle}>{stats ? stats.aiPending : "—"}</p>
             <span
               style={{
-                backgroundColor: "#F59E0B",
-                color: "#FFFFFF",
+                backgroundColor: "#EFF6FF",
+                color: "#2563EB",
                 fontSize: "10px",
                 fontWeight: 700,
                 borderRadius: "999px",
                 padding: "2px 8px",
-                marginTop: "6px",
               }}
             >
               AI
             </span>
           </div>
+          <p style={statLabelStyle}>AI Drafts Pending</p>
         </div>
-        <div style={{ flex: "1", background: "linear-gradient(135deg,#0891B2,#06B6D4)", borderRadius: "14px", padding: "20px 24px", boxShadow: "0 4px 16px rgba(5,150,105,0.4)", borderTop: "8px solid #2563EB" }}>
+        <div style={statCardStyle}>
           <p style={statNumberStyle}>{stats ? stats.draftsThisMonth : "—"}</p>
           <p style={statLabelStyle}>Drafts This Month</p>
         </div>
-        <div style={{ flex: "1", background: "linear-gradient(135deg,#D97706,#F59E0B)", borderRadius: "14px", padding: "20px 24px", boxShadow: "0 4px 16px rgba(217,119,6,0.4)", borderTop: "8px solid #2563EB" }}>
+        <div style={statCardStyle}>
           <p style={statNumberStyle}>
             {stats && stats.avgConfidence != null ? `${stats.avgConfidence}/100` : "—"}
           </p>
@@ -984,7 +993,7 @@ export default function DraftGeneratorPage() {
                         gap: "12px",
                         padding: "12px",
                         borderRadius: "8px",
-                        backgroundColor: "rgba(16,185,129,0.35)",
+                        backgroundColor: "rgba(255,255,255,0.12)",
                         marginBottom: "8px",
                       }
                     : status === "active"
@@ -1009,13 +1018,13 @@ export default function DraftGeneratorPage() {
                         };
                 const dotStyle =
                   status === "done"
-                    ? { width: "10px", height: "10px", borderRadius: "50%", backgroundColor: "#10B981", flexShrink: 0, boxShadow: "0 0 6px rgba(16,185,129,0.6)" }
+                    ? { width: "10px", height: "10px", borderRadius: "50%", backgroundColor: "#BFDBFE", flexShrink: 0 }
                     : status === "active"
                       ? { width: "10px", height: "10px", borderRadius: "50%", backgroundColor: "#2563EB", flexShrink: 0 }
                       : { width: "10px", height: "10px", borderRadius: "50%", backgroundColor: "rgba(255,255,255,0.4)", flexShrink: 0 };
                 const textStyle =
                   status === "done"
-                    ? { fontSize: "13px", fontWeight: 600, color: "#FFFFFF" }
+                    ? { fontSize: "13px", fontWeight: 600, color: "rgba(255,255,255,0.8)" }
                     : status === "active"
                       ? { fontSize: "13px", fontWeight: 700, color: "#1E3A8A" }
                       : { fontSize: "13px", fontWeight: 500, color: "rgba(255,255,255,0.6)" };
@@ -1183,14 +1192,14 @@ export default function DraftGeneratorPage() {
               <div className="flex flex-1 flex-col gap-4" style={{ minWidth: 0 }}>
                 <div
                   style={{
-                    backgroundColor: "#DBEAFE",
+                    backgroundColor: "#FFFFFF",
                     borderRadius: "14px",
                     padding: "24px",
-                    border: "1px solid #BFDBFE",
+                    border: "1px solid #E2E8F0",
                     flex: "1",
                     display: "flex",
                     flexDirection: "column",
-                    boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
                   }}
                 >
                   <div
@@ -1198,12 +1207,46 @@ export default function DraftGeneratorPage() {
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "space-between",
-                      marginBottom: "16px",
+                      flexWrap: "wrap",
+                      gap: "12px",
+                      marginBottom: "12px",
                     }}
                   >
-                    <span style={{ fontSize: "11px", fontWeight: 700, color: "#2563EB", textTransform: "uppercase", letterSpacing: "0.1em" }}>
-                      Review &amp; edit
-                    </span>
+                    <div className="flex items-center gap-2.5">
+                      <span style={{ fontSize: "11px", fontWeight: 700, color: "#2563EB", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                        Review &amp; edit
+                      </span>
+                      {confidence != null && (
+                        <span
+                          style={{
+                            fontSize: "13px",
+                            fontWeight: 800,
+                            color: confidenceBarColor(confidence),
+                            backgroundColor: "#F8FAFC",
+                            border: `1px solid ${confidenceBarColor(confidence)}`,
+                            borderRadius: "6px",
+                            padding: "2px 10px",
+                          }}
+                        >
+                          {Math.round(confidence)}/100
+                        </span>
+                      )}
+                      {humanizationStatus === "humanized" && (
+                        <span
+                          style={{
+                            backgroundColor: "rgba(5,150,105,0.1)",
+                            color: "#059669",
+                            border: "1px solid rgba(5,150,105,0.3)",
+                            borderRadius: "6px",
+                            padding: "3px 10px",
+                            fontSize: "11px",
+                            fontWeight: 700,
+                          }}
+                        >
+                          Humanized
+                        </span>
+                      )}
+                    </div>
                     {editable && (
                       <div className="flex items-center gap-2">
                         <button
@@ -1214,17 +1257,8 @@ export default function DraftGeneratorPage() {
                           }}
                           disabled={!draftText.trim() || dnaScoring}
                           title="Score this draft with Grant DNA"
-                          style={{
-                            backgroundColor: "rgba(0,119,182,0.2)",
-                            color: "#38BDF8",
-                            border: "1px solid rgba(56,189,248,0.3)",
-                            borderRadius: "8px",
-                            padding: "7px 14px",
-                            fontSize: "12px",
-                            fontWeight: 600,
-                            cursor: "pointer",
-                          }}
                           className="inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-50"
+                          style={{ backgroundColor: "#F8FAFC", border: "1px solid #E2E8F0", color: "#475569", borderRadius: "8px", padding: "7px 14px", fontSize: "12px", fontWeight: 600, cursor: "pointer" }}
                         >
                           <Dna className={`h-3.5 w-3.5 ${dnaScoring ? "animate-spin" : ""}`} aria-hidden />
                           {dnaScoring ? "Scoring..." : "Score Draft"}
@@ -1234,24 +1268,56 @@ export default function DraftGeneratorPage() {
                           onClick={handleHumanize}
                           disabled={!draftText.trim() || generating || humanizing}
                           title="Rewrite this draft to read like a human wrote it"
-                          style={{
-                            backgroundColor: "rgba(124,58,237,0.2)",
-                            color: "#C084FC",
-                            border: "1px solid rgba(192,132,252,0.3)",
-                            borderRadius: "8px",
-                            padding: "7px 14px",
-                            fontSize: "12px",
-                            fontWeight: 600,
-                            cursor: "pointer",
-                          }}
                           className="inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-50"
+                          style={{ backgroundColor: "#F8FAFC", border: "1px solid #E2E8F0", color: "#475569", borderRadius: "8px", padding: "7px 14px", fontSize: "12px", fontWeight: 600, cursor: "pointer" }}
                         >
                           <Wand2 className="h-4 w-4" aria-hidden />
                           {humanizing ? "Humanizing..." : "Humanize"}
                         </button>
+                        {draftText.trim() && (
+                          <button
+                            type="button"
+                            onClick={handleRescore}
+                            title="Recalculate score from current draft text"
+                            className="inline-flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-50"
+                            style={{ backgroundColor: "#F8FAFC", border: "1px solid #E2E8F0", color: "#475569", borderRadius: "8px", padding: "7px 14px", fontSize: "12px", fontWeight: 600, cursor: "pointer" }}
+                          >
+                            <RefreshCw className="h-3.5 w-3.5" aria-hidden />
+                            Rescore
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>
+
+                  {confidence != null ? (
+                    <div style={{ marginBottom: "16px" }}>
+                      <div style={{ backgroundColor: "#E2E8F0", borderRadius: "4px", height: "6px" }}>
+                        <div
+                          style={{
+                            width: `${Math.max(0, Math.min(100, Math.round(confidence)))}%`,
+                            height: "100%",
+                            borderRadius: "4px",
+                            backgroundColor: confidenceBarColor(confidence),
+                          }}
+                        />
+                      </div>
+                      <p style={{ fontSize: "12px", color: "#64748B", marginTop: "6px" }}>
+                        {confidenceStatusText(confidence)}
+                        {belowThreshold && " This draft falls below your review threshold."}
+                      </p>
+                      {rescoreMessage && (
+                        <p style={{ fontSize: "12px", color: "#2563EB", marginTop: "4px", fontWeight: 600 }}>
+                          {rescoreMessage}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <p style={{ fontSize: "12px", color: "#94A3B8", marginBottom: "16px" }}>
+                      No confidence score recorded for this draft.
+                    </p>
+                  )}
+
                   <p style={{ fontSize: "13px", color: "#64748B", marginBottom: "16px" }}>
                     Humanize rewrites the draft in an authentic human voice (no em dashes, no AI clichés, varied rhythm), grounded in your verified data.
                   </p>
@@ -1335,104 +1401,6 @@ export default function DraftGeneratorPage() {
               </div>
 
               <div className="flex flex-col gap-6" style={{ width: "240px", flexShrink: 0 }}>
-                <div
-                  style={{
-                    width: "240px",
-                    flexShrink: 0,
-                    alignSelf: "flex-start",
-                    position: "relative",
-                    background: "linear-gradient(135deg,#064E3B,#065F46)",
-                    borderRadius: "14px",
-                    padding: "20px",
-                    boxShadow: "0 4px 16px rgba(0,0,0,0.3)",
-                    border: "1px solid rgba(16,185,129,0.2)",
-                  }}
-                >
-                  <p
-                    style={{
-                      fontSize: "10px",
-                      fontWeight: 700,
-                      letterSpacing: "0.15em",
-                      color: "#34D399",
-                      textTransform: "uppercase",
-                      marginBottom: "16px",
-                    }}
-                  >
-                    Confidence
-                  </p>
-
-                  {confidence != null ? (
-                    <>
-                      <p style={{ fontSize: "44px", fontWeight: 800, color: "#FFFFFF", lineHeight: 1 }}>
-                        {Math.round(confidence)}
-                        <span style={{ fontSize: "20px", color: "rgba(255,255,255,0.4)" }}>/100</span>
-                      </p>
-                      <div style={{ backgroundColor: "rgba(255,255,255,0.1)", borderRadius: "4px", height: "8px", margin: "14px 0 6px" }}>
-                        <div
-                          style={{
-                            width: `${Math.max(0, Math.min(100, Math.round(confidence)))}%`,
-                            height: "100%",
-                            borderRadius: "4px",
-                            backgroundColor: confidenceBarColor(confidence),
-                          }}
-                        />
-                      </div>
-                      <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.6)", lineHeight: "1.6", marginTop: "10px" }}>
-                        {confidenceStatusText(confidence)}
-                        {belowThreshold && " This draft falls below your review threshold."}
-                      </p>
-                    </>
-                  ) : (
-                    <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.6)", lineHeight: "1.6", marginTop: "10px" }}>
-                      No confidence score recorded for this draft.
-                    </p>
-                  )}
-                  {rescoreMessage && (
-                    <p style={{ fontSize: "13px", color: "#34D399", marginTop: "8px", fontWeight: 600 }}>
-                      {rescoreMessage}
-                    </p>
-                  )}
-                  {editable && draftText.trim() && (
-                    <button
-                      type="button"
-                      onClick={handleRescore}
-                      title="Recalculate score from current draft text"
-                      style={{
-                        width: "100%",
-                        backgroundColor: "rgba(52,211,153,0.15)",
-                        color: "#34D399",
-                        border: "1px solid rgba(52,211,153,0.3)",
-                        borderRadius: "8px",
-                        padding: "10px",
-                        fontSize: "13px",
-                        fontWeight: 600,
-                        cursor: "pointer",
-                        marginTop: "14px",
-                      }}
-                      className="inline-flex items-center justify-center gap-1.5"
-                    >
-                      <RefreshCw className="h-3.5 w-3.5" aria-hidden />
-                      Rescore
-                    </button>
-                  )}
-                  {humanizationStatus === "humanized" && (
-                    <span
-                      style={{
-                        backgroundColor: "rgba(52,211,153,0.15)",
-                        color: "#34D399",
-                        border: "1px solid rgba(52,211,153,0.2)",
-                        borderRadius: "6px",
-                        padding: "4px 12px",
-                        fontSize: "11px",
-                        fontWeight: 700,
-                        display: "inline-block",
-                        marginTop: "10px",
-                      }}
-                    >
-                      Humanized
-                    </span>
-                  )}
-                </div>
                 {(dnaScore !== null || dnaScoring) && (
                   dnaScore !== null ? (
                     <GrantDNACard
@@ -1659,8 +1627,8 @@ export default function DraftGeneratorPage() {
                     ) : draft.source === "humanized" ? (
                       <span
                         style={{
-                          backgroundColor: "rgba(0,180,216,0.12)",
-                          color: "#0096C7",
+                          backgroundColor: "rgba(5,150,105,0.1)",
+                          color: "#059669",
                           borderRadius: "6px",
                           padding: "2px 8px",
                           fontSize: "11px",

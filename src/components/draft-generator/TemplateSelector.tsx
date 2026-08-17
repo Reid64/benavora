@@ -12,7 +12,6 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils/cn";
-import type { IconHue } from "@/components/ui/ColorIcon";
 import type { DraftTemplateType } from "@/types/ai";
 
 type TemplateOption = {
@@ -20,53 +19,47 @@ type TemplateOption = {
   label: string;
   description: string;
   icon: LucideIcon;
-  hue: IconHue;
 };
 
 // Mirrors the draft_template_type enum (SCHEMA_REGISTRY) and BLUEPRINT §4.8.
-// Each template gets its own hue so the grid scans at a glance.
+// One uniform neutral/accent treatment across all six cards (see selected
+// state below) rather than a per-card decorative hue.
 const TEMPLATE_OPTIONS: TemplateOption[] = [
   {
     value: "grant_narrative",
     label: "Grant narrative",
     description: "Structured proposal: need, program, capacity, impact.",
     icon: FileText,
-    hue: "blue",
   },
   {
     value: "donation_request_letter",
     label: "Donation request letter",
     description: "Warm corporate appeal with a concise, specific ask.",
     icon: Mail,
-    hue: "emerald",
   },
   {
     value: "budget_narrative",
     label: "Budget narrative",
     description: "Line-item justification tied to program activities.",
     icon: Calculator,
-    hue: "amber",
   },
   {
     value: "impact_statement",
     label: "Impact statement",
     description: "Quantified outcomes this funding makes possible.",
     icon: Target,
-    hue: "violet",
   },
   {
     value: "letter_of_inquiry",
     label: "Letter of inquiry",
     description: "Brief intro to gauge a funder's interest first.",
     icon: PenLine,
-    hue: "cyan",
   },
   {
     value: "full_proposal",
     label: "Full proposal",
     description: "All standard sections, summary through evaluation.",
     icon: ScrollText,
-    hue: "indigo",
   },
 ];
 
@@ -117,18 +110,17 @@ export function TemplateSelector({
             style={
               selected
                 ? {
-                    background: "linear-gradient(135deg,rgba(0,119,182,0.12),rgba(14,165,233,0.08))",
-                    border: "2px solid #0EA5E9",
+                    backgroundColor: "#EFF6FF",
+                    border: "2px solid #2563EB",
                     borderRadius: "12px",
-                    padding: "16px",
+                    padding: "15px",
                     cursor: "pointer",
-                    boxShadow: "0 0 0 3px rgba(14,165,233,0.15)",
                     transition: "all 0.15s",
                   }
                 : isHovered
                   ? {
                       backgroundColor: "#F8FAFC",
-                      border: "1px solid #94A3B8",
+                      border: "1px solid #CBD5E1",
                       borderRadius: "12px",
                       padding: "16px",
                       cursor: "pointer",
@@ -144,11 +136,11 @@ export function TemplateSelector({
                     }
             }
           >
-            <Icon className="h-5 w-5" style={{ color: selected ? "#0284C7" : "#7C3AED" }} aria-hidden />
+            <Icon className="h-5 w-5" style={{ color: selected ? "#2563EB" : "#94A3B8" }} aria-hidden />
             <span
               style={
                 selected
-                  ? { fontSize: "14px", fontWeight: 700, color: "#0284C7", marginTop: "10px" }
+                  ? { fontSize: "14px", fontWeight: 700, color: "#2563EB", marginTop: "10px" }
                   : { fontSize: "14px", fontWeight: 700, color: "#1E293B", marginTop: "10px" }
               }
             >
