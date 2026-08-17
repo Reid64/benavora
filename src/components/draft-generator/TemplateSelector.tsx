@@ -110,43 +110,44 @@ export function TemplateSelector({
             style={
               selected
                 ? {
-                    backgroundColor: "rgba(201,163,78,0.12)",
+                    backgroundColor: "#FAFAF8",
                     border: "2px solid #C9A34E",
                     borderRadius: "12px",
                     padding: "15px",
                     cursor: "pointer",
                     transition: "all 0.15s",
+                    boxShadow: "0 2px 6px rgba(16,27,45,0.1)",
                   }
                 : isHovered
                   ? {
-                      backgroundColor: "#F8FAFC",
-                      border: "1px solid #CBD5E1",
+                      backgroundColor: "#E2CE97",
+                      border: "1.5px solid rgba(16,27,45,0.4)",
                       borderRadius: "12px",
-                      padding: "16px",
+                      padding: "15.5px",
                       cursor: "pointer",
                       transition: "all 0.15s",
                     }
                   : {
-                      backgroundColor: "#FFFFFF",
-                      border: "1px solid #E2E8F0",
+                      backgroundColor: "#E8D7A8",
+                      border: "1.5px solid rgba(16,27,45,0.25)",
                       borderRadius: "12px",
-                      padding: "16px",
+                      padding: "15.5px",
                       cursor: "pointer",
                       transition: "all 0.15s",
                     }
             }
           >
-            <Icon className="h-5 w-5" style={{ color: selected ? "#8B6B2E" : "#94A3B8" }} aria-hidden />
+            <Icon className="h-5 w-5" style={{ color: selected ? "#8B6B2E" : "#101B2D" }} aria-hidden />
             <span
               style={
                 selected
                   ? { fontSize: "14px", fontWeight: 700, color: "#8B6B2E", marginTop: "10px" }
-                  : { fontSize: "14px", fontWeight: 700, color: "#1E293B", marginTop: "10px" }
+                  : { fontSize: "14px", fontWeight: 700, color: "#101B2D", marginTop: "10px" }
               }
             >
               {option.label}
             </span>
-            <span style={{ fontSize: "12px", color: "#64748B", marginTop: "4px" }}>
+            <span style={{ fontSize: "12px", color: "rgba(16,27,45,0.7)", marginTop: "4px" }}>
               {option.description}
             </span>
           </button>

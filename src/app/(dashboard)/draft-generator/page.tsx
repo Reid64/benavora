@@ -12,6 +12,7 @@ import {
   Download,
   Mail as MailIcon,
   RefreshCw,
+  Search,
   ShieldCheck,
   Sparkles,
   Target,
@@ -86,10 +87,20 @@ const WIZARD_STEPS: { n: WizardStep; label: string }[] = [
   { n: 4, label: "Review & Export" },
 ];
 
-// --- Brand palette (gold/navy/ivory system, confirmed 2026-08-17, applied
-// site-wide via DashboardShell + this page). Real status colors (confidence
+/** Shown alongside step content (not just tucked at the rail's bottom) on
+ * the three sparser steps, so the available space is used purposefully. */
+const INTELLIGENCE_TIPS = [
+  "Visit Intelligence Library to import winning grant narratives that boost your confidence score.",
+  "Narratives matched to your NTEE category increase AI accuracy by up to 40%.",
+  "Humanize your draft before submitting — scores above 80 pass most AI detection filters.",
+  "Complete your Knowledge Base org profile to eliminate [NEEDS INPUT] gaps in generated drafts.",
+];
+
+// --- Brand palette (gold/navy/champagne system, rebalanced 2026-08-17).
+// The page's main background is champagne (light) with a navy wizard rail
+// (the one deliberately dark surface). Real status colors (confidence
 // bands, errors) are the only colors kept outside this system. ---
-const CHARCOAL = "#1C1C1C";
+const CHAMPAGNE = "#E8D7A8";
 const NAVY = "#101B2D";
 const GOLD = "#C9A34E";
 const NEAR_BLACK = "#0B0B0B";
@@ -97,11 +108,18 @@ const CARD_BG = "#FAFAF8";
 const CARD_BORDER = "#E5E0D5";
 const TEXT_PRIMARY = "#0B0B0B";
 const TEXT_SECONDARY = "#6B6558";
-/** Darkened gold for text/icons on light (ivory/white) surfaces - the raw
- * #C9A34E gold fails contrast on white and is reserved for dark surfaces
- * and button fills. */
+/** Darkened gold for text/icons on light (ivory/white/champagne) surfaces -
+ * the raw #C9A34E gold fails contrast on light backgrounds and is reserved
+ * for dark surfaces (the navy rail) and solid button fills. */
 const GOLD_TEXT_ON_LIGHT = "#8B6B2E";
 const GOLD_TINT_BG = "rgba(201,163,78,0.14)";
+/** Text sitting directly on the champagne page background (header, byline)
+ * — real navy, never white/light, since the page background is now light. */
+const TEXT_ON_CHAMPAGNE = NAVY;
+const TEXT_ON_CHAMPAGNE_MUTED = "rgba(16,27,45,0.68)";
+/** Text on the wizard rail's own navy surface — that one panel stays dark by
+ * design, so it keeps light text. Not used anywhere on the champagne page
+ * background itself. */
 const TEXT_ON_DARK = "#F8F5EE";
 const TEXT_ON_DARK_MUTED = "rgba(248,245,238,0.62)";
 
@@ -275,17 +293,18 @@ function primaryButtonStyle(disabled: boolean) {
   };
 }
 
-/** Secondary button on the dark page background (wizard Back control) — gold outline, transparent fill. */
-function secondaryOnDarkStyle(disabled: boolean) {
+/** Wizard Back/Next controls — always solid gold, never a disabled/grayed
+ * state, since free step navigation removes the need to gate them. */
+function wizardNavButtonStyle() {
   return {
-    backgroundColor: "transparent",
-    color: disabled ? "rgba(201,163,78,0.35)" : GOLD,
-    border: `1.5px solid ${disabled ? "rgba(201,163,78,0.25)" : GOLD}`,
+    backgroundColor: GOLD,
+    color: NEAR_BLACK,
+    border: "none",
     borderRadius: "10px",
     padding: "11px 20px",
     fontSize: "14px",
     fontWeight: 700 as const,
-    cursor: disabled ? "not-allowed" : "pointer",
+    cursor: "pointer" as const,
     display: "inline-flex",
     alignItems: "center",
     gap: "6px",
@@ -335,6 +354,33 @@ const eyebrowStyle = {
   letterSpacing: "0.1em",
 };
 
+/** Companion panel shown beside the step card on the three sparser steps
+ * (Select Opportunity, Customize, Generate) — real content, not filler,
+ * so the wizard never leaves a large empty void beside a short step. */
+function IntelligenceTipsPanel() {
+  return (
+    <div style={{ ...cardStyle, flex: "1", minWidth: "240px" }}>
+      <p style={{ ...eyebrowStyle, marginBottom: "16px" }}>Intelligence tips</p>
+      <div className="space-y-3.5">
+        {INTELLIGENCE_TIPS.map((tip, i) => (
+          <div
+            key={i}
+            style={{
+              fontSize: "13px",
+              color: TEXT_SECONDARY,
+              lineHeight: "1.6",
+              paddingLeft: "10px",
+              borderLeft: `2px solid ${GOLD}`,
+            }}
+          >
+            {tip}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /**
  * Draft Generator - a real 4-step wizard (Select Opportunity, Customize,
  * Generate, Review & Export) grounded in the Knowledge Base (BLUEPRINT §4.8).
@@ -367,6 +413,7 @@ export default function DraftGeneratorPage() {
   const [recentDraftsLoading, setRecentDraftsLoading] = useState(true);
 
   const [opportunityId, setOpportunityId] = useState("");
+  const [opportunitySearch, setOpportunitySearch] = useState("");
   const [programId, setProgramId] = useState("");
   const [templateType, setTemplateType] = useState<DraftTemplateType | null>(
     null,
@@ -672,14 +719,13 @@ export default function DraftGeneratorPage() {
     void loadVersions(opportunityId, true);
   }, [opportunityId, loadVersions]);
 
-  const opportunityOptions = useMemo(
-    () =>
-      opportunities.map((o) => ({
-        value: o.id,
-        label: `${o.name} · ${humanizeEnum(o.category)}`,
-      })),
-    [opportunities],
-  );
+  // Real, functional filter for the Select Opportunity step's search box —
+  // case-insensitive substring match against the opportunity name.
+  const filteredOpportunities = useMemo(() => {
+    const q = opportunitySearch.trim().toLowerCase();
+    if (!q) return opportunities;
+    return opportunities.filter((o) => o.name.toLowerCase().includes(q));
+  }, [opportunities, opportunitySearch]);
 
   const programOptions = useMemo(
     () => programs.map((p) => ({ value: p.id, label: p.name })),
@@ -1029,27 +1075,17 @@ export default function DraftGeneratorPage() {
   const belowThreshold =
     confidence != null && confidence < AI_CONFIDENCE_THRESHOLD;
 
-  // --- Wizard step gating (real state, not re-derived every render) ---
-  const canAdvanceStep1 = Boolean(opportunityId);
-  const canAdvanceStep2 =
-    Boolean(templateType) && (templateType !== "budget_narrative" || Boolean(programId));
-  const canAdvanceStep3 = hasDraft && !generating;
-
-  function canAdvanceFrom(n: WizardStep): boolean {
-    if (n === 1) return canAdvanceStep1;
-    if (n === 2) return canAdvanceStep2;
-    if (n === 3) return canAdvanceStep3;
-    return false;
-  }
-
+  // --- Wizard navigation: free jump to any step at any time. Back/Next are
+  // convenience buttons only — the actual Generate action still validates
+  // canGenerate below, but moving between steps never gates on it. ---
   function goNext() {
-    if (step < 4 && canAdvanceFrom(step)) setStep((s) => (Math.min(4, s + 1) as WizardStep));
+    setStep((s) => (Math.min(4, s + 1) as WizardStep));
   }
   function goBack() {
     setStep((s) => (Math.max(1, s - 1) as WizardStep));
   }
   function jumpToStep(n: WizardStep) {
-    if (n < step) setStep(n);
+    setStep(n);
   }
 
   // One-time restore: once opportunities have loaded (and, if an opportunity
@@ -1085,12 +1121,12 @@ export default function DraftGeneratorPage() {
   };
 
   return (
-    <div className="space-y-6" style={{ backgroundColor: CHARCOAL, color: TEXT_ON_DARK, minHeight: "100vh", padding: "24px", fontFamily: "'Plus Jakarta Sans',sans-serif" }}>
-      <div style={{ borderLeft: `4px solid ${GOLD}`, paddingLeft: "16px" }}>
-        <h1 style={{ fontSize: "28px", fontWeight: 800, color: TEXT_ON_DARK, marginBottom: "4px" }}>
+    <div className="space-y-6" style={{ backgroundColor: CHAMPAGNE, color: TEXT_ON_CHAMPAGNE, minHeight: "100vh", padding: "24px", fontFamily: "'Plus Jakarta Sans',sans-serif" }}>
+      <div style={{ borderLeft: `4px solid ${NAVY}`, paddingLeft: "16px" }}>
+        <h1 style={{ fontSize: "28px", fontWeight: 800, color: TEXT_ON_CHAMPAGNE, marginBottom: "4px" }}>
           Draft Generator
         </h1>
-        <p style={{ fontSize: "14px", color: TEXT_ON_DARK_MUTED, marginBottom: "0" }}>
+        <p style={{ fontSize: "14px", color: TEXT_ON_CHAMPAGNE_MUTED, marginBottom: "0" }}>
           Generate an application draft from your Knowledge Base. The AI never
           invents organizational facts - gaps are flagged for your input.
         </p>
@@ -1160,14 +1196,14 @@ export default function DraftGeneratorPage() {
                 Grant Draft Wizard
               </p>
               {WIZARD_STEPS.map(({ n, label }) => {
+                // Purely a progress indicator now — every step is clickable
+                // at any time, regardless of this status.
                 const status = n < step ? "done" : n === step ? "active" : "pending";
-                const clickable = status === "done";
                 return (
                   <button
                     key={n}
                     type="button"
                     onClick={() => jumpToStep(n)}
-                    disabled={!clickable}
                     aria-current={status === "active" ? "step" : undefined}
                     style={{
                       display: "flex",
@@ -1179,7 +1215,7 @@ export default function DraftGeneratorPage() {
                       borderRadius: "8px",
                       border: "none",
                       marginBottom: "8px",
-                      cursor: clickable ? "pointer" : "default",
+                      cursor: "pointer",
                       backgroundColor:
                         status === "active"
                           ? GOLD
@@ -1216,7 +1252,7 @@ export default function DraftGeneratorPage() {
                             ? NEAR_BLACK
                             : status === "done"
                               ? "rgba(248,245,238,0.85)"
-                              : "rgba(248,245,238,0.35)",
+                              : "rgba(248,245,238,0.55)",
                       }}
                     >
                       {label}
@@ -1224,118 +1260,163 @@ export default function DraftGeneratorPage() {
                   </button>
                 );
               })}
-              <div style={{ borderTop: "1px solid rgba(255,255,255,0.15)", marginTop: "16px", paddingTop: "16px" }}>
-                <p style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.12em", color: TEXT_ON_DARK_MUTED, textTransform: "uppercase", marginBottom: "12px" }}>INTELLIGENCE TIPS</p>
-                <div style={{ fontSize: "12px", color: "rgba(248,245,238,0.8)", lineHeight: "1.6", marginBottom: "10px", paddingLeft: "8px", borderLeft: "2px solid rgba(201,163,78,0.6)" }}>
-                  Visit Intelligence Library to import winning grant narratives that boost your confidence score
-                </div>
-                <div style={{ fontSize: "12px", color: "rgba(248,245,238,0.8)", lineHeight: "1.6", marginBottom: "10px", paddingLeft: "8px", borderLeft: "2px solid rgba(201,163,78,0.6)" }}>
-                  Narratives matched to your NTEE category increase AI accuracy by up to 40%
-                </div>
-                <div style={{ fontSize: "12px", color: "rgba(248,245,238,0.8)", lineHeight: "1.6", marginBottom: "10px", paddingLeft: "8px", borderLeft: "2px solid rgba(201,163,78,0.6)" }}>
-                  Humanize your draft before submitting — scores above 80 pass most AI detection filters
-                </div>
-                <div style={{ fontSize: "12px", color: "rgba(248,245,238,0.8)", lineHeight: "1.6", paddingLeft: "8px", borderLeft: "2px solid rgba(201,163,78,0.6)" }}>
-                  Complete your Knowledge Base org profile to eliminate [NEEDS INPUT] gaps in generated drafts
-                </div>
-              </div>
             </div>
 
             <div style={{ flex: "1", display: "flex", flexDirection: "column", minWidth: 0, gap: "16px" }}>
               {/* Step 1 — Select Opportunity */}
               {step === 1 && (
-                <div style={cardStyle}>
-                  <p style={{ ...eyebrowStyle, marginBottom: "10px" }}>Choose an opportunity</p>
-                  <div className="max-w-xl">
-                    <Select
-                      options={opportunityOptions}
-                      value={opportunityId}
-                      onChange={(e) => setOpportunityId(e.target.value)}
-                      placeholder="Select an opportunity..."
-                      disabled={!editable}
-                      aria-label="Opportunity"
-                      style={selectFieldStyle}
-                    />
-                  </div>
-                  {opportunityId && (
+                <div className="flex flex-col gap-4 lg:flex-row" style={{ minHeight: "420px" }}>
+                  <div style={{ ...cardStyle, flex: "2" }}>
+                    <p style={{ ...eyebrowStyle, marginBottom: "10px" }}>Choose an opportunity</p>
+                    <div className="relative max-w-xl">
+                      <Search
+                        className="h-4 w-4"
+                        style={{ position: "absolute", left: "14px", top: "50%", transform: "translateY(-50%)", color: TEXT_SECONDARY }}
+                        aria-hidden
+                      />
+                      <input
+                        type="text"
+                        value={opportunitySearch}
+                        onChange={(e) => setOpportunitySearch(e.target.value)}
+                        placeholder="Search opportunities by name…"
+                        disabled={!editable}
+                        aria-label="Search opportunities"
+                        style={{ ...selectFieldStyle, paddingLeft: "38px", cursor: "text" }}
+                      />
+                    </div>
                     <div
+                      className="max-w-xl"
                       style={{
-                        marginTop: "14px",
-                        maxWidth: "36rem",
-                        padding: "12px 14px",
+                        marginTop: "12px",
+                        maxHeight: "260px",
+                        overflowY: "auto",
+                        border: `1.5px solid ${CARD_BORDER}`,
                         borderRadius: "10px",
-                        backgroundColor: selectedMatchScore ? GOLD_TINT_BG : "rgba(11,11,11,0.04)",
-                        border: `1px solid ${selectedMatchScore ? "rgba(201,163,78,0.35)" : CARD_BORDER}`,
                       }}
                     >
-                      {matchScoresLoading ? (
-                        <span style={{ fontSize: "12px", color: TEXT_SECONDARY }}>Loading match score…</span>
-                      ) : selectedMatchScore ? (
-                        <>
-                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                            <Target className="h-4 w-4" style={{ color: GOLD_TEXT_ON_LIGHT }} aria-hidden />
-                            <span style={{ fontSize: "13px", fontWeight: 700, color: GOLD_TEXT_ON_LIGHT }}>
-                              Match score: {selectedMatchScore.combinedScore}/100
-                            </span>
-                          </div>
-                          <p style={{ fontSize: "12px", color: TEXT_SECONDARY, marginTop: "4px" }}>
-                            {selectedMatchScore.probabilityBlended
-                              ? "Blended from your mission/program fit and your win-probability score for this opportunity."
-                              : "Based on mission and program fit against your Digital Twin — no win-probability score yet for this opportunity."}
-                          </p>
-                        </>
+                      {filteredOpportunities.length === 0 ? (
+                        <p style={{ padding: "14px", fontSize: "13px", color: TEXT_SECONDARY }}>
+                          No opportunities match &ldquo;{opportunitySearch}&rdquo;.
+                        </p>
                       ) : (
-                        <span style={{ fontSize: "12px", color: TEXT_SECONDARY }}>
-                          Match score not available for this opportunity.
-                        </span>
+                        filteredOpportunities.map((o) => {
+                          const selected = o.id === opportunityId;
+                          return (
+                            <button
+                              key={o.id}
+                              type="button"
+                              onClick={() => setOpportunityId(o.id)}
+                              disabled={!editable}
+                              aria-pressed={selected}
+                              style={{
+                                width: "100%",
+                                textAlign: "left",
+                                padding: "10px 14px",
+                                border: "none",
+                                borderBottom: `1px solid ${CARD_BORDER}`,
+                                backgroundColor: selected ? GOLD_TINT_BG : "transparent",
+                                cursor: editable ? "pointer" : "default",
+                                display: "flex",
+                                alignItems: "baseline",
+                                gap: "8px",
+                              }}
+                            >
+                              <span style={{ fontSize: "13px", fontWeight: 600, color: selected ? GOLD_TEXT_ON_LIGHT : TEXT_PRIMARY }}>
+                                {o.name}
+                              </span>
+                              <span style={{ fontSize: "11px", color: TEXT_SECONDARY }}>
+                                {humanizeEnum(o.category)}
+                              </span>
+                            </button>
+                          );
+                        })
                       )}
                     </div>
-                  )}
+                    {opportunityId && (
+                      <div
+                        style={{
+                          marginTop: "14px",
+                          maxWidth: "36rem",
+                          padding: "12px 14px",
+                          borderRadius: "10px",
+                          backgroundColor: selectedMatchScore ? GOLD_TINT_BG : "rgba(11,11,11,0.04)",
+                          border: `1px solid ${selectedMatchScore ? "rgba(201,163,78,0.35)" : CARD_BORDER}`,
+                        }}
+                      >
+                        {matchScoresLoading ? (
+                          <span style={{ fontSize: "12px", color: TEXT_SECONDARY }}>Loading match score…</span>
+                        ) : selectedMatchScore ? (
+                          <>
+                            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                              <Target className="h-4 w-4" style={{ color: GOLD_TEXT_ON_LIGHT }} aria-hidden />
+                              <span style={{ fontSize: "13px", fontWeight: 700, color: GOLD_TEXT_ON_LIGHT }}>
+                                Match score: {selectedMatchScore.combinedScore}/100
+                              </span>
+                            </div>
+                            <p style={{ fontSize: "12px", color: TEXT_SECONDARY, marginTop: "4px" }}>
+                              {selectedMatchScore.probabilityBlended
+                                ? "Blended from your mission/program fit and your win-probability score for this opportunity."
+                                : "Based on mission and program fit against your Digital Twin — no win-probability score yet for this opportunity."}
+                            </p>
+                          </>
+                        ) : (
+                          <span style={{ fontSize: "12px", color: TEXT_SECONDARY }}>
+                            Match score not available for this opportunity.
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <IntelligenceTipsPanel />
                 </div>
               )}
 
               {/* Step 2 — Customize */}
               {step === 2 && (
-                <div style={cardStyle}>
-                  <p style={{ ...eyebrowStyle, marginBottom: "14px" }}>Choose a template</p>
-                  <TemplateSelector
-                    value={templateType}
-                    onChange={setTemplateType}
-                    disabled={!editable}
-                  />
+                <div className="flex flex-col gap-4 lg:flex-row" style={{ minHeight: "420px" }}>
+                  <div style={{ ...cardStyle, flex: "2" }}>
+                    <p style={{ ...eyebrowStyle, marginBottom: "14px" }}>Choose a template</p>
+                    <TemplateSelector
+                      value={templateType}
+                      onChange={setTemplateType}
+                      disabled={!editable}
+                    />
 
-                  {templateType === "budget_narrative" && (
-                    <div className="mt-6">
-                      <p style={{ ...eyebrowStyle, marginBottom: "10px" }}>Choose a program</p>
-                      <p className="mb-3 text-sm" style={{ color: TEXT_SECONDARY }}>
-                        The budget will be scoped to this program&rsquo;s financial
-                        data and your Knowledge Base budget justification entries.
-                      </p>
-                      <div className="max-w-xl space-y-2">
-                        <Select
-                          options={programOptions}
-                          value={programId}
-                          onChange={(e) => setProgramId(e.target.value)}
-                          placeholder="Select a program..."
-                          disabled={!editable}
-                          aria-label="Program"
-                          style={selectFieldStyle}
-                        />
-                        {programs.length === 0 && !loading && (
-                          <p className="text-sm" style={{ color: TEXT_SECONDARY }}>
-                            No programs found. Add programs in organization settings
-                            first.
-                          </p>
-                        )}
+                    {templateType === "budget_narrative" && (
+                      <div className="mt-6">
+                        <p style={{ ...eyebrowStyle, marginBottom: "10px" }}>Choose a program</p>
+                        <p className="mb-3 text-sm" style={{ color: TEXT_SECONDARY }}>
+                          The budget will be scoped to this program&rsquo;s financial
+                          data and your Knowledge Base budget justification entries.
+                        </p>
+                        <div className="max-w-xl space-y-2">
+                          <Select
+                            options={programOptions}
+                            value={programId}
+                            onChange={(e) => setProgramId(e.target.value)}
+                            placeholder="Select a program..."
+                            disabled={!editable}
+                            aria-label="Program"
+                            style={selectFieldStyle}
+                          />
+                          {programs.length === 0 && !loading && (
+                            <p className="text-sm" style={{ color: TEXT_SECONDARY }}>
+                              No programs found. Add programs in organization settings
+                              first.
+                            </p>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
+                  <IntelligenceTipsPanel />
                 </div>
               )}
 
               {/* Step 3 — Generate */}
               {step === 3 && (
-                <div className="text-center" style={cardStyle}>
+                <div className="flex flex-col gap-4 lg:flex-row" style={{ minHeight: "420px" }}>
+                <div className="text-center" style={{ ...cardStyle, flex: "2" }}>
                   {generating ? (
                     <>
                       <div
@@ -1409,9 +1490,30 @@ export default function DraftGeneratorPage() {
                     </>
                   )}
                 </div>
+                <IntelligenceTipsPanel />
+                </div>
               )}
 
               {/* Step 4 — Review & Export */}
+              {step === 4 && !hasDraft && (
+                <div style={{ ...cardStyle, textAlign: "center", padding: "48px 24px" }}>
+                  <ShieldCheck className="mx-auto h-8 w-8" style={{ color: GOLD_TEXT_ON_LIGHT }} aria-hidden />
+                  <p style={{ fontSize: "15px", fontWeight: 700, color: TEXT_PRIMARY, marginTop: "14px" }}>
+                    No draft yet for this opportunity
+                  </p>
+                  <p style={{ fontSize: "13px", color: TEXT_SECONDARY, marginTop: "6px", maxWidth: "28rem", marginLeft: "auto", marginRight: "auto" }}>
+                    Generate a draft on the Generate step first, then come back here to review, humanize, and export it.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setStep(3)}
+                    style={{ ...primaryButtonStyle(false), margin: "18px auto 0" }}
+                  >
+                    Go to Generate
+                    <ArrowRight className="h-4 w-4" aria-hidden />
+                  </button>
+                </div>
+              )}
               {step === 4 && hasDraft && (
                 <div className="flex flex-col gap-6 xl:flex-row" style={{ minHeight: "600px" }}>
                   <div className="flex flex-1 flex-col gap-4" style={{ minWidth: 0 }}>
@@ -1421,6 +1523,7 @@ export default function DraftGeneratorPage() {
                         borderRadius: "14px",
                         padding: "24px",
                         border: `1px solid ${CARD_BORDER}`,
+                        borderTop: `4px solid ${NAVY}`,
                         flex: "1",
                         display: "flex",
                         flexDirection: "column",
@@ -1641,7 +1744,7 @@ export default function DraftGeneratorPage() {
                     >
                       <div className="mb-3 flex items-center gap-2">
                         <ShieldCheck className="h-5 w-5" style={{ color: GOLD_TEXT_ON_LIGHT }} aria-hidden />
-                        <h3 style={{ fontSize: "16px", fontWeight: 800, color: TEXT_PRIMARY }}>Sources used</h3>
+                        <h3 style={{ fontSize: "16px", fontWeight: 800, color: NAVY }}>Sources used</h3>
                       </div>
                       <p style={{ fontSize: "11px", color: TEXT_SECONDARY, marginBottom: "12px" }}>
                         Every fact in this draft traces back to one of these — nothing was invented.
@@ -1661,18 +1764,18 @@ export default function DraftGeneratorPage() {
                         />
                       ) : (
                         <div
-                          className="rounded-xl border border-border shadow-sm p-5"
+                          className="rounded-xl p-5"
                           style={{
-                            backgroundColor: "#FFFFFF",
-                            boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-                            border: "1px solid #E2E8F0",
+                            backgroundColor: CARD_BG,
+                            boxShadow: "0 2px 8px rgba(16,27,45,0.08)",
+                            border: `1px solid ${CARD_BORDER}`,
                           }}
                         >
                           <div className="mb-3 flex items-center gap-2">
-                            <Dna className="h-4 w-4 animate-spin text-primary" aria-hidden />
-                            <h3 className="text-base font-semibold text-text">Grant DNA Score</h3>
+                            <Dna className="h-4 w-4 animate-spin" style={{ color: GOLD_TEXT_ON_LIGHT }} aria-hidden />
+                            <h3 style={{ fontSize: "16px", fontWeight: 700, color: TEXT_PRIMARY }}>Grant DNA Score</h3>
                           </div>
-                          <div className="h-[220px] animate-pulse rounded-lg bg-white-raised" />
+                          <div className="h-[220px] animate-pulse rounded-lg" style={{ backgroundColor: "#F3F1E9" }} />
                         </div>
                       )
                     )}
@@ -1698,20 +1801,21 @@ export default function DraftGeneratorPage() {
                               <div key={i} className={"rounded-lg px-2.5 py-2 " + bg}>
                                 <div className="flex items-center justify-between gap-2">
                                   <span
-                                    className="min-w-0 truncate text-xs font-semibold text-navy-800"
+                                    className="min-w-0 truncate text-xs font-semibold"
+                                    style={{ color: NAVY }}
                                     title={section.name}
                                   >
                                     {section.name}
                                   </span>
                                   <div className="flex shrink-0 items-center gap-1.5">
-                                    <span className="text-xs" style={{ color: "#94A3B8" }}>{words}w</span>
+                                    <span className="text-xs" style={{ color: TEXT_SECONDARY }}>{words}w</span>
                                     <span className={"text-xs font-bold " + scoreColor}>
                                       {score}/100
                                     </span>
                                   </div>
                                 </div>
                                 {score < 80 && (
-                                  <p className="mt-0.5 text-xs leading-snug" style={{ color: "#64748B" }}>
+                                  <p className="mt-0.5 text-xs leading-snug" style={{ color: TEXT_SECONDARY }}>
                                     {sectionSuggestion(score, gaps)}
                                   </p>
                                 )}
@@ -1738,24 +1842,24 @@ export default function DraftGeneratorPage() {
                             <div
                               key={i}
                               className="flex items-start justify-between gap-3 border-b pb-2 last:border-0 last:pb-0"
-                              style={{ borderColor: "#E2E8F0" }}
+                              style={{ borderColor: CARD_BORDER }}
                             >
                               <div className="min-w-0 flex-1">
-                                <p className="text-sm font-medium capitalize" style={{ color: "#0F172A" }}>
+                                <p className="text-sm font-medium capitalize" style={{ color: NAVY }}>
                                   {item.category}
                                 </p>
-                                <p className="mt-0.5 text-xs leading-snug" style={{ color: "#64748B" }}>
+                                <p className="mt-0.5 text-xs leading-snug" style={{ color: TEXT_SECONDARY }}>
                                   {item.justification}
                                 </p>
                               </div>
                               <div className="shrink-0 text-right">
-                                <p className="font-mono text-sm" style={{ color: "#0F172A" }}>
+                                <p className="font-mono text-sm" style={{ color: NAVY }}>
                                   {item.amount != null
                                     ? formatCurrency(item.amount)
                                     : "[NEEDS INPUT]"}
                                 </p>
                                 {item.percentage != null && (
-                                  <p className="text-xs" style={{ color: "#64748B" }}>
+                                  <p className="text-xs" style={{ color: TEXT_SECONDARY }}>
                                     {item.percentage.toFixed(1)}%
                                   </p>
                                 )}
@@ -1763,11 +1867,11 @@ export default function DraftGeneratorPage() {
                             </div>
                           ))}
                           {totalRequested != null && (
-                            <div className="mt-1 flex items-center justify-between border-t-2 border-navy-200 pt-2">
-                              <p className="text-sm font-semibold" style={{ color: "#0F172A" }}>
+                            <div className="mt-1 flex items-center justify-between pt-2" style={{ borderTop: `2px solid ${GOLD}` }}>
+                              <p className="text-sm font-semibold" style={{ color: NAVY }}>
                                 Total requested
                               </p>
-                              <p className="font-mono text-sm font-semibold" style={{ color: "#0F172A" }}>
+                              <p className="font-mono text-sm font-semibold" style={{ color: NAVY }}>
                                 {formatCurrency(totalRequested)}
                               </p>
                             </div>
@@ -1779,24 +1883,17 @@ export default function DraftGeneratorPage() {
                 </div>
               )}
 
-              {/* Back / Next wizard controls */}
+              {/* Back / Next wizard controls — always solid gold, never
+                  disabled. Free navigation (rail clicks, Back, Next) never
+                  gates on validation; only the real Generate action below
+                  does. */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <button
-                  type="button"
-                  onClick={goBack}
-                  disabled={step === 1}
-                  style={secondaryOnDarkStyle(step === 1)}
-                >
+                <button type="button" onClick={goBack} style={wizardNavButtonStyle()}>
                   <ArrowLeft className="h-4 w-4" aria-hidden />
                   Back
                 </button>
                 {step < 4 ? (
-                  <button
-                    type="button"
-                    onClick={goNext}
-                    disabled={!canAdvanceFrom(step)}
-                    style={primaryButtonStyle(!canAdvanceFrom(step))}
-                  >
+                  <button type="button" onClick={goNext} style={wizardNavButtonStyle()}>
                     Next
                     <ArrowRight className="h-4 w-4" aria-hidden />
                   </button>
