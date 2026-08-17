@@ -22,6 +22,17 @@ const nextConfig = {
       "playwright-extra",
       "puppeteer-extra-plugin-stealth",
     ],
+    // Next.js defaults static-generation worker count to (logical CPUs - 1).
+    // On this box that fans out to 20+ workers, which is fine when it's the
+    // only build running but causes severe memory thrashing (and previously
+    // a worker crash: exit code 3221225794 / STATUS_DLL_INIT_FAILED) when
+    // multiple agent worktrees are building concurrently. cpus: 2 was not
+    // tight enough under heavy multi-worktree contention (system free memory
+    // observed as low as ~2GB of 16GB total with 6 worktrees building at
+    // once) and the build hung past the 900s gate timeout instead of
+    // finishing. Dropping to a single worker minimizes one build's peak
+    // memory footprint so it can still complete under host contention.
+    cpus: 1,
   },
   // Supabase Storage / external images are configured here as features are built.
   images: {

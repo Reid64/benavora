@@ -861,8 +861,8 @@ export default function DraftGeneratorPage() {
 
   return (
     <div className="space-y-6" style={{ backgroundColor: "#E4E9F0", minHeight: "100vh", padding: "24px", fontFamily: "'Plus Jakarta Sans',sans-serif" }}>
-      <div>
-        <h1 style={{ fontSize: "28px", fontWeight: 800, color: "#0F172A", marginBottom: "4px" }}>
+      <div style={{ borderLeft: "4px solid #2563EB", paddingLeft: "16px" }}>
+        <h1 style={{ fontSize: "28px", fontWeight: 800, color: "#2563EB", marginBottom: "4px" }}>
           Draft Generator
         </h1>
         <p style={{ fontSize: "14px", color: "#64748B", marginBottom: "24px" }}>
@@ -961,7 +961,7 @@ export default function DraftGeneratorPage() {
                   fontSize: "11px",
                   fontWeight: 700,
                   letterSpacing: "0.15em",
-                  color: "#00B4D8",
+                  color: "#2563EB",
                   textTransform: "uppercase",
                   marginBottom: "20px",
                   display: "block",
@@ -994,8 +994,8 @@ export default function DraftGeneratorPage() {
                           gap: "12px",
                           padding: "12px",
                           borderRadius: "8px",
-                          backgroundColor: "rgba(0,180,216,0.15)",
-                          border: "1px solid rgba(0,180,216,0.3)",
+                          backgroundColor: "rgba(37,99,235,0.15)",
+                          border: "1px solid rgba(37,99,235,0.3)",
                           marginBottom: "8px",
                         }
                       : {
@@ -1010,13 +1010,13 @@ export default function DraftGeneratorPage() {
                   status === "done"
                     ? { width: "10px", height: "10px", borderRadius: "50%", backgroundColor: "#10B981", flexShrink: 0, boxShadow: "0 0 6px rgba(16,185,129,0.6)" }
                     : status === "active"
-                      ? { width: "10px", height: "10px", borderRadius: "50%", backgroundColor: "#00B4D8", flexShrink: 0, boxShadow: "0 0 6px rgba(0,180,216,0.8)" }
+                      ? { width: "10px", height: "10px", borderRadius: "50%", backgroundColor: "#2563EB", flexShrink: 0, boxShadow: "0 0 6px rgba(37,99,235,0.8)" }
                       : { width: "10px", height: "10px", borderRadius: "50%", backgroundColor: "rgba(255,255,255,0.2)", flexShrink: 0 };
                 const textStyle =
                   status === "done"
                     ? { fontSize: "13px", fontWeight: 600, color: "rgba(255,255,255,0.6)" }
                     : status === "active"
-                      ? { fontSize: "13px", fontWeight: 700, color: "#CFFAFE" }
+                      ? { fontSize: "13px", fontWeight: 700, color: "#BFDBFE" }
                       : { fontSize: "13px", fontWeight: 500, color: "rgba(255,255,255,0.3)" };
                 return (
                   <div key={n} style={rowStyle}>
@@ -1027,7 +1027,7 @@ export default function DraftGeneratorPage() {
               })}
               <div style={{borderTop:'1px solid rgba(255,255,255,0.1)',marginTop:'16px',paddingTop:'16px'}}>
                 <p style={{fontSize:'10px',fontWeight:700,letterSpacing:'0.12em',color:'rgba(248,250,252,0.3)',textTransform:'uppercase',marginBottom:'12px'}}>INTELLIGENCE TIPS</p>
-                <div style={{fontSize:'12px',color:'rgba(248,250,252,0.5)',lineHeight:'1.6',marginBottom:'10px',paddingLeft:'8px',borderLeft:'2px solid rgba(0,180,216,0.4)'}}>
+                <div style={{fontSize:'12px',color:'rgba(248,250,252,0.5)',lineHeight:'1.6',marginBottom:'10px',paddingLeft:'8px',borderLeft:'2px solid rgba(37,99,235,0.4)'}}>
                   Visit Intelligence Library to import winning grant narratives that boost your confidence score
                 </div>
                 <div style={{fontSize:'12px',color:'rgba(248,250,252,0.5)',lineHeight:'1.6',marginBottom:'10px',paddingLeft:'8px',borderLeft:'2px solid rgba(124,58,237,0.4)'}}>
@@ -1046,7 +1046,7 @@ export default function DraftGeneratorPage() {
               {!generating && (
                 <>
                   <div style={{ ...indigoCardStyle, marginBottom: "12px" }}>
-                    <p style={{ fontSize: "11px", fontWeight: 700, color: "#0077B6", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "10px" }}>
+                    <p style={{ fontSize: "11px", fontWeight: 700, color: "#2563EB", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "10px" }}>
                       Choose an opportunity
                     </p>
                     <div className="max-w-xl">
@@ -1063,7 +1063,7 @@ export default function DraftGeneratorPage() {
                   </div>
 
                   <div style={{ ...indigoCardStyle, marginBottom: "12px" }}>
-                    <p style={{ fontSize: "11px", fontWeight: 700, color: "#0077B6", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "14px" }}>
+                    <p style={{ fontSize: "11px", fontWeight: 700, color: "#2563EB", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "14px" }}>
                       Choose a template
                     </p>
                     <TemplateSelector
@@ -1074,7 +1074,7 @@ export default function DraftGeneratorPage() {
 
                     {templateType === "budget_narrative" && (
                       <div className="mt-6">
-                        <p style={{ fontSize: "11px", fontWeight: 700, color: "#0077B6", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "10px" }}>
+                        <p style={{ fontSize: "11px", fontWeight: 700, color: "#2563EB", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "10px" }}>
                           Choose a program
                         </p>
                         <p className="mb-3 text-sm" style={{ color: "#64748B" }}>
@@ -1116,7 +1116,7 @@ export default function DraftGeneratorPage() {
                       disabled={!canGenerate || generating}
                       style={{
                         width: "100%",
-                        background: "linear-gradient(135deg,#0077B6,#0EA5E9)",
+                        background: "linear-gradient(135deg,#2563EB,#3B82F6)",
                         color: "white",
                         border: "none",
                         borderRadius: "12px",
@@ -1129,7 +1129,7 @@ export default function DraftGeneratorPage() {
                         justifyContent: "center",
                         gap: "8px",
                         marginTop: "4px",
-                        boxShadow: "0 6px 20px rgba(0,119,182,0.4)",
+                        boxShadow: "0 6px 20px rgba(37,99,235,0.4)",
                         letterSpacing: "0.02em",
                       }}
                       className="disabled:cursor-not-allowed disabled:opacity-50"
@@ -1148,7 +1148,7 @@ export default function DraftGeneratorPage() {
                       width: "80px",
                       height: "80px",
                       borderRadius: "50%",
-                      background: "conic-gradient(#0077B6,#00B4D8,#0077B6)",
+                      background: "conic-gradient(#2563EB,#3B82F6,#2563EB)",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
@@ -1166,7 +1166,7 @@ export default function DraftGeneratorPage() {
                         justifyContent: "center",
                       }}
                     >
-                      <Sparkles className="h-6 w-6 animate-pulse" style={{ color: "#0077B6" }} aria-hidden />
+                      <Sparkles className="h-6 w-6 animate-pulse" style={{ color: "#2563EB" }} aria-hidden />
                     </div>
                   </div>
                   <p style={{ fontSize: "15px", fontWeight: 700, color: "#0F172A" }}>Generating your draft…</p>
@@ -1200,7 +1200,7 @@ export default function DraftGeneratorPage() {
                       marginBottom: "16px",
                     }}
                   >
-                    <span style={{ fontSize: "11px", fontWeight: 700, color: "#0077B6", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                    <span style={{ fontSize: "11px", fontWeight: 700, color: "#2563EB", textTransform: "uppercase", letterSpacing: "0.1em" }}>
                       Review &amp; edit
                     </span>
                     {editable && (
@@ -1645,8 +1645,8 @@ export default function DraftGeneratorPage() {
                     {draft.source === "generated" ? (
                       <span
                         style={{
-                          backgroundColor: "rgba(0,119,182,0.12)",
-                          color: "#0077B6",
+                          backgroundColor: "rgba(37,99,235,0.12)",
+                          color: "#2563EB",
                           borderRadius: "6px",
                           padding: "2px 8px",
                           fontSize: "11px",
@@ -1679,7 +1679,7 @@ export default function DraftGeneratorPage() {
                     <button
                       type="button"
                       onClick={() => setOpportunityId(draft.opportunityId)}
-                      style={{ color: "#0077B6", fontSize: "13px", fontWeight: 600, background: "none", border: "none", cursor: "pointer" }}
+                      style={{ color: "#2563EB", fontSize: "13px", fontWeight: 600, background: "none", border: "none", cursor: "pointer" }}
                     >
                       Open
                     </button>

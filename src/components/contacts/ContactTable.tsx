@@ -22,6 +22,11 @@ export { RELATIONSHIP_COLOR } from "@/components/contacts/contact-shared";
 
 type ContactRelationship = Enums<"contact_relationship">;
 
+// Research & Discovery section signature accent — see
+// governance/DESIGN_SYSTEM.md "Section Accent Colors" and
+// src/lib/design/section-accents.ts.
+const SECTION_ACCENT = "#0284C7";
+
 export type ContactTableProps = {
   contacts: ContactRow[];
   isLoading?: boolean;
@@ -90,7 +95,7 @@ export function ContactTable({ contacts, isLoading = false }: ContactTableProps)
             placeholder="Search contacts..."
             aria-label="Search contacts"
             style={{ border: "1px solid #E2E8F0", backgroundColor: "#FFFFFF", color: "#334155" }}
-            className="w-full rounded-lg px-4 py-2.5 text-sm outline-none"
+            className="w-full rounded-lg px-4 py-2.5 text-sm outline-none focus:border-[#0284C7] focus:ring-2 focus:ring-[#0284C7]/10"
           />
         </div>
         <div className="sm:w-56">
@@ -166,7 +171,7 @@ function ViewToggle({
         onClick={() => onChange("list")}
         aria-pressed={view === "list"}
         style={{
-          backgroundColor: view === "list" ? "#0077B6" : "transparent",
+          backgroundColor: view === "list" ? SECTION_ACCENT : "transparent",
           color: view === "list" ? "#FFFFFF" : "#475569",
         }}
         className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition"
@@ -179,7 +184,7 @@ function ViewToggle({
         onClick={() => onChange("grid")}
         aria-pressed={view === "grid"}
         style={{
-          backgroundColor: view === "grid" ? "#0077B6" : "transparent",
+          backgroundColor: view === "grid" ? SECTION_ACCENT : "transparent",
           color: view === "grid" ? "#FFFFFF" : "#475569",
         }}
         className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition"

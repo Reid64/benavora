@@ -411,8 +411,8 @@ export default function AutoApplyPage() {
 
       {/* HEADER */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px", flexWrap: "wrap", gap: "16px" }}>
-        <div>
-          <h1 style={{ fontSize: "28px", fontWeight: 800, color: "#F8FAFC", letterSpacing: "-0.02em" }}>
+        <div style={{ borderLeft: "4px solid #2563EB", paddingLeft: "16px" }}>
+          <h1 style={{ fontSize: "28px", fontWeight: 800, color: "#2563EB", letterSpacing: "-0.02em" }}>
             AUTOAPPLY ENGINE
           </h1>
           <p style={{ fontSize: "14px", color: "#64748B", marginTop: "4px" }}>
@@ -464,8 +464,8 @@ export default function AutoApplyPage() {
               type="button"
               style={{
                 backgroundColor: "transparent",
-                color: "#00B4D8",
-                border: "1px solid rgba(0,180,216,0.3)",
+                color: "#2563EB",
+                border: "1px solid rgba(37,99,235,0.3)",
                 borderRadius: "10px",
                 padding: "9px 16px",
                 fontSize: "13px",
@@ -484,8 +484,8 @@ export default function AutoApplyPage() {
             type="button"
             onClick={() => void openAddToQueue()}
             style={{
-              background: "linear-gradient(135deg,#10B981,#059669)",
-              color: "white",
+              backgroundColor: "#22D3EE",
+              color: "#0A1628",
               border: "none",
               borderRadius: "10px",
               padding: "9px 18px",
@@ -496,6 +496,7 @@ export default function AutoApplyPage() {
               alignItems: "center",
               gap: "6px",
             }}
+            className="hover:brightness-95"
           >
             <Plus className="h-3.5 w-3.5" aria-hidden />
             Add to Queue
@@ -541,23 +542,23 @@ export default function AutoApplyPage() {
       {/* TOP STATS ROW — real values derived from the same submission_queue rows loaded for the table below */}
       <div className="flex flex-col gap-4 sm:flex-row">
         <div style={darkStatCardStyle}>
-          <p style={darkStatValueStyle("#10B981")}>{queueLoading ? "—" : sessionsToday}</p>
+          <p style={darkStatValueStyle("#2563EB")}>{queueLoading ? "—" : sessionsToday}</p>
           <p style={darkStatLabelStyle}>Sessions Today</p>
         </div>
         <div style={darkStatCardStyle}>
-          <p style={darkStatValueStyle("#0077B6")}>
+          <p style={darkStatValueStyle("#2563EB")}>
             {queueLoading ? "—" : successRatePct !== null ? `${successRatePct}%` : "—"}
           </p>
           <p style={darkStatLabelStyle}>Success Rate</p>
         </div>
         <div style={darkStatCardStyle}>
-          <p style={darkStatValueStyle("#00B4D8")}>
+          <p style={darkStatValueStyle("#2563EB")}>
             {queueLoading ? "—" : avgFillTimeSeconds !== null ? formatDuration(avgFillTimeSeconds) : "—"}
           </p>
           <p style={darkStatLabelStyle}>Avg Fill Time</p>
         </div>
         <div style={darkStatCardStyle}>
-          <p style={darkStatValueStyle("#F59E0B")}>{queueLoading ? "—" : queue.length}</p>
+          <p style={darkStatValueStyle("#2563EB")}>{queueLoading ? "—" : queue.length}</p>
           <p style={darkStatLabelStyle}>Forms Queued</p>
         </div>
       </div>
@@ -565,7 +566,7 @@ export default function AutoApplyPage() {
       {/* MAIN CONTENT — Live Session Viewer (left) + Controls (right) */}
       <div className="flex flex-col gap-6 lg:flex-row">
         <div className="lg:flex-[65]">
-          <LiveSessionViewer />
+          <LiveSessionViewer onStartSession={() => void openAddToQueue()} />
         </div>
         <div className="flex flex-col gap-4 lg:flex-[35]">
           {/* QUEUE — top 5 real submission_queue rows, same data already loaded for the Session List table below */}
@@ -589,8 +590,8 @@ export default function AutoApplyPage() {
               <p style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.12em", color: "#64748B" }}>QUEUE</p>
               <span
                 style={{
-                  backgroundColor: "rgba(0,119,182,0.2)",
-                  color: "#00B4D8",
+                  backgroundColor: "rgba(37,99,235,0.2)",
+                  color: "#2563EB",
                   borderRadius: "10px",
                   padding: "2px 10px",
                   fontSize: "12px",
@@ -652,8 +653,8 @@ export default function AutoApplyPage() {
               onClick={() => void openAddToQueue()}
               style={{
                 width: "100%",
-                background: "linear-gradient(135deg,#10B981,#059669)",
-                color: "white",
+                backgroundColor: "#22D3EE",
+                color: "#0A1628",
                 border: "none",
                 borderRadius: "10px",
                 padding: "12px",
@@ -662,6 +663,7 @@ export default function AutoApplyPage() {
                 cursor: "pointer",
                 marginBottom: "8px",
               }}
+              className="hover:brightness-95"
             >
               Start Session
             </button>
@@ -689,8 +691,8 @@ export default function AutoApplyPage() {
                 style={{
                   width: "100%",
                   backgroundColor: "transparent",
-                  color: "#00B4D8",
-                  border: "1px solid rgba(0,180,216,0.3)",
+                  color: "#2563EB",
+                  border: "1px solid rgba(37,99,235,0.3)",
                   borderRadius: "10px",
                   padding: "12px",
                   fontSize: "14px",
@@ -816,7 +818,7 @@ export default function AutoApplyPage() {
               <thead>
                 <tr
                   className="bg-sidebar"
-                  style={{ backgroundColor: "#1A2B3C", color: "#FFFFFF" }}
+                  style={{ backgroundColor: "#2563EB", color: "#FFFFFF" }}
                 >
                   <th className="w-10 px-4 py-3">
                     <input
@@ -940,7 +942,7 @@ export default function AutoApplyPage() {
               <thead>
                 <tr
                   className="bg-sidebar"
-                  style={{ backgroundColor: "#1A2B3C", color: "#FFFFFF" }}
+                  style={{ backgroundColor: "#2563EB", color: "#FFFFFF" }}
                 >
                   <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-white">
                     Funder

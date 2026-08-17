@@ -83,6 +83,16 @@ const MID_INTENT_THRESHOLD = 60;
 const DEADLINE_SOON_HOURS = 48;
 const LOOKBACK_DAYS = 30;
 
+// Research & Discovery section accent, per PAGE_TREATMENT_PROTOCOL.md and
+// governance/DESIGN_SYSTEM.md's Section Accent Colors — same value already
+// applied to /research, /opportunities, and /donor-discovery.
+const SECTION_ACCENT = "#0284C7";
+// Fixed bright teal — reserved for primary action buttons across every
+// section, per PAGE_TREATMENT_PROTOCOL.md. Dark text for contrast, matching
+// the precedent set on /research and /opportunities.
+const CTA_TEAL_BG = "#22D3EE";
+const CTA_TEAL_TEXT = "#0A1628";
+
 function accentColor(score: number | null): string {
   if (score === null) return "#6B7280";
   if (score >= HIGH_INTENT_THRESHOLD) return "#DC2626";
@@ -538,12 +548,12 @@ export default function IntentSignalsPage() {
           marginBottom: "28px",
         }}
       >
-        <div>
+        <div style={{ borderLeft: `4px solid ${SECTION_ACCENT}`, paddingLeft: "16px" }}>
           <h1
             style={{
               fontSize: "28px",
               fontWeight: 800,
-              color: "#0F172A",
+              color: SECTION_ACCENT,
               letterSpacing: "-0.02em",
               margin: 0,
             }}
@@ -563,8 +573,8 @@ export default function IntentSignalsPage() {
               display: "inline-flex",
               alignItems: "center",
               gap: "8px",
-              backgroundColor: "#1A2B3C",
-              color: "#FFFFFF",
+              backgroundColor: CTA_TEAL_BG,
+              color: CTA_TEAL_TEXT,
               fontSize: "14px",
               fontWeight: 700,
               padding: "12px 24px",
@@ -572,7 +582,7 @@ export default function IntentSignalsPage() {
               border: "none",
               cursor: running ? "default" : "pointer",
               opacity: running ? 0.7 : 1,
-              boxShadow: "0 4px 16px rgba(26,43,60,0.25)",
+              boxShadow: "0 4px 16px rgba(34,211,238,0.3)",
             }}
           >
             {running ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
@@ -618,7 +628,7 @@ export default function IntentSignalsPage() {
         <StatCard
           label="Total Signals (30d)"
           value={loading ? "—" : String(stats.totalLast30d)}
-          color="#FFFFFF"
+          color={SECTION_ACCENT}
         />
         <StatCard
           label="High Intent (≥80)"
@@ -634,7 +644,7 @@ export default function IntentSignalsPage() {
         <StatCard
           label="Companies Monitored"
           value={loading ? "—" : String(stats.companiesMonitored)}
-          color="#0EA5E9"
+          color={SECTION_ACCENT}
         />
       </div>
 
@@ -658,20 +668,68 @@ export default function IntentSignalsPage() {
           style={{
             backgroundColor: "#0D1526",
             borderRadius: "14px",
-            padding: "56px 24px",
+            padding: "64px 24px",
             textAlign: "center",
             boxShadow: "0 4px 20px rgba(0,0,0,0.25)",
           }}
         >
-          <Radar size={32} color="#5C7695" style={{ margin: "0 auto 12px" }} />
-          <p style={{ fontSize: "14px", fontWeight: 700, color: "#FFFFFF", margin: 0 }}>
-            No intent signals yet.
+          <div
+            style={{
+              width: "64px",
+              height: "64px",
+              borderRadius: "50%",
+              backgroundColor: `${SECTION_ACCENT}26`,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              margin: "0 auto 16px",
+            }}
+            aria-hidden
+          >
+            <Radar size={30} color={SECTION_ACCENT} />
+          </div>
+          <p style={{ fontSize: "16px", fontWeight: 700, color: "#FFFFFF", margin: 0 }}>
+            No intent signals yet
           </p>
-          <p style={{ fontSize: "13px", color: "#8BA8C8", marginTop: "8px" }}>
+          <p
+            style={{
+              fontSize: "13px",
+              color: "#8BA8C8",
+              marginTop: "8px",
+              maxWidth: "420px",
+              marginLeft: "auto",
+              marginRight: "auto",
+            }}
+          >
             {canRun
-              ? "Run Signal Analysis to detect real-time giving indicators for your monitored companies."
+              ? "Run a signal analysis to detect real-time corporate giving indicators — press releases, ESG reports, SEC filings, and more — across the companies you're monitoring."
               : "Ask an editor to run signal analysis to populate this feed."}
           </p>
+          {canRun && (
+            <button
+              type="button"
+              onClick={() => void handleRunAnalysis()}
+              disabled={running}
+              style={{
+                marginTop: "24px",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+                backgroundColor: CTA_TEAL_BG,
+                color: CTA_TEAL_TEXT,
+                fontSize: "13px",
+                fontWeight: 700,
+                padding: "10px 24px",
+                borderRadius: "10px",
+                border: "none",
+                cursor: running ? "default" : "pointer",
+                opacity: running ? 0.7 : 1,
+              }}
+            >
+              {running ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+              {running ? "Running Signal Analysis..." : "Run Signal Analysis"}
+            </button>
+          )}
         </div>
       ) : (
         <div>

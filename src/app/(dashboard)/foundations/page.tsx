@@ -114,6 +114,11 @@ interface CoverageStats {
 // governance/DESIGN_SYSTEM.md "Section Accent Colors" and
 // src/lib/design/section-accents.ts.
 const SECTION_ACCENT = "#0284C7";
+// Fixed bright teal — reserved for primary action buttons across every
+// section, per PAGE_TREATMENT_PROTOCOL.md. Dark text for contrast, matching
+// the precedent set on /research and /opportunities.
+const CTA_TEAL_BG = "#22D3EE";
+const CTA_TEAL_TEXT = "#0A1628";
 
 function StatCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
@@ -422,6 +427,7 @@ export default function FoundationsPage() {
             <Button
               isLoading={bulkImporting}
               disabled={bulkImporting}
+              style={bulkImporting ? undefined : { backgroundColor: CTA_TEAL_BG, color: CTA_TEAL_TEXT }}
               onClick={importSelected}
             >
               Import Selected ({selectedIds.size})

@@ -233,8 +233,8 @@ function ResourceCard({ resource }: { resource: ResourceDefinition }) {
           marginTop: 12,
           display: "inline-block",
           textAlign: "center",
-          backgroundColor: "#0077B6",
-          color: "#FFFFFF",
+          backgroundColor: "#22D3EE",
+          color: "#0A1628",
           fontSize: 12,
           fontWeight: 600,
           padding: "6px 0",
@@ -1008,6 +1008,7 @@ export default function ResearchPage() {
       <PageHeader
         title="Research Command Center"
         description="Run research agents to discover funding opportunities from government, corporate, and foundation sources."
+        accent="#0284C7"
       />
 
       {/* Research / Search Configuration tabs */}
@@ -1027,7 +1028,7 @@ export default function ResearchPage() {
               style={{
                 background: "none",
                 border: "none",
-                borderBottom: view === t.key ? "2px solid #0077B6" : "2px solid transparent",
+                borderBottom: view === t.key ? "2px solid #0284C7" : "2px solid transparent",
                 marginBottom: "-1px",
                 padding: "12px 4px",
                 fontSize: "14px",

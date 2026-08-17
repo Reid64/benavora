@@ -11,6 +11,15 @@ import type { FunderRow } from "@/components/funders/FunderTable";
 import { createClient } from "@/lib/supabase/client";
 import { canEdit, useProfile } from "@/lib/hooks/useProfile";
 
+// Research & Discovery section signature accent — see
+// governance/DESIGN_SYSTEM.md "Section Accent Colors" and
+// src/lib/design/section-accents.ts.
+const SECTION_ACCENT = "#0284C7";
+// Fixed bright teal — reserved for primary action buttons across every
+// section, per PAGE_TREATMENT_PROTOCOL.md.
+const CTA_TEAL_BG = "#22D3EE";
+const CTA_TEAL_TEXT = "#0A1628";
+
 /**
  * Funder list (BLUEPRINT §4.2). Reads are RLS-scoped to the organization, so
  * no organization_id filter is needed client-side - the policy enforces it.
@@ -138,12 +147,14 @@ export default function FundersPage() {
     <div className="min-h-screen space-y-6 bg-[#EEF2F7] p-6 page-bg">
       <PageHeader
         title="Funders"
+        accent={SECTION_ACCENT}
         description="Corporations, foundations, and agencies you track for funding."
         actions={
           editable && (
             <Link
               href="/funders/new"
-              className="flex items-center gap-2 rounded-lg bg-[#0077B6] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#005F92]"
+              style={{ backgroundColor: CTA_TEAL_BG, color: CTA_TEAL_TEXT }}
+              className="flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold shadow-sm transition-colors hover:brightness-95"
             >
               <Plus className="h-4 w-4" aria-hidden />
               New funder
@@ -170,7 +181,8 @@ export default function FundersPage() {
             editable ? (
               <Link
                 href="/funders/new"
-                className="flex items-center gap-2 rounded-lg bg-[#0077B6] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#005F92]"
+                style={{ backgroundColor: CTA_TEAL_BG, color: CTA_TEAL_TEXT }}
+                className="flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold shadow-sm transition-colors hover:brightness-95"
               >
                 <Plus className="h-4 w-4" aria-hidden />
                 New funder

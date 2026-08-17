@@ -113,6 +113,16 @@ const CATEGORY_ACCENT: Record<SourceBucket, string> = {
 
 const HOUSING_KEYWORDS = ["housing", "homeless", "shelter", "transitional"];
 
+// Research & Discovery section signature accent — see
+// governance/DESIGN_SYSTEM.md "Section Accent Colors" and
+// src/lib/design/section-accents.ts.
+const SECTION_ACCENT = "#0284C7";
+// Fixed bright teal — reserved for primary action buttons across every
+// section, per PAGE_TREATMENT_PROTOCOL.md. Dark text for contrast, matching
+// the precedent set on /research.
+const CTA_TEAL_BG = "#22D3EE";
+const CTA_TEAL_TEXT = "#0A1628";
+
 /** Org-level org.source is never set to "land_bank" — only opportunities are.
  * Detects a housing-focused org from its free-text profile fields, since
  * `organizations` has no NTEE code column (that only exists on
@@ -373,9 +383,9 @@ export default function OpportunitiesPage() {
   const showEmpty = !loading && !error && opportunities.length === 0;
 
   const chipStyle = (active: boolean): CSSProperties => ({
-    backgroundColor: active ? "#0077B6" : "#FFFFFF",
+    backgroundColor: active ? SECTION_ACCENT : "#FFFFFF",
     color: active ? "#FFFFFF" : "#64748B",
-    border: active ? "1px solid #0077B6" : "1px solid #E2E8F0",
+    border: active ? `1px solid ${SECTION_ACCENT}` : "1px solid #E2E8F0",
     borderRadius: "20px",
     padding: "6px 16px",
     fontSize: "13px",
@@ -397,8 +407,8 @@ export default function OpportunitiesPage() {
             marginBottom: "24px",
           }}
         >
-          <div>
-            <h1 style={{ fontSize: "24px", fontWeight: 800, color: "#0F172A", margin: 0 }}>Opportunities</h1>
+          <div style={{ borderLeft: `4px solid ${SECTION_ACCENT}`, paddingLeft: "16px" }}>
+            <h1 style={{ fontSize: "24px", fontWeight: 800, color: SECTION_ACCENT, margin: 0 }}>Opportunities</h1>
             <p style={{ fontSize: "14px", color: "#64748B", marginTop: "2px" }}>
               Grants, donation programs, and sponsorships you&rsquo;re tracking.
             </p>
@@ -413,9 +423,9 @@ export default function OpportunitiesPage() {
                   display: "flex",
                   alignItems: "center",
                   gap: "8px",
-                  backgroundColor: "#F0FDFA",
-                  color: "#0F766E",
-                  border: "1px solid #99F6E4",
+                  backgroundColor: CTA_TEAL_BG,
+                  color: CTA_TEAL_TEXT,
+                  border: "none",
                   borderRadius: "8px",
                   padding: "10px 20px",
                   fontSize: "14px",
@@ -432,8 +442,8 @@ export default function OpportunitiesPage() {
               <Link
                 href="/opportunities/new"
                 style={{
-                  backgroundColor: "#0077B6",
-                  color: "white",
+                  backgroundColor: CTA_TEAL_BG,
+                  color: CTA_TEAL_TEXT,
                   border: "none",
                   borderRadius: "8px",
                   padding: "10px 20px",
@@ -495,13 +505,13 @@ export default function OpportunitiesPage() {
                     display: "inline-flex",
                     alignItems: "center",
                     gap: "8px",
-                    backgroundColor: "#F0FDFA",
-                    color: "#0F766E",
+                    backgroundColor: CTA_TEAL_BG,
+                    color: CTA_TEAL_TEXT,
                     padding: "9px 16px",
                     borderRadius: "8px",
                     fontSize: "13px",
                     fontWeight: 700,
-                    border: "1px solid #99F6E4",
+                    border: "none",
                     cursor: discovering ? "default" : "pointer",
                     opacity: discovering ? 0.7 : 1,
                     whiteSpace: "nowrap",
@@ -678,10 +688,10 @@ export default function OpportunitiesPage() {
                 marginBottom: "24px",
               }}
             >
-              <StatCard label="Open Opportunities" value={String(stats.open)} accent="#0077B6" />
+              <StatCard label="Open Opportunities" value={String(stats.open)} accent={SECTION_ACCENT} />
               <StatCard label="High Probability >70%" value={String(stats.highProbability)} accent="#16A34A" />
               <StatCard label="Closing This Week" value={String(stats.closingThisWeek)} accent="#D97706" />
-              <StatCard label="Total Potential" value={formatCurrency(stats.totalValue)} accent="#7C3AED" />
+              <StatCard label="Total Potential" value={formatCurrency(stats.totalValue)} accent={SECTION_ACCENT} />
             </div>
 
             {/* Opportunity cards */}
@@ -831,8 +841,8 @@ export default function OpportunitiesPage() {
                           <Link
                             href={`/applications/new?opportunityId=${opp.id}`}
                             style={{
-                              backgroundColor: "#0077B6",
-                              color: "#FFFFFF",
+                              backgroundColor: CTA_TEAL_BG,
+                              color: CTA_TEAL_TEXT,
                               border: "none",
                               borderRadius: "8px",
                               padding: "6px 14px",

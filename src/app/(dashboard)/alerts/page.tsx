@@ -39,9 +39,8 @@ const CARD = "#FFFFFF";
 const TEXT_PRIMARY = "#0F172A";
 const TEXT_SECONDARY = "#64748B";
 const TEXT_MUTED = "#94A3B8";
-// Dashboard/Home section signature accent — see governance/DESIGN_SYSTEM.md
-// "Section Accent Colors" and src/lib/design/section-accents.ts.
-const ACCENT = "#1D4ED8";
+// Draft & Automation section signature accent — see PAGE_TREATMENT_PROTOCOL.md.
+const ACCENT = "#2563EB";
 const SHADOW = "0 4px 20px rgba(0,0,0,0.08)";
 
 const DISPLAY_CATEGORIES: DisplayCategory[] = [

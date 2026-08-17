@@ -580,7 +580,7 @@ export function ManualQueue({ onCountChange }: ManualQueueProps) {
           ) : (
             <table className="min-w-full divide-y divide-navy-100 text-sm">
               <thead>
-                <tr className="bg-sidebar">
+                <tr style={{ backgroundColor: "#2563EB" }}>
                   <th className="w-8 px-4 py-3" />
                   <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-white">
                     Funder
@@ -1085,7 +1085,7 @@ function PrepPanel({
           <div className="overflow-x-auto rounded-lg border border-border bg-white shadow-sm">
             <table className="min-w-full divide-y divide-navy-100 text-sm">
               <thead>
-                <tr className="bg-sidebar">
+                <tr style={{ backgroundColor: "#2563EB" }}>
                   <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-white">
                     Form Field
                   </th>

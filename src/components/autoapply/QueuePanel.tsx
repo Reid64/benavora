@@ -297,7 +297,7 @@ export function QueuePanel() {
           ) : (
             <table className="min-w-full divide-y divide-navy-100 text-sm">
               <thead>
-                <tr className="bg-sidebar">
+                <tr style={{ backgroundColor: "#2563EB" }}>
                   <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-white">
                     Funder
                   </th>

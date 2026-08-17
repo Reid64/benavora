@@ -52,11 +52,14 @@ function formatRevenue(amount: number | null): string {
 
 const TABLE_GRID_COLUMNS = "2fr 1fr 1fr 0.8fr 1fr 1fr 1.5fr";
 
+const SECTION_ACCENT = "#0284C7";
+
 const chipStyle: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   gap: "6px",
-  backgroundColor: "rgba(255,255,255,0.06)",
+  backgroundColor: "rgba(2,132,199,0.14)",
+  border: "1px solid rgba(2,132,199,0.35)",
   borderRadius: "8px",
   padding: "6px 14px",
   fontSize: "12px",
@@ -65,10 +68,15 @@ const chipStyle: CSSProperties = {
   marginRight: "8px",
 };
 
+const chipValueStyle: CSSProperties = {
+  color: "#38BDF8",
+  fontWeight: 800,
+};
+
 const headerLabelStyle: CSSProperties = {
   fontSize: "10px",
   fontWeight: 700,
-  color: "rgba(255,255,255,0.4)",
+  color: "rgba(56,189,248,0.75)",
   textTransform: "uppercase",
   letterSpacing: "0.08em",
 };
@@ -138,6 +146,7 @@ export default async function NonprofitsPage({ searchParams }: NonprofitsPagePro
           backgroundColor: "#0D1E35",
           borderRadius: "14px",
           border: "1px solid rgba(255,255,255,0.08)",
+          borderLeft: `4px solid ${SECTION_ACCENT}`,
           padding: "20px 24px",
           marginBottom: "16px",
         }}
@@ -151,10 +160,10 @@ export default async function NonprofitsPage({ searchParams }: NonprofitsPagePro
 
         {/* Stats bar */}
         <div style={{ marginTop: "14px" }}>
-          <span style={chipStyle}>Total: {(totalCount ?? 0).toLocaleString()}</span>
-          <span style={chipStyle}>With Website: {(withWebsite ?? 0).toLocaleString()}</span>
-          <span style={chipStyle}>With Mission: {(withMission ?? 0).toLocaleString()}</span>
-          <span style={chipStyle}>With Officer: {(withOfficer ?? 0).toLocaleString()}</span>
+          <span style={chipStyle}>Total: <span style={chipValueStyle}>{(totalCount ?? 0).toLocaleString()}</span></span>
+          <span style={chipStyle}>With Website: <span style={chipValueStyle}>{(withWebsite ?? 0).toLocaleString()}</span></span>
+          <span style={chipStyle}>With Mission: <span style={chipValueStyle}>{(withMission ?? 0).toLocaleString()}</span></span>
+          <span style={chipStyle}>With Officer: <span style={chipValueStyle}>{(withOfficer ?? 0).toLocaleString()}</span></span>
         </div>
 
         {/* Search + filter row */}
@@ -219,7 +228,15 @@ export default async function NonprofitsPage({ searchParams }: NonprofitsPagePro
 
       {/* Results table */}
       <div style={{ backgroundColor: "#0D1E35", borderRadius: "14px", border: "1px solid rgba(255,255,255,0.08)", overflow: "hidden" }}>
-        <div style={{ backgroundColor: "rgba(255,255,255,0.04)", padding: "12px 20px", display: "grid", gridTemplateColumns: TABLE_GRID_COLUMNS }}>
+        <div
+          style={{
+            backgroundColor: "rgba(2,132,199,0.10)",
+            borderBottom: `2px solid ${SECTION_ACCENT}`,
+            padding: "12px 20px",
+            display: "grid",
+            gridTemplateColumns: TABLE_GRID_COLUMNS,
+          }}
+        >
           <span style={headerLabelStyle}>Name</span>
           <span style={headerLabelStyle}>EIN</span>
           <span style={headerLabelStyle}>City/State</span>

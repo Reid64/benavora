@@ -52,6 +52,18 @@ const COLORS = {
   accent: "#00B4D8",
 };
 
+// Draft & Automation section signature accent — see
+// governance/DESIGN_SYSTEM.md "Section Accent Colors" and
+// src/lib/design/section-accents.ts.
+const SECTION_ACCENT = "#2563EB";
+const SECTION_ACCENT_TINT = "#EFF6FF";
+
+// Fixed bright teal — reserved for primary action buttons across every
+// section, per PAGE_TREATMENT_PROTOCOL.md. Dark text for contrast, matching
+// the precedent set on /research, /foundations, /opportunities.
+const CTA_TEAL_BG = "#22D3EE";
+const CTA_TEAL_TEXT = "#0A1628";
+
 const CARD_SHADOW = "0 2px 8px rgba(0,0,0,0.08)";
 
 type Summary = {
@@ -230,8 +242,8 @@ export default function KnowledgeBaseOverviewPage() {
                       fontSize: 13,
                       cursor: "pointer",
                       marginBottom: 4,
-                      backgroundColor: active ? "#F0F9FF" : "transparent",
-                      color: active ? COLORS.primary : COLORS.textMuted,
+                      backgroundColor: active ? SECTION_ACCENT_TINT : "transparent",
+                      color: active ? SECTION_ACCENT : COLORS.textMuted,
                       textDecoration: "none",
                     } as CSSProperties
                   }
@@ -275,7 +287,8 @@ export default function KnowledgeBaseOverviewPage() {
               <div style={{ backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 3, height: 6, marginTop: 8 }}>
                 <div
                   style={{
-                    backgroundColor: "#FFFFFF",
+                    backgroundColor: SECTION_ACCENT,
+                    boxShadow: "0 0 0 1px rgba(255,255,255,0.5)",
                     height: 6,
                     borderRadius: 3,
                     width: `${completeness ?? 0}%`,
@@ -305,8 +318,8 @@ export default function KnowledgeBaseOverviewPage() {
                   borderRadius: 8,
                   fontSize: 13,
                   fontWeight: 700,
-                  background: "rgba(255,255,255,0.16)",
-                  color: "#FFFFFF",
+                  background: CTA_TEAL_BG,
+                  color: CTA_TEAL_TEXT,
                   textDecoration: "none",
                 }}
               >
@@ -405,7 +418,24 @@ export default function KnowledgeBaseOverviewPage() {
                   <EmptyState
                     icon={Award}
                     title="No proven narratives yet"
-                    description="As you record awarded outcomes, the learning system promotes the narratives that won and ranks them here."
+                    description="As you record awarded outcomes, the learning system promotes the narratives that won and ranks them here. Add the narratives your team writes today to build that pool."
+                    action={
+                      <Link
+                        href="/knowledge-base/narratives"
+                        style={{
+                          display: "inline-block",
+                          padding: "9px 18px",
+                          borderRadius: 8,
+                          fontSize: 13,
+                          fontWeight: 700,
+                          background: CTA_TEAL_BG,
+                          color: CTA_TEAL_TEXT,
+                          textDecoration: "none",
+                        }}
+                      >
+                        Add a Narrative
+                      </Link>
+                    }
                   />
                 </div>
               )}

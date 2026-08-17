@@ -22,6 +22,19 @@ export const dynamic = "force-dynamic";
 const NAVY = "#0A1628";
 const CARD_BG = "#0D1E35";
 const ROYAL = "#0077B6";
+
+// Dashboard/Home section signature accent — see governance/DESIGN_SYSTEM.md
+// "Section Accent Colors" and src/lib/design/section-accents.ts (dashboard:
+// "#1D4ED8"). Used only for this page's own chrome (header left-border,
+// the pipeline strip's and KPI scorecard's outer container borders, the AI
+// Triggers panel's own border) — never for the per-stage pipeline colors,
+// per-panel categorical colors (Top Opportunities/Recent Activity/etc.), or
+// real semantic status colors (Alerts red, Deadlines amber). Rendered as a
+// border, not solid text fill: this page's whole content area is the
+// intentionally dark (~#0A1628) "hero" theme, and #1D4ED8 text on that
+// background falls well under WCAG AA contrast (~2.5:1), so — matching the
+// /admin/orgs precedent — the accent is applied as chrome, not a text color.
+const ACCENT = "#1D4ED8";
 const SKY = "#0EA5E9";
 const CYAN = "#00D4FF";
 const TEAL = "#0891B2";
@@ -844,19 +857,27 @@ export default async function DashboardPage() {
         }
       `}</style>
 
-      {/* Header */}
+      {/* Header — page's own title bar; left-border chrome carries the
+          Dashboard/Home section accent. Heading text stays white (not
+          accent-colored) for real contrast against the dark hero background
+          — see ACCENT comment above. */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "18px" }}>
-        <h1 style={{ fontSize: "24px", fontWeight: 800, color: WHITE, margin: 0 }}>{orgName}</h1>
+        <div style={{ borderLeft: `4px solid ${ACCENT}`, paddingLeft: "14px" }}>
+          <h1 style={{ fontSize: "24px", fontWeight: 800, color: WHITE, margin: 0 }}>{orgName}</h1>
+        </div>
         <span style={{ fontSize: "14px", color: WHITE }}>{format(now, "MMMM d, yyyy")}</span>
       </div>
 
-      {/* Pipeline strip */}
+      {/* Pipeline strip — the page's centerpiece. Outer container chrome
+          carries the section accent; each stage card keeps its own distinct
+          color (Onboard/Research/Opportunities/Narratives/AutoApply/Funding
+          Secured) untouched below. */}
       <div
         style={{
           background: "linear-gradient(135deg,#0D1E35,#0A1A2E)",
           borderRadius: "16px",
           border: "1px solid rgba(0,212,255,0.15)",
-          borderLeft: `3px solid ${CYAN}`,
+          borderLeft: `3px solid ${ACCENT}`,
           padding: "18px 22px",
           marginBottom: "18px",
         }}
@@ -1057,7 +1078,7 @@ export default async function DashboardPage() {
 
         {/* Center */}
         <div style={{ flex: "1" }}>
-          <Panel title="AI Triggers" accent={ROYAL}>
+          <Panel title="AI Triggers" accent={ACCENT}>
             <AiTriggerPanel triggers={aiTriggers} />
 
             {/* AutoApply Engine — bespoke card (status dot + direct link), not part
@@ -1200,7 +1221,8 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* KPI Scorecard */}
+      {/* KPI Scorecard — this page's primary stat/metric block; outer
+          container chrome carries the section accent. */}
       <div
         style={{
           backgroundColor: CARD_BG,
@@ -1208,7 +1230,7 @@ export default async function DashboardPage() {
           border: "1px solid rgba(255,255,255,0.08)",
           marginTop: "14px",
           overflow: "hidden",
-          borderLeft: `3px solid ${ROYAL}`,
+          borderLeft: `3px solid ${ACCENT}`,
         }}
       >
         <div style={{ padding: "14px 20px", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", gap: "12px" }}>

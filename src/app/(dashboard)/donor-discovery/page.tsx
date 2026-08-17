@@ -142,6 +142,17 @@ const STATUS_PROGRESS_PCT: Record<DdRequestStatus, number> = {
 
 const POLL_INTERVAL_MS = 15_000;
 
+// Research & Discovery section signature accent — see
+// governance/DESIGN_SYSTEM.md "Section Accent Colors" and
+// src/lib/design/section-accents.ts. Matches the accent already applied to
+// /research and /opportunities.
+const SECTION_ACCENT = "#0284C7";
+// Fixed bright teal — reserved for primary action buttons across every
+// section, per PAGE_TREATMENT_PROTOCOL.md. Dark text for contrast, matching
+// the precedent set on /research and /opportunities.
+const CTA_TEAL_BG = "#22D3EE";
+const CTA_TEAL_TEXT = "#0A1628";
+
 function countsSummary(counts: DdRequestCounts | null): string {
   if (!counts) return "Waiting to start…";
   const parts: string[] = [];
@@ -381,6 +392,11 @@ export default function DonorDiscoveryPage() {
     accent: string;
     icon: typeof Rocket;
     stat: string;
+    /** No org data behind this card yet — render the polished empty
+     * treatment (headline + CTA chip) instead of a plain stat line. */
+    isEmpty: boolean;
+    emptyHeadline: string;
+    ctaLabel: string;
   }
 
   const quickActions: QuickAction[] = [
@@ -394,6 +410,9 @@ export default function DonorDiscoveryPage() {
       stat: mostRecentRequest
         ? `Last run ${formatRelative(mostRecentRequest.created_at)} · ${totalProspects} in pipeline`
         : "No discovery runs yet",
+      isEmpty: !mostRecentRequest,
+      emptyHeadline: "No discovery runs yet",
+      ctaLabel: "Run your first search",
     },
     {
       key: "marketplace",
@@ -403,6 +422,11 @@ export default function DonorDiscoveryPage() {
       accent: "#EC4899",
       icon: Store,
       stat: "Search by industry, ownership & propensity score",
+      // Always a browse action, not org-specific data — treated as its own
+      // "always actionable" empty-style card rather than a numeric stat.
+      isEmpty: true,
+      emptyHeadline: "Shared prospect pool, ready to filter",
+      ctaLabel: "Browse marketplace",
     },
     {
       key: "outreach",
@@ -412,6 +436,9 @@ export default function DonorDiscoveryPage() {
       accent: "#8B5CF6",
       icon: Mail,
       stat: `${activeCampaignsCount} active campaign${activeCampaignsCount === 1 ? "" : "s"}`,
+      isEmpty: activeCampaignsCount === 0,
+      emptyHeadline: "No active campaigns yet",
+      ctaLabel: "Compose outreach",
     },
     {
       key: "intent-signals",
@@ -421,6 +448,9 @@ export default function DonorDiscoveryPage() {
       accent: "#F59E0B",
       icon: Radar,
       stat: `${highIntentCount} high-intent signal${highIntentCount === 1 ? "" : "s"}`,
+      isEmpty: highIntentCount === 0,
+      emptyHeadline: "No high-intent signals yet",
+      ctaLabel: "View signals",
     },
   ];
 
@@ -429,6 +459,7 @@ export default function DonorDiscoveryPage() {
       <PageHeader
         title="Donor Discovery"
         description="Find and engage corporate donors matched to your mission."
+        accent={SECTION_ACCENT}
         actions={
           <>
             <Link href="/donor-discovery/connectors">
@@ -439,8 +470,8 @@ export default function DonorDiscoveryPage() {
             </Link>
             <Link
               href="/donor-discovery/new"
-              style={{ backgroundColor: "#EC4899" }}
-              className="inline-flex items-center gap-2 hover:bg-[#DB2777] text-white px-6 py-3 rounded-xl font-bold text-sm shadow-md transition-colors"
+              style={{ backgroundColor: CTA_TEAL_BG, color: CTA_TEAL_TEXT }}
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm shadow-md transition-opacity hover:opacity-90"
             >
               <Plus className="h-4 w-4" aria-hidden />
               Discover Prospects
@@ -456,7 +487,7 @@ export default function DonorDiscoveryPage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-xl p-5" style={statCardStyle}>
           <p style={statLabelStyle}>Prospects Identified</p>
-          <p style={accentStatValueStyle("#7C3AED")}>{loading ? "—" : totalProspects}</p>
+          <p style={accentStatValueStyle(SECTION_ACCENT)}>{loading ? "—" : totalProspects}</p>
         </div>
         <div className="rounded-xl p-5" style={statCardStyle}>
           <p style={statLabelStyle}>High-Intent Signals</p>
@@ -464,7 +495,7 @@ export default function DonorDiscoveryPage() {
         </div>
         <div className="rounded-xl p-5" style={statCardStyle}>
           <p style={statLabelStyle}>Active Campaigns</p>
-          <p style={accentStatValueStyle("#0077B6")}>{loading ? "—" : activeCampaignsCount}</p>
+          <p style={accentStatValueStyle(SECTION_ACCENT)}>{loading ? "—" : activeCampaignsCount}</p>
         </div>
         <div className="rounded-xl p-5" style={statCardStyle}>
           <p style={statLabelStyle}>AutoApply Submissions</p>
@@ -523,9 +554,24 @@ export default function DonorDiscoveryPage() {
               </div>
               <p className="mt-3 text-sm font-bold text-text">{action.label}</p>
               <p className="mt-1 text-xs text-text-muted">{action.description}</p>
-              <p className="mt-3 text-xs font-semibold" style={{ color: action.accent }}>
-                {action.stat}
-              </p>
+              {loading ? (
+                <p className="mt-3 text-xs font-semibold text-text-muted">Loading…</p>
+              ) : action.isEmpty ? (
+                <div className="mt-3">
+                  <p className="text-xs font-medium text-text-muted">{action.emptyHeadline}</p>
+                  <span
+                    className="mt-2 inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold"
+                    style={{ backgroundColor: CTA_TEAL_BG, color: CTA_TEAL_TEXT }}
+                  >
+                    {action.ctaLabel}
+                    <ArrowUpRight className="h-3 w-3" aria-hidden />
+                  </span>
+                </div>
+              ) : (
+                <p className="mt-3 text-xs font-semibold" style={{ color: action.accent }}>
+                  {action.stat}
+                </p>
+              )}
             </Link>
           );
         })}

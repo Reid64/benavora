@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Plus, Users } from "lucide-react";
 
-import { Button, EmptyState } from "@/components/ui";
+import { EmptyState } from "@/components/ui";
 import { PageHeader } from "@/components/layout/PageHeader";
 import {
   ContactTable,
@@ -12,6 +12,16 @@ import {
 } from "@/components/contacts/ContactTable";
 import { createClient } from "@/lib/supabase/client";
 import { canEdit, useProfile } from "@/lib/hooks/useProfile";
+
+// Research & Discovery section signature accent — see
+// governance/DESIGN_SYSTEM.md "Section Accent Colors" and
+// src/lib/design/section-accents.ts.
+const SECTION_ACCENT = "#0284C7";
+// Fixed bright teal — reserved for primary action buttons across every
+// section, per PAGE_TREATMENT_PROTOCOL.md. Dark text for contrast, matching
+// the precedent set on /research and /foundations.
+const CTA_TEAL_BG = "#22D3EE";
+const CTA_TEAL_TEXT = "#0A1628";
 
 /**
  * Contact list (BLUEPRINT §4.3). Reads are RLS-scoped to the organization, so
@@ -75,14 +85,17 @@ export default function ContactsPage() {
     <div style={{ backgroundColor: "#D6E4F0", minHeight: "100vh" }} className="space-y-6 p-6">
       <PageHeader
         title="Contacts"
+        accent={SECTION_ACCENT}
         description="People at your funders, with relationship status at a glance."
         actions={
           editable && (
-            <Link href="/contacts/new">
-              <Button>
-                <Plus className="h-4 w-4" aria-hidden />
-                New contact
-              </Button>
+            <Link
+              href="/contacts/new"
+              style={{ backgroundColor: CTA_TEAL_BG, color: CTA_TEAL_TEXT }}
+              className="flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold shadow-sm transition-colors hover:brightness-95"
+            >
+              <Plus className="h-4 w-4" aria-hidden />
+              New contact
             </Link>
           )
         }
@@ -109,11 +122,13 @@ export default function ContactsPage() {
             description="Add your first contact and link it to a funder to start tracking relationships."
             action={
               editable ? (
-                <Link href="/contacts/new">
-                  <Button>
-                    <Plus className="h-4 w-4" aria-hidden />
-                    New contact
-                  </Button>
+                <Link
+                  href="/contacts/new"
+                  style={{ backgroundColor: CTA_TEAL_BG, color: CTA_TEAL_TEXT }}
+                  className="flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold shadow-sm transition-colors hover:brightness-95"
+                >
+                  <Plus className="h-4 w-4" aria-hidden />
+                  New contact
                 </Link>
               ) : undefined
             }

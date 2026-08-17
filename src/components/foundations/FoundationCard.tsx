@@ -7,6 +7,12 @@ import type { Tables } from "@/types/database";
 
 type FoundationRow = Tables<"foundation_directory">;
 
+// Fixed bright teal — reserved for primary action buttons across every
+// section, per PAGE_TREATMENT_PROTOCOL.md. Dark text for contrast, matching
+// the precedent set on /research and /opportunities.
+const CTA_TEAL_BG = "#22D3EE";
+const CTA_TEAL_TEXT = "#0A1628";
+
 function formatCurrency(amount: number | null): string {
   if (amount === null) return "—";
   if (amount >= 1_000_000_000) return `$${(amount / 1_000_000_000).toFixed(1)}B`;
@@ -97,9 +103,10 @@ export function FoundationCard({
         ) : (
           <Button
             size="sm"
-            variant="secondary"
+            variant="primary"
             isLoading={isImporting}
             disabled={isImporting || !canImport}
+            style={{ backgroundColor: CTA_TEAL_BG, color: CTA_TEAL_TEXT, border: "none" }}
             onClick={(event) => {
               event.stopPropagation();
               onImport();

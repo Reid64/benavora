@@ -20,6 +20,7 @@ interface MonitorContentProps {
   statusMsg: StatusMessage | null;
   screenWidth: number;
   screenHeight: number;
+  onStartSession?: () => void;
 }
 
 function MonitorContent({
@@ -28,6 +29,7 @@ function MonitorContent({
   statusMsg,
   screenWidth,
   screenHeight,
+  onStartSession,
 }: MonitorContentProps) {
   const ledStyle: React.CSSProperties =
     connState === "live"
@@ -130,9 +132,41 @@ function MonitorContent({
 
           {/* Idle / disconnected overlay */}
           {connState !== "live" && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center">
               <Monitor className="h-8 w-8" style={{ color: "#2a2a4a" }} />
-              <p style={{ fontSize: 13, color: "#444" }}>{screenPlaceholderText}</p>
+              {connState === "offline" ? (
+                <>
+                  <div className="space-y-1">
+                    <p style={{ fontSize: 13, fontWeight: 700, color: "#94A3B8" }}>
+                      No active session
+                    </p>
+                    <p style={{ fontSize: 11, color: "#4B5563", maxWidth: 220 }}>
+                      Start a session from the queue to see live browser automation here.
+                    </p>
+                  </div>
+                  {onStartSession && (
+                    <button
+                      type="button"
+                      onClick={onStartSession}
+                      className="hover:brightness-95"
+                      style={{
+                        backgroundColor: "#22D3EE",
+                        color: "#0A1628",
+                        border: "none",
+                        borderRadius: 8,
+                        padding: "6px 16px",
+                        fontSize: 12,
+                        fontWeight: 700,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Start Session
+                    </button>
+                  )}
+                </>
+              ) : (
+                <p style={{ fontSize: 13, color: "#444" }}>{screenPlaceholderText}</p>
+              )}
             </div>
           )}
 
@@ -231,7 +265,11 @@ function MonitorContent({
   );
 }
 
-export function LiveSessionViewer() {
+export function LiveSessionViewer({
+  onStartSession,
+}: {
+  onStartSession?: () => void;
+} = {}) {
   const [connState, setConnState] = useState<ConnectionState>("connecting");
   const [statusMsg, setStatusMsg] = useState<StatusMessage | null>(null);
   const [expanded, setExpanded] = useState(false);
@@ -333,6 +371,7 @@ export function LiveSessionViewer() {
     statusMsg,
     screenWidth,
     screenHeight,
+    onStartSession,
   };
 
   return (
@@ -342,7 +381,7 @@ export function LiveSessionViewer() {
           style={{
             backgroundColor: "#0D1B2A",
             borderRadius: "16px",
-            border: "1px solid rgba(0,180,216,0.2)",
+            border: "1px solid rgba(37,99,235,0.2)",
             padding: "20px",
           }}
         >
