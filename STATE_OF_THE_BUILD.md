@@ -1,6 +1,82 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 18, 2026 (v2 rollout: Intelligence & Reports ×20 closes the last named scope boundary, Agent Marketplace gap assigned, /research re-fixed for real, 3 detail fixes; gates clean, scoped commit). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 18, 2026 (commit `80b6189` — Donor Discovery Pipeline Funnel real depth fix, marketing homepage brand claim verified live against production and one real gap closed). Not FORGE-auto-generated — hand-verified.**
+
+## OPEN — PRODUCT-DECISION GAPS (not resolved, awaiting Reid's direct input — do not treat as done)
+
+These five were flagged for capture during tonight's (2026-08-17/18) governance consolidation.
+None have a corresponding fix commit in `git log`, and none were independently re-verified as
+live bugs this session — they are product/scope questions, not code defects a `getComputedStyle()`
+check can settle. Listed here so they aren't lost, not because this session confirmed each premise:
+1. **Email Hub scope** — what `/email` is actually meant to cover (a full inbox/thread view vs. the
+   current campaign/template-composition tool it already is) is undecided.
+2. **Settings audience question** — whether `/settings` is meant for the platform owner (Benavora's
+   own team) or for each client organization's own admin is unresolved; several sections (feature
+   flags, agent registry controls) read like platform-owner tooling sitting inside a client-facing
+   page.
+3. **Draft Generator doesn't auto-populate onboarding data** — a new org's onboarding answers
+   (mission, programs, service area) are not confirmed to flow into a fresh Draft Generator session
+   without the user re-entering them; not verified true or false this session, flagged as asked.
+4. **Branding section has stale content** — `/settings/branding`'s copy/defaults were flagged as
+   out of date; specifics not re-confirmed this session.
+5. **Billing pricing/scope** — the relationship between the homepage's public `TIERS` pricing,
+   `src/lib/utils/pricing-plans.ts` (a separately-flagged drifted source per the 2026-08-15 landing
+   page audit), and the real `/billing` and `/settings/billing` pages' own numbers has not been
+   reconciled.
+
+**Also flagged in the same request, not found anywhere in real git history or these docs — reported
+here rather than silently dropped:** "5 structural bug fixes" described as already done (Integrations
+404, queue-completion links, logo upload, Billing nav bug — a fifth was unnamed). `git log --oneline
+--since="2026-08-17 12:00"` shows no commit matching any of these. A quick source check found
+`/settings/integrations`, `/settings/branding`'s logo upload, and `/billing` all exist as real pages
+with real code (not 404s), and `/settings` links to `/billing` for upgrade prompts — but this was not
+a full investigation, and no evidence was found that these were bugs *fixed tonight*. Do not treat
+this claim as documented history; if real, it needs its own dedicated session.
+
+## SESSION — August 18, 2026 (commit `80b6189` — Donor Discovery Pipeline Funnel depth fix, marketing homepage brand verification)
+
+**Focus:** two independently-scoped, verify-then-fix items, each explicitly instructed not to trust
+a prior claim without live re-verification.
+
+**1. `/donor-discovery` Pipeline Funnel — real gap found even after being "fixed" twice already.**
+The 6 stage stat cards (New/Reviewing/Contacted/Applied/Received/Rejected) had already been touched
+in the immediately-prior session (commit `836b35c`, Phase 4 item 3) — but that pass only strengthened
+a single-layer card's border (1px, 40% opacity bronze tint) and shadow, not the actual two-layer
+frame technique AutoApply uses. Live `getComputedStyle()` on a fresh dev server confirmed the real
+prior state: `border: rgba(164, 113, 44, 0.4)`, `border-width: 1px`, a real but subtle
+`box-shadow: rgba(164, 113, 44, 0.2) 0 2px 8px`. Read AutoApply's own source
+(`autoapply/page.tsx`'s `statFrameStyle`/`statCardStyle` helpers) as the literal reference rather
+than approximating from memory: solid frame-color background (`#A4712C` Bronze here, matching this
+page's existing `SECTION_ACCENT`), `padding: 3px` to form a visible ring, `boxShadow:
+"0 4px 20px rgba(164,113,44,0.22)"`, wrapping an inner `#F8F5EE` Warm Ivory content div. Rebuilt all 6
+cards to this exact pattern. Post-fix `getComputedStyle()`: outer frame div `background-color:
+rgb(164, 113, 44)` (solid, not tinted), inner content `background-color: rgb(248, 245, 238)`. Real
+Playwright screenshots before/after (`smoke-test-output/DD-PIPELINE-FUNNEL-ZOOM-{before,after}-2026-08-18.png`)
+show the difference plainly — solid Bronze rings replacing a thin near-invisible line.
+
+**2. Marketing homepage — a prior claim of "already gold-dominant" checked against live production,
+not source, and found mostly true with one real, narrow miss.** Verified directly against
+`https://www.benavora.com/` (not local source-reading): a Playwright `getComputedStyle()` sweep of
+every element in `<body>` found **zero** matches for any old-palette blue
+(`#0077B6`/`#0096C7`/`#00B4D8`/`#0284C7`/`#023E8A`) on background-color, color, or border-color
+anywhere on the page, and the rendered logo `<img>` resolves to `/benavora_logo.png` (the same file
+`2724d53` swapped in). Screenshot confirms the logo, "Start Free Trial"/"Get Started" CTAs, headline
+accent text, hero stat numbers, and the highlighted pricing tier are all genuinely Gold `#B88A2E`.
+Sign In's `href="/login"` (the `9646e78` fix) confirmed still intact. But a raw-HTML grep of the
+production response (not caught by the element-level `getComputedStyle` sweep, since it's a `<meta>`
+tag, not a visually rendered element) found `<meta name="theme-color" content="#0077B6">` — literal
+old blue, still live. Root cause: `src/app/layout.tsx`'s site-wide `viewport.themeColor` was never
+touched by either 2026-08-18 rollout session. Fixed to `#B88A2E`. This is a narrow, real miss inside
+an otherwise-accurate claim — not a repeat of `/research`'s fully-false "already fixed" claim earlier
+tonight.
+
+**Verification:** `npx tsc --noEmit` clean on both touched files. Fresh `npm run build` —
+`✓ Compiled successfully`, pre-push build gate passed. White-value audit on both files: zero
+old-palette hex, one legitimate white-on-dark text instance (`/donor-discovery`'s Live Intent Signals
+dark panel) confirmed intentional, not a regression.
+
+**Gates:** stray `node` processes killed, `.next` deleted, fresh build clean, scoped `git add`
+(exactly the 2 touched files), pushed as `80b6189`.
 
 ## SESSION — August 18, 2026 (v2 rollout: Intelligence & Reports ×20, Agent Marketplace, /research re-fix, Deadlines/Knowledge Base/Donor Discovery detail fixes)
 
@@ -164,6 +240,71 @@ Admin/Platform + Applications rainbow-per-card-border fix (`/admin/system`, `/co
 `/admin/autoapply-ops`, `/admin/monitor`, `/admin/improvements`, `/applications`) that first
 established the value-first stat-card pattern this session's Dashboard/Research work reused.
 
+## SESSION — August 17/18, 2026 (five standalone fixes between the two v2 rollout passes — real commits, expanded from one-line references)
+
+**Focus:** five real commits land chronologically between the `514e6b0` "19 pages" rollout
+(2026-08-17 22:02) and the `aa8b218` "Dashboard/Home + Research & Discovery ×8" rollout (2026-08-18
+03:33). The two later docs entries referenced some of these only as "see their own commits" — this
+entry gives each its real detail, pulled from the actual commit bodies, not re-derived from memory.
+
+**`9646e78` (2026-08-17 22:57) — homepage Sign In link, a real production-affecting dead anchor:**
+Reid reported the marketing homepage's nav "Sign In" link did nothing. Confirmed live against
+`https://benavora.com`: the element rendered correctly, wasn't blocked by any overlay, and simply had
+`href="#"` — a dead anchor since its original commit (`f43da58`), unrelated to the v2 styling rollout
+or the earlier logo swap. One-line fix: `href="/login"`. `src/app/(marketing)/MarketingPageClient.tsx`,
+1 line changed.
+
+**`07a9355` (2026-08-17 23:29) — AutoApply, the page that started tonight's "silent gap" pattern:**
+`/autoapply` (Draft & Automation section) was still on its old dark navy/charcoal theme — confirmed
+via live `getComputedStyle()` before the fix: main content `#0A0F1A`, stat cards flat
+`rgba(255,255,255,0.04)` boxes with no shadow, Live Session Viewer panel `#0D1B2A`. This is the
+gap that triggered every subsequent session's "audit before trusting 'assigned' == 'done'" discipline.
+Applied Rich Gold `#B88A2E` frame + Warm Ivory `#F8F5EE` layering to the outer page, all 4 stat
+cards, the Live Session Viewer panel (its internal dark monitor mockup kept dark by design — a real
+skeuomorphic UI choice, not a miss), and the QUEUE/CONTROLS mini-panels. Verified before/after via
+Playwright `getComputedStyle()` + screenshots (`git stash` for the before-state): h1 `#2563EB` →
+`#101B2D`, stat frame none → `#B88A2E` with a real box-shadow, stat card `rgba(255,255,255,0.04)` →
+`#F8F5EE`, Add to Queue/Start Session `#22D3EE` (both buttons the same color, not distinct) →
+`#2E6B66`/`#C17817` (distinct), Settings `#2563EB` → `#4F6D8F`. 2 files, 105 insertions / 62
+deletions.
+
+**`2d1d2b2` (2026-08-18 00:18) — 5s timeout on auth-event logging, a real theoretical hang fixed:**
+`src/lib/audit/client.ts`'s `recordAuthEvent()` is awaited on the login path before redirecting the
+user; without a timeout, a hang in the best-effort `/api/auth/log-event` POST would strand the user on
+"Signing in..." even after the real sign-in had already succeeded. Added an `AbortController` with a
+5000ms timeout, `signal` wired into the `fetch`, `clearTimeout` in `finally`. 1 file, 12 insertions.
+**No `Co-Authored-By` trailer on this commit** (unlike every other commit in this window) — likely a
+direct manual fix, not confirmed as part of an AI-assisted session pass.
+
+**`0d4b2cc` (2026-08-18 00:42) — removed the `globals.css` `!important` compat layer, ~107 files
+touched, root-caused a whole class of styling bugs:** deleted the `.bg-white`/`.bg-white-sunken`
+`!important` rules that forced every element's background regardless of inline style or class
+order — the confirmed root cause of that same night's Impersonate-button, `FramedCard`, and
+`variant="ghost"` workarounds (all documented in the `514e6b0` session entry above as real techniques
+discovered under this exact constraint). Renamed the ~107 files' `bg-white`/`bg-white-sunken` classes
+to the already-existing, identically-valued `bg-surface`/`bg-surface-sunken` utilities first (a bare
+rule deletion would have reproduced a documented 2026-07-16 regression — see
+`CSS_OVERRIDE_INVESTIGATION_2026-08-18-REMOVAL.md`, new this commit), then dropped `!important` from
+the card-depth/border-accent/table-header-dark rules that only ever needed it to beat `bg-white`'s own
+`!important`. `navy-*` classes and the print-mode block were left untouched — still genuinely
+load-bearing per the same investigation doc. Reverted the 20 `variant="ghost"` custom-fill-color
+buttons back to `variant="secondary"` now that inline style overrides work correctly again.
+
+**`3260fa2` (2026-08-18 02:07) — Admin/Platform + Applications stat-card rebuild, matched against
+AutoApply's real rendered structure, not the protocol doc:** loaded `/autoapply` live and used its
+actual DOM (Navy/Gold frame → ivory inner, 3px padding, large value-first layout) as the literal
+reference. `/admin/system`, `/command-center`, `/admin/autoapply-ops`, `/admin/monitor`,
+`/admin/improvements`: every stat card moved to the same Navy `#101B2D` frame + Warm Ivory `#F8F5EE`
+inner, replacing arbitrary per-card rainbow colors (amber/blue/purple/green/navy) with a single
+consistent Gold `#B88A2E` value accent. Real semantic exceptions preserved: Healthy/Stale, Errors 24h
+zero/nonzero, Active/Completed/Failed job status, Clear Stuck Jobs red. Also fixed a real layout bug
+in `AutoApplyOpsClient`'s Framed wrapper (navy background visibly peeking through shorter `Card`
+children in a stretched CSS grid row) and a dead `bg-white-raised` class in its Cost Tracking cards.
+`/applications` — confirmed via direct DOM inspection its Navy/Teal/shadow layering was already
+correct per spec; only bumped frame padding 4px→5px for closer visual parity with the reference.
+Full white-value audit + console-error check clean before and after, on a fresh dev server; `tsc
+--noEmit` and `npm run build` both clean.
+
 ## SESSION — August 17, 2026 (v2 gold/bronze/navy/Soft Stone rollout: Applications & Pipeline, Outreach & Communication, Admin/Platform — 19 pages)
 
 **Focus:** continue the v2 design system rollout (`PAGE_TREATMENT_PROTOCOL_V2.md`,
@@ -272,6 +413,54 @@ across every page in this session.
 **Gates:** all node processes killed, `.next` deleted, fresh `pnpm tsc --noEmit` — 0 errors. Fresh
 `pnpm run build` — clean, full route manifest printed, "Compiled successfully," no errors.
 
+
+## SESSION — August 17, 2026 (Draft Generator reference build-out, gold/black/ivory logo swap, wider scrollbar, v2 protocol docs — the work the 22:02 "19 pages" rollout above built on)
+
+**Focus:** the `514e6b0` session above opens by saying "Draft Generator (reference implementation) and
+Applications/Deadlines (commit `70feb4f`) were already done" — this entry is that earlier work,
+previously referenced but never itself documented. Nine real commits, 2026-08-17 14:29 through 19:54.
+
+**Draft Generator, four incremental passes that became the v2 reference implementation:**
+- `16bab3a` (14:29) — champagne background rebalance, free wizard navigation, template/review color
+  integration, layout density fix, opportunity search. `draft-generator/page.tsx` (423 changed lines)
+  + `TemplateSelector.tsx` + `DashboardShell.tsx`.
+- `56bd35c` (15:28) — moved off champagne onto the eventual Soft Stone background, plus a full
+  white-value audit and elimination pass across Draft Generator, the free wizard nav, layout density,
+  and opportunity search. Also touched `DraftEditor.tsx`, `GrantDNACard.tsx`, `LogicModelView.tsx`.
+- `94c6158` (16:55) — added the gold/bronze layered card-section depth technique (the same
+  frame+ivory+shadow pattern every later session reused), deep navy as a third accent. Also
+  `DraftsHistoryPanel.tsx` (65 lines).
+- `c8324cb` (17:28) — distinct accent colors + depth treatment for Review & Export's action buttons
+  and side boxes — the explicit "final pass before global rollout" commit. Also `GrantDNACard.tsx`,
+  `RubricPanel.tsx`.
+
+**`2724d53` (17:49) — new gold/black/ivory logo swapped in, same filename:** `public/benavora_logo.png`
+replaced in place (2,106,007 → 1,053,236 bytes) — zero `src/` code changes required since every
+reference already pointed at the same filename. See `benavora-logo-swap-2026-08-17` project memory
+for the unrelated homepage hydration bug and missing favicon/icons this surfaced.
+
+**`585ed4f` (18:20) — wider, higher-contrast scrollbar, applied globally:** `globals.css`,
+bronze/gold thumb, 47 lines changed (39 insertions / 8 deletions) — a single global CSS change, no
+per-page work.
+
+**`468941b` (18:23) — `DESIGN_SYSTEM_V2_ASSIGNMENT.md`, net-new, 96 lines:** the page-by-page color
+assignment for the global rollout — 7 section-specific frame+accent pairings, superseding the earlier
+blue-based protocol.
+
+**`f628392` (18:39) — `PAGE_TREATMENT_PROTOCOL_V2.md`, net-new, 75 lines:** consolidates the proven
+Draft Generator system (the four commits above) into the protocol used for the full 52-page rollout
+that followed.
+
+**`70feb4f` (19:54) — v2 applied to Applications and Deadlines, the first pages beyond Draft
+Generator itself:** `applications/page.tsx`, `deadlines/page.tsx`, `CalendarGrid.tsx`, `WeekView.tsx`
+— 96 insertions / 61 deletions across 4 files.
+
+**Note on verification records for this block:** `468941b`, `f628392`, and `70feb4f` carry no
+`Co-Authored-By` trailer (unlike the four Draft Generator commits and the two after them), and no
+per-page `getComputedStyle`/screenshot verification method is recorded in any of the nine commits'
+bodies for this specific block — the pattern used consistently in every session documented above and
+below this one. Listed here from real `git show --stat` file/line evidence, not from a recorded
+verification method, because none exists to cite.
 
 ## SESSION — August 15, 2026 (landing page audit; CSS override root-cause fix; design tooling setup)
 

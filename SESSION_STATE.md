@@ -1,5 +1,41 @@
 # BENAVORA — Session State
-## Last Updated: August 18, 2026 (v2 rollout: Intelligence & Reports ×20, Agent Marketplace gap closed, /research re-fixed for real, 3 detail fixes)
+## Last Updated: August 18, 2026 (commit `80b6189` — Donor Discovery Pipeline Funnel real depth fix, marketing homepage brand claim verified live)
+
+## OPEN — product-decision gaps, not resolved
+
+Five items flagged for capture during tonight's governance consolidation, none independently
+re-verified this session (product/scope questions, not code bugs): Email Hub scope, Settings
+audience (platform-owner vs. client-admin), Draft Generator not confirmed to auto-populate
+onboarding data, Branding section stale content, Billing pricing/scope reconciliation. Full detail
+in `STATE_OF_THE_BUILD.md`'s matching section — do not treat any of these as resolved. Separately: a
+claimed "5 structural bug fixes" (Integrations 404, queue-completion links, logo upload, Billing nav
+bug) has no matching commit anywhere in `git log` and isn't documented in either doc — flagged as
+unconfirmed rather than silently assumed true.
+
+## Current Session — August 18, 2026 (commit `80b6189` — Donor Discovery Pipeline Funnel depth fix, marketing homepage brand verification)
+
+**Focus:** two verify-then-fix items. `/donor-discovery` Pipeline Funnel's 6 stage cards had already
+been touched once (prior session, `836b35c`) but only got a thin single-layer border, not the real
+two-layer frame technique — read AutoApply's own source (`statFrameStyle`/`statCardStyle`) as the
+literal reference and rebuilt to match: solid Bronze `#A4712C` frame ring + Warm Ivory `#F8F5EE`
+content, real box-shadow. The marketing homepage's "already gold-dominant" claim was checked live
+against `https://www.benavora.com/` (not source) via `getComputedStyle()` — mostly confirmed true
+(logo, CTAs, headline, stats, pricing all genuinely Gold), but a real narrow miss found: the
+site-wide `themeColor` in `src/app/layout.tsx` was still old blue `#0077B6`, confirmed via the
+rendered `<meta name="theme-color">` tag on production. Fixed to Gold. Full detail, real
+`getComputedStyle()` evidence, and screenshot paths in `STATE_OF_THE_BUILD.md`'s matching entry.
+
+**Gates:** `tsc --noEmit` clean, fresh `npm run build` clean, pre-push gate passed. Scoped commit
+(2 files), pushed as `80b6189`.
+
+## Prior Session — August 18, 2026 (five standalone fixes between the two v2 rollout passes)
+
+Sign In dead-anchor fix (`9646e78`), AutoApply's original v2 fix (`07a9355` — the page whose
+"assigned but not done" gap started this whole night's audit-first discipline), a 5s timeout on
+auth-event logging (`2d1d2b2`), the `globals.css` `!important` compat-layer removal touching ~107
+files (`0d4b2cc`), and the Admin/Platform + Applications stat-card rebuild matched against AutoApply's
+real rendered structure (`3260fa2`). All five previously referenced only in passing by later session
+entries; full detail with real commit-body evidence now in `STATE_OF_THE_BUILD.md`'s matching entry.
 
 ## Current Session — August 18, 2026 (v2 rollout: Intelligence & Reports ×20, Agent Marketplace, /research, Deadlines/Knowledge Base/Donor Discovery detail fixes)
 
@@ -132,6 +168,18 @@ shared components' default treatment throughout, consistently — modals aren't 
 surface the layering mandate targets.
 
 ---
+
+## Prior Session — August 17, 2026 (Draft Generator reference build-out, gold/black/ivory logo swap, wider scrollbar, v2 protocol docs)
+
+Nine commits, 14:29–19:54, that the session above built on but didn't itself document: four
+incremental Draft Generator passes (`16bab3a`, `56bd35c`, `94c6158`, `c8324cb`) that became the v2
+reference implementation (champagne→Soft Stone background, full white-value audit, the gold/bronze
+layered-depth card technique, distinct Review & Export accent colors); the gold/black/ivory logo swap
+(`2724d53`, same filename, zero `src/` changes); a wider bronze/gold scrollbar (`585ed4f`); the two
+governance docs that formalized the system (`DESIGN_SYSTEM_V2_ASSIGNMENT.md` via `468941b`,
+`PAGE_TREATMENT_PROTOCOL_V2.md` via `f628392`); and the first pages beyond Draft Generator itself to
+get the treatment, Applications and Deadlines (`70feb4f`). Full per-commit detail in
+`STATE_OF_THE_BUILD.md`'s matching entry.
 
 ## Prior Session — August 15, 2026 (landing page audit; CSS override investigation/fix; design tooling)
 
