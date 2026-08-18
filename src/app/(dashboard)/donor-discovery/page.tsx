@@ -808,19 +808,28 @@ export default function DonorDiscoveryPage() {
       >
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           {FUNNEL_STAGES.map((stage) => (
-            <Link
+            <div
               key={stage}
-              href={`/donor-discovery/prospects?stage=${stage}`}
-              className="bg-surface shadow-sm rounded-lg border border-border px-4 py-3 text-center hover:border-[#A4712C] cursor-pointer transition-colors"
               style={{
-                backgroundColor: "#F8F5EE",
-                boxShadow: "0 2px 8px rgba(164,113,44,0.20)",
-                border: "1.5px solid rgba(164,113,44,0.4)",
+                backgroundColor: "#A4712C",
+                borderRadius: "12px",
+                boxShadow: "0 4px 20px rgba(164,113,44,0.22)",
+                padding: "3px",
               }}
             >
-              <p className="text-2xl font-bold text-slate-900">{loading ? "—" : stageCounts[stage]}</p>
-              <p className="text-xs text-slate-400 mt-1">{humanizeEnum(stage)}</p>
-            </Link>
+              <Link
+                href={`/donor-discovery/prospects?stage=${stage}`}
+                className="block cursor-pointer text-center transition-colors hover:opacity-90"
+                style={{
+                  backgroundColor: "#F8F5EE",
+                  borderRadius: "9px",
+                  padding: "12px 16px",
+                }}
+              >
+                <p className="text-2xl font-bold text-slate-900">{loading ? "—" : stageCounts[stage]}</p>
+                <p className="text-xs text-slate-400 mt-1">{humanizeEnum(stage)}</p>
+              </Link>
+            </div>
           ))}
         </div>
       </Card>
