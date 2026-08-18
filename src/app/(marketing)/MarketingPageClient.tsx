@@ -284,7 +284,7 @@ export default function BenavoraMarketing() {
               <a key={l} href={l === "Pricing" ? "#pricing" : "#"} style={{ fontSize: 14, color: B.textSecond, fontWeight: 500 }}
                 className="tc">{l}</a>
             ))}
-            <a href="#" style={{
+            <a href="/login" style={{
               fontSize: 14, fontWeight: 600, color: B.textPrimary,
               padding: "8px 20px", borderRadius: 8,
               border: `1px solid ${B.border}`,
