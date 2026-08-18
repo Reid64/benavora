@@ -18,6 +18,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import Link from "next/link";
 
 import {
   Badge,
@@ -77,6 +78,7 @@ export default function ScrapingPage() {
   const [runResult, setRunResult] = useState<
     Record<string, "ok" | "err" | null>
   >({});
+  const [runCount, setRunCount] = useState<Record<string, number | null>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -155,6 +157,7 @@ export default function ScrapingPage() {
 
   async function handleRunNow(target: ScrapingTarget) {
     setRunResult((p) => ({ ...p, [target.id]: null }));
+    setRunCount((p) => ({ ...p, [target.id]: null }));
     setRunning((p) => ({ ...p, [target.id]: true }));
     try {
       const res = await fetch("/api/agents/custom-scrape", {
@@ -163,7 +166,11 @@ export default function ScrapingPage() {
         body: JSON.stringify({ targetId: target.id }),
       });
       setRunResult((p) => ({ ...p, [target.id]: res.ok ? "ok" : "err" }));
-      if (res.ok) void load();
+      if (res.ok) {
+        const data = (await res.json().catch(() => null)) as { opportunitiesCreated?: number } | null;
+        setRunCount((p) => ({ ...p, [target.id]: data?.opportunitiesCreated ?? 0 }));
+        void load();
+      }
     } catch {
       setRunResult((p) => ({ ...p, [target.id]: "err" }));
     } finally {
@@ -233,6 +240,7 @@ export default function ScrapingPage() {
               isToggling={toggling[target.id] ?? false}
               isRunning={running[target.id] ?? false}
               runResult={runResult[target.id]}
+              runCount={runCount[target.id] ?? null}
               onToggle={() => void handleToggle(target)}
               onRunNow={() => void handleRunNow(target)}
               onDelete={() => setDeleteTarget(target)}
@@ -294,6 +302,7 @@ type TargetCardProps = {
   isToggling: boolean;
   isRunning: boolean;
   runResult: "ok" | "err" | null | undefined;
+  runCount: number | null;
   onToggle: () => void;
   onRunNow: () => void;
   onDelete: () => void;
@@ -305,6 +314,7 @@ function TargetCard({
   isToggling,
   isRunning,
   runResult,
+  runCount,
   onToggle,
   onRunNow,
   onDelete,
@@ -427,6 +437,17 @@ function TargetCard({
               <Trash2 className="h-4 w-4" aria-hidden />
             </button>
           </div>
+        )}
+
+        {runResult === "ok" && (
+          <Link
+            href="/opportunities"
+            className="inline-flex items-center gap-1.5 self-start rounded-lg border border-teal-200 bg-teal-50 px-3 py-1.5 text-xs font-medium text-teal-700 transition hover:border-teal-300 hover:bg-teal-100"
+          >
+            {runCount !== null
+              ? `View ${runCount} opportunit${runCount === 1 ? "y" : "ies"} found →`
+              : "View Opportunities →"}
+          </Link>
         )}
       </div>
     </Card>

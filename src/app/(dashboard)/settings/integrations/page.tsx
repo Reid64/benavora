@@ -522,6 +522,7 @@ function IntegrationsContent() {
               isRunning={running["grants_gov"] ?? false}
               runResult={runResult["grants_gov"]}
               onRunNow={() => void handleRunNow("grants_gov", "/api/agents/grants-gov")}
+              resultHref="/opportunities"
             />
             <PlatformCard
               name="ProPublica 990"
@@ -544,6 +545,7 @@ function IntegrationsContent() {
               }
               badgeLabel={`${statePortalCount} Active`}
               configurePath="/settings/state-portals"
+              resultHref="/opportunities"
             />
           </div>
         </section>
@@ -978,6 +980,8 @@ type PlatformCardProps = {
   onRunNow: () => void;
   badgeLabel?: string;
   configurePath?: string;
+  /** Where a successful Run Now's real results actually land — shown as a link once runResult is "ok". */
+  resultHref?: string;
 };
 
 function PlatformCard({
@@ -990,6 +994,7 @@ function PlatformCard({
   onRunNow,
   badgeLabel,
   configurePath,
+  resultHref,
 }: PlatformCardProps) {
   return (
     <Card noPadding>
@@ -1023,6 +1028,14 @@ function PlatformCard({
             >
               <Settings2 className="h-3.5 w-3.5" aria-hidden />
               Configure
+            </Link>
+          )}
+          {runResult === "ok" && resultHref && (
+            <Link
+              href={resultHref}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-teal-200 bg-teal-50 px-3 py-1.5 text-xs font-medium text-teal-700 transition hover:border-teal-300 hover:bg-teal-100"
+            >
+              View Opportunities →
             </Link>
           )}
         </div>

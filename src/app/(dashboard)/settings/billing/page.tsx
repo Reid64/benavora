@@ -1,9 +1,6 @@
-import { redirect } from "next/navigation";
-
-// Billing management lives at /billing (BLUEPRINT Phase 5). The Settings nav
-// links there directly (see settings/layout.tsx); this route exists so a
-// direct visit to /settings/billing still lands somewhere useful instead of
-// 404ing, rather than duplicating that page's UI and data-fetching here.
-export default function SettingsBillingRedirect() {
-  redirect("/billing");
-}
+// Billing management's real implementation lives at (dashboard)/billing/page.tsx
+// (BLUEPRINT Phase 5). Rendered directly here — not a redirect — so that
+// reaching Billing from the Settings tab strip keeps the shared
+// SettingsLayout (settings/layout.tsx) sub-navigation on screen instead of
+// dropping to a bare top-level route with no tab strip at all.
+export { default } from "../../billing/page";

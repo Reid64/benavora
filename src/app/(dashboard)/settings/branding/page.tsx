@@ -177,9 +177,14 @@ function LogoSection({
     setSaved(false);
 
     const supabase = createClient();
-    const bucket = `org-${orgId}`;
+    // Real, distinct public bucket (migration 140) - NOT org-{orgId}, which is
+    // the private bucket application/compliance documents use. A logo needs
+    // a genuinely public URL (app header, login page, outgoing emails all
+    // load it with no auth boundary); getPublicUrl() against a private
+    // bucket silently returns a URL that 400s for every viewer.
+    const bucket = "org-branding";
     const ext = selectedFile.name.split(".").pop() ?? "png";
-    const path = `branding/logo-${Date.now()}.${ext}`;
+    const path = `${orgId}/logo-${Date.now()}.${ext}`;
 
     const { error: uploadError } = await supabase.storage
       .from(bucket)

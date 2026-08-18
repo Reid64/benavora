@@ -16,6 +16,7 @@ import {
 } from "@/components/layout/nav-items";
 import { Logo } from "@/components/layout/Logo";
 import { rememberedHref } from "@/lib/navigation/section-memory";
+import { createClient } from "@/lib/supabase/client";
 import type { Enums } from "@/types/database";
 
 type NavCounts = {
@@ -287,6 +288,25 @@ export function Sidebar({ open, onClose, role, onboardingCompleted, orgName }: S
     return () => clearInterval(interval);
   }, [fetchCounts]);
 
+  // Org's own uploaded logo (Settings > Branding) — falls back to the
+  // Benavora wordmark when unset. RLS-scoped, no organization_id needed here.
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("platform_config")
+        .select("value")
+        .eq("key", "branding.logo_url")
+        .maybeSingle();
+      if (active && data?.value) setLogoUrl(data.value);
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   // Re-fetch on navigation so badges update after the user acts on items.
   useEffect(() => {
     void fetchCounts();
@@ -384,13 +404,13 @@ export function Sidebar({ open, onClose, role, onboardingCompleted, orgName }: S
           <Link href="/dashboard" aria-label="Benavora - go to dashboard">
             {/* Desktop: full wordmark + tagline */}
             <div className="hidden lg:flex" style={{ flexDirection: "column" }}>
-              <Logo />
+              <Logo src={logoUrl} />
               <span style={{ fontSize: "11px", color: "rgba(248,250,252,0.4)", marginTop: "2px" }}>
                 Fund More. Do More. Change More.
               </span>
             </div>
             {/* Mobile drawer: icon only, no tagline */}
-            <Logo size={32} showWordmark={false} className="lg:hidden" />
+            <Logo src={logoUrl} size={32} showWordmark={false} className="lg:hidden" />
           </Link>
           <button
             type="button"
