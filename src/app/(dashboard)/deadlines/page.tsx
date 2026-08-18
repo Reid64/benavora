@@ -55,12 +55,15 @@ function urgencyBucket(band: UrgencyBand): UrgencyBucket {
   return "week";
 }
 
-const CANVAS = "#D6E4F0";
+// Applications & Pipeline section treatment (PAGE_TREATMENT_PROTOCOL_V2.md).
+// Soft Stone background is set globally by DashboardShell - not overridden here.
 const CARD = "#FFFFFF";
-const TEXT_PRIMARY = "#0F172A";
+const PANEL_IVORY = "#F8F5EE";
+const FRAME = "#101B2D";
+const FRAME_ACCENT = "#2E6B66";
+const TEXT_PRIMARY = "#101B2D";
 const TEXT_SECONDARY = "#64748B";
 const TEXT_MUTED = "#94A3B8";
-const ACCENT = "#0077B6";
 const SHADOW = "0 4px 20px rgba(0,0,0,0.08)";
 
 const URGENCY_ROW_STYLE: Record<UrgencyBucket, { border?: string; background: string }> = {
@@ -571,10 +574,11 @@ export default function DeadlinesPage() {
 
   // --- Render ---
   return (
-    <div style={{ backgroundColor: CANVAS, minHeight: "100vh" }} className="space-y-6 p-6">
+    <div style={{ minHeight: "100vh" }} className="space-y-6 p-6">
       <PageHeader
         title="Deadlines"
         description="Application, follow-up, reporting, renewal, and document-expiration dates, color-coded by urgency."
+        accent={FRAME}
         actions={
           <div className="flex flex-wrap items-center gap-3">
             {calendarConnected && editable && (
@@ -589,7 +593,7 @@ export default function DeadlinesPage() {
                 Sync to Calendar
               </Button>
             )}
-            <div style={{ border: "1px solid #E2E8F0", backgroundColor: CARD }} className="inline-flex rounded-lg p-0.5 shadow-sm">
+            <div style={{ border: `2px solid ${FRAME}`, backgroundColor: PANEL_IVORY }} className="inline-flex rounded-lg p-0.5 shadow-sm">
               {(
                 [
                   { key: null, label: "Month", icon: CalendarDays },
@@ -607,7 +611,7 @@ export default function DeadlinesPage() {
                     onClick={() => setParams({ view: opt.key })}
                     aria-pressed={isActive}
                     style={{
-                      backgroundColor: isActive ? ACCENT : "transparent",
+                      backgroundColor: isActive ? FRAME : "transparent",
                       color: isActive ? "#FFFFFF" : "#475569",
                     }}
                     className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition"
@@ -623,13 +627,13 @@ export default function DeadlinesPage() {
       />
 
       {/* Page tab switcher */}
-      <div style={{ border: "1px solid #E2E8F0", backgroundColor: CARD }} className="inline-flex rounded-lg p-0.5 shadow-sm">
+      <div style={{ border: `2px solid ${FRAME}`, backgroundColor: PANEL_IVORY }} className="inline-flex rounded-lg p-0.5 shadow-sm">
         <button
           type="button"
           onClick={() => setTab("deadlines")}
           aria-pressed={tab === "deadlines"}
           style={{
-            backgroundColor: tab === "deadlines" ? ACCENT : "transparent",
+            backgroundColor: tab === "deadlines" ? FRAME : "transparent",
             color: tab === "deadlines" ? "#FFFFFF" : "#475569",
           }}
           className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition"
@@ -642,7 +646,7 @@ export default function DeadlinesPage() {
           onClick={() => setTab("compliance")}
           aria-pressed={tab === "compliance"}
           style={{
-            backgroundColor: tab === "compliance" ? ACCENT : "transparent",
+            backgroundColor: tab === "compliance" ? FRAME : "transparent",
             color: tab === "compliance" ? "#FFFFFF" : "#475569",
           }}
           className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition"
@@ -691,7 +695,7 @@ export default function DeadlinesPage() {
                     checked={autoSync}
                     disabled={autoSyncSaving}
                     onChange={(e) => void toggleAutoSync(e.target.checked)}
-                    style={{ accentColor: ACCENT }}
+                    style={{ accentColor: FRAME }}
                     className="h-4 w-4 rounded"
                   />
                   Auto-sync new deadlines
@@ -704,7 +708,7 @@ export default function DeadlinesPage() {
                   onChange={(e) =>
                     setParams({ completed: e.target.checked ? "1" : null })
                   }
-                  style={{ accentColor: ACCENT }}
+                  style={{ accentColor: FRAME }}
                   className="h-4 w-4 rounded"
                 />
                 Show completed
@@ -722,7 +726,7 @@ export default function DeadlinesPage() {
               type="button"
               onClick={() => setParams({ types: null })}
               style={{
-                backgroundColor: activeTypes.size === DEADLINE_TYPES.length ? "#1E293B" : "transparent",
+                backgroundColor: activeTypes.size === DEADLINE_TYPES.length ? FRAME : "transparent",
                 color: activeTypes.size === DEADLINE_TYPES.length ? "#FFFFFF" : TEXT_SECONDARY,
                 border: activeTypes.size === DEADLINE_TYPES.length ? "none" : "1px solid #E2E8F0",
               }}
@@ -738,7 +742,7 @@ export default function DeadlinesPage() {
                   type="button"
                   onClick={() => toggleType(type)}
                   style={{
-                    backgroundColor: isActive ? ACCENT : "transparent",
+                    backgroundColor: isActive ? FRAME : "transparent",
                     color: isActive ? "#FFFFFF" : TEXT_SECONDARY,
                     border: isActive ? "none" : "1px solid #E2E8F0",
                   }}
@@ -754,7 +758,7 @@ export default function DeadlinesPage() {
           {loading ? (
             <LoadingSpinner center label="Loading deadlines..." />
           ) : allItems.length === 0 ? (
-            <div style={{ backgroundColor: CARD, borderRadius: "16px", boxShadow: SHADOW }} className="p-10">
+            <div style={{ backgroundColor: PANEL_IVORY, border: `2px solid ${FRAME}`, borderRadius: "16px", boxShadow: SHADOW }} className="p-10">
               <EmptyState
                 icon={CalendarDays}
                 title="No deadlines yet"
@@ -825,7 +829,7 @@ function PredictedDeadlines({
   return (
     <div className="space-y-3 pt-2">
       <div className="flex items-center gap-2">
-        <Sparkles className="h-4 w-4" style={{ color: ACCENT }} aria-hidden />
+        <Sparkles className="h-4 w-4" style={{ color: FRAME_ACCENT }} aria-hidden />
         <h2 style={{ color: TEXT_PRIMARY }} className="text-sm font-semibold">
           Predicted Deadlines
         </h2>
@@ -834,7 +838,7 @@ function PredictedDeadlines({
         </span>
       </div>
       <div
-        style={{ backgroundColor: CARD, borderRadius: "16px", boxShadow: SHADOW }}
+        style={{ backgroundColor: PANEL_IVORY, border: `2px solid ${FRAME}`, borderRadius: "16px", boxShadow: SHADOW }}
         className="overflow-hidden"
       >
         {predictions.map((p, i) => (
@@ -891,7 +895,7 @@ const COMPLIANCE_TYPE_LABEL: Record<string, string> = {
 function ComplianceList({ items }: { items: ComplianceItem[] }) {
   if (items.length === 0) {
     return (
-      <div style={{ backgroundColor: CARD, borderRadius: "16px", boxShadow: SHADOW }} className="p-10">
+      <div style={{ backgroundColor: PANEL_IVORY, border: `2px solid ${FRAME}`, borderRadius: "16px", boxShadow: SHADOW }} className="p-10">
         <EmptyState
           icon={ShieldCheck}
           title="No compliance obligations"
@@ -906,7 +910,7 @@ function ComplianceList({ items }: { items: ComplianceItem[] }) {
       <div className="flex flex-wrap items-center gap-3 pb-1 text-xs">
         <UrgencyLegend />
       </div>
-      <div style={{ backgroundColor: CARD, borderRadius: "16px", boxShadow: SHADOW }} className="overflow-hidden">
+      <div style={{ backgroundColor: PANEL_IVORY, border: `2px solid ${FRAME}`, borderRadius: "16px", boxShadow: SHADOW }} className="overflow-hidden">
         {items.map((item, i) => {
           const { band, label } = urgency(item.due_date);
           const bucket = urgencyBucket(band);
@@ -1028,7 +1032,7 @@ function ListView({
 
   if (deadlines.length === 0) {
     return (
-      <div style={{ backgroundColor: CARD, borderRadius: "16px", boxShadow: SHADOW }} className="p-4">
+      <div style={{ backgroundColor: PANEL_IVORY, border: `2px solid ${FRAME}`, borderRadius: "16px", boxShadow: SHADOW }} className="p-4">
         <p style={{ color: TEXT_SECONDARY }} className="py-4 text-center text-sm">
           No deadlines to show. Toggle &quot;Show completed&quot; to include
           finished ones, or adjust the type filter.
@@ -1040,7 +1044,7 @@ function ListView({
   return (
     <div className="space-y-5">
       {groups.map((group) => (
-        <div key={group.key} style={{ backgroundColor: CARD, borderRadius: "16px", boxShadow: SHADOW }} className="overflow-hidden">
+        <div key={group.key} style={{ backgroundColor: PANEL_IVORY, border: `2px solid ${FRAME}`, borderRadius: "16px", boxShadow: SHADOW }} className="overflow-hidden">
           <div style={{ borderBottom: "1px solid #EEF2F7" }} className="px-5 py-4">
             <h2 style={{ color: TEXT_PRIMARY }} className="text-sm font-semibold">{group.label}</h2>
           </div>
@@ -1095,7 +1099,7 @@ function ListView({
                     !isRenewal &&
                     (synced ? (
                       <span
-                        style={{ color: ACCENT }}
+                        style={{ color: FRAME_ACCENT }}
                         className="inline-flex items-center gap-1 text-xs"
                         title="Synced to Google Calendar"
                       >

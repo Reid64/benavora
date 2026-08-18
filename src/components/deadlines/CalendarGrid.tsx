@@ -12,7 +12,7 @@ import {
   startOfWeek,
 } from "date-fns";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { Button, Card } from "@/components/ui";
+import { Button } from "@/components/ui";
 import { cn } from "@/lib/utils/cn";
 import {
   BAND_CLASSES,
@@ -56,7 +56,14 @@ export function CalendarGrid({ month, deadlines, onPrev, onNext, onToday }: Prop
 
   return (
     <>
-      <Card noPadding>
+      {/* Plain div, not <Card>: Card's default `bg-white` class is forced by
+          globals.css's `!important` compat layer and would silently defeat
+          this inline background color (same issue documented in
+          DraftsHistoryPanel.tsx). */}
+      <div
+        className="rounded-xl shadow-sm border border-border transition-shadow hover:shadow-md"
+        style={{ backgroundColor: "#F8F5EE", border: "2px solid #101B2D", boxShadow: "0 4px 20px rgba(0,0,0,0.08)" }}
+      >
         <div className="flex items-center justify-between border-b border-navy-200 px-5 py-4">
           <h2 className="text-base font-semibold text-navy-900">
             {format(month, "MMMM yyyy")}
@@ -149,7 +156,7 @@ export function CalendarGrid({ month, deadlines, onPrev, onNext, onToday }: Prop
             );
           })}
         </div>
-      </Card>
+      </div>
 
       {selected && (
         <DeadlineDetailModal

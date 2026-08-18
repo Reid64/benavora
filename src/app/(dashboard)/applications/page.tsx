@@ -61,13 +61,16 @@ const FAMILY_LABEL: Record<Family, string> = {
 
 const FAMILY_ORDER: Family[] = ["discovery", "drafting", "submitted", "awarded", "denied"];
 
-// Applications & Pipeline section signature accent — see
-// governance/DESIGN_SYSTEM.md "Section Accent Colors" and
-// src/lib/design/section-accents.ts. Used for the page's own header accent
-// and the generic (non-family-specific) "active filter" look — never for
-// the per-family pipeline-stage colors above, which are semantic status
-// colors, not decorative branding.
-const SECTION_ACCENT = "#0E7490";
+// Applications & Pipeline section treatment — PAGE_TREATMENT_PROTOCOL_V2.md.
+// Frame: Deep Navy (cards/panels/active controls). Secondary accent: Teal
+// (neutral data callouts, distinct secondary actions). Never used for the
+// per-family pipeline-stage colors above, which are real semantic status
+// colors and must not change.
+const FRAME_NAVY = "#101B2D";
+const ACCENT_TEAL = "#2E6B66";
+const CARD_BG = "#F8F5EE";
+const CARD_BORDER = "rgba(16,27,45,0.18)";
+const ON_FRAME_TEXT = "#F8F5EE";
 
 function probabilityColor(score: number): string {
   if (score >= 70) return "#10B981";
@@ -179,7 +182,7 @@ export default function ApplicationsPage() {
   const showEmpty = !loading && !error && filtered.length === 0;
 
   return (
-    <div style={{ minHeight: "100vh", backgroundColor: "#D6E4F0", padding: "24px" }}>
+    <div style={{ minHeight: "100vh", padding: "24px" }}>
       {/* Header */}
       <div
         style={{
@@ -191,14 +194,14 @@ export default function ApplicationsPage() {
           marginBottom: "20px",
         }}
       >
-        <div style={{ borderLeft: `4px solid ${SECTION_ACCENT}`, paddingLeft: "16px" }}>
+        <div style={{ borderLeft: `4px solid ${FRAME_NAVY}`, paddingLeft: "16px" }}>
           <h1
             style={{
               margin: 0,
               fontSize: "28px",
               fontWeight: 800,
               letterSpacing: "-0.02em",
-              color: SECTION_ACCENT,
+              color: FRAME_NAVY,
             }}
           >
             Applications
@@ -214,13 +217,14 @@ export default function ApplicationsPage() {
             alignItems: "center",
             gap: "6px",
             borderRadius: "10px",
-            border: "1px solid #B8C9D9",
-            backgroundColor: "#FFFFFF",
+            border: "none",
+            backgroundColor: ACCENT_TEAL,
             padding: "10px 16px",
             fontSize: "14px",
             fontWeight: 600,
-            color: "#1A2B3C",
+            color: ON_FRAME_TEXT,
             textDecoration: "none",
+            boxShadow: "0 2px 8px rgba(16,27,45,0.25)",
           }}
         >
           <RefreshCw style={{ height: "16px", width: "16px" }} aria-hidden />
@@ -233,7 +237,7 @@ export default function ApplicationsPage() {
         {(["all", ...FAMILY_ORDER] as FilterKey[]).map((key) => {
           const active = filter === key;
           const label = key === "all" ? "All" : FAMILY_LABEL[key];
-          const dotColor = key === "all" ? SECTION_ACCENT : FAMILY_COLOR[key];
+          const dotColor = key === "all" ? ACCENT_TEAL : FAMILY_COLOR[key];
           return (
             <button
               key={key}
@@ -244,13 +248,16 @@ export default function ApplicationsPage() {
                 alignItems: "center",
                 gap: "8px",
                 borderRadius: "10px",
-                border: active ? `1px solid ${SECTION_ACCENT}` : "1px solid #B8C9D9",
-                backgroundColor: active ? SECTION_ACCENT : "#FFFFFF",
-                color: active ? "#FFFFFF" : "#1A2B3C",
+                border: active ? "none" : `1px solid ${CARD_BORDER}`,
+                backgroundColor: active ? FRAME_NAVY : CARD_BG,
+                color: active ? ON_FRAME_TEXT : FRAME_NAVY,
                 padding: "10px 16px",
                 fontSize: "14px",
                 fontWeight: 700,
                 cursor: "pointer",
+                boxShadow: active
+                  ? "0 2px 8px rgba(16,27,45,0.3)"
+                  : "0 1px 3px rgba(16,27,45,0.08)",
               }}
             >
               <span
@@ -274,8 +281,8 @@ export default function ApplicationsPage() {
                   borderRadius: "999px",
                   fontSize: "12px",
                   fontWeight: 800,
-                  backgroundColor: active ? "rgba(255,255,255,0.2)" : "#F1F5F9",
-                  color: active ? "#FFFFFF" : "#475569",
+                  backgroundColor: active ? "rgba(248,245,238,0.22)" : "rgba(16,27,45,0.08)",
+                  color: active ? ON_FRAME_TEXT : FRAME_NAVY,
                 }}
               >
                 {counts[key]}
@@ -413,19 +420,27 @@ function ApplicationRow({
         }
       }}
       style={{
-        position: "relative",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        gap: "16px",
         borderRadius: "14px",
-        backgroundColor: "#FFFFFF",
-        boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
-        padding: "16px 20px 16px 24px",
+        backgroundColor: FRAME_NAVY,
+        padding: "4px",
         cursor: "pointer",
-        overflow: "hidden",
+        boxShadow: "0 4px 20px rgba(16,27,45,0.22)",
       }}
     >
+      <div
+        style={{
+          position: "relative",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "16px",
+          borderRadius: "11px",
+          backgroundColor: CARD_BG,
+          boxShadow: "inset 0 1px 2px rgba(16,27,45,0.06)",
+          padding: "16px 20px 16px 24px",
+          overflow: "hidden",
+        }}
+      >
       <span
         aria-hidden
         style={{
@@ -478,7 +493,7 @@ function ApplicationRow({
                 fontSize: "11px",
                 fontWeight: 700,
                 backgroundColor: "#8B5CF6",
-                color: "#FFFFFF",
+                color: ON_FRAME_TEXT,
               }}
             >
               AI Draft
@@ -494,7 +509,7 @@ function ApplicationRow({
                 fontSize: "11px",
                 fontWeight: 700,
                 backgroundColor: "#F59E0B",
-                color: "#FFFFFF",
+                color: ON_FRAME_TEXT,
               }}
             >
               Review Needed
@@ -510,7 +525,8 @@ function ApplicationRow({
               alignItems: "center",
               gap: "6px",
               fontSize: "13px",
-              color: "#64748B",
+              color: ACCENT_TEAL,
+              fontWeight: 600,
             }}
           >
             <Building2 style={{ height: "14px", width: "14px" }} aria-hidden />
@@ -577,15 +593,16 @@ function ApplicationRow({
               height: "34px",
               width: "34px",
               borderRadius: "10px",
-              border: "1px solid #B8C9D9",
-              backgroundColor: "#FFFFFF",
-              color: "#1A2B3C",
+              border: `1.5px solid ${ACCENT_TEAL}`,
+              backgroundColor: "rgba(46,107,102,0.08)",
+              color: ACCENT_TEAL,
               cursor: "pointer",
             }}
           >
             <Copy style={{ height: "16px", width: "16px" }} aria-hidden />
           </button>
         )}
+      </div>
       </div>
     </div>
   );
