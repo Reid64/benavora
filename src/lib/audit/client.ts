@@ -35,18 +35,29 @@ export async function recordAudit(input: RecordAuditInput): Promise<void> {
   }
 }
 
-/** Record a login/logout event (best-effort, never throws). */
+/**
+ * Record a login/logout event (best-effort, never throws).
+ *
+ * Callers on the login path await this before redirecting, so it carries a
+ * hard timeout - without one, a server-side hang here would strand the user
+ * on "Signing in..." with the sign-in itself already having succeeded.
+ */
 export async function recordAuthEvent(
   event: "login" | "logout",
 ): Promise<void> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
   try {
     await fetch("/api/auth/log-event", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ event }),
       keepalive: true,
+      signal: controller.signal,
     });
   } catch {
     // best-effort
+  } finally {
+    clearTimeout(timeout);
   }
 }
