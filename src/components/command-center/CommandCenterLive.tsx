@@ -70,6 +70,13 @@ import {
 type ConnectionState = "connecting" | "live" | "offline";
 type SaveState = "idle" | "saving" | "saved" | "error";
 
+// Admin/Platform section treatment — PAGE_TREATMENT_PROTOCOL_V2.md.
+// Frame: Deep Navy. Secondary accent: Rich Gold. Real semantic/live-status
+// colors (agentStatusColor, LiveIndicator) are never touched by this system.
+const FRAME_NAVY = "#101B2D";
+const ACCENT_GOLD = "#B88A2E";
+const CARD_BG = "#F8F5EE";
+
 function agentStatusColor(status: string): string {
   switch (status) {
     case "completed":
@@ -85,10 +92,18 @@ function agentStatusColor(status: string): string {
 
 function statCardStyle(tv: boolean) {
   return {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: FRAME_NAVY,
     borderRadius: tv ? "20px" : "16px",
+    boxShadow: "0 4px 20px rgba(16,27,45,0.22)",
+    padding: "3px",
+  };
+}
+
+function statCardInnerStyle(tv: boolean) {
+  return {
+    backgroundColor: CARD_BG,
+    borderRadius: tv ? "18px" : "14px",
     overflow: "hidden",
-    boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
   };
 }
 
@@ -98,13 +113,25 @@ function statTopBand(color: string, tv: boolean) {
 
 function panelStyle(tv: boolean) {
   return {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: FRAME_NAVY,
     borderRadius: tv ? "20px" : "16px",
-    overflow: "hidden",
-    boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
+    boxShadow: "0 4px 20px rgba(16,27,45,0.22)",
+    padding: "3px",
     display: "flex",
     flexDirection: "column" as const,
-    minHeight: tv ? "420px" : "320px",
+    minHeight: tv ? "426px" : "326px",
+  };
+}
+
+function panelInnerStyle(tv: boolean) {
+  return {
+    backgroundColor: CARD_BG,
+    borderRadius: tv ? "18px" : "14px",
+    overflow: "hidden",
+    display: "flex",
+    flexDirection: "column" as const,
+    flex: 1,
+    minHeight: 0,
   };
 }
 
@@ -112,10 +139,10 @@ function panelHeaderStyle(tv: boolean) {
   return {
     fontSize: tv ? "20px" : "13px",
     fontWeight: 700,
-    color: "#FFFFFF",
+    color: CARD_BG,
     textTransform: "uppercase" as const,
     letterSpacing: "0.05em",
-    backgroundColor: "#1A2B3C",
+    backgroundColor: FRAME_NAVY,
     padding: tv ? "22px 28px" : "14px 20px",
     margin: 0,
   };
@@ -173,28 +200,30 @@ function StatCard({
 }) {
   return (
     <div style={statCardStyle(tv)}>
-      <div style={statTopBand(color, tv)} />
-      <div style={{ padding: tv ? "28px" : "20px" }}>
-        <div
-          style={{
-            fontSize: tv ? "15px" : "11px",
-            fontWeight: 700,
-            color: "#64748B",
-            textTransform: "uppercase",
-            letterSpacing: "0.05em",
-          }}
-        >
-          {label}
-        </div>
-        <div
-          style={{
-            fontSize: tv ? "48px" : "28px",
-            fontWeight: 900,
-            color: "#0F172A",
-            marginTop: "4px",
-          }}
-        >
-          {value.toLocaleString()}
+      <div style={statCardInnerStyle(tv)}>
+        <div style={statTopBand(color, tv)} />
+        <div style={{ padding: tv ? "28px" : "20px" }}>
+          <div
+            style={{
+              fontSize: tv ? "15px" : "11px",
+              fontWeight: 700,
+              color: "#64748B",
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+            }}
+          >
+            {label}
+          </div>
+          <div
+            style={{
+              fontSize: tv ? "48px" : "28px",
+              fontWeight: 900,
+              color: FRAME_NAVY,
+              marginTop: "4px",
+            }}
+          >
+            {value.toLocaleString()}
+          </div>
         </div>
       </div>
     </div>
@@ -280,9 +309,9 @@ function ToolbarButton({
       style={{
         fontSize: "12px",
         fontWeight: 700,
-        color: active ? "#FFFFFF" : "#0077B6",
-        backgroundColor: active ? "#0077B6" : "#FFFFFF",
-        border: "1px solid #0077B6",
+        color: active ? CARD_BG : ACCENT_GOLD,
+        backgroundColor: active ? ACCENT_GOLD : CARD_BG,
+        border: `1px solid ${ACCENT_GOLD}`,
         borderRadius: "8px",
         padding: "8px 14px",
         cursor: "pointer",
@@ -502,6 +531,7 @@ export function CommandCenterLive({ initialSnapshot }: { initialSnapshot: Comman
         span: "auto",
         node: (
           <div style={panelStyle(tv)}>
+          <div style={panelInnerStyle(tv)}>
             <div style={panelHeaderStyle(tv)}>AI Pipeline Status</div>
             <div style={panelBodyStyle(tv)}>
               <div
@@ -583,12 +613,14 @@ export function CommandCenterLive({ initialSnapshot }: { initialSnapshot: Comman
               )}
             </div>
           </div>
+          </div>
         ),
       },
       "data-intelligence": {
         span: "auto",
         node: (
           <div style={panelStyle(tv)}>
+          <div style={panelInnerStyle(tv)}>
             <div style={panelHeaderStyle(tv)}>Data Intelligence Status</div>
             <div style={panelBodyStyle(tv)}>
               <div style={{ fontSize: tv ? "15px" : "11px", color: "#64748B", marginBottom: tv ? "24px" : "16px" }}>
@@ -598,7 +630,7 @@ export function CommandCenterLive({ initialSnapshot }: { initialSnapshot: Comman
                 label="IRS 990 Enriched"
                 numerator={foundation990Count}
                 denominator={foundationTotal}
-                color="#0077B6"
+                color={ACCENT_GOLD}
                 tv={tv}
               />
               <ProgressBar
@@ -610,12 +642,14 @@ export function CommandCenterLive({ initialSnapshot }: { initialSnapshot: Comman
               />
             </div>
           </div>
+          </div>
         ),
       },
       "top-orgs": {
         span: "auto",
         node: (
           <div style={panelStyle(tv)}>
+          <div style={panelInnerStyle(tv)}>
             <div style={panelHeaderStyle(tv)}>Most Active Orgs (7d)</div>
             <div style={panelBodyStyle(tv)}>
               {topOrgs.length === 0 ? (
@@ -664,7 +698,7 @@ export function CommandCenterLive({ initialSnapshot }: { initialSnapshot: Comman
                           flex: 1,
                           minWidth: 0,
                           fontSize: "13px",
-                          color: "#0077B6",
+                          color: FRAME_NAVY,
                           fontWeight: 600,
                           textDecoration: "none",
                           whiteSpace: "nowrap",
@@ -679,8 +713,8 @@ export function CommandCenterLive({ initialSnapshot }: { initialSnapshot: Comman
                       style={{
                         fontSize: tv ? "16px" : "11px",
                         fontWeight: 700,
-                        color: "#FFFFFF",
-                        backgroundColor: "#6B48CC",
+                        color: CARD_BG,
+                        backgroundColor: ACCENT_GOLD,
                         borderRadius: "999px",
                         padding: tv ? "6px 16px" : "3px 10px",
                       }}
@@ -692,6 +726,7 @@ export function CommandCenterLive({ initialSnapshot }: { initialSnapshot: Comman
               )}
             </div>
           </div>
+          </div>
         ),
       },
       "recent-runs": {
@@ -699,10 +734,17 @@ export function CommandCenterLive({ initialSnapshot }: { initialSnapshot: Comman
         node: (
           <div
             style={{
-              backgroundColor: "#FFFFFF",
+              backgroundColor: FRAME_NAVY,
               borderRadius: tv ? "20px" : "16px",
+              boxShadow: "0 4px 20px rgba(16,27,45,0.22)",
+              padding: "3px",
+            }}
+          >
+          <div
+            style={{
+              backgroundColor: CARD_BG,
+              borderRadius: tv ? "18px" : "14px",
               overflow: "hidden",
-              boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
             }}
           >
             <div style={panelHeaderStyle(tv)}>Recent Agent Runs — All Orgs</div>
@@ -760,6 +802,7 @@ export function CommandCenterLive({ initialSnapshot }: { initialSnapshot: Comman
                 </tbody>
               </table>
             </div>
+          </div>
           </div>
         ),
       },
@@ -830,7 +873,7 @@ export function CommandCenterLive({ initialSnapshot }: { initialSnapshot: Comman
       <div
         ref={fullscreenTargetRef}
         style={{
-          backgroundColor: tv ? "#E4E9F0" : "transparent",
+          backgroundColor: tv ? "#D8D3C8" : "transparent",
           padding: tv ? "36px" : 0,
         }}
       >
@@ -874,7 +917,7 @@ export function CommandCenterLive({ initialSnapshot }: { initialSnapshot: Comman
                   outline: !tv ? "2px dashed transparent" : "none",
                 }}
                 onDragEnter={(e) => {
-                  if (!tv) e.currentTarget.style.outline = "2px dashed #0077B6";
+                  if (!tv) e.currentTarget.style.outline = "2px dashed " + ACCENT_GOLD;
                 }}
                 onDragLeave={(e) => {
                   if (!tv) e.currentTarget.style.outline = "2px dashed transparent";

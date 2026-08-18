@@ -87,20 +87,19 @@ export default async function AdminOrgsPage() {
   }));
 
   return (
-    <div style={{ backgroundColor: "#C8D4DC", minHeight: "100vh", padding: "32px" }}>
-      {/* Admin & Settings section signature accent (bottom border) — see
-          governance/DESIGN_SYSTEM.md "Section Accent Colors" and
-          src/lib/design/section-accents.ts. Kept as a border rather than the
-          fill so the white header text keeps its contrast against the dark
-          panel. */}
+    <div style={{ minHeight: "100vh", padding: "32px" }}>
+      {/* Admin/Platform section treatment — PAGE_TREATMENT_PROTOCOL_V2.md.
+          Frame: Deep Navy fill. Secondary accent: Rich Gold border, kept as a
+          border rather than the fill so the white header text keeps its
+          contrast against the dark panel. */}
       <div
         style={{
-          backgroundColor: "#1A2B3C",
+          backgroundColor: "#101B2D",
           borderRadius: "20px",
           padding: "28px 40px",
           marginBottom: "24px",
-          boxShadow: "0 8px 32px rgba(0,0,0,0.20)",
-          borderBottom: "4px solid #22D3EE",
+          boxShadow: "0 8px 32px rgba(16,27,45,0.3)",
+          borderBottom: "4px solid #B88A2E",
         }}
       >
         <h1

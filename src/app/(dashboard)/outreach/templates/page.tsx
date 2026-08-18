@@ -11,6 +11,12 @@ import { formatRelative } from "@/lib/utils/formatters";
 import { cn } from "@/lib/utils/cn";
 import type { Tables } from "@/types/database";
 
+// Outreach & Communication section treatment — PAGE_TREATMENT_PROTOCOL_V2.md.
+// Frame: Rust. Secondary accent: Bronze.
+const FRAME_RUST = "#A3492F";
+const ACCENT_BRONZE = "#A4712C";
+const CARD_BG = "#F8F5EE";
+
 type Template = Tables<"outreach_templates">;
 type TemplateVariant = Tables<"outreach_template_variants">;
 type TemplateWithVariants = Template & { variants: TemplateVariant[] };
@@ -98,7 +104,7 @@ export default function OutreachTemplatesPage() {
 
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-primary">
+          <h1 className="text-2xl font-bold tracking-tight" style={{ color: FRAME_RUST }}>
             Outreach Templates
           </h1>
           <p className="mt-1 text-sm text-navy-500">
@@ -106,7 +112,11 @@ export default function OutreachTemplatesPage() {
           </p>
         </div>
         {editable && (
-          <Button onClick={() => setCreating(true)}>
+          <Button
+            variant="ghost"
+            onClick={() => setCreating(true)}
+            style={{ backgroundColor: FRAME_RUST, color: CARD_BG, border: "none" }}
+          >
             <Plus className="h-4 w-4" aria-hidden />
             New Template
           </Button>
@@ -147,7 +157,11 @@ export default function OutreachTemplatesPage() {
           description="Create a reusable template for one of your outreach channels."
           action={
             editable ? (
-              <Button onClick={() => setCreating(true)}>
+              <Button
+                variant="ghost"
+                onClick={() => setCreating(true)}
+                style={{ backgroundColor: FRAME_RUST, color: CARD_BG, border: "none" }}
+              >
                 <Plus className="h-4 w-4" aria-hidden />
                 New Template
               </Button>
@@ -160,7 +174,11 @@ export default function OutreachTemplatesPage() {
             const meta = CHANNEL_META[t.channel as Channel] ?? CHANNEL_META.email;
             const Icon = meta.icon;
             return (
-              <Card key={t.id}>
+              <div
+                key={t.id}
+                style={{ backgroundColor: FRAME_RUST, borderRadius: "14px", boxShadow: "0 4px 20px rgba(163,73,47,0.22)", padding: "3px" }}
+              >
+              <div className="rounded-[11px] p-5" style={{ backgroundColor: CARD_BG }}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
@@ -186,7 +204,8 @@ export default function OutreachTemplatesPage() {
                     />
                   </div>
                 </div>
-              </Card>
+              </div>
+              </div>
             );
           })}
         </div>
@@ -227,18 +246,23 @@ function TabButton({
       role="tab"
       aria-selected={active}
       onClick={onClick}
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm transition",
+      style={
         active
-          ? "bg-[#0077B6] font-semibold text-white"
-          : "border border-slate-200 bg-white font-medium text-slate-600 hover:border-[#0077B6] hover:text-[#0077B6]",
-      )}
+          ? { backgroundColor: FRAME_RUST, color: CARD_BG }
+          : { border: "1px solid rgba(16,27,45,0.18)", backgroundColor: CARD_BG, color: "#475569" }
+      }
+      className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition"
     >
       {label}
       <span
+        style={
+          active
+            ? { backgroundColor: "rgba(248,245,238,0.25)", color: CARD_BG }
+            : undefined
+        }
         className={cn(
           "rounded-full px-1.5 text-xs tabular-nums",
-          active ? "bg-white/20 text-white" : "bg-navy-100 text-navy-500",
+          active ? "" : "bg-navy-100 text-navy-500",
         )}
       >
         {count}
@@ -428,8 +452,8 @@ function VariantPanel({
     padding: "4px 10px",
     fontSize: 12,
     fontWeight: 600,
-    border: "1px solid #CBD5E1",
-    background: "#FFFFFF",
+    border: "1px solid rgba(16,27,45,0.18)",
+    background: CARD_BG,
     color: "#475569",
     cursor: "pointer",
     transition: "background 0.15s, color 0.15s, border-color 0.15s",
@@ -437,9 +461,9 @@ function VariantPanel({
 
   const pillActive: React.CSSProperties = {
     ...pillBase,
-    background: "#0077B6",
-    borderColor: "#0077B6",
-    color: "#FFFFFF",
+    background: FRAME_RUST,
+    borderColor: FRAME_RUST,
+    color: CARD_BG,
   };
 
   return (
@@ -504,8 +528,8 @@ function VariantPanel({
             style={{
               ...pillBase,
               borderStyle: "dashed",
-              color: "#0077B6",
-              borderColor: "#0077B6",
+              color: ACCENT_BRONZE,
+              borderColor: ACCENT_BRONZE,
             }}
           >
             + Add variant

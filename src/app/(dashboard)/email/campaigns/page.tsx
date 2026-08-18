@@ -34,6 +34,14 @@ import { canEdit, useProfile } from "@/lib/hooks/useProfile";
 import { formatRelative } from "@/lib/utils/formatters";
 import type { Tables } from "@/types/database";
 
+// Outreach & Communication section treatment — PAGE_TREATMENT_PROTOCOL_V2.md.
+// Frame: Rust. Secondary accent: Bronze. Applied to this page's own sequence
+// list; the creation wizard's modal-internal Cards are left as the shared
+// component's default treatment (transient dialog content, not the page surface).
+const FRAME_RUST = "#A3492F";
+const ACCENT_BRONZE = "#A4712C";
+const CARD_BG = "#F8F5EE";
+
 type Sequence = Tables<"email_campaign_sequences">;
 type Template = Tables<"email_templates">;
 type OutreachContact = Tables<"outreach_contacts">;
@@ -130,7 +138,7 @@ export default function EmailCampaignsPage() {
 
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-primary">
+          <h1 className="text-2xl font-bold tracking-tight" style={{ color: FRAME_RUST }}>
             Email Campaigns
           </h1>
           <p className="mt-1 text-sm text-navy-500">
@@ -138,7 +146,11 @@ export default function EmailCampaignsPage() {
           </p>
         </div>
         {editable && (
-          <Button onClick={() => setBuilding(true)}>
+          <Button
+            variant="ghost"
+            onClick={() => setBuilding(true)}
+            style={{ backgroundColor: FRAME_RUST, color: CARD_BG, border: "none" }}
+          >
             <Plus className="h-4 w-4" aria-hidden />
             New Campaign
           </Button>
@@ -165,7 +177,11 @@ export default function EmailCampaignsPage() {
           description="Build a multi-step email sequence to nurture contacts with template-driven steps."
           action={
             editable ? (
-              <Button onClick={() => setBuilding(true)}>
+              <Button
+                variant="ghost"
+                onClick={() => setBuilding(true)}
+                style={{ backgroundColor: FRAME_RUST, color: CARD_BG, border: "none" }}
+              >
                 <Plus className="h-4 w-4" aria-hidden />
                 New Campaign
               </Button>
@@ -181,7 +197,11 @@ export default function EmailCampaignsPage() {
                 ? Math.round(((seq.total_replied ?? 0) / (seq.total_enrolled ?? 1)) * 100)
                 : 0;
             return (
-              <Card key={seq.id}>
+              <div
+                key={seq.id}
+                style={{ backgroundColor: FRAME_RUST, borderRadius: "14px", boxShadow: "0 4px 20px rgba(163,73,47,0.22)", padding: "3px" }}
+              >
+              <div className="rounded-[11px] p-5" style={{ backgroundColor: CARD_BG }}>
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <Link
@@ -219,9 +239,14 @@ export default function EmailCampaignsPage() {
                     <div className="flex shrink-0 items-center gap-2">
                       {(status === "draft" || status === "paused") && (
                         <Button
-                          variant="secondary"
+                          variant="ghost"
                           size="sm"
                           onClick={() => void setStatus(seq.id, "active")}
+                          style={{
+                            border: `1.5px solid ${ACCENT_BRONZE}`,
+                            backgroundColor: "rgba(164,113,44,0.08)",
+                            color: ACCENT_BRONZE,
+                          }}
                         >
                           <Play className="h-4 w-4" aria-hidden />
                           {status === "paused" ? "Resume" : "Activate"}
@@ -229,9 +254,14 @@ export default function EmailCampaignsPage() {
                       )}
                       {status === "active" && (
                         <Button
-                          variant="secondary"
+                          variant="ghost"
                           size="sm"
                           onClick={() => void setStatus(seq.id, "paused")}
+                          style={{
+                            border: `1.5px solid ${ACCENT_BRONZE}`,
+                            backgroundColor: "rgba(164,113,44,0.08)",
+                            color: ACCENT_BRONZE,
+                          }}
                         >
                           <Pause className="h-4 w-4" aria-hidden />
                           Pause
@@ -240,7 +270,8 @@ export default function EmailCampaignsPage() {
                     </div>
                   )}
                 </div>
-              </Card>
+              </div>
+              </div>
             );
           })}
         </div>

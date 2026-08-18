@@ -1,7 +1,46 @@
 # BENAVORA — Session State
-## Last Updated: August 15, 2026 (landing page audit; globals.css !important root-cause investigated + partially fixed; shadcn/ui + Storybook installed)
+## Last Updated: August 17, 2026 (v2 design system rollout completed for Applications & Pipeline, Outreach & Communication, and Admin/Platform sections — 20 routes, 2 real data bugs fixed)
 
-## Current Session — August 15, 2026 (landing page audit; CSS override investigation/fix; design tooling)
+## Current Session — August 17, 2026 (v2 gold/bronze/navy/Soft Stone rollout — 20 routes across 3 sections)
+
+**Focus:** continued the v2 design system rollout begun earlier the same day (Draft Generator
+reference implementation + Applications/Deadlines, commit `70feb4f`). Applied the navy/teal frame
+to Applications & Pipeline (`/compliance`, `/documents`, `/outcomes`, `/financials`,
+`/marketplace`), the rust/bronze frame to Outreach & Communication (`/email`, `/email/campaigns`,
+`/email/templates`, `/outreach`, `/outreach/templates`), and the navy/gold frame to Admin/Platform
+(`/command-center`, `/admin/orgs`, `/admin/system`, `/import`, `/admin/sales-outreach`,
+`/admin/autoapply-ops`, `/admin/monitor`, `/admin/improvements`, `/admin/audit-log`, `/settings`) —
+20 routes in total. Full per-page detail, the two real bugs fixed, and the shared-component gotchas
+discovered are all in `STATE_OF_THE_BUILD.md`'s matching 2026-08-17 entry — not duplicated here.
+
+**Gates:** all stray node processes killed, `.next` deleted, fresh `pnpm tsc --noEmit` — 0 errors.
+Fresh `pnpm run build` — clean, full route manifest, "Compiled successfully," no errors.
+
+**Two real bugs fixed before styling (not just cosmetic work this session):**
+1. `/compliance` — both compliance API routes queried `opportunities(title)`; the real column is
+   `opportunities.name`. Both 500'd. Fixed in `src/app/api/compliance/route.ts` and
+   `src/app/api/compliance/events/route.ts`.
+2. `/financials` — migrations `084_grant_financials.sql` and `089_financial_reconciliation.sql`
+   existed on disk but were never applied live, so `grant_budgets`/`grant_expenses`/
+   `grant_reconciliation_reports` didn't exist and every financials query 404'd. Applied both
+   migrations live via direct `DATABASE_URL` DDL.
+
+**Safety-sensitive elements confirmed distinct (screenshotted, not just source-read):**
+`/admin/orgs` Impersonate (recolored to a dedicated warning amber — was only "dark like everything
+else" before this session), `/admin/system` Clear Stuck Jobs (already red, untouched), `/settings`
+Danger Zone (already a red callout, untouched, verified by clicking into the tab live).
+
+**Known accepted residuals:** the shared `EmptyState`/`Input`/`Select` components' backgrounds
+resolve to the site's established off-white token (`#F7F5F1`) via `globals.css`'s compat layer —
+visually indistinguishable from the sanctioned Warm Ivory but not an exact hex match; not fixed
+(shared components, out of scope for a page-styling pass). Modal-internal content (Cancel buttons,
+the sales-outreach campaign wizard's own cards, the two template-creation modals) was left at the
+shared components' default treatment throughout, consistently — modals aren't the persistent page
+surface the layering mandate targets.
+
+---
+
+## Prior Session — August 15, 2026 (landing page audit; CSS override investigation/fix; design tooling)
 
 **Focus:** ran the gate sequence, then closed out three deliverables — a full landing-page audit
 (`LANDING_PAGE_AUDIT_2026-08-15.md`), an investigation into the `globals.css` `!important`

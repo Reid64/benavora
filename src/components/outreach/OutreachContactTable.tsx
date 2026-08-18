@@ -18,6 +18,12 @@ import { FUNDER_CATEGORIES, OUTREACH_STATUSES } from "@/lib/utils/constants";
 import { humanizeEnum } from "@/lib/utils/formatters";
 import type { Enums, Tables } from "@/types/database";
 
+// Outreach & Communication section treatment — PAGE_TREATMENT_PROTOCOL_V2.md.
+// This component is only used by /outreach, so it's safe to apply the
+// section's Rust frame / Bronze accent directly.
+const FRAME_RUST = "#A3492F";
+const ACCENT_BRONZE = "#A4712C";
+
 type FunderCategory = Enums<"funder_category">;
 
 const LIKELIHOOD_COLOR: Record<string, BadgeColor> = {
@@ -169,9 +175,14 @@ export function OutreachContactTable({
         if (!canConvert) return null;
         return (
           <Button
-            variant="secondary"
+            variant="ghost"
             size="sm"
             onClick={() => setConverting(row)}
+            style={{
+              border: `1.5px solid ${ACCENT_BRONZE}`,
+              backgroundColor: "rgba(164,113,44,0.08)",
+              color: ACCENT_BRONZE,
+            }}
           >
             <ArrowRightLeft className="h-4 w-4" aria-hidden />
             Convert to Funder
@@ -201,14 +212,18 @@ export function OutreachContactTable({
         </div>
       </div>
 
-      <Table
-        columns={columns}
-        data={filtered}
-        rowKey={(row) => row.id}
-        isLoading={isLoading}
-        initialSort={{ key: "company", direction: "asc" }}
-        emptyMessage="No outreach contacts match your filters."
-      />
+      <div style={{ backgroundColor: FRAME_RUST, borderRadius: "14px", boxShadow: "0 4px 20px rgba(163,73,47,0.22)", padding: "3px" }}>
+        <Table
+          columns={columns}
+          data={filtered}
+          rowKey={(row) => row.id}
+          isLoading={isLoading}
+          initialSort={{ key: "company", direction: "asc" }}
+          emptyMessage="No outreach contacts match your filters."
+          containerClassName="overflow-x-auto rounded-[11px] bg-[#F8F5EE]"
+          tbodyClassName="divide-y divide-slate-200 bg-[#F8F5EE]"
+        />
+      </div>
 
       <ConvertModal
         contact={converting}

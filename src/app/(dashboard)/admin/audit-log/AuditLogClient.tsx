@@ -1,12 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Download, ShieldAlert } from "lucide-react";
 
 import {
   Badge,
   Button,
-  Card,
   EmptyState,
   Input,
   LoadingSpinner,
@@ -57,6 +56,23 @@ const AUDIT_ACTIONS = [
   "agent_run",
   "submission",
 ] as const;
+
+// Admin/Platform section treatment — PAGE_TREATMENT_PROTOCOL_V2.md. Frame:
+// Deep Navy. Secondary accent: Rich Gold. ACTION_BADGE below is a real
+// action-type distinction (shared Badge component) and is never touched.
+const FRAME_NAVY = "#101B2D";
+const ACCENT_GOLD = "#B88A2E";
+const CARD_BG = "#F8F5EE";
+
+function FramedCard({ className, children }: { className?: string; children: ReactNode }) {
+  return (
+    <div style={{ backgroundColor: FRAME_NAVY, borderRadius: "14px", boxShadow: "0 4px 20px rgba(16,27,45,0.22)", padding: "3px" }}>
+      <div className={className ?? "p-5"} style={{ backgroundColor: CARD_BG, borderRadius: "11px" }}>
+        {children}
+      </div>
+    </div>
+  );
+}
 
 const ACTION_BADGE: Record<string, BadgeColor> = {
   create: "green",
@@ -331,7 +347,7 @@ export default function AuditLogClient() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-primary">
+          <h1 className="text-2xl font-bold tracking-tight" style={{ color: FRAME_NAVY }}>
             Audit Log
           </h1>
           <p className="mt-1 text-sm text-navy-500">
@@ -341,7 +357,11 @@ export default function AuditLogClient() {
           </p>
         </div>
         {canView && entries.length > 0 && (
-          <Button variant="secondary" onClick={exportCsv}>
+          <Button
+            variant="ghost"
+            onClick={exportCsv}
+            style={{ border: `1.5px solid ${ACCENT_GOLD}`, backgroundColor: "rgba(184,138,46,0.1)", color: "#8A6A22" }}
+          >
             <Download className="h-4 w-4" aria-hidden />
             Export CSV
           </Button>
@@ -351,23 +371,23 @@ export default function AuditLogClient() {
       {profileLoading || loading ? (
         <LoadingSpinner center label="Loading audit log..." />
       ) : !canView ? (
-        <Card>
+        <FramedCard>
           <EmptyState
             icon={ShieldAlert}
             title="Admins only"
             description="Only owners and admins can view the audit log."
           />
-        </Card>
+        </FramedCard>
       ) : loadError ? (
-        <Card>
+        <FramedCard>
           <EmptyState
             icon={ShieldAlert}
             title="Could not load the audit log"
             description={loadError}
           />
-        </Card>
+        </FramedCard>
       ) : (
-        <Card>
+        <FramedCard>
           <div
             className={`mb-4 grid gap-3 sm:grid-cols-2 ${
               isOwnerView ? "lg:grid-cols-6" : "lg:grid-cols-5"
@@ -420,8 +440,10 @@ export default function AuditLogClient() {
             pageSize={25}
             initialSort={{ key: "createdAt", direction: "desc" }}
             emptyMessage="No audit entries match your filters."
+            containerClassName="overflow-x-auto rounded-lg"
+            tbodyClassName="divide-y divide-slate-200"
           />
-        </Card>
+        </FramedCard>
       )}
     </div>
   );

@@ -41,15 +41,22 @@ const RECURRENCE_OPTIONS = [
   { value: "annual", label: "Annual" },
 ];
 
-const CANVAS = "#D6E4F0";
-const CARD = "#FFFFFF";
-const TEXT_PRIMARY = "#0F172A";
-const TEXT_MUTED = "#94A3B8";
-const ACCENT = "#0077B6";
+// Applications & Pipeline section treatment — PAGE_TREATMENT_PROTOCOL_V2.md.
+// Frame: Deep Navy (cards/panels). Secondary accent: Teal (links, outline
+// buttons). Real semantic status colors (GREEN/AMBER/RED below) are never
+// touched by this system.
+const FRAME_NAVY = "#101B2D";
+const ACCENT_TEAL = "#2E6B66";
+const CARD = "#F8F5EE";
+const CARD_BORDER = "rgba(16,27,45,0.18)";
+const ON_FRAME_TEXT = "#F8F5EE";
+const TEXT_PRIMARY = FRAME_NAVY;
+const TEXT_MUTED = "rgba(16,27,45,0.55)";
+const ACCENT = ACCENT_TEAL;
 const GREEN = "#15803D";
 const AMBER = "#B45309";
 const RED = "#B91C1C";
-const SHADOW = "0 4px 20px rgba(0,0,0,0.08)";
+const SHADOW = "0 4px 20px rgba(16,27,45,0.22)";
 
 const EVENT_TYPE_TINT: Record<ComplianceEvent["event_type"], { bg: string; text: string }> = {
   report: { bg: "#E0F2FE", text: "#0369A1" },
@@ -228,14 +235,24 @@ export default function CompliancePage() {
   const showEventsEmpty = !eventsLoading && !eventsError && events.length === 0;
 
   return (
-    <div style={{ backgroundColor: CANVAS, minHeight: "100vh" }} className="space-y-8 p-6">
+    <div style={{ minHeight: "100vh" }} className="space-y-8 p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <PageHeader
+          accent={FRAME_NAVY}
           title="Compliance Calendar"
           description="Reports, audits, renewals, and meetings tracked across all active grants, plus reporting deadlines, matching funds, regulatory filings, and document expirations."
           actions={
             editable && (
-              <Button onClick={() => setCreatingEvent(true)}>
+              <Button
+                variant="ghost"
+                onClick={() => setCreatingEvent(true)}
+                style={{
+                  border: "none",
+                  backgroundColor: ACCENT_TEAL,
+                  color: ON_FRAME_TEXT,
+                  boxShadow: "0 2px 8px rgba(16,27,45,0.25)",
+                }}
+              >
                 <CalendarClock className="h-4 w-4" aria-hidden />
                 New Event
               </Button>
@@ -259,30 +276,42 @@ export default function CompliancePage() {
         {eventsLoading ? (
           <LoadingSpinner center label="Loading compliance events..." />
         ) : showEventsEmpty ? (
-          <div style={{ backgroundColor: CARD, borderRadius: "16px", boxShadow: SHADOW }} className="p-10">
-            <EmptyState
-              icon={CalendarClock}
-              title="No compliance events"
-              description="Reports, audits, renewals, and meetings you schedule will appear here, grouped by month."
-              action={
-                editable ? (
-                  <Button onClick={() => setCreatingEvent(true)}>
-                    <Plus className="h-4 w-4" aria-hidden />
-                    New Event
-                  </Button>
-                ) : undefined
-              }
-            />
+          <div style={{ backgroundColor: FRAME_NAVY, borderRadius: "16px", boxShadow: SHADOW, padding: "4px" }}>
+            <div
+              style={{ backgroundColor: CARD, borderRadius: "13px", boxShadow: "inset 0 1px 2px rgba(16,27,45,0.06)" }}
+              className="p-10"
+            >
+              <EmptyState
+                icon={CalendarClock}
+                title="No compliance events"
+                description="Reports, audits, renewals, and meetings you schedule will appear here, grouped by month."
+                action={
+                  editable ? (
+                    <Button
+                      variant="ghost"
+                      onClick={() => setCreatingEvent(true)}
+                      style={{ border: "none", backgroundColor: ACCENT_TEAL, color: ON_FRAME_TEXT }}
+                    >
+                      <Plus className="h-4 w-4" aria-hidden />
+                      New Event
+                    </Button>
+                  ) : undefined
+                }
+              />
+            </div>
           </div>
         ) : (
           <div className="space-y-5">
             {groupedEvents.map((group) => (
               <div
                 key={group.key}
-                style={{ backgroundColor: CARD, borderRadius: "16px", boxShadow: SHADOW }}
+                style={{ backgroundColor: FRAME_NAVY, borderRadius: "16px", boxShadow: SHADOW, padding: "4px" }}
+              >
+              <div
+                style={{ backgroundColor: CARD, borderRadius: "13px", boxShadow: "inset 0 1px 2px rgba(16,27,45,0.06)" }}
                 className="overflow-hidden"
               >
-                <div style={{ borderBottom: "1px solid #EEF2F7" }} className="px-6 py-4">
+                <div style={{ borderBottom: "1px solid rgba(16,27,45,0.1)" }} className="px-6 py-4">
                   <h2 style={{ color: TEXT_PRIMARY }} className="text-sm font-semibold">
                     {group.label}
                   </h2>
@@ -345,11 +374,16 @@ export default function CompliancePage() {
                           )}
                           {editable && !isComplete && (
                             <Button
-                              variant="secondary"
+                              variant="ghost"
                               size="sm"
                               disabled={completingId === event.id}
                               isLoading={completingId === event.id}
                               onClick={() => markEventComplete(event)}
+                              style={{
+                                border: `1.5px solid ${ACCENT_TEAL}`,
+                                backgroundColor: "rgba(46,107,102,0.08)",
+                                color: ACCENT_TEAL,
+                              }}
                             >
                               Mark Complete
                             </Button>
@@ -359,6 +393,7 @@ export default function CompliancePage() {
                     );
                   })}
                 </ul>
+              </div>
               </div>
             ))}
           </div>
@@ -371,7 +406,12 @@ export default function CompliancePage() {
             Other Tracked Requirements
           </h2>
           {editable && (
-            <Button variant="secondary" size="sm" onClick={() => setCreating(true)}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setCreating(true)}
+              style={{ border: `1px solid ${CARD_BORDER}`, backgroundColor: CARD, color: FRAME_NAVY }}
+            >
               <Plus className="h-4 w-4" aria-hidden />
               Add Requirement
             </Button>
@@ -391,30 +431,42 @@ export default function CompliancePage() {
         {loading ? (
           <LoadingSpinner center label="Loading compliance obligations..." />
         ) : showEmpty ? (
-          <div style={{ backgroundColor: CARD, borderRadius: "16px", boxShadow: SHADOW }} className="p-10">
-            <EmptyState
-              icon={ShieldCheck}
-              title="No compliance obligations"
-              description="Reporting deadlines, renewal compliance reports, document expirations, and manually tracked requirements will appear here."
-              action={
-                editable ? (
-                  <Button onClick={() => setCreating(true)}>
-                    <Plus className="h-4 w-4" aria-hidden />
-                    Add Requirement
-                  </Button>
-                ) : undefined
-              }
-            />
+          <div style={{ backgroundColor: FRAME_NAVY, borderRadius: "16px", boxShadow: SHADOW, padding: "4px" }}>
+            <div
+              style={{ backgroundColor: CARD, borderRadius: "13px", boxShadow: "inset 0 1px 2px rgba(16,27,45,0.06)" }}
+              className="p-10"
+            >
+              <EmptyState
+                icon={ShieldCheck}
+                title="No compliance obligations"
+                description="Reporting deadlines, renewal compliance reports, document expirations, and manually tracked requirements will appear here."
+                action={
+                  editable ? (
+                    <Button
+                      variant="ghost"
+                      onClick={() => setCreating(true)}
+                      style={{ border: "none", backgroundColor: ACCENT_TEAL, color: ON_FRAME_TEXT }}
+                    >
+                      <Plus className="h-4 w-4" aria-hidden />
+                      Add Requirement
+                    </Button>
+                  ) : undefined
+                }
+              />
+            </div>
           </div>
         ) : (
           <div className="space-y-5">
             {groupedRequirements.map((group) => (
               <div
                 key={group.key}
-                style={{ backgroundColor: CARD, borderRadius: "16px", boxShadow: SHADOW }}
+                style={{ backgroundColor: FRAME_NAVY, borderRadius: "16px", boxShadow: SHADOW, padding: "4px" }}
+              >
+              <div
+                style={{ backgroundColor: CARD, borderRadius: "13px", boxShadow: "inset 0 1px 2px rgba(16,27,45,0.06)" }}
                 className="overflow-hidden"
               >
-                <div style={{ borderBottom: "1px solid #EEF2F7" }} className="px-6 py-4">
+                <div style={{ borderBottom: "1px solid rgba(16,27,45,0.1)" }} className="px-6 py-4">
                   <h3 style={{ color: TEXT_PRIMARY }} className="text-sm font-semibold">
                     {group.label}
                   </h3>
@@ -469,11 +521,16 @@ export default function CompliancePage() {
                           )}
                           {canMarkSubmitted && (
                             <Button
-                              variant="secondary"
+                              variant="ghost"
                               size="sm"
                               disabled={submittingId === item.entity_id}
                               isLoading={submittingId === item.entity_id}
                               onClick={() => markSubmitted(item)}
+                              style={{
+                                border: `1.5px solid ${ACCENT_TEAL}`,
+                                backgroundColor: "rgba(46,107,102,0.08)",
+                                color: ACCENT_TEAL,
+                              }}
                             >
                               Mark Submitted
                             </Button>
@@ -483,6 +540,7 @@ export default function CompliancePage() {
                     );
                   })}
                 </ul>
+              </div>
               </div>
             ))}
           </div>
@@ -518,8 +576,9 @@ function ScoreBadge({ score }: { score: number }) {
   const bg = score >= 80 ? "#DCFCE7" : score >= 50 ? "#FEF3C7" : "#FEE2E2";
   const ring = score >= 80 ? "#BBF7D0" : score >= 50 ? "#FDE68A" : "#FECACA";
   return (
+    <div style={{ backgroundColor: FRAME_NAVY, borderRadius: "16px", boxShadow: SHADOW, padding: "4px" }}>
     <div
-      style={{ backgroundColor: CARD, borderRadius: "16px", boxShadow: SHADOW }}
+      style={{ backgroundColor: CARD, borderRadius: "13px", boxShadow: "inset 0 1px 2px rgba(16,27,45,0.06)" }}
       className="flex items-center gap-4 px-5 py-4"
     >
       <div
@@ -536,6 +595,7 @@ function ScoreBadge({ score }: { score: number }) {
           {score >= 80 ? "On Track" : score >= 50 ? "Needs Attention" : "At Risk"}
         </div>
       </div>
+    </div>
     </div>
   );
 }

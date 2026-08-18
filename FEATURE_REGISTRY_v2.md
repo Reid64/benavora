@@ -1,6 +1,6 @@
 # BENAVORA — Feature Registry v2.0
 ## Supersedes: Feature_Registry.md v1.0
-## Date: August 14, 2026 (last update — row #171 RAG integration unblocked (live path wired + migration 123 confirmed applied), row D7 backup script built+wired+partially verified, row #66 re-attempted with a new, different blocker found; see respective rows for evidence)
+## Date: August 17, 2026 (last update — row #52 UI Theme moved Built→Partial, v2 design system rollout now covers 23 routes (Draft Generator + Applications & Pipeline + Deadlines + Outreach & Communication + Admin/Platform); see 2026-08-17 addendum below and STATE_OF_THE_BUILD.md for the full per-page list)
 ## Status: CANONICAL — Updated after every FORGE run and CC session.
 ## Build tool: FORGE 1.x | Repo: Reid64/benavora | Production: www.benavora.com
 
@@ -243,7 +243,7 @@ auto-reply/respond capability a blanket "BUILT" would imply are both confirmed a
 | 49 | Onboarding Wizard | BUILT | 7-step guided setup. Progress saved per step. |
 | 50 | Audit Logs | BUILT | All user actions tracked. Searchable log viewer. |
 | 51 | User Invitations | BUILT | Invite by email with role assignment. Acceptance flow. |
-| 52 | UI Theme | BUILT | Elevated Slate design system. FlightPathHUD colored cards. |
+| 52 | UI Theme | PARTIAL | Superseded by the gold/bronze/navy/Soft Stone v2 design system (`PAGE_TREATMENT_PROTOCOL_V2.md`, `DESIGN_SYSTEM_V2_ASSIGNMENT.md`). As of 2026-08-17: Draft Generator (reference implementation) plus Applications, Deadlines, and 20 further routes across Applications & Pipeline, Outreach & Communication, and Admin/Platform (23 routes total) are on v2 — see `STATE_OF_THE_BUILD.md`'s 2026-08-17 session entries for the full per-page list. Research & Discovery, Intelligence & Reports, and most of Draft & Automation are still on the prior blue-based theme; full-site rollout is not complete. |
 
 ---
 
@@ -626,14 +626,21 @@ CSS variables and Tailwind classes will still silently lose to the compat layer 
 | Phase 1 MVP | 18 | 18 | 0 | 0 | 0 |
 | Tier 1-3 Enhancements | 21 | 21 | 0 | 0 | 0 |
 | Tier 4 Browser Automation | 7 | 7 | 0 | 0 | 0 |
-| Tier 5 SaaS Layer | 6 | 6 | 0 | 0 | 0 |
+| Tier 5 SaaS Layer | 6 | 5 | 1 | 0 | 0 |
 | Tier 6 Full Autonomous | 26 | 22 | 3 | 0 | 1 |
 | Platform Vision Pillars | 94 | 38 | 3 | 19 | 34 |
 | Data Pipeline | 7 | 4 | 2 | 0 | 1 |
 | Scraper (Directive 1) | 5 | 5 | 0 | 0 | 0 |
 | Universal Scraper (uscraper-001-007) | 7 | 3 | 4 | 0 | 0 |
 | Testing | 8 | 8 | 0 | 0 | 0 |
-| **TOTAL** | **199** | **132** | **12** | **19** | **36** |
+| **TOTAL** | **199** | **131** | **13** | **19** | **36** |
+
+**2026-08-17 addendum:** row #52 (UI Theme) moved Built→Partial — the v2 gold/bronze/navy/Soft
+Stone design system now covers Draft Generator, Applications, Deadlines, and 20 further routes (Applications & Pipeline, Outreach &
+Communication, Admin/Platform — see `STATE_OF_THE_BUILD.md`'s 2026-08-17 entries), but Research &
+Discovery, Intelligence & Reports, and most of Draft & Automation remain on the prior blue-based
+theme, so the site-wide rollout this row originally described is not yet complete. Tier 5 SaaS
+Layer: Built 6→5, Partial 0→1. TOTAL: Built 132→131, Partial 12→13.
 
 **2026-08-15 addendum:** row #99 (Signal Monitoring) moved Planned→Built this session — AG-43
 Funder Signal Monitor, news + 990 halves only (LinkedIn deliberately excluded, see its row and

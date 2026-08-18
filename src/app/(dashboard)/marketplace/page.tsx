@@ -16,6 +16,13 @@ import { Gift, Loader2, Plus } from "lucide-react";
 
 import { canEdit, useProfile } from "@/lib/hooks/useProfile";
 
+// Applications & Pipeline section treatment — PAGE_TREATMENT_PROTOCOL_V2.md.
+// Frame: Deep Navy. Secondary accent: Teal. The status tone maps below are
+// real meaning-carrying badges (listing/match lifecycle state), not touched.
+const FRAME_NAVY = "#101B2D";
+const ACCENT_TEAL = "#2E6B66";
+const CARD_BG = "#F8F5EE";
+
 const CATEGORY_LABELS: Record<string, string> = {
   corporate_donation: "Corporate Donation",
   corporate_sponsorship: "Corporate Sponsorship",
@@ -102,18 +109,23 @@ function formatDate(value: string | null): string {
   return new Date(value).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
+const frameStyle: React.CSSProperties = {
+  backgroundColor: FRAME_NAVY,
+  borderRadius: "16px",
+  boxShadow: "0 4px 20px rgba(16,27,45,0.22)",
+  padding: "4px",
+};
+
 const cardStyle: React.CSSProperties = {
-  backgroundColor: "#FFFFFF",
-  border: "1px solid #E2E8F0",
-  borderRadius: "14px",
-  boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+  backgroundColor: CARD_BG,
+  borderRadius: "13px",
   padding: "20px",
 };
 
 const sectionTitleStyle: React.CSSProperties = {
   fontSize: "16px",
   fontWeight: 700,
-  color: "#0F172A",
+  color: FRAME_NAVY,
   marginBottom: "12px",
 };
 
@@ -131,18 +143,18 @@ const badgeStyle = (bg: string, color: string): React.CSSProperties => ({
 
 const buttonStyle = (variant: "primary" | "secondary" | "danger" = "primary"): React.CSSProperties => {
   const tones = {
-    primary: { bg: "#0077B6", color: "#FFFFFF" },
-    secondary: { bg: "#F1F5F9", color: "#0F172A" },
-    danger: { bg: "#FEF2F2", color: "#B91C1C" },
+    primary: { bg: ACCENT_TEAL, color: CARD_BG, border: "none" },
+    secondary: { bg: "rgba(16,27,45,0.06)", color: FRAME_NAVY, border: "1px solid rgba(16,27,45,0.18)" },
+    danger: { bg: "#FEF2F2", color: "#B91C1C", border: "none" },
   }[variant];
   return {
     backgroundColor: tones.bg,
     color: tones.color,
+    border: tones.border,
     fontSize: "13px",
     fontWeight: 700,
     padding: "8px 16px",
     borderRadius: "8px",
-    border: "none",
     cursor: "pointer",
   };
 };
@@ -152,9 +164,9 @@ const inputStyle: React.CSSProperties = {
   fontSize: "14px",
   padding: "8px 12px",
   borderRadius: "8px",
-  border: "1px solid #E2E8F0",
-  color: "#0F172A",
-  backgroundColor: "#FFFFFF",
+  border: "1px solid rgba(16,27,45,0.18)",
+  color: FRAME_NAVY,
+  backgroundColor: CARD_BG,
 };
 
 export default function MarketplacePage() {
@@ -282,8 +294,8 @@ export default function MarketplacePage() {
     <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px" }}>
         <div>
-          <h1 style={{ fontSize: "24px", fontWeight: 800, color: "#0F172A", display: "flex", alignItems: "center", gap: "10px" }}>
-            <Gift size={22} color="#0077B6" aria-hidden />
+          <h1 style={{ fontSize: "24px", fontWeight: 800, color: FRAME_NAVY, display: "flex", alignItems: "center", gap: "10px" }}>
+            <Gift size={22} color={ACCENT_TEAL} aria-hidden />
             Donation Marketplace
           </h1>
           <p style={{ fontSize: "13px", color: "#64748B", marginTop: "4px" }}>
@@ -316,6 +328,7 @@ export default function MarketplacePage() {
       )}
 
       {showForm && (
+        <div style={frameStyle}>
         <div style={cardStyle}>
           <div style={sectionTitleStyle}>Post a Donation</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "12px" }}>
@@ -396,6 +409,7 @@ export default function MarketplacePage() {
             </button>
           </div>
         </div>
+        </div>
       )}
 
       {loading ? (
@@ -404,6 +418,7 @@ export default function MarketplacePage() {
         <>
           {/* Incoming requests on your own listings */}
           {incomingOnMyListings.length > 0 && (
+            <div style={frameStyle}>
             <div style={cardStyle}>
               <div style={sectionTitleStyle}>Requests on Your Listings</div>
               <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
@@ -450,9 +465,11 @@ export default function MarketplacePage() {
                 })}
               </div>
             </div>
+            </div>
           )}
 
           {/* Matched to you */}
+          <div style={frameStyle}>
           <div style={cardStyle}>
             <div style={sectionTitleStyle}>Matched to Your Organization</div>
             {matchedToMe.length === 0 ? (
@@ -503,8 +520,10 @@ export default function MarketplacePage() {
               </div>
             )}
           </div>
+          </div>
 
           {/* Your own listings */}
+          <div style={frameStyle}>
           <div style={cardStyle}>
             <div style={sectionTitleStyle}>Your Listings</div>
             {ownListings.length === 0 ? (
@@ -522,7 +541,7 @@ export default function MarketplacePage() {
                         borderRadius: "12px",
                         border: "1px solid #E2E8F0",
                         padding: "14px",
-                        backgroundColor: "#F8FAFC",
+                        backgroundColor: "rgba(16,27,45,0.04)",
                       }}
                     >
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", gap: "8px" }}>
@@ -550,6 +569,7 @@ export default function MarketplacePage() {
                 })}
               </div>
             )}
+          </div>
           </div>
         </>
       )}

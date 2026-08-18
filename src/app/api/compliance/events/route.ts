@@ -35,7 +35,7 @@ export async function GET() {
   const { data, error } = await supabase
     .from("compliance_events")
     .select(
-      "id, organization_id, application_id, event_type, title, due_date, recurrence, completed_at, notes, created_at, applications(opportunities(title))",
+      "id, organization_id, application_id, event_type, title, due_date, recurrence, completed_at, notes, created_at, applications(opportunities(name))",
     )
     .eq("organization_id", organizationId)
     .order("due_date", { ascending: true });
@@ -55,7 +55,7 @@ export async function GET() {
     completed_at: string | null;
     notes: string | null;
     created_at: string;
-    applications: { opportunities: { title: string } | null } | null;
+    applications: { opportunities: { name: string } | null } | null;
   };
 
   const events: ComplianceEvent[] = ((data ?? []) as unknown as Row[]).map((row) => ({
@@ -69,7 +69,7 @@ export async function GET() {
     completed_at: row.completed_at,
     notes: row.notes,
     created_at: row.created_at,
-    application_title: row.applications?.opportunities?.title ?? null,
+    application_title: row.applications?.opportunities?.name ?? null,
   }));
 
   return NextResponse.json({ data: events });

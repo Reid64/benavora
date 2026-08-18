@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import {
   Activity,
   AlertTriangle,
@@ -26,6 +26,23 @@ import {
 
 import { Badge, Button, Card, EmptyState, LoadingSpinner } from "@/components/ui";
 import { useProfile } from "@/lib/hooks/useProfile";
+
+// Admin/Platform section treatment — PAGE_TREATMENT_PROTOCOL_V2.md. Frame:
+// Deep Navy. Secondary accent: Rich Gold. Applied as an outer frame around
+// the shared Card component (Card's own bg-white can't take an inline-style
+// override). Real worker Online/Offline and queue-depth indicators below are
+// left untouched.
+const FRAME_NAVY = "#101B2D";
+const ACCENT_GOLD = "#B88A2E";
+const CARD_BG = "#F8F5EE";
+
+function Framed({ children }: { children: ReactNode }) {
+  return (
+    <div style={{ backgroundColor: FRAME_NAVY, borderRadius: "15px", boxShadow: "0 4px 20px rgba(16,27,45,0.22)", padding: "3px" }}>
+      {children}
+    </div>
+  );
+}
 
 const C = {
   teal: "#2dd4bf",
@@ -244,6 +261,7 @@ export default function AutoApplyOpsPage() {
 
   if (!canView) {
     return (
+      <Framed>
       <Card>
         <EmptyState
           icon={ShieldAlert}
@@ -251,11 +269,13 @@ export default function AutoApplyOpsPage() {
           description="Only owners and admins can view the AutoApply Ops dashboard."
         />
       </Card>
+      </Framed>
     );
   }
 
   if (loadError || !data) {
     return (
+      <Framed>
       <Card>
         <EmptyState
           icon={ShieldAlert}
@@ -263,6 +283,7 @@ export default function AutoApplyOpsPage() {
           description={loadError ?? "Unknown error."}
         />
       </Card>
+      </Framed>
     );
   }
 
@@ -275,14 +296,18 @@ export default function AutoApplyOpsPage() {
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-primary">
+          <h1 className="text-2xl font-bold tracking-tight" style={{ color: FRAME_NAVY }}>
             AutoApply Ops
           </h1>
           <p className="mt-1 text-sm text-navy-500">
             Platform-wide operational health, submission metrics, and cost tracking.
           </p>
         </div>
-        <Button variant="secondary" onClick={() => void load()}>
+        <Button
+          variant="ghost"
+          onClick={() => void load()}
+          style={{ border: `1.5px solid ${ACCENT_GOLD}`, backgroundColor: "rgba(184,138,46,0.1)", color: "#8A6A22" }}
+        >
           Refresh
         </Button>
       </div>
@@ -292,6 +317,7 @@ export default function AutoApplyOpsPage() {
         {/* Worker — the one long-running "job" this dashboard tracks live, so it
             gets the running/failed job-status treatment: a pulsing indicator
             while online, a failed-red card once the heartbeat goes stale. */}
+        <Framed>
         <Card title="Worker" description="Railway AutoApply worker">
           <div
             className={
@@ -328,8 +354,10 @@ export default function AutoApplyOpsPage() {
             </div>
           </div>
         </Card>
+        </Framed>
 
         {/* Queue depth */}
+        <Framed>
         <Card title="Queue Depth" description="Pending items across all tenants">
           <div className="flex items-center gap-3">
             <CircleDot className="h-8 w-8 text-blue-400" aria-hidden />
@@ -341,9 +369,11 @@ export default function AutoApplyOpsPage() {
             </div>
           </div>
         </Card>
+        </Framed>
 
         {/* Platform state — running reads as a completed-style green card,
             paused reads as the same failed-style red card as the Worker. */}
+        <Framed>
         <Card title="Platform" description="Global queue control state">
           <div
             className={
@@ -379,9 +409,11 @@ export default function AutoApplyOpsPage() {
             )}
           </div>
         </Card>
+        </Framed>
       </div>
 
       {/* Section 2: Submission Metrics */}
+      <Framed>
       <Card
         title="Submission Metrics"
         description="Success rates, hourly volume, and failure breakdown"
@@ -491,8 +523,10 @@ export default function AutoApplyOpsPage() {
           )}
         </div>
       </Card>
+      </Framed>
 
       {/* Section 3: Cost Tracking */}
+      <Framed>
       <Card title="Cost Tracking" description="Today's spend across all tenants">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="rounded-lg border border-border bg-white-raised px-5 py-4">
@@ -534,8 +568,10 @@ export default function AutoApplyOpsPage() {
           </div>
         </div>
       </Card>
+      </Framed>
 
       {/* Section 4: Portal Health */}
+      <Framed>
       <Card title="Portal Health" description="Block rates and anti-automation portals detected">
         <div className="space-y-6">
           <div>
@@ -566,7 +602,7 @@ export default function AutoApplyOpsPage() {
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-navy-100 bg-white">
+                  <tbody className="divide-y divide-navy-100 bg-[#F8F5EE]">
                     {portalHealth.blockRates.map((r) => (
                       <tr key={r.domain} className="hover:bg-navy-50">
                         <td className="max-w-xs truncate px-4 py-2.5 font-medium text-navy-900">
@@ -624,8 +660,10 @@ export default function AutoApplyOpsPage() {
           )}
         </div>
       </Card>
+      </Framed>
 
       {/* Section 5: Tenant Activity */}
+      <Framed>
       <Card
         title="Tenant Activity"
         description="Submission volume across organizations today"
@@ -691,8 +729,10 @@ export default function AutoApplyOpsPage() {
           )}
         </div>
       </Card>
+      </Framed>
 
       {/* Section 6: Alert Rules */}
+      <Framed>
       <Card
         title="Alert Rules"
         description="Active monitoring thresholds — configured in alerting.ts"
@@ -719,6 +759,7 @@ export default function AutoApplyOpsPage() {
           ))}
         </div>
       </Card>
+      </Framed>
     </div>
   );
 }

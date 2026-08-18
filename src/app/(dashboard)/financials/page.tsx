@@ -59,17 +59,20 @@ interface ReconciliationRow {
   hasBudget: boolean;
 }
 
-const CANVAS = "#D6E4F0";
-const CARD = "#FFFFFF";
-const TEXT_PRIMARY = "#0F172A";
+// Applications & Pipeline section treatment — PAGE_TREATMENT_PROTOCOL_V2.md.
+// Frame: Deep Navy. Secondary accent: Teal. Real semantic status colors
+// (GREEN/AMBER/RED below) are never touched by this system.
+const CARD = "#F8F5EE";
+const TEXT_PRIMARY = "#101B2D";
 const TEXT_SECONDARY = "#64748B";
 const TEXT_MUTED = "#94A3B8";
-const NAVY = "#1A2B3C";
-const ACCENT = "#0077B6";
+const NAVY = "#101B2D";
+const ACCENT = "#2E6B66";
+const SLATE_BLUE = "#4F6D8F";
 const GREEN = "#15803D";
 const AMBER = "#B45309";
 const RED = "#B91C1C";
-const SHADOW = "0 4px 20px rgba(0,0,0,0.08)";
+const SHADOW = "0 4px 20px rgba(16,27,45,0.22)";
 
 export default function FinancialsPage() {
   const [outcomes, setOutcomes] = useState<Outcome[]>([]);
@@ -267,7 +270,7 @@ export default function FinancialsPage() {
 
   if (loading) {
     return (
-      <div style={{ backgroundColor: CANVAS, minHeight: "100vh" }} className="p-6">
+      <div style={{ minHeight: "100vh" }} className="p-6">
         <LoadingSpinner center label="Loading financials..." />
       </div>
     );
@@ -275,7 +278,7 @@ export default function FinancialsPage() {
 
   if (error) {
     return (
-      <div style={{ backgroundColor: CANVAS, minHeight: "100vh" }} className="space-y-6 p-6">
+      <div style={{ minHeight: "100vh" }} className="space-y-6 p-6">
         <div
           role="alert"
           style={{ border: "1px solid #FECACA", backgroundColor: "#FEF2F2", color: RED }}
@@ -295,19 +298,22 @@ export default function FinancialsPage() {
   const totalReceivable = receivables.reduce((s, r) => s + (r.awardedAmount ?? 0), 0);
 
   return (
-    <div style={{ backgroundColor: CANVAS, minHeight: "100vh" }} className="space-y-6 p-6">
+    <div style={{ minHeight: "100vh" }} className="space-y-6 p-6">
       <PageHeader
+        accent={NAVY}
         title="Financials"
         description="Funding overview: requested vs awarded, outstanding receivables, and renewal risks."
       />
 
       {isEmpty ? (
-        <div style={{ backgroundColor: CARD, borderRadius: "16px", boxShadow: SHADOW }} className="p-10">
+        <div style={{ backgroundColor: NAVY, borderRadius: "16px", boxShadow: SHADOW, padding: "4px" }}>
+        <div style={{ backgroundColor: CARD, borderRadius: "13px" }} className="p-10">
           <EmptyState
             icon={DollarSign}
             title="No financial data yet"
             description="Record outcomes for submitted applications to see funding summaries, receivables, and renewal risk."
           />
+        </div>
         </div>
       ) : (
         <>
@@ -315,7 +321,7 @@ export default function FinancialsPage() {
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             <StatCard label="Total Requested" value={formatCurrency(summaryStats.totalRequested)} band={ACCENT} />
             <StatCard label="Total Awarded" value={formatCurrency(summaryStats.totalAwarded)} band={GREEN} />
-            <StatCard label="Award Rate" value={`${summaryStats.awardRate}%`} band="#6B48CC" />
+            <StatCard label="Award Rate" value={`${summaryStats.awardRate}%`} band={SLATE_BLUE} />
             <StatCard
               label="Renewal at Risk"
               value={formatCurrency(summaryStats.renewalAtRisk)}
@@ -324,7 +330,8 @@ export default function FinancialsPage() {
           </div>
 
           {/* Section 1: Requested vs Awarded by Category */}
-          <div style={{ backgroundColor: CARD, borderRadius: "16px", boxShadow: SHADOW }} className="overflow-hidden">
+          <div style={{ backgroundColor: NAVY, borderRadius: "16px", boxShadow: SHADOW, padding: "4px" }}>
+          <div style={{ backgroundColor: CARD, borderRadius: "13px" }} className="overflow-hidden">
             <div style={{ borderBottom: "1px solid #EEF2F7" }} className="px-6 py-5">
               <h3 style={{ color: TEXT_PRIMARY }} className="text-base font-semibold">
                 Requested vs Awarded by Category
@@ -395,9 +402,11 @@ export default function FinancialsPage() {
               </div>
             )}
           </div>
+          </div>
 
           {/* Section 2: Outstanding Receivables — awards timeline */}
-          <div style={{ backgroundColor: CARD, borderRadius: "16px", boxShadow: SHADOW }} className="overflow-hidden">
+          <div style={{ backgroundColor: NAVY, borderRadius: "16px", boxShadow: SHADOW, padding: "4px" }}>
+          <div style={{ backgroundColor: CARD, borderRadius: "13px" }} className="overflow-hidden">
             <div style={{ borderBottom: "1px solid #EEF2F7" }} className="px-6 py-5">
               <h3 style={{ color: TEXT_PRIMARY }} className="text-base font-semibold">
                 Outstanding Receivables
@@ -423,7 +432,7 @@ export default function FinancialsPage() {
                   {receivables.map((r) => (
                     <div key={r.outcomeId} className="relative mb-5 flex items-start gap-4 pl-0 last:mb-0">
                       <span
-                        style={{ backgroundColor: GREEN, boxShadow: "0 0 0 3px #FFFFFF" }}
+                        style={{ backgroundColor: GREEN, boxShadow: `0 0 0 3px ${CARD}` }}
                         className="relative z-10 mt-1 h-2.5 w-2.5 shrink-0 rounded-full"
                         aria-hidden
                       />
@@ -446,9 +455,11 @@ export default function FinancialsPage() {
               </div>
             )}
           </div>
+          </div>
 
           {/* Section 3: Active Grant Budget vs Actual */}
-          <div style={{ backgroundColor: CARD, borderRadius: "16px", boxShadow: SHADOW }} className="overflow-hidden">
+          <div style={{ backgroundColor: NAVY, borderRadius: "16px", boxShadow: SHADOW, padding: "4px" }}>
+          <div style={{ backgroundColor: CARD, borderRadius: "13px" }} className="overflow-hidden">
             <div style={{ borderBottom: "1px solid #EEF2F7" }} className="px-6 py-5">
               <h3 style={{ color: TEXT_PRIMARY }} className="text-base font-semibold">
                 Active Grant Budget vs Actual
@@ -515,9 +526,11 @@ export default function FinancialsPage() {
               </ul>
             )}
           </div>
+          </div>
 
           {/* Section 3b: Grant Budget Reconciliation — budget breakdown */}
-          <div style={{ backgroundColor: CARD, borderRadius: "16px", boxShadow: SHADOW }} className="overflow-hidden">
+          <div style={{ backgroundColor: NAVY, borderRadius: "16px", boxShadow: SHADOW, padding: "4px" }}>
+          <div style={{ backgroundColor: CARD, borderRadius: "13px" }} className="overflow-hidden">
             <div style={{ borderBottom: "1px solid #EEF2F7" }} className="px-6 py-5">
               <h3 style={{ color: TEXT_PRIMARY }} className="text-base font-semibold">
                 Grant Budget Reconciliation
@@ -598,9 +611,11 @@ export default function FinancialsPage() {
               </ul>
             )}
           </div>
+          </div>
 
           {/* Section 4: Renewal Revenue at Risk */}
-          <div style={{ backgroundColor: CARD, borderRadius: "16px", boxShadow: SHADOW }} className="overflow-hidden">
+          <div style={{ backgroundColor: NAVY, borderRadius: "16px", boxShadow: SHADOW, padding: "4px" }}>
+          <div style={{ backgroundColor: CARD, borderRadius: "13px" }} className="overflow-hidden">
             <div style={{ borderBottom: "1px solid #EEF2F7" }} className="px-6 py-5">
               <h3 style={{ color: TEXT_PRIMARY }} className="text-base font-semibold">
                 Renewal Revenue at Risk
@@ -650,6 +665,7 @@ export default function FinancialsPage() {
               </ul>
             )}
           </div>
+          </div>
         </>
       )}
     </div>
@@ -666,16 +682,16 @@ function StatCard({
   band: string;
 }) {
   return (
-    <div
-      style={{ backgroundColor: CARD, borderRadius: "16px", boxShadow: SHADOW, overflow: "hidden" }}
-    >
-      <div style={{ backgroundColor: band, height: "6px" }} />
-      <div className="p-5">
-        <div style={{ color: TEXT_MUTED }} className="text-xs font-bold uppercase tracking-wide">
-          {label}
-        </div>
-        <div style={{ color: TEXT_PRIMARY }} className="mt-2 text-4xl font-black">
-          {value}
+    <div style={{ backgroundColor: NAVY, borderRadius: "16px", boxShadow: SHADOW, padding: "4px" }}>
+      <div style={{ backgroundColor: CARD, borderRadius: "13px", overflow: "hidden" }}>
+        <div style={{ backgroundColor: band, height: "6px" }} />
+        <div className="p-5">
+          <div style={{ color: TEXT_MUTED }} className="text-xs font-bold uppercase tracking-wide">
+            {label}
+          </div>
+          <div style={{ color: TEXT_PRIMARY }} className="mt-2 text-4xl font-black">
+            {value}
+          </div>
         </div>
       </div>
     </div>

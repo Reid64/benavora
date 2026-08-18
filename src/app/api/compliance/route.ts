@@ -49,7 +49,7 @@ export async function GET() {
       supabase
         .from("renewals")
         .select(
-          "id, application_id, opportunity_id, reporting_deadline, compliance_status, opportunities(title)",
+          "id, application_id, opportunity_id, reporting_deadline, compliance_status, opportunities(name)",
         )
         .not("reporting_deadline", "is", null)
         .order("reporting_deadline", { ascending: true }),
@@ -87,12 +87,12 @@ export async function GET() {
     opportunity_id: string;
     reporting_deadline: string | null;
     compliance_status: string;
-    opportunities: { title: string } | null;
+    opportunities: { name: string } | null;
   };
 
   for (const r of (renewalsResult.data ?? []) as unknown as RenewalRow[]) {
     if (!r.reporting_deadline) continue;
-    const grantName = r.opportunities?.title ?? "Grant";
+    const grantName = r.opportunities?.name ?? "Grant";
     items.push({
       id: `renewal-${r.id}-report`,
       type: "renewal_reporting",

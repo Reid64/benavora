@@ -1,6 +1,115 @@
 # STATE_OF_THE_BUILD.md
 ## BENAVORA — Current Build Status
-**Updated: August 15, 2026 (landing page audit + globals.css !important root-cause investigation/partial-fix + shadcn/ui + Storybook tooling setup, gates clean, scoped commit). Not FORGE-auto-generated — hand-verified.**
+**Updated: August 17, 2026 (v2 design system rollout — Applications & Pipeline / Outreach & Communication / Admin/Platform sections, 20 routes, 2 real data-loading bugs fixed, gates clean, scoped commit). Not FORGE-auto-generated — hand-verified.**
+
+## SESSION — August 17, 2026 (v2 gold/bronze/navy/Soft Stone rollout: Applications & Pipeline, Outreach & Communication, Admin/Platform — 19 pages)
+
+**Focus:** continue the v2 design system rollout (`PAGE_TREATMENT_PROTOCOL_V2.md`,
+`DESIGN_SYSTEM_V2_ASSIGNMENT.md`) from where the prior same-day session left off — Draft Generator
+(reference implementation) and Applications/Deadlines (commit `70feb4f`) were already done. This
+session applied the treatment to the remaining 20 routes (19 numbered work items — one item covered
+both `/outreach` and `/outreach/templates`) across three full sections: Applications & Pipeline
+(Deep Navy `#101B2D` frame / Teal `#2E6B66` accent), Outreach & Communication (Rust `#A3492F` frame
+/ Bronze `#A4712C` accent), and Admin/Platform (Deep Navy frame / Rich Gold `#B88A2E` accent).
+
+**Pages done, by section:**
+- **Applications & Pipeline (5 routes):** `/compliance`, `/documents`, `/outcomes`, `/financials`,
+  `/marketplace`.
+- **Outreach & Communication (5 routes):** `/email`, `/email/campaigns`, `/email/templates`,
+  `/outreach`, `/outreach/templates`.
+- **Admin/Platform (10 routes):** `/command-center`, `/admin/orgs`, `/admin/system`, `/import`,
+  `/admin/sales-outreach`, `/admin/autoapply-ops`, `/admin/monitor`, `/admin/improvements`,
+  `/admin/audit-log`, `/settings`.
+
+**Two real, previously-undocumented data-loading bugs found and fixed before styling either page**
+(both confirmed via live `psql`/PostgREST against the real Faith Foundation org, not assumed):
+1. `/compliance` — `/api/compliance/route.ts` and `/api/compliance/events/route.ts` both embedded
+   `opportunities(title)` in a PostgREST select; `opportunities` has no `title` column, only `name`
+   (schema drift, same class of bug as the 2026-08-15 notifications/eligibility-scoring fixes). Both
+   routes 500'd — the events panel and the renewal-report line item both silently failed. Fixed to
+   `opportunities(name)` in both files; re-verified with a real magic-link Playwright session — real
+   document-expiration rows now render, zero console errors.
+2. `/financials` — `grant_budgets` and `grant_expenses` (migration `084_grant_financials.sql`) and
+   `grant_reconciliation_reports` (migration `089_financial_reconciliation.sql`) existed as migration
+   files but were never applied to the live database — the same "migration file exists, table
+   doesn't" class of bug documented repeatedly elsewhere in this doc and in
+   `MIGRATION_AUDIT.md`. `/api/financials/budgets` and the page's direct Supabase reads both 404'd
+   (`PGRST205`). Applied both migrations live via direct `DATABASE_URL` DDL (idempotent, `IF NOT
+   EXISTS` throughout); re-verified — real (currently empty, legitimately — no budgets recorded yet)
+   data loads with zero errors.
+
+**Real technique discovered and documented for future sessions:** the shared `Button` component's
+`variant="secondary"` (and the shared `Card`/`Table` components' default backgrounds) render via a
+Tailwind class (`bg-white`) that `globals.css`'s `!important` compat layer forces to a fixed value
+(`var(--color-surface)`, ≈`#F7F5F1`) — this beats a same-element inline `style` override, since
+author-stylesheet `!important` always wins over inline `style` in the CSS cascade regardless of
+specificity. Any button needing a real custom fill color must use `variant="ghost"` instead (no
+`bg-white`/`bg-[#0077B6]` class baggage), then set the fill via inline `style`. Confirmed live via
+`getComputedStyle` — `variant="secondary"` + inline style silently renders the wrong color even
+though the JSX looks correct. On `/admin/sales-outreach` and `/admin/audit-log`, the shared `Card`
+component's own `bg-white` has the same problem with no `style`-prop escape hatch, so both pages'
+`<Card>` usages were replaced with a small page-local `FramedCard` component implementing the
+mandated navy-frame/ivory-card layering directly — Card's own title/description/actions API wasn't
+in use on either page, so this was a drop-in swap, not a rewrite. The shared `Table` component has
+the same issue for its own container/tbody backgrounds — worked around per-usage via its existing
+`containerClassName`/`tbodyClassName` override props (`/outreach`'s `OutreachContactTable`,
+`/admin/sales-outreach`, `/admin/audit-log`).
+
+**Safety-sensitive elements — confirmed still distinct after treatment, per protocol:**
+- `/admin/orgs` Impersonate — recolored from a plain dark navy fill to a dedicated warning-amber
+  fill (`#C2410C`), now visually distinct from both the navy frame and the gold accent (it was only
+  "dark, same as everything else" before this session, not actually distinct — a real fix, not just
+  preservation).
+- `/admin/system` Clear Stuck Jobs — already solid red (`#DC2626`) before this session; left
+  untouched.
+- `/settings` Danger Zone — already a red-bordered, red-tinted callout distinct from the rest of the
+  page; left untouched. Verified live by clicking into the tab in a real Playwright session.
+
+**Real indicators/badges confirmed preserved (screenshotted, not just source-read):** `/documents`'s
+red "Expired" badges; `/email/templates`'s `{variable}` chip styling; `/command-center`'s live
+"Live"/"Connecting…"/"Offline" indicator and per-metric top-bar colors; `/admin/system` and
+`/admin/monitor`'s Healthy/Stale and Active/Completed/Failed status colors; `/admin/autoapply-ops`'s
+Online/Offline worker box and Running/Paused platform state; `/admin/audit-log`'s per-action-type
+`Badge` colors.
+
+**Also fixed while in the relevant files (small, in-scope):** a genuine WCAG contrast bug on
+`/command-center`'s `LiveClock` (`rgba(255,255,255,0.6)` text on the page's own light background,
+inherited from before this page had a light background — component is used only on this one page,
+confirmed by grep) — changed to a dark navy-based rgba. Several instances of Rich Gold `#B88A2E`
+being used as small text color on the ivory card background were caught and corrected to Deep Navy
+before shipping — computed the actual WCAG contrast ratio (~2.9:1, fails even the 3:1 large-text/UI
+threshold) rather than eyeballing it; gold is used only as a fill-with-dark-text or a
+border/outline color throughout this session's pages, never as small text-on-light.
+
+**Verification method, every page:** real magic-link Playwright login as `info@faithfoundationsf.org`
+(admin-generated link + PKCE-compatible cookie exchange, not `page.goto()` on the raw link — see
+`benavora-smoke-test-two-live-schema-bugs-fixed-2026-08-15` memory for why), full-page + viewport
+screenshots before and after, an automated white/near-white value scan of every element inside
+`<main>` (source grep before, computed-style scan after), and a targeted `getComputedStyle` check on
+the header title and at least one representative button/frame per page. Real console-error and
+failed-network-request checks on every page — several pages needed a longer wait (dev-server
+cold-compile + slow first API call, 6–12s observed on `/admin/sales-outreach` and
+`/admin/autoapply-ops`) before the real data finished loading; initial 3.5s-wait screenshots that
+caught a mid-load spinner were re-captured, not reported as final.
+
+**Known, accepted residuals (not violations, not fixed, documented rather than silently
+carried):** the shared `EmptyState` component's decorative icon-circle background
+(`bg-slate-50/50`/`bg-slate-100`) and shared form `Input`/`Select` elements' background all resolve
+through the same `globals.css` compat layer to the established off-white surface token
+(`#F7F5F1`) — visually indistinguishable from the sanctioned Warm Ivory `#F8F5EE` but not an exact
+hex match, so this doc calls it out explicitly rather than letting a strict-match audit script
+silently pass it. Neither is page-specific code; fixing either means editing the shared component,
+out of scope for a page-styling pass with the blast radius that implies (`EmptyState` and
+`Input`/`Select` are used across dozens of unrelated, out-of-scope pages). Modal-internal content
+(form Cancel buttons, `/admin/sales-outreach`'s campaign-creation wizard's own `Card` usages,
+`/email/campaigns`'s and `/outreach/templates`'s creation-modal forms) was left at the shared
+components' default treatment throughout — modals are transient dialogs, not the persistent page
+surface the protocol's layering mandate is about, and the same policy was applied consistently
+across every page in this session.
+
+**Gates:** all node processes killed, `.next` deleted, fresh `pnpm tsc --noEmit` — 0 errors. Fresh
+`pnpm run build` — clean, full route manifest printed, "Compiled successfully," no errors.
+
 
 ## SESSION — August 15, 2026 (landing page audit; CSS override root-cause fix; design tooling setup)
 

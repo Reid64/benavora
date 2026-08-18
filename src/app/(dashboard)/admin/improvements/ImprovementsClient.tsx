@@ -7,7 +7,14 @@
 // agent_performance_metrics (migration 087_continuous_improvement.sql) —
 // both platform-wide tables, not org-scoped. Every color on this page is an
 // inline hex value per BLUEPRINT_v2.md §7.5 — no CSS variables, no Tailwind
-// color classes. Canvas per this task's spec: #D6E4F0.
+// color classes.
+//
+// Admin/Platform section treatment — PAGE_TREATMENT_PROTOCOL_V2.md. Frame:
+// Deep Navy. Secondary accent: Rich Gold. Real semantic colors (risk level,
+// success rate, Approve/Reject) are never touched by this system.
+const FRAME_NAVY = "#101B2D";
+const ACCENT_GOLD = "#B88A2E";
+const CARD_BG = "#F8F5EE";
 
 import { useCallback, useEffect, useState } from "react";
 import type { CSSProperties } from "react";
@@ -83,11 +90,17 @@ function pct(value: number | null, digits = 0): string {
   return value === null ? "—" : `${(value * 100).toFixed(digits)}%`;
 }
 
-const statCardStyle = (accent: string): CSSProperties => ({
-  backgroundColor: "#FFFFFF",
+const statFrameStyle: CSSProperties = {
+  backgroundColor: FRAME_NAVY,
   borderRadius: "16px",
+  boxShadow: "0 4px 20px rgba(16,27,45,0.22)",
+  padding: "3px",
+};
+
+const statCardStyle = (accent: string): CSSProperties => ({
+  backgroundColor: CARD_BG,
+  borderRadius: "13px",
   padding: "20px 24px",
-  boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
   borderTop: `8px solid ${accent}`,
 });
 
@@ -109,9 +122,11 @@ const statValueStyle: CSSProperties = {
 
 function StatCard({ label, value, accent }: { label: string; value: number; accent: string }) {
   return (
-    <div style={statCardStyle(accent)}>
-      <p style={statLabelStyle}>{label}</p>
-      <p style={statValueStyle}>{value}</p>
+    <div style={statFrameStyle}>
+      <div style={statCardStyle(accent)}>
+        <p style={statLabelStyle}>{label}</p>
+        <p style={statValueStyle}>{value}</p>
+      </div>
     </div>
   );
 }
@@ -195,7 +210,7 @@ export default function ImprovementsClient() {
     return (
       <div
         style={{
-          backgroundColor: "#D6E4F0",
+          backgroundColor: undefined,
           minHeight: "100vh",
           display: "flex",
           alignItems: "center",
@@ -213,14 +228,14 @@ export default function ImprovementsClient() {
 
   if (!canView) {
     return (
-      <div style={{ backgroundColor: "#D6E4F0", minHeight: "100vh", padding: "32px" }}>
+      <div style={{ minHeight: "100vh", padding: "32px" }}>
+        <div style={statFrameStyle}>
         <div
           style={{
-            backgroundColor: "#FFFFFF",
-            borderRadius: "14px",
+            backgroundColor: CARD_BG,
+            borderRadius: "13px",
             padding: "56px 24px",
             textAlign: "center",
-            boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
           }}
         >
           <ShieldAlert size={32} color="#94A3B8" style={{ margin: "0 auto 12px" }} />
@@ -231,19 +246,20 @@ export default function ImprovementsClient() {
             Only owners and admins can review platform improvement proposals.
           </p>
         </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div style={{ backgroundColor: "#D6E4F0", minHeight: "100vh", padding: "32px" }}>
+    <div style={{ minHeight: "100vh", padding: "32px" }}>
       {/* Header */}
       <div style={{ marginBottom: "28px" }}>
         <h1
           style={{
             fontSize: "28px",
             fontWeight: 800,
-            color: "#0F172A",
+            color: FRAME_NAVY,
             letterSpacing: "-0.02em",
             margin: 0,
           }}
@@ -281,22 +297,23 @@ export default function ImprovementsClient() {
           marginBottom: "24px",
         }}
       >
-        <StatCard label="Total Proposed" value={stats?.totalProposed ?? 0} accent="#0077B6" />
+        <StatCard label="Total Proposed" value={stats?.totalProposed ?? 0} accent={FRAME_NAVY} />
         <StatCard label="Awaiting Review" value={stats?.awaitingReview ?? 0} accent="#F59E0B" />
         <StatCard label="Approved This Month" value={stats?.approvedThisMonth ?? 0} accent="#10B981" />
-        <StatCard label="Implemented" value={stats?.implemented ?? 0} accent="#6B48CC" />
+        <StatCard label="Implemented" value={stats?.implemented ?? 0} accent={ACCENT_GOLD} />
       </div>
 
       {/* Agent Performance */}
       <div
         style={{
-          backgroundColor: "#FFFFFF",
+          backgroundColor: FRAME_NAVY,
           borderRadius: "16px",
-          padding: "24px",
           marginBottom: "24px",
-          boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
+          boxShadow: "0 4px 20px rgba(16,27,45,0.22)",
+          padding: "3px",
         }}
       >
+      <div style={{ backgroundColor: CARD_BG, borderRadius: "13px", padding: "24px" }}>
         <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#1A2B3C", margin: "0 0 4px" }}>
           Agent Performance
         </h2>
@@ -392,6 +409,7 @@ export default function ImprovementsClient() {
           </div>
         )}
       </div>
+      </div>
 
       {/* Status filter */}
       <div style={{ display: "flex", gap: "8px", marginBottom: "16px", flexWrap: "wrap" }}>
@@ -407,9 +425,9 @@ export default function ImprovementsClient() {
                 fontWeight: 700,
                 padding: "7px 14px",
                 borderRadius: "999px",
-                border: active ? "1px solid #0077B6" : "1px solid #B8C9D9",
-                backgroundColor: active ? "#0077B6" : "#FFFFFF",
-                color: active ? "#FFFFFF" : "#334155",
+                border: active ? `1px solid ${FRAME_NAVY}` : "1px solid #B8C9D9",
+                backgroundColor: active ? FRAME_NAVY : CARD_BG,
+                color: active ? CARD_BG : "#334155",
                 cursor: "pointer",
               }}
             >
@@ -421,13 +439,13 @@ export default function ImprovementsClient() {
 
       {/* Proposals list */}
       {proposals.length === 0 ? (
+        <div style={statFrameStyle}>
         <div
           style={{
-            backgroundColor: "#FFFFFF",
-            borderRadius: "14px",
+            backgroundColor: CARD_BG,
+            borderRadius: "13px",
             padding: "56px 24px",
             textAlign: "center",
-            boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
           }}
         >
           <Sparkles size={32} color="#94A3B8" style={{ margin: "0 auto 12px" }} />
@@ -437,6 +455,7 @@ export default function ImprovementsClient() {
           <p style={{ fontSize: "13px", color: "#64748B", marginTop: "8px" }}>
             AG-38 runs nightly and proposes improvements backed by evidence from agent_runs.
           </p>
+        </div>
         </div>
       ) : (
         proposals.map((proposal) => (
@@ -468,12 +487,19 @@ function ProposalCard({
   return (
     <div
       style={{
-        backgroundColor: "#FFFFFF",
+        backgroundColor: FRAME_NAVY,
+        borderRadius: "15px",
+        marginBottom: "12px",
+        boxShadow: "0 4px 20px rgba(16,27,45,0.22)",
+        padding: "3px",
+      }}
+    >
+    <div
+      style={{
+        backgroundColor: CARD_BG,
         borderRadius: "12px",
         borderLeft: `6px solid ${riskColor}`,
         padding: "24px",
-        marginBottom: "12px",
-        boxShadow: "0 4px 20px rgba(0,0,0,0.12)",
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap", marginBottom: "12px" }}>
@@ -481,8 +507,8 @@ function ProposalCard({
           style={{
             fontSize: "11px",
             fontWeight: 700,
-            color: "#FFFFFF",
-            backgroundColor: "#0077B6",
+            color: FRAME_NAVY,
+            backgroundColor: ACCENT_GOLD,
             borderRadius: "999px",
             padding: "3px 12px",
             textTransform: "uppercase",
@@ -606,6 +632,7 @@ function ProposalCard({
           {proposal.reviewed_at ? ` · reviewed ${formatDate(proposal.reviewed_at)}` : ""}
         </p>
       )}
+    </div>
     </div>
   );
 }

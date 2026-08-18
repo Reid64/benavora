@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { FolderOpen } from "lucide-react";
 
-import { Card, EmptyState } from "@/components/ui";
+import { EmptyState } from "@/components/ui";
 import { PageHeader } from "@/components/layout/PageHeader";
 import {
   DocumentList,
@@ -13,6 +13,13 @@ import { DocumentUploader } from "@/components/documents/DocumentUploader";
 import { createClient } from "@/lib/supabase/client";
 import { canEdit, useProfile } from "@/lib/hooks/useProfile";
 import type { Tables } from "@/types/database";
+
+// Applications & Pipeline section treatment — PAGE_TREATMENT_PROTOCOL_V2.md.
+// Frame: Deep Navy. Secondary accent: Teal.
+const FRAME_NAVY = "#101B2D";
+const ACCENT_TEAL = "#2E6B66";
+const CARD_BG = "#F8F5EE";
+const SHADOW = "0 4px 20px rgba(16,27,45,0.22)";
 
 /**
  * Document repository (BLUEPRINT §4.6, Behavioral Contracts §7). Reads are
@@ -95,11 +102,9 @@ export default function DocumentsPage() {
   const showEmpty = !loading && !error && documents.length === 0;
 
   return (
-    <div
-      className="min-h-screen space-y-6 bg-[#EEF2F7] p-6 page-bg"
-      style={{ backgroundColor: "#E4E9F0" }}
-    >
+    <div className="min-h-screen space-y-6 p-6">
       <PageHeader
+        accent={FRAME_NAVY}
         title="Documents"
         description="Upload, categorize, and attach supporting files to applications."
       />
@@ -114,13 +119,19 @@ export default function DocumentsPage() {
       )}
 
       {editable && profile && (
-        <Card>
-          <DocumentUploader
-            organizationId={profile.organization_id}
-            uploadedBy={profile.id}
-            onUploaded={load}
-          />
-        </Card>
+        <div style={{ backgroundColor: FRAME_NAVY, borderRadius: "14px", boxShadow: SHADOW, padding: "4px" }}>
+          <div
+            style={{ backgroundColor: CARD_BG, borderRadius: "11px", boxShadow: "inset 0 1px 2px rgba(16,27,45,0.06)" }}
+            className="p-5"
+          >
+            <DocumentUploader
+              organizationId={profile.organization_id}
+              uploadedBy={profile.id}
+              onUploaded={load}
+              accentColor={ACCENT_TEAL}
+            />
+          </div>
+        </div>
       )}
 
       {showEmpty ? (

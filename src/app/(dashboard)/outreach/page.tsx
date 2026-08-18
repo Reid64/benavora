@@ -10,6 +10,12 @@ import { createClient } from "@/lib/supabase/client";
 import { canEdit, useProfile } from "@/lib/hooks/useProfile";
 import type { Tables } from "@/types/database";
 
+// Outreach & Communication section treatment — PAGE_TREATMENT_PROTOCOL_V2.md.
+// Frame: Rust. Secondary accent: Bronze.
+const FRAME_RUST = "#A3492F";
+const ACCENT_BRONZE = "#A4712C";
+const CARD_BG = "#F8F5EE";
+
 /**
  * Cold outreach contact list (BLUEPRINT §4.11). Lists companies extracted by
  * the Cold Outreach Agent with status and giving-likelihood, supports
@@ -54,7 +60,7 @@ export default function OutreachPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-primary">
+          <h1 className="text-2xl font-bold tracking-tight" style={{ color: FRAME_RUST }}>
             Outreach
           </h1>
           <p className="mt-1 text-sm text-navy-500">
@@ -64,13 +70,24 @@ export default function OutreachPage() {
         </div>
         <div className="flex items-center gap-2">
           <Link href="/email/campaigns">
-            <Button variant="secondary">
+            <Button
+              variant="ghost"
+              style={{
+                border: `1.5px solid ${ACCENT_BRONZE}`,
+                backgroundColor: "rgba(164,113,44,0.08)",
+                color: ACCENT_BRONZE,
+              }}
+            >
               <Send className="h-4 w-4" aria-hidden />
               Campaigns
             </Button>
           </Link>
           {editable && (
-            <Button onClick={() => setScanning(true)}>
+            <Button
+              variant="ghost"
+              onClick={() => setScanning(true)}
+              style={{ backgroundColor: FRAME_RUST, color: CARD_BG, border: "none" }}
+            >
               <Radar className="h-4 w-4" aria-hidden />
               Scan company
             </Button>
@@ -94,7 +111,11 @@ export default function OutreachPage() {
           description="Scan a company without a giving page to extract emails, contact forms, and key personnel."
           action={
             editable ? (
-              <Button onClick={() => setScanning(true)}>
+              <Button
+                variant="ghost"
+                onClick={() => setScanning(true)}
+                style={{ backgroundColor: FRAME_RUST, color: CARD_BG, border: "none" }}
+              >
                 <Radar className="h-4 w-4" aria-hidden />
                 Scan company
               </Button>

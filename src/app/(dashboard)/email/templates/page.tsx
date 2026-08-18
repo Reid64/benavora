@@ -28,6 +28,14 @@ import { canEdit, useProfile } from "@/lib/hooks/useProfile";
 import { formatRelative } from "@/lib/utils/formatters";
 import type { Tables } from "@/types/database";
 
+// Outreach & Communication section treatment — PAGE_TREATMENT_PROTOCOL_V2.md.
+// Frame: Rust. Secondary accent: Bronze. Template-variable chip styling
+// (the `<code>` pills) is preserved as-is, only its literal-white background
+// swapped for the section's ivory token.
+const FRAME_RUST = "#A3492F";
+const ACCENT_BRONZE = "#A4712C";
+const CARD_BG = "#F8F5EE";
+
 type Template = Tables<"email_templates">;
 
 const TEMPLATE_VARIABLES = [
@@ -121,7 +129,7 @@ export default function EmailTemplatesPage() {
 
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-primary">
+          <h1 className="text-2xl font-bold tracking-tight" style={{ color: FRAME_RUST }}>
             Email Templates
           </h1>
           <p className="mt-1 text-sm text-navy-500">
@@ -129,7 +137,11 @@ export default function EmailTemplatesPage() {
           </p>
         </div>
         {editable && (
-          <Button onClick={() => setCreating(true)}>
+          <Button
+            variant="ghost"
+            onClick={() => setCreating(true)}
+            style={{ backgroundColor: FRAME_RUST, color: CARD_BG, border: "none" }}
+          >
             <Plus className="h-4 w-4" aria-hidden />
             New Template
           </Button>
@@ -154,7 +166,8 @@ export default function EmailTemplatesPage() {
           {TEMPLATE_VARIABLES.map((v) => (
             <code
               key={v}
-              className="rounded bg-white px-2 py-0.5 text-xs text-navy-700 ring-1 ring-navy-200"
+              className="rounded px-2 py-0.5 text-xs text-navy-700 ring-1 ring-navy-200"
+              style={{ backgroundColor: CARD_BG }}
             >
               {v}
             </code>
@@ -173,7 +186,11 @@ export default function EmailTemplatesPage() {
           description="Create reusable email templates to use in campaign steps."
           action={
             editable ? (
-              <Button onClick={() => setCreating(true)}>
+              <Button
+                variant="ghost"
+                onClick={() => setCreating(true)}
+                style={{ backgroundColor: FRAME_RUST, color: CARD_BG, border: "none" }}
+              >
                 <Plus className="h-4 w-4" aria-hidden />
                 New Template
               </Button>
@@ -185,7 +202,11 @@ export default function EmailTemplatesPage() {
           {templates.map((t) => {
             const vars = Array.isArray(t.variables) ? t.variables : [];
             return (
-              <Card key={t.id}>
+              <div
+                key={t.id}
+                style={{ backgroundColor: FRAME_RUST, borderRadius: "14px", boxShadow: "0 4px 20px rgba(163,73,47,0.22)", padding: "3px" }}
+              >
+              <div className="rounded-[11px] p-5" style={{ backgroundColor: CARD_BG }}>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
@@ -263,7 +284,10 @@ export default function EmailTemplatesPage() {
 
                 {/* Inline preview */}
                 {previewId === t.id && (
-                  <div className="mt-3 rounded-lg border border-border bg-white shadow-sm px-4 py-3">
+                  <div
+                    className="mt-3 rounded-lg px-4 py-3"
+                    style={{ backgroundColor: "rgba(163,73,47,0.05)", boxShadow: "inset 0 0 0 1px rgba(163,73,47,0.2)" }}
+                  >
                     <p className="text-[11px] font-medium uppercase tracking-wide text-navy-400">
                       Preview (sample data)
                     </p>
@@ -275,7 +299,8 @@ export default function EmailTemplatesPage() {
                     </p>
                   </div>
                 )}
-              </Card>
+              </div>
+              </div>
             );
           })}
         </div>

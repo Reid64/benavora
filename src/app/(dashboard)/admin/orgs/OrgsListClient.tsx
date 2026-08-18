@@ -6,6 +6,16 @@ import Link from "next/link";
 
 import { formatDate, humanizeEnum } from "@/lib/utils/formatters";
 
+// Admin/Platform section treatment — PAGE_TREATMENT_PROTOCOL_V2.md. Frame:
+// Deep Navy. Secondary accent: Rich Gold (used only as a fill with dark text
+// or as a border/outline — its contrast as small text on ivory is too low).
+// Impersonate is safety-sensitive and stays a distinct warning amber, never
+// blended into the section's navy/gold treatment.
+const FRAME_NAVY = "#101B2D";
+const ACCENT_GOLD = "#B88A2E";
+const CARD_BG = "#F8F5EE";
+const IMPERSONATE_WARNING = "#C2410C";
+
 export type OrgListRow = {
   id: string;
   name: string;
@@ -16,11 +26,17 @@ export type OrgListRow = {
   agentRunsLast7d: number;
 };
 
-const cardStyle = {
-  backgroundColor: "#FFFFFF",
+const frameStyle = {
+  backgroundColor: FRAME_NAVY,
   borderRadius: "16px",
+  boxShadow: "0 4px 20px rgba(16,27,45,0.22)",
+  padding: "3px",
+} as const;
+
+const cardStyle = {
+  backgroundColor: CARD_BG,
+  borderRadius: "13px",
   overflow: "hidden",
-  boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
 } as const;
 
 const thStyle = {
@@ -46,7 +62,7 @@ const filterSelectStyle = {
   fontSize: "13px",
   fontWeight: 600,
   color: "#0F172A",
-  backgroundColor: "#FFFFFF",
+  backgroundColor: CARD_BG,
   border: "1px solid #CBD5E1",
   borderRadius: "8px",
 };
@@ -139,6 +155,7 @@ export function OrgsListClient({ organizations }: { organizations: OrgListRow[] 
   }
 
   return (
+    <div style={frameStyle}>
     <div style={cardStyle}>
       <div
         style={{
@@ -162,6 +179,7 @@ export function OrgsListClient({ organizations }: { organizations: OrgListRow[] 
             border: "1px solid #CBD5E1",
             borderRadius: "8px",
             color: "#0F172A",
+            backgroundColor: CARD_BG,
           }}
         />
         <select
@@ -242,7 +260,7 @@ export function OrgsListClient({ organizations }: { organizations: OrgListRow[] 
                   <td style={tdStyle}>
                     <Link
                       href={`/admin/orgs/${org.id}`}
-                      style={{ color: "#0077B6", fontWeight: 600, textDecoration: "none" }}
+                      style={{ color: FRAME_NAVY, fontWeight: 600, textDecoration: "none" }}
                     >
                       {org.name}
                     </Link>
@@ -271,8 +289,8 @@ export function OrgsListClient({ organizations }: { organizations: OrgListRow[] 
                         fontWeight: 700,
                         color: "#FFFFFF",
                         backgroundColor:
-                          impersonatingId === org.id ? "#93C5FD" : "#1A2B3C",
-                        border: "none",
+                          impersonatingId === org.id ? "#FDBA74" : IMPERSONATE_WARNING,
+                        border: `1.5px solid ${IMPERSONATE_WARNING}`,
                         borderRadius: "8px",
                         cursor: impersonatingId === org.id ? "not-allowed" : "pointer",
                       }}
@@ -286,6 +304,7 @@ export function OrgsListClient({ organizations }: { organizations: OrgListRow[] 
           </tbody>
         </table>
       </div>
+    </div>
     </div>
   );
 }

@@ -50,11 +50,15 @@ type OrgUser = Pick<
   "id" | "email" | "full_name" | "role" | "last_login_at"
 >;
 
-const CANVAS = "#D6E4F0";
-const CARD = "#FFFFFF";
-const ACCENT = "#0077B6";
+// Admin/Platform section treatment — PAGE_TREATMENT_PROTOCOL_V2.md. Frame:
+// Deep Navy. Secondary accent: Rich Gold. Danger Zone's own red styling
+// (nav highlight + DangerZoneSection) is never touched by this system.
+const FRAME_NAVY = "#101B2D";
+const ACCENT_GOLD = "#B88A2E";
+const CARD = "#F8F5EE";
+const ACCENT = FRAME_NAVY;
 const TOGGLE_BLUE = "#0EA5E9";
-const BORDER = "#DCE6ED";
+const BORDER = "rgba(16,27,45,0.15)";
 const TEXT_PRIMARY = "#0F172A";
 const TEXT_SECONDARY = "#64748B";
 const TEXT_MUTED = "#94A3B8";
@@ -104,32 +108,37 @@ export default function SettingsPage() {
   const [active, setActive] = useState<SectionId>("organization");
 
   return (
-    <div style={{ backgroundColor: CANVAS, minHeight: "100vh" }} className="p-6">
+    <div style={{ minHeight: "100vh" }} className="p-6">
       <PageHeader
+        accent={FRAME_NAVY}
         title="Settings"
         description="Manage your organization, team, and platform configuration."
       />
 
       {profileLoading ? (
+        <div style={{ backgroundColor: FRAME_NAVY, borderRadius: "16px", boxShadow: "0 4px 20px rgba(16,27,45,0.22)", padding: "3px" }}>
         <div
-          style={{ backgroundColor: CARD, borderRadius: "16px", boxShadow: "0 4px 20px rgba(0,0,0,0.08)" }}
+          style={{ backgroundColor: CARD, borderRadius: "13px" }}
           className="p-10"
         >
           <LoadingSpinner center label="Loading settings..." />
+        </div>
         </div>
       ) : (
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
           {/* Sidebar nav */}
           <div
             style={{
-              backgroundColor: CARD,
+              backgroundColor: FRAME_NAVY,
               borderRadius: "16px",
-              boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
+              boxShadow: "0 4px 20px rgba(16,27,45,0.22)",
               width: "220px",
               flexShrink: 0,
+              padding: "3px",
             }}
             className="w-full overflow-hidden lg:w-[220px]"
           >
+          <div style={{ backgroundColor: CARD, borderRadius: "13px" }} className="overflow-hidden">
             <nav className="p-2">
               {navItems.map((item) => {
                 const Icon = item.icon;
@@ -162,16 +171,19 @@ export default function SettingsPage() {
               })}
             </nav>
           </div>
+          </div>
 
           {/* Content pane */}
           <div
             style={{
-              backgroundColor: CARD,
+              backgroundColor: FRAME_NAVY,
               borderRadius: "16px",
-              boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
+              boxShadow: "0 4px 20px rgba(16,27,45,0.22)",
+              padding: "3px",
             }}
             className="min-w-0 flex-1 overflow-hidden"
           >
+          <div style={{ backgroundColor: CARD, borderRadius: "13px" }} className="overflow-hidden">
             {active === "organization" && <OrganizationSection canManage={manage} />}
             {active === "team" && (
               <TeamSection
@@ -183,6 +195,7 @@ export default function SettingsPage() {
             {active === "usage" && <UsageDashboardSection />}
             {active === "flags" && <FeatureFlagsSection />}
             {active === "danger" && isOwner && <DangerZoneSection />}
+          </div>
           </div>
         </div>
       )}
@@ -213,7 +226,7 @@ function SettingsSection({
   return (
     <div>
       <div
-        style={{ backgroundColor: "#F8FAFC", borderBottom: `1px solid ${BORDER}` }}
+        style={{ backgroundColor: "rgba(16,27,45,0.04)", borderBottom: `1px solid ${BORDER}` }}
         className="px-6 py-4 flex items-center gap-3"
       >
         <div
@@ -629,7 +642,7 @@ function TeamSection({
                           e.target.value as UserRole,
                         )
                       }
-                      style={{ border: `1px solid #CBD5E1`, backgroundColor: "#FFFFFF", color: TEXT_PRIMARY }}
+                      style={{ border: `1px solid #CBD5E1`, backgroundColor: CARD, color: TEXT_PRIMARY }}
                       className="rounded-lg py-1.5 pl-2.5 pr-7 text-sm shadow-sm transition focus:outline-none"
                     >
                       {/* Always include the member's current role so it shows
@@ -767,7 +780,7 @@ function PendingInvites({
   if (invites.length === 0) return null;
 
   return (
-    <div style={{ border: "1px solid #E2E8F0", backgroundColor: "#F8FAFC" }} className="rounded-lg p-4">
+    <div style={{ border: "1px solid #E2E8F0", backgroundColor: "rgba(16,27,45,0.04)" }} className="rounded-lg p-4">
       <div className="flex items-center gap-2">
         <Clock className="h-4 w-4" style={{ color: TEXT_SECONDARY }} aria-hidden />
         <h4 style={{ color: TEXT_PRIMARY }} className="text-sm font-semibold">

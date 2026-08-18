@@ -20,6 +20,8 @@ export type DocumentUploaderProps = {
   uploadedBy: string;
   /** Called after a successful upload so the parent can refresh the list. */
   onUploaded: () => void;
+  /** Upload button fill — defaults to the app-wide primary blue. */
+  accentColor?: string;
 };
 
 const CATEGORY_OPTIONS = DOCUMENT_CATEGORIES.map((value) => ({
@@ -48,6 +50,7 @@ export function DocumentUploader({
   organizationId,
   uploadedBy,
   onUploaded,
+  accentColor = "#0077B6",
 }: DocumentUploaderProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -301,7 +304,8 @@ export function DocumentUploader({
           type="button"
           onClick={() => void handleUpload()}
           disabled={uploading || !file}
-          className="inline-flex items-center gap-2 rounded-lg bg-[#0077B6] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#005F92] disabled:cursor-not-allowed disabled:opacity-60"
+          style={{ backgroundColor: accentColor }}
+          className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60"
         >
           {uploading ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />

@@ -30,17 +30,20 @@ interface ImportResult {
   errors: string[];
 }
 
+// Admin/Platform section treatment — PAGE_TREATMENT_PROTOCOL_V2.md. Frame:
+// Deep Navy. Secondary accent: Rich Gold (borders/chips only — its contrast
+// as small text or white-on-fill text is too low, so `primary` stays navy).
 const COLORS = {
-  canvas: "#EEF2F7",
-  card: "#FFFFFF",
+  card: "#F8F5EE",
   border: "#E2E8F0",
   borderStrong: "#CBD5E1",
-  sunken: "#F8FAFC",
+  sunken: "rgba(16,27,45,0.04)",
   text: "#0F172A",
   textMuted: "#475569",
   textSubtle: "#94A3B8",
-  primary: "#0077B6",
-  primaryHover: "#005F92",
+  primary: "#101B2D",
+  primaryHover: "#1B2C47",
+  accentGold: "#B88A2E",
   successBg: "#DCFCE7",
   successText: "#15803D",
   errorBg: "#FEE2E2",
@@ -116,14 +119,13 @@ function Card({ children }: { children: React.ReactNode }) {
   return (
     <div
       style={{
-        background: COLORS.card,
-        borderRadius: 12,
-        border: `1px solid ${COLORS.border}`,
-        boxShadow: "0 1px 2px rgba(15, 23, 42, 0.04)",
-        padding: 24,
+        background: COLORS.primary,
+        borderRadius: 15,
+        boxShadow: "0 4px 20px rgba(16,27,45,0.22)",
+        padding: 3,
       }}
     >
-      {children}
+      <div style={{ background: COLORS.card, borderRadius: 12, padding: 24 }}>{children}</div>
     </div>
   );
 }
@@ -302,7 +304,7 @@ export default function ImportPage() {
   }, []);
 
   return (
-    <div style={{ minHeight: "100vh", background: COLORS.canvas, padding: 24 }}>
+    <div style={{ minHeight: "100vh", padding: 24 }}>
       <div style={{ maxWidth: 880, margin: "0 auto" }}>
         <div style={{ marginBottom: 24 }}>
           <Link

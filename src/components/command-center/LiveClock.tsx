@@ -18,7 +18,7 @@ export function LiveClock() {
   }, []);
 
   return (
-    <span style={{ fontSize: "13px", color: "rgba(255,255,255,0.6)" }}>
+    <span style={{ fontSize: "13px", color: "rgba(16,27,45,0.6)" }}>
       {now ? format(now, "EEEE, MMMM d, yyyy · h:mm:ss a") : " "}
     </span>
   );

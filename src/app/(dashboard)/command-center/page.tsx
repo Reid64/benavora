@@ -44,7 +44,7 @@ export default async function CommandCenterPage() {
   const snapshot = await getCommandCenterSnapshot();
 
   return (
-    <div style={{ backgroundColor: "#D6E4F0", minHeight: "100vh", padding: "32px" }}>
+    <div style={{ minHeight: "100vh", padding: "32px" }}>
       {/* Header */}
       <div
         style={{
@@ -58,7 +58,7 @@ export default async function CommandCenterPage() {
           style={{
             fontSize: "28px",
             fontWeight: 800,
-            color: "#1A2B3C",
+            color: "#101B2D",
             letterSpacing: "-0.02em",
             margin: 0,
           }}
@@ -73,14 +73,14 @@ export default async function CommandCenterPage() {
       {/* Admin Quick Actions */}
       <div
         style={{
-          backgroundColor: "#0077B6",
+          backgroundColor: "#B88A2E",
           borderRadius: "16px",
           padding: "24px",
           marginTop: "20px",
-          boxShadow: "0 4px 16px rgba(0,119,182,0.3)",
+          boxShadow: "0 4px 16px rgba(184,138,46,0.3)",
         }}
       >
-        <h3 style={{ fontSize: "14px", fontWeight: 700, color: "#FFFFFF", marginBottom: "16px" }}>
+        <h3 style={{ fontSize: "14px", fontWeight: 700, color: "#101B2D", marginBottom: "16px" }}>
           Admin Quick Actions
         </h3>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px" }}>
@@ -91,10 +91,10 @@ export default async function CommandCenterPage() {
               style={{
                 display: "block",
                 padding: "12px 16px",
-                backgroundColor: "rgba(255,255,255,0.15)",
-                border: "1px solid rgba(255,255,255,0.2)",
+                backgroundColor: "rgba(16,27,45,0.15)",
+                border: "1px solid rgba(16,27,45,0.25)",
                 borderRadius: "8px",
-                color: "#FFFFFF",
+                color: "#101B2D",
                 fontSize: "13px",
                 fontWeight: 600,
                 textAlign: "center",

@@ -18,6 +18,13 @@ import {
 import { Badge, Button, EmptyState, LoadingSpinner, Textarea } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 
+// Outreach & Communication section treatment — PAGE_TREATMENT_PROTOCOL_V2.md.
+// Frame: Rust. Secondary accent: Bronze.
+const FRAME_RUST = "#A3492F";
+const ACCENT_BRONZE = "#A4712C";
+const CARD_BG = "#F8F5EE";
+const CARD_SHADOW = "0 4px 20px rgba(163,73,47,0.22)";
+
 type ThreadLink = {
   thread_id: string;
   funder_id: string | null;
@@ -197,9 +204,9 @@ export default function EmailPage() {
   return (
     <div className="flex h-full flex-col">
       <div className="mb-4 flex items-center gap-3">
-        <Mail className="h-6 w-6 text-teal-400" aria-hidden />
+        <Mail className="h-6 w-6" style={{ color: FRAME_RUST }} aria-hidden />
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-primary">
+          <h1 className="text-2xl font-bold tracking-tight" style={{ color: FRAME_RUST }}>
             Email Hub
           </h1>
           <p className="text-sm text-navy-500">
@@ -253,10 +260,13 @@ export default function EmailPage() {
                   key={tab.value}
                   type="button"
                   onClick={() => setFilter(tab.value)}
-                  className={`rounded-md px-3 py-1 text-xs font-medium transition ${
+                  style={
                     filter === tab.value
-                      ? "bg-teal-50 text-teal-700 ring-1 ring-teal-200"
-                      : "text-navy-500 hover:text-navy-700"
+                      ? { backgroundColor: "rgba(163,73,47,0.1)", color: FRAME_RUST, boxShadow: `inset 0 0 0 1px rgba(163,73,47,0.35)` }
+                      : undefined
+                  }
+                  className={`rounded-md px-3 py-1 text-xs font-medium transition ${
+                    filter === tab.value ? "" : "text-navy-500 hover:text-navy-700"
                   }`}
                 >
                   {tab.label}
@@ -265,7 +275,8 @@ export default function EmailPage() {
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto rounded-lg border border-border bg-white shadow-sm">
+          <div style={{ backgroundColor: FRAME_RUST, borderRadius: "14px", boxShadow: CARD_SHADOW, padding: "3px" }} className="flex-1 overflow-hidden flex flex-col">
+          <div className="flex-1 overflow-y-auto rounded-[11px]" style={{ backgroundColor: CARD_BG }}>
             {loading ? (
               <div className="flex items-center justify-center py-12">
                 <LoadingSpinner />
@@ -283,11 +294,12 @@ export default function EmailPage() {
                     <button
                       type="button"
                       onClick={() => selectThread(thread.id)}
-                      className={`w-full px-4 py-3 text-left transition hover:bg-navy-50 ${
+                      style={
                         selectedThreadId === thread.id
-                          ? "bg-teal-50 ring-inset ring-1 ring-teal-200"
-                          : ""
-                      }`}
+                          ? { backgroundColor: "rgba(163,73,47,0.08)", boxShadow: "inset 0 0 0 1px rgba(163,73,47,0.3)" }
+                          : undefined
+                      }
+                      className="w-full px-4 py-3 text-left transition hover:bg-navy-50"
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
@@ -346,6 +358,7 @@ export default function EmailPage() {
               </ul>
             )}
           </div>
+          </div>
         </aside>
 
         {/* Center column: Thread detail */}
@@ -355,15 +368,24 @@ export default function EmailPage() {
           }`}
         >
           {!selectedThread ? (
-            <div className="flex flex-1 items-center justify-center rounded-lg border border-border bg-white shadow-sm">
-              <EmptyState
-                icon={Mail}
-                title="Select a thread"
-                description="Choose a thread from the list to view its messages."
-              />
+            <div
+              style={{ backgroundColor: FRAME_RUST, borderRadius: "14px", boxShadow: CARD_SHADOW, padding: "3px" }}
+              className="flex flex-1"
+            >
+              <div className="flex flex-1 items-center justify-center rounded-[11px]" style={{ backgroundColor: CARD_BG }}>
+                <EmptyState
+                  icon={Mail}
+                  title="Select a thread"
+                  description="Choose a thread from the list to view its messages."
+                />
+              </div>
             </div>
           ) : (
-            <div className="flex flex-1 flex-col overflow-hidden rounded-lg border border-border bg-white shadow-sm">
+            <div
+              style={{ backgroundColor: FRAME_RUST, borderRadius: "14px", boxShadow: CARD_SHADOW, padding: "3px" }}
+              className="flex flex-1 overflow-hidden"
+            >
+            <div className="flex flex-1 flex-col overflow-hidden rounded-[11px]" style={{ backgroundColor: CARD_BG }}>
               {/* Thread header */}
               <div className="border-b border-navy-100 px-5 py-4">
                 <div className="flex items-start justify-between gap-3">
@@ -381,7 +403,12 @@ export default function EmailPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <Button
-                      variant="secondary"
+                      variant="ghost"
+                      style={{
+                        border: `1.5px solid ${ACCENT_BRONZE}`,
+                        backgroundColor: "rgba(164,113,44,0.08)",
+                        color: ACCENT_BRONZE,
+                      }}
                       onClick={() => {
                         if (showSummary) {
                           setShowSummary(false);
@@ -507,15 +534,18 @@ export default function EmailPage() {
                 />
                 <div className="flex justify-end">
                   <Button
+                    variant="ghost"
                     onClick={() => void handleSendReply()}
                     disabled={!replyText.trim() || sending}
                     isLoading={sending}
+                    style={{ backgroundColor: FRAME_RUST, color: CARD_BG, border: "none" }}
                   >
                     <Send className="h-4 w-4" aria-hidden />
                     Send
                   </Button>
                 </div>
               </div>
+            </div>
             </div>
           )}
         </div>
@@ -540,7 +570,8 @@ export default function EmailPage() {
             {selectedThread ? (
               <>
                 {/* Linked entity */}
-                <div className="rounded-lg border border-border bg-white shadow-sm p-4">
+                <div style={{ backgroundColor: FRAME_RUST, borderRadius: "12px", padding: "3px" }}>
+                <div className="rounded-[10px] p-4" style={{ backgroundColor: CARD_BG }}>
                   <div className="mb-3 flex items-center justify-between">
                     <h3 className="text-sm font-semibold text-navy-700">Linked Entity</h3>
                     <button
@@ -572,9 +603,11 @@ export default function EmailPage() {
                     <p className="text-sm text-navy-400">No entity linked to this thread.</p>
                   )}
                 </div>
+                </div>
 
                 {/* Thread timeline */}
-                <div className="rounded-lg border border-border bg-white shadow-sm p-4">
+                <div style={{ backgroundColor: FRAME_RUST, borderRadius: "12px", padding: "3px" }}>
+                <div className="rounded-[10px] p-4" style={{ backgroundColor: CARD_BG }}>
                   <h3 className="mb-3 text-sm font-semibold text-navy-700">Timeline</h3>
                   {messages.length === 0 ? (
                     <p className="text-xs text-navy-400">Select a thread to see its timeline.</p>
@@ -596,12 +629,15 @@ export default function EmailPage() {
                     </ol>
                   )}
                 </div>
+                </div>
               </>
             ) : (
-              <div className="rounded-lg border border-border bg-white shadow-sm p-4">
+              <div style={{ backgroundColor: FRAME_RUST, borderRadius: "12px", padding: "3px" }}>
+              <div className="rounded-[10px] p-4" style={{ backgroundColor: CARD_BG }}>
                 <p className="text-sm text-navy-400">
                   Select a thread to view linked entities and timeline.
                 </p>
+              </div>
               </div>
             )}
           </div>

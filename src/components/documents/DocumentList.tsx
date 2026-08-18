@@ -18,6 +18,13 @@ import { DOCUMENT_CATEGORIES } from "@/lib/utils/constants";
 import { formatDate, humanizeEnum } from "@/lib/utils/formatters";
 import type { Tables, TablesInsert } from "@/types/database";
 
+// Applications & Pipeline section treatment — PAGE_TREATMENT_PROTOCOL_V2.md.
+// This component is only used by /documents, so it's safe to apply the
+// section's Navy frame / Teal accent directly.
+const FRAME_NAVY = "#101B2D";
+const ACCENT_TEAL = "#2E6B66";
+const CARD_BG = "#F8F5EE";
+
 export type ApplicationOption = {
   id: string;
   label: string;
@@ -85,7 +92,7 @@ const FILE_ICON: Record<FileKind, { icon: typeof FileText; wrapperClass: string 
   pdf: { icon: FileText, wrapperClass: "bg-[#FEE2E2] text-[#DC2626]" },
   docx: { icon: FileText, wrapperClass: "bg-[#DBEAFE] text-[#2563EB]" },
   xlsx: { icon: FileSpreadsheet, wrapperClass: "bg-[#DCFCE7] text-[#16A34A]" },
-  other: { icon: File, wrapperClass: "bg-slate-100 text-slate-500" },
+  other: { icon: File, wrapperClass: "bg-[rgba(16,27,45,0.08)] text-[#101B2D]" },
 };
 
 /** Color-coded file-type icon wrapper (Elevated Slate design system): PDF red, DOCX blue, XLSX green. */
@@ -252,8 +259,16 @@ export function DocumentList({
           ))}
         </div>
       ) : sorted.length === 0 ? (
-        <div className="rounded-xl border border-border bg-white shadow-sm p-10 text-center text-sm text-slate-500">
-          No documents match your filters.
+        <div
+          style={{ backgroundColor: FRAME_NAVY, borderRadius: "14px", padding: "4px" }}
+          className="shadow-sm"
+        >
+          <div
+            style={{ backgroundColor: CARD_BG, borderRadius: "11px" }}
+            className="p-10 text-center text-sm text-slate-500"
+          >
+            No documents match your filters.
+          </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -262,7 +277,16 @@ export function DocumentList({
             return (
               <div
                 key={doc.id}
-                className="bg-white rounded-xl shadow-sm border border-border p-4 hover:border-[#00B4D8] transition-colors card-depth"
+                style={{
+                  backgroundColor: FRAME_NAVY,
+                  borderRadius: "14px",
+                  padding: "4px",
+                  boxShadow: "0 4px 20px rgba(16,27,45,0.22)",
+                }}
+              >
+              <div
+                style={{ backgroundColor: CARD_BG, borderRadius: "11px" }}
+                className="p-4"
               >
                 <div className="flex items-start gap-3">
                   <FileTypeIcon fileName={doc.file_name} mimeType={doc.mime_type} />
@@ -317,21 +341,27 @@ export function DocumentList({
 
                 <div className="mt-4 flex items-center gap-2">
                   <Button
-                    variant="secondary"
+                    variant="ghost"
                     size="sm"
                     isLoading={downloadingId === doc.id}
                     onClick={() => handleDownload(doc)}
+                    style={{
+                      border: `1.5px solid ${ACCENT_TEAL}`,
+                      backgroundColor: "rgba(46,107,102,0.08)",
+                      color: ACCENT_TEAL,
+                    }}
                   >
                     <Download className="h-4 w-4" aria-hidden />
                     Download
                   </Button>
                   {editable && applications.length > 0 && (
-                    <Button variant="ghost" size="sm" onClick={() => openLinkModal(doc)}>
+                    <Button variant="ghost" size="sm" onClick={() => openLinkModal(doc)} style={{ color: FRAME_NAVY }}>
                       <Link2 className="h-4 w-4" aria-hidden />
                       Link
                     </Button>
                   )}
                 </div>
+              </div>
               </div>
             );
           })}

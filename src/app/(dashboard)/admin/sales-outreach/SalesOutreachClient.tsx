@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -16,7 +16,6 @@ import {
 import {
   Badge,
   Button,
-  Card,
   EmptyState,
   Input,
   LoadingSpinner,
@@ -105,6 +104,27 @@ type AnalyticsData = {
 // Helpers
 // ---------------------------------------------------------------------------
 
+// Admin/Platform section treatment — PAGE_TREATMENT_PROTOCOL_V2.md. Frame:
+// Deep Navy. Secondary accent: Rich Gold. Replaces the shared Card component
+// on this page (Card's own "bg-white" is compat-layer-forced and can't take
+// an inline-style override) with the mandated navy-frame/ivory-card layering.
+const FRAME_NAVY = "#101B2D";
+const ACCENT_GOLD = "#B88A2E";
+const CARD_BG = "#F8F5EE";
+
+function FramedCard({ className, children }: { className?: string; children: ReactNode }) {
+  return (
+    <div style={{ backgroundColor: FRAME_NAVY, borderRadius: "14px", boxShadow: "0 4px 20px rgba(16,27,45,0.22)", padding: "3px" }}>
+      <div
+        className={className ?? "p-5"}
+        style={{ backgroundColor: CARD_BG, borderRadius: "11px" }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
 const CAMPAIGN_BADGE: Record<CampaignStatus, BadgeColor> = {
   draft: "gray",
   active: "green",
@@ -190,13 +210,13 @@ function StatCard({
   sub?: string;
 }) {
   return (
-    <Card className="p-4">
+    <FramedCard className="p-4">
       <p className="text-xs font-medium text-navy-400 uppercase tracking-wide">
         {label}
       </p>
       <p className="mt-1 text-2xl font-semibold text-navy-900">{value}</p>
       {sub && <p className="mt-0.5 text-xs text-navy-500">{sub}</p>}
-    </Card>
+    </FramedCard>
   );
 }
 
@@ -400,7 +420,7 @@ function CampaignsTab() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-medium text-navy-900">Campaigns</h2>
-        <Button onClick={() => setShowNew(true)}>
+        <Button onClick={() => setShowNew(true)} variant="ghost" style={{ backgroundColor: FRAME_NAVY, color: CARD_BG, border: "none" }}>
           <Plus className="h-4 w-4" aria-hidden />
           New Campaign
         </Button>
@@ -409,7 +429,7 @@ function CampaignsTab() {
       {loading ? (
         <LoadingSpinner center label="Loading campaigns…" />
       ) : (
-        <Card>
+        <FramedCard>
           <Table
             columns={columns}
             data={campaigns}
@@ -417,8 +437,10 @@ function CampaignsTab() {
             pageSize={20}
             initialSort={{ key: "created_at", direction: "desc" }}
             emptyMessage="No campaigns yet. Create one to get started."
+            containerClassName="overflow-x-auto rounded-lg"
+            tbodyClassName="divide-y divide-slate-200"
           />
-        </Card>
+        </FramedCard>
       )}
 
       <Modal
@@ -598,7 +620,7 @@ function DomainsTab() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-medium text-navy-900">Sending Domains</h2>
-        <Button onClick={() => setShowAdd(true)}>
+        <Button onClick={() => setShowAdd(true)} variant="ghost" style={{ backgroundColor: FRAME_NAVY, color: CARD_BG, border: "none" }}>
           <Plus className="h-4 w-4" aria-hidden />
           Add Domain
         </Button>
@@ -607,17 +629,17 @@ function DomainsTab() {
       {loading ? (
         <LoadingSpinner center label="Loading domains…" />
       ) : domains.length === 0 ? (
-        <Card>
+        <FramedCard>
           <EmptyState
             icon={Globe}
             title="No domains configured"
             description="Add a sending domain to start warming up."
           />
-        </Card>
+        </FramedCard>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {domains.map((d) => (
-            <Card key={d.id} className="p-4 space-y-3">
+            <FramedCard key={d.id} className="p-4 space-y-3">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
                   <HealthDot health={d.health} />
@@ -653,7 +675,7 @@ function DomainsTab() {
                   <p className="text-navy-700">{d.total_sent.toLocaleString()}</p>
                 </div>
               </div>
-            </Card>
+            </FramedCard>
           ))}
         </div>
       )}
@@ -909,7 +931,8 @@ function ProspectsTab() {
             type="button"
             onClick={() => void suppressOne(r.id)}
             disabled={suppressingId === r.id}
-            className="bg-[#0077B6] text-white px-3 py-1 rounded-lg text-xs font-semibold hover:bg-[#005F92] transition-colors disabled:opacity-60"
+            className="text-white px-3 py-1 rounded-lg text-xs font-semibold transition-colors disabled:opacity-60"
+            style={{ backgroundColor: FRAME_NAVY }}
           >
             {suppressingId === r.id ? "Suppressing…" : "Suppress"}
           </button>
@@ -966,11 +989,11 @@ function ProspectsTab() {
           rowKey={(r) => r.id}
           pageSize={25}
           emptyMessage="No prospects match your search."
-          containerClassName="bg-white rounded-xl shadow-sm border border-border overflow-x-auto"
+          containerClassName="bg-[#F8F5EE] rounded-xl shadow-sm overflow-x-auto"
           tableClassName="min-w-[700px] divide-y divide-slate-200"
           theadClassName="bg-sidebar"
           thClassName="bg-sidebar text-white text-xs font-semibold uppercase tracking-wide px-4 py-3"
-          tbodyClassName="divide-y divide-slate-200 bg-white"
+          tbodyClassName="divide-y divide-slate-200 bg-[#F8F5EE]"
           rowClassName="hover:bg-slate-50 transition-colors"
         />
       )}
@@ -1115,7 +1138,7 @@ function SuppressionTab() {
               e.target.value = "";
             }}
           />
-          <Button onClick={() => setShowAdd(true)}>
+          <Button onClick={() => setShowAdd(true)} variant="ghost" style={{ backgroundColor: FRAME_NAVY, color: CARD_BG, border: "none" }}>
             <Plus className="h-4 w-4" aria-hidden />
             Add Email
           </Button>
@@ -1134,15 +1157,17 @@ function SuppressionTab() {
       {loading ? (
         <LoadingSpinner center label="Loading suppression list…" />
       ) : (
-        <Card>
+        <FramedCard>
           <Table
             columns={columns}
             data={filtered}
             rowKey={(r) => r.id}
             pageSize={25}
             emptyMessage="No suppressed emails."
+            containerClassName="overflow-x-auto rounded-lg"
+            tbodyClassName="divide-y divide-slate-200"
           />
-        </Card>
+        </FramedCard>
       )}
 
       <Modal isOpen={showAdd} onClose={() => setShowAdd(false)} title="Add to Suppression List">
@@ -1229,7 +1254,7 @@ function AnalyticsTab() {
       <h2 className="text-lg font-medium text-navy-900">Analytics</h2>
 
       {/* Send volume chart (simple bar representation) */}
-      <Card className="p-4">
+      <FramedCard className="p-4">
         <p className="mb-3 text-sm font-medium text-navy-700">
           Send Volume — Last 30 Days
         </p>
@@ -1255,11 +1280,11 @@ function AnalyticsTab() {
             })}
           </div>
         )}
-      </Card>
+      </FramedCard>
 
       <div className="grid gap-4 sm:grid-cols-2">
         {/* Top subject lines */}
-        <Card className="p-4">
+        <FramedCard className="p-4">
           <p className="mb-3 text-sm font-medium text-navy-700">
             Best Performing Subject Lines
           </p>
@@ -1277,10 +1302,10 @@ function AnalyticsTab() {
               ))}
             </ul>
           )}
-        </Card>
+        </FramedCard>
 
         {/* Best send hours */}
-        <Card className="p-4">
+        <FramedCard className="p-4">
           <p className="mb-3 text-sm font-medium text-navy-700">
             Best Performing Send Times
           </p>
@@ -1308,11 +1333,11 @@ function AnalyticsTab() {
               })}
             </ul>
           )}
-        </Card>
+        </FramedCard>
       </div>
 
       {/* Domain performance */}
-      <Card className="p-4">
+      <FramedCard className="p-4">
         <p className="mb-3 text-sm font-medium text-navy-700">
           Domain Performance
         </p>
@@ -1340,7 +1365,7 @@ function AnalyticsTab() {
             </table>
           </div>
         )}
-      </Card>
+      </FramedCard>
     </div>
   );
 }
@@ -1441,16 +1466,16 @@ export default function SalesOutreachClient() {
   if (!isAdmin) {
     return (
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold tracking-tight text-primary">
+        <h1 className="text-2xl font-bold tracking-tight" style={{ color: FRAME_NAVY }}>
           Sales Outreach
         </h1>
-        <Card>
+        <FramedCard>
           <EmptyState
             icon={ShieldAlert}
             title="Admins only"
             description="Only owners and admins can access Sales Outreach."
           />
-        </Card>
+        </FramedCard>
       </div>
     );
   }
@@ -1460,8 +1485,8 @@ export default function SalesOutreachClient() {
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-primary flex items-center gap-2">
-            <Megaphone className="h-6 w-6 text-teal-500" aria-hidden />
+          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2" style={{ color: FRAME_NAVY }}>
+            <Megaphone className="h-6 w-6" style={{ color: ACCENT_GOLD }} aria-hidden />
             Sales Outreach
           </h1>
           <p className="mt-1 text-sm text-navy-500">
@@ -1469,12 +1494,13 @@ export default function SalesOutreachClient() {
           </p>
         </div>
         <Button
-          variant="secondary"
+          variant="ghost"
           onClick={() => {
             setRefreshKey((k) => k + 1);
             void loadStats();
           }}
           disabled={statsLoading}
+          style={{ border: `1.5px solid ${ACCENT_GOLD}`, backgroundColor: "rgba(184,138,46,0.1)", color: "#8A6A22" }}
         >
           <RefreshCw className={`h-4 w-4 ${statsLoading ? "animate-spin" : ""}`} aria-hidden />
           Refresh
@@ -1496,9 +1522,14 @@ export default function SalesOutreachClient() {
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id)}
+              style={
+                activeTab === tab.id
+                  ? { borderColor: FRAME_NAVY, color: FRAME_NAVY }
+                  : undefined
+              }
               className={`whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
                 activeTab === tab.id
-                  ? "border-teal-500 text-teal-600"
+                  ? ""
                   : "border-transparent text-navy-500 hover:text-navy-700 hover:border-navy-200"
               }`}
             >

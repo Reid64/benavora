@@ -18,13 +18,14 @@ import { formatDate, formatRelative, humanizeEnum } from "@/lib/utils/formatters
 
 const REFRESH_INTERVAL_MS = 10_000;
 
-const CANVAS = "#D6E4F0";
-const CARD_BG = "#FFFFFF";
-const BORDER = "#C3D3E2";
+const FRAME_NAVY = "#101B2D";
+const ACCENT_GOLD = "#B88A2E";
+const CARD_BG = "#F8F5EE";
+const BORDER = "rgba(16,27,45,0.15)";
 const TEXT_PRIMARY = "#0F172A";
 const TEXT_SECONDARY = "#64748B";
 const TEXT_MUTED = "#94A3B8";
-const ACCENT = "#0077B6";
+const ACCENT = ACCENT_GOLD;
 
 type WorkerRow = {
   id: string;
@@ -74,23 +75,25 @@ function StatCard({
   return (
     <div
       className="overflow-hidden rounded-xl"
-      style={{ backgroundColor: CARD_BG, border: `1px solid ${BORDER}`, boxShadow: "0 4px 20px rgba(15,23,42,0.08)" }}
+      style={{ backgroundColor: FRAME_NAVY, boxShadow: "0 4px 20px rgba(16,27,45,0.22)", padding: "3px" }}
     >
-      <div className="h-1.5 w-full" style={{ backgroundColor: color }} aria-hidden />
-      <div className="p-5">
-        <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: TEXT_MUTED }}>
-          {label}
-        </p>
-        <div className="mt-3 flex items-center gap-3">
-          <div
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
-            style={{ backgroundColor: `${color}1A` }}
-          >
-            <Icon className="h-5 w-5" style={{ color }} aria-hidden />
-          </div>
-          <p className="text-3xl font-bold" style={{ color: TEXT_PRIMARY }}>
-            {value}
+      <div className="overflow-hidden rounded-[10px]" style={{ backgroundColor: CARD_BG }}>
+        <div className="h-1.5 w-full" style={{ backgroundColor: color }} aria-hidden />
+        <div className="p-5">
+          <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: TEXT_MUTED }}>
+            {label}
           </p>
+          <div className="mt-3 flex items-center gap-3">
+            <div
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
+              style={{ backgroundColor: `${color}1A` }}
+            >
+              <Icon className="h-5 w-5" style={{ color }} aria-hidden />
+            </div>
+            <p className="text-3xl font-bold" style={{ color: TEXT_PRIMARY }}>
+              {value}
+            </p>
+          </div>
         </div>
       </div>
     </div>
@@ -166,7 +169,7 @@ export default function SystemClient() {
 
   if (profileLoading || loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center" style={{ backgroundColor: CANVAS }}>
+      <div className="flex min-h-screen items-center justify-center">
         <p className="text-sm" style={{ color: TEXT_SECONDARY }}>
           Loading System Health...
         </p>
@@ -176,7 +179,7 @@ export default function SystemClient() {
 
   if (!canView) {
     return (
-      <div className="min-h-screen p-6" style={{ backgroundColor: CANVAS }}>
+      <div className="min-h-screen p-6">
         <div
           className="flex flex-col items-center justify-center rounded-xl px-6 py-16 text-center"
           style={{ backgroundColor: CARD_BG, border: `1px solid ${BORDER}` }}
@@ -195,7 +198,7 @@ export default function SystemClient() {
 
   if (loadError || !data) {
     return (
-      <div className="min-h-screen p-6" style={{ backgroundColor: CANVAS }}>
+      <div className="min-h-screen p-6">
         <div
           className="flex flex-col items-center justify-center rounded-xl px-6 py-16 text-center"
           style={{ backgroundColor: CARD_BG, border: `1px solid ${BORDER}` }}
@@ -213,10 +216,10 @@ export default function SystemClient() {
   }
 
   return (
-    <div className="min-h-screen space-y-6 p-6" style={{ backgroundColor: CANVAS }}>
+    <div className="min-h-screen space-y-6 p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div style={{ borderLeft: `4px solid ${ACCENT}`, paddingLeft: "1rem" }}>
-          <h1 className="text-2xl font-bold tracking-tight" style={{ color: TEXT_PRIMARY }}>
+          <h1 className="text-2xl font-bold tracking-tight" style={{ color: FRAME_NAVY }}>
             System Health
           </h1>
           <p className="mt-1 text-sm" style={{ color: TEXT_SECONDARY }}>
@@ -226,7 +229,7 @@ export default function SystemClient() {
         <button
           onClick={() => void load()}
           className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition"
-          style={{ backgroundColor: "#FFFFFF", border: `1px solid ${BORDER}`, color: TEXT_PRIMARY }}
+          style={{ backgroundColor: CARD_BG, border: `1px solid ${BORDER}`, color: TEXT_PRIMARY }}
         >
           <RotateCw className="h-4 w-4" />
           Refresh
@@ -288,8 +291,9 @@ export default function SystemClient() {
       {/* Worker heartbeats */}
       <div
         className="overflow-hidden rounded-xl"
-        style={{ backgroundColor: CARD_BG, border: `1px solid ${BORDER}`, boxShadow: "0 4px 20px rgba(15,23,42,0.08)" }}
+        style={{ backgroundColor: FRAME_NAVY, boxShadow: "0 4px 20px rgba(16,27,45,0.22)", padding: "3px" }}
       >
+      <div className="overflow-hidden rounded-[10px]" style={{ backgroundColor: CARD_BG }}>
         <div className="px-5 py-4" style={{ borderBottom: `1px solid ${BORDER}` }}>
           <h3 className="text-base font-semibold" style={{ color: TEXT_PRIMARY }}>
             Railway Worker Status
@@ -312,7 +316,7 @@ export default function SystemClient() {
           ) : (
             <table className="min-w-full text-sm">
               <thead>
-                <tr style={{ backgroundColor: "#1A2B3C" }}>
+                <tr style={{ backgroundColor: FRAME_NAVY }}>
                   <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide" style={{ color: "#FFFFFF" }}>Worker</th>
                   <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide" style={{ color: "#FFFFFF" }}>Status</th>
                   <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide" style={{ color: "#FFFFFF" }}>Processed</th>
@@ -355,12 +359,14 @@ export default function SystemClient() {
           )}
         </div>
       </div>
+      </div>
 
       {/* Active agent runs */}
       <div
         className="overflow-hidden rounded-xl"
-        style={{ backgroundColor: CARD_BG, border: `1px solid ${BORDER}`, boxShadow: "0 4px 20px rgba(15,23,42,0.08)" }}
+        style={{ backgroundColor: FRAME_NAVY, boxShadow: "0 4px 20px rgba(16,27,45,0.22)", padding: "3px" }}
       >
+      <div className="overflow-hidden rounded-[10px]" style={{ backgroundColor: CARD_BG }}>
         <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: `1px solid ${BORDER}` }}>
           <div>
             <h3 className="text-base font-semibold" style={{ color: TEXT_PRIMARY }}>
@@ -400,7 +406,7 @@ export default function SystemClient() {
           ) : (
             <table className="min-w-full text-sm">
               <thead>
-                <tr style={{ backgroundColor: "#1A2B3C" }}>
+                <tr style={{ backgroundColor: FRAME_NAVY }}>
                   <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide" style={{ color: "#FFFFFF" }}>Organization</th>
                   <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide" style={{ color: "#FFFFFF" }}>Agent</th>
                   <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-medium uppercase tracking-wide" style={{ color: "#FFFFFF" }}>
@@ -427,6 +433,7 @@ export default function SystemClient() {
             </table>
           )}
         </div>
+      </div>
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
   BarChart3,
@@ -15,7 +15,6 @@ import {
 import {
   Badge,
   Button,
-  Card,
   EmptyState,
   LoadingSpinner,
   Modal,
@@ -32,9 +31,18 @@ import { cn } from "@/lib/utils/cn";
 import { formatCurrency, formatDate, humanizeEnum } from "@/lib/utils/formatters";
 import type { Enums, Tables } from "@/types/database";
 
+// Applications & Pipeline section treatment — PAGE_TREATMENT_PROTOCOL_V2.md.
+// Frame: Deep Navy. Secondary accent: Teal. Real semantic status colors
+// (RESULT_COLOR badges below) are never touched by this system.
+const FRAME_NAVY = "#101B2D";
+const ACCENT_TEAL = "#2E6B66";
+const ACCENT_SLATE = "#4F6D8F";
+const CARD_BG = "#F8F5EE";
+const SHADOW = "0 4px 20px rgba(16,27,45,0.22)";
+
 type OutcomeResult = Enums<"outcome_result">;
 
-// Stages from which an outcome may be recorded (Behavioral Contracts Â§10):
+// Stages from which an outcome may be recorded (Behavioral Contracts §10):
 // awarded, denied, or submitted (early denial).
 const ELIGIBLE_STAGES: Enums<"pipeline_stage">[] = [
   "submitted",
@@ -50,7 +58,7 @@ const RESULT_COLOR: Record<OutcomeResult, BadgeColor> = {
 
 type RecordedOutcome = Tables<"outcomes"> & { applicationLabel: string };
 
-type MetricAccent = "green" | "teal" | "violet";
+type MetricAccent = "green" | "teal" | "slate";
 
 const METRIC_ACCENTS: Record<
   MetricAccent,
@@ -63,16 +71,16 @@ const METRIC_ACCENTS: Record<
     iconText: "text-[#10B981]",
   },
   teal: {
-    bar: "absolute left-0 top-0 bottom-0 w-1 bg-[#00B4D8] rounded-l-xl",
+    bar: "absolute left-0 top-0 bottom-0 w-1 rounded-l-xl bg-[#2E6B66]",
     iconBg:
-      "absolute top-4 right-4 w-10 h-10 rounded-lg flex items-center justify-center bg-[#00B4D8]/10",
-    iconText: "text-[#00B4D8]",
+      "absolute top-4 right-4 w-10 h-10 rounded-lg flex items-center justify-center bg-[#2E6B66]/10",
+    iconText: "text-[#2E6B66]",
   },
-  violet: {
-    bar: "absolute left-0 top-0 bottom-0 w-1 bg-[#7C3AED] rounded-l-xl",
+  slate: {
+    bar: "absolute left-0 top-0 bottom-0 w-1 rounded-l-xl bg-[#4F6D8F]",
     iconBg:
-      "absolute top-4 right-4 w-10 h-10 rounded-lg flex items-center justify-center bg-[#7C3AED]/10",
-    iconText: "text-[#7C3AED]",
+      "absolute top-4 right-4 w-10 h-10 rounded-lg flex items-center justify-center bg-[#4F6D8F]/10",
+    iconText: "text-[#4F6D8F]",
   },
 };
 
@@ -92,16 +100,21 @@ function OutcomeMetricCard({
 }) {
   const styles = METRIC_ACCENTS[accent];
   return (
-    <div className="relative overflow-hidden rounded-xl border border-border bg-white p-5 shadow-sm">
-      <div className={styles.bar} />
-      <div className={styles.iconBg}>
-        <Icon className={cn("h-5 w-5", styles.iconText)} aria-hidden />
+    <div style={{ backgroundColor: FRAME_NAVY, borderRadius: "14px", boxShadow: SHADOW, padding: "4px" }}>
+      <div
+        style={{ backgroundColor: CARD_BG, borderRadius: "11px" }}
+        className="relative overflow-hidden p-5"
+      >
+        <div className={styles.bar} />
+        <div className={styles.iconBg}>
+          <Icon className={cn("h-5 w-5", styles.iconText)} aria-hidden />
+        </div>
+        <p style={{ color: "rgba(16,27,45,0.55)" }} className="text-xs font-semibold uppercase tracking-wide">
+          {label}
+        </p>
+        <p style={{ color: FRAME_NAVY }} className="mt-2 text-3xl font-bold">{value}</p>
+        {hint && <p style={{ color: "rgba(16,27,45,0.55)" }} className="mt-1 text-xs">{hint}</p>}
       </div>
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-        {label}
-      </p>
-      <p className="mt-2 text-3xl font-bold text-slate-900">{value}</p>
-      {hint && <p className="mt-1 text-xs text-slate-500">{hint}</p>}
     </div>
   );
 }
@@ -117,9 +130,9 @@ function OutcomeBreakdownBar({ outcomes }: { outcomes: RecordedOutcome[] }) {
   const pct = (n: number) => `${(n / total) * 100}%`;
 
   const segments: { count: number; color: string; label: string }[] = [
-    { count: awarded, color: "bg-[#00B4D8]", label: `Awarded (${awarded})` },
+    { count: awarded, color: "bg-[#2E6B66]", label: `Awarded (${awarded})` },
     { count: partial, color: "bg-[#F59E0B]", label: `Partial (${partial})` },
-    { count: denied, color: "bg-[#1a2744]", label: `Denied (${denied})` },
+    { count: denied, color: "bg-[#101B2D]", label: `Denied (${denied})` },
   ];
 
   return (
@@ -148,11 +161,40 @@ function OutcomeBreakdownBar({ outcomes }: { outcomes: RecordedOutcome[] }) {
   );
 }
 
+/** Frame+ivory panel replacing the shared Card for this page's two sections. */
+function SectionPanel({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div style={{ backgroundColor: FRAME_NAVY, borderRadius: "16px", boxShadow: SHADOW, padding: "4px" }}>
+      <div style={{ backgroundColor: CARD_BG, borderRadius: "13px" }} className="overflow-hidden">
+        <div style={{ borderBottom: "1px solid rgba(16,27,45,0.1)" }} className="px-5 py-4">
+          <h3 style={{ color: FRAME_NAVY }} className="text-base font-semibold">
+            {title}
+          </h3>
+          {description && (
+            <p style={{ color: "rgba(16,27,45,0.55)" }} className="mt-0.5 text-sm">
+              {description}
+            </p>
+          )}
+        </div>
+        <div className="p-5">{children}</div>
+      </div>
+    </div>
+  );
+}
+
 /**
- * Outcomes recording + history (BLUEPRINT Â§4.10). Lists recorded outcomes and
+ * Outcomes recording + history (BLUEPRINT §4.10). Lists recorded outcomes and
  * lets editors record a new one for any application that reached an eligible
  * stage and doesn't already have an outcome (one outcome per application -
- * Contracts Â§10). Recording an awarded/partial outcome triggers the Recursive
+ * Contracts §10). Recording an awarded/partial outcome triggers the Recursive
  * Learning Agent. Reads are RLS-scoped to the organization.
  */
 export default function OutcomesPage() {
@@ -271,14 +313,17 @@ export default function OutcomesPage() {
   }
 
   return (
-    <div className="min-h-screen space-y-6 bg-[#CBD5E1] p-6">
+    <div className="min-h-screen space-y-6 p-6">
       <PageHeader
         title="Outcomes"
-        accent="#7C3AED"
+        accent={FRAME_NAVY}
         description="Record awards and denials. Awarded narratives train the learning system."
         actions={
           <Link href="/outcomes/analytics">
-            <Button variant="secondary">
+            <Button
+              variant="ghost"
+              style={{ border: `1.5px solid ${ACCENT_TEAL}`, backgroundColor: "rgba(46,107,102,0.08)", color: ACCENT_TEAL }}
+            >
               <BarChart3 className="h-4 w-4" aria-hidden />
               View analytics
             </Button>
@@ -304,7 +349,12 @@ export default function OutcomesPage() {
           description="Once applications reach the submitted, awarded, or denied stage, record their outcomes here to track success and improve future drafts."
           action={
             <Link href="/applications">
-              <Button variant="secondary">Go to pipeline</Button>
+              <Button
+                variant="ghost"
+                style={{ border: `1.5px solid ${ACCENT_TEAL}`, backgroundColor: "rgba(46,107,102,0.08)", color: ACCENT_TEAL }}
+              >
+                Go to pipeline
+              </Button>
             </Link>
           }
         />
@@ -329,12 +379,12 @@ export default function OutcomesPage() {
               value={String(totals.total)}
               hint="outcomes recorded"
               icon={ClipboardList}
-              accent="violet"
+              accent="slate"
             />
           </div>
 
           {editable && (
-            <Card
+            <SectionPanel
               title="Record an outcome"
               description={
                 eligible.length > 0
@@ -343,27 +393,32 @@ export default function OutcomesPage() {
               }
             >
               {eligible.length > 0 ? (
-                <ul className="divide-y divide-slate-100">
+                <ul style={{ borderColor: "rgba(16,27,45,0.1)" }} className="divide-y">
                   {eligible.map((app) => (
                     <li
                       key={app.id}
                       className="flex items-center justify-between gap-4 py-3"
                     >
                       <div className="min-w-0">
-                        <div className="truncate text-sm font-medium text-slate-900">
+                        <div style={{ color: FRAME_NAVY }} className="truncate text-sm font-medium">
                           {app.label}
                         </div>
-                        <div className="text-xs text-slate-500">
+                        <div style={{ color: "rgba(16,27,45,0.55)" }} className="text-xs">
                           Requested {formatCurrency(app.requestedAmount)}
                           {app.funderCategory
-                            ? ` Â· ${humanizeEnum(app.funderCategory)}`
+                            ? ` · ${humanizeEnum(app.funderCategory)}`
                             : ""}
                         </div>
                       </div>
                       <Button
                         size="sm"
-                        variant="secondary"
+                        variant="ghost"
                         onClick={() => setRecording(app)}
+                        style={{
+                          border: `1.5px solid ${ACCENT_TEAL}`,
+                          backgroundColor: "rgba(46,107,102,0.08)",
+                          color: ACCENT_TEAL,
+                        }}
                       >
                         <Plus className="h-4 w-4" aria-hidden />
                         Record
@@ -372,19 +427,19 @@ export default function OutcomesPage() {
                   ))}
                 </ul>
               ) : (
-                <p className="text-sm text-slate-500">
+                <p style={{ color: "rgba(16,27,45,0.55)" }} className="text-sm">
                   Move an application to the submitted, awarded, or denied stage
                   to record its outcome.
                 </p>
               )}
-            </Card>
+            </SectionPanel>
           )}
 
-          <Card
+          <SectionPanel
             title="Recorded outcomes"
             description={
               outcomes.length > 0
-                ? `${totals.awarded} awarded Â· ${formatCurrency(totals.totalAwarded)} total awarded`
+                ? `${totals.awarded} awarded · ${formatCurrency(totals.totalAwarded)} total awarded`
                 : undefined
             }
           >
@@ -431,7 +486,7 @@ export default function OutcomesPage() {
                 </ul>
               </>
             )}
-          </Card>
+          </SectionPanel>
         </>
       )}
 
