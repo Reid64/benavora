@@ -528,7 +528,7 @@ function TagInput({
         {label}
       </label>
       <div
-        className="flex flex-wrap items-center gap-2 rounded-lg border border-navy-300 bg-white px-2 py-1.5 shadow-sm focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-500"
+        className="flex flex-wrap items-center gap-2 rounded-lg border border-navy-300 bg-surface px-2 py-1.5 shadow-sm focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-500"
         onClick={() => inputRef.current?.focus()}
       >
         {values.map((value, index) => (

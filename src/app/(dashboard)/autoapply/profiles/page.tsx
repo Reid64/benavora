@@ -682,7 +682,7 @@ function ProfileCard({
     <div
       className={`rounded-xl border p-4 transition-opacity ${
         profile.active
-          ? "border-border bg-white shadow-sm"
+          ? "border-border bg-surface shadow-sm"
           : "border-navy-100 bg-navy-50 opacity-60"
       }`}
     >
@@ -705,7 +705,7 @@ function ProfileCard({
           }`}
         >
           <span
-            className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+            className={`inline-block h-4 w-4 transform rounded-full bg-surface shadow transition-transform ${
               profile.active ? "translate-x-4" : "translate-x-0"
             }`}
           />
@@ -799,7 +799,7 @@ function WizardModal({
       aria-modal="true"
       aria-label="Create request profile"
     >
-      <div className="relative flex max-h-[90vh] w-full max-w-2xl flex-col rounded-xl bg-white shadow-2xl">
+      <div className="relative flex max-h-[90vh] w-full max-w-2xl flex-col rounded-xl bg-surface shadow-2xl">
         {/* Close */}
         <button
           type="button"
@@ -1004,7 +1004,7 @@ function Step2Details({
           value={wizard.name}
           onChange={(e) => onSetField("name", e.target.value)}
           placeholder={`e.g. ${meta.label} — General Operating`}
-          className="mt-1.5 block w-full rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+          className="mt-1.5 block w-full rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
         />
       </div>
 
@@ -1021,7 +1021,7 @@ function Step2Details({
           onChange={(e) => onSetField("needs_description", e.target.value)}
           rows={3}
           placeholder={`e.g. ${meta.defaultPitch.slice(0, 80)}…`}
-          className="mt-1.5 block w-full rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+          className="mt-1.5 block w-full rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
         />
       </div>
 
@@ -1036,7 +1036,7 @@ function Step2Details({
               value={wizard.min_value}
               onChange={(e) => onSetField("min_value", e.target.value)}
               placeholder="e.g. 5000"
-              className="mt-1.5 block w-full rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+              className="mt-1.5 block w-full rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
             />
           </div>
           <div className="flex-1">
@@ -1047,7 +1047,7 @@ function Step2Details({
               value={wizard.max_value}
               onChange={(e) => onSetField("max_value", e.target.value)}
               placeholder="e.g. 100000"
-              className="mt-1.5 block w-full rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+              className="mt-1.5 block w-full rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
             />
           </div>
         </div>
@@ -1066,7 +1066,7 @@ function Step2Details({
                 value={wizard.minAcreage}
                 onChange={(e) => onSetField("minAcreage", e.target.value)}
                 placeholder="e.g. 5"
-                className="mt-1.5 block w-full rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+                className="mt-1.5 block w-full rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
               />
             </div>
           </div>
@@ -1093,7 +1093,7 @@ function Step2Details({
               value={wizard.counties}
               onChange={(e) => onSetField("counties", e.target.value)}
               placeholder="e.g. Travis, Williamson, Hays"
-              className="mt-1.5 block w-full rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+              className="mt-1.5 block w-full rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
             />
           </div>
           <div>
@@ -1103,7 +1103,7 @@ function Step2Details({
               value={wizard.developmentPlan}
               onChange={(e) => onSetField("developmentPlan", e.target.value)}
               placeholder="e.g. 20-unit affordable housing community"
-              className="mt-1.5 block w-full rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+              className="mt-1.5 block w-full rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
             />
           </div>
         </div>
@@ -1122,14 +1122,14 @@ function Step2Details({
                     value={item.name}
                     onChange={(e) => updateInKindItem(idx, "name", e.target.value)}
                     placeholder="Item name"
-                    className="flex-1 rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+                    className="flex-1 rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
                   />
                   <input
                     type="text"
                     value={item.quantity}
                     onChange={(e) => updateInKindItem(idx, "quantity", e.target.value)}
                     placeholder="Quantity"
-                    className="w-32 rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+                    className="w-32 rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
                   />
                   {wizard.inKindItems.length > 1 && (
                     <button
@@ -1159,7 +1159,7 @@ function Step2Details({
               value={wizard.deliveryLocation}
               onChange={(e) => onSetField("deliveryLocation", e.target.value)}
               placeholder="e.g. 123 Main St, Austin TX"
-              className="mt-1.5 block w-full rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+              className="mt-1.5 block w-full rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
             />
           </div>
           <div>
@@ -1169,7 +1169,7 @@ function Step2Details({
               value={wizard.inKindTimeline}
               onChange={(e) => onSetField("inKindTimeline", e.target.value)}
               placeholder="e.g. Q1 2027"
-              className="mt-1.5 block w-full rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+              className="mt-1.5 block w-full rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
             />
           </div>
         </div>
@@ -1203,7 +1203,7 @@ function Step2Details({
                 value={wizard.hoursPerWeek}
                 onChange={(e) => onSetField("hoursPerWeek", e.target.value)}
                 placeholder="e.g. 20"
-                className="mt-1.5 block w-28 rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+                className="mt-1.5 block w-28 rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
               />
             </div>
             <div>
@@ -1214,7 +1214,7 @@ function Step2Details({
                 value={wizard.durationMonths}
                 onChange={(e) => onSetField("durationMonths", e.target.value)}
                 placeholder="e.g. 6"
-                className="mt-1.5 block w-28 rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+                className="mt-1.5 block w-28 rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
               />
             </div>
           </div>
@@ -1225,7 +1225,7 @@ function Step2Details({
               value={wizard.volunteerSchedule}
               onChange={(e) => onSetField("volunteerSchedule", e.target.value)}
               placeholder="e.g. Weekdays 8am–4pm"
-              className="mt-1.5 block w-full rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+              className="mt-1.5 block w-full rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
             />
           </div>
         </div>
@@ -1239,7 +1239,7 @@ function Step2Details({
             <select
               value={wizard.serviceType}
               onChange={(e) => onSetField("serviceType", e.target.value)}
-              className="mt-1.5 block w-64 rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+              className="mt-1.5 block w-64 rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
             >
               <option value="">Select service type</option>
               <option value="legal">Legal</option>
@@ -1258,7 +1258,7 @@ function Step2Details({
               onChange={(e) => onSetField("serviceScope", e.target.value)}
               rows={2}
               placeholder="Describe what help you need"
-              className="mt-1.5 block w-full rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+              className="mt-1.5 block w-full rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
             />
           </div>
           <div>
@@ -1269,7 +1269,7 @@ function Step2Details({
               value={wizard.estimatedHours}
               onChange={(e) => onSetField("estimatedHours", e.target.value)}
               placeholder="e.g. 40"
-              className="mt-1.5 block w-28 rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+              className="mt-1.5 block w-28 rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
             />
           </div>
         </div>
@@ -1287,7 +1287,7 @@ function Step2Details({
             onChange={(e) => onSetField("mutualBenefits", e.target.value)}
             rows={3}
             placeholder="e.g. We provide community visibility and impact reporting; you provide funding and employee engagement opportunities."
-            className="mt-1.5 block w-full rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+            className="mt-1.5 block w-full rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
           />
         </div>
       )}
@@ -1302,7 +1302,7 @@ function Step2Details({
               value={wizard.sponsorshipType}
               onChange={(e) => onSetField("sponsorshipType", e.target.value)}
               placeholder="e.g. Annual Gala, Program Series"
-              className="mt-1.5 block w-full rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+              className="mt-1.5 block w-full rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
             />
           </div>
           <div>
@@ -1313,7 +1313,7 @@ function Step2Details({
               value={wizard.estimatedAudience}
               onChange={(e) => onSetField("estimatedAudience", e.target.value)}
               placeholder="e.g. 500"
-              className="mt-1.5 block w-40 rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+              className="mt-1.5 block w-40 rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
             />
           </div>
         </div>
@@ -1327,7 +1327,7 @@ function Step2Details({
             <select
               value={wizard.spaceType}
               onChange={(e) => onSetField("spaceType", e.target.value)}
-              className="mt-1.5 block w-56 rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+              className="mt-1.5 block w-56 rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
             >
               <option value="">Select space type</option>
               <option value="office">Office space</option>
@@ -1347,7 +1347,7 @@ function Step2Details({
                 value={wizard.sizeSqft}
                 onChange={(e) => onSetField("sizeSqft", e.target.value)}
                 placeholder="e.g. 2000"
-                className="mt-1.5 block w-28 rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+                className="mt-1.5 block w-28 rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
               />
             </div>
             <div>
@@ -1358,7 +1358,7 @@ function Step2Details({
                 value={wizard.facilityDurationMonths}
                 onChange={(e) => onSetField("facilityDurationMonths", e.target.value)}
                 placeholder="e.g. 12"
-                className="mt-1.5 block w-28 rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+                className="mt-1.5 block w-28 rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
               />
             </div>
           </div>
@@ -1421,7 +1421,7 @@ function Step3Target({
           value={wizard.geographicScope}
           onChange={(e) => onSetField("geographicScope", e.target.value)}
           placeholder="TX, OK, NM"
-          className="mt-1.5 block w-64 rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+          className="mt-1.5 block w-64 rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
         />
       </div>
     </div>
@@ -1459,7 +1459,7 @@ function Step4Pitch({
           onChange={(e) => onSetField("pitchTemplate", e.target.value)}
           rows={8}
           placeholder={meta.defaultPitch}
-          className="mt-1.5 block w-full rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+          className="mt-1.5 block w-full rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
         />
         <p className="mt-1 text-xs text-navy-400">
           {wizard.pitchTemplate.length} characters
@@ -1546,7 +1546,7 @@ function Step5Review({
       </div>
 
       {/* Activate toggle */}
-      <div className="flex items-center justify-between rounded-lg border border-border bg-white shadow-sm p-4">
+      <div className="flex items-center justify-between rounded-lg border border-border bg-surface shadow-sm p-4">
         <div>
           <p className="text-sm font-medium text-navy-900">Activate immediately</p>
           <p className="mt-0.5 text-xs text-navy-500">
@@ -1563,7 +1563,7 @@ function Step5Review({
           }`}
         >
           <span
-            className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
+            className={`inline-block h-5 w-5 transform rounded-full bg-surface shadow transition-transform ${
               wizard.activate ? "translate-x-5" : "translate-x-0"
             }`}
           />

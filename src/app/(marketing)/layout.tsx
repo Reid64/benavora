@@ -39,7 +39,7 @@ export default function MarketingLayout({
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-white text-slate-800">
+    <div className="flex min-h-screen flex-col bg-surface text-slate-800">
       {/* Top nav */}
       <header className="sticky top-0 z-40 border-b border-[#e5e7eb] bg-white/90 backdrop-blur">
         <nav className="mx-auto flex max-w-6xl items-center justify-between gap-6 px-6 py-3">

@@ -83,11 +83,11 @@ export function Modal({
         ref={dialogRef}
         tabIndex={-1}
         className={cn(
-          "relative z-10 flex max-h-[calc(100vh-2rem)] w-full flex-col overflow-hidden rounded-2xl border border-border bg-white shadow-lg outline-none",
+          "relative z-10 flex max-h-[calc(100vh-2rem)] w-full flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-lg outline-none",
           SIZE_CLASSES[size],
         )}
       >
-        <div className="flex items-start justify-between gap-4 border-b border-slate-200 bg-white-sunken px-5 py-4">
+        <div className="flex items-start justify-between gap-4 border-b border-slate-200 bg-surface-sunken px-5 py-4">
           <div className="min-w-0">
             {title && (
               <h2

@@ -95,7 +95,7 @@ function TrendBadge({ score }: { score: NonNullable<Gen1Score> }) {
         : "text-navy-400";
 
   return (
-    <div className="flex items-center gap-1.5 rounded-full border border-navy-200 bg-white px-3 py-1 text-sm">
+    <div className="flex items-center gap-1.5 rounded-full border border-navy-200 bg-surface px-3 py-1 text-sm">
       <span className="font-semibold text-navy-800">{score.score}</span>
       <span className="text-navy-400">/100</span>
       <TrendIcon className={`h-3.5 w-3.5 ${trendColor}`} aria-hidden />
@@ -120,7 +120,7 @@ function DecisionCard({ decision }: { decision: Decision }) {
         : "Relationship recommendation";
 
   return (
-    <div className="rounded-lg border border-navy-200 bg-white p-3">
+    <div className="rounded-lg border border-navy-200 bg-surface p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-xs font-semibold uppercase tracking-wide text-navy-400">
           {label}
@@ -346,7 +346,7 @@ export function FunderRelationshipBuilder({
                 Recommendation
               </h3>
               {agentSlice.recommendation ? (
-                <div className="mt-2 rounded-lg border border-navy-200 bg-white p-3">
+                <div className="mt-2 rounded-lg border border-navy-200 bg-surface p-3">
                   <div className="flex items-center justify-between gap-2">
                     <Badge color={URGENCY_COLOR[agentSlice.recommendation.urgency]}>
                       {agentSlice.recommendation.urgency}
@@ -399,7 +399,7 @@ export function FunderRelationshipBuilder({
                     {agentSlice.directConnections.map((c, i) => (
                       <li
                         key={i}
-                        className="flex items-center gap-2 rounded-lg border border-navy-200 bg-white px-3 py-2 text-sm text-navy-700"
+                        className="flex items-center gap-2 rounded-lg border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-700"
                       >
                         <Link2 className="h-3.5 w-3.5 shrink-0 text-navy-400" aria-hidden />
                         <span className="font-medium">{c.connectedToLabel}</span>

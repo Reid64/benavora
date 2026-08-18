@@ -226,7 +226,7 @@ export function TaxonomyCombobox({
           onFocus={() => setIsOpen(true)}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
-          className="block w-full rounded-lg border border-navy-300 bg-white py-2 pl-9 pr-9 text-sm text-navy-900 shadow-sm transition placeholder:text-navy-400 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500"
+          className="block w-full rounded-lg border border-navy-300 bg-surface py-2 pl-9 pr-9 text-sm text-navy-900 shadow-sm transition placeholder:text-navy-400 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500"
         />
         {loading && (
           <Loader2
@@ -240,7 +240,7 @@ export function TaxonomyCombobox({
         <div
           id="taxonomy-combobox-listbox"
           role="listbox"
-          className="absolute z-20 mt-1 max-h-72 w-full overflow-y-auto rounded-lg border border-border bg-white shadow-lg"
+          className="absolute z-20 mt-1 max-h-72 w-full overflow-y-auto rounded-lg border border-border bg-surface shadow-lg"
         >
           {showEmptyState ? (
             <div className="p-3">
@@ -285,7 +285,7 @@ export function TaxonomyCombobox({
                       disabled={isSelected}
                       className={cn(
                         "flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left",
-                        isHighlighted ? "bg-teal-50" : "hover:bg-white-sunken",
+                        isHighlighted ? "bg-teal-50" : "hover:bg-surface-sunken",
                         isSelected && "cursor-not-allowed opacity-50",
                       )}
                     >

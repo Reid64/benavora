@@ -190,7 +190,7 @@ function StatCard({
 }) {
   const isUnlimited = limit < 0;
   return (
-    <div className="rounded-lg border border-border bg-white p-4 shadow-sm">
+    <div className="rounded-lg border border-border bg-surface p-4 shadow-sm">
       <p className="text-xs font-medium uppercase tracking-wide text-navy-400">{label}</p>
       <div className="mt-2 flex items-baseline gap-1">
         <span className="text-2xl font-semibold text-navy-900">
@@ -587,7 +587,7 @@ export default function UsagePage() {
               aria-label="Toggle own API keys"
             >
               <span
-                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-surface shadow ring-0 transition duration-200 ease-in-out ${
                   usingOwnKeys ? "translate-x-5" : "translate-x-0"
                 }`}
               />
@@ -611,7 +611,7 @@ export default function UsagePage() {
                     value={anthropicKey}
                     onChange={(e) => setAnthropicKey(e.target.value)}
                     placeholder="sk-ant-…"
-                    className="block w-full rounded-md border border-navy-200 bg-white px-3 py-2 pr-9 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+                    className="block w-full rounded-md border border-navy-200 bg-surface px-3 py-2 pr-9 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
                   />
                   <button
                     type="button"
@@ -661,7 +661,7 @@ export default function UsagePage() {
                     value={openaiKey}
                     onChange={(e) => setOpenaiKey(e.target.value)}
                     placeholder="sk-…"
-                    className="block w-full rounded-md border border-navy-200 bg-white px-3 py-2 pr-9 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+                    className="block w-full rounded-md border border-navy-200 bg-surface px-3 py-2 pr-9 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
                   />
                   <button
                     type="button"

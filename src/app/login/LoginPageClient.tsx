@@ -56,7 +56,7 @@ export default function LoginPageClient() {
   }
 
   return (
-    <main className="flex min-h-screen bg-white">
+    <main className="flex min-h-screen bg-surface">
       {/* Brand panel - large screens only */}
       <aside className="relative hidden w-1/2 flex-col justify-between overflow-hidden bg-navy-900 p-12 text-white lg:flex">
         <div
@@ -126,7 +126,7 @@ export default function LoginPageClient() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="mt-1.5 block w-full rounded-lg border border-navy-200 bg-white px-3 py-2.5 text-sm text-navy-900 shadow-sm outline-none transition placeholder:text-navy-300 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30"
+                className="mt-1.5 block w-full rounded-lg border border-navy-200 bg-surface px-3 py-2.5 text-sm text-navy-900 shadow-sm outline-none transition placeholder:text-navy-300 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30"
                 placeholder="you@organization.org"
               />
             </div>
@@ -154,7 +154,7 @@ export default function LoginPageClient() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="mt-1.5 block w-full rounded-lg border border-navy-200 bg-white px-3 py-2.5 text-sm text-navy-900 shadow-sm outline-none transition placeholder:text-navy-300 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30"
+                className="mt-1.5 block w-full rounded-lg border border-navy-200 bg-surface px-3 py-2.5 text-sm text-navy-900 shadow-sm outline-none transition placeholder:text-navy-300 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30"
                 placeholder="••••••••"
               />
             </div>

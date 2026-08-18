@@ -58,7 +58,7 @@ export default function ForgotPasswordPageClient() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-white px-6 py-12">
+    <main className="flex min-h-screen items-center justify-center bg-surface px-6 py-12">
       <div className="w-full max-w-sm">
         <div className="mb-8 flex justify-center">
           <Logo size={40} />
@@ -120,7 +120,7 @@ export default function ForgotPasswordPageClient() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="mt-1.5 block w-full rounded-lg border border-navy-200 bg-white px-3 py-2.5 text-sm text-navy-900 shadow-sm outline-none transition placeholder:text-navy-300 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30"
+                  className="mt-1.5 block w-full rounded-lg border border-navy-200 bg-surface px-3 py-2.5 text-sm text-navy-900 shadow-sm outline-none transition placeholder:text-navy-300 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30"
                   placeholder="you@organization.org"
                 />
               </div>

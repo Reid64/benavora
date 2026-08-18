@@ -443,7 +443,7 @@ export default function AgreementsPage() {
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-navy-100 bg-white">
+              <tbody className="divide-y divide-navy-100 bg-surface">
                 {agreements.map((a) => {
                   const { color, label } = statusBadge(a.status);
                   const reportDue = getReportingDueDate(a.reporting_requirements);
@@ -523,7 +523,7 @@ export default function AgreementsPage() {
                                   Reporting Requirements
                                 </p>
                                 {a.reporting_requirements ? (
-                                  <pre className="overflow-auto rounded bg-white p-2 text-xs text-navy-600 shadow-sm border border-border">
+                                  <pre className="overflow-auto rounded bg-surface p-2 text-xs text-navy-600 shadow-sm border border-border">
                                     {jsonDisplay(a.reporting_requirements)}
                                   </pre>
                                 ) : (
@@ -535,7 +535,7 @@ export default function AgreementsPage() {
                                   Payment Schedule
                                 </p>
                                 {a.payment_schedule ? (
-                                  <pre className="overflow-auto rounded bg-white p-2 text-xs text-navy-600 shadow-sm border border-border">
+                                  <pre className="overflow-auto rounded bg-surface p-2 text-xs text-navy-600 shadow-sm border border-border">
                                     {jsonDisplay(a.payment_schedule)}
                                   </pre>
                                 ) : (
@@ -605,7 +605,7 @@ export default function AgreementsPage() {
               id="log-funder"
               value={form.funder_id}
               onChange={(e) => updateForm("funder_id", e.target.value)}
-              className="mt-1 block w-full rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+              className="mt-1 block w-full rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
             >
               <option value="">Select a funder…</option>
               {funders.map((f) => (
@@ -630,7 +630,7 @@ export default function AgreementsPage() {
                 placeholder="e.g. 25000"
                 value={form.amount_awarded}
                 onChange={(e) => updateForm("amount_awarded", e.target.value)}
-                className="mt-1 block w-full rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+                className="mt-1 block w-full rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
               />
             </div>
             <div>
@@ -641,7 +641,7 @@ export default function AgreementsPage() {
                 id="log-type"
                 value={form.award_type}
                 onChange={(e) => updateForm("award_type", e.target.value)}
-                className="mt-1 block w-full rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+                className="mt-1 block w-full rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
               >
                 {AWARD_TYPES.map((t) => (
                   <option key={t.value} value={t.value}>
@@ -666,7 +666,7 @@ export default function AgreementsPage() {
                 type="date"
                 value={form.agreement_date}
                 onChange={(e) => updateForm("agreement_date", e.target.value)}
-                className="mt-1 block w-full rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+                className="mt-1 block w-full rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
               />
             </div>
             <div>
@@ -678,7 +678,7 @@ export default function AgreementsPage() {
                 type="date"
                 value={form.start_date}
                 onChange={(e) => updateForm("start_date", e.target.value)}
-                className="mt-1 block w-full rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+                className="mt-1 block w-full rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
               />
             </div>
             <div>
@@ -690,7 +690,7 @@ export default function AgreementsPage() {
                 type="date"
                 value={form.end_date}
                 onChange={(e) => updateForm("end_date", e.target.value)}
-                className="mt-1 block w-full rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+                className="mt-1 block w-full rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
               />
             </div>
           </div>
@@ -704,7 +704,7 @@ export default function AgreementsPage() {
               id="log-status"
               value={form.status}
               onChange={(e) => updateForm("status", e.target.value)}
-              className="mt-1 block w-full rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+              className="mt-1 block w-full rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
             >
               {STATUSES.map((s) => (
                 <option key={s.value} value={s.value}>
@@ -725,7 +725,7 @@ export default function AgreementsPage() {
               placeholder="Key grant terms, restrictions, or conditions…"
               value={form.terms}
               onChange={(e) => updateForm("terms", e.target.value)}
-              className="mt-1 block w-full rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+              className="mt-1 block w-full rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
             />
           </div>
 
@@ -747,7 +747,7 @@ export default function AgreementsPage() {
                   type="date"
                   value={form.reporting_due_date}
                   onChange={(e) => updateForm("reporting_due_date", e.target.value)}
-                  className="mt-1 block w-full rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+                  className="mt-1 block w-full rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
                 />
               </div>
               <div>
@@ -761,7 +761,7 @@ export default function AgreementsPage() {
                   id="log-report-freq"
                   value={form.reporting_frequency}
                   onChange={(e) => updateForm("reporting_frequency", e.target.value)}
-                  className="mt-1 block w-full rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+                  className="mt-1 block w-full rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
                 >
                   <option value="">Not required</option>
                   <option value="monthly">Monthly</option>
@@ -785,7 +785,7 @@ export default function AgreementsPage() {
               placeholder="Internal notes about this agreement…"
               value={form.notes}
               onChange={(e) => updateForm("notes", e.target.value)}
-              className="mt-1 block w-full rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+              className="mt-1 block w-full rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
             />
           </div>
 
@@ -801,7 +801,7 @@ export default function AgreementsPage() {
               placeholder="UUID of the autoapply_submission that won this award"
               value={form.submission_id}
               onChange={(e) => updateForm("submission_id", e.target.value)}
-              className="mt-1 block w-full rounded-md border border-navy-200 bg-white px-3 py-2 font-mono text-xs text-navy-700 focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+              className="mt-1 block w-full rounded-md border border-navy-200 bg-surface px-3 py-2 font-mono text-xs text-navy-700 focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
             />
           </div>
         </div>

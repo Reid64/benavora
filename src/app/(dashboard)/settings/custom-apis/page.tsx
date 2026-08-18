@@ -808,7 +808,7 @@ function AddConnectionModal({
               fieldMappingError
                 ? "border-red-400 focus:ring-red-400"
                 : "border-navy-300 focus:border-teal-500 focus:ring-teal-500"
-            } bg-white px-3 py-2 font-mono text-xs text-navy-900 shadow-sm focus:outline-none focus:ring-2`}
+            } bg-surface px-3 py-2 font-mono text-xs text-navy-900 shadow-sm focus:outline-none focus:ring-2`}
           />
           {fieldMappingError && (
             <p role="alert" className="text-xs text-red-600">

@@ -750,7 +750,7 @@ export default function DonorDiscoveryPage() {
               return (
                 <div
                   key={req.id}
-                  className="bg-white rounded-xl shadow-sm border border-border p-5 mb-4"
+                  className="bg-surface rounded-xl shadow-sm border border-border p-5 mb-4"
                   style={{
                     backgroundColor: "#FFFFFF",
                     boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
@@ -807,7 +807,7 @@ export default function DonorDiscoveryPage() {
             <Link
               key={stage}
               href={`/donor-discovery/prospects?stage=${stage}`}
-              className="bg-white shadow-sm rounded-lg border border-border px-4 py-3 text-center hover:border-[#0077B6] cursor-pointer transition-colors"
+              className="bg-surface shadow-sm rounded-lg border border-border px-4 py-3 text-center hover:border-[#0077B6] cursor-pointer transition-colors"
               style={{
                 backgroundColor: "#FFFFFF",
                 boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
@@ -843,7 +843,7 @@ export default function DonorDiscoveryPage() {
               return (
                 <div
                   key={p.id}
-                  className="flex flex-col rounded-lg border border-border bg-white p-4"
+                  className="flex flex-col rounded-lg border border-border bg-surface p-4"
                   style={{
                     backgroundColor: "#FFFFFF",
                     boxShadow: "0 2px 8px rgba(0,0,0,0.08)",

@@ -28,10 +28,13 @@ import { Badge, Button, Card, EmptyState, LoadingSpinner } from "@/components/ui
 import { useProfile } from "@/lib/hooks/useProfile";
 
 // Admin/Platform section treatment — PAGE_TREATMENT_PROTOCOL_V2.md. Frame:
-// Deep Navy. Secondary accent: Rich Gold. Applied as an outer frame around
-// the shared Card component (Card's own bg-white can't take an inline-style
-// override). Real worker Online/Offline and queue-depth indicators below are
-// left untouched.
+// Deep Navy. Secondary accent: Rich Gold. Applied as an outer frame wrapping
+// the shared Card component - Card has no prop for a nested outer frame, so
+// this stays a local wrapper (not a color-override workaround; globals.css's
+// forced `bg-white` !important that used to block inline-style overrides on
+// Card was removed 2026-08-18, see CSS_OVERRIDE_INVESTIGATION_2026-08-18-
+// REMOVAL.md). Real worker Online/Offline and queue-depth indicators below
+// are left untouched.
 const FRAME_NAVY = "#101B2D";
 const ACCENT_GOLD = "#B88A2E";
 const CARD_BG = "#F8F5EE";
@@ -304,7 +307,7 @@ export default function AutoApplyOpsPage() {
           </p>
         </div>
         <Button
-          variant="ghost"
+          variant="secondary"
           onClick={() => void load()}
           style={{ border: `1.5px solid ${ACCENT_GOLD}`, backgroundColor: "rgba(184,138,46,0.1)", color: "#8A6A22" }}
         >

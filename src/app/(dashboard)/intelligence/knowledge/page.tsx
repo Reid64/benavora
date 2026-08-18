@@ -154,7 +154,7 @@ export default function KnowledgeEnginePage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-border p-5">
+      <div className="bg-surface rounded-xl shadow-sm border border-border p-5">
         <Textarea
           label="Ask the Knowledge Engine"
           placeholder="What narrative elements most often win HRSA community health grants?"
@@ -198,7 +198,7 @@ export default function KnowledgeEnginePage() {
 
       {!loading && result && (
         <>
-          <div className="bg-white rounded-xl shadow-sm border border-border p-5">
+          <div className="bg-surface rounded-xl shadow-sm border border-border p-5">
             <h3 className="text-base font-semibold text-slate-900">Insights</h3>
             {result.insights.length > 0 ? (
               <ul className="mt-3 space-y-2">
@@ -216,7 +216,7 @@ export default function KnowledgeEnginePage() {
             )}
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-border p-5">
+          <div className="bg-surface rounded-xl shadow-sm border border-border p-5">
             <h3 className="text-base font-semibold text-slate-900">Matching Patterns</h3>
             {result.patterns.length > 0 ? (
               <ul className="mt-3 divide-y divide-slate-100">
@@ -243,7 +243,7 @@ export default function KnowledgeEnginePage() {
             )}
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-border p-5">
+          <div className="bg-surface rounded-xl shadow-sm border border-border p-5">
             <h3 className="text-base font-semibold text-slate-900">Matching Funded Proposals</h3>
             {result.proposals.length > 0 ? (
               <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">

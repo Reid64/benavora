@@ -431,7 +431,7 @@ function ViewToggle({
   onChange: (view: ViewMode) => void;
 }) {
   return (
-    <div className="inline-flex shrink-0 rounded-lg border border-navy-200 bg-white p-0.5 shadow-sm">
+    <div className="inline-flex shrink-0 rounded-lg border border-navy-200 bg-surface p-0.5 shadow-sm">
       <button
         type="button"
         onClick={() => onChange("table")}
@@ -487,7 +487,7 @@ function CardGrid({
   }
   if (isEmpty) {
     return (
-      <div className="rounded-xl border border-border bg-white p-10 text-center text-sm text-navy-500 shadow-sm">
+      <div className="rounded-xl border border-border bg-surface p-10 text-center text-sm text-navy-500 shadow-sm">
         No opportunities match your filters.
       </div>
     );

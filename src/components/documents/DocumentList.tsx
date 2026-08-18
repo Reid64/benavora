@@ -254,7 +254,7 @@ export function DocumentList({
           {Array.from({ length: 6 }).map((_, i) => (
             <div
               key={i}
-              className="h-32 animate-pulse rounded-xl border border-border bg-white-sunken"
+              className="h-32 animate-pulse rounded-xl border border-border bg-surface-sunken"
             />
           ))}
         </div>

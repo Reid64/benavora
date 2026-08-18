@@ -215,7 +215,7 @@ export default function DonorDiscoveryConnectorsPage() {
                   </p>
 
                   {connected && (
-                    <div className="space-y-1.5 rounded-md border border-border bg-white-sunken px-3 py-2 text-xs text-text-muted">
+                    <div className="space-y-1.5 rounded-md border border-border bg-surface-sunken px-3 py-2 text-xs text-text-muted">
                       {row.key_hint && (
                         <div className="flex items-center justify-between">
                           <span>Key</span>

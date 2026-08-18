@@ -823,7 +823,7 @@ export default function DraftQueuePage() {
                 }`}
               >
                 <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                  className={`inline-block h-4 w-4 transform rounded-full bg-surface shadow transition-transform ${
                     configForm.is_enabled ? "translate-x-6" : "translate-x-1"
                   }`}
                 />
@@ -1059,7 +1059,7 @@ function StatCard({
   };
 
   return (
-    <div className="rounded-xl border border-border bg-white shadow-sm p-4">
+    <div className="rounded-xl border border-border bg-surface shadow-sm p-4">
       <p className="text-xs font-medium uppercase tracking-wide text-navy-400">
         {label}
       </p>
@@ -1138,7 +1138,7 @@ function ConfigToggle({
         }`}
       >
         <span
-          className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+          className={`inline-block h-4 w-4 transform rounded-full bg-surface shadow transition-transform ${
             checked ? "translate-x-6" : "translate-x-1"
           }`}
         />

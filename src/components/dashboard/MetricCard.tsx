@@ -76,7 +76,7 @@ export function MetricCard({
       style={style}
       className={cn(
         "group rounded-xl border border-border border-l-4 p-5 shadow-md transition-shadow hover:shadow-lg",
-        !colored && "bg-white",
+        !colored && "bg-surface",
         ICON_HUE_BORDER_CLASSES[hue],
         className,
       )}

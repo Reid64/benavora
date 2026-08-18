@@ -222,7 +222,7 @@ export default function DisasterResponsePage() {
         <h2 className="text-lg font-semibold text-slate-900">Live Declarations</h2>
 
         {loading ? (
-          <div className="flex items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white py-12 text-sm text-slate-500">
+          <div className="flex items-center justify-center rounded-xl border border-dashed border-slate-300 bg-surface py-12 text-sm text-slate-500">
             Loading FEMA declarations...
           </div>
         ) : showEmpty ? (
@@ -247,7 +247,7 @@ export default function DisasterResponsePage() {
               return (
                 <div
                   key={declaration.id}
-                  className="flex flex-col overflow-hidden rounded-xl border border-border bg-white shadow-sm"
+                  className="flex flex-col overflow-hidden rounded-xl border border-border bg-surface shadow-sm"
                 >
                   <div className="h-1.5 w-full" style={{ backgroundColor: color }} aria-hidden />
                   <div className="flex flex-1 flex-col gap-3 p-5">
@@ -327,7 +327,7 @@ export default function DisasterResponsePage() {
           {EMERGENCY_FUNDS.map((fund) => (
             <div
               key={fund.name}
-              className="flex flex-col justify-between rounded-xl border border-border bg-white p-4 shadow-sm"
+              className="flex flex-col justify-between rounded-xl border border-border bg-surface p-4 shadow-sm"
             >
               <div>
                 <h3 className="text-sm font-semibold text-slate-900">{fund.name}</h3>

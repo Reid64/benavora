@@ -123,7 +123,7 @@ const CTA_TEAL_TEXT = "#0A1628";
 function StatCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <div
-      className="rounded-xl border border-border bg-white px-5 py-4 shadow-sm"
+      className="rounded-xl border border-border bg-surface px-5 py-4 shadow-sm"
       style={{ borderTop: `3px solid ${SECTION_ACCENT}` }}
     >
       <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</p>
@@ -462,7 +462,7 @@ export default function FoundationsPage() {
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
             aria-label="Search foundations"
-            className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-700 placeholder-slate-400 focus:border-[#0284C7] focus:ring-2 focus:ring-[#0284C7]/10 outline-none"
+            className="w-full bg-surface border border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-700 placeholder-slate-400 focus:border-[#0284C7] focus:ring-2 focus:ring-[#0284C7]/10 outline-none"
           />
         </div>
         <Select

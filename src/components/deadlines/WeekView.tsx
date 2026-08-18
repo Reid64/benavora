@@ -64,7 +64,7 @@ export function WeekView({
 
   return (
     <>
-      {/* Plain div, not <Card>: Card's default `bg-white` class is forced by
+      {/* Plain div, not <Card>: Card's default `bg-surface` class is forced by
           globals.css's `!important` compat layer and would silently defeat
           this inline background color (same issue documented in
           DraftsHistoryPanel.tsx). */}

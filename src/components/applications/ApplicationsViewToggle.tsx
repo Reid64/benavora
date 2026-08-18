@@ -24,7 +24,7 @@ const VIEWS: {
  */
 export function ApplicationsViewToggle({ active }: { active: ApplicationsView }) {
   return (
-    <div className="inline-flex items-center gap-1 rounded-lg border border-navy-200 bg-white p-1 shadow-sm">
+    <div className="inline-flex items-center gap-1 rounded-lg border border-navy-200 bg-surface p-1 shadow-sm">
       {VIEWS.map((v) => {
         const Icon = v.icon;
         if (v.key === active) {

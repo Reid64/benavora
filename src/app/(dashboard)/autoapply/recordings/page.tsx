@@ -437,7 +437,7 @@ export default function RecordingsPage() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-            className="rounded-md border border-navy-200 bg-white px-3 py-1.5 text-sm text-navy-900 focus:outline-none focus:ring-2 focus:ring-teal-400"
+            className="rounded-md border border-navy-200 bg-surface px-3 py-1.5 text-sm text-navy-900 focus:outline-none focus:ring-2 focus:ring-teal-400"
           >
             <option value="all">All</option>
             <option value="completed">Completed</option>
@@ -452,7 +452,7 @@ export default function RecordingsPage() {
             placeholder="Filter by funder…"
             value={funderFilter}
             onChange={(e) => setFunderFilter(e.target.value)}
-            className="rounded-md border border-navy-200 bg-white px-3 py-1.5 text-sm text-navy-900 placeholder:text-navy-300 focus:outline-none focus:ring-2 focus:ring-teal-400"
+            className="rounded-md border border-navy-200 bg-surface px-3 py-1.5 text-sm text-navy-900 placeholder:text-navy-300 focus:outline-none focus:ring-2 focus:ring-teal-400"
           />
         </div>
 
@@ -464,7 +464,7 @@ export default function RecordingsPage() {
               type="date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
-              className="rounded-md border border-navy-200 bg-white pl-8 pr-3 py-1.5 text-sm text-navy-900 focus:outline-none focus:ring-2 focus:ring-teal-400"
+              className="rounded-md border border-navy-200 bg-surface pl-8 pr-3 py-1.5 text-sm text-navy-900 focus:outline-none focus:ring-2 focus:ring-teal-400"
             />
           </div>
         </div>
@@ -477,7 +477,7 @@ export default function RecordingsPage() {
               type="date"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
-              className="rounded-md border border-navy-200 bg-white pl-8 pr-3 py-1.5 text-sm text-navy-900 focus:outline-none focus:ring-2 focus:ring-teal-400"
+              className="rounded-md border border-navy-200 bg-surface pl-8 pr-3 py-1.5 text-sm text-navy-900 focus:outline-none focus:ring-2 focus:ring-teal-400"
             />
           </div>
         </div>
@@ -487,7 +487,7 @@ export default function RecordingsPage() {
           <select
             value={sortKey}
             onChange={(e) => setSortKey(e.target.value as SortKey)}
-            className="rounded-md border border-navy-200 bg-white px-3 py-1.5 text-sm text-navy-900 focus:outline-none focus:ring-2 focus:ring-teal-400"
+            className="rounded-md border border-navy-200 bg-surface px-3 py-1.5 text-sm text-navy-900 focus:outline-none focus:ring-2 focus:ring-teal-400"
           >
             <option value="newest">Newest first</option>
             <option value="oldest">Oldest first</option>
@@ -534,7 +534,7 @@ export default function RecordingsPage() {
           ))}
         </div>
       ) : sorted.length === 0 ? (
-        <div className="rounded-xl border border-border bg-white shadow-sm p-10">
+        <div className="rounded-xl border border-border bg-surface shadow-sm p-10">
           <EmptyState
             icon={Film}
             title="No recordings found"
@@ -568,7 +568,7 @@ export default function RecordingsPage() {
               return (
                 <div
                   key={rec.id}
-                  className="group relative cursor-pointer overflow-hidden rounded-xl border border-border bg-white shadow-sm transition-shadow hover:shadow-md"
+                  className="group relative cursor-pointer overflow-hidden rounded-xl border border-border bg-surface shadow-sm transition-shadow hover:shadow-md"
                   onClick={() => void openRecording(rec)}
                   role="button"
                   tabIndex={0}

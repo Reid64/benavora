@@ -60,7 +60,7 @@ export function FoundationCard({
 
   return (
     <div
-      className={`bg-white rounded-xl shadow-sm border border-border p-5 hover:shadow-md hover:border-[#00B4D8] transition-all cursor-pointer card-depth border-accent-blue ${getAccentClass(foundation.name)}`}
+      className={`bg-surface rounded-xl shadow-sm border border-border p-5 hover:shadow-md hover:border-[#00B4D8] transition-all cursor-pointer card-depth border-accent-blue ${getAccentClass(foundation.name)}`}
       style={{
         borderLeft: "4px solid #0077B6",
         boxShadow: "0 4px 12px rgba(0,0,0,0.10)",

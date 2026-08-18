@@ -288,7 +288,7 @@ export default function CompliancePage() {
                 action={
                   editable ? (
                     <Button
-                      variant="ghost"
+                      variant="secondary"
                       onClick={() => setCreatingEvent(true)}
                       style={{ border: "none", backgroundColor: ACCENT_TEAL, color: ON_FRAME_TEXT }}
                     >
@@ -407,7 +407,7 @@ export default function CompliancePage() {
           </h2>
           {editable && (
             <Button
-              variant="ghost"
+              variant="secondary"
               size="sm"
               onClick={() => setCreating(true)}
               style={{ border: `1px solid ${CARD_BORDER}`, backgroundColor: CARD, color: FRAME_NAVY }}
@@ -443,7 +443,7 @@ export default function CompliancePage() {
                 action={
                   editable ? (
                     <Button
-                      variant="ghost"
+                      variant="secondary"
                       onClick={() => setCreating(true)}
                       style={{ border: "none", backgroundColor: ACCENT_TEAL, color: ON_FRAME_TEXT }}
                     >

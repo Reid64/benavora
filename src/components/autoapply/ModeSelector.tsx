@@ -97,7 +97,7 @@ export function ModeSelector() {
                     : m === "semi_auto"
                       ? "bg-amber-500 text-white shadow-sm"
                       : "bg-teal-600 text-white shadow-sm"
-                  : "border border-navy-200 bg-white text-navy-600 hover:bg-navy-50"
+                  : "border border-navy-200 bg-surface text-navy-600 hover:bg-navy-50"
               }`}
             >
               {MODE_LABELS[m]}

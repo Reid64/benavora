@@ -71,7 +71,7 @@ export default function OutreachPage() {
         <div className="flex items-center gap-2">
           <Link href="/email/campaigns">
             <Button
-              variant="ghost"
+              variant="secondary"
               style={{
                 border: `1.5px solid ${ACCENT_BRONZE}`,
                 backgroundColor: "rgba(164,113,44,0.08)",
@@ -84,7 +84,7 @@ export default function OutreachPage() {
           </Link>
           {editable && (
             <Button
-              variant="ghost"
+              variant="secondary"
               onClick={() => setScanning(true)}
               style={{ backgroundColor: FRAME_RUST, color: CARD_BG, border: "none" }}
             >
@@ -112,7 +112,7 @@ export default function OutreachPage() {
           action={
             editable ? (
               <Button
-                variant="ghost"
+                variant="secondary"
                 onClick={() => setScanning(true)}
                 style={{ backgroundColor: FRAME_RUST, color: CARD_BG, border: "none" }}
               >

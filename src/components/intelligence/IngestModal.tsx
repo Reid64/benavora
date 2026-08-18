@@ -141,7 +141,7 @@ export function IngestModal({ isOpen, onClose, onSuccess }: Props) {
   }
 
   const fieldClass =
-    "w-full rounded-lg border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 placeholder:text-navy-400 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500";
+    "w-full rounded-lg border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 placeholder:text-navy-400 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500";
   const labelClass = "mb-1 block text-xs font-medium text-navy-600";
 
   return (
@@ -285,7 +285,7 @@ export function IngestModal({ isOpen, onClose, onSuccess }: Props) {
                         className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
                           selected
                             ? "border-teal-500 bg-teal-50 text-teal-700"
-                            : "border-navy-200 bg-white text-navy-600 hover:border-navy-300 hover:bg-navy-50"
+                            : "border-navy-200 bg-surface text-navy-600 hover:border-navy-300 hover:bg-navy-50"
                         } disabled:opacity-50`}
                       >
                         {cat}

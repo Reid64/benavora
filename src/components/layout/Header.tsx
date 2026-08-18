@@ -310,7 +310,7 @@ export function Header({ userEmail, role, orgName, orgLogoUrl, onMenuClick }: He
             {menuOpen && (
               <div
                 role="menu"
-                className="absolute right-0 top-full z-30 mt-2 w-56 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
+                className="absolute right-0 top-full z-30 mt-2 w-56 overflow-hidden rounded-xl border border-slate-200 bg-surface shadow-lg"
               >
                 <div className="border-b border-slate-200 px-4 py-3">
                   <p className="truncate text-sm font-semibold text-slate-900">

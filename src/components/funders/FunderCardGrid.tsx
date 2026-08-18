@@ -102,7 +102,7 @@ export function FunderCardGrid({
             onChange={(event) => setParams({ q: event.target.value || null })}
             placeholder="Search funders..."
             aria-label="Search funders"
-            className="w-full bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-700 placeholder-slate-400 focus:border-[#0077B6] focus:ring-2 focus:ring-[#0077B6]/10 outline-none"
+            className="w-full bg-surface border border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-700 placeholder-slate-400 focus:border-[#0077B6] focus:ring-2 focus:ring-[#0077B6]/10 outline-none"
           />
         </div>
         <div className="sm:w-56">
@@ -124,12 +124,12 @@ export function FunderCardGrid({
           {Array.from({ length: 6 }).map((_, i) => (
             <div
               key={i}
-              className="h-32 animate-pulse rounded-xl border border-border bg-white-sunken"
+              className="h-32 animate-pulse rounded-xl border border-border bg-surface-sunken"
             />
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="rounded-xl border border-border bg-white shadow-sm p-10 text-center text-sm text-slate-500">
+        <div className="rounded-xl border border-border bg-surface shadow-sm p-10 text-center text-sm text-slate-500">
           No funders match your filters.
         </div>
       ) : (

@@ -358,7 +358,7 @@ export default function FollowUpsPage() {
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
-          className="rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+          className="rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
         >
           <option value="all">All statuses</option>
           <option value="pending">Pending</option>
@@ -373,7 +373,7 @@ export default function FollowUpsPage() {
             type="date"
             value={filterFrom}
             onChange={(e) => setFilterFrom(e.target.value)}
-            className="rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+            className="rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
           />
         </div>
         <div className="flex items-center gap-2">
@@ -382,7 +382,7 @@ export default function FollowUpsPage() {
             type="date"
             value={filterTo}
             onChange={(e) => setFilterTo(e.target.value)}
-            className="rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+            className="rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
           />
         </div>
         {(filterStatus !== "all" || filterFrom || filterTo) && (
@@ -408,7 +408,7 @@ export default function FollowUpsPage() {
           Loading follow-ups…
         </div>
       ) : followUps.length === 0 ? (
-        <div className="rounded-xl border border-border bg-white shadow-sm py-14 text-center">
+        <div className="rounded-xl border border-border bg-surface shadow-sm py-14 text-center">
           <MessageSquare className="mx-auto mb-3 h-10 w-10 text-navy-300" />
           <p className="text-sm font-medium text-navy-700">No follow-ups found</p>
           <p className="mt-1 text-xs text-navy-400">
@@ -416,7 +416,7 @@ export default function FollowUpsPage() {
           </p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-border bg-white shadow-sm">
+        <div className="overflow-x-auto rounded-xl border border-border bg-surface shadow-sm">
           <table className="min-w-full divide-y divide-navy-100">
             <thead>
               <tr className="bg-sidebar">
@@ -641,7 +641,7 @@ function ExpandedRow({
           Follow-Up Content
         </p>
         {f.content ? (
-          <div className="rounded-lg border border-border bg-white shadow-sm p-3 text-sm leading-relaxed text-navy-700">
+          <div className="rounded-lg border border-border bg-surface shadow-sm p-3 text-sm leading-relaxed text-navy-700">
             {f.content.length > 600 ? `${f.content.slice(0, 600)}…` : f.content}
           </div>
         ) : (
@@ -671,7 +671,7 @@ function ExpandedRow({
           <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-navy-400">
             Linked Submission
           </p>
-          <div className="rounded-lg border border-border bg-white shadow-sm p-3 text-xs space-y-1.5">
+          <div className="rounded-lg border border-border bg-surface shadow-sm p-3 text-xs space-y-1.5">
             <div className="flex justify-between">
               <span className="text-navy-400">Status</span>
               <span className="font-medium text-navy-700">
@@ -714,7 +714,7 @@ function ExpandedRow({
                   type="date"
                   value={rescheduleDate}
                   onChange={(e) => onRescheduleDateChange(e.target.value)}
-                  className="flex-1 rounded-md border border-navy-200 bg-white px-2 py-1.5 text-xs text-navy-900 focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+                  className="flex-1 rounded-md border border-navy-200 bg-surface px-2 py-1.5 text-xs text-navy-900 focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
                 />
                 <button
                   type="button"
@@ -737,7 +737,7 @@ function ExpandedRow({
                 type="button"
                 onClick={onStartReschedule}
                 disabled={actingId !== null}
-                className="flex items-center justify-center gap-1.5 rounded-md border border-navy-200 bg-white px-3 py-1.5 text-xs text-navy-700 hover:bg-navy-50 disabled:opacity-50"
+                className="flex items-center justify-center gap-1.5 rounded-md border border-navy-200 bg-surface px-3 py-1.5 text-xs text-navy-700 hover:bg-navy-50 disabled:opacity-50"
               >
                 <Calendar className="h-3.5 w-3.5" />
                 Reschedule
@@ -797,7 +797,7 @@ function CancelModal({
       role="dialog"
       aria-modal="true"
     >
-      <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl">
+      <div className="w-full max-w-md rounded-xl bg-surface p-6 shadow-2xl">
         <div className="flex items-start justify-between">
           <h2 className="text-base font-semibold text-navy-900">
             {cancelAll ? `Cancel All Follow-Ups for ${funderName}` : "Cancel Follow-Up"}
@@ -826,7 +826,7 @@ function CancelModal({
             onChange={(e) => onReasonChange(e.target.value)}
             rows={2}
             placeholder="e.g. Funder contacted us directly"
-            className="mt-1.5 block w-full rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+            className="mt-1.5 block w-full rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
           />
         </div>
 

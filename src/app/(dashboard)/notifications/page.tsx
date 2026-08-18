@@ -118,7 +118,7 @@ export default function NotificationsPage() {
             type="button"
             onClick={markAllRead}
             disabled={busyId === "all"}
-            className="rounded-lg border border-border bg-white px-3 py-1.5 text-sm text-text-muted transition hover:bg-white-raised hover:text-text disabled:opacity-50"
+            className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-text-muted transition hover:bg-white-raised hover:text-text disabled:opacity-50"
           >
             Mark all read
           </button>
@@ -152,7 +152,7 @@ export default function NotificationsPage() {
           onChange={(e) =>
             setTypeFilter(e.target.value as NotificationEventType | "all")
           }
-          className="rounded-lg border border-border bg-white px-3 py-1.5 text-sm text-text focus:outline-none focus:ring-2 focus:ring-teal-500"
+          className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-text focus:outline-none focus:ring-2 focus:ring-teal-500"
         >
           <option value="all">All types</option>
           {ALL_EVENT_TYPES.map((t) => (
@@ -173,12 +173,12 @@ export default function NotificationsPage() {
           {error}
         </div>
       ) : visible.length === 0 ? (
-        <div className="rounded-xl border border-border bg-white py-16 text-center">
+        <div className="rounded-xl border border-border bg-surface py-16 text-center">
           <Bell className="mx-auto mb-3 h-8 w-8 text-text-muted" />
           <p className="text-sm text-text-muted">No notifications match your filters.</p>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-border bg-white shadow-sm">
+        <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
           {visible.map((n, idx) => {
             const meta = notificationEventMeta(n.event_type);
             const Icon = meta.icon;

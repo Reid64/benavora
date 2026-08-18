@@ -168,8 +168,8 @@ export function DraftsHistoryPanel({
             Compare
           </Button>
         ) : (
-          // Bypasses the shared Button's `bg-white` variant — globals.css
-          // hard-overrides `.bg-white` with `!important`, which a Tailwind
+          // Bypasses the shared Button's `bg-surface` variant — globals.css
+          // hard-overrides `.bg-surface` with `!important`, which a Tailwind
           // utility (even `!bg-[...]`) loses to on cascade order. A plain
           // button with inline style sidesteps that entirely.
           <button

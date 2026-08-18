@@ -113,7 +113,7 @@ export default function OutreachTemplatesPage() {
         </div>
         {editable && (
           <Button
-            variant="ghost"
+            variant="secondary"
             onClick={() => setCreating(true)}
             style={{ backgroundColor: FRAME_RUST, color: CARD_BG, border: "none" }}
           >
@@ -158,7 +158,7 @@ export default function OutreachTemplatesPage() {
           action={
             editable ? (
               <Button
-                variant="ghost"
+                variant="secondary"
                 onClick={() => setCreating(true)}
                 style={{ backgroundColor: FRAME_RUST, color: CARD_BG, border: "none" }}
               >

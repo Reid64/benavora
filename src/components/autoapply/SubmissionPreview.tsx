@@ -678,7 +678,7 @@ export function SubmissionPreview({
                             </th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-navy-100 bg-white">
+                        <tbody className="divide-y divide-navy-100 bg-surface">
                           {entries.map(([kbField, formField]) => {
                             const value = resolveKBValue(kbField, data.org);
                             const missing = value === "—";

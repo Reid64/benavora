@@ -280,7 +280,7 @@ export default function FundersImportPage() {
           </p>
         </div>
         <StepIndicator current="upload" />
-        <div className="bg-white border border-border rounded-lg p-6 shadow-sm">
+        <div className="bg-surface border border-border rounded-lg p-6 shadow-sm">
           <div
             role="button"
             tabIndex={0}
@@ -369,7 +369,7 @@ export default function FundersImportPage() {
           </p>
         </div>
         <StepIndicator current="map" />
-        <div className="bg-white border border-border rounded-lg p-6 shadow-sm">
+        <div className="bg-surface border border-border rounded-lg p-6 shadow-sm">
           <div className="space-y-5">
             {FUNDER_FIELDS.map((field) => (
               <div key={field.key} className="flex items-start gap-4">
@@ -463,7 +463,7 @@ export default function FundersImportPage() {
             {importError}
           </div>
         )}
-        <div className="bg-white border border-border rounded-lg overflow-hidden mb-6 shadow-sm">
+        <div className="bg-surface border border-border rounded-lg overflow-hidden mb-6 shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-sidebar">
@@ -544,7 +544,7 @@ export default function FundersImportPage() {
       <div className="max-w-2xl mx-auto py-8 px-4">
         <h1 className="text-2xl font-bold text-primary mb-6">Import Complete</h1>
         <StepIndicator current="done" />
-        <div className="bg-white border border-border rounded-lg p-6 shadow-sm">
+        <div className="bg-surface border border-border rounded-lg p-6 shadow-sm">
           <div className="flex items-start gap-4 mb-4">
             <div className="flex-shrink-0 w-10 h-10 rounded-full bg-green-950/60 border border-green-800 flex items-center justify-center">
               <svg

@@ -316,7 +316,7 @@ export function QueuePanel() {
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
-              <tbody className="divide-y divide-navy-100 bg-white">
+              <tbody className="divide-y divide-navy-100 bg-surface">
                 {items.map((item) => {
                   const { color, label, pulse } = statusBadge(item.status);
                   const isPending = item.status === "pending";

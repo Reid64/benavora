@@ -93,7 +93,7 @@ export function FieldReport({
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-navy-200 bg-white">
+          <tbody className="divide-y divide-navy-200 bg-surface">
             {rows.length === 0 ? (
               <tr>
                 <td

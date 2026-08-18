@@ -60,7 +60,7 @@ interface StatCardProps {
 
 function StatCard({ label, value, accent }: StatCardProps) {
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-white shadow-sm">
+    <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
       <div className="h-1.5" style={{ backgroundColor: accent }} aria-hidden />
       <div className="p-5">
         <p className="text-xs font-bold uppercase tracking-wide text-slate-500">{label}</p>
@@ -157,7 +157,7 @@ export default function LearningNetworkPage() {
               description="Patterns appear here once the Learning Network Aggregator has anonymized enough awarded outcomes across the platform."
             />
           ) : (
-            <div className="overflow-hidden rounded-xl border border-border bg-white shadow-sm">
+            <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
               <div className="flex items-center gap-2 border-b border-border px-5 py-4">
                 <Sparkles className="h-4 w-4 text-[#0077B6]" aria-hidden />
                 <h2 className="text-base font-semibold text-slate-900">

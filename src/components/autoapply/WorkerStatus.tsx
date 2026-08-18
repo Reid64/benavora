@@ -93,7 +93,7 @@ export function WorkerStatus() {
 
   if (!worker) {
     return (
-      <div className="flex items-center gap-2 rounded-lg border border-border bg-white px-3 py-2 text-xs text-navy-400 shadow-sm">
+      <div className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-xs text-navy-400 shadow-sm">
         <span className="h-2 w-2 rounded-full bg-navy-200" />
         No worker data
       </div>
@@ -124,7 +124,7 @@ export function WorkerStatus() {
         : "Worker Offline";
 
   return (
-    <div className="flex flex-col gap-1 rounded-lg border border-border bg-white px-3 py-2 text-xs shadow-sm">
+    <div className="flex flex-col gap-1 rounded-lg border border-border bg-surface px-3 py-2 text-xs shadow-sm">
       <div className="flex items-center gap-1.5">
         <span className={`h-2 w-2 shrink-0 rounded-full ${dotClass}`} />
         <span className={`font-medium ${labelClass}`}>{label}</span>

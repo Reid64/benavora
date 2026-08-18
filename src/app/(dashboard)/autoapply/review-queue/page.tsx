@@ -280,7 +280,7 @@ export default function ReviewQueuePage() {
           type="button"
           onClick={() => setActiveTab("paused")}
           className={`flex items-center gap-2 rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
-            activeTab === "paused" ? "bg-white text-navy-900 shadow-sm" : "text-navy-500 hover:text-navy-700"
+            activeTab === "paused" ? "bg-surface text-navy-900 shadow-sm" : "text-navy-500 hover:text-navy-700"
           }`}
         >
           Paused for Verification
@@ -294,7 +294,7 @@ export default function ReviewQueuePage() {
           type="button"
           onClick={() => setActiveTab("ambiguous")}
           className={`flex items-center gap-2 rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
-            activeTab === "ambiguous" ? "bg-white text-navy-900 shadow-sm" : "text-navy-500 hover:text-navy-700"
+            activeTab === "ambiguous" ? "bg-surface text-navy-900 shadow-sm" : "text-navy-500 hover:text-navy-700"
           }`}
         >
           Ambiguous Confirmations
@@ -361,7 +361,7 @@ export default function ReviewQueuePage() {
       {/* ── Skip modal ───────────────────────────────────────────────────── */}
       {skipItem !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-md rounded-xl border border-border bg-white p-6 shadow-2xl">
+          <div className="w-full max-w-md rounded-xl border border-border bg-surface p-6 shadow-2xl">
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-base font-semibold text-navy-900">Skip This Submission</h2>
@@ -407,7 +407,7 @@ export default function ReviewQueuePage() {
       {/* ── Reassign modal ───────────────────────────────────────────────── */}
       {reassignItem !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-md rounded-xl border border-border bg-white p-6 shadow-2xl">
+          <div className="w-full max-w-md rounded-xl border border-border bg-surface p-6 shadow-2xl">
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-base font-semibold text-navy-900">Reassign to Team Member</h2>
@@ -461,7 +461,7 @@ export default function ReviewQueuePage() {
       {/* ── Resolve modal (Tab 2) ────────────────────────────────────────── */}
       {resolveItem !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-lg rounded-xl border border-border bg-white p-6 shadow-2xl">
+          <div className="w-full max-w-lg rounded-xl border border-border bg-surface p-6 shadow-2xl">
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-base font-semibold text-navy-900">Resolve Ambiguous Match</h2>

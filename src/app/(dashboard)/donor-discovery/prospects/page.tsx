@@ -176,7 +176,7 @@ function StatCard({
   accent: string;
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div className="rounded-xl border border-slate-200 bg-surface p-5 shadow-sm">
       <div className="flex items-center gap-3">
         <span
           style={{ backgroundColor: `${accent}1A`, color: accent }}
@@ -252,7 +252,7 @@ function TaxonomyCombobox({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label="Filter by industry"
-        className="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white py-2 pl-3 pr-3 text-left text-sm text-slate-700 shadow-sm transition focus:outline-none focus:ring-2"
+        className="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-surface py-2 pl-3 pr-3 text-left text-sm text-slate-700 shadow-sm transition focus:outline-none focus:ring-2"
         style={{ borderColor: open ? "#0077B6" : undefined }}
       >
         <span className="truncate">{selectedLabel}</span>
@@ -260,7 +260,7 @@ function TaxonomyCombobox({
       </button>
 
       {open && (
-        <div className="absolute z-20 mt-1 w-full rounded-lg border border-slate-200 bg-white shadow-lg">
+        <div className="absolute z-20 mt-1 w-full rounded-lg border border-slate-200 bg-surface shadow-lg">
           <div className="relative border-b border-slate-200 p-2">
             <Search
               className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
@@ -273,7 +273,7 @@ function TaxonomyCombobox({
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search industries..."
               aria-label="Search industries"
-              className="w-full rounded-md border border-slate-200 bg-white py-1.5 pl-8 pr-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-1"
+              className="w-full rounded-md border border-slate-200 bg-surface py-1.5 pl-8 pr-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-1"
             />
           </div>
           <ul role="listbox" className="max-h-64 overflow-y-auto py-1">
@@ -803,7 +803,7 @@ export default function DonorDiscoveryProspectsPage() {
         <StatCard icon={Send} label="Contacted" value={engagedCount} accent="#F59E0B" />
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="rounded-xl border border-slate-200 bg-surface p-4 shadow-sm">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           <TaxonomyCombobox
             options={taxonomyOptions}

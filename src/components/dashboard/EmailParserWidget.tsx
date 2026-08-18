@@ -111,7 +111,7 @@ export function EmailParserWidget() {
             value={from}
             onChange={(e) => setFrom(e.target.value)}
             placeholder="sender@foundation.org"
-            className="w-full rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 placeholder-navy-400 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+            className="w-full rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 placeholder-navy-400 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
             disabled={loading}
           />
         </div>
@@ -125,7 +125,7 @@ export function EmailParserWidget() {
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
             placeholder="RE: Your Grant Application"
-            className="w-full rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 placeholder-navy-400 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+            className="w-full rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 placeholder-navy-400 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
             disabled={loading}
           />
         </div>
@@ -139,7 +139,7 @@ export function EmailParserWidget() {
             onChange={(e) => setBody(e.target.value)}
             placeholder="Paste the email content here..."
             rows={6}
-            className="w-full rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 placeholder-navy-400 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500 resize-y"
+            className="w-full rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 placeholder-navy-400 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500 resize-y"
             disabled={loading}
           />
         </div>
@@ -188,7 +188,7 @@ export function EmailParserWidget() {
 
       {/* Result */}
       {parsed && (
-        <div className="rounded-md border border-border bg-white overflow-hidden">
+        <div className="rounded-md border border-border bg-surface overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 bg-navy-50 border-b border-navy-200">
             <div className="flex items-center gap-2">
               <CheckCircle className="h-4 w-4 text-teal-600" aria-hidden />

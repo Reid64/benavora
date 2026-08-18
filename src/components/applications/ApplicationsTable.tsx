@@ -274,7 +274,7 @@ export function ApplicationsTable({
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-3">
         {/* Group filter */}
-        <div className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
+        <div className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-surface p-1 shadow-sm">
           {(["all", "discovery", "preparation", "active", "outcome"] as const).map((g) => {
             const label =
               g === "all"
@@ -303,14 +303,14 @@ export function ApplicationsTable({
 
         {/* Bulk action bar */}
         {selectedApps.length > 0 && (
-          <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 shadow-sm">
+          <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-surface px-3 py-1.5 shadow-sm">
             <span className="text-sm text-slate-600">
               {selectedApps.length} selected
             </span>
             <select
               value={bulkTargetStage}
               onChange={(e) => setBulkTargetStage(e.target.value as PipelineStage | "")}
-              className="rounded border border-slate-200 bg-white px-2 py-1 text-sm text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0077B6]"
+              className="rounded border border-slate-200 bg-surface px-2 py-1 text-sm text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#0077B6]"
             >
               <option value="">Move to stage…</option>
               {(Object.keys(STAGE_LABEL) as PipelineStage[]).map((s) => (
@@ -352,7 +352,7 @@ export function ApplicationsTable({
 
       {/* Sort header */}
       {filtered.length > 0 && (
-        <div className="flex items-center gap-4 rounded-xl border border-border bg-white px-5 py-2.5 shadow-sm table-header-dark">
+        <div className="flex items-center gap-4 rounded-xl border border-border bg-surface px-5 py-2.5 shadow-sm table-header-dark">
           <input
             type="checkbox"
             checked={allSelected}
@@ -372,7 +372,7 @@ export function ApplicationsTable({
 
       {/* Row cards */}
       {filtered.length === 0 ? (
-        <div className="rounded-xl border border-border bg-white p-12 text-center text-sm text-slate-500 shadow-sm">
+        <div className="rounded-xl border border-border bg-surface p-12 text-center text-sm text-slate-500 shadow-sm">
           No applications in this group.
         </div>
       ) : (
@@ -381,7 +381,7 @@ export function ApplicationsTable({
             <div
               key={app.id}
               onClick={() => router.push(`/applications/${app.id}`)}
-              className="flex cursor-pointer items-center gap-4 rounded-xl border border-border bg-white p-5 mb-3 shadow-sm transition-shadow hover:shadow-md"
+              className="flex cursor-pointer items-center gap-4 rounded-xl border border-border bg-surface p-5 mb-3 shadow-sm transition-shadow hover:shadow-md"
             >
               <input
                 type="checkbox"

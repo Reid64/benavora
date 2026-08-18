@@ -297,7 +297,7 @@ export default function CompetitorsPage() {
 
       {/* Run analysis section */}
       {editable && funders.length > 0 && (
-        <div className="rounded-xl border border-border bg-white shadow-sm p-6">
+        <div className="rounded-xl border border-border bg-surface shadow-sm p-6">
           <h2 className="mb-4 text-base font-semibold text-navy-900">
             Analyze a Funder
           </h2>
@@ -311,7 +311,7 @@ export default function CompetitorsPage() {
                 key={f.id}
                 onClick={() => void handleRunAnalysis(f.id)}
                 disabled={runningFunderId !== null}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-navy-200 bg-white px-3 py-1.5 text-sm font-medium text-navy-700 transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-navy-200 bg-surface px-3 py-1.5 text-sm font-medium text-navy-700 transition hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {runningFunderId === f.id ? (
                   <RefreshCw className="h-3.5 w-3.5 animate-spin" />
@@ -342,7 +342,7 @@ export default function CompetitorsPage() {
       {groups.map((group) => (
         <div
           key={group.funderId}
-          className="rounded-xl border border-border bg-white shadow-sm"
+          className="rounded-xl border border-border bg-surface shadow-sm"
         >
           {/* Funder header */}
           <button

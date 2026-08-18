@@ -138,7 +138,7 @@ export default function EmailTemplatesPage() {
         </div>
         {editable && (
           <Button
-            variant="ghost"
+            variant="secondary"
             onClick={() => setCreating(true)}
             style={{ backgroundColor: FRAME_RUST, color: CARD_BG, border: "none" }}
           >
@@ -187,7 +187,7 @@ export default function EmailTemplatesPage() {
           action={
             editable ? (
               <Button
-                variant="ghost"
+                variant="secondary"
                 onClick={() => setCreating(true)}
                 style={{ backgroundColor: FRAME_RUST, color: CARD_BG, border: "none" }}
               >
@@ -496,7 +496,7 @@ function TemplateForm({
               key={v}
               type="button"
               onClick={() => insertVariable(v)}
-              className="rounded bg-white px-2 py-1 text-xs text-navy-700 ring-1 ring-navy-200 transition hover:bg-navy-100"
+              className="rounded bg-surface px-2 py-1 text-xs text-navy-700 ring-1 ring-navy-200 transition hover:bg-navy-100"
             >
               <code>{v}</code>
             </button>
@@ -530,7 +530,7 @@ function TemplateForm({
 
       {/* Live preview */}
       {(subject.trim() || body.trim()) && (
-        <div className="rounded-lg border border-border bg-white shadow-sm px-4 py-3">
+        <div className="rounded-lg border border-border bg-surface shadow-sm px-4 py-3">
           <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-navy-400">
             Preview (sample data)
           </p>

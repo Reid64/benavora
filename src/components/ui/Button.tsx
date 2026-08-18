@@ -29,7 +29,7 @@ export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
   primary: "bg-[#0077B6] hover:bg-[#005F92] text-white shadow-sm focus-visible:ring-[#0077B6]",
   secondary:
-    "bg-white border border-slate-200 text-slate-700 hover:border-[#0077B6] hover:text-[#0077B6] focus-visible:ring-[#0077B6]",
+    "bg-surface border border-slate-200 text-slate-700 hover:border-[#0077B6] hover:text-[#0077B6] focus-visible:ring-[#0077B6]",
   danger:
     "bg-[#EF4444] hover:bg-[#B91C1C] text-white shadow-sm focus-visible:ring-[#EF4444]",
   ghost: "text-primary hover:bg-primary/10 focus-visible:ring-primary",

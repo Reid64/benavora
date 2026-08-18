@@ -100,7 +100,7 @@ export function FunderCard({
         }
       }}
       className={cn(
-        "bg-white rounded-xl shadow-sm border border-border p-5 hover:shadow-md hover:border-[#00B4D8] transition-all cursor-pointer card-depth",
+        "bg-surface rounded-xl shadow-sm border border-border p-5 hover:shadow-md hover:border-[#00B4D8] transition-all cursor-pointer card-depth",
         getFunderBorderClass(funder.category),
       )}
       style={getFunderBorderStyle(funder.category)}

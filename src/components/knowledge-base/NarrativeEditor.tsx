@@ -249,7 +249,7 @@ export function NarrativeEditor({
                   "rounded-full border px-3 py-1 text-xs font-medium transition",
                   active
                     ? "border-teal-600 bg-teal-600 text-white"
-                    : "border-navy-300 bg-white text-navy-600 hover:bg-navy-50",
+                    : "border-navy-300 bg-surface text-navy-600 hover:bg-navy-50",
                 )}
               >
                 {humanizeEnum(value)}
@@ -346,7 +346,7 @@ function RichTextArea({
       </label>
       <div
         className={cn(
-          "overflow-hidden rounded-lg border bg-white shadow-sm focus-within:ring-2",
+          "overflow-hidden rounded-lg border bg-surface shadow-sm focus-within:ring-2",
           error
             ? "border-red-300 focus-within:border-red-500 focus-within:ring-red-500"
             : "border-navy-300 focus-within:border-teal-500 focus-within:ring-teal-500",

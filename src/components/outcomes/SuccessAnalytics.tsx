@@ -142,7 +142,7 @@ function StatCard({
   hint?: string;
 }) {
   return (
-    <div className="rounded-xl border border-border bg-white p-4 shadow-sm">
+    <div className="rounded-xl border border-border bg-surface p-4 shadow-sm">
       <div className="text-sm text-navy-500">{label}</div>
       <div className="mt-1 text-2xl font-semibold tracking-tight text-navy-900">
         {value}

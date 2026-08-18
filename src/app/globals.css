@@ -14,10 +14,11 @@
  *
  * Strategy: CSS custom properties define the semantic tokens. Tailwind theme
  * extensions reference them. The COMPATIBILITY LAYER remaps legacy utility
- * classes that page files still use (bg-white, text-navy-*, bg-teal-*, etc.)
- * onto the current palette, so pages match the brand without per-file edits.
- * Rules after @tailwind utilities win on equal specificity; !important used only
- * in the compatibility layer to beat Tailwind utilities cleanly.
+ * classes that page files still use (text-navy-*, bg-teal-*, etc.) onto the
+ * current palette, so pages match the brand without per-file edits. Rules
+ * after @tailwind utilities win on equal specificity; !important is used
+ * only where a legacy Tailwind-config color scale (currently just `navy`)
+ * still needs forcing — see the compatibility-layer block below.
  */
 
 /* ── Semantic design tokens ─────────────────────────────────────────────────── */
@@ -466,9 +467,9 @@ textarea {
    COMPATIBILITY LAYER — remap legacy utility classes to the brand palette.
    Rules sit after @tailwind utilities; !important beats utility specificity.
 
-   As of 2026-08-15 (CSS_OVERRIDE_INVESTIGATION_2026-08-15.md), this layer is
-   scoped down to exactly two families that genuinely can't be collapsed into
-   tailwind.config.ts's color scales:
+   As of 2026-08-15 (CSS_OVERRIDE_INVESTIGATION_2026-08-15.md), this layer was
+   scoped down to two families that couldn't be collapsed into
+   tailwind.config.ts's color scales as a simple config change:
 
    - `navy` (bg/text/border below): the SAME shade number means a DIFFERENT
      color depending on which property it's applied to (e.g. navy-100 is a
@@ -476,13 +477,18 @@ textarea {
      Tailwind color-scale value is applied uniformly regardless of property,
      so it cannot represent this. Fixing it for real would mean auditing and
      renaming the ~149 files using these classes to stop overloading one
-     shade number for unrelated meanings, not a config change.
-   - `white` (bg-white/bg-white-sunken below): overriding the `white` key in
-     tailwind.config.ts would retint every `text-white`/`border-white`/etc.
-     use across the app too (Tailwind applies one value to a color key
-     regardless of property), including literal white text on dark/colored
-     backgrounds elsewhere that must stay pure #FFFFFF — too broad a blast
-     radius to collapse safely without auditing every such usage first.
+     shade number for unrelated meanings, not a config change. Still kept
+     `!important` — unresolved, see the block below.
+   - `white` (formerly bg-white/bg-white-sunken here): resolved 2026-08-18
+     (see CSS_OVERRIDE_INVESTIGATION_2026-08-18-REMOVAL.md) not by touching
+     Tailwind's shared `white` key (which would have retinted every
+     `text-white`/`border-white`/etc. use too) but by renaming the ~107 files'
+     `bg-white`/`bg-white-sunken` classes to the already-existing, honestly-
+     named `bg-surface`/`bg-surface-sunken` Tailwind utilities (identical
+     values, tailwind.config.ts's `surface`/`surface-sunken` keys) and
+     deleting the override rules entirely. `bg-white` now means Tailwind's
+     real, unmodified white again everywhere — no forced remap, no
+     `!important` fight against inline styles or custom classes.
 
    teal/red/yellow/amber/green/emerald/blue were successfully collapsed into
    tailwind.config.ts's `theme.extend.colors` on 2026-08-15 (values verified
@@ -494,12 +500,6 @@ textarea {
    ============================================================================= */
 
 /* Surfaces ------------------------------------------------------------------ */
-.bg-white {
-  background-color: var(--color-surface) !important;
-}
-.bg-white-sunken {
-  background-color: var(--color-surface-sunken) !important;
-}
 .bg-navy-50 {
   background-color: rgba(0, 119, 182, 0.04) !important;
 }
@@ -606,13 +606,17 @@ textarea {
    confirmed 2026-08-15 to have zero usage anywhere in src/ (grep, both plain
    and dynamic-class-construction forms) and were deleted outright.
 
-   .card-depth and .border-accent-* keep !important: real live combos exist
-   (e.g. FoundationCard.tsx: `bg-white ... card-depth border-accent-blue`)
-   where .card-depth's background-color must still beat .bg-white (which
-   itself stays !important, see the compat-layer note above), and
-   .border-accent-*'s border-left must in turn still beat .card-depth's own
-   border shorthand on the same element. .table-header-dark keeps !important
-   for the same reason (combined with `bg-white` in ApplicationsTable.tsx).
+   .card-depth, .border-accent-*, and .table-header-dark had their
+   !important dropped 2026-08-18: they only ever needed it to beat
+   .bg-white's own !important on the same element (e.g. FoundationCard.tsx:
+   `bg-white ... card-depth border-accent-blue`; ApplicationsTable.tsx:
+   `bg-white ... table-header-dark`) — now that `bg-white` is a plain,
+   unforced Tailwind utility (see the compat-layer note above), ordinary
+   cascade already lets these win: they're declared after @tailwind
+   utilities, and .border-accent-*'s border-left is declared after
+   .card-depth's border shorthand in this same file. Re-verified no live
+   usage combines any of these three with a still-!important `navy-*` class
+   on the same property before dropping.
 
    .badge-* and .page-bg had their !important dropped 2026-08-15: grepped
    every live usage and found them only ever combined with plain
@@ -621,19 +625,19 @@ textarea {
    wins for both without !important.
    ============================================================================= */
 
-.card-depth { background-color: #F7F5F1 !important; box-shadow: 0 4px 16px rgba(30,41,59,0.12) !important; border: 1px solid #D9D3C5 !important; border-radius: 12px !important; }
-.border-accent-blue { border-left: 4px solid #0077B6 !important; }
-.border-accent-cyan { border-left: 4px solid #00B4D8 !important; }
-.border-accent-violet { border-left: 4px solid #6B48CC !important; }
-.border-accent-green { border-left: 4px solid #10B981 !important; }
-.border-accent-red { border-left: 4px solid #EF4444 !important; }
-.border-accent-amber { border-left: 4px solid #F59E0B !important; }
+.card-depth { background-color: #F7F5F1; box-shadow: 0 4px 16px rgba(30,41,59,0.12); border: 1px solid #D9D3C5; border-radius: 12px; }
+.border-accent-blue { border-left: 4px solid #0077B6; }
+.border-accent-cyan { border-left: 4px solid #00B4D8; }
+.border-accent-violet { border-left: 4px solid #6B48CC; }
+.border-accent-green { border-left: 4px solid #10B981; }
+.border-accent-red { border-left: 4px solid #EF4444; }
+.border-accent-amber { border-left: 4px solid #F59E0B; }
 .badge-blue { background-color: #DBEAFE; color: #1D4ED8; border-radius: 9999px; padding: 2px 10px; font-size: 12px; font-weight: 600; }
 .badge-green { background-color: #DCFCE7; color: #15803D; border-radius: 9999px; padding: 2px 10px; font-size: 12px; font-weight: 600; }
 .badge-red { background-color: #FEE2E2; color: #B91C1C; border-radius: 9999px; padding: 2px 10px; font-size: 12px; font-weight: 600; }
 .badge-amber { background-color: #FEF3C7; color: #92400E; border-radius: 9999px; padding: 2px 10px; font-size: 12px; font-weight: 600; }
 .badge-violet { background-color: #EDE9FE; color: #6D28D9; border-radius: 9999px; padding: 2px 10px; font-size: 12px; font-weight: 600; }
-.table-header-dark { background-color: #1A2B3C !important; color: #FFFFFF !important; }
+.table-header-dark { background-color: #1A2B3C; color: #FFFFFF; }
 .page-bg { background-color: #E4E9F0; }
 
 /* =============================================================================

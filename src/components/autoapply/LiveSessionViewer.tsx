@@ -205,7 +205,7 @@ function MonitorContent({
               className="absolute right-2 top-2 flex items-center gap-1.5 rounded px-2 py-0.5 text-xs font-bold text-white"
               style={{ background: "rgba(220,38,38,0.85)" }}
             >
-              <span className="inline-block h-2 w-2 animate-ping rounded-full bg-white opacity-90" />
+              <span className="inline-block h-2 w-2 animate-ping rounded-full bg-surface opacity-90" />
               LIVE
             </div>
           )}

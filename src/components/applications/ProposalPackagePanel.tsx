@@ -164,7 +164,7 @@ export function ProposalPackagePanel({
               <select
                 value={selectedProgramId}
                 onChange={(e) => setSelectedProgramId(e.target.value)}
-                className="block rounded-lg border border-navy-200 bg-white px-3 py-1.5 text-sm text-navy-900 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                className="block rounded-lg border border-navy-200 bg-surface px-3 py-1.5 text-sm text-navy-900 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
               >
                 <option value="">Select a program…</option>
                 {result.availablePrograms.map((p) => (

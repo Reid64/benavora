@@ -599,7 +599,7 @@ export function ManualQueue({ onCountChange }: ManualQueueProps) {
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-navy-100 bg-white">
+              <tbody className="divide-y divide-navy-100 bg-surface">
                 {items.map((item) => {
                   const isExpanded = expandedId === item.id;
                   const prep = prepDataMap[item.id];
@@ -707,7 +707,7 @@ export function ManualQueue({ onCountChange }: ManualQueueProps) {
       {/* ── Mark Complete Modal ──────────────────────────────────────────────── */}
       {markCompleteItem !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-md rounded-xl border border-border bg-white p-6 shadow-2xl">
+          <div className="w-full max-w-md rounded-xl border border-border bg-surface p-6 shadow-2xl">
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-base font-semibold text-navy-900">
@@ -794,7 +794,7 @@ export function ManualQueue({ onCountChange }: ManualQueueProps) {
       {/* ── Skip Modal ───────────────────────────────────────────────────────── */}
       {skipItem !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-md rounded-xl border border-border bg-white p-6 shadow-2xl">
+          <div className="w-full max-w-md rounded-xl border border-border bg-surface p-6 shadow-2xl">
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-base font-semibold text-navy-900">
@@ -877,7 +877,7 @@ export function ManualQueue({ onCountChange }: ManualQueueProps) {
       {/* ── Convert to Auto Modal ────────────────────────────────────────────── */}
       {convertItem !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-md rounded-xl border border-border bg-white p-6 shadow-2xl">
+          <div className="w-full max-w-md rounded-xl border border-border bg-surface p-6 shadow-2xl">
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-base font-semibold text-navy-900">
@@ -949,7 +949,7 @@ export function ManualQueue({ onCountChange }: ManualQueueProps) {
       {/* ── Reassign Modal ───────────────────────────────────────────────────── */}
       {reassignItem !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-md rounded-xl border border-border bg-white p-6 shadow-2xl">
+          <div className="w-full max-w-md rounded-xl border border-border bg-surface p-6 shadow-2xl">
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-base font-semibold text-navy-900">
@@ -1056,7 +1056,7 @@ function PrepPanel({
         </p>
         {prep.portalUrl !== null ? (
           <div className="flex flex-wrap items-center gap-3">
-            <span className="max-w-sm truncate rounded-lg border border-navy-200 bg-white px-3 py-2 text-sm text-navy-700">
+            <span className="max-w-sm truncate rounded-lg border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-700">
               {prep.portalUrl}
             </span>
             <a
@@ -1082,7 +1082,7 @@ function PrepPanel({
           <p className="mb-2 text-xs font-medium uppercase tracking-wide text-navy-500">
             Pre-Filled Form Data
           </p>
-          <div className="overflow-x-auto rounded-lg border border-border bg-white shadow-sm">
+          <div className="overflow-x-auto rounded-lg border border-border bg-surface shadow-sm">
             <table className="min-w-full divide-y divide-navy-100 text-sm">
               <thead>
                 <tr style={{ backgroundColor: "#2563EB" }}>
@@ -1162,7 +1162,7 @@ function PrepPanel({
             readOnly
             value={prep.pitch}
             rows={5}
-            className="w-full rounded-lg border border-navy-200 bg-white px-4 py-3 text-sm text-navy-700 focus:outline-none"
+            className="w-full rounded-lg border border-navy-200 bg-surface px-4 py-3 text-sm text-navy-700 focus:outline-none"
           />
         </div>
       )}
@@ -1174,7 +1174,7 @@ function PrepPanel({
             Optimized Ask Amount
           </p>
           <div className="flex items-center gap-3">
-            <span className="rounded-lg border border-navy-200 bg-white px-4 py-2 text-lg font-semibold text-navy-900">
+            <span className="rounded-lg border border-navy-200 bg-surface px-4 py-2 text-lg font-semibold text-navy-900">
               {formatUSD(prep.optimizedAmount)}
             </span>
             <button
@@ -1204,7 +1204,7 @@ function PrepPanel({
             {prep.documents.map((doc) => (
               <div
                 key={doc.id}
-                className="flex items-center justify-between rounded-lg border border-navy-200 bg-white px-4 py-2.5"
+                className="flex items-center justify-between rounded-lg border border-navy-200 bg-surface px-4 py-2.5"
               >
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-navy-800">
@@ -1245,7 +1245,7 @@ function PrepPanel({
             {prep.riskFactors.map((factor, idx) => (
               <div
                 key={idx}
-                className="flex items-start gap-3 rounded-lg border border-navy-200 bg-white px-4 py-3"
+                className="flex items-start gap-3 rounded-lg border border-navy-200 bg-surface px-4 py-3"
               >
                 <span className="shrink-0 rounded bg-red-100 px-1.5 py-0.5 text-xs font-bold text-red-700">
                   +{factor.points}

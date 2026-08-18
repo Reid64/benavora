@@ -224,7 +224,7 @@ export default function EmailPage() {
             onClick={() => setMobileTab(tab)}
             className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium capitalize transition ${
               mobileTab === tab
-                ? "bg-white text-navy-900 shadow-sm"
+                ? "bg-surface text-navy-900 shadow-sm"
                 : "text-navy-500 hover:text-navy-700"
             }`}
           >
@@ -251,7 +251,7 @@ export default function EmailPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search threads…"
-                className="w-full rounded-lg border border-navy-200 bg-white py-2 pl-9 pr-3 text-sm text-navy-900 placeholder:text-navy-400 focus:border-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-400/20"
+                className="w-full rounded-lg border border-navy-200 bg-surface py-2 pl-9 pr-3 text-sm text-navy-900 placeholder:text-navy-400 focus:border-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-400/20"
               />
             </div>
             <div className="flex gap-1">
@@ -403,7 +403,7 @@ export default function EmailPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <Button
-                      variant="ghost"
+                      variant="secondary"
                       style={{
                         border: `1.5px solid ${ACCENT_BRONZE}`,
                         backgroundColor: "rgba(164,113,44,0.08)",
@@ -522,7 +522,7 @@ export default function EmailPage() {
                     value={ccField}
                     onChange={(e) => setCcField(e.target.value)}
                     placeholder="email@example.com"
-                    className="mt-0.5 w-full rounded-md border border-navy-200 bg-white px-3 py-1.5 text-sm text-navy-900 placeholder:text-navy-400 focus:border-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-400/20"
+                    className="mt-0.5 w-full rounded-md border border-navy-200 bg-surface px-3 py-1.5 text-sm text-navy-900 placeholder:text-navy-400 focus:border-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-400/20"
                   />
                 </div>
                 <Textarea

@@ -422,7 +422,7 @@ export function CampaignBuilder({
               })),
             );
           }}
-          className="rounded bg-white px-3 py-1.5 text-xs font-medium text-teal-700 ring-1 ring-teal-300 transition hover:bg-teal-100"
+          className="rounded bg-surface px-3 py-1.5 text-xs font-medium text-teal-700 ring-1 ring-teal-300 transition hover:bg-teal-100"
         >
           Use 3-step intro sequence (intro → 5-day follow-up → meeting request)
         </button>
@@ -446,7 +446,7 @@ export function CampaignBuilder({
               key={v}
               type="button"
               onClick={() => insertVariable(v)}
-              className="rounded bg-white px-2 py-1 text-xs text-navy-700 ring-1 ring-navy-200 transition hover:bg-navy-100"
+              className="rounded bg-surface px-2 py-1 text-xs text-navy-700 ring-1 ring-navy-200 transition hover:bg-navy-100"
             >
               <code>{v}</code>
             </button>
@@ -548,7 +548,7 @@ export function CampaignBuilder({
                 )}
 
                 {(step.subject.trim() !== "" || step.body.trim() !== "") && (
-                  <div className="rounded-lg border border-border bg-white px-3 py-2 shadow-sm">
+                  <div className="rounded-lg border border-border bg-surface px-3 py-2 shadow-sm">
                     <p className="text-[11px] font-medium uppercase tracking-wide text-navy-400">
                       Preview · {chLabel} (sample data)
                     </p>

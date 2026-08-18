@@ -129,7 +129,7 @@ export default function MatchesPage() {
 
       {/* Results */}
       {matches.length > 0 && (
-        <div className="rounded-xl border border-border bg-white shadow-sm">
+        <div className="rounded-xl border border-border bg-surface shadow-sm">
           <div className="divide-y divide-navy-100">
             {matches.map((match, index) => (
               <div key={match.funderId} className="flex items-start gap-4 px-5 py-4">

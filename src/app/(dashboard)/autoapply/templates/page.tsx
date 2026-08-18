@@ -628,7 +628,7 @@ export default function FormTemplatesPage() {
               onClick={() => setHealthFilter(key)}
               className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
                 healthFilter === key
-                  ? "bg-white text-navy-900 shadow-sm"
+                  ? "bg-surface text-navy-900 shadow-sm"
                   : "text-navy-500 hover:text-navy-700"
               }`}
             >
@@ -702,7 +702,7 @@ export default function FormTemplatesPage() {
             return (
               <div
                 key={group.key}
-                className="overflow-hidden rounded-xl border border-border bg-white shadow-sm"
+                className="overflow-hidden rounded-xl border border-border bg-surface shadow-sm"
               >
                 {/* Card header — click to expand */}
                 <button
@@ -859,7 +859,7 @@ export default function FormTemplatesPage() {
                                     </th>
                                   </tr>
                                 </thead>
-                                <tbody className="divide-y divide-navy-100 bg-white">
+                                <tbody className="divide-y divide-navy-100 bg-surface">
                                   {fields.map((f) => (
                                     <tr key={f.name}>
                                       <td className="px-3 py-1.5 font-medium text-navy-800">
@@ -1063,7 +1063,7 @@ export default function FormTemplatesPage() {
                             </th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-navy-100 bg-white">
+                        <tbody className="divide-y divide-navy-100 bg-surface">
                           {entries.map(([field, kbKey]) => (
                             <tr key={field}>
                               <td className="px-3 py-2 font-medium text-navy-800">
@@ -1112,7 +1112,7 @@ export default function FormTemplatesPage() {
                           </th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-navy-100 bg-white">
+                      <tbody className="divide-y divide-navy-100 bg-surface">
                         {Object.entries(testResult.fieldValues).map(
                           ([field, value]) => (
                             <tr key={field}>
@@ -1320,7 +1320,7 @@ export default function FormTemplatesPage() {
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-navy-100 bg-white">
+                  <tbody className="divide-y divide-navy-100 bg-surface">
                     {editableFields.map((f, i) => (
                       <tr
                         key={i}
@@ -1353,7 +1353,7 @@ export default function FormTemplatesPage() {
                             onChange={(e) => updateSelector(i, e.target.value)}
                             placeholder="#field-id or .class-name"
                             disabled={f.skip}
-                            className="w-48 rounded border border-navy-200 bg-white px-2 py-1 font-mono text-xs text-navy-700 focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400 disabled:cursor-not-allowed disabled:opacity-50"
+                            className="w-48 rounded border border-navy-200 bg-surface px-2 py-1 font-mono text-xs text-navy-700 focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400 disabled:cursor-not-allowed disabled:opacity-50"
                           />
                         </td>
                         <td className="px-4 py-2.5">
@@ -1361,7 +1361,7 @@ export default function FormTemplatesPage() {
                             value={f.skip ? "" : f.mapped_kb_field}
                             onChange={(e) => updateFieldMapping(i, e.target.value)}
                             disabled={f.skip}
-                            className="w-56 rounded border border-navy-200 bg-white px-2 py-1 text-xs text-navy-700 focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400 disabled:cursor-not-allowed disabled:opacity-50"
+                            className="w-56 rounded border border-navy-200 bg-surface px-2 py-1 text-xs text-navy-700 focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400 disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             {KB_FIELD_OPTIONS.map((opt) => (
                               <option key={opt.value} value={opt.value}>

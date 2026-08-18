@@ -440,7 +440,7 @@ function ColorField({
           onChange={(e) => onChange(e.target.value)}
           disabled={disabled}
           aria-label={`${label} picker`}
-          className="h-9 w-10 cursor-pointer rounded border border-navy-300 bg-white p-0.5 disabled:cursor-not-allowed disabled:opacity-50"
+          className="h-9 w-10 cursor-pointer rounded border border-navy-300 bg-surface p-0.5 disabled:cursor-not-allowed disabled:opacity-50"
         />
         <input
           type="text"

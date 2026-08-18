@@ -147,7 +147,7 @@ export default function EmailCampaignsPage() {
         </div>
         {editable && (
           <Button
-            variant="ghost"
+            variant="secondary"
             onClick={() => setBuilding(true)}
             style={{ backgroundColor: FRAME_RUST, color: CARD_BG, border: "none" }}
           >
@@ -178,7 +178,7 @@ export default function EmailCampaignsPage() {
           action={
             editable ? (
               <Button
-                variant="ghost"
+                variant="secondary"
                 onClick={() => setBuilding(true)}
                 style={{ backgroundColor: FRAME_RUST, color: CARD_BG, border: "none" }}
               >

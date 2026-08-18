@@ -298,7 +298,7 @@ export default function QueueControlsPage() {
         className={`rounded-lg border-2 px-6 py-5 ${
           isPlatformPaused
             ? "border-red-400 bg-red-50"
-            : "border-red-200 bg-white shadow-sm"
+            : "border-red-200 bg-surface shadow-sm"
         }`}
       >
         <div className="flex items-start justify-between gap-4">
@@ -349,7 +349,7 @@ export default function QueueControlsPage() {
               onChange={(e) => setKillReason(e.target.value)}
               placeholder="Reason for emergency pause (required)…"
               rows={2}
-              className="w-full rounded-md border border-red-300 bg-white px-3 py-2 text-sm text-navy-900 placeholder-navy-400 shadow-sm focus:border-red-400 focus:outline-none focus:ring-1 focus:ring-red-400"
+              className="w-full rounded-md border border-red-300 bg-surface px-3 py-2 text-sm text-navy-900 placeholder-navy-400 shadow-sm focus:border-red-400 focus:outline-none focus:ring-1 focus:ring-red-400"
             />
             <div className="mt-3 flex items-center gap-2">
               <button
@@ -461,7 +461,7 @@ export default function QueueControlsPage() {
                 id="orgSelect"
                 value={selectedOrgId}
                 onChange={(e) => setSelectedOrgId(e.target.value)}
-                className="mt-1 block w-full rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+                className="mt-1 block w-full rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
               >
                 <option value="">Select organization…</option>
                 {orgs.map((o) => (
@@ -484,7 +484,7 @@ export default function QueueControlsPage() {
                 value={tenantReason}
                 onChange={(e) => setTenantReason(e.target.value)}
                 placeholder="Reason for pause…"
-                className="mt-1 block w-full rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+                className="mt-1 block w-full rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
               />
             </div>
             <Button
@@ -530,11 +530,11 @@ export default function QueueControlsPage() {
                   value={funderSearch}
                   onChange={(e) => setFunderSearch(e.target.value)}
                   placeholder="Search funder name…"
-                  className="mt-1 block w-full rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+                  className="mt-1 block w-full rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
                 />
               )}
               {funderResults.length > 0 && !selectedFunder && (
-                <ul className="absolute z-10 mt-1 w-full overflow-hidden rounded-md border border-navy-200 bg-white shadow-lg">
+                <ul className="absolute z-10 mt-1 w-full overflow-hidden rounded-md border border-navy-200 bg-surface shadow-lg">
                   {funderResults.map((f) => (
                     <li key={f.id}>
                       <button
@@ -566,7 +566,7 @@ export default function QueueControlsPage() {
                 value={funderReason}
                 onChange={(e) => setFunderReason(e.target.value)}
                 placeholder="Reason for pause…"
-                className="mt-1 block w-full rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+                className="mt-1 block w-full rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
               />
             </div>
             <Button
@@ -596,7 +596,7 @@ export default function QueueControlsPage() {
                 value={domainInput}
                 onChange={(e) => setDomainInput(e.target.value)}
                 placeholder="e.g. benevity.com"
-                className="mt-1 block w-full rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+                className="mt-1 block w-full rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
               />
             </div>
             <div>
@@ -612,7 +612,7 @@ export default function QueueControlsPage() {
                 value={domainReason}
                 onChange={(e) => setDomainReason(e.target.value)}
                 placeholder="Reason for pause…"
-                className="mt-1 block w-full rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+                className="mt-1 block w-full rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
               />
             </div>
             <Button

@@ -692,7 +692,7 @@ function StatCard({
   hint?: string;
 }) {
   return (
-    <div className="rounded-xl border border-border bg-white p-4 shadow-sm">
+    <div className="rounded-xl border border-border bg-surface p-4 shadow-sm">
       <div className="flex items-center gap-2 text-text-muted">
         <Icon className="h-4 w-4" aria-hidden />
         <span className="text-xs font-medium uppercase tracking-wide">

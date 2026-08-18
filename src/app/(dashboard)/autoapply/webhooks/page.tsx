@@ -233,7 +233,7 @@ export default function WebhooksPage() {
                   id="wh-type"
                   value={formType}
                   onChange={(e) => setFormType(e.target.value as WebhookType)}
-                  className="mt-1 block w-full rounded-md border border-navy-200 bg-white px-2 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+                  className="mt-1 block w-full rounded-md border border-navy-200 bg-surface px-2 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
                 >
                   {WEBHOOK_TYPES.map((t) => (
                     <option key={t.value} value={t.value}>
@@ -256,7 +256,7 @@ export default function WebhooksPage() {
                   }
                   value={formUrl}
                   onChange={(e) => setFormUrl(e.target.value)}
-                  className="mt-1 block w-full rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+                  className="mt-1 block w-full rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
                 />
               </div>
             </div>
@@ -329,7 +329,7 @@ export default function WebhooksPage() {
             return (
               <div
                 key={config.id}
-                className="rounded-xl border border-border bg-white shadow-sm px-5 py-4"
+                className="rounded-xl border border-border bg-surface shadow-sm px-5 py-4"
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0 flex-1 space-y-2">
@@ -373,7 +373,7 @@ export default function WebhooksPage() {
                       }`}
                     >
                       <span
-                        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-sm transition-transform ${
+                        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-surface shadow-sm transition-transform ${
                           config.is_active ? "translate-x-4" : "translate-x-0.5"
                         }`}
                       />

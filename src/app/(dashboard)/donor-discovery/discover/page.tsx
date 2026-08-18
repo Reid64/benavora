@@ -464,7 +464,7 @@ export default function DiscoverPage() {
                   }
                   className={cn(
                     "flex flex-col items-start gap-2 rounded-xl border p-4 text-left transition",
-                    active ? "" : "border-slate-200 bg-white hover:shadow-md",
+                    active ? "" : "border-slate-200 bg-surface hover:shadow-md",
                   )}
                 >
                   <span
@@ -504,7 +504,7 @@ export default function DiscoverPage() {
                           ? { borderColor: accent, backgroundColor: accent, color: "#FFFFFF" }
                           : { borderColor: "#E2E8F0", color: "#475569" }
                       }
-                      className="rounded-full border bg-white px-3 py-1.5 text-sm font-medium transition"
+                      className="rounded-full border bg-surface px-3 py-1.5 text-sm font-medium transition"
                     >
                       {naicsLabel(code)}
                     </button>
@@ -562,7 +562,7 @@ export default function DiscoverPage() {
                       "rounded-lg border px-4 py-2 text-sm font-semibold transition",
                       radiusMiles === mi
                         ? "border-[#0077B6] bg-[#0077B6] text-white"
-                        : "border-slate-200 bg-white text-slate-600 hover:border-[#0077B6] hover:text-[#0077B6]",
+                        : "border-slate-200 bg-surface text-slate-600 hover:border-[#0077B6] hover:text-[#0077B6]",
                     )}
                   >
                     {mi} mi
@@ -628,7 +628,7 @@ export default function DiscoverPage() {
                 {prospects.map((p) => (
                   <div
                     key={p.placeId}
-                    className="rounded-xl border border-slate-200 bg-white p-4 hover:border-[#00B4D8] transition-colors"
+                    className="rounded-xl border border-slate-200 bg-surface p-4 hover:border-[#00B4D8] transition-colors"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <p className="min-w-0 truncate text-sm font-semibold text-slate-900">{p.name}</p>
@@ -720,7 +720,7 @@ export default function DiscoverPage() {
                   return (
                     <div
                       key={p.id}
-                      className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-4"
+                      className="flex items-start gap-3 rounded-xl border border-slate-200 bg-surface p-4"
                     >
                       <input
                         type="checkbox"
@@ -755,13 +755,13 @@ export default function DiscoverPage() {
                           </button>
                           <Link
                             href="/donor-discovery/outreach"
-                            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-[#8B5CF6] hover:text-[#8B5CF6]"
+                            className="rounded-lg border border-slate-200 bg-surface px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-[#8B5CF6] hover:text-[#8B5CF6]"
                           >
                             Quick Outreach
                           </Link>
                           <Link
                             href={`/donor-discovery/prospects/${p.id}`}
-                            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-[#0077B6] hover:text-[#0077B6]"
+                            className="rounded-lg border border-slate-200 bg-surface px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-[#0077B6] hover:text-[#0077B6]"
                           >
                             View Details
                           </Link>

@@ -667,7 +667,7 @@ export default function IntelligenceLibraryDashboardPage() {
                     className={`rounded-full px-3 py-1 text-xs font-medium transition ${
                       kbFilter === t.id
                         ? "bg-teal-500 text-white"
-                        : "border border-navy-200 bg-white text-navy-600 hover:border-teal-300 hover:text-teal-600"
+                        : "border border-navy-200 bg-surface text-navy-600 hover:border-teal-300 hover:text-teal-600"
                     }`}
                   >
                     {t.label}
@@ -686,7 +686,7 @@ export default function IntelligenceLibraryDashboardPage() {
                   placeholder="Search funded proposals, rubrics, logic models, need data…"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full rounded-lg border border-navy-200 bg-white py-2 pl-9 pr-4 text-sm text-navy-900 placeholder:text-navy-400 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                  className="w-full rounded-lg border border-navy-200 bg-surface py-2 pl-9 pr-4 text-sm text-navy-900 placeholder:text-navy-400 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
                 />
               </div>
 

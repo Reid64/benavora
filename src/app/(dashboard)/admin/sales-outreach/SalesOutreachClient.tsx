@@ -106,8 +106,11 @@ type AnalyticsData = {
 
 // Admin/Platform section treatment — PAGE_TREATMENT_PROTOCOL_V2.md. Frame:
 // Deep Navy. Secondary accent: Rich Gold. Replaces the shared Card component
-// on this page (Card's own "bg-white" is compat-layer-forced and can't take
-// an inline-style override) with the mandated navy-frame/ivory-card layering.
+// on this page with the mandated navy-frame/ivory-card two-layer structure —
+// Card has no prop for a nested outer frame, so this stays a local component
+// (not a color-override workaround; globals.css's forced `bg-white` !important
+// that used to block inline-style overrides on Card was removed 2026-08-18,
+// see CSS_OVERRIDE_INVESTIGATION_2026-08-18-REMOVAL.md).
 const FRAME_NAVY = "#101B2D";
 const ACCENT_GOLD = "#B88A2E";
 const CARD_BG = "#F8F5EE";
@@ -420,7 +423,7 @@ function CampaignsTab() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-medium text-navy-900">Campaigns</h2>
-        <Button onClick={() => setShowNew(true)} variant="ghost" style={{ backgroundColor: FRAME_NAVY, color: CARD_BG, border: "none" }}>
+        <Button onClick={() => setShowNew(true)} variant="secondary" style={{ backgroundColor: FRAME_NAVY, color: CARD_BG, border: "none" }}>
           <Plus className="h-4 w-4" aria-hidden />
           New Campaign
         </Button>
@@ -620,7 +623,7 @@ function DomainsTab() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-medium text-navy-900">Sending Domains</h2>
-        <Button onClick={() => setShowAdd(true)} variant="ghost" style={{ backgroundColor: FRAME_NAVY, color: CARD_BG, border: "none" }}>
+        <Button onClick={() => setShowAdd(true)} variant="secondary" style={{ backgroundColor: FRAME_NAVY, color: CARD_BG, border: "none" }}>
           <Plus className="h-4 w-4" aria-hidden />
           Add Domain
         </Button>
@@ -1138,7 +1141,7 @@ function SuppressionTab() {
               e.target.value = "";
             }}
           />
-          <Button onClick={() => setShowAdd(true)} variant="ghost" style={{ backgroundColor: FRAME_NAVY, color: CARD_BG, border: "none" }}>
+          <Button onClick={() => setShowAdd(true)} variant="secondary" style={{ backgroundColor: FRAME_NAVY, color: CARD_BG, border: "none" }}>
             <Plus className="h-4 w-4" aria-hidden />
             Add Email
           </Button>

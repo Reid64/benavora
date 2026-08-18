@@ -58,8 +58,12 @@ const AUDIT_ACTIONS = [
 ] as const;
 
 // Admin/Platform section treatment — PAGE_TREATMENT_PROTOCOL_V2.md. Frame:
-// Deep Navy. Secondary accent: Rich Gold. ACTION_BADGE below is a real
-// action-type distinction (shared Badge component) and is never touched.
+// Deep Navy. Secondary accent: Rich Gold. FramedCard is a two-layer navy-
+// frame/ivory-card structure Card has no prop for (not a color-override
+// workaround; globals.css's forced `bg-white` !important that used to block
+// inline-style overrides on Card was removed 2026-08-18, see
+// CSS_OVERRIDE_INVESTIGATION_2026-08-18-REMOVAL.md). ACTION_BADGE below is a
+// real action-type distinction (shared Badge component) and is never touched.
 const FRAME_NAVY = "#101B2D";
 const ACCENT_GOLD = "#B88A2E";
 const CARD_BG = "#F8F5EE";
@@ -358,7 +362,7 @@ export default function AuditLogClient() {
         </div>
         {canView && entries.length > 0 && (
           <Button
-            variant="ghost"
+            variant="secondary"
             onClick={exportCsv}
             style={{ border: `1.5px solid ${ACCENT_GOLD}`, backgroundColor: "rgba(184,138,46,0.1)", color: "#8A6A22" }}
           >

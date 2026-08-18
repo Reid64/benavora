@@ -137,7 +137,7 @@ export function SequenceBuilder({
               type="button"
               disabled={disabled}
               onClick={() => insertVariable(v)}
-              className="rounded bg-white px-2 py-1 text-xs text-navy-700 ring-1 ring-navy-200 transition hover:bg-navy-100 disabled:opacity-50"
+              className="rounded bg-surface px-2 py-1 text-xs text-navy-700 ring-1 ring-navy-200 transition hover:bg-navy-100 disabled:opacity-50"
             >
               <code>{v}</code>
             </button>

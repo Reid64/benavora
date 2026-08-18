@@ -378,7 +378,7 @@ export default function AutoApplySettingsPage() {
               }`}
             >
               <span
-                className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
+                className={`inline-block h-5 w-5 transform rounded-full bg-surface shadow transition-transform ${
                   enabled ? "translate-x-5" : "translate-x-0"
                 }`}
               />
@@ -399,7 +399,7 @@ export default function AutoApplySettingsPage() {
               id="schedule"
               value={schedule}
               onChange={(e) => setSchedule(e.target.value)}
-              className="mt-1.5 block w-48 rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+              className="mt-1.5 block w-48 rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
             >
               {SCHEDULE_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -430,7 +430,7 @@ export default function AutoApplySettingsPage() {
                 const v = parseInt(e.target.value, 10);
                 if (!isNaN(v)) setMaxPerBatch(Math.max(1, Math.min(500, v)));
               }}
-              className="mt-1.5 block w-32 rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+              className="mt-1.5 block w-32 rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
             />
           </div>
 
@@ -478,7 +478,7 @@ export default function AutoApplySettingsPage() {
               onChange={(e) => setGeoInput(e.target.value)}
               onBlur={handleGeoInputBlur}
               placeholder="TX, OK, NM"
-              className="mt-1.5 block w-72 rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+              className="mt-1.5 block w-72 rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
             />
             {geographicScope.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-1.5">
@@ -518,7 +518,7 @@ export default function AutoApplySettingsPage() {
               id="dedupWindow"
               value={dedupWindowDays}
               onChange={(e) => setDedupWindowDays(Number(e.target.value))}
-              className="mt-1.5 block w-40 rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+              className="mt-1.5 block w-40 rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
             >
               {DEDUP_WINDOW_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -540,7 +540,7 @@ export default function AutoApplySettingsPage() {
               id="minSize"
               value={minCompanySize}
               onChange={(e) => setMinCompanySize(e.target.value)}
-              className="mt-1.5 block w-56 rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+              className="mt-1.5 block w-56 rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
             >
               {MIN_COMPANY_SIZE_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -572,10 +572,10 @@ export default function AutoApplySettingsPage() {
               value={funderSearch}
               onChange={(e) => setFunderSearch(e.target.value)}
               placeholder="Search funder name…"
-              className="mt-1.5 block w-72 rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+              className="mt-1.5 block w-72 rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
             />
             {filteredFunderSearch.length > 0 && (
-              <ul className="absolute z-10 mt-1 w-72 overflow-hidden rounded-md border border-navy-200 bg-white shadow-lg">
+              <ul className="absolute z-10 mt-1 w-72 overflow-hidden rounded-md border border-navy-200 bg-surface shadow-lg">
                 {filteredFunderSearch.map((f) => (
                   <li key={f.id}>
                     <button

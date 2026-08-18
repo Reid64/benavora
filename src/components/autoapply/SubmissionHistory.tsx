@@ -219,7 +219,7 @@ export function SubmissionHistory() {
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-navy-100 bg-white">
+                <tbody className="divide-y divide-navy-100 bg-surface">
                   {submissions.map((sub) => {
                     const { color, label } = statusBadge(sub.status);
                     const isExpanded = expandedId === sub.id;

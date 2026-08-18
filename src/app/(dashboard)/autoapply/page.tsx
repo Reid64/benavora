@@ -38,7 +38,7 @@ const SuccessAnalytics = dynamic(
     ssr: false,
     loading: () => (
       <div
-        className="rounded-lg border border-border bg-white shadow-sm p-5 text-sm text-navy-400"
+        className="rounded-lg border border-border bg-surface shadow-sm p-5 text-sm text-navy-400"
         style={{
           backgroundColor: "#F7F5F1",
           boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
@@ -767,7 +767,7 @@ export default function AutoApplyPage() {
             onClick={() => setActiveQueueTab("queue_panel")}
             className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
               activeQueueTab === "queue_panel"
-                ? "bg-white text-navy-900 shadow-sm"
+                ? "bg-surface text-navy-900 shadow-sm"
                 : "text-navy-500 hover:text-navy-700"
             }`}
           >
@@ -778,7 +778,7 @@ export default function AutoApplyPage() {
             onClick={() => setActiveQueueTab("manual_queue")}
             className={`flex items-center gap-2 rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
               activeQueueTab === "manual_queue"
-                ? "bg-white text-navy-900 shadow-sm"
+                ? "bg-surface text-navy-900 shadow-sm"
                 : "text-navy-500 hover:text-navy-700"
             }`}
           >
@@ -877,7 +877,7 @@ export default function AutoApplyPage() {
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-navy-100 bg-white">
+              <tbody className="divide-y divide-navy-100 bg-surface">
                 {queue.map((item) => {
                   const statusHex = sessionStatusHex(item.status);
                   const portalUrl = item.funders?.giving_portal_url ?? null;
@@ -995,7 +995,7 @@ export default function AutoApplyPage() {
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
-              <tbody className="divide-y divide-navy-100 bg-white">
+              <tbody className="divide-y divide-navy-100 bg-surface">
                 {templates.map((tpl) => {
                   const isReanalyzing = reanalyzingId === tpl.id;
                   const fieldCount = countFields(tpl.field_mapping);

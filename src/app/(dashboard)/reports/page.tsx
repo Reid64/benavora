@@ -191,7 +191,7 @@ function DetailedReportCard({ report }: { report: DetailedReportLink }) {
   return (
     <Link
       href={report.href}
-      className="group flex items-start gap-4 rounded-xl border border-border bg-white p-5 shadow-sm transition-colors hover:border-[#0077B6]"
+      className="group flex items-start gap-4 rounded-xl border border-border bg-surface p-5 shadow-sm transition-colors hover:border-[#0077B6]"
     >
       <div className={cn("flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg", accent.iconBg)}>
         <Icon className={cn("h-5 w-5", accent.iconText)} aria-hidden />
@@ -211,7 +211,7 @@ function ReportCategoryCard({ category }: { category: ReportCategory }) {
   return (
     <div
       className={cn(
-        "bg-white rounded-xl shadow-sm border border-border p-5",
+        "bg-surface rounded-xl shadow-sm border border-border p-5",
         accent.border,
       )}
     >
@@ -375,7 +375,7 @@ export default function ReportsPage() {
 
       <div className="mx-auto max-w-2xl">
         {/* Date range form */}
-        <div className="rounded-xl border border-border bg-white p-6 shadow-sm">
+        <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
           <div className="mb-5 flex items-center gap-2">
             <Calendar className="h-4 w-4 text-[#0077B6]" />
             <h2 className="text-sm font-semibold text-slate-700">Report Period</h2>
@@ -489,7 +489,7 @@ export default function ReportsPage() {
               target="_blank"
               rel="noopener noreferrer"
               download
-              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:border-[#0077B6] hover:text-[#0077B6]"
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-surface px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:border-[#0077B6] hover:text-[#0077B6]"
             >
               <Download className="h-4 w-4" />
               Download PDF
@@ -503,7 +503,7 @@ export default function ReportsPage() {
 
       <div className="mx-auto max-w-2xl">
         {/* Board Report summary */}
-        <div className="rounded-xl border border-border bg-white p-6 shadow-sm">
+        <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
           <div className="mb-5 flex items-center gap-2">
             <FileBarChart2 className="h-4 w-4 text-[#0077B6]" />
             <h2 className="text-sm font-semibold text-slate-700">
@@ -594,21 +594,21 @@ export default function ReportsPage() {
             <div className="flex items-center justify-end print:hidden">
               <button
                 onClick={handlePrint}
-                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:border-[#0077B6] hover:text-[#0077B6]"
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-surface px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:border-[#0077B6] hover:text-[#0077B6]"
               >
                 <Printer className="h-4 w-4" />
                 Print / Export
               </button>
             </div>
 
-            <div className="rounded-xl border border-border bg-white p-5">
+            <div className="rounded-xl border border-border bg-surface p-5">
               <p className="text-sm leading-relaxed text-slate-600">
                 {summary.narrativeSummary}
               </p>
             </div>
 
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <div className="rounded-xl border border-border bg-white p-4 text-center">
+              <div className="rounded-xl border border-border bg-surface p-4 text-center">
                 <p className="text-2xl font-semibold text-slate-900">
                   {summary.opportunitiesCreated}
                 </p>
@@ -616,7 +616,7 @@ export default function ReportsPage() {
                   Opportunities Created
                 </p>
               </div>
-              <div className="rounded-xl border border-border bg-white p-4 text-center">
+              <div className="rounded-xl border border-border bg-surface p-4 text-center">
                 <p className="text-2xl font-semibold text-slate-900">
                   {summary.applicationsSubmitted}
                 </p>
@@ -624,13 +624,13 @@ export default function ReportsPage() {
                   Applications Submitted
                 </p>
               </div>
-              <div className="rounded-xl border border-border bg-white p-4 text-center">
+              <div className="rounded-xl border border-border bg-surface p-4 text-center">
                 <p className="text-2xl font-semibold text-teal-600">
                   {formatCurrency(summary.totalAwarded)}
                 </p>
                 <p className="mt-1 text-xs text-slate-500">Total Awarded</p>
               </div>
-              <div className="rounded-xl border border-border bg-white p-4 text-center">
+              <div className="rounded-xl border border-border bg-surface p-4 text-center">
                 <p className="text-2xl font-semibold text-slate-900">
                   {Math.round(summary.successRate * 100)}%
                 </p>
@@ -640,7 +640,7 @@ export default function ReportsPage() {
               </div>
             </div>
 
-            <div className="rounded-xl border border-border bg-white p-5">
+            <div className="rounded-xl border border-border bg-surface p-5">
               <div className="mb-3 flex items-center gap-2">
                 <Trophy className="h-4 w-4 text-amber-500" />
                 <h3 className="text-sm font-semibold text-slate-700">
@@ -677,7 +677,7 @@ export default function ReportsPage() {
               )}
             </div>
 
-            <div className="rounded-xl border border-border bg-white p-5">
+            <div className="rounded-xl border border-border bg-surface p-5">
               <div className="mb-3 flex items-center gap-2">
                 <Clock className="h-4 w-4 text-[#0077B6]" />
                 <h3 className="text-sm font-semibold text-slate-700">

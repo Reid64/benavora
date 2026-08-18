@@ -1605,7 +1605,7 @@ function RelationshipScoreBadge({ score }: { score: RelationshipScore }) {
         : "text-navy-400";
 
   return (
-    <div className="flex items-center gap-1.5 rounded-full border border-navy-200 bg-white px-3 py-1 text-sm">
+    <div className="flex items-center gap-1.5 rounded-full border border-navy-200 bg-surface px-3 py-1 text-sm">
       <span className="font-semibold text-navy-800">{relationship_score}</span>
       <span className="text-navy-400">/100</span>
       <TrendIcon className={`h-3.5 w-3.5 ${trendColor}`} aria-hidden />

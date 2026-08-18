@@ -143,10 +143,10 @@ const STORAGE_BUCKET = "documents";
 
 // Premium input style shared by every form field in the onboarding wizard.
 const PREMIUM_INPUT_CLASS =
-  "bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-700 placeholder-slate-400 focus:border-[#0077B6] focus:ring-2 focus:ring-[#0077B6]/10 outline-none";
+  "bg-surface border border-slate-200 rounded-lg px-4 py-2.5 text-sm text-slate-700 placeholder-slate-400 focus:border-[#0077B6] focus:ring-2 focus:ring-[#0077B6]/10 outline-none";
 // Same treatment for <select> elements, keeping room on the right for the chevron icon.
 const PREMIUM_SELECT_CLASS =
-  "bg-white border border-slate-200 rounded-lg pl-4 pr-9 py-2.5 text-sm text-slate-700 focus:border-[#0077B6] focus:ring-2 focus:ring-[#0077B6]/10 outline-none";
+  "bg-surface border border-slate-200 rounded-lg pl-4 pr-9 py-2.5 text-sm text-slate-700 focus:border-[#0077B6] focus:ring-2 focus:ring-[#0077B6]/10 outline-none";
 
 // Session cookie (no Max-Age) read by middleware to let a user browse the
 // dashboard before finishing the wizard. Cleared automatically when the
@@ -856,7 +856,7 @@ function Step6({
                   className={`px-3 py-2 rounded-lg text-xs font-medium text-left transition-colors border ${
                     selected
                       ? "bg-[#EFF6FF] border-[#0077B6] text-[#0077B6]"
-                      : "bg-white border-slate-200 text-slate-600 hover:border-[#0077B6]/40"
+                      : "bg-surface border-slate-200 text-slate-600 hover:border-[#0077B6]/40"
                   }`}
                 >
                   {humanizeEnum(cat)}

@@ -366,7 +366,7 @@ export default function DocumentVaultPage() {
           }
 
           return (
-            <div key={type} className="flex flex-col rounded-xl border border-border bg-white shadow-sm">
+            <div key={type} className="flex flex-col rounded-xl border border-border bg-surface shadow-sm">
               <div className="flex-1 p-4">
                 {/* Card header */}
                 <div className="flex items-start justify-between gap-2">
@@ -431,7 +431,7 @@ export default function DocumentVaultPage() {
                   type="button"
                   onClick={() => triggerUpload(type)}
                   disabled={isUploading}
-                  className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-navy-200 bg-white px-3 py-1.5 text-xs font-medium text-navy-700 transition-colors hover:bg-navy-50 disabled:opacity-50"
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-navy-200 bg-surface px-3 py-1.5 text-xs font-medium text-navy-700 transition-colors hover:bg-navy-50 disabled:opacity-50"
                 >
                   {isUploading ? (
                     <Loader2 className="h-3 w-3 animate-spin" />
@@ -497,7 +497,7 @@ export default function DocumentVaultPage() {
       {/* Custom upload modal */}
       {showCustomUpload && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-xl border border-border bg-white p-6 shadow-xl">
+          <div className="w-full max-w-md rounded-xl border border-border bg-surface p-6 shadow-xl">
             <h2 className="text-base font-semibold text-navy-900">Upload Custom Document</h2>
             <p className="mt-1 text-sm text-navy-500">
               Upload a document that doesn&apos;t fit a standard category.
@@ -516,7 +516,7 @@ export default function DocumentVaultPage() {
                   placeholder="e.g. Partnership Agreement"
                   value={customTypeName}
                   onChange={(e) => setCustomTypeName(e.target.value)}
-                  className="mt-1 block w-full rounded-md border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+                  className="mt-1 block w-full rounded-md border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
                 />
               </div>
               <div>

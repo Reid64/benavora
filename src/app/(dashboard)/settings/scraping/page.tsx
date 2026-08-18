@@ -551,7 +551,7 @@ function AddTargetModal({
             }
             rows={3}
             placeholder="Grant opportunities for housing nonprofits in Texas"
-            className="block w-full rounded-lg border border-navy-300 bg-white px-3 py-2 text-sm text-navy-900 shadow-sm placeholder:text-navy-400 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500"
+            className="block w-full rounded-lg border border-navy-300 bg-surface px-3 py-2 text-sm text-navy-900 shadow-sm placeholder:text-navy-400 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500"
           />
           <p className="text-xs text-navy-400">
             Describe what you expect to find. The AI uses this as context to

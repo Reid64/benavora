@@ -279,7 +279,7 @@ export function ReviewQueue() {
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-navy-100 bg-white">
+              <tbody className="divide-y divide-navy-100 bg-surface">
                 {items.map((item) => {
                   const { color, label } = statusBadgeProps(item.status);
                   const isExpanded = expandedId === item.id;
@@ -367,7 +367,7 @@ export function ReviewQueue() {
                                     <p className="mb-2 text-xs font-medium uppercase tracking-wide text-navy-500">
                                       Failure Details
                                     </p>
-                                    <div className="rounded-lg border border-navy-200 bg-white p-4 text-sm">
+                                    <div className="rounded-lg border border-navy-200 bg-surface p-4 text-sm">
                                       {data.submission?.error_message && (
                                         <p className="mb-2 text-red-400">
                                           {data.submission.error_message}
@@ -392,7 +392,7 @@ export function ReviewQueue() {
                                     <p className="mb-2 text-xs font-medium uppercase tracking-wide text-navy-500">
                                       Form Template
                                     </p>
-                                    <div className="rounded-lg border border-navy-200 bg-white p-4 text-sm">
+                                    <div className="rounded-lg border border-navy-200 bg-surface p-4 text-sm">
                                       <a
                                         href={data.template?.portal_url}
                                         target="_blank"
@@ -472,7 +472,7 @@ export function ReviewQueue() {
                                       Dismiss reason:
                                     </span>
                                     <select
-                                      className="rounded border border-navy-200 bg-white px-3 py-1.5 text-sm text-navy-800 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                      className="rounded border border-navy-200 bg-surface px-3 py-1.5 text-sm text-navy-800 focus:outline-none focus:ring-2 focus:ring-teal-500"
                                       value={dismissReason}
                                       onChange={(e) => setDismissReason(e.target.value)}
                                     >
@@ -508,7 +508,7 @@ export function ReviewQueue() {
                                       Resolution notes:
                                     </span>
                                     <textarea
-                                      className="min-w-0 flex-1 rounded border border-navy-200 bg-white px-3 py-2 text-sm text-navy-800 placeholder:text-navy-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                      className="min-w-0 flex-1 rounded border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-800 placeholder:text-navy-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
                                       rows={3}
                                       placeholder="Describe how this was resolved…"
                                       value={resolveNotes}

@@ -241,7 +241,7 @@ export default function EmailCampaignDetailPage() {
           <div className="flex flex-wrap items-stretch gap-2">
             {funnel.map((f, idx) => (
               <div key={f.step_number} className="flex items-center gap-2">
-                <div className="min-w-0 rounded-lg border border-border bg-white px-4 py-3 text-center shadow-sm">
+                <div className="min-w-0 rounded-lg border border-border bg-surface px-4 py-3 text-center shadow-sm">
                   <p className="text-xs font-medium uppercase tracking-wide text-navy-400">
                     Step {f.step_number}
                   </p>

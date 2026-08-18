@@ -567,7 +567,7 @@ export function ApplicationDetail({ applicationId }: ApplicationDetailProps) {
               id="clone-opportunity"
               value={targetOpportunityId}
               onChange={(e) => setTargetOpportunityId(e.target.value)}
-              className="mt-1 block w-full rounded-lg border border-navy-200 bg-white px-3 py-2 text-sm text-navy-900 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+              className="mt-1 block w-full rounded-lg border border-navy-200 bg-surface px-3 py-2 text-sm text-navy-900 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
             >
               <option value="">Select an opportunity…</option>
               {opportunities.map((o) => (

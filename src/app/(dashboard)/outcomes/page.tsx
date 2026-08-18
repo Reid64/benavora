@@ -321,7 +321,7 @@ export default function OutcomesPage() {
         actions={
           <Link href="/outcomes/analytics">
             <Button
-              variant="ghost"
+              variant="secondary"
               style={{ border: `1.5px solid ${ACCENT_TEAL}`, backgroundColor: "rgba(46,107,102,0.08)", color: ACCENT_TEAL }}
             >
               <BarChart3 className="h-4 w-4" aria-hidden />
@@ -350,7 +350,7 @@ export default function OutcomesPage() {
           action={
             <Link href="/applications">
               <Button
-                variant="ghost"
+                variant="secondary"
                 style={{ border: `1.5px solid ${ACCENT_TEAL}`, backgroundColor: "rgba(46,107,102,0.08)", color: ACCENT_TEAL }}
               >
                 Go to pipeline

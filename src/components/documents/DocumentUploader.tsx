@@ -276,7 +276,7 @@ export function DocumentUploader({
           value={category}
           onChange={(e) => setCategory(e.target.value as DocumentCategory)}
           aria-label="Category"
-          className="rounded-md border border-navy-200 bg-white px-2.5 py-1.5 text-xs text-navy-700 focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+          className="rounded-md border border-navy-200 bg-surface px-2.5 py-1.5 text-xs text-navy-700 focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
         >
           <option value="">Category *</option>
           {CATEGORY_OPTIONS.map((opt) => (
@@ -291,14 +291,14 @@ export function DocumentUploader({
           onChange={(e) => setExpirationDate(e.target.value)}
           aria-label="Expiration date"
           title="Expiration date (optional)"
-          className="rounded-md border border-navy-200 bg-white px-2.5 py-1.5 text-xs text-navy-700 focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+          className="rounded-md border border-navy-200 bg-surface px-2.5 py-1.5 text-xs text-navy-700 focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
         />
         <input
           type="text"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Optional note"
-          className="min-w-0 flex-1 rounded-md border border-navy-200 bg-white px-2.5 py-1.5 text-xs text-navy-700 placeholder:text-navy-400 focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+          className="min-w-0 flex-1 rounded-md border border-navy-200 bg-surface px-2.5 py-1.5 text-xs text-navy-700 placeholder:text-navy-400 focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
         />
         <button
           type="button"

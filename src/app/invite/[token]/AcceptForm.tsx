@@ -106,7 +106,7 @@ export function AcceptForm({ token, email }: { token: string; email: string }) {
           autoComplete="name"
           value={fullName}
           onChange={(e) => setFullName(e.target.value)}
-          className="mt-1.5 block w-full rounded-lg border border-navy-200 bg-white px-3 py-2.5 text-sm text-navy-900 shadow-sm outline-none transition placeholder:text-navy-300 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30"
+          className="mt-1.5 block w-full rounded-lg border border-navy-200 bg-surface px-3 py-2.5 text-sm text-navy-900 shadow-sm outline-none transition placeholder:text-navy-300 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30"
           placeholder="Jane Doe"
         />
       </div>
@@ -125,7 +125,7 @@ export function AcceptForm({ token, email }: { token: string; email: string }) {
           required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="mt-1.5 block w-full rounded-lg border border-navy-200 bg-white px-3 py-2.5 text-sm text-navy-900 shadow-sm outline-none transition placeholder:text-navy-300 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30"
+          className="mt-1.5 block w-full rounded-lg border border-navy-200 bg-surface px-3 py-2.5 text-sm text-navy-900 shadow-sm outline-none transition placeholder:text-navy-300 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30"
           placeholder="At least 8 characters"
         />
       </div>
@@ -144,7 +144,7 @@ export function AcceptForm({ token, email }: { token: string; email: string }) {
           required
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
-          className="mt-1.5 block w-full rounded-lg border border-navy-200 bg-white px-3 py-2.5 text-sm text-navy-900 shadow-sm outline-none transition placeholder:text-navy-300 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30"
+          className="mt-1.5 block w-full rounded-lg border border-navy-200 bg-surface px-3 py-2.5 text-sm text-navy-900 shadow-sm outline-none transition placeholder:text-navy-300 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30"
           placeholder="••••••••"
         />
       </div>

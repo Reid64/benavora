@@ -678,7 +678,7 @@ function Toggle({
       }`}
     >
       <span
-        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
+        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-surface shadow transition-transform ${
           checked ? "translate-x-4" : "translate-x-1"
         }`}
       />
@@ -786,7 +786,7 @@ function GmailCard({
                 <select
                   value={syncFreq}
                   onChange={(e) => onSyncFreqChange(e.target.value)}
-                  className="flex-1 rounded-md border border-navy-200 bg-white px-2 py-1 text-xs text-navy-900 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                  className="flex-1 rounded-md border border-navy-200 bg-surface px-2 py-1 text-xs text-navy-900 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
                 >
                   {SYNC_FREQ_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>
@@ -923,7 +923,7 @@ function CalendarCard({
                 type="checkbox"
                 checked={autoDeadlines}
                 onChange={(e) => onAutoDeadlinesChange(e.target.checked)}
-                className="mt-0.5 rounded border-border bg-white accent-primary"
+                className="mt-0.5 rounded border-border bg-surface accent-primary"
               />
               Automatically create calendar events for new deadlines
             </label>
@@ -1019,7 +1019,7 @@ function PlatformCard({
           {configurePath && (
             <Link
               href={configurePath}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-navy-200 bg-white px-3 py-1.5 text-xs font-medium text-navy-700 transition hover:border-navy-300 hover:bg-navy-50 hover:text-navy-900"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-navy-200 bg-surface px-3 py-1.5 text-xs font-medium text-navy-700 transition hover:border-navy-300 hover:bg-navy-50 hover:text-navy-900"
             >
               <Settings2 className="h-3.5 w-3.5" aria-hidden />
               Configure
@@ -1118,7 +1118,7 @@ function KeyedCard({
               onChange={(e) => onEditChange(e.target.value)}
               placeholder={configured ? "Replace existing key…" : "Paste API key…"}
               autoComplete="off"
-              className="block w-full rounded-lg border border-navy-300 bg-white px-3 py-2 pr-9 font-mono text-xs text-navy-900 placeholder:text-navy-400 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+              className="block w-full rounded-lg border border-navy-300 bg-surface px-3 py-2 pr-9 font-mono text-xs text-navy-900 placeholder:text-navy-400 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
             />
             <button
               type="button"

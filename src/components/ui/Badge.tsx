@@ -64,7 +64,7 @@ const DOT_CLASSES: Record<BadgeVariant, string> = {
   error: "bg-[#B91C1C]",
   info: "bg-[#0369A1]",
   neutral: "bg-[#475569]",
-  primary: "bg-white",
+  primary: "bg-surface",
 };
 
 export type BadgeProps = {

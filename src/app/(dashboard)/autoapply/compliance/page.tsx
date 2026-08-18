@@ -263,7 +263,7 @@ export default function SolicitationCompliancePage() {
                     id="reg-state"
                     value={formState.state}
                     onChange={e => setFormState(s => ({ ...s, state: e.target.value }))}
-                    className="mt-1 block w-full rounded-md border border-navy-200 bg-white px-2 py-1.5 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+                    className="mt-1 block w-full rounded-md border border-navy-200 bg-surface px-2 py-1.5 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
                   >
                     <option value="">Select…</option>
                     {US_STATES.filter(s => !registrations.some(r => r.state === s.code)).map(s => (
@@ -283,7 +283,7 @@ export default function SolicitationCompliancePage() {
                     placeholder="Optional"
                     value={formState.registration_number}
                     onChange={e => setFormState(s => ({ ...s, registration_number: e.target.value }))}
-                    className="mt-1 block w-full rounded-md border border-navy-200 bg-white px-2 py-1.5 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+                    className="mt-1 block w-full rounded-md border border-navy-200 bg-surface px-2 py-1.5 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
                   />
                 </div>
                 <div>
@@ -295,7 +295,7 @@ export default function SolicitationCompliancePage() {
                     type="date"
                     value={formState.registered_at}
                     onChange={e => setFormState(s => ({ ...s, registered_at: e.target.value }))}
-                    className="mt-1 block w-full rounded-md border border-navy-200 bg-white px-2 py-1.5 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+                    className="mt-1 block w-full rounded-md border border-navy-200 bg-surface px-2 py-1.5 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
                   />
                 </div>
                 <div>
@@ -307,7 +307,7 @@ export default function SolicitationCompliancePage() {
                     type="date"
                     value={formState.expires_at}
                     onChange={e => setFormState(s => ({ ...s, expires_at: e.target.value }))}
-                    className="mt-1 block w-full rounded-md border border-navy-200 bg-white px-2 py-1.5 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+                    className="mt-1 block w-full rounded-md border border-navy-200 bg-surface px-2 py-1.5 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
                   />
                 </div>
               </div>
@@ -414,7 +414,7 @@ export default function SolicitationCompliancePage() {
               id="ref-state"
               value={refState}
               onChange={(e) => setRefState(e.target.value)}
-              className="mt-1 block w-full rounded-md border border-navy-200 bg-white px-2 py-1.5 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
+              className="mt-1 block w-full rounded-md border border-navy-200 bg-surface px-2 py-1.5 text-sm text-navy-900 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-1 focus:ring-teal-400"
             >
               <option value="">Select a state…</option>
               {STATE_REGISTRATIONS.map((s) => (
@@ -426,7 +426,7 @@ export default function SolicitationCompliancePage() {
           </div>
 
           {refInfo && (
-            <div className="rounded-lg border border-border bg-white shadow-sm p-4">
+            <div className="rounded-lg border border-border bg-surface shadow-sm p-4">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h3 className="text-base font-semibold text-navy-900">{refInfo.state}</h3>

@@ -307,7 +307,7 @@ export default function AutomationSettingsPage() {
             className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
               filter === key
                 ? "bg-navy-900 text-white"
-                : "border border-navy-200 bg-white text-navy-600 hover:bg-navy-50"
+                : "border border-navy-200 bg-surface text-navy-600 hover:bg-navy-50"
             }`}
           >
             {FILTER_LABELS[key]}
@@ -318,7 +318,7 @@ export default function AutomationSettingsPage() {
 
       {/* Bulk action bar — visible when rows are selected */}
       {selected.size > 0 && (
-        <div className="flex items-center gap-3 rounded-lg border border-border bg-white px-4 py-3 shadow-sm">
+        <div className="flex items-center gap-3 rounded-lg border border-border bg-surface px-4 py-3 shadow-sm">
           <span className="text-sm font-medium text-navy-700">
             {selected.size} selected
           </span>
@@ -453,7 +453,7 @@ export default function AutomationSettingsPage() {
                               val as AutomationLevel,
                             );
                           }}
-                          className="rounded border border-navy-200 bg-white py-1 pl-2 pr-7 text-xs text-navy-700 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:opacity-50"
+                          className="rounded border border-navy-200 bg-surface py-1 pl-2 pr-7 text-xs text-navy-700 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:opacity-50"
                         >
                           {LEVEL_OPTIONS.map((opt) => (
                             <option

@@ -446,7 +446,7 @@ export function SuccessAnalytics() {
                           </th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-navy-100 bg-white">
+                      <tbody className="divide-y divide-navy-100 bg-surface">
                         {stats.geoBreakdown.map((row) => (
                           <tr key={row.region} className="hover:bg-navy-50">
                             <td className="px-4 py-2.5 font-medium text-navy-900">

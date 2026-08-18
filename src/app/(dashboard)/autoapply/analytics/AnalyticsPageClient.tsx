@@ -843,7 +843,7 @@ export default function AutoApplyAnalyticsPage() {
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-navy-100 bg-white">
+              <tbody className="divide-y divide-navy-100 bg-surface">
                 {abRows.map((row, i) => {
                   const catRows = abRows.filter(
                     (r) => r.category === row.category,
