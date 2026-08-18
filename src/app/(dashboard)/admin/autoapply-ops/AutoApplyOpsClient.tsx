@@ -41,8 +41,17 @@ const CARD_BG = "#F8F5EE";
 
 function Framed({ children }: { children: ReactNode }) {
   return (
-    <div style={{ backgroundColor: FRAME_NAVY, borderRadius: "15px", boxShadow: "0 4px 20px rgba(16,27,45,0.22)", padding: "3px" }}>
-      {children}
+    <div
+      style={{
+        backgroundColor: FRAME_NAVY,
+        borderRadius: "15px",
+        boxShadow: "0 4px 20px rgba(16,27,45,0.22)",
+        padding: "3px",
+        height: "100%",
+        display: "flex",
+      }}
+    >
+      <div style={{ flex: 1, minWidth: 0 }}>{children}</div>
     </div>
   );
 }
@@ -321,7 +330,7 @@ export default function AutoApplyOpsPage() {
             gets the running/failed job-status treatment: a pulsing indicator
             while online, a failed-red card once the heartbeat goes stale. */}
         <Framed>
-        <Card title="Worker" description="Railway AutoApply worker">
+        <Card title="Worker" description="Railway AutoApply worker" style={{ height: "100%" }}>
           <div
             className={
               isOnline
@@ -361,9 +370,9 @@ export default function AutoApplyOpsPage() {
 
         {/* Queue depth */}
         <Framed>
-        <Card title="Queue Depth" description="Pending items across all tenants">
+        <Card title="Queue Depth" description="Pending items across all tenants" style={{ height: "100%" }}>
           <div className="flex items-center gap-3">
-            <CircleDot className="h-8 w-8 text-blue-400" aria-hidden />
+            <CircleDot className="h-8 w-8" style={{ color: ACCENT_GOLD }} aria-hidden />
             <div>
               <p className="text-3xl font-bold text-navy-900">
                 {data.queueDepth.toLocaleString()}
@@ -377,7 +386,7 @@ export default function AutoApplyOpsPage() {
         {/* Platform state — running reads as a completed-style green card,
             paused reads as the same failed-style red card as the Worker. */}
         <Framed>
-        <Card title="Platform" description="Global queue control state">
+        <Card title="Platform" description="Global queue control state" style={{ height: "100%" }}>
           <div
             className={
               data.platformPaused
@@ -532,7 +541,7 @@ export default function AutoApplyOpsPage() {
       <Framed>
       <Card title="Cost Tracking" description="Today's spend across all tenants">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div className="rounded-lg border border-border bg-white-raised px-5 py-4">
+          <div className="rounded-lg border border-border bg-surface-raised px-5 py-4">
             <p className="text-xs font-medium uppercase tracking-wide text-navy-400">
               Total Today
             </p>
@@ -540,7 +549,7 @@ export default function AutoApplyOpsPage() {
               {fmtCost(costs.totalToday)}
             </p>
           </div>
-          <div className="rounded-lg border border-border bg-white-raised px-5 py-4">
+          <div className="rounded-lg border border-border bg-surface-raised px-5 py-4">
             <p className="text-xs font-medium uppercase tracking-wide text-navy-400">
               Cost per Submission
             </p>
@@ -548,7 +557,7 @@ export default function AutoApplyOpsPage() {
               {fmtCost(costs.costPerSubmission)}
             </p>
           </div>
-          <div className="rounded-lg border border-border bg-white-raised px-5 py-4">
+          <div className="rounded-lg border border-border bg-surface-raised px-5 py-4">
             <p className="text-xs font-medium uppercase tracking-wide text-navy-400">
               Breakdown by Category
             </p>

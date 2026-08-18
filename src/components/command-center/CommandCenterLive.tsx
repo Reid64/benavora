@@ -205,24 +205,24 @@ function StatCard({
         <div style={{ padding: tv ? "28px" : "20px" }}>
           <div
             style={{
+              fontSize: tv ? "48px" : "28px",
+              fontWeight: 900,
+              color,
+            }}
+          >
+            {value.toLocaleString()}
+          </div>
+          <div
+            style={{
               fontSize: tv ? "15px" : "11px",
               fontWeight: 700,
               color: "#64748B",
               textTransform: "uppercase",
               letterSpacing: "0.05em",
+              marginTop: "6px",
             }}
           >
             {label}
-          </div>
-          <div
-            style={{
-              fontSize: tv ? "48px" : "28px",
-              fontWeight: 900,
-              color: FRAME_NAVY,
-              marginTop: "4px",
-            }}
-          >
-            {value.toLocaleString()}
           </div>
         </div>
       </div>
@@ -500,17 +500,17 @@ export function CommandCenterLive({ initialSnapshot }: { initialSnapshot: Comman
               gap: tv ? "24px" : "16px",
             }}
           >
-            <StatCard label="Total Orgs" value={totalOrgsOnboarded} color="#1A2B3C" tv={tv} />
+            <StatCard label="Total Orgs" value={totalOrgsOnboarded} color={ACCENT_GOLD} tv={tv} />
             <StatCard
               label="Active Subscriptions"
               value={activeSubscriptions}
-              color="#10B981"
+              color={ACCENT_GOLD}
               tv={tv}
             />
             <StatCard
               label="Total Opportunities"
               value={totalOpportunities}
-              color="#0EA5E9"
+              color={ACCENT_GOLD}
               tv={tv}
             />
             {!tv && (
@@ -518,10 +518,10 @@ export function CommandCenterLive({ initialSnapshot }: { initialSnapshot: Comman
                 <StatCard
                   label="Total Applications"
                   value={totalApplications}
-                  color="#8B5CF6"
+                  color={ACCENT_GOLD}
                   tv={tv}
                 />
-                <StatCard label="AI Drafts Pending" value={pendingDrafts} color="#F59E0B" tv={tv} />
+                <StatCard label="AI Drafts Pending" value={pendingDrafts} color={ACCENT_GOLD} tv={tv} />
               </>
             )}
           </div>

@@ -2,14 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Activity,
-  AlertCircle,
   CheckCircle2,
   Database,
-  ListChecks,
   RotateCw,
   ShieldAlert,
-  Timer,
   XCircle,
 } from "lucide-react";
 
@@ -62,39 +58,29 @@ type SystemData = {
 };
 
 function StatCard({
-  icon: Icon,
   label,
   value,
-  color,
+  valueColor = ACCENT_GOLD,
 }: {
-  icon: typeof Activity;
   label: string;
   value: string | number;
-  color: string;
+  /** Defaults to gold - the one shared accent purpose for this page's stat values.
+      Pass a real status color (green/red) only for a genuine semantic exception,
+      e.g. Healthy/Unreachable, zero/nonzero errors - never for arbitrary variety. */
+  valueColor?: string;
 }) {
   return (
     <div
-      className="overflow-hidden rounded-xl"
+      className="overflow-hidden rounded-[14px]"
       style={{ backgroundColor: FRAME_NAVY, boxShadow: "0 4px 20px rgba(16,27,45,0.22)", padding: "3px" }}
     >
-      <div className="overflow-hidden rounded-[10px]" style={{ backgroundColor: CARD_BG }}>
-        <div className="h-1.5 w-full" style={{ backgroundColor: color }} aria-hidden />
-        <div className="p-5">
-          <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: TEXT_MUTED }}>
-            {label}
-          </p>
-          <div className="mt-3 flex items-center gap-3">
-            <div
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
-              style={{ backgroundColor: `${color}1A` }}
-            >
-              <Icon className="h-5 w-5" style={{ color }} aria-hidden />
-            </div>
-            <p className="text-3xl font-bold" style={{ color: TEXT_PRIMARY }}>
-              {value}
-            </p>
-          </div>
-        </div>
+      <div className="rounded-[11px] p-5" style={{ backgroundColor: CARD_BG }}>
+        <p className="text-3xl font-extrabold" style={{ color: valueColor }}>
+          {value}
+        </p>
+        <p className="mt-1.5 text-xs font-semibold uppercase tracking-wide" style={{ color: TEXT_MUTED }}>
+          {label}
+        </p>
       </div>
     </div>
   );
@@ -238,53 +224,32 @@ export default function SystemClient() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          icon={data.supabase_healthy ? CheckCircle2 : XCircle}
           label="Supabase Connection"
           value={data.supabase_healthy ? "Healthy" : "Unreachable"}
-          color={data.supabase_healthy ? "#10B981" : "#DC2626"}
+          valueColor={data.supabase_healthy ? "#10B981" : "#DC2626"}
         />
+        <StatCard label="Active Agent Runs" value={data.running_agents.length} />
         <StatCard
-          icon={Activity}
-          label="Active Agent Runs"
-          value={data.running_agents.length}
-          color="#F59E0B"
-        />
-        <StatCard
-          icon={AlertCircle}
           label="Errors (24h)"
           value={data.error_count_24h}
-          color={data.error_count_24h > 0 ? "#DC2626" : "#10B981"}
+          valueColor={data.error_count_24h > 0 ? "#DC2626" : "#10B981"}
         />
         <StatCard
-          icon={Timer}
           label="Avg Agent Run Duration (24h)"
           value={
             data.avg_agent_run_duration_ms_24h == null
               ? "—"
               : `${(data.avg_agent_run_duration_ms_24h / 1000).toFixed(1)}s`
           }
-          color={ACCENT}
         />
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <StatCard label="Submission Queue Depth" value={data.queue_depths.submission_queue} />
+        <StatCard label="Agent Queue Depth" value={data.queue_depths.agent_queue} />
         <StatCard
-          icon={ListChecks}
-          label="Submission Queue Depth"
-          value={data.queue_depths.submission_queue}
-          color="#023E8A"
-        />
-        <StatCard
-          icon={ListChecks}
-          label="Agent Queue Depth"
-          value={data.queue_depths.agent_queue}
-          color="#6B48CC"
-        />
-        <StatCard
-          icon={ListChecks}
           label="Donor Discovery Requests Pending"
           value={data.queue_depths.donor_discovery_requests}
-          color="#4C3D8F"
         />
       </div>
 

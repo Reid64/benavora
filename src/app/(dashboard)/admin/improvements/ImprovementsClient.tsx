@@ -97,12 +97,11 @@ const statFrameStyle: CSSProperties = {
   padding: "3px",
 };
 
-const statCardStyle = (accent: string): CSSProperties => ({
+const statCardStyle: CSSProperties = {
   backgroundColor: CARD_BG,
   borderRadius: "13px",
   padding: "20px 24px",
-  borderTop: `8px solid ${accent}`,
-});
+};
 
 const statLabelStyle: CSSProperties = {
   fontSize: "11px",
@@ -110,22 +109,22 @@ const statLabelStyle: CSSProperties = {
   color: "#64748B",
   textTransform: "uppercase",
   letterSpacing: "0.08em",
-  margin: 0,
+  margin: "6px 0 0",
 };
 
 const statValueStyle: CSSProperties = {
   fontSize: "32px",
   fontWeight: 900,
-  color: "#0F172A",
-  margin: "6px 0 0",
+  color: ACCENT_GOLD,
+  margin: 0,
 };
 
-function StatCard({ label, value, accent }: { label: string; value: number; accent: string }) {
+function StatCard({ label, value }: { label: string; value: number }) {
   return (
     <div style={statFrameStyle}>
-      <div style={statCardStyle(accent)}>
-        <p style={statLabelStyle}>{label}</p>
+      <div style={statCardStyle}>
         <p style={statValueStyle}>{value}</p>
+        <p style={statLabelStyle}>{label}</p>
       </div>
     </div>
   );
@@ -297,10 +296,10 @@ export default function ImprovementsClient() {
           marginBottom: "24px",
         }}
       >
-        <StatCard label="Total Proposed" value={stats?.totalProposed ?? 0} accent={FRAME_NAVY} />
-        <StatCard label="Awaiting Review" value={stats?.awaitingReview ?? 0} accent="#F59E0B" />
-        <StatCard label="Approved This Month" value={stats?.approvedThisMonth ?? 0} accent="#10B981" />
-        <StatCard label="Implemented" value={stats?.implemented ?? 0} accent={ACCENT_GOLD} />
+        <StatCard label="Total Proposed" value={stats?.totalProposed ?? 0} />
+        <StatCard label="Awaiting Review" value={stats?.awaitingReview ?? 0} />
+        <StatCard label="Approved This Month" value={stats?.approvedThisMonth ?? 0} />
+        <StatCard label="Implemented" value={stats?.implemented ?? 0} />
       </div>
 
       {/* Agent Performance */}

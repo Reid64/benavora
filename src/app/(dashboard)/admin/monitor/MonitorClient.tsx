@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Activity, AlertTriangle, CheckCircle2, RotateCw, ShieldAlert, XCircle } from "lucide-react";
+import { CheckCircle2, RotateCw, ShieldAlert } from "lucide-react";
 
 import { useProfile } from "@/lib/hooks/useProfile";
 
@@ -65,44 +65,33 @@ function successRate(completed: number, failed: number): number | null {
 }
 
 function StatCard({
-  icon: Icon,
   label,
   description,
   value,
   color,
 }: {
-  icon: typeof Activity;
   label: string;
   description: string;
   value: string | number;
+  /** Real job-status color (running/completed/failed) - a genuine semantic
+      exception, not decoration, so this stays per-card unlike other pages. */
   color: string;
 }) {
   return (
     <div
-      className="overflow-hidden rounded-xl"
+      className="overflow-hidden rounded-[14px]"
       style={{ backgroundColor: FRAME_NAVY, boxShadow: "0 4px 20px rgba(16,27,45,0.22)", padding: "3px" }}
     >
-      <div className="overflow-hidden rounded-[10px]" style={{ backgroundColor: CARD_BG }}>
-        <div className="h-1.5 w-full" style={{ backgroundColor: color }} aria-hidden />
-        <div className="p-5">
-          <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: TEXT_MUTED }}>
-            {label}
-          </p>
-          <p className="mt-0.5 text-xs" style={{ color: TEXT_SECONDARY }}>
-            {description}
-          </p>
-          <div className="mt-3 flex items-center gap-3">
-            <div
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
-              style={{ backgroundColor: `${color}1A` }}
-            >
-              <Icon className="h-5 w-5" style={{ color }} aria-hidden />
-            </div>
-            <p className="text-3xl font-bold" style={{ color: TEXT_PRIMARY }}>
-              {value}
-            </p>
-          </div>
-        </div>
+      <div className="rounded-[11px] p-5" style={{ backgroundColor: CARD_BG }}>
+        <p className="text-3xl font-extrabold" style={{ color }}>
+          {value}
+        </p>
+        <p className="mt-1.5 text-xs font-semibold uppercase tracking-wide" style={{ color: TEXT_MUTED }}>
+          {label}
+        </p>
+        <p className="mt-0.5 text-xs" style={{ color: TEXT_SECONDARY }}>
+          {description}
+        </p>
       </div>
     </div>
   );
@@ -257,28 +246,24 @@ export default function MonitorClient() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          icon={Activity}
           label="Active"
           description="Queued, processing, or paused"
           value={data.active_count}
           color={STATUS_COLORS.running}
         />
         <StatCard
-          icon={CheckCircle2}
           label="Completed Today"
           description="Submitted successfully today"
           value={data.completed_today}
           color={STATUS_COLORS.completed}
         />
         <StatCard
-          icon={XCircle}
           label="Failed Today"
           description="Failed submissions today"
           value={data.failed_today}
           color={STATUS_COLORS.failed}
         />
         <StatCard
-          icon={AlertTriangle}
           label="Success Rate"
           description="Completed vs. failed today"
           value={rate === null ? "—" : `${rate.toFixed(0)}%`}

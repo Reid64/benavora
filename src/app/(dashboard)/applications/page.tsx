@@ -420,11 +420,11 @@ function ApplicationRow({
         }
       }}
       style={{
-        borderRadius: "14px",
+        borderRadius: "15px",
         backgroundColor: FRAME_NAVY,
-        padding: "4px",
+        padding: "5px",
         cursor: "pointer",
-        boxShadow: "0 4px 20px rgba(16,27,45,0.22)",
+        boxShadow: "0 4px 20px rgba(16,27,45,0.28)",
       }}
     >
       <div
@@ -434,7 +434,7 @@ function ApplicationRow({
           alignItems: "center",
           justifyContent: "space-between",
           gap: "16px",
-          borderRadius: "11px",
+          borderRadius: "10px",
           backgroundColor: CARD_BG,
           boxShadow: "inset 0 1px 2px rgba(16,27,45,0.06)",
           padding: "16px 20px 16px 24px",
