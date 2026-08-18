@@ -4,6 +4,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Maximize2, Minimize2, Monitor } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
+// Draft & Automation section treatment — PAGE_TREATMENT_PROTOCOL_V2.md. This
+// applies only to the OUTER "Live Session Viewer" panel (frame + header) —
+// the monitor mockup inside (bezel/screen/stand) is a deliberate dark
+// skeuomorphic illustration and is left as-is, same as the fullscreen mode.
+const FRAME_GOLD = "#B88A2E";
+const FRAME_NAVY = "#101B2D";
+const CARD_BG = "#F8F5EE";
+
 type ConnectionState = "connecting" | "connected" | "live" | "offline";
 
 interface StatusMessage {
@@ -150,7 +158,7 @@ function MonitorContent({
                       onClick={onStartSession}
                       className="hover:brightness-95"
                       style={{
-                        backgroundColor: "#22D3EE",
+                        backgroundColor: "#C17817",
                         color: "#0A1628",
                         border: "none",
                         borderRadius: 8,
@@ -377,17 +385,17 @@ export function LiveSessionViewer({
   return (
     <>
       {!expanded && (
+        <div style={{ backgroundColor: FRAME_GOLD, borderRadius: "16px", boxShadow: "0 4px 20px rgba(184,138,46,0.22)", padding: "3px" }}>
         <div
           style={{
-            backgroundColor: "#0D1B2A",
-            borderRadius: "16px",
-            border: "1px solid rgba(37,99,235,0.2)",
+            backgroundColor: CARD_BG,
+            borderRadius: "13px",
             padding: "20px",
           }}
         >
           <div className="mb-4 flex items-center justify-between">
             <div>
-              <h3 style={{ fontSize: "13px", fontWeight: 700, color: "#F8FAFC" }}>
+              <h3 style={{ fontSize: "13px", fontWeight: 700, color: FRAME_NAVY }}>
                 Live Session Viewer
               </h3>
               <p style={{ fontSize: "12px", color: "#64748B", marginTop: "2px" }}>
@@ -397,7 +405,7 @@ export function LiveSessionViewer({
             <button
               type="button"
               onClick={() => setExpanded(true)}
-              className="rounded-md p-1.5 hover:bg-white/5"
+              className="rounded-md p-1.5 hover:bg-black/5"
               style={{ color: "#64748B" }}
               title="Expand to fullscreen"
             >
@@ -407,6 +415,7 @@ export function LiveSessionViewer({
           <div className="flex justify-center overflow-x-auto">
             <MonitorContent {...monitorProps} />
           </div>
+        </div>
         </div>
       )}
 

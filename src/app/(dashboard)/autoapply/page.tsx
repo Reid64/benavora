@@ -51,6 +51,20 @@ const SuccessAnalytics = dynamic(
   },
 );
 
+// Draft & Automation section treatment — PAGE_TREATMENT_PROTOCOL_V2.md.
+// Frame: Rich Gold (cards/panels). Header title text: Deep Navy (gold fails
+// WCAG contrast as small text on Soft Stone or Warm Ivory — verified, not
+// assumed). Distinct actions draw from the proven accent family. Real
+// status colors (Worker Online/Stale/Offline in WorkerStatus.tsx, the
+// Active/Idle session-state pill, per-row queue status dots) are untouched.
+const FRAME_GOLD = "#B88A2E";
+const FRAME_NAVY = "#101B2D";
+const CARD_BG = "#F8F5EE";
+const ACCENT_TEAL = "#2E6B66";
+const ACCENT_AMBER = "#C17817";
+const ACCENT_SLATE = "#4F6D8F";
+const CARD_SHADOW = "0 4px 20px rgba(184,138,46,0.22)";
+
 interface QueueRow {
   id: string;
   funder_id: string | null;
@@ -384,13 +398,19 @@ export default function AutoApplyPage() {
   const avgFillTimeSeconds =
     fillDurations.length > 0 ? fillDurations.reduce((a, b) => a + b, 0) / fillDurations.length : null;
 
-  const darkStatCardStyle = {
-    backgroundColor: "rgba(255,255,255,0.04)",
-    borderRadius: "12px",
-    padding: "20px",
-    border: "1px solid rgba(255,255,255,0.08)",
+  const statFrameStyle = {
+    backgroundColor: FRAME_GOLD,
+    borderRadius: "14px",
+    boxShadow: CARD_SHADOW,
+    padding: "3px",
     flex: "1",
   };
+  const statCardStyle = (topBand: string) => ({
+    backgroundColor: CARD_BG,
+    borderRadius: "11px",
+    padding: "20px",
+    borderTop: `4px solid ${topBand}`,
+  });
   const darkStatLabelStyle = {
     fontSize: "11px",
     fontWeight: 600 as const,
@@ -406,13 +426,13 @@ export default function AutoApplyPage() {
   });
 
   return (
-    <div style={{ backgroundColor: "#0A0F1A", minHeight: "100vh", padding: "24px" }} className="space-y-8">
+    <div style={{ minHeight: "100vh", padding: "24px" }} className="space-y-8">
       <style>{`@keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:0.4 } }`}</style>
 
       {/* HEADER */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px", flexWrap: "wrap", gap: "16px" }}>
-        <div style={{ borderLeft: "4px solid #2563EB", paddingLeft: "16px" }}>
-          <h1 style={{ fontSize: "28px", fontWeight: 800, color: "#2563EB", letterSpacing: "-0.02em" }}>
+        <div style={{ borderLeft: `4px solid ${FRAME_GOLD}`, paddingLeft: "16px" }}>
+          <h1 style={{ fontSize: "28px", fontWeight: 800, color: FRAME_NAVY, letterSpacing: "-0.02em" }}>
             AUTOAPPLY ENGINE
           </h1>
           <p style={{ fontSize: "14px", color: "#64748B", marginTop: "4px" }}>
@@ -424,11 +444,11 @@ export default function AutoApplyPage() {
           {isRunning ? (
             <span
               style={{
-                backgroundColor: "rgba(16,185,129,0.15)",
-                border: "1px solid rgba(16,185,129,0.3)",
+                backgroundColor: "#DCFCE7",
+                border: "1px solid #86EFAC",
                 borderRadius: "20px",
                 padding: "8px 20px",
-                color: "#10B981",
+                color: "#15803D",
                 fontSize: "13px",
                 fontWeight: 700,
                 display: "flex",
@@ -442,11 +462,11 @@ export default function AutoApplyPage() {
           ) : (
             <span
               style={{
-                backgroundColor: "rgba(100,116,139,0.15)",
-                border: "1px solid rgba(100,116,139,0.3)",
+                backgroundColor: "rgba(16,27,45,0.06)",
+                border: "1px solid rgba(16,27,45,0.15)",
                 borderRadius: "20px",
                 padding: "8px 20px",
-                color: "#94A3B8",
+                color: "#64748B",
                 fontSize: "13px",
                 fontWeight: 700,
                 display: "flex",
@@ -463,9 +483,9 @@ export default function AutoApplyPage() {
             <button
               type="button"
               style={{
-                backgroundColor: "transparent",
-                color: "#2563EB",
-                border: "1px solid rgba(37,99,235,0.3)",
+                backgroundColor: "rgba(79,109,143,0.08)",
+                color: ACCENT_SLATE,
+                border: `1.5px solid ${ACCENT_SLATE}`,
                 borderRadius: "10px",
                 padding: "9px 16px",
                 fontSize: "13px",
@@ -484,8 +504,8 @@ export default function AutoApplyPage() {
             type="button"
             onClick={() => void openAddToQueue()}
             style={{
-              backgroundColor: "#22D3EE",
-              color: "#0A1628",
+              backgroundColor: ACCENT_TEAL,
+              color: CARD_BG,
               border: "none",
               borderRadius: "10px",
               padding: "9px 18px",
@@ -541,25 +561,33 @@ export default function AutoApplyPage() {
 
       {/* TOP STATS ROW — real values derived from the same submission_queue rows loaded for the table below */}
       <div className="flex flex-col gap-4 sm:flex-row">
-        <div style={darkStatCardStyle}>
-          <p style={darkStatValueStyle("#2563EB")}>{queueLoading ? "—" : sessionsToday}</p>
-          <p style={darkStatLabelStyle}>Sessions Today</p>
+        <div style={statFrameStyle}>
+          <div style={statCardStyle(ACCENT_TEAL)}>
+            <p style={darkStatValueStyle(FRAME_NAVY)}>{queueLoading ? "—" : sessionsToday}</p>
+            <p style={darkStatLabelStyle}>Sessions Today</p>
+          </div>
         </div>
-        <div style={darkStatCardStyle}>
-          <p style={darkStatValueStyle("#2563EB")}>
-            {queueLoading ? "—" : successRatePct !== null ? `${successRatePct}%` : "—"}
-          </p>
-          <p style={darkStatLabelStyle}>Success Rate</p>
+        <div style={statFrameStyle}>
+          <div style={statCardStyle("#10B981")}>
+            <p style={darkStatValueStyle(FRAME_NAVY)}>
+              {queueLoading ? "—" : successRatePct !== null ? `${successRatePct}%` : "—"}
+            </p>
+            <p style={darkStatLabelStyle}>Success Rate</p>
+          </div>
         </div>
-        <div style={darkStatCardStyle}>
-          <p style={darkStatValueStyle("#2563EB")}>
-            {queueLoading ? "—" : avgFillTimeSeconds !== null ? formatDuration(avgFillTimeSeconds) : "—"}
-          </p>
-          <p style={darkStatLabelStyle}>Avg Fill Time</p>
+        <div style={statFrameStyle}>
+          <div style={statCardStyle(ACCENT_SLATE)}>
+            <p style={darkStatValueStyle(FRAME_NAVY)}>
+              {queueLoading ? "—" : avgFillTimeSeconds !== null ? formatDuration(avgFillTimeSeconds) : "—"}
+            </p>
+            <p style={darkStatLabelStyle}>Avg Fill Time</p>
+          </div>
         </div>
-        <div style={darkStatCardStyle}>
-          <p style={darkStatValueStyle("#2563EB")}>{queueLoading ? "—" : queue.length}</p>
-          <p style={darkStatLabelStyle}>Forms Queued</p>
+        <div style={statFrameStyle}>
+          <div style={statCardStyle(ACCENT_AMBER)}>
+            <p style={darkStatValueStyle(FRAME_NAVY)}>{queueLoading ? "—" : queue.length}</p>
+            <p style={darkStatLabelStyle}>Forms Queued</p>
+          </div>
         </div>
       </div>
 
@@ -570,18 +598,18 @@ export default function AutoApplyPage() {
         </div>
         <div className="flex flex-col gap-4 lg:flex-[35]">
           {/* QUEUE — top 5 real submission_queue rows, same data already loaded for the Session List table below */}
+          <div style={{ backgroundColor: FRAME_GOLD, borderRadius: "14px", boxShadow: CARD_SHADOW, padding: "3px" }}>
           <div
             style={{
-              backgroundColor: "rgba(255,255,255,0.04)",
-              borderRadius: "12px",
-              border: "1px solid rgba(255,255,255,0.08)",
+              backgroundColor: CARD_BG,
+              borderRadius: "11px",
               overflow: "hidden",
             }}
           >
             <div
               style={{
                 padding: "16px 20px",
-                borderBottom: "1px solid rgba(255,255,255,0.06)",
+                borderBottom: "1px solid rgba(16,27,45,0.1)",
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
@@ -590,8 +618,8 @@ export default function AutoApplyPage() {
               <p style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.12em", color: "#64748B" }}>QUEUE</p>
               <span
                 style={{
-                  backgroundColor: "rgba(37,99,235,0.2)",
-                  color: "#2563EB",
+                  backgroundColor: "rgba(184,138,46,0.18)",
+                  color: "#8A6A22",
                   borderRadius: "10px",
                   padding: "2px 10px",
                   fontSize: "12px",
@@ -618,14 +646,14 @@ export default function AutoApplyPage() {
                     key={item.id}
                     style={{
                       padding: "12px 20px",
-                      borderBottom: "1px solid rgba(255,255,255,0.04)",
+                      borderBottom: "1px solid rgba(16,27,45,0.06)",
                       display: "flex",
                       alignItems: "center",
                       gap: "12px",
                     }}
                   >
                     <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: dotColor, flexShrink: 0 }} />
-                    <span style={{ color: "#F8FAFC", fontSize: "13px", fontWeight: 600 }}>
+                    <span style={{ color: FRAME_NAVY, fontSize: "13px", fontWeight: 600 }}>
                       {item.funders?.name ?? "—"}
                     </span>
                     <span style={{ color: "#64748B", fontSize: "12px", marginLeft: "auto" }}>
@@ -636,12 +664,13 @@ export default function AutoApplyPage() {
               })
             )}
           </div>
+          </div>
 
+          <div style={{ backgroundColor: FRAME_GOLD, borderRadius: "14px", boxShadow: CARD_SHADOW, padding: "3px" }}>
           <div
             style={{
-              backgroundColor: "rgba(255,255,255,0.04)",
-              borderRadius: "12px",
-              border: "1px solid rgba(255,255,255,0.08)",
+              backgroundColor: CARD_BG,
+              borderRadius: "11px",
               padding: "20px",
             }}
           >
@@ -653,8 +682,8 @@ export default function AutoApplyPage() {
               onClick={() => void openAddToQueue()}
               style={{
                 width: "100%",
-                backgroundColor: "#22D3EE",
-                color: "#0A1628",
+                backgroundColor: ACCENT_AMBER,
+                color: CARD_BG,
                 border: "none",
                 borderRadius: "10px",
                 padding: "12px",
@@ -672,9 +701,9 @@ export default function AutoApplyPage() {
                 type="button"
                 style={{
                   width: "100%",
-                  backgroundColor: "rgba(245,158,11,0.15)",
-                  color: "#F59E0B",
-                  border: "1px solid rgba(245,158,11,0.3)",
+                  backgroundColor: "rgba(245,158,11,0.12)",
+                  color: "#B45309",
+                  border: "1px solid rgba(245,158,11,0.4)",
                   borderRadius: "10px",
                   padding: "12px",
                   fontSize: "14px",
@@ -690,9 +719,9 @@ export default function AutoApplyPage() {
                 type="button"
                 style={{
                   width: "100%",
-                  backgroundColor: "transparent",
-                  color: "#2563EB",
-                  border: "1px solid rgba(37,99,235,0.3)",
+                  backgroundColor: "rgba(16,27,45,0.05)",
+                  color: FRAME_NAVY,
+                  border: "1px solid rgba(16,27,45,0.18)",
                   borderRadius: "10px",
                   padding: "12px",
                   fontSize: "14px",
@@ -703,6 +732,7 @@ export default function AutoApplyPage() {
                 View All Sessions
               </button>
             </a>
+          </div>
           </div>
         </div>
       </div>
@@ -770,6 +800,7 @@ export default function AutoApplyPage() {
 
       {/* QUEUE SECTION / SESSION LIST */}
       <span id="session-list" style={{ scrollMarginTop: "24px" }} />
+      <div style={{ backgroundColor: FRAME_GOLD, borderRadius: "15px", boxShadow: CARD_SHADOW, padding: "3px" }}>
       <Card
         title="Session List"
         description="Funders pending or processed by automated form submission"
@@ -818,7 +849,7 @@ export default function AutoApplyPage() {
               <thead>
                 <tr
                   className="bg-sidebar"
-                  style={{ backgroundColor: "#2563EB", color: "#FFFFFF" }}
+                  style={{ backgroundColor: FRAME_NAVY, color: "#FFFFFF" }}
                 >
                   <th className="w-10 px-4 py-3">
                     <input
@@ -911,6 +942,7 @@ export default function AutoApplyPage() {
           )}
         </div>
       </Card>
+      </div>
 
       {/* SUBMISSIONS SECTION */}
       <SubmissionHistory />
@@ -919,6 +951,7 @@ export default function AutoApplyPage() {
       <ReviewQueue />
 
       {/* TEMPLATES SECTION */}
+      <div style={{ backgroundColor: FRAME_GOLD, borderRadius: "15px", boxShadow: CARD_SHADOW, padding: "3px" }}>
       <Card
         title="Form Templates"
         description="Cached portal form structures for rapid submission"
@@ -942,7 +975,7 @@ export default function AutoApplyPage() {
               <thead>
                 <tr
                   className="bg-sidebar"
-                  style={{ backgroundColor: "#2563EB", color: "#FFFFFF" }}
+                  style={{ backgroundColor: FRAME_NAVY, color: "#FFFFFF" }}
                 >
                   <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-white">
                     Funder
@@ -1015,6 +1048,7 @@ export default function AutoApplyPage() {
           )}
         </div>
       </Card>
+      </div>
 
       {/* ANALYTICS SECTION */}
       <SuccessAnalytics />
